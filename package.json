@@ -1,0 +1,34 @@
+{
+  "name": "@skitterbyte/skitterspec",
+  "version": "0.1.0",
+  "description": "Spec-driven-development workflow for Claude Code — installs the spec lifecycle skills, rule, and specs/ folders into any project.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "spec-driven-development",
+    "sdd",
+    "skills",
+    "scaffold"
+  ],
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "bin": {
+    "skitterspec": "bin/skitterspec.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "assets"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skitterbyte/skitterspec.git"
+  }
+}
