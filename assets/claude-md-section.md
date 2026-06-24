@@ -1,6 +1,6 @@
 ## Spec workflow
 
-Spec-driven development runs through seven skills — use them so structure and
+Spec-driven development runs through eight skills — use them so structure and
 lifecycle stay consistent (see `.claude/rules/spec-planning.md`):
 
 | Skill | Action | Status | Folder |
@@ -8,6 +8,7 @@ lifecycle stay consistent (see `.claude/rules/spec-planning.md`):
 | `/spec` | (Feature) Grill to a clear shared understanding, then write a concise spec | `Draft` | `specs/backlog/` |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-ready` | Confirm the spec is groomed (no open questions, phases + tests defined) | `Ready` | `specs/backlog/` |
+| `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-go` | Implement the next phase (with tests) | `In Progress` | `specs/in-progress/` |
 | `/spec-complete` | Verify all phases done + tests green | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header | `Cancelled` | `specs/cancelled/` |

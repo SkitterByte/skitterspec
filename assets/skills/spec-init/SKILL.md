@@ -14,8 +14,8 @@ clobber customised content. Finish with a summary of created vs already-present.
 > useful when the package isn't available or you only need to fix part of the
 > setup.
 
-The system is **seven skills**: `spec` (feature), `spec-bug` (bug), `spec-ready`,
-`spec-go`, `spec-complete`, `spec-cancel`, and this `spec-init`. The lifecycle is
+The system is **eight skills**: `spec` (feature), `spec-bug` (bug), `spec-ready`,
+`spec-review`, `spec-go`, `spec-complete`, `spec-cancel`, and this `spec-init`. The lifecycle is
 `backlog → in-progress → complete / cancelled`, with `.core` holding always-apply
 project rules.
 
@@ -54,7 +54,7 @@ project wants everything tracked, remove it. Confirm with
 
 ## 3. Verify the skills are installed
 
-Check each of the seven skills resolves — `.claude/skills/<name>/SKILL.md`
+Check each of the eight skills resolves — `.claude/skills/<name>/SKILL.md`
 (project) or `~/.claude/skills/<name>/` (global). List any missing. This skill
 scaffolds the project; it does **not** regenerate skill bodies — missing skills
 must be copied in (e.g. `npx @skitterbyte/skitterspec init`) from a global install

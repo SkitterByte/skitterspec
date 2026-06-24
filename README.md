@@ -3,7 +3,7 @@
 Spec-driven-development (SDD) workflow for [Claude Code](https://claude.com/claude-code),
 packaged so you can drop the same spec lifecycle into any project.
 
-It installs **seven skills**, one governing rule, and the `specs/` folder
+It installs **eight skills**, one governing rule, and the `specs/` folder
 structure. The lifecycle is `backlog → in-progress → complete / cancelled`, with
 `.core` holding always-apply project rules.
 
@@ -12,6 +12,7 @@ structure. The lifecycle is `backlog → in-progress → complete / cancelled`, 
 | `/spec` | (Feature) Grill to a shared understanding, then write a concise spec | `Draft` | `specs/backlog/` |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-ready` | Confirm the spec is groomed | `Ready` | `specs/backlog/` |
+| `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-go` | Implement the next phase (with tests) | `In Progress` | `specs/in-progress/` |
 | `/spec-complete` | Verify all phases done + tests green | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason | `Cancelled` | `specs/cancelled/` |
@@ -29,7 +30,7 @@ This is idempotent — it creates only what's missing and never clobbers
 customised files. It writes:
 
 ```
-.claude/skills/spec*/SKILL.md   # the 7 skills
+.claude/skills/spec*/SKILL.md   # the 8 skills
 .claude/rules/spec-planning.md  # governing rule (the single source of truth)
 specs/{.core,backlog,in-progress,complete,cancelled}/
 specs/backlog/00-index.md            # live backlog view (skill-maintained)

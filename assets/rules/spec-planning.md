@@ -1,6 +1,6 @@
 # Spec Planning
 
-Spec-driven development is driven by seven skills — use them rather than
+Spec-driven development is driven by eight skills — use them rather than
 hand-rolling specs so the structure and lifecycle stay consistent. Each sets a
 status on the spec header (`> **Status:** …`):
 
@@ -9,6 +9,7 @@ status on the spec header (`> **Status:** …`):
 | `/spec` | (Feature) Grill to a clear shared understanding, then write a new spec | `Draft` | `specs/backlog/` |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-ready` | Confirm it's groomed (no open questions, phases + tests defined) | `Ready` | `specs/backlog/` |
+| `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-go` | Implement the next phase (with tests) | `In Progress` | `specs/in-progress/` |
 | `/spec-complete` | Verify all phases done + tests green | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header | `Cancelled` | `specs/cancelled/` |

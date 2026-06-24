@@ -34,7 +34,23 @@ on a `Draft` too — just sanity-check it's well-formed before building.
 If the spec is already in `in-progress`, skip the move and implement the **next
 unfinished phase** instead of Phase 1.
 
-## 3. Implement the phase
+## 3. Pre-flight — commit prior work, then compact
+
+Before writing any code for this phase, get the workspace and context clean:
+
+- **Confirm the last-worked phase is committed.** Run `git status` and
+  `git log --oneline -5`. The most recently *implemented* phase (not necessarily
+  the numerically previous one) should already be committed. If prior-phase work
+  is still uncommitted, **stop and suggest committing it first** (e.g. via
+  `/commit`) so each phase lands as its own reviewable commit — don't build the
+  next phase on top of an uncommitted one. (Skip if this is the first phase —
+  there's nothing prior to commit.)
+- **Compact, then continue.** Recommend the user run `/compact` now. A fresh,
+  minimal context keeps the phase focused and avoids drift from earlier turns;
+  the spec file on disk is the source of truth, so nothing is lost. Pause for the
+  `/compact`, then implement the phase.
+
+## 4. Implement the phase
 
 Build the first unfinished phase, following the spec's tasks and the project
 rules in `.claude/rules/*.md` and `CLAUDE.md`:
@@ -48,7 +64,7 @@ rules in `.claude/rules/*.md` and `CLAUDE.md`:
 - Never hardcode dates in tests; never run destructive commands against a real
   database — use the project's test database only.
 
-## 4. Record progress
+## 5. Record progress
 
 - Tick completed tasks (`- [x]`) and flip the phase heading to `✅`.
 - If anything changed from the plan (a decision, a deviation, a discovered
@@ -56,7 +72,7 @@ rules in `.claude/rules/*.md` and `CLAUDE.md`:
 - If new work surfaced, add it as tasks to the appropriate phase rather than
   doing it silently.
 
-## 5. Report
+## 6. Report
 
 Summarise what was implemented, the test result (quote failures if any), and
 which phase is next. Do **not** `git commit` unless the user asks — finish,

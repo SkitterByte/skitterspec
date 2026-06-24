@@ -9,6 +9,7 @@ const SKILLS = [
   'spec',
   'spec-bug',
   'spec-ready',
+  'spec-review',
   'spec-go',
   'spec-complete',
   'spec-cancel',
