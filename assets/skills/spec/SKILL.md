@@ -46,11 +46,16 @@ This skill is for **features**. For bugs, use `/spec-bug` (test-first, red→gre
 
 - **Every spec is a folder** — never a bare file, even for a one-line change:
   `specs/backlog/feat-<kebab-name>/`. Create it with `mkdir -p`.
-- The entry point is **always `00-overview.md`** inside that folder. It holds the
-  full template below (header block, Problem, Decisions, Solution overview,
-  phases, State log, Changelog).
-- For a large/multi-area spec, add further files alongside it
-  (`01-<area>.md`, `02-<area>.md`…); `00-overview.md` stays the overview/entry point.
+- The entry point is **always `00-overview.md`** — the index/dashboard for the
+  spec. It holds the header block, Problem, Decisions, Solution overview, the
+  **phase index** (a table linking to each phase file), Open questions, State
+  log, and Changelog. It does **not** hold the per-phase task lists.
+- **Each phase is its own file** — `01-<phase-slug>.md`, `02-<phase-slug>.md`, …
+  numbered in execution order; the slug is a short kebab description of the phase
+  goal (e.g. `01-data-model.md`, `02-api-endpoints.md`). The phase file holds
+  that phase's goal, its task checkboxes (tests included), and any phase-specific
+  notes. **Even a single-phase spec gets `01-….md`** — never lump phase tasks
+  into `00-overview.md`. This keeps each phase easy to dive into on its own.
 - Choose a short kebab-case name and **prefix it `feat-`** (the bug counterpart
   uses `bug-`).
 
@@ -82,22 +87,15 @@ the spec — be specific.>
 <Short prose or bullets describing the chosen shape end-to-end. Optional small
 schema/grammar/output snippets where they remove ambiguity.>
 
-## Phase 1 — <goal> ⬜
+## Phases
 
-Goal: <one line>.
+Each phase lives in its own file in this folder. Status: ⬜ not started ·
+🔄 in progress · ✅ done.
 
-- [ ] <clear, verb-first task>
-- [ ] <clear, verb-first task>
-- [ ] Add/extend tests covering this phase; run the project's typecheck and
-      test commands (see `.claude/rules/spec-planning.md`) — green before the
-      phase is done.
-
-## Phase 2 — <goal> ⬜
-
-Goal: <one line>.
-
-- [ ] …
-- [ ] Tests created and run green for this phase.
+| # | Phase | Status | File |
+|---|-------|--------|------|
+| 1 | <goal> | ⬜ | [01-<phase-slug>.md](01-<phase-slug>.md) |
+| 2 | <goal> | ⬜ | [02-<phase-slug>.md](02-<phase-slug>.md) |
 
 ## Open questions
 
@@ -114,6 +112,32 @@ Goal: <one line>.
 - <YYYY-MM-DD> — Spec created.
 ```
 
+Then create **one file per phase** (`01-<phase-slug>.md`, `02-…`, in execution
+order). Each phase file uses this template:
+
+```markdown
+# Phase 1 — <goal> ⬜
+
+> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+
+**Goal:** <one line — what this phase delivers and how it's proven>.
+
+## Tasks
+
+- [ ] <clear, verb-first task>
+- [ ] <clear, verb-first task>
+- [ ] Add/extend tests covering this phase; run the project's typecheck and
+      test commands (see `.claude/rules/spec-planning.md`) — green before the
+      phase is done.
+
+## Notes
+
+<Phase-specific decisions, gotchas, or context. Delete if empty.>
+```
+
+Keep the `00-overview.md` phase index and the phase files in sync: the index row
+is the one-line summary + status; the phase file is the detail.
+
 The **State log** is the audit trail of folder/status transitions — every
 lifecycle skill (`/spec-ready`, `/spec-go`, `/spec-complete`, `/spec-cancel`)
 appends one row when it moves the spec. The **Changelog** is for decisions and
@@ -125,7 +149,9 @@ Rules for the spec body:
   not "done" until its tests are written and the suite is green. Bake a test
   task into each phase — never a separate "testing phase" at the end only.
 - **Tasks are checkboxes** (`- [ ]`), clear, verb-first, and granular enough to
-  finish in one session. Use `⬜`/`✅` on phase headings to show phase state.
+  finish in one session. They live in the **phase files**, not the overview. Use
+  `⬜`/`🔄`/`✅` on each phase-file heading and mirror it in the `00-overview.md`
+  phase index.
 - **Honour project conventions** when writing tasks — reference the relevant
   `.claude/rules/*.md` rather than re-explaining them.
 - **Changelog** is mandatory and lives in the spec. Every later decision or

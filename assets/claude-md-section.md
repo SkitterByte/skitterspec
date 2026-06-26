@@ -17,10 +17,12 @@ lifecycle stay consistent (see `.claude/rules/spec-planning.md`):
 Every spec has a **type** (`> **Type:** Feature\|Bug`) and a filename prefix
 (`feat-<name>` / `bug-<name>`) — never `[BUG]` brackets (glob hazard). Specs use
 markdown checkboxes (`- [ ]`) for task tracking and are the single source of
-truth for progress. Every spec is a folder whose entry point is `00-overview.md`
-(larger features add `01-<area>.md`… alongside it) — never a bare file. **Every
-phase ends with creating and running tests**; decisions go in the spec's
-Changelog, state transitions in its State log.
+truth for progress. Every spec is a folder: `00-overview.md` is the dashboard
+(problem, decisions, solution, **phase index**, logs) and **each phase is its own
+file** (`01-<slug>.md`, `02-…`) holding that phase's tasks — never a bare file,
+never phases lumped into the overview. **Every phase ends with creating and
+running tests**; decisions go in the spec's Changelog, state transitions in its
+State log.
 
 > Tailor the per-phase test commands and project conventions referenced by the
 > spec skills to this project's stack (see `.claude/rules/spec-planning.md`).

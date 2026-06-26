@@ -10,14 +10,14 @@ description: Finish a spec — verify all phases are genuinely done, update prog
 - Use the name/path argument if given, else the spec **in context**. If unclear,
   ask which spec.
 - Locate the spec folder under `specs/` (usually `specs/in-progress/`). Entry
-  point is its `00-overview.md` (legacy specs may be a bare
-  `<name>.md`).
+  point is its `00-overview.md`; phases are separate files (`01-<slug>.md`, `02-…`)
+  listed in its phase index (legacy specs may be a bare `<name>.md`).
 
 ## 2. Double-check progress — don't rubber-stamp
 
 Before marking complete, confirm the work is actually finished:
 
-- Read every phase. For each **unchecked** task, check whether it is in fact
+- Read every phase file. For each **unchecked** task, check whether it is in fact
   done in the code — tick it (`- [x]`) if so, or surface it if not.
 - Run the project's typecheck and test commands. The suite must be **green** to
   call a spec complete.
@@ -29,7 +29,8 @@ Before marking complete, confirm the work is actually finished:
 
 ## 3. Update the spec
 
-- Tick all completed tasks; flip every finished phase heading to `✅`.
+- Tick all completed tasks in the phase files; flip every finished phase-file
+  heading **and** every row in the `00-overview.md` phase index to `✅`.
 - Set the **Status** header in the entry point:
   `> **Status:** Complete (<YYYY-MM-DD>)`.
 - Append a **State log** row:

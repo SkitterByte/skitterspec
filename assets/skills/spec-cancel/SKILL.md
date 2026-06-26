@@ -10,7 +10,8 @@ description: Cancel a spec — capture the reason, record final progress, stamp 
 - Use the name/path argument if given, else the spec **in context**. If unclear,
   ask which spec.
 - Locate it under `specs/` (any bucket — `backlog/`, `in-progress/`, …). Entry point
-  is its `00-overview.md` (legacy specs may be a bare `<name>.md`).
+  is its `00-overview.md`; phases are separate files (`01-<slug>.md`, `02-…`) listed
+  in its phase index (legacy specs may be a bare `<name>.md`).
 
 ## 2. Ask for the cancellation reason — required
 
@@ -20,8 +21,9 @@ it verbatim/condensed for the header.
 
 ## 3. Double-check and record progress
 
-- Read the spec and reconcile task state with reality: tick anything that was
-  actually completed before cancelling so the record is honest about what landed.
+- Read the overview and every phase file and reconcile task state with reality:
+  tick anything that was actually completed before cancelling so the record is
+  honest about what landed.
 - Note any partial/abandoned work so it isn't mistaken for unstarted.
 
 ## 4. Stamp the spec

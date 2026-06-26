@@ -91,11 +91,21 @@ specs/cancelled/     abandoned, with a reason on the header (/spec-cancel)
 specs/.core/         project rules — ALWAYS APPLY, never moved
 ```
 
-Every spec is a **folder** `specs/<bucket>/<name>/` whose entry point is
-`00-overview.md` — never a bare file, even for simple changes. Larger, multi-area
-specs add further files (`01-<area>.md`, `02-<area>.md`…) alongside `00-overview.md`.
-Legacy specs may be a bare `<name>.md` — the skills
-read those, but new specs always use the folder + `00-overview.md` form.
+Every spec is a **folder** `specs/<bucket>/<name>/` — never a bare file, even for
+simple changes. Inside it:
+
+- `00-overview.md` is the entry point / dashboard: header, Problem, Decisions,
+  Solution overview, the **phase index** (a table linking to each phase file with
+  its status), Open questions, State log, Changelog. **No per-phase task lists
+  live here.**
+- **One file per phase** — `01-<phase-slug>.md`, `02-<phase-slug>.md`, … in
+  execution order. Each holds that phase's goal, its task checkboxes (tests
+  included), and any phase-specific notes. Even a single-phase spec gets `01-….md`
+  — so each phase is easy to open and work on its own.
+
+Keep the index and the phase files in sync (`⬜`/`🔄`/`✅`). Legacy specs may be a
+bare `<name>.md`, or a `00-overview.md` with inline phases — the skills read
+those, but new specs always use the folder + phase-file form.
 
 ## Folder indexes (`00-index.md`)
 

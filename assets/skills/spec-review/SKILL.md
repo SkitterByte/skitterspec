@@ -15,7 +15,8 @@ implement anything (that's `/spec-go`).
 - Use the name/path argument if given, else the spec **in context**. If unclear,
   ask which spec.
 - Locate the spec folder under `specs/` (any bucket). Entry point is its
-  `00-overview.md` (legacy specs may be a bare `<name>.md`).
+  `00-overview.md`; read it **and every phase file** (`01-<slug>.md`, `02-…`)
+  listed in its phase index (legacy specs may be a bare `<name>.md`).
 
 ## 2. Validate against the codebase — evidence first
 
@@ -46,9 +47,12 @@ reading the code, do that instead of asking.
 
 ## 4. Update the spec
 
-- Rewrite stale **Decisions**, **Solution overview**, and **tasks** so they match
-  the current code and the resolved questions. Add/remove tasks and phases as
-  needed; **preserve completed `[x]` history**.
+- Rewrite stale **Decisions** / **Solution overview** in `00-overview.md` and
+  stale **tasks** in the phase files so they match the current code and the
+  resolved questions. Add/remove tasks within a phase file; add a new phase by
+  creating a `0N-<slug>.md` file **and** a matching overview index row, or drop a
+  dead phase by removing both. Keep the index and files in sync; **preserve
+  completed `[x]` history**.
 - Tick tasks already satisfied by the code; re-open `## Open questions` for
   anything still undecided.
 - Add a dated **Changelog** entry summarising the review (e.g. `- <date> —

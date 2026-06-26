@@ -39,9 +39,12 @@ Encode the **correct** (expected) behaviour as a test, then run it and confirm i
 ## 3. Write the Bug spec
 
 Create the spec **folder** `specs/in-progress/bug-<kebab-name>/` with its entry
-point `00-overview.md` (every spec is a folder — never a bare file; add `01-<area>.md`
-files only if genuinely large). It starts in `in-progress` because work is
-already underway. Keep it lean:
+point `00-overview.md` (every spec is a folder — never a bare file). A bug is
+usually a single-pass fix, so the `## Fix` block can live directly in
+`00-overview.md`. **If the fix needs phasing** (large/uncertain root cause),
+split it into phase files (`01-<slug>.md`, `02-…`) with a phase index in
+`00-overview.md`, exactly like a feature spec. It starts in `in-progress`
+because work is already underway. Keep it lean:
 
 ```markdown
 # Bug: <short title>
@@ -96,8 +99,9 @@ fix narrative and decisions — keep them separate.
 - Tick the Fix tasks, add a Changelog line (`- <date> — Fixed: <one line>; test green`).
 
 If the root cause is large/uncertain and can't be fixed in one pass: keep the red
-test, write the fix as phased tasks, and leave the spec in `in-progress` for
-`/spec-go` to continue. Say so explicitly — don't fake green.
+test, split the fix into phase files (`01-<slug>.md` …) with a phase index in
+`00-overview.md`, and leave the spec in `in-progress` for `/spec-go` to continue.
+Say so explicitly — don't fake green.
 
 It starts in `in-progress`, so it does **not** touch `specs/backlog/00-index.md`
 (there is no index for in-progress). When `/spec-complete` later finishes it,

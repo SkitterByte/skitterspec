@@ -11,8 +11,10 @@ description: Promote a spec into active development and implement its first phas
 - Otherwise use the spec **currently in context** (the one just created or
   discussed). If neither is clear, ask which spec.
 - Locate it by searching `specs/` (check `specs/backlog/` first, then the other
-  buckets). A spec is a `<name>/` folder whose entry point is `00-overview.md`
-  (legacy specs may be a bare `<name>.md`).
+  buckets). A spec is a `<name>/` folder whose entry point is `00-overview.md`,
+  with **one file per phase** alongside it (`01-<slug>.md`, `02-…`). Legacy specs
+  may be a bare `<name>.md`, or a `00-overview.md` with inline phases — handle
+  those too.
 
 ## 2. Move it into development
 
@@ -52,10 +54,14 @@ Before writing any code for this phase, get the workspace and context clean:
 
 ## 4. Implement the phase
 
-Build the first unfinished phase, following the spec's tasks and the project
-rules in `.claude/rules/*.md` and `CLAUDE.md`:
+Identify the **first unfinished phase** from the `00-overview.md` phase index,
+then open its phase file (`0N-<slug>.md`) — that file holds the tasks. Mark it
+started: set the phase-file heading to `🔄` and its `> **Status:**` to
+`In progress`, and flip the matching row in the overview phase index to `🔄`.
+Then build it, following the project rules in `.claude/rules/*.md` and `CLAUDE.md`:
 
-- Work task by task. Make focused edits that match surrounding code.
+- Work task by task through the phase file. Make focused edits that match
+  surrounding code.
 - Honour the project's conventions (see `.claude/rules/spec-planning.md` and the
   rules it links).
 - **Tests are part of the phase, not after it.** Create/extend tests for the
@@ -66,11 +72,13 @@ rules in `.claude/rules/*.md` and `CLAUDE.md`:
 
 ## 5. Record progress
 
-- Tick completed tasks (`- [x]`) and flip the phase heading to `✅`.
+- In the **phase file**: tick completed tasks (`- [x]`), flip its heading to `✅`,
+  and set its `> **Status:**` to `Done`.
+- In **`00-overview.md`**: flip the matching phase-index row to `✅`.
 - If anything changed from the plan (a decision, a deviation, a discovered
-  constraint), add a dated **Changelog** entry in the spec.
-- If new work surfaced, add it as tasks to the appropriate phase rather than
-  doing it silently.
+  constraint), add a dated **Changelog** entry in `00-overview.md`.
+- If new work surfaced, add it as tasks to the appropriate phase file (or add a
+  new phase file + index row) rather than doing it silently.
 
 ## 6. Report
 

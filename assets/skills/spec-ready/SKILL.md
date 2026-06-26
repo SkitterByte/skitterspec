@@ -14,8 +14,9 @@ you can see at a glance which backlog specs are good to start.
 
 - Use the name/path argument if given, else the spec **in context**. If unclear,
   ask which spec.
-- Locate the spec folder under `specs/backlog/`. Entry point is its `00-overview.md`
-  (legacy specs may be a bare `<name>.md`).
+- Locate the spec folder under `specs/backlog/`. Entry point is its
+  `00-overview.md`; phases are separate files (`01-<slug>.md`, `02-…`) listed in
+  its phase index (legacy specs may be a bare `<name>.md`).
 
 ## 2. Check it's actually ready — don't rubber-stamp
 
@@ -25,10 +26,12 @@ the user what's missing** rather than marking it Ready:
 - **Open questions resolved** — the `## Open questions` section is empty or
   reads "None". Unresolved branches mean it isn't ready.
 - **Decisions captured** — the chosen solution and key trade-offs are recorded.
-- **Phased with clear tasks** — work is broken into phases, each with verb-first
-  `- [ ]` tasks granular enough for one session.
-- **Tests baked into every phase** — each phase ends with a create-and-run-tests
-  task (a phase isn't done until green).
+- **Phased with clear tasks** — work is broken into phases, and **every phase in
+  the `00-overview.md` index has a matching phase file** (`0N-<slug>.md`) with
+  verb-first `- [ ]` tasks granular enough for one session. No index row without
+  a file, no orphan file without an index row.
+- **Tests baked into every phase** — each phase file ends with a
+  create-and-run-tests task (a phase isn't done until green).
 - **Concise and current** — no stale/contradictory sections.
 
 Offer to fix small gaps inline if the user wants; otherwise leave it `Draft`.

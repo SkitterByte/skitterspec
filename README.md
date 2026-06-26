@@ -52,6 +52,22 @@ disturbing your specs. The CLAUDE.md section is wrapped in
 `<!-- skitterspec:start -->`…`<!-- skitterspec:end -->` markers so `update` can refresh
 it in place.
 
+## Spec structure
+
+Every spec is a **folder**, never a bare file:
+
+```
+specs/backlog/feat-<name>/
+  00-overview.md     # dashboard: problem, decisions, solution, phase index, logs
+  01-<phase-slug>.md # phase 1 — goal + task checkboxes (tests included)
+  02-<phase-slug>.md # phase 2 …
+```
+
+`00-overview.md` is the index — it carries a **phase table** linking to each
+phase file with its status (`⬜`/`🔄`/`✅`). **Each phase is its own file** so it's
+easy to dive into one phase without wading through the whole spec. The lifecycle
+skills keep the index and phase files in sync.
+
 ## After install — tailor it
 
 The shipped skills are **stack-agnostic**. They say things like "run the
