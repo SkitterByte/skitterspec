@@ -2,3 +2,6 @@ node_modules/
 *.log
 .DS_Store
 /tmp/
+
+# Local-only Claude Code settings (dog-fooding: skills/rules are symlinked from assets/)
+.claude/settings.local.json

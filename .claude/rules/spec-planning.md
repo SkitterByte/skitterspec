@@ -1,0 +1,1 @@
+../../assets/rules/spec-planning.md
