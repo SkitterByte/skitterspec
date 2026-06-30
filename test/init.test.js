@@ -6,7 +6,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { init, SKILLS } = require('../src/init.js')
+const { init, SKILLS, RULES } = require('../src/init.js')
 
 function tmpProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-'))
@@ -23,7 +23,12 @@ test('init scaffolds skills, rule, folders, indexes', async () => {
       `skill ${name} installed`,
     )
   }
-  assert.ok(fs.existsSync(path.join(dir, '.claude', 'rules', 'spec-planning.md')))
+  for (const r of RULES) {
+    assert.ok(
+      fs.existsSync(path.join(dir, '.claude', 'rules', r)),
+      `rule ${r} installed`,
+    )
+  }
   for (const f of ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']) {
     assert.ok(fs.existsSync(path.join(dir, 'specs', f)), `folder ${f}`)
   }

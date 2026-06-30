@@ -14,7 +14,10 @@ const SKILLS = [
   'spec-complete',
   'spec-cancel',
   'spec-init',
+  'commit',
 ]
+
+const RULES = ['spec-planning.md', 'commit-messages.md']
 
 const SPEC_FOLDERS = ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']
 
@@ -83,12 +86,14 @@ function installSkills(dir, opts) {
 }
 
 function installRule(dir, opts) {
-  copyAsset(
-    dir,
-    path.join('rules', 'spec-planning.md'),
-    path.join(dir, '.claude', 'rules', 'spec-planning.md'),
-    opts,
-  )
+  for (const name of RULES) {
+    copyAsset(
+      dir,
+      path.join('rules', name),
+      path.join(dir, '.claude', 'rules', name),
+      opts,
+    )
+  }
 }
 
 // backlog + complete are kept in git by their 00-index.md file, so they need no .gitkeep
@@ -166,7 +171,7 @@ function printReport(dir, mode) {
   line('unchanged', report.skipped)
   process.stdout.write(
     '\nDone. Skills resolve as /spec, /spec-ready, /spec-go, /spec-complete,' +
-      ' /spec-cancel, /spec-bug, /spec-init.\n' +
+      ' /spec-cancel, /spec-bug, /spec-init, /commit.\n' +
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
       " project's stack, then run /spec.\n",
   )
@@ -187,4 +192,4 @@ async function init({ dir, force, claudeMd, mode }) {
   printReport(dir, mode)
 }
 
-module.exports = { init, SKILLS, SPEC_FOLDERS }
+module.exports = { init, SKILLS, RULES, SPEC_FOLDERS }

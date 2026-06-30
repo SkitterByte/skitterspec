@@ -26,3 +26,7 @@ State log.
 
 > Tailor the per-phase test commands and project conventions referenced by the
 > spec skills to this project's stack (see `.claude/rules/spec-planning.md`).
+
+Also installed: **`/commit`** — stage only the task's files, run typecheck +
+tests, then write a conventional-commit message with a `Release-Note:` footer
+for user-visible changes (grammar in `.claude/rules/commit-messages.md`).

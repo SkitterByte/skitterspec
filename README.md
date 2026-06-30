@@ -3,9 +3,10 @@
 Spec-driven-development (SDD) workflow for [Claude Code](https://claude.com/claude-code),
 packaged so you can drop the same spec lifecycle into any project.
 
-It installs **eight skills**, one governing rule, and the `specs/` folder
-structure. The lifecycle is `backlog → in-progress → complete / cancelled`, with
-`.core` holding always-apply project rules.
+It installs the **eight spec-lifecycle skills** plus a general **`/commit`**
+skill, two governing rules, and the `specs/` folder structure. The lifecycle is
+`backlog → in-progress → complete / cancelled`, with `.core` holding always-apply
+project rules.
 
 | Skill | Action | Status | Folder |
 |-------|--------|--------|--------|
@@ -17,6 +18,7 @@ structure. The lifecycle is `backlog → in-progress → complete / cancelled`, 
 | `/spec-complete` | Verify all phases done + tests green | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason | `Cancelled` | `specs/cancelled/` |
 | `/spec-init` | Bootstrap/repair the workflow (manual path) | — | — |
+| `/commit` | Stage the task's files, run typecheck + tests, write a conventional commit (+ release-note footer) | — | (unchanged) |
 
 ## Install into a project
 
@@ -30,8 +32,10 @@ This is idempotent — it creates only what's missing and never clobbers
 customised files. It writes:
 
 ```
-.claude/skills/spec*/SKILL.md   # the 8 skills
+.claude/skills/spec*/SKILL.md   # the 8 spec-lifecycle skills
+.claude/skills/commit/SKILL.md  # the /commit skill
 .claude/rules/spec-planning.md  # governing rule (the single source of truth)
+.claude/rules/commit-messages.md # commit message + release-note grammar
 specs/{.core,backlog,in-progress,complete,cancelled}/
 specs/backlog/00-index.md            # live backlog view (skill-maintained)
 specs/complete/00-index.md           # append-only completion log

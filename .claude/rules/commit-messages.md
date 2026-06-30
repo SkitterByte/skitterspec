@@ -1,0 +1,1 @@
+../../assets/rules/commit-messages.md
