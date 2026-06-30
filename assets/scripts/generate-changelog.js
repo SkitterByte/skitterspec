@@ -22,6 +22,7 @@ const {
   getTagDate,
   parseCommit,
 } = require('./lib/git-commits.js')
+const { loadConfig } = require('./lib/config.js')
 
 const DEFAULT_FILE = 'CHANGELOG.md'
 
@@ -226,6 +227,21 @@ function retroFillChangelog(count, options = {}) {
 
 function main(argv) {
   const args = argv.slice(2)
+
+  let config
+  try {
+    config = loadConfig()
+  } catch (error) {
+    console.error(error.message)
+    process.exit(1)
+  }
+
+  if (!config.changelog.enabled) {
+    console.log('Changelog generation disabled in skitterspec.config.json — skipping')
+    return
+  }
+
+  const options = { file: config.changelog.file }
   const retroIdx = args.indexOf('--retro')
 
   if (retroIdx >= 0) {
@@ -235,10 +251,10 @@ function main(argv) {
       console.error('Usage: generate-changelog.js --retro <count>')
       process.exit(1)
     }
-    retroFillChangelog(count)
+    retroFillChangelog(count, options)
   } else {
     const version = args[0] || getCurrentVersion()
-    updateChangelog(version)
+    updateChangelog(version, options)
   }
 }
 

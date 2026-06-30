@@ -38,6 +38,7 @@ const {
   getTagDate,
   parseCommit,
 } = require('./lib/git-commits.js')
+const { loadConfig } = require('./lib/config.js')
 
 // Buckets render in this order within each area.
 const BUCKET_ORDER = ['Action required', 'New', 'Improved', 'Fixed']
@@ -306,6 +307,26 @@ function retroFillReleases(count, options = {}) {
 
 function main(argv) {
   const args = argv.slice(2)
+
+  let config
+  try {
+    config = loadConfig()
+  } catch (error) {
+    console.error(error.message)
+    process.exit(1)
+  }
+
+  if (!config.releases.enabled) {
+    console.log('Release-notes generation disabled in skitterspec.config.json — skipping')
+    return
+  }
+
+  const options = {
+    file: config.releases.file,
+    productName: config.releases.productName,
+    scopeAreas: config.releases.scopeAreas,
+    changelogFile: config.changelog.file,
+  }
   const retroIdx = args.indexOf('--retro')
 
   if (retroIdx >= 0) {
@@ -314,9 +335,9 @@ function main(argv) {
       console.error('Usage: generate-releases.js --retro <count>')
       process.exit(1)
     }
-    retroFillReleases(count)
+    retroFillReleases(count, options)
   } else {
-    updateReleases(args[0] || getCurrentVersion())
+    updateReleases(args[0] || getCurrentVersion(), options)
   }
 }
 

@@ -2,15 +2,20 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
 
 const {
   bucketFor,
+  defaultReleasesHeader,
   formatReleaseDate,
   parseReleaseNote,
   renderReleasesSection,
   resolveArea,
   upsertReleasesSection,
 } = require('../assets/scripts/generate-releases.js')
+const { loadConfig, CONFIG_FILE } = require('../src/config.js')
 
 // A representative scope→area map (the production map is injected from config).
 const AREAS = {
@@ -171,6 +176,33 @@ test('upsertReleasesSection inserts a new section and is idempotent on re-run', 
   assert.ok(once.includes('## 1.0.0 — 19 Jun 2026'))
   const twice = upsertReleasesSection(once, section, '1.0.0')
   assert.strictEqual(twice, once)
+})
+
+test('config scopeAreas override the Title-Case fallback', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rel-'))
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ releases: { scopeAreas: { api: 'Public API' } } }),
+    'utf-8',
+  )
+  const cfg = loadConfig(dir)
+  // mapped via config
+  assert.strictEqual(resolveArea('api', undefined, cfg.releases.scopeAreas), 'Public API')
+  // unmapped scope still title-cases
+  assert.strictEqual(resolveArea('billing', undefined, cfg.releases.scopeAreas), 'Billing')
+})
+
+test('config productName reaches the rendered releases header', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rel-'))
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ releases: { productName: 'Acme Console' }, changelog: { file: 'LOG.md' } }),
+    'utf-8',
+  )
+  const cfg = loadConfig(dir)
+  const header = defaultReleasesHeader(cfg.releases.productName, cfg.changelog.file)
+  assert.ok(header.includes('Acme Console'))
+  assert.ok(header.includes('[LOG.md](./LOG.md)'))
 })
 
 test('upsertReleasesSection replaces an existing version in place without touching others', () => {
