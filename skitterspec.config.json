@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "changelog": { "enabled": true, "file": "CHANGELOG.md" },
+  "releases": {
+    "enabled": true,
+    "file": "RELEASES.md",
+    "productName": "skitterspec",
+    "scopeAreas": {
+      "cli": "Install",
+      "init": "Install",
+      "scripts": "Release tooling",
+      "config": "Release tooling",
+      "commit": "Commit"
+    }
+  },
+  "versionHook": true
+}

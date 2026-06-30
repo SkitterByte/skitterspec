@@ -4,10 +4,13 @@
 
 `type(scope): subject` — [Conventional Commits](https://www.conventionalcommits.org/)
 
-## Strict length limits (commitlint enforced)
+## Length limits
 
 - **Subject line:** 50 characters max
 - **Body lines:** 72 characters max
+
+(These match the common commitlint defaults — if your project runs commitlint,
+they'll be enforced; otherwise treat them as the convention.)
 
 ## Template
 
@@ -37,9 +40,12 @@ type(scope): subject
 
 When a change is **user-visible** (a feature, fix, or improvement an end user
 would notice), add a `Release-Note:` footer. The terse subject feeds the
-dev-facing `CHANGELOG.md`; the footer feeds the user-facing `RELEASES.md`
-(`scripts/generate-releases.ts`, run on `pnpm version`). Both are generated
-from the same commit.
+dev-facing changelog (`CHANGELOG.md` by default); the footer feeds the
+user-facing release notes (`RELEASES.md` by default) via
+`scripts/generate-releases.js`, run at `npm version`. Both are generated from
+the same commit. Filenames, the product name, and the scope→area map are
+configured in `skitterspec.config.json` (this whole section applies only when
+the release tooling is installed — see the project README).
 
 ```
 feat(tasks): explicit state/created dates + sort-by
@@ -57,8 +63,9 @@ Grammar:
   wrap continuation lines at 72 like the body.
 - `Release-Note!: <text>` — same, but also promoted into the release's
   **Highlights** line. Use for the headline change of a release.
-- `Release-Area: <name>` — optional. Overrides the scope→area mapping when the
-  dev scope isn't a user area (e.g. scope `engine` but area `Approvals`).
+- `Release-Area: <name>` — optional. Overrides the scope→area mapping (from
+  `skitterspec.config.json` → `releases.scopeAreas`) when the dev scope isn't a
+  user area (e.g. scope `engine` but area `Platform`).
 - `Release-Note: none` — explicit "not user-facing" marker (same effect as
   omitting it; documents the decision).
 
@@ -67,12 +74,12 @@ Rules:
 - **Opt-in.** Omit the footer for internal/dev-only changes (`chore`, `test`,
   `docs`, `style`, refactors with no user effect, plumbing). Only commits with a
   footer appear in `RELEASES.md`.
-- Put a **blank line before** the footer (commitlint `footer-leading-blank`).
+- Put a **blank line before** the footer (so it's a proper commit footer).
 - `feat`→New, `fix`→Fixed, `perf`/`refactor`→Improved, breaking→Action required
   — the bucket is derived from the commit type, so just write the note.
 
 ## Abbreviations
 
-`reqId`, `corrId`, `config`, `util`, `ctx`, `impl`, `org`, `BU`
-
-Full guidelines: `specs/.core/COMMIT_MESSAGES.md`.
+Common short forms are fine in subjects — e.g. `config`, `ctx`, `impl`, `util`,
+`id`, `repo`. List any project-specific abbreviations your team allows in your
+own `.claude/rules/`.

@@ -28,8 +28,9 @@ From the root of the target project:
 npx @skitterbyte/skitterspec init
 ```
 
-This is idempotent — it creates only what's missing and never clobbers
-customised files. It writes:
+On a terminal it runs an **interactive setup** (skip it with `--yes` or drive it
+with the flags below). It's idempotent — it creates only what's missing and
+never clobbers customised files. It writes:
 
 ```
 .claude/skills/spec*/SKILL.md   # the 8 spec-lifecycle skills
@@ -42,19 +43,81 @@ specs/complete/00-index.md           # append-only completion log
 CLAUDE.md                       # adds a "## Spec workflow" section (created if absent)
 ```
 
+If you enable the **release tooling** (see below) it also writes:
+
+```
+skitterspec.config.json         # which artifacts to generate, filenames, scope→area map
+scripts/generate-changelog.js   # dev-facing CHANGELOG generator   (if changelog enabled)
+scripts/generate-releases.js    # user-facing RELEASES generator    (if releases enabled)
+scripts/lib/                     # shared git + config helpers
+package.json                    # adds a "version" hook + changelog/releases npm scripts
+```
+
 ### Options
 
 ```bash
 npx @skitterbyte/skitterspec init ./path/to/project   # target a dir (default: cwd)
-npx @skitterbyte/skitterspec init --force             # overwrite existing skill/rule files
+npx @skitterbyte/skitterspec init --yes               # accept defaults, skip the prompts
+npx @skitterbyte/skitterspec init --force             # overwrite existing skill/rule/script files
 npx @skitterbyte/skitterspec init --no-claude-md      # don't touch CLAUDE.md
-npx @skitterbyte/skitterspec update                   # re-copy skills + rule (overwrite), leave specs/ alone
+npx @skitterbyte/skitterspec update                   # re-copy skills + rule + scripts, leave specs/ + config alone
 ```
 
-`update` pulls newer skill/rule versions after upgrading the package, without
-disturbing your specs. The CLAUDE.md section is wrapped in
-`<!-- skitterspec:start -->`…`<!-- skitterspec:end -->` markers so `update` can refresh
-it in place.
+Release-tooling flags (drive setup without the prompts):
+
+```bash
+--changelog / --no-changelog        # enable/disable CHANGELOG generation
+--releases  / --no-releases         # enable/disable user-facing release notes
+--changelog-file=NAME               # changelog filename (default CHANGELOG.md)
+--releases-file=NAME                # release-notes filename (default RELEASES.md)
+--product-name=NAME                 # product name shown in the release-notes header
+--version-hook / --no-version-hook  # wire (or skip) the npm "version" hook
+```
+
+`update` pulls newer skill/rule/script versions after upgrading the package,
+without disturbing your specs or `skitterspec.config.json`. The CLAUDE.md section
+is wrapped in `<!-- skitterspec:start -->`…`<!-- skitterspec:end -->` markers so
+`update` can refresh it in place.
+
+## Changelog & release-note tooling (opt-in)
+
+Conventional commits already say what changed; skitterspec can turn them into two
+generated artifacts at `npm version`:
+
+- **`CHANGELOG.md`** — dev-facing, built from commit **subjects** (Keep a Changelog
+  format: feat→Added, fix→Fixed, perf/refactor→Changed, breaking→Changed).
+- **`RELEASES.md`** — user-facing, built **only** from `Release-Note:` commit
+  **footers**, grouped by area and bucket (New / Improved / Fixed / Action
+  required). The `/commit` skill writes these footers; the grammar lives in
+  `.claude/rules/commit-messages.md`.
+
+Both walk *commits since the last version tag*. Generation is opt-in per artifact
+and recorded in **`skitterspec.config.json`** at the repo root:
+
+```json
+{
+  "version": 1,
+  "changelog": { "enabled": true, "file": "CHANGELOG.md" },
+  "releases":  { "enabled": true, "file": "RELEASES.md",
+                 "productName": "My App", "scopeAreas": {} },
+  "versionHook": true
+}
+```
+
+`scopeAreas` maps a commit scope to a user-facing area (e.g. `{"reqs":
+"Requisitions"}`); unmapped scopes fall back to Title-Case, and a `Release-Area:`
+footer overrides per-commit. When `versionHook` is on, `init` wires npm scripts:
+
+```bash
+npm run changelog          # regenerate CHANGELOG.md from commits since last tag
+npm run releases           # regenerate RELEASES.md
+npm run changelog:retro -- 5   # backfill the last 5 tagged releases
+npm version <patch|minor|major>  # bumps, regenerates both, and stages them
+```
+
+The generators are plain Node (no `tsx`/`ts-node`); the only runtime dependency
+the package itself adds is [`prompts`](https://www.npmjs.com/package/prompts) for
+the interactive `init`.
 
 ## Spec structure
 
@@ -83,9 +146,14 @@ edit seven files per project.
 
 ## How it's distributed
 
-The skills and rule are plain Markdown assets under [`assets/`](./assets). The
-CLI ([`bin/skitterspec.js`](./bin/skitterspec.js) → [`src/`](./src)) just copies them
-into place and patches `CLAUDE.md` — no runtime dependencies, Node 18+.
+The skills, rule, and generator scripts are plain assets under
+[`assets/`](./assets). The CLI ([`bin/skitterspec.js`](./bin/skitterspec.js) →
+[`src/`](./src)) copies them into place, patches `CLAUDE.md`, and (for the release
+tooling) writes `skitterspec.config.json` and npm scripts. It needs Node 18+ and
+one runtime dependency, [`prompts`](https://www.npmjs.com/package/prompts), used
+only for the interactive `init`. The copied generator scripts are dependency-free
+and read their config from `skitterspec.config.json` — they never call back into
+this package.
 
 Because the files are copied into the consumer repo (not symlinked), each project
 pins its own version and can diverge. Re-run `update` to re-sync from a newer

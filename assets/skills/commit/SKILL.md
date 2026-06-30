@@ -22,5 +22,7 @@ end user would notice the change. Message grammar and length limits live in
    scope isn't a user area. Omit the footer for internal/dev-only changes
    (`chore`, `test`, `docs`, refactors with no user effect). Put a blank line
    before the footer. See `.claude/rules/commit-messages.md` → "Release notes
-   footer" for the grammar.
+   footer" for the grammar. When the release tooling is installed, these footers
+   are what the generated release notes are built from at `npm version` — so the
+   note is the user-facing record of the change, not just metadata.
 6. Do NOT ask about unrelated uncommitted files.

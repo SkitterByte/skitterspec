@@ -29,4 +29,6 @@ State log.
 
 Also installed: **`/commit`** — stage only the task's files, run typecheck +
 tests, then write a conventional-commit message with a `Release-Note:` footer
-for user-visible changes (grammar in `.claude/rules/commit-messages.md`).
+for user-visible changes (grammar in `.claude/rules/commit-messages.md`). If the
+release tooling is enabled (`skitterspec.config.json`), those footers feed the
+generated `CHANGELOG.md`/`RELEASES.md` at `npm version`.

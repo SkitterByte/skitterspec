@@ -1,7 +1,7 @@
 # Configurable changelog/release tooling + guided install CLI
 
 > **Type:** Feature
-> **Status:** In Progress — Phases 1–3 done; Phase 4 next
+> **Status:** In Progress — all phases done; ready for /spec-complete
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-06-30
@@ -91,7 +91,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Port lib + generators to zero-dep JS (config-injected, genericised) + ported tests | ✅ | [01-port-generators.md](01-port-generators.md) |
 | 2 | Config schema + loader wired into the generators | ✅ | [02-config-loader.md](02-config-loader.md) |
 | 3 | Interactive install CLI: prompts, flags, conditional copy, version-hook wiring, update | ✅ | [03-install-cli.md](03-install-cli.md) |
-| 4 | Docs + rule/skill genericisation + dog-food symlinks | ⬜ | [04-docs-and-dogfood.md](04-docs-and-dogfood.md) |
+| 4 | Docs + rule/skill genericisation + dog-food symlinks | ✅ | [04-docs-and-dogfood.md](04-docs-and-dogfood.md) |
 
 ## Open questions
 
@@ -110,6 +110,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-06-30 — Spec created. Decisions locked: zero-dep JS port; version-bump
   trigger; root `skitterspec.config.json`; `prompts` (terkelg) interactive CLI;
   genericise the FF CSC-specific hardcoding into config.
+- 2026-06-30 — Phase 4 done. Genericised `commit-messages.md` + the `/commit`
+  skill (no more FF-CSC/`pnpm`/`tsx`/`.ts` refs); documented the tooling, config
+  schema, flags, and `prompts` dep in the README + CLAUDE.md section. Dog-fooded
+  on this repo: `scripts → assets/scripts` symlink, own `skitterspec.config.json`,
+  `version`/`changelog`/`releases` npm scripts; sanity-ran both generators on real
+  history (kept the generated `CHANGELOG.md`/`RELEASES.md`). Added a grep guard
+  test for forbidden tokens in shipped assets. 58 `node:test` cases green; `npm
+  pack` clean. All four phases complete — ready for `/spec-complete`.
 - 2026-06-30 — Phase 3 done. Guided `init`: `prompts` (terkelg, first runtime
   dep) added; `src/prompts.js` holds the TTY-only flow (lazily required so CI /
   tests never load it); `src/cli.js` gained the release-tooling flags +
