@@ -1,7 +1,7 @@
 # Configurable changelog/release tooling + guided install CLI
 
 > **Type:** Feature
-> **Status:** In Progress — Phases 1–2 done; Phase 3 next
+> **Status:** In Progress — Phases 1–3 done; Phase 4 next
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-06-30
@@ -90,7 +90,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Port lib + generators to zero-dep JS (config-injected, genericised) + ported tests | ✅ | [01-port-generators.md](01-port-generators.md) |
 | 2 | Config schema + loader wired into the generators | ✅ | [02-config-loader.md](02-config-loader.md) |
-| 3 | Interactive install CLI: prompts, flags, conditional copy, version-hook wiring, update | ⬜ | [03-install-cli.md](03-install-cli.md) |
+| 3 | Interactive install CLI: prompts, flags, conditional copy, version-hook wiring, update | ✅ | [03-install-cli.md](03-install-cli.md) |
 | 4 | Docs + rule/skill genericisation + dog-food symlinks | ⬜ | [04-docs-and-dogfood.md](04-docs-and-dogfood.md) |
 
 ## Open questions
@@ -110,6 +110,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-06-30 — Spec created. Decisions locked: zero-dep JS port; version-bump
   trigger; root `skitterspec.config.json`; `prompts` (terkelg) interactive CLI;
   genericise the FF CSC-specific hardcoding into config.
+- 2026-06-30 — Phase 3 done. Guided `init`: `prompts` (terkelg, first runtime
+  dep) added; `src/prompts.js` holds the TTY-only flow (lazily required so CI /
+  tests never load it); `src/cli.js` gained the release-tooling flags +
+  `resolveRelease` (flags-over-config) + the `isTTY && !--yes` gate; `src/init.js`
+  writes the merged `skitterspec.config.json`, conditionally copies the generator
+  scripts (+ shared lib once), and idempotently wires the `version` hook + helper
+  npm scripts (never clobbering a custom `version` without `--force`). 57
+  `node:test` cases green; bin smoke-tested; `npm pack` tarball verified clean.
 - 2026-06-30 — Phase 2 done. Config loader in `assets/scripts/lib/config.js`
   (`loadConfig`/`DEFAULT_CONFIG`/`SCHEMA_VERSION`), re-exported by `src/config.js`
   for the CLI — single implementation, shipped with the generators, no
