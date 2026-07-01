@@ -1,7 +1,7 @@
 # Configurable changelog/release tooling + guided install CLI
 
 > **Type:** Feature
-> **Status:** In Progress — all phases done; ready for /spec-complete
+> **Status:** Complete (2026-06-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-06-30
@@ -104,12 +104,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-06-30 | Draft | backlog | Reuben Greaves |
 | 2026-06-30 | In Progress | in-progress | Reuben Greaves |
+| 2026-06-30 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-06-30 — Spec created. Decisions locked: zero-dep JS port; version-bump
   trigger; root `skitterspec.config.json`; `prompts` (terkelg) interactive CLI;
   genericise the FF CSC-specific hardcoding into config.
+- 2026-06-30 — Completed; all four phases done, 58 `node:test` cases green,
+  `npm pack` tarball clean. No deferred items.
 - 2026-06-30 — Phase 4 done. Genericised `commit-messages.md` + the `/commit`
   skill (no more FF-CSC/`pnpm`/`tsx`/`.ts` refs); documented the tooling, config
   schema, flags, and `prompts` dep in the README + CLAUDE.md section. Dog-fooded
