@@ -50,6 +50,13 @@ test('backupCommand accepts an explicit empty string', () => {
   assert.strictEqual(config.docker.backupCommand, '')
 })
 
+test('open.command defaults to empty and accepts an override', () => {
+  const dir = tmpDir()
+  assert.strictEqual(loadEnvConfig(dir).config.open.command, '')
+  writeEnvConfig(dir, { open: { command: 'code {worktreePath}' } })
+  assert.strictEqual(loadEnvConfig(dir).config.open.command, 'code {worktreePath}')
+})
+
 test('nested guards merge field-by-field', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, { guards: { refuseTeardownIfUnpushed: false } })

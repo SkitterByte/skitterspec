@@ -7,8 +7,8 @@
  * `specs/**`, splits the `feat-`/`bug-` prefix into `{ type, slug }`, derives the
  * git branch (optional Linear seam, else `{type}/{slug}`), and expands the
  * config's path/name tokens (`{repo}`, `{repoSlug}`, `{slug}`). Reads files to
- * locate the spec and read frontmatter, but makes no git/docker/warp side
- * effects — deterministic and safe to unit-test with fixtures.
+ * locate the spec and read frontmatter, but makes no git/docker side effects —
+ * deterministic and safe to unit-test with fixtures.
  */
 
 const fs = require('node:fs')

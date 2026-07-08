@@ -1,7 +1,7 @@
 # `env.config.json` — per-spec isolation config
 
 Opt-in config for the `/spec-env` · `/spec-env-down` isolation skills (git
-worktree + namespaced Docker stack + Warp Tab Config per in-progress spec).
+worktree + namespaced Docker stack + an optional opener per in-progress spec).
 
 **Adopt it** by copying `env.config.json.example` → `env.config.json` in this
 folder and editing the values. While `env.config.json` is absent the feature is
@@ -35,12 +35,13 @@ no live `env.config.json` was found.
                               // empty = no backup, volumes dropped directly.
   },
 
-  // Warp Tab Config generated per worktree (opens the dir, brings the stack
-  // up, optionally drops into an agent pane).
-  "warp": {
-    "enabled": true,
-    "tabConfigDir": "~/.warp/tab_configs", // ~ is expanded
-    "openAgentPane": true
+  // Optional, editor/terminal-agnostic opener run after `spec-env up`. The
+  // template is expanded with {worktreePath}, {slug}, {branch}, {projectName},
+  // {portOffset}. Empty = nothing is opened (the path is just printed).
+  // Examples: "code {worktreePath}", "tmux new-window -c {worktreePath}",
+  // or a "warp://..." deeplink for Warp users.
+  "open": {
+    "command": ""
   },
 
   // Machine-local slot registry (spec → slot index). Resolved against the

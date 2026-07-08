@@ -16,7 +16,7 @@
  *     worktree: { root, folderPattern },
  *     docker:   { enabled, composeFile, projectNamePattern, portBase,
  *                 portsPerSpec, envFile, backupCommand },
- *     warp:     { enabled, tabConfigDir, openAgentPane },
+ *     open:     { command },   // optional, editor/terminal-agnostic opener
  *     registry: ".spec-env/registry.json",
  *     linkLinear: true,
  *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed }
@@ -39,11 +39,7 @@ const DEFAULT_CONFIG = Object.freeze({
     envFile: '.env',
     backupCommand: '',
   }),
-  warp: Object.freeze({
-    enabled: true,
-    tabConfigDir: '~/.warp/tab_configs',
-    openAgentPane: true,
-  }),
+  open: Object.freeze({ command: '' }),
   registry: '.spec-env/registry.json',
   linkLinear: true,
   guards: Object.freeze({ refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true }),
@@ -58,7 +54,7 @@ function defaults() {
   return {
     worktree: { ...DEFAULT_CONFIG.worktree },
     docker: { ...DEFAULT_CONFIG.docker },
-    warp: { ...DEFAULT_CONFIG.warp },
+    open: { ...DEFAULT_CONFIG.open },
     registry: DEFAULT_CONFIG.registry,
     linkLinear: DEFAULT_CONFIG.linkLinear,
     guards: { ...DEFAULT_CONFIG.guards },
@@ -103,10 +99,9 @@ function mergeConfig(base, parsed) {
     assign(base.docker, parsed.docker, 'backupCommand', 'string?')
   }
 
-  if (isObject(parsed.warp)) {
-    assign(base.warp, parsed.warp, 'enabled', 'boolean')
-    assign(base.warp, parsed.warp, 'tabConfigDir', 'string')
-    assign(base.warp, parsed.warp, 'openAgentPane', 'boolean')
+  if (isObject(parsed.open)) {
+    // command may be intentionally empty (no auto-open)
+    assign(base.open, parsed.open, 'command', 'string?')
   }
 
   assign(base, parsed, 'registry', 'string')

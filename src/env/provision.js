@@ -1,0 +1,66 @@
+'use strict'
+
+/**
+ * Pure provisioning planner for `spec-env up`.
+ *
+ * Given a resolved spec and its allocated slot, `planUp` returns the exact
+ * side-effecting commands the `/spec-env` skill runs (`git worktree add`,
+ * `docker compose up`), the rendered `.env` contents, and the expanded opener —
+ * but performs no side effects itself. The caller (the CLI) reads/allocates the
+ * registry and passes the slot; this stays deterministic and unit-testable with
+ * no live git/docker.
+ */
+
+const { portOffset } = require('./registry.js')
+const { renderEnvFile, expandOpenCommand } = require('./render.js')
+
+/**
+ * Plan a provisioning run.
+ *
+ * @param {object} spec  resolved spec (from resolveSpec): { slug, type, branch,
+ *                       worktreePath, projectName, ... }
+ * @param {object} alloc { slot, attached } — attached:true when the slot already
+ *                       existed in the registry (re-run → attach, don't clobber).
+ * @param {object} config normalised env config.
+ * @returns {object} { worktreePath, branch, projectName, slot, portOffset,
+ *                     envContents, openCommand, commands, attached }
+ */
+function planUp(spec, alloc, config) {
+  const { slot, attached } = alloc
+  const offset = portOffset(slot, config)
+
+  const envContents = renderEnvFile({ projectName: spec.projectName, portOffset: offset })
+
+  const openCommand = expandOpenCommand(config.open.command, {
+    worktreePath: spec.worktreePath,
+    slug: spec.slug,
+    branch: spec.branch,
+    projectName: spec.projectName,
+    portOffset: String(offset),
+  })
+
+  const commands = []
+  // Fresh branch → -b; attach an existing branch/slot → plain form (never clobber).
+  commands.push(
+    attached
+      ? `git worktree add ${spec.worktreePath} ${spec.branch}`
+      : `git worktree add ${spec.worktreePath} -b ${spec.branch}`,
+  )
+  if (config.docker.enabled) {
+    commands.push(`docker compose --project-name ${spec.projectName} up -d`)
+  }
+
+  return {
+    worktreePath: spec.worktreePath,
+    branch: spec.branch,
+    projectName: spec.projectName,
+    slot,
+    portOffset: offset,
+    envContents,
+    openCommand,
+    commands,
+    attached,
+  }
+}
+
+module.exports = { planUp }

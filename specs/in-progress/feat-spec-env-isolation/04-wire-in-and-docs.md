@@ -15,12 +15,14 @@ hard-wiring anything.
 - [ ] Add `/.spec-env/` to `.gitignore` (machine-local slot registry + backups;
       never committed). Confirm `specs/.core/env.config.json.example` **is**
       tracked while a live `env.config.json` is the consumer's opt-in.
-- [ ] README: add a short usage note — what the three isolation layers give you,
-      `/spec-env` / `/spec-env-down` usage, the config knobs, and the two adoption
-      modes (**standalone**: `linkLinear:false`, plain `{type}/{slug}` branches,
-      pure worktree+Docker+Warp; **Linear-linked**: branch names fire Linear's
-      GitHub automation). Note the consumer's `docker-compose.yml` must reference
-      `${PORT_OFFSET}`.
+- [ ] README: add a short usage note — the two isolation layers (worktree +
+      namespaced Docker) plus the optional `open.command`, `/spec-env` /
+      `/spec-env-down` usage, the config knobs, and the two adoption modes
+      (**standalone**: `linkLinear:false`, plain `{type}/{slug}` branches, pure
+      worktree+Docker; **Linear-linked**: branch names fire Linear's GitHub
+      automation). Note the consumer's `docker-compose.yml` must reference
+      `${PORT_OFFSET}`, and that `open.command` is editor/terminal-agnostic (a
+      `warp://` deeplink is one option, not a dependency).
 - [ ] Opt-in hooks (documented, gated — never forced): in `assets/skills/spec`
       offer to run `/spec-env` after a spec is created; in
       `assets/skills/spec-complete` and `assets/skills/spec-cancel` offer to run
@@ -36,7 +38,7 @@ hard-wiring anything.
       style). Run `npm test` — all green.
 - [ ] Manual smoke check (documented, not automated): on a real spec, run
       `/spec-env` then `/spec-env-down` end-to-end and confirm worktree, `.env`,
-      ports, Warp deeplink, and clean teardown.
+      ports, the `open.command` firing, and clean teardown.
 
 ## Notes
 

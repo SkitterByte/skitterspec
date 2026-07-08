@@ -5,8 +5,14 @@ const path = require('path')
 const { init } = require('./init.js')
 const { loadConfig } = require('./config.js')
 const { loadEnvConfig } = require('./env/config.js')
-const { readRegistry, portOffset } = require('./env/registry.js')
+const {
+  readRegistry,
+  writeRegistry,
+  allocateSlot,
+  portOffset,
+} = require('./env/registry.js')
 const { resolveSpec } = require('./env/resolve.js')
+const { planUp } = require('./env/provision.js')
 
 const pkg = require('../package.json')
 
@@ -19,6 +25,7 @@ Usage:
                               specs/ and skitterspec.config.json alone
   skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
                               specs/.core/env.config.json). Subcommands:
+                                up <spec>         plan a worktree + Docker stack + opener
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
   skitterspec --help          Show this help
@@ -120,6 +127,42 @@ function specEnvStatus(dir, config) {
     })
 }
 
+// Provision: allocate the slot, persist the registry, and print the plan the
+// /spec-env skill executes (git worktree add, docker compose up, .env, opener).
+function specEnvUp(dir, config, specArg) {
+  if (!specArg) {
+    process.stdout.write('Usage: skitterspec spec-env up <spec>\n')
+    return
+  }
+  const spec = resolveSpec(specArg, dir, config)
+
+  const before = readRegistry(dir, config)
+  const attached = Object.prototype.hasOwnProperty.call(before.slots, spec.folder)
+  const { registry, slot } = allocateSlot(before, spec.folder)
+  writeRegistry(dir, config, registry) // the engine's only write
+
+  const plan = planUp(spec, { slot, attached }, config)
+  const hi = plan.portOffset + config.docker.portsPerSpec - 1
+
+  const out = []
+  out.push(`spec-env up: ${spec.folder} ${attached ? '(attached — existing slot)' : '(provisioned)'}`)
+  out.push('')
+  out.push(`  worktree:  ${plan.worktreePath}`)
+  out.push(`  branch:    ${plan.branch}`)
+  out.push(`  project:   ${plan.projectName}`)
+  out.push(`  slot:      ${plan.slot}  (ports ${plan.portOffset}-${hi})`)
+  out.push('')
+  out.push('  run these:')
+  for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  if (plan.openCommand) out.push(`    ${plan.openCommand}`)
+  out.push('')
+  out.push(`  write ${config.docker.envFile} in the worktree:`)
+  for (const line of plan.envContents.replace(/\n$/, '').split('\n')) {
+    out.push(`    ${line}`)
+  }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
 // Print the resolved identity/coordinates for a single spec.
 function specEnvResolve(dir, config, specArg) {
   if (!specArg) {
@@ -158,6 +201,9 @@ function specEnv(rest) {
   }
 
   switch (sub) {
+    case 'up':
+      specEnvUp(dir, config, positional[0])
+      break
     case 'status':
       specEnvStatus(dir, config)
       break
@@ -165,7 +211,7 @@ function specEnv(rest) {
       specEnvResolve(dir, config, positional[0])
       break
     default:
-      process.stdout.write('Usage: skitterspec spec-env <status|resolve> [spec]\n')
+      process.stdout.write('Usage: skitterspec spec-env <up|status|resolve> [spec]\n')
   }
 }
 

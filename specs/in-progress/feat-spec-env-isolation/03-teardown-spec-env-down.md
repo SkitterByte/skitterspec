@@ -4,8 +4,8 @@
 
 **Goal:** `skitterspec spec-env down <spec> [--keep-volumes] [--force]`
 evaluates the dirty/unpushed guards, plans a config-driven pre-drop backup, and
-**prints** the `docker compose down` / `git worktree remove` / Warp-archive
-commands, then frees the slot — idempotent and non-destructive without cause. A
+**prints** the `docker compose down` / `git worktree remove` commands, then
+frees the slot — idempotent and non-destructive without cause. A
 thin `/spec-env-down` skill executes the printed side effects.
 
 ## Tasks
@@ -14,7 +14,8 @@ thin `/spec-env-down` skill executes the printed side effects.
       timestamp })` — pure planner. `worktreeState` (`{ dirty, unpushed }`) is
       supplied by the caller (queried via git), so the planner stays side-effect
       free. Returns `{ blocked, reason, commands, backupCommand, volumesDropped }`.
-      **Guards:** if `guards.refuseTeardownIfDirty` && dirty, or
+      **Guards (no Warp archive step — the opener is stateless):** if
+      `guards.refuseTeardownIfDirty` && dirty, or
       `guards.refuseTeardownIfUnpushed` && unpushed → `blocked` with a clear
       reason, unless `flags.force`.
 - [ ] Backup + volume logic in the plan: unless `--keep-volumes`, the
@@ -25,13 +26,13 @@ thin `/spec-env-down` skill executes the printed side effects.
 - [ ] Wire `spec-env down` into `src/cli.js`: query git for the worktree's
       dirty/unpushed state, build the plan; if `blocked`, print the reason + the
       `--force` hint and change nothing; else print the commands (backup → down →
-      `git worktree remove` → archive/remove the Warp `.toml`) and `freeSlot`.
+      `git worktree remove`) and `freeSlot`.
       Idempotent: spec not in the registry / worktree already gone → clean no-op
       with a clear message.
 - [ ] Write `assets/skills/spec-env-down/SKILL.md` (house format): resolve the
       spec; run `skitterspec spec-env down <spec> [flags]`; if the CLI reports a
       guard block, relay it and stop (offer `--force`); else execute the printed
-      backup/`docker compose down`/`git worktree remove`/Warp-archive commands;
+      backup/`docker compose down`/`git worktree remove` commands;
       confirm what was removed (worktree, containers, volumes|kept, slot freed,
       backup path). Idempotent messaging when already torn down.
 - [ ] Symlink the skill into `.claude/skills/spec-env-down` →
