@@ -146,7 +146,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Config + registry + resolve engine (the seam) | ✅ | [01-config-registry-resolve.md](01-config-registry-resolve.md) |
 | 2 | Provision — `spec-env up` + `/spec-env` skill | ✅ | [02-provision-spec-env.md](02-provision-spec-env.md) |
-| 3 | Teardown — `spec-env down` + `/spec-env-down` skill | ⬜ | [03-teardown-spec-env-down.md](03-teardown-spec-env-down.md) |
+| 3 | Teardown — `spec-env down` + `/spec-env-down` skill | ✅ | [03-teardown-spec-env-down.md](03-teardown-spec-env-down.md) |
 | 4 | Wire-in + docs + opt-in hooks | ⬜ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
 
 ## Open questions
@@ -165,6 +165,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-08 — Phase 3 done. Added `src/env/teardown.js` (pure `planDown` +
+  dirty/unpushed guards, `--force`/`--keep-volumes`, config-driven pre-drop
+  backup), wired `spec-env down` (CLI queries git state via `worktreeGitState`,
+  frees the slot), wrote the `/spec-env-down` skill (+ symlink), 9 new tests
+  (108 total, all green). Verified against a **real git worktree**: dirty guard
+  blocks (slot preserved), `--force` overrides with backup-before-drop + slot
+  freed, and an idempotent no-op when unprovisioned. Notes: backup uses a
+  `{backupPath}` token (also `{slug}`/`{projectName}`/`{timestamp}`) so the
+  consumer's `backupCommand` decides how to write the dump; the CLI (not the pure
+  planner) generates the timestamp and reads git state.
 - 2026-07-08 — Phase 2 done. Added `src/env/{provision,render}.js` (pure
   `planUp` + `renderEnvFile`/`expandOpenCommand`), wired `spec-env up`, wrote the
   `/spec-env` skill (+ symlink), 11 new tests (99 total, all green). Deviations:

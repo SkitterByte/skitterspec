@@ -2,6 +2,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const { execFileSync } = require('child_process')
 const { init } = require('./init.js')
 const { loadConfig } = require('./config.js')
 const { loadEnvConfig } = require('./env/config.js')
@@ -9,10 +10,12 @@ const {
   readRegistry,
   writeRegistry,
   allocateSlot,
+  freeSlot,
   portOffset,
 } = require('./env/registry.js')
 const { resolveSpec } = require('./env/resolve.js')
 const { planUp } = require('./env/provision.js')
+const { planDown } = require('./env/teardown.js')
 
 const pkg = require('../package.json')
 
@@ -26,6 +29,7 @@ Usage:
   skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         plan a worktree + Docker stack + opener
+                                down <spec>       tear down (guards; --keep-volumes, --force)
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
   skitterspec --help          Show this help
@@ -163,6 +167,91 @@ function specEnvUp(dir, config, specArg) {
   process.stdout.write(out.join('\n') + '\n')
 }
 
+// Query a worktree's git state (side-effecting — kept in the CLI, not the pure
+// planner). A missing worktree → nothing to lose (dirty:false, unpushed:false).
+function worktreeGitState(worktreePath) {
+  if (!fs.existsSync(worktreePath)) return { dirty: false, unpushed: false }
+  const git = (argv) =>
+    execFileSync('git', ['-C', worktreePath, ...argv], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+
+  let dirty = false
+  try {
+    dirty = git(['status', '--porcelain']).length > 0
+  } catch {
+    dirty = false
+  }
+
+  let unpushed = false
+  try {
+    // commits on HEAD's upstream branch not yet pushed
+    unpushed = Number(git(['rev-list', '--count', '@{u}..HEAD'])) > 0
+  } catch {
+    // no upstream configured → any commit on HEAD not on a remote counts
+    try {
+      unpushed = git(['log', '--oneline', 'HEAD', '--not', '--remotes']).length > 0
+    } catch {
+      unpushed = false
+    }
+  }
+  return { dirty, unpushed }
+}
+
+// A deterministic-enough compact timestamp for backup filenames (CLI-only; the
+// pure planner receives this as input so it stays testable).
+function compactTimestamp() {
+  return new Date()
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d+Z$/, '')
+    .replace('T', '-')
+}
+
+// Teardown: evaluate guards, print the plan, free the slot. Idempotent no-op
+// when the spec was never provisioned / already torn down.
+function specEnvDown(dir, config, specArg, flags) {
+  if (!specArg) {
+    process.stdout.write('Usage: skitterspec spec-env down <spec> [--keep-volumes] [--force]\n')
+    return
+  }
+  const spec = resolveSpec(specArg, dir, config)
+
+  const registry = readRegistry(dir, config)
+  if (!Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)) {
+    process.stdout.write(`spec-env down: ${spec.folder} is not provisioned — nothing to do.\n`)
+    return
+  }
+
+  const worktreeState = worktreeGitState(spec.worktreePath)
+  const plan = planDown(spec, config, flags, { worktreeState, timestamp: compactTimestamp() })
+
+  if (plan.blocked) {
+    process.stdout.write(
+      `spec-env down: blocked — ${plan.reason}.\n` +
+        'Re-run with --force to tear down anyway (destroys the worktree).\n',
+    )
+    return
+  }
+
+  // Free the slot (the engine's only write on down).
+  writeRegistry(dir, config, freeSlot(registry, spec.folder))
+
+  const out = []
+  out.push(`spec-env down: ${spec.folder} (slot freed)`)
+  out.push('')
+  out.push(`  worktree:  ${spec.worktreePath}`)
+  out.push(`  volumes:   ${plan.volumesDropped ? 'dropped' : 'kept'}`)
+  if (plan.backupPath) out.push(`  backup:    ${plan.backupPath}`)
+  else if (plan.volumesDropped) out.push('  backup:    none (no docker.backupCommand set)')
+  out.push('')
+  out.push('  run these:')
+  for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  process.stdout.write(out.join('\n') + '\n')
+}
+
 // Print the resolved identity/coordinates for a single spec.
 function specEnvResolve(dir, config, specArg) {
   if (!specArg) {
@@ -185,8 +274,11 @@ function specEnv(rest) {
   const [sub, ...args] = rest
   let dir = process.cwd()
   const positional = []
+  const flags = { keepVolumes: false, force: false }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
+    else if (args[i] === '--keep-volumes') flags.keepVolumes = true
+    else if (args[i] === '--force') flags.force = true
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -204,6 +296,9 @@ function specEnv(rest) {
     case 'up':
       specEnvUp(dir, config, positional[0])
       break
+    case 'down':
+      specEnvDown(dir, config, positional[0], flags)
+      break
     case 'status':
       specEnvStatus(dir, config)
       break
@@ -211,7 +306,9 @@ function specEnv(rest) {
       specEnvResolve(dir, config, positional[0])
       break
     default:
-      process.stdout.write('Usage: skitterspec spec-env <up|status|resolve> [spec]\n')
+      process.stdout.write(
+        'Usage: skitterspec spec-env <up|down|status|resolve> [spec] [--keep-volumes] [--force]\n',
+      )
   }
 }
 
