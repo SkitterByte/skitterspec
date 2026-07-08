@@ -4,6 +4,9 @@ const fs = require('fs')
 const path = require('path')
 const { init } = require('./init.js')
 const { loadConfig } = require('./config.js')
+const { loadEnvConfig } = require('./env/config.js')
+const { readRegistry, portOffset } = require('./env/registry.js')
+const { resolveSpec } = require('./env/resolve.js')
 
 const pkg = require('../package.json')
 
@@ -14,6 +17,10 @@ Usage:
                               changelog/release-note tooling into a project
   skitterspec update [dir]    Re-copy skills + rule + scripts (overwrites), leaves
                               specs/ and skitterspec.config.json alone
+  skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
+                              specs/.core/env.config.json). Subcommands:
+                                status            list provisioned specs + port blocks
+                                resolve <spec>    print resolved slug/type/branch/paths
   skitterspec --help          Show this help
   skitterspec --version       Print version
 
@@ -92,6 +99,76 @@ function resolveRelease(existing, opts) {
   }
 }
 
+// --- spec-env: per-spec isolation engine (Phase 1: status + resolve) --------
+
+// Print provisioned specs, their slots, and port blocks from the registry.
+function specEnvStatus(dir, config) {
+  const registry = readRegistry(dir, config)
+  const names = Object.keys(registry.slots)
+  if (!names.length) {
+    process.stdout.write('spec-env: no provisioned specs.\n')
+    return
+  }
+  process.stdout.write('Provisioned specs:\n')
+  names
+    .sort((a, b) => registry.slots[a] - registry.slots[b])
+    .forEach((name) => {
+      const slot = registry.slots[name]
+      const off = portOffset(slot, config)
+      const hi = off + config.docker.portsPerSpec - 1
+      process.stdout.write(`  ${name}  slot ${slot}  ports ${off}-${hi}\n`)
+    })
+}
+
+// Print the resolved identity/coordinates for a single spec.
+function specEnvResolve(dir, config, specArg) {
+  if (!specArg) {
+    process.stdout.write('Usage: skitterspec spec-env resolve <spec>\n')
+    return
+  }
+  const r = resolveSpec(specArg, dir, config)
+  process.stdout.write(
+    `spec:       ${r.folder} (${r.bucket})\n` +
+      `type/slug:  ${r.type} / ${r.slug}\n` +
+      `branch:     ${r.branch}\n` +
+      `worktree:   ${r.worktreePath}\n` +
+      `project:    ${r.projectName}\n`,
+  )
+}
+
+// Dispatch `skitterspec spec-env <sub> [args] [--dir path]`. No-ops with a clear
+// message when the feature isn't enabled (no specs/.core/env.config.json).
+function specEnv(rest) {
+  const [sub, ...args] = rest
+  let dir = process.cwd()
+  const positional = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--dir') dir = path.resolve(args[++i])
+    else positional.push(args[i])
+  }
+  dir = path.resolve(dir)
+
+  const { config, present } = loadEnvConfig(dir)
+  if (!present) {
+    process.stdout.write(
+      'spec-env: isolation not enabled (no specs/.core/env.config.json).\n' +
+        'Opt in by copying specs/.core/env.config.json.example → env.config.json.\n',
+    )
+    return
+  }
+
+  switch (sub) {
+    case 'status':
+      specEnvStatus(dir, config)
+      break
+    case 'resolve':
+      specEnvResolve(dir, config, positional[0])
+      break
+    default:
+      process.stdout.write('Usage: skitterspec spec-env <status|resolve> [spec]\n')
+  }
+}
+
 async function run(argv) {
   if (argv.includes('--help') || argv.includes('-h') || argv.length === 0) {
     process.stdout.write(HELP)
@@ -103,6 +180,12 @@ async function run(argv) {
   }
 
   const [cmd, ...rest] = argv
+
+  if (cmd === 'spec-env') {
+    specEnv(rest)
+    return
+  }
+
   const { opts, positional } = parse(rest)
   const dir = path.resolve(opts.dir || positional[0] || process.cwd())
 
