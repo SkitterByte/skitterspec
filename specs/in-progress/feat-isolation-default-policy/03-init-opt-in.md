@@ -1,6 +1,6 @@
-# Phase 3 — `init` isolation opt-in prompt writes env.config.json ⬜
+# Phase 3 — `init` isolation opt-in prompt writes env.config.json ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** Adopting per-spec isolation becomes a one-question opt-in at
 `npx skitterspec init` — on yes, `init` writes an activated
@@ -10,24 +10,25 @@ Proven by init tests over the enabled/disabled paths.
 
 ## Tasks
 
-- [ ] Add an `installIsolation(dir, { enabled }, opts)` in `src/init.js`: when
+- [x] Add an `installIsolation(dir, { enabled }, opts)` in `src/init.js`: when
       `enabled`, write `specs/.core/env.config.json` from the
       `env.config.json.example` asset (activated config); when not, keep today's
       behaviour (templates only, via `installCore`). Idempotent — never clobber an
-      existing `env.config.json` without `--force`.
-- [ ] Thread an `isolation` boolean through `init(...)` alongside `release`
+      existing `env.config.json` without `--force` (via `writeFile`).
+- [x] Thread an `isolation` boolean through `init(...)` alongside `release`
       (default off for `--yes`/non-interactive unless the flag is set); call
-      `installIsolation` from `init()`.
-- [ ] Add CLI plumbing in `src/cli.js` mirroring the release-tooling flags: an
+      `installIsolation` from `init()` (guarded by `mode !== 'update'`).
+- [x] Add CLI plumbing in `src/cli.js` mirroring the release-tooling flags: an
       interactive `prompts` question ("Enable per-spec isolation — a git worktree
       per spec?") and `--isolation` / `--no-isolation` flags to drive it
-      non-interactively.
-- [ ] Update `printReport`'s closing "Next" note: when isolation was enabled, say
-      worktrees are now automatic at `/spec-go` (and Docker is a per-spec `Stack`
-      escalation); when not, keep the current "copy the example to enable" line.
-- [ ] Add/extend init tests: enabling writes `specs/.core/env.config.json`;
-      declining does not; re-running is idempotent; `--force` refreshes. Run
-      `npm test` + typecheck — green before done.
+      non-interactively. `promptSetup` now returns `{ release, isolation }`.
+- [x] Update `printReport`'s closing "Next" note: keyed off whether
+      `env.config.json` exists on disk — ON message (worktrees automatic at
+      `/spec-go`, Docker a per-spec `Stack` escalation) vs the opt-in line.
+- [x] Add/extend init tests: `--isolation` activates the live config (a copy of
+      the example); declining does not; `update` never activates; idempotent +
+      `--force` refreshes; `parse` reads the flags. Ran `npm test` — 128/128 green
+      + CLI smoke on both paths.
 
 ## Notes
 

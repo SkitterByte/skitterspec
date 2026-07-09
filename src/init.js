@@ -153,6 +153,21 @@ function installCore(dir, opts) {
   }
 }
 
+// Activate opt-in per-spec isolation: write specs/.core/env.config.json from the
+// example asset so /spec-go provisions a worktree for every in-progress spec.
+// Only called when the operator opts in, and never on `update` (adopting isolation
+// is a deliberate choice, not something a re-sync flips on). Idempotent: writeFile
+// never clobbers an existing env.config.json without --force.
+function installIsolation(dir, { enabled }, opts) {
+  if (!enabled) return
+  copyAsset(
+    dir,
+    path.join('core', 'env.config.json.example'),
+    path.join(dir, 'specs', '.core', 'env.config.json'),
+    opts,
+  )
+}
+
 function installClaudeMd(dir, { mode }) {
   const section = fs.readFileSync(path.join(ASSETS, 'claude-md-section.md'), 'utf8').trim()
   const block = `${SPEC_MARKER_START}\n${section}\n${SPEC_MARKER_END}\n`
@@ -331,17 +346,22 @@ function printReport(dir, mode) {
     process.stdout.write('\nwarnings:\n')
     for (const w of report.warnings) process.stdout.write(`  ! ${w}\n`)
   }
+  const isolationOn = fs.existsSync(path.join(dir, 'specs', '.core', 'env.config.json'))
+  const isolationNote = isolationOn
+    ? 'Per-spec isolation is ON: every in-progress spec gets its own git worktree' +
+      ' at /spec-go (Docker is a per-spec escalation — set > **Stack:** in the spec).\n'
+    : 'Per-spec isolation is opt-in: re-run with --isolation (or copy' +
+      ' specs/.core/env.config.json.example → env.config.json) to enable it.\n'
   process.stdout.write(
     '\nDone. Skills resolve as /spec, /spec-ready, /spec-go, /spec-complete,' +
       ' /spec-cancel, /spec-bug, /spec-init, /spec-env, /spec-env-down, /commit.\n' +
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
       " project's stack, then run /spec.\n" +
-      'Per-spec isolation is opt-in: copy specs/.core/env.config.json.example →' +
-      ' env.config.json to enable /spec-env.\n',
+      isolationNote,
   )
 }
 
-async function init({ dir, force, claudeMd, mode, release }) {
+async function init({ dir, force, claudeMd, mode, release, isolation }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   report.created.length = 0
   report.updated.length = 0
@@ -354,6 +374,8 @@ async function init({ dir, force, claudeMd, mode, release }) {
   installFolders(dir)
   removeRetiredFiles(dir)
   installCore(dir, { force })
+  // Adopting isolation writes the live env.config.json — init only, never update.
+  if (mode !== 'update') installIsolation(dir, { enabled: isolation }, { force })
   if (claudeMd) installClaudeMd(dir, { mode })
 
   // Release tooling. The CLI resolves `release` from flags/prompts; when called

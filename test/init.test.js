@@ -90,6 +90,46 @@ test('init scaffolds the opt-in isolation config into specs/.core', async () => 
   assert.ok(!exists(dir, 'specs', '.core', 'env.config.json'), 'live config not auto-created')
 })
 
+test('init --isolation activates the live env.config.json', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  const live = path.join(dir, 'specs', '.core', 'env.config.json')
+  assert.ok(fs.existsSync(live), 'live config written')
+  // it is a copy of the shipped example (activated, not a stub)
+  const example = fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json.example'), 'utf8')
+  assert.strictEqual(fs.readFileSync(live, 'utf8'), example, 'live config matches the example')
+})
+
+test('init without isolation does not activate env.config.json', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: false })
+  assert.ok(!exists(dir, 'specs', '.core', 'env.config.json'), 'live config not created')
+})
+
+test('update never activates isolation, even with isolation:true', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  await init({ dir, force: true, claudeMd: false, mode: 'update', isolation: true })
+  assert.ok(!exists(dir, 'specs', '.core', 'env.config.json'), 'update did not turn isolation on')
+})
+
+test('init --isolation is idempotent — a second run preserves edits', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  const live = path.join(dir, 'specs', '.core', 'env.config.json')
+  fs.writeFileSync(live, '{"edited":true}\n')
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  assert.strictEqual(fs.readFileSync(live, 'utf8'), '{"edited":true}\n', 'edit preserved without --force')
+  await init({ dir, force: true, claudeMd: false, mode: 'init', isolation: true })
+  assert.notStrictEqual(fs.readFileSync(live, 'utf8'), '{"edited":true}\n', '--force refreshed it')
+})
+
+test('parse reads the --isolation / --no-isolation flags', () => {
+  assert.strictEqual(parse(['--isolation']).opts.isolation, true)
+  assert.strictEqual(parse(['--no-isolation']).opts.isolation, false)
+  assert.strictEqual(parse([]).opts.isolation, undefined)
+})
+
 test('init is idempotent — second run does not clobber edits', async () => {
   const dir = tmpProject()
   await init({ dir, force: false, claudeMd: true, mode: 'init' })

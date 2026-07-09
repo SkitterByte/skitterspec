@@ -110,7 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Per-spec `Stack` field + planner sources Docker from it | ✅ | [01-stack-field.md](01-stack-field.md) |
 | 2 | Lazy slot/port/.env — worktree-only skips them | ✅ | [02-lazy-docker-allocation.md](02-lazy-docker-allocation.md) |
-| 3 | `init` isolation opt-in prompt writes env.config.json | ⬜ | [03-init-opt-in.md](03-init-opt-in.md) |
+| 3 | `init` isolation opt-in prompt writes env.config.json | ✅ | [03-init-opt-in.md](03-init-opt-in.md) |
 | 4 | Automatic provisioning wiring + config semantics + docs | ⬜ | [04-default-policy-wiring.md](04-default-policy-wiring.md) |
 
 ## Open questions
@@ -151,3 +151,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   worktree-only re-run is detected via the worktree existing on disk (no slot to
   read), and `spec-env down` treats "no slot AND no worktree" as nothing-to-do,
   freeing a slot only when one was held. 123/123 green + CLI smoke on both stacks.
+- 2026-07-09 — Phase 3 done. `init` gains `installIsolation` + an `isolation`
+  param (guarded to init, never update); CLI adds `--isolation`/`--no-isolation`
+  and an interactive prompt; `promptSetup` now returns `{ release, isolation }`.
+  The report's closing note is keyed off whether `env.config.json` exists on disk
+  (truthful for init and update alike). 128/128 green + CLI smoke on both paths.

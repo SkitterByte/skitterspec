@@ -7,10 +7,11 @@
  * test suite never imports the interactive UI.
  *
  * `seed` is the resolved release config (existing file merged with any flags),
- * used to pre-fill every answer. Returns a release config of the same shape.
+ * used to pre-fill every answer. `isolationSeed` pre-fills the per-spec isolation
+ * question. Returns `{ release, isolation }`.
  */
 
-async function promptSetup({ seed, pkgExists }) {
+async function promptSetup({ seed, pkgExists, isolationSeed = false }) {
   const prompts = require('prompts')
 
   let cancelled = false
@@ -61,21 +62,31 @@ async function promptSetup({ seed, pkgExists }) {
     })
   }
 
+  questions.push({
+    type: 'confirm',
+    name: 'isolation',
+    message: 'Enable per-spec isolation — a git worktree per spec?',
+    initial: isolationSeed,
+  })
+
   const ans = await prompts(questions, { onCancel })
   if (cancelled) throw new Error('Setup cancelled')
 
   return {
-    changelog: {
-      enabled: ans.changelogEnabled,
-      file: ans.changelogFile || seed.changelog.file,
+    release: {
+      changelog: {
+        enabled: ans.changelogEnabled,
+        file: ans.changelogFile || seed.changelog.file,
+      },
+      releases: {
+        enabled: ans.releasesEnabled,
+        file: ans.releasesFile || seed.releases.file,
+        productName: ans.productName || seed.releases.productName,
+        scopeAreas: seed.releases.scopeAreas,
+      },
+      versionHook: pkgExists ? Boolean(ans.versionHook) : seed.versionHook,
     },
-    releases: {
-      enabled: ans.releasesEnabled,
-      file: ans.releasesFile || seed.releases.file,
-      productName: ans.productName || seed.releases.productName,
-      scopeAreas: seed.releases.scopeAreas,
-    },
-    versionHook: pkgExists ? Boolean(ans.versionHook) : seed.versionHook,
+    isolation: Boolean(ans.isolation),
   }
 }
 

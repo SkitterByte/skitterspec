@@ -48,6 +48,8 @@ Release-tooling options (init) — drive setup non-interactively:
   --releases-file=NAME                Release-notes filename (default RELEASES.md)
   --product-name=NAME                 Product name shown in the release-notes header
   --version-hook / --no-version-hook  Wire (or skip) the npm "version" hook
+  --isolation / --no-isolation        Enable/skip per-spec isolation (a git
+                                      worktree per spec; writes env.config.json)
 
 Examples:
   npx @skitterbyte/skitterspec init
@@ -68,6 +70,7 @@ function parse(argv) {
     releasesFile: undefined,
     productName: undefined,
     versionHook: undefined,
+    isolation: undefined,
   }
   const positional = []
   for (let i = 0; i < argv.length; i++) {
@@ -75,6 +78,8 @@ function parse(argv) {
     if (a === '--force') opts.force = true
     else if (a === '--no-claude-md') opts.claudeMd = false
     else if (a === '--yes' || a === '-y') opts.yes = true
+    else if (a === '--isolation') opts.isolation = true
+    else if (a === '--no-isolation') opts.isolation = false
     else if (a === '--changelog') opts.changelog = true
     else if (a === '--no-changelog') opts.changelog = false
     else if (a === '--releases') opts.releases = true
@@ -359,15 +364,19 @@ async function run(argv) {
     case 'init': {
       const existing = loadConfig(dir)
       let release = resolveRelease(existing, opts)
+      // Isolation defaults OFF; a flag or an interactive "yes" opts in.
+      let isolation = opts.isolation === true
 
       const interactive = Boolean(process.stdin.isTTY) && !opts.yes
       if (interactive) {
         const { promptSetup } = require('./prompts.js')
         const pkgExists = fs.existsSync(path.join(dir, 'package.json'))
-        release = await promptSetup({ seed: release, pkgExists })
+        const result = await promptSetup({ seed: release, pkgExists, isolationSeed: isolation })
+        release = result.release
+        isolation = result.isolation
       }
 
-      await init({ dir, force: opts.force, claudeMd: opts.claudeMd, mode: 'init', release })
+      await init({ dir, force: opts.force, claudeMd: opts.claudeMd, mode: 'init', release, isolation })
       break
     }
     case 'update':
