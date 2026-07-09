@@ -1,7 +1,7 @@
 # Linear hybrid sync — git-like `/spec-push` · `/spec-pull` · `/spec-status`
 
 > **Type:** Feature
-> **Status:** In Progress — Phases 1-3 complete; Phase 4 next (2026-07-09)
+> **Status:** In Progress — Phases 1-4 complete; Phase 5 next (2026-07-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-08
@@ -115,7 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Config + engine core (the seam) | ✅ | [01-config-and-engine.md](01-config-and-engine.md) |
 | 2 | MCP adapter + push/pull execution | ✅ | [02-mcp-push-pull.md](02-mcp-push-pull.md) |
 | 3 | Sync skills (status/pull/push) | ✅ | [03-sync-skills.md](03-sync-skills.md) |
-| 4 | Extend /spec + /spec-go (opt-in) | ⬜ | [04-touch-existing-skills.md](04-touch-existing-skills.md) |
+| 4 | Extend /spec + /spec-go (opt-in) | ✅ | [04-touch-existing-skills.md](04-touch-existing-skills.md) |
 | 5 | Docs + supersede | ⬜ | [05-docs-and-supersede.md](05-docs-and-supersede.md) |
 
 ## Open questions
@@ -142,6 +142,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-09 — Phase 4 complete. Extended the two existing skills behind the
+  opt-in gate. `/spec` gained "Phase E — link to Linear" (create Project +
+  Milestone per phase, add the frontmatter block, capture the initial base via
+  `spec-sync normalize`, echo the branch name; commits stay the user's, git never
+  auto-pushed). `/spec-go` gained "3b. Sync from Linear first" (run `/spec-pull`,
+  commit the refreshed snapshot into the branch, expect Linear's GitHub
+  automation to move status). Both stay inert without `linear.config.json`.
+  Confirmed no `/spec-sync` skill ships — push/pull/status replace it. Two
+  doc-assertion tests added (185 green).
 - 2026-07-09 — Phase 3 complete. Added the three thin skills — `/spec-status`
   (read-only), `/spec-pull`, `/spec-push` — each fetching the linked Linear project
   over MCP into a temp file, running `spec-sync <cmd> --remote`, and (push) applying

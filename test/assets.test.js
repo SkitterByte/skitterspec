@@ -61,3 +61,26 @@ test('the Linear hybrid-sync skills are shipped', () => {
     )
   }
 })
+
+const skillText = (name) =>
+  fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
+
+test('/spec documents the opt-in Linear link step', () => {
+  const text = skillText('spec')
+  // gated on the config file, and the no-config path is explicitly preserved
+  assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
+  assert.match(text, /skip this phase|behaves exactly as above/i, 'no-config path preserved')
+  // the Linear actions the phase must perform
+  assert.match(text, /Create the Project/i, 'creates the Linear Project')
+  assert.match(text, /Milestone per phase/i, 'creates a milestone per phase')
+  assert.match(text, /linear_project_id/, 'adds the frontmatter block')
+  assert.match(text, /base sidecar|spec-sync normalize/i, 'writes the initial base')
+})
+
+test('/spec-go documents the opt-in pull-first step', () => {
+  const text = skillText('spec-go')
+  assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
+  assert.match(text, /\/spec-pull/, 'runs /spec-pull first')
+  assert.match(text, /commit the refreshed snapshot/i, 'commits the refreshed snapshot')
+  assert.match(text, /skip this step|no config means/i, 'no-config path preserved')
+})
