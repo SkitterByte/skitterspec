@@ -183,6 +183,20 @@ function normalizeLocal(snapshotDir, config) {
 
 // --- remote projection ------------------------------------------------------
 
+// Map a Linear workflow-state name back to the local lifecycle bucket (the
+// vocabulary `spec_status` uses) via config.states, so local and remote
+// workflowState hash equal when semantically equal. Falls back to a lowercased
+// raw value when the state isn't one of the configured names.
+function bucketForState(state, config) {
+  if (state == null) return null
+  const states = (config && config.states) || {}
+  const want = String(state).toLowerCase().trim()
+  for (const [bucket, name] of Object.entries(states)) {
+    if (typeof name === 'string' && name.toLowerCase().trim() === want) return bucket
+  }
+  return want
+}
+
 // Canonicalise a Linear workflow-state name into the same vocabulary the local
 // milestone emojis use, so equal states hash equal.
 function canonicalRemoteStatus(state) {
@@ -216,7 +230,7 @@ function normalizeRemote(project, config) {
       phase: m.name,
       tasks: Array.isArray(m.tasks) ? m.tasks : [],
     })),
-    workflowState: p.state != null ? String(p.state) : null,
+    workflowState: p.state != null ? bucketForState(p.state, config) : null,
     priority: p.priority != null ? p.priority : null,
     labels: Array.isArray(p.labels) ? p.labels : [],
   }
@@ -231,4 +245,5 @@ module.exports = {
   parseSections,
   parsePhaseIndex,
   canonicalRemoteStatus,
+  bucketForState,
 }

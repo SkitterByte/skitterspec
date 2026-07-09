@@ -21,6 +21,8 @@ const { loadLinearConfig } = require('./sync/config.js')
 const { normalizeLocal, readSnapshot } = require('./sync/normalize.js')
 const { classify } = require('./sync/compare.js')
 const { readBase } = require('./sync/base.js')
+const { pull } = require('./sync/pull.js')
+const { push } = require('./sync/push.js')
 
 const pkg = require('../package.json')
 
@@ -41,6 +43,8 @@ Usage:
                               specs/.core/linear.config.json). Subcommands:
                                 normalize <spec>  print the normalized field set (JSON)
                                 status <spec>     per-field divergence vs base (read-only)
+                                pull <spec>       Linear->local (--force, --remote file)
+                                push <spec>       local->Linear (--force, --remote file)
   skitterspec --help          Show this help
   skitterspec --version       Print version
 
@@ -422,14 +426,111 @@ function specSyncStatus(dir, config, specArg) {
   process.stdout.write(out.join('\n') + '\n')
 }
 
-// Dispatch `skitterspec spec-sync <sub> [spec] [--dir path]`. No-ops with a clear
+// The linked Linear project id for a spec (frontmatter linear_project_id), else
+// its identifier — enough for the file adapter / a single-project remote file.
+function specProjectId(snapshotDir, config) {
+  try {
+    const { frontmatter } = readSnapshot(snapshotDir, config)
+    if (frontmatter.linear_project_id) return String(frontmatter.linear_project_id)
+    if (frontmatter.linear_identifier) return String(frontmatter.linear_identifier)
+  } catch {
+    /* fall through */
+  }
+  return path.basename(snapshotDir)
+}
+
+// A file-backed MCP adapter: reads the remote Project projection from a JSON file
+// and (on push) writes the merged result to `outPath` (default: the same file).
+// This lets `spec-sync push|pull` run the engine deterministically from the CLI /
+// CI. Live MCP-backed sync goes through the /spec-push · /spec-pull skills, which
+// supply the real adapter (Phase 3). `stamp` bumps updatedAt on write.
+function fileAdapter(remotePath, outPath, stamp) {
+  const readRemote = () => JSON.parse(fs.readFileSync(remotePath, 'utf-8'))
+  return {
+    async readProject() {
+      return fs.existsSync(remotePath) ? readRemote() : null
+    },
+    async updateProject(id, updates) {
+      const merged = { ...readRemote(), ...updates, updatedAt: `${stamp}-pushed` }
+      if (outPath) fs.writeFileSync(outPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8')
+      return merged
+    },
+  }
+}
+
+// Print a git-like summary of a pull/push engine result.
+function printSyncResult(kind, result) {
+  const out = []
+  if (result.ok === false && !result.blocked) {
+    out.push(`spec-sync ${kind}: error — ${result.error}`)
+  } else if (result.blocked) {
+    out.push(`spec-sync ${kind}: refused — ${result.message}`)
+  } else {
+    out.push(`spec-sync ${kind}: ok`)
+    if (kind === 'pull') {
+      if (result.applied.length) out.push(`  applied:   ${result.applied.join(', ')}`)
+      if (result.deferred.length) out.push(`  deferred:  ${result.deferred.join(', ')} (body write-back — manual)`)
+      if (!result.applied.length && !result.deferred.length) out.push('  nothing to pull — up to date')
+    } else {
+      if (result.written && result.written.length) out.push(`  written:   ${result.written.join(', ')}`)
+      if (result.skipped && result.skipped.length) out.push(`  skipped:   ${result.skipped.join(', ')} (not pushable)`)
+      if (result.note) out.push(`  ${result.note}`)
+    }
+    if (result.backupPath) out.push(`  backup:    ${result.backupPath}`)
+    if (result.basePath) out.push(`  base:      ${result.basePath}`)
+  }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
+// `spec-sync push|pull <spec> [--force] [--remote file] [--out file]`.
+async function specSyncPushPull(kind, dir, config, specArg, flags) {
+  if (!specArg) {
+    process.stdout.write(`Usage: skitterspec spec-sync ${kind} <spec> [--force] [--remote file] [--out file]\n`)
+    return
+  }
+  const snapshotDir = resolveSnapshotDir(specArg, dir)
+  if (!snapshotDir) {
+    process.stdout.write(`spec-sync: spec not found: ${specArg}\n`)
+    return
+  }
+  if (!flags.remote) {
+    process.stdout.write(
+      `spec-sync ${kind}: live Linear sync runs through the /spec-${kind} skill, which ` +
+        'connects the Linear MCP server.\n' +
+        `For a local run, pass --remote <project.json> (a Linear Project projection).\n`,
+    )
+    return
+  }
+  const identifier = specIdentifier(snapshotDir, config)
+  const projectId = specProjectId(snapshotDir, config)
+  const stamp = compactTimestamp()
+  const adapter = fileAdapter(flags.remote, flags.out, stamp)
+  const run = kind === 'pull' ? pull : push
+  const result = await run({
+    dir,
+    snapshotDir,
+    identifier,
+    projectId,
+    adapter,
+    config,
+    force: flags.force,
+    timestamp: new Date().toISOString(),
+  })
+  printSyncResult(kind, result)
+}
+
+// Dispatch `skitterspec spec-sync <sub> [spec] [flags]`. No-ops with a clear
 // message when Linear sync isn't enabled (no specs/.core/linear.config.json).
-function specSync(rest) {
+async function specSync(rest) {
   const [sub, ...args] = rest
   let dir = process.cwd()
   const positional = []
+  const flags = { force: false, remote: null, out: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
+    else if (args[i] === '--force') flags.force = true
+    else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
+    else if (args[i] === '--out') flags.out = path.resolve(args[++i])
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -450,8 +551,16 @@ function specSync(rest) {
     case 'status':
       specSyncStatus(dir, config, positional[0])
       break
+    case 'pull':
+      await specSyncPushPull('pull', dir, config, positional[0], flags)
+      break
+    case 'push':
+      await specSyncPushPull('push', dir, config, positional[0], flags)
+      break
     default:
-      process.stdout.write('Usage: skitterspec spec-sync <normalize|status> <spec> [--dir path]\n')
+      process.stdout.write(
+        'Usage: skitterspec spec-sync <normalize|status|pull|push> <spec> [--force] [--remote file] [--out file]\n',
+      )
   }
 }
 
@@ -473,7 +582,7 @@ async function run(argv) {
   }
 
   if (cmd === 'spec-sync') {
-    specSync(rest)
+    await specSync(rest)
     return
   }
 

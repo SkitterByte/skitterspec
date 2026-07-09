@@ -1,7 +1,7 @@
 # Linear hybrid sync — git-like `/spec-push` · `/spec-pull` · `/spec-status`
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 complete; Phase 2 next (2026-07-09)
+> **Status:** In Progress — Phases 1-2 complete; Phase 3 next (2026-07-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-08
@@ -113,7 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Config + engine core (the seam) | ✅ | [01-config-and-engine.md](01-config-and-engine.md) |
-| 2 | MCP adapter + push/pull execution | ⬜ | [02-mcp-push-pull.md](02-mcp-push-pull.md) |
+| 2 | MCP adapter + push/pull execution | ✅ | [02-mcp-push-pull.md](02-mcp-push-pull.md) |
 | 3 | Sync skills (status/pull/push) | ⬜ | [03-sync-skills.md](03-sync-skills.md) |
 | 4 | Extend /spec + /spec-go (opt-in) | ⬜ | [04-touch-existing-skills.md](04-touch-existing-skills.md) |
 | 5 | Docs + supersede | ⬜ | [05-docs-and-supersede.md](05-docs-and-supersede.md) |
@@ -125,6 +125,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
       in the adapter.
 - [ ] Milestone vs Issue for phases — default `milestone`; confirm Linear's MCP
       exposes project milestones for write before committing the default.
+- [ ] **Body-field write-back (denormalizer).** Pull currently applies only the
+      frontmatter-mapped `pull`-owned fields; writing a pulled `both`-owned body
+      field (`description`, `milestones`, `phaseBodies`, `taskBreakdown`) back into
+      the overview/phase markdown is deferred (reported as `deferred`, base kept
+      pending). Design the round-trip (which also resolves the `phaseBodies`/
+      `milestones` name-vs-slug asymmetry between local phase files and Linear
+      milestones) before relying on remote→local body sync.
 
 ## State log
 
@@ -135,6 +142,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-09 — Phase 2 complete. Shipped the MCP boundary (`src/sync/mcp.js` —
+  runtime `discoverLinear` + `makeAdapter`) and the `pull`/`push` engines with
+  three-way conflict refusal, ownership enforcement (`pull` fields never pushed),
+  optimistic concurrency (base `__meta.updatedAt` + re-read-before-write), and
+  backup-before-force; wired `spec-sync push|pull` over a `--remote` file adapter.
+  Decisions: (a) `workflowState` now normalizes both sides to the lifecycle bucket
+  via `config.states` so it stops perpetually diverging; (b) **remote→local
+  body-field write-back is deferred** — pull applies the frontmatter `pull`-owned
+  fields and reports body fields as `deferred` with base kept pending, so nothing
+  is falsely marked synced (tracked in Open questions). 180 tests green.
 - 2026-07-09 — Phase 1 complete. Shipped `src/sync/` engine (`config`,
   `normalize`, `compare`, `base`) + `spec-sync normalize|status` CLI seam, all
   MCP-free and green (160 tests). Two decisions worth recording: (a) the config
