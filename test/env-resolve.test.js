@@ -6,7 +6,13 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { resolveSpec, splitPrefix, expandTokens, repoInfo } = require('../src/env/resolve.js')
+const {
+  resolveSpec,
+  splitPrefix,
+  expandTokens,
+  repoInfo,
+  readStackField,
+} = require('../src/env/resolve.js')
 
 function baseConfig(overrides = {}) {
   return {
@@ -18,11 +24,12 @@ function baseConfig(overrides = {}) {
 }
 
 // Scaffold a project dir with one spec folder + overview, return the dir.
-function scaffold(folder, { bucket = 'backlog', frontmatter = '', linear = null } = {}) {
+function scaffold(folder, { bucket = 'backlog', frontmatter = '', linear = null, stack = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resolve-'))
   const specDir = path.join(dir, 'specs', bucket, folder)
   fs.mkdirSync(specDir, { recursive: true })
-  fs.writeFileSync(path.join(specDir, '00-overview.md'), `${frontmatter}# ${folder}\n`)
+  const stackLine = stack ? `> **Stack:** ${stack}\n` : ''
+  fs.writeFileSync(path.join(specDir, '00-overview.md'), `${frontmatter}# ${folder}\n${stackLine}`)
   if (linear) {
     const coreDir = path.join(dir, 'specs', '.core')
     fs.mkdirSync(coreDir, { recursive: true })
@@ -109,4 +116,34 @@ test('resolveSpec: accepts a path argument (uses its basename)', () => {
 test('resolveSpec throws a clear error when the spec is not found', () => {
   const dir = scaffold('feat-thing')
   assert.throws(() => resolveSpec('feat-missing', dir, baseConfig()), /spec not found/)
+})
+
+// --- Stack field (per-spec Docker escalation) -------------------------------
+
+const dockerCfg = (enabled) =>
+  baseConfig({ docker: { projectNamePattern: '{repoSlug}_{slug}', portBase: 3000, portsPerSpec: 10, enabled } })
+
+test('readStackField: explicit worktree/docker forms', () => {
+  const wt = scaffold('feat-a', { stack: 'worktree' })
+  const dk = scaffold('feat-b', { stack: 'worktree + docker' })
+  assert.strictEqual(readStackField(path.join(wt, 'specs', 'backlog', 'feat-a'), dockerCfg(true)), 'worktree')
+  assert.strictEqual(readStackField(path.join(dk, 'specs', 'backlog', 'feat-b'), dockerCfg(true)), 'docker')
+})
+
+test('readStackField: an explicit worktree suppresses Docker even when available', () => {
+  const wt = scaffold('feat-a', { stack: 'worktree' })
+  assert.strictEqual(readStackField(path.join(wt, 'specs', 'backlog', 'feat-a'), dockerCfg(true)), 'worktree')
+})
+
+test('readStackField: missing field follows the master switch (legacy behaviour)', () => {
+  const p = (dir) => path.join(dir, 'specs', 'backlog', 'feat-a')
+  assert.strictEqual(readStackField(p(scaffold('feat-a')), dockerCfg(true)), 'docker')
+  assert.strictEqual(readStackField(p(scaffold('feat-a')), dockerCfg(false)), 'worktree')
+})
+
+test('resolveSpec: populates spec.stack from the header', () => {
+  const dir = scaffold('feat-thing', { stack: 'worktree + docker' })
+  assert.strictEqual(resolveSpec('feat-thing', dir, dockerCfg(true)).stack, 'docker')
+  const wt = scaffold('feat-thing', { stack: 'worktree' })
+  assert.strictEqual(resolveSpec('feat-thing', wt, dockerCfg(true)).stack, 'worktree')
 })

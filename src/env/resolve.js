@@ -76,6 +76,29 @@ function readLinearIdentifier(specPath) {
   return m[1].trim().replace(/^["']|["']$/g, '') || null
 }
 
+/**
+ * Read a spec's `> **Stack:** …` blockquote field from 00-overview.md and map it
+ * to the isolation stack: any value containing `docker` → `'docker'`, otherwise
+ * `'worktree'`. A spec with no field falls back to the project default — which
+ * preserves pre-`Stack` behaviour: with Docker available (`docker.enabled`) a
+ * legacy spec still gets Docker, else it's worktree-only. The planner ANDs this
+ * with the master switch, so an explicit `worktree` always suppresses Docker.
+ */
+function readStackField(specPath, config) {
+  const overview = path.join(specPath, '00-overview.md')
+  let raw
+  try {
+    raw = fs.readFileSync(overview, 'utf-8')
+  } catch {
+    raw = null
+  }
+  const m = raw && /^>\s*\*\*Stack:\*\*\s*(.+)$/m.exec(raw)
+  if (m) {
+    return /docker/i.test(m[1]) ? 'docker' : 'worktree'
+  }
+  return config.docker && config.docker.enabled ? 'docker' : 'worktree'
+}
+
 // Load specs/.core/linear.config.json when present, else null.
 function loadLinearConfig(dir) {
   const file = path.join(dir, LINEAR_CONFIG)
@@ -129,7 +152,8 @@ function resolveSpec(specArg, dir, config) {
   const { repo, repoSlug } = repoInfo(dir)
   const tokens = { repo, repoSlug, slug }
 
-  const spec = { folder: found.folder, bucket: found.bucket, path: found.path, type, slug }
+  const stack = readStackField(found.path, config)
+  const spec = { folder: found.folder, bucket: found.bucket, path: found.path, type, slug, stack }
   const branch = branchFor(spec, dir, config)
 
   const worktreeRoot = expandTokens(config.worktree.root, tokens)
@@ -156,4 +180,5 @@ module.exports = {
   repoInfo,
   expandTokens,
   findSpecFolder,
+  readStackField,
 }

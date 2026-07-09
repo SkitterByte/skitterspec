@@ -54,6 +54,28 @@ test('docker.enabled:false omits the docker command', () => {
   assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
 })
 
+test('stack:worktree omits the docker command even with the master switch on', () => {
+  const plan = planUp(spec({ stack: 'worktree' }), { slot: 0, attached: false }, config())
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+})
+
+test('stack:docker emits the docker command when the master switch is on', () => {
+  const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config())
+  assert.deepStrictEqual(plan.commands, [
+    'git worktree add /wt/thing -b feat/thing',
+    'docker compose --project-name app_thing up -d',
+  ])
+})
+
+test('stack:docker is still suppressed when the master switch is off', () => {
+  const plan = planUp(
+    spec({ stack: 'docker' }),
+    { slot: 0, attached: false },
+    config({ docker: { enabled: false } }),
+  )
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+})
+
 test('openCommand expands tokens when open.command is set', () => {
   const plan = planUp(
     spec(),

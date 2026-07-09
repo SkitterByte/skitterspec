@@ -39,6 +39,12 @@ function planUp(spec, alloc, config) {
     portOffset: String(offset),
   })
 
+  // Per-spec escalation: bring Docker up only when this spec's Stack is `docker`,
+  // gated by the project master switch. A spec resolved without an explicit stack
+  // (legacy/tests) follows the master switch — preserving pre-`Stack` behaviour.
+  const stack = spec.stack || (config.docker.enabled ? 'docker' : 'worktree')
+  const wantsDocker = stack === 'docker' && config.docker.enabled
+
   const commands = []
   // Fresh branch → -b; attach an existing branch/slot → plain form (never clobber).
   commands.push(
@@ -46,7 +52,7 @@ function planUp(spec, alloc, config) {
       ? `git worktree add ${spec.worktreePath} ${spec.branch}`
       : `git worktree add ${spec.worktreePath} -b ${spec.branch}`,
   )
-  if (config.docker.enabled) {
+  if (wantsDocker) {
     commands.push(`docker compose --project-name ${spec.projectName} up -d`)
   }
 
