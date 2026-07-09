@@ -1,9 +1,9 @@
 # Integrate-to-main on `/spec-complete` + clean teardown
 
 > **Type:** Feature
-> **Status:** Ready (2026-07-09)
+> **Status:** In Progress — Phase 1 (started 2026-07-09)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-07-09
 > **Area:** assets/skills/spec-complete/SKILL.md, assets/skills/spec-env-down/SKILL.md, src/env/teardown.js, src/env/integrate.js (new), src/env/resolve.js, src/env/config.js, src/cli.js, assets/core/env.config.json.example, assets/core/env.config.md, README.md
 > **Stack:** worktree
@@ -115,6 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-07-09 | Draft | backlog | Reuben Greaves |
 | 2026-07-09 | Ready | backlog | Reuben Greaves |
+| 2026-07-09 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
