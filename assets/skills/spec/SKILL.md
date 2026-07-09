@@ -159,18 +159,7 @@ Rules for the spec body:
   absolute.
 - Keep it tight. If a section adds no information, delete it.
 
-## Phase C — index the spec
-
-Prepend a row to `specs/backlog/00-index.md` (newest first — directly under the table
-header row, above existing rows):
-
-```
-| <YYYY-MM-DD> | <feat-name> | Feature | Draft |
-```
-
-This is the live view of the backlog; `/spec-go` / `/spec-cancel` remove the row
-when the spec leaves. Create `00-index.md` from a header if it's somehow missing
-(`/spec-init` normally ensures it).
+## Phase C — finish up
 
 After writing, tell the user the path and that it's a `Draft` in `backlog`. Next
 step is `/spec-ready` once it's groomed, then `/spec-go` to start building.

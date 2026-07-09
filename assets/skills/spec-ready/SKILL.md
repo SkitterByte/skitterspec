@@ -42,8 +42,6 @@ Offer to fix small gaps inline if the user wants; otherwise leave it `Draft`.
   `> **Status:** Ready (<YYYY-MM-DD>)`.
 - Append a **State log** row: `| <YYYY-MM-DD> | Ready | backlog | <git user.name> |`
   (no folder change — Ready stays in `backlog`).
-- Update the spec's row in `specs/backlog/00-index.md` — set its Status column to
-  `Ready` (the row stays; the spec is still in backlog).
 - Optionally add a **Changelog** note if grooming changed anything substantive.
 
 ## 4. Report

@@ -27,14 +27,6 @@ empty so git keeps them:
 - `specs/.core/` — project rules (always apply; never moved)
 - `specs/backlog/` `specs/in-progress/` `specs/complete/` `specs/cancelled/`
 
-Also ensure the two index files exist (create with just their header comment +
-table header if missing — do not regenerate if present):
-
-- `specs/backlog/00-index.md` — live view of backlog (`Added | Spec | Type | Status`);
-  `/spec` adds rows, `/spec-go` and `/spec-cancel` remove them.
-- `specs/complete/00-index.md` — append-only completion log (`Completed | Spec | Type`),
-  newest first; `/spec-complete` prepends a row.
-
 ## 2. Version control — keep specs tracked
 
 The whole lifecycle lives in git — **everything under `specs/` is tracked**, so

@@ -41,25 +41,17 @@ const CORE_FILES = [
   path.join('core', 'env.config.md'),
 ]
 
-const BACKLOG_INDEX = `<!-- Maintained by the spec skills — do not hand-edit. -->
-<!-- Live view of the backlog. /spec prepends a row; /spec-ready updates status; -->
-<!-- /spec-go and /spec-cancel remove the row when the spec leaves the backlog. -->
-
-| Added | Spec | Type | Status |
-|-------|------|------|--------|
-`
-
-const COMPLETE_INDEX = `<!-- Maintained by the spec skills — do not hand-edit. -->
-<!-- Append-only completion log, newest first. /spec-complete prepends a row. -->
-
-| Completed | Spec | Type |
-|-----------|------|------|
-`
-
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
 
-const report = { created: [], updated: [], skipped: [], warnings: [] }
+const report = { created: [], updated: [], skipped: [], removed: [], warnings: [] }
+
+// Folder index files scaffolded by earlier versions, now retired. `init`/`update`
+// deletes any left behind so upgrading projects don't keep stale caches.
+const RETIRED_FILES = [
+  path.join('specs', 'backlog', '00-index.md'),
+  path.join('specs', 'complete', '00-index.md'),
+]
 
 function rel(dir, p) {
   return path.relative(dir, p) || '.'
@@ -116,17 +108,14 @@ function installRule(dir, opts) {
   }
 }
 
-// backlog + complete are kept in git by their 00-index.md file, so they need no .gitkeep
-const FOLDERS_WITH_INDEX = new Set(['backlog', 'complete'])
-
 function installFolders(dir) {
   for (const folder of SPEC_FOLDERS) {
     const abs = path.join(dir, 'specs', folder)
     if (!fs.existsSync(abs)) {
       ensureDir(abs)
       report.created.push(rel(dir, abs) + '/')
-      // keep otherwise-empty folders in git (those without an 00-index.md)
-      if (!FOLDERS_WITH_INDEX.has(folder) && !fs.readdirSync(abs).length) {
+      // keep otherwise-empty folders in git
+      if (!fs.readdirSync(abs).length) {
         fs.writeFileSync(path.join(abs, '.gitkeep'), '')
       }
     } else {
@@ -135,9 +124,19 @@ function installFolders(dir) {
   }
 }
 
-function installIndexes(dir, opts) {
-  writeFile(dir, path.join(dir, 'specs', 'backlog', '00-index.md'), BACKLOG_INDEX, opts)
-  writeFile(dir, path.join(dir, 'specs', 'complete', '00-index.md'), COMPLETE_INDEX, opts)
+// Delete retired folder index files left by earlier versions. If removing one
+// empties its bucket, drop a `.gitkeep` so the folder stays tracked in git.
+function removeRetiredFiles(dir) {
+  for (const relPath of RETIRED_FILES) {
+    const target = path.join(dir, relPath)
+    if (!fs.existsSync(target)) continue
+    fs.unlinkSync(target)
+    report.removed.push(rel(dir, target))
+    const folder = path.dirname(target)
+    if (fs.existsSync(folder) && !fs.readdirSync(folder).length) {
+      fs.writeFileSync(path.join(folder, '.gitkeep'), '')
+    }
+  }
 }
 
 // Scaffold the opt-in isolation templates into specs/.core/ (the example config
@@ -326,6 +325,7 @@ function printReport(dir, mode) {
   process.stdout.write(`\nskitterspec ${mode} → ${dir}\n`)
   line('created', report.created)
   line('updated', report.updated)
+  line('removed', report.removed)
   line('unchanged', report.skipped)
   if (report.warnings.length) {
     process.stdout.write('\nwarnings:\n')
@@ -346,13 +346,14 @@ async function init({ dir, force, claudeMd, mode, release }) {
   report.created.length = 0
   report.updated.length = 0
   report.skipped.length = 0
+  report.removed.length = 0
   report.warnings.length = 0
 
   installSkills(dir, { force })
   installRule(dir, { force })
   installFolders(dir)
+  removeRetiredFiles(dir)
   installCore(dir, { force })
-  installIndexes(dir, { force })
   if (claudeMd) installClaudeMd(dir, { mode })
 
   // Release tooling. The CLI resolves `release` from flags/prompts; when called

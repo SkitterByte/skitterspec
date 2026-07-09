@@ -27,8 +27,6 @@ description: Promote a spec into active development and implement its first phas
 - Set the **Developer** header field if it's still `—`: use `git config user.name`.
 - Append a **State log** row:
   `| <YYYY-MM-DD> | In Progress | in-progress | <git user.name> |`.
-- **Remove the spec's row from `specs/backlog/00-index.md`** — it has left the backlog
-  (there is no index for `in-progress`).
 
 A spec ideally reaches here as `Ready` (via `/spec-ready`), but `/spec-go` works
 on a `Draft` too — just sanity-check it's well-formed before building.

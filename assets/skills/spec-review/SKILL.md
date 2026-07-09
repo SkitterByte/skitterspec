@@ -59,8 +59,8 @@ reading the code, do that instead of asking.
   Reviewed vs codebase: retargeted Phase 2 onto X, dropped Y (removed), ticked Z
   (already done)`).
 - **Status:** if drift is minor, leave status as-is. If a `Ready` spec needs real
-  re-grooming, knock it back to `Draft` (set `> **Status:** Draft`, append a
-  **State log** row, and reset its row in `specs/backlog/00-index.md` to `Draft`).
+  re-grooming, knock it back to `Draft` (set `> **Status:** Draft` and append a
+  **State log** row).
 
 ## 5. Report
 

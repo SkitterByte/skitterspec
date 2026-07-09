@@ -27,7 +27,7 @@ function release({ changelog = true, releases = true, versionHook = false } = {}
 const exists = (dir, ...p) => fs.existsSync(path.join(dir, ...p))
 const readPkg = (dir) => JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
 
-test('init scaffolds skills, rule, folders, indexes', async () => {
+test('init scaffolds skills, rule, folders', async () => {
   const dir = tmpProject()
   await init({ dir, force: false, claudeMd: true, mode: 'init' })
 
@@ -46,12 +46,33 @@ test('init scaffolds skills, rule, folders, indexes', async () => {
   for (const f of ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']) {
     assert.ok(fs.existsSync(path.join(dir, 'specs', f)), `folder ${f}`)
   }
-  assert.ok(fs.existsSync(path.join(dir, 'specs', 'backlog', '00-index.md')))
-  assert.ok(fs.existsSync(path.join(dir, 'specs', 'complete', '00-index.md')))
+  // the folder index files are retired — never created...
+  assert.ok(!exists(dir, 'specs', 'backlog', '00-index.md'), 'no backlog index')
+  assert.ok(!exists(dir, 'specs', 'complete', '00-index.md'), 'no complete index')
+  // ...and the buckets are kept in git by a .gitkeep instead
+  assert.ok(exists(dir, 'specs', 'backlog', '.gitkeep'), 'backlog kept via .gitkeep')
+  assert.ok(exists(dir, 'specs', 'complete', '.gitkeep'), 'complete kept via .gitkeep')
 
   const claude = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8')
   assert.match(claude, /## Spec workflow/)
   assert.match(claude, /<!-- skitterspec:start -->/)
+})
+
+test('removes retired folder index files left by an earlier version', async () => {
+  const dir = tmpProject()
+  // simulate an old install that scaffolded the index files
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  fs.writeFileSync(path.join(dir, 'specs', 'backlog', '00-index.md'), '| Added |\n')
+  fs.writeFileSync(path.join(dir, 'specs', 'complete', '00-index.md'), '| Completed |\n')
+
+  // re-running (init or update) migrates them away
+  await init({ dir, force: false, claudeMd: false, mode: 'update' })
+
+  assert.ok(!exists(dir, 'specs', 'backlog', '00-index.md'), 'backlog index removed')
+  assert.ok(!exists(dir, 'specs', 'complete', '00-index.md'), 'complete index removed')
+  // the emptied buckets stay tracked via .gitkeep
+  assert.ok(exists(dir, 'specs', 'backlog', '.gitkeep'), 'backlog kept via .gitkeep')
+  assert.ok(exists(dir, 'specs', 'complete', '.gitkeep'), 'complete kept via .gitkeep')
 })
 
 test('registers the per-spec isolation skills', () => {

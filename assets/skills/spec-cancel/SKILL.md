@@ -47,9 +47,6 @@ Add a **Changelog** entry:
 `git mv "specs/<bucket>/<name>" "specs/cancelled/<name>"` (preserve history;
 move the whole folder).
 
-If the spec was in `backlog`, **remove its row from `specs/backlog/00-index.md`**
-(it has left the backlog). There is no index for `cancelled`.
-
 ## 6. Report
 
 Confirm the cancellation, the reason recorded, and the new location. Do **not**

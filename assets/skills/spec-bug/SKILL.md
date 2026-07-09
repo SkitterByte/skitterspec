@@ -103,10 +103,6 @@ test, split the fix into phase files (`01-<slug>.md` …) with a phase index in
 `00-overview.md`, and leave the spec in `in-progress` for `/spec-go` to continue.
 Say so explicitly — don't fake green.
 
-It starts in `in-progress`, so it does **not** touch `specs/backlog/00-index.md`
-(there is no index for in-progress). When `/spec-complete` later finishes it,
-that skill logs it to `specs/complete/00-index.md`.
-
 ## 5. Report
 
 Summarise: root cause, the failing→passing test, the fix, and the full test

@@ -38,8 +38,6 @@ never clobbers customised files. It writes:
 .claude/rules/spec-planning.md  # governing rule (the single source of truth)
 .claude/rules/commit-messages.md # commit message + release-note grammar
 specs/{.core,backlog,in-progress,complete,cancelled}/
-specs/backlog/00-index.md            # live backlog view (skill-maintained)
-specs/complete/00-index.md           # append-only completion log
 CLAUDE.md                       # adds a "## Spec workflow" section (created if absent)
 ```
 

@@ -43,16 +43,8 @@ Before marking complete, confirm the work is actually finished:
 
 `mkdir -p specs/complete` then **`git mv`** the file or folder:
 `git mv "specs/in-progress/<name>" "specs/complete/<name>"` (preserve history;
-move the whole folder).
-
-Then **prepend a row to `specs/complete/00-index.md`** (newest first — directly under
-the table header, above existing rows):
-
-```
-| <YYYY-MM-DD> | <name> | Feature|Bug |
-```
-
-This is the append-only completion log used to find the latest completed specs.
+move the whole folder). The `specs/complete/` folder is the record of finished
+specs — `git log`/the per-spec State log give the completion order.
 
 ## 5. Report
 

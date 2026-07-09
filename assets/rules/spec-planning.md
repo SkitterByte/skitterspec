@@ -116,18 +116,13 @@ Keep the index and the phase files in sync (`⬜`/`🔄`/`✅`). Legacy specs ma
 bare `<name>.md`, or a `00-overview.md` with inline phases — the skills read
 those, but new specs always use the folder + phase-file form.
 
-## Folder indexes (`00-index.md`)
+## Finding specs
 
-Two folders keep a skill-maintained `00-index.md` file (never hand-edit):
-
-- `specs/backlog/00-index.md` — **live view** of the backlog (`Added | Spec | Type |
-  Status`, newest first). `/spec` prepends a row; `/spec-ready` updates its
-  status; `/spec-go` and `/spec-cancel` remove the row when the spec leaves.
-- `specs/complete/00-index.md` — **append-only completion log** (`Completed | Spec |
-  Type`, newest first). `/spec-complete` prepends a row — use it to find the
-  latest completed specs.
-
-`/spec-init` ensures both exist. No index for `in-progress` or `cancelled`.
+The **folder buckets are the source of truth** — a spec's bucket is its status.
+To see the backlog, list `specs/backlog/`; for the latest completed specs, use
+`git log`/mtime on `specs/complete/` or each spec's dated **State log**. Live
+status also lives in Linear when it's linked. (There are no `00-index.md`
+summary files — the folder tree, headers, and State logs are queried directly.)
 
 ## Rules
 
