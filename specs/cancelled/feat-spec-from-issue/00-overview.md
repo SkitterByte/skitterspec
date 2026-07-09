@@ -1,7 +1,7 @@
 # Tracker issue intake — `/spec-from-issue`
 
 > **Type:** Feature
-> **Status:** Draft — not started
+> **Status:** Cancelled (2026-07-08) — superseded by the Linear hybrid bidirectional sync design (feat-linear-hybrid-sync)
 > **Author:** Reuben Greaves
 > **Developer:** —
 > **Raised:** 2026-06-29
@@ -127,6 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-06-29 | Draft | backlog | Reuben Greaves |
+| 2026-07-08 | Cancelled | cancelled | Reuben Greaves |
 
 ## Changelog
 
@@ -134,3 +135,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   thin front-door delegating to /spec & /spec-bug; full best-effort lifecycle
   reflection; root `skitterspec.config.json`; manual pull for v1 (auto-intake
   deferred).
+- 2026-07-08 — Cancelled: superseded by feat-linear-hybrid-sync. That design
+  replaces one-way content intake with a Linear-specific three-way merge
+  (base sidecars + field ownership) and bidirectional push/pull/status.
