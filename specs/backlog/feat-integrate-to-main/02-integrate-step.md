@@ -22,7 +22,8 @@ completed isolated spec lands on base and its worktree/branch are reclaimed with
       `ctx`/`spec`.
 - [ ] Add the `spec-env integrate <spec>` CLI subcommand (`src/cli.js`): resolve
       the spec + base (`resolveBaseBranch`), query git for `dirty`/`aheadOfBase`
-      and `mainRepoPath` (see Open question), call `planIntegrate`, and print the
+      and `mainRepoPath` (`dirname(abspath(git rev-parse --git-common-dir))`,
+      Decision 7), call `planIntegrate`, and print the
       plan / block / no-op (mirror the `spec-env down` output shape). Add it to the
       `spec-env` help text.
 - [ ] Wire `/spec-complete` (`assets/skills/spec-complete/SKILL.md`) — new step
@@ -49,6 +50,7 @@ completed isolated spec lands on base and its worktree/branch are reclaimed with
 ## Notes
 
 Conflict handling stays in the skill (execute rebase; abort + hand back on
-failure), keeping the planner pure — see Decision 2 and the Open question on a
-`git merge-tree` pre-check. The ff step runs in the **primary** checkout
-(`mainRepoPath`), not the worktree; resolve it once and thread it through `ctx`.
+failure), keeping the planner pure — see Decisions 2 and 8. The ff step runs in
+the **primary** checkout (`mainRepoPath`), not the worktree — resolve it once as
+`dirname(abspath(git rev-parse --git-common-dir))` (Decision 7) and thread it
+through `ctx`.

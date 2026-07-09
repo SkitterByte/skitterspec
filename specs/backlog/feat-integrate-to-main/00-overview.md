@@ -1,7 +1,7 @@
 # Integrate-to-main on `/spec-complete` + clean teardown
 
 > **Type:** Feature
-> **Status:** Draft — not started
+> **Status:** Ready (2026-07-09)
 > **Author:** Reuben Greaves
 > **Developer:** —
 > **Raised:** 2026-07-09
@@ -50,6 +50,16 @@ The last mile of the lifecycle should be one guarded flow, not manual git.
    git for those facts (base resolution, clean/merged/divergence, conflict
    handling); the skills execute the printed commands. No `Date.now()`/live git in
    the planners — keeps them unit-testable, matching `src/env/*`.
+7. **`mainRepoPath` = `dirname(abspath(git rev-parse --git-common-dir))`.**
+   Verified: from the primary checkout `--git-common-dir` is `.git` (parent = repo
+   root); from a linked worktree it is the absolute `<main>/.git` (parent = the
+   same root). Robust regardless of where the CLI is invoked — the ff step always
+   targets the primary checkout. (Resolved open question.)
+8. **Conflict handling: attempt-and-abort, in the skill.** The `/spec-complete`
+   skill runs the rebase and, on a non-zero exit, runs `git rebase --abort` and
+   hands back — the planner stays pure (emits the command sequence only). A
+   side-effect-free `git merge-tree --write-tree` pre-check is a possible later
+   enhancement, not needed now. (Resolved open question.)
 
 ## Solution overview
 
@@ -96,21 +106,23 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] `mainRepoPath` resolution for the ff step — the primary checkout, via
-      `git rev-parse --git-common-dir` (parent) or the first `git worktree list`
-      entry. Confirm which is robust when the CLI is invoked from inside a worktree.
-- [ ] Conflict pre-flight: attempt-and-abort (Decision 2) vs a side-effect-free
-      `git merge-tree --write-tree` pre-check. Default to attempt-and-abort; note
-      merge-tree as a possible enhancement if a half-second rebase churn matters.
+- None — both resolved into Decisions 7 (`mainRepoPath`) and 8 (conflict
+  handling) during grooming.
 
 ## State log
 
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-07-09 | Draft | backlog | Reuben Greaves |
+| 2026-07-09 | Ready | backlog | Reuben Greaves |
 
 ## Changelog
 
+- 2026-07-09 — Groomed to Ready. Resolved both open questions into Decisions 7
+  (`mainRepoPath = dirname(abspath(git rev-parse --git-common-dir))`, verified from
+  both a worktree and the primary checkout) and 8 (conflict handling is
+  attempt-and-abort in the skill; `git merge-tree` pre-check deferred as an
+  enhancement). No structural changes.
 - 2026-07-09 — Spec created. Grilled to: integrate step folded into
   `/spec-complete` (opt-in, isolation-only); rebase+ff with abort-on-conflict;
   teardown treats merged-into-base as safe and deletes the merged branch; base
