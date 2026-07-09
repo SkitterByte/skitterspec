@@ -27,6 +27,9 @@ const SKILLS = [
   'spec-init',
   'spec-env',
   'spec-env-down',
+  'spec-status',
+  'spec-pull',
+  'spec-push',
   'commit',
 ]
 
@@ -356,7 +359,8 @@ function printReport(dir, mode) {
       ' specs/.core/env.config.json.example → env.config.json) to enable it.\n'
   process.stdout.write(
     '\nDone. Skills resolve as /spec, /spec-ready, /spec-go, /spec-complete,' +
-      ' /spec-cancel, /spec-bug, /spec-init, /spec-env, /spec-env-down, /commit.\n' +
+      ' /spec-cancel, /spec-bug, /spec-init, /spec-env, /spec-env-down,' +
+      ' /spec-status, /spec-pull, /spec-push, /commit.\n' +
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
       " project's stack, then run /spec.\n" +
       isolationNote,

@@ -36,3 +36,28 @@ test('shipped Markdown assets carry no project-specific references', () => {
     }
   }
 })
+
+test('every shipped skill has valid frontmatter with a matching name', () => {
+  const skillsDir = path.join(ASSETS, 'skills')
+  for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const file = path.join(skillsDir, entry.name, 'SKILL.md')
+    assert.ok(fs.existsSync(file), `${entry.name}/SKILL.md exists`)
+    const fm = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'))
+    assert.ok(fm, `${entry.name} has YAML frontmatter`)
+    const name = /^name:\s*(.+)$/m.exec(fm[1])
+    const desc = /^description:\s*(.+)$/m.exec(fm[1])
+    assert.ok(name && name[1].trim(), `${entry.name} has a name`)
+    assert.ok(desc && desc[1].trim(), `${entry.name} has a description`)
+    assert.strictEqual(name[1].trim(), entry.name, `${entry.name} name matches its folder`)
+  }
+})
+
+test('the Linear hybrid-sync skills are shipped', () => {
+  for (const name of ['spec-status', 'spec-pull', 'spec-push']) {
+    assert.ok(
+      fs.existsSync(path.join(ASSETS, 'skills', name, 'SKILL.md')),
+      `${name} SKILL.md shipped`,
+    )
+  }
+})

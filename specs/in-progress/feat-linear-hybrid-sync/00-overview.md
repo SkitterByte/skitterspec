@@ -1,7 +1,7 @@
 # Linear hybrid sync — git-like `/spec-push` · `/spec-pull` · `/spec-status`
 
 > **Type:** Feature
-> **Status:** In Progress — Phases 1-2 complete; Phase 3 next (2026-07-09)
+> **Status:** In Progress — Phases 1-3 complete; Phase 4 next (2026-07-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-08
@@ -114,7 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Config + engine core (the seam) | ✅ | [01-config-and-engine.md](01-config-and-engine.md) |
 | 2 | MCP adapter + push/pull execution | ✅ | [02-mcp-push-pull.md](02-mcp-push-pull.md) |
-| 3 | Sync skills (status/pull/push) | ⬜ | [03-sync-skills.md](03-sync-skills.md) |
+| 3 | Sync skills (status/pull/push) | ✅ | [03-sync-skills.md](03-sync-skills.md) |
 | 4 | Extend /spec + /spec-go (opt-in) | ⬜ | [04-touch-existing-skills.md](04-touch-existing-skills.md) |
 | 5 | Docs + supersede | ⬜ | [05-docs-and-supersede.md](05-docs-and-supersede.md) |
 
@@ -142,6 +142,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-09 — Phase 3 complete. Added the three thin skills — `/spec-status`
+  (read-only), `/spec-pull`, `/spec-push` — each fetching the linked Linear project
+  over MCP into a temp file, running `spec-sync <cmd> --remote`, and (push) applying
+  the engine-blessed writes back over MCP. Registered in `init`'s `SKILLS` + Done
+  message, dogfood symlinks committed, tests assert frontmatter + install (183
+  green). Also gave `spec-sync status` a `--remote` flag for true three-way status.
+  Follow-up noted: a plan/apply split so the base advances only after the live
+  Linear write confirms.
 - 2026-07-09 — Phase 2 complete. Shipped the MCP boundary (`src/sync/mcp.js` —
   runtime `discoverLinear` + `makeAdapter`) and the `pull`/`push` engines with
   three-way conflict refusal, ownership enforcement (`pull` fields never pushed),

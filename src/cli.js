@@ -18,7 +18,7 @@ const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
 const { findSpecFolder } = require('./env/resolve.js')
 const { loadLinearConfig } = require('./sync/config.js')
-const { normalizeLocal, readSnapshot } = require('./sync/normalize.js')
+const { normalizeLocal, normalizeRemote, readSnapshot } = require('./sync/normalize.js')
 const { classify } = require('./sync/compare.js')
 const { readBase } = require('./sync/base.js')
 const { pull } = require('./sync/pull.js')
@@ -392,12 +392,14 @@ function specSyncNormalize(dir, config, specArg) {
   process.stdout.write(JSON.stringify(local, null, 2) + '\n')
 }
 
-// `spec-sync status <spec>` — read-only per-field divergence (git status analog).
-// Phase 1 has no live MCP, so it compares local vs the committed base only
-// (remote treated as base); Phase 2 supplies the live remote projection.
-function specSyncStatus(dir, config, specArg) {
+// `spec-sync status <spec> [--remote file]` — read-only per-field divergence
+// (git status analog). With `--remote` (a Linear Project projection, supplied by
+// the /spec-status skill via MCP) it reports true three-way divergence; without
+// it, it compares local vs the committed base only (what changed locally since
+// the last sync).
+function specSyncStatus(dir, config, specArg, flags = {}) {
   if (!specArg) {
-    process.stdout.write('Usage: skitterspec spec-sync status <spec>\n')
+    process.stdout.write('Usage: skitterspec spec-sync status <spec> [--remote file]\n')
     return
   }
   const snapshotDir = resolveSnapshotDir(specArg, dir)
@@ -408,19 +410,25 @@ function specSyncStatus(dir, config, specArg) {
   const identifier = specIdentifier(snapshotDir, config)
   const local = normalizeLocal(snapshotDir, config)
   const base = readBase(dir, identifier, config)
-  // No MCP yet — compare against the base so status reports what changed locally
-  // since the last sync. Remote-vs-base divergence lands in Phase 2.
-  const fields = classify(local, base, base, config)
+
+  let remote = base // no remote → compare local vs base
+  let haveRemote = false
+  if (flags.remote && fs.existsSync(flags.remote)) {
+    remote = normalizeRemote(JSON.parse(fs.readFileSync(flags.remote, 'utf-8')), config)
+    haveRemote = true
+  }
+  const fields = classify(local, remote, base, config)
 
   const out = []
   out.push(`spec-sync status: ${identifier}${base ? '' : ' (no base yet — never synced)'}`)
-  out.push('  (remote comparison requires the Linear MCP adapter — Phase 2)')
+  if (!haveRemote) out.push('  (no --remote given — compared local vs base only)')
   const changed = fields.filter((f) => f.status !== 'unchanged')
   if (!changed.length) {
-    out.push('  nothing to sync — local matches base')
+    out.push(haveRemote ? '  in sync — local, Linear, and base agree' : '  nothing to sync — local matches base')
   } else {
     for (const f of changed) {
-      out.push(`  ${f.status.padEnd(12)} ${f.field}  (${f.ownership})`)
+      const dir_ = f.pushable && f.pullable ? 'push+pull' : f.pushable ? 'push' : f.pullable ? 'pull' : '—'
+      out.push(`  ${f.status.padEnd(12)} ${f.field.padEnd(18)} (${f.ownership}, ${dir_})`)
     }
   }
   process.stdout.write(out.join('\n') + '\n')
@@ -549,7 +557,7 @@ async function specSync(rest) {
       specSyncNormalize(dir, config, positional[0])
       break
     case 'status':
-      specSyncStatus(dir, config, positional[0])
+      specSyncStatus(dir, config, positional[0], flags)
       break
     case 'pull':
       await specSyncPushPull('pull', dir, config, positional[0], flags)

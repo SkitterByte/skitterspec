@@ -80,6 +80,12 @@ test('registers the per-spec isolation skills', () => {
   assert.ok(SKILLS.includes('spec-env-down'), 'spec-env-down registered')
 })
 
+test('registers the Linear hybrid-sync skills', () => {
+  assert.ok(SKILLS.includes('spec-status'), 'spec-status registered')
+  assert.ok(SKILLS.includes('spec-pull'), 'spec-pull registered')
+  assert.ok(SKILLS.includes('spec-push'), 'spec-push registered')
+})
+
 test('init scaffolds the opt-in isolation config into specs/.core', async () => {
   const dir = tmpProject()
   await init({ dir, force: false, claudeMd: false, mode: 'init' })
