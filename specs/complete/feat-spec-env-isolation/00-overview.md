@@ -1,7 +1,7 @@
 # Per-spec isolation — `/spec-env` (up) · `/spec-env-down` (teardown)
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-08)
+> **Status:** Complete (2026-07-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-08
@@ -147,7 +147,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Config + registry + resolve engine (the seam) | ✅ | [01-config-registry-resolve.md](01-config-registry-resolve.md) |
 | 2 | Provision — `spec-env up` + `/spec-env` skill | ✅ | [02-provision-spec-env.md](02-provision-spec-env.md) |
 | 3 | Teardown — `spec-env down` + `/spec-env-down` skill | ✅ | [03-teardown-spec-env-down.md](03-teardown-spec-env-down.md) |
-| 4 | Wire-in + docs + opt-in hooks | ⬜ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
+| 4 | Wire-in + docs + opt-in hooks | ✅ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
 
 ## Open questions
 
@@ -162,9 +162,24 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-07-08 | Draft | backlog | Reuben Greaves |
 | 2026-07-08 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-07-09 — Completed; all 4 phases done, 110 tests green. Full lifecycle
+  verified end-to-end (init → opt-in → `spec-env up` → real worktree+`.env` →
+  guards → `--force` teardown → idempotent no-op). Nothing deferred.
+- 2026-07-08 — Phase 4 done (**all phases complete** — ready for `/spec-complete`).
+  Registered `spec-env`/`spec-env-down` in `src/init.js` `SKILLS`; `init` now also
+  scaffolds the opt-in `specs/.core/env.config.{json.example,md}`. Added a gated
+  "offer to provision/tear down" step to `/spec`, `/spec-complete`, `/spec-cancel`
+  (fires only when `env.config.json` exists); cross-referenced the isolation skills
+  in `spec-planning.md`; added a README section; gitignored `/.spec-env/`. 2 new
+  init tests (110 total, green). Verified full lifecycle end-to-end (init →
+  opt-in → up → real worktree+`.env` → unpushed guard → `--force` teardown → slot
+  freed → idempotent no-op). Deviation: the example+docs were **relocated to
+  `assets/core/`** (git mv from `specs/.core/`) so they ship via npm (`files:`
+  omits `specs/`) and `init` copies them into the consumer's `specs/.core/`.
 - 2026-07-08 — Phase 3 done. Added `src/env/teardown.js` (pure `planDown` +
   dirty/unpushed guards, `--force`/`--keep-volumes`, config-driven pre-drop
   backup), wired `spec-env down` (CLI queries git state via `worktreeGitState`,

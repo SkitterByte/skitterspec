@@ -25,12 +25,21 @@ const SKILLS = [
   'spec-complete',
   'spec-cancel',
   'spec-init',
+  'spec-env',
+  'spec-env-down',
   'commit',
 ]
 
 const RULES = ['spec-planning.md', 'commit-messages.md']
 
 const SPEC_FOLDERS = ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']
+
+// Opt-in per-spec isolation config, scaffolded into specs/.core/ as templates
+// the consumer copies (env.config.json.example → env.config.json to adopt).
+const CORE_FILES = [
+  path.join('core', 'env.config.json.example'),
+  path.join('core', 'env.config.md'),
+]
 
 const BACKLOG_INDEX = `<!-- Maintained by the spec skills — do not hand-edit. -->
 <!-- Live view of the backlog. /spec prepends a row; /spec-ready updates status; -->
@@ -129,6 +138,20 @@ function installFolders(dir) {
 function installIndexes(dir, opts) {
   writeFile(dir, path.join(dir, 'specs', 'backlog', '00-index.md'), BACKLOG_INDEX, opts)
   writeFile(dir, path.join(dir, 'specs', 'complete', '00-index.md'), COMPLETE_INDEX, opts)
+}
+
+// Scaffold the opt-in isolation templates into specs/.core/ (the example config
+// + its field docs). Copied, not activated: the feature stays off until the
+// consumer copies env.config.json.example → env.config.json.
+function installCore(dir, opts) {
+  for (const asset of CORE_FILES) {
+    copyAsset(
+      dir,
+      asset,
+      path.join(dir, 'specs', '.core', path.basename(asset)),
+      opts,
+    )
+  }
 }
 
 function installClaudeMd(dir, { mode }) {
@@ -310,9 +333,11 @@ function printReport(dir, mode) {
   }
   process.stdout.write(
     '\nDone. Skills resolve as /spec, /spec-ready, /spec-go, /spec-complete,' +
-      ' /spec-cancel, /spec-bug, /spec-init, /commit.\n' +
+      ' /spec-cancel, /spec-bug, /spec-init, /spec-env, /spec-env-down, /commit.\n' +
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
-      " project's stack, then run /spec.\n",
+      " project's stack, then run /spec.\n" +
+      'Per-spec isolation is opt-in: copy specs/.core/env.config.json.example →' +
+      ' env.config.json to enable /spec-env.\n',
   )
 }
 
@@ -326,6 +351,7 @@ async function init({ dir, force, claudeMd, mode, release }) {
   installSkills(dir, { force })
   installRule(dir, { force })
   installFolders(dir)
+  installCore(dir, { force })
   installIndexes(dir, { force })
   if (claudeMd) installClaudeMd(dir, { mode })
 

@@ -174,3 +174,11 @@ when the spec leaves. Create `00-index.md` from a header if it's somehow missing
 
 After writing, tell the user the path and that it's a `Draft` in `backlog`. Next
 step is `/spec-ready` once it's groomed, then `/spec-go` to start building.
+
+## Phase D — offer isolation (opt-in, only if configured)
+
+**Only when `specs/.core/env.config.json` exists** (the per-spec isolation
+feature is enabled), offer — don't force — to provision an isolated environment
+for the new spec: "Want me to run `/spec-env <name>` to give this spec its own
+worktree + Docker stack?" If they decline, or if `env.config.json` is absent, do
+nothing and finish as above.

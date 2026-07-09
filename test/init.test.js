@@ -54,6 +54,21 @@ test('init scaffolds skills, rule, folders, indexes', async () => {
   assert.match(claude, /<!-- skitterspec:start -->/)
 })
 
+test('registers the per-spec isolation skills', () => {
+  assert.ok(SKILLS.includes('spec-env'), 'spec-env registered')
+  assert.ok(SKILLS.includes('spec-env-down'), 'spec-env-down registered')
+})
+
+test('init scaffolds the opt-in isolation config into specs/.core', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  // the example template is scaffolded (consumer copies it to opt in)...
+  assert.ok(exists(dir, 'specs', '.core', 'env.config.json.example'), 'example scaffolded')
+  assert.ok(exists(dir, 'specs', '.core', 'env.config.md'), 'field docs scaffolded')
+  // ...but the live config is NOT created (feature stays off until opted in)
+  assert.ok(!exists(dir, 'specs', '.core', 'env.config.json'), 'live config not auto-created')
+})
+
 test('init is idempotent — second run does not clobber edits', async () => {
   const dir = tmpProject()
   await init({ dir, force: false, claudeMd: true, mode: 'init' })

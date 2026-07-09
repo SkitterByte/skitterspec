@@ -20,6 +20,15 @@ state). `/spec-ready` is a grooming gate only — it does not move the folder.
 `/spec-bug` is test-first and starts straight in `In Progress` (work begins
 immediately), so it skips Draft/Ready.
 
+**Per-spec isolation (opt-in, orthogonal to status).** Two extra skills —
+`/spec-env` and `/spec-env-down` — give an in-progress spec its own git worktree
++ namespaced Docker stack (and an optional editor/terminal opener), so several
+specs run side by side without port/volume clashes. They are **independent of the
+lifecycle status** above and only active when `specs/.core/env.config.json`
+exists (copy `env.config.json.example` to adopt; see that file's docs). `/spec`,
+`/spec-complete`, and `/spec-cancel` will *offer* to provision/tear down when it's
+configured, but never require it.
+
 ## Project conventions (fill this in)
 
 The spec skills tell you to run "your project's typecheck and test commands" and

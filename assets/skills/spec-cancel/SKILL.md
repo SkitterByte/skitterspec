@@ -54,3 +54,11 @@ If the spec was in `backlog`, **remove its row from `specs/backlog/00-index.md`*
 
 Confirm the cancellation, the reason recorded, and the new location. Do **not**
 `git commit` unless the user asks.
+
+## 7. Offer teardown (opt-in, only if configured)
+
+**Only when `specs/.core/env.config.json` exists**, offer — don't force — to
+reclaim the cancelled spec's environment: "Want me to run `/spec-env-down
+<name>` to remove its worktree, stack, volumes, and free its slot?" It respects
+the teardown guards (won't destroy a dirty/unpushed worktree without `--force`).
+If `env.config.json` is absent, skip this entirely — behave exactly as before.

@@ -135,6 +135,43 @@ phase file with its status (`⬜`/`🔄`/`✅`). **Each phase is its own file** 
 easy to dive into one phase without wading through the whole spec. The lifecycle
 skills keep the index and phase files in sync.
 
+## Per-spec isolation (opt-in) — `/spec-env` · `/spec-env-down`
+
+Work several specs in parallel without them stepping on each other. Each
+in-progress spec gets:
+
+- a **git worktree** — a sibling directory on its own branch, so you never stash
+  or rebuild to switch specs, and `main` stays free for hotfixes;
+- a **namespaced Docker stack** — a per-spec `COMPOSE_PROJECT_NAME` isolates
+  containers, networks, and **named volumes**, and a `PORT_OFFSET` reserves a
+  distinct port block, so N stacks run at once with no clashes;
+- an optional **opener** — a single, editor/terminal-agnostic `open.command`
+  (e.g. `code {worktreePath}`, a `tmux` command, or a `warp://` deeplink).
+
+It's **off until you opt in**: copy `specs/.core/env.config.json.example` →
+`specs/.core/env.config.json` and edit the values (every field is documented in
+`specs/.core/env.config.md`). The machine-local slot registry and volume backups
+live under `/.spec-env/` (gitignored).
+
+```
+/spec-env <spec>        # worktree + stack + opener (idempotent; re-run attaches)
+/spec-env-down <spec>   # stop stack, drop volumes (backed up first), remove worktree,
+                        #   free the slot. Guards refuse a dirty/unpushed worktree
+                        #   unless --force; --keep-volumes preserves data.
+```
+
+Your `docker-compose.yml` must reference `${PORT_OFFSET}` on each published port
+so services land in the spec's reserved block. Two adoption modes:
+
+- **Standalone** (`linkLinear: false`) — plain `{type}/{slug}` branch names; pure
+  worktree + Docker + opener. No Linear needed.
+- **Linear-linked** (`linkLinear: true` + `specs/.core/linear.config.json`) —
+  branch names follow Linear's pattern so pushing fires Linear's GitHub
+  automation.
+
+`/spec`, `/spec-complete`, and `/spec-cancel` will *offer* to provision or tear
+down when the config is present — never forced.
+
 ## After install — tailor it
 
 The shipped skills are **stack-agnostic**. They say things like "run the

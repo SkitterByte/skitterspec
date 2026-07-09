@@ -58,3 +58,11 @@ This is the append-only completion log used to find the latest completed specs.
 
 Confirm the move, the final test result, and list anything deferred. Do **not**
 `git commit` unless the user asks.
+
+## 6. Offer teardown (opt-in, only if configured)
+
+**Only when `specs/.core/env.config.json` exists**, offer — don't force — to
+reclaim the finished spec's environment: "Want me to run `/spec-env-down <name>`
+to remove its worktree, stack, volumes, and free its slot?" It respects the
+teardown guards (won't destroy a dirty/unpushed worktree without `--force`). If
+`env.config.json` is absent, skip this entirely — behave exactly as before.
