@@ -1,7 +1,7 @@
 # Per-spec isolation as the default policy
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-09)
+> **Status:** Complete (2026-07-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-09
@@ -125,6 +125,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-07-09 | Draft | backlog | Reuben Greaves |
 | 2026-07-09 | Ready | backlog | Reuben Greaves |
 | 2026-07-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -166,3 +167,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   in the worktree, `main` only via merges) and fixed the task wording. The
   `env.config.json.example` is strict JSON so the master-switch prose lives only in
   `env.config.md`. Engine unchanged — 128/128 still green.
+- 2026-07-09 — Completed; all four phases done, tests green (128/128).
