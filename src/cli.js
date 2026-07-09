@@ -16,6 +16,11 @@ const {
 const { resolveSpec } = require('./env/resolve.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
+const { findSpecFolder } = require('./env/resolve.js')
+const { loadLinearConfig } = require('./sync/config.js')
+const { normalizeLocal, readSnapshot } = require('./sync/normalize.js')
+const { classify } = require('./sync/compare.js')
+const { readBase } = require('./sync/base.js')
 
 const pkg = require('../package.json')
 
@@ -32,6 +37,10 @@ Usage:
                                 down <spec>       tear down (guards; --keep-volumes, --force)
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
+  skitterspec spec-sync <cmd> Linear hybrid-sync engine (opt-in; needs
+                              specs/.core/linear.config.json). Subcommands:
+                                normalize <spec>  print the normalized field set (JSON)
+                                status <spec>     per-field divergence vs base (read-only)
   skitterspec --help          Show this help
   skitterspec --version       Print version
 
@@ -340,6 +349,112 @@ function specEnv(rest) {
   }
 }
 
+// --- spec-sync: Linear hybrid-sync engine seam (Phase 1: normalize + status) -
+
+// Resolve a spec argument to its snapshot dir. Accepts a spec name/folder found
+// under specs/** (preferred) or a literal path to a snapshot directory.
+function resolveSnapshotDir(specArg, dir) {
+  const found = findSpecFolder(specArg, dir)
+  if (found) return found.path
+  const literal = path.resolve(dir, specArg)
+  if (fs.existsSync(literal) && fs.statSync(literal).isDirectory()) return literal
+  return null
+}
+
+// The identifier keying the base sidecar: the spec's linear_identifier if set,
+// else its folder name (so the engine is usable before a spec is linked).
+function specIdentifier(snapshotDir, config) {
+  try {
+    const { frontmatter } = readSnapshot(snapshotDir, config)
+    if (frontmatter.linear_identifier) return String(frontmatter.linear_identifier)
+  } catch {
+    /* fall through to folder name */
+  }
+  return path.basename(snapshotDir)
+}
+
+// `spec-sync normalize <spec>` — print the normalized local field set as JSON.
+function specSyncNormalize(dir, config, specArg) {
+  if (!specArg) {
+    process.stdout.write('Usage: skitterspec spec-sync normalize <spec>\n')
+    return
+  }
+  const snapshotDir = resolveSnapshotDir(specArg, dir)
+  if (!snapshotDir) {
+    process.stdout.write(`spec-sync: spec not found: ${specArg}\n`)
+    return
+  }
+  const local = normalizeLocal(snapshotDir, config)
+  process.stdout.write(JSON.stringify(local, null, 2) + '\n')
+}
+
+// `spec-sync status <spec>` — read-only per-field divergence (git status analog).
+// Phase 1 has no live MCP, so it compares local vs the committed base only
+// (remote treated as base); Phase 2 supplies the live remote projection.
+function specSyncStatus(dir, config, specArg) {
+  if (!specArg) {
+    process.stdout.write('Usage: skitterspec spec-sync status <spec>\n')
+    return
+  }
+  const snapshotDir = resolveSnapshotDir(specArg, dir)
+  if (!snapshotDir) {
+    process.stdout.write(`spec-sync: spec not found: ${specArg}\n`)
+    return
+  }
+  const identifier = specIdentifier(snapshotDir, config)
+  const local = normalizeLocal(snapshotDir, config)
+  const base = readBase(dir, identifier, config)
+  // No MCP yet — compare against the base so status reports what changed locally
+  // since the last sync. Remote-vs-base divergence lands in Phase 2.
+  const fields = classify(local, base, base, config)
+
+  const out = []
+  out.push(`spec-sync status: ${identifier}${base ? '' : ' (no base yet — never synced)'}`)
+  out.push('  (remote comparison requires the Linear MCP adapter — Phase 2)')
+  const changed = fields.filter((f) => f.status !== 'unchanged')
+  if (!changed.length) {
+    out.push('  nothing to sync — local matches base')
+  } else {
+    for (const f of changed) {
+      out.push(`  ${f.status.padEnd(12)} ${f.field}  (${f.ownership})`)
+    }
+  }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
+// Dispatch `skitterspec spec-sync <sub> [spec] [--dir path]`. No-ops with a clear
+// message when Linear sync isn't enabled (no specs/.core/linear.config.json).
+function specSync(rest) {
+  const [sub, ...args] = rest
+  let dir = process.cwd()
+  const positional = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--dir') dir = path.resolve(args[++i])
+    else positional.push(args[i])
+  }
+  dir = path.resolve(dir)
+
+  const { config, present } = loadLinearConfig(dir)
+  if (!present) {
+    process.stdout.write(
+      'spec-sync: Linear sync not enabled (no specs/.core/linear.config.json).\n' +
+        'Opt in by copying specs/.core/linear.config.json.example → linear.config.json.\n',
+    )
+    return
+  }
+
+  switch (sub) {
+    case 'normalize':
+      specSyncNormalize(dir, config, positional[0])
+      break
+    case 'status':
+      specSyncStatus(dir, config, positional[0])
+      break
+    default:
+      process.stdout.write('Usage: skitterspec spec-sync <normalize|status> <spec> [--dir path]\n')
+  }
+}
+
 async function run(argv) {
   if (argv.includes('--help') || argv.includes('-h') || argv.length === 0) {
     process.stdout.write(HELP)
@@ -354,6 +469,11 @@ async function run(argv) {
 
   if (cmd === 'spec-env') {
     specEnv(rest)
+    return
+  }
+
+  if (cmd === 'spec-sync') {
+    specSync(rest)
     return
   }
 

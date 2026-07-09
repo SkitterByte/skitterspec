@@ -39,6 +39,8 @@ const SPEC_FOLDERS = ['.core', 'backlog', 'in-progress', 'complete', 'cancelled'
 const CORE_FILES = [
   path.join('core', 'env.config.json.example'),
   path.join('core', 'env.config.md'),
+  path.join('core', 'linear.config.json.example'),
+  path.join('core', 'linear.config.md'),
 ]
 
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'

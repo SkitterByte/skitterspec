@@ -1,7 +1,7 @@
 # Linear hybrid sync — git-like `/spec-push` · `/spec-pull` · `/spec-status`
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-09)
+> **Status:** In Progress — Phase 1 complete; Phase 2 next (2026-07-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-08
@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Config + engine core (the seam) | ⬜ | [01-config-and-engine.md](01-config-and-engine.md) |
+| 1 | Config + engine core (the seam) | ✅ | [01-config-and-engine.md](01-config-and-engine.md) |
 | 2 | MCP adapter + push/pull execution | ⬜ | [02-mcp-push-pull.md](02-mcp-push-pull.md) |
 | 3 | Sync skills (status/pull/push) | ⬜ | [03-sync-skills.md](03-sync-skills.md) |
 | 4 | Extend /spec + /spec-go (opt-in) | ⬜ | [04-touch-existing-skills.md](04-touch-existing-skills.md) |
@@ -135,6 +135,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-09 — Phase 1 complete. Shipped `src/sync/` engine (`config`,
+  `normalize`, `compare`, `base`) + `spec-sync normalize|status` CLI seam, all
+  MCP-free and green (160 tests). Two decisions worth recording: (a) the config
+  template lives in `assets/core/` (not committed to `specs/.core/` — that's the
+  consumer's live, opt-in copy), matching the `env.config` convention and wired
+  into `init`'s `CORE_FILES`; (b) `classify` exposes `raw` + ownership-collapsed
+  `status`/`pushable`/`pullable` so a `pull`/`push` field can never sync the wrong
+  way and only `both` fields ever surface a true conflict.
 - 2026-07-08 — Spec created. Supersedes cancelled `feat-spec-from-issue`.
   Decisions set via grill: bidirectional three-way merge with committed base
   sidecars; field ownership; deterministic `src/sync/` engine behind a

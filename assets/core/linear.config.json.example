@@ -1,0 +1,39 @@
+{
+  "linear": {
+    "teamKey": "",
+    "teamId": "",
+    "initiativeId": ""
+  },
+  "mapping": {
+    "specFolder": "project",
+    "phases": "milestone",
+    "tasks": "issue"
+  },
+  "states": {
+    "backlog": "Backlog",
+    "in-progress": "In Progress",
+    "complete": "Done",
+    "cancelled": "Cancelled"
+  },
+  "snapshot": {
+    "overviewFile": "00-overview.md"
+  },
+  "branch": {
+    "pattern": "{type}/{slug}"
+  },
+  "sync": {
+    "baseDir": "specs/.core/linear-base",
+    "backupDir": "specs/.core/linear-backups",
+    "fieldOwnership": {
+      "description": "both",
+      "milestones": "both",
+      "phaseBodies": "both",
+      "acceptanceCriteria": "both",
+      "taskBreakdown": "both",
+      "workflowState": "pull",
+      "priority": "pull",
+      "labels": "pull"
+    },
+    "localOnlySections": ["State log", "Changelog", "Open questions"]
+  }
+}
