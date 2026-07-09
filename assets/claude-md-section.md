@@ -32,3 +32,11 @@ tests, then write a conventional-commit message with a `Release-Note:` footer
 for user-visible changes (grammar in `.claude/rules/commit-messages.md`). If the
 release tooling is enabled (`skitterspec.config.json`), those footers feed the
 generated `CHANGELOG.md`/`RELEASES.md` at `npm version`.
+
+**Per-spec isolation (opt-in):** **`/spec-env`** gives an in-progress spec its
+own git worktree + namespaced Docker stack (isolated volumes + a reserved port
+block) and an optional editor/terminal opener, so specs run in parallel without
+clashes; **`/spec-env-down`** tears it down (guards against dirty/unpushed work;
+backs up volumes first). Independent of the lifecycle status above; active only
+when `specs/.core/env.config.json` exists (copy `env.config.json.example` to
+adopt).
