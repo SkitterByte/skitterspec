@@ -1,7 +1,7 @@
 # Linear hybrid sync — git-like `/spec-push` · `/spec-pull` · `/spec-status`
 
 > **Type:** Feature
-> **Status:** In Progress — Phases 1-4 complete; Phase 5 next (2026-07-09)
+> **Status:** Complete (2026-07-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-08
@@ -116,7 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | MCP adapter + push/pull execution | ✅ | [02-mcp-push-pull.md](02-mcp-push-pull.md) |
 | 3 | Sync skills (status/pull/push) | ✅ | [03-sync-skills.md](03-sync-skills.md) |
 | 4 | Extend /spec + /spec-go (opt-in) | ✅ | [04-touch-existing-skills.md](04-touch-existing-skills.md) |
-| 5 | Docs + supersede | ⬜ | [05-docs-and-supersede.md](05-docs-and-supersede.md) |
+| 5 | Docs + supersede | ✅ | [05-docs-and-supersede.md](05-docs-and-supersede.md) |
 
 ## Open questions
 
@@ -139,9 +139,27 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-07-08 | Draft | backlog | Reuben Greaves |
 | 2026-07-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-07-09 — Completed; all 5 phases done, tests green (187 pass, 0 fail).
+  **Consciously deferred** (tracked in Open questions, not blockers): (1) verify the
+  Linear MCP tool names/shape against a live server — the adapter uses runtime
+  discovery and is unit-tested with a fake, but no live Linear round-trip has run
+  yet; (2) confirm Linear's MCP exposes project **milestones** for write before
+  relying on the `milestone` default for phases; (3) the remote→local **body-field
+  write-back denormalizer** (pull still reports body fields as `deferred`). These
+  need a connected Linear workspace and are best handled as a follow-up spec.
+- 2026-07-09 — Phase 5 complete (all phases done). Documented adoption and retired
+  the superseded design. README gained a "Linear hybrid sync" section (mapping,
+  opt-in gate, the `/spec-status → /spec-pull → refine → /spec-push` lifecycle,
+  field ownership, `--force`/backup); `spec-planning.md` gained a house-style
+  pointer to the sync skills. Resolved the `.gitignore` question: **commit** the
+  base sidecars (`sync.baseDir`), **ignore** the `--force` backups
+  (`sync.backupDir`) — added the ignore line + a "What to commit" doc section.
+  Confirmed `feat-spec-from-issue` is cancelled/superseded (both directions
+  cross-linked). Two drift-guard tests added (187 green).
 - 2026-07-09 — Phase 4 complete. Extended the two existing skills behind the
   opt-in gate. `/spec` gained "Phase E — link to Linear" (create Project +
   Milestone per phase, add the frontmatter block, capture the initial base via

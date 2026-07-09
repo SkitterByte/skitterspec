@@ -84,3 +84,25 @@ test('/spec-go documents the opt-in pull-first step', () => {
   assert.match(text, /commit the refreshed snapshot/i, 'commits the refreshed snapshot')
   assert.match(text, /skip this step|no config means/i, 'no-config path preserved')
 })
+
+test('the Linear config template + docs ship under assets/core', () => {
+  assert.ok(
+    fs.existsSync(path.join(ASSETS, 'core', 'linear.config.json.example')),
+    'linear.config.json.example shipped',
+  )
+  assert.ok(
+    fs.existsSync(path.join(ASSETS, 'core', 'linear.config.md')),
+    'linear.config.md shipped',
+  )
+  // the example is valid JSON so init copies a usable template
+  const raw = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.json.example'), 'utf8')
+  assert.doesNotThrow(() => JSON.parse(raw), 'example is valid JSON')
+})
+
+test('README documents the Linear hybrid-sync commands', () => {
+  const readme = fs.readFileSync(path.join(ASSETS, '..', 'README.md'), 'utf8')
+  for (const cmd of ['/spec-status', '/spec-pull', '/spec-push']) {
+    assert.ok(readme.includes(cmd), `README mentions ${cmd}`)
+  }
+  assert.match(readme, /linear\.config\.json/, 'README names the opt-in config')
+})

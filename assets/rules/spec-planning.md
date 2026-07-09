@@ -34,6 +34,15 @@ re-attach, tear down). Isolation is **orthogonal to lifecycle status** and
 inactive when `env.config.json` is absent — every skill then behaves as it does
 today.
 
+**Linear hybrid sync (opt-in).** When `specs/.core/linear.config.json` is present,
+three git-like skills sync a spec with its linked Linear project: `/spec-status`
+(read-only per-field divergence), `/spec-pull` (Linear→repo), and `/spec-push`
+(repo→Linear) — three-way merged against a committed base sidecar, with
+field-ownership collapsing conflicts and a `--force` + backup escape hatch. Linked
+`/spec` also creates the Linear Project + a Milestone per phase, and `/spec-go`
+pulls first. All of it is inert without the config — every skill then behaves as
+it does today. Full model + field reference: `specs/.core/linear.config.md`.
+
 ## Project conventions (fill this in)
 
 The spec skills tell you to run "your project's typecheck and test commands" and

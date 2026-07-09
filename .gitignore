@@ -6,5 +6,9 @@ node_modules/
 # Per-spec isolation: machine-local slot registry + volume backups (never committed)
 /.spec-env/
 
+# Linear hybrid sync: --force backups are local recovery (the base sidecars under
+# specs/.core/linear-base/ ARE committed — each worktree carries its own base)
+specs/.core/linear-backups/
+
 # Local-only Claude Code settings (dog-fooding: skills/rules are symlinked from assets/)
 .claude/settings.local.json

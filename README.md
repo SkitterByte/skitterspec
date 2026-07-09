@@ -185,6 +185,51 @@ so services land in the spec's reserved block. Two adoption modes:
 `/spec-complete` and `/spec-cancel` will *offer* to tear down when the config is
 present — never forced.
 
+## Linear hybrid sync — git-like `/spec-status` · `/spec-pull` · `/spec-push`
+
+Let **Linear own status and discussion** while the repo stays the **co-authoring
+surface for spec content**. The sync is bidirectional but git-like: explicit
+commands, a committed **base sidecar** for three-way merge, and no blind
+overwrites. It's **opt-in** — everything below is inert until
+`specs/.core/linear.config.json` exists (copy `linear.config.json.example` and
+fill in your team / initiative IDs; every field is documented in
+`specs/.core/linear.config.md`). Without it, `/spec`, `/spec-go`, and the CLI
+behave exactly as before.
+
+**Mapping** (config-driven): a spec folder → Linear **Project**; each phase
+(`01-…`, `02-…`) → a **Milestone**; tasks → **Issues**; an optional **Initiative**
+groups specs. When linked, `/spec` creates the project + a milestone per phase and
+writes the linking frontmatter into `00-overview.md`.
+
+**The git-like lifecycle:**
+
+```
+/spec-status          # read-only — per-field divergence (local-only / remote-only
+                      #   / conflict / in-sync). Changes nothing.
+/spec-pull [--force]  # Linear → repo. Applies remote-only fields; refuses to
+                      #   clobber a conflicting local edit unless --force.
+   …refine the spec locally (the repo is the co-authoring surface)…
+/spec-push [--force]  # repo → Linear. Ownership-respecting, concurrency-checked;
+                      #   refuses if Linear moved since base unless --force.
+```
+
+**Field ownership** collapses conflicts: each field is `both` (co-authored,
+can conflict), `pull` (Linear owns it — e.g. status/priority/labels), or `push`
+(the repo owns it). Only a `both` field that moved on **both** sides is a real
+conflict. `--force` never destroys blindly — it backs up the losing side into
+`sync.backupDir` (a local reflog) first, then wins. After any successful
+pull/push the engine **rewrites the base** so the next compare starts clean.
+
+`/spec-go` on a linked spec runs `/spec-pull` first, so you always build against
+the current shared state. **Base sidecars** (`sync.baseDir`, default
+`specs/.core/linear-base/`) are **committed** — each worktree carries its own
+base. **Backups** (`sync.backupDir`, default `specs/.core/linear-backups/`) are
+local recovery and **gitignored**.
+
+This supersedes the earlier one-way `/spec-from-issue` intake design (cancelled):
+because both sides author, the sync had to be bidirectional and three-way, not a
+blind import.
+
 ## After install — tailor it
 
 The shipped skills are **stack-agnostic**. They say things like "run the

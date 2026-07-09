@@ -110,3 +110,12 @@ field's owner collapses which fields can genuinely conflict:
 
 After any successful pull/push/force the engine **rewrites the base** so the next
 three-way compare starts clean.
+
+## What to commit
+
+- **`sync.baseDir`** (default `specs/.core/linear-base/`) — **commit it.** The base
+  sidecar is the last-synced snapshot the three-way merge compares against; each
+  worktree carries its own base, so it must travel with the branch.
+- **`sync.backupDir`** (default `specs/.core/linear-backups/`) — **gitignore it.**
+  These are `--force` recovery copies (a local reflog), per-machine and not shared.
+  Add `specs/.core/linear-backups/` to your `.gitignore`.
