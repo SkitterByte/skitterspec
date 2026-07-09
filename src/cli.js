@@ -139,30 +139,47 @@ function specEnvUp(dir, config, specArg) {
     return
   }
   const spec = resolveSpec(specArg, dir, config)
+  const wantsDocker = spec.stack === 'docker' && config.docker.enabled
 
-  const before = readRegistry(dir, config)
-  const attached = Object.prototype.hasOwnProperty.call(before.slots, spec.folder)
-  const { registry, slot } = allocateSlot(before, spec.folder)
-  writeRegistry(dir, config, registry) // the engine's only write
+  // Slot allocation is Docker-only: a worktree-only spec never touches the
+  // registry (no slot, no port block). Its re-run signal is the worktree already
+  // existing on disk (attach the branch, don't `-b`); a Docker spec's is its slot.
+  let slot = null
+  let attached
+  if (wantsDocker) {
+    const before = readRegistry(dir, config)
+    attached = Object.prototype.hasOwnProperty.call(before.slots, spec.folder)
+    const alloc = allocateSlot(before, spec.folder)
+    slot = alloc.slot
+    writeRegistry(dir, config, alloc.registry) // the engine's only write (Docker path)
+  } else {
+    attached = fs.existsSync(spec.worktreePath)
+  }
 
   const plan = planUp(spec, { slot, attached }, config)
-  const hi = plan.portOffset + config.docker.portsPerSpec - 1
 
   const out = []
-  out.push(`spec-env up: ${spec.folder} ${attached ? '(attached — existing slot)' : '(provisioned)'}`)
+  out.push(`spec-env up: ${spec.folder} ${attached ? '(attached — existing)' : '(provisioned)'}`)
   out.push('')
   out.push(`  worktree:  ${plan.worktreePath}`)
   out.push(`  branch:    ${plan.branch}`)
-  out.push(`  project:   ${plan.projectName}`)
-  out.push(`  slot:      ${plan.slot}  (ports ${plan.portOffset}-${hi})`)
+  if (plan.slot !== null) {
+    const hi = plan.portOffset + config.docker.portsPerSpec - 1
+    out.push(`  project:   ${plan.projectName}`)
+    out.push(`  slot:      ${plan.slot}  (ports ${plan.portOffset}-${hi})`)
+  } else {
+    out.push('  stack:     worktree-only (no docker, no port block)')
+  }
   out.push('')
   out.push('  run these:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   if (plan.openCommand) out.push(`    ${plan.openCommand}`)
-  out.push('')
-  out.push(`  write ${config.docker.envFile} in the worktree:`)
-  for (const line of plan.envContents.replace(/\n$/, '').split('\n')) {
-    out.push(`    ${line}`)
+  if (plan.envContents) {
+    out.push('')
+    out.push(`  write ${config.docker.envFile} in the worktree:`)
+    for (const line of plan.envContents.replace(/\n$/, '').split('\n')) {
+      out.push(`    ${line}`)
+    }
   }
   process.stdout.write(out.join('\n') + '\n')
 }
@@ -219,8 +236,11 @@ function specEnvDown(dir, config, specArg, flags) {
   }
   const spec = resolveSpec(specArg, dir, config)
 
+  // A worktree-only spec never held a slot but its worktree still needs removing,
+  // so "nothing to do" means neither a slot nor a worktree exists.
   const registry = readRegistry(dir, config)
-  if (!Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)) {
+  const hasSlot = Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)
+  if (!hasSlot && !fs.existsSync(spec.worktreePath)) {
     process.stdout.write(`spec-env down: ${spec.folder} is not provisioned — nothing to do.\n`)
     return
   }
@@ -236,11 +256,14 @@ function specEnvDown(dir, config, specArg, flags) {
     return
   }
 
-  // Free the slot (the engine's only write on down).
-  writeRegistry(dir, config, freeSlot(registry, spec.folder))
+  // Free the slot (the engine's only write on down) — only if one was held; a
+  // worktree-only teardown never touches the registry.
+  if (hasSlot) {
+    writeRegistry(dir, config, freeSlot(registry, spec.folder))
+  }
 
   const out = []
-  out.push(`spec-env down: ${spec.folder} (slot freed)`)
+  out.push(`spec-env down: ${spec.folder}${hasSlot ? ' (slot freed)' : ''}`)
   out.push('')
   out.push(`  worktree:  ${spec.worktreePath}`)
   out.push(`  volumes:   ${plan.volumesDropped ? 'dropped' : 'kept'}`)

@@ -112,3 +112,20 @@ test('guard toggles: dirty allowed when refuseTeardownIfDirty is false', () => {
   const p = planDown(spec(), config({ guards: { refuseTeardownIfDirty: false } }), {}, CTX({ dirty: true }))
   assert.strictEqual(p.blocked, false)
 })
+
+test('worktree-only spec → only worktree remove, even with the master switch on', () => {
+  const p = planDown(spec({ stack: 'worktree' }), config(), {}, CTX())
+  assert.strictEqual(p.blocked, false)
+  assert.strictEqual(p.volumesDropped, false)
+  assert.strictEqual(p.backupCommand, null)
+  assert.deepStrictEqual(p.commands, ['git worktree remove /wt/thing'])
+})
+
+test('docker spec → down --volumes + worktree remove (Stack drives it)', () => {
+  const p = planDown(spec({ stack: 'docker' }), config(), {}, CTX())
+  assert.strictEqual(p.volumesDropped, true)
+  assert.deepStrictEqual(p.commands, [
+    'docker compose --project-name app_thing down --volumes',
+    'git worktree remove /wt/thing',
+  ])
+})

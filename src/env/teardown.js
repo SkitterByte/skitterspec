@@ -40,8 +40,15 @@ function planDown(spec, config, flags, ctx) {
     }
   }
 
+  // Docker teardown only applies to a Docker-escalated spec. A worktree-only spec
+  // (Stack: worktree) has no stack/volumes even when the project master switch is
+  // on — tearing it down is just removing the worktree. A spec resolved without an
+  // explicit stack (legacy/tests) follows the master switch (pre-`Stack` behaviour).
+  const stack = spec.stack || (config.docker.enabled ? 'docker' : 'worktree')
+  const wantsDocker = stack === 'docker' && config.docker.enabled
+
   const commands = []
-  const volumesDropped = !keepVolumes && config.docker.enabled
+  const volumesDropped = !keepVolumes && wantsDocker
 
   // --- optional pre-drop backup (only when volumes are actually dropped) ---
   let backupCommand = null
@@ -58,7 +65,7 @@ function planDown(spec, config, flags, ctx) {
   }
 
   // --- docker compose down (drop volumes unless kept) ---
-  if (config.docker.enabled) {
+  if (wantsDocker) {
     const base = `docker compose --project-name ${spec.projectName} down`
     commands.push(volumesDropped ? `${base} --volumes` : base)
   }

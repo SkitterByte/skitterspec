@@ -27,23 +27,27 @@ const { renderEnvFile, expandOpenCommand } = require('./render.js')
  */
 function planUp(spec, alloc, config) {
   const { slot, attached } = alloc
-  const offset = portOffset(slot, config)
-
-  const envContents = renderEnvFile({ projectName: spec.projectName, portOffset: offset })
-
-  const openCommand = expandOpenCommand(config.open.command, {
-    worktreePath: spec.worktreePath,
-    slug: spec.slug,
-    branch: spec.branch,
-    projectName: spec.projectName,
-    portOffset: String(offset),
-  })
 
   // Per-spec escalation: bring Docker up only when this spec's Stack is `docker`,
   // gated by the project master switch. A spec resolved without an explicit stack
   // (legacy/tests) follows the master switch — preserving pre-`Stack` behaviour.
   const stack = spec.stack || (config.docker.enabled ? 'docker' : 'worktree')
   const wantsDocker = stack === 'docker' && config.docker.enabled
+
+  // Slot, port block and `.env` are Docker-only. A worktree-only spec takes none
+  // of them: no registry slot, no PORT_OFFSET, no `.env`.
+  const offset = wantsDocker ? portOffset(slot, config) : null
+  const envContents = wantsDocker
+    ? renderEnvFile({ projectName: spec.projectName, portOffset: offset })
+    : null
+
+  const openCommand = expandOpenCommand(config.open.command, {
+    worktreePath: spec.worktreePath,
+    slug: spec.slug,
+    branch: spec.branch,
+    projectName: spec.projectName,
+    portOffset: offset === null ? '' : String(offset),
+  })
 
   const commands = []
   // Fresh branch → -b; attach an existing branch/slot → plain form (never clobber).
@@ -60,7 +64,7 @@ function planUp(spec, alloc, config) {
     worktreePath: spec.worktreePath,
     branch: spec.branch,
     projectName: spec.projectName,
-    slot,
+    slot: wantsDocker ? slot : null,
     portOffset: offset,
     envContents,
     openCommand,

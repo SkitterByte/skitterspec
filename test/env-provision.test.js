@@ -59,6 +59,28 @@ test('stack:worktree omits the docker command even with the master switch on', (
   assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
 })
 
+test('worktree-only: no slot/portOffset/env, single git command', () => {
+  const plan = planUp(spec({ stack: 'worktree' }), { slot: null, attached: false }, config())
+  assert.strictEqual(plan.slot, null)
+  assert.strictEqual(plan.portOffset, null)
+  assert.strictEqual(plan.envContents, null)
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+})
+
+test('worktree-only attach form: existing worktree → no -b', () => {
+  const plan = planUp(spec({ stack: 'worktree' }), { slot: null, attached: true }, config())
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing feat/thing'])
+})
+
+test('worktree-only still expands the opener (empty portOffset token)', () => {
+  const plan = planUp(
+    spec({ stack: 'worktree' }),
+    { slot: null, attached: false },
+    config({ open: { command: 'code {worktreePath} # {portOffset}' } }),
+  )
+  assert.strictEqual(plan.openCommand, 'code /wt/thing # ')
+})
+
 test('stack:docker emits the docker command when the master switch is on', () => {
   const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config())
   assert.deepStrictEqual(plan.commands, [

@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Per-spec `Stack` field + planner sources Docker from it | ✅ | [01-stack-field.md](01-stack-field.md) |
-| 2 | Lazy slot/port/.env — worktree-only skips them | ⬜ | [02-lazy-docker-allocation.md](02-lazy-docker-allocation.md) |
+| 2 | Lazy slot/port/.env — worktree-only skips them | ✅ | [02-lazy-docker-allocation.md](02-lazy-docker-allocation.md) |
 | 3 | `init` isolation opt-in prompt writes env.config.json | ⬜ | [03-init-opt-in.md](03-init-opt-in.md) |
 | 4 | Automatic provisioning wiring + config semantics + docs | ⬜ | [04-default-policy-wiring.md](04-default-policy-wiring.md) |
 
@@ -145,3 +145,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and gated `planUp`'s docker command on `wantsDocker`. Minor deviation: `planUp`
   defaults an absent `spec.stack` to the master switch (`config.docker.enabled`)
   so legacy callers/tests without the field keep prior behaviour. 118/118 green.
+- 2026-07-09 — Phase 2 done. `planUp` returns null slot/portOffset/envContents for
+  a worktree-only spec; `specEnvUp` skips the registry entirely on that path;
+  `planDown` gates Docker teardown on the spec's stack. CLI deviations: a
+  worktree-only re-run is detected via the worktree existing on disk (no slot to
+  read), and `spec-env down` treats "no slot AND no worktree" as nothing-to-do,
+  freeing a slot only when one was held. 123/123 green + CLI smoke on both stacks.
