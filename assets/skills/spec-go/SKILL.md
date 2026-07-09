@@ -18,6 +18,23 @@ description: Promote a spec into active development and implement its first phas
 
 ## 2. Move it into development
 
+**If per-spec isolation is enabled** (`specs/.core/env.config.json` exists) and
+the spec doesn't already have a worktree, provision it **first**, so all the
+housekeeping below lands on the spec's branch and never on `main`:
+
+- Run `skitterspec spec-env up <name>` (the `/spec-env` engine). It adds a git
+  worktree on a branch forked from `main`, and — only when the spec's
+  `> **Stack:**` header is `worktree + docker` — also brings up its Docker stack.
+  Print the worktree path and the opener command it emits.
+- **Do the rest in the worktree**, on the branch: open it (the printed opener, or
+  a fresh Claude session rooted there) or, staying in this session, act on the
+  worktree path with absolute paths / `git -C <worktreePath>`. The spec move,
+  header edits **and** the phase's code all happen on the branch — so the spec's
+  evolution travels with the code it describes and lands in one PR. `main` changes
+  only when that branch merges (at `/spec-complete`).
+
+Then move the spec (in the worktree when isolated, in place otherwise):
+
 - If it isn't already under `specs/in-progress/`, move the whole spec folder
   there. **Use `git mv`** to keep history:
   `git mv "specs/backlog/<name>" "specs/in-progress/<name>"`.
@@ -27,12 +44,16 @@ description: Promote a spec into active development and implement its first phas
 - Set the **Developer** header field if it's still `—`: use `git config user.name`.
 - Append a **State log** row:
   `| <YYYY-MM-DD> | In Progress | in-progress | <git user.name> |`.
+- **When isolated:** commit the move and **push the branch** now — that records
+  the in-progress state for everyone and fires Linear's automation (when linked).
 
 A spec ideally reaches here as `Ready` (via `/spec-ready`), but `/spec-go` works
 on a `Draft` too — just sanity-check it's well-formed before building.
 
 If the spec is already in `in-progress`, skip the move and implement the **next
-unfinished phase** instead of Phase 1.
+unfinished phase** instead of Phase 1. (When isolated, subsequent `/spec-go` runs
+happen from inside the worktree — where the spec already sits in `in-progress` on
+the branch — and a re-run of `spec-env up` just re-attaches it.)
 
 ## 3. Pre-flight — commit prior work, then compact
 

@@ -20,14 +20,19 @@ state). `/spec-ready` is a grooming gate only — it does not move the folder.
 `/spec-bug` is test-first and starts straight in `In Progress` (work begins
 immediately), so it skips Draft/Ready.
 
-**Per-spec isolation (opt-in, orthogonal to status).** Two extra skills —
-`/spec-env` and `/spec-env-down` — give an in-progress spec its own git worktree
-+ namespaced Docker stack (and an optional editor/terminal opener), so several
-specs run side by side without port/volume clashes. They are **independent of the
-lifecycle status** above and only active when `specs/.core/env.config.json`
-exists (copy `env.config.json.example` to adopt; see that file's docs). `/spec`,
-`/spec-complete`, and `/spec-cancel` will *offer* to provision/tear down when it's
-configured, but never require it.
+**Per-spec isolation (opt-in to adopt, then the default policy).** When a project
+adopts isolation (`skitterspec init --isolation`, or `specs/.core/env.config.json`
+present), `/spec-go` gives **every** in-progress spec its own git worktree
+automatically — several specs run side by side without stashing or clashing, and
+`main` stays free. Docker is a **per-spec escalation**: `/spec` records
+`> **Stack:** worktree` (default) or `worktree + docker` when the spec touches the
+DB / stateful services, and `/spec-go` brings up a namespaced stack only for the
+latter. All housekeeping (the backlog→in-progress move, header edits, the code)
+happens on the spec's branch in the worktree; `main` changes only when it merges.
+`/spec-env` · `/spec-env-down` remain the manual engine (escalate Docker later,
+re-attach, tear down). Isolation is **orthogonal to lifecycle status** and
+inactive when `env.config.json` is absent — every skill then behaves as it does
+today.
 
 ## Project conventions (fill this in)
 

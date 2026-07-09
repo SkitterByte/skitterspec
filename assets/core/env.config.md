@@ -1,11 +1,20 @@
 # `env.config.json` — per-spec isolation config
 
-Opt-in config for the `/spec-env` · `/spec-env-down` isolation skills (git
-worktree + namespaced Docker stack + an optional opener per in-progress spec).
+Opt-in config for per-spec isolation (git worktree + optional namespaced Docker
+stack + an optional opener per in-progress spec), driven by `/spec-go` and the
+`/spec-env` · `/spec-env-down` skills.
 
-**Adopt it** by copying `env.config.json.example` → `env.config.json` in this
-folder and editing the values. While `env.config.json` is absent the feature is
-simply unused — every skill behaves exactly as it does today.
+**Once this file is present, isolation is the default policy:** `/spec-go` gives
+**every** in-progress spec its own git worktree automatically. Docker is a **per-
+spec escalation** — a spec brings up a stack only when its `> **Stack:**` header
+is `worktree + docker` (set at `/spec` when it touches the DB / stateful
+services). A `worktree`-only spec takes no registry slot, no port block, and no
+`.env`.
+
+**Adopt it** with `skitterspec init --isolation` (or copy
+`env.config.json.example` → `env.config.json` here) and edit the values. While
+`env.config.json` is absent the feature is simply unused — every skill behaves
+exactly as it does today.
 
 The loader (`src/env/config.js` → `loadEnvConfig`) merges your file over the
 frozen defaults below and returns `{ config, present }`; `present:false` means
@@ -25,6 +34,11 @@ no live `env.config.json` was found.
   // Per-spec Docker stack. COMPOSE_PROJECT_NAME namespaces containers,
   // networks, and named volumes; PORT_OFFSET shifts the spec's port block.
   "docker": {
+    // Master switch: "is Docker escalation available on this project?" — NOT
+    // "always run Docker". true = specs MAY escalate (a spec still needs
+    // `Stack: worktree + docker` to actually get a stack); the default stack is
+    // worktree-only. false = every spec is worktree-only and the escalation is
+    // hidden. (Was "always provision Docker" in the pre-Stack engine.)
     "enabled": true,
     "composeFile": "docker-compose.yml",
     "projectNamePattern": "{repoSlug}_{slug}", // → COMPOSE_PROJECT_NAME

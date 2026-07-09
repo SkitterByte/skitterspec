@@ -58,6 +58,7 @@ npx @skitterbyte/skitterspec init ./path/to/project   # target a dir (default: c
 npx @skitterbyte/skitterspec init --yes               # accept defaults, skip the prompts
 npx @skitterbyte/skitterspec init --force             # overwrite existing skill/rule/script files
 npx @skitterbyte/skitterspec init --no-claude-md      # don't touch CLAUDE.md
+npx @skitterbyte/skitterspec init --isolation         # adopt per-spec isolation (worktree per spec)
 npx @skitterbyte/skitterspec update                   # re-copy skills + rule + scripts, leave specs/ + config alone
 ```
 
@@ -133,26 +134,40 @@ phase file with its status (`⬜`/`🔄`/`✅`). **Each phase is its own file** 
 easy to dive into one phase without wading through the whole spec. The lifecycle
 skills keep the index and phase files in sync.
 
-## Per-spec isolation (opt-in) — `/spec-env` · `/spec-env-down`
+## Per-spec isolation — worktree by default, Docker on demand
 
-Work several specs in parallel without them stepping on each other. Each
-in-progress spec gets:
+Work several specs in parallel without them stepping on each other. **Adopt it
+once** with `npx @skitterbyte/skitterspec init --isolation` (or copy
+`specs/.core/env.config.json.example` → `specs/.core/env.config.json`; every field
+is documented in `specs/.core/env.config.md`). While the config is absent the
+feature is simply unused.
 
-- a **git worktree** — a sibling directory on its own branch, so you never stash
-  or rebuild to switch specs, and `main` stays free for hotfixes;
-- a **namespaced Docker stack** — a per-spec `COMPOSE_PROJECT_NAME` isolates
-  containers, networks, and **named volumes**, and a `PORT_OFFSET` reserves a
-  distinct port block, so N stacks run at once with no clashes;
+Once adopted it's the **default policy**, not a per-spec chore:
+
+- **Worktree — automatic for every in-progress spec.** `/spec-go` gives each spec
+  its own sibling git worktree on its own branch, so you never stash or rebuild to
+  switch specs and `main` stays free for hotfixes. All housekeeping (the
+  backlog→in-progress move, header edits, the code) happens on that branch and
+  lands in one PR; `main` changes only when it merges.
+- **Docker — a per-spec escalation.** `/spec` records `> **Stack:** worktree`
+  (default) or `worktree + docker` when the spec touches the DB / stateful
+  services. Only an escalated spec gets a **namespaced stack** — a per-spec
+  `COMPOSE_PROJECT_NAME` isolates containers, networks, and **named volumes**, and
+  a `PORT_OFFSET` reserves a distinct port block, so N stacks run at once with no
+  clashes. A worktree-only spec takes **no** slot, port block, or `.env`.
 - an optional **opener** — a single, editor/terminal-agnostic `open.command`
   (e.g. `code {worktreePath}`, a `tmux` command, or a `warp://` deeplink).
 
-It's **off until you opt in**: copy `specs/.core/env.config.json.example` →
-`specs/.core/env.config.json` and edit the values (every field is documented in
-`specs/.core/env.config.md`). The machine-local slot registry and volume backups
-live under `/.spec-env/` (gitignored).
+The machine-local slot registry and volume backups live under `/.spec-env/`
+(gitignored). `docker.enabled` in the config is the project **master switch**
+("is Docker escalation available?"), not "always run Docker".
+
+`/spec-env` · `/spec-env-down` remain the **manual engine** behind the automation
+— use them to escalate Docker onto an existing worktree, re-attach, or tear down:
 
 ```
-/spec-env <spec>        # worktree + stack + opener (idempotent; re-run attaches)
+/spec-env <spec>        # worktree (+ stack iff Stack: worktree + docker) + opener
+                        #   (idempotent; re-run attaches)
 /spec-env-down <spec>   # stop stack, drop volumes (backed up first), remove worktree,
                         #   free the slot. Guards refuse a dirty/unpushed worktree
                         #   unless --force; --keep-volumes preserves data.
@@ -167,8 +182,8 @@ so services land in the spec's reserved block. Two adoption modes:
   branch names follow Linear's pattern so pushing fires Linear's GitHub
   automation.
 
-`/spec`, `/spec-complete`, and `/spec-cancel` will *offer* to provision or tear
-down when the config is present — never forced.
+`/spec-complete` and `/spec-cancel` will *offer* to tear down when the config is
+present — never forced.
 
 ## After install — tailor it
 

@@ -35,7 +35,13 @@ not write the spec until this is resolved.
   6. **Security & multi-tenancy** — authz, tenant scoping, untrusted input.
   7. **Edge cases & failure modes.**
   8. **Testing approach** — what proves each phase correct.
-  9. **Open questions** — anything still undecided.
+  9. **Isolation stack** *(only when `specs/.core/env.config.json` exists)* — does
+     this spec touch the DB / stateful services (so its worktree needs a Docker
+     stack), or is a plain worktree enough? Default `worktree`; escalate to
+     `worktree + docker` only when it must. This sets the `> **Stack:**` header
+     that `/spec-go` acts on (it can be escalated later). Skip when isolation
+     isn't enabled — leave the default `worktree`.
+  10. **Open questions** — anything still undecided.
 
 Stop grilling when there are no unresolved branches that would change the spec.
 Briefly play back the agreed understanding before writing.
@@ -71,6 +77,8 @@ the codebase, link rather than duplicate):
 > **Developer:** —
 > **Raised:** <YYYY-MM-DD (today)>
 > **Area:** <comma-separated files/modules this touches>
+> **Stack:** <worktree — or "worktree + docker" if it touches the DB/stateful
+> services; only acted on when isolation is enabled — see Phase A item 9>
 
 ## Problem
 
@@ -164,10 +172,14 @@ Rules for the spec body:
 After writing, tell the user the path and that it's a `Draft` in `backlog`. Next
 step is `/spec-ready` once it's groomed, then `/spec-go` to start building.
 
-## Phase D — offer isolation (opt-in, only if configured)
+## Phase D — record the isolation stack (only if configured)
 
-**Only when `specs/.core/env.config.json` exists** (the per-spec isolation
-feature is enabled), offer — don't force — to provision an isolated environment
-for the new spec: "Want me to run `/spec-env <name>` to give this spec its own
-worktree + Docker stack?" If they decline, or if `env.config.json` is absent, do
-nothing and finish as above.
+**Only when `specs/.core/env.config.json` exists** (per-spec isolation is
+enabled), make sure the `> **Stack:**` header reflects the Phase A item 9
+decision — `worktree` (default) or `worktree + docker` when it touches the DB /
+stateful services. Nothing to provision now: `/spec-go` gives every in-progress
+spec its own worktree automatically, and brings up Docker only when the Stack
+says so. Mention the operator can escalate the Stack later (edit the header, or
+run `/spec-env <name>` to add Docker to an existing worktree). If
+`env.config.json` is absent, isolation is off — leave the default `worktree` and
+finish as above.

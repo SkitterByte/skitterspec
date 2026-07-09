@@ -111,7 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Per-spec `Stack` field + planner sources Docker from it | ✅ | [01-stack-field.md](01-stack-field.md) |
 | 2 | Lazy slot/port/.env — worktree-only skips them | ✅ | [02-lazy-docker-allocation.md](02-lazy-docker-allocation.md) |
 | 3 | `init` isolation opt-in prompt writes env.config.json | ✅ | [03-init-opt-in.md](03-init-opt-in.md) |
-| 4 | Automatic provisioning wiring + config semantics + docs | ⬜ | [04-default-policy-wiring.md](04-default-policy-wiring.md) |
+| 4 | Automatic provisioning wiring + config semantics + docs | ✅ | [04-default-policy-wiring.md](04-default-policy-wiring.md) |
 
 ## Open questions
 
@@ -156,3 +156,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and an interactive prompt; `promptSetup` now returns `{ release, isolation }`.
   The report's closing note is keyed off whether `env.config.json` exists on disk
   (truthful for init and update alike). 128/128 green + CLI smoke on both paths.
+- 2026-07-09 — Phase 4 done. Wired the `Stack` field into `/spec` (Phase A item 9
+  + header template + Phase D) and `/spec-go` (provision-first, branch-based
+  housekeeping); documented the `docker.enabled` master switch in `env.config.md`;
+  swept the rule, CLAUDE.md section and README to the default-policy framing.
+  **Correction:** Phase 4's `/spec-go` task originally said "model-A split (spec
+  files edited in the primary checkout)" — that's the approach Decision 3
+  explicitly rejected. Implemented per Decision 3 (all housekeeping on the branch
+  in the worktree, `main` only via merges) and fixed the task wording. The
+  `env.config.json.example` is strict JSON so the master-switch prose lives only in
+  `env.config.md`. Engine unchanged — 128/128 still green.

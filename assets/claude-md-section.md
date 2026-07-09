@@ -33,10 +33,13 @@ for user-visible changes (grammar in `.claude/rules/commit-messages.md`). If the
 release tooling is enabled (`skitterspec.config.json`), those footers feed the
 generated `CHANGELOG.md`/`RELEASES.md` at `npm version`.
 
-**Per-spec isolation (opt-in):** **`/spec-env`** gives an in-progress spec its
-own git worktree + namespaced Docker stack (isolated volumes + a reserved port
-block) and an optional editor/terminal opener, so specs run in parallel without
-clashes; **`/spec-env-down`** tears it down (guards against dirty/unpushed work;
-backs up volumes first). Independent of the lifecycle status above; active only
-when `specs/.core/env.config.json` exists (copy `env.config.json.example` to
-adopt).
+**Per-spec isolation (adopt once, then default):** with isolation adopted
+(`skitterspec init --isolation`, or `specs/.core/env.config.json` present),
+**`/spec-go`** gives every in-progress spec its own git worktree automatically —
+parallel specs, no stashing, `main` left free. Docker is a **per-spec
+escalation**: `/spec` sets `> **Stack:** worktree` (default) or `worktree +
+docker` when the spec touches the DB / stateful services, and only the latter
+gets a namespaced stack (isolated volumes + reserved port block). **`/spec-env`**
+· **`/spec-env-down`** are the manual engine (escalate Docker later, re-attach,
+tear down — guarding dirty/unpushed work, backing up volumes first). Independent
+of lifecycle status; inactive when `env.config.json` is absent.
