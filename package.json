@@ -1,6 +1,6 @@
 {
   "name": "@skitterbyte/skitterspec",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Spec-driven-development workflow for Claude Code — installs the spec lifecycle skills, rule, and specs/ folders into any project.",
   "keywords": [
     "claude",
