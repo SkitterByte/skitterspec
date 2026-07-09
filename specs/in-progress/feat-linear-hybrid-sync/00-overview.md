@@ -1,11 +1,12 @@
 # Linear hybrid sync — git-like `/spec-push` · `/spec-pull` · `/spec-status`
 
 > **Type:** Feature
-> **Status:** Draft — not started
+> **Status:** In Progress — Phase 1 (started 2026-07-09)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-07-08
 > **Area:** src/sync/ (new), src/cli.js, src/init.js, assets/skills/ (spec, spec-go, + new spec-push/spec-pull/spec-status), specs/.core/linear.config.json (new), assets/rules/, README.md
+> **Stack:** worktree
 
 ## Problem
 
@@ -130,6 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-07-08 | Draft | backlog | Reuben Greaves |
+| 2026-07-09 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
