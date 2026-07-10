@@ -1,7 +1,7 @@
 # Trust the worktree root so provisioned specs stop prompting
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 2 done (all phases complete; ready for /spec-complete)
+> **Status:** Complete (2026-07-10)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-10
@@ -100,6 +100,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-07-10 | Draft | backlog | Reuben Greaves |
 | 2026-07-10 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-10 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -118,3 +119,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and `spec-go` skills; left `specEnvDown` untouched with a deliberate comment.
   Tests: `test/cli-spec-env-up.test.js` (4) + init trust cases (4) + a skills
   `/add-dir` assertion — full suite 216 pass. All phases complete.
+- 2026-07-10 — Completed; all phases done, tests green (216 pass). Nothing
+  deferred.
