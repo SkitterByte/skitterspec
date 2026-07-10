@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Base resolution + teardown (branch delete, merged-safe guard) | ⬜ | [01-teardown-and-base.md](01-teardown-and-base.md) |
+| 1 | Base resolution + teardown (branch delete, merged-safe guard) | ✅ | [01-teardown-and-base.md](01-teardown-and-base.md) |
 | 2 | Integrate planner + CLI + /spec-complete wiring | ⬜ | [02-integrate-step.md](02-integrate-step.md) |
 
 ## Open questions
@@ -119,6 +119,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-10 — Phase 1 complete. Shipped `resolveBaseBranch` (config → origin/HEAD
+  → main → master), the optional `baseBranch` env-config field (+ docs/example),
+  and the teardown changes: `planDown` now deletes the merged branch (`git branch
+  -d`, never `-D`) and blocks only on `unpushed && !merged`, so a landed spec tears
+  down without `--force`. `worktreeGitState` computes `merged` via
+  `merge-base --is-ancestor` behind a shared `gitReader` helper; `/spec-env-down`
+  skill updated. 197 tests green (+10). `baseBranch` merged as `'string'` (blank =
+  auto-detect, so blank must not override).
 - 2026-07-09 — Groomed to Ready. Resolved both open questions into Decisions 7
   (`mainRepoPath = dirname(abspath(git rev-parse --git-common-dir))`, verified from
   both a worktree and the primary checkout) and 8 (conflict handling is

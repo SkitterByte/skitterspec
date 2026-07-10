@@ -13,7 +13,7 @@ const {
   freeSlot,
   portOffset,
 } = require('./env/registry.js')
-const { resolveSpec } = require('./env/resolve.js')
+const { resolveSpec, resolveBaseBranch } = require('./env/resolve.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
 const { findSpecFolder } = require('./env/resolve.js')
@@ -202,37 +202,49 @@ function specEnvUp(dir, config, specArg) {
   process.stdout.write(out.join('\n') + '\n')
 }
 
-// Query a worktree's git state (side-effecting — kept in the CLI, not the pure
-// planner). A missing worktree → nothing to lose (dirty:false, unpushed:false).
-function worktreeGitState(worktreePath) {
-  if (!fs.existsSync(worktreePath)) return { dirty: false, unpushed: false }
-  const git = (argv) =>
-    execFileSync('git', ['-C', worktreePath, ...argv], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .toString()
-      .trim()
-
-  let dirty = false
-  try {
-    dirty = git(['status', '--porcelain']).length > 0
-  } catch {
-    dirty = false
-  }
-
-  let unpushed = false
-  try {
-    // commits on HEAD's upstream branch not yet pushed
-    unpushed = Number(git(['rev-list', '--count', '@{u}..HEAD'])) > 0
-  } catch {
-    // no upstream configured → any commit on HEAD not on a remote counts
+// A read-only git reader over `cwd`: returns trimmed stdout, or null on failure.
+function gitReader(cwd) {
+  return (argv) => {
     try {
-      unpushed = git(['log', '--oneline', 'HEAD', '--not', '--remotes']).length > 0
+      return execFileSync('git', ['-C', cwd, ...argv], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+        .toString()
+        .trim()
     } catch {
-      unpushed = false
+      return null
     }
   }
-  return { dirty, unpushed }
+}
+
+// Query a worktree's git state (side-effecting — kept in the CLI, not the pure
+// planner). A missing worktree → nothing to lose (safe to tear down). `base` is
+// the resolved integration branch; `merged` is true when HEAD is already an
+// ancestor of it (fully landed), which lets teardown skip the unpushed guard.
+function worktreeGitState(worktreePath, base) {
+  if (!fs.existsSync(worktreePath)) return { dirty: false, unpushed: false, merged: true }
+  const git = gitReader(worktreePath)
+
+  const status = git(['status', '--porcelain'])
+  const dirty = status !== null && status.length > 0
+
+  let unpushed = false
+  const ahead = git(['rev-list', '--count', '@{u}..HEAD'])
+  if (ahead !== null) {
+    // commits on HEAD's upstream branch not yet pushed
+    unpushed = Number(ahead) > 0
+  } else {
+    // no upstream configured → any commit on HEAD not on a remote counts
+    const local = git(['log', '--oneline', 'HEAD', '--not', '--remotes'])
+    unpushed = local !== null && local.length > 0
+  }
+
+  // merged = HEAD is an ancestor of base (every commit already landed). The
+  // worktree shares the object store, so `base` is visible here. `--is-ancestor`
+  // exits 0 when true; gitReader maps a non-zero exit to null.
+  const merged = base != null && git(['merge-base', '--is-ancestor', 'HEAD', base]) !== null
+
+  return { dirty, unpushed, merged }
 }
 
 // A deterministic-enough compact timestamp for backup filenames (CLI-only; the
@@ -263,7 +275,8 @@ function specEnvDown(dir, config, specArg, flags) {
     return
   }
 
-  const worktreeState = worktreeGitState(spec.worktreePath)
+  const base = resolveBaseBranch(config, gitReader(dir))
+  const worktreeState = worktreeGitState(spec.worktreePath, base)
   const plan = planDown(spec, config, flags, { worktreeState, timestamp: compactTimestamp() })
 
   if (plan.blocked) {

@@ -139,6 +139,33 @@ function branchFor(spec, dir, config) {
 }
 
 /**
+ * Resolve the integration base branch (the branch specs fork from and land back
+ * onto). Precedence:
+ *   1. `config.baseBranch` — explicit override
+ *   2. `origin/HEAD` — the remote's default branch
+ *   3. `main` if it exists locally
+ *   4. `master` if it exists locally
+ *   5. `main` — last-resort default
+ *
+ * `git(args)` runs a read-only git command and returns trimmed stdout, or `null`
+ * on a non-zero exit / failure. It's injected so this stays pure and unit-testable
+ * with no live git; the CLI supplies a real reader. (Note: `show-ref --quiet`
+ * emits no stdout on success, so a non-null `''` still means "exists".)
+ */
+function resolveBaseBranch(config, git) {
+  const explicit = config && typeof config.baseBranch === 'string' && config.baseBranch.trim()
+  if (explicit) return explicit
+
+  const originHead = git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
+  if (originHead) return originHead.replace(/^origin\//, '')
+
+  for (const name of ['main', 'master']) {
+    if (git(['show-ref', '--verify', '--quiet', `refs/heads/${name}`]) !== null) return name
+  }
+  return 'main'
+}
+
+/**
  * Resolve a spec argument to its identity + isolation coordinates.
  * Throws a clear Error when the spec folder can't be found.
  */
@@ -175,6 +202,7 @@ function resolveSpec(specArg, dir, config) {
 
 module.exports = {
   resolveSpec,
+  resolveBaseBranch,
   branchFor,
   splitPrefix,
   repoInfo,

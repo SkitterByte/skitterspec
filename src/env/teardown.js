@@ -18,10 +18,10 @@
 const { expandTokens } = require('./resolve.js')
 
 /**
- * @param {object} spec  resolved spec: { slug, worktreePath, projectName, ... }
+ * @param {object} spec  resolved spec: { slug, branch, worktreePath, projectName, ... }
  * @param {object} config normalised env config.
  * @param {object} flags { keepVolumes, force }
- * @param {object} ctx   { worktreeState: { dirty, unpushed }, timestamp }
+ * @param {object} ctx   { worktreeState: { dirty, unpushed, merged }, timestamp }
  * @returns {object} { blocked, reason, commands, backupCommand, backupPath,
  *                     volumesDropped }
  */
@@ -35,8 +35,16 @@ function planDown(spec, config, flags, ctx) {
     if (config.guards.refuseTeardownIfDirty && worktreeState.dirty) {
       return blocked('worktree has uncommitted changes')
     }
-    if (config.guards.refuseTeardownIfUnpushed && worktreeState.unpushed) {
-      return blocked('worktree has unpushed commits')
+    // Unpushed commits are only unsafe when they aren't already integrated into
+    // the base branch. A branch merged into base carries nothing to lose even
+    // with no remote — so /spec-complete's local land-then-teardown needs no
+    // --force. Block only when the commits are both unpushed AND unmerged.
+    if (
+      config.guards.refuseTeardownIfUnpushed &&
+      worktreeState.unpushed &&
+      !worktreeState.merged
+    ) {
+      return blocked('worktree has unpushed commits not yet merged into the base branch')
     }
   }
 
@@ -76,6 +84,13 @@ function planDown(spec, config, flags, ctx) {
       ? `git worktree remove --force ${spec.worktreePath}`
       : `git worktree remove ${spec.worktreePath}`,
   )
+
+  // --- delete the branch (safe: -d refuses an unmerged branch, never -D) ---
+  // Runs after the worktree remove frees the branch. On a forced teardown of an
+  // unmerged branch this fails loudly; the skill relays it rather than -D-ing.
+  if (spec.branch) {
+    commands.push(`git branch -d ${spec.branch}`)
+  }
 
   return { blocked: false, reason: null, commands, backupCommand, backupPath, volumesDropped }
 }

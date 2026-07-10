@@ -27,7 +27,15 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(config.worktree.root, '../{repo}-wt')
   assert.strictEqual(config.registry, '.spec-env/registry.json')
   assert.strictEqual(config.linkLinear, true)
+  assert.strictEqual(config.baseBranch, '')
   assert.strictEqual(config.guards.refuseTeardownIfDirty, true)
+})
+
+test('baseBranch defaults to empty and accepts an override', () => {
+  const dir = tmpDir()
+  assert.strictEqual(loadEnvConfig(dir).config.baseBranch, '')
+  writeEnvConfig(dir, { baseBranch: 'develop' })
+  assert.strictEqual(loadEnvConfig(dir).config.baseBranch, 'develop')
 })
 
 test('present config → present:true and merged over defaults', () => {

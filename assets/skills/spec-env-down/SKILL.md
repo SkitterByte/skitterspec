@@ -31,10 +31,13 @@ skitterspec spec-env down <spec> [--keep-volumes] [--force]
 
 ## 3. Handle a guard block
 
-If the CLI reports **blocked** (the worktree has uncommitted changes or unpushed
-commits), **relay the reason and stop** — do not destroy unreviewed work. Offer
-the user `--force` (and suggest committing/pushing first). Only re-run with
-`--force` when the user explicitly asks.
+If the CLI reports **blocked** (the worktree has uncommitted changes, or unpushed
+commits that aren't yet merged into the base branch), **relay the reason and
+stop** — do not destroy unreviewed work. Offer the user `--force` (and suggest
+committing/pushing first). Only re-run with `--force` when the user explicitly
+asks. **A branch already merged into the base needs no `--force`** — the unpushed
+guard treats "landed on base" as safe, so a completed spec (post-`/spec-complete`
+integrate) tears down cleanly even with no remote.
 
 ## 4. Execute the printed side effects
 
@@ -45,12 +48,17 @@ When not blocked, run the printed commands **in order**, exactly as printed:
    destroyed.
 2. **`docker compose … down`** — with `--volumes` unless `--keep-volumes`.
 3. **`git worktree remove …`** — removes the sibling worktree.
+4. **`git branch -d <branch>`** — deletes the spec's branch (freed by the worktree
+   removal above). It's `-d` (merged-only), never `-D`: if it reports the branch
+   isn't fully merged, **relay that and stop** — don't `-D` it. That only happens
+   on a `--force` teardown of unmerged work; the user can delete it by hand if
+   they're sure.
 
 The slot is already freed by the CLI.
 
 ## 5. Report
 
-Confirm what happened: worktree removed, containers down, volumes
-**dropped|kept**, slot freed, and the backup path (if any). If the spec wasn't
-provisioned / was already torn down, the CLI reports a clean **no-op** — relay
-that; it's not an error.
+Confirm what happened: worktree removed, branch deleted, containers down, volumes
+**dropped|kept**, slot freed, and the backup path (if any). If a `git branch -d`
+was refused (unmerged), say so. If the spec wasn't provisioned / was already torn
+down, the CLI reports a clean **no-op** — relay that; it's not an error.

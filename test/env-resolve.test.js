@@ -8,11 +8,53 @@ const path = require('node:path')
 
 const {
   resolveSpec,
+  resolveBaseBranch,
   splitPrefix,
   expandTokens,
   repoInfo,
   readStackField,
 } = require('../src/env/resolve.js')
+
+// A fake git reader: maps a joined-args key → return value (string, '' , or null).
+function fakeGit(map) {
+  return (argv) => {
+    const key = argv.join(' ')
+    return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : null
+  }
+}
+
+const ORIGIN_HEAD = 'symbolic-ref --short refs/remotes/origin/HEAD'
+const HAS_MAIN = 'show-ref --verify --quiet refs/heads/main'
+const HAS_MASTER = 'show-ref --verify --quiet refs/heads/master'
+
+test('resolveBaseBranch: explicit config.baseBranch wins over everything', () => {
+  const git = fakeGit({ [ORIGIN_HEAD]: 'origin/develop', [HAS_MAIN]: '' })
+  assert.strictEqual(resolveBaseBranch({ baseBranch: 'trunk' }, git), 'trunk')
+})
+
+test('resolveBaseBranch: blank baseBranch falls through to detection', () => {
+  const git = fakeGit({ [ORIGIN_HEAD]: 'origin/develop' })
+  assert.strictEqual(resolveBaseBranch({ baseBranch: '  ' }, git), 'develop')
+})
+
+test('resolveBaseBranch: uses origin/HEAD when present (strips origin/)', () => {
+  const git = fakeGit({ [ORIGIN_HEAD]: 'origin/main', [HAS_MAIN]: '' })
+  assert.strictEqual(resolveBaseBranch({}, git), 'main')
+})
+
+test('resolveBaseBranch: no origin/HEAD → main if it exists', () => {
+  const git = fakeGit({ [HAS_MAIN]: '' }) // '' = show-ref success (branch exists)
+  assert.strictEqual(resolveBaseBranch({}, git), 'main')
+})
+
+test('resolveBaseBranch: no origin/HEAD, no main → master if it exists', () => {
+  const git = fakeGit({ [HAS_MASTER]: '' })
+  assert.strictEqual(resolveBaseBranch({}, git), 'master')
+})
+
+test('resolveBaseBranch: nothing detectable → defaults to main', () => {
+  assert.strictEqual(resolveBaseBranch({}, fakeGit({})), 'main')
+})
 
 function baseConfig(overrides = {}) {
   return {

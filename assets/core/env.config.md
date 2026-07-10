@@ -67,7 +67,16 @@ no live `env.config.json` was found.
   // automation. Otherwise branches fall back to {type}/{slug}.
   "linkLinear": true,
 
-  // Teardown safety. --force overrides both.
+  // Integration base branch — the branch specs fork from and land back onto
+  // (used by the teardown "merged?" guard and, later, the integrate step).
+  // Empty = auto-detect: origin/HEAD → main → master. Set it when your default
+  // branch isn't discoverable (e.g. no remote) or differs (trunk, develop).
+  "baseBranch": "",
+
+  // Teardown safety. --force overrides both. refuseTeardownIfUnpushed only
+  // blocks when the commits are ALSO unmerged into the base branch — a branch
+  // already landed on base tears down (and its branch is deleted) without
+  // --force, even with no remote.
   "guards": {
     "refuseTeardownIfDirty": true,
     "refuseTeardownIfUnpushed": true

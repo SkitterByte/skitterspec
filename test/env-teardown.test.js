@@ -9,6 +9,7 @@ function spec(overrides = {}) {
   return {
     folder: 'feat-thing',
     slug: 'thing',
+    branch: 'feat/thing',
     worktreePath: '/wt/thing',
     projectName: 'app_thing',
     ...overrides,
@@ -39,10 +40,17 @@ test('blocks on a dirty worktree', () => {
   assert.deepStrictEqual(p.commands, [])
 })
 
-test('blocks on unpushed commits', () => {
-  const p = planDown(spec(), config(), {}, CTX({ unpushed: true }))
+test('blocks on unpushed, unmerged commits', () => {
+  const p = planDown(spec(), config(), {}, CTX({ unpushed: true, merged: false }))
   assert.strictEqual(p.blocked, true)
   assert.match(p.reason, /unpushed/)
+})
+
+test('a branch merged into base tears down without --force', () => {
+  // unpushed but already landed on base → nothing to lose, guard passes.
+  const p = planDown(spec(), config(), {}, CTX({ unpushed: true, merged: true }))
+  assert.strictEqual(p.blocked, false)
+  assert.ok(p.commands.some((c) => c === 'git branch -d feat/thing'))
 })
 
 test('--force overrides the guards (and uses git worktree remove --force)', () => {
@@ -58,6 +66,7 @@ test('clean worktree → down --volumes + worktree remove, volumes dropped', () 
   assert.deepStrictEqual(p.commands, [
     'docker compose --project-name app_thing down --volumes',
     'git worktree remove /wt/thing',
+    'git branch -d feat/thing',
   ])
 })
 
@@ -73,6 +82,7 @@ test('--keep-volumes → plain down, no backup, volumes kept', () => {
   assert.deepStrictEqual(p.commands, [
     'docker compose --project-name app_thing down',
     'git worktree remove /wt/thing',
+    'git branch -d feat/thing',
   ])
 })
 
@@ -105,7 +115,7 @@ test('docker.enabled:false → no backup, no down, just worktree remove', () => 
   )
   assert.strictEqual(p.volumesDropped, false)
   assert.strictEqual(p.backupCommand, null)
-  assert.deepStrictEqual(p.commands, ['git worktree remove /wt/thing'])
+  assert.deepStrictEqual(p.commands, ['git worktree remove /wt/thing', 'git branch -d feat/thing'])
 })
 
 test('guard toggles: dirty allowed when refuseTeardownIfDirty is false', () => {
@@ -113,19 +123,35 @@ test('guard toggles: dirty allowed when refuseTeardownIfDirty is false', () => {
   assert.strictEqual(p.blocked, false)
 })
 
-test('worktree-only spec → only worktree remove, even with the master switch on', () => {
+test('worktree-only spec → only worktree remove + branch delete, master switch on', () => {
   const p = planDown(spec({ stack: 'worktree' }), config(), {}, CTX())
   assert.strictEqual(p.blocked, false)
   assert.strictEqual(p.volumesDropped, false)
   assert.strictEqual(p.backupCommand, null)
-  assert.deepStrictEqual(p.commands, ['git worktree remove /wt/thing'])
+  assert.deepStrictEqual(p.commands, ['git worktree remove /wt/thing', 'git branch -d feat/thing'])
 })
 
-test('docker spec → down --volumes + worktree remove (Stack drives it)', () => {
+test('docker spec → down --volumes + worktree remove + branch delete (Stack drives it)', () => {
   const p = planDown(spec({ stack: 'docker' }), config(), {}, CTX())
   assert.strictEqual(p.volumesDropped, true)
   assert.deepStrictEqual(p.commands, [
     'docker compose --project-name app_thing down --volumes',
     'git worktree remove /wt/thing',
+    'git branch -d feat/thing',
   ])
+})
+
+test('branch delete is -d (merged-only), never -D', () => {
+  const p = planDown(spec(), config(), {}, CTX())
+  assert.ok(p.commands.some((c) => c === 'git branch -d feat/thing'), 'plans a -d branch delete')
+  assert.ok(!p.commands.some((c) => /branch -D/.test(c)), 'never uses -D')
+  // branch delete runs AFTER the worktree remove (which frees the branch)
+  const removeIdx = p.commands.findIndex((c) => c.startsWith('git worktree remove'))
+  const deleteIdx = p.commands.findIndex((c) => c.startsWith('git branch -d'))
+  assert.ok(removeIdx < deleteIdx, 'worktree remove precedes branch delete')
+})
+
+test('a spec with no branch → no branch-delete command', () => {
+  const p = planDown(spec({ branch: undefined }), config(), {}, CTX())
+  assert.ok(!p.commands.some((c) => c.startsWith('git branch')), 'no branch delete without a branch')
 })

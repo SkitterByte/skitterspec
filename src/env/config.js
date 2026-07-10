@@ -19,6 +19,7 @@
  *     open:     { command },   // optional, editor/terminal-agnostic opener
  *     registry: ".spec-env/registry.json",
  *     linkLinear: true,
+ *     baseBranch: "",          // "" = auto-detect (origin/HEAD → main → master)
  *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed }
  *   }
  */
@@ -42,6 +43,8 @@ const DEFAULT_CONFIG = Object.freeze({
   open: Object.freeze({ command: '' }),
   registry: '.spec-env/registry.json',
   linkLinear: true,
+  // Integration base branch. Empty = auto-detect (origin/HEAD → main → master).
+  baseBranch: '',
   guards: Object.freeze({ refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true }),
 })
 
@@ -57,6 +60,7 @@ function defaults() {
     open: { ...DEFAULT_CONFIG.open },
     registry: DEFAULT_CONFIG.registry,
     linkLinear: DEFAULT_CONFIG.linkLinear,
+    baseBranch: DEFAULT_CONFIG.baseBranch,
     guards: { ...DEFAULT_CONFIG.guards },
   }
 }
@@ -106,6 +110,7 @@ function mergeConfig(base, parsed) {
 
   assign(base, parsed, 'registry', 'string')
   assign(base, parsed, 'linkLinear', 'boolean')
+  assign(base, parsed, 'baseBranch', 'string')
 
   if (isObject(parsed.guards)) {
     assign(base.guards, parsed.guards, 'refuseTeardownIfDirty', 'boolean')
