@@ -112,6 +112,42 @@ test('init without isolation does not activate env.config.json', async () => {
   assert.ok(!exists(dir, 'specs', '.core', 'env.config.json'), 'live config not created')
 })
 
+const readLocalSettings = (dir) =>
+  JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.local.json'), 'utf8'))
+
+test('init --isolation trusts the absolute worktree root in settings.local.json', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  const expected = path.resolve(dir, `../${path.basename(dir)}-wt`)
+  assert.deepStrictEqual(readLocalSettings(dir).permissions.additionalDirectories, [expected])
+})
+
+test('init without isolation writes no settings.local.json', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: false })
+  assert.ok(!exists(dir, '.claude', 'settings.local.json'), 'no settings.local.json written')
+})
+
+test('init --isolation preserves a pre-existing permissions.allow', async () => {
+  const dir = tmpProject()
+  const file = path.join(dir, '.claude', 'settings.local.json')
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify({ permissions: { allow: ['Bash(npm test *)'] } }, null, 2))
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  const settings = readLocalSettings(dir)
+  assert.deepStrictEqual(settings.permissions.allow, ['Bash(npm test *)'], 'allow survived')
+  const expected = path.resolve(dir, `../${path.basename(dir)}-wt`)
+  assert.deepStrictEqual(settings.permissions.additionalDirectories, [expected], 'root added')
+})
+
+test('init --isolation trusting is idempotent — a second run adds nothing', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  const expected = path.resolve(dir, `../${path.basename(dir)}-wt`)
+  assert.deepStrictEqual(readLocalSettings(dir).permissions.additionalDirectories, [expected])
+})
+
 test('update never activates isolation, even with isolation:true', async () => {
   const dir = tmpProject()
   await init({ dir, force: false, claudeMd: false, mode: 'init' })

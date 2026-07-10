@@ -14,6 +14,7 @@ const {
   portOffset,
 } = require('./env/registry.js')
 const { resolveSpec, resolveBaseBranch } = require('./env/resolve.js')
+const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
 const { planIntegrate } = require('./env/integrate.js')
@@ -159,6 +160,13 @@ function specEnvUp(dir, config, specArg) {
     return
   }
   const spec = resolveSpec(specArg, dir, config)
+
+  // Trust the shared worktree root so edits into the freshly-provisioned worktree
+  // don't prompt. One absolute entry (the root) covers every spec; self-heals on
+  // every provision for teammates who only cloned and ran /spec-go.
+  const worktreeRootAbs = path.dirname(spec.worktreePath)
+  const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs)
+
   const wantsDocker = spec.stack === 'docker' && config.docker.enabled
 
   // Slot allocation is Docker-only: a worktree-only spec never touches the
@@ -189,6 +197,17 @@ function specEnvUp(dir, config, specArg) {
     out.push(`  slot:      ${plan.slot}  (ports ${plan.portOffset}-${hi})`)
   } else {
     out.push('  stack:     worktree-only (no docker, no port block)')
+  }
+  if (trust.reason === 'malformed') {
+    out.push(
+      '  trusted:   ! .claude/settings.local.json is not valid JSON — left it;' +
+        `\n             add ${worktreeRootAbs} to permissions.additionalDirectories yourself`,
+    )
+  } else {
+    out.push(
+      `  trusted:   ${worktreeRootAbs}  ` +
+        `(${trust.changed ? 'added to' : 'already in'} .claude/settings.local.json)`,
+    )
   }
   out.push('')
   out.push('  run these:')
@@ -260,7 +279,10 @@ function compactTimestamp() {
 }
 
 // Teardown: evaluate guards, print the plan, free the slot. Idempotent no-op
-// when the spec was never provisioned / already torn down.
+// when the spec was never provisioned / already torn down. Deliberately does NOT
+// touch the trusted worktree root in .claude/settings.local.json — that entry is
+// the shared parent of every spec's worktree and harmless when empty; removing it
+// would just re-prompt on the next /spec-go (see spec: isolation-trusts-worktree-dir).
 function specEnvDown(dir, config, specArg, flags) {
   if (!specArg) {
     process.stdout.write('Usage: skitterspec spec-env down <spec> [--keep-volumes] [--force]\n')

@@ -26,6 +26,11 @@ housekeeping below lands on the spec's branch and never on `main`:
   worktree on a branch forked from `main`, and — only when the spec's
   `> **Stack:**` header is `worktree + docker` — also brings up its Docker stack.
   Print the worktree path and the opener command it emits.
+- **Trust the worktree for this session.** The engine wrote the printed
+  `trusted:` root into `.claude/settings.local.json` (gitignored) so future
+  sessions trust it automatically — but that file likely won't hot-reload now,
+  so run `/add-dir <trusted root>` before editing into the worktree, or the
+  first edits will prompt.
 - **Do the rest in the worktree**, on the branch: open it (the printed opener, or
   a fresh Claude session rooted there) or, staying in this session, act on the
   worktree path with absolute paths / `git -C <worktreePath>`. The spec move,

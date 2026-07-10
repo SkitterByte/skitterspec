@@ -47,6 +47,12 @@ Run the printed commands **in order**, exactly as printed:
    namespaced stack up in the spec's reserved port block.
 4. **Opener** — if an `open.command` line was printed, run it (e.g. opens the
    worktree in your editor/terminal). Skipped silently when unset.
+5. **Trust the worktree root for this session** — the engine already wrote the
+   printed `trusted:` root into `.claude/settings.local.json` (gitignored, so it
+   persists for future sessions). That file likely won't hot-reload mid-session,
+   so also run `/add-dir <trusted root>` now to lift `Edit`/`Write` prompts for
+   the **current** session. (If the engine printed a `trusted: ! …` warning,
+   `settings.local.json` isn't valid JSON — fix it, then re-run.)
 
 ## 4. Report
 

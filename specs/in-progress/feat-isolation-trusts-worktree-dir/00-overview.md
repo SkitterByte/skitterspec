@@ -1,7 +1,7 @@
 # Trust the worktree root so provisioned specs stop prompting
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-10)
+> **Status:** In Progress — Phase 2 done (all phases complete; ready for /spec-complete)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-10
@@ -86,7 +86,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Trust helper + unit tests | ✅ | [01-trust-helper.md](01-trust-helper.md) |
-| 2 | Wire into provision + init + skills | ⬜ | [02-wire-and-skills.md](02-wire-and-skills.md) |
+| 2 | Wire into provision + init + skills | ✅ | [02-wire-and-skills.md](02-wire-and-skills.md) |
 
 ## Open questions
 
@@ -111,3 +111,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   cases, green; full suite 207 pass). No typecheck step — the repo is plain JS
   with only `npm test` (`node --test`), so tests are the sole gate for every
   phase here.
+- 2026-07-10 — Phase 2 done: wired the helper into `specEnvUp` (trusts
+  `path.dirname(spec.worktreePath)`, one-line plan report, malformed warning) and
+  `installIsolation` (new `trustWorktreeRoot` folds the result into the init
+  report); added the `/add-dir` + `settings.local.json` note to the `spec-env`
+  and `spec-go` skills; left `specEnvDown` untouched with a deliberate comment.
+  Tests: `test/cli-spec-env-up.test.js` (4) + init trust cases (4) + a skills
+  `/add-dir` assertion — full suite 216 pass. All phases complete.

@@ -85,6 +85,18 @@ test('/spec-go documents the opt-in pull-first step', () => {
   assert.match(text, /skip this step|no config means/i, 'no-config path preserved')
 })
 
+test('/spec-env and /spec-go document trusting the worktree root via /add-dir', () => {
+  for (const name of ['spec-env', 'spec-go']) {
+    const text = skillText(name)
+    assert.match(text, /\/add-dir/, `${name} instructs running /add-dir`)
+    assert.match(
+      text,
+      /settings\.local\.json/,
+      `${name} notes the persistent settings.local.json entry`,
+    )
+  }
+})
+
 test('the Linear config template + docs ship under assets/core', () => {
   assert.ok(
     fs.existsSync(path.join(ASSETS, 'core', 'linear.config.json.example')),

@@ -4,6 +4,8 @@ const fs = require('fs')
 const path = require('path')
 
 const { loadConfig, SCHEMA_VERSION } = require('./config.js')
+const { ensureWorktreeDirTrusted } = require('./env/trust.js')
+const { repoInfo, expandTokens } = require('./env/resolve.js')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 
@@ -171,6 +173,44 @@ function installIsolation(dir, { enabled }, opts) {
     path.join(dir, 'specs', '.core', 'env.config.json'),
     opts,
   )
+  trustWorktreeRoot(dir)
+}
+
+// Seed the absolute worktree root into .claude/settings.local.json (gitignored)
+// so the operator enabling isolation isn't prompted on every edit into a
+// freshly-provisioned worktree. Best-effort: an unreadable config or malformed
+// settings file is reported, never fatal. `spec-env up` re-ensures this on every
+// provision, so a miss here self-heals.
+function trustWorktreeRoot(dir) {
+  let root
+  try {
+    const cfg = JSON.parse(
+      fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), 'utf8'),
+    )
+    root = cfg && cfg.worktree && cfg.worktree.root
+  } catch {
+    /* fall through to the warning below */
+  }
+  if (!root) {
+    report.warnings.push('could not read worktree.root — skipped trusting the worktree dir')
+    return
+  }
+  const { repo, repoSlug } = repoInfo(dir)
+  const rootAbs = path.resolve(dir, expandTokens(root, { repo, repoSlug }))
+  const res = ensureWorktreeDirTrusted(dir, rootAbs)
+  const label = '.claude/settings.local.json (trusted worktree root)'
+  if (res.reason === 'malformed') {
+    report.warnings.push(
+      '.claude/settings.local.json is not valid JSON — did not trust the worktree' +
+        ` dir; add ${rootAbs} to permissions.additionalDirectories yourself`,
+    )
+  } else if (res.reason === 'created') {
+    report.created.push(label)
+  } else if (res.reason === 'added') {
+    report.updated.push(label)
+  } else {
+    report.skipped.push('.claude/settings.local.json (worktree root already trusted)')
+  }
 }
 
 function installClaudeMd(dir, { mode }) {
