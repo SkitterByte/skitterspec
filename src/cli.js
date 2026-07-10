@@ -16,6 +16,7 @@ const {
 const { resolveSpec, resolveBaseBranch } = require('./env/resolve.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
+const { planIntegrate } = require('./env/integrate.js')
 const { findSpecFolder } = require('./env/resolve.js')
 const { loadLinearConfig } = require('./sync/config.js')
 const { normalizeLocal, normalizeRemote, readSnapshot } = require('./sync/normalize.js')
@@ -37,6 +38,7 @@ Usage:
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         plan a worktree + Docker stack + opener
                                 down <spec>       tear down (guards; --keep-volumes, --force)
+                                integrate <spec>  plan rebase + fast-forward onto the base branch
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
   skitterspec spec-sync <cmd> Linear hybrid-sync engine (opt-in; needs
@@ -306,6 +308,63 @@ function specEnvDown(dir, config, specArg, flags) {
   process.stdout.write(out.join('\n') + '\n')
 }
 
+// Integrate: land a spec's worktree branch onto the base branch (rebase + ff).
+// Queries git for the facts, prints the plan / block / no-op. The /spec-complete
+// skill executes the printed commands (and aborts a conflicting rebase).
+function specEnvIntegrate(dir, config, specArg) {
+  if (!specArg) {
+    process.stdout.write('Usage: skitterspec spec-env integrate <spec>\n')
+    return
+  }
+
+  // /spec-complete runs this from inside the worktree, but the spec's coordinates
+  // (worktreePath via {repo}, the base branch) must resolve against the PRIMARY
+  // checkout. Resolve it first (parent of the shared git dir) and anchor
+  // everything to it, so integrate works whether invoked from main or a worktree.
+  const commonDir = gitReader(dir)(['rev-parse', '--git-common-dir'])
+  const mainRepoPath = commonDir ? path.dirname(path.resolve(dir, commonDir)) : dir
+
+  const spec = resolveSpec(specArg, mainRepoPath, config)
+
+  if (!fs.existsSync(spec.worktreePath)) {
+    process.stdout.write(
+      `spec-env integrate: ${spec.folder} has no worktree — nothing to integrate.\n`,
+    )
+    return
+  }
+
+  const base = resolveBaseBranch(config, gitReader(mainRepoPath))
+  const wtGit = gitReader(spec.worktreePath)
+  const status = wtGit(['status', '--porcelain'])
+  const dirty = status !== null && status.length > 0
+  const ahead = wtGit(['rev-list', '--count', `${base}..HEAD`])
+  const aheadOfBase = ahead !== null && Number(ahead) > 0
+
+  const plan = planIntegrate(spec, config, { worktreeState: { dirty }, base, aheadOfBase, mainRepoPath })
+
+  if (plan.blocked) {
+    process.stdout.write(`spec-env integrate: blocked — ${plan.reason}.\n`)
+    return
+  }
+  if (plan.noop) {
+    process.stdout.write(
+      `spec-env integrate: ${spec.folder} already landed on ${base} — nothing to integrate.\n`,
+    )
+    return
+  }
+
+  const out = []
+  out.push(`spec-env integrate: ${spec.folder}`)
+  out.push('')
+  out.push(`  base:      ${plan.base}`)
+  out.push(`  branch:    ${plan.branch}`)
+  out.push(`  worktree:  ${spec.worktreePath}`)
+  out.push('')
+  out.push('  run these (abort the rebase on conflict):')
+  for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  process.stdout.write(out.join('\n') + '\n')
+}
+
 // Print the resolved identity/coordinates for a single spec.
 function specEnvResolve(dir, config, specArg) {
   if (!specArg) {
@@ -353,6 +412,9 @@ function specEnv(rest) {
     case 'down':
       specEnvDown(dir, config, positional[0], flags)
       break
+    case 'integrate':
+      specEnvIntegrate(dir, config, positional[0])
+      break
     case 'status':
       specEnvStatus(dir, config)
       break
@@ -361,7 +423,7 @@ function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|status|resolve> [spec] [--keep-volumes] [--force]\n',
+        'Usage: skitterspec spec-env <up|down|integrate|status|resolve> [spec] [--keep-volumes] [--force]\n',
       )
   }
 }

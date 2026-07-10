@@ -182,8 +182,15 @@ so services land in the spec's reserved block. Two adoption modes:
   branch names follow Linear's pattern so pushing fires Linear's GitHub
   automation.
 
-`/spec-complete` and `/spec-cancel` will *offer* to tear down when the config is
-present — never forced.
+When a spec finishes, `/spec-complete` can **land the branch on your base branch**
+in one flow — it rebases the spec's worktree branch onto `main` (or the configured
+`baseBranch`; auto-detected from `origin/HEAD` otherwise), fast-forwards, and
+re-runs the tests. A rebase conflict aborts and hands back; it never pushes. Once
+landed, teardown reclaims the worktree **and deletes the branch** without needing
+`--force` (a merged branch has nothing to lose, even with no remote).
+
+`/spec-complete` and `/spec-cancel` will *offer* to integrate/tear down when the
+config is present — never forced.
 
 ## Linear hybrid sync — git-like `/spec-status` · `/spec-pull` · `/spec-push`
 

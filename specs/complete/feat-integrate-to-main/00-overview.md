@@ -1,7 +1,7 @@
 # Integrate-to-main on `/spec-complete` + clean teardown
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-09)
+> **Status:** Complete (2026-07-10)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-09
@@ -102,7 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Base resolution + teardown (branch delete, merged-safe guard) | ✅ | [01-teardown-and-base.md](01-teardown-and-base.md) |
-| 2 | Integrate planner + CLI + /spec-complete wiring | ⬜ | [02-integrate-step.md](02-integrate-step.md) |
+| 2 | Integrate planner + CLI + /spec-complete wiring | ✅ | [02-integrate-step.md](02-integrate-step.md) |
 
 ## Open questions
 
@@ -116,9 +116,23 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-07-09 | Draft | backlog | Reuben Greaves |
 | 2026-07-09 | Ready | backlog | Reuben Greaves |
 | 2026-07-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-10 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-07-10 — Completed; both phases done, tests green (201 pass, 0 fail). No
+  deferred items. Note: this spec is self-hosting — its own new `spec-env
+  integrate` step / merged-safe teardown are used to land this branch on `main`
+  and reclaim the worktree.
+- 2026-07-10 — Phase 2 complete (both phases done). Shipped the pure
+  `planIntegrate` planner, the `spec-env integrate` CLI subcommand, and the
+  `/spec-complete` wiring (new step 6 Integrate → rebase+ff+re-test, opt-in and
+  isolation-only; teardown renumbered to step 7 with no-`--force` + branch-delete
+  wording). README isolation note added. Deviation worth recording: `spec-env
+  integrate` resolves the spec/base against the **primary checkout** (parent of
+  `git rev-parse --git-common-dir`), not cwd — the skill runs it from inside the
+  worktree, where `resolveSpec` would otherwise mis-expand `{repo}`. 201 tests
+  green (+4). Smoke-tested: help, dirty-block, and resolution from both locations.
 - 2026-07-10 — Phase 1 complete. Shipped `resolveBaseBranch` (config → origin/HEAD
   → main → master), the optional `baseBranch` env-config field (+ docs/example),
   and the teardown changes: `planDown` now deletes the merged branch (`git branch

@@ -51,10 +51,37 @@ specs — `git log`/the per-spec State log give the completion order.
 Confirm the move, the final test result, and list anything deferred. Do **not**
 `git commit` unless the user asks.
 
-## 6. Offer teardown (opt-in, only if configured)
+## 6. Integrate onto the base branch (opt-in, only if isolated)
+
+**Only when `specs/.core/env.config.json` exists and the spec is on a worktree**
+(it was provisioned by `/spec-go`). Otherwise skip this entirely — a non-isolated
+spec has nothing to land, and `/spec-complete` behaves exactly as before. When it
+applies, offer to land the finished branch on the base branch so the work reaches
+`main` (or your configured `baseBranch`) in one flow:
+
+1. **Require a clean worktree.** The completion edits (status flip, the
+   `git mv` to `complete/`) must be committed first — integrate refuses a dirty
+   tree. If it's dirty, offer `/commit` and **stop**; don't auto-commit.
+2. **Plan + execute.** Run `skitterspec spec-env integrate <name>` and run the
+   printed commands **in order**:
+   - `git -C <worktree> rebase <base>` — replay the branch onto base.
+   - `git -C <mainRepoPath> merge --ff-only <branch>` — fast-forward base.
+   On a **rebase conflict** (non-zero exit), run
+   `git -C <worktree> rebase --abort`, relay the conflict, and **stop** — leave it
+   to the user; do not offer teardown.
+   On a **no-op** ("already landed"), just say so and continue.
+3. **Re-test on base.** Run the project's test command from the primary checkout;
+   it must be **green** before you call the landing done.
+4. **Report** the landing (base branch, linear fast-forward). It **never pushes** —
+   mention the user can `git push` the base branch themselves.
+
+## 7. Offer teardown (opt-in, only if configured)
 
 **Only when `specs/.core/env.config.json` exists**, offer — don't force — to
 reclaim the finished spec's environment: "Want me to run `/spec-env-down <name>`
-to remove its worktree, stack, volumes, and free its slot?" It respects the
-teardown guards (won't destroy a dirty/unpushed worktree without `--force`). If
-`env.config.json` is absent, skip this entirely — behave exactly as before.
+to remove its worktree, delete its branch, stack, volumes, and free its slot?"
+Post-integrate the branch is merged into base, so teardown needs **no `--force`**
+and deletes the branch (`git branch -d`) as part of the plan. It still respects
+the guards (won't destroy a dirty or unpushed-and-unmerged worktree without
+`--force`). If `env.config.json` is absent, skip this entirely — behave exactly as
+before.
