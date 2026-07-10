@@ -85,7 +85,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Trust helper + unit tests | ⬜ | [01-trust-helper.md](01-trust-helper.md) |
+| 1 | Trust helper + unit tests | ✅ | [01-trust-helper.md](01-trust-helper.md) |
 | 2 | Wire into provision + init + skills | ⬜ | [02-wire-and-skills.md](02-wire-and-skills.md) |
 
 ## Open questions
@@ -107,3 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   gitignored `settings.local.json` by a shared helper, wired into both
   `installIsolation` and `specEnvUp`, with `/add-dir` covering the live session
   and teardown leaving the entry in place.
+- 2026-07-10 — Phase 1 done: `src/env/trust.js` + `test/env-trust.test.js` (6
+  cases, green; full suite 207 pass). No typecheck step — the repo is plain JS
+  with only `npm test` (`node --test`), so tests are the sole gate for every
+  phase here.
