@@ -1,7 +1,7 @@
 # Extract release tooling into skittership
 
 > **Type:** Feature
-> **Status:** In Progress — Phases 1–2 done; Phase 3 next (started 2026-07-13)
+> **Status:** In Progress — Phases 1–3 done; Phase 4 (publish) next (started 2026-07-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-13
@@ -69,7 +69,9 @@ skitterspec removes the tooling, so users have somewhere to land.
    remove the release config/flags/prompts from `src/{init,cli,config}.js`, so a
    skitterspec install is spec-only.
 3. **Add the guarded deprecation/removal flow to `skitterspec update`.**
-4. **Migrate this repo to consume skittership + refresh docs.**
+4. **Publish skittership** to GitHub + npm (operator runs `npm publish`), so it's
+   a real installable package.
+5. **Migrate this repo to consume the published skittership + refresh docs.**
 
 ## Phases
 
@@ -80,14 +82,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Stand up the skittership package (new repo) | ✅ | [01-standup-skittership.md](01-standup-skittership.md) |
 | 2 | Strip release tooling out of skitterspec | ✅ | [02-strip-skitterspec.md](02-strip-skitterspec.md) |
-| 3 | Guarded deprecation/removal in `skitterspec update` | ⬜ | [03-update-deprecation.md](03-update-deprecation.md) |
-| 4 | Dogfood: consume skittership + refresh docs | ⬜ | [04-dogfood-and-docs.md](04-dogfood-and-docs.md) |
+| 3 | Guarded deprecation/removal in `skitterspec update` | ✅ | [03-update-deprecation.md](03-update-deprecation.md) |
+| 4 | Publish skittership (GitHub + npm) | ⬜ | [04-publish-skittership.md](04-publish-skittership.md) |
+| 5 | Dogfood: consume skittership + refresh docs | ⬜ | [05-dogfood-and-docs.md](05-dogfood-and-docs.md) |
 
 ## Open questions
 
-- [ ] How does this repo depend on the pre-publish skittership for dogfooding —
-      git dependency, published `@skitterbyte/skittership`, or `npx` against a
-      tag? (Resolve in Phase 4; not blocking Phases 1–3.)
+- [x] How does this repo depend on skittership for dogfooding? **Resolved:** a new
+      Phase 4 publishes `@skitterbyte/skittership` (operator runs `npm publish`),
+      so Phase 5 depends on the published package (falling back to `file:../` only
+      if publish is deferred).
 
 ## State log
 
@@ -102,6 +106,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   separate repo; `/commit` + rule move wholesale; `skittership.config.json` only
   (no fallback, init migrates); `update` offers guarded removal; this repo
   dogfoods skittership.
+- 2026-07-13 — Inserted a new **Phase 4 — Publish skittership** (GitHub + npm)
+  before dogfood; old Phase 4 renumbered to **Phase 5**. Resolves the dependency
+  open question: operator runs `npm publish` (I prep + hand over the command);
+  skittership's GitHub repo is created + pushed. Phase 5 then consumes the
+  published package.
+- 2026-07-13 — Phase 3 done. Added `src/deprecate.js` + a guarded cleanup path to
+  `skitterspec update`: detects leftover release tooling and removes it only on an
+  interactive yes or `--remove-release-tooling`; non-TTY/`--yes` print a notice
+  only (CI never mutates). Removal is scoped (prunes empty dirs, preserves custom
+  `version`, CHANGELOG/RELEASES, and unrelated scripts). 11 new tests; `node
+  --test` green (176).
 - 2026-07-13 — Phase 2 done. Stripped all release tooling from skitterspec:
   deleted the commit skill/rule, both generators + `lib/`, `src/config.js`, and
   the release tests; removed the release config/flags/prompts from

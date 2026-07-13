@@ -1,4 +1,4 @@
-# Phase 4 — Dogfood: consume skittership + refresh docs ⬜
+# Phase 5 — Dogfood: consume skittership + refresh docs ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 
@@ -8,9 +8,9 @@ packages accurately — with the release generation verified end-to-end.
 
 ## Tasks
 
-- [ ] Resolve the open question (dependency mechanism): depend on skittership from
-      this repo via a dev dependency (`@skitterbyte/skittership` once published, or
-      a git/`file:` dep pre-publish) or `npx @skitterbyte/skittership`.
+- [ ] Depend on the **published** `@skitterbyte/skittership` (Phase 4) as a
+      devDependency, pinned. If publish is still deferred, fall back to a
+      `file:../skittership` dep and note it.
 - [ ] Re-source this repo's release generation from skittership: update the
       `package.json` `version`/`changelog`/`releases` scripts to call skittership's
       generators, remove the self-hosted `scripts/generate-*.js` +
