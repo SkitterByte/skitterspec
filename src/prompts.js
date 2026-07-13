@@ -34,4 +34,23 @@ async function promptSetup({ isolationSeed = false } = {}) {
   return { isolation: Boolean(ans.isolation) }
 }
 
-module.exports = { promptSetup }
+/**
+ * Interactive confirm for removing leftover release tooling on `update`. Returns
+ * true only on an explicit yes; a cancel (Ctrl-C / Esc) resolves to false so the
+ * default is always to keep the files.
+ */
+async function confirmRemoveReleaseTooling() {
+  const prompts = require('prompts')
+  const ans = await prompts(
+    {
+      type: 'confirm',
+      name: 'remove',
+      message: 'Found release tooling (now in @skitterbyte/skittership). Remove it here?',
+      initial: false,
+    },
+    { onCancel: () => false },
+  )
+  return Boolean(ans.remove)
+}
+
+module.exports = { promptSetup, confirmRemoveReleaseTooling }

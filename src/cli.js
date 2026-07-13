@@ -4,6 +4,11 @@ const fs = require('fs')
 const path = require('path')
 const { execFileSync } = require('child_process')
 const { init } = require('./init.js')
+const {
+  detectReleaseTooling,
+  removeReleaseTooling,
+  releaseToolingNotice,
+} = require('./deprecate.js')
 const { loadEnvConfig } = require('./env/config.js')
 const {
   readRegistry,
@@ -57,6 +62,8 @@ Options (init / update):
   --yes, -y                Accept defaults; skip the interactive setup prompts
   --isolation / --no-isolation        Enable/skip per-spec isolation (a git
                                       worktree per spec; writes env.config.json)
+  --remove-release-tooling            (update) Remove leftover release tooling
+                                      non-interactively (moved to skittership)
 
 Examples:
   npx @skitterbyte/skitterspec init
@@ -72,6 +79,7 @@ function parse(argv) {
     dir: null,
     yes: false,
     isolation: undefined,
+    removeReleaseTooling: false,
   }
   const positional = []
   for (let i = 0; i < argv.length; i++) {
@@ -81,11 +89,45 @@ function parse(argv) {
     else if (a === '--yes' || a === '-y') opts.yes = true
     else if (a === '--isolation') opts.isolation = true
     else if (a === '--no-isolation') opts.isolation = false
+    else if (a === '--remove-release-tooling') opts.removeReleaseTooling = true
     else if (a === '--dir') opts.dir = argv[++i]
     else if (a.startsWith('--')) throw new Error(`unknown option: ${a}`)
     else positional.push(a)
   }
   return { opts, positional }
+}
+
+// After an `update`, clean up release tooling left by an older skitterspec (it
+// now lives in @skitterbyte/skittership). Deletes only on an explicit interactive
+// "yes" or --remove-release-tooling; a non-TTY/--yes run only prints the pointer,
+// so CI never mutates files. Nothing to do when no release tooling is present.
+async function cleanupReleaseTooling(dir, opts) {
+  const detection = detectReleaseTooling(dir)
+  if (!detection.present) return
+
+  const printRemoved = (removed) => {
+    process.stdout.write('\nRemoved release tooling (moved to @skitterbyte/skittership):\n')
+    for (const it of removed) process.stdout.write(`  ${it}\n`)
+    process.stdout.write('Your CHANGELOG.md / RELEASES.md content was left untouched.\n')
+  }
+
+  if (opts.removeReleaseTooling) {
+    printRemoved(removeReleaseTooling(dir, detection).removed)
+    return
+  }
+
+  const interactive = Boolean(process.stdin.isTTY) && !opts.yes
+  if (!interactive) {
+    process.stdout.write(`\n${releaseToolingNotice()}\n`)
+    return
+  }
+
+  const { confirmRemoveReleaseTooling } = require('./prompts.js')
+  if (await confirmRemoveReleaseTooling(detection)) {
+    printRemoved(removeReleaseTooling(dir, detection).removed)
+  } else {
+    process.stdout.write(`\n${releaseToolingNotice()}\n`)
+  }
 }
 
 // --- spec-env: per-spec isolation engine (Phase 1: status + resolve) --------
@@ -668,6 +710,7 @@ async function run(argv) {
     }
     case 'update':
       await init({ dir, force: true, claudeMd: opts.claudeMd, mode: 'update' })
+      await cleanupReleaseTooling(dir, opts)
       break
     default:
       throw new Error(`unknown command: ${cmd} (try --help)`)
