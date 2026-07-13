@@ -1,7 +1,7 @@
 # Extract release tooling into skittership
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-13)
+> **Status:** In Progress — Phase 1 done; Phase 2 next (started 2026-07-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-13
@@ -78,7 +78,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Stand up the skittership package (new repo) | ⬜ | [01-standup-skittership.md](01-standup-skittership.md) |
+| 1 | Stand up the skittership package (new repo) | ✅ | [01-standup-skittership.md](01-standup-skittership.md) |
 | 2 | Strip release tooling out of skitterspec | ⬜ | [02-strip-skitterspec.md](02-strip-skitterspec.md) |
 | 3 | Guarded deprecation/removal in `skitterspec update` | ⬜ | [03-update-deprecation.md](03-update-deprecation.md) |
 | 4 | Dogfood: consume skittership + refresh docs | ⬜ | [04-dogfood-and-docs.md](04-dogfood-and-docs.md) |
@@ -102,3 +102,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   separate repo; `/commit` + rule move wholesale; `skittership.config.json` only
   (no fallback, init migrates); `update` offers guarded removal; this repo
   dogfoods skittership.
+- 2026-07-13 — Phase 1 done. Built `@skitterbyte/skittership` at
+  `/Users/reubengreaves/code/skittership` (git-initialised, staged, not yet
+  committed — left for review). 62 tests green via `node --test`. Deviations from
+  the plan: (a) also added a `## Release tooling` CLAUDE.md section + asset (so a
+  skitterspec+skittership user keeps the commit guidance skitterspec's Phase 2
+  strip removes); (b) `migrateLegacyConfig` runs in **both** the CLI (before
+  `loadConfig`) and `init()` top, so the CLI and direct-init paths both carry
+  legacy values over.
