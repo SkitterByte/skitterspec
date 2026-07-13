@@ -6,12 +6,11 @@
  * non-interactive path (flags / --yes / CI) never loads this module, so the
  * test suite never imports the interactive UI.
  *
- * `seed` is the resolved release config (existing file merged with any flags),
- * used to pre-fill every answer. `isolationSeed` pre-fills the per-spec isolation
- * question. Returns `{ release, isolation }`.
+ * `isolationSeed` pre-fills the per-spec isolation question. Returns
+ * `{ isolation }`.
  */
 
-async function promptSetup({ seed, pkgExists, isolationSeed = false }) {
+async function promptSetup({ isolationSeed = false } = {}) {
   const prompts = require('prompts')
 
   let cancelled = false
@@ -23,71 +22,16 @@ async function promptSetup({ seed, pkgExists, isolationSeed = false }) {
   const questions = [
     {
       type: 'confirm',
-      name: 'changelogEnabled',
-      message: 'Generate a dev-facing CHANGELOG from commit subjects?',
-      initial: seed.changelog.enabled,
-    },
-    {
-      type: (prev) => (prev ? 'text' : null),
-      name: 'changelogFile',
-      message: 'Changelog filename',
-      initial: seed.changelog.file,
-    },
-    {
-      type: 'confirm',
-      name: 'releasesEnabled',
-      message: 'Generate user-facing release notes from Release-Note: footers?',
-      initial: seed.releases.enabled,
-    },
-    {
-      type: (_prev, values) => (values.releasesEnabled ? 'text' : null),
-      name: 'releasesFile',
-      message: 'Release-notes filename',
-      initial: seed.releases.file,
-    },
-    {
-      type: (_prev, values) => (values.releasesEnabled ? 'text' : null),
-      name: 'productName',
-      message: 'Product name (shown in the release-notes header)',
-      initial: seed.releases.productName,
+      name: 'isolation',
+      message: 'Enable per-spec isolation — a git worktree per spec?',
+      initial: isolationSeed,
     },
   ]
-
-  if (pkgExists) {
-    questions.push({
-      type: 'confirm',
-      name: 'versionHook',
-      message: 'Wire an npm "version" hook to regenerate these on release?',
-      initial: seed.versionHook,
-    })
-  }
-
-  questions.push({
-    type: 'confirm',
-    name: 'isolation',
-    message: 'Enable per-spec isolation — a git worktree per spec?',
-    initial: isolationSeed,
-  })
 
   const ans = await prompts(questions, { onCancel })
   if (cancelled) throw new Error('Setup cancelled')
 
-  return {
-    release: {
-      changelog: {
-        enabled: ans.changelogEnabled,
-        file: ans.changelogFile || seed.changelog.file,
-      },
-      releases: {
-        enabled: ans.releasesEnabled,
-        file: ans.releasesFile || seed.releases.file,
-        productName: ans.productName || seed.releases.productName,
-        scopeAreas: seed.releases.scopeAreas,
-      },
-      versionHook: pkgExists ? Boolean(ans.versionHook) : seed.versionHook,
-    },
-    isolation: Boolean(ans.isolation),
-  }
+  return { isolation: Boolean(ans.isolation) }
 }
 
 module.exports = { promptSetup }

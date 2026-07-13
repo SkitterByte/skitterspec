@@ -27,12 +27,6 @@ State log.
 > Tailor the per-phase test commands and project conventions referenced by the
 > spec skills to this project's stack (see `.claude/rules/spec-planning.md`).
 
-Also installed: **`/commit`** — stage only the task's files, run typecheck +
-tests, then write a conventional-commit message with a `Release-Note:` footer
-for user-visible changes (grammar in `.claude/rules/commit-messages.md`). If the
-release tooling is enabled (`skitterspec.config.json`), those footers feed the
-generated `CHANGELOG.md`/`RELEASES.md` at `npm version`.
-
 **Per-spec isolation (adopt once, then default):** with isolation adopted
 (`skitterspec init --isolation`, or `specs/.core/env.config.json` present),
 **`/spec-go`** gives every in-progress spec its own git worktree automatically —
