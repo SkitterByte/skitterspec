@@ -1,7 +1,7 @@
 # Extract release tooling into skittership
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 done; Phase 2 next (started 2026-07-13)
+> **Status:** In Progress — Phases 1–2 done; Phase 3 next (started 2026-07-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-13
@@ -79,7 +79,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Stand up the skittership package (new repo) | ✅ | [01-standup-skittership.md](01-standup-skittership.md) |
-| 2 | Strip release tooling out of skitterspec | ⬜ | [02-strip-skitterspec.md](02-strip-skitterspec.md) |
+| 2 | Strip release tooling out of skitterspec | ✅ | [02-strip-skitterspec.md](02-strip-skitterspec.md) |
 | 3 | Guarded deprecation/removal in `skitterspec update` | ⬜ | [03-update-deprecation.md](03-update-deprecation.md) |
 | 4 | Dogfood: consume skittership + refresh docs | ⬜ | [04-dogfood-and-docs.md](04-dogfood-and-docs.md) |
 
@@ -102,6 +102,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   separate repo; `/commit` + rule move wholesale; `skittership.config.json` only
   (no fallback, init migrates); `update` offers guarded removal; this repo
   dogfoods skittership.
+- 2026-07-13 — Phase 2 done. Stripped all release tooling from skitterspec:
+  deleted the commit skill/rule, both generators + `lib/`, `src/config.js`, and
+  the release tests; removed the release config/flags/prompts from
+  `src/{init,cli,prompts}.js`; dropped `commit`/`commit-messages.md` from
+  `SKILLS`/`RULES`. `node --test` green (165). Deferred: two soft `/commit`
+  suggestions in spec-go/spec-complete, and this repo's own dogfood migration →
+  Phase 4.
 - 2026-07-13 — Phase 1 done. Built `@skitterbyte/skittership` at
   `/Users/reubengreaves/code/skittership` (git-initialised, staged, not yet
   committed — left for review). 62 tests green via `node --test`. Deviations from
