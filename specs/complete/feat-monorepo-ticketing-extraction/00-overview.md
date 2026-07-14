@@ -1,7 +1,7 @@
 # Monorepo + ticketing-provider extraction, re-derived onto `main`
 
 > **Type:** Feature
-> **Status:** In Progress — all 4 phases built (ready for `/spec-complete`)
+> **Status:** Complete (2026-07-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-14
@@ -125,6 +125,7 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 |------|--------|--------|----|
 | 2026-07-14 | Draft | backlog | Reuben Greaves |
 | 2026-07-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -156,6 +157,13 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
   scripts now invoke the skittership generators via their
   `node_modules/@skitterbyte/skittership/assets/scripts/` path — the dogfooding
   intent is preserved, only the plumbing changed (symlink → explicit package path).
+- 2026-07-14 — Completed; all 4 phases done, 195 tests green. The base is
+  tracker-free and release-tooling-free (both extracted); Linear ships as the
+  `@skitterbyte/skitterspec-linear` superset. One item executes at the tail of this
+  `/spec-complete` run, after the branch lands on `main` and re-tests green:
+  deleting the superseded port source `feat/extract-ticketing-provider` (branch +
+  worktree). Its worktree is a separate checkout from this spec's, so removing it
+  is independent of this spec's own teardown.
 - 2026-07-14 — Phase 4 done. Two publishable distributions build + pack cleanly:
   `@skitterbyte/skitterspec` (v2.0.0, base, dep `prompts` only) +
   `@skitterbyte/skitterspec-linear` (v1.0.0, superset, engine/adapter vendored
