@@ -1,6 +1,6 @@
-# Phase 4 — Publish skittership (GitHub + npm) ⬜
+# Phase 4 — Publish skittership (GitHub + npm) ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `@skitterbyte/skittership` is a real, installable package: its source is
 on GitHub under SkitterByte, its publish artifact is verified, and the exact
@@ -19,26 +19,22 @@ the published package.
 
 ## Tasks
 
-- [ ] Add a `LICENSE` file to skittership (MIT, matching `package.json` `license`)
-      and confirm `package.json` metadata: `name` `@skitterbyte/skittership`,
-      `version` `1.0.0`, `bin`, `files ["bin","src","assets"]`, `engines`,
-      `repository` URL, `description`, `keywords`.
-- [ ] Verify the publish artifact with `npm pack --dry-run`: exactly `bin/`,
-      `src/`, `assets/`, `package.json`, `README.md`, `LICENSE` are included —
-      **no** `test/`, `node_modules/`, or scratch files. Confirm the `bin` is
-      executable and `npx .` resolves the CLI.
-- [ ] Create the GitHub repo `SkitterByte/skittership` (public), add it as
-      `origin`, and push the committed default branch.
-- [ ] Prepare the release: tag `v1.0.0` locally (pushed with the branch) and write
-      the exact publish command for the operator:
-      `npm publish --access public` (with `--otp=…` if 2FA is on). Print
-      `npm whoami` guidance so they publish under the right account.
-- [ ] **Operator step (out of band):** run the handed-over `npm publish` command.
-- [ ] Verify after publish: `npm view @skitterbyte/skittership version` returns
-      `1.0.0` and `npx @skitterbyte/skittership@1.0.0 --help` works. (Record the
-      result; this unblocks Phase 5's devDependency.)
-- [ ] Run skittership's test command once more — `node --test` green — before
-      handing over.
+- [x] Added `LICENSE` (MIT, 2026 Reuben Greaves) and confirmed `package.json`
+      metadata: `@skitterbyte/skittership` v1.0.0, `bin`, `files
+      ["bin","src","assets"]`, `engines node >=18`, repository URL. Committed
+      locally in the skittership repo (`chore: add MIT LICENSE`).
+- [x] Verified the publish artifact with `npm pack --dry-run`: 15 files, 18.6 kB —
+      exactly `bin/`, `src/`, `assets/`, `package.json`, `README.md`, `LICENSE`;
+      **no** `test/`/`node_modules`. Bin runs (`--version` → 1.0.0).
+- [x] Repo `SkitterByte/skittership` created (in the GitHub UI by the operator);
+      added `origin` (SSH), renamed the branch `master → main`, pushed `main`.
+- [x] Tagged `v1.0.0` and pushed the tag. Publish command handed to the operator:
+      `npm publish --access public` (add `--otp=…` if 2FA) from the skittership repo.
+- [x] **Operator ran `npm publish`.** Landed after a short registry-propagation
+      delay (an authed `npm view` 404'd at first, then resolved).
+- [x] Verified: `npm view @skitterbyte/skittership version --prefer-online` →
+      `1.0.0`; tarball published at registry.npmjs.org. Unblocks Phase 5.
+- [x] Ran skittership's test command — `node --test` green (62) — before hand-off.
 
 ## Notes
 

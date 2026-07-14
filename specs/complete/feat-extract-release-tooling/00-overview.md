@@ -1,7 +1,7 @@
 # Extract release tooling into skittership
 
 > **Type:** Feature
-> **Status:** In Progress — Phases 1–3 done; Phase 4 (publish) next (started 2026-07-13)
+> **Status:** Complete (2026-07-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-13
@@ -83,8 +83,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Stand up the skittership package (new repo) | ✅ | [01-standup-skittership.md](01-standup-skittership.md) |
 | 2 | Strip release tooling out of skitterspec | ✅ | [02-strip-skitterspec.md](02-strip-skitterspec.md) |
 | 3 | Guarded deprecation/removal in `skitterspec update` | ✅ | [03-update-deprecation.md](03-update-deprecation.md) |
-| 4 | Publish skittership (GitHub + npm) | ⬜ | [04-publish-skittership.md](04-publish-skittership.md) |
-| 5 | Dogfood: consume skittership + refresh docs | ⬜ | [05-dogfood-and-docs.md](05-dogfood-and-docs.md) |
+| 4 | Publish skittership (GitHub + npm) | ✅ | [04-publish-skittership.md](04-publish-skittership.md) |
+| 5 | Dogfood: consume skittership + refresh docs | ✅ | [05-dogfood-and-docs.md](05-dogfood-and-docs.md) |
 
 ## Open questions
 
@@ -99,6 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-07-13 | Draft | backlog | Reuben Greaves |
 | 2026-07-13 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -111,6 +112,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   open question: operator runs `npm publish` (I prep + hand over the command);
   skittership's GitHub repo is created + pushed. Phase 5 then consumes the
   published package.
+- 2026-07-14 — Completed; all 5 phases done, tests green (skitterspec 179 /
+  skittership 62). No deferred items.
+- 2026-07-14 — Phases 4–5 done. Published `@skitterbyte/skittership@1.0.0` (npm +
+  GitHub `SkitterByte/skittership`). Migrated this repo to consume it: devDependency
+  `^1.0.0`, dogfood symlinks repointed into the dep, `skitterspec.config.json →
+  skittership.config.json`, README rewritten. Dogfooding surfaced + fixed a
+  deprecation-detector bug (don't flag release files when skittership is adopted).
+  `node --test` green (179). All phases complete — ready for /spec-complete.
 - 2026-07-13 — Phase 3 done. Added `src/deprecate.js` + a guarded cleanup path to
   `skitterspec update`: detects leftover release tooling and removes it only on an
   interactive yes or `--remove-release-tooling`; non-TTY/`--yes` print a notice
