@@ -27,6 +27,9 @@
   "dependencies": {
     "prompts": "^2.4.2"
   },
+  "devDependencies": {
+    "@skitterbyte/skittership": "^1.0.0"
+  },
   "scripts": {
     "test": "node --test",
     "changelog": "node scripts/generate-changelog.js",

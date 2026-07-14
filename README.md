@@ -3,10 +3,15 @@
 Spec-driven-development (SDD) workflow for [Claude Code](https://claude.com/claude-code),
 packaged so you can drop the same spec lifecycle into any project.
 
-It installs the **eight spec-lifecycle skills** plus a general **`/commit`**
-skill, two governing rules, and the `specs/` folder structure. The lifecycle is
+It installs the **eight spec-lifecycle skills**, the governing
+`spec-planning.md` rule, and the `specs/` folder structure. The lifecycle is
 `backlog → in-progress → complete / cancelled`, with `.core` holding always-apply
 project rules.
+
+> **Commits, changelog & release notes** live in a separate package,
+> [`@skitterbyte/skittership`](https://github.com/SkitterByte/skittership) — the
+> `/commit` skill and the `CHANGELOG.md`/`RELEASES.md` generators. Adopt it
+> alongside skitterspec (or on its own) with `npx @skitterbyte/skittership init`.
 
 | Skill | Action | Status | Folder |
 |-------|--------|--------|--------|
@@ -18,7 +23,6 @@ project rules.
 | `/spec-complete` | Verify all phases done + tests green | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason | `Cancelled` | `specs/cancelled/` |
 | `/spec-init` | Bootstrap/repair the workflow (manual path) | — | — |
-| `/commit` | Stage the task's files, run typecheck + tests, write a conventional commit (+ release-note footer) | — | (unchanged) |
 
 ## Install into a project
 
@@ -34,21 +38,9 @@ never clobbers customised files. It writes:
 
 ```
 .claude/skills/spec*/SKILL.md   # the 8 spec-lifecycle skills
-.claude/skills/commit/SKILL.md  # the /commit skill
 .claude/rules/spec-planning.md  # governing rule (the single source of truth)
-.claude/rules/commit-messages.md # commit message + release-note grammar
 specs/{.core,backlog,in-progress,complete,cancelled}/
 CLAUDE.md                       # adds a "## Spec workflow" section (created if absent)
-```
-
-If you enable the **release tooling** (see below) it also writes:
-
-```
-skitterspec.config.json         # which artifacts to generate, filenames, scope→area map
-scripts/generate-changelog.js   # dev-facing CHANGELOG generator   (if changelog enabled)
-scripts/generate-releases.js    # user-facing RELEASES generator    (if releases enabled)
-scripts/lib/                     # shared git + config helpers
-package.json                    # adds a "version" hook + changelog/releases npm scripts
 ```
 
 ### Options
@@ -56,67 +48,33 @@ package.json                    # adds a "version" hook + changelog/releases npm
 ```bash
 npx @skitterbyte/skitterspec init ./path/to/project   # target a dir (default: cwd)
 npx @skitterbyte/skitterspec init --yes               # accept defaults, skip the prompts
-npx @skitterbyte/skitterspec init --force             # overwrite existing skill/rule/script files
+npx @skitterbyte/skitterspec init --force             # overwrite existing skill/rule files
 npx @skitterbyte/skitterspec init --no-claude-md      # don't touch CLAUDE.md
 npx @skitterbyte/skitterspec init --isolation         # adopt per-spec isolation (worktree per spec)
-npx @skitterbyte/skitterspec update                   # re-copy skills + rule + scripts, leave specs/ + config alone
+npx @skitterbyte/skitterspec update                   # re-copy skills + rule, leave specs/ alone
 ```
 
-Release-tooling flags (drive setup without the prompts):
+`update` pulls newer skill/rule versions after upgrading the package, without
+disturbing your specs. The CLAUDE.md section is wrapped in
+`<!-- skitterspec:start -->`…`<!-- skitterspec:end -->` markers so `update` can
+refresh it in place. (If you upgrade from an older skitterspec that bundled the
+commit/release tooling, `update` detects the leftovers and offers to remove them —
+that tooling now lives in [`@skitterbyte/skittership`](https://github.com/SkitterByte/skittership).)
+
+## Commits, changelog & release notes → skittership
+
+The `/commit` skill and the `CHANGELOG.md`/`RELEASES.md` generators are a separate,
+independently-adoptable package: **[`@skitterbyte/skittership`](https://github.com/SkitterByte/skittership)**.
 
 ```bash
---changelog / --no-changelog        # enable/disable CHANGELOG generation
---releases  / --no-releases         # enable/disable user-facing release notes
---changelog-file=NAME               # changelog filename (default CHANGELOG.md)
---releases-file=NAME                # release-notes filename (default RELEASES.md)
---product-name=NAME                 # product name shown in the release-notes header
---version-hook / --no-version-hook  # wire (or skip) the npm "version" hook
+npx @skitterbyte/skittership init   # installs /commit, the commit-message rule,
+                                    # the generators, and skittership.config.json
 ```
 
-`update` pulls newer skill/rule/script versions after upgrading the package,
-without disturbing your specs or `skitterspec.config.json`. The CLAUDE.md section
-is wrapped in `<!-- skitterspec:start -->`…`<!-- skitterspec:end -->` markers so
-`update` can refresh it in place.
-
-## Changelog & release-note tooling (opt-in)
-
-Conventional commits already say what changed; skitterspec can turn them into two
-generated artifacts at `npm version`:
-
-- **`CHANGELOG.md`** — dev-facing, built from commit **subjects** (Keep a Changelog
-  format: feat→Added, fix→Fixed, perf/refactor→Changed, breaking→Changed).
-- **`RELEASES.md`** — user-facing, built **only** from `Release-Note:` commit
-  **footers**, grouped by area and bucket (New / Improved / Fixed / Action
-  required). The `/commit` skill writes these footers; the grammar lives in
-  `.claude/rules/commit-messages.md`.
-
-Both walk *commits since the last version tag*. Generation is opt-in per artifact
-and recorded in **`skitterspec.config.json`** at the repo root:
-
-```json
-{
-  "version": 1,
-  "changelog": { "enabled": true, "file": "CHANGELOG.md" },
-  "releases":  { "enabled": true, "file": "RELEASES.md",
-                 "productName": "My App", "scopeAreas": {} },
-  "versionHook": true
-}
-```
-
-`scopeAreas` maps a commit scope to a user-facing area (e.g. `{"reqs":
-"Requisitions"}`); unmapped scopes fall back to Title-Case, and a `Release-Area:`
-footer overrides per-commit. When `versionHook` is on, `init` wires npm scripts:
-
-```bash
-npm run changelog          # regenerate CHANGELOG.md from commits since last tag
-npm run releases           # regenerate RELEASES.md
-npm run changelog:retro -- 5   # backfill the last 5 tagged releases
-npm version <patch|minor|major>  # bumps, regenerates both, and stages them
-```
-
-The generators are plain Node (no `tsx`/`ts-node`); the only runtime dependency
-the package itself adds is [`prompts`](https://www.npmjs.com/package/prompts) for
-the interactive `init`.
+It reads `Release-Note:` commit footers into user-facing release notes and commit
+subjects into a dev-facing changelog, regenerated at `npm version`. See the
+skittership README for the config, flags, and the automatic
+`skitterspec.config.json → skittership.config.json` migration.
 
 ## Spec structure
 
@@ -248,14 +206,11 @@ edit seven files per project.
 
 ## How it's distributed
 
-The skills, rule, and generator scripts are plain assets under
-[`assets/`](./assets). The CLI ([`bin/skitterspec.js`](./bin/skitterspec.js) →
-[`src/`](./src)) copies them into place, patches `CLAUDE.md`, and (for the release
-tooling) writes `skitterspec.config.json` and npm scripts. It needs Node 18+ and
-one runtime dependency, [`prompts`](https://www.npmjs.com/package/prompts), used
-only for the interactive `init`. The copied generator scripts are dependency-free
-and read their config from `skitterspec.config.json` — they never call back into
-this package.
+The skills and rule are plain assets under [`assets/`](./assets). The CLI
+([`bin/skitterspec.js`](./bin/skitterspec.js) → [`src/`](./src)) copies them into
+place and patches `CLAUDE.md`. It needs Node 18+ and one runtime dependency,
+[`prompts`](https://www.npmjs.com/package/prompts), used only for the interactive
+`init`.
 
 Because the files are copied into the consumer repo (not symlinked), each project
 pins its own version and can diverge. Re-run `update` to re-sync from a newer

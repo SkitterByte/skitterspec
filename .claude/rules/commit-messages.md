@@ -1,1 +1,1 @@
-../../assets/rules/commit-messages.md
+../../node_modules/@skitterbyte/skittership/assets/rules/commit-messages.md
