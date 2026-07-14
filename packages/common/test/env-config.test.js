@@ -26,7 +26,8 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(config.docker.portsPerSpec, 10)
   assert.strictEqual(config.worktree.root, '../{repo}-wt')
   assert.strictEqual(config.registry, '.spec-env/registry.json')
-  assert.strictEqual(config.linkLinear, true)
+  assert.strictEqual(config.branch.pattern, '{type}/{slug}')
+  assert.strictEqual(config.branch.identifierField, '')
   assert.strictEqual(config.baseBranch, '')
   assert.strictEqual(config.guards.refuseTeardownIfDirty, true)
 })
@@ -40,12 +41,16 @@ test('baseBranch defaults to empty and accepts an override', () => {
 
 test('present config → present:true and merged over defaults', () => {
   const dir = tmpDir()
-  writeEnvConfig(dir, { docker: { portBase: 4000 }, linkLinear: false })
+  writeEnvConfig(dir, {
+    docker: { portBase: 4000 },
+    branch: { pattern: '{identifier}-{slug}', identifierField: 'tracker_id' },
+  })
   const { config, present } = loadEnvConfig(dir)
   assert.strictEqual(present, true)
   // overridden
   assert.strictEqual(config.docker.portBase, 4000)
-  assert.strictEqual(config.linkLinear, false)
+  assert.strictEqual(config.branch.pattern, '{identifier}-{slug}')
+  assert.strictEqual(config.branch.identifierField, 'tracker_id')
   // untouched defaults
   assert.strictEqual(config.docker.portsPerSpec, 10)
   assert.strictEqual(config.docker.composeFile, 'docker-compose.yml')

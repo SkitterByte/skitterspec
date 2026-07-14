@@ -60,23 +60,18 @@ function baseConfig(overrides = {}) {
   return {
     worktree: { root: '../{repo}-wt', folderPattern: '{slug}' },
     docker: { projectNamePattern: '{repoSlug}_{slug}', portBase: 3000, portsPerSpec: 10 },
-    linkLinear: true,
+    branch: { pattern: '{type}/{slug}', identifierField: '' },
     ...overrides,
   }
 }
 
 // Scaffold a project dir with one spec folder + overview, return the dir.
-function scaffold(folder, { bucket = 'backlog', frontmatter = '', linear = null, stack = null } = {}) {
+function scaffold(folder, { bucket = 'backlog', frontmatter = '', stack = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resolve-'))
   const specDir = path.join(dir, 'specs', bucket, folder)
   fs.mkdirSync(specDir, { recursive: true })
   const stackLine = stack ? `> **Stack:** ${stack}\n` : ''
   fs.writeFileSync(path.join(specDir, '00-overview.md'), `${frontmatter}# ${folder}\n${stackLine}`)
-  if (linear) {
-    const coreDir = path.join(dir, 'specs', '.core')
-    fs.mkdirSync(coreDir, { recursive: true })
-    fs.writeFileSync(path.join(coreDir, 'linear.config.json'), JSON.stringify(linear))
-  }
   return dir
 }
 
@@ -123,29 +118,37 @@ test('resolveSpec: bug- spec across a non-backlog bucket', () => {
   assert.strictEqual(r.branch, 'bug/crash-on-save')
 })
 
-test('resolveSpec: Linear branch pattern used when config + identifier present', () => {
+test('resolveSpec: {identifier} branch pattern uses the tracker id when configured', () => {
   const dir = scaffold('feat-hybrid-sync', {
-    frontmatter: '---\nlinear_identifier: SKI-42\n---\n',
-    linear: { branch: { pattern: '{identifier}-{slug}' } },
+    frontmatter: '---\ntracker_id: SKI-42\n---\n',
   })
-  const r = resolveSpec('feat-hybrid-sync', dir, baseConfig())
+  const r = resolveSpec(
+    'feat-hybrid-sync',
+    dir,
+    baseConfig({ branch: { pattern: '{identifier}-{slug}', identifierField: 'tracker_id' } }),
+  )
   assert.strictEqual(r.branch, 'SKI-42-hybrid-sync')
 })
 
-test('resolveSpec: falls back to {type}/{slug} when linkLinear is off', () => {
+test('resolveSpec: {identifier} pattern falls back to {type}/{slug} when no field is configured', () => {
   const dir = scaffold('feat-hybrid-sync', {
-    frontmatter: '---\nlinear_identifier: SKI-42\n---\n',
-    linear: { branch: { pattern: '{identifier}-{slug}' } },
+    frontmatter: '---\ntracker_id: SKI-42\n---\n',
   })
-  const r = resolveSpec('feat-hybrid-sync', dir, baseConfig({ linkLinear: false }))
+  const r = resolveSpec(
+    'feat-hybrid-sync',
+    dir,
+    baseConfig({ branch: { pattern: '{identifier}-{slug}', identifierField: '' } }),
+  )
   assert.strictEqual(r.branch, 'feat/hybrid-sync')
 })
 
-test('resolveSpec: falls back when identifier is missing despite a Linear config', () => {
-  const dir = scaffold('feat-hybrid-sync', {
-    linear: { branch: { pattern: '{identifier}-{slug}' } },
-  })
-  const r = resolveSpec('feat-hybrid-sync', dir, baseConfig())
+test('resolveSpec: {identifier} pattern falls back when the id field is absent from the spec', () => {
+  const dir = scaffold('feat-hybrid-sync')
+  const r = resolveSpec(
+    'feat-hybrid-sync',
+    dir,
+    baseConfig({ branch: { pattern: '{identifier}-{slug}', identifierField: 'tracker_id' } }),
+  )
   assert.strictEqual(r.branch, 'feat/hybrid-sync')
 })
 

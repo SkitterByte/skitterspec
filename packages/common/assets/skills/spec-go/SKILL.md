@@ -50,7 +50,8 @@ Then move the spec (in the worktree when isolated, in place otherwise):
 - Append a **State log** row:
   `| <YYYY-MM-DD> | In Progress | in-progress | <git user.name> |`.
 - **When isolated:** commit the move and **push the branch** now — that records
-  the in-progress state for everyone and fires Linear's automation (when linked).
+  the in-progress state for everyone and fires the tracker's automation (when a
+  ticketing provider is linked).
 
 A spec ideally reaches here as `Ready` (via `/spec-ready`), but `/spec-go` works
 on a `Draft` too — just sanity-check it's well-formed before building.
@@ -76,22 +77,14 @@ Before writing any code for this phase, get the workspace and context clean:
   the spec file on disk is the source of truth, so nothing is lost. Pause for the
   `/compact`, then implement the phase.
 
-## 3b. Sync from Linear first (opt-in)
+## 3b. Pull from the tracker first (only if a provider is installed)
 
-**Only when `specs/.core/linear.config.json` exists** and the spec carries a
-`linear_project_id` in its `00-overview.md` frontmatter. Otherwise skip this
-step — no config means zero change to the flow below.
+**Only when a ticketing provider with a `/spec-pull` skill is installed** and the
+spec is linked to the tracker. Otherwise skip this step — no provider means zero
+change to the flow below. Follow the provider's pull steps below (nothing to do
+here without one).
 
-- **Run `/spec-pull` first.** Bring down anything Linear changed since the last
-  sync (status, priority, discussion-driven fields) so you build against the
-  current shared state, not a stale snapshot. On a conflict it refuses — relay
-  that and let the user resolve before continuing; do not `--force` for them.
-- **Commit the refreshed snapshot** into the feature branch (a small
-  `chore(spec): pull latest from Linear`-style commit) so the frozen spec rides
-  in the PR alongside the code it describes.
-- Linear's GitHub branch/PR automation may now drive status transitions off the
-  branch and PR you pushed in step 2 — expect state to move on the Linear side;
-  keep any manual status edits minimal to avoid fighting it.
+<!-- seam:spec-go-pull -->
 
 ## 4. Implement the phase
 

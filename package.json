@@ -18,11 +18,11 @@
   "scripts": {
     "test": "node --test",
     "build": "echo \"build wired in Phase 4 (scripts/build-dist.js)\" && exit 0",
-    "changelog": "node scripts/generate-changelog.js",
-    "changelog:retro": "node scripts/generate-changelog.js --retro",
-    "releases": "node scripts/generate-releases.js",
-    "releases:retro": "node scripts/generate-releases.js --retro",
-    "version": "node scripts/generate-changelog.js && node scripts/generate-releases.js && git add CHANGELOG.md RELEASES.md"
+    "changelog": "node node_modules/@skitterbyte/skittership/assets/scripts/generate-changelog.js",
+    "changelog:retro": "node node_modules/@skitterbyte/skittership/assets/scripts/generate-changelog.js --retro",
+    "releases": "node node_modules/@skitterbyte/skittership/assets/scripts/generate-releases.js",
+    "releases:retro": "node node_modules/@skitterbyte/skittership/assets/scripts/generate-releases.js --retro",
+    "version": "node node_modules/@skitterbyte/skittership/assets/scripts/generate-changelog.js && node node_modules/@skitterbyte/skittership/assets/scripts/generate-releases.js && git add CHANGELOG.md RELEASES.md"
   },
   "repository": {
     "type": "git",

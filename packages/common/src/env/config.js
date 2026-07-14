@@ -18,7 +18,7 @@
  *                 portsPerSpec, envFile, backupCommand },
  *     open:     { command },   // optional, editor/terminal-agnostic opener
  *     registry: ".spec-env/registry.json",
- *     linkLinear: true,
+ *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
  *     baseBranch: "",          // "" = auto-detect (origin/HEAD → main → master)
  *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed }
  *   }
@@ -42,7 +42,11 @@ const DEFAULT_CONFIG = Object.freeze({
   }),
   open: Object.freeze({ command: '' }),
   registry: '.spec-env/registry.json',
-  linkLinear: true,
+  // Git branch naming, provider-neutral. `pattern` expands {type}/{slug} and,
+  // when a tracker provider is linked, {identifier}; `identifierField` names the
+  // 00-overview.md frontmatter field a provider writes the ticket id into (empty
+  // = no identifier, so patterns referencing {identifier} fall back to type/slug).
+  branch: Object.freeze({ pattern: '{type}/{slug}', identifierField: '' }),
   // Integration base branch. Empty = auto-detect (origin/HEAD → main → master).
   baseBranch: '',
   guards: Object.freeze({ refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true }),
@@ -59,7 +63,7 @@ function defaults() {
     docker: { ...DEFAULT_CONFIG.docker },
     open: { ...DEFAULT_CONFIG.open },
     registry: DEFAULT_CONFIG.registry,
-    linkLinear: DEFAULT_CONFIG.linkLinear,
+    branch: { ...DEFAULT_CONFIG.branch },
     baseBranch: DEFAULT_CONFIG.baseBranch,
     guards: { ...DEFAULT_CONFIG.guards },
   }
@@ -108,8 +112,12 @@ function mergeConfig(base, parsed) {
     assign(base.open, parsed.open, 'command', 'string?')
   }
 
+  if (isObject(parsed.branch)) {
+    assign(base.branch, parsed.branch, 'pattern', 'string')
+    assign(base.branch, parsed.branch, 'identifierField', 'string')
+  }
+
   assign(base, parsed, 'registry', 'string')
-  assign(base, parsed, 'linkLinear', 'boolean')
   assign(base, parsed, 'baseBranch', 'string')
 
   if (isObject(parsed.guards)) {

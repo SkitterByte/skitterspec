@@ -62,10 +62,17 @@ no live `env.config.json` was found.
   // primary checkout root, shared by all worktrees, gitignored.
   "registry": ".spec-env/registry.json",
 
-  // When true and specs/.core/linear.config.json is present, derive branch
-  // names from Linear's branch.pattern so pushing fires Linear's GitHub
-  // automation. Otherwise branches fall back to {type}/{slug}.
-  "linkLinear": true,
+  // Git branch naming, provider-neutral. `pattern` expands {type} and {slug}
+  // (e.g. "feat/add-widget"). When a ticketing provider is linked and you want
+  // tracker ids in branch names, use {identifier} in the pattern and point
+  // `identifierField` at the 00-overview.md frontmatter field the provider
+  // writes the id into — pushing that branch can then fire the tracker's
+  // automation. Empty `identifierField` (or a spec missing that field) makes a
+  // pattern with {identifier} fall back to {type}/{slug}.
+  "branch": {
+    "pattern": "{type}/{slug}",
+    "identifierField": ""
+  },
 
   // Integration base branch — the branch specs fork from and land back onto
   // (used by the teardown "merged?" guard and, later, the integrate step).

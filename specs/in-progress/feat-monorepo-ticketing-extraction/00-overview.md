@@ -104,7 +104,7 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 |---|-------|--------|------|
 | 1 | Monorepo skeleton on `main`; carve release-free `common` + `sync-core` | ✅ | [01-monorepo-skeleton.md](01-monorepo-skeleton.md) |
 | 2 | Extract the Linear adapter into `packages/linear` | ✅ | [02-linear-adapter.md](02-linear-adapter.md) |
-| 3 | Generic seams + compose + neutral branch naming | ⬜ | [03-generic-seams.md](03-generic-seams.md) |
+| 3 | Generic seams + compose + neutral branch naming | ✅ | [03-generic-seams.md](03-generic-seams.md) |
 | 4 | Distributions, rename/v2, migration, asset-driven init | ⬜ | [04-distributions-migration.md](04-distributions-migration.md) |
 
 ## Open questions
@@ -143,6 +143,19 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
   tests green. Notes: the package README moved to `packages/common/README.md` (no
   root README, matching the port branch); root `build` is a placeholder until
   Phase 4 wires `scripts/build-dist.js`.
+- 2026-07-14 — Phase 3 done. Seam-ified `common`'s `/spec` (Phase E) + `/spec-go`
+  (step 3b) with `<!-- seam:spec-tracker-link -->` / `<!-- seam:spec-go-pull -->`,
+  scrubbed `spec-planning.md` + `spec-complete` of Linear prose, and ported
+  `scripts/compose.js` (+ test). Branch naming is now provider-neutral in
+  `env.config.json` (`branch.pattern` / `branch.identifierField`); `linkLinear` /
+  `loadLinearConfig` / `readLinearIdentifier` / `LINEAR_CONFIG` are gone from
+  `resolve.js`. 190 tests green; `resolve.js` and the composed base are
+  `grep -ri linear` clean. **Deviation from Decision 3:** the skittership `scripts`
+  symlink collided with the build tooling's `scripts/compose.js` path, so it was
+  replaced with a real `scripts/` dir and the `changelog`/`releases`/`version` npm
+  scripts now invoke the skittership generators via their
+  `node_modules/@skitterbyte/skittership/assets/scripts/` path — the dogfooding
+  intent is preserved, only the plumbing changed (symlink → explicit package path).
 - 2026-07-14 — Phase 2 done. Linear adapter extracted to
   `@skitterbyte/skitterspec-provider-linear` (`mcp`/`config`/`cli-sync` + 3 sync
   skills + `linear.config.*` + seam fragments) with a superset bin; `common`'s

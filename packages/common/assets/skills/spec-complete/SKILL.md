@@ -72,7 +72,7 @@ applies, offer to land the finished branch on the base branch so the work reache
    On a **no-op** ("already landed"), just say so and continue.
 3. **Re-test on base.** Run the project's test command from the primary checkout;
    it must be **green** before you call the landing done.
-4. **Report** the landing (base branch, linear fast-forward). It **never pushes** —
+4. **Report** the landing (base branch, fast-forward result). It **never pushes** —
    mention the user can `git push` the base branch themselves.
 
 ## 7. Offer teardown (opt-in, only if configured)

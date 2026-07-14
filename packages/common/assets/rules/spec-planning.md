@@ -34,14 +34,17 @@ re-attach, tear down). Isolation is **orthogonal to lifecycle status** and
 inactive when `env.config.json` is absent — every skill then behaves as it does
 today.
 
-**Linear hybrid sync (opt-in).** When `specs/.core/linear.config.json` is present,
-three git-like skills sync a spec with its linked Linear project: `/spec-status`
-(read-only per-field divergence), `/spec-pull` (Linear→repo), and `/spec-push`
-(repo→Linear) — three-way merged against a committed base sidecar, with
-field-ownership collapsing conflicts and a `--force` + backup escape hatch. Linked
-`/spec` also creates the Linear Project + a Milestone per phase, and `/spec-go`
-pulls first. All of it is inert without the config — every skill then behaves as
-it does today. Full model + field reference: `specs/.core/linear.config.md`.
+**Ticketing-provider sync (opt-in, a separate package).** The base is
+tracker-free: it knows nothing about any specific ticketing system. A
+ticketing provider is installed as its own distribution that plugs into two named
+**seams** in the shared skills (`/spec` Phase E, `/spec-go` step 3b) and fulfils a
+skill-name + CLI contract — it ships `/spec-status` (read-only per-field
+divergence), `/spec-pull` (tracker→repo), and `/spec-push` (repo→tracker), backed
+by a `spec-sync` CLI, three-way merged against a committed base sidecar. When a
+provider is present, `/spec` also links the spec to the tracker and `/spec-go`
+pulls first. With no provider installed the seams are empty and every skill
+behaves as a plain filesystem workflow. See the provider package's own docs for
+its config and field reference.
 
 ## Project conventions (fill this in)
 
@@ -135,8 +138,9 @@ those, but new specs always use the folder + phase-file form.
 The **folder buckets are the source of truth** — a spec's bucket is its status.
 To see the backlog, list `specs/backlog/`; for the latest completed specs, use
 `git log`/mtime on `specs/complete/` or each spec's dated **State log**. Live
-status also lives in Linear when it's linked. (There are no `00-index.md`
-summary files — the folder tree, headers, and State logs are queried directly.)
+status also lives in the tracker when a ticketing provider is linked. (There are
+no `00-index.md` summary files — the folder tree, headers, and State logs are
+queried directly.)
 
 ## Rules
 

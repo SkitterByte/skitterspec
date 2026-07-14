@@ -5,21 +5,18 @@
  *
  * Given a spec argument (a folder name or path) it locates the spec folder under
  * `specs/**`, splits the `feat-`/`bug-` prefix into `{ type, slug }`, derives the
- * git branch (optional Linear seam, else `{type}/{slug}`), and expands the
- * config's path/name tokens (`{repo}`, `{repoSlug}`, `{slug}`). Reads files to
- * locate the spec and read frontmatter, but makes no git/docker side effects —
- * deterministic and safe to unit-test with fixtures.
+ * git branch from the config's `branch.pattern` (provider-neutral; `{identifier}`
+ * is filled from a tracker id when one is configured, else it falls back to
+ * `{type}/{slug}`), and expands the config's path/name tokens (`{repo}`,
+ * `{repoSlug}`, `{slug}`). Reads files to locate the spec and read frontmatter,
+ * but makes no git/docker side effects — deterministic and safe to unit-test with
+ * fixtures.
  */
 
 const fs = require('node:fs')
 const path = require('node:path')
 
 const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
-const LINEAR_CONFIG = path.join('specs', '.core', 'linear.config.json')
-
-function isObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
 
 // Find the spec folder under specs/<bucket>/<name>. `specArg` may be a bare
 // folder name or a path — only its basename is matched against the buckets.
@@ -59,9 +56,12 @@ function expandTokens(str, tokens) {
   )
 }
 
-// Read the `linear_identifier` from a spec's 00-overview.md YAML frontmatter,
-// if present. Returns null when there's no frontmatter / field / file.
-function readLinearIdentifier(specPath) {
+// Read a named field from a spec's 00-overview.md YAML frontmatter, if present.
+// `field` is provider-neutral (e.g. a tracker's ticket-id field, configured via
+// `branch.identifierField`). Returns null when there's no frontmatter / field /
+// file, or no field name was given.
+function readFrontmatterField(specPath, field) {
+  if (!field) return null
   const overview = path.join(specPath, '00-overview.md')
   let raw
   try {
@@ -71,7 +71,7 @@ function readLinearIdentifier(specPath) {
   }
   const fm = /^---\n([\s\S]*?)\n---/.exec(raw)
   if (!fm) return null
-  const m = /^linear_identifier:\s*(.+)$/m.exec(fm[1])
+  const m = new RegExp(`^${field}:\\s*(.+)$`, 'm').exec(fm[1])
   if (!m) return null
   return m[1].trim().replace(/^["']|["']$/g, '') || null
 }
@@ -99,43 +99,24 @@ function readStackField(specPath, config) {
   return config.docker && config.docker.enabled ? 'docker' : 'worktree'
 }
 
-// Load specs/.core/linear.config.json when present, else null.
-function loadLinearConfig(dir) {
-  const file = path.join(dir, LINEAR_CONFIG)
-  let raw
-  try {
-    raw = fs.readFileSync(file, 'utf-8')
-  } catch {
-    return null
-  }
-  try {
-    const parsed = JSON.parse(raw)
-    return isObject(parsed) ? parsed : null
-  } catch (error) {
-    throw new Error(`Invalid ${LINEAR_CONFIG}: ${error.message}`)
-  }
-}
-
 /**
- * Derive the git branch for a spec. If `linkLinear` and a linear.config.json
- * with a `branch.pattern` is present and the spec has a `linear_identifier`,
- * expand that pattern (`{identifier}`, `{slug}`, `{type}`). Otherwise fall back
- * to `{type}/{slug}`.
+ * Derive the git branch for a spec from the provider-neutral `branch.pattern`
+ * (`{type}`, `{slug}`, and optionally `{identifier}`). When the pattern uses
+ * `{identifier}`, the id is read from the frontmatter field named by
+ * `branch.identifierField` (a tracker provider writes it); if that field is unset
+ * or absent on the spec, the branch falls back to `{type}/{slug}` so we never
+ * emit a half-expanded name. No knowledge of any specific tracker lives here.
  */
-function branchFor(spec, dir, config) {
-  if (config.linkLinear) {
-    const linear = loadLinearConfig(dir)
-    const pattern = linear && linear.branch && linear.branch.pattern
-    const identifier = readLinearIdentifier(spec.path)
-    if (pattern && identifier) {
-      return expandTokens(pattern, {
-        identifier,
-        slug: spec.slug,
-        type: spec.type,
-      })
-    }
+function branchFor(spec, config) {
+  const branch = (config.branch && config.branch.pattern) || '{type}/{slug}'
+  const tokens = { type: spec.type, slug: spec.slug }
+  if (/\{identifier\}/.test(branch)) {
+    const field = config.branch && config.branch.identifierField
+    const identifier = readFrontmatterField(spec.path, field)
+    if (!identifier) return `${spec.type}/${spec.slug}`
+    tokens.identifier = identifier
   }
-  return `${spec.type}/${spec.slug}`
+  return expandTokens(branch, tokens)
 }
 
 /**
@@ -181,7 +162,7 @@ function resolveSpec(specArg, dir, config) {
 
   const stack = readStackField(found.path, config)
   const spec = { folder: found.folder, bucket: found.bucket, path: found.path, type, slug, stack }
-  const branch = branchFor(spec, dir, config)
+  const branch = branchFor(spec, config)
 
   const worktreeRoot = expandTokens(config.worktree.root, tokens)
   const worktreeFolder = expandTokens(config.worktree.folderPattern, tokens)

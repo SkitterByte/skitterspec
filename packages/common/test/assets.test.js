@@ -56,25 +56,10 @@ test('every shipped skill has valid frontmatter with a matching name', () => {
 const skillText = (name) =>
   fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 
-test('/spec documents the opt-in Linear link step', () => {
-  const text = skillText('spec')
-  // gated on the config file, and the no-config path is explicitly preserved
-  assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
-  assert.match(text, /skip this phase|behaves exactly as above/i, 'no-config path preserved')
-  // the Linear actions the phase must perform
-  assert.match(text, /Create the Project/i, 'creates the Linear Project')
-  assert.match(text, /Milestone per phase/i, 'creates a milestone per phase')
-  assert.match(text, /linear_project_id/, 'adds the frontmatter block')
-  assert.match(text, /base sidecar|spec-sync normalize/i, 'writes the initial base')
-})
-
-test('/spec-go documents the opt-in pull-first step', () => {
-  const text = skillText('spec-go')
-  assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
-  assert.match(text, /\/spec-pull/, 'runs /spec-pull first')
-  assert.match(text, /commit the refreshed snapshot/i, 'commits the refreshed snapshot')
-  assert.match(text, /skip this step|no config means/i, 'no-config path preserved')
-})
+// NOTE: the Linear link step (/spec) and pull-first step (/spec-go) are, as of the
+// ticketing extraction, provider content — their coverage lives in the linear
+// package's assets test (against the seam fragments). The shared /spec + /spec-go
+// still carry the passages verbatim until Phase 3 replaces them with seam markers.
 
 test('/spec-env and /spec-go document trusting the worktree root via /add-dir', () => {
   for (const name of ['spec-env', 'spec-go']) {
@@ -88,10 +73,5 @@ test('/spec-env and /spec-go document trusting the worktree root via /add-dir', 
   }
 })
 
-test('README documents the Linear hybrid-sync commands', () => {
-  const readme = fs.readFileSync(path.join(ASSETS, '..', 'README.md'), 'utf8')
-  for (const cmd of ['/spec-status', '/spec-pull', '/spec-push']) {
-    assert.ok(readme.includes(cmd), `README mentions ${cmd}`)
-  }
-  assert.match(readme, /linear\.config\.json/, 'README names the opt-in config')
-})
+// The Linear config template/docs and the sync-command docs are provider assets —
+// covered in the linear package's assets test. (Base README Linear cleanup: Phase 4.)
