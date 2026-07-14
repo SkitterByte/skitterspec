@@ -8,29 +8,46 @@ const { repoInfo, expandTokens } = require('./env/resolve.js')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 
-const SKILLS = [
-  'spec',
-  'spec-bug',
-  'spec-ready',
-  'spec-review',
-  'spec-go',
-  'spec-complete',
-  'spec-cancel',
-  'spec-init',
-  'spec-env',
-  'spec-env-down',
-]
+// Skills, rules, and specs/.core templates are discovered from the bundled assets
+// tree rather than hardcoded, so each distribution installs exactly what it ships:
+// the tracker-free base carries the neutral skill set + env.config templates; a
+// provider superset (built by composing its fragments in) additionally carries its
+// sync skills and provider config templates, and they install with no code change.
+function listSkills() {
+  const dir = path.join(ASSETS, 'skills')
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md')))
+    .map((e) => e.name)
+    .sort()
+}
 
-const RULES = ['spec-planning.md']
+function listRules() {
+  return fs
+    .readdirSync(path.join(ASSETS, 'rules'))
+    .filter((f) => f.endsWith('.md'))
+    .sort()
+}
+
+// Templates scaffolded into specs/.core/ (the *.example configs + their *.md docs).
+// A consumer copies an example → live config to adopt the matching feature.
+function listCoreTemplates() {
+  return fs
+    .readdirSync(path.join(ASSETS, 'core'))
+    .filter((f) => f.endsWith('.example') || f.endsWith('.md'))
+    .sort()
+    .map((f) => path.join('core', f))
+}
+
+const SKILLS = listSkills()
+
+const RULES = listRules()
 
 const SPEC_FOLDERS = ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']
 
-// Opt-in per-spec isolation config, scaffolded into specs/.core/ as templates
-// the consumer copies (env.config.json.example → env.config.json to adopt).
-const CORE_FILES = [
-  path.join('core', 'env.config.json.example'),
-  path.join('core', 'env.config.md'),
-]
+// Opt-in config templates, scaffolded into specs/.core/ (the base ships the
+// env.config isolation templates; a provider superset also ships its own).
+const CORE_FILES = listCoreTemplates()
 
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'

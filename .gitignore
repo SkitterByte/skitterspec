@@ -3,6 +3,16 @@ node_modules/
 .DS_Store
 /tmp/
 
+# Built distributions: bin/src/assets are composed from the private packages by
+# scripts/build-dist.js (at prepack / test time). Only each dist's package.json
+# and README are committed.
+/packages/skitterspec/assets/
+/packages/skitterspec/bin/
+/packages/skitterspec/src/
+/packages/skitterspec-linear/assets/
+/packages/skitterspec-linear/bin/
+/packages/skitterspec-linear/src/
+
 # Per-spec isolation: machine-local slot registry + volume backups (never committed)
 /.spec-env/
 

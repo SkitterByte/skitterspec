@@ -17,7 +17,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "build": "echo \"build wired in Phase 4 (scripts/build-dist.js)\" && exit 0",
+    "build": "node scripts/build-dist.js all",
     "changelog": "node node_modules/@skitterbyte/skittership/assets/scripts/generate-changelog.js",
     "changelog:retro": "node node_modules/@skitterbyte/skittership/assets/scripts/generate-changelog.js --retro",
     "releases": "node node_modules/@skitterbyte/skittership/assets/scripts/generate-releases.js",

@@ -1,7 +1,7 @@
 # Monorepo + ticketing-provider extraction, re-derived onto `main`
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-14)
+> **Status:** In Progress — all 4 phases built (ready for `/spec-complete`)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-14
@@ -105,7 +105,7 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 | 1 | Monorepo skeleton on `main`; carve release-free `common` + `sync-core` | ✅ | [01-monorepo-skeleton.md](01-monorepo-skeleton.md) |
 | 2 | Extract the Linear adapter into `packages/linear` | ✅ | [02-linear-adapter.md](02-linear-adapter.md) |
 | 3 | Generic seams + compose + neutral branch naming | ✅ | [03-generic-seams.md](03-generic-seams.md) |
-| 4 | Distributions, rename/v2, migration, asset-driven init | ⬜ | [04-distributions-migration.md](04-distributions-migration.md) |
+| 4 | Distributions, rename/v2, migration, asset-driven init | ✅ | [04-distributions-migration.md](04-distributions-migration.md) |
 
 ## Open questions
 
@@ -156,6 +156,20 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
   scripts now invoke the skittership generators via their
   `node_modules/@skitterbyte/skittership/assets/scripts/` path — the dogfooding
   intent is preserved, only the plumbing changed (symlink → explicit package path).
+- 2026-07-14 — Phase 4 done. Two publishable distributions build + pack cleanly:
+  `@skitterbyte/skitterspec` (v2.0.0, base, dep `prompts` only) +
+  `@skitterbyte/skitterspec-linear` (v1.0.0, superset, engine/adapter vendored
+  under `src/vendor/`). `init.js` is now asset-driven (skills/rules/`.core`
+  discovered from the bundled `assets/`), `scripts/build-dist.js` (+ test) composes
+  + vendors + rewrites requires with a no-workspace-require guard, `MIGRATION.md`
+  covers the split, root `npm run build` wired. 195 tests green (incl. hermetic
+  build-and-install smoke of each dist). **Deviation from the port:** the port's
+  `init.js` carried the pre-skittership release tooling (`installScripts`,
+  `wireVersionHook`, `writeConfig`, `/commit` in help); per Decision 2 only the
+  asset-driven discovery was taken, and the dist `package.json`/README/MIGRATION
+  prose dropped the "changelog/release tooling in both" claims. `integrate.js`'s
+  "linear history" is the git straight-line sense, left as-is. **Port-branch
+  deletion is deferred** to `/spec-complete` (gated on landing on `main`).
 - 2026-07-14 — Phase 2 done. Linear adapter extracted to
   `@skitterbyte/skitterspec-provider-linear` (`mcp`/`config`/`cli-sync` + 3 sync
   skills + `linear.config.*` + seam fragments) with a superset bin; `common`'s

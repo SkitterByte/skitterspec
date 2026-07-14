@@ -1,0 +1,38 @@
+{
+  "name": "@skitterbyte/skitterspec-linear",
+  "version": "1.0.0",
+  "description": "Spec-driven development for Claude Code, with Linear hybrid-sync — a superset of @skitterbyte/skitterspec: the base filesystem workflow plus git-like /spec-status · /spec-pull · /spec-push and the spec-sync CLI. Install this OR the base, not both.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "spec-driven-development",
+    "sdd",
+    "skills",
+    "scaffold",
+    "linear"
+  ],
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "bin": {
+    "skitterspec-linear": "bin/skitterspec-linear.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "assets"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2"
+  },
+  "scripts": {
+    "prepack": "node ../../scripts/build-dist.js skitterspec-linear"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skitterbyte/skitterspec.git"
+  }
+}
