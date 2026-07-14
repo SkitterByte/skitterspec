@@ -42,12 +42,13 @@ build-and-install smoke test of each.
       the sync skills + `linear.config.*`, `spec-sync` resolves the whole chain, seams
       filled. Run `node --test` — green before the phase is done. *(195 tests green;
       the two hermetic smoke tests live in `build-dist.test.js`.)*
-- [ ] **After this lands on `main` and is verified green**, delete the superseded
+- [x] **After this lands on `main` and is verified green**, delete the superseded
       port source: `git branch -D feat/extract-ticketing-provider` and
       `git push origin --delete feat/extract-ticketing-provider` (and tear down its
       worktree via `/spec-env-down` if still provisioned). Nothing depends on it once
-      this spec's code is on `main`. *(Deferred by design — post-landing task, done
-      at `/spec-complete` after integration onto `main`.)*
+      this spec's code is on `main`. *(Landed on `main` at `75e6dc5`, 195 tests green.
+      Local port worktree + branch `fa4c00d` removed. The remote `origin/feat/extract-
+      ticketing-provider` deletion is outward-facing — left for the user to push.)*
 
 ## Notes
 
