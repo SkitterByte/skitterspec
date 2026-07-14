@@ -92,6 +92,35 @@ test('detects a generator-driven version hook even with the files gone', () => {
   assert.strictEqual(d.versionHook, true)
 })
 
+test('does NOT flag release files when skittership.config.json is present', () => {
+  const dir = tmpProject()
+  seedOldInstall(dir)
+  // the project has adopted skittership — the files are its current install
+  w(dir, 'skittership.config.json', '{"version":1}')
+  const d = detectReleaseTooling(dir)
+  assert.strictEqual(d.present, false, 'not offered for removal')
+  assert.strictEqual(d.adopted, true)
+})
+
+test('does NOT flag release files when skittership is a dependency', () => {
+  const dir = tmpProject()
+  seedOldInstall(dir)
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
+  pkg.devDependencies = { '@skitterbyte/skittership': '^1.0.0' }
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg))
+  assert.strictEqual(detectReleaseTooling(dir).present, false, 'skittership dep → not legacy')
+})
+
+test('update leaves release tooling alone when skittership is adopted', async () => {
+  const dir = tmpProject()
+  seedOldInstall(dir)
+  w(dir, 'skittership.config.json', '{"version":1}')
+  await silentRun(['update', dir, '--remove-release-tooling'])
+  // even with the explicit remove flag, an adopted-skittership project is untouched
+  assert.ok(exists(dir, path.join('.claude', 'skills', 'commit')), 'commit skill kept')
+  assert.ok(exists(dir, path.join('scripts', 'generate-releases.js')), 'generators kept')
+})
+
 // --- removal ----------------------------------------------------------------
 
 test('removes every installed artifact and prunes empty dirs', () => {

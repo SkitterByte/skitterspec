@@ -48,13 +48,28 @@ function versionHookReferencesGenerators(pkg) {
   return typeof v === 'string' && /generate-(changelog|releases)\.js/.test(v)
 }
 
-// Report which release-tooling artifacts are present. `present` is true when
-// there is anything to clean up (a file/dir or a generator-driven version hook).
+// Is skittership the source of the release tooling here (rather than a leftover
+// legacy skitterspec install)? True when the project has adopted skittership —
+// its config file is present, or it's a declared dependency. In that case the
+// release files are skittership's current install and must NOT be offered for
+// removal (they'd just come back on the next `skittership init`).
+function skittershipAdopted(dir) {
+  if (fs.existsSync(path.join(dir, 'skittership.config.json'))) return true
+  const pkg = readPkg(dir)
+  const deps = Object.assign({}, pkg && pkg.dependencies, pkg && pkg.devDependencies)
+  return Boolean(deps['@skitterbyte/skittership'])
+}
+
+// Report which release-tooling artifacts are present. `present` is true only when
+// there are legacy artifacts to clean up (a file/dir or a generator-driven version
+// hook) AND skittership hasn't been adopted — otherwise the files belong to a
+// live skittership install, not an old bundled-skitterspec one.
 function detectReleaseTooling(dir) {
   const files = RELEASE_PATHS.filter((rel) => fs.existsSync(path.join(dir, rel)))
   const pkg = readPkg(dir)
   const versionHook = versionHookReferencesGenerators(pkg)
-  return { present: files.length > 0 || versionHook, files, versionHook }
+  const adopted = skittershipAdopted(dir)
+  return { present: (files.length > 0 || versionHook) && !adopted, files, versionHook, adopted }
 }
 
 // Remove an emptied directory, walking up while parents are left empty. Never
