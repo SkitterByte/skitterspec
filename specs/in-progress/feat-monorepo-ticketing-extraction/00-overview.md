@@ -1,9 +1,9 @@
 # Monorepo + ticketing-provider extraction, re-derived onto `main`
 
 > **Type:** Feature
-> **Status:** Draft — not started
+> **Status:** In Progress — Phase 1 (started 2026-07-14)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-07-14
 > **Area:** repo topology (flat → workspaces), `src/sync/*`, `src/cli.js`,
 > `src/init.js`, `src/env/resolve.js`, `assets/skills/*`, `assets/core/linear.config.*`,
@@ -124,6 +124,7 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-07-14 | Draft | backlog | Reuben Greaves |
+| 2026-07-14 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
