@@ -1,0 +1,27 @@
+{
+  "name": "@skitterbyte/skitterspec-provider-linear",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Linear ticketing provider for skitterspec — the MCP adapter, config, sync skills and seam fragments that layer Linear hybrid-sync onto the base workflow.",
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "bin": {
+    "skitterspec-linear": "bin/skitterspec-linear.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "assets"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@skitterbyte/skitterspec-common": "*",
+    "@skitterbyte/skitterspec-sync-core": "*"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

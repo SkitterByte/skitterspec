@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { discoverLinear, makeAdapter, toolNames, REQUIRED } = require('../src/sync/mcp.js')
+const { discoverLinear, makeAdapter, toolNames, REQUIRED } = require('../src/mcp.js')
 
 // A realistic Linear MCP tool list.
 const LINEAR_TOOLS = [

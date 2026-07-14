@@ -1,6 +1,6 @@
-# Phase 2 — Extract the Linear adapter into `packages/linear` ⬜
+# Phase 2 — Extract the Linear adapter into `packages/linear` ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** All Linear-specific code leaves `packages/common` and lives in a private
 `packages/linear` adapter; `common` becomes sync-free. Proven by: `common` has no
@@ -9,25 +9,28 @@ tests pass across the workspace.
 
 ## Tasks
 
-- [ ] Create `packages/linear` named **`@skitterbyte/skitterspec-provider-linear`**
+- [x] Create `packages/linear` named **`@skitterbyte/skitterspec-provider-linear`**
       (`private: true`; deps `@skitterbyte/skitterspec-common` + `-sync-core`). Port
       from `feat/extract-ticketing-provider`: `src/mcp.js`, `src/config.js`
       (`loadLinearConfig`), `src/cli-sync.js` (the `spec-sync` handler), the 3 sync
       skills (`spec-pull/push/status`), `assets/core/linear.config.*`, and the seam
       fragments (`assets/seams/*`).
-- [ ] Add the superset bin `bin/skitterspec-linear.js` — delegates every command to
+- [x] Add the superset bin `bin/skitterspec-linear.js` — delegates every command to
       the base CLI, handles `spec-sync` via the adapter. Both requires are bare
       workspace specifiers (`@skitterbyte/skitterspec-common/src/cli.js`,
       `@skitterbyte/skitterspec-provider-linear/src/cli-sync.js`) so the Phase 4
       build rewrites them uniformly.
-- [ ] Strip Linear from `packages/common`: remove the `spec-sync` dispatch + Linear
+- [x] Strip Linear from `packages/common`: remove the `spec-sync` dispatch + Linear
       help from `src/cli.js`, delete `src/sync/`, drop `assets/core/linear.config.*`
       and the `spec-pull/push/status` skills. `common` is now tracker-free (the
       base CLI doesn't know `spec-sync`).
-- [ ] Move the Linear + engine-integration tests into `packages/linear`; keep the
+- [x] Move the Linear + engine-integration tests into `packages/linear`; keep the
       neutral engine tests in `sync-core`.
-- [ ] Run `node --test` across the workspace — green. Confirm `grep -ri linear`
-      is clean under `packages/common/src` and `packages/sync-core`.
+- [x] Run `node --test` across the workspace — green. Confirm the sync engine +
+      `spec-sync` are gone from `common/src` and `sync-core` is `grep -ri linear`
+      clean. **Scope note:** the residual Linear refs in `common/src/env/`
+      (`linkLinear` / `LINEAR_CONFIG` / `readLinearIdentifier` / `loadLinearConfig`
+      branch-naming) are removed in **Phase 3** (Decision 4), not here.
 
 ## Notes
 

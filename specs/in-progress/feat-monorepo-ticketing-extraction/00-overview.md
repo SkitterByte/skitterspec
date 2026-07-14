@@ -103,7 +103,7 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Monorepo skeleton on `main`; carve release-free `common` + `sync-core` | ✅ | [01-monorepo-skeleton.md](01-monorepo-skeleton.md) |
-| 2 | Extract the Linear adapter into `packages/linear` | ⬜ | [02-linear-adapter.md](02-linear-adapter.md) |
+| 2 | Extract the Linear adapter into `packages/linear` | ✅ | [02-linear-adapter.md](02-linear-adapter.md) |
 | 3 | Generic seams + compose + neutral branch naming | ⬜ | [03-generic-seams.md](03-generic-seams.md) |
 | 4 | Distributions, rename/v2, migration, asset-driven init | ⬜ | [04-distributions-migration.md](04-distributions-migration.md) |
 
@@ -143,3 +143,14 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
   tests green. Notes: the package README moved to `packages/common/README.md` (no
   root README, matching the port branch); root `build` is a placeholder until
   Phase 4 wires `scripts/build-dist.js`.
+- 2026-07-14 — Phase 2 done. Linear adapter extracted to
+  `@skitterbyte/skitterspec-provider-linear` (`mcp`/`config`/`cli-sync` + 3 sync
+  skills + `linear.config.*` + seam fragments) with a superset bin; `common`'s
+  `src/sync/` + `spec-sync` dispatch removed, `init.js` skill/core lists pruned;
+  184 tests green. Notes: (1) `common`'s `src/cli.js` was hand-sliced (not copied
+  from the port — the port's `cli.js` still carries the old release tooling); the
+  only cross-phase change to `cli.js` is this spec-sync removal. (2) The Phase 2
+  grep-clean is scoped to the sync engine — the `env/` branch-naming Linear seam
+  (`linkLinear` etc.) stays until Phase 3 per Decision 4. (3) `common`'s `/spec`,
+  `/spec-go`, `spec-planning.md` + README keep their inline Linear prose for now
+  (Phase 3 seam-ifies the skills; the base grep-clean there is `src`-only).

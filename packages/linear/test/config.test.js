@@ -11,7 +11,7 @@ const {
   DEFAULT_CONFIG,
   CONFIG_FILE,
   OWNERSHIP,
-} = require('../src/sync/config.js')
+} = require('../src/config.js')
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-linearcfg-'))

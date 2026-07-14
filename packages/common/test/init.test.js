@@ -69,10 +69,11 @@ test('registers the per-spec isolation skills', () => {
   assert.ok(SKILLS.includes('spec-env-down'), 'spec-env-down registered')
 })
 
-test('registers the Linear hybrid-sync skills', () => {
-  assert.ok(SKILLS.includes('spec-status'), 'spec-status registered')
-  assert.ok(SKILLS.includes('spec-pull'), 'spec-pull registered')
-  assert.ok(SKILLS.includes('spec-push'), 'spec-push registered')
+test('the base does not register the Linear hybrid-sync skills', () => {
+  // Linear sync ships in @skitterbyte/skitterspec-provider-linear, not the base.
+  assert.ok(!SKILLS.includes('spec-status'), 'spec-status not in base')
+  assert.ok(!SKILLS.includes('spec-pull'), 'spec-pull not in base')
+  assert.ok(!SKILLS.includes('spec-push'), 'spec-push not in base')
 })
 
 test('init scaffolds the opt-in isolation config into specs/.core', async () => {

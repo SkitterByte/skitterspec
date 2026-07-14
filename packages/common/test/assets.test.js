@@ -53,15 +53,6 @@ test('every shipped skill has valid frontmatter with a matching name', () => {
   }
 })
 
-test('the Linear hybrid-sync skills are shipped', () => {
-  for (const name of ['spec-status', 'spec-pull', 'spec-push']) {
-    assert.ok(
-      fs.existsSync(path.join(ASSETS, 'skills', name, 'SKILL.md')),
-      `${name} SKILL.md shipped`,
-    )
-  }
-})
-
 const skillText = (name) =>
   fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 
@@ -95,20 +86,6 @@ test('/spec-env and /spec-go document trusting the worktree root via /add-dir', 
       `${name} notes the persistent settings.local.json entry`,
     )
   }
-})
-
-test('the Linear config template + docs ship under assets/core', () => {
-  assert.ok(
-    fs.existsSync(path.join(ASSETS, 'core', 'linear.config.json.example')),
-    'linear.config.json.example shipped',
-  )
-  assert.ok(
-    fs.existsSync(path.join(ASSETS, 'core', 'linear.config.md')),
-    'linear.config.md shipped',
-  )
-  // the example is valid JSON so init copies a usable template
-  const raw = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.json.example'), 'utf8')
-  assert.doesNotThrow(() => JSON.parse(raw), 'example is valid JSON')
 })
 
 test('README documents the Linear hybrid-sync commands', () => {
