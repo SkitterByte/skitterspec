@@ -6,18 +6,18 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { push } = require('../src/sync/push.js')
-const { normalizeLocal } = require('../src/sync/normalize.js')
-const { loadLinearConfig } = require('../src/sync/config.js')
-const { writeBase, readBase } = require('../src/sync/base.js')
+const { push } = require('../src/push.js')
+const { normalizeLocal } = require('../src/normalize.js')
+const { neutralConfig } = require('./_config.js')
+const { writeBase, readBase } = require('../src/base.js')
 
 const TS = '2026-01-02T03:04:05.000Z' // fixed input timestamp (no clock reads)
 const ID = 'ENG-42'
 const PROJECT_ID = 'proj_1'
 
 const OVERVIEW = `---
-linear_identifier: "ENG-42"
-linear_project_id: "proj_1"
+spec_identifier: "ENG-42"
+spec_project_id: "proj_1"
 spec_status: "in-progress"
 priority: 2
 labels: ["a"]
@@ -34,7 +34,7 @@ Local problem text.
 - local note
 `
 
-// A fake in-memory Linear adapter. `raceOnRead` bumps updatedAt on the 2nd read
+// A fake in-memory remote adapter. `raceOnRead` bumps updatedAt on the 2nd read
 // to simulate a writer that raced in during the push.
 function fakeAdapter(project, opts = {}) {
   let reads = 0
@@ -61,7 +61,7 @@ function setup({ baseOverrides = {}, remoteOverrides = {}, adapterOpts = {} } = 
   fs.mkdirSync(specDir, { recursive: true })
   fs.writeFileSync(path.join(specDir, '00-overview.md'), OVERVIEW, 'utf-8')
 
-  const { config } = loadLinearConfig(dir)
+  const config = neutralConfig()
   const localNorm = normalizeLocal(specDir, config)
 
   const remoteRaw = {
@@ -121,7 +121,7 @@ test('a pull-owned local edit is never pushed (nothing to push)', async () => {
   assert.strictEqual(ctx.adapter.updateCalls.length, 0)
 })
 
-test('refuses when Linear moved past base (pull first)', async () => {
+test('refuses when the remote moved past base (pull first)', async () => {
   const ctx = setup({ remoteOverrides: { description: 'REMOTE-NEW', updatedAt: 't9' } })
   const r = await run(ctx)
   assert.strictEqual(r.ok, false)

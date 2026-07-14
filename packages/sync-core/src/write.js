@@ -1,10 +1,10 @@
 'use strict'
 
 /**
- * Local snapshot writes for pull (Linear → repo).
+ * Local snapshot writes for pull (remote → repo).
  *
  * Phase 2 applies **frontmatter-mapped** pulled fields — the `pull`-owned data
- * Linear genuinely owns (`workflowState` → `spec_status`, `priority`, `labels`)
+ * remote genuinely owns (`workflowState` → `spec_status`, `priority`, `labels`)
  * plus sync bookkeeping (`last_synced_at`, ids) — by surgically editing the YAML
  * frontmatter of `00-overview.md` and leaving the markdown body byte-for-byte
  * untouched. Existing keys are updated in place (order preserved); new keys are

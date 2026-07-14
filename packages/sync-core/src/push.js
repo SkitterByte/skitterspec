@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * `push` — repo → Linear, three-way aware and ownership-respecting.
+ * `push` — repo → remote, three-way aware and ownership-respecting.
  *
  * Never writes a `pull`-owned field or a `localOnlySection` (those aren't in the
  * pushable set / the field set at all). Optimistic concurrency: if the remote has
@@ -24,7 +24,7 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
   const local = normalizeLocal(snapshotDir, config)
   const remoteRaw = await adapter.readProject(projectId)
   if (!remoteRaw) {
-    return { ok: false, error: `Linear project not found: ${projectId}` }
+    return { ok: false, error: `remote project not found: ${projectId}` }
   }
   const remote = normalizeRemote(remoteRaw, config)
   const base = readBase(dir, identifier, config)
@@ -46,7 +46,7 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
       reason: 'remote-moved',
       movedFields: remoteDivergedFields,
       message:
-        'push refused — Linear moved since the last sync' +
+        'push refused — remote moved since the last sync' +
         (remoteDivergedFields.length ? ` (${remoteDivergedFields.join(', ')})` : '') +
         '. Pull first, or re-run with --force (local wins).',
     }
@@ -64,7 +64,7 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
       ok: false,
       blocked: true,
       reason: 'concurrent-write',
-      message: 'push refused — Linear changed during the push. Pull first, or --force.',
+      message: 'push refused — remote changed during the push. Pull first, or --force.',
     }
   }
 
@@ -80,7 +80,7 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
   const updatedRemote = normalizeRemote(updated, config)
 
   // Reconciled base: local is the source of truth for the fields we pushed (and
-  // for unchanged/local-only fields); pull-owned fields keep Linear's value so
+  // for unchanged/local-only fields); pull-owned fields keep remote's value so
   // they don't read as pending next time.
   const newBase = { ...local }
   for (const [field, own] of Object.entries(config.sync.fieldOwnership)) {

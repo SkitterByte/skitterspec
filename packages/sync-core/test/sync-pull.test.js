@@ -6,18 +6,18 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { pull } = require('../src/sync/pull.js')
-const { normalizeLocal, readSnapshot } = require('../src/sync/normalize.js')
-const { loadLinearConfig } = require('../src/sync/config.js')
-const { writeBase, readBase } = require('../src/sync/base.js')
+const { pull } = require('../src/pull.js')
+const { normalizeLocal, readSnapshot } = require('../src/normalize.js')
+const { neutralConfig } = require('./_config.js')
+const { writeBase, readBase } = require('../src/base.js')
 
 const TS = '2026-01-02T03:04:05.000Z'
 const ID = 'ENG-42'
 const PROJECT_ID = 'proj_1'
 
 const OVERVIEW = `---
-linear_identifier: "ENG-42"
-linear_project_id: "proj_1"
+spec_identifier: "ENG-42"
+spec_project_id: "proj_1"
 spec_status: "in-progress"
 priority: 2
 labels: ["a"]
@@ -52,7 +52,7 @@ function setup({ baseOverrides = {}, remoteOverrides = {} } = {}) {
   fs.mkdirSync(specDir, { recursive: true })
   fs.writeFileSync(path.join(specDir, '00-overview.md'), OVERVIEW, 'utf-8')
 
-  const { config } = loadLinearConfig(dir)
+  const config = neutralConfig()
   const localNorm = normalizeLocal(specDir, config)
 
   const remoteRaw = {

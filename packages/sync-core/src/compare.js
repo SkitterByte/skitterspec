@@ -4,13 +4,13 @@
  * The three-way compare at the heart of the hybrid sync.
  *
  * `classify(local, remote, base, config)` compares each configured field across
- * the local snapshot, the remote (Linear) projection, and the committed base
+ * the local snapshot, the remote (remote) projection, and the committed base
  * (the last-synced state). Per field it returns a raw three-way `status`
  * (unchanged / local-only / remote-only / conflict), then collapses it through
  * the field's ownership (`both|pull|push`) into effective `pushable` / `pullable`
  * flags. Ownership is what makes most "both sides differ" cases *not* a real
  * conflict:
- *   - a `pull` field never pushes (Linear wins) → conflict collapses to remote-only
+ *   - a `pull` field never pushes (remote wins) → conflict collapses to remote-only
  *   - a `push` field never pulls (repo wins)    → conflict collapses to local-only
  *   - only a `both` field where both sides moved off base is a true `conflict`.
  *

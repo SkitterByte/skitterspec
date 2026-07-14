@@ -1,0 +1,39 @@
+{
+  "name": "@skitterbyte/skitterspec-common",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provider-neutral base of the spec-driven workflow — the lifecycle skills, install CLI, rules and specs/ scaffolding. Composed into the published distributions.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "spec-driven-development",
+    "sdd",
+    "skills",
+    "scaffold"
+  ],
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "bin": {
+    "skitterspec": "bin/skitterspec.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "assets"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2",
+    "@skitterbyte/skitterspec-sync-core": "*"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skitterbyte/skitterspec.git"
+  }
+}

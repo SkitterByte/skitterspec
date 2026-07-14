@@ -4,7 +4,7 @@
  * Translate normalized field values into a local frontmatter patch (pull side).
  *
  * Only the `pull`-owned, frontmatter-backed fields have a local home in Phase 2:
- *   workflowState → spec_status (Linear state name mapped back to the bucket),
+ *   workflowState → spec_status (remote state name mapped back to the bucket),
  *   priority      → priority,
  *   labels        → labels.
  * Any other field handed in (a body field like `description`/`milestones`) has no
@@ -19,7 +19,7 @@ const FRONTMATTER_FIELD = {
   labels: 'labels',
 }
 
-// Invert config.states ({ bucket: "Linear Name" }) → { "linear name": bucket }.
+// Invert config.states ({ bucket: "remote Name" }) → { "remote name": bucket }.
 function invertStates(config) {
   const out = {}
   const states = (config && config.states) || {}
@@ -29,7 +29,7 @@ function invertStates(config) {
   return out
 }
 
-// Map a remote workflowState (a Linear state name) back to a local bucket. Falls
+// Map a remote workflowState (a remote state name) back to a local bucket. Falls
 // back to the raw value when it isn't one of the configured states.
 function localWorkflowState(value, config) {
   if (value == null) return null

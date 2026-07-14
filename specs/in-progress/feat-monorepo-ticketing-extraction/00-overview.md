@@ -102,7 +102,7 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Monorepo skeleton on `main`; carve release-free `common` + `sync-core` | ⬜ | [01-monorepo-skeleton.md](01-monorepo-skeleton.md) |
+| 1 | Monorepo skeleton on `main`; carve release-free `common` + `sync-core` | ✅ | [01-monorepo-skeleton.md](01-monorepo-skeleton.md) |
 | 2 | Extract the Linear adapter into `packages/linear` | ⬜ | [02-linear-adapter.md](02-linear-adapter.md) |
 | 3 | Generic seams + compose + neutral branch naming | ⬜ | [03-generic-seams.md](03-generic-seams.md) |
 | 4 | Distributions, rename/v2, migration, asset-driven init | ⬜ | [04-distributions-migration.md](04-distributions-migration.md) |
@@ -137,3 +137,9 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
   after this lands + verifies (kept only as the port source; final Phase 4 task);
   (2) no Linear-config deprecation flow — near-zero adoption, so `MIGRATION.md`'s
   Linear section stays light and a stray `linear.config.json` is left to the user.
+- 2026-07-14 — Phase 1 done. Workspaces root (skittership dogfooding kept at root),
+  `packages/common` = `main`'s release-free base with Linear still inline, engine
+  carved into `packages/sync-core` and re-required via the workspace symlink; 180
+  tests green. Notes: the package README moved to `packages/common/README.md` (no
+  root README, matching the port branch); root `build` is a placeholder until
+  Phase 4 wires `scripts/build-dist.js`.

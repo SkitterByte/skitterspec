@@ -24,11 +24,15 @@ const { planDown } = require('./env/teardown.js')
 const { planIntegrate } = require('./env/integrate.js')
 const { findSpecFolder } = require('./env/resolve.js')
 const { loadLinearConfig } = require('./sync/config.js')
-const { normalizeLocal, normalizeRemote, readSnapshot } = require('./sync/normalize.js')
-const { classify } = require('./sync/compare.js')
-const { readBase } = require('./sync/base.js')
-const { pull } = require('./sync/pull.js')
-const { push } = require('./sync/push.js')
+const {
+  normalizeLocal,
+  normalizeRemote,
+  readSnapshot,
+  classify,
+  readBase,
+  pull,
+  push,
+} = require('@skitterbyte/skitterspec-sync-core')
 
 const pkg = require('../package.json')
 

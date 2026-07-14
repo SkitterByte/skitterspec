@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * `pull` — Linear → repo, three-way aware.
+ * `pull` — remote → repo, three-way aware.
  *
  * Applies remote-only fields to the local snapshot; a `both`-owned field where
  * both sides moved off base is a real **conflict** and pull refuses (unless
@@ -25,7 +25,7 @@ async function pull({ dir, snapshotDir, identifier, projectId, adapter, config, 
   const local = normalizeLocal(snapshotDir, config)
   const remoteRaw = await adapter.readProject(projectId)
   if (!remoteRaw) {
-    return { ok: false, error: `Linear project not found: ${projectId}` }
+    return { ok: false, error: `remote project not found: ${projectId}` }
   }
   const remote = normalizeRemote(remoteRaw, config)
   const base = readBase(dir, identifier, config)

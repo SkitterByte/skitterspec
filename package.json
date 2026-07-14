@@ -1,37 +1,23 @@
 {
-  "name": "@skitterbyte/skitterspec",
-  "version": "1.0.1",
-  "description": "Spec-driven-development workflow for Claude Code — installs the spec lifecycle skills, rule, and specs/ folders into any project.",
-  "keywords": [
-    "claude",
-    "claude-code",
-    "spec-driven-development",
-    "sdd",
-    "skills",
-    "scaffold"
-  ],
+  "name": "skitterspec-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "skitterspec workspaces — the base spec-driven workflow plus swappable ticketing-provider packages.",
   "license": "MIT",
   "author": "Reuben Greaves",
   "type": "commonjs",
-  "bin": {
-    "skitterspec": "bin/skitterspec.js"
-  },
-  "files": [
-    "bin",
-    "src",
-    "assets"
+  "workspaces": [
+    "packages/*"
   ],
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "prompts": "^2.4.2"
   },
   "devDependencies": {
     "@skitterbyte/skittership": "^1.0.0"
   },
   "scripts": {
     "test": "node --test",
+    "build": "echo \"build wired in Phase 4 (scripts/build-dist.js)\" && exit 0",
     "changelog": "node scripts/generate-changelog.js",
     "changelog:retro": "node scripts/generate-changelog.js --retro",
     "releases": "node scripts/generate-releases.js",

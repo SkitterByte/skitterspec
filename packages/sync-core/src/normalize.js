@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Normalize a Linear Project projection and a local spec snapshot into the SAME
+ * Normalize a remote Project projection and a local spec snapshot into the SAME
  * field set, so the three-way compare (compare.js) can diff them field by field.
  *
  * Both `normalizeLocal(snapshotDir, config)` and `normalizeRemote(project, config)`
@@ -11,7 +11,7 @@
  *
  * Pure: `normalizeLocal` reads files under `snapshotDir` but makes no other side
  * effects and no Date.now()/Math.random(). `localOnlySections` are stripped from
- * the local `description` so they're never pushed to Linear.
+ * the local `description` so they're never pushed to remote.
  */
 
 const fs = require('node:fs')
@@ -183,7 +183,7 @@ function normalizeLocal(snapshotDir, config) {
 
 // --- remote projection ------------------------------------------------------
 
-// Map a Linear workflow-state name back to the local lifecycle bucket (the
+// Map a remote workflow-state name back to the local lifecycle bucket (the
 // vocabulary `spec_status` uses) via config.states, so local and remote
 // workflowState hash equal when semantically equal. Falls back to a lowercased
 // raw value when the state isn't one of the configured names.
@@ -197,7 +197,7 @@ function bucketForState(state, config) {
   return want
 }
 
-// Canonicalise a Linear workflow-state name into the same vocabulary the local
+// Canonicalise a remote workflow-state name into the same vocabulary the local
 // milestone emojis use, so equal states hash equal.
 function canonicalRemoteStatus(state) {
   const s = String(state || '').toLowerCase().trim()
@@ -209,7 +209,7 @@ function canonicalRemoteStatus(state) {
 }
 
 /**
- * Normalize a Linear Project projection (from the Phase 2 MCP adapter, or a
+ * Normalize a remote Project projection (from the Phase 2 MCP adapter, or a
  * fixture) into the same field set as `normalizeLocal`.
  */
 function normalizeRemote(project, config) {

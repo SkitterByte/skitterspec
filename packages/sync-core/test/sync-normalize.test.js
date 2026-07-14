@@ -6,17 +6,17 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { normalizeLocal, normalizeRemote, readSnapshot } = require('../src/sync/normalize.js')
-const { loadLinearConfig } = require('../src/sync/config.js')
+const { normalizeLocal, normalizeRemote, readSnapshot } = require('../src/normalize.js')
+const { neutralConfig } = require('./_config.js')
 
-// Defaults config (no live file needed for pure normalization).
-const { config } = loadLinearConfig(os.tmpdir())
+// Neutral defaults config (no live file needed for pure normalization).
+const config = neutralConfig()
 
 const OVERVIEW = `---
-linear_identifier: "ENG-42"
+spec_identifier: "ENG-42"
 spec_status: "in-progress"
 priority: 2
-labels: ["sync", "linear"]
+labels: ["sync", "triage"]
 ---
 
 # My Spec Title
@@ -80,7 +80,7 @@ const PROJECT = {
   description: '# My Spec Title\n\n## Problem\n\nSome problem text here.',
   state: 'In Progress',
   priority: 2,
-  labels: ['sync', 'linear'],
+  labels: ['sync', 'triage'],
   milestones: [
     { name: 'First phase', status: 'Done', description: 'Do the first thing well.' },
     { name: 'Second phase', status: 'In Progress', description: 'Do the second thing.' },
@@ -139,12 +139,12 @@ test('frontmatter scalars normalise: workflowState, priority, labels', () => {
   const local = normalizeLocal(fixtureSpec(), config)
   assert.strictEqual(local.workflowState, 'in-progress')
   assert.strictEqual(local.priority, 2)
-  assert.deepStrictEqual(local.labels, ['sync', 'linear'])
+  assert.deepStrictEqual(local.labels, ['sync', 'triage'])
 })
 
 test('readSnapshot exposes frontmatter identifier for base keying', () => {
   const snap = readSnapshot(fixtureSpec(), config)
-  assert.strictEqual(snap.frontmatter.linear_identifier, 'ENG-42')
+  assert.strictEqual(snap.frontmatter.spec_identifier, 'ENG-42')
   assert.strictEqual(snap.title, 'My Spec Title')
 })
 

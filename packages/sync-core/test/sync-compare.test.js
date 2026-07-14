@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { classify, hashField, stableStringify } = require('../src/sync/compare.js')
+const { classify, hashField, stableStringify } = require('../src/compare.js')
 
 // A minimal config: one field of each ownership kind.
 const CONFIG = { sync: { fieldOwnership: { d: 'both', s: 'pull', p: 'push' } } }
