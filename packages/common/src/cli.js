@@ -17,7 +17,7 @@ const {
   freeSlot,
   portOffset,
 } = require('./env/registry.js')
-const { resolveSpec, resolveBaseBranch } = require('./env/resolve.js')
+const { resolveSpec, resolveBaseBranch, repoInfo, expandTokens, splitPrefix } = require('./env/resolve.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
@@ -332,7 +332,19 @@ function specEnvIntegrate(dir, config, specArg) {
   const commonDir = gitReader(dir)(['rev-parse', '--git-common-dir'])
   const mainRepoPath = commonDir ? path.dirname(path.resolve(dir, commonDir)) : dir
 
-  const spec = resolveSpec(specArg, mainRepoPath, config)
+  // A spec authored entirely on its branch may not exist in the primary
+  // checkout's specs/** (it was never committed to base) — but its worktree
+  // does, and the worktree path is derivable from config without the folder.
+  // Offer it as a fallback search location so integrate can still find the spec.
+  const { slug } = splitPrefix(path.basename(specArg))
+  const { repo, repoSlug } = repoInfo(mainRepoPath)
+  const wtTokens = { repo, repoSlug, slug }
+  const worktreeGuess = path.resolve(
+    mainRepoPath,
+    expandTokens(config.worktree.root, wtTokens),
+    expandTokens(config.worktree.folderPattern, wtTokens),
+  )
+  const spec = resolveSpec(specArg, mainRepoPath, config, { searchDirs: [worktreeGuess] })
 
   if (!fs.existsSync(spec.worktreePath)) {
     process.stdout.write(

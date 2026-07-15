@@ -163,6 +163,27 @@ test('resolveSpec throws a clear error when the spec is not found', () => {
   assert.throws(() => resolveSpec('feat-missing', dir, baseConfig()), /spec not found/)
 })
 
+test('resolveSpec: searchDirs finds a spec that lives only in a worktree', () => {
+  // The integrate bug: a spec authored entirely on its branch was never
+  // committed to the primary checkout, so its folder is absent there and
+  // present only in the worktree. resolveSpec must still resolve it — while
+  // keeping the worktree path + branch anchored to the PRIMARY checkout.
+  const primary = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-primary-'))
+  fs.mkdirSync(path.join(primary, 'specs', 'backlog'), { recursive: true })
+  const worktree = scaffold('feat-branch-only', { bucket: 'complete' })
+
+  // Reproduces the failure: without a fallback dir, integrate can't see it.
+  assert.throws(() => resolveSpec('feat-branch-only', primary, baseConfig()), /spec not found/)
+
+  // The fix: pass the worktree as a fallback search dir.
+  const r = resolveSpec('feat-branch-only', primary, baseConfig(), { searchDirs: [worktree] })
+  assert.strictEqual(r.slug, 'branch-only')
+  assert.strictEqual(r.bucket, 'complete')
+  assert.strictEqual(r.branch, 'feat/branch-only')
+  // Coordinates still derive from the primary checkout, not the worktree.
+  assert.strictEqual(r.worktreePath, path.resolve(primary, `../${r.repo}-wt`, 'branch-only'))
+})
+
 // --- Stack field (per-spec Docker escalation) -------------------------------
 
 const dockerCfg = (enabled) =>

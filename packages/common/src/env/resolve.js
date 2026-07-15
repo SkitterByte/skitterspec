@@ -20,12 +20,17 @@ const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
 
 // Find the spec folder under specs/<bucket>/<name>. `specArg` may be a bare
 // folder name or a path — only its basename is matched against the buckets.
-function findSpecFolder(specArg, dir) {
+// Searches `dir` first, then any `extraDirs` in order — so a caller (e.g.
+// `spec-env integrate`) can fall back to a worktree checkout for a spec that
+// was authored on its branch and never committed to the primary checkout.
+function findSpecFolder(specArg, dir, extraDirs = []) {
   const name = path.basename(specArg)
-  for (const bucket of BUCKETS) {
-    const abs = path.join(dir, 'specs', bucket, name)
-    if (fs.existsSync(abs) && fs.statSync(abs).isDirectory()) {
-      return { folder: name, bucket, path: abs }
+  for (const root of [dir, ...extraDirs]) {
+    for (const bucket of BUCKETS) {
+      const abs = path.join(root, 'specs', bucket, name)
+      if (fs.existsSync(abs) && fs.statSync(abs).isDirectory()) {
+        return { folder: name, bucket, path: abs }
+      }
     }
   }
   return null
@@ -149,9 +154,13 @@ function resolveBaseBranch(config, git) {
 /**
  * Resolve a spec argument to its identity + isolation coordinates.
  * Throws a clear Error when the spec folder can't be found.
+ *
+ * `opts.searchDirs` adds fallback checkout roots to look under (after `dir`) when
+ * locating the spec folder; identity/coordinate tokens still expand against `dir`
+ * (the primary checkout), so a worktree-only spec resolves to the right base.
  */
-function resolveSpec(specArg, dir, config) {
-  const found = findSpecFolder(specArg, dir)
+function resolveSpec(specArg, dir, config, opts = {}) {
+  const found = findSpecFolder(specArg, dir, opts.searchDirs || [])
   if (!found) {
     throw new Error(`spec not found under specs/**: ${specArg}`)
   }
