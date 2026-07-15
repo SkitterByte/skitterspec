@@ -112,6 +112,9 @@ function tagName(name, version) {
 // Build the structured release plan — the single source of truth for both the
 // printed output and the test assertions. Steps carry a `phase`: 'local' steps
 // always run when executing; 'publish' steps run only at the publish level.
+// Each step carries an `argv` (the executable form) alongside `cmd` (the pretty
+// display string): argv is what `execute` spawns, so an argument with spaces —
+// e.g. the commit message — stays a single token instead of being re-split.
 function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'plan' }) {
   const tag = tagName(name, nextVersion)
   const needsBump = nextVersion !== currentVersion
@@ -121,24 +124,28 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
     steps.push({
       phase: 'local',
       cmd: `npm version ${nextVersion} --no-git-tag-version -w ${npm}`,
+      argv: ['npm', 'version', nextVersion, '--no-git-tag-version', '-w', npm],
       desc: `set ${name} version → ${nextVersion}`,
     })
     steps.push({
       phase: 'local',
       cmd: `git add ${dirRel}/package.json package-lock.json`,
+      argv: ['git', 'add', `${dirRel}/package.json`, 'package-lock.json'],
       desc: 'stage the version bump',
     })
     steps.push({
       phase: 'local',
       cmd: `git commit -m "chore(release): ${tag}"`,
+      argv: ['git', 'commit', '-m', `chore(release): ${tag}`],
       desc: 'commit the bump',
     })
   }
 
-  steps.push({ phase: 'local', cmd: `git tag ${tag}`, desc: `tag ${tag}` })
+  steps.push({ phase: 'local', cmd: `git tag ${tag}`, argv: ['git', 'tag', tag], desc: `tag ${tag}` })
   steps.push({
     phase: 'publish',
     cmd: `npm publish -w ${npm} --access public`,
+    argv: ['npm', 'publish', '-w', npm, '--access', 'public'],
     desc: 'build (prepack) + publish to npm',
   })
 
@@ -209,9 +216,9 @@ function execute(plan, { root = ROOT, level }) {
 
   for (const step of plan.steps) {
     if (step.phase === 'publish' && level !== 'publish') continue
-    // Re-run the command through argv splitting; commands here are our own,
-    // fixed shapes, so a simple whitespace split is sufficient and safe.
-    const [command, ...args] = step.cmd.split(' ')
+    // Execute the pre-tokenized argv, never the display string — an argument
+    // with spaces (the commit message) must stay a single token.
+    const [command, ...args] = step.argv
     sh(command, args, root)
   }
 }

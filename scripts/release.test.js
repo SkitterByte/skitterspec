@@ -112,6 +112,28 @@ test('buildPlan for a bump emits ordered local steps then publish, and never pus
   assert.ok(plan.followUp.some((c) => c === 'git push origin skitterspec@2.0.1'))
 })
 
+test('buildPlan steps carry an executable argv; the commit message is one token', () => {
+  const plan = buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '2.0.0',
+    nextVersion: '2.0.1',
+    level: 'publish',
+  })
+
+  // Every step must be executable via a pre-tokenized argv — execute() spawns
+  // argv, not a whitespace-split of the pretty cmd string.
+  for (const step of plan.steps) {
+    assert.ok(Array.isArray(step.argv) && step.argv.length >= 2, `argv on: ${step.cmd}`)
+  }
+
+  // The regression: the commit message contains spaces and must survive as a
+  // SINGLE argv token (a naive cmd.split(' ') shattered it into a bad pathspec).
+  const commit = plan.steps.find((s) => s.argv[0] === 'git' && s.argv[1] === 'commit')
+  assert.deepStrictEqual(commit.argv, ['git', 'commit', '-m', 'chore(release): skitterspec@2.0.1'])
+})
+
 test('buildPlan for an equal version skips bump/commit and just tags + publishes', () => {
   const plan = buildPlan({
     name: 'skitterspec',
