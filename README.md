@@ -1,7 +1,7 @@
 # skitterspec (monorepo)
 
 Spec-driven development for [Claude Code](https://claude.com/claude-code). This
-is an npm-workspaces monorepo: a private root (`skitterspec-monorepo`, never
+is a pnpm-workspaces monorepo: a private root (`skitterspec-monorepo`, never
 published) hosting the workspaces under `packages/`, plus a shared build that
 composes two publishable distributions.
 
@@ -19,16 +19,18 @@ build time — not published on its own.
 
 ## Develop
 
+This repo uses **pnpm** (`pnpm-workspace.yaml`; `packageManager` is pinned).
+
 ```sh
-npm install       # sets up workspace symlinks
-npm run build     # compose both distributions (scripts/build-dist.js)
-npm test          # node --test across the workspaces
+pnpm install      # sets up workspace symlinks
+pnpm build        # compose both distributions (scripts/build-dist.js)
+pnpm test         # node --test across the workspaces
 ```
 
 ## Releasing
 
 Releases go through `scripts/release.js`, one package at a time — **never
-`npm version` at the root** (a `preversion` guard blocks it). See
+version the root package directly** (a `preversion` guard blocks it). See
 **[RELEASING.md](RELEASING.md)** for the full flow: the `name@version` tag
 scheme, plan-by-default → `--publish`, prerequisites, and the first-release
 handoff.

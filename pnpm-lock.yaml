@@ -1,0 +1,75 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      '@skitterbyte/skittership':
+        specifier: ^1.0.0
+        version: 1.0.0
+
+  packages/common:
+    dependencies:
+      prompts:
+        specifier: ^2.4.2
+        version: 2.4.2
+
+  packages/linear:
+    dependencies:
+      '@skitterbyte/skitterspec-common':
+        specifier: workspace:*
+        version: link:../common
+      '@skitterbyte/skitterspec-sync-core':
+        specifier: workspace:*
+        version: link:../sync-core
+
+  packages/skitterspec:
+    dependencies:
+      prompts:
+        specifier: ^2.4.2
+        version: 2.4.2
+
+  packages/skitterspec-linear:
+    dependencies:
+      prompts:
+        specifier: ^2.4.2
+        version: 2.4.2
+
+  packages/sync-core: {}
+
+packages:
+
+  '@skitterbyte/skittership@1.0.0':
+    resolution: {integrity: sha512-Wu414eoJoY2/+gLmhWJj/DLi07z4Do578D07wSZSkvrhAgTuYTyq3A2f93GVAT1CRLYASNdOuSOo6qo6QrLGew==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  kleur@3.0.3:
+    resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
+    engines: {node: '>=6'}
+
+  prompts@2.4.2:
+    resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
+    engines: {node: '>= 6'}
+
+  sisteransi@1.0.5:
+    resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
+
+snapshots:
+
+  '@skitterbyte/skittership@1.0.0':
+    dependencies:
+      prompts: 2.4.2
+
+  kleur@3.0.3: {}
+
+  prompts@2.4.2:
+    dependencies:
+      kleur: 3.0.3
+      sisteransi: 1.0.5
+
+  sisteransi@1.0.5: {}

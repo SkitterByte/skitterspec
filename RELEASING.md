@@ -1,6 +1,6 @@
 # Releasing
 
-This is an npm-workspaces monorepo. The **private root**
+This is a pnpm-workspaces monorepo. The **private root**
 (`skitterspec-monorepo`) is never published — it exists only to host the
 workspaces. Two distributions publish independently, each on its own cadence:
 
@@ -9,21 +9,24 @@ workspaces. Two distributions publish independently, each on its own cadence:
 | `skitterspec` | `@skitterbyte/skitterspec` | `packages/skitterspec` |
 | `skitterspec-linear` | `@skitterbyte/skitterspec-linear` | `packages/skitterspec-linear` |
 
-All releasing goes through **`scripts/release.js`**. Do **not** run
-`npm version` at the root — it bumps the private root package (it once misfired
-`0.0.0 → 1.0.0`), so a `preversion` guard now refuses it.
+All releasing goes through **`scripts/release.js`**. Do **not** version the root
+package directly — it bumps the private root package (it once misfired
+`0.0.0 → 1.0.0`), so a `preversion` guard now refuses it. The tool bumps a
+package's version by editing its `package.json` in place (pnpm has no
+workspace-scoped `version` verb), then commits and tags.
 
 ## Prerequisites (before `--publish`)
 
 Planning and the local `--yes` steps need nothing special. Before you publish:
 
-- **Logged in to npm** — `npm whoami` should print your username. If not,
-  `npm login`.
+- **Logged in to the npm registry** — `pnpm whoami` should print your username.
+  If not, `pnpm login` (auth is shared with npm via `~/.npmrc`; the registry is
+  still npmjs.org).
 - **Publish rights to the `@skitterbyte` scope** — your account must be a member
-  of the org/scope with publish access, or `npm publish` is rejected.
-- **2FA / OTP** — if your npm account enforces two-factor auth at publish time,
-  npm will prompt for a one-time code (or pass `--otp=<code>`); the release tool
-  runs `npm publish` interactively so the prompt reaches you.
+  of the org/scope with publish access, or the publish is rejected.
+- **2FA / OTP** — if your account enforces two-factor auth at publish time,
+  pnpm will prompt for a one-time code (or pass `--otp=<code>`); the release tool
+  runs `pnpm publish` interactively so the prompt reaches you.
 
 ## The flow
 
@@ -36,8 +39,9 @@ The tool escalates by flag — **a bare run changes nothing**:
 - **(no flag) — plan.** Prints the ordered steps and exact commands, touches
   nothing. Always start here and read the plan.
 - **`--yes` — local.** Bumps the version, commits, and tags `name@version`.
-- **`--publish` — publish.** Local steps + `npm publish` (implies `--yes`). The
-  package's `prepack` runs `build-dist.js` to assemble the self-contained tree.
+- **`--publish` — publish.** Local steps + `pnpm publish --filter <pkg>` (implies
+  `--yes`; `--no-git-checks` since the tool runs its own guards). The package's
+  `prepack` runs `build-dist.js` to assemble the self-contained tree.
 
 It **never runs `git push`**. When it's done it prints the push commands for you
 to run when ready — see below.
@@ -68,8 +72,8 @@ built from the same common assets).
 ## Scoped packages
 
 Both are scoped (`@skitterbyte/…`). The first publish of a scoped package needs
-`--access public` or npm defaults it to a (paid) private package — the tool
-always passes `--access public`.
+`--access public` or the registry defaults it to a (paid) private package — the
+tool always passes `--access public`.
 
 ## Push tags yourself
 
@@ -82,17 +86,21 @@ git push origin <name>@<version>
 
 or push all tags at once with `git push --tags`.
 
-## First releases
+## Published so far
 
-The move to the `name@version` scheme means the first releases tag versions
-already written to `package.json` (no bump). Verify the plan first, then the
-operator publishes:
+Both distributions are live on npm: `@skitterbyte/skitterspec@2.0.1` and
+`@skitterbyte/skitterspec-linear@1.0.0`, each tagged `name@version`. A later
+release just picks the next version and follows the flow above — verify the plan
+first, then publish:
 
 ```
-node scripts/release.js skitterspec 2.0.0 --publish        # tags skitterspec@2.0.0, publishes over npm 1.0.1
-node scripts/release.js skitterspec-linear 1.0.0 --publish # first-ever publish, --access public
+node scripts/release.js skitterspec patch --publish         # 2.0.1 → 2.0.2
+node scripts/release.js skitterspec-linear patch --publish  # 1.0.0 → 1.0.1
 git push --tags
 ```
+
+The `pnpm run publish:base` / `publish:linear` / `publish:all` scripts wrap these
+with pinned versions — bump the number in the script after each release.
 
 ## Not covered here
 

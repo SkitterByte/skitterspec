@@ -2,12 +2,15 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
+const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 
 const {
   PACKAGES,
   resolvePackage,
   readVersion,
+  writeVersion,
   computeNextVersion,
   cmpSemver,
   tagName,
@@ -43,6 +46,23 @@ test('readVersion reads the real published packages (currently 2.0.0 / 1.0.0)', 
   // the actual package.json shape, not a fixture.
   assert.match(readVersion(resolvePackage('skitterspec', ROOT).pkgJsonPath), /^\d+\.\d+\.\d+$/)
   assert.match(readVersion(resolvePackage('skitterspec-linear', ROOT).pkgJsonPath), /^\d+\.\d+\.\d+$/)
+})
+
+test('writeVersion sets the version in place and preserves formatting', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-release-'))
+  const p = path.join(dir, 'package.json')
+  // Trailing comment-ish key + specific indentation to prove only the version
+  // string changes (no reserialize).
+  fs.writeFileSync(p, '{\n  "name": "x",\n  "version": "2.0.0",\n  "type": "commonjs"\n}\n')
+  writeVersion(p, '2.0.1')
+  assert.strictEqual(readVersion(p), '2.0.1')
+  assert.strictEqual(
+    fs.readFileSync(p, 'utf8'),
+    '{\n  "name": "x",\n  "version": "2.0.1",\n  "type": "commonjs"\n}\n',
+  )
+  // No matching version field → a clear throw, not a silent no-op.
+  fs.writeFileSync(p, '{\n  "name": "x"\n}\n')
+  assert.throws(() => writeVersion(p, '2.0.1'), /could not set version/)
 })
 
 // --- version computation ----------------------------------------------------
@@ -94,11 +114,11 @@ test('buildPlan for a bump emits ordered local steps then publish, and never pus
 
   const cmds = plan.steps.map((s) => s.cmd)
   assert.deepStrictEqual(cmds, [
-    'npm version 2.0.1 --no-git-tag-version -w @skitterbyte/skitterspec',
-    'git add packages/skitterspec/package.json package-lock.json',
+    'set packages/skitterspec/package.json version → 2.0.1',
+    'git add packages/skitterspec/package.json',
     'git commit -m "chore(release): skitterspec@2.0.1"',
     'git tag skitterspec@2.0.1',
-    'npm publish -w @skitterbyte/skitterspec --access public',
+    'pnpm publish --filter @skitterbyte/skitterspec --access public --no-git-checks',
   ])
 
   // the publish step is the only one gated behind the publish level
@@ -122,15 +142,20 @@ test('buildPlan steps carry an executable argv; the commit message is one token'
     level: 'publish',
   })
 
-  // Every step must be executable via a pre-tokenized argv — execute() spawns
-  // argv, not a whitespace-split of the pretty cmd string.
+  // Every shell step must be executable via a pre-tokenized argv — execute()
+  // spawns argv, not a whitespace-split of the pretty cmd string. The bump is a
+  // write-version step (an fs write, no shell), so it carries file+version.
   for (const step of plan.steps) {
+    if (step.kind === 'write-version') {
+      assert.ok(step.file && step.version, `write-version step: ${step.cmd}`)
+      continue
+    }
     assert.ok(Array.isArray(step.argv) && step.argv.length >= 2, `argv on: ${step.cmd}`)
   }
 
   // The regression: the commit message contains spaces and must survive as a
   // SINGLE argv token (a naive cmd.split(' ') shattered it into a bad pathspec).
-  const commit = plan.steps.find((s) => s.argv[0] === 'git' && s.argv[1] === 'commit')
+  const commit = plan.steps.find((s) => s.argv && s.argv[0] === 'git' && s.argv[1] === 'commit')
   assert.deepStrictEqual(commit.argv, ['git', 'commit', '-m', 'chore(release): skitterspec@2.0.1'])
 })
 
@@ -147,7 +172,7 @@ test('buildPlan for an equal version skips bump/commit and just tags + publishes
   const cmds = plan.steps.map((s) => s.cmd)
   assert.deepStrictEqual(cmds, [
     'git tag skitterspec@2.0.0',
-    'npm publish -w @skitterbyte/skitterspec --access public',
+    'pnpm publish --filter @skitterbyte/skitterspec --access public --no-git-checks',
   ])
 })
 

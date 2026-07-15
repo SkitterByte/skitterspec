@@ -22,3 +22,6 @@ specs/.core/linear-backups/
 
 # Local-only Claude Code settings (dog-fooding: skills/rules are symlinked from assets/)
 .claude/settings.local.json
+
+# npm lockfile — this repo uses pnpm (pnpm-lock.yaml)
+package-lock.json

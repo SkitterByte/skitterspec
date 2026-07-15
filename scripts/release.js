@@ -14,7 +14,7 @@
  * Escalating levels — a bare run changes nothing:
  *   (no flag)   plan     print the ordered plan; touch nothing (dry-run).
  *   --yes       local    bump version, commit, and tag <package>@<version>.
- *   --publish   publish  local steps + `npm publish` (prepack builds the dist).
+ *   --publish   publish  local steps + `pnpm publish` (prepack builds the dist).
  *
  * It NEVER runs `git push` — it prints the push commands for the operator, per
  * "I prep, you publish". Tag scheme is `<package>@<version>` (e.g.
@@ -63,6 +63,18 @@ function readVersion(pkgJsonPath) {
     throw new Error(`package.json has no valid version: ${pkgJsonPath}`)
   }
   return pkg.version
+}
+
+// Set a package.json's version in place. Replaces only the version string so the
+// file's formatting is preserved (no reserialize) — pnpm has no `-w version`
+// verb, so the bump is done here rather than shelling to a package manager.
+function writeVersion(pkgJsonPath, version) {
+  const raw = fs.readFileSync(pkgJsonPath, 'utf8')
+  const next = raw.replace(/("version"\s*:\s*")\d+\.\d+\.\d+(")/, `$1${version}$2`)
+  if (next === raw) {
+    throw new Error(`could not set version in ${pkgJsonPath}`)
+  }
+  fs.writeFileSync(pkgJsonPath, next)
 }
 
 function parseSemver(v) {
@@ -123,14 +135,16 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
   if (needsBump) {
     steps.push({
       phase: 'local',
-      cmd: `npm version ${nextVersion} --no-git-tag-version -w ${npm}`,
-      argv: ['npm', 'version', nextVersion, '--no-git-tag-version', '-w', npm],
+      kind: 'write-version',
+      file: `${dirRel}/package.json`,
+      version: nextVersion,
+      cmd: `set ${dirRel}/package.json version → ${nextVersion}`,
       desc: `set ${name} version → ${nextVersion}`,
     })
     steps.push({
       phase: 'local',
-      cmd: `git add ${dirRel}/package.json package-lock.json`,
-      argv: ['git', 'add', `${dirRel}/package.json`, 'package-lock.json'],
+      cmd: `git add ${dirRel}/package.json`,
+      argv: ['git', 'add', `${dirRel}/package.json`],
       desc: 'stage the version bump',
     })
     steps.push({
@@ -144,8 +158,8 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
   steps.push({ phase: 'local', cmd: `git tag ${tag}`, argv: ['git', 'tag', tag], desc: `tag ${tag}` })
   steps.push({
     phase: 'publish',
-    cmd: `npm publish -w ${npm} --access public`,
-    argv: ['npm', 'publish', '-w', npm, '--access', 'public'],
+    cmd: `pnpm publish --filter ${npm} --access public --no-git-checks`,
+    argv: ['pnpm', 'publish', '--filter', npm, '--access', 'public', '--no-git-checks'],
     desc: 'build (prepack) + publish to npm',
   })
 
@@ -216,6 +230,10 @@ function execute(plan, { root = ROOT, level }) {
 
   for (const step of plan.steps) {
     if (step.phase === 'publish' && level !== 'publish') continue
+    if (step.kind === 'write-version') {
+      writeVersion(path.join(root, step.file), step.version)
+      continue
+    }
     // Execute the pre-tokenized argv, never the display string — an argument
     // with spaces (the commit message) must stay a single token.
     const [command, ...args] = step.argv
@@ -235,7 +253,7 @@ Packages: ${Object.keys(PACKAGES).join(', ')}
 Levels (a bare run is a dry-run and changes nothing):
   (no flag)   print the plan only
   --yes       bump + commit + tag locally
-  --publish   local steps + npm publish (prepack builds); implies --yes
+  --publish   local steps + pnpm publish (prepack builds); implies --yes
 
 Never runs 'git push' — prints the push commands for you.`
 
@@ -284,6 +302,7 @@ module.exports = {
   PACKAGES,
   resolvePackage,
   readVersion,
+  writeVersion,
   parseSemver,
   cmpSemver,
   computeNextVersion,

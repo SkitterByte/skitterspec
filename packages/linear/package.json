@@ -18,8 +18,8 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@skitterbyte/skitterspec-common": "*",
-    "@skitterbyte/skitterspec-sync-core": "*"
+    "@skitterbyte/skitterspec-common": "workspace:*",
+    "@skitterbyte/skitterspec-sync-core": "workspace:*"
   },
   "engines": {
     "node": ">=18"
