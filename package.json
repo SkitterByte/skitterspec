@@ -21,7 +21,8 @@
     "release": "node scripts/release.js",
     "preversion": "node scripts/no-root-version.js",
     "publish:base": "node scripts/release.js skitterspec 2.0.1 --publish",
-    "publish:linear": "node scripts/release.js skitterspec-linear 1.0.0 --publish"
+    "publish:linear": "node scripts/release.js skitterspec-linear 1.0.0 --publish",
+    "publish:all": "npm run publish:base && npm run publish:linear"
   },
   "repository": {
     "type": "git",
