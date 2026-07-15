@@ -1,7 +1,7 @@
 # Monorepo release/publish process
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-15)
+> **Status:** In Progress — Phase 2 done (2026-07-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-14
@@ -85,7 +85,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The `release.js` script (plan/execute/publish, guards) | ✅ | [01-release-script.md](01-release-script.md) |
-| 2 | Root hygiene + `RELEASING.md` + first-release handoff | ⬜ | [02-root-hygiene-and-doc.md](02-root-hygiene-and-doc.md) |
+| 2 | Root hygiene + `RELEASING.md` + first-release handoff | ✅ | [02-root-hygiene-and-doc.md](02-root-hygiene-and-doc.md) |
 
 ## First-release handoff (operator, post-spec)
 
@@ -113,6 +113,11 @@ publish." After this spec lands, cut the first releases under the new scheme:
 
 - 2026-07-14 — Spec created.
 - 2026-07-15 — Moved to in-progress on worktree `feat/monorepo-release-process`; started Phase 1.
+- 2026-07-15 — Phase 2 done: removed the five stale root scripts, added
+  `release` + a `preversion` guard (`scripts/no-root-version.js`), wrote
+  `RELEASING.md`, and verified both first-release dry-run plans. The
+  README/CONTRIBUTING link task was skipped — neither file exists at the root.
+  3 new tests; 213 total green. Both phases now done — ready for `/spec-complete`.
 - 2026-07-15 — Phase 1 done (`scripts/release.js` + 15 tests; 210 total green).
   Deviation from Decision 5's "strictly greater": the version guard rejects only
   a **downgrade** and **allows an equal target** (with bump/commit skipped), so a

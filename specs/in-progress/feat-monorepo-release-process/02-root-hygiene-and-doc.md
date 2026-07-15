@@ -1,6 +1,6 @@
-# Phase 2 — Root hygiene + `RELEASING.md` + first-release handoff ⬜
+# Phase 2 — Root hygiene + `RELEASING.md` + first-release handoff ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** The sanctioned release path (`release.js`) is the *only* path — the
 stale root scripts are gone, `npm version` at the private root is blocked, and
@@ -9,32 +9,34 @@ shape + guard, and by a verified dry-run plan for each first release.
 
 ## Tasks
 
-- [ ] Remove the root `package.json` scripts `version`, `changelog`, `releases`,
+- [x] Remove the root `package.json` scripts `version`, `changelog`, `releases`,
       `changelog:retro`, `releases:retro` (single-package-era, target the private
       `0.0.0` root). Keep `build` and `test`. Add a convenience
       `"release": "node scripts/release.js"`.
-- [ ] Add a `preversion` guard: a `scripts/no-root-version.js` (or equivalent)
+- [x] Add a `preversion` guard: a `scripts/no-root-version.js` (or equivalent)
       wired as the root `preversion` script that prints "run scripts/release.js —
       never `npm version` at the monorepo root" and exits non-zero, so
       `npm version` at the root fails fast.
-- [ ] Write `RELEASING.md` at the repo root: the per-package flow
+- [x] Write `RELEASING.md` at the repo root: the per-package flow
       (`node scripts/release.js <pkg> <bump> [--publish]`), the `name@version` tag
       scheme, plan-by-default + `--publish`, `--access public` for scoped
       packages, publish order (independent; base before linear when both), "never
       run `npm version` at the root", "push tags yourself (`git push --tags`)",
       and a one-line note that changelog/release-note generation is deferred to a
       later spec.
-- [ ] Point contributors at it — a short "Releasing" link from the root
-      `README`/`CONTRIBUTING` if one exists (skip if neither is the right home).
-- [ ] Generate and capture the **dry-run plans** for both first releases
+- [x] ~~Point contributors at it — a short "Releasing" link from the root
+      `README`/`CONTRIBUTING`~~ — skipped: neither exists at the repo root, so
+      there's no right home for the link. `RELEASING.md` stands on its own.
+- [x] Generate and capture the **dry-run plans** for both first releases
       (`skitterspec 2.0.0`, `skitterspec-linear 1.0.0`) to confirm the tool
       produces the correct tags/commands end-to-end on the real repo. Publishing
       itself is the operator's `--publish` step (see overview handoff) — not done
-      here.
-- [ ] Add/extend tests: assert the root `package.json` no longer carries the
+      here. *(Both verified: each plans `git tag <name>@<version>` +
+      `npm publish -w … --access public`, no bump, no push.)*
+- [x] Add/extend tests: assert the root `package.json` no longer carries the
       removed scripts and that `preversion` is present; assert the guard exits
       non-zero. Run the project's typecheck + test commands — green before the
-      phase is done.
+      phase is done. *(3 tests in `scripts/no-root-version.test.js`; 213 total green.)*
 
 ## Notes
 
