@@ -13,6 +13,18 @@ All releasing goes through **`scripts/release.js`**. Do **not** run
 `npm version` at the root — it bumps the private root package (it once misfired
 `0.0.0 → 1.0.0`), so a `preversion` guard now refuses it.
 
+## Prerequisites (before `--publish`)
+
+Planning and the local `--yes` steps need nothing special. Before you publish:
+
+- **Logged in to npm** — `npm whoami` should print your username. If not,
+  `npm login`.
+- **Publish rights to the `@skitterbyte` scope** — your account must be a member
+  of the org/scope with publish access, or `npm publish` is rejected.
+- **2FA / OTP** — if your npm account enforces two-factor auth at publish time,
+  npm will prompt for a one-time code (or pass `--otp=<code>`); the release tool
+  runs `npm publish` interactively so the prompt reaches you.
+
 ## The flow
 
 ```

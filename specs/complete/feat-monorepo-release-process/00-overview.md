@@ -1,7 +1,7 @@
 # Monorepo release/publish process
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 2 done (2026-07-15)
+> **Status:** Complete (2026-07-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-14
@@ -86,6 +86,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The `release.js` script (plan/execute/publish, guards) | ✅ | [01-release-script.md](01-release-script.md) |
 | 2 | Root hygiene + `RELEASING.md` + first-release handoff | ✅ | [02-root-hygiene-and-doc.md](02-root-hygiene-and-doc.md) |
+| 3 | Release-doc discoverability + prerequisites | ✅ | [03-discoverability-and-prereqs.md](03-discoverability-and-prereqs.md) |
 
 ## First-release handoff (operator, post-spec)
 
@@ -108,11 +109,21 @@ publish." After this spec lands, cut the first releases under the new scheme:
 |------|--------|--------|----|
 | 2026-07-14 | Draft | backlog | Reuben Greaves |
 | 2026-07-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-07-15 — Completed; all three phases done, tests green (214). Deferred, as
+  planned: automated per-package CHANGELOG/RELEASES generation (its own later
+  spec) and the operator's first `--publish` + `git push --tags` (per "I prep,
+  you publish" — see the First-release handoff above).
 - 2026-07-14 — Spec created.
 - 2026-07-15 — Moved to in-progress on worktree `feat/monorepo-release-process`; started Phase 1.
+- 2026-07-15 — Phase 3 added + done: a Phase-2 review found the release *doc*
+  was complete but undiscoverable (no root README linked it) and silent on
+  publish prerequisites. Added a root `README.md` linking `RELEASING.md`, a
+  Prerequisites section (npm login, scope access, OTP), and stale-doc banners on
+  the orphaned `CHANGELOG.md`/`RELEASES.md`. 1 new test; 214 total green.
 - 2026-07-15 — Phase 2 done: removed the five stale root scripts, added
   `release` + a `preversion` guard (`scripts/no-root-version.js`), wrote
   `RELEASING.md`, and verified both first-release dry-run plans. The

@@ -1,5 +1,12 @@
 # Changelog
 
+> **⚠️ Historical — no longer maintained.** This file records the
+> single-package-era `skitterspec 1.0.x`. Since the repo became a monorepo, the
+> scripts that generated it have been removed and releases run per package via
+> `scripts/release.js` (see [RELEASING.md](RELEASING.md)). Per-package changelog
+> generation is a later deferred spec; until then this is history, not the
+> current record.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

@@ -47,3 +47,11 @@ test('no-root-version guard exits non-zero and explains itself', () => {
   assert.match(res.stderr, /Refusing 'npm version' at the monorepo root/)
   assert.match(res.stderr, /scripts\/release\.js/)
 })
+
+// --- release-doc discoverability --------------------------------------------
+
+test('a root README exists and points operators at RELEASING.md', () => {
+  const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+  assert.match(readme, /RELEASING\.md/, 'root README must link to RELEASING.md')
+  assert.match(readme, /Releasing/, 'root README must have a Releasing section')
+})
