@@ -1,17 +1,19 @@
 # Slim the spec command surface + local traffic diversion (`spec-connect`)
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-22)
+> **Status:** In Progress — Phase 1 done, Phase 2 next
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-22
-> **Area:** `packages/skitterspec/src/env/` (new `proxy.js`, `dev.js`; touches
-> `cli.js`, `config.js`, `resolve.js`), `packages/skitterspec/src/init.js`,
-> `assets/skills/` across `skitterspec` + `common` + `skitterspec-linear`
-> (delete `spec-env`, `spec-env-down`, `spec-ready`; add `spec-connect`; rewrite
-> `spec-go`, `spec-complete`, `spec-cancel`, `spec`), `assets/core/env.config.*`,
-> `MIGRATION.md`, `README.md`, `assets/rules/spec-planning.md`, `package.json`
-> (3.0.0), `test/`
+> **Area:** `packages/common/src/env/` (new `proxy.js`, `dev.js`, `supervise.js`;
+> touches `cli.js`, `config.js`), `packages/common/src/init.js`,
+> `packages/common/assets/skills/` (delete `spec-env`, `spec-env-down`,
+> `spec-ready`; add `spec-connect`; rewrite `spec-go`, `spec-complete`,
+> `spec-cancel`, `spec`), `packages/common/assets/core/env.config.*`,
+> `MIGRATION.md`, `README.md`, `assets/rules/spec-planning.md`, package
+> `package.json`s (3.0.0), `packages/common/test/`. (Canonical source is
+> `packages/common/`; `skitterspec` + `skitterspec-linear` are gitignored built
+> distributions composed by `scripts/build-dist.js`.)
 > **Stack:** worktree
 
 ## Problem
@@ -130,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Host dev-process supervision (`dev` config + start/stop/health) | ⬜ | [01-dev-supervision.md](01-dev-supervision.md) |
+| 1 | Host dev-process supervision (`dev` config + start/stop/health) | ✅ | [01-dev-supervision.md](01-dev-supervision.md) |
 | 2 | Caddy front door + `spec-connect` (cookie routing, lazy lifecycle) | ⬜ | [02-caddy-connect.md](02-caddy-connect.md) |
 | 3 | Slim the surface (fold into go/complete/cancel, delete 3 skills, migrate) | ⬜ | [03-surface-slim.md](03-surface-slim.md) |
 
@@ -151,6 +153,20 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-22 — **Phase 1 done** (host dev-process supervision). Added the `dev`
+  config block (`config.js`, normalised + lenient), the pure `planDev` planner
+  (`src/env/dev.js`), and a process-IO seam `src/env/supervise.js`
+  (`startProcess`/`stopProcess`/`waitHealthy`); wired `spec-env dev up|down` in
+  `cli.js` (made `specEnv`/`run` await the async path); documented the block in
+  `env.config.{json.example,md}`. 14 new tests (137 total, green via `node
+  --test`) + a full CLI e2e (real fixture server: `dev up`→health ok→`dev
+  down`→unreachable). Deviations: source lives in **`packages/common/`** (the
+  built `skitterspec`/`skitterspec-linear` are gitignored) — Area header
+  corrected; split the IO into `supervise.js`; log/pid files keyed by spec
+  **folder**; `dev up` allocates a slot even for a **worktree-only** spec (host
+  servers need a port block regardless of Docker); `stopProcess` signals the
+  **process group** so `pnpm dev`'s children are reaped; `.spec-env/` was
+  already gitignored so no gitignore change. See Phase 1 notes.
 - 2026-07-22 — Spec created. Decisions set via chat grill across the session:
   5-verb surface; `spec-go` as confirm-then-up; teardown folded into
   complete/cancel; new `spec-connect` cookie-switch; Caddy lazy-managed proxy

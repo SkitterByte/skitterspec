@@ -1,6 +1,6 @@
-# Phase 1 — Host dev-process supervision ⬜
+# Phase 1 — Host dev-process supervision ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `skitterspec spec-env dev up|down <spec>` starts/stops a spec's host
 dev servers (e.g. `pnpm dev`) on its slot's ports, detached, with per-process
@@ -9,34 +9,48 @@ plus a live start/stop against a trivial fixture server.
 
 ## Tasks
 
-- [ ] Extend `env.config.js` to load and validate a `dev` array —
+- [x] Extend `env.config.js` to load and validate a `dev` array —
       `{ name, command, portVar, health, frontPort }` per entry; default `[]`
       (feature unused); merge over frozen defaults like the other blocks.
-- [ ] Add `src/env/dev.js` — **pure** `planDev(spec, slot, config)` returning,
+- [x] Add `src/env/dev.js` — **pure** `planDev(spec, slot, config)` returning,
       per process: the expanded command, the resolved port (`portBase +
       slot*portsPerSpec + index` via `portVar`), the log path
-      (`.spec-env/logs/<slug>-<name>.log`), and the expanded `health` URL.
+      (`.spec-env/logs/<folder>-<name>.log`), and the expanded `health` URL.
       No side effects (mirrors `provision.js`/`teardown.js`).
-- [ ] Wire `spec-env dev up <spec>` in `cli.js`: for each planned process,
+- [x] Wire `spec-env dev up <spec>` in `cli.js`: for each planned process,
       spawn **detached**, redirect stdout/stderr to its log, write the PID to
-      `.spec-env/pids/<slug>-<name>.pid`, then poll `health` until ready (bounded
+      `.spec-env/pids/<folder>-<name>.pid`, then poll `health` until ready (bounded
       timeout → clear failure, leave already-started peers running with a report).
-- [ ] Wire `spec-env dev down <spec>`: read the PID files, terminate each
+- [x] Wire `spec-env dev down <spec>`: read the PID files, terminate each
       process (SIGTERM → SIGKILL fallback), remove the PID files. Idempotent —
       a spec with no PIDs is a clean no-op.
-- [ ] Gitignore `/.spec-env/logs/` and `/.spec-env/pids/` (registry already
-      ignored); ensure the dirs are created on demand.
-- [ ] Add `dev` to the `assets/core/env.config.json.example` + document the block
+- [x] ~~Gitignore `/.spec-env/logs/` and `/.spec-env/pids/`~~ — already covered:
+      `/.spec-env/` is gitignored wholesale (plus `*.log`). Dirs created on demand.
+- [x] Add `dev` to the `assets/core/env.config.json.example` + document the block
       (fields, `{portVar}` token expansion, `frontPort`) in `env.config.md`.
-- [ ] Unit tests: `planDev` port math + token/health expansion for a
+- [x] Unit tests: `planDev` port math + token/health expansion for a
       single-process and a UI+API array; config load/merge of `dev`. Live test:
-      start/stop a fixture HTTP server via `dev up`/`dev down`, assert PID files
-      and health gate. Run the project's typecheck + test commands
-      (see `.claude/rules/spec-planning.md`) — green before done.
+      start/stop a fixture HTTP server via the supervise seam, assert PID files
+      and health gate. **137 tests green** (`node --test`; no separate typecheck —
+      plain JS). Also verified full CLI e2e (`dev up`→health→`dev down`).
 
 ## Notes
 
 The engine only plans + does process IO here; the **skills** don't change in
 this phase (they're rewired in Phase 3). Keep `planDev` free of git/docker so it
 stays unit-testable, matching decision #2 of the original isolation spec.
+
+**Deviations from the plan (all recorded in the overview changelog):**
+- Split the process IO into a dedicated `src/env/supervise.js` seam
+  (`startProcess`/`stopProcess`/`waitHealthy`), so start/stop/health are
+  unit-testable against a fixture without going through `cli.js`. `planDev`
+  stays pure; `cli.js` is thin glue.
+- Log/pid files are keyed by the spec **folder** (`feat-demo`), not the bare
+  slug, matching how the registry keys slots (avoids a `feat-foo`/`bug-foo`
+  collision).
+- `dev up` **allocates a registry slot even for a worktree-only spec** — host
+  dev servers need a reserved port block regardless of Docker (previously slots
+  were Docker-only). Idempotent; `dev down` never touches the registry.
+- `stopProcess` signals the **process group** (`-pid`), not just the leader, so
+  a detached `pnpm dev`'s children (vite/tsc) are reaped too.
 </content>

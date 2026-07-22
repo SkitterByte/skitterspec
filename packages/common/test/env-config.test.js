@@ -103,6 +103,57 @@ test('throws a clear error on malformed JSON', () => {
   assert.throws(() => loadEnvConfig(dir), /Invalid .*env\.config\.json/)
 })
 
+test('dev defaults to an empty array', () => {
+  const dir = tmpDir()
+  assert.deepStrictEqual(loadEnvConfig(dir).config.dev, [])
+})
+
+test('dev entries normalise; required fields kept, optionals passed through', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    dev: [
+      {
+        name: '  api ',
+        command: ' pnpm --filter api dev ',
+        portVar: 'API_PORT',
+        health: ' http://localhost:{API_PORT}/health ',
+        frontPort: 8080,
+      },
+      { name: 'ui', command: 'pnpm --filter ui dev', portVar: 'PORT' },
+    ],
+  })
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.dev, [
+    {
+      name: 'api',
+      command: 'pnpm --filter api dev',
+      portVar: 'API_PORT',
+      health: 'http://localhost:{API_PORT}/health',
+      frontPort: 8080,
+    },
+    { name: 'ui', command: 'pnpm --filter ui dev', portVar: 'PORT' },
+  ])
+})
+
+test('dev drops malformed entries (missing required fields / wrong types)', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    dev: [
+      { name: 'ok', command: 'run', portVar: 'PORT' },
+      { name: 'no-command', portVar: 'PORT' },
+      { command: 'orphan', portVar: 'PORT' },
+      { name: 'bad-front', command: 'run', portVar: 'PORT', frontPort: 'nope' },
+      'not-an-object',
+    ],
+  })
+  const { config } = loadEnvConfig(dir)
+  assert.strictEqual(config.dev.length, 2)
+  assert.strictEqual(config.dev[0].name, 'ok')
+  // frontPort of wrong type is simply omitted, entry otherwise kept
+  assert.strictEqual(config.dev[1].name, 'bad-front')
+  assert.ok(!('frontPort' in config.dev[1]))
+})
+
 test('DEFAULT_CONFIG is exported and frozen', () => {
   assert.ok(Object.isFrozen(DEFAULT_CONFIG))
   assert.ok(Object.isFrozen(DEFAULT_CONFIG.docker))

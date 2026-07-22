@@ -49,6 +49,21 @@ no live `env.config.json` was found.
                               // empty = no backup, volumes dropped directly.
   },
 
+  // Host dev servers `spec-env dev up <spec>` starts on the spec's port block
+  // (for apps that run via `pnpm dev` on the host, not inside the Docker stack).
+  // An array so UI + API (or more) are supervised independently; [] = none.
+  // Each entry:
+  //   name       label used in logs/pid files (.spec-env/{logs,pids}/<spec>-<name>).
+  //   command    the launch command, run detached in the worktree. {portVar} and
+  //              {port} expand to the process's resolved port.
+  //   portVar    env var the command reads for its port; injected into its env.
+  //              Process i in the block gets portBase + slot*portsPerSpec + i.
+  //   health     optional URL polled until it answers before reporting ready;
+  //              {portVar}/{port} expand here too. Omit for no health gate.
+  //   frontPort  optional canonical origin this process fronts (e.g. 3000 for the
+  //              UI, 8080 for the API) — used by the proxy to route to it.
+  "dev": [],
+
   // Optional, editor/terminal-agnostic opener run after `spec-env up`. The
   // template is expanded with {worktreePath}, {slug}, {branch}, {projectName},
   // {portOffset}. Empty = nothing is opened (the path is just printed).

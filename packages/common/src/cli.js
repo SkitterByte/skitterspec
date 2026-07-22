@@ -22,6 +22,8 @@ const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
 const { planIntegrate } = require('./env/integrate.js')
+const { planDev } = require('./env/dev.js')
+const { startProcess, stopProcess, waitHealthy } = require('./env/supervise.js')
 
 const pkg = require('../package.json')
 
@@ -36,6 +38,8 @@ Usage:
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         plan a worktree + Docker stack + opener
                                 down <spec>       tear down (guards; --keep-volumes, --force)
+                                dev up <spec>     start host dev servers on the spec's ports
+                                dev down <spec>   stop the spec's host dev servers
                                 integrate <spec>  plan rebase + fast-forward onto the base branch
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
@@ -401,9 +405,76 @@ function specEnvResolve(dir, config, specArg) {
   )
 }
 
+// Start/stop a spec's host dev servers on its reserved port block. Host dev
+// servers (e.g. `pnpm dev`) need a block even on a worktree-only spec, so `up`
+// allocates a slot if the spec has none (idempotent). The planner is pure
+// (dev.js); the spawning/killing lives in supervise.js.
+async function specEnvDev(dir, config, positional) {
+  const action = positional[0]
+  const specArg = positional[1]
+  if ((action !== 'up' && action !== 'down') || !specArg) {
+    process.stdout.write('Usage: skitterspec spec-env dev <up|down> <spec>\n')
+    return
+  }
+  const spec = resolveSpec(specArg, dir, config)
+  if (!config.dev.length) {
+    process.stdout.write(
+      'spec-env dev: no dev processes configured — set "dev": [...] in env.config.json.\n',
+    )
+    return
+  }
+
+  const registry = readRegistry(dir, config)
+  let slot
+  if (action === 'up') {
+    // Ensure a slot (idempotent) so the port block is reserved even worktree-only.
+    const alloc = allocateSlot(registry, spec.folder)
+    slot = alloc.slot
+    writeRegistry(dir, config, alloc.registry)
+  } else {
+    // Teardown only needs the pid-file paths (keyed by folder, not slot), so the
+    // slot value is immaterial — use the existing one, or 0 as a placeholder.
+    slot = Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)
+      ? registry.slots[spec.folder]
+      : 0
+  }
+
+  const plan = planDev(spec, slot, config)
+
+  if (action === 'up') {
+    const out = [`spec-env dev up: ${spec.folder}  slot ${slot}  (ports from ${plan.portOffset})`]
+    for (const proc of plan.procs) {
+      const res = startProcess(proc, { cwd: spec.worktreePath, rootDir: dir })
+      let health = ''
+      if (proc.health) {
+        health = (await waitHealthy(proc.health)) ? '  health: ok' : '  health: TIMEOUT'
+      }
+      out.push(
+        `  ${proc.name}: port ${proc.port}  pid ${res.pid}  ` +
+          `${res.started ? 'started' : 'already running'}${health}`,
+      )
+    }
+    out.push('')
+    out.push(`  logs: ${stateDirLabel(config)}/logs/`)
+    process.stdout.write(out.join('\n') + '\n')
+  } else {
+    const out = [`spec-env dev down: ${spec.folder}`]
+    for (const proc of plan.procs) {
+      const res = await stopProcess(proc, { rootDir: dir })
+      out.push(`  ${proc.name}: ${res.stopped ? `stopped (pid ${res.pid})` : 'not running'}`)
+    }
+    process.stdout.write(out.join('\n') + '\n')
+  }
+}
+
+// The `.spec-env`-style state dir label for user-facing messages.
+function stateDirLabel(config) {
+  return require('node:path').posix.dirname(config.registry) || '.spec-env'
+}
+
 // Dispatch `skitterspec spec-env <sub> [args] [--dir path]`. No-ops with a clear
 // message when the feature isn't enabled (no specs/.core/env.config.json).
-function specEnv(rest) {
+async function specEnv(rest) {
   const [sub, ...args] = rest
   let dir = process.cwd()
   const positional = []
@@ -432,6 +503,9 @@ function specEnv(rest) {
     case 'down':
       specEnvDown(dir, config, positional[0], flags)
       break
+    case 'dev':
+      await specEnvDev(dir, config, positional)
+      break
     case 'integrate':
       specEnvIntegrate(dir, config, positional[0])
       break
@@ -443,7 +517,7 @@ function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|integrate|status|resolve> [spec] [--keep-volumes] [--force]\n',
+        'Usage: skitterspec spec-env <up|down|dev|integrate|status|resolve> [spec] [--keep-volumes] [--force]\n',
       )
   }
 }
@@ -461,7 +535,7 @@ async function run(argv) {
   const [cmd, ...rest] = argv
 
   if (cmd === 'spec-env') {
-    specEnv(rest)
+    await specEnv(rest)
     return
   }
 

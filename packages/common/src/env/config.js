@@ -16,6 +16,8 @@
  *     worktree: { root, folderPattern },
  *     docker:   { enabled, composeFile, projectNamePattern, portBase,
  *                 portsPerSpec, envFile, backupCommand },
+ *     dev:      [ { name, command, portVar, health?, frontPort? } ],  // host dev
+ *               // servers started on the spec's port block (empty = none)
  *     open:     { command },   // optional, editor/terminal-agnostic opener
  *     registry: ".spec-env/registry.json",
  *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
@@ -40,6 +42,9 @@ const DEFAULT_CONFIG = Object.freeze({
     envFile: '.env',
     backupCommand: '',
   }),
+  // Host dev servers started on the spec's port block by `spec-env dev up`.
+  // Each: { name, command, portVar, health?, frontPort? }. Default: none.
+  dev: Object.freeze([]),
   open: Object.freeze({ command: '' }),
   registry: '.spec-env/registry.json',
   // Git branch naming, provider-neutral. `pattern` expands {type}/{slug} and,
@@ -61,6 +66,7 @@ function defaults() {
   return {
     worktree: { ...DEFAULT_CONFIG.worktree },
     docker: { ...DEFAULT_CONFIG.docker },
+    dev: [],
     open: { ...DEFAULT_CONFIG.open },
     registry: DEFAULT_CONFIG.registry,
     branch: { ...DEFAULT_CONFIG.branch },
@@ -86,6 +92,30 @@ function assign(base, parsed, key, type) {
 }
 
 /**
+ * Normalise a parsed `dev` array into well-formed process entries. Each entry
+ * needs non-empty string `name`, `command`, and `portVar`; `health` (string) and
+ * `frontPort` (finite number) are optional. Malformed entries are dropped
+ * (lenient, like the rest of the loader) so a stray entry can't crash provisioning.
+ */
+function normalizeDev(parsed) {
+  const out = []
+  for (const raw of parsed) {
+    if (!isObject(raw)) continue
+    const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+    const command = typeof raw.command === 'string' ? raw.command.trim() : ''
+    const portVar = typeof raw.portVar === 'string' ? raw.portVar.trim() : ''
+    if (!name || !command || !portVar) continue
+    const entry = { name, command, portVar }
+    if (typeof raw.health === 'string' && raw.health.trim()) entry.health = raw.health.trim()
+    if (typeof raw.frontPort === 'number' && Number.isFinite(raw.frontPort)) {
+      entry.frontPort = raw.frontPort
+    }
+    out.push(entry)
+  }
+  return out
+}
+
+/**
  * Merge a parsed config over the defaults. Only known keys are copied (unknown
  * keys ignored for forward-compat). Nested objects are merged field-by-field.
  */
@@ -105,6 +135,10 @@ function mergeConfig(base, parsed) {
     assign(base.docker, parsed.docker, 'portsPerSpec', 'number')
     assign(base.docker, parsed.docker, 'envFile', 'string')
     assign(base.docker, parsed.docker, 'backupCommand', 'string?')
+  }
+
+  if (Array.isArray(parsed.dev)) {
+    base.dev = normalizeDev(parsed.dev)
   }
 
   if (isObject(parsed.open)) {
