@@ -61,9 +61,9 @@ unfinished phase** instead of Phase 1. (When isolated, subsequent `/spec-go` run
 happen from inside the worktree — where the spec already sits in `in-progress` on
 the branch — and a re-run of `spec-env up` just re-attaches it.)
 
-## 3. Pre-flight — commit prior work, then compact
+## 3. Pre-flight — commit prior work
 
-Before writing any code for this phase, get the workspace and context clean:
+Before writing any code for this phase, get the workspace clean:
 
 - **Confirm the last-worked phase is committed.** Run `git status` and
   `git log --oneline -5`. The most recently *implemented* phase (not necessarily
@@ -72,10 +72,6 @@ Before writing any code for this phase, get the workspace and context clean:
   `/commit`) so each phase lands as its own reviewable commit — don't build the
   next phase on top of an uncommitted one. (Skip if this is the first phase —
   there's nothing prior to commit.)
-- **Compact, then continue.** Recommend the user run `/compact` now. A fresh,
-  minimal context keeps the phase focused and avoids drift from earlier turns;
-  the spec file on disk is the source of truth, so nothing is lost. Pause for the
-  `/compact`, then implement the phase.
 
 ## 3b. Pull from the tracker first (only if a provider is installed)
 
