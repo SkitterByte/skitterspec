@@ -75,13 +75,21 @@ applies, offer to land the finished branch on the base branch so the work reache
 4. **Report** the landing (base branch, fast-forward result). It **never pushes** —
    mention the user can `git push` the base branch themselves.
 
-## 7. Offer teardown (opt-in, only if configured)
+## 7. Tear down the environment (opt-in, only if configured)
 
 **Only when `specs/.core/env.config.json` exists**, offer — don't force — to
-reclaim the finished spec's environment: "Want me to run `/spec-env-down <name>`
-to remove its worktree, delete its branch, stack, volumes, and free its slot?"
-Post-integrate the branch is merged into base, so teardown needs **no `--force`**
-and deletes the branch (`git branch -d`) as part of the plan. It still respects
-the guards (won't destroy a dirty or unpushed-and-unmerged worktree without
-`--force`). If `env.config.json` is absent, skip this entirely — behave exactly as
-before.
+reclaim the finished spec's environment. On confirmation, run the `spec-env` CLI
+directly (the old `/spec-env-down` skill is gone — teardown is folded in here):
+
+1. **Disconnect the proxy if this spec is connected.** If `.spec-env/connected`
+   names this spec, run `skitterspec spec-env connect main` first so the
+   canonical ports go back to the primary checkout.
+2. **Stop its host dev servers:** `skitterspec spec-env dev down <name>` (a
+   no-op when none are running / configured).
+3. **Remove worktree + stack + slot:** run `skitterspec spec-env down <name>`
+   and execute the commands it prints, in order. Post-integrate the branch is
+   merged into base, so teardown needs **no `--force`** and deletes the branch
+   (`git branch -d`) as part of the plan. It still respects the guards (won't
+   destroy a dirty or unpushed-and-unmerged worktree without `--force`).
+
+If `env.config.json` is absent, skip this entirely — behave exactly as before.

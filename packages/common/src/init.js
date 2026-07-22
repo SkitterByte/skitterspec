@@ -275,9 +275,8 @@ function printReport(dir, mode) {
     : 'Per-spec isolation is opt-in: re-run with --isolation (or copy' +
       ' specs/.core/env.config.json.example → env.config.json) to enable it.\n'
   process.stdout.write(
-    '\nDone. Skills resolve as /spec, /spec-ready, /spec-go, /spec-complete,' +
-      ' /spec-cancel, /spec-bug, /spec-init, /spec-env, /spec-env-down,' +
-      ' /spec-connect.\n' +
+    '\nDone. Skills resolve as /spec, /spec-go, /spec-complete, /spec-cancel,' +
+      ' /spec-bug, /spec-review, /spec-init, /spec-connect.\n' +
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
       " project's stack, then run /spec.\n" +
       isolationNote,

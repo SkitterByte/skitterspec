@@ -1,7 +1,7 @@
 # Slim the spec command surface + local traffic diversion (`spec-connect`)
 
 > **Type:** Feature
-> **Status:** In Progress — Phases 1–2 done, Phase 3 next
+> **Status:** In Progress — all phases (1–3) done; ready for /spec-complete
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-22
@@ -137,7 +137,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Host dev-process supervision (`dev` config + start/stop/health) | ✅ | [01-dev-supervision.md](01-dev-supervision.md) |
 | 2 | Front-door proxy + `spec-connect` (bundled Node, exclusive) | ✅ | [02-proxy-connect.md](02-proxy-connect.md) |
-| 3 | Slim the surface (fold into go/complete/cancel, delete 3 skills, migrate) | ⬜ | [03-surface-slim.md](03-surface-slim.md) |
+| 3 | Slim the surface (fold into go/complete/cancel, delete 3 skills, migrate) | ✅ | [03-surface-slim.md](03-surface-slim.md) |
 
 ## Open questions
 
@@ -156,6 +156,19 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-22 — **Phase 3 done** (surface slimmed — all phases complete).
+  Rewrote `/spec-go` (fold in dev-server bring-up with confirm-before-heavy +
+  `--plan`; dropped the leftover `/compact` nudge), `/spec-complete` +
+  `/spec-cancel` (fold teardown: disconnect proxy → `dev down` → `spec-env
+  down`), and `/spec` (writes `Ready` directly — `/spec-ready` folded in).
+  **Deleted the `spec-env`, `spec-env-down`, `spec-ready` skills** (asset dirs +
+  git-tracked `.claude/skills` symlinks) and added the `spec-connect` symlink;
+  scrubbed their references from `spec-planning.md`, `claude-md-section.md`,
+  `env.config.md`, and the init notice. Added the `MIGRATION.md` v2→v3 entry;
+  bumped `skitterspec`→3.0.0, `skitterspec-linear`→2.0.0 (+ publish scripts);
+  led the base README with the 5-verb loop. Fixed 2 asset/init tests. Full
+  workspace green (common 145, sync-core 33, linear 26); build composes both
+  distributions correctly.
 - 2026-07-22 — **Phase 2 done** (front-door proxy + `spec-connect`). Added the
   `proxy` config block; `src/env/proxy.js` (pure `renderRoutes`; `startProxy`
   forwarding HTTP + WebSocket `upgrade`; `portsInUse`/`waitListening`; a

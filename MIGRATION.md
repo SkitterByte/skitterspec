@@ -1,5 +1,47 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v2 → v3 (slimmer surface + local traffic diversion)
+
+**v3 shrinks the everyday command surface to five verbs — `spec → go → connect →
+commit → complete` — by folding provisioning, teardown, and grooming into the
+lifecycle skills, and adds `/spec-connect` for testing a worktree at your normal
+`localhost` URL.** (`@skitterbyte/skitterspec-linear` moves to v2.0.0 in lockstep.)
+
+### Removed skills (breaking) → where they went
+
+| Removed skill | Replaced by |
+|---------------|-------------|
+| `/spec-env` | **Automatic in `/spec-go`** — it provisions the worktree and (with your OK) starts the spec's dev servers. Escalate Docker later with the CLI: `skitterspec spec-env up <name>`. |
+| `/spec-env-down` | **Folded into `/spec-complete` and `/spec-cancel`** — they tear the environment down (dev servers, worktree, stack, slot) as part of finishing/abandoning a spec. |
+| `/spec-ready` | **Folded into `/spec`** — grilling now writes a `Ready` spec directly (or `Draft` if you deliberately leave open questions). Go straight to `/spec-go`. |
+
+The **`skitterspec spec-env` CLI engine stays** (`up`, `down`, `dev`, `connect`,
+`integrate`, `status`, `resolve`) — only the three *skills* were removed. Anything
+that scripted those CLI verbs keeps working.
+
+### New — `/spec-connect` and two config blocks
+
+- **`/spec-connect <name>`** points your canonical `localhost` ports at a spec's
+  running dev servers (so you can test a worktree's UI/API at the normal URL);
+  `/spec-connect main` hands the ports back. It's a small bundled Node reverse
+  proxy — no external install. Exclusive: one spec exposed at a time.
+- **`env.config.json` gains `dev` and `proxy` blocks.** `dev` lists the host dev
+  servers `/spec-go` starts (`{ name, command, portVar, health?, frontPort? }`);
+  `proxy` configures the front-door proxy (`{ enabled, host }`). Both default to
+  off/empty, so existing projects are unaffected until you fill `dev` in.
+
+### What to do
+
+1. **Upgrade and re-run `init`** (or `update`): `npx @skitterbyte/skitterspec
+   update`. It stops installing the three removed skills, installs `/spec-connect`,
+   and refreshes the CLAUDE.md section + `spec-planning` rule. Your specs and
+   `env.config.json` are untouched.
+2. **Remove muscle memory for the old commands** — use `/spec-go` to bring a spec
+   up, `/spec-complete`/`/spec-cancel` to tear it down, and `/spec` (no separate
+   `/spec-ready`) to reach a Ready spec.
+3. **To test UI/API worktrees:** add a `dev` block to `env.config.json` (see
+   `specs/.core/env.config.md`), then `/spec-go` → `/spec-connect <name>`.
+
 ## `@skitterbyte/skitterspec` v1 → v2 (tracker-free base)
 
 **v2 of the base package is tracker-free.** The Linear hybrid-sync feature — the

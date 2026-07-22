@@ -61,8 +61,10 @@ const skillText = (name) =>
 // package's assets test (against the seam fragments). The shared /spec + /spec-go
 // still carry the passages verbatim until Phase 3 replaces them with seam markers.
 
-test('/spec-env and /spec-go document trusting the worktree root via /add-dir', () => {
-  for (const name of ['spec-env', 'spec-go']) {
+test('/spec-go documents trusting the worktree root via /add-dir', () => {
+  // Provisioning folded into /spec-go in 3.0.0 (the /spec-env skill was removed),
+  // so /spec-go now carries the worktree-trust guidance.
+  for (const name of ['spec-go']) {
     const text = skillText(name)
     assert.match(text, /\/add-dir/, `${name} instructs running /add-dir`)
     assert.match(

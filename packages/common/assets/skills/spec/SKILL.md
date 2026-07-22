@@ -9,9 +9,10 @@ Produce ONE concise spec in `specs/backlog/`. Do not start coding — this skill
 plans only. Implementation happens later via `/spec-go`.
 
 Lifecycle (the governing skills) — status in parentheses:
-`/spec` (Draft, backlog) → `/spec-ready` (Ready, still backlog) → `/spec-go`
+`/spec` (writes **Ready** when fully groomed, else Draft; backlog) → `/spec-go`
 (In Progress, in-progress; implement phase 1) → `/spec-complete` (Complete) /
-`/spec-cancel` (Cancelled). See `.claude/rules/spec-planning.md`.
+`/spec-cancel` (Cancelled). See `.claude/rules/spec-planning.md`. (There is no
+separate grooming command — `/spec` grills to a Ready spec directly.)
 
 ## Phase A — reach a clear shared understanding (grill first)
 
@@ -72,7 +73,7 @@ the codebase, link rather than duplicate):
 # <Feature title>
 
 > **Type:** Feature
-> **Status:** Draft — not started
+> **Status:** Ready — not started
 > **Author:** <git user.name — `git config user.name`>
 > **Developer:** —
 > **Raised:** <YYYY-MM-DD (today)>
@@ -113,7 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | Date | Status | Folder | By |
 |------|--------|--------|----|
-| <YYYY-MM-DD> | Draft | backlog | <author> |
+| <YYYY-MM-DD> | Ready | backlog | <author> |
 
 ## Changelog
 
@@ -147,9 +148,9 @@ Keep the `00-overview.md` phase index and the phase files in sync: the index row
 is the one-line summary + status; the phase file is the detail.
 
 The **State log** is the audit trail of folder/status transitions — every
-lifecycle skill (`/spec-ready`, `/spec-go`, `/spec-complete`, `/spec-cancel`)
-appends one row when it moves the spec. The **Changelog** is for decisions and
-course-corrections only — keep the two separate.
+lifecycle skill (`/spec-go`, `/spec-complete`, `/spec-cancel`) appends one row
+when it moves the spec. The **Changelog** is for decisions and course-corrections
+only — keep the two separate.
 
 Rules for the spec body:
 
@@ -169,8 +170,10 @@ Rules for the spec body:
 
 ## Phase C — finish up
 
-After writing, tell the user the path and that it's a `Draft` in `backlog`. Next
-step is `/spec-ready` once it's groomed, then `/spec-go` to start building.
+After writing, tell the user the path and that it's **`Ready`** in `backlog`
+(grilling in Phase A resolved the open questions). If you deliberately left open
+questions unresolved, write `Draft` instead and say what still needs deciding.
+Either way, the next step is `/spec-go` to start building.
 
 ## Phase D — record the isolation stack (only if configured)
 
@@ -180,7 +183,7 @@ decision — `worktree` (default) or `worktree + docker` when it touches the DB 
 stateful services. Nothing to provision now: `/spec-go` gives every in-progress
 spec its own worktree automatically, and brings up Docker only when the Stack
 says so. Mention the operator can escalate the Stack later (edit the header, or
-run `/spec-env <name>` to add Docker to an existing worktree). If
+run `skitterspec spec-env up <name>` to add Docker to an existing worktree). If
 `env.config.json` is absent, isolation is off — leave the default `worktree` and
 finish as above.
 

@@ -1,22 +1,23 @@
 # Spec Planning
 
-Spec-driven development is driven by eight skills — use them rather than
-hand-rolling specs so the structure and lifecycle stay consistent. Each sets a
-status on the spec header (`> **Status:** …`):
+Spec-driven development is driven by seven lifecycle skills (plus `/spec-connect`
+when isolation is on) — use them rather than hand-rolling specs so the structure
+and lifecycle stay consistent. Each sets a status on the spec header
+(`> **Status:** …`):
 
 | Skill | Purpose | Status | Folder |
 |-------|---------|--------|--------|
-| `/spec` | (Feature) Grill to a clear shared understanding, then write a new spec | `Draft` | `specs/backlog/` |
+| `/spec` | (Feature) Grill to a clear shared understanding, then write a groomed spec | `Ready` (or `Draft`) | `specs/backlog/` |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
-| `/spec-ready` | Confirm it's groomed (no open questions, phases + tests defined) | `Ready` | `specs/backlog/` |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
-| `/spec-go` | Implement the next phase (with tests) | `In Progress` | `specs/in-progress/` |
-| `/spec-complete` | Verify all phases done + tests green | `Complete` | `specs/complete/` |
-| `/spec-cancel` | Record progress, stamp a reason on the header | `Cancelled` | `specs/cancelled/` |
+| `/spec-go` | Provision the env, bring dev servers up, implement the next phase | `In Progress` | `specs/in-progress/` |
+| `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
+| `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
 
-Status flow: `Draft → Ready → In Progress → Complete` (or `Cancelled` from any
-state). `/spec-ready` is a grooming gate only — it does not move the folder.
+Status flow: `Ready → In Progress → Complete` (or `Cancelled` from any state).
+`/spec` grills to a **Ready** spec directly — there is no separate grooming
+command; it writes `Draft` only when open questions are deliberately left.
 `/spec-bug` is test-first and starts straight in `In Progress` (work begins
 immediately), so it skips Draft/Ready.
 
@@ -27,12 +28,16 @@ automatically — several specs run side by side without stashing or clashing, a
 `main` stays free. Docker is a **per-spec escalation**: `/spec` records
 `> **Stack:** worktree` (default) or `worktree + docker` when the spec touches the
 DB / stateful services, and `/spec-go` brings up a namespaced stack only for the
-latter. All housekeeping (the backlog→in-progress move, header edits, the code)
-happens on the spec's branch in the worktree; `main` changes only when it merges.
-`/spec-env` · `/spec-env-down` remain the manual engine (escalate Docker later,
-re-attach, tear down). Isolation is **orthogonal to lifecycle status** and
-inactive when `env.config.json` is absent — every skill then behaves as it does
-today.
+latter. `/spec-go` also starts the project's host **dev servers** (`env.config`
+→ `dev`) on the spec's ports; **`/spec-connect <name>`** then exposes that spec on
+your canonical `localhost` ports so you can test it at the normal URL
+(`/spec-connect main` hands them back). All housekeeping (the backlog→in-progress
+move, header edits, the code) happens on the spec's branch in the worktree; `main`
+changes only when it merges. Teardown is folded into `/spec-complete` ·
+`/spec-cancel`. Beneath the skills, `skitterspec spec-env
+<up|down|dev|connect|integrate>` is the CLI engine. Isolation is **orthogonal to
+lifecycle status** and inactive when `env.config.json` is absent — every skill
+then behaves as it does today.
 
 **Ticketing-provider sync (opt-in, a separate package).** The base is
 tracker-free: it knows nothing about any specific ticketing system. A
@@ -110,7 +115,7 @@ When asked for a plan, implementation strategy, or feature breakdown:
 ## Lifecycle folders
 
 ```
-specs/backlog/       Draft + Ready specs (/spec, /spec-ready)
+specs/backlog/       Ready (or Draft) specs (/spec)
 specs/in-progress/   under active implementation (/spec-go, /spec-bug)
 specs/complete/      finished (/spec-complete)
 specs/cancelled/     abandoned, with a reason on the header (/spec-cancel)

@@ -65,5 +65,5 @@ reading the code, do that instead of asking.
 ## 5. Report
 
 Summarise the drift found, what you changed, any questions still open, and
-whether the spec is now safe to `/spec-go` (or needs `/spec-ready` again). Do
-**not** `git commit` unless the user asks.
+whether the spec is now safe to `/spec-go` (or should drop back to `Draft` until
+the open questions are resolved). Do **not** `git commit` unless the user asks.

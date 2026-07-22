@@ -64,9 +64,14 @@ test('removes retired folder index files left by an earlier version', async () =
   assert.ok(exists(dir, 'specs', 'complete', '.gitkeep'), 'complete kept via .gitkeep')
 })
 
-test('registers the per-spec isolation skills', () => {
-  assert.ok(SKILLS.includes('spec-env'), 'spec-env registered')
-  assert.ok(SKILLS.includes('spec-env-down'), 'spec-env-down registered')
+test('registers spec-connect and not the retired env skills', () => {
+  assert.ok(SKILLS.includes('spec-connect'), 'spec-connect registered')
+  // spec-env / spec-env-down / spec-ready were removed in 3.0.0 — provisioning
+  // folds into /spec-go, teardown into /spec-complete·/spec-cancel, grooming
+  // into /spec. The `spec-env` CLI engine stays; only the skills are gone.
+  assert.ok(!SKILLS.includes('spec-env'), 'spec-env skill removed')
+  assert.ok(!SKILLS.includes('spec-env-down'), 'spec-env-down skill removed')
+  assert.ok(!SKILLS.includes('spec-ready'), 'spec-ready skill removed')
 })
 
 test('the base does not register the Linear hybrid-sync skills', () => {

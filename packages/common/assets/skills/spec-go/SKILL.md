@@ -1,9 +1,13 @@
 ---
 name: spec-go
-description: Promote a spec into active development and implement its first phase. Moves the spec from backlog into specs/in-progress/, then builds phase 1 with tests. Targets a spec by name (arg) or the spec currently in context. Use when the user says "/spec-go", "start this spec", "begin implementing <spec>", or "let's build the next phase".
+description: Promote a spec into active development and build the next phase — provisions its worktree, brings up its host dev servers (confirm first), then implements the phase with tests. Targets a spec by name (arg) or the spec currently in context. Use when the user says "/spec-go", "start this spec", "begin implementing <spec>", or "let's build the next phase".
 ---
 
 # /spec-go — start (or continue) implementing a spec
+
+The "up" button: it promotes the spec, provisions its worktree, brings its host
+dev servers up on the spec's reserved ports (with your OK), then builds the phase.
+Diverting your browser to the spec is a separate explicit step — `/spec-connect`.
 
 ## 1. Identify the target spec
 
@@ -22,7 +26,7 @@ description: Promote a spec into active development and implement its first phas
 the spec doesn't already have a worktree, provision it **first**, so all the
 housekeeping below lands on the spec's branch and never on `main`:
 
-- Run `skitterspec spec-env up <name>` (the `/spec-env` engine). It adds a git
+- Run `skitterspec spec-env up <name>` (the `spec-env` CLI engine). It adds a git
   worktree on a branch forked from `main`, and — only when the spec's
   `> **Stack:**` header is `worktree + docker` — also brings up its Docker stack.
   Print the worktree path and the opener command it emits.
@@ -53,13 +57,31 @@ Then move the spec (in the worktree when isolated, in place otherwise):
   the in-progress state for everyone and fires the tracker's automation (when a
   ticketing provider is linked).
 
-A spec ideally reaches here as `Ready` (via `/spec-ready`), but `/spec-go` works
-on a `Draft` too — just sanity-check it's well-formed before building.
+A spec ideally reaches here already `Ready` (written by `/spec`), but `/spec-go`
+works on a `Draft` too — just sanity-check it's well-formed before building.
 
 If the spec is already in `in-progress`, skip the move and implement the **next
 unfinished phase** instead of Phase 1. (When isolated, subsequent `/spec-go` runs
 happen from inside the worktree — where the spec already sits in `in-progress` on
 the branch — and a re-run of `spec-env up` just re-attaches it.)
+
+## 2b. Bring the spec's dev servers up — confirm before heavy steps
+
+**Only when isolation is enabled and the project configures host dev servers**
+(`env.config.json` → a non-empty `dev` array). This is what makes the spec
+runnable — its UI/API on the spec's reserved port block, isolated from `main`.
+
+- **Show the plan and get a yes first.** List what will start: the per-process
+  dev commands, the ports they'll bind (the spec's slot block), and any Docker
+  stack. Don't start heavy processes silently. If the user passed **`--plan`**,
+  print this plan and **stop** (preview only).
+- On confirmation, run `skitterspec spec-env dev up <name>` — it launches each
+  dev process detached on its port, logs to `.spec-env/logs/`, and waits on each
+  `health` check. With no `dev` configured it's a clean no-op; skip this step.
+- **Diverting your browser is a separate step.** To test the spec at your normal
+  `localhost` URL, run **`/spec-connect <name>`** (exclusive — it exposes this
+  spec on the canonical ports; `/spec-connect main` hands them back). `/spec-go`
+  never seizes the canonical ports on its own.
 
 ## 3. Pre-flight — commit prior work
 

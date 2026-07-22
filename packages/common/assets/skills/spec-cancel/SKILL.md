@@ -52,10 +52,17 @@ move the whole folder).
 Confirm the cancellation, the reason recorded, and the new location. Do **not**
 `git commit` unless the user asks.
 
-## 7. Offer teardown (opt-in, only if configured)
+## 7. Tear down the environment (opt-in, only if configured)
 
 **Only when `specs/.core/env.config.json` exists**, offer — don't force — to
-reclaim the cancelled spec's environment: "Want me to run `/spec-env-down
-<name>` to remove its worktree, stack, volumes, and free its slot?" It respects
-the teardown guards (won't destroy a dirty/unpushed worktree without `--force`).
+reclaim the cancelled spec's environment. On confirmation, run the `spec-env` CLI
+directly (the old `/spec-env-down` skill is gone — teardown is folded in here):
+
+1. If `.spec-env/connected` names this spec, run `skitterspec spec-env connect
+   main` first to free the canonical ports.
+2. `skitterspec spec-env dev down <name>` — stop its host dev servers.
+3. `skitterspec spec-env down <name>` — then execute the printed commands to
+   remove the worktree/stack and free the slot. It respects the teardown guards
+   (won't destroy a dirty/unpushed worktree without `--force`).
+
 If `env.config.json` is absent, skip this entirely — behave exactly as before.
