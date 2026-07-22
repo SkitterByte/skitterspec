@@ -1,7 +1,7 @@
 # Slim the spec command surface + local traffic diversion (`spec-connect`)
 
 > **Type:** Feature
-> **Status:** In Progress — all phases (1–3) done; ready for /spec-complete
+> **Status:** Complete (2026-07-22)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-22
@@ -153,9 +153,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-07-22 | Draft | backlog | Reuben Greaves |
 | 2026-07-22 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-22 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-07-22 — **Completed**; all 3 phases done, full workspace green (common
+  145, sync-core 33, linear 26 = 204 tests, 0 fail). Everyday surface is now
+  `spec → go → connect → commit → complete`; `skitterspec` → 3.0.0,
+  `skitterspec-linear` → 2.0.0.
 - 2026-07-22 — **Phase 3 done** (surface slimmed — all phases complete).
   Rewrote `/spec-go` (fold in dev-server bring-up with confirm-before-heavy +
   `--plan`; dropped the leftover `/compact` nudge), `/spec-complete` +
