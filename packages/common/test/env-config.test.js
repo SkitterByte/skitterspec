@@ -154,6 +154,15 @@ test('dev drops malformed entries (missing required fields / wrong types)', () =
   assert.ok(!('frontPort' in config.dev[1]))
 })
 
+test('proxy defaults and merges field-by-field', () => {
+  const dir = tmpDir()
+  assert.deepStrictEqual(loadEnvConfig(dir).config.proxy, { enabled: true, host: '127.0.0.1' })
+  writeEnvConfig(dir, { proxy: { enabled: false } })
+  const { config } = loadEnvConfig(dir)
+  assert.strictEqual(config.proxy.enabled, false)
+  assert.strictEqual(config.proxy.host, '127.0.0.1') // untouched default
+})
+
 test('DEFAULT_CONFIG is exported and frozen', () => {
   assert.ok(Object.isFrozen(DEFAULT_CONFIG))
   assert.ok(Object.isFrozen(DEFAULT_CONFIG.docker))

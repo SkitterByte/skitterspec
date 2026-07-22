@@ -1,7 +1,7 @@
 # Slim the spec command surface + local traffic diversion (`spec-connect`)
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 done, Phase 2 next
+> **Status:** In Progress — Phases 1–2 done, Phase 3 next
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-22
@@ -42,34 +42,37 @@ local at this feature."
    `--plan` flag previews without running. Rejected auto-with-no-prompt (too
    aggressive on shared machines; user chose confirm-first).
 3. **`spec-complete` / `spec-cancel` fold in teardown.** Kill the dev PIDs,
-   `docker compose down`, remove the worktree, free the slot, `caddy reload`
-   (or `stop` when the registry empties). No separate `spec-env-down`.
-4. **New `spec-connect <spec>` — the traffic-diversion command.** Points the
-   canonical origin at a spec by setting an `x-spec-env` cookie; `spec-connect
-   main` clears it (revert to the primary checkout). Named `spec-connect`
-   ("connect my local to this spec") over `spec-serve`/`spec-host` because the
-   proxy is not started *by* this command in spirit — it just switches the
-   target (though it will lazily start Caddy if down).
-5. **Caddy is the front-door proxy, lazily managed.** `spec-connect`/`spec-go`
-   probe Caddy's admin API (`:2019`); down → generate the Caddyfile from the
-   registry and `caddy start` (daemonizes itself); up → `caddy reload`
-   (zero-downtime hot swap); registry empties on teardown → `caddy stop`. We do
-   **not** supervise Caddy ourselves. Rejected a shipped Node proxy (user chose
-   Caddy — battle-tested, native cookie routing + admin-API reload).
-6. **Cookie-based routing on the unchanged origin.** Caddy routes by
-   `{http.request.cookie.x-spec-env}` → that slot's port block via a `map`;
-   no cookie → the primary checkout's ports. Cookies are **not port-scoped**
-   (RFC 6265), so one `x-spec-env` cookie on `localhost` governs both `:3000`
-   (UI) and `:8080` (API) → the UI/API halves stay glued with **no base-URL
-   rewriting**. The cookie is **stripped before forwarding upstream** so the app
-   never sees it. The cookie is set by a Caddy-served route
-   `GET /__spec/connect/<slug>` (Set-Cookie + 302 to `/`); `spec-connect` just
-   opens that URL. Rejected a bookmarklet/extension (needs no browser install).
+   `docker compose down`, remove the worktree, free the slot, and stop the proxy
+   if this was the connected spec. No separate `spec-env-down`.
+4. **New `spec-connect <spec>` — the traffic-diversion command.** Exposes a
+   spec's warm dev servers on the canonical origin; `spec-connect main` stops the
+   proxy so the primary checkout owns those ports again. Named `spec-connect`
+   ("connect my local to this spec") over `spec-serve`/`spec-host`.
+5. **Front door is a bundled Node reverse proxy, lazily managed** (revised
+   2026-07-22 — was Caddy). `spec-connect` (re)starts a small detached
+   built-in-`http` proxy from the connected spec's routes and stops it on
+   `connect main`; supervised with the Phase 1 `startProcess`/`stopProcess` seam
+   (pid at `.spec-env/pids/proxy.pid`). Rejected Caddy: it was chosen for native
+   **cookie** routing, but the exclusive model (Decision #6) removes the cookie —
+   leaving only Caddy's costs (external install, absent on the dev machine; a
+   second config format). The Node proxy needs zero install, forwards
+   WebSocket/HMR, and is fully testable locally.
+6. **Exclusive single-target routing (no cookie)** (revised 2026-07-22 — was
+   cookie-multiplex). Only **one** spec is exposed on the canonical ports at a
+   time, so no cookie/`map`/`Set-Cookie` routes are needed — the proxy just
+   forwards each `frontPort` → the connected spec's matching port. Spec dev
+   servers stay warm on their offset ports; `connect` re-points the proxy (a
+   ~ms restart), no dev-server restart. The proxy can't bind a port the primary
+   checkout still holds, so `connect` **pre-checks the frontPorts are free** and
+   tells the operator to stop main first (main is started/stopped by hand).
+   Rejected keeping the cookie (its only job — several targets on one origin — is
+   moot when exactly one is exposed) and managing main on a shadow port (user
+   chose the simpler exclusive model).
 7. **Host dev processes are a config-driven array.** `env.config.json` gains
    `dev: [{ name, command, portVar, health, frontPort }]`. `spec-go` launches
-   each **detached**, tees to `.spec-env/logs/<slug>-<name>.log`, records each
+   each **detached**, tees to `.spec-env/logs/<folder>-<name>.log`, records each
    PID under `.spec-env/`, and waits on `health` before reporting ready.
-   `frontPort` tells the Caddyfile which canonical origin that process fronts
+   `frontPort` tells the proxy which canonical origin that process fronts
    (e.g. `api` → 8080, `ui` → 3000). A single-process app is a one-element
    array. Rejected a single opaque `pnpm dev` command (can't health-check or
    stop UI/API independently).
@@ -102,28 +105,28 @@ local at this feature."
   ],
   "proxy": {
     "enabled": true,
-    "cookie": "x-spec-env",
-    "caddyfile": ".spec-env/Caddyfile",   // generated, gitignored
-    "adminApi": "http://localhost:2019"
+    "host": "127.0.0.1"
   }
 }
 ```
 
-**Front door.** One Caddy instance owns the `frontPort`s. Per canonical origin a
-`map` sends the `x-spec-env` cookie value → that slot's process port; unmatched →
-primary. The `.spec-env/Caddyfile` is regenerated from `.spec-env/registry.json`
-on every `up`/`down`/`connect` and hot-reloaded. Caddy is started lazily and
-stopped when no specs remain.
+**Front door.** A small bundled Node reverse proxy owns the `frontPort`s and
+forwards each to the **one** connected spec's matching port (routes written to
+`.spec-env/proxy.json`). It's started lazily by `spec-connect` and stopped by
+`spec-connect main`. Spec dev servers stay warm on their offset ports, so
+`connect` is a ~ms re-point, not a dev-server restart.
 
 **Everyday loop:** `spec → go → connect → commit → complete`. `spec-go` shows a
-plan and, on yes, brings up worktree + dev servers + route. `spec-connect feat-x`
-diverts the browser; `spec-connect main` reverts. `spec-complete` tears it all
-down and lands the branch (existing `integrate`).
+plan and, on yes, brings up worktree + dev servers. `spec-connect feat-x` diverts
+the browser to that spec; `spec-connect main` stops the proxy so main owns the
+ports again. `spec-complete` tears it all down and lands the branch (existing
+`integrate`).
 
-**Known limits (accepted):** one active target per browser profile (the cookie
-is per-profile — two specs at once needs two profiles); inbound webhooks carry
-no cookie, so external callbacks hit the primary checkout (per-spec webhook
-paths deferred).
+**Known limits (accepted):** exactly one spec exposed on the canonical ports at a
+time (exclusive by design); the operator starts/stops the primary checkout's dev
+server by hand (the proxy can't bind a port main still holds — `connect` says so);
+inbound webhooks always hit whatever holds the canonical port (per-spec webhook
+routing deferred).
 
 ## Phases
 
@@ -133,7 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Host dev-process supervision (`dev` config + start/stop/health) | ✅ | [01-dev-supervision.md](01-dev-supervision.md) |
-| 2 | Caddy front door + `spec-connect` (cookie routing, lazy lifecycle) | ⬜ | [02-caddy-connect.md](02-caddy-connect.md) |
+| 2 | Front-door proxy + `spec-connect` (bundled Node, exclusive) | ✅ | [02-proxy-connect.md](02-proxy-connect.md) |
 | 3 | Slim the surface (fold into go/complete/cancel, delete 3 skills, migrate) | ⬜ | [03-surface-slim.md](03-surface-slim.md) |
 
 ## Open questions
@@ -153,6 +156,23 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-07-22 — **Phase 2 done** (front-door proxy + `spec-connect`). Added the
+  `proxy` config block; `src/env/proxy.js` (pure `renderRoutes`; `startProxy`
+  forwarding HTTP + WebSocket `upgrade`; `portsInUse`/`waitListening`; a
+  `require.main` entry run as the detached proxy process); wired `spec-env
+  connect <spec>|main` in `cli.js` (reuses the Phase 1 supervise seam, pre-checks
+  port conflicts, waits for listen, records `.spec-env/connected`); added the
+  `/spec-connect` skill + init notice; documented the block. 8 new tests (145
+  green) incl. a real HTTP-forward + WebSocket-upgrade passthrough; plus a full
+  CLI e2e (`dev up`→`connect`→200 via proxy→`connect main`→gone) and a
+  port-conflict-refusal e2e. No external binary involved.
+- 2026-07-22 — **Phase 2 model pivot** (before coding). Chose the **exclusive**
+  front-door model (one spec exposed on the canonical ports at a time) — which
+  **removes the cookie** entirely (Decision #6), and with it Caddy's reason to
+  exist, so the proxy is now a **bundled Node reverse proxy**, not Caddy
+  (Decision #5; Caddy also wasn't installed on the dev machine, blocking local
+  E2E). Rewrote Decisions #3–#6, the config/front-door/limits sections, and
+  renamed the phase file `02-caddy-connect.md` → `02-proxy-connect.md`.
 - 2026-07-22 — **Phase 1 done** (host dev-process supervision). Added the `dev`
   config block (`config.js`, normalised + lenient), the pure `planDev` planner
   (`src/env/dev.js`), and a process-IO seam `src/env/supervise.js`

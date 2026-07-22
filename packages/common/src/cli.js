@@ -24,6 +24,7 @@ const { planDown } = require('./env/teardown.js')
 const { planIntegrate } = require('./env/integrate.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy } = require('./env/supervise.js')
+const { renderRoutes, portsInUse, waitListening } = require('./env/proxy.js')
 
 const pkg = require('../package.json')
 
@@ -40,6 +41,7 @@ Usage:
                                 down <spec>       tear down (guards; --keep-volumes, --force)
                                 dev up <spec>     start host dev servers on the spec's ports
                                 dev down <spec>   stop the spec's host dev servers
+                                connect <spec>    expose a spec on the canonical ports (main = off)
                                 integrate <spec>  plan rebase + fast-forward onto the base branch
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
@@ -469,7 +471,102 @@ async function specEnvDev(dir, config, positional) {
 
 // The `.spec-env`-style state dir label for user-facing messages.
 function stateDirLabel(config) {
-  return require('node:path').posix.dirname(config.registry) || '.spec-env'
+  return path.posix.dirname(config.registry) || '.spec-env'
+}
+
+// The supervised proxy process descriptor (paths relative to the checkout root).
+function proxyProcFor(config, routesFileAbs) {
+  const sdir = stateDirLabel(config)
+  return {
+    name: 'proxy',
+    command: `node ${path.join(__dirname, 'env', 'proxy.js')} ${routesFileAbs}`,
+    env: {},
+    logFile: `${sdir}/logs/proxy.log`,
+    pidFile: `${sdir}/pids/proxy.pid`,
+  }
+}
+
+// Connect the canonical origin to ONE spec (exclusive model): (re)start the
+// bundled proxy pointing at that spec's warm dev servers. `connect main` stops
+// the proxy so the primary checkout owns the canonical ports again.
+async function specEnvConnect(dir, config, specArg) {
+  const sdir = stateDirLabel(config)
+  const abs = (rel) => path.resolve(dir, rel)
+  const routesFile = `${sdir}/proxy.json`
+  const connectedFile = `${sdir}/connected`
+  const proxyProc = proxyProcFor(config, abs(routesFile))
+  const target = specArg || 'main'
+
+  if (target === 'main') {
+    const res = await stopProcess(proxyProc, { rootDir: dir })
+    for (const f of [connectedFile, routesFile]) {
+      try {
+        fs.unlinkSync(abs(f))
+      } catch {
+        /* not connected */
+      }
+    }
+    process.stdout.write(
+      res.stopped
+        ? 'spec-connect: disconnected — the primary checkout owns the canonical ports again.\n'
+        : 'spec-connect: nothing was connected — the primary checkout already owns the ports.\n',
+    )
+    return
+  }
+
+  const spec = resolveSpec(target, dir, config)
+  const registry = readRegistry(dir, config)
+  if (!Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)) {
+    process.stdout.write(
+      `spec-connect: ${spec.folder} has no reserved ports yet — ` +
+        `run \`skitterspec spec-env dev up ${spec.folder}\` first.\n`,
+    )
+    return
+  }
+
+  const plan = planDev(spec, registry.slots[spec.folder], config)
+  const routes = renderRoutes(plan.procs)
+  if (!routes.length) {
+    process.stdout.write(
+      'spec-connect: no dev process declares a frontPort — nothing to expose.\n',
+    )
+    return
+  }
+
+  // Stop any proxy we already run (a previous connect), freeing the canonical
+  // ports, then refuse if the primary checkout still holds one of them.
+  await stopProcess(proxyProc, { rootDir: dir })
+  const busy = await portsInUse(routes.map((r) => r.frontPort), config.proxy.host)
+  if (busy.length) {
+    process.stdout.write(
+      `spec-connect: canonical port(s) ${busy.join(', ')} are in use (your main dev server?).\n` +
+        'Stop main on those ports, then re-run spec-connect.\n',
+    )
+    return
+  }
+
+  fs.mkdirSync(abs(sdir), { recursive: true })
+  fs.writeFileSync(abs(routesFile), JSON.stringify(routes, null, 2) + '\n')
+  const res = startProcess(proxyProc, { cwd: dir, rootDir: dir })
+  fs.writeFileSync(abs(connectedFile), spec.folder + '\n')
+
+  const ready = await waitListening(
+    routes.map((r) => r.frontPort),
+    { host: config.proxy.host },
+  )
+
+  const out = [
+    `spec-connect: ${spec.folder} → canonical ports (proxy pid ${res.pid})` +
+      (ready ? '' : '  [WARNING: proxy did not come up — see .spec-env/logs/proxy.log]'),
+  ]
+  for (const r of routes) {
+    out.push(
+      `  http://${config.proxy.host}:${r.frontPort}  →  ${r.name} (127.0.0.1:${r.targetPort})`,
+    )
+  }
+  out.push('')
+  out.push('  Disconnect with: skitterspec spec-env connect main')
+  process.stdout.write(out.join('\n') + '\n')
 }
 
 // Dispatch `skitterspec spec-env <sub> [args] [--dir path]`. No-ops with a clear
@@ -506,6 +603,9 @@ async function specEnv(rest) {
     case 'dev':
       await specEnvDev(dir, config, positional)
       break
+    case 'connect':
+      await specEnvConnect(dir, config, positional[0])
+      break
     case 'integrate':
       specEnvIntegrate(dir, config, positional[0])
       break
@@ -517,7 +617,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|dev|integrate|status|resolve> [spec] [--keep-volumes] [--force]\n',
+        'Usage: skitterspec spec-env <up|down|dev|connect|integrate|status|resolve> [spec] [--keep-volumes] [--force]\n',
       )
   }
 }

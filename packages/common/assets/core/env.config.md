@@ -64,6 +64,15 @@ no live `env.config.json` was found.
   //              UI, 8080 for the API) — used by the proxy to route to it.
   "dev": [],
 
+  // Front-door proxy for `spec-env connect <spec>` — a small bundled Node
+  // reverse proxy (no external install) that exposes ONE connected spec's
+  // frontPort dev servers on the canonical ports. Exclusive: one target at a
+  // time. `connect main` stops it so the primary checkout owns the ports again.
+  "proxy": {
+    "enabled": true,        // false = the connect command is unavailable
+    "host": "127.0.0.1"     // bind host for the canonical ports
+  },
+
   // Optional, editor/terminal-agnostic opener run after `spec-env up`. The
   // template is expanded with {worktreePath}, {slug}, {branch}, {projectName},
   // {portOffset}. Empty = nothing is opened (the path is just printed).

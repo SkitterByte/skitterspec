@@ -18,6 +18,7 @@
  *                 portsPerSpec, envFile, backupCommand },
  *     dev:      [ { name, command, portVar, health?, frontPort? } ],  // host dev
  *               // servers started on the spec's port block (empty = none)
+ *     proxy:    { enabled, host },  // bundled front-door proxy (spec-env connect)
  *     open:     { command },   // optional, editor/terminal-agnostic opener
  *     registry: ".spec-env/registry.json",
  *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
@@ -45,6 +46,9 @@ const DEFAULT_CONFIG = Object.freeze({
   // Host dev servers started on the spec's port block by `spec-env dev up`.
   // Each: { name, command, portVar, health?, frontPort? }. Default: none.
   dev: Object.freeze([]),
+  // Front-door proxy (`spec-env connect`): a bundled Node reverse proxy that
+  // exposes one connected spec's frontPort processes on the canonical ports.
+  proxy: Object.freeze({ enabled: true, host: '127.0.0.1' }),
   open: Object.freeze({ command: '' }),
   registry: '.spec-env/registry.json',
   // Git branch naming, provider-neutral. `pattern` expands {type}/{slug} and,
@@ -67,6 +71,7 @@ function defaults() {
     worktree: { ...DEFAULT_CONFIG.worktree },
     docker: { ...DEFAULT_CONFIG.docker },
     dev: [],
+    proxy: { ...DEFAULT_CONFIG.proxy },
     open: { ...DEFAULT_CONFIG.open },
     registry: DEFAULT_CONFIG.registry,
     branch: { ...DEFAULT_CONFIG.branch },
@@ -139,6 +144,11 @@ function mergeConfig(base, parsed) {
 
   if (Array.isArray(parsed.dev)) {
     base.dev = normalizeDev(parsed.dev)
+  }
+
+  if (isObject(parsed.proxy)) {
+    assign(base.proxy, parsed.proxy, 'enabled', 'boolean')
+    assign(base.proxy, parsed.proxy, 'host', 'string')
   }
 
   if (isObject(parsed.open)) {
