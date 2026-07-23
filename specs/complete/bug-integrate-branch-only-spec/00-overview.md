@@ -1,7 +1,7 @@
 # Bug: spec-env integrate can't find a spec authored only on its branch
 
 > **Type:** Bug
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-07-23)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-15
@@ -73,9 +73,12 @@ the fix:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-07-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-23 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-07-15 — Bug reproduced; failing test added (red).
 - 2026-07-15 — Fixed: `findSpecFolder`/`resolveSpec` accept fallback search dirs
   and `integrate` passes the worktree; red test green, suite green (215).
+- 2026-07-23 — Completed; all fix tasks done, regression test green, suite green
+  (248). Non-isolated (fix landed directly on `main`), so no branch to integrate.
