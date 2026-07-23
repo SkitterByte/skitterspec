@@ -1,7 +1,7 @@
 # Worktree dependency bootstrap (`setup` step)
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-23)
+> **Status:** Complete (2026-07-23)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-23
@@ -99,6 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-07-23 | Ready | backlog | Reuben Greaves |
 | 2026-07-23 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-23 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -109,3 +110,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   rebuild. Deviations: the `.json.example` gets no inline comment (strict JSON);
   the shipped SKILL stays tool-agnostic (no `pnpm`) per the assets guard; and
   this repo's own `env.config.json` gained a real `setup` to dogfood the fix.
+- 2026-07-23 — Completed; all phases done, tests green (248/248).
