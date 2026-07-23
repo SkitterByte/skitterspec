@@ -87,7 +87,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine — normalise `setup`, emit from `planUp`, print in CLI | ✅ | [01-engine.md](01-engine.md) |
-| 2 | Surface — docs, example config, spec-go SKILL, rebuild dist | ⬜ | [02-surface.md](02-surface.md) |
+| 2 | Surface — docs, example config, spec-go SKILL, rebuild dist | ✅ | [02-surface.md](02-surface.md) |
 
 ## Open questions
 
@@ -103,3 +103,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-07-23 — Spec created.
+- 2026-07-23 — Phase 1 (engine) landed: `setup` config + `planUp.setupCommands`
+  + CLI `in the worktree, run:` block, with tests.
+- 2026-07-23 — Phase 2 (surface) landed: docs, example, spec-go SKILL, dist
+  rebuild. Deviations: the `.json.example` gets no inline comment (strict JSON);
+  the shipped SKILL stays tool-agnostic (no `pnpm`) per the assets guard; and
+  this repo's own `env.config.json` gained a real `setup` to dogfood the fix.

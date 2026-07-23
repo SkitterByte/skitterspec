@@ -52,6 +52,16 @@ no live `env.config.json` was found.
                               // empty = no backup, volumes dropped directly.
   },
 
+  // Bootstrap commands `spec-env up <spec>` runs IN the worktree, right after
+  // `git worktree add` (before Docker/dev), on every provision including
+  // re-attach — so a fresh worktree's dependencies exist and git hooks,
+  // typechecks, builds and tests work immediately instead of failing on a
+  // missing node_modules. An array, run in order; [] = none. Each string is a
+  // shell command; {slug}/{branch}/{worktreePath}/{projectName}/{portOffset}
+  // expand (the cwd is already the worktree, so {worktreePath} is usually
+  // redundant). Example: ["pnpm install --frozen-lockfile"].
+  "setup": [],
+
   // Host dev servers `spec-env dev up <spec>` starts on the spec's port block
   // (for apps that run via `pnpm dev` on the host, not inside the Docker stack).
   // An array so UI + API (or more) are supervised independently; [] = none.
