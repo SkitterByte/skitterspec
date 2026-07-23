@@ -1,6 +1,6 @@
 {
   "name": "@skitterbyte/skitterspec",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "description": "Spec-driven development for Claude Code — a tracker-free filesystem workflow: lifecycle skills and per-spec isolation. For Linear sync, install @skitterbyte/skitterspec-linear instead.",
   "keywords": [
     "claude",
