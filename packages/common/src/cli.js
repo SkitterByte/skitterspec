@@ -205,6 +205,11 @@ function specEnvUp(dir, config, specArg) {
   out.push('  run these:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   if (plan.openCommand) out.push(`    ${plan.openCommand}`)
+  if (plan.setupCommands.length) {
+    out.push('')
+    out.push('  in the worktree, run:')
+    for (const cmd of plan.setupCommands) out.push(`    ${cmd}`)
+  }
   if (plan.envContents) {
     out.push('')
     out.push(`  write ${config.docker.envFile} in the worktree:`)

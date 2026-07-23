@@ -86,7 +86,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine — normalise `setup`, emit from `planUp`, print in CLI | ⬜ | [01-engine.md](01-engine.md) |
+| 1 | Engine — normalise `setup`, emit from `planUp`, print in CLI | ✅ | [01-engine.md](01-engine.md) |
 | 2 | Surface — docs, example config, spec-go SKILL, rebuild dist | ⬜ | [02-surface.md](02-surface.md) |
 
 ## Open questions

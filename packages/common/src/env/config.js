@@ -16,6 +16,8 @@
  *     worktree: { root, folderPattern },
  *     docker:   { enabled, composeFile, projectNamePattern, portBase,
  *                 portsPerSpec, envFile, backupCommand },
+ *     setup:    [ "cmd", ... ],  // bootstrap commands run in the worktree right
+ *               // after `git worktree add` (e.g. install deps); empty = none
  *     dev:      [ { name, command, portVar, health?, frontPort? } ],  // host dev
  *               // servers started on the spec's port block (empty = none)
  *     proxy:    { enabled, host },  // bundled front-door proxy (spec-env connect)
@@ -43,6 +45,10 @@ const DEFAULT_CONFIG = Object.freeze({
     envFile: '.env',
     backupCommand: '',
   }),
+  // Bootstrap commands run in the worktree by `spec-env up`, right after
+  // `git worktree add` (before Docker/dev), on every provision. Array of shell
+  // strings (e.g. "pnpm install"); {slug}/{branch}/… expand. Default: none.
+  setup: Object.freeze([]),
   // Host dev servers started on the spec's port block by `spec-env dev up`.
   // Each: { name, command, portVar, health?, frontPort? }. Default: none.
   dev: Object.freeze([]),
@@ -70,6 +76,7 @@ function defaults() {
   return {
     worktree: { ...DEFAULT_CONFIG.worktree },
     docker: { ...DEFAULT_CONFIG.docker },
+    setup: [],
     dev: [],
     proxy: { ...DEFAULT_CONFIG.proxy },
     open: { ...DEFAULT_CONFIG.open },
@@ -121,6 +128,21 @@ function normalizeDev(parsed) {
 }
 
 /**
+ * Normalise a parsed `setup` array into bootstrap commands: keep only trimmed,
+ * non-empty strings, drop everything else (lenient, like `normalizeDev`) so a
+ * stray entry can't crash provisioning.
+ */
+function normalizeSetup(parsed) {
+  const out = []
+  for (const raw of parsed) {
+    if (typeof raw !== 'string') continue
+    const cmd = raw.trim()
+    if (cmd) out.push(cmd)
+  }
+  return out
+}
+
+/**
  * Merge a parsed config over the defaults. Only known keys are copied (unknown
  * keys ignored for forward-compat). Nested objects are merged field-by-field.
  */
@@ -140,6 +162,10 @@ function mergeConfig(base, parsed) {
     assign(base.docker, parsed.docker, 'portsPerSpec', 'number')
     assign(base.docker, parsed.docker, 'envFile', 'string')
     assign(base.docker, parsed.docker, 'backupCommand', 'string?')
+  }
+
+  if (Array.isArray(parsed.setup)) {
+    base.setup = normalizeSetup(parsed.setup)
   }
 
   if (Array.isArray(parsed.dev)) {

@@ -28,6 +28,7 @@ function config(overrides = {}) {
       ...(overrides.docker || {}),
     },
     open: { command: '', ...(overrides.open || {}) },
+    setup: overrides.setup || [],
   }
 }
 
@@ -115,4 +116,35 @@ test('openCommand is null when open.command is empty', () => {
 test('port offset scales with the slot', () => {
   assert.strictEqual(planUp(spec(), { slot: 0, attached: false }, config()).portOffset, 3000)
   assert.strictEqual(planUp(spec(), { slot: 5, attached: false }, config()).portOffset, 3050)
+})
+
+test('setupCommands defaults to empty when none configured', () => {
+  const plan = planUp(spec(), { slot: 0, attached: false }, config())
+  assert.deepStrictEqual(plan.setupCommands, [])
+})
+
+test('setupCommands expand tokens (slug/branch/worktreePath/portOffset)', () => {
+  const plan = planUp(
+    spec(),
+    { slot: 2, attached: false },
+    config({ setup: ['pnpm install', 'echo {slug} {branch} {worktreePath} {portOffset}'] }),
+  )
+  assert.deepStrictEqual(plan.setupCommands, [
+    'pnpm install',
+    'echo thing feat/thing /wt/thing 3020',
+  ])
+})
+
+test('setupCommands are emitted on re-attach too', () => {
+  const plan = planUp(spec(), { slot: 0, attached: true }, config({ setup: ['pnpm install'] }))
+  assert.deepStrictEqual(plan.setupCommands, ['pnpm install'])
+})
+
+test('setupCommands are emitted on a worktree-only spec (empty portOffset token)', () => {
+  const plan = planUp(
+    spec({ stack: 'worktree' }),
+    { slot: null, attached: false },
+    config({ setup: ['pnpm install # {portOffset}'] }),
+  )
+  assert.deepStrictEqual(plan.setupCommands, ['pnpm install # '])
 })

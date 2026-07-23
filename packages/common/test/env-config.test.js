@@ -108,6 +108,26 @@ test('dev defaults to an empty array', () => {
   assert.deepStrictEqual(loadEnvConfig(dir).config.dev, [])
 })
 
+test('setup defaults to an empty array (absent → opt-out)', () => {
+  const dir = tmpDir()
+  assert.deepStrictEqual(loadEnvConfig(dir).config.setup, [])
+})
+
+test('setup keeps trimmed non-empty strings, dropping blanks/non-strings', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    setup: ['  pnpm install  ', '', '   ', 42, null, { cmd: 'x' }, 'pnpm build'],
+  })
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.setup, ['pnpm install', 'pnpm build'])
+})
+
+test('setup of the wrong type is ignored (keeps the default [])', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { setup: 'pnpm install' })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.setup, [])
+})
+
 test('dev entries normalise; required fields kept, optionals passed through', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, {

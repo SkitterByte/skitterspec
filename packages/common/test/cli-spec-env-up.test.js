@@ -10,12 +10,16 @@ const { run } = require('../src/cli.js')
 
 // Scaffold a project with isolation enabled and one worktree-only spec, so
 // `spec-env up` runs its plan (no git/docker needed) and exercises the trust step.
-function scaffold(slug = 'x') {
+function scaffold(slug = 'x', configExtra = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-'))
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ worktree: { root: '../{repo}-wt', folderPattern: '{slug}' } }, null, 2),
+    JSON.stringify(
+      { worktree: { root: '../{repo}-wt', folderPattern: '{slug}' }, ...configExtra },
+      null,
+      2,
+    ),
   )
   const spec = path.join(dir, 'specs', 'backlog', `feat-${slug}`)
   fs.mkdirSync(spec, { recursive: true })
@@ -72,6 +76,20 @@ test('a second spec-env up is a no-op for the trusted root', async () => {
   const expected = path.resolve(dir, `../${path.basename(dir)}-wt`)
   assert.deepStrictEqual(readLocal(dir).permissions.additionalDirectories, [expected])
   assert.match(out, /already in \.claude\/settings\.local\.json/, 'reports already-trusted')
+})
+
+test('spec-env up prints configured setup commands under an in-the-worktree head', async () => {
+  const { dir, folder } = scaffold('y', { setup: ['pnpm install', 'echo {slug}'] })
+  const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+  assert.match(out, /in the worktree, run:/, 'prints the setup heading')
+  assert.match(out, /pnpm install/, 'lists the setup command')
+  assert.match(out, /echo y/, 'expands tokens in setup commands')
+})
+
+test('spec-env up omits the setup head when no setup is configured', async () => {
+  const { dir, folder } = scaffold()
+  const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+  assert.doesNotMatch(out, /in the worktree, run:/, 'no setup heading without config')
 })
 
 test('spec-env up leaves a malformed settings.local.json untouched, warns in the plan', async () => {

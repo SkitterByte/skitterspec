@@ -13,6 +13,7 @@
 
 const { portOffset } = require('./registry.js')
 const { renderEnvFile, expandOpenCommand } = require('./render.js')
+const { expandTokens } = require('./resolve.js')
 
 /**
  * Plan a provisioning run.
@@ -23,7 +24,8 @@ const { renderEnvFile, expandOpenCommand } = require('./render.js')
  *                       existed in the registry (re-run → attach, don't clobber).
  * @param {object} config normalised env config.
  * @returns {object} { worktreePath, branch, projectName, slot, portOffset,
- *                     envContents, openCommand, commands, attached }
+ *                     envContents, openCommand, commands, setupCommands,
+ *                     attached }
  */
 function planUp(spec, alloc, config) {
   const { slot, attached } = alloc
@@ -41,13 +43,21 @@ function planUp(spec, alloc, config) {
     ? renderEnvFile({ projectName: spec.projectName, portOffset: offset })
     : null
 
-  const openCommand = expandOpenCommand(config.open.command, {
+  const tokens = {
     worktreePath: spec.worktreePath,
     slug: spec.slug,
     branch: spec.branch,
     projectName: spec.projectName,
     portOffset: offset === null ? '' : String(offset),
-  })
+  }
+
+  const openCommand = expandOpenCommand(config.open.command, tokens)
+
+  // Bootstrap commands run *in the worktree* after `git worktree add` (before
+  // Docker/dev), on every provision including re-attach — deps must exist for
+  // the worktree to be usable. Kept separate from `commands` (run from the
+  // primary checkout root); the CLI prints them under an "in the worktree" head.
+  const setupCommands = (config.setup || []).map((cmd) => expandTokens(cmd, tokens))
 
   const commands = []
   // Fresh branch → -b; attach an existing branch/slot → plain form (never clobber).
@@ -69,6 +79,7 @@ function planUp(spec, alloc, config) {
     envContents,
     openCommand,
     commands,
+    setupCommands,
     attached,
   }
 }
