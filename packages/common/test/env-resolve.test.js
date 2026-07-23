@@ -9,6 +9,7 @@ const path = require('node:path')
 const {
   resolveSpec,
   resolveBaseBranch,
+  resolvePrimaryCheckout,
   splitPrefix,
   expandTokens,
   repoInfo,
@@ -54,6 +55,24 @@ test('resolveBaseBranch: no origin/HEAD, no main → master if it exists', () =>
 
 test('resolveBaseBranch: nothing detectable → defaults to main', () => {
   assert.strictEqual(resolveBaseBranch({}, fakeGit({})), 'main')
+})
+
+const COMMON_DIR = 'rev-parse --git-common-dir'
+
+test('resolvePrimaryCheckout: from the primary checkout (.git) → dir itself', () => {
+  // git-common-dir is relative (".git") when run from the primary checkout.
+  const git = fakeGit({ [COMMON_DIR]: '.git' })
+  assert.strictEqual(resolvePrimaryCheckout('/repo', git), '/repo')
+})
+
+test('resolvePrimaryCheckout: from a worktree (absolute /main/.git) → the primary root', () => {
+  // this is the bug: run from a worktree, dir basename would mis-drive {repo}.
+  const git = fakeGit({ [COMMON_DIR]: '/main/.git' })
+  assert.strictEqual(resolvePrimaryCheckout('/main-wt/thing', git), '/main')
+})
+
+test('resolvePrimaryCheckout: not a git repo (null) → falls back to dir', () => {
+  assert.strictEqual(resolvePrimaryCheckout('/somewhere', fakeGit({})), '/somewhere')
 })
 
 function baseConfig(overrides = {}) {

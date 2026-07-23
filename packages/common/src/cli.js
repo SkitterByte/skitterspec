@@ -17,7 +17,14 @@ const {
   freeSlot,
   portOffset,
 } = require('./env/registry.js')
-const { resolveSpec, resolveBaseBranch, repoInfo, expandTokens, splitPrefix } = require('./env/resolve.js')
+const {
+  resolveSpec,
+  resolveBaseBranch,
+  resolvePrimaryCheckout,
+  repoInfo,
+  expandTokens,
+  splitPrefix,
+} = require('./env/resolve.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
@@ -336,26 +343,23 @@ function specEnvIntegrate(dir, config, specArg) {
     return
   }
 
-  // /spec-complete runs this from inside the worktree, but the spec's coordinates
-  // (worktreePath via {repo}, the base branch) must resolve against the PRIMARY
-  // checkout. Resolve it first (parent of the shared git dir) and anchor
-  // everything to it, so integrate works whether invoked from main or a worktree.
-  const commonDir = gitReader(dir)(['rev-parse', '--git-common-dir'])
-  const mainRepoPath = commonDir ? path.dirname(path.resolve(dir, commonDir)) : dir
-
+  // `dir` is already anchored on the primary checkout by the dispatch, so it is
+  // both where the spec resolves and the target of the fast-forward — /spec-complete
+  // can run this from inside the worktree and still land on main.
+  //
   // A spec authored entirely on its branch may not exist in the primary
   // checkout's specs/** (it was never committed to base) — but its worktree
   // does, and the worktree path is derivable from config without the folder.
   // Offer it as a fallback search location so integrate can still find the spec.
   const { slug } = splitPrefix(path.basename(specArg))
-  const { repo, repoSlug } = repoInfo(mainRepoPath)
+  const { repo, repoSlug } = repoInfo(dir)
   const wtTokens = { repo, repoSlug, slug }
   const worktreeGuess = path.resolve(
-    mainRepoPath,
+    dir,
     expandTokens(config.worktree.root, wtTokens),
     expandTokens(config.worktree.folderPattern, wtTokens),
   )
-  const spec = resolveSpec(specArg, mainRepoPath, config, { searchDirs: [worktreeGuess] })
+  const spec = resolveSpec(specArg, dir, config, { searchDirs: [worktreeGuess] })
 
   if (!fs.existsSync(spec.worktreePath)) {
     process.stdout.write(
@@ -364,14 +368,19 @@ function specEnvIntegrate(dir, config, specArg) {
     return
   }
 
-  const base = resolveBaseBranch(config, gitReader(mainRepoPath))
+  const base = resolveBaseBranch(config, gitReader(dir))
   const wtGit = gitReader(spec.worktreePath)
   const status = wtGit(['status', '--porcelain'])
   const dirty = status !== null && status.length > 0
   const ahead = wtGit(['rev-list', '--count', `${base}..HEAD`])
   const aheadOfBase = ahead !== null && Number(ahead) > 0
 
-  const plan = planIntegrate(spec, config, { worktreeState: { dirty }, base, aheadOfBase, mainRepoPath })
+  const plan = planIntegrate(spec, config, {
+    worktreeState: { dirty },
+    base,
+    aheadOfBase,
+    mainRepoPath: dir,
+  })
 
   if (plan.blocked) {
     process.stdout.write(`spec-env integrate: blocked — ${plan.reason}.\n`)
@@ -588,6 +597,9 @@ async function specEnv(rest) {
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
+  // Anchor on the primary checkout so every subcommand resolves {repo}, worktree
+  // paths, and the registry identically whether run from main or a worktree.
+  dir = resolvePrimaryCheckout(dir, gitReader(dir))
 
   const { config, present } = loadEnvConfig(dir)
   if (!present) {

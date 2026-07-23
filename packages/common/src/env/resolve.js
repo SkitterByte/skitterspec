@@ -152,6 +152,20 @@ function resolveBaseBranch(config, git) {
 }
 
 /**
+ * Resolve `dir` to the primary checkout root — the parent of the shared git dir.
+ * From the primary checkout `git rev-parse --git-common-dir` is `.git` (relative),
+ * so the parent is `dir`; from a linked worktree it's the absolute `<main>/.git`,
+ * so the parent is `<main>`. Anchoring every `spec-env` command here means they
+ * resolve `{repo}` / worktree paths / the registry identically whether run from
+ * `main` or a worktree. `git(args)` returns trimmed stdout or `null` (not a repo)
+ * — injected for testability; a `null` degrades to `dir` (today's behaviour).
+ */
+function resolvePrimaryCheckout(dir, git) {
+  const common = git(['rev-parse', '--git-common-dir'])
+  return common ? path.dirname(path.resolve(dir, common)) : dir
+}
+
+/**
  * Resolve a spec argument to its identity + isolation coordinates.
  * Throws a clear Error when the spec folder can't be found.
  *
@@ -193,6 +207,7 @@ function resolveSpec(specArg, dir, config, opts = {}) {
 module.exports = {
   resolveSpec,
   resolveBaseBranch,
+  resolvePrimaryCheckout,
   branchFor,
   splitPrefix,
   repoInfo,
