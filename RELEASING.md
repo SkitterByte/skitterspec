@@ -88,19 +88,21 @@ or push all tags at once with `git push --tags`.
 
 ## Published so far
 
-Both distributions are live on npm: `@skitterbyte/skitterspec@2.0.1` and
-`@skitterbyte/skitterspec-linear@1.0.0`, each tagged `name@version`. A later
-release just picks the next version and follows the flow above — verify the plan
-first, then publish:
+Both distributions are live on npm: `@skitterbyte/skitterspec@6.0.0` and
+`@skitterbyte/skitterspec-linear@2.0.0`, each tagged `name@version` (confirm the
+latest anytime with `git tag | sort -V`). A later release just picks the next
+version and follows the flow above — verify the plan first, then publish:
 
 ```
-node scripts/release.js skitterspec patch --publish         # 2.0.1 → 2.0.2
-node scripts/release.js skitterspec-linear patch --publish  # 1.0.0 → 1.0.1
+node scripts/release.js skitterspec major --publish         # 6.0.0 → 7.0.0
+node scripts/release.js skitterspec-linear major --publish  # 2.0.0 → 3.0.0
 git push --tags
 ```
 
-The `pnpm run publish:base` / `publish:linear` / `publish:all` scripts wrap these
-with pinned versions — bump the number in the script after each release.
+Every release so far has been a **major** bump — use `patch`/`minor` (or an
+explicit `x.y.z`) if a given release is smaller. There are no wrapper scripts:
+the single `node scripts/release.js` command above is the whole surface, so
+there's no pinned version to keep in sync.
 
 ## Not covered here
 

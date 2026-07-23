@@ -17,10 +17,7 @@
     "test": "node --test",
     "build": "node scripts/build-dist.js all",
     "release": "node scripts/release.js",
-    "preversion": "node scripts/no-root-version.js",
-    "publish:base": "node scripts/release.js skitterspec 3.0.0 --publish",
-    "publish:linear": "node scripts/release.js skitterspec-linear 2.0.0 --publish",
-    "publish:all": "pnpm run publish:base && pnpm run publish:linear"
+    "preversion": "node scripts/no-root-version.js"
   },
   "repository": {
     "type": "git",
