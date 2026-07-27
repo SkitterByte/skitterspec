@@ -212,10 +212,13 @@ function specEnvUp(dir, config, specArg) {
   out.push('  run these:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   if (plan.openCommand) out.push(`    ${plan.openCommand}`)
-  if (plan.setupCommands.length) {
+  // Seed files first (setup may depend on them), then the setup commands —
+  // both run in the worktree, under one heading.
+  const worktreeSteps = [...plan.seedCommands, ...plan.setupCommands]
+  if (worktreeSteps.length) {
     out.push('')
     out.push('  in the worktree, run:')
-    for (const cmd of plan.setupCommands) out.push(`    ${cmd}`)
+    for (const cmd of worktreeSteps) out.push(`    ${cmd}`)
   }
   if (plan.envContents) {
     out.push('')

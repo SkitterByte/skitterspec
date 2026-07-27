@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { planUp } = require('../src/env/provision.js')
+const { planUp, seedCommandFor } = require('../src/env/provision.js')
 
 // A resolved-spec stand-in (planUp only reads these fields).
 function spec(overrides = {}) {
@@ -29,6 +29,7 @@ function config(overrides = {}) {
     },
     open: { command: '', ...(overrides.open || {}) },
     setup: overrides.setup || [],
+    seedFiles: overrides.seedFiles || { mode: 'symlink', files: [] },
   }
 }
 
@@ -147,4 +148,63 @@ test('setupCommands are emitted on a worktree-only spec (empty portOffset token)
     config({ setup: ['pnpm install # {portOffset}'] }),
   )
   assert.deepStrictEqual(plan.setupCommands, ['pnpm install # '])
+})
+
+// --- seedFiles ---
+
+test('seedCommands defaults to empty when no seedFiles configured', () => {
+  const plan = planUp(spec(), { slot: 0, attached: false }, config())
+  assert.deepStrictEqual(plan.seedCommands, [])
+})
+
+test('seedCommands: one idempotent, git-common-dir-anchored command per file', () => {
+  const plan = planUp(
+    spec(),
+    { slot: 0, attached: false },
+    config({ seedFiles: { mode: 'symlink', files: ['.env', '.local-secrets.jsonc'] } }),
+  )
+  assert.strictEqual(plan.seedCommands.length, 2)
+  for (const cmd of plan.seedCommands) {
+    // resolves the main checkout from inside the worktree — never a hardcoded hop
+    assert.match(cmd, /m="\$\(dirname "\$\(git rev-parse --git-common-dir\)"\)"/)
+    assert.match(cmd, /not in main — skipped/) // missing-source no-op
+    assert.match(cmd, /exists — skipped/) // target-exists idempotency
+  }
+  assert.match(plan.seedCommands[0], /ln -s "\$m\/\.env" "\.env"/)
+  assert.match(plan.seedCommands[0], /seeded \.env → \$m\/\.env/)
+})
+
+test('seedCommands: copy mode uses cp, not ln -s', () => {
+  const plan = planUp(
+    spec(),
+    { slot: 0, attached: false },
+    config({ seedFiles: { mode: 'copy', files: ['.env'] } }),
+  )
+  assert.match(plan.seedCommands[0], /cp "\$m\/\.env" "\.env"/)
+  assert.doesNotMatch(plan.seedCommands[0], /ln -s/)
+})
+
+test('seedCommands: array shorthand defaults to symlink mode', () => {
+  const plan = planUp(
+    spec(),
+    { slot: 0, attached: false },
+    config({ seedFiles: { mode: 'symlink', files: ['.env'] } }),
+  )
+  assert.match(plan.seedCommands[0], /ln -s /)
+})
+
+test('seedCommands are emitted on re-attach too (idempotent seeding)', () => {
+  const plan = planUp(
+    spec(),
+    { slot: 0, attached: true },
+    config({ seedFiles: { mode: 'symlink', files: ['.env'] } }),
+  )
+  assert.strictEqual(plan.seedCommands.length, 1)
+})
+
+test('seedCommandFor: symlink vs copy op selection', () => {
+  assert.match(seedCommandFor('.env', 'symlink'), /ln -s "\$m\/\.env" "\.env"/)
+  assert.match(seedCommandFor('.env', 'copy'), /cp "\$m\/\.env" "\.env"/)
+  // unknown mode falls back to symlink
+  assert.match(seedCommandFor('.env', 'weird'), /ln -s /)
 })

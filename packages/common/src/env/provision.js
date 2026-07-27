@@ -16,6 +16,31 @@ const { renderEnvFile, expandOpenCommand } = require('./render.js')
 const { expandTokens } = require('./resolve.js')
 
 /**
+ * Build one idempotent POSIX-sh command that seeds a gitignored file from the
+ * main checkout into the current worktree (the cwd when the skill runs it).
+ *
+ * The main checkout is resolved at run time from inside the worktree via
+ * `git rev-parse --git-common-dir` (absolute `<main>/.git` in a linked worktree)
+ * and its dirname — never a hardcoded repo name or a `../..` hop. The command is
+ * safe to re-run: a source absent in main is a printed no-op, an already-seeded
+ * target (real file or symlink) is left untouched, and only a genuinely missing
+ * target is created. `mode` is 'symlink' (points at main, stays in sync) or
+ * 'copy' (an independent copy). Output mirrors the setup style: `seeded <f> → …`.
+ */
+function seedCommandFor(file, mode) {
+  const op =
+    mode === 'copy'
+      ? `cp "$m/${file}" "${file}"`
+      : `ln -s "$m/${file}" "${file}"`
+  return (
+    'm="$(dirname "$(git rev-parse --git-common-dir)")"; ' +
+    `if [ ! -e "$m/${file}" ]; then echo "seed ${file}: not in main — skipped"; ` +
+    `elif [ -e "${file}" ] || [ -L "${file}" ]; then echo "seed ${file}: exists — skipped"; ` +
+    `else mkdir -p "$(dirname "${file}")" && ${op} && echo "seeded ${file} → $m/${file}"; fi`
+  )
+}
+
+/**
  * Plan a provisioning run.
  *
  * @param {object} spec  resolved spec (from resolveSpec): { slug, type, branch,
@@ -24,8 +49,8 @@ const { expandTokens } = require('./resolve.js')
  *                       existed in the registry (re-run → attach, don't clobber).
  * @param {object} config normalised env config.
  * @returns {object} { worktreePath, branch, projectName, slot, portOffset,
- *                     envContents, openCommand, commands, setupCommands,
- *                     attached }
+ *                     envContents, openCommand, commands, seedCommands,
+ *                     setupCommands, attached }
  */
 function planUp(spec, alloc, config) {
   const { slot, attached } = alloc
@@ -53,6 +78,14 @@ function planUp(spec, alloc, config) {
 
   const openCommand = expandOpenCommand(config.open.command, tokens)
 
+  // File seeding runs *in the worktree* after `git worktree add`, before the
+  // setup commands (which may depend on the seeded .env). Each entry becomes an
+  // idempotent shell command resolving the main checkout at run time. Absent
+  // config ⇒ no commands ⇒ current behaviour.
+  const seed = config.seedFiles || { mode: 'symlink', files: [] }
+  const seedMode = seed.mode === 'copy' ? 'copy' : 'symlink'
+  const seedCommands = (seed.files || []).map((file) => seedCommandFor(file, seedMode))
+
   // Bootstrap commands run *in the worktree* after `git worktree add` (before
   // Docker/dev), on every provision including re-attach — deps must exist for
   // the worktree to be usable. Kept separate from `commands` (run from the
@@ -79,9 +112,10 @@ function planUp(spec, alloc, config) {
     envContents,
     openCommand,
     commands,
+    seedCommands,
     setupCommands,
     attached,
   }
 }
 
-module.exports = { planUp }
+module.exports = { planUp, seedCommandFor }

@@ -128,6 +128,43 @@ test('setup of the wrong type is ignored (keeps the default [])', () => {
   assert.deepStrictEqual(loadEnvConfig(dir).config.setup, [])
 })
 
+test('seedFiles defaults to symlink mode with an empty file list', () => {
+  const dir = tmpDir()
+  assert.deepStrictEqual(loadEnvConfig(dir).config.seedFiles, { mode: 'symlink', files: [] })
+})
+
+test('seedFiles object form: mode + trimmed file list', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    seedFiles: { mode: 'copy', files: ['  .env  ', '', 42, '.local-secrets.jsonc'] },
+  })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.seedFiles, {
+    mode: 'copy',
+    files: ['.env', '.local-secrets.jsonc'],
+  })
+})
+
+test('seedFiles array shorthand defaults to symlink mode', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { seedFiles: ['.env', '.env.local'] })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.seedFiles, {
+    mode: 'symlink',
+    files: ['.env', '.env.local'],
+  })
+})
+
+test('seedFiles: an unknown mode falls back to symlink', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { seedFiles: { mode: 'hardlink', files: ['.env'] } })
+  assert.strictEqual(loadEnvConfig(dir).config.seedFiles.mode, 'symlink')
+})
+
+test('seedFiles: object with no files → empty list, kept mode', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { seedFiles: { mode: 'copy' } })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.seedFiles, { mode: 'copy', files: [] })
+})
+
 test('dev entries normalise; required fields kept, optionals passed through', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, {

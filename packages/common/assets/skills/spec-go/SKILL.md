@@ -31,12 +31,16 @@ housekeeping below lands on the spec's branch and never on `main`:
   `> **Stack:**` header is `worktree + docker` — also brings up its Docker stack.
   Print the worktree path and the opener command it emits.
 - **Bootstrap the worktree's dependencies.** A fresh worktree has an empty
-  working tree — no installed dependencies — so git hooks, typechecks, builds and
-  tests fail until they're installed. `spec-env up` prints the project's
-  configured **`in the worktree, run:`** commands (from `env.config.json` →
-  `setup`, e.g. an install command) — run them in the worktree before doing
-  anything else. With no `setup` configured there's nothing to run; set one up if
-  agents keep stalling on missing dependencies.
+  working tree — no installed dependencies, and none of the repo's gitignored
+  files (`.env`, local secret/config overrides) — so git hooks, typechecks,
+  builds and tests fail until they're in place. `spec-env up` prints the
+  project's configured **`in the worktree, run:`** commands — run them in the
+  worktree, in order, before doing anything else. Those commands are: first any
+  **file seeding** (from `env.config.json` → `seedFiles`), which symlinks or
+  copies the configured gitignored files from the main checkout into the fresh
+  worktree so setup can rely on them; then the **`setup`** commands (e.g. an
+  install command). With neither configured there's nothing to run; add
+  `seedFiles`/`setup` if agents keep stalling on a missing `.env` or dependencies.
 - **Trust the worktree for this session.** The engine wrote the printed
   `trusted:` root into `.claude/settings.local.json` (gitignored) so future
   sessions trust it automatically — but that file likely won't hot-reload now,

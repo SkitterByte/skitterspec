@@ -16,6 +16,9 @@
  *     worktree: { root, folderPattern },
  *     docker:   { enabled, composeFile, projectNamePattern, portBase,
  *                 portsPerSpec, envFile, backupCommand },
+ *     seedFiles:{ mode, files } | [ ".env", ... ],  // gitignored files copied/
+ *               // symlinked from the main checkout into a fresh worktree before
+ *               // setup runs (mode: "symlink" default | "copy"); empty = none
  *     setup:    [ "cmd", ... ],  // bootstrap commands run in the worktree right
  *               // after `git worktree add` (e.g. install deps); empty = none
  *     dev:      [ { name, command, portVar, health?, frontPort? } ],  // host dev
@@ -45,6 +48,12 @@ const DEFAULT_CONFIG = Object.freeze({
     envFile: '.env',
     backupCommand: '',
   }),
+  // Gitignored files seeded from the main checkout into a fresh worktree by
+  // `spec-env up`, right after `git worktree add` and before `setup` runs — so a
+  // fresh worktree has the .env / local overrides that setup steps depend on.
+  // `mode` is "symlink" (default, stays in sync with main) or "copy" (an
+  // independent copy). `files` is a list of repo-relative paths. Default: none.
+  seedFiles: Object.freeze({ mode: 'symlink', files: Object.freeze([]) }),
   // Bootstrap commands run in the worktree by `spec-env up`, right after
   // `git worktree add` (before Docker/dev), on every provision. Array of shell
   // strings (e.g. "pnpm install"); {slug}/{branch}/… expand. Default: none.
@@ -76,6 +85,7 @@ function defaults() {
   return {
     worktree: { ...DEFAULT_CONFIG.worktree },
     docker: { ...DEFAULT_CONFIG.docker },
+    seedFiles: { mode: DEFAULT_CONFIG.seedFiles.mode, files: [] },
     setup: [],
     dev: [],
     proxy: { ...DEFAULT_CONFIG.proxy },
@@ -127,6 +137,34 @@ function normalizeDev(parsed) {
   return out
 }
 
+// Keep only trimmed, non-empty strings from an array of file paths (lenient).
+function normalizeFileList(parsed) {
+  const out = []
+  for (const raw of parsed) {
+    if (typeof raw !== 'string') continue
+    const file = raw.trim()
+    if (file) out.push(file)
+  }
+  return out
+}
+
+/**
+ * Normalise a parsed `seedFiles` value into `{ mode, files }`. Accepts two forms:
+ *   - the array shorthand `[".env", ...]` → { mode: 'symlink', files: [...] }
+ *   - the object form `{ mode?, files? }` — `mode` is 'copy' or 'symlink'
+ *     (anything else falls back to 'symlink'); `files` is a list of paths.
+ * Malformed entries are dropped (lenient, like `normalizeSetup`) so a stray
+ * value can't crash provisioning.
+ */
+function normalizeSeedFiles(parsed) {
+  if (Array.isArray(parsed)) {
+    return { mode: 'symlink', files: normalizeFileList(parsed) }
+  }
+  const mode = parsed.mode === 'copy' ? 'copy' : 'symlink'
+  const files = Array.isArray(parsed.files) ? normalizeFileList(parsed.files) : []
+  return { mode, files }
+}
+
 /**
  * Normalise a parsed `setup` array into bootstrap commands: keep only trimmed,
  * non-empty strings, drop everything else (lenient, like `normalizeDev`) so a
@@ -162,6 +200,10 @@ function mergeConfig(base, parsed) {
     assign(base.docker, parsed.docker, 'portsPerSpec', 'number')
     assign(base.docker, parsed.docker, 'envFile', 'string')
     assign(base.docker, parsed.docker, 'backupCommand', 'string?')
+  }
+
+  if (Array.isArray(parsed.seedFiles) || isObject(parsed.seedFiles)) {
+    base.seedFiles = normalizeSeedFiles(parsed.seedFiles)
   }
 
   if (Array.isArray(parsed.setup)) {

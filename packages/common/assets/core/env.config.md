@@ -52,6 +52,28 @@ no live `env.config.json` was found.
                               // empty = no backup, volumes dropped directly.
   },
 
+  // Gitignored files seeded from the primary checkout into a fresh worktree by
+  // `spec-env up`, right after `git worktree add` and BEFORE `setup` runs — so a
+  // fresh linked worktree (which starts with none of the repo's gitignored files)
+  // has the .env / local secret overrides / local config that setup steps and
+  // git hooks depend on. Without this a step like `prisma generate` hard-fails in
+  // the new worktree because .env (its datasource URL) isn't there.
+  //   mode   "symlink" (default) points the worktree file at the main file, so it
+  //          stays in sync; "copy" makes an independent copy.
+  //   files  repo-relative paths to seed. A source absent in main is a printed
+  //          no-op (not an error); a target that already exists is left untouched
+  //          (idempotent — safe when `spec-env up` re-attaches an existing
+  //          worktree). The main checkout is resolved robustly at run time via
+  //          `git rev-parse --git-common-dir` — no hardcoded repo name or path.
+  // Shorthand: `"seedFiles": [".env", …]` == `{ "mode": "symlink", "files": […] }`.
+  // Seeded files are gitignored, so they never make the worktree "dirty" and
+  // never block teardown; they vanish with the worktree at `spec-env down`.
+  // [] (or absent) = seed nothing (current behaviour).
+  "seedFiles": {
+    "mode": "symlink",
+    "files": [".env"]
+  },
+
   // Bootstrap commands `spec-env up <spec>` runs IN the worktree, right after
   // `git worktree add` (before Docker/dev), on every provision including
   // re-attach — so a fresh worktree's dependencies exist and git hooks,

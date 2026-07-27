@@ -92,6 +92,23 @@ test('spec-env up omits the setup head when no setup is configured', async () =>
   assert.doesNotMatch(out, /in the worktree, run:/, 'no setup heading without config')
 })
 
+test('spec-env up prints seed commands under the in-the-worktree head', async () => {
+  const { dir, folder } = scaffold('z', { seedFiles: ['.env'] })
+  const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+  assert.match(out, /in the worktree, run:/, 'prints the worktree heading')
+  assert.match(out, /git rev-parse --git-common-dir/, 'emits the anchored seed command')
+  assert.match(out, /seeded \.env →/, 'the seed command reports what it seeds')
+})
+
+test('spec-env up seeds before running setup (files exist before setup uses them)', async () => {
+  const { dir, folder } = scaffold('w', { seedFiles: ['.env'], setup: ['pnpm install'] })
+  const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+  const seedAt = out.indexOf('git rev-parse --git-common-dir')
+  const setupAt = out.indexOf('pnpm install')
+  assert.ok(seedAt !== -1 && setupAt !== -1, 'both steps present')
+  assert.ok(seedAt < setupAt, 'seed command is printed before the setup command')
+})
+
 test('spec-env up leaves a malformed settings.local.json untouched, warns in the plan', async () => {
   const { dir, folder } = scaffold()
   const file = path.join(dir, '.claude', 'settings.local.json')
