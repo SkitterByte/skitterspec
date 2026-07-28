@@ -1,6 +1,6 @@
 ---
 name: spec-bug
-description: Investigate a bug, capture it as a Bug-type spec, and drive it red→green. ALWAYS starts by reproducing the bug with a failing test, then writes the spec and works the test to green. Creates specs/in-progress/bug-<name>/00-overview.md. Use when the user reports a bug, says "/spec-bug", "investigate this bug", "this is broken — find and fix it", or pastes an error/stack trace.
+description: Investigate a bug, capture it as a Bug-type spec, and drive it red→green. When per-spec isolation is enabled it provisions a worktree first, so the failing test and fix land on the bug's own branch, never on main. ALWAYS starts by reproducing the bug with a failing test, then writes the spec and works the test to green. Creates specs/in-progress/bug-<name>/00-overview.md. Use when the user reports a bug, says "/spec-bug", "investigate this bug", "this is broken — find and fix it", or pastes an error/stack trace.
 ---
 
 # /spec-bug — investigate a bug, prove it with a failing test, fix it
@@ -24,7 +24,49 @@ Bugs are concrete — confirm, don't over-grill. Establish:
   against the broken one (the bug usually lives in the differential). Do NOT
   patch a symptom before you understand the cause.
 
-## 2. Write the failing test FIRST (RED) — mandatory
+## 2. Isolate the fix in a worktree — when isolation is enabled
+
+**Only when per-spec isolation is enabled** (`specs/.core/env.config.json`
+exists). Skip this whole section otherwise — the fix happens in place, on the
+current branch.
+
+**Opt-out:** if the user passes `--no-worktree` (or explicitly asks to work in
+place), skip this whole section and fix on the current branch — same as when
+isolation is off. Warn that the fix will land wherever you currently are (usually
+`main`); reserve it for a trivial one-liner or an explicit request.
+
+A bug fix changes real source, so — exactly like `/spec-go` — it belongs on the
+bug's **own branch**, never directly on `main`. Provision the worktree **now**,
+before the failing test, so the test, the fix, and the spec all land together and
+arrive as one reviewable PR.
+
+The engine resolves a spec by its folder, so seed a **minimal stub** for it to
+provision from — you'll flesh it out in §4:
+
+- From the base branch (`main`), create
+  `specs/in-progress/bug-<name>/00-overview.md` with just the header block and the
+  `## Symptom` you established above.
+- Run `skitterspec spec-env up bug-<name>` (the `spec-env` CLI engine). It prints
+  the `git worktree add … -b bug/<name>` command (a branch forked from `main`),
+  the worktree path, the opener, and any `in the worktree, run:` bootstrap steps.
+- Run the printed `git worktree add`. **The worktree forks from `main`'s last
+  commit, so your uncommitted stub doesn't travel with it** — move it across so
+  `main` is left pristine:
+  `mv specs/in-progress/bug-<name> <worktreePath>/specs/in-progress/`.
+- **Bootstrap the worktree.** A fresh worktree has no installed dependencies and
+  none of the repo's gitignored files (`.env`, local overrides). Run the printed
+  `in the worktree, run:` steps (file seeding, then `setup`) in order, before
+  anything else.
+- **Trust the worktree for this session.** The engine wrote the printed
+  `trusted:` root into `.claude/settings.local.json`, but it won't hot-reload now
+  — run `/add-dir <trusted root>` before editing into the worktree, or the first
+  edits will prompt.
+- **Do everything below in the worktree**, on the branch — the red test, the fix,
+  and the rest of the spec. Act on the worktree with absolute paths /
+  `git -C <worktreePath>`, or open a fresh session rooted there (the printed
+  opener). `main` changes only when the branch merges (at `/spec-complete`).
+
+## 3. Write the failing test FIRST (RED) — mandatory
 
 Encode the **correct** (expected) behaviour as a test, then run it and confirm it
 **fails for the right reason**:
@@ -36,10 +78,13 @@ Encode the **correct** (expected) behaviour as a test, then run it and confirm i
   passes before the fix proves nothing — keep refining the assertion until it
   genuinely captures the bug.
 
-## 3. Write the Bug spec
+## 4. Write the Bug spec
 
-Create the spec **folder** `specs/in-progress/bug-<kebab-name>/` with its entry
-point `00-overview.md` (every spec is a folder — never a bare file). A bug is
+Fill in the spec's entry point `00-overview.md`. **When isolated**, you already
+seeded this stub in §2 and moved it into the worktree — flesh it out there.
+**When not isolated**, create the spec **folder**
+`specs/in-progress/bug-<kebab-name>/` with its entry point `00-overview.md` now
+(every spec is a folder — never a bare file). A bug is
 usually a single-pass fix, so the `## Fix` block can live directly in
 `00-overview.md`. **If the fix needs phasing** (large/uncertain root cause),
 split it into phase files (`01-<slug>.md`, `02-…`) with a phase index in
@@ -90,7 +135,7 @@ The **State log** is the folder/status audit trail; later transitions
 (`/spec-complete`, `/spec-cancel`) append a row. The **Changelog** is for the
 fix narrative and decisions — keep them separate.
 
-## 4. Drive to GREEN
+## 5. Drive to GREEN
 
 - Implement the **minimal, root-cause** fix. Match surrounding code; honour all
   project rules (see `.claude/rules/`).
@@ -103,8 +148,10 @@ test, split the fix into phase files (`01-<slug>.md` …) with a phase index in
 `00-overview.md`, and leave the spec in `in-progress` for `/spec-go` to continue.
 Say so explicitly — don't fake green.
 
-## 5. Report
+## 6. Report
 
 Summarise: root cause, the failing→passing test, the fix, and the full test
 result. The spec stays in `in-progress`; suggest `/spec-complete` to verify and
-archive it. Do **not** `git commit` unless the user asks.
+archive it (**when isolated**, the fix lives on the bug's branch, and
+`/spec-complete` merges it back to `main`). Do **not** `git commit` unless the
+user asks.

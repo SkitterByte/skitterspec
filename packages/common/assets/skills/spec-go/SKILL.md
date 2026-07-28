@@ -26,6 +26,12 @@ Diverting your browser to the spec is a separate explicit step — `/spec-connec
 the spec doesn't already have a worktree, provision it **first**, so all the
 housekeeping below lands on the spec's branch and never on `main`:
 
+**Opt-out:** if the user passes `--no-worktree` (or explicitly asks to work in
+place), skip the provisioning bullets below and build on the current branch — the
+same "in place otherwise" path used when isolation is off. Warn that the work
+will land wherever you currently are (usually `main`); reserve it for a trivial
+change or an explicit request.
+
 - Run `skitterspec spec-env up <name>` (the `spec-env` CLI engine). It adds a git
   worktree on a branch forked from `main`, and — only when the spec's
   `> **Stack:**` header is `worktree + docker` — also brings up its Docker stack.
