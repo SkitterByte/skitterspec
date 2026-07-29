@@ -26,10 +26,6 @@
     "backupDir": "specs/.core/linear-backups",
     "fieldOwnership": {
       "description": "both",
-      "milestones": "both",
-      "phaseBodies": "both",
-      "acceptanceCriteria": "both",
-      "taskBreakdown": "both",
       "workflowState": "pull",
       "priority": "pull",
       "labels": "pull"

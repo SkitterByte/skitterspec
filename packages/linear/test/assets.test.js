@@ -22,6 +22,7 @@ test('the Linear config template + docs ship under assets/core', () => {
   const example = path.join(ASSETS, 'core', 'linear.config.json.example')
   assert.ok(fs.existsSync(example), 'linear.config.json.example shipped')
   assert.ok(fs.existsSync(path.join(ASSETS, 'core', 'linear.config.md')), 'linear.config.md shipped')
+  assert.ok(fs.existsSync(path.join(ASSETS, 'core', 'SETUP.md')), 'SETUP.md shipped')
   assert.doesNotThrow(() => JSON.parse(fs.readFileSync(example, 'utf8')), 'example is valid JSON')
 })
 

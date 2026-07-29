@@ -16,18 +16,20 @@
  */
 
 // Canonical operations, and the regexes that match a Linear MCP tool name to
-// each. Ordered patterns: first match wins. Verified against the connected
-// Linear MCP server during build (resolves the overview's Open questions).
+// each. Ordered patterns: first match wins. Matched against the real connected
+// Linear MCP server: it exposes a single upsert `save_*` tool per object (create
+// when no id, update when id given) rather than separate create/update verbs, so
+// each write op accepts `save_*` as well as the legacy `create_`/`update_` names.
 const MATCHERS = {
   projectRead: [/get_?project\b/i, /read_?project/i, /project_?get/i],
-  projectUpdate: [/update_?project/i, /project_?update/i],
-  projectCreate: [/create_?project/i, /project_?create/i],
+  projectUpdate: [/save_?project/i, /update_?project/i, /project_?update/i],
+  projectCreate: [/save_?project/i, /create_?project/i, /project_?create/i],
   milestoneList: [/list_?.*milestone/i, /milestones?_?list/i, /get_?.*milestones?/i],
-  milestoneCreate: [/create_?.*milestone/i, /milestone_?create/i],
-  milestoneUpdate: [/update_?.*milestone/i, /milestone_?update/i],
+  milestoneCreate: [/save_?.*milestone/i, /create_?.*milestone/i, /milestone_?create/i],
+  milestoneUpdate: [/save_?.*milestone/i, /update_?.*milestone/i, /milestone_?update/i],
   issueList: [/list_?issues?/i, /issues?_?list/i, /get_?issues?/i],
-  issueCreate: [/create_?issue/i, /issue_?create/i],
-  issueUpdate: [/update_?issue/i, /issue_?update/i],
+  issueCreate: [/save_?issue/i, /create_?issue/i, /issue_?create/i],
+  issueUpdate: [/save_?issue/i, /update_?issue/i, /issue_?update/i],
 }
 
 // The minimum the push/pull engine can't run without. Milestone/issue ops are
@@ -88,17 +90,24 @@ function makeAdapter(callTool, resolved) {
     return name
   }
   return {
+    // Linear's project-read tool keys on `query` (accepts a UUID, key, or slug).
     async readProject(id) {
-      return callTool(need('projectRead'), { id })
+      return callTool(need('projectRead'), { query: id })
+    },
+    // `save_project` upserts: with `id` it updates, without it creates. Create
+    // needs a name and at least one team (`addTeams`).
+    async createProject(project) {
+      return callTool(need('projectCreate'), { ...project })
     },
     async updateProject(id, updates) {
       return callTool(need('projectUpdate'), { id, ...updates })
     },
+    // `save_milestone` requires the owning `project`; upserts on `id`.
     async createMilestone(projectId, milestone) {
-      return callTool(need('milestoneCreate'), { projectId, ...milestone })
+      return callTool(need('milestoneCreate'), { project: projectId, ...milestone })
     },
-    async updateMilestone(id, updates) {
-      return callTool(need('milestoneUpdate'), { id, ...updates })
+    async updateMilestone(projectId, id, updates) {
+      return callTool(need('milestoneUpdate'), { project: projectId, id, ...updates })
     },
   }
 }

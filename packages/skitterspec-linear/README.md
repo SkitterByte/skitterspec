@@ -32,16 +32,22 @@ and `/spec-go` pulls first so you build against the current shared state.
 ## Opt-in
 
 Linear sync is inert until `specs/.core/linear.config.json` exists — copy the
-scaffolded `linear.config.json.example` and fill in your team / initiative IDs
-(every field is documented in `specs/.core/linear.config.md`). Without it, this
+scaffolded `linear.config.json.example` and fill in your team id. Without it, this
 behaves exactly like the base.
 
-**Mapping** (config-driven): spec folder → Linear **Project**; each phase → a
-**Milestone**; tasks → **Issues**; an optional **Initiative** groups specs.
-**Field ownership** (`both` / `pull` / `push`) collapses conflicts — only a `both`
-field that moved on both sides is a real conflict, and `--force` backs up the
-losing side before winning. **Base sidecars** (`specs/.core/linear-base/`) are
-committed; **backups** (`specs/.core/linear-backups/`) are gitignored.
+**Start here:** `specs/.core/SETUP.md` (scaffolded by `init`) is the full
+setup guide — connecting the `linear` MCP server, finding your team id, linking a
+spec, and a smoke test. Per-field docs live in `specs/.core/linear.config.md`.
+
+**What syncs today:** the whole spec body travels as the Linear Project
+**`description`** (co-authored, push + pull); **status / priority / labels** are
+Linear-owned (pull only). **Field ownership** (`both` / `pull` / `push`) collapses
+conflicts — only a `both` field that moved on both sides is a real conflict, and
+`--force` backs up the losing side before winning. A per-**Milestone** /
+per-**Issue** round-trip (phases and tasks as first-class Linear objects) is a
+planned extension — see `linear.config.md`. **Base sidecars**
+(`specs/.core/linear-base/`) are committed; **backups**
+(`specs/.core/linear-backups/`) are gitignored.
 
 Branch naming that embeds the Linear id lives in the isolation config
 (`env.config.json` → `branch.pattern` with `{identifier}`, `branch.identifierField:

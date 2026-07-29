@@ -82,6 +82,25 @@ function parseSections(body) {
   return { title, sections }
 }
 
+// Canonicalise markdown so semantically-equal content hashes equal across the
+// boundary. Linear reserializes markdown on save (authored `-` bullets come back
+// as `*`, trailing whitespace trimmed, blank runs collapsed), so without this a
+// clean push→pull would report `description` as perpetually changed. Applied to
+// the description on BOTH sides. Conservative: only unifies list markers and
+// whitespace — the transforms actually observed from Linear.
+function canonicalizeMarkdown(text) {
+  if (text == null) return text
+  return String(text)
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    // Unordered-list marker at line start (`*`/`+`/`-`) → `-`. Requires a space
+    // after the marker so bold/emphasis (`**Goal:**`) is untouched.
+    .map((line) => line.replace(/^(\s*)[*+-]( +)/, '$1-$2').replace(/[ \t]+$/, ''))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 // Canonical milestone status from the phase-index emoji.
 const EMOJI_STATUS = { '⬜': 'not-started', '🔄': 'in-progress', '✅': 'done' }
 
@@ -160,7 +179,7 @@ function buildDescription(title, sections, localOnlySections) {
     if (skip.has(heading)) continue
     parts.push(`## ${heading}\n\n${content}`.trim())
   }
-  return parts.join('\n\n').trim() || null
+  return canonicalizeMarkdown(parts.join('\n\n')) || null
 }
 
 /**
@@ -208,6 +227,46 @@ function canonicalRemoteStatus(state) {
   return s
 }
 
+// The real Linear projection carries the project's workflow state in `status`
+// (an object `{ name, type }`); accept a bare string / legacy `state` too.
+function remoteStateName(project) {
+  const st = project.status != null ? project.status : project.state
+  if (st == null) return null
+  if (typeof st === 'object') return st.name != null ? st.name : st.type != null ? st.type : null
+  return st
+}
+
+// Real Linear priority is an object `{ value, name }`; accept a bare number too.
+function remotePriority(priority) {
+  if (priority == null) return null
+  if (typeof priority === 'object') return priority.value != null ? priority.value : null
+  return priority
+}
+
+// Real Linear labels are `[{ id, name }]`; accept bare strings too.
+function remoteLabels(labels) {
+  if (!Array.isArray(labels)) return []
+  return labels
+    .map((l) => (typeof l === 'string' ? l : l && l.name != null ? l.name : null))
+    .filter((n) => n != null)
+}
+
+// A real Linear milestone has no workflow state — only `progress` ("0%".."100%").
+// Fall back to a legacy `status`/`state` when present (fixtures / older shapes).
+function remoteMilestoneStatus(m) {
+  if (m.status != null) return canonicalRemoteStatus(m.status)
+  if (m.state != null) return canonicalRemoteStatus(m.state)
+  if (m.progress != null) {
+    const pct = parseInt(String(m.progress), 10)
+    if (Number.isFinite(pct)) {
+      if (pct >= 100) return 'done'
+      if (pct > 0) return 'in-progress'
+    }
+    return 'not-started'
+  }
+  return 'not-started'
+}
+
 /**
  * Normalize a remote Project projection (from the Phase 2 MCP adapter, or a
  * fixture) into the same field set as `normalizeLocal`.
@@ -215,11 +274,12 @@ function canonicalRemoteStatus(state) {
 function normalizeRemote(project, config) {
   const p = project || {}
   const milestones = Array.isArray(p.milestones) ? p.milestones : []
+  const stateName = remoteStateName(p)
   const extracted = {
-    description: p.description != null ? p.description : null,
+    description: p.description != null ? canonicalizeMarkdown(p.description) : null,
     milestones: milestones.map((m) => ({
       name: m.name,
-      status: canonicalRemoteStatus(m.status != null ? m.status : m.state),
+      status: remoteMilestoneStatus(m),
     })),
     phaseBodies: milestones.map((m) => ({
       phase: m.name,
@@ -230,9 +290,9 @@ function normalizeRemote(project, config) {
       phase: m.name,
       tasks: Array.isArray(m.tasks) ? m.tasks : [],
     })),
-    workflowState: p.state != null ? bucketForState(p.state, config) : null,
-    priority: p.priority != null ? p.priority : null,
-    labels: Array.isArray(p.labels) ? p.labels : [],
+    workflowState: stateName != null ? bucketForState(stateName, config) : null,
+    priority: remotePriority(p.priority),
+    labels: remoteLabels(p.labels),
   }
   return toFieldSet(extracted, config)
 }
@@ -245,5 +305,6 @@ module.exports = {
   parseSections,
   parsePhaseIndex,
   canonicalRemoteStatus,
+  canonicalizeMarkdown,
   bucketForState,
 }

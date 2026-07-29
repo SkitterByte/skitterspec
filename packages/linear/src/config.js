@@ -50,12 +50,14 @@ const DEFAULT_CONFIG = Object.freeze({
   sync: Object.freeze({
     baseDir: 'specs/.core/linear-base',
     backupDir: 'specs/.core/linear-backups',
+    // The synced field set. Kept to the fields that genuinely round-trip through
+    // the live skill today: the project `description` (co-authored) plus the
+    // Linear-owned status/priority/labels (pull-only). A spec's phase/milestone,
+    // acceptance-criteria and task detail still travel *inside* `description` — a
+    // separate milestone/issue round-trip is a future extension (add the fields
+    // here to opt a workspace in). Any key you add joins the compared set.
     fieldOwnership: Object.freeze({
       description: 'both',
-      milestones: 'both',
-      phaseBodies: 'both',
-      acceptanceCriteria: 'both',
-      taskBreakdown: 'both',
       workflowState: 'pull',
       priority: 'pull',
       labels: 'pull',

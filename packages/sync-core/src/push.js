@@ -28,16 +28,18 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
   }
   const remote = normalizeRemote(remoteRaw, config)
   const base = readBase(dir, identifier, config)
-  const baseStamp = base && base.__meta ? base.__meta.updatedAt : null
   const fields = classify(local, remote, base, config)
 
-  // Remote moved past base if the classifier sees remote-side divergence OR the
-  // recorded updatedAt no longer matches (a change we can't even see as a field).
+  // Remote moved past base only if a *co-authored* (`both`) field diverged on the
+  // remote side — that's the case the repo can't safely overwrite without a pull.
+  // A `pull`-owned change (status/priority/labels) is Linear's to own and must
+  // NOT block a content push, and a bare `updatedAt` bump (which any Linear edit
+  // produces) is too coarse to gate on — the pre-write re-read below still catches
+  // a racer that lands during the push itself.
   const remoteDivergedFields = fields
-    .filter((f) => f.raw === 'remote-only' || f.raw === 'conflict')
+    .filter((f) => f.ownership === 'both' && (f.raw === 'remote-only' || f.raw === 'conflict'))
     .map((f) => f.field)
-  const stampMoved = baseStamp != null && remoteRaw.updatedAt !== baseStamp
-  const moved = remoteDivergedFields.length > 0 || stampMoved
+  const moved = remoteDivergedFields.length > 0
 
   if (moved && !force) {
     return {

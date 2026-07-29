@@ -32,6 +32,13 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base')
   assert.strictEqual(config.sync.fieldOwnership.description, 'both')
   assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull')
+  // Default synced set is scoped to the fields that round-trip live today.
+  assert.deepStrictEqual(Object.keys(config.sync.fieldOwnership), [
+    'description',
+    'workflowState',
+    'priority',
+    'labels',
+  ])
   assert.deepStrictEqual(config.sync.localOnlySections, ['State log', 'Changelog', 'Open questions'])
 })
 
@@ -53,7 +60,7 @@ test('fieldOwnership overrides merge onto defaults and add new fields', () => {
   const { config } = loadLinearConfig(dir)
   assert.strictEqual(config.sync.fieldOwnership.description, 'push') // overridden
   assert.strictEqual(config.sync.fieldOwnership.customField, 'pull') // added
-  assert.strictEqual(config.sync.fieldOwnership.milestones, 'both') // default kept
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull') // default kept
 })
 
 test('invalid fieldOwnership enum → clear throw', () => {

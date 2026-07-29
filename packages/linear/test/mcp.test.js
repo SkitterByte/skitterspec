@@ -5,17 +5,18 @@ const assert = require('node:assert')
 
 const { discoverLinear, makeAdapter, toolNames, REQUIRED } = require('../src/mcp.js')
 
-// A realistic Linear MCP tool list.
+// The real connected Linear MCP tool list: a single upsert `save_*` per object,
+// not separate create/update verbs.
 const LINEAR_TOOLS = [
   'get_project',
-  'update_project',
-  'create_project',
-  'list_project_milestones',
-  'create_project_milestone',
-  'update_project_milestone',
+  'save_project',
+  'list_projects',
+  'list_milestones',
+  'save_milestone',
+  'get_milestone',
   'list_issues',
-  'create_issue',
-  'update_issue',
+  'save_issue',
+  'get_issue',
 ]
 
 test('not connected — empty tool list returns a clean stop error', () => {
@@ -30,12 +31,13 @@ test('not connected — non-array is treated as empty', () => {
   assert.strictEqual(discoverLinear(null).ok, false)
 })
 
-test('discovery resolves the core project ops from real-ish names', () => {
+test('discovery resolves the core project ops from the real save_* names', () => {
   const r = discoverLinear(LINEAR_TOOLS)
   assert.strictEqual(r.ok, true)
   assert.strictEqual(r.tools.projectRead, 'get_project')
-  assert.strictEqual(r.tools.projectUpdate, 'update_project')
-  assert.strictEqual(r.tools.milestoneCreate, 'create_project_milestone')
+  assert.strictEqual(r.tools.projectUpdate, 'save_project') // upsert covers update
+  assert.strictEqual(r.tools.projectCreate, 'save_project') // ...and create
+  assert.strictEqual(r.tools.milestoneCreate, 'save_milestone')
 })
 
 test('discovery accepts {name} objects as well as strings', () => {
@@ -71,8 +73,9 @@ test('makeAdapter routes typed ops through callTool with resolved names', async 
   await adapter.readProject('P1')
   await adapter.updateProject('P1', { description: 'x' })
 
-  assert.deepStrictEqual(calls[0], { name: 'get_project', args: { id: 'P1' } })
-  assert.deepStrictEqual(calls[1], { name: 'update_project', args: { id: 'P1', description: 'x' } })
+  // readProject keys on `query`; save_project updates when given an `id`.
+  assert.deepStrictEqual(calls[0], { name: 'get_project', args: { query: 'P1' } })
+  assert.deepStrictEqual(calls[1], { name: 'save_project', args: { id: 'P1', description: 'x' } })
 })
 
 test('makeAdapter throws for an op the server did not expose', async () => {

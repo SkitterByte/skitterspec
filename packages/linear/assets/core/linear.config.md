@@ -77,13 +77,14 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
     //   "push" — local→Linear only; a remote edit never pulls and a conflict
     //            resolves to local-wins.
     // Any field key you add here joins the compared field set; a value outside
-    // both|pull|push is rejected at load time.
+    // both|pull|push is rejected at load time. The default set is scoped to the
+    // fields that round-trip through the live skill today: the whole spec body
+    // travels as `description`; status/priority/labels are Linear-owned (pull).
+    // A phase/milestone or per-issue round-trip is a future extension — opt in by
+    // adding `milestones`/`phaseBodies`/`taskBreakdown` here once that write path
+    // exists (see the deferred body write-back note in the package README).
     "fieldOwnership": {
       "description": "both",
-      "milestones": "both",
-      "phaseBodies": "both",
-      "acceptanceCriteria": "both",
-      "taskBreakdown": "both",
       "workflowState": "pull",
       "priority": "pull",
       "labels": "pull"
