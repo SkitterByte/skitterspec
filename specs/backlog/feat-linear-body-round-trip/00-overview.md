@@ -1,0 +1,114 @@
+---
+linear_project_id: "77703991-f1de-4f15-bf69-3872f45baf28"
+linear_identifier: "SKI-body-round-trip"
+linear_url: "https://linear.app/skitterspec/project/linear-body-round-trip-phasesmilestones-tasksissues-ca3029784e1d"
+spec_status: "backlog"
+last_synced_at: "2026-07-30T09:09:08.685Z"
+priority: 0
+---
+
+# Linear body round-trip: phases↔Milestones, tasks↔Issues
+
+> **Type:** Feature
+> **Status:** Ready — not started
+> **Author:** Reuben Greaves
+> **Developer:** —
+> **Raised:** 2026-07-30
+> **Area:** packages/sync-core/src/{compare,normalize,apply,pull,push,write}.js, packages/linear/src/{mcp,config}.js, packages/linear/assets/core/*
+> **Stack:** worktree
+
+## Problem
+
+Linear hybrid-sync (fixed in `bug-linear-live-sync`) round-trips only the project
+`description` — the whole spec body as one blob — plus pull-owned
+status/priority/labels. A spec's **phases** and **tasks** have no first-class
+presence in Linear: you can't see phases as Milestones, tick a task off in Linear
+and have it reflect locally, or edit a phase goal in Linear and pull it back into
+the right phase file. This is the deferred gap the earlier fix named. Closing it
+makes the repo↔Linear surface genuinely collaborative at the granularity people
+actually work in.
+
+## Decisions
+
+1. **Scope: full hierarchy.** Phases ↔ Linear **Milestones** and tasks ↔ Linear
+   **Issues**, both bidirectional. (Rejected milestones-only / read-only — we want
+   the real dogfood and the engine work is shared.)
+2. **Identity by explicit id, not name/order.** Each phase file stores its
+   `linear_milestone_id` in frontmatter; each task line carries its issue
+   identifier inline (`- [ ] do the thing (SKI-123)`). Survives renames/reorders,
+   is human-visible and git-diffable. (Rejected a hidden sidecar id-map — invisible
+   and brittle on task text edits; rejected name/order matching — mismaps on any
+   rename.)
+3. **Task semantics.** Task **text** is co-authored (`both`). **Completion** maps
+   **binary**: `[x]` ↔ issue in a `completed`-type state, `[ ]` ↔ any non-completed
+   state; both directions. Issue assignee / priority / exact workflow state stay
+   **Linear-owned** and are not represented locally. (Rejected representing full
+   issue state inline — bloats task lines, breaks the checkbox model.)
+4. **Milestone semantics.** Milestone **name** ← phase title, **description** ←
+   phase goal; both co-authored. Milestone `progress` is Linear-derived
+   (read-only, not stored locally — a real Linear milestone has no workflow state,
+   only a %).
+5. **De-duplicate the description.** When milestone sync is active, the `Phases`
+   section is stripped from the pushed project `description` (like
+   `localOnlySections`), so phases live as Milestones, not twice.
+6. **Per-item three-way merge.** The engine compares id-keyed collection items
+   individually (local/remote/base per item), so an edit to milestone A locally and
+   milestone B in Linear both apply. (Rejected whole-field compare — any single
+   edit conflicts the entire collection.)
+7. **Deletions are report-only in v1.** Adds and edits round-trip automatically; a
+   phase/milestone or task/issue removed on either side is reported as a divergence
+   for manual resolution — never auto-deleted. (Revisit propagation in a follow-up.)
+8. **Opt-in.** The new synced fields (`milestones`, `phaseBodies`/`taskBreakdown`)
+   are added to `sync.fieldOwnership` behind the existing config — a workspace opts
+   in; the `bug-linear-live-sync` default (description + status/priority/labels)
+   stays the safe baseline.
+
+## Solution overview
+
+- **Engine (sync-core):** generalize the three-way compare so a field may be a
+  **keyed collection** — items with a stable `id` compared/merged per item, giving
+  per-item `added`/`edited`/`removed`/`conflict` outcomes — alongside today's
+  scalar/whole-field fields. `classify` and the pull/push orchestration consume the
+  per-item outcomes; the base sidecar stores items keyed by id.
+- **Denormalizer (write.js):** today only frontmatter is written back. Add a
+  **body writer** that applies pulled milestone edits (name/goal) into the matching
+  phase file's frontmatter/heading, pulled task edits (text/checkbox) into the
+  matching task line, creates a new phase file for a new milestone, and stamps the
+  inline issue identifier / phase `linear_milestone_id`.
+- **Linear adapter (mcp.js):** already has milestone create/update; add milestone
+  **read/list** and full **issue** ops (list/create/update, `save_issue` upsert
+  keyed on `id`, keyed to the project/milestone). Real milestone shape is
+  name/description/progress; real issue completion is `state.type === 'completed'`.
+- **Mapping:** phase-file frontmatter gains `linear_milestone_id`; task lines gain
+  a trailing `(TEAM-123)`. Parsing tolerates its presence/absence so unlinked specs
+  are unaffected.
+
+## Phases
+
+Each phase lives in its own file in this folder. Status: ⬜ not started ·
+🔄 in progress · ✅ done.
+
+| # | Phase | Status | File |
+|---|-------|--------|------|
+| 1 | Per-item (id-keyed) three-way merge in sync-core | ⬜ | [01-keyed-merge-engine.md](01-keyed-merge-engine.md) |
+| 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | ⬜ | [02-phases-milestones.md](02-phases-milestones.md) |
+| 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | ⬜ | [03-tasks-issues.md](03-tasks-issues.md) |
+| 4 | Opt-in config, deletion-divergence reporting, docs | ⬜ | [04-enablement-and-docs.md](04-enablement-and-docs.md) |
+
+## Open questions
+
+- [ ] Deletion **propagation** (beyond report-only) — defer to a follow-up spec
+      once report-only has proven the identity model in real use.
+- [ ] New phase files pulled from Linear-created milestones: file naming/numbering
+      when a milestone is inserted between existing phases (resolve in Phase 2).
+
+## State log
+
+| Date | Status | Folder | By |
+|------|--------|--------|----|
+| 2026-07-30 | Ready | backlog | Reuben Greaves |
+
+## Changelog
+
+- 2026-07-30 — Spec created; scope and identity/merge/deletion decisions locked in
+  Phase A grilling. First real dogfood of the Linear sync process.
