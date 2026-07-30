@@ -63,6 +63,25 @@ test('fieldOwnership overrides merge onto defaults and add new fields', () => {
   assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull') // default kept
 })
 
+test('keyedFields default empty; merge adds keyed collection fields', () => {
+  const dir = tmpDir()
+  const { config: def } = loadLinearConfig(dir)
+  assert.deepStrictEqual(def.sync.keyedFields, {})
+  writeConfig(dir, { sync: { keyedFields: { milestones: 'id', tasks: 'id' } } })
+  const { config } = loadLinearConfig(dir)
+  assert.strictEqual(config.sync.keyedFields.milestones, 'id')
+  assert.strictEqual(config.sync.keyedFields.tasks, 'id')
+})
+
+test('invalid keyedFields value (not a string id key) → clear throw', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { sync: { keyedFields: { milestones: true } } })
+  assert.throws(
+    () => loadLinearConfig(dir),
+    /keyedFields\.milestones.*item id property name/,
+  )
+})
+
 test('invalid fieldOwnership enum → clear throw', () => {
   const dir = tmpDir()
   writeConfig(dir, { sync: { fieldOwnership: { description: 'sideways' } } })

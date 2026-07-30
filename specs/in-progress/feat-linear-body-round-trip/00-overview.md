@@ -90,7 +90,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Per-item (id-keyed) three-way merge in sync-core | ⬜ | [01-keyed-merge-engine.md](01-keyed-merge-engine.md) |
+| 1 | Per-item (id-keyed) three-way merge in sync-core | ✅ | [01-keyed-merge-engine.md](01-keyed-merge-engine.md) |
 | 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | ⬜ | [02-phases-milestones.md](02-phases-milestones.md) |
 | 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | ⬜ | [03-tasks-issues.md](03-tasks-issues.md) |
 | 4 | Opt-in config, deletion-divergence reporting, docs | ⬜ | [04-enablement-and-docs.md](04-enablement-and-docs.md) |
@@ -113,3 +113,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-07-30 — Spec created; scope and identity/merge/deletion decisions locked in
   Phase A grilling. First real dogfood of the Linear sync process.
+- 2026-07-30 — Phase 1 done: `sync.keyedFields` config marker + per-item (id-keyed)
+  three-way classifier in `compare.js` (`classifyItems`), scalar path unchanged.
+  12 keyed fixtures + config tests; suite 256 green. **Deviation:** pull/push
+  item-*application* moved to Phase 2 (inseparable from the adapter/denormalizer);
+  Phase 1 exposes per-item outcomes for Phase 2 to consume.

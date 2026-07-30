@@ -63,6 +63,11 @@ const DEFAULT_CONFIG = Object.freeze({
       labels: 'pull',
     }),
     localOnlySections: Object.freeze(['State log', 'Changelog', 'Open questions']),
+    // Fields that are keyed collections (arrays of objects with a stable id),
+    // compared/merged per item rather than as one opaque value. Map field name →
+    // the item's id property. Empty by default — a workspace opts a field in
+    // (e.g. { milestones: "id", tasks: "id" }) once the body round-trip is wired.
+    keyedFields: Object.freeze({}),
   }),
 })
 
@@ -83,6 +88,7 @@ function defaults() {
       backupDir: DEFAULT_CONFIG.sync.backupDir,
       fieldOwnership: { ...DEFAULT_CONFIG.sync.fieldOwnership },
       localOnlySections: [...DEFAULT_CONFIG.sync.localOnlySections],
+      keyedFields: { ...DEFAULT_CONFIG.sync.keyedFields },
     },
   }
 }
@@ -112,6 +118,21 @@ function mergeFieldOwnership(base, parsed) {
       )
     }
     base[field] = dir
+  }
+}
+
+// Merge (and validate) sync.keyedFields. Each value is the item's id property
+// name (a non-empty string); a field listed here is compared per item.
+function mergeKeyedFields(base, parsed) {
+  if (!isObject(parsed)) return
+  for (const [field, idKey] of Object.entries(parsed)) {
+    if (typeof idKey !== 'string' || !idKey.trim()) {
+      throw new Error(
+        `Invalid ${CONFIG_FILE}: sync.keyedFields.${field} = ${JSON.stringify(idKey)} ` +
+          '(expected the item id property name, a non-empty string)',
+      )
+    }
+    base[field] = idKey.trim()
   }
 }
 
@@ -152,6 +173,7 @@ function mergeConfig(base, parsed) {
     assign(base.sync, parsed.sync, 'baseDir', 'string')
     assign(base.sync, parsed.sync, 'backupDir', 'string')
     mergeFieldOwnership(base.sync.fieldOwnership, parsed.sync.fieldOwnership)
+    mergeKeyedFields(base.sync.keyedFields, parsed.sync.keyedFields)
     if (Array.isArray(parsed.sync.localOnlySections)) {
       base.sync.localOnlySections = parsed.sync.localOnlySections
         .filter((s) => typeof s === 'string' && s.trim())
