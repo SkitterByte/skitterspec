@@ -56,11 +56,11 @@ test('real Linear label objects reduce to their names', () => {
   assert.deepStrictEqual(remote.labels, ['sync', 'triage'])
 })
 
-test('milestone progress maps to canonical status', () => {
+test('real Linear milestones map to keyed {id,name,goal} items', () => {
   const remote = normalizeRemote(REAL_PROJECT, config)
   assert.deepStrictEqual(remote.milestones, [
-    { name: 'First phase', status: 'done' },
-    { name: 'Second phase', status: 'not-started' },
+    { id: 'm1', name: 'First phase', goal: '**Goal:** do it' },
+    { id: 'm2', name: 'Second phase', goal: '**Goal:** do more' },
   ])
 })
 

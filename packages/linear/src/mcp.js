@@ -102,6 +102,12 @@ function makeAdapter(callTool, resolved) {
     async updateProject(id, updates) {
       return callTool(need('projectUpdate'), { id, ...updates })
     },
+    // List a project's milestones (the pull read side). Most Linear reads also
+    // return milestones inline on the project via includeMilestones — this is the
+    // explicit list op for callers that need it on its own.
+    async listMilestones(projectId) {
+      return callTool(need('milestoneList'), { project: projectId })
+    },
     // `save_milestone` requires the owning `project`; upserts on `id`.
     async createMilestone(projectId, milestone) {
       return callTool(need('milestoneCreate'), { project: projectId, ...milestone })

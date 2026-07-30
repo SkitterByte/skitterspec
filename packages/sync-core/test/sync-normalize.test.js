@@ -107,19 +107,19 @@ test('localOnlySections are stripped from the description', () => {
   assert.doesNotMatch(local.description, /State log/)
 })
 
-test('milestones parse from the phase index with canonical status', () => {
+test('milestones are keyed {id,name,goal} items read from the phase files', () => {
   const local = normalizeLocal(fixtureSpec(), config)
   assert.deepStrictEqual(local.milestones, [
-    { name: 'First phase', status: 'done' },
-    { name: 'Second phase', status: 'in-progress' },
+    { id: null, name: 'First phase', goal: 'Do the first thing well.' },
+    { id: null, name: 'Second phase', goal: 'Do the second thing.' },
   ])
 })
 
-test('remote milestone states canonicalise to the same vocabulary', () => {
+test('remote milestones map to the same {id,name,goal} shape', () => {
   const remote = normalizeRemote(PROJECT, config)
   assert.deepStrictEqual(remote.milestones, [
-    { name: 'First phase', status: 'done' },
-    { name: 'Second phase', status: 'in-progress' },
+    { id: null, name: 'First phase', goal: 'Do the first thing well.' },
+    { id: null, name: 'Second phase', goal: 'Do the second thing.' },
   ])
 })
 

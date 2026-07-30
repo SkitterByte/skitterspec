@@ -121,7 +121,20 @@ function parsePhaseIndex(phasesSection) {
   return rows
 }
 
-// Read the phase files (01-*.md, 02-*.md …) in execution order.
+// The phase's descriptive title: the h1 with the "Phase N — " prefix and any
+// trailing status emoji stripped (so it matches its Linear Milestone name).
+function phaseTitle(body) {
+  const h1 = /^#\s+(.*)$/m.exec(body)
+  if (!h1) return null
+  const t = h1[1]
+    .replace(/\s*[⬜🔄✅]\s*$/u, '')
+    .replace(/^Phase\s+\d+\s*[—–-]\s*/i, '')
+    .trim()
+  return t || null
+}
+
+// Read the phase files (01-*.md, 02-*.md …) in execution order. Each yields its
+// linked milestone id (from optional frontmatter), title, goal and tasks.
 function readPhaseFiles(snapshotDir) {
   let entries
   try {
@@ -134,11 +147,19 @@ function readPhaseFiles(snapshotDir) {
     .sort()
     .map((file) => {
       const raw = fs.readFileSync(path.join(snapshotDir, file), 'utf-8')
-      const goal = (/^\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/m.exec(raw) || [])[1] || ''
-      const tasks = (raw.match(/^-\s*\[[ x]\]\s*.*$/gm) || []).map((t) =>
+      const { data, body } = parseFrontmatter(raw)
+      const goal = (/^\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/m.exec(body) || [])[1] || ''
+      const tasks = (body.match(/^-\s*\[[ x]\]\s*.*$/gm) || []).map((t) =>
         t.replace(/^-\s*/, '').trim(),
       )
-      return { phase: file.replace(/\.md$/, ''), goal: goal.trim(), tasks }
+      return {
+        phase: file.replace(/\.md$/, ''),
+        file,
+        id: data.linear_milestone_id != null ? String(data.linear_milestone_id) : null,
+        name: phaseTitle(body),
+        goal: goal.trim(),
+        tasks,
+      }
     })
 }
 
@@ -170,9 +191,11 @@ function readSnapshot(snapshotDir, config) {
 }
 
 // Build the pushed description: the overview prose with local-only sections
-// removed. Keeps the title line for context.
-function buildDescription(title, sections, localOnlySections) {
-  const skip = new Set(localOnlySections || [])
+// removed. Keeps the title line for context. `extraSkip` drops additional
+// sections (e.g. "Phases" once milestones sync as first-class Linear objects, so
+// the phase list isn't duplicated in the description — Decision 5).
+function buildDescription(title, sections, localOnlySections, extraSkip = []) {
+  const skip = new Set([...(localOnlySections || []), ...extraSkip])
   const parts = []
   if (title) parts.push(`# ${title}`)
   for (const [heading, content] of Object.entries(sections)) {
@@ -187,9 +210,20 @@ function buildDescription(title, sections, localOnlySections) {
  */
 function normalizeLocal(snapshotDir, config) {
   const { frontmatter, title, sections, phases } = readSnapshot(snapshotDir, config)
+  const milestonesKeyed = !!(config.sync.keyedFields && config.sync.keyedFields.milestones)
   const extracted = {
-    description: buildDescription(title, sections, config.sync.localOnlySections),
-    milestones: parsePhaseIndex(sections.Phases),
+    description: buildDescription(
+      title,
+      sections,
+      config.sync.localOnlySections,
+      milestonesKeyed ? ['Phases'] : [],
+    ),
+    // Keyed milestone items: a phase's linked milestone id (or null when
+    // unlinked), its title and goal. Unlinked phases carry id:null and are
+    // skipped by the keyed compare until they're linked.
+    milestones: phases
+      .filter((p) => p.name)
+      .map((p) => ({ id: p.id, name: p.name, goal: p.goal })),
     phaseBodies: phases.map((p) => ({ phase: p.phase, goal: p.goal })),
     acceptanceCriteria: sections['Acceptance criteria'] || null,
     taskBreakdown: phases.map((p) => ({ phase: p.phase, tasks: p.tasks })),
@@ -251,25 +285,9 @@ function remoteLabels(labels) {
     .filter((n) => n != null)
 }
 
-// A real Linear milestone has no workflow state — only `progress` ("0%".."100%").
-// Fall back to a legacy `status`/`state` when present (fixtures / older shapes).
-function remoteMilestoneStatus(m) {
-  if (m.status != null) return canonicalRemoteStatus(m.status)
-  if (m.state != null) return canonicalRemoteStatus(m.state)
-  if (m.progress != null) {
-    const pct = parseInt(String(m.progress), 10)
-    if (Number.isFinite(pct)) {
-      if (pct >= 100) return 'done'
-      if (pct > 0) return 'in-progress'
-    }
-    return 'not-started'
-  }
-  return 'not-started'
-}
-
 /**
- * Normalize a remote Project projection (from the Phase 2 MCP adapter, or a
- * fixture) into the same field set as `normalizeLocal`.
+ * Normalize a remote Project projection (from the MCP adapter, or a fixture)
+ * into the same field set as `normalizeLocal`.
  */
 function normalizeRemote(project, config) {
   const p = project || {}
@@ -277,9 +295,12 @@ function normalizeRemote(project, config) {
   const stateName = remoteStateName(p)
   const extracted = {
     description: p.description != null ? canonicalizeMarkdown(p.description) : null,
+    // Keyed milestone items mirroring normalizeLocal: id, title, goal (the Linear
+    // milestone's description). Progress is Linear-derived and not synced.
     milestones: milestones.map((m) => ({
+      id: m.id != null ? String(m.id) : null,
       name: m.name,
-      status: remoteMilestoneStatus(m),
+      goal: (m.description != null ? m.description : '').trim(),
     })),
     phaseBodies: milestones.map((m) => ({
       phase: m.name,

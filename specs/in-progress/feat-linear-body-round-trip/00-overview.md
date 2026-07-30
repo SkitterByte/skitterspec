@@ -91,7 +91,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Per-item (id-keyed) three-way merge in sync-core | ✅ | [01-keyed-merge-engine.md](01-keyed-merge-engine.md) |
-| 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | ⬜ | [02-phases-milestones.md](02-phases-milestones.md) |
+| 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | 🔄 | [02-phases-milestones.md](02-phases-milestones.md) |
 | 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | ⬜ | [03-tasks-issues.md](03-tasks-issues.md) |
 | 4 | Opt-in config, deletion-divergence reporting, docs | ⬜ | [04-enablement-and-docs.md](04-enablement-and-docs.md) |
 
@@ -118,3 +118,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   12 keyed fixtures + config tests; suite 256 green. **Deviation:** pull/push
   item-*application* moved to Phase 2 (inseparable from the adapter/denormalizer);
   Phase 1 exposes per-item outcomes for Phase 2 to consume.
+- 2026-07-30 — Phase 2a (read-model) done: milestones normalize to keyed
+  `{id,name,goal}` from phase-file frontmatter/titles (local) and Linear milestones
+  (remote); `buildDescription` strips `Phases` when keyed; adapter gains
+  `listMilestones`. Suite 260 green. **Phase split:** Phase 2 is delivered as 2a
+  (read-model, this commit) + 2b (denormalizer + push/pull application + live
+  smoke, next). Milestone `status` field dropped from normalization (progress is
+  Linear-derived, not synced) — updated the bug-fix regression test accordingly.
