@@ -10,9 +10,9 @@ priority: 0
 # Linear body round-trip: phases↔Milestones, tasks↔Issues
 
 > **Type:** Feature
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-07-30)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-07-30
 > **Area:** packages/sync-core/src/{compare,normalize,apply,pull,push,write}.js, packages/linear/src/{mcp,config}.js, packages/linear/assets/core/*
 > **Stack:** worktree
@@ -107,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-07-30 | Ready | backlog | Reuben Greaves |
+| 2026-07-30 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
