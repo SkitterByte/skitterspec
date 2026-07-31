@@ -39,14 +39,15 @@ behaves exactly like the base.
 setup guide — connecting the `linear` MCP server, finding your team id, linking a
 spec, and a smoke test. Per-field docs live in `specs/.core/linear.config.md`.
 
-**What syncs today:** the whole spec body travels as the Linear Project
+**What syncs:** by default the whole spec body travels as the Linear Project
 **`description`** (co-authored, push + pull); **status / priority / labels** are
 Linear-owned (pull only). **Field ownership** (`both` / `pull` / `push`) collapses
 conflicts — only a `both` field that moved on both sides is a real conflict, and
-`--force` backs up the losing side before winning. A per-**Milestone** /
-per-**Issue** round-trip (phases and tasks as first-class Linear objects) is a
-planned extension — see `linear.config.md`. **Base sidecars**
-(`specs/.core/linear-base/`) are committed; **backups**
+`--force` backs up the losing side before winning. **Opt into a per-Milestone /
+per-Issue body round-trip** — phases ↔ Linear Milestones and tasks ↔ Issues,
+compared per item — by adding `milestones`/`tasks` to `sync.keyedFields` (see the
+"Body round-trip" section of `linear.config.md`); deletions there are report-only.
+**Base sidecars** (`specs/.core/linear-base/`) are committed; **backups**
 (`specs/.core/linear-backups/`) are gitignored.
 
 Branch naming that embeds the Linear id lives in the isolation config

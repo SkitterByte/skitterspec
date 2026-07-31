@@ -30,6 +30,7 @@
       "priority": "pull",
       "labels": "pull"
     },
-    "localOnlySections": ["State log", "Changelog", "Open questions"]
+    "localOnlySections": ["State log", "Changelog", "Open questions"],
+    "keyedFields": {}
   }
 }

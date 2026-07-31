@@ -112,6 +112,17 @@ function specSyncStatus(dir, config, specArg, flags = {}) {
       out.push(`  ${f.status.padEnd(12)} ${f.field.padEnd(18)} (${f.ownership}, ${dir_})`)
     }
   }
+  // Deletions are never auto-applied (Decision 7) — surface them for the operator
+  // to resolve by hand: a removed keyed item on either side.
+  const removed = []
+  for (const f of fields) {
+    if (!f.keyed) continue
+    for (const it of f.items) if (it.report) removed.push(`${f.field}#${it.id} (removed in ${it.side})`)
+  }
+  if (removed.length) {
+    out.push('  needs manual resolution — removed, not auto-applied:')
+    for (const r of removed) out.push(`    ${r}`)
+  }
   process.stdout.write(out.join('\n') + '\n')
 }
 

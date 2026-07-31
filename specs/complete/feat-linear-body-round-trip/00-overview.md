@@ -10,7 +10,7 @@ priority: 0
 # Linear body round-trip: phases↔Milestones, tasks↔Issues
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-07-30)
+> **Status:** Complete (2026-07-31)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-30
@@ -93,14 +93,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Per-item (id-keyed) three-way merge in sync-core | ✅ | [01-keyed-merge-engine.md](01-keyed-merge-engine.md) |
 | 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | ✅ | [02-phases-milestones.md](02-phases-milestones.md) |
 | 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | ✅ | [03-tasks-issues.md](03-tasks-issues.md) |
-| 4 | Opt-in config, deletion-divergence reporting, docs | ⬜ | [04-enablement-and-docs.md](04-enablement-and-docs.md) |
+| 4 | Opt-in config, deletion-divergence reporting, docs | ✅ | [04-enablement-and-docs.md](04-enablement-and-docs.md) |
 
 ## Open questions
 
-- [ ] Deletion **propagation** (beyond report-only) — defer to a follow-up spec
-      once report-only has proven the identity model in real use.
-- [ ] New phase files pulled from Linear-created milestones: file naming/numbering
-      when a milestone is inserted between existing phases (resolve in Phase 2).
+- [ ] **Deferred to a follow-up spec:** deletion **propagation** (beyond
+      report-only) — once report-only has proven the identity model in real use.
+- [x] Phase-file naming/numbering for a Linear-created milestone — **resolved:**
+      `createPhaseFileForMilestone` appends as the next phase number
+      (`NN-<slug>.md`). Insertion *between* existing phases isn't renumbered
+      (append-only); acceptable for v1, folds into the deletion/reorder follow-up.
 
 ## State log
 
@@ -108,6 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-07-30 | Ready | backlog | Reuben Greaves |
 | 2026-07-30 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-31 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -118,6 +121,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   12 keyed fixtures + config tests; suite 256 green. **Deviation:** pull/push
   item-*application* moved to Phase 2 (inseparable from the adapter/denormalizer);
   Phase 1 exposes per-item outcomes for Phase 2 to consume.
+- 2026-07-31 — Completed; all 4 phases done, tests green (282/282), both
+  milestone and issue round-trips live-verified. Deferred (by design): deletion
+  *propagation* beyond report-only (follow-up spec).
+- 2026-07-31 — Phase 4 **complete** (finale): `sync.keyedFields` documented opt-in
+  (default off); `/spec-status` surfaces report-only removals; SETUP.md,
+  linear.config.md ("Body round-trip" section) and README updated, "planned
+  extension" caveat removed; bug-linear-live-sync deferred note points here. Suite
+  282 green. **All four phases done — spec ready for /spec-complete.**
 - 2026-07-31 — Phase 3 **complete** (3b write-side): `write.js` task-line
   denormalizer (update/add/stamp/applyTasksPull); `pull.js` dispatches milestones
   vs tasks; `push.js` keyed plan generalized to emit `issuesPush`; `/spec-push`

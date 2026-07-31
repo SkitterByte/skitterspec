@@ -92,10 +92,47 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
 
     // Markdown sections of 00-overview.md that are local-only scaffolding and
     // are stripped from the pushed `description` (never sent to Linear).
-    "localOnlySections": ["State log", "Changelog", "Open questions"]
+    "localOnlySections": ["State log", "Changelog", "Open questions"],
+
+    // OPT-IN body round-trip. Map a keyed collection field → its item id key to
+    // sync it per item (each phase ↔ a Milestone, each task ↔ an Issue) instead of
+    // as one description blob. Empty by default. See "Body round-trip" below.
+    "keyedFields": {}
   }
 }
 ```
+
+## Body round-trip (milestones & tasks) — opt-in
+
+By default the whole spec body travels as the project **`description`**. Opt a
+workspace into a finer-grained, bidirectional sync by adding the keyed fields:
+
+```jsonc
+"sync": {
+  "fieldOwnership": { "milestones": "both", "tasks": "both" },
+  "keyedFields": { "milestones": "id", "tasks": "id" }
+}
+```
+
+With this on:
+
+- **Phases ↔ Milestones.** Each phase file maps to a Linear Milestone. The link id
+  lives in the phase file's frontmatter (`linear_milestone_id`); its title ← the
+  phase h1, its description ← the phase `**Goal:**` line. The `Phases` index is
+  then stripped from the pushed `description` (no duplication).
+- **Tasks ↔ Issues.** Each `- [ ]` task line maps to a Linear Issue. The link id
+  is carried **inline** on the line — `- [ ] do the thing (SKI-123)`. Text ↔ the
+  issue title; `[x]`/`[ ]` ↔ a completed / non-completed issue state.
+- **Per-item merge.** Items are compared by id, so editing milestone A locally and
+  milestone B in Linear both apply; only the *same* item moving on both sides is a
+  conflict.
+- **Deletions are report-only.** A phase/milestone or task/issue removed on either
+  side is surfaced by `/spec-status` (and the pull/push summaries) for you to
+  resolve by hand — it is never auto-deleted.
+
+Unlinked local items (a new phase with no `linear_milestone_id`, a task with no
+inline id) are created in Linear on the next `/spec-push`, which stamps the new id
+back so they link from then on.
 
 ## Field ownership & conflicts
 

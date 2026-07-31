@@ -103,3 +103,6 @@ stays the known deferred gap.
   reported "in sync" across Linear's markdown reserialization. Added SETUP.md.
 - 2026-07-29 — Completed; all Fix tasks done, tests green (242/242, bug test
   5/5). Deferred (by design): the per-Milestone/Issue spec-body round-trip.
+- 2026-07-31 — The deferred body round-trip is now delivered by
+  `feat-linear-body-round-trip` (phases ↔ Milestones, tasks ↔ Issues, opt-in via
+  `sync.keyedFields`).

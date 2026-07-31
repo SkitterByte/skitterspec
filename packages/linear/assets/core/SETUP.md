@@ -124,11 +124,17 @@ in-repo → `/spec-push` (send content up).
 | `priority` | Linear | pull only |
 | `labels` | Linear | pull only |
 
-The **entire spec body travels as the project `description`** — phases and
-acceptance criteria included. A separate per-milestone / per-issue round-trip
-(editing an individual phase in Linear and pulling just that back) is **not yet
-implemented**; opt in later by adding `milestones`/`phaseBodies`/`taskBreakdown`
-to `sync.fieldOwnership` once that write path exists.
+By default the **entire spec body travels as the project `description`** — phases
+and acceptance criteria included.
+
+**Optional: body round-trip.** Opt in — add `milestones`/`tasks` to
+`sync.keyedFields` (and `sync.fieldOwnership`) — and phases sync as **Milestones**
+and tasks as **Issues**, compared per item: edit an individual phase or task in
+Linear and pull just that back into the right phase file / task line, or push
+local changes up. The link ids live in the phase file frontmatter
+(`linear_milestone_id`) and inline on task lines (`- [ ] do it (SKI-123)`).
+Deletions are report-only (surfaced by `/spec-status`, never auto-applied). Full
+details in the "Body round-trip" section of `linear.config.md`.
 
 Sections listed in `sync.localOnlySections` (default: **State log**, **Changelog**,
 **Open questions**) are stripped from the pushed description — they never leave
