@@ -92,7 +92,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Per-item (id-keyed) three-way merge in sync-core | ✅ | [01-keyed-merge-engine.md](01-keyed-merge-engine.md) |
 | 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | ✅ | [02-phases-milestones.md](02-phases-milestones.md) |
-| 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | 🔄 | [03-tasks-issues.md](03-tasks-issues.md) |
+| 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | ✅ | [03-tasks-issues.md](03-tasks-issues.md) |
 | 4 | Opt-in config, deletion-divergence reporting, docs | ⬜ | [04-enablement-and-docs.md](04-enablement-and-docs.md) |
 
 ## Open questions
@@ -118,6 +118,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   12 keyed fixtures + config tests; suite 256 green. **Deviation:** pull/push
   item-*application* moved to Phase 2 (inseparable from the adapter/denormalizer);
   Phase 1 exposes per-item outcomes for Phase 2 to consume.
+- 2026-07-31 — Phase 3 **complete** (3b write-side): `write.js` task-line
+  denormalizer (update/add/stamp/applyTasksPull); `pull.js` dispatches milestones
+  vs tasks; `push.js` keyed plan generalized to emit `issuesPush`; `/spec-push`
+  and `/spec-pull` skills apply/fetch issues. Denormalizer + pull + push fixtures.
+  **Live shape check caught** real issues use flat `statusType`/`id=identifier`
+  (not `state.type`) — fixed `normalizeRemote` + regression test. Suite 282 green.
+  Both tasks↔issues directions modeled; push writes go through the skill (as with
+  milestones).
 - 2026-07-31 — Phase 3a (read-model) done: `parseTaskLine` + keyed `tasks` field
   of `{id,text,done}` (inline `(SKI-123)` id, checkbox → done); `normalizeRemote`
   maps issues to the same shape; adapter gains `listIssues`/`createIssue`/

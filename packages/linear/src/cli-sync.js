@@ -179,6 +179,9 @@ function printSyncResult(kind, result) {
       const mp = result.milestonesPush
       if (mp && mp.create.length) out.push(`  milestones create: ${mp.create.map((m) => m.name).join(', ')} (skill applies via MCP)`)
       if (mp && mp.update.length) out.push(`  milestones update: ${mp.update.map((m) => m.id).join(', ')} (skill applies via MCP)`)
+      const ip = result.issuesPush
+      if (ip && ip.create.length) out.push(`  issues create: ${ip.create.length} (skill applies via MCP)`)
+      if (ip && ip.update.length) out.push(`  issues update: ${ip.update.map((i) => i.id).join(', ')} (skill applies via MCP)`)
       if (result.skipped && result.skipped.length) out.push(`  skipped:   ${result.skipped.join(', ')} (not pushable)`)
       if (result.note) out.push(`  ${result.note}`)
     }

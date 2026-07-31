@@ -220,6 +220,101 @@ function applyMilestonesPull(snapshotDir, items) {
   return { applied, created, reported }
 }
 
+// --- task-line denormalizer (keyed issue pull) -----------------------------
+//
+// Tasks live as checkbox lines inside phase files. A pulled issue edit rewrites
+// the matching line (by its inline id) in place; a Linear-only issue appends a
+// new task line; a created issue's id is stamped inline. Removals report-only.
+
+const TASK_RE = /^(\s*)-\s*\[([ xX])\]\s*(.*)$/
+const INLINE_ID_RE = /\s*\(([A-Za-z][A-Za-z0-9]*-\d+)\)\s*$/
+
+// Render a task line from an item.
+function taskLine(indent, { id, text, done }) {
+  return `${indent}- [${done ? 'x' : ' '}] ${text}${id ? ` (${id})` : ''}`
+}
+
+// Update the task line carrying inline id `id` (text + checkbox), in place.
+function updateTaskLine(snapshotDir, id, { text, done }) {
+  const want = String(id)
+  for (const file of listPhaseFiles(snapshotDir)) {
+    const p = path.join(snapshotDir, file)
+    const lines = fs.readFileSync(p, 'utf-8').split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const m = TASK_RE.exec(lines[i])
+      if (!m) continue
+      const idm = INLINE_ID_RE.exec(m[3])
+      if (idm && idm[1] === want) {
+        lines[i] = taskLine(m[1], { id: want, text, done })
+        fs.writeFileSync(p, lines.join('\n'), 'utf-8')
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// Append a task line for a Linear-only issue after the last existing task line
+// (falls back to end of the last phase file). Returns the file it landed in.
+function addTaskLine(snapshotDir, item) {
+  const files = listPhaseFiles(snapshotDir)
+  const file = files[files.length - 1]
+  if (!file) return null
+  const p = path.join(snapshotDir, file)
+  const lines = fs.readFileSync(p, 'utf-8').split('\n')
+  let lastTask = -1
+  for (let i = 0; i < lines.length; i++) if (TASK_RE.test(lines[i])) lastTask = i
+  const line = taskLine('', item)
+  if (lastTask >= 0) lines.splice(lastTask + 1, 0, line)
+  else lines.push(line)
+  fs.writeFileSync(p, lines.join('\n'), 'utf-8')
+  return file
+}
+
+// Stamp an inline id onto the (idless) task line whose text matches — used after
+// the skill creates an issue for a new local task.
+function stampIssueId(snapshotDir, text, id) {
+  const want = String(text).trim()
+  for (const file of listPhaseFiles(snapshotDir)) {
+    const p = path.join(snapshotDir, file)
+    const lines = fs.readFileSync(p, 'utf-8').split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const m = TASK_RE.exec(lines[i])
+      if (!m || INLINE_ID_RE.test(m[3])) continue
+      if (m[3].trim() === want) {
+        lines[i] = `${m[1]}- [${m[2].toLowerCase() === 'x' ? 'x' : ' '}] ${want} (${id})`
+        fs.writeFileSync(p, lines.join('\n'), 'utf-8')
+        return file
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Apply a pull's keyed task item outcomes to the phase files' task lines.
+ * @returns { applied:string[], created:Array<{id,file}>, reported:string[] }
+ */
+function applyTasksPull(snapshotDir, items) {
+  const applied = []
+  const created = []
+  const reported = []
+  for (const it of items || []) {
+    if (it.report) {
+      reported.push(it.id)
+      continue
+    }
+    if (!it.pullable || !it.remote) continue
+    if (it.status === 'added') {
+      const file = addTaskLine(snapshotDir, it.remote)
+      if (file) created.push({ id: it.id, file })
+    } else if (it.status === 'edited' || it.status === 'conflict') {
+      if (updateTaskLine(snapshotDir, it.id, it.remote)) applied.push(it.id)
+    }
+  }
+  return { applied, created, reported }
+}
+
 module.exports = {
   writeFrontmatter,
   splitFrontmatter,
@@ -231,4 +326,8 @@ module.exports = {
   stampMilestoneId,
   createPhaseFileForMilestone,
   applyMilestonesPull,
+  updateTaskLine,
+  addTaskLine,
+  stampIssueId,
+  applyTasksPull,
 }

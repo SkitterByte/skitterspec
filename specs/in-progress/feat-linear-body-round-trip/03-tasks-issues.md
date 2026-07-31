@@ -1,6 +1,6 @@
-# Phase 3 — Tasks ↔ Issues round-trip 🔄
+# Phase 3 — Tasks ↔ Issues round-trip ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress (3a read-model)
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 Delivered like Phase 2, in two commits: **3a** read-model (parse task lines to
 keyed `{id,text,done}`, normalize remote issues, adapter issue ops, fixtures);
@@ -22,18 +22,20 @@ proven by fixtures and a live smoke.
 - [x] Read-model fixtures (parse, local tasks, remote issues, a task closed in
       Linear classifying as per-item pullable). Suite 275 green.
 
-## Tasks — 3b (write-side) ⬜
+## Tasks — 3b (write-side) ✅
 
-- [ ] `write.js` task-line denormalizer: apply pulled issue edits (text, checkbox)
-      to the matching task line by inline id; append `(SKI-123)` to a newly-created
-      issue's line; add a task line for a Linear-only issue. Byte-untouched
-      elsewhere.
-- [ ] Wire `pull.js` to apply keyed task items via the denormalizer; extend
-      `push.js`'s plan to issues (create/update); teach `/spec-push` to apply the
-      issue plan + stamp inline ids. Item-level conflicts refuse (Phase 1).
-- [ ] Tests: local text edit → issue update, tick `[x]` locally → issue closed,
-      close issue in Linear → `[x]` pulled, new task → new issue with inline id.
-      **Live smoke** on team SKI. Typecheck + tests green.
+- [x] `write.js` task-line denormalizer: `updateTaskLine` (text + checkbox by inline
+      id), `addTaskLine` (Linear-only issue), `stampIssueId` (after create),
+      `applyTasksPull`. Byte-untouched elsewhere.
+- [x] Wire `pull.js` to apply keyed task items via the denormalizer (dispatch
+      milestones vs tasks); generalize `push.js`'s keyed plan to emit `issuesPush`
+      (create/update); teach `/spec-push` to apply the issue plan + stamp inline
+      ids and `/spec-pull` to fetch issues into the projection. CLI surfaces it.
+- [x] Tests: denormalizer units, a pull (issue closed in Linear → `[x]`), a push
+      (text edit → issue update plan; new task → create plan). **Live shape check**
+      on team SKI — caught that real issues use flat `statusType`/`id=identifier`
+      (not `state.type`); fixed `normalizeRemote` + added a regression test. Suite
+      282 green.
 
 ## Notes
 

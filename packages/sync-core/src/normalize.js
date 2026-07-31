@@ -306,6 +306,16 @@ function remoteLabels(labels) {
     .filter((n) => n != null)
 }
 
+// Whether a remote Linear issue is complete. The real MCP shape is a flat
+// `statusType` ("completed") — accept the legacy `state.type` and `completedAt`
+// / bare `done` too (fixtures, older shapes).
+function remoteIssueDone(iss) {
+  if (iss.done === true) return true
+  const type = iss.statusType != null ? iss.statusType : iss.state && iss.state.type
+  if (type != null) return String(type).toLowerCase() === 'completed'
+  return iss.completedAt != null
+}
+
 /**
  * Normalize a remote Project projection (from the MCP adapter, or a fixture)
  * into the same field set as `normalizeLocal`.
@@ -334,12 +344,12 @@ function normalizeRemote(project, config) {
     })),
     acceptanceCriteria: p.acceptanceCriteria != null ? p.acceptanceCriteria : null,
     // Keyed task items from the project's issues: keyed by the human identifier
-    // (SKI-123, what the inline task-line id carries), text ← title, done ← a
-    // completed-type workflow state.
+    // (SKI-123, what the inline task-line id carries — the Linear MCP returns it as
+    // the issue's `id`), text ← title, done ← a completed-type workflow state.
     tasks: (Array.isArray(p.issues) ? p.issues : []).map((iss) => ({
       id: iss.identifier != null ? String(iss.identifier) : iss.id != null ? String(iss.id) : null,
       text: iss.title != null ? iss.title : '',
-      done: iss.state && iss.state.type === 'completed' ? true : iss.done === true,
+      done: remoteIssueDone(iss),
     })),
     taskBreakdown: milestones.map((m) => ({
       phase: m.name,

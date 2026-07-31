@@ -23,7 +23,10 @@ Use the argument, else the spec in context; ask if unclear.
   spec isn't linked — stop and point at `/spec`.
 - Discover the Linear MCP project-read tool at runtime. If Linear isn't
   connected, relay the fix and stop — **do nothing destructive**.
-- Call it and write the project JSON to a temp file.
+- Call it (include milestones) and write the project JSON to a temp file. When
+  tasks are keyed, also list the project's issues and add them as an `issues`
+  array on that JSON (each `{ identifier, title, state }`) so the engine can
+  reconcile task lines.
 
 ## 3. Run the engine
 

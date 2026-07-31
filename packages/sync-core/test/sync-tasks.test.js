@@ -75,6 +75,15 @@ test('remote issues normalize to the same {id,text,done} shape', () => {
   ])
 })
 
+test('real Linear issue shape (flat statusType, id=identifier) maps to done', () => {
+  // Captured live from list_issues: no nested state, a flat statusType.
+  const remote = normalizeRemote(
+    { issues: [{ id: 'SKI-5', title: 'shipped', status: 'Done', statusType: 'completed', completedAt: 'x' }] },
+    config(),
+  )
+  assert.deepStrictEqual(remote.tasks, [{ id: 'SKI-5', text: 'shipped', done: true }])
+})
+
 test('a task closed in Linear classifies as a per-item pullable change', () => {
   const cfg = config()
   const local = normalizeLocal(fixture(), cfg)

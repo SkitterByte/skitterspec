@@ -18,7 +18,7 @@
 const { normalizeLocal, normalizeRemote } = require('./normalize.js')
 const { classify } = require('./compare.js')
 const { readBase, writeBase, backup } = require('./base.js')
-const { writeFrontmatter, applyMilestonesPull } = require('./write.js')
+const { writeFrontmatter, applyMilestonesPull, applyTasksPull } = require('./write.js')
 const { frontmatterPatchFor } = require('./apply.js')
 
 // Collect the conflicting units across scalar (field-level) and keyed
@@ -70,7 +70,8 @@ async function pull({ dir, snapshotDir, identifier, projectId, adapter, config, 
   const keyedReported = []
   for (const f of fields) {
     if (!f.keyed) continue
-    const res = applyMilestonesPull(snapshotDir, f.items) // milestones (only keyed field today)
+    const apply = f.field === 'tasks' ? applyTasksPull : applyMilestonesPull
+    const res = apply(snapshotDir, f.items)
     if (res.applied.length || res.created.length) keyedApplied.push(f.field)
     keyedCreated.push(...res.created)
     keyedReported.push(...res.reported.map((id) => `${f.field}#${id}`))

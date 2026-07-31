@@ -65,22 +65,28 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
   // id:null item is skipped by the keyed compare until the skill stamps it, then
   // it converges on the next sync, so no special base handling is needed.
   const pushFields = fields.filter((f) => f.pushable && !f.keyed)
-  const milestonesPush = { create: [], update: [] }
+  // A per-field create/update plan for each keyed collection. The item content
+  // (minus its id) is exactly what the skill sends to the Linear save tool.
+  const keyedPush = {}
   for (const f of fields) {
     if (!f.keyed) continue
+    const strip = (obj) => {
+      const { [f.idKey]: _omit, ...rest } = obj
+      return rest
+    }
+    const plan = { create: [], update: [] }
     // Edits to already-linked items (matched by id) → update.
     for (const it of f.items) {
       if (!it.pushable || !it.local) continue
-      if (it.status !== 'added') milestonesPush.update.push({ id: it.id, name: it.local.name, goal: it.local.goal })
+      if (it.status !== 'added') plan.update.push({ id: it.id, ...strip(it.local) })
     }
     // Unlinked local items (no id yet) are new content to create; the keyed
     // compare skips them (nothing to key on), so collect them straight from local.
     const localItems = Array.isArray(local[f.field]) ? local[f.field] : []
-    for (const li of localItems) {
-      if (li && li[f.idKey] == null && li.name) milestonesPush.create.push({ name: li.name, goal: li.goal })
-    }
+    for (const li of localItems) if (li && li[f.idKey] == null) plan.create.push(strip(li))
+    if (plan.create.length || plan.update.length) keyedPush[f.field] = plan
   }
-  const hasKeyedPush = milestonesPush.create.length > 0 || milestonesPush.update.length > 0
+  const hasKeyedPush = Object.keys(keyedPush).length > 0
 
   if (!pushFields.length && !hasKeyedPush && !force) {
     return { ok: true, blocked: false, written: [], skipped: [], note: 'nothing to push' }
@@ -126,9 +132,10 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
     ok: true,
     blocked: false,
     written: pushFields.map((f) => f.field),
-    // The skill applies these Linear milestone writes (create → stamp the new id
-    // into the phase file; update → save_milestone by id). Omitted when empty.
-    ...(hasKeyedPush ? { milestonesPush } : {}),
+    // The skill applies these Linear writes (create → stamp the new id back into
+    // the phase file / task line; update → save by id). Omitted when empty.
+    ...(keyedPush.milestones ? { milestonesPush: keyedPush.milestones } : {}),
+    ...(keyedPush.tasks ? { issuesPush: keyedPush.tasks } : {}),
     skipped: fields
       .filter((f) => !f.pushable && !f.keyed && f.status !== 'unchanged')
       .map((f) => f.field),

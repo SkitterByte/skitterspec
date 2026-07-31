@@ -59,6 +59,15 @@ engine can't write them itself — apply the plan over MCP:
 
 Progress is Linear-derived — never push it.
 
+**Issues (`issuesPush` in the result).** When tasks are keyed:
+
+- `update`: for each `{ id, text, done }`, call the issue-save tool with that `id`
+  (text → title; `done` → a completed state, else a non-completed state — leave an
+  already-non-completed issue's exact state untouched).
+- `create`: for each `{ text, done }`, create an issue under the project (attach it
+  to the milestone of the phase the task lives in when known), then **stamp the new
+  issue identifier inline** on that task line (`… (SKI-123)`), matching by text.
+
 ## 5. Report
 
 Relay the git-like summary (written / skipped / backup / base) plus which Linear
