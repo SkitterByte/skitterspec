@@ -115,6 +115,17 @@ function makeAdapter(callTool, resolved) {
     async updateMilestone(projectId, id, updates) {
       return callTool(need('milestoneUpdate'), { project: projectId, id, ...updates })
     },
+    // Issues (tasks). List the project's issues (pull read side); `save_issue`
+    // upserts on `id`, attached to the project (and optionally a milestone).
+    async listIssues(projectId) {
+      return callTool(need('issueList'), { project: projectId })
+    },
+    async createIssue(projectId, issue) {
+      return callTool(need('issueCreate'), { project: projectId, ...issue })
+    },
+    async updateIssue(id, updates) {
+      return callTool(need('issueUpdate'), { id, ...updates })
+    },
   }
 }
 

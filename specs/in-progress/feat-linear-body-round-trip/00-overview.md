@@ -92,7 +92,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Per-item (id-keyed) three-way merge in sync-core | ✅ | [01-keyed-merge-engine.md](01-keyed-merge-engine.md) |
 | 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | ✅ | [02-phases-milestones.md](02-phases-milestones.md) |
-| 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | ⬜ | [03-tasks-issues.md](03-tasks-issues.md) |
+| 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | 🔄 | [03-tasks-issues.md](03-tasks-issues.md) |
 | 4 | Opt-in config, deletion-divergence reporting, docs | ⬜ | [04-enablement-and-docs.md](04-enablement-and-docs.md) |
 
 ## Open questions
@@ -118,6 +118,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   12 keyed fixtures + config tests; suite 256 green. **Deviation:** pull/push
   item-*application* moved to Phase 2 (inseparable from the adapter/denormalizer);
   Phase 1 exposes per-item outcomes for Phase 2 to consume.
+- 2026-07-31 — Phase 3a (read-model) done: `parseTaskLine` + keyed `tasks` field
+  of `{id,text,done}` (inline `(SKI-123)` id, checkbox → done); `normalizeRemote`
+  maps issues to the same shape; adapter gains `listIssues`/`createIssue`/
+  `updateIssue`. 4 fixtures; suite 275 green. Phase 3 splits 3a (read) + 3b (write).
 - 2026-07-31 — Phase 2 **complete** (push-side): `push.js` emits a `milestonesPush`
   create/update plan the `/spec-push` skill applies via `save_milestone` (stamping
   new ids; base self-heals). 3 push-plan fixtures + a live push smoke (local goal

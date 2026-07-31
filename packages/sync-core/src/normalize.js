@@ -133,6 +133,23 @@ function phaseTitle(body) {
   return t || null
 }
 
+// Parse a task line (already stripped of its leading "- ") into a keyed item:
+// its checkbox state, its text, and the inline Linear issue identifier if present
+// (`… (SKI-123)`). Returns null for a non-task line.
+function parseTaskLine(line) {
+  const m = /^\[([ xX])\]\s*(.*)$/.exec(line)
+  if (!m) return null
+  const done = m[1].toLowerCase() === 'x'
+  let text = m[2].trim()
+  let id = null
+  const idm = /\s*\(([A-Za-z][A-Za-z0-9]*-\d+)\)\s*$/.exec(text)
+  if (idm) {
+    id = idm[1]
+    text = text.slice(0, idm.index).trim()
+  }
+  return { id, text, done }
+}
+
 // Read the phase files (01-*.md, 02-*.md …) in execution order. Each yields its
 // linked milestone id (from optional frontmatter), title, goal and tasks.
 function readPhaseFiles(snapshotDir) {
@@ -224,6 +241,10 @@ function normalizeLocal(snapshotDir, config) {
     milestones: phases
       .filter((p) => p.name)
       .map((p) => ({ id: p.id, name: p.name, goal: p.goal })),
+    // Keyed task items across all phases: inline issue id (or null), text, done.
+    // Deliberately just {id,text,done} so it hashes equal to a remote issue — the
+    // owning phase is recovered at push time by locating the task line.
+    tasks: phases.flatMap((p) => p.tasks.map(parseTaskLine).filter(Boolean)),
     phaseBodies: phases.map((p) => ({ phase: p.phase, goal: p.goal })),
     acceptanceCriteria: sections['Acceptance criteria'] || null,
     taskBreakdown: phases.map((p) => ({ phase: p.phase, tasks: p.tasks })),
@@ -312,6 +333,14 @@ function normalizeRemote(project, config) {
       goal: (m.description != null ? m.description : '').trim(),
     })),
     acceptanceCriteria: p.acceptanceCriteria != null ? p.acceptanceCriteria : null,
+    // Keyed task items from the project's issues: keyed by the human identifier
+    // (SKI-123, what the inline task-line id carries), text ← title, done ← a
+    // completed-type workflow state.
+    tasks: (Array.isArray(p.issues) ? p.issues : []).map((iss) => ({
+      id: iss.identifier != null ? String(iss.identifier) : iss.id != null ? String(iss.id) : null,
+      text: iss.title != null ? iss.title : '',
+      done: iss.state && iss.state.type === 'completed' ? true : iss.done === true,
+    })),
     taskBreakdown: milestones.map((m) => ({
       phase: m.name,
       tasks: Array.isArray(m.tasks) ? m.tasks : [],
@@ -330,6 +359,7 @@ module.exports = {
   parseFrontmatter,
   parseSections,
   parsePhaseIndex,
+  parseTaskLine,
   canonicalRemoteStatus,
   canonicalizeMarkdown,
   bucketForState,
