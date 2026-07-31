@@ -1,1 +1,1 @@
-../../assets/rules/spec-planning.md
+../../packages/common/assets/rules/spec-planning.md
