@@ -70,6 +70,19 @@ function ensureDir(p) {
 }
 
 function writeFile(dir, target, content, { force }) {
+  // A dangling symlink (its target no longer exists) is invisible to existsSync,
+  // which follows the link — but the link itself is still on disk, so a plain
+  // writeFileSync would follow it into a missing directory and throw ENOENT.
+  // Drop the broken link and write a real file in its place.
+  let link = null
+  try {
+    link = fs.lstatSync(target)
+  } catch {
+    /* no such path — nothing to clean up */
+  }
+  if (link && link.isSymbolicLink() && !fs.existsSync(target)) {
+    fs.unlinkSync(target)
+  }
   if (fs.existsSync(target)) {
     if (!force) {
       report.skipped.push(rel(dir, target))

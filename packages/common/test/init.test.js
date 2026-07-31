@@ -47,6 +47,22 @@ test('init scaffolds skills, rule, folders', async () => {
   assert.match(claude, /<!-- skitterspec:start -->/)
 })
 
+test('replaces a dangling symlink target instead of crashing (ENOENT)', async () => {
+  const dir = tmpProject()
+  // A pre-existing dangling symlink where init wants to write a rule — e.g. a
+  // link left pointing at a path that no longer exists after a restructure.
+  fs.mkdirSync(path.join(dir, '.claude', 'rules'), { recursive: true })
+  const target = path.join(dir, '.claude', 'rules', 'spec-planning.md')
+  fs.symlinkSync(path.join(dir, 'does', 'not', 'exist.md'), target)
+  assert.ok(fs.lstatSync(target).isSymbolicLink() && !fs.existsSync(target), 'dangling to start')
+
+  // init must not throw, and must leave a real file with the bundled content.
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+
+  assert.ok(!fs.lstatSync(target).isSymbolicLink(), 'symlink replaced by a real file')
+  assert.match(fs.readFileSync(target, 'utf8'), /# Spec Planning/)
+})
+
 test('removes retired folder index files left by an earlier version', async () => {
   const dir = tmpProject()
   // simulate an old install that scaffolded the index files
