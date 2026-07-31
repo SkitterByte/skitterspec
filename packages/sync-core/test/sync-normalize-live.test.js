@@ -58,9 +58,10 @@ test('real Linear label objects reduce to their names', () => {
 
 test('real Linear milestones map to keyed {id,name,goal} items', () => {
   const remote = normalizeRemote(REAL_PROJECT, config)
+  // The "**Goal:**" label is stripped so it hashes equal to a phase file's goal.
   assert.deepStrictEqual(remote.milestones, [
-    { id: 'm1', name: 'First phase', goal: '**Goal:** do it' },
-    { id: 'm2', name: 'Second phase', goal: '**Goal:** do more' },
+    { id: 'm1', name: 'First phase', goal: 'do it' },
+    { id: 'm2', name: 'Second phase', goal: 'do more' },
   ])
 })
 

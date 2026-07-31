@@ -157,9 +157,23 @@ function printSyncResult(kind, result) {
   } else {
     out.push(`spec-sync ${kind}: ok`)
     if (kind === 'pull') {
+      const keyedApplied = result.keyedApplied || []
+      const keyedCreated = result.keyedCreated || []
+      const keyedReported = result.keyedReported || []
       if (result.applied.length) out.push(`  applied:   ${result.applied.join(', ')}`)
+      if (keyedApplied.length) out.push(`  updated:   ${keyedApplied.join(', ')} (phase files)`)
+      if (keyedCreated.length) out.push(`  created:   ${keyedCreated.map((c) => c.file).join(', ')}`)
+      if (keyedReported.length) out.push(`  removed:   ${keyedReported.join(', ')} (in Linear — resolve manually)`)
       if (result.deferred.length) out.push(`  deferred:  ${result.deferred.join(', ')} (body write-back — manual)`)
-      if (!result.applied.length && !result.deferred.length) out.push('  nothing to pull — up to date')
+      if (
+        !result.applied.length &&
+        !keyedApplied.length &&
+        !keyedCreated.length &&
+        !keyedReported.length &&
+        !result.deferred.length
+      ) {
+        out.push('  nothing to pull — up to date')
+      }
     } else {
       if (result.written && result.written.length) out.push(`  written:   ${result.written.join(', ')}`)
       if (result.skipped && result.skipped.length) out.push(`  skipped:   ${result.skipped.join(', ')} (not pushable)`)

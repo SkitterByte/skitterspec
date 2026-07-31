@@ -32,13 +32,17 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
 
   // Remote moved past base only if a *co-authored* (`both`) field diverged on the
   // remote side — that's the case the repo can't safely overwrite without a pull.
-  // A `pull`-owned change (status/priority/labels) is Linear's to own and must
-  // NOT block a content push, and a bare `updatedAt` bump (which any Linear edit
-  // produces) is too coarse to gate on — the pre-write re-read below still catches
-  // a racer that lands during the push itself.
+  // For a keyed field the equivalent is a same-item conflict (independent edits to
+  // different items don't collide, so they don't block). A `pull`-owned change
+  // (status/priority/labels) is Linear's to own and must NOT block a content push,
+  // and a bare `updatedAt` bump is too coarse to gate on — the pre-write re-read
+  // below still catches a racer that lands during the push itself.
   const remoteDivergedFields = fields
-    .filter((f) => f.ownership === 'both' && (f.raw === 'remote-only' || f.raw === 'conflict'))
+    .filter((f) => !f.keyed && f.ownership === 'both' && (f.raw === 'remote-only' || f.raw === 'conflict'))
     .map((f) => f.field)
+  for (const f of fields) {
+    if (f.keyed) for (const it of f.items) if (it.status === 'conflict') remoteDivergedFields.push(`${f.field}#${it.id}`)
+  }
   const moved = remoteDivergedFields.length > 0
 
   if (moved && !force) {
@@ -54,7 +58,11 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
     }
   }
 
-  const pushFields = fields.filter((f) => f.pushable)
+  // Scalar push only. Keyed body fields (milestones/issues) push through the
+  // provider skill's MCP writes, not the offline engine adapter — the engine
+  // blesses the merge; the skill creates/updates the Linear objects and stamps
+  // ids. (Tracked as the remaining Phase 2 write-side task.)
+  const pushFields = fields.filter((f) => f.pushable && !f.keyed)
   if (!pushFields.length && !force) {
     return { ok: true, blocked: false, written: [], skipped: [], note: 'nothing to push' }
   }

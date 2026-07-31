@@ -18,8 +18,22 @@
 const { normalizeLocal, normalizeRemote } = require('./normalize.js')
 const { classify } = require('./compare.js')
 const { readBase, writeBase, backup } = require('./base.js')
-const { writeFrontmatter } = require('./write.js')
+const { writeFrontmatter, applyMilestonesPull } = require('./write.js')
 const { frontmatterPatchFor } = require('./apply.js')
+
+// Collect the conflicting units across scalar (field-level) and keyed
+// (item-level) fields, as stable labels for the refusal message.
+function collectConflicts(fields) {
+  const out = []
+  for (const f of fields) {
+    if (f.keyed) {
+      for (const it of f.items) if (it.status === 'conflict') out.push(`${f.field}#${it.id}`)
+    } else if (f.status === 'conflict') {
+      out.push(f.field)
+    }
+  }
+  return out
+}
 
 async function pull({ dir, snapshotDir, identifier, projectId, adapter, config, force = false, timestamp }) {
   const local = normalizeLocal(snapshotDir, config)
@@ -31,25 +45,17 @@ async function pull({ dir, snapshotDir, identifier, projectId, adapter, config, 
   const base = readBase(dir, identifier, config)
   const fields = classify(local, remote, base, config)
 
-  const conflicts = fields.filter((f) => f.status === 'conflict').map((f) => f.field)
+  const conflicts = collectConflicts(fields)
   if (conflicts.length && !force) {
     return {
       ok: false,
       blocked: true,
       reason: 'conflict',
       conflicts,
-      message: `pull refused — ${conflicts.length} field(s) changed on both sides: ` +
+      message: `pull refused — ${conflicts.length} unit(s) changed on both sides: ` +
         `${conflicts.join(', ')}. Resolve locally or re-run with --force (remote wins).`,
     }
   }
-
-  // Everything remote wants to write down: remote-only fields, plus (under force)
-  // both-conflict fields where remote wins.
-  const pullFields = fields.filter((f) => f.pullable)
-  const fieldValues = {}
-  for (const f of pullFields) fieldValues[f.field] = remote[f.field]
-
-  const { patch, applied, deferred } = frontmatterPatchFor(fieldValues, config)
 
   // --force overwrites local edits — back the local side up first.
   let backupPath = null
@@ -57,14 +63,35 @@ async function pull({ dir, snapshotDir, identifier, projectId, adapter, config, 
     backupPath = backup('local', dir, identifier, config, { timestamp, data: local })
   }
 
-  // Apply frontmatter-mapped fields + stamp the sync.
+  // Keyed body fields (e.g. milestones) — apply per-item via the denormalizer,
+  // which writes/creates the matching phase files. Removals are report-only.
+  const keyedApplied = []
+  const keyedCreated = []
+  const keyedReported = []
+  for (const f of fields) {
+    if (!f.keyed) continue
+    const res = applyMilestonesPull(snapshotDir, f.items) // milestones (only keyed field today)
+    if (res.applied.length || res.created.length) keyedApplied.push(f.field)
+    keyedCreated.push(...res.created)
+    keyedReported.push(...res.reported.map((id) => `${f.field}#${id}`))
+  }
+
+  // Scalar pull-owned fields → frontmatter (keyed fields handled above).
+  const scalarPull = fields.filter((f) => f.pullable && !f.keyed)
+  const fieldValues = {}
+  for (const f of scalarPull) fieldValues[f.field] = remote[f.field]
+  const { patch, applied, deferred } = frontmatterPatchFor(fieldValues, config)
+
   if (applied.length || timestamp) {
     writeFrontmatter(snapshotDir, config, { ...patch, last_synced_at: timestamp })
   }
 
-  // Advance base only for reconciled fields; deferred (body) fields keep the
-  // local value as base so the remote edit stays pending, not marked synced.
-  const newBase = { ...local }
+  // Re-normalize local so the base reflects the phase-file writes we just made,
+  // then advance base: scalar-applied fields take the remote value; keyed fields
+  // take the (now-updated) local value so applied items read in-sync and any
+  // report-only removal stays pending.
+  const newLocal = normalizeLocal(snapshotDir, config)
+  const newBase = { ...newLocal }
   for (const field of applied) newBase[field] = remote[field]
   newBase.__meta = { updatedAt: remoteRaw.updatedAt || null, syncedAt: timestamp }
   const basePath = writeBase(dir, identifier, config, newBase)
@@ -74,10 +101,13 @@ async function pull({ dir, snapshotDir, identifier, projectId, adapter, config, 
     blocked: false,
     applied,
     deferred,
+    keyedApplied,
+    keyedCreated,
+    keyedReported,
     conflictsForced: force ? conflicts : [],
     backupPath,
     basePath,
-    pulled: pullFields.map((f) => f.field),
+    pulled: [...scalarPull.map((f) => f.field), ...keyedApplied],
   }
 }
 

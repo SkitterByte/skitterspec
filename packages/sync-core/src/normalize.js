@@ -300,7 +300,12 @@ function normalizeRemote(project, config) {
     milestones: milestones.map((m) => ({
       id: m.id != null ? String(m.id) : null,
       name: m.name,
-      goal: (m.description != null ? m.description : '').trim(),
+      // A milestone's description mirrors the phase's `**Goal:**` line; strip the
+      // label so it hashes equal to the local goal (which readPhaseFiles already
+      // captures without it).
+      goal: (m.description != null ? m.description : '')
+        .replace(/^\s*\*\*Goal:\*\*\s*/, '')
+        .trim(),
     })),
     phaseBodies: milestones.map((m) => ({
       phase: m.name,

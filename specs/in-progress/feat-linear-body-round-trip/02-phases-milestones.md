@@ -24,19 +24,27 @@ item-application + live smoke).
       stripped when keyed, remote milestones normalized, a Linear milestone edit
       classifying as a per-item pullable change. Suite green (260).
 
-## Tasks — 2b (write-side) ⬜
+## Tasks — 2b (write-side) 🔄
 
-- [ ] `write.js`: add a **phase-file denormalizer** — apply a pulled milestone
-      edit (name→heading/title, goal→`**Goal:**` line) into the matching phase file
-      by `linear_milestone_id`; create a new phase file for a Linear-only milestone
-      (naming/numbering per Open question 2); stamp `linear_milestone_id` on newly
-      linked phases. Leave unrelated file content byte-untouched.
-- [ ] Wire `pull.js`/`push.js` to apply keyed milestone items (the Phase 1
-      deviation): push creates/updates milestones via the adapter, pull applies
-      edits via the denormalizer, removals report-only.
-- [ ] Tests: local phase edit → milestone update, milestone edit → phase-file
-      write, new milestone → new phase file, id-match across a rename. Then a
-      **live smoke** on team SKI. Typecheck + tests green.
+- [x] `write.js`: **phase-file denormalizer** — apply a pulled milestone edit
+      (name→heading/title, goal→`**Goal:**` line) into the matching phase file by
+      `linear_milestone_id`; create a new phase file for a Linear-only milestone;
+      stamp `linear_milestone_id`. Unrelated content byte-untouched.
+- [x] Wire `pull.js` to apply keyed milestone items via the denormalizer
+      (Linear→repo), re-normalize so the base goes in-sync, removals report-only;
+      add item-level conflict detection to pull **and** push (a same-item conflict
+      blocks). Normalize goal-label strip so goals hash-equal across the boundary.
+- [x] `cli-sync.js`: surface keyed applies/creates/removes in the pull summary.
+- [x] Tests: denormalizer unit (5) + pull integration (milestone edit → phase
+      file, removal reported, new milestone → new file) + **live pull smoke** on
+      team SKI (edited a milestone in Linear → pull → phase file updated → in
+      sync). Suite 268 green.
+- [ ] **Deferred — push-side milestone create/update (repo→Linear).** The offline
+      engine can't create Linear objects (that's the provider skill's MCP job, like
+      description writes); `push.js` guards keyed fields out of the scalar path and
+      the skill applies milestone creates/updates + stamps ids. Wire this into the
+      `/spec-push` SKILL.md (+ optional `spec-sync push` plan output) — tracked as
+      the remaining Phase 2 task.
 
 ## Notes
 

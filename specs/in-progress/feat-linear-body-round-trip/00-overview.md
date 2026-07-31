@@ -118,6 +118,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   12 keyed fixtures + config tests; suite 256 green. **Deviation:** pull/push
   item-*application* moved to Phase 2 (inseparable from the adapter/denormalizer);
   Phase 1 exposes per-item outcomes for Phase 2 to consume.
+- 2026-07-30 — Phase 2b (write-side, pull direction) done: `write.js` phase-file
+  denormalizer, `pull.js` applies keyed milestone edits into phase files + creates
+  new ones + reports removals, item-level conflict detection in pull/push, goal
+  label-strip for hash-equality, CLI surfaces keyed applies. Denormalizer +
+  pull-integration fixtures and a **live pull smoke** (edited a milestone in
+  Linear → pull → phase file updated → in sync). Suite 268 green. **Deferred:**
+  push-side milestone create/update (repo→Linear) — a provider-skill MCP step, not
+  the offline engine; the remaining Phase 2 task.
 - 2026-07-30 — Phase 2a (read-model) done: milestones normalize to keyed
   `{id,name,goal}` from phase-file frontmatter/titles (local) and Linear milestones
   (remote); `buildDescription` strips `Phases` when keyed; adapter gains
