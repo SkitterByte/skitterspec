@@ -12,6 +12,45 @@ npx @skitterbyte/skitterspec-linear init
 
 Install **this OR the base**, never both — this package contains the entire base.
 
+## Quick start
+
+Get sync working in four steps (the scaffolded `specs/.core/SETUP.md` is the
+fuller guide):
+
+1. **Install** into your repo:
+
+   ```sh
+   npx @skitterbyte/skitterspec-linear init
+   ```
+
+2. **Connect the Linear MCP server** (once per machine) — the skills talk to
+   Linear over MCP, so this is the prerequisite people miss:
+
+   ```sh
+   claude mcp add --transport http linear https://mcp.linear.app/mcp
+   ```
+
+   Then, in Claude Code, run `/mcp` → select **linear** → **Authenticate** (a
+   browser opens; pick your workspace). A freshly added server only shows up after
+   Claude Code restarts — relaunch with `claude --continue` if you don't see it.
+   Verify with `claude mcp list` (want `linear … ✓`).
+
+3. **Configure** — copy the scaffolded example and fill in your team id (ask
+   Claude "list my Linear teams" once connected to get it):
+
+   ```jsonc
+   // specs/.core/linear.config.json
+   { "linear": { "teamId": "<your-team-uuid>" } }
+   ```
+
+   That file is the opt-in gate — until it exists, everything below is inert and
+   the package behaves exactly like the base.
+
+4. **Link and sync** — `/spec` now creates a linked Linear Project (a Milestone
+   per phase) and stamps the id; then `/spec-status`, `/spec-pull`, `/spec-push`
+   keep the spec and its project in step. Optionally turn on the per-Milestone /
+   per-Issue **body round-trip** (see below).
+
 ## What the superset adds
 
 On top of the base skills (`/spec`, `/spec-go`, isolation, …):
