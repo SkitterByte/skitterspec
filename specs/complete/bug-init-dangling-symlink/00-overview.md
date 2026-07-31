@@ -1,7 +1,16 @@
+---
+linear_project_id: "0d24df5c-e999-4474-992a-f721972000d7"
+linear_identifier: "SKI-init-symlink"
+linear_url: "https://linear.app/skitterspec/project/bug-init-crashes-on-a-dangling-symlink-target-14858dcdb93d"
+spec_status: "complete"
+last_synced_at: "2026-07-31T14:20:26.629Z"
+priority: 0
+---
+
 # Bug: init crashes on a dangling symlink target
 
 > **Type:** Bug
-> **Status:** In Progress — fixed (green)
+> **Status:** Complete (2026-07-31)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-07-31
@@ -54,6 +63,7 @@ and leaves a real file with the bundled rule content. Run:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-07-31 | In Progress | in-progress | Reuben Greaves |
+| 2026-07-31 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -61,3 +71,5 @@ and leaves a real file with the bundled rule content. Run:
   test added in init.test.js (red).
 - 2026-07-31 — Fixed: `writeFile` replaces a dangling symlink with a real file;
   test green, suite 283/283.
+- 2026-07-31 — Linked to Linear (dogfood) and completed; all Fix tasks done,
+  bug test + suite green (283/283).
