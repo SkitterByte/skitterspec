@@ -176,6 +176,9 @@ function printSyncResult(kind, result) {
       }
     } else {
       if (result.written && result.written.length) out.push(`  written:   ${result.written.join(', ')}`)
+      const mp = result.milestonesPush
+      if (mp && mp.create.length) out.push(`  milestones create: ${mp.create.map((m) => m.name).join(', ')} (skill applies via MCP)`)
+      if (mp && mp.update.length) out.push(`  milestones update: ${mp.update.map((m) => m.id).join(', ')} (skill applies via MCP)`)
       if (result.skipped && result.skipped.length) out.push(`  skipped:   ${result.skipped.join(', ')} (not pushable)`)
       if (result.note) out.push(`  ${result.note}`)
     }

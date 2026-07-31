@@ -91,7 +91,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Per-item (id-keyed) three-way merge in sync-core | ✅ | [01-keyed-merge-engine.md](01-keyed-merge-engine.md) |
-| 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | 🔄 | [02-phases-milestones.md](02-phases-milestones.md) |
+| 2 | Phases ↔ Milestones round-trip + phase-file denormalizer | ✅ | [02-phases-milestones.md](02-phases-milestones.md) |
 | 3 | Tasks ↔ Issues round-trip (inline ids, binary done-state) | ⬜ | [03-tasks-issues.md](03-tasks-issues.md) |
 | 4 | Opt-in config, deletion-divergence reporting, docs | ⬜ | [04-enablement-and-docs.md](04-enablement-and-docs.md) |
 
@@ -118,6 +118,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   12 keyed fixtures + config tests; suite 256 green. **Deviation:** pull/push
   item-*application* moved to Phase 2 (inseparable from the adapter/denormalizer);
   Phase 1 exposes per-item outcomes for Phase 2 to consume.
+- 2026-07-31 — Phase 2 **complete** (push-side): `push.js` emits a `milestonesPush`
+  create/update plan the `/spec-push` skill applies via `save_milestone` (stamping
+  new ids; base self-heals). 3 push-plan fixtures + a live push smoke (local goal
+  edit → plan → Linear milestone updated → in sync). Full bidirectional milestone
+  round-trip works. Suite 271 green.
 - 2026-07-30 — Phase 2b (write-side, pull direction) done: `write.js` phase-file
   denormalizer, `pull.js` applies keyed milestone edits into phase files + creates
   new ones + reports removals, item-level conflict detection in pull/push, goal

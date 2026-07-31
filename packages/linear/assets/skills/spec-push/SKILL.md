@@ -47,6 +47,18 @@ tool with that field's local value (e.g. `description` → the project descripti
 The engine has already vetted the change and moved the base — so if a Linear
 write fails, re-run `/spec-pull` to reconcile rather than retrying blindly.
 
+**Milestones (`milestonesPush` in the result).** When milestones are keyed, the
+engine can't write them itself — apply the plan over MCP:
+
+- `update`: for each `{ id, name, goal }`, call the milestone-save tool with that
+  `id` (name → milestone name, goal → its description).
+- `create`: for each `{ name, goal }`, call the milestone-save tool with no id to
+  create it under the project, then **stamp the returned milestone id** into the
+  matching phase file's frontmatter (`linear_milestone_id`) so it links on the
+  next sync. Match the phase file by its title.
+
+Progress is Linear-derived — never push it.
+
 ## 5. Report
 
 Relay the git-like summary (written / skipped / backup / base) plus which Linear

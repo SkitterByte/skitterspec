@@ -22,6 +22,9 @@ const PROJECT_ID = 'proj_1'
 
 function config() {
   const c = neutralConfig()
+  delete c.sync.fieldOwnership.phaseBodies
+  delete c.sync.fieldOwnership.acceptanceCriteria
+  delete c.sync.fieldOwnership.taskBreakdown
   c.sync.keyedFields = { milestones: 'id' }
   return c
 }

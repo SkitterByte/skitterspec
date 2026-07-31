@@ -1,6 +1,6 @@
-# Phase 2 — Phases ↔ Milestones round-trip + phase-file denormalizer 🔄
+# Phase 2 — Phases ↔ Milestones round-trip + phase-file denormalizer ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress (2a done, 2b next)
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** editing a phase locally pushes to its Linear Milestone, and a Milestone
 edit in Linear pulls back into the right phase file — proven by fixtures and a live
@@ -24,7 +24,7 @@ item-application + live smoke).
       stripped when keyed, remote milestones normalized, a Linear milestone edit
       classifying as a per-item pullable change. Suite green (260).
 
-## Tasks — 2b (write-side) 🔄
+## Tasks — 2b (write-side) ✅
 
 - [x] `write.js`: **phase-file denormalizer** — apply a pulled milestone edit
       (name→heading/title, goal→`**Goal:**` line) into the matching phase file by
@@ -39,12 +39,12 @@ item-application + live smoke).
       file, removal reported, new milestone → new file) + **live pull smoke** on
       team SKI (edited a milestone in Linear → pull → phase file updated → in
       sync). Suite 268 green.
-- [ ] **Deferred — push-side milestone create/update (repo→Linear).** The offline
-      engine can't create Linear objects (that's the provider skill's MCP job, like
-      description writes); `push.js` guards keyed fields out of the scalar path and
-      the skill applies milestone creates/updates + stamps ids. Wire this into the
-      `/spec-push` SKILL.md (+ optional `spec-sync push` plan output) — tracked as
-      the remaining Phase 2 task.
+- [x] **Push-side milestone create/update (repo→Linear).** `push.js` emits a
+      `milestonesPush` plan (create/update) — the offline engine can't write Linear
+      objects, so the `/spec-push` skill applies it via `save_milestone` and stamps
+      new ids; base self-heals (id:null items converge once stamped). 3 push-plan
+      fixtures + a **live push smoke** (local goal edit → plan → save_milestone →
+      Linear updated → in sync). Suite 271 green.
 
 ## Notes
 

@@ -58,12 +58,31 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
     }
   }
 
-  // Scalar push only. Keyed body fields (milestones/issues) push through the
-  // provider skill's MCP writes, not the offline engine adapter — the engine
-  // blesses the merge; the skill creates/updates the Linear objects and stamps
-  // ids. (Tracked as the remaining Phase 2 write-side task.)
+  // Scalar push goes through the project adapter here. Keyed body fields
+  // (milestones) can't be written by the offline engine — the provider skill does
+  // the MCP create/update and stamps new ids — so the engine emits a *plan* the
+  // skill applies. The base still advances to local (below): a created milestone's
+  // id:null item is skipped by the keyed compare until the skill stamps it, then
+  // it converges on the next sync, so no special base handling is needed.
   const pushFields = fields.filter((f) => f.pushable && !f.keyed)
-  if (!pushFields.length && !force) {
+  const milestonesPush = { create: [], update: [] }
+  for (const f of fields) {
+    if (!f.keyed) continue
+    // Edits to already-linked items (matched by id) → update.
+    for (const it of f.items) {
+      if (!it.pushable || !it.local) continue
+      if (it.status !== 'added') milestonesPush.update.push({ id: it.id, name: it.local.name, goal: it.local.goal })
+    }
+    // Unlinked local items (no id yet) are new content to create; the keyed
+    // compare skips them (nothing to key on), so collect them straight from local.
+    const localItems = Array.isArray(local[f.field]) ? local[f.field] : []
+    for (const li of localItems) {
+      if (li && li[f.idKey] == null && li.name) milestonesPush.create.push({ name: li.name, goal: li.goal })
+    }
+  }
+  const hasKeyedPush = milestonesPush.create.length > 0 || milestonesPush.update.length > 0
+
+  if (!pushFields.length && !hasKeyedPush && !force) {
     return { ok: true, blocked: false, written: [], skipped: [], note: 'nothing to push' }
   }
 
@@ -86,7 +105,9 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
 
   const updates = {}
   for (const f of pushFields) updates[f.field] = local[f.field]
-  const updated = (await adapter.updateProject(projectId, updates)) || remoteRaw2 || remoteRaw
+  const updated = Object.keys(updates).length
+    ? (await adapter.updateProject(projectId, updates)) || remoteRaw2 || remoteRaw
+    : remoteRaw2 || remoteRaw
   const updatedRemote = normalizeRemote(updated, config)
 
   // Reconciled base: local is the source of truth for the fields we pushed (and
@@ -105,8 +126,11 @@ async function push({ dir, snapshotDir, identifier, projectId, adapter, config, 
     ok: true,
     blocked: false,
     written: pushFields.map((f) => f.field),
+    // The skill applies these Linear milestone writes (create → stamp the new id
+    // into the phase file; update → save_milestone by id). Omitted when empty.
+    ...(hasKeyedPush ? { milestonesPush } : {}),
     skipped: fields
-      .filter((f) => !f.pushable && f.status !== 'unchanged')
+      .filter((f) => !f.pushable && !f.keyed && f.status !== 'unchanged')
       .map((f) => f.field),
     backupPath,
     basePath,
