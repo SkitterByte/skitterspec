@@ -2,13 +2,13 @@
 linear_project_id: "4590efe4-001d-4608-932a-4b345c948a96"
 linear_identifier: "SKI-safer-init"
 linear_url: "https://linear.app/skitterspec/project/safer-init-detect-existing-setup-offer-resync-reset-leave-27057035fe49"
-spec_status: "backlog"
+spec_status: "complete"
 ---
 
 # Safer init: detect existing setup, offer resync / reset / leave
 
 > **Type:** Feature
-> **Status:** In Progress — all phases done, ready for /spec-complete
+> **Status:** Complete (2026-08-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-03
@@ -89,10 +89,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] Whether to migrate repos that predate the manifest (no manifest file yet):
-      on first resync, treat all present managed files as `customized` (safe —
-      keeps them) and write the manifest from the current bundled hashes. Confirm
-      in Phase 1.
+- [x] Pre-manifest migration — **resolved (Phase 1):** a repo with no manifest
+      re-seeds from bundled hashes and treats existing files as `customized`
+      (kept), so the first resync is non-destructive.
 
 ## State log
 
@@ -100,6 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-03 | Ready | backlog | Reuben Greaves |
 | 2026-08-03 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-03 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -109,6 +109,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   .json`) of managed-file hashes, recorded on write + flushed each run (with
   pre-manifest migration); `managedState` classifier + `managedTargets`. 4 fixtures;
   suite 287 green.
+- 2026-08-03 — Completed; all 3 phases done, tests green (297/297), CLI
+  live-smoked. Resolved Open question: pre-manifest migration ships (seed from
+  bundled, treat as customized).
 - 2026-08-03 — Phase 3 done: `init` detects an existing setup and offers
   resync/reset/leave (interactive prompt or `--resync`/`--reset` flags; `--reset`
   needs `--yes`); non-interactive default stays create-missing; `update` → resync;
