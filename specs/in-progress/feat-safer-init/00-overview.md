@@ -8,9 +8,9 @@ spec_status: "backlog"
 # Safer init: detect existing setup, offer resync / reset / leave
 
 > **Type:** Feature
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-08-03)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-03
 > **Area:** packages/common/src/init.js, packages/common/src/cli.js, packages/common/src/prompts.js, packages/common/assets/skills/spec-init/SKILL.md
 > **Stack:** worktree
@@ -99,6 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-03 | Ready | backlog | Reuben Greaves |
+| 2026-08-03 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
