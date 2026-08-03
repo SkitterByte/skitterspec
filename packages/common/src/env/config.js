@@ -28,7 +28,9 @@
  *     registry: ".spec-env/registry.json",
  *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
  *     baseBranch: "",          // "" = auto-detect (origin/HEAD → main → master)
- *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed }
+ *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed },
+ *     live:     { migrations: [ "glob", ... ] }  // migration globs → `live take`
+ *               // refuses a branch that changes them (code-only v1)
  *   }
  */
 
@@ -74,6 +76,10 @@ const DEFAULT_CONFIG = Object.freeze({
   // Integration base branch. Empty = auto-detect (origin/HEAD → main → master).
   baseBranch: '',
   guards: Object.freeze({ refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true }),
+  // Live overlay (`spec-env live`). `migrations` is a list of globs marking
+  // migration files; a branch that changes any of them is treated as stateful and
+  // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
+  live: Object.freeze({ migrations: Object.freeze([]) }),
 })
 
 function isObject(value) {
@@ -94,6 +100,7 @@ function defaults() {
     branch: { ...DEFAULT_CONFIG.branch },
     baseBranch: DEFAULT_CONFIG.baseBranch,
     guards: { ...DEFAULT_CONFIG.guards },
+    live: { migrations: [] },
   }
 }
 
@@ -235,6 +242,10 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.guards)) {
     assign(base.guards, parsed.guards, 'refuseTeardownIfDirty', 'boolean')
     assign(base.guards, parsed.guards, 'refuseTeardownIfUnpushed', 'boolean')
+  }
+
+  if (isObject(parsed.live) && Array.isArray(parsed.live.migrations)) {
+    base.live.migrations = normalizeFileList(parsed.live.migrations)
   }
 
   return base

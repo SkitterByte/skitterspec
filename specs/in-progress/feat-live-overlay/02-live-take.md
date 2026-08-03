@@ -1,6 +1,6 @@
-# Phase 2 — `live take` + `/spec-live` (take/status) ⬜
+# Phase 2 — `live take` + `/spec-live` (take/status) ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `spec-env live take <spec>` brings a code-only spec live on the running
 instance via branch-switch, guarded and refusing stateful specs. Ship the
@@ -9,33 +9,34 @@ path and every refusal.
 
 ## Tasks
 
-- [ ] Add `planTake(spec, config, gitState)` to `env/live.js` — pure; given the
-      resolved spec, config, and probed git/health state, return the ordered
-      command plan + the receipt to write, or a structured refusal. Preconditions:
-      primary on base (guard), primary clean, spec resolves to a branch + worktree.
-- [ ] Enforce the v1 stateful refusal: refuse if the spec's `Stack` is
-      `worktree + docker` (reuse `readStackField`), and — when `env.config`
-      declares a `migrations.glob` — if `git diff base...branch --name-only` hits
-      it. Refusal message points at `/spec-connect`.
-- [ ] Emit the take plan: `git -C <worktree> rebase <base>` (on conflict: abort
-      and tell the user to resolve in the worktree, leave state untouched) →
-      `git -C <worktree> switch --detach` → `git -C <primary> checkout <branch>` →
-      write receipt (`baseMainCommit` = primary HEAD before switch, `holder`,
-      `heldSince` passed in — no `Date.now()` in planners).
-- [ ] Verify-only dev process: before switching, poll health on the canonical
-      ports (reuse `dev.js` / `supervise.js` health helpers); refuse if nothing is
-      listening ("start your dev server / `spec-env dev up` first"). After switch,
-      if `git diff --name-only` includes the lockfile/manifest, print a
-      **warn**: "dependencies changed — restart your dev server". No auto-restart.
-- [ ] Implement `specEnvLive` `take` in `cli.js` (execute/print the plan per the
-      seam pattern; write the receipt).
-- [ ] Create the skill `packages/common/assets/skills/spec-live/SKILL.md` —
-      `/spec-live <spec>` runs `skitterspec spec-env live take <spec>` and the
-      printed commands; document the guard, the stateful refusal, and the
-      restart warning. Include `status` usage.
-- [ ] Add tests: extend `env-live.test.js` for `planTake` (happy path + each
-      refusal: not-on-base, dirty, docker spec, migration-touching diff, no server)
-      and `cli-spec-env-live.test.js` for the `take` wiring. `pnpm test` green.
+- [x] Add `planTake(spec, config, ctx)` to `env/live.js` — pure; given the
+      resolved spec and probed git/health state, returns the ordered command plan +
+      the receipt to write, or a structured refusal. Preconditions: primary on base
+      (guard), primary clean, spec resolves to a branch + worktree.
+- [x] Enforce the v1 stateful refusal: refuse if the spec's `Stack` is
+      `worktree + docker` (`spec.stack === 'docker'`), and — when `env.config`
+      declares `live.migrations` globs — if `git diff base...branch --name-only`
+      hits them (`globToRegExp`/`migrationsHit`, dependency-free). Both point at
+      `/spec-connect`. Added the `live.migrations` field to `env/config.js`.
+- [x] Emit the take plan: `git -C <worktree> rebase <base>` (CLI aborts the rebase
+      and bails on conflict, state untouched) → `git -C <worktree> switch --detach`
+      → `git -C <primary> checkout <branch>` → write receipt (`baseMainCommit` =
+      primary HEAD before switch; `holder`/`heldSince` injected by the CLI, no
+      `Date.now()` in the planner).
+- [x] Verify-only dev process: probe the declared canonical (`frontPort`) ports
+      with `portsInUse`; refuse if declared-but-not-listening. None declared →
+      `serverUp = null`, switch proceeds with a warning. If `git diff` touches a
+      lockfile/manifest, **warn** "restart your dev server". No auto-restart.
+- [x] Implement `specEnvLive` `take` in `cli.js` (async; probes git/ports, calls
+      `planTake`, executes the switch with a `runGit` helper, writes the receipt).
+- [x] Create `packages/common/assets/skills/spec-live/SKILL.md` — `/spec-live
+      <spec>` takes, `status` shows who's live; documents the guard, the stateful
+      refusal, the conflict/restart cases. Kept project-agnostic (no `pnpm`).
+- [x] Add tests: `env-live.test.js` (`planTake` happy + not-on-base/dirty/no-
+      worktree/docker/migrations/no-server refusals + warnings; glob matching),
+      `cli-spec-env-live.test.js` (live-git `take` end-to-end + second-take
+      refusal), `env-config.test.js` (`live.migrations` parse). `pnpm test` green —
+      358 pass, 0 fail.
 
 ## Notes
 

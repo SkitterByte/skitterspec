@@ -231,3 +231,15 @@ test('merging does not mutate DEFAULT_CONFIG', () => {
   loadEnvConfig(dir)
   assert.strictEqual(DEFAULT_CONFIG.docker.portBase, 3000)
 })
+
+test('live.migrations defaults to [] and normalizes a parsed glob list', () => {
+  const dir = tmpDir()
+  const { config: def } = loadEnvConfig(dir)
+  assert.deepStrictEqual(def.live.migrations, [])
+  assert.deepStrictEqual(DEFAULT_CONFIG.live.migrations, [])
+
+  writeEnvConfig(dir, { live: { migrations: ['**/migrations/**', '  ', 'prisma/**'] } })
+  const { config } = loadEnvConfig(dir)
+  // trimmed, non-empty strings only (lenient, like the other list fields)
+  assert.deepStrictEqual(config.live.migrations, ['**/migrations/**', 'prisma/**'])
+})

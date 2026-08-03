@@ -26,7 +26,13 @@ const {
   expandTokens,
   splitPrefix,
 } = require('./env/resolve.js')
-const { readReceipt, summarizeReceipt } = require('./env/live.js')
+const {
+  readReceipt,
+  writeReceipt,
+  summarizeReceipt,
+  migrationsHit,
+  planTake,
+} = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
@@ -600,20 +606,137 @@ async function specEnvConnect(dir, config, specArg) {
 
 // Dispatch `skitterspec spec-env <sub> [args] [--dir path]`. No-ops with a clear
 // message when the feature isn't enabled (no specs/.core/env.config.json).
+// Run a mutating git command; return { ok, err } (stderr captured, not swallowed).
+function runGit(cwd, args) {
+  try {
+    execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
+    return { ok: true, err: '' }
+  } catch (error) {
+    const err = (error.stderr && error.stderr.toString().trim()) || error.message
+    return { ok: false, err }
+  }
+}
+
+// Lockfiles/manifests whose change means a dev server needs a restart, not HMR.
+const DEPS_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$/
+
 // Live overlay: test a spec on the already-running instance by checking its
 // branch out in the primary checkout, so the running dev server hot-reloads the
 // feature. The branch that's checked out IS the lock (assertPrimaryOnMain); the
-// receipt is advisory metadata. Phase 1 ships the read-only `status`;
-// take/release/abort land in later phases.
-function specEnvLive(dir, config, positional) {
+// receipt is advisory metadata. `status` is read-only; `take` performs the switch
+// (release/abort land in a later phase).
+async function specEnvLive(dir, config, positional) {
   const action = positional[0] || 'status'
   switch (action) {
     case 'status':
       specEnvLiveStatus(dir, config)
       break
+    case 'take':
+      await specEnvLiveTake(dir, config, positional[1])
+      break
     default:
-      process.stdout.write('Usage: skitterspec spec-env live <status>\n')
+      process.stdout.write('Usage: skitterspec spec-env live <take|status> [spec]\n')
   }
+}
+
+// Take the running instance: rebase the spec's branch onto base, free it from its
+// worktree, and check it out in the primary checkout so the dev server reloads it.
+async function specEnvLiveTake(dir, config, specArg) {
+  if (!specArg) {
+    process.stdout.write('Usage: skitterspec spec-env live take <spec>\n')
+    return
+  }
+
+  // A spec authored on its own branch may not exist in the primary checkout's
+  // specs/** — offer its worktree as a fallback search dir, like integrate.
+  const { slug } = splitPrefix(path.basename(specArg))
+  const { repo, repoSlug } = repoInfo(dir)
+  const wtTokens = { repo, repoSlug, slug }
+  const worktreeGuess = path.resolve(
+    dir,
+    expandTokens(config.worktree.root, wtTokens),
+    expandTokens(config.worktree.folderPattern, wtTokens),
+  )
+  const spec = resolveSpec(specArg, dir, config, { searchDirs: [worktreeGuess] })
+
+  // Probe the primary checkout's git state (IO stays here; the planner is pure).
+  const primaryGit = gitReader(dir)
+  const primary = assertPrimaryOnMain(config, primaryGit)
+  const base = resolveBaseBranch(config, primaryGit)
+  const status = primaryGit(['status', '--porcelain'])
+  const clean = status !== null && status.length === 0
+  const worktreeExists = fs.existsSync(spec.worktreePath)
+  const baseMainCommit = primaryGit(['rev-parse', 'HEAD'])
+
+  // Diff base...branch to spot migration / dependency changes (best-effort).
+  const changed = primaryGit(['diff', '--name-only', `${base}...${spec.branch}`])
+  const files = changed ? changed.split('\n').filter(Boolean) : []
+  const depsChanged = files.some((f) => DEPS_RE.test(f))
+
+  // Verify-only: probe the declared canonical (frontPort) ports. None declared →
+  // no health gate (serverUp = null); the switch proceeds with a warning.
+  const canonicalPorts = config.dev.map((d) => d.frontPort).filter((p) => typeof p === 'number')
+  let serverUp = null
+  if (canonicalPorts.length) {
+    const up = await portsInUse(canonicalPorts, config.proxy.host)
+    serverUp = up.length === canonicalPorts.length
+  }
+
+  const plan = planTake(spec, config, {
+    primary,
+    primaryPath: dir,
+    clean,
+    worktreeExists,
+    base,
+    baseMainCommit,
+    serverUp,
+    canonicalPorts,
+    migrationsHit: migrationsHit(files, config.live.migrations),
+    depsChanged,
+    holder: primaryGit(['config', 'user.name']) || 'unknown',
+    heldSince: new Date().toISOString(),
+  })
+
+  if (plan.blocked) {
+    process.stdout.write(`spec-env live take: blocked — ${plan.reason}.\n`)
+    return
+  }
+
+  // Execute the switch. Rebase first; on conflict, abort and bail (state untouched).
+  const reb = runGit(spec.worktreePath, ['rebase', base])
+  if (!reb.ok) {
+    runGit(spec.worktreePath, ['rebase', '--abort'])
+    process.stdout.write(
+      `spec-env live take: rebase of ${spec.branch} onto ${base} hit conflicts — ` +
+        `resolve them in ${spec.worktreePath}, then retry.\n`,
+    )
+    return
+  }
+  const det = runGit(spec.worktreePath, ['switch', '--detach'])
+  if (!det.ok) {
+    process.stdout.write(`spec-env live take: could not detach the worktree — ${det.err}\n`)
+    return
+  }
+  const co = runGit(dir, ['checkout', spec.branch])
+  if (!co.ok) {
+    // Roll the detach back so the worktree keeps its branch.
+    runGit(spec.worktreePath, ['switch', spec.branch])
+    process.stdout.write(
+      `spec-env live take: could not check out ${spec.branch} in the primary ` +
+        `checkout — ${co.err}\n`,
+    )
+    return
+  }
+  const receipt = writeReceipt(dir, config, plan.receipt)
+
+  const out = [`spec-env live take: ${spec.folder} is live on the primary checkout`]
+  out.push('')
+  out.push(`  primary:   now on ${receipt.branch} (was ${base} @ ${receipt.baseMainCommit.slice(0, 7)})`)
+  out.push(`  worktree:  ${spec.worktreePath} (detached — branch handed to the primary checkout)`)
+  for (const w of plan.warnings) out.push(`  ! ${w}`)
+  out.push('')
+  out.push('  Test at your canonical URL; release with: /spec-live main')
+  process.stdout.write(out.join('\n') + '\n')
 }
 
 function specEnvLiveStatus(dir, config) {
@@ -677,7 +800,7 @@ async function specEnv(rest) {
       specEnvResolve(dir, config, positional[0])
       break
     case 'live':
-      specEnvLive(dir, config, positional)
+      await specEnvLive(dir, config, positional)
       break
     default:
       process.stdout.write(

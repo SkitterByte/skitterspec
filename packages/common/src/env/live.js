@@ -85,6 +85,148 @@ function summarizeReceipt(receipt) {
   )
 }
 
+// --- stateful detection (glob matching) -----------------------------------
+
+// Translate a restricted glob into an anchored RegExp: `**` matches across path
+// separators (with an optional trailing `/`), `*` matches within a segment, `?`
+// a single non-separator char. Enough for migration-path globs, no dependency.
+function globToRegExp(glob) {
+  let re = ''
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i]
+    if (ch === '*') {
+      if (glob[i + 1] === '*') {
+        re += '.*'
+        i++
+        if (glob[i + 1] === '/') i++ // consume the `/` in `**/`
+      } else {
+        re += '[^/]*'
+      }
+    } else if (ch === '?') {
+      re += '[^/]'
+    } else if ('.+^${}()|[]\\/'.includes(ch)) {
+      re += '\\' + ch
+    } else {
+      re += ch
+    }
+  }
+  return new RegExp('^' + re + '$')
+}
+
+// True when any file path matches any of the migration globs. Empty patterns or
+// no files → false (nothing configured / nothing changed).
+function migrationsHit(files, patterns) {
+  if (!Array.isArray(files) || !files.length) return false
+  if (!Array.isArray(patterns) || !patterns.length) return false
+  const res = patterns.map(globToRegExp)
+  return files.some((f) => res.some((r) => r.test(f)))
+}
+
+// --- take planner ---------------------------------------------------------
+
+/**
+ * Pure planner for `spec-env live take`. Validates the preconditions for putting
+ * a spec live on the running instance by branch-switch, and returns either a
+ * structured refusal or the ordered git steps + the receipt to write. All git /
+ * port state is probed by the CLI and passed in `ctx`, keeping this deterministic
+ * and unit-testable with no live git.
+ *
+ * ctx:
+ *   primary        { onBase, branch, baseBranch } — the guard result for the primary checkout
+ *   primaryPath    absolute path of the primary checkout (the checkout target)
+ *   clean          boolean — primary checkout working tree is clean
+ *   worktreeExists boolean — the spec's worktree is on disk
+ *   base           resolved base branch name (rebase target)
+ *   baseMainCommit primary HEAD before the switch (receipt / crash recovery)
+ *   serverUp       true | false | null — null = no canonical ports declared → no gate
+ *   canonicalPorts number[] — declared canonical (frontPort) ports, for messages
+ *   migrationsHit  boolean — the branch diff touches configured migration globs
+ *   depsChanged    boolean — the branch diff touches a lockfile/manifest (→ warn)
+ *   holder,heldSince receipt provenance (injected by the CLI; no Date.now here)
+ *
+ * @returns {object} { blocked, reason, commands, warnings, receipt, base, branch, worktreePath }
+ */
+function planTake(spec, config, ctx) {
+  const c = ctx || {}
+  const branch = spec.branch
+  const base = c.base
+  const result = {
+    blocked: false,
+    reason: null,
+    commands: [],
+    warnings: [],
+    receipt: null,
+    base,
+    branch,
+    worktreePath: spec.worktreePath,
+  }
+  const block = (reason) => ({ ...result, blocked: true, reason })
+
+  // 1. The lock: the primary checkout must be on base (free). Off-base → a spec
+  //    (or you) already holds the live instance.
+  if (!c.primary || !c.primary.onBase) {
+    const on = c.primary && c.primary.branch ? c.primary.branch : '(detached)'
+    return block(
+      `primary checkout is on ${on}, not ${base} — a spec already holds the live ` +
+        'instance; release it with `/spec-live main` first',
+    )
+  }
+  // 2. Never switch a dirty tree — the checkout is reset back to base on release.
+  if (!c.clean) {
+    return block('primary checkout has uncommitted changes — commit or stash them first')
+  }
+  // 3. Need a worktree holding the branch to detach and hand over.
+  if (!c.worktreeExists) {
+    return block(`${spec.folder} has no worktree — run \`/spec-go ${spec.folder}\` first`)
+  }
+  // 4. v1 is code-only: refuse a stateful spec (Stack: worktree + docker)…
+  if (spec.stack === 'docker') {
+    return block(
+      `${spec.folder} is stateful (Stack: worktree + docker) — live overlay is ` +
+        'code-only; use `/spec-connect` for a Docker-backed spec',
+    )
+  }
+  // 5. …and refuse a branch that changes migrations (would mutate the shared DB).
+  if (c.migrationsHit) {
+    return block(
+      `${spec.folder}'s branch changes migrations — live overlay is code-only; ` +
+        'use `/spec-connect`',
+    )
+  }
+  // 6. Verify-only: a dev server must be listening to hot-reload the switch.
+  if (c.serverUp === false) {
+    return block(
+      `no dev server listening on canonical port(s) ${(c.canonicalPorts || []).join(', ')} — ` +
+        'start your dev server (or `skitterspec spec-env dev up`) first',
+    )
+  }
+
+  const warnings = []
+  if (c.depsChanged) {
+    warnings.push('dependencies changed on this branch — restart your dev server after the switch')
+  }
+  if (c.serverUp === null) {
+    warnings.push('no canonical dev ports configured — nothing to hot-reload; switching anyway')
+  }
+
+  return {
+    ...result,
+    commands: [
+      `git -C ${spec.worktreePath} rebase ${base}`,
+      `git -C ${spec.worktreePath} switch --detach`,
+      `git -C ${c.primaryPath} checkout ${branch}`,
+    ],
+    warnings,
+    receipt: {
+      spec: spec.folder,
+      branch,
+      holder: c.holder,
+      heldSince: c.heldSince,
+      baseMainCommit: c.baseMainCommit,
+    },
+  }
+}
+
 module.exports = {
   receiptPath,
   renderReceipt,
@@ -92,4 +234,7 @@ module.exports = {
   writeReceipt,
   clearReceipt,
   summarizeReceipt,
+  globToRegExp,
+  migrationsHit,
+  planTake,
 }
