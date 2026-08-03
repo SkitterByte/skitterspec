@@ -29,9 +29,12 @@ const {
 const {
   readReceipt,
   writeReceipt,
+  clearReceipt,
   summarizeReceipt,
   migrationsHit,
   planTake,
+  planRelease,
+  planAbort,
 } = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
@@ -634,9 +637,29 @@ async function specEnvLive(dir, config, positional) {
     case 'take':
       await specEnvLiveTake(dir, config, positional[1])
       break
+    case 'release':
+      await specEnvLiveRelease(dir, config, positional[1])
+      break
+    case 'abort':
+      await specEnvLiveAbort(dir, config)
+      break
     default:
-      process.stdout.write('Usage: skitterspec spec-env live <take|status> [spec]\n')
+      process.stdout.write('Usage: skitterspec spec-env live <take|release|abort|status> [spec]\n')
   }
+}
+
+// Resolve a spec, offering its worktree as a fallback search dir — a spec authored
+// on its own branch may not exist in the primary checkout's specs/**.
+function resolveSpecWithWorktree(dir, config, specArg) {
+  const { slug } = splitPrefix(path.basename(specArg))
+  const { repo, repoSlug } = repoInfo(dir)
+  const wtTokens = { repo, repoSlug, slug }
+  const worktreeGuess = path.resolve(
+    dir,
+    expandTokens(config.worktree.root, wtTokens),
+    expandTokens(config.worktree.folderPattern, wtTokens),
+  )
+  return resolveSpec(specArg, dir, config, { searchDirs: [worktreeGuess] })
 }
 
 // Take the running instance: rebase the spec's branch onto base, free it from its
@@ -647,17 +670,7 @@ async function specEnvLiveTake(dir, config, specArg) {
     return
   }
 
-  // A spec authored on its own branch may not exist in the primary checkout's
-  // specs/** — offer its worktree as a fallback search dir, like integrate.
-  const { slug } = splitPrefix(path.basename(specArg))
-  const { repo, repoSlug } = repoInfo(dir)
-  const wtTokens = { repo, repoSlug, slug }
-  const worktreeGuess = path.resolve(
-    dir,
-    expandTokens(config.worktree.root, wtTokens),
-    expandTokens(config.worktree.folderPattern, wtTokens),
-  )
-  const spec = resolveSpec(specArg, dir, config, { searchDirs: [worktreeGuess] })
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
 
   // Probe the primary checkout's git state (IO stays here; the planner is pure).
   const primaryGit = gitReader(dir)
@@ -737,6 +750,120 @@ async function specEnvLiveTake(dir, config, specArg) {
   out.push('')
   out.push('  Test at your canonical URL; release with: /spec-live main')
   process.stdout.write(out.join('\n') + '\n')
+}
+
+// Release the running instance: hand the primary checkout back to base and
+// re-isolate the spec's branch into its worktree. With no spec arg, the live spec
+// is read from the receipt (this is what `/spec-live main` runs).
+async function specEnvLiveRelease(dir, config, specArg) {
+  const receipt = readReceipt(dir, config)
+  const target = specArg || (receipt && receipt.spec)
+  if (!target) {
+    const primaryGit = gitReader(dir)
+    const primary = assertPrimaryOnMain(config, primaryGit)
+    process.stdout.write(
+      primary.onBase
+        ? `spec-env live release: nothing is live — the primary checkout is on ${primary.baseBranch}.\n`
+        : `spec-env live release: no receipt, but the primary checkout is on ${primary.branch} — ` +
+            'use `spec-env live abort` to recover.\n',
+    )
+    return
+  }
+
+  const spec = resolveSpecWithWorktree(dir, config, target)
+  const primaryGit = gitReader(dir)
+  const primary = assertPrimaryOnMain(config, primaryGit)
+  const base = resolveBaseBranch(config, primaryGit)
+  const status = primaryGit(['status', '--porcelain'])
+  const clean = status !== null && status.length === 0
+  const worktreeExists = fs.existsSync(spec.worktreePath)
+
+  const plan = planRelease(spec, config, {
+    primary,
+    primaryPath: dir,
+    base,
+    clean,
+    worktreeExists,
+  })
+
+  if (plan.noop) {
+    process.stdout.write(`spec-env live release: ${plan.reason}.\n`)
+    return
+  }
+  if (plan.blocked) {
+    process.stdout.write(`spec-env live release: blocked — ${plan.reason}.\n`)
+    return
+  }
+
+  const co = runGit(dir, ['checkout', base])
+  if (!co.ok) {
+    process.stdout.write(`spec-env live release: could not check out ${base} — ${co.err}\n`)
+    return
+  }
+  if (worktreeExists) runGit(spec.worktreePath, ['switch', spec.branch])
+  clearReceipt(dir, config)
+
+  process.stdout.write(
+    `spec-env live release: ${spec.folder} released — primary back on ${base}, ` +
+      `${spec.branch} re-isolated to its worktree.\n`,
+  )
+}
+
+// Crash recovery: force the primary checkout back to base from the receipt and
+// re-isolate, without discarding uncommitted work (it refuses on a dirty tree).
+async function specEnvLiveAbort(dir, config) {
+  const receipt = readReceipt(dir, config)
+  const primaryGit = gitReader(dir)
+  const primary = assertPrimaryOnMain(config, primaryGit)
+  const base = resolveBaseBranch(config, primaryGit)
+  const status = primaryGit(['status', '--porcelain'])
+  const clean = status !== null && status.length === 0
+
+  // Resolve the worktree from the receipt (best-effort — may be gone/unresolvable).
+  let worktreePath = null
+  if (receipt) {
+    try {
+      worktreePath = resolveSpecWithWorktree(dir, config, receipt.spec).worktreePath
+    } catch {
+      worktreePath = null
+    }
+  }
+  const worktreeExists = worktreePath !== null && fs.existsSync(worktreePath)
+
+  const plan = planAbort(config, {
+    receipt,
+    primary,
+    primaryPath: dir,
+    base,
+    clean,
+    worktreeExists,
+    worktreePath,
+  })
+
+  if (plan.noop) {
+    process.stdout.write(`spec-env live abort: ${plan.reason}.\n`)
+    return
+  }
+  if (plan.blocked) {
+    process.stdout.write(`spec-env live abort: blocked — ${plan.reason}.\n`)
+    return
+  }
+
+  if (!primary.onBase) {
+    const co = runGit(dir, ['checkout', base])
+    if (!co.ok) {
+      process.stdout.write(`spec-env live abort: could not check out ${base} — ${co.err}\n`)
+      return
+    }
+  }
+  if (worktreeExists) runGit(worktreePath, ['switch', plan.branch])
+  clearReceipt(dir, config)
+
+  process.stdout.write(
+    `spec-env live abort: recovered — primary back on ${base}` +
+      (worktreeExists ? `, ${plan.branch} re-isolated to its worktree` : '') +
+      '.\n',
+  )
 }
 
 function specEnvLiveStatus(dir, config) {

@@ -16,6 +16,8 @@ const {
   globToRegExp,
   migrationsHit,
   planTake,
+  planRelease,
+  planAbort,
 } = require('../src/env/live.js')
 const { assertPrimaryOnMain } = require('../src/env/resolve.js')
 
@@ -195,4 +197,107 @@ test('planTake warns on a dependency change and on no configured dev ports', () 
   const noPorts = planTake(SPEC, {}, okCtx({ serverUp: null, canonicalPorts: [] }))
   assert.strictEqual(noPorts.blocked, false)
   assert.match(noPorts.warnings.join('\n'), /nothing to hot-reload/)
+})
+
+// --- planRelease ----------------------------------------------------------
+
+// A ctx where release proceeds: primary on the spec's branch, clean, worktree there.
+function relCtx(over = {}) {
+  return {
+    primary: { onBase: false, branch: 'feat/x', baseBranch: 'main' },
+    primaryPath: '/repo',
+    base: 'main',
+    clean: true,
+    worktreeExists: true,
+    ...over,
+  }
+}
+
+test('planRelease emits checkout base + re-isolate and clears the receipt', () => {
+  const plan = planRelease(SPEC, {}, relCtx())
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.noop, false)
+  assert.deepStrictEqual(plan.commands, [
+    'git -C /repo checkout main',
+    'git -C /wt/x switch feat/x',
+  ])
+  assert.strictEqual(plan.clears, true)
+})
+
+test('planRelease is a no-op when the primary checkout is already on base', () => {
+  const plan = planRelease(SPEC, {}, relCtx({ primary: { onBase: true, branch: 'main', baseBranch: 'main' } }))
+  assert.strictEqual(plan.noop, true)
+})
+
+test('planRelease refuses when a different spec holds the instance', () => {
+  const plan = planRelease(SPEC, {}, relCtx({ primary: { onBase: false, branch: 'feat/y', baseBranch: 'main' } }))
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /live spec is feat\/y/)
+})
+
+test('planRelease refuses a dirty primary checkout (fixes not committed)', () => {
+  const plan = planRelease(SPEC, {}, relCtx({ clean: false }))
+  assert.match(plan.reason, /commit your fixes to feat\/x first/)
+})
+
+test('planRelease omits the re-isolate step when the worktree is gone', () => {
+  const plan = planRelease(SPEC, {}, relCtx({ worktreeExists: false }))
+  assert.deepStrictEqual(plan.commands, ['git -C /repo checkout main'])
+})
+
+// --- planAbort ------------------------------------------------------------
+
+const RECEIPT = {
+  spec: 'feat-x',
+  branch: 'feat/x',
+  holder: 'Test',
+  heldSince: '2026-08-03T10:00:00Z',
+  baseMainCommit: 'abcdef1234567',
+}
+
+function abortCtx(over = {}) {
+  return {
+    receipt: RECEIPT,
+    primary: { onBase: false, branch: 'feat/x', baseBranch: 'main' },
+    primaryPath: '/repo',
+    base: 'main',
+    clean: true,
+    worktreeExists: true,
+    worktreePath: '/wt/x',
+    ...over,
+  }
+}
+
+test('planAbort recovers from the receipt: checkout base + re-isolate + clear', () => {
+  const plan = planAbort({}, abortCtx())
+  assert.strictEqual(plan.blocked, false)
+  assert.deepStrictEqual(plan.commands, [
+    'git -C /repo checkout main',
+    'git -C /wt/x switch feat/x',
+  ])
+  assert.strictEqual(plan.clears, true)
+  assert.strictEqual(plan.branch, 'feat/x')
+})
+
+test('planAbort skips the checkout when the primary is already on base (stale receipt)', () => {
+  const plan = planAbort({}, abortCtx({ primary: { onBase: true, branch: 'main', baseBranch: 'main' } }))
+  assert.deepStrictEqual(plan.commands, ['git -C /wt/x switch feat/x'])
+  assert.strictEqual(plan.clears, true)
+})
+
+test('planAbort refuses to discard uncommitted work', () => {
+  const plan = planAbort({}, abortCtx({ clean: false }))
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /would discard/)
+})
+
+test('planAbort is a no-op with no receipt and the primary on base', () => {
+  const plan = planAbort({}, abortCtx({ receipt: null, primary: { onBase: true, branch: 'main', baseBranch: 'main' } }))
+  assert.strictEqual(plan.noop, true)
+})
+
+test('planAbort refuses with no receipt but the primary off base', () => {
+  const plan = planAbort({}, abortCtx({ receipt: null }))
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /no live receipt/)
 })

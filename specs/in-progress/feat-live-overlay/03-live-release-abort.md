@@ -1,6 +1,6 @@
-# Phase 3 — `live release` + `live abort` + `/spec-live main` ⬜
+# Phase 3 — `live release` + `live abort` + `/spec-live main` ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** End a live session cleanly. `release` returns the primary checkout to
 base and re-isolates the branch (unfinished session); `abort` force-recovers from
@@ -9,27 +9,27 @@ planner tests including the crash-recovery path.
 
 ## Tasks
 
-- [ ] Add `planRelease(spec, config, gitState)` to `env/live.js` — pure. Require
-      the primary checkout clean (any last fixes committed to the branch first;
-      refuse if dirty with a clear message). Plan:
-      `git -C <primary> checkout <base>` → re-attach the branch to its worktree
-      `git -C <worktree> switch <branch>` → clear the receipt.
-- [ ] Add `planAbort(config, receipt)` — pure crash-recovery. From the receipt:
-      `git -C <primary> checkout <base>` then `git -C <primary> reset --hard
-      <baseMainCommit>` only if HEAD diverged; re-attach the branch to its worktree;
-      clear the receipt. Guard: refuse (with guidance) if there's no receipt but the
-      primary is off-base, or if uncommitted work exists on the primary that abort
-      would discard — surface it rather than blowing it away.
-- [ ] Implement `release` and `abort` in `specEnvLive` (`cli.js`), executing/
-      printing the plan and clearing the receipt file.
-- [ ] Extend the `/spec-live` skill: `/spec-live main` runs
-      `spec-env live release <current-spec>` (resolve the live spec from the
-      receipt), mirroring `/spec-connect main`; document `abort` as the recovery
-      path for a crashed/stale session.
-- [ ] Add tests: `env-live.test.js` — `planRelease` happy path + dirty refusal;
-      `planAbort` restores `baseMainCommit`, refuses on unexpected uncommitted work,
-      no-ops when already on base. Wire cases in `cli-spec-env-live.test.js`.
-      `pnpm test` green.
+- [x] Add `planRelease(spec, config, ctx)` to `env/live.js` — pure. Requires the
+      primary checkout clean (fixes committed to the branch first; refuses if dirty).
+      Plan: `git -C <primary> checkout <base>` → re-attach the branch to its worktree
+      `git -C <worktree> switch <branch>` → clear the receipt. No-ops when already on
+      base; refuses if a *different* spec holds the instance.
+- [x] Add `planAbort(config, ctx)` — pure crash-recovery, driven by the receipt.
+      Plan: `git -C <primary> checkout <base>` (skipped if already on base) →
+      re-attach the branch to its worktree → clear the receipt. Guards: refuse (with
+      guidance) if there's no receipt but the primary is off-base; **refuse on a
+      dirty tree** — surface the work, never discard it.
+- [x] Implement `release` and `abort` in `specEnvLive` (`cli.js`) — probe git,
+      call the planner, execute, clear the receipt. Added a shared
+      `resolveSpecWithWorktree` helper (also used by `take`).
+- [x] Extend the `/spec-live` skill: `/spec-live main` → `spec-env live release`
+      (resolves the live spec from the receipt), mirroring `/spec-connect main`;
+      documented `abort` as the crashed/stale-session recovery path.
+- [x] Add tests: `env-live.test.js` — `planRelease` (happy / no-op / wrong-spec /
+      dirty / no-worktree) and `planAbort` (recover / stale-receipt / dirty-refuse /
+      no-receipt no-op / no-receipt refuse); `cli-spec-env-live.test.js` — live-git
+      release (round-trips base↔branch, clears receipt), release dirty-refusal, and
+      abort (dirty-refuse then recover). `pnpm test` green — 371 pass, 0 fail.
 
 ## Notes
 

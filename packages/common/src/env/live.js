@@ -227,6 +227,112 @@ function planTake(spec, config, ctx) {
   }
 }
 
+// --- release planner ------------------------------------------------------
+
+/**
+ * Pure planner for `spec-env live release` — hand the running instance back to
+ * base and re-isolate the spec's branch into its worktree (the graceful exit of
+ * an unfinished session). All git state is probed by the CLI and passed in.
+ *
+ * In the branch-switch model `take` never moves the base ref, so release is just
+ * `checkout base` (frees the branch) then re-attach it to the worktree — no reset.
+ *
+ * ctx: { primary:{onBase,branch}, primaryPath, base, clean, worktreeExists }
+ * @returns {object} { blocked, noop, reason, commands, clears, base, branch, worktreePath }
+ */
+function planRelease(spec, config, ctx) {
+  const c = ctx || {}
+  const branch = spec.branch
+  const base = c.base
+  const result = {
+    blocked: false,
+    noop: false,
+    reason: null,
+    commands: [],
+    clears: false,
+    base,
+    branch,
+    worktreePath: spec.worktreePath,
+  }
+
+  // Nothing live — the primary checkout is already on base.
+  if (c.primary && c.primary.onBase) {
+    return { ...result, noop: true, reason: `nothing is live — the primary checkout is on ${base}` }
+  }
+  // A different spec holds the instance.
+  if (c.primary && c.primary.branch !== branch) {
+    return {
+      ...result,
+      blocked: true,
+      reason: `the live spec is ${c.primary.branch}, not ${branch} — release that one`,
+    }
+  }
+  // Fixes made while live must be committed to the branch first (never discarded).
+  if (!c.clean) {
+    return {
+      ...result,
+      blocked: true,
+      reason: `primary checkout has uncommitted changes — commit your fixes to ${branch} first`,
+    }
+  }
+
+  const commands = [`git -C ${c.primaryPath} checkout ${base}`]
+  if (c.worktreeExists) commands.push(`git -C ${spec.worktreePath} switch ${branch}`)
+  return { ...result, commands, clears: true }
+}
+
+// --- abort planner --------------------------------------------------------
+
+/**
+ * Pure planner for `spec-env live abort` — crash recovery. Works from the receipt
+ * (not a resolved spec), so it recovers even when the spec folder can't be found.
+ * Conservative: it refuses to discard uncommitted work, and won't force anything
+ * without a receipt to tell it what "live" was.
+ *
+ * Like release, recovery is `checkout base` + re-isolate — no `reset --hard`:
+ * branch-switch never moved base, and resetting to the receipt's recorded commit
+ * would discard any legitimate advance of base. `baseMainCommit` stays a record.
+ *
+ * ctx: { receipt, primary:{onBase,branch}, primaryPath, base, clean, worktreeExists, worktreePath }
+ * @returns {object} { blocked, noop, reason, commands, clears, base, branch }
+ */
+function planAbort(config, ctx) {
+  const c = ctx || {}
+  const base = c.base
+  const result = { blocked: false, noop: false, reason: null, commands: [], clears: false, base, branch: null }
+
+  if (!c.receipt) {
+    if (c.primary && c.primary.onBase) {
+      return { ...result, noop: true, reason: `nothing is live — the primary checkout is on ${base}` }
+    }
+    const on = c.primary && c.primary.branch ? c.primary.branch : '(detached)'
+    return {
+      ...result,
+      blocked: true,
+      reason:
+        `no live receipt, but the primary checkout is on ${on} — no recorded base ` +
+        `to restore; check out ${base} manually once you're sure it's safe`,
+    }
+  }
+
+  // Receipt present. Never discard uncommitted work — surface it instead.
+  if (!c.clean) {
+    return {
+      ...result,
+      blocked: true,
+      reason:
+        'the primary checkout has uncommitted changes that abort would discard — ' +
+        'commit or stash them (or resolve manually) first',
+    }
+  }
+
+  const branch = c.receipt.branch
+  const commands = []
+  if (!(c.primary && c.primary.onBase)) commands.push(`git -C ${c.primaryPath} checkout ${base}`)
+  if (c.worktreeExists) commands.push(`git -C ${c.worktreePath} switch ${branch}`)
+  return { ...result, commands, clears: true, branch }
+}
+
 module.exports = {
   receiptPath,
   renderReceipt,
@@ -237,4 +343,6 @@ module.exports = {
   globToRegExp,
   migrationsHit,
   planTake,
+  planRelease,
+  planAbort,
 }

@@ -48,6 +48,9 @@ function scaffoldRepo() {
     JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
   )
   fs.writeFileSync(path.join(dir, 'README.md'), '# repo\n')
+  // Gitignore the runtime state dir (as the real repo does) so the receipt the
+  // engine writes under .spec-env doesn't read as an uncommitted change.
+  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   git(dir, 'add', '-A')
   git(dir, 'commit', '-q', '-m', 'init')
   git(dir, 'branch', '-M', 'main') // guarantee the base branch is `main`
@@ -150,6 +153,56 @@ test('a second live take is refused while a spec holds the instance', async () =
     await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // now live
     const again = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
     assert.match(again, /blocked — primary checkout is on feat\/x, not main/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live release hands the instance back to base and re-isolates the branch', async () => {
+  const { dir, worktree } = scaffoldRepoWithSpecWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // now live on feat/x
+    // No spec arg → resolves the live spec from the receipt (this is /spec-live main).
+    const out = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
+    assert.match(out, /feat-x released — primary back on main/)
+
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main') // base back
+    assert.strictEqual(git(worktree, 'symbolic-ref', '--short', 'HEAD'), 'feat/x') // re-isolated
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'live.json'))) // receipt cleared
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live release refuses to discard uncommitted fixes on the branch', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    fs.writeFileSync(path.join(dir, 'README.md'), '# edited while live\n') // uncommitted fix
+    const out = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
+    assert.match(out, /blocked — primary checkout has uncommitted changes/)
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x') // still live
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live abort recovers a crashed session; refuses to discard dirty work', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // live, receipt present
+
+    // Dirty → abort refuses (won't blow away work).
+    fs.writeFileSync(path.join(dir, 'README.md'), '# uncommitted\n')
+    const blocked = await runQuiet(['spec-env', 'live', 'abort', '--dir', dir])
+    assert.match(blocked, /blocked — .*would discard/)
+
+    // Clean it up, then abort recovers.
+    git(dir, 'checkout', '--', 'README.md')
+    const out = await runQuiet(['spec-env', 'live', 'abort', '--dir', dir])
+    assert.match(out, /recovered — primary back on main/)
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'live.json')))
   } finally {
     cleanup(dir)
   }

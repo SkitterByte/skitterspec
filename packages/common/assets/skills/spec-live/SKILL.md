@@ -38,23 +38,33 @@ have nothing to hot-reload — the switch still happens, with a warning.)
 
 ```
 skitterspec spec-env live take <spec>   # rebase → detach worktree → checkout in primary
-skitterspec spec-env live status        # who's live (branch in the primary checkout + receipt)
+skitterspec spec-env live release        # hand the instance back to base, re-isolate the branch
+skitterspec spec-env live abort          # crash recovery (see below)
+skitterspec spec-env live status         # who's live (branch in the primary checkout + receipt)
 ```
 
-The engine rebases the branch onto base, frees it from its worktree
-(`switch --detach`), and checks it out in the primary checkout, then writes a
-receipt (`.spec-env/live.json`). Relay its output. **If it reports the rebase hit
+**Take** rebases the branch onto base, frees it from its worktree
+(`switch --detach`), checks it out in the primary checkout, then writes a receipt
+(`.spec-env/live.json`). Relay its output. **If it reports the rebase hit
 conflicts**, it left everything untouched — rebase the branch in its worktree,
-resolve, then retry. **If it says a spec already holds the instance**, that spec
-is live — release it first (below). If it warns dependencies changed, restart
-your dev server after the switch.
+resolve, then retry. **If it says a spec already holds the instance**, release it
+first. If it warns dependencies changed, restart your dev server after the switch.
 
-Releasing (`/spec-live main`) lands in a later phase of this feature — until then,
-finishing the spec via `/spec-complete` (which is live-aware) is the way to hand
-the instance back.
+**Release** (`/spec-live main`) is the graceful exit of an unfinished session:
+`skitterspec spec-env live release` reads the live spec from the receipt, checks
+base back out in the primary checkout, re-attaches the branch to its worktree, and
+clears the receipt. Commit any fixes to the branch first — it refuses on a dirty
+tree rather than discard them. (To *finish* a live spec instead of releasing it,
+use `/spec-complete`, which is live-aware.)
+
+**Abort** is crash recovery, for when a session died mid-take and left the primary
+checkout on a feature branch: `skitterspec spec-env live abort` restores base from
+the receipt and re-isolates. It refuses if the primary checkout has uncommitted
+changes (it won't discard them) — commit or stash first.
 
 ## 4. Report
 
-Echo which spec is now live on the primary checkout (and any warning), or — for
-`status` — which branch the primary checkout is on and whether the instance is
-free. Fixes you make while live commit straight onto the spec's branch.
+Echo which spec is now live on the primary checkout (and any warning), that it was
+released / recovered, or — for `status` — which branch the primary checkout is on
+and whether the instance is free. Fixes you make while live commit straight onto
+the spec's branch.

@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Coordination primitive: guard + receipt + `live status` | ✅ | [01-coordination-primitive.md](01-coordination-primitive.md) |
 | 2 | `live take` + `/spec-live` (take/status) | ✅ | [02-live-take.md](02-live-take.md) |
-| 3 | `live release` + `live abort` + `/spec-live main` | ⬜ | [03-live-release-abort.md](03-live-release-abort.md) |
+| 3 | `live release` + `live abort` + `/spec-live main` | ✅ | [03-live-release-abort.md](03-live-release-abort.md) |
 | 4 | Live-aware completion (`integrate` / `/spec-complete`) | ⬜ | [04-complete-integration.md](04-complete-integration.md) |
 | 5 | Docs, cross-skill wiring, dist build, end-to-end verify | ⬜ | [05-docs-wiring-verify.md](05-docs-wiring-verify.md) |
 
@@ -141,3 +141,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   configured → warn-and-proceed). `take` executes the switch in the CLI (rebase →
   detach → checkout) and writes the receipt only after checkout succeeds; rebase
   conflict aborts and bails untouched. 358 tests pass.
+- 2026-08-03 — Phase 3 done. `planRelease`/`planAbort` + `spec-env live
+  release|abort` + `/spec-live main`. **Course-correction:** dropped the planned
+  `reset --hard baseMainCommit` from abort — in the branch-switch model `take`
+  never moves the base ref, so recovery is just `checkout base` + re-isolate;
+  resetting base to the recorded commit would discard legitimate advances of base.
+  `baseMainCommit` stays an informational record. Both refuse on a dirty primary
+  checkout (never discard fixes). 371 tests pass.
