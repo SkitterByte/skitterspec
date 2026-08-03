@@ -15,6 +15,12 @@ This skill is **opt-in**: it needs `specs/.core/env.config.json` with a `dev`
 block (host dev servers + their `frontPort`s). If isolation or `dev` is absent,
 say so and stop.
 
+**Lighter alternative for a code-only spec:** `/spec-live` reuses the dev server
+you already have running (it branch-switches the primary checkout) instead of
+starting a second stack — no proxy, one process. Prefer it for code-only specs;
+use `/spec-connect` when a spec has its own Docker stack, or to run several stacks
+in parallel.
+
 ## 1. Identify the target
 
 - Use the spec named as an argument. The literal `main` means **disconnect**

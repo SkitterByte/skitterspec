@@ -146,6 +146,15 @@ no live `env.config.json` was found.
   "guards": {
     "refuseTeardownIfDirty": true,
     "refuseTeardownIfUnpushed": true
+  },
+
+  // Live overlay (`spec-env live` / `/spec-live`): test a spec on the already-
+  // running dev server by checking its branch out in the primary checkout.
+  // `migrations` is a list of globs (`**`, `*`, `?`) marking migration files; a
+  // branch that changes any of them is treated as STATEFUL and `live take`
+  // refuses it (code-only v1 — use `/spec-connect` for those). Default: none.
+  "live": {
+    "migrations": []
   }
 }
 ```

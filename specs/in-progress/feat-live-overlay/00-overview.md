@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | `live take` + `/spec-live` (take/status) | ✅ | [02-live-take.md](02-live-take.md) |
 | 3 | `live release` + `live abort` + `/spec-live main` | ✅ | [03-live-release-abort.md](03-live-release-abort.md) |
 | 4 | Live-aware completion (`integrate` / `/spec-complete`) | ✅ | [04-complete-integration.md](04-complete-integration.md) |
-| 5 | Docs, cross-skill wiring, dist build, end-to-end verify | ⬜ | [05-docs-wiring-verify.md](05-docs-wiring-verify.md) |
+| 5 | Docs, cross-skill wiring, dist build, end-to-end verify | ✅ | [05-docs-wiring-verify.md](05-docs-wiring-verify.md) |
 
 ## Open questions
 
@@ -156,3 +156,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   rebase for free. `planIntegrate` untouched (live transition is IO → lives in the
   CLI, not the pure planner). Refuses if a foreign spec holds the primary checkout.
   373 tests pass.
+- 2026-08-03 — Phase 5 done. Docs (`spec-planning.md` live-overlay paragraph,
+  `env.config.md`/`.example` `live.migrations`) + cross-refs from `/spec-connect`
+  and `/spec-go`. `pnpm build` propagates the engine to both dist packages
+  (byte-match verified; dist is gitignored). Dogfooded the built dist binary
+  end-to-end (status → take → lock-refusal → release, plus live-aware integrate and
+  abort) in a throwaway repo — all correct. **Feature complete**; 373 tests pass.

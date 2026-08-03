@@ -98,7 +98,9 @@ runnable — its UI/API on the spec's reserved port block, isolated from `main`.
 - **Diverting your browser is a separate step.** To test the spec at your normal
   `localhost` URL, run **`/spec-connect <name>`** (exclusive — it exposes this
   spec on the canonical ports; `/spec-connect main` hands them back). `/spec-go`
-  never seizes the canonical ports on its own.
+  never seizes the canonical ports on its own. For a **code-only** spec, the
+  lighter **`/spec-live <name>`** reuses your already-running dev server (a
+  branch-switch, no second stack) — `/spec-live main` hands it back.
 
 ## 3. Pre-flight — commit prior work
 

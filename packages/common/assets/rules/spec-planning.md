@@ -39,6 +39,20 @@ changes only when it merges. Teardown is folded into `/spec-complete` ·
 lifecycle status** and inactive when `env.config.json` is absent — every skill
 then behaves as it does today.
 
+**Live overlay (`/spec-live`) — the light way to test a spec.** `/spec-connect`
+runs a spec's *own* dev stack and proxies the canonical ports to it (one stack per
+spec). **Live overlay** instead reuses the one dev server you already have running:
+`/spec-live <spec>` rebases the branch onto base, frees it from its worktree, and
+checks it out **in the primary checkout**, so your running server hot-reloads the
+feature at the normal URL — no second stack, no proxy. The branch checked out in
+the primary checkout **is** the lock: exactly one spec is live at a time, and
+`/spec-live main` hands the instance back (fixes you make while live commit
+straight onto the branch; `/spec-complete` is live-aware and lands them). Rule of
+thumb: **live overlay is the light default for code-only specs**; it *refuses*
+stateful ones (`Stack: worktree + docker`, or a branch touching migrations) — keep
+`/spec-connect` + a Docker stack for those, and for genuinely parallel testing.
+Beneath it, `skitterspec spec-env live <take|release|abort|status>` is the engine.
+
 **Ticketing-provider sync (opt-in, a separate package).** The base is
 tracker-free: it knows nothing about any specific ticketing system. A
 ticketing provider is installed as its own distribution that plugs into two named
