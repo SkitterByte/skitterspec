@@ -1,7 +1,7 @@
 # Live overlay — test a spec on the running instance by branch-switch
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-08-03)
+> **Status:** Complete (2026-08-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-03
@@ -122,6 +122,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-03 | Ready | backlog | Reuben Greaves |
 | 2026-08-03 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-03 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -162,3 +163,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (byte-match verified; dist is gitignored). Dogfooded the built dist binary
   end-to-end (status → take → lock-refusal → release, plus live-aware integrate and
   abort) in a throwaway repo — all correct. **Feature complete**; 373 tests pass.
+- 2026-08-03 — Completed; all 5 phases done, tests green (373). Landed on main.
