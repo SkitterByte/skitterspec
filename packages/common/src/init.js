@@ -53,7 +53,12 @@ const CORE_FILES = listCoreTemplates()
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
 
-const report = { created: [], updated: [], skipped: [], removed: [], warnings: [] }
+const report = { created: [], updated: [], skipped: [], removed: [], customized: [], warnings: [] }
+
+function resetReport() {
+  for (const k of Object.keys(report)) report[k].length = 0
+  for (const k of Object.keys(writtenHashes)) delete writtenHashes[k]
+}
 
 // Folder index files scaffolded by earlier versions, now retired. `init`/`update`
 // deletes any left behind so upgrading projects don't keep stale caches.
@@ -141,12 +146,20 @@ function managedState(dir, relPath, manifest) {
 // has no entry yet from its bundled hash (migration for repos predating the
 // manifest), and prune entries whose file is gone.
 function flushManifest(dir) {
-  const next = { ...readManifest(dir).files, ...writtenHashes }
-  for (const { relPath, abs, bundled } of managedTargets(dir)) {
-    if (!next[relPath] && fs.existsSync(abs)) next[relPath] = sha1(bundled)
+  // Only managed files belong in the manifest — never live user config (e.g. an
+  // env.config.json that installIsolation happens to write through writeFile).
+  const managed = managedTargets(dir)
+  const managedRel = new Set(managed.map((t) => t.relPath))
+  const merged = { ...readManifest(dir).files, ...writtenHashes }
+  const next = {}
+  for (const [relPath, hash] of Object.entries(merged)) {
+    if (managedRel.has(relPath)) next[relPath] = hash
+  }
+  for (const { relPath, abs, bundled } of managed) {
+    if (!next[relPath] && fs.existsSync(abs)) next[relPath] = sha1(bundled) // migration seed
   }
   for (const relPath of Object.keys(next)) {
-    if (!fs.existsSync(path.join(dir, relPath))) delete next[relPath]
+    if (!fs.existsSync(path.join(dir, relPath))) delete next[relPath] // prune gone
   }
   writeManifest(dir, next)
 }
@@ -352,6 +365,118 @@ function installClaudeMd(dir, { mode }) {
   report.updated.push('CLAUDE.md (appended spec workflow section)')
 }
 
+// --- detection, resync, reset (safe re-run) ---------------------------------
+
+// True when the repo looks already set up: any managed file present, any spec
+// lifecycle folder, or the CLAUDE.md spec marker (Decision 1 — detect eagerly).
+function isExistingSetup(dir) {
+  if (managedTargets(dir).some((t) => fs.existsSync(t.abs))) return true
+  if (SPEC_FOLDERS.some((f) => fs.existsSync(path.join(dir, 'specs', f)))) return true
+  const claude = path.join(dir, 'CLAUDE.md')
+  return fs.existsSync(claude) && fs.readFileSync(claude, 'utf8').includes(SPEC_MARKER_START)
+}
+
+// RESYNC: bring managed files to the latest bundled version WITHOUT clobbering
+// user edits. Per file: missing → create; pristine (matches the manifest) →
+// update; customized (edited) → keep + report, unless `force`.
+function resyncManagedFile(dir, target, manifest, force) {
+  const { relPath, abs, bundled } = target
+  const state = managedState(dir, relPath, manifest)
+  const write = (bucket) => {
+    ensureDir(path.dirname(abs))
+    fs.writeFileSync(abs, bundled)
+    writtenHashes[relPath] = sha1(bundled)
+    report[bucket].push(relPath)
+  }
+  if (state === 'missing') return write('created')
+  if (state === 'customized') {
+    if (force) return write('updated')
+    writtenHashes[relPath] = manifest.files[relPath] || writtenHashes[relPath] // keep baseline
+    return report.customized.push(relPath)
+  }
+  // pristine — update only if the bundled content actually changed
+  if (fs.readFileSync(abs, 'utf8') === bundled) {
+    writtenHashes[relPath] = sha1(bundled)
+    return report.skipped.push(relPath)
+  }
+  write('updated')
+}
+
+function resync(dir, { force = false, claudeMd = true } = {}) {
+  if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
+  resetReport()
+  const manifest = readManifest(dir)
+  for (const t of managedTargets(dir)) resyncManagedFile(dir, t, manifest, force)
+  installFolders(dir)
+  removeRetiredFiles(dir)
+  if (claudeMd) installClaudeMd(dir, { mode: 'update' })
+  flushManifest(dir)
+  printReport(dir, 'resync')
+}
+
+// The never-touch set: START AGAIN may only delete a known managed file, and may
+// never delete spec content or active config (defense-in-depth — the manifest
+// never lists these, but a tampered/foreign entry must still be refused).
+const PROTECTED_SPEC_BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
+const PROTECTED_CONFIG = ['env.config.json', 'linear.config.json']
+const PROTECTED_DIRS = ['linear-base', 'linear-backups']
+
+function assertSafeToDelete(relPath, managedSet) {
+  const norm = relPath.split(path.sep).join('/')
+  for (const b of PROTECTED_SPEC_BUCKETS) {
+    if (norm.startsWith(`specs/${b}/`)) throw new Error(`refusing to delete spec content: ${relPath}`)
+  }
+  if (PROTECTED_CONFIG.includes(path.posix.basename(norm))) {
+    throw new Error(`refusing to delete active config: ${relPath}`)
+  }
+  for (const d of PROTECTED_DIRS) {
+    if (norm.includes(`/${d}/`)) throw new Error(`refusing to delete sync state: ${relPath}`)
+  }
+  if (!managedSet.has(norm)) throw new Error(`refusing to delete a non-managed path: ${relPath}`)
+}
+
+// Remove the marked spec-workflow block from CLAUDE.md (leaves the rest intact).
+function stripClaudeMdSection(dir) {
+  const target = path.join(dir, 'CLAUDE.md')
+  if (!fs.existsSync(target)) return
+  const existing = fs.readFileSync(target, 'utf8')
+  const next = existing.replace(
+    new RegExp(`\\n?${SPEC_MARKER_START}[\\s\\S]*?${SPEC_MARKER_END}\\n?`),
+    '\n',
+  )
+  if (next !== existing) {
+    fs.writeFileSync(target, next)
+    report.removed.push('CLAUDE.md (spec workflow section)')
+  }
+}
+
+// START AGAIN: delete exactly the manifest-listed managed files (each guarded),
+// strip the CLAUDE.md marked section, then reinstall fresh. Never touches a
+// non-manifest path. Destructive by design for managed files (that's the point).
+function reset(dir, { claudeMd = true } = {}) {
+  if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
+  resetReport()
+  const manifest = readManifest(dir)
+  const managedSet = new Set(managedTargets(dir).map((t) => t.relPath.split(path.sep).join('/')))
+  for (const relPath of Object.keys(manifest.files)) {
+    assertSafeToDelete(relPath, managedSet)
+    const abs = path.join(dir, relPath)
+    if (fs.existsSync(abs)) {
+      fs.unlinkSync(abs)
+      report.removed.push(relPath)
+    }
+  }
+  if (claudeMd) stripClaudeMdSection(dir)
+  installSkills(dir, { force: true })
+  installRule(dir, { force: true })
+  installFolders(dir)
+  removeRetiredFiles(dir)
+  installCore(dir, { force: true })
+  if (claudeMd) installClaudeMd(dir, { mode: 'init' })
+  flushManifest(dir)
+  printReport(dir, 'reset')
+}
+
 function printReport(dir, mode) {
   const line = (label, items) => {
     if (!items.length) return
@@ -362,6 +487,7 @@ function printReport(dir, mode) {
   line('created', report.created)
   line('updated', report.updated)
   line('removed', report.removed)
+  line('customized (kept)', report.customized)
   line('unchanged', report.skipped)
   if (report.warnings.length) {
     process.stdout.write('\nwarnings:\n')
@@ -384,12 +510,7 @@ function printReport(dir, mode) {
 
 async function init({ dir, force, claudeMd, mode, isolation }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
-  report.created.length = 0
-  report.updated.length = 0
-  report.skipped.length = 0
-  report.removed.length = 0
-  report.warnings.length = 0
-  for (const k of Object.keys(writtenHashes)) delete writtenHashes[k]
+  resetReport()
 
   installSkills(dir, { force })
   installRule(dir, { force })
@@ -418,4 +539,8 @@ module.exports = {
   writeManifest,
   managedTargets,
   managedState,
+  isExistingSetup,
+  resync,
+  reset,
+  assertSafeToDelete,
 }

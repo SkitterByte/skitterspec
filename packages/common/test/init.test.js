@@ -13,8 +13,13 @@ const {
   MANIFEST_FILE,
   sha1,
   readManifest,
+  writeManifest,
   managedTargets,
   managedState,
+  isExistingSetup,
+  resync,
+  reset,
+  assertSafeToDelete,
 } = require('../src/init.js')
 const { parse } = require('../src/cli.js')
 
@@ -119,6 +124,72 @@ test('migration: a pre-manifest repo re-seeds without clobbering a user edit', a
   // an untouched managed file re-seeds as pristine
   const skill = managedTargets(dir).find((t) => t.relPath.includes('/skills/spec/'))
   assert.strictEqual(managedState(dir, skill.relPath, manifest), 'pristine')
+})
+
+const anySkill = (dir) => managedTargets(dir).find((t) => t.relPath.includes(`${path.sep}skills${path.sep}spec${path.sep}`))
+
+test('isExistingSetup: false on a fresh dir, true after init', async () => {
+  const dir = tmpProject()
+  assert.strictEqual(isExistingSetup(dir), false)
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  assert.strictEqual(isExistingSetup(dir), true)
+})
+
+test('resync updates a stale pristine file but keeps a customized one', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  // stale pristine: on-disk == manifest hash, but both differ from bundled.
+  const stale = specPlanning(dir)
+  fs.writeFileSync(path.join(dir, stale.relPath), 'OLD VERSION')
+  const m = readManifest(dir)
+  m.files[stale.relPath] = sha1('OLD VERSION')
+  writeManifest(dir, m.files)
+  // customized: an edited skill.
+  const edited = anySkill(dir)
+  fs.appendFileSync(path.join(dir, edited.relPath), '\nMINE\n')
+
+  resync(dir, { claudeMd: false })
+
+  assert.strictEqual(fs.readFileSync(path.join(dir, stale.relPath), 'utf8'), stale.bundled, 'stale updated')
+  assert.match(fs.readFileSync(path.join(dir, edited.relPath), 'utf8'), /MINE/, 'customized kept')
+})
+
+test('resync recreates a missing managed file', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = anySkill(dir)
+  fs.unlinkSync(path.join(dir, one.relPath))
+  resync(dir, { claudeMd: false })
+  assert.ok(fs.existsSync(path.join(dir, one.relPath)), 'recreated')
+})
+
+test('reset recreates managed files but never touches spec content or config', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  // a real spec + an edited managed file
+  fs.mkdirSync(path.join(dir, 'specs', 'in-progress', 'feat-x'), { recursive: true })
+  fs.writeFileSync(path.join(dir, 'specs', 'in-progress', 'feat-x', '00-overview.md'), 'MY SPEC')
+  const skill = anySkill(dir)
+  fs.appendFileSync(path.join(dir, skill.relPath), '\nMINE\n')
+
+  reset(dir, { claudeMd: false })
+
+  assert.strictEqual(fs.readFileSync(path.join(dir, skill.relPath), 'utf8'), skill.bundled, 'managed reset to bundled')
+  assert.strictEqual(
+    fs.readFileSync(path.join(dir, 'specs', 'in-progress', 'feat-x', '00-overview.md'), 'utf8'),
+    'MY SPEC',
+    'spec content untouched',
+  )
+  assert.ok(fs.existsSync(path.join(dir, 'specs', '.core', 'env.config.json')), 'active config untouched')
+})
+
+test('assertSafeToDelete refuses spec content, config, and non-managed paths', () => {
+  const managed = new Set(['.claude/skills/spec/SKILL.md'])
+  assert.throws(() => assertSafeToDelete('specs/in-progress/x/00-overview.md', managed), /spec content/)
+  assert.throws(() => assertSafeToDelete('specs/.core/env.config.json', managed), /active config/)
+  assert.throws(() => assertSafeToDelete('specs/.core/linear-base/SKI-1.base.json', managed), /sync state/)
+  assert.throws(() => assertSafeToDelete('some/other/file.md', managed), /non-managed/)
+  assert.doesNotThrow(() => assertSafeToDelete('.claude/skills/spec/SKILL.md', managed))
 })
 
 test('removes retired folder index files left by an earlier version', async () => {
