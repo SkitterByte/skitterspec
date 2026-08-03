@@ -62,6 +62,12 @@ applies, offer to land the finished branch on the base branch so the work reache
 1. **Require a clean worktree.** The completion edits (status flip, the
    `git mv` to `complete/`) must be committed first — integrate refuses a dirty
    tree. If it's dirty, offer `/commit` and **stop**; don't auto-commit.
+   **If the spec is live** (you took the running instance with `/spec-live`):
+   `integrate` is live-aware — it ends the live session first (releases the branch
+   back to base, re-isolates it into its worktree, clears the receipt), then prints
+   the normal landing plan. Commit any live fixes to the branch first; it refuses
+   if the primary checkout is dirty, or if a *different* spec holds it (release that
+   one with `/spec-live main`). Teardown (step 7) is unchanged.
 2. **Plan + execute.** Run `skitterspec spec-env integrate <name>` and run the
    printed commands **in order**:
    - `git -C <worktree> rebase <base>` — replay the branch onto base.

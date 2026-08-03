@@ -369,21 +369,43 @@ function specEnvIntegrate(dir, config, specArg) {
 
   // `dir` is already anchored on the primary checkout by the dispatch, so it is
   // both where the spec resolves and the target of the fast-forward — /spec-complete
-  // can run this from inside the worktree and still land on main.
-  //
-  // A spec authored entirely on its branch may not exist in the primary
-  // checkout's specs/** (it was never committed to base) — but its worktree
-  // does, and the worktree path is derivable from config without the folder.
-  // Offer it as a fallback search location so integrate can still find the spec.
-  const { slug } = splitPrefix(path.basename(specArg))
-  const { repo, repoSlug } = repoInfo(dir)
-  const wtTokens = { repo, repoSlug, slug }
-  const worktreeGuess = path.resolve(
-    dir,
-    expandTokens(config.worktree.root, wtTokens),
-    expandTokens(config.worktree.folderPattern, wtTokens),
-  )
-  const spec = resolveSpec(specArg, dir, config, { searchDirs: [worktreeGuess] })
+  // can run this from inside the worktree and still land on main. A spec authored
+  // entirely on its branch may not exist in the primary checkout's specs/** —
+  // resolveSpecWithWorktree offers its worktree as a fallback search location.
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+  const base = resolveBaseBranch(config, gitReader(dir))
+
+  // Live-aware: if this spec is live on the primary checkout (branch-switched by
+  // `live take`), end the live session first — release back to base, re-isolate the
+  // branch, clear the receipt — so the normal rebase→ff plan below applies
+  // unchanged. Refuse if a *different* spec holds the primary checkout.
+  const primary = assertPrimaryOnMain(config, gitReader(dir))
+  if (!primary.onBase) {
+    if (primary.branch !== spec.branch) {
+      process.stdout.write(
+        `spec-env integrate: blocked — another spec (${primary.branch}) holds the ` +
+          'primary checkout; release it with `/spec-live main` first.\n',
+      )
+      return
+    }
+    const pstatus = gitReader(dir)(['status', '--porcelain'])
+    if (pstatus === null || pstatus.length > 0) {
+      process.stdout.write(
+        `spec-env integrate: blocked — commit your live fixes to ${spec.branch} first.\n`,
+      )
+      return
+    }
+    const co = runGit(dir, ['checkout', base])
+    if (!co.ok) {
+      process.stdout.write(`spec-env integrate: could not check out ${base} — ${co.err}\n`)
+      return
+    }
+    if (fs.existsSync(spec.worktreePath)) runGit(spec.worktreePath, ['switch', spec.branch])
+    clearReceipt(dir, config)
+    process.stdout.write(
+      `spec-env integrate: ended live session — ${spec.folder} released to its worktree.\n`,
+    )
+  }
 
   if (!fs.existsSync(spec.worktreePath)) {
     process.stdout.write(
@@ -392,7 +414,6 @@ function specEnvIntegrate(dir, config, specArg) {
     return
   }
 
-  const base = resolveBaseBranch(config, gitReader(dir))
   const wtGit = gitReader(spec.worktreePath)
   const status = wtGit(['status', '--porcelain'])
   const dirty = status !== null && status.length > 0

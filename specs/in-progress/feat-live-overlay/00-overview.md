@@ -108,7 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Coordination primitive: guard + receipt + `live status` | ✅ | [01-coordination-primitive.md](01-coordination-primitive.md) |
 | 2 | `live take` + `/spec-live` (take/status) | ✅ | [02-live-take.md](02-live-take.md) |
 | 3 | `live release` + `live abort` + `/spec-live main` | ✅ | [03-live-release-abort.md](03-live-release-abort.md) |
-| 4 | Live-aware completion (`integrate` / `/spec-complete`) | ⬜ | [04-complete-integration.md](04-complete-integration.md) |
+| 4 | Live-aware completion (`integrate` / `/spec-complete`) | ✅ | [04-complete-integration.md](04-complete-integration.md) |
 | 5 | Docs, cross-skill wiring, dist build, end-to-end verify | ⬜ | [05-docs-wiring-verify.md](05-docs-wiring-verify.md) |
 
 ## Open questions
@@ -148,3 +148,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   resetting base to the recorded commit would discard legitimate advances of base.
   `baseMainCommit` stays an informational record. Both refuse on a dirty primary
   checkout (never discard fixes). 371 tests pass.
+- 2026-08-03 — Phase 4 done. `integrate` (and so `/spec-complete`) is live-aware.
+  **Design choice:** instead of a separate live plan, `specEnvIntegrate` ends the
+  live session first (auto-release: checkout base + re-isolate worktree + clear
+  receipt), which restores the normal state so the existing `planIntegrate`
+  rebase→ff and teardown run unchanged — base-moved-since-take is handled by that
+  rebase for free. `planIntegrate` untouched (live transition is IO → lives in the
+  CLI, not the pure planner). Refuses if a foreign spec holds the primary checkout.
+  373 tests pass.

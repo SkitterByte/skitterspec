@@ -51,6 +51,7 @@ function scaffoldRepoWithWorktree() {
     path.join(dir, 'specs', '.core', 'env.config.json'),
     JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
   )
+  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n') // ignore runtime state
   const specDir = path.join(dir, 'specs', 'in-progress', 'feat-x')
   fs.mkdirSync(specDir, { recursive: true })
   fs.writeFileSync(path.join(specDir, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
@@ -105,6 +106,39 @@ test('integrate from inside a worktree resolves identically to running from main
     const fromWorktree = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', worktree])
     const fromPrimary = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
     assert.strictEqual(fromWorktree, fromPrimary, 'same plan whether invoked from worktree or main')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate is live-aware: ends the live session, then lands and re-isolates', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // primary → feat/x
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    // It ended the live session first…
+    assert.match(out, /ended live session — feat-x released/)
+    // …then printed the normal landing plan.
+    assert.match(out, new RegExp(`git -C ${worktree} rebase main`))
+    assert.match(out, new RegExp(`git -C ${dir} merge --ff-only feat/x`))
+
+    // Back to the normal state: primary on base, branch re-isolated, receipt gone.
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
+    assert.strictEqual(git(worktree, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'live.json')))
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate refuses when a different spec holds the primary checkout', async () => {
+  const { dir } = scaffoldRepoWithWorktree()
+  try {
+    git(dir, 'checkout', '-q', '-b', 'feat/other') // another spec "live" on the primary
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /blocked — another spec \(feat\/other\) holds the primary checkout/)
   } finally {
     cleanup(dir)
   }
