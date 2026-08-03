@@ -2,6 +2,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const crypto = require('crypto')
 
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { repoInfo, expandTokens } = require('./env/resolve.js')
@@ -69,6 +70,87 @@ function ensureDir(p) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true })
 }
 
+// --- install manifest (safe re-run baseline) --------------------------------
+//
+// specs/.core/.skitterspec-manifest.json records, per managed file, the sha1 of
+// the content we last wrote. It's the baseline that lets a later resync tell "an
+// old version we own" (safe to update) from "a file the user edited" (keep). It
+// lists only managed FILES (skills, rules, .core templates) — never user content.
+
+const MANIFEST_FILE = path.join('specs', '.core', '.skitterspec-manifest.json')
+const MANIFEST_VERSION = 1
+
+// Hashes of files actually written in the current run (populated by writeFile),
+// reset each init() alongside `report`.
+const writtenHashes = {}
+
+function sha1(content) {
+  return crypto.createHash('sha1').update(content).digest('hex')
+}
+
+// The full managed set for a target dir: repo-relative path, absolute path, and
+// the bundled content that ships in this distribution's assets.
+function managedTargets(dir) {
+  const out = []
+  const add = (assetRel, targetAbs) =>
+    out.push({
+      relPath: rel(dir, targetAbs),
+      abs: targetAbs,
+      bundled: fs.readFileSync(path.join(ASSETS, assetRel), 'utf8'),
+    })
+  for (const name of SKILLS) add(path.join('skills', name, 'SKILL.md'), path.join(dir, '.claude', 'skills', name, 'SKILL.md'))
+  for (const name of RULES) add(path.join('rules', name), path.join(dir, '.claude', 'rules', name))
+  for (const asset of CORE_FILES) add(asset, path.join(dir, 'specs', '.core', path.basename(asset)))
+  return out
+}
+
+// Read the manifest (tolerant: missing/malformed → an empty baseline).
+function readManifest(dir) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(dir, MANIFEST_FILE), 'utf8'))
+    if (parsed && typeof parsed === 'object' && parsed.files && typeof parsed.files === 'object') {
+      return { version: parsed.version || MANIFEST_VERSION, files: parsed.files }
+    }
+  } catch {
+    /* missing or malformed → empty baseline */
+  }
+  return { version: MANIFEST_VERSION, files: {} }
+}
+
+function writeManifest(dir, files) {
+  const target = path.join(dir, MANIFEST_FILE)
+  ensureDir(path.dirname(target))
+  const sorted = {}
+  for (const k of Object.keys(files).sort()) sorted[k] = files[k]
+  fs.writeFileSync(target, JSON.stringify({ version: MANIFEST_VERSION, files: sorted }, null, 2) + '\n')
+}
+
+// Classify a managed file against the manifest baseline.
+//   missing    — not on disk
+//   pristine   — on disk and matches the hash we recorded (ours to update)
+//   customized — on disk but differs (or unknown) — a user edit; keep it
+function managedState(dir, relPath, manifest) {
+  const abs = path.join(dir, relPath)
+  if (!fs.existsSync(abs)) return 'missing'
+  const known = manifest.files[relPath]
+  return known && sha1(fs.readFileSync(abs, 'utf8')) === known ? 'pristine' : 'customized'
+}
+
+// Reconcile and persist the manifest after an install/resync run: keep prior
+// entries, apply files written this run, seed any pre-existing managed file that
+// has no entry yet from its bundled hash (migration for repos predating the
+// manifest), and prune entries whose file is gone.
+function flushManifest(dir) {
+  const next = { ...readManifest(dir).files, ...writtenHashes }
+  for (const { relPath, abs, bundled } of managedTargets(dir)) {
+    if (!next[relPath] && fs.existsSync(abs)) next[relPath] = sha1(bundled)
+  }
+  for (const relPath of Object.keys(next)) {
+    if (!fs.existsSync(path.join(dir, relPath))) delete next[relPath]
+  }
+  writeManifest(dir, next)
+}
+
 function writeFile(dir, target, content, { force }) {
   // A dangling symlink (its target no longer exists) is invisible to existsSync,
   // which follows the link — but the link itself is still on disk, so a plain
@@ -90,15 +172,19 @@ function writeFile(dir, target, content, { force }) {
     }
     const existing = fs.readFileSync(target, 'utf8')
     if (existing === content) {
+      // Already the content we'd write — record it as ours (pristine).
+      writtenHashes[rel(dir, target)] = sha1(content)
       report.skipped.push(rel(dir, target))
       return
     }
     fs.writeFileSync(target, content)
+    writtenHashes[rel(dir, target)] = sha1(content)
     report.updated.push(rel(dir, target))
     return
   }
   ensureDir(path.dirname(target))
   fs.writeFileSync(target, content)
+  writtenHashes[rel(dir, target)] = sha1(content)
   report.created.push(rel(dir, target))
 }
 
@@ -303,6 +389,7 @@ async function init({ dir, force, claudeMd, mode, isolation }) {
   report.skipped.length = 0
   report.removed.length = 0
   report.warnings.length = 0
+  for (const k of Object.keys(writtenHashes)) delete writtenHashes[k]
 
   installSkills(dir, { force })
   installRule(dir, { force })
@@ -313,6 +400,10 @@ async function init({ dir, force, claudeMd, mode, isolation }) {
   if (mode !== 'update') installIsolation(dir, { enabled: isolation }, { force })
   if (claudeMd) installClaudeMd(dir, { mode })
 
+  // Record what we wrote (and migrate a pre-manifest repo) so a later resync can
+  // tell our files from the user's.
+  flushManifest(dir)
+
   printReport(dir, mode)
 }
 
@@ -321,4 +412,10 @@ module.exports = {
   SKILLS,
   RULES,
   SPEC_FOLDERS,
+  MANIFEST_FILE,
+  sha1,
+  readManifest,
+  writeManifest,
+  managedTargets,
+  managedState,
 }

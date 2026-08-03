@@ -6,7 +6,16 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { init, SKILLS, RULES } = require('../src/init.js')
+const {
+  init,
+  SKILLS,
+  RULES,
+  MANIFEST_FILE,
+  sha1,
+  readManifest,
+  managedTargets,
+  managedState,
+} = require('../src/init.js')
 const { parse } = require('../src/cli.js')
 
 function tmpProject() {
@@ -61,6 +70,55 @@ test('replaces a dangling symlink target instead of crashing (ENOENT)', async ()
 
   assert.ok(!fs.lstatSync(target).isSymbolicLink(), 'symlink replaced by a real file')
   assert.match(fs.readFileSync(target, 'utf8'), /# Spec Planning/)
+})
+
+const specPlanning = (dir) =>
+  managedTargets(dir).find((t) => t.relPath.endsWith('spec-planning.md'))
+
+test('init writes a manifest of installed managed files with their hashes', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  assert.ok(exists(dir, ...MANIFEST_FILE.split(path.sep)), 'manifest written')
+  const manifest = readManifest(dir)
+  for (const { relPath, abs, bundled } of managedTargets(dir)) {
+    assert.strictEqual(manifest.files[relPath], sha1(bundled), `${relPath} recorded`)
+    assert.strictEqual(sha1(fs.readFileSync(abs, 'utf8')), manifest.files[relPath], `${relPath} on disk`)
+  }
+})
+
+test('managedState classifies missing / pristine / customized', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const manifest = readManifest(dir)
+  const one = specPlanning(dir)
+  assert.strictEqual(managedState(dir, one.relPath, manifest), 'pristine')
+  fs.appendFileSync(path.join(dir, one.relPath), '\nuser edit\n')
+  assert.strictEqual(managedState(dir, one.relPath, manifest), 'customized')
+  fs.unlinkSync(path.join(dir, one.relPath))
+  assert.strictEqual(managedState(dir, one.relPath, manifest), 'missing')
+})
+
+test('readManifest tolerates a missing or malformed manifest', () => {
+  const dir = tmpProject()
+  assert.deepStrictEqual(readManifest(dir).files, {}) // missing
+  fs.mkdirSync(path.dirname(path.join(dir, MANIFEST_FILE)), { recursive: true })
+  fs.writeFileSync(path.join(dir, MANIFEST_FILE), '{ not json')
+  assert.deepStrictEqual(readManifest(dir).files, {}) // malformed
+})
+
+test('migration: a pre-manifest repo re-seeds without clobbering a user edit', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  fs.unlinkSync(path.join(dir, MANIFEST_FILE)) // simulate a repo predating the manifest
+  const one = specPlanning(dir)
+  fs.appendFileSync(path.join(dir, one.relPath), '\nMY CONVENTIONS\n') // user edit pre-migration
+  await init({ dir, force: false, claudeMd: false, mode: 'init' }) // re-run: create-missing
+  const manifest = readManifest(dir)
+  assert.strictEqual(managedState(dir, one.relPath, manifest), 'customized', 'edited file kept as customized')
+  assert.match(fs.readFileSync(path.join(dir, one.relPath), 'utf8'), /MY CONVENTIONS/, 'edit intact')
+  // an untouched managed file re-seeds as pristine
+  const skill = managedTargets(dir).find((t) => t.relPath.includes('/skills/spec/'))
+  assert.strictEqual(managedState(dir, skill.relPath, manifest), 'pristine')
 })
 
 test('removes retired folder index files left by an earlier version', async () => {
