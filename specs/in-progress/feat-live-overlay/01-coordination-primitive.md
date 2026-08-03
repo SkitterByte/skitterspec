@@ -1,6 +1,6 @@
-# Phase 1 — Coordination primitive: guard + receipt + `live status` ⬜
+# Phase 1 — Coordination primitive: guard + receipt + `live status` ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** Land the primitive the whole feature rests on — a reusable
 "is the primary checkout on the base branch?" guard, a `.spec-env/live.json`
@@ -9,28 +9,28 @@ on the pure helpers plus a `status` CLI test.
 
 ## Tasks
 
-- [ ] Add `assertPrimaryOnMain(dir)` / `currentPrimaryBranch(dir)` to
-      `packages/common/src/env/resolve.js` — resolve the primary checkout
-      (reuse `resolvePrimaryCheckout`), read its current branch
+- [x] Add `currentBranch(git)` + `assertPrimaryOnMain(config, git)` to
+      `packages/common/src/env/resolve.js` — read the checkout's current branch
       (`git symbolic-ref --short HEAD`), compare against the resolved base branch
-      (`baseBranch` or auto-detected). Return a structured `{ onBase, branch,
-      baseBranch }`, not a throw, so callers choose the message.
-- [ ] Create `packages/common/src/env/live.js` (pure) — receipt shape
-      `{ spec, branch, holder, heldSince, baseMainCommit }`, and pure helpers:
-      `readReceipt(state)`, `renderReceipt(fields)`, `receiptPath(config)`
-      (`.spec-env/live.json`, gitignored, primary-checkout-root like the registry).
-      Keep IO (actual file read/write) in `cli.js`, matching the registry pattern.
-- [ ] Wire `spec-env live` dispatch in `cli.js` (`specEnvLive(rest)`), anchored on
-      the primary checkout and no-op-with-message when `env.config.json` is absent
-      (opt-in, like the other `spec-env` verbs). Implement the `status` subcommand:
-      print the primary checkout's current branch, whether it's on base, and the
-      receipt (holder / heldSince / spec) if present.
-- [ ] Add `.spec-env/live.json` to the gitignore handling alongside the registry
-      (confirm `.spec-env/` is already ignored; extend if the receipt needs it).
-- [ ] Add tests: `packages/common/test/env-live.test.js` (receipt render/read,
-      `assertPrimaryOnMain` on-base vs on-feature) and a `status` case in a
-      `cli-spec-env-live.test.js`. Run `pnpm test` (single file:
-      `node --test packages/common/test/env-live.test.js`) — green before done.
+      (`resolveBaseBranch`). Returns a structured `{ onBase, branch, baseBranch }`,
+      not a throw, so callers choose the message. The CLI binds `git` to the
+      primary checkout (dispatch already anchors there).
+- [x] Create `packages/common/src/env/live.js` — receipt shape
+      `{ spec, branch, holder, heldSince, baseMainCommit }`, with pure
+      `renderReceipt`/`receiptPath`/`summarizeReceipt` and thin
+      `readReceipt`/`writeReceipt`/`clearReceipt` IO. Receipt sits beside the
+      registry (`.spec-env/live.json`, gitignored, primary-checkout-root).
+- [x] Wire `spec-env live` dispatch in `cli.js` (`specEnvLive`), anchored on the
+      primary checkout, inheriting the opt-in `env.config.json` no-op from the
+      shared `specEnv` dispatch. Implement `status`: prints the primary checkout's
+      current branch, whether it's on base (free vs feature-in-control), and the
+      receipt summary.
+- [x] Confirm `.spec-env/live.json` is gitignored — `/.spec-env/` (`.gitignore:17`)
+      already covers it; no change needed.
+- [x] Add tests: `packages/common/test/env-live.test.js` (receipt render/read/
+      write/clear/summarize + `assertPrimaryOnMain` on-base / off-base / detached)
+      and `cli-spec-env-live.test.js` (`status` free, worktree-anchored, and
+      feature-in-control-with-receipt). `pnpm test` green — 345 pass, 0 fail.
       (No separate typecheck — the repo is plain JS.)
 
 ## Notes

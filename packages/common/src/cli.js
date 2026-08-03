@@ -21,10 +21,12 @@ const {
   resolveSpec,
   resolveBaseBranch,
   resolvePrimaryCheckout,
+  assertPrimaryOnMain,
   repoInfo,
   expandTokens,
   splitPrefix,
 } = require('./env/resolve.js')
+const { readReceipt, summarizeReceipt } = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
@@ -598,6 +600,35 @@ async function specEnvConnect(dir, config, specArg) {
 
 // Dispatch `skitterspec spec-env <sub> [args] [--dir path]`. No-ops with a clear
 // message when the feature isn't enabled (no specs/.core/env.config.json).
+// Live overlay: test a spec on the already-running instance by checking its
+// branch out in the primary checkout, so the running dev server hot-reloads the
+// feature. The branch that's checked out IS the lock (assertPrimaryOnMain); the
+// receipt is advisory metadata. Phase 1 ships the read-only `status`;
+// take/release/abort land in later phases.
+function specEnvLive(dir, config, positional) {
+  const action = positional[0] || 'status'
+  switch (action) {
+    case 'status':
+      specEnvLiveStatus(dir, config)
+      break
+    default:
+      process.stdout.write('Usage: skitterspec spec-env live <status>\n')
+  }
+}
+
+function specEnvLiveStatus(dir, config) {
+  const { onBase, branch, baseBranch } = assertPrimaryOnMain(config, gitReader(dir))
+  const receipt = readReceipt(dir, config)
+  const state = onBase
+    ? 'on base — free'
+    : `feature in control — not on ${baseBranch}`
+  process.stdout.write(
+    'spec-env live:\n' +
+      `  primary:   ${branch || '(detached)'}  (${state})\n` +
+      `  receipt:   ${summarizeReceipt(receipt)}\n`,
+  )
+}
+
 async function specEnv(rest) {
   const [sub, ...args] = rest
   let dir = process.cwd()
@@ -645,9 +676,12 @@ async function specEnv(rest) {
     case 'resolve':
       specEnvResolve(dir, config, positional[0])
       break
+    case 'live':
+      specEnvLive(dir, config, positional)
+      break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|dev|connect|integrate|status|resolve> [spec] [--keep-volumes] [--force]\n',
+        'Usage: skitterspec spec-env <up|down|dev|connect|integrate|live|status|resolve> [spec] [--keep-volumes] [--force]\n',
       )
   }
 }

@@ -166,6 +166,29 @@ function resolvePrimaryCheckout(dir, git) {
 }
 
 /**
+ * The current branch of a checkout, or `null` when detached (or not a repo).
+ * `git` is a reader bound to the target checkout — for the live-overlay guard the
+ * CLI binds it to the primary checkout. (`symbolic-ref --short HEAD` exits
+ * non-zero on a detached HEAD, which the reader maps to `null`.)
+ */
+function currentBranch(git) {
+  return git(['symbolic-ref', '--short', 'HEAD'])
+}
+
+/**
+ * The live-overlay guard: is the primary checkout on the integration base branch
+ * (free) or on a feature branch (a spec is in control)? Returns
+ * `{ onBase, branch, baseBranch }` — a structured result, never a throw, so each
+ * caller phrases its own refusal. `git` must be bound to the primary checkout.
+ * `onBase` is false on a detached HEAD (`branch === null`), which is not the base.
+ */
+function assertPrimaryOnMain(config, git) {
+  const baseBranch = resolveBaseBranch(config, git)
+  const branch = currentBranch(git)
+  return { onBase: branch === baseBranch, branch, baseBranch }
+}
+
+/**
  * Resolve a spec argument to its identity + isolation coordinates.
  * Throws a clear Error when the spec folder can't be found.
  *
@@ -208,6 +231,8 @@ module.exports = {
   resolveSpec,
   resolveBaseBranch,
   resolvePrimaryCheckout,
+  currentBranch,
+  assertPrimaryOnMain,
   branchFor,
   splitPrefix,
   repoInfo,

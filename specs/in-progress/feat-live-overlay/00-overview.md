@@ -105,7 +105,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Coordination primitive: guard + receipt + `live status` | ⬜ | [01-coordination-primitive.md](01-coordination-primitive.md) |
+| 1 | Coordination primitive: guard + receipt + `live status` | ✅ | [01-coordination-primitive.md](01-coordination-primitive.md) |
 | 2 | `live take` + `/spec-live` (take/status) | ⬜ | [02-live-take.md](02-live-take.md) |
 | 3 | `live release` + `live abort` + `/spec-live main` | ⬜ | [03-live-release-abort.md](03-live-release-abort.md) |
 | 4 | Live-aware completion (`integrate` / `/spec-complete`) | ⬜ | [04-complete-integration.md](04-complete-integration.md) |
@@ -128,3 +128,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-03 — Spec created. Chose branch-switch over diff-overlay (branch is the
   lock); v1 code-only (refuse stateful); verify-only dev process; completion folds
   into `/spec-complete`; named `spec-env live` / `/spec-live`.
+- 2026-08-03 — Phase 1 done. `env/live.js` (receipt) + `assertPrimaryOnMain` guard
+  in `env/resolve.js` + `spec-env live status`. **Deviation:** kept the receipt
+  IO (`read/write/clear`) in `env/live.js` as a thin seam, mirroring
+  `env/registry.js`, rather than in `cli.js` as the phase note suggested — the
+  registry pattern was the stated north star and this matches it. Receipt path
+  derives from the configured registry dir (`.spec-env/live.json`). 345 tests pass.
