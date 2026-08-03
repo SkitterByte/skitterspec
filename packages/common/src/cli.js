@@ -3,7 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const { execFileSync } = require('child_process')
-const { init } = require('./init.js')
+const { init, resync, reset, isExistingSetup } = require('./init.js')
 const {
   detectReleaseTooling,
   removeReleaseTooling,
@@ -39,9 +39,12 @@ const HELP = `skitterspec — spec-driven-development for Claude Code
 
 Usage:
   skitterspec init [dir]      Install the spec lifecycle skills, rule, and specs/
-                              folders into a project
-  skitterspec update [dir]    Re-copy skills + rule (overwrites), leaves specs/
-                              and specs/.core/ config alone
+                              folders. On an already-set-up repo it detects that
+                              and offers resync / start-again / leave (interactive)
+                              — non-interactively it just adds anything missing.
+  skitterspec update [dir]    Resync managed files to the latest, keeping your
+                              edits (--force to overwrite). Leaves specs/ + live
+                              .core config alone.
   skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         plan a worktree + Docker stack + opener
@@ -56,6 +59,9 @@ Usage:
   skitterspec --version       Print version
 
 Options (init / update):
+  --resync                 (init) Update managed files to latest, keep your edits
+  --reset                  (init) Start again: reset managed scaffolding fresh
+                           (needs --yes; never touches your specs or config)
   --force                  Overwrite skill/rule/script files that already exist
   --dir <path>             Target project dir (default: positional arg or cwd)
   --no-claude-md           Skip creating/patching CLAUDE.md
@@ -80,6 +86,8 @@ function parse(argv) {
     yes: false,
     isolation: undefined,
     removeReleaseTooling: false,
+    resync: false,
+    reset: false,
   }
   const positional = []
   for (let i = 0; i < argv.length; i++) {
@@ -90,6 +98,8 @@ function parse(argv) {
     else if (a === '--isolation') opts.isolation = true
     else if (a === '--no-isolation') opts.isolation = false
     else if (a === '--remove-release-tooling') opts.removeReleaseTooling = true
+    else if (a === '--resync') opts.resync = true
+    else if (a === '--reset') opts.reset = true
     else if (a === '--dir') opts.dir = argv[++i]
     else if (a.startsWith('--')) throw new Error(`unknown option: ${a}`)
     else positional.push(a)
@@ -664,21 +674,54 @@ async function run(argv) {
 
   switch (cmd) {
     case 'init': {
-      // Isolation defaults OFF; a flag or an interactive "yes" opts in.
-      let isolation = opts.isolation === true
-
       const interactive = Boolean(process.stdin.isTTY) && !opts.yes
-      if (interactive) {
-        const { promptSetup } = require('./prompts.js')
-        const result = await promptSetup({ isolationSeed: isolation })
-        isolation = result.isolation
+
+      // Already set up? Route to resync / reset / leave instead of a silent
+      // create-missing (safer-init). A fresh repo falls straight through.
+      if (isExistingSetup(dir)) {
+        let action
+        if (opts.reset) {
+          if (!opts.yes) {
+            process.stdout.write('init: --reset overwrites managed files — re-run with --yes. Left unchanged.\n')
+            break
+          }
+          action = 'reset'
+        } else if (opts.resync) action = 'resync'
+        else if (opts.force) action = 'resync' // --force resyncs, clobbering customized
+        else if (interactive) {
+          const { promptExistingSetup } = require('./prompts.js')
+          action = await promptExistingSetup()
+        } else action = 'create-missing' // non-interactive default: add missing, never clobber
+
+        if (action === 'leave') {
+          process.stdout.write('init: existing setup left unchanged.\n')
+          break
+        }
+        if (action === 'reset') {
+          reset(dir, { claudeMd: opts.claudeMd })
+          break
+        }
+        if (action === 'resync') {
+          resync(dir, { claudeMd: opts.claudeMd, force: opts.force })
+          break
+        }
+        // action === 'create-missing' → fall through to a normal (skip-existing) init.
       }
 
+      // Fresh repo (or create-missing): isolation defaults OFF; a flag or an
+      // interactive "yes" opts in. Only prompt for isolation on a fresh repo.
+      let isolation = opts.isolation === true
+      if (interactive && !isExistingSetup(dir)) {
+        const { promptSetup } = require('./prompts.js')
+        isolation = (await promptSetup({ isolationSeed: isolation })).isolation
+      }
       await init({ dir, force: opts.force, claudeMd: opts.claudeMd, mode: 'init', isolation })
       break
     }
     case 'update':
-      await init({ dir, force: true, claudeMd: opts.claudeMd, mode: 'update' })
+      // `update` is a resync — refresh managed files, keep customized ones
+      // (--force to overwrite). Leaves specs/ and live .core config alone.
+      resync(dir, { claudeMd: opts.claudeMd, force: opts.force })
       await cleanupReleaseTooling(dir, opts)
       break
     default:

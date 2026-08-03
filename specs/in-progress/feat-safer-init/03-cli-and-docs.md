@@ -1,6 +1,6 @@
-# Phase 3 — CLI detection, prompt, flags + /spec-init docs ⬜
+# Phase 3 — CLI detection, prompt, flags + /spec-init docs ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `init` on an existing setup routes to resync / reset / leave (interactive
 prompt or flags), the non-interactive default stays create-missing, and the
@@ -8,25 +8,21 @@ behaviour is documented — proven by CLI-parse + integration tests.
 
 ## Tasks
 
-- [ ] `cli.js` parse: add `--resync` and `--reset`; keep `--force`, `--yes`,
-      `--isolation`, and the `update` command. Refresh `HELP`.
-- [ ] `init` dispatch: if `isExistingSetup(dir)` —
-      - interactive (TTY, no `--yes`, no action flag) → prompt {Resync, Start
-        again, Leave alone} (default **Leave alone**); **Start again** asks a
-        second confirm before `reset`.
-      - `--resync` → `resync`; `--reset` → `reset` but only with `--yes` (else
-        refuse with a message); `--force` → `resync` with overwrite.
-      - non-interactive, no action flag → **create-missing** (today's behaviour).
-      Fresh repo (not `isExistingSetup`) → unchanged install.
-- [ ] Map the `update` command onto `resync` (backward-compatible); keep its
-      release-tooling cleanup.
-- [ ] Add a `prompts.js` helper for the 3-way choice + the reset confirm.
-- [ ] Update `packages/common/assets/skills/spec-init/SKILL.md` to describe the
-      re-run behaviour (detect → resync/reset/leave; manifest; safety guard).
-      Rebuild the vendored dists (`node scripts/build-dist.js all`).
-- [ ] Tests: parse recognises the new flags; `--reset` without `--yes` is refused;
-      non-interactive existing-setup run creates-missing only; `update` resyncs.
-      Full suite green; assets test still sees the spec-init skill.
+- [x] `cli.js` parse: added `--resync` / `--reset`; kept `--force`/`--yes`/
+      `--isolation` and the `update` command. `HELP` refreshed.
+- [x] `init` dispatch: on `isExistingSetup` → interactive 3-way prompt (default
+      Leave alone; Start-again second confirm); `--resync`→resync, `--reset`→reset
+      (refused without `--yes`), `--force`→resync-overwrite; non-interactive with
+      no flag → create-missing. Fresh repo unchanged. Isolation prompt now only on
+      a fresh repo.
+- [x] `update` → `resync` (keeps customized; `--force` to overwrite); release-tool
+      cleanup kept.
+- [x] `promptExistingSetup()` in `prompts.js` (select + reset confirm).
+- [x] `/spec-init` SKILL.md documents the safe re-run (manifest + resync/reset/
+      leave). Dists rebuilt.
+- [x] Tests (5): parse flags; `--reset` refused without `--yes`; non-interactive
+      existing → create-missing; `update` resyncs keeping edits; `--resync`
+      recreates missing + keeps customized. Suite 297 green. Live-smoked the CLI.
 
 ## Notes
 

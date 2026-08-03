@@ -21,7 +21,18 @@ const {
   reset,
   assertSafeToDelete,
 } = require('../src/init.js')
-const { parse } = require('../src/cli.js')
+const { parse, run } = require('../src/cli.js')
+
+// Run the CLI with stdout suppressed (the dispatch prints a summary/notice).
+async function runQuiet(argv) {
+  const orig = process.stdout.write
+  process.stdout.write = () => true
+  try {
+    await run(argv)
+  } finally {
+    process.stdout.write = orig
+  }
+}
 
 function tmpProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-'))
@@ -190,6 +201,54 @@ test('assertSafeToDelete refuses spec content, config, and non-managed paths', (
   assert.throws(() => assertSafeToDelete('specs/.core/linear-base/SKI-1.base.json', managed), /sync state/)
   assert.throws(() => assertSafeToDelete('some/other/file.md', managed), /non-managed/)
   assert.doesNotThrow(() => assertSafeToDelete('.claude/skills/spec/SKILL.md', managed))
+})
+
+test('parse recognises --resync and --reset', () => {
+  assert.strictEqual(parse(['--resync']).opts.resync, true)
+  assert.strictEqual(parse(['--reset']).opts.reset, true)
+  assert.strictEqual(parse([]).opts.resync, false)
+})
+
+test('CLI init --reset without --yes is refused (managed files untouched)', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const skill = anySkill(dir)
+  fs.appendFileSync(path.join(dir, skill.relPath), '\nMINE\n')
+  await runQuiet(['init', '--reset', '--no-claude-md', dir])
+  assert.match(fs.readFileSync(path.join(dir, skill.relPath), 'utf8'), /MINE/, 'left unchanged')
+})
+
+test('CLI init on an existing setup (non-interactive) only adds missing', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const skill = anySkill(dir)
+  fs.appendFileSync(path.join(dir, skill.relPath), '\nMINE\n') // customized
+  const other = managedTargets(dir).find((t) => t.relPath !== skill.relPath && t.relPath.endsWith('SKILL.md'))
+  fs.unlinkSync(path.join(dir, other.relPath)) // missing
+  await runQuiet(['init', '--no-claude-md', dir])
+  assert.ok(fs.existsSync(path.join(dir, other.relPath)), 'missing recreated')
+  assert.match(fs.readFileSync(path.join(dir, skill.relPath), 'utf8'), /MINE/, 'customized untouched')
+})
+
+test('CLI update resyncs and keeps a customized file', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const skill = anySkill(dir)
+  fs.appendFileSync(path.join(dir, skill.relPath), '\nMINE\n')
+  await runQuiet(['update', '--no-claude-md', dir])
+  assert.match(fs.readFileSync(path.join(dir, skill.relPath), 'utf8'), /MINE/, 'kept by resync')
+})
+
+test('CLI init --resync recreates missing and keeps customized', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const skill = anySkill(dir)
+  fs.appendFileSync(path.join(dir, skill.relPath), '\nMINE\n')
+  const other = managedTargets(dir).find((t) => t.relPath !== skill.relPath && t.relPath.endsWith('SKILL.md'))
+  fs.unlinkSync(path.join(dir, other.relPath))
+  await runQuiet(['init', '--resync', '--no-claude-md', dir])
+  assert.ok(fs.existsSync(path.join(dir, other.relPath)), 'missing recreated')
+  assert.match(fs.readFileSync(path.join(dir, skill.relPath), 'utf8'), /MINE/, 'customized kept')
 })
 
 test('removes retired folder index files left by an earlier version', async () => {

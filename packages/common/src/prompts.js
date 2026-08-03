@@ -53,4 +53,40 @@ async function confirmRemoveReleaseTooling() {
   return Boolean(ans.remove)
 }
 
-module.exports = { promptSetup, confirmRemoveReleaseTooling }
+/**
+ * Interactive choice when `init` finds an already-set-up repo. Returns one of
+ * `leave` | `resync` | `reset`. Defaults to (and cancels to) `leave` — the safe
+ * no-op — and asks a second confirm before `reset` (destructive to managed files).
+ */
+async function promptExistingSetup() {
+  const prompts = require('prompts')
+  const { action } = await prompts(
+    {
+      type: 'select',
+      name: 'action',
+      message: 'This project already has skitterspec set up. What would you like to do?',
+      initial: 0,
+      choices: [
+        { title: 'Leave alone — make no changes', value: 'leave' },
+        { title: 'Resync — update managed files to the latest, keep my edits', value: 'resync' },
+        { title: 'Start again — reset the scaffolding (your specs & config are kept)', value: 'reset' },
+      ],
+    },
+    { onCancel: () => {} },
+  )
+  if (action === 'reset') {
+    const { confirm } = await prompts(
+      {
+        type: 'confirm',
+        name: 'confirm',
+        message: 'Start again overwrites managed skills/rules. Your specs and config are untouched. Continue?',
+        initial: false,
+      },
+      { onCancel: () => false },
+    )
+    if (!confirm) return 'leave'
+  }
+  return action || 'leave'
+}
+
+module.exports = { promptSetup, confirmRemoveReleaseTooling, promptExistingSetup }

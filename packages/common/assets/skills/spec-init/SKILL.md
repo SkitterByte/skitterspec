@@ -13,6 +13,14 @@ clobber customised content. Finish with a summary of created vs already-present.
 > all of the below mechanically. This skill is the manual/repair path and is
 > useful when the package isn't available or you only need to fix part of the
 > setup.
+>
+> **Re-running on an already-set-up repo is safe.** `init` detects the existing
+> setup (via the committed `specs/.core/.skitterspec-manifest.json` of installed
+> file hashes) and, interactively, offers three paths — **Resync** (update managed
+> skills/rules to the latest but keep files you've edited), **Start again** (reset
+> the managed scaffolding fresh — never your specs or config, with a confirm), or
+> **Leave alone**. Non-interactively it only adds what's missing; `--resync` /
+> `--reset` (reset needs `--yes`) drive the stronger actions.
 
 The system is **eight skills**: `spec` (feature), `spec-bug` (bug), `spec-ready`,
 `spec-review`, `spec-go`, `spec-complete`, `spec-cancel`, and this `spec-init`. The lifecycle is

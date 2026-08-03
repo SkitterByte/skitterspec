@@ -8,7 +8,7 @@ spec_status: "backlog"
 # Safer init: detect existing setup, offer resync / reset / leave
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-08-03)
+> **Status:** In Progress — all phases done, ready for /spec-complete
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-03
@@ -85,7 +85,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Install manifest + managed-state classifier | ✅ | [01-manifest.md](01-manifest.md) |
 | 2 | Resync + reset engine (with the hard guard) | ✅ | [02-resync-reset.md](02-resync-reset.md) |
-| 3 | CLI detection, prompt, flags + /spec-init docs | ⬜ | [03-cli-and-docs.md](03-cli-and-docs.md) |
+| 3 | CLI detection, prompt, flags + /spec-init docs | ✅ | [03-cli-and-docs.md](03-cli-and-docs.md) |
 
 ## Open questions
 
@@ -109,6 +109,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   .json`) of managed-file hashes, recorded on write + flushed each run (with
   pre-manifest migration); `managedState` classifier + `managedTargets`. 4 fixtures;
   suite 287 green.
+- 2026-08-03 — Phase 3 done: `init` detects an existing setup and offers
+  resync/reset/leave (interactive prompt or `--resync`/`--reset` flags; `--reset`
+  needs `--yes`); non-interactive default stays create-missing; `update` → resync;
+  `/spec-init` docs + HELP updated. 5 fixtures; suite 297 green; CLI live-smoked.
+  **All 3 phases done — ready for /spec-complete.**
 - 2026-08-03 — Phase 2 done: `resync` (update pristine + add missing, keep
   customized), `reset` (guarded manifest-driven remove + recreate), `isExistingSetup`
   detection, `assertSafeToDelete` hard guard. 5 fixtures; suite 292 green. **Fix
