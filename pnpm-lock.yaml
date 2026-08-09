@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@skitterbyte/skittership':
-        specifier: ^1.0.0
-        version: 1.0.0
+        specifier: ^1.1.0
+        version: 1.1.0
 
   packages/common:
     dependencies:
@@ -43,8 +43,8 @@ importers:
 
 packages:
 
-  '@skitterbyte/skittership@1.0.0':
-    resolution: {integrity: sha512-Wu414eoJoY2/+gLmhWJj/DLi07z4Do578D07wSZSkvrhAgTuYTyq3A2f93GVAT1CRLYASNdOuSOo6qo6QrLGew==}
+  '@skitterbyte/skittership@1.1.0':
+    resolution: {integrity: sha512-JsSZEODw6nKtGlQbSYvE3qI4CF05Z/ws5GrfRMC7OPWSK1wxmkHWnkSMQe7SouRe/zkjpghuPKWcQvkaDpfmvQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -61,7 +61,7 @@ packages:
 
 snapshots:
 
-  '@skitterbyte/skittership@1.0.0':
+  '@skitterbyte/skittership@1.1.0':
     dependencies:
       prompts: 2.4.2
 
