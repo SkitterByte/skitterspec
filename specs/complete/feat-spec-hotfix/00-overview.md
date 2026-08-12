@@ -1,7 +1,7 @@
 # /spec-hotfix — tag-based hotfix lifecycle
 
 > **Type:** Feature
-> **Status:** In Progress — all phases done (ready for /spec-complete)
+> **Status:** Complete (2026-08-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-12
@@ -114,6 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-12 | Ready | backlog | Reuben Greaves |
 | 2026-08-12 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-12 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -135,3 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   gitignored (regenerated at `prepack`), so Phase 4's dist step is verification
   only — nothing to commit. `build-dist.test.js` asserts the skill installs from
   both distributions.
+- 2026-08-12 — Phase 4 landed (rule + config + README docs). Both distributions
+  build clean (guard passes, skill + vendored `hotfix.js` present).
+- 2026-08-12 — Completed; all four phases done, full suite green (common 258,
+  sync-core 76, linear 28).
