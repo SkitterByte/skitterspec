@@ -31,6 +31,9 @@
  *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed },
  *     live:     { migrations: [ "glob", ... ] }  // migration globs → `live take`
  *               // refuses a branch that changes them (code-only v1)
+ *     hotfix:   { bump, cherryPickMain, targets }  // `hotfix land`: patch-bump the
+ *               // deploy tag, also cherry-pick onto the base branch (main), and
+ *               // onto any extra base tags in `targets` (test/demo lines)
  *   }
  */
 
@@ -80,6 +83,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // migration files; a branch that changes any of them is treated as stateful and
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
   live: Object.freeze({ migrations: Object.freeze([]) }),
+  // Hotfix landing (`spec-env hotfix land`). `bump` is the version-bump strategy
+  // for the new deploy tag (only "patch" today). `cherryPickMain` also cherry-picks
+  // the fix onto the base branch for the next release (default true). `targets` is
+  // an optional default list of extra base tags to also patch (test/demo lines);
+  // `--also <tag>` on the command adds more at run time. Default: patch, main, none.
+  hotfix: Object.freeze({ bump: 'patch', cherryPickMain: true, targets: Object.freeze([]) }),
 })
 
 function isObject(value) {
@@ -101,6 +110,7 @@ function defaults() {
     baseBranch: DEFAULT_CONFIG.baseBranch,
     guards: { ...DEFAULT_CONFIG.guards },
     live: { migrations: [] },
+    hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
 }
 
@@ -246,6 +256,14 @@ function mergeConfig(base, parsed) {
 
   if (isObject(parsed.live) && Array.isArray(parsed.live.migrations)) {
     base.live.migrations = normalizeFileList(parsed.live.migrations)
+  }
+
+  if (isObject(parsed.hotfix)) {
+    assign(base.hotfix, parsed.hotfix, 'bump', 'string')
+    assign(base.hotfix, parsed.hotfix, 'cherryPickMain', 'boolean')
+    if (Array.isArray(parsed.hotfix.targets)) {
+      base.hotfix.targets = normalizeFileList(parsed.hotfix.targets)
+    }
   }
 
   return base

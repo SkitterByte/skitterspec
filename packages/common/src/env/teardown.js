@@ -21,7 +21,7 @@ const { expandTokens } = require('./resolve.js')
  * @param {object} spec  resolved spec: { slug, branch, worktreePath, projectName, ... }
  * @param {object} config normalised env config.
  * @param {object} flags { keepVolumes, force }
- * @param {object} ctx   { worktreeState: { dirty, unpushed, merged }, timestamp }
+ * @param {object} ctx   { worktreeState: { dirty, unpushed, merged, reachableFromTag }, timestamp }
  * @returns {object} { blocked, reason, commands, backupCommand, backupPath,
  *                     volumesDropped }
  */
@@ -30,20 +30,22 @@ function planDown(spec, config, flags, ctx) {
   const force = Boolean(flags && flags.force)
   const keepVolumes = Boolean(flags && flags.keepVolumes)
 
+  // A hotfix lands by tag + cherry-pick, so its branch is never an ancestor of
+  // base — but once its head is captured by a tag (the deploy tag from
+  // `hotfix land`), the commits are recoverable and the branch is safe to drop.
+  // Treat "reachable from a tag" as landed, alongside merged.
+  const landed = Boolean(worktreeState.merged || worktreeState.reachableFromTag)
+
   // --- guards (overridable with --force) ---
   if (!force) {
     if (config.guards.refuseTeardownIfDirty && worktreeState.dirty) {
       return blocked('worktree has uncommitted changes')
     }
     // Unpushed commits are only unsafe when they aren't already integrated into
-    // the base branch. A branch merged into base carries nothing to lose even
-    // with no remote — so /spec-complete's local land-then-teardown needs no
-    // --force. Block only when the commits are both unpushed AND unmerged.
-    if (
-      config.guards.refuseTeardownIfUnpushed &&
-      worktreeState.unpushed &&
-      !worktreeState.merged
-    ) {
+    // the base branch (or captured by a tag). A landed branch carries nothing to
+    // lose even with no remote — so /spec-complete's local land-then-teardown
+    // needs no --force. Block only when unpushed AND not landed.
+    if (config.guards.refuseTeardownIfUnpushed && worktreeState.unpushed && !landed) {
       return blocked('worktree has unpushed commits not yet merged into the base branch')
     }
   }
@@ -85,11 +87,16 @@ function planDown(spec, config, flags, ctx) {
       : `git worktree remove ${spec.worktreePath}`,
   )
 
-  // --- delete the branch (safe: -d refuses an unmerged branch, never -D) ---
-  // Runs after the worktree remove frees the branch. On a forced teardown of an
-  // unmerged branch this fails loudly; the skill relays it rather than -D-ing.
+  // --- delete the branch ---
+  // Runs after the worktree remove frees the branch. Normally `-d` (safe: refuses
+  // an unmerged branch, never -D). A tag-landed hotfix branch is intentionally NOT
+  // an ancestor of base, so `-d` would refuse it — but its commits are captured by
+  // the deploy tag, so `-D` is safe *only* in that case. Everything else stays `-d`;
+  // on a forced teardown of a genuinely unmerged branch it fails loudly and the
+  // skill relays it rather than -D-ing.
   if (spec.branch) {
-    commands.push(`git branch -d ${spec.branch}`)
+    const tagLanded = Boolean(worktreeState.reachableFromTag && !worktreeState.merged)
+    commands.push(`git branch ${tagLanded ? '-D' : '-d'} ${spec.branch}`)
   }
 
   return { blocked: false, reason: null, commands, backupCommand, backupPath, volumesDropped }

@@ -1,7 +1,7 @@
 # /spec-hotfix — tag-based hotfix lifecycle
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 done, Phase 2 next
+> **Status:** In Progress — Phase 2 done, Phase 3 next
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-12
@@ -100,7 +100,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Hotfix type + fork-from-tag provisioning + live refusal | ✅ | [01-type-and-provision.md](01-type-and-provision.md) |
-| 2 | Landing engine: bump, tag, cherry-pick targets, teardown-by-tag, config | ⬜ | [02-landing-engine.md](02-landing-engine.md) |
+| 2 | Landing engine: bump, tag, cherry-pick targets, teardown-by-tag, config | ✅ | [02-landing-engine.md](02-landing-engine.md) |
 | 3 | Skills: /spec-hotfix, hotfix-aware /spec-complete, /spec-live note | ⬜ | [03-skills.md](03-skills.md) |
 | 4 | Docs, rules, README, dist regeneration | ⬜ | [04-docs-and-dist.md](04-docs-and-dist.md) |
 
@@ -123,3 +123,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   handles hotfixes too, differing only at the land step (tag + cherry-pick vs
   fast-forward) and treating Hotfix like Bug for test verification. No separate
   completion command.
+- 2026-08-12 — Phase 2 landed. Deviation from plan: teardown tracks a distinct
+  `worktreeState.reachableFromTag` flag (not `merged: true`) so a tag-landed
+  hotfix passes the unpushed guard *and* the branch drop switches to `git branch
+  -D` (the deploy tag holds the commits) — `-d` would refuse the unmerged branch.
+  Verified end-to-end on a throwaway repo (fork-from-tag, land, teardown-by-tag);
+  the main cherry-pick conflicts when the fix overlaps moved base code, which is
+  the expected abort-and-hand-back case the skill drives in Phase 3.

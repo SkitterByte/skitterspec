@@ -1,6 +1,6 @@
-# Phase 2 — Landing engine: bump, tag, cherry-pick targets, teardown-by-tag, config ⬜
+# Phase 2 — Landing engine: bump, tag, cherry-pick targets, teardown-by-tag, config ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** A pure `spec-env hotfix land <spec>` planner that emits the exact
 side-effect-free, **never-pushing** commands to (a) tag the hotfix branch with the
@@ -10,7 +10,7 @@ tagged hotfix branch as landed. Proven by unit tests.
 
 ## Tasks
 
-- [ ] New `packages/common/src/env/hotfix.js`:
+- [x] New `packages/common/src/env/hotfix.js`:
       - `bumpPatch(tag)` — parse `^(?<prefix>\D*)(\d+)\.(\d+)\.(\d+)(?<suffix>.*)$`,
         increment patch, preserve prefix, drop suffix; throw a clear Error on an
         unparseable tag.
@@ -25,24 +25,24 @@ tagged hotfix branch as landed. Proven by unit tests.
         - `git -C <mainRepoPath> cherry-pick <fixRange>` (onto `main`).
       - Refuse (clear Error) any target whose bumped tag is already in
         `existingTags`.
-- [ ] `cli.js`: wire `spec-env hotfix land <spec> [--also <tag>]...`. The CLI does
+- [x] `cli.js`: wire `spec-env hotfix land <spec> [--also <tag>]...`. The CLI does
       the impure git reads (resolve `fixRange` = `<baseRef>..<branch>`, list
       `existingTags`, `worktreeState`, `aheadOfBase`, `mainRepoPath`) and prints
       the plan under headings matching `integrate`'s output style. Extra targets:
       `--also` flags, falling back to `config.hotfix.targets`.
-- [ ] `config.js`: add a frozen `hotfix` default block —
+- [x] `config.js`: add a frozen `hotfix` default block —
       `{ bump: 'patch', targets: [], cherryPickMain: true }` — plus `mergeConfig`
       handling (lenient, like `live`/`dev`) and a `defaults()` entry.
-- [ ] `teardown.js` / `worktreeGitState`: a hotfix branch whose head commit is
+- [x] `teardown.js` / `worktreeGitState`: a hotfix branch whose head commit is
       reachable from a tag (`git tag --points-at <head>` non-empty) counts as
       landed → `merged: true`, so `spec-env down` needs no `--force` and deletes
       the branch (commits survive under the tag). Non-hotfix behaviour unchanged.
-- [ ] Add tests: `bumpPatch` (prefix preserved, suffix dropped, bad tag throws);
+- [x] Add tests: `bumpPatch` (prefix preserved, suffix dropped, bad tag throws);
       `planHotfixLand` command shape for prod-only, with extra targets, and the
       main cherry-pick; dirty/no-op/duplicate-tag guards; config loader parses the
       `hotfix` block and defaults it when absent; teardown treats a tagged hotfix
       branch as safe.
-- [ ] Run `pnpm test` — green before the phase is done.
+- [x] Run `pnpm test` — green before the phase is done. **258 pass, 0 fail.**
 
 ## Notes
 

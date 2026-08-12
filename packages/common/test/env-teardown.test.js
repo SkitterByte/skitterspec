@@ -59,6 +59,32 @@ test('--force overrides the guards (and uses git worktree remove --force)', () =
   assert.ok(p.commands.some((c) => c === 'git worktree remove --force /wt/thing'))
 })
 
+test('a tag-landed hotfix branch tears down without --force, force-deletes the branch', () => {
+  // A hotfix is never an ancestor of base, but its head is captured by the deploy
+  // tag → safe. Guard passes with no --force, and the branch drop uses -D (the tag
+  // holds the commits) since -d would refuse the unmerged branch.
+  const p = planDown(
+    spec({ branch: 'hotfix/login' }),
+    config({ docker: { enabled: false } }),
+    {},
+    CTX({ unpushed: true, merged: false, reachableFromTag: true }),
+  )
+  assert.strictEqual(p.blocked, false)
+  assert.ok(p.commands.some((c) => c === 'git branch -D hotfix/login'))
+  assert.ok(!p.commands.some((c) => c === 'git branch -d hotfix/login'))
+})
+
+test('an unpushed hotfix branch NOT yet tagged is still blocked (nothing captures it)', () => {
+  const p = planDown(
+    spec({ branch: 'hotfix/login' }),
+    config(),
+    {},
+    CTX({ unpushed: true, merged: false, reachableFromTag: false }),
+  )
+  assert.strictEqual(p.blocked, true)
+  assert.match(p.reason, /unpushed/)
+})
+
 test('clean worktree → down --volumes + worktree remove, volumes dropped', () => {
   const p = planDown(spec(), config(), {}, CTX())
   assert.strictEqual(p.blocked, false)

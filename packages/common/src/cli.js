@@ -40,6 +40,7 @@ const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
 const { planIntegrate } = require('./env/integrate.js')
+const { planHotfixLand } = require('./env/hotfix.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy } = require('./env/supervise.js')
 const { renderRoutes, portsInUse, waitListening } = require('./env/proxy.js')
@@ -64,6 +65,7 @@ Usage:
                                 dev down <spec>   stop the spec's host dev servers
                                 connect <spec>    expose a spec on the canonical ports (main = off)
                                 integrate <spec>  plan rebase + fast-forward onto the base branch
+                                hotfix land <spec>  tag + cherry-pick a hotfix (--also <tag>)
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
   skitterspec --help          Show this help
@@ -271,7 +273,9 @@ function gitReader(cwd) {
 // the resolved integration branch; `merged` is true when HEAD is already an
 // ancestor of it (fully landed), which lets teardown skip the unpushed guard.
 function worktreeGitState(worktreePath, base) {
-  if (!fs.existsSync(worktreePath)) return { dirty: false, unpushed: false, merged: true }
+  if (!fs.existsSync(worktreePath)) {
+    return { dirty: false, unpushed: false, merged: true, reachableFromTag: false }
+  }
   const git = gitReader(worktreePath)
 
   const status = git(['status', '--porcelain'])
@@ -293,7 +297,13 @@ function worktreeGitState(worktreePath, base) {
   // exits 0 when true; gitReader maps a non-zero exit to null.
   const merged = base != null && git(['merge-base', '--is-ancestor', 'HEAD', base]) !== null
 
-  return { dirty, unpushed, merged }
+  // reachableFromTag = HEAD is captured by a tag (the deploy tag from `hotfix
+  // land`). A hotfix branch is never merged into base, so this is what tells
+  // teardown its commits are safely recoverable.
+  const pointing = git(['tag', '--points-at', 'HEAD'])
+  const reachableFromTag = pointing !== null && pointing.length > 0
+
+  return { dirty, unpushed, merged, reachableFromTag }
 }
 
 // A deterministic-enough compact timestamp for backup filenames (CLI-only; the
@@ -447,6 +457,93 @@ function specEnvIntegrate(dir, config, specArg) {
   out.push('')
   out.push('  run these (abort the rebase on conflict):')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  process.stdout.write(out.join('\n') + '\n')
+}
+
+// Land a hotfix: tag the branch with the patch-bumped base tag (the prod deploy
+// tag), cherry-pick the fix onto any extra base tags (test/demo lines) and onto
+// the base branch for the next release. Queries git for the facts, prints the plan
+// / block / no-op. The /spec-complete skill runs the printed commands (aborting a
+// cherry-pick on conflict). NEVER pushes — pushing the deploy tag is the operator's.
+function specEnvHotfix(dir, config, positional, flags) {
+  const action = positional[0]
+  const specArg = positional[1]
+  if (action !== 'land' || !specArg) {
+    process.stdout.write('Usage: skitterspec spec-env hotfix land <spec> [--also <tag>]...\n')
+    return
+  }
+
+  // A hotfix may be authored entirely on its branch, so fall back to its worktree.
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+  if (spec.type !== 'hotfix') {
+    process.stdout.write(
+      `spec-env hotfix land: ${spec.folder} is not a hotfix — needs Type: Hotfix / a hotfix- prefix.\n`,
+    )
+    return
+  }
+  if (!fs.existsSync(spec.worktreePath)) {
+    process.stdout.write(`spec-env hotfix land: ${spec.folder} has no worktree — nothing to land.\n`)
+    return
+  }
+
+  const base = resolveBaseBranch(config, gitReader(dir))
+  const wtGit = gitReader(spec.worktreePath)
+  const status = wtGit(['status', '--porcelain'])
+  const dirty = status !== null && status.length > 0
+  const ahead = wtGit(['rev-list', '--count', `${spec.baseRef}..HEAD`])
+  const aheadOfBase = ahead !== null && Number(ahead) > 0
+  const tagList = wtGit(['tag', '--list'])
+  const existingTags = tagList ? tagList.split('\n').map((s) => s.trim()).filter(Boolean) : []
+
+  // Extra targets: --also flags first, then any config defaults; drop blanks, the
+  // base tag itself, and duplicates.
+  const seen = new Set()
+  const extraTargets = [...(flags.also || []), ...(config.hotfix.targets || [])].filter((t) => {
+    if (!t || t === spec.baseRef || seen.has(t)) return false
+    seen.add(t)
+    return true
+  })
+
+  let plan
+  try {
+    plan = planHotfixLand(spec, config, {
+      worktreeState: { dirty },
+      aheadOfBase,
+      fixRange: `${spec.baseRef}..${spec.branch}`,
+      mainRepoPath: dir,
+      base,
+      extraTargets,
+      existingTags,
+    })
+  } catch (error) {
+    process.stdout.write(`spec-env hotfix land: ${error.message}.\n`)
+    return
+  }
+
+  if (plan.blocked) {
+    process.stdout.write(`spec-env hotfix land: blocked — ${plan.reason}.\n`)
+    return
+  }
+  if (plan.noop) {
+    process.stdout.write(`spec-env hotfix land: ${plan.reason}.\n`)
+    return
+  }
+
+  const out = []
+  out.push(`spec-env hotfix land: ${spec.folder}`)
+  out.push('')
+  out.push(`  base tag:  ${spec.baseRef}`)
+  out.push(`  branch:    ${spec.branch}`)
+  out.push(`  prod tag:  ${plan.prodTag}  (created locally — push to deploy)`)
+  for (const t of plan.targets) {
+    if (t.kind === 'extra') out.push(`  target:    ${t.base} -> ${t.tag}`)
+    if (t.kind === 'main') out.push(`  next rel:  cherry-pick onto ${t.base}`)
+  }
+  out.push('')
+  out.push('  run these (abort a cherry-pick on conflict, resolve, then re-run):')
+  for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  out.push('')
+  out.push(`  then push the deploy tag yourself:  git push origin ${plan.prodTag}`)
   process.stdout.write(out.join('\n') + '\n')
 }
 
@@ -904,11 +1001,12 @@ async function specEnv(rest) {
   const [sub, ...args] = rest
   let dir = process.cwd()
   const positional = []
-  const flags = { keepVolumes: false, force: false }
+  const flags = { keepVolumes: false, force: false, also: [] }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--keep-volumes') flags.keepVolumes = true
     else if (args[i] === '--force') flags.force = true
+    else if (args[i] === '--also') flags.also.push(args[++i])
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -941,6 +1039,9 @@ async function specEnv(rest) {
     case 'integrate':
       specEnvIntegrate(dir, config, positional[0])
       break
+    case 'hotfix':
+      specEnvHotfix(dir, config, positional, flags)
+      break
     case 'status':
       specEnvStatus(dir, config)
       break
@@ -952,7 +1053,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|dev|connect|integrate|live|status|resolve> [spec] [--keep-volumes] [--force]\n',
+        'Usage: skitterspec spec-env <up|down|dev|connect|integrate|hotfix|live|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>]\n',
       )
   }
 }

@@ -243,3 +243,21 @@ test('live.migrations defaults to [] and normalizes a parsed glob list', () => {
   // trimmed, non-empty strings only (lenient, like the other list fields)
   assert.deepStrictEqual(config.live.migrations, ['**/migrations/**', 'prisma/**'])
 })
+
+test('hotfix block defaults to patch/main/none', () => {
+  const dir = tmpDir()
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.hotfix, { bump: 'patch', cherryPickMain: true, targets: [] })
+  assert.deepStrictEqual(DEFAULT_CONFIG.hotfix.targets, [])
+})
+
+test('hotfix block merges bump/cherryPickMain and normalizes targets', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    hotfix: { cherryPickMain: false, targets: ['v30.2.1', '  ', 'v29.0.0'] },
+  })
+  const { config } = loadEnvConfig(dir)
+  assert.strictEqual(config.hotfix.cherryPickMain, false)
+  assert.strictEqual(config.hotfix.bump, 'patch') // untouched default
+  assert.deepStrictEqual(config.hotfix.targets, ['v30.2.1', 'v29.0.0'])
+})
