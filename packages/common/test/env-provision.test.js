@@ -74,6 +74,32 @@ test('worktree-only attach form: existing worktree → no -b', () => {
   assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing feat/thing'])
 })
 
+// --- Hotfix: fork the fresh branch from the base tag ---
+
+test('hotfix: fresh branch forks from baseRef (the release tag)', () => {
+  const hotfix = spec({
+    folder: 'hotfix-login',
+    slug: 'login',
+    type: 'hotfix',
+    branch: 'hotfix/login',
+    stack: 'worktree',
+    baseRef: 'v33.16.4',
+  })
+  const plan = planUp(hotfix, { slot: null, attached: false }, config({ docker: { enabled: false } }))
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b hotfix/login v33.16.4'])
+})
+
+test('hotfix: attach form ignores baseRef (branch already forked)', () => {
+  const hotfix = spec({ type: 'hotfix', branch: 'hotfix/login', stack: 'worktree', baseRef: 'v33.16.4' })
+  const plan = planUp(hotfix, { slot: null, attached: true }, config({ docker: { enabled: false } }))
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing hotfix/login'])
+})
+
+test('non-hotfix baseRef:null keeps the plain -b form (fork from HEAD)', () => {
+  const plan = planUp(spec({ baseRef: null, stack: 'worktree' }), { slot: null, attached: false }, config())
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+})
+
 test('worktree-only still expands the opener (empty portOffset token)', () => {
   const plan = planUp(
     spec({ stack: 'worktree' }),

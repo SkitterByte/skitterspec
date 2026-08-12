@@ -36,10 +36,10 @@ function findSpecFolder(specArg, dir, extraDirs = []) {
   return null
 }
 
-// Split a `feat-`/`bug-` prefix. Unknown prefix → type defaults to `feat` and
-// the whole folder name is the slug.
+// Split a `feat-`/`bug-`/`hotfix-` prefix. Unknown prefix → type defaults to
+// `feat` and the whole folder name is the slug.
 function splitPrefix(folder) {
-  const m = /^(feat|bug)-(.+)$/.exec(folder)
+  const m = /^(feat|bug|hotfix)-(.+)$/.exec(folder)
   if (m) return { type: m[1], slug: m[2] }
   return { type: 'feat', slug: folder }
 }
@@ -102,6 +102,26 @@ function readStackField(specPath, config) {
     return /docker/i.test(m[1]) ? 'docker' : 'worktree'
   }
   return config.docker && config.docker.enabled ? 'docker' : 'worktree'
+}
+
+/**
+ * Read a spec's `> **Base version:** <tag>` blockquote field from 00-overview.md.
+ * This is the release tag a hotfix forks its worktree from (e.g. `v33.16.4`),
+ * authored by the `/spec-hotfix` skill. Returns the trimmed tag, or null when the
+ * field / file is absent — so a non-hotfix spec resolves to `baseRef: null` and
+ * provisioning forks from base HEAD as before.
+ */
+function readBaseVersionField(specPath) {
+  const overview = path.join(specPath, '00-overview.md')
+  let raw
+  try {
+    raw = fs.readFileSync(overview, 'utf-8')
+  } catch {
+    return null
+  }
+  const m = /^>\s*\*\*Base version:\*\*\s*(.+)$/m.exec(raw)
+  if (!m) return null
+  return m[1].trim().replace(/^["'`]|["'`]$/g, '') || null
 }
 
 /**
@@ -207,7 +227,10 @@ function resolveSpec(specArg, dir, config, opts = {}) {
   const tokens = { repo, repoSlug, slug }
 
   const stack = readStackField(found.path, config)
-  const spec = { folder: found.folder, bucket: found.bucket, path: found.path, type, slug, stack }
+  // A hotfix forks its worktree from a release tag (its `Base version`) instead
+  // of base HEAD; every other type resolves to baseRef:null (fork from HEAD).
+  const baseRef = type === 'hotfix' ? readBaseVersionField(found.path) : null
+  const spec = { folder: found.folder, bucket: found.bucket, path: found.path, type, slug, stack, baseRef }
   const branch = branchFor(spec, config)
 
   const worktreeRoot = expandTokens(config.worktree.root, tokens)
@@ -239,4 +262,5 @@ module.exports = {
   expandTokens,
   findSpecFolder,
   readStackField,
+  readBaseVersionField,
 }

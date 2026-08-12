@@ -14,6 +14,7 @@ const {
   expandTokens,
   repoInfo,
   readStackField,
+  readBaseVersionField,
 } = require('../src/env/resolve.js')
 
 // A fake git reader: maps a joined-args key → return value (string, '' , or null).
@@ -85,21 +86,23 @@ function baseConfig(overrides = {}) {
 }
 
 // Scaffold a project dir with one spec folder + overview, return the dir.
-function scaffold(folder, { bucket = 'backlog', frontmatter = '', stack = null } = {}) {
+function scaffold(folder, { bucket = 'backlog', frontmatter = '', stack = null, baseVersion = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resolve-'))
   const specDir = path.join(dir, 'specs', bucket, folder)
   fs.mkdirSync(specDir, { recursive: true })
   const stackLine = stack ? `> **Stack:** ${stack}\n` : ''
-  fs.writeFileSync(path.join(specDir, '00-overview.md'), `${frontmatter}# ${folder}\n${stackLine}`)
+  const baseLine = baseVersion ? `> **Base version:** ${baseVersion}\n` : ''
+  fs.writeFileSync(path.join(specDir, '00-overview.md'), `${frontmatter}# ${folder}\n${stackLine}${baseLine}`)
   return dir
 }
 
-test('splitPrefix splits feat-/bug- prefixes', () => {
+test('splitPrefix splits feat-/bug-/hotfix- prefixes', () => {
   assert.deepStrictEqual(splitPrefix('feat-linear-hybrid-sync'), {
     type: 'feat',
     slug: 'linear-hybrid-sync',
   })
   assert.deepStrictEqual(splitPrefix('bug-crash-on-save'), { type: 'bug', slug: 'crash-on-save' })
+  assert.deepStrictEqual(splitPrefix('hotfix-login-crash'), { type: 'hotfix', slug: 'login-crash' })
 })
 
 test('splitPrefix defaults type to feat when unprefixed', () => {
@@ -231,4 +234,35 @@ test('resolveSpec: populates spec.stack from the header', () => {
   assert.strictEqual(resolveSpec('feat-thing', dir, dockerCfg(true)).stack, 'docker')
   const wt = scaffold('feat-thing', { stack: 'worktree' })
   assert.strictEqual(resolveSpec('feat-thing', wt, dockerCfg(true)).stack, 'worktree')
+})
+
+// --- Hotfix: Base version tag (fork-from-tag provisioning) -------------------
+
+test('readBaseVersionField: reads the tag, strips surrounding quotes/backticks', () => {
+  const plain = scaffold('hotfix-a', { baseVersion: 'v33.16.4' })
+  assert.strictEqual(readBaseVersionField(path.join(plain, 'specs', 'backlog', 'hotfix-a')), 'v33.16.4')
+  const quoted = scaffold('hotfix-b', { baseVersion: '`v1.2.3`' })
+  assert.strictEqual(readBaseVersionField(path.join(quoted, 'specs', 'backlog', 'hotfix-b')), 'v1.2.3')
+})
+
+test('readBaseVersionField: null when the field (or file) is absent', () => {
+  const none = scaffold('feat-a')
+  assert.strictEqual(readBaseVersionField(path.join(none, 'specs', 'backlog', 'feat-a')), null)
+  assert.strictEqual(readBaseVersionField('/no/such/spec'), null)
+})
+
+test('resolveSpec: a hotfix resolves baseRef + hotfix/<slug> branch', () => {
+  const dir = scaffold('hotfix-login-crash', { bucket: 'in-progress', baseVersion: 'v33.16.4' })
+  const r = resolveSpec('hotfix-login-crash', dir, baseConfig())
+  assert.strictEqual(r.type, 'hotfix')
+  assert.strictEqual(r.slug, 'login-crash')
+  assert.strictEqual(r.branch, 'hotfix/login-crash')
+  assert.strictEqual(r.baseRef, 'v33.16.4')
+})
+
+test('resolveSpec: non-hotfix specs resolve baseRef:null (fork from HEAD)', () => {
+  assert.strictEqual(resolveSpec('feat-thing', scaffold('feat-thing'), baseConfig()).baseRef, null)
+  // Even a Base version line on a non-hotfix spec is ignored — only hotfix reads it.
+  const dir = scaffold('bug-thing', { baseVersion: 'v9.9.9' })
+  assert.strictEqual(resolveSpec('bug-thing', dir, baseConfig()).baseRef, null)
 })

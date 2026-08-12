@@ -179,21 +179,30 @@ function planTake(spec, config, ctx) {
   if (!c.worktreeExists) {
     return block(`${spec.folder} has no worktree — run \`/spec-go ${spec.folder}\` first`)
   }
-  // 4. v1 is code-only: refuse a stateful spec (Stack: worktree + docker)…
+  // 4. A hotfix is built on an old release tag; checking its branch out under the
+  //    running dev server risks schema/DB drift breaking the shared instance.
+  //    Always refuse, regardless of Stack — test it in isolation via /spec-connect.
+  if (spec.type === 'hotfix') {
+    return block(
+      `${spec.folder} is a hotfix (built on an old release tag) — live overlay ` +
+        'could break the running instance; use `/spec-connect` to test it in isolation',
+    )
+  }
+  // 5. v1 is code-only: refuse a stateful spec (Stack: worktree + docker)…
   if (spec.stack === 'docker') {
     return block(
       `${spec.folder} is stateful (Stack: worktree + docker) — live overlay is ` +
         'code-only; use `/spec-connect` for a Docker-backed spec',
     )
   }
-  // 5. …and refuse a branch that changes migrations (would mutate the shared DB).
+  // 6. …and refuse a branch that changes migrations (would mutate the shared DB).
   if (c.migrationsHit) {
     return block(
       `${spec.folder}'s branch changes migrations — live overlay is code-only; ` +
         'use `/spec-connect`',
     )
   }
-  // 6. Verify-only: a dev server must be listening to hot-reload the switch.
+  // 7. Verify-only: a dev server must be listening to hot-reload the switch.
   if (c.serverUp === false) {
     return block(
       `no dev server listening on canonical port(s) ${(c.canonicalPorts || []).join(', ')} — ` +

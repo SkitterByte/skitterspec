@@ -1,7 +1,7 @@
 # /spec-hotfix — tag-based hotfix lifecycle
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-08-12)
+> **Status:** In Progress — Phase 1 done, Phase 2 next
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-12
@@ -99,7 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Hotfix type + fork-from-tag provisioning + live refusal | ⬜ | [01-type-and-provision.md](01-type-and-provision.md) |
+| 1 | Hotfix type + fork-from-tag provisioning + live refusal | ✅ | [01-type-and-provision.md](01-type-and-provision.md) |
 | 2 | Landing engine: bump, tag, cherry-pick targets, teardown-by-tag, config | ⬜ | [02-landing-engine.md](02-landing-engine.md) |
 | 3 | Skills: /spec-hotfix, hotfix-aware /spec-complete, /spec-live note | ⬜ | [03-skills.md](03-skills.md) |
 | 4 | Docs, rules, README, dist regeneration | ⬜ | [04-docs-and-dist.md](04-docs-and-dist.md) |

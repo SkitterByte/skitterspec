@@ -94,10 +94,14 @@ function planUp(spec, alloc, config) {
 
   const commands = []
   // Fresh branch → -b; attach an existing branch/slot → plain form (never clobber).
+  // A hotfix forks its fresh branch from a release tag (`spec.baseRef`, e.g.
+  // `v33.16.4`) instead of base HEAD — so the fix is built on the exact commit
+  // line prod runs. Attaching an existing branch ignores baseRef (already forked).
+  const forkPoint = !attached && spec.baseRef ? ` ${spec.baseRef}` : ''
   commands.push(
     attached
       ? `git worktree add ${spec.worktreePath} ${spec.branch}`
-      : `git worktree add ${spec.worktreePath} -b ${spec.branch}`,
+      : `git worktree add ${spec.worktreePath} -b ${spec.branch}${forkPoint}`,
   )
   if (wantsDocker) {
     commands.push(`docker compose --project-name ${spec.projectName} up -d`)

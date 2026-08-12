@@ -180,6 +180,15 @@ test('planTake refuses a stateful (docker) spec', () => {
   assert.match(plan.reason, /spec-connect/)
 })
 
+test('planTake always refuses a hotfix, regardless of stack', () => {
+  // A code-only (worktree) hotfix still passes every other precondition, yet is
+  // refused — its branch is built on an old release tag.
+  const plan = planTake({ ...SPEC, folder: 'hotfix-x', type: 'hotfix', stack: 'worktree' }, {}, okCtx())
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /hotfix/)
+  assert.match(plan.reason, /spec-connect/)
+})
+
 test('planTake refuses a branch that changes migrations', () => {
   const plan = planTake(SPEC, {}, okCtx({ migrationsHit: true }))
   assert.match(plan.reason, /changes migrations/)
