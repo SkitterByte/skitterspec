@@ -21,8 +21,9 @@ Before marking complete, confirm the work is actually finished:
   done in the code — tick it (`- [x]`) if so, or surface it if not.
 - Run the project's typecheck and test commands. The suite must be **green** to
   call a spec complete.
-- For a **Bug** spec (`Type: Bug`), confirm the originally-failing test named in
-  the spec now passes — that test is the proof the bug is fixed.
+- For a **Bug** or **Hotfix** spec (`Type: Bug` / `Type: Hotfix`), confirm the
+  originally-failing test named in the spec now passes — that test is the proof
+  the fix works.
 - If genuinely incomplete work remains, **stop and tell the user** rather than
   forcing completion. Offer to finish it (`/spec-go`) or to complete with the
   remaining items explicitly listed as deferred.
@@ -51,13 +52,42 @@ specs — `git log`/the per-spec State log give the completion order.
 Confirm the move, the final test result, and list anything deferred. Do **not**
 `git commit` unless the user asks.
 
-## 6. Integrate onto the base branch (opt-in, only if isolated)
+## 6. Land the branch (opt-in, only if isolated)
 
 **Only when `specs/.core/env.config.json` exists and the spec is on a worktree**
-(it was provisioned by `/spec-go`). Otherwise skip this entirely — a non-isolated
-spec has nothing to land, and `/spec-complete` behaves exactly as before. When it
-applies, offer to land the finished branch on the base branch so the work reaches
-`main` (or your configured `baseBranch`) in one flow:
+(it was provisioned by `/spec-go` or `/spec-hotfix`). Otherwise skip this entirely
+— a non-isolated spec has nothing to land, and `/spec-complete` behaves exactly as
+before. When it applies, offer to land the finished branch so the work reaches its
+destination in one flow. **How it lands depends on the spec type:**
+
+### 6-hotfix. `Type: Hotfix` — tag + cherry-pick (not fast-forward)
+
+A hotfix is built on an old release **tag**, so it can't fast-forward onto `main`.
+Use the hotfix landing instead of the integrate steps below:
+
+1. **Require a clean worktree** — the completion edits (status flip, `git mv` to
+   `complete/`) must be committed first. If dirty, offer `/commit` and **stop**.
+2. **Plan + execute.** Run `skitterspec spec-env hotfix land <name>` — add
+   `--also <tag>` for each extra release line to patch (test/demo on their own
+   versions). Run the printed commands **in order**. It:
+   - tags the hotfix branch with the **patch-bumped base tag** (the deploy tag) —
+     **created locally; you push it** (`git push origin <tag>`) to trigger CI/CD;
+   - for each `--also` target, cherry-picks the fix onto a throwaway worktree at
+     that tag and re-tags it;
+   - cherry-picks the fix onto `main` for the next release.
+   On a **cherry-pick conflict** (non-zero exit), run `git -C <checkout>
+   cherry-pick --abort` there, relay the conflict, and **stop** — don't offer
+   teardown.
+   On a **no-op** ("nothing to land"), say so and continue.
+3. **Re-test on `main`** after the cherry-pick — it must be **green**.
+4. **Report** the deploy tag(s) and the `main` cherry-pick. It **never pushes** —
+   remind the user to `git push origin <deploy-tag>` to deploy. Then teardown
+   (step 7) applies: a tagged hotfix branch tears down with **no `--force`**.
+
+### 6-feature/bug. `Type: Feature` / `Type: Bug` — rebase + fast-forward
+
+Land the finished branch on the base branch so the work reaches `main` (or your
+configured `baseBranch`) in one flow:
 
 1. **Require a clean worktree.** The completion edits (status flip, the
    `git mv` to `complete/`) must be committed first — integrate refuses a dirty
@@ -93,9 +123,12 @@ directly (the old `/spec-env-down` skill is gone — teardown is folded in here)
 2. **Stop its host dev servers:** `skitterspec spec-env dev down <name>` (a
    no-op when none are running / configured).
 3. **Remove worktree + stack + slot:** run `skitterspec spec-env down <name>`
-   and execute the commands it prints, in order. Post-integrate the branch is
-   merged into base, so teardown needs **no `--force`** and deletes the branch
-   (`git branch -d`) as part of the plan. It still respects the guards (won't
-   destroy a dirty or unpushed-and-unmerged worktree without `--force`).
+   and execute the commands it prints, in order. After a **feature/bug** landing
+   the branch is merged into base, so teardown needs **no `--force`** and deletes
+   the branch (`git branch -d`). After a **hotfix** landing the branch isn't
+   merged (it was tagged + cherry-picked), but its head is captured by the deploy
+   tag, so teardown still needs no `--force` and drops the branch with
+   `git branch -D` (the tag holds the commits). It still respects the guards (won't
+   destroy a dirty, or unpushed-and-unlanded, worktree without `--force`).
 
 If `env.config.json` is absent, skip this entirely — behave exactly as before.

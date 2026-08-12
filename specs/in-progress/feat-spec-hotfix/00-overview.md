@@ -1,7 +1,7 @@
 # /spec-hotfix — tag-based hotfix lifecycle
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 2 done, Phase 3 next
+> **Status:** In Progress — Phase 3 done, Phase 4 next
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-12
@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Hotfix type + fork-from-tag provisioning + live refusal | ✅ | [01-type-and-provision.md](01-type-and-provision.md) |
 | 2 | Landing engine: bump, tag, cherry-pick targets, teardown-by-tag, config | ✅ | [02-landing-engine.md](02-landing-engine.md) |
-| 3 | Skills: /spec-hotfix, hotfix-aware /spec-complete, /spec-live note | ⬜ | [03-skills.md](03-skills.md) |
+| 3 | Skills: /spec-hotfix, hotfix-aware /spec-complete, /spec-live note | ✅ | [03-skills.md](03-skills.md) |
 | 4 | Docs, rules, README, dist regeneration | ⬜ | [04-docs-and-dist.md](04-docs-and-dist.md) |
 
 ## Open questions
@@ -130,3 +130,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   Verified end-to-end on a throwaway repo (fork-from-tag, land, teardown-by-tag);
   the main cherry-pick conflicts when the fix overlaps moved base code, which is
   the expected abort-and-hand-back case the skill drives in Phase 3.
+- 2026-08-12 — Phase 3 landed (`/spec-hotfix` + hotfix-aware `/spec-complete` +
+  `/spec-live` refusal note). Noted: the built `packages/skitterspec*` dirs are
+  gitignored (regenerated at `prepack`), so Phase 4's dist step is verification
+  only — nothing to commit. `build-dist.test.js` asserts the skill installs from
+  both distributions.

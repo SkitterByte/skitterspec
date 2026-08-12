@@ -1,6 +1,6 @@
-# Phase 3 — Skills: /spec-hotfix, hotfix-aware /spec-complete, /spec-live note ⬜
+# Phase 3 — Skills: /spec-hotfix, hotfix-aware /spec-complete, /spec-live note ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** The operator-facing surface: a new `/spec-hotfix` skill that captures a
 Hotfix spec and drives it red→green on a tag-forked worktree, a `/spec-complete`
@@ -9,7 +9,7 @@ refusal enforced in Phase 1.
 
 ## Tasks
 
-- [ ] New `packages/common/assets/skills/spec-hotfix/SKILL.md`, modelled on
+- [x] New `packages/common/assets/skills/spec-hotfix/SKILL.md`, modelled on
       `spec-bug/SKILL.md` (test-first), with these differences:
       - **Argument:** `/spec-hotfix <tag> <name>` — require the base tag; if
         absent, ask. Verify the tag exists (`git rev-parse --verify <tag>^{commit}`)
@@ -26,7 +26,7 @@ refusal enforced in Phase 1.
       - **Stack:** default `> **Stack:** worktree`; note escalation to
         `worktree + docker` when the fix touches stateful services, and that
         `/spec-live` is refused either way (use `/spec-connect`).
-- [ ] `spec-complete/SKILL.md`: **`/spec-complete` is the one completion skill —
+- [x] `spec-complete/SKILL.md`: **`/spec-complete` is the one completion skill —
       it handles a hotfix end-to-end, differing only where noted.** No separate
       `/spec-hotfix-complete`. Make it type-aware:
       - **Step 2 (verify):** treat `Type: Hotfix` like `Type: Bug` — confirm the
@@ -41,13 +41,13 @@ refusal enforced in Phase 1.
         deploy tag; re-run tests on `main` after the cherry-pick.
       - **Step 7 (teardown):** unchanged — relies on the Phase 2 "tagged branch
         counts as landed" logic so a hotfix tears down without `--force`.
-- [ ] `spec-live/SKILL.md`: add a line under "Code-only" that a `Type: Hotfix`
+- [x] `spec-live/SKILL.md`: add a line under "Code-only" that a `Type: Hotfix`
       spec is always refused (enforced by the engine) — use `/spec-connect`.
-- [ ] Add/extend a build test (`scripts/build-dist.test.js` or `compose.test.js`)
+- [x] Add/extend a build test (`scripts/build-dist.test.js` or `compose.test.js`)
       asserting the `spec-hotfix` skill is present in **both** built distributions
       (`skitterspec` and `skitterspec-linear`) after a build, and that its
       frontmatter `name: spec-hotfix` is intact.
-- [ ] Run `pnpm test` — green before the phase is done.
+- [x] Run `pnpm test` — green before the phase is done. **258 common + 35 scripts, 0 fail.**
 
 ## Notes
 

@@ -22,10 +22,12 @@ whole suite is green.
       (`bump`, `targets`, `cherryPickMain`).
 - [ ] `README.md`: add `/spec-hotfix` to the skill list / lifecycle overview
       alongside `/spec-bug`, with a one-line description of the tag-based flow.
-- [ ] Regenerate distributions: `pnpm build` (`node scripts/build-dist.js all`).
-      Confirm `spec-hotfix` and the engine changes appear under both
-      `packages/skitterspec/assets` + `src` and `packages/skitterspec-linear/…`,
-      and that the no-workspace-require guard still passes.
+- [ ] Verify the build: `pnpm build` (`node scripts/build-dist.js all`). The built
+      `packages/skitterspec*/{assets,src,bin}` dirs are **gitignored** (regenerated
+      at `prepack`, never committed) — so this is a verification step, not a commit.
+      Confirm `spec-hotfix` + the engine changes appear in both trees and the
+      no-workspace-require guard passes. (`scripts/build-dist.test.js`, added in
+      Phase 3, already asserts `spec-hotfix` installs from both distributions.)
 - [ ] Run the full `pnpm test` from the root — every package green.
 - [ ] Sanity-check the composed skill list: `/spec-hotfix` present in the base and
       Linear distributions; no dangling seam markers.

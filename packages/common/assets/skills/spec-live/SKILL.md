@@ -18,7 +18,10 @@ absent, say so and stop.
 **Code-only.** Live overlay refuses a **stateful** spec — one whose `> **Stack:**`
 is `worktree + docker`, or whose branch changes migrations (per
 `env.config.json` → `live.migrations`). Those keep their isolated stack; use
-`/spec-connect` for them. The engine enforces this and prints why.
+`/spec-connect` for them. It also **always refuses a `Type: Hotfix` spec** — its
+branch is built on an old release tag, so hot-reloading it onto the running dev
+server could break the shared instance; test a hotfix with `/spec-connect`. The
+engine enforces all of this and prints why.
 
 ## 1. Identify the target
 
