@@ -1,6 +1,6 @@
-# Phase 4 — Docs, rules, README, dist regeneration ⬜
+# Phase 4 — Docs, rules, README, dist regeneration ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** Document the hotfix lifecycle everywhere the other skills are
 documented, regenerate the published distributions from `common`, and confirm the
@@ -8,7 +8,7 @@ whole suite is green.
 
 ## Tasks
 
-- [ ] `packages/common/assets/rules/spec-planning.md`:
+- [x] `packages/common/assets/rules/spec-planning.md`:
       - Add a `/spec-hotfix` row to the lifecycle-skills table (Purpose: tag-based
         hotfix, red→green on a tag-forked worktree; Status: In Progress; Folder:
         in-progress).
@@ -17,19 +17,19 @@ whole suite is green.
         (`grep -rl 'Type:.*Hotfix' specs/`).
       - One line in the isolation paragraph: hotfixes fork from a tag and land by
         tag + cherry-pick (never fast-forward); `/spec-live` refuses them.
-- [ ] `specs/.core/env.config.json` field docs (the `env.config.md` doc / README
+- [x] `specs/.core/env.config.json` field docs (the `env.config.md` doc / README
       section that documents the config shape): document the new `hotfix` block
       (`bump`, `targets`, `cherryPickMain`).
-- [ ] `README.md`: add `/spec-hotfix` to the skill list / lifecycle overview
+- [x] `README.md`: add `/spec-hotfix` to the skill list / lifecycle overview
       alongside `/spec-bug`, with a one-line description of the tag-based flow.
-- [ ] Verify the build: `pnpm build` (`node scripts/build-dist.js all`). The built
+- [x] Verify the build: `pnpm build` (`node scripts/build-dist.js all`). The built
       `packages/skitterspec*/{assets,src,bin}` dirs are **gitignored** (regenerated
       at `prepack`, never committed) — so this is a verification step, not a commit.
       Confirm `spec-hotfix` + the engine changes appear in both trees and the
       no-workspace-require guard passes. (`scripts/build-dist.test.js`, added in
       Phase 3, already asserts `spec-hotfix` installs from both distributions.)
-- [ ] Run the full `pnpm test` from the root — every package green.
-- [ ] Sanity-check the composed skill list: `/spec-hotfix` present in the base and
+- [x] Run the full `pnpm test` from the root — every package green.
+- [x] Sanity-check the composed skill list: `/spec-hotfix` present in the base and
       Linear distributions; no dangling seam markers.
 
 ## Notes

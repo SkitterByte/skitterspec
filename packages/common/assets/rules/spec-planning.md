@@ -1,6 +1,6 @@
 # Spec Planning
 
-Spec-driven development is driven by seven lifecycle skills (plus `/spec-connect`
+Spec-driven development is driven by eight lifecycle skills (plus `/spec-connect`
 when isolation is on) — use them rather than hand-rolling specs so the structure
 and lifecycle stay consistent. Each sets a status on the spec header
 (`> **Status:** …`):
@@ -9,6 +9,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 |-------|---------|--------|--------|
 | `/spec` | (Feature) Grill to a clear shared understanding, then write a groomed spec | `Ready` (or `Draft`) | `specs/backlog/` |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
+| `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-go` | Provision the env, bring dev servers up, implement the next phase | `In Progress` | `specs/in-progress/` |
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
@@ -18,8 +19,8 @@ and lifecycle stay consistent. Each sets a status on the spec header
 Status flow: `Ready → In Progress → Complete` (or `Cancelled` from any state).
 `/spec` grills to a **Ready** spec directly — there is no separate grooming
 command; it writes `Draft` only when open questions are deliberately left.
-`/spec-bug` is test-first and starts straight in `In Progress` (work begins
-immediately), so it skips Draft/Ready.
+`/spec-bug` and `/spec-hotfix` are test-first and start straight in `In Progress`
+(work begins immediately), so they skip Draft/Ready.
 
 **Per-spec isolation (opt-in to adopt, then the default policy).** When a project
 adopts isolation (`skitterspec init --isolation`, or `specs/.core/env.config.json`
@@ -35,9 +36,11 @@ your canonical `localhost` ports so you can test it at the normal URL
 move, header edits, the code) happens on the spec's branch in the worktree; `main`
 changes only when it merges. Teardown is folded into `/spec-complete` ·
 `/spec-cancel`. Beneath the skills, `skitterspec spec-env
-<up|down|dev|connect|integrate>` is the CLI engine. Isolation is **orthogonal to
-lifecycle status** and inactive when `env.config.json` is absent — every skill
-then behaves as it does today.
+<up|down|dev|connect|integrate|hotfix>` is the CLI engine. A **hotfix** is the one
+exception to "fork from `main`": `/spec-hotfix` forks the worktree from a release
+tag and `/spec-complete` lands it via `spec-env hotfix land` (tag + cherry-pick),
+not a fast-forward. Isolation is **orthogonal to lifecycle status** and inactive
+when `env.config.json` is absent — every skill then behaves as it does today.
 
 **Live overlay (`/spec-live`) — the light way to test a spec.** `/spec-connect`
 runs a spec's *own* dev stack and proxies the canonical ports to it (one stack per
@@ -77,16 +80,24 @@ consistent with the codebase:
 - **Other rules specs must honour:** link the relevant `.claude/rules/*.md`
   (architecture, code style, testing, database, etc.) rather than restating them.
 
-## Spec types — Feature vs Bug
+## Spec types — Feature, Bug, Hotfix
 
-Every spec is one of two types, recorded **both** in the header and the filename:
+Every spec is one of three types, recorded **both** in the header and the filename:
 
-- **Header field:** `> **Type:** Feature` or `> **Type:** Bug` (authoritative,
-  greppable: `grep -rl 'Type:.*Bug' specs/`).
-- **Filename prefix:** `feat-<name>` for features, `bug-<name>` for bugs
-  (visible in listings; glob-safe — never use `[BUG]`/`[FEATURE]` brackets).
+- **Header field:** `> **Type:** Feature`, `> **Type:** Bug`, or
+  `> **Type:** Hotfix` (authoritative, greppable:
+  `grep -rl 'Type:.*Hotfix' specs/`).
+- **Filename prefix:** `feat-<name>` for features, `bug-<name>` for bugs,
+  `hotfix-<name>` for hotfixes (visible in listings; glob-safe — never use
+  `[BUG]`/`[FEATURE]` brackets).
 
-Both types share the same lifecycle folders below — type is orthogonal to status.
+A **Hotfix** is a Bug fixed against a **released tag** rather than `main`: it
+carries an extra `> **Base version:** <tag>` header, forks its worktree from that
+tag, and lands by tagging a new patch + cherry-picking onto `main` (never a
+fast-forward merge). `/spec-live` refuses a hotfix — test it with `/spec-connect`.
+
+All three types share the same lifecycle folders below — type is orthogonal to
+status.
 
 ## Header fields & State log (audit trail)
 

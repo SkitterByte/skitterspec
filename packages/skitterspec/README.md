@@ -9,10 +9,10 @@ Spec-driven development for [Claude Code](https://claude.com/claude-code) — a
 ```
 
 Ships the spec-lifecycle skills (`/spec`, `/spec-go`, `/spec-complete`,
-`/spec-cancel`, `/spec-bug`, `/spec-review`, `/spec-init`) plus per-spec
-**isolation** — a git worktree per in-progress spec, Docker on demand, host dev
-servers on reserved ports, and `/spec-connect` to test a worktree at your normal
-`localhost` URL.
+`/spec-cancel`, `/spec-bug`, `/spec-hotfix`, `/spec-review`, `/spec-init`) plus
+per-spec **isolation** — a git worktree per in-progress spec, Docker on demand,
+host dev servers on reserved ports, and `/spec-connect` to test a worktree at your
+normal `localhost` URL.
 
 ```sh
 npx @skitterbyte/skitterspec init
@@ -43,6 +43,17 @@ your canonical `localhost` ports at that spec (via a small bundled reverse proxy
 no external install), so you test at the exact URL you always use.
 `/spec-connect main` hands the ports back. Exclusive: one spec at a time. See
 `specs/.core/env.config.md` for the `dev`/`proxy` config.
+
+## Production hotfixes — `/spec-hotfix`
+
+When prod is on a tagged release, a fix must be built on **that** version, not
+`main`. `/spec-hotfix <tag> <name>` forks a worktree from the tag, then works
+test-first like `/spec-bug`. `/spec-complete` lands it by patch-bumping the tag
+and tagging the branch (your CI/CD deploys the tag — you push it) and
+cherry-picking the fix onto `main`; `--also <tag>` patches extra release lines
+(test/demo). Hotfixes refuse `/spec-live` (their old-tag branch could break the
+running instance) — test them with `/spec-connect`. Tune the `hotfix` block in
+`specs/.core/env.config.md`.
 
 ## v3 — slimmer surface + `/spec-connect`
 

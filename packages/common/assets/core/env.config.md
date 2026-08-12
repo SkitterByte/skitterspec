@@ -155,6 +155,20 @@ no live `env.config.json` was found.
   // refuses it (code-only v1 — use `/spec-connect` for those). Default: none.
   "live": {
     "migrations": []
+  },
+
+  // Hotfix landing (`spec-env hotfix land` / `/spec-complete` on a Type: Hotfix
+  // spec). A hotfix forks from a release tag and lands by tag + cherry-pick, not
+  // fast-forward. `bump` is the version-bump strategy for the new deploy tag (only
+  // "patch" today: v33.16.4 -> v33.16.5). `cherryPickMain` also cherry-picks the
+  // fix onto the base branch for the next release (default true). `targets` is an
+  // optional default list of extra base tags to also patch (test/demo lines);
+  // `--also <tag>` adds more at run time. Nothing is ever pushed — you push the
+  // deploy tag to trigger CI/CD. Default: patch, main, none.
+  "hotfix": {
+    "bump": "patch",
+    "cherryPickMain": true,
+    "targets": []
   }
 }
 ```
