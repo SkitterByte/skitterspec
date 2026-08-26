@@ -133,5 +133,13 @@ directly (the old `/spec-env-down` skill is gone — teardown is folded in here)
    tag, so teardown still needs no `--force` and drops the branch with
    `git branch -D` (the tag holds the commits). It still respects the guards (won't
    destroy a dirty, or unpushed-and-unlanded, worktree without `--force`).
+4. **Reap orphaned test-DB volumes:** run `skitterspec spec-env prune`. It lists
+   Docker volumes in the repo namespace that belong to **no live spec** (no
+   worktree) — leftovers from declined/aborted teardowns, manual
+   `git worktree remove`, or `--keep-volumes`. Show the user the orphan list and,
+   **only on their confirmation**, execute the printed `docker volume rm`
+   commands. Non-fatal: if prune can't run (Docker down) or the user declines,
+   report it and finish completing anyway — never block the spec on it. Skip when
+   Docker isn't in use (the command self-reports "no orphaned volumes").
 
 If `env.config.json` is absent, skip this entirely — behave exactly as before.

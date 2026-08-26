@@ -64,5 +64,10 @@ directly (the old `/spec-env-down` skill is gone — teardown is folded in here)
 3. `skitterspec spec-env down <name>` — then execute the printed commands to
    remove the worktree/stack and free the slot. It respects the teardown guards
    (won't destroy a dirty/unpushed worktree without `--force`).
+4. `skitterspec spec-env prune` — reap orphaned test-DB volumes that belong to no
+   live spec (leftovers from declined/aborted teardowns or manual worktree
+   removal). Show the orphan list and, **only on the user's confirmation**, run
+   the printed `docker volume rm` commands. Non-fatal: if it can't run or the user
+   declines, report and finish cancelling anyway.
 
 If `env.config.json` is absent, skip this entirely — behave exactly as before.

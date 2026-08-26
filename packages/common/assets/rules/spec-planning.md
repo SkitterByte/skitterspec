@@ -41,7 +41,10 @@ your canonical `localhost` ports so you can test it at the normal URL
 move, header edits, the code) happens on the spec's branch in the worktree; `main`
 changes only when it merges. Teardown is folded into `/spec-complete` ·
 `/spec-cancel`. Beneath the skills, `skitterspec spec-env
-<up|down|dev|connect|integrate|hotfix>` is the CLI engine. A **hotfix** is the one
+<up|down|prune|dev|connect|integrate|hotfix>` is the CLI engine. Teardown drops
+the finished spec's own test-DB volume; `spec-env prune` additionally reaps
+**orphaned** volumes left by declined/aborted teardowns, so `/spec-complete` and
+`/spec-cancel` also sweep orphans (confirm-first). A **hotfix** is the one
 exception to "fork from `main`": `/spec-hotfix` forks the worktree from a release
 tag and `/spec-complete` lands it via `spec-env hotfix land` (tag + cherry-pick),
 not a fast-forward. Isolation is **orthogonal to lifecycle status** and inactive

@@ -4,8 +4,8 @@ Opt-in config for per-spec isolation (git worktree + optional namespaced Docker
 stack + host dev servers + a front-door proxy + an optional opener per
 in-progress spec). Provisioning is folded into `/spec-go`, teardown into
 `/spec-complete` · `/spec-cancel`, and traffic diversion is `/spec-connect`; the
-`skitterspec spec-env <up|down|dev|connect|integrate>` CLI is the engine beneath
-them.
+`skitterspec spec-env <up|down|prune|dev|connect|integrate>` CLI is the engine
+beneath them.
 
 **Once this file is present, isolation is the default policy:** `/spec-go` gives
 **every** in-progress spec its own git worktree automatically. Docker is a **per-
@@ -179,3 +179,26 @@ no live `env.config.json` was found.
 - `{repoSlug}` — `{repo}` lower-cased, non-alphanumerics collapsed to `-`
   (safe for a `COMPOSE_PROJECT_NAME`).
 - `{slug}` — the spec slug (folder name minus its `feat-`/`bug-` prefix).
+
+## Pruning orphaned test-DB volumes
+
+`spec-env down` drops the finished spec's own Docker volume, but volumes leak
+when that path is skipped — a declined/guard-aborted teardown, a manual
+`git worktree remove`, or `--keep-volumes`. Over many worktrees these orphaned
+DB volumes pile up and eat disk.
+
+`skitterspec spec-env prune` reconciles the live volumes in the
+`{repoSlug}_*` namespace against the specs that still have a **worktree** and
+lists the orphans (volumes owned by no live spec) plus the `docker volume rm`
+commands to remove them. It plans only — you run the printed commands — and it
+frees any stale registry slot for a reaped spec.
+
+- **Liveness = an existing worktree, not the registry** (the registry is what
+  goes stale). A spec with a live worktree — in any bucket, including one checked
+  out only on its branch — is always protected.
+- **No backup.** Unlike `spec-env down`, prune does **not** run
+  `backupCommand`: an orphan has no running DB to dump. Add `--older-than <days>`
+  to only reap volumes older than a cutoff (volumes of unknown age are kept).
+- `/spec-complete` and `/spec-cancel` run prune (confirm-first) as their last
+  teardown step, so orphans get swept as specs finish. You can also run it by
+  hand at any time to clear an existing backlog.

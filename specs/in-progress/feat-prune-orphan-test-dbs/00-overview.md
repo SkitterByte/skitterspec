@@ -1,7 +1,7 @@
 # Reap orphaned per-spec test databases
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 3 next (Phases 1–2 done)
+> **Status:** In Progress — all phases done, ready for /spec-complete
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-26
@@ -104,7 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Pure `planPrune` planner + tests | ✅ | [01-plan-prune.md](01-plan-prune.md) |
 | 2 | `spec-env prune` CLI subcommand + tests | ✅ | [02-cli-subcommand.md](02-cli-subcommand.md) |
-| 3 | Wire into `/spec-complete` & `/spec-cancel` | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
+| 3 | Wire into `/spec-complete` & `/spec-cancel` | ✅ | [03-skill-wiring.md](03-skill-wiring.md) |
 
 ## Open questions
 
@@ -119,6 +119,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-08-26 — Phase 3 done. Wired `spec-env prune` into `/spec-complete` (step
+  7.4) and `/spec-cancel` (step 7.4), confirm-first + non-fatal; documented in
+  `spec-planning.md` (engine list) and a new `env.config.md` "Pruning orphaned
+  test-DB volumes" section. Verified the build vendors `prune.js` + the edited
+  skills/docs into both dist packages. All three phases complete; 416/416.
 - 2026-08-26 — Phase 2 done. `spec-env prune` CLI + dispatch/HELP/usage +
   `--older-than`. Liveness fix: an in-progress spec lives on its worktree branch,
   so liveness scans spec folders in the primary checkout **and every worktree**
