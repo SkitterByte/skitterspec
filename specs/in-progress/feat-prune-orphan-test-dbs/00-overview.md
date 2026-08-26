@@ -102,7 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Pure `planPrune` planner + tests | ⬜ | [01-plan-prune.md](01-plan-prune.md) |
+| 1 | Pure `planPrune` planner + tests | ✅ | [01-plan-prune.md](01-plan-prune.md) |
 | 2 | `spec-env prune` CLI subcommand + tests | ⬜ | [02-cli-subcommand.md](02-cli-subcommand.md) |
 | 3 | Wire into `/spec-complete` & `/spec-cancel` | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
 
@@ -119,6 +119,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-08-26 — Phase 1 done. `planPrune(volumes, liveSlugs, opts)` — folded the
+  planned `config`/`flags` params into one `opts` and take `repoSlug` directly
+  (planner stays pure, no config-shape coupling). Volumes accept
+  `string | {name, createdAt}`; unknown-age volumes are kept when age-gating.
+  10 planner tests + full suite (407) green.
 - 2026-08-26 — Spec created. Reframed from "drop DB on complete" (already done
   for the current spec) to "reap orphaned test-DB volumes", after confirming
   test DBs are Docker named volumes namespaced by compose project, with no
