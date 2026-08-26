@@ -143,3 +143,62 @@ test('integrate refuses when a different spec holds the primary checkout', async
     cleanup(dir)
   }
 })
+
+test('integrate aborts on stranded detached-HEAD commits without ending the live session', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // primary → feat/x, worktree detached
+    // Simulate a non-live-aware /spec-go committing into the detached worktree —
+    // the commit lands on the detached HEAD, never advancing the branch ref.
+    fs.writeFileSync(path.join(worktree, 'stray.txt'), 'stray\n')
+    git(worktree, 'add', '-A')
+    git(worktree, 'commit', '-q', '-m', 'stray phase 2')
+
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /blocked — 1 commit\(s\) are stranded on the detached HEAD/)
+    // The live session must NOT have been ended — primary still on the branch, receipt intact.
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+    assert.ok(fs.existsSync(path.join(dir, '.spec-env', 'live.json')), 'receipt untouched')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate aborts when live but the worktree is gone, without ending the live session', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // primary → feat/x
+    git(dir, 'worktree', 'remove', '--force', worktree) // worktree vanishes while live
+
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /blocked — feat-x is live but has no worktree to land from/)
+    // Live session left intact — nothing checked out base, nothing landed silently.
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate lands fixes committed on the branch while live (commit-in-primary flow)', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // primary → feat/x
+    // The live-aware flow: commit the fix on the branch in the PRIMARY checkout.
+    fs.writeFileSync(path.join(dir, 'fix.txt'), 'fix\n')
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-q', '-m', 'live fix')
+
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /ended live session — feat-x released/)
+    assert.match(out, /spec-env integrate: feat-x/, 'prints the landing plan, not a no-op')
+    assert.doesNotMatch(out, /already landed/, 'the live fix is not silently dropped')
+    assert.match(out, new RegExp(`git -C ${worktree} rebase main`))
+
+    // Re-isolated: primary back on base, worktree carries the live fix on the branch.
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
+    assert.strictEqual(git(worktree, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+    assert.match(git(worktree, 'log', '--oneline'), /live fix/)
+  } finally {
+    cleanup(dir)
+  }
+})

@@ -5,8 +5,48 @@ const assert = require('node:assert')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
+const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+
+function git(cwd, ...args) {
+  return execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
+    .toString()
+    .trim()
+}
+
+// A real git checkout on `main` with an isolated spec and a worktree on its
+// branch — enough to drive `live take` (which branch-switches the primary), so
+// we can prove `spec-env up` refuses while the spec is live.
+function scaffoldGitWithWorktree(slug = 'x') {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-live-')))
+  git(dir, 'init', '-q')
+  git(dir, 'config', 'user.email', 'test@example.com')
+  git(dir, 'config', 'user.name', 'Test')
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+  )
+  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
+  const specDir = path.join(dir, 'specs', 'in-progress', `feat-${slug}`)
+  fs.mkdirSync(specDir, { recursive: true })
+  fs.writeFileSync(path.join(specDir, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'init')
+  git(dir, 'branch', '-M', 'main')
+  const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, slug)
+  git(dir, 'worktree', 'add', '-q', '-b', `feat/${slug}`, worktree)
+  return { dir, folder: `feat-${slug}`, worktree }
+}
+
+function cleanupGit(dir) {
+  try {
+    git(dir, 'worktree', 'prune')
+  } catch {}
+  fs.rmSync(dir, { recursive: true, force: true })
+  fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
+}
 
 // Scaffold a project with isolation enabled and one worktree-only spec, so
 // `spec-env up` runs its plan (no git/docker needed) and exercises the trust step.
@@ -107,6 +147,22 @@ test('spec-env up seeds before running setup (files exist before setup uses them
   const setupAt = out.indexOf('pnpm install')
   assert.ok(seedAt !== -1 && setupAt !== -1, 'both steps present')
   assert.ok(seedAt < setupAt, 'seed command is printed before the setup command')
+})
+
+test('spec-env up refuses when the spec is live in the primary checkout', async () => {
+  const { dir, folder, worktree } = scaffoldGitWithWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', folder, '--dir', dir]) // primary → feat/x
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+
+    const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+    assert.match(out, /is live in the primary checkout/)
+    assert.doesNotMatch(out, /git worktree add/, 'no un-runnable worktree-add plan emitted')
+    // Guard fired before touching the worktree — it is still where live left it.
+    assert.ok(fs.existsSync(worktree))
+  } finally {
+    cleanupGit(dir)
+  }
 })
 
 test('spec-env up leaves a malformed settings.local.json untouched, warns in the plan', async () => {

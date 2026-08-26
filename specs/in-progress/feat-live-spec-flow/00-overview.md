@@ -88,7 +88,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine safety net: `integrate` abort + `up` live-guard | ⬜ | [01-engine-safety-net.md](01-engine-safety-net.md) |
+| 1 | Engine safety net: `integrate` abort + `up` live-guard | ✅ | [01-engine-safety-net.md](01-engine-safety-net.md) |
 | 2 | Live-aware `/spec-go` + skill docs | ⬜ | [02-spec-go-live-aware.md](02-spec-go-live-aware.md) |
 
 ## Open questions
@@ -107,3 +107,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-26 — Spec created. Root cause traced: `/spec-go` not live-aware +
   silent no-op paths in `spec-env integrate`. Decisions: spec-go works in primary
   while live; integrate aborts loudly on work-loss risk; `up` is live-safe.
+- 2026-08-26 — Phase 1 done. Added the integrate work-loss guard (aborts on
+  stranded detached-HEAD commits or a missing worktree, before the destructive
+  `checkout base`) and the `spec-env up` live-safe guard. Guard kept in the CLI
+  (`specEnvIntegrate`) — needs git IO — so `planIntegrate` stays a pure planner,
+  unchanged. Verified via real-git CLI integration tests; full suite 423 pass.

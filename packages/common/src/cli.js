@@ -185,6 +185,19 @@ function specEnvUp(dir, config, specArg) {
   }
   const spec = resolveSpec(specArg, dir, config)
 
+  // Live-safe: if this spec is already live on the primary checkout (its branch was
+  // branch-switched in by `live take`), a `git worktree add` would fail — the branch
+  // is checked out there. Point the operator at the primary checkout rather than
+  // emit a plan that can't run (see spec feat-live-spec-flow).
+  const primaryUp = assertPrimaryOnMain(config, gitReader(dir))
+  if (!primaryUp.onBase && primaryUp.branch === spec.branch) {
+    process.stdout.write(
+      `spec-env up: ${spec.folder} is live in the primary checkout — work there directly ` +
+        '(its branch is checked out), or run `/spec-live main` first to re-isolate its worktree.\n',
+    )
+    return
+  }
+
   // Trust the shared worktree root so edits into the freshly-provisioned worktree
   // don't prompt. One absolute entry (the root) covers every spec; self-heals on
   // every provision for teammates who only cloned and ran /spec-go.
@@ -566,6 +579,33 @@ function specEnvIntegrate(dir, config, specArg) {
         `spec-env integrate: blocked — commit your live fixes to ${spec.branch} first.\n`,
       )
       return
+    }
+    // Work-loss guard — runs BEFORE the destructive `checkout base` that ends the
+    // live session. Ending the session must leave landable work behind; if it
+    // wouldn't, abort loudly instead of silently finalizing the spec with nothing
+    // landed (see spec feat-live-spec-flow).
+    if (!fs.existsSync(spec.worktreePath)) {
+      process.stdout.write(
+        `spec-env integrate: blocked — ${spec.folder} is live but has no worktree to land ` +
+          `from. Re-isolate it with \`skitterspec spec-env up ${spec.folder}\`, then re-run.\n`,
+      )
+      return
+    }
+    const liveWtGit = gitReader(spec.worktreePath)
+    if (liveWtGit(['symbolic-ref', '--short', 'HEAD']) === null) {
+      // Detached worktree HEAD: any commits ahead of the branch ref (e.g. made by a
+      // non-live-aware /spec-go) would be abandoned by the re-isolate `switch` below.
+      const stranded = liveWtGit(['rev-list', '--count', `${spec.branch}..HEAD`])
+      const head = liveWtGit(['rev-parse', '--short', 'HEAD'])
+      if (stranded !== null && Number(stranded) > 0) {
+        process.stdout.write(
+          `spec-env integrate: blocked — ${stranded} commit(s) are stranded on the detached ` +
+            `HEAD of ${spec.worktreePath} (at ${head}), ahead of ${spec.branch}; re-isolating ` +
+            `would abandon them. Recover with \`git -C ${spec.worktreePath} branch <tmp> ${head}\`, ` +
+            `reconcile onto ${spec.branch}, then re-run.\n`,
+        )
+        return
+      }
     }
     const co = runGit(dir, ['checkout', base])
     if (!co.ok) {
