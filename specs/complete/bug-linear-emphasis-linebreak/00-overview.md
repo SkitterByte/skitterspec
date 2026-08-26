@@ -1,7 +1,7 @@
 # Bug: Linear round-trip corrupts markdown emphasis that spans a line break
 
 > **Type:** Bug
-> **Status:** In Progress — fixing (tests green)
+> **Status:** Complete (2026-08-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-26
@@ -88,6 +88,7 @@ Spec files are hand-wrapped prose, so straddles are common. Two defects:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-26 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -99,3 +100,6 @@ Spec files are hand-wrapped prose, so straddles are common. Two defects:
 - 2026-08-26 — Added the one-time `spec-sanitise` CLI + `sanitizeSpecMarkdown`;
   fixed a table-detection bug (a `|` inside inline code shielded a whole list).
 - 2026-08-26 — `inferWidth` ignores table/code lines. Full suite 452 green.
+- 2026-08-26 — Completed; all phases done, tests green (452/452, incl. the
+  originally-failing A/B tests). Deferred (noted as follow-ups): cut `7.0.2`,
+  harden the release tooling's "release already cut" check.
