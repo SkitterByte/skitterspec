@@ -39,6 +39,7 @@ const {
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
+const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate } = require('./env/integrate.js')
 const { planHotfixLand } = require('./env/hotfix.js')
 const { planDev } = require('./env/dev.js')
@@ -61,6 +62,7 @@ Usage:
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         plan a worktree + Docker stack + opener
                                 down <spec>       tear down (guards; --keep-volumes, --force)
+                                prune             reap orphaned test-DB volumes (--older-than <days>)
                                 dev up <spec>     start host dev servers on the spec's ports
                                 dev down <spec>   stop the spec's host dev servers
                                 connect <spec>    expose a spec on the canonical ports (main = off)
@@ -362,6 +364,166 @@ function specEnvDown(dir, config, specArg, flags) {
   out.push(`  volumes:   ${plan.volumesDropped ? 'dropped' : 'kept'}`)
   if (plan.backupPath) out.push(`  backup:    ${plan.backupPath}`)
   else if (plan.volumesDropped) out.push('  backup:    none (no docker.backupCommand set)')
+  out.push('')
+  out.push('  run these:')
+  for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  process.stdout.write(out.join('\n') + '\n')
+}
+
+// --- prune: reap orphaned per-spec test-DB volumes -------------------------
+
+// Live Docker volumes in the repo namespace (`{repoSlug}_…`). Returns
+// { ok, names }: ok:false means docker is unavailable / errored (non-fatal — the
+// caller reports and skips). The `name=` filter is a substring match, so we
+// re-check the prefix in the pure planner.
+function listRepoVolumes(repoSlug) {
+  try {
+    const out = execFileSync(
+      'docker',
+      ['volume', 'ls', '--format', '{{.Name}}', '--filter', `name=${repoSlug}_`],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+      .toString()
+      .trim()
+    const names = out ? out.split('\n').map((s) => s.trim()).filter(Boolean) : []
+    return { ok: true, names }
+  } catch (error) {
+    const err = (error.stderr && error.stderr.toString().trim()) || error.message
+    return { ok: false, names: [], err }
+  }
+}
+
+// Map orphan-candidate volume names → creation epoch-ms via `docker volume
+// inspect`. Unknown/unparseable timestamps stay null (the planner keeps them).
+function volumeCreatedAt(names) {
+  const byName = new Map()
+  if (!names.length) return byName
+  try {
+    const out = execFileSync(
+      'docker',
+      ['volume', 'inspect', '--format', '{{.Name}}\t{{.CreatedAt}}', ...names],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+      .toString()
+      .trim()
+    for (const line of out.split('\n')) {
+      const [name, created] = line.split('\t')
+      const ms = created ? Date.parse(created.trim()) : NaN
+      if (name) byName.set(name.trim(), Number.isNaN(ms) ? null : ms)
+    }
+  } catch {
+    // Inspect failed wholesale → treat every candidate as unknown-age (kept).
+  }
+  return byName
+}
+
+// Absolute paths of every checkout git knows about (primary + all worktrees).
+function liveWorktreePaths(dir) {
+  const out = gitReader(dir)(['worktree', 'list', '--porcelain'])
+  const paths = new Set()
+  if (out == null) return paths
+  for (const line of out.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      paths.add(path.resolve(line.slice('worktree '.length).trim()))
+    }
+  }
+  return paths
+}
+
+// Every spec folder name found under specs/* across the given checkout roots.
+// An in-progress spec lives on its *worktree branch*, not the primary checkout,
+// so we must scan the worktrees too — otherwise a live spec's DB looks orphaned.
+function collectSpecFolders(roots) {
+  const folders = new Set()
+  for (const root of roots) {
+    for (const bucket of ['backlog', 'in-progress', 'complete', 'cancelled']) {
+      let entries
+      try {
+        entries = fs.readdirSync(path.join(root, 'specs', bucket), { withFileTypes: true })
+      } catch {
+        continue
+      }
+      for (const entry of entries) if (entry.isDirectory()) folders.add(entry.name)
+    }
+  }
+  return folders
+}
+
+// Resolve every spec folder (found in the primary checkout OR any worktree) to
+// { folder, slug, worktreePath }. `searchDirs` lets resolveSpec locate a spec
+// that was authored on its branch and never committed to the primary checkout.
+function allSpecs(dir, config, worktreePaths) {
+  const searchDirs = [...worktreePaths]
+  const specs = []
+  for (const folder of collectSpecFolders([dir, ...searchDirs])) {
+    try {
+      const spec = resolveSpec(folder, dir, config, { searchDirs })
+      specs.push({ folder: spec.folder, slug: spec.slug, worktreePath: spec.worktreePath })
+    } catch {
+      // Unresolvable folder (not a real spec) — skip.
+    }
+  }
+  return specs
+}
+
+// Prune: reconcile namespace volumes against specs that still have a worktree and
+// print the `docker volume rm` commands for the orphans. Liveness keys off the
+// worktree, NOT the registry (a declined teardown leaves a stale slot behind), so
+// this correctly reaps those and frees their stale slots. Destructive removal is
+// executed by the caller (skill) after confirmation — the CLI only plans + writes
+// the registry, mirroring `spec-env down`.
+function specEnvPrune(dir, config, flags) {
+  const { repoSlug } = repoInfo(dir)
+
+  const vols = listRepoVolumes(repoSlug)
+  if (!vols.ok) {
+    process.stdout.write(
+      `spec-env prune: could not list docker volumes — ${vols.err || 'docker unavailable'}.\n` +
+        'Is Docker running? Nothing pruned.\n',
+    )
+    return
+  }
+
+  const worktrees = liveWorktreePaths(dir)
+  const specs = allSpecs(dir, config, worktrees)
+  const liveSlugs = liveSlugsForSpecs(specs, worktrees)
+
+  const olderThanDays =
+    flags && Number.isFinite(flags.olderThanDays) ? flags.olderThanDays : null
+  let volumes = vols.names
+  let now = null
+  if (olderThanDays != null) {
+    const createdAt = volumeCreatedAt(vols.names)
+    volumes = vols.names.map((name) => ({ name, createdAt: createdAt.get(name) ?? null }))
+    now = Date.now()
+  }
+
+  const plan = planPrune(volumes, liveSlugs, { repoSlug, olderThanDays, now })
+
+  if (!plan.orphans.length) {
+    process.stdout.write(
+      `spec-env prune: no orphaned volumes in ${repoSlug}_* ` +
+        `(${vols.names.length} namespace volume(s), ${liveSlugs.size} live spec(s) protected).\n`,
+    )
+    return
+  }
+
+  // Reconcile the registry: free the slot of any spec whose volume we're reaping.
+  const registry = readRegistry(dir, config)
+  const { registry: nextRegistry, freed } = reconcileRegistry(registry, plan.orphans, repoSlug)
+  if (freed.length) writeRegistry(dir, config, nextRegistry)
+
+  const ageNote = olderThanDays != null ? ` older than ${olderThanDays}d` : ''
+  const out = []
+  out.push(
+    `spec-env prune: ${plan.orphans.length} orphaned volume(s)${ageNote} ` +
+      `(${liveSlugs.size} live spec(s) protected)`,
+  )
+  out.push('')
+  out.push('  orphans:')
+  for (const o of plan.orphans) out.push(`    ${o.name}`)
+  if (freed.length) out.push(`  slots freed:  ${freed.join(', ')}`)
+  out.push('  backup:       none (prune does not back up — orphans have no running DB)')
   out.push('')
   out.push('  run these:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
@@ -1001,12 +1163,13 @@ async function specEnv(rest) {
   const [sub, ...args] = rest
   let dir = process.cwd()
   const positional = []
-  const flags = { keepVolumes: false, force: false, also: [] }
+  const flags = { keepVolumes: false, force: false, also: [], olderThanDays: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--keep-volumes') flags.keepVolumes = true
     else if (args[i] === '--force') flags.force = true
     else if (args[i] === '--also') flags.also.push(args[++i])
+    else if (args[i] === '--older-than') flags.olderThanDays = Number(args[++i])
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -1029,6 +1192,9 @@ async function specEnv(rest) {
       break
     case 'down':
       specEnvDown(dir, config, positional[0], flags)
+      break
+    case 'prune':
+      specEnvPrune(dir, config, flags)
       break
     case 'dev':
       await specEnvDev(dir, config, positional)
@@ -1053,7 +1219,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|dev|connect|integrate|hotfix|live|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>]\n',
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>]\n',
       )
   }
 }

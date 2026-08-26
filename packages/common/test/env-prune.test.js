@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { planPrune } = require('../src/env/prune.js')
+const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('../src/env/prune.js')
 
 const REPO = 'skitterspec'
 const names = (plan) => plan.orphans.map((o) => o.name)
@@ -89,4 +89,52 @@ test('throws when olderThanDays is set without now', () => {
     () => planPrune([`${REPO}_x_db`], [], { repoSlug: REPO, olderThanDays: 7 }),
     /requires opts\.now/,
   )
+})
+
+// --- liveSlugsForSpecs ------------------------------------------------------
+
+test('liveSlugsForSpecs keeps only specs whose worktree exists', () => {
+  const specs = [
+    { slug: 'alive', worktreePath: '/wt/alive' },
+    { slug: 'gone', worktreePath: '/wt/gone' },
+  ]
+  const live = liveSlugsForSpecs(specs, new Set(['/wt/alive']))
+  assert.deepStrictEqual([...live], ['alive'])
+})
+
+test('liveSlugsForSpecs accepts an iterable of paths and empty inputs', () => {
+  assert.deepStrictEqual([...liveSlugsForSpecs([], [])], [])
+  const live = liveSlugsForSpecs([{ slug: 'a', worktreePath: '/wt/a' }], ['/wt/a', '/wt/b'])
+  assert.deepStrictEqual([...live], ['a'])
+})
+
+// --- reconcileRegistry ------------------------------------------------------
+
+test('reconcileRegistry frees the slot of a reaped spec, keeps others', () => {
+  const registry = { slots: { 'feat-gone': 0, 'feat-alive': 1 } }
+  const orphans = [{ name: `${REPO}_gone_db-data` }]
+  const { registry: next, freed } = reconcileRegistry(registry, orphans, REPO)
+  assert.deepStrictEqual(freed, ['feat-gone'])
+  assert.deepStrictEqual(next.slots, { 'feat-alive': 1 })
+})
+
+test('reconcileRegistry is a no-op when no slot matches an orphan', () => {
+  const registry = { slots: { 'feat-alive': 0 } }
+  const { registry: next, freed } = reconcileRegistry(registry, [{ name: `${REPO}_gone_db` }], REPO)
+  assert.deepStrictEqual(freed, [])
+  assert.deepStrictEqual(next.slots, { 'feat-alive': 0 })
+})
+
+test('reconcileRegistry does not mutate the input registry', () => {
+  const registry = { slots: { 'feat-gone': 0 } }
+  reconcileRegistry(registry, [{ name: `${REPO}_gone_db` }], REPO)
+  assert.deepStrictEqual(registry.slots, { 'feat-gone': 0 }, 'input untouched')
+})
+
+test('reconcileRegistry matches slugs exactly (bug- prefix, no cross-match)', () => {
+  const registry = { slots: { 'bug-add': 0, 'feat-add-widget': 1 } }
+  // Only the add-widget volume is an orphan → only feat-add-widget's slot frees.
+  const orphans = [{ name: `${REPO}_add-widget_db` }]
+  const { freed } = reconcileRegistry(registry, orphans, REPO)
+  assert.deepStrictEqual(freed, ['feat-add-widget'])
 })

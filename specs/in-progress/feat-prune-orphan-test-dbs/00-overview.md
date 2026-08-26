@@ -1,7 +1,7 @@
 # Reap orphaned per-spec test databases
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-08-26)
+> **Status:** In Progress — Phase 3 next (Phases 1–2 done)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-26
@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Pure `planPrune` planner + tests | ✅ | [01-plan-prune.md](01-plan-prune.md) |
-| 2 | `spec-env prune` CLI subcommand + tests | ⬜ | [02-cli-subcommand.md](02-cli-subcommand.md) |
+| 2 | `spec-env prune` CLI subcommand + tests | ✅ | [02-cli-subcommand.md](02-cli-subcommand.md) |
 | 3 | Wire into `/spec-complete` & `/spec-cancel` | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
 
 ## Open questions
@@ -119,6 +119,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-08-26 — Phase 2 done. `spec-env prune` CLI + dispatch/HELP/usage +
+  `--older-than`. Liveness fix: an in-progress spec lives on its worktree branch,
+  so liveness scans spec folders in the primary checkout **and every worktree**
+  (via `resolveSpec` searchDirs) — a smoke test caught the active spec's own
+  volume being misread as an orphan ("0 live specs"). Pure logic extracted to
+  `liveSlugsForSpecs` + `reconcileRegistry` (both tested). Suite 416/416; real
+  orphan-volume smoke test flagged only the orphan.
 - 2026-08-26 — Phase 1 done. `planPrune(volumes, liveSlugs, opts)` — folded the
   planned `config`/`flags` params into one `opts` and take `repoSlug` directly
   (planner stays pure, no config-shape coupling). Volumes accept

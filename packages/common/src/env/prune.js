@@ -28,6 +28,8 @@
  * `now` (and per-volume `createdAt`) when age-gating.
  */
 
+const { splitPrefix } = require('./resolve.js')
+
 /**
  * @param {Array<string|{name:string,createdAt?:number|null}>} volumes
  *   live Docker volume names (or objects carrying `createdAt` epoch-ms for age
@@ -67,4 +69,51 @@ function planPrune(volumes, liveSlugs, opts = {}) {
   return { orphans, commands }
 }
 
-module.exports = { planPrune }
+/**
+ * Derive the set of live spec slugs from the specs that still have a git
+ * worktree. The **worktree is the liveness signal** (see module header): the
+ * registry is not consulted here. Pure — the caller supplies the spec list and
+ * the set of live worktree paths (both gathered via IO).
+ *
+ * @param {Array<{slug:string, worktreePath:string}>} specs
+ * @param {Set<string>|Iterable<string>} liveWorktreePaths  absolute paths.
+ * @returns {Set<string>} slugs whose worktree currently exists.
+ */
+function liveSlugsForSpecs(specs, liveWorktreePaths) {
+  const live = liveWorktreePaths instanceof Set ? liveWorktreePaths : new Set(liveWorktreePaths || [])
+  const slugs = new Set()
+  for (const spec of specs || []) {
+    if (spec && spec.worktreePath && live.has(spec.worktreePath)) slugs.add(spec.slug)
+  }
+  return slugs
+}
+
+/**
+ * Reconcile the slot registry against the volumes we're about to reap. A stale
+ * slot is one whose spec's DB volume is an orphan — freeing it converges the
+ * registry back to what actually exists (the registry is keyed by spec *folder*,
+ * so we split each folder's prefix to get its slug and match it to a reaped
+ * volume by the same `{repoSlug}_{slug}_` prefix used for orphan detection).
+ * Pure: returns a new registry object plus the folders freed; never mutates.
+ *
+ * @param {{slots: Object<string,number>}} registry
+ * @param {Array<{name:string}>} orphans  the volumes planPrune decided to reap.
+ * @param {string} repoSlug
+ * @returns {{ registry: {slots: Object<string,number>}, freed: string[] }}
+ */
+function reconcileRegistry(registry, orphans, repoSlug) {
+  const slots = { ...((registry && registry.slots) || {}) }
+  const reaped = (orphans || []).map((o) => o.name)
+  const freed = []
+  for (const folder of Object.keys(slots)) {
+    const { slug } = splitPrefix(folder)
+    const prefix = `${repoSlug}_${slug}_`
+    if (reaped.some((name) => name.startsWith(prefix))) {
+      delete slots[folder]
+      freed.push(folder)
+    }
+  }
+  return { registry: { slots }, freed }
+}
+
+module.exports = { planPrune, liveSlugsForSpecs, reconcileRegistry }
