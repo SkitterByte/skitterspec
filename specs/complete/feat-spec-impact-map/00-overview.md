@@ -1,7 +1,7 @@
 # Spec overview: scannable Impact map
 
 > **Type:** Feature
-> **Status:** In Progress — all phases done, ready for /spec-complete
+> **Status:** Complete (2026-08-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-26
@@ -108,6 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-26 | Ready | backlog | Reuben Greaves |
 | 2026-08-26 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -125,3 +126,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   Impact map; `/spec-review` walks each Impact row against the code as a drift
   check and refreshes stale rows. Two tests added; suite green (419). All phases
   complete.
+- 2026-08-26 — Completed; all phases done, tests green (419).
