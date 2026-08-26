@@ -1,7 +1,7 @@
 # Live-overlay → continue → complete flow robustness
 
 > **Type:** Feature
-> **Status:** In Progress — all phases implemented (2026-08-26)
+> **Status:** Complete (2026-08-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-26
@@ -101,6 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-26 | Ready | backlog | Reuben Greaves |
 | 2026-08-26 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -117,3 +118,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   work in the primary checkout when live) and documented `integrate`'s work-loss
   abort in `/spec-complete`. `.claude/skills` are symlinks into the assets, so the
   mirror updates automatically. Full suite 425 pass.
+- 2026-08-26 — Completed; all phases done, tests green (425 pass).
