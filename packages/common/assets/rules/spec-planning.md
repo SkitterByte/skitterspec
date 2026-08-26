@@ -190,3 +190,7 @@ queried directly.)
 - Never delete historical notes.
 - The spec file is the single source of truth for implementation progress.
 - Move specs between buckets with `git mv` to preserve history.
+- Never let inline emphasis or a link cross a hard line break — keep a whole
+  `**bold**`, `*italic*`, or `[text](url)` on one line (let it overflow the wrap
+  column rather than splitting it). Many round-tripping editors mangle a
+  `**`/`*`/link span that straddles a newline, so clean source avoids the churn.

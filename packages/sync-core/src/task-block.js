@@ -26,6 +26,40 @@ function collapse(text) {
   return String(text).replace(/\s+/g, ' ').trim()
 }
 
+// Mark every character of `body` that lies inside an inline emphasis or link
+// span — `**bold**`, `*italic*`, `[text](url)` — so wrapping can avoid breaking
+// one across a line (Linear mangles a straddling `**`/`*`/link on save). Code
+// spans are exempt (Linear only rejoins them, harmlessly) but their contents are
+// neutralised first so a `*` inside code can't spoof an italic marker.
+function spanMask(body) {
+  const mask = new Array(body.length).fill(false)
+  // Neutralise code-span contents to same-length filler (indices stay aligned).
+  const chars = body.split('')
+  let m
+  const codeRe = /`[^`]*`/g
+  while ((m = codeRe.exec(body)) !== null) {
+    for (let i = m.index; i < m.index + m[0].length; i++) chars[i] = 'x'
+  }
+  let masked = chars.join('')
+  const cover = (re) => {
+    re.lastIndex = 0
+    let mm
+    while ((mm = re.exec(masked)) !== null) {
+      for (let i = mm.index; i < mm.index + mm[0].length; i++) mask[i] = true
+      if (mm[0].length === 0) re.lastIndex++
+    }
+  }
+  cover(/\*\*.+?\*\*/g) // bold
+  cover(/\[[^\]]*\]\([^)]*\)/g) // link
+  // Neutralise the bold/link spans already found, so their asterisks aren't
+  // reused when scanning for single-`*` italics.
+  const m2 = masked.split('')
+  for (let i = 0; i < mask.length; i++) if (mask[i]) m2[i] = 'x'
+  masked = m2.join('')
+  cover(/\*[^*]+?\*/g) // italic
+  return mask
+}
+
 /**
  * Find every task bullet in `lines` as a logical block.
  * @returns {Array<{start:number, end:number, indent:string, mark:string, text:string}>}
@@ -62,16 +96,34 @@ function findTaskBlocks(lines) {
  * style: `- [x] ` opener, continuations aligned under the text.
  * @returns {string[]}
  */
-function renderTaskBlock({ indent = '', done, text, id }, width = DEFAULT_WIDTH) {
-  const opener = `${indent}- [${done ? 'x' : ' '}] `
-  const hang = ' '.repeat(opener.length)
-  const body = collapse(text) + (id ? ` (${id})` : '')
+// Wrap `body` (a single logical line) into file lines, emphasis-aware: a break is
+// only taken at a word gap that lies OUTSIDE every `**`/`*`/link span, so an
+// emphasis run never straddles a line (Linear mangles one that does). The first
+// line is prefixed with `firstPrefix`, continuations with `hang`. An over-width
+// single span overflows rather than being split.
+function wrapEmphasisAware(body, { firstPrefix = '', hang = '', width = DEFAULT_WIDTH } = {}) {
+  const mask = spanMask(body)
+  const words = body.split(' ')
+  // The index in `body` of the space that precedes each word.
+  const spaceBefore = []
+  let pos = 0
+  for (let k = 0; k < words.length; k++) {
+    if (k > 0) {
+      spaceBefore[k] = pos
+      pos += 1
+    }
+    pos += words[k].length
+  }
 
   const out = []
-  let line = opener
+  let line = firstPrefix
   let first = true
-  for (const word of body.split(' ')) {
-    if (!first && line.length + 1 + word.length > width) {
+  for (let k = 0; k < words.length; k++) {
+    const word = words[k]
+    // Break only at a safe gap; a gap inside a span overflows instead of
+    // splitting it (so an over-width single span stays whole on one line).
+    const canBreak = k > 0 && !mask[spaceBefore[k]]
+    if (!first && canBreak && line.length + 1 + word.length > width) {
       out.push(line)
       line = hang + word
     } else {
@@ -83,13 +135,42 @@ function renderTaskBlock({ indent = '', done, text, id }, width = DEFAULT_WIDTH)
   return out
 }
 
+function renderTaskBlock({ indent = '', done, text, id }, width = DEFAULT_WIDTH) {
+  const opener = `${indent}- [${done ? 'x' : ' '}] `
+  const hang = ' '.repeat(opener.length)
+  const body = collapse(text) + (id ? ` (${id})` : '')
+  return wrapEmphasisAware(body, { firstPrefix: opener, hang, width })
+}
+
 // Infer the wrap width a file already uses, so a rewrite doesn't reflow it to a
-// different column. Falls back to the default when there's nothing to learn from.
+// different column. Only *prose* lines count — a single wide table row or a long
+// line of fenced code would otherwise pull the whole file's prose to a wider
+// column than the author wrapped at. Falls back to the default when there's
+// nothing prose-like to learn from.
 function inferWidth(lines, fallback = DEFAULT_WIDTH) {
-  const widths = lines.filter((l) => l.trim()).map((l) => l.length)
+  let inFence = false
+  const widths = []
+  for (const l of lines) {
+    if (/^[ \t]*```/.test(l)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+    if (!l.trim()) continue
+    if (l.includes('|')) continue // table row
+    widths.push(l.length)
+  }
   if (!widths.length) return fallback
   const max = Math.max(...widths)
   return max > 40 && max <= 120 ? Math.max(max, 60) : fallback
 }
 
-module.exports = { findTaskBlocks, renderTaskBlock, collapse, inferWidth, DEFAULT_WIDTH }
+module.exports = {
+  findTaskBlocks,
+  renderTaskBlock,
+  wrapEmphasisAware,
+  spanMask,
+  collapse,
+  inferWidth,
+  DEFAULT_WIDTH,
+}

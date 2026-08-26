@@ -16,6 +16,7 @@ const { pull } = require('./src/pull.js')
 const { push } = require('./src/push.js')
 const { writeFrontmatter } = require('./src/write.js')
 const { frontmatterPatchFor, localWorkflowState } = require('./src/apply.js')
+const { sanitizeSpecMarkdown } = require('./src/sanitise.js')
 
 module.exports = {
   normalizeLocal,
@@ -32,4 +33,5 @@ module.exports = {
   writeFrontmatter,
   frontmatterPatchFor,
   localWorkflowState,
+  sanitizeSpecMarkdown,
 }

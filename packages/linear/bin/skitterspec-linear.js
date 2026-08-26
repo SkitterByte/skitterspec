@@ -10,11 +10,16 @@
 
 const { run } = require('@skitterbyte/skitterspec-common/src/cli.js')
 const { specSync } = require('@skitterbyte/skitterspec-provider-linear/src/cli-sync.js')
+const { specSanitise } = require('@skitterbyte/skitterspec-provider-linear/src/cli-sanitise.js')
 
 async function main(argv) {
   const [cmd, ...rest] = argv
   if (cmd === 'spec-sync') {
     await specSync(rest)
+    return
+  }
+  if (cmd === 'spec-sanitise') {
+    process.exitCode = await specSanitise(rest)
     return
   }
   await run(argv)
