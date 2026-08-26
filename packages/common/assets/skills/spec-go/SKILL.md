@@ -22,9 +22,24 @@ Diverting your browser to the spec is a separate explicit step — `/spec-connec
 
 ## 2. Move it into development
 
-**If per-spec isolation is enabled** (`specs/.core/env.config.json` exists) and
-the spec doesn't already have a worktree, provision it **first**, so all the
-housekeeping below lands on the spec's branch and never on `main`:
+**Live check first (isolation only).** If per-spec isolation is enabled, before
+provisioning run `skitterspec spec-env live status <name>` and read its `live:`
+line. If it says **`live: yes`**, this spec is already checked out in the
+**primary checkout** (you took it live with `/spec-live`) — **do not provision,
+do not run `spec-env up`, and do not "work in the worktree"**. Its branch lives
+in the primary checkout and its worktree is on a **detached HEAD**, so a commit
+made in the worktree would strand on that detached HEAD and never reach the
+branch. Instead skip the provisioning bullets and step 2b, leave the spec where
+it is, and go straight to **step 4**, implementing the phase **in the primary
+checkout on the branch** — edits and commits there advance the branch, and
+`/spec-complete` lands them. (`spec-env up` refuses while live and says the same.
+To return to an isolated worktree instead, run `/spec-live main` first, then
+re-run `/spec-go`.)
+
+**If per-spec isolation is enabled** (`specs/.core/env.config.json` exists), the
+spec **isn't already live** (the check above), and it doesn't already have a
+worktree, provision it **first**, so all the housekeeping below lands on the
+spec's branch and never on `main`:
 
 **Opt-out:** if the user passes `--no-worktree` (or explicitly asks to work in
 place), skip the provisioning bullets below and build on the current branch — the

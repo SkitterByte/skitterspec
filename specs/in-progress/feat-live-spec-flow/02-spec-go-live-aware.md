@@ -1,6 +1,6 @@
-# Phase 2 — Live-aware `/spec-go` + skill docs ⬜
+# Phase 2 — Live-aware `/spec-go` + skill docs ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `/spec-go` on a live spec works directly in the primary checkout on the
 branch (no worktree churn, no detached-HEAD commits), and the skill docs reflect
@@ -9,29 +9,31 @@ skill markdown.
 
 ## Tasks
 
-- [ ] Expose a reliable **live signal** spec-go can consult: extend `spec-env
-      live status <name>` (and/or `spec-env status`) to report whether the spec's
-      branch is checked out in the **primary checkout** (reuse
-      `assertPrimaryOnMain`). Keep output machine-readable enough for the skill to
-      branch on.
-- [ ] Update `spec-go/SKILL.md` step 2: **before** the "provision worktree"
-      bullets, add a live check — if the spec is live (branch in the primary
-      checkout), **skip provisioning** and implement the phase directly in the
-      primary checkout on the branch (commits advance the branch; `/spec-complete`
-      lands them). Explicitly distinguish this from the existing
-      stale/normal-worktree case so a **detached** worktree is never treated as a
-      normal one to "work in".
-- [ ] Update `spec-complete/SKILL.md` step 6 wording: document that `integrate`
-      now **aborts loudly** if it would land nothing (stranded commits), and what
-      recovery looks like (surface the diagnostic to the user).
-- [ ] Keep the `/.claude/skills/spec-go` and `/.claude/skills/spec-complete`
-      mirror in sync with the `packages/common/assets/skills/...` sources
-      (rebuild/copy per the project's build step).
-- [ ] Add/adjust tests for the live signal under `packages/common`; run
-      `npm test` (`node --test`) — green before the phase is done.
+- [x] Expose a reliable **live signal** spec-go can consult: extended
+      `spec-env live status <name>` to take an optional spec arg and print a
+      stable `live:      yes|no` verdict line (reuses `assertPrimaryOnMain`,
+      backward-compatible — no arg keeps the global summary).
+- [x] Update `spec-go/SKILL.md` step 2: added a **Live check first** block before
+      the provisioning bullets — if `live: yes`, skip provisioning/`spec-env up`
+      and implement the phase directly in the primary checkout on the branch;
+      explicitly warns that the detached worktree must **not** be worked in.
+- [x] Update `spec-complete/SKILL.md` step 6: documented the **work-loss abort**
+      (stranded detached-HEAD commits, or missing worktree while live), the
+      recovery hints, and "relay the diagnostic and stop".
+- [x] Mirror sync: `.claude/skills/<name>` are **symlinks** into
+      `packages/common/assets/skills/` — editing the asset updates the mirror
+      automatically (verified).
+- [x] Added tests for the live signal (`live: no` when not live, `live: yes`
+      after `live take`) in `cli-spec-env-live.test.js`; ran `npm test` — 425
+      pass, 0 fail.
 
 ## Notes
 
 Depends on Phase 1's `assertPrimaryOnMain`-based detection being in place. The
 skill change is the primary UX fix; Phase 1 is the safety net that makes the bad
 state non-destructive even if a user reaches it another way.
+
+The live signal is a per-spec extension of `spec-env live status` (not a new
+`spec-env status` field) — it keeps the live-overlay surface in one command and
+stays backward-compatible. The `.claude/skills` symlink means task 4 needed no
+build step.

@@ -952,7 +952,7 @@ async function specEnvLive(dir, config, positional) {
   const action = positional[0] || 'status'
   switch (action) {
     case 'status':
-      specEnvLiveStatus(dir, config)
+      specEnvLiveStatus(dir, config, positional[1])
       break
     case 'take':
       await specEnvLiveTake(dir, config, positional[1])
@@ -1186,8 +1186,28 @@ async function specEnvLiveAbort(dir, config) {
   )
 }
 
-function specEnvLiveStatus(dir, config) {
+function specEnvLiveStatus(dir, config, specArg) {
   const { onBase, branch, baseBranch } = assertPrimaryOnMain(config, gitReader(dir))
+
+  // Per-spec query (`live status <spec>`): a clear yes/no verdict the /spec-go
+  // skill branches on to decide whether to skip worktree provisioning and work in
+  // the primary checkout. The stable `live:      yes|no` line is the machine seam.
+  if (specArg) {
+    const spec = resolveSpecWithWorktree(dir, config, specArg)
+    const live = !onBase && branch === spec.branch
+    process.stdout.write(
+      `spec-env live status: ${spec.folder}\n` +
+        `  spec:      ${spec.folder}  (branch ${spec.branch})\n` +
+        `  primary:   ${branch || '(detached)'}\n` +
+        `  live:      ${
+          live
+            ? `yes — ${spec.folder} holds the primary checkout; work there`
+            : `no — primary is on ${branch || '(detached)'}`
+        }\n`,
+    )
+    return
+  }
+
   const receipt = readReceipt(dir, config)
   const state = onBase
     ? 'on base — free'

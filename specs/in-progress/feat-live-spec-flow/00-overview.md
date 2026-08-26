@@ -1,7 +1,7 @@
 # Live-overlay → continue → complete flow robustness
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-08-26)
+> **Status:** In Progress — all phases implemented (2026-08-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-26
@@ -89,7 +89,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine safety net: `integrate` abort + `up` live-guard | ✅ | [01-engine-safety-net.md](01-engine-safety-net.md) |
-| 2 | Live-aware `/spec-go` + skill docs | ⬜ | [02-spec-go-live-aware.md](02-spec-go-live-aware.md) |
+| 2 | Live-aware `/spec-go` + skill docs | ✅ | [02-spec-go-live-aware.md](02-spec-go-live-aware.md) |
 
 ## Open questions
 
@@ -112,3 +112,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `checkout base`) and the `spec-env up` live-safe guard. Guard kept in the CLI
   (`specEnvIntegrate`) — needs git IO — so `planIntegrate` stays a pure planner,
   unchanged. Verified via real-git CLI integration tests; full suite 423 pass.
+- 2026-08-26 — Phase 2 done. Extended `spec-env live status <spec>` with a stable
+  `live: yes|no` verdict; made `/spec-go` step 2 live-aware (skip provisioning,
+  work in the primary checkout when live) and documented `integrate`'s work-loss
+  abort in `/spec-complete`. `.claude/skills` are symlinks into the assets, so the
+  mirror updates automatically. Full suite 425 pass.

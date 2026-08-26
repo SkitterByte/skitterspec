@@ -101,6 +101,16 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
    the normal landing plan. Commit any live fixes to the branch first; it refuses
    if the primary checkout is dirty, or if a *different* spec holds it (release that
    one with `/spec-live main`). Teardown (step 7) is unchanged.
+   **Work-loss abort.** Before it ends the live session, `integrate` checks the
+   work is actually landable and **aborts loudly** rather than finalize a spec
+   having landed nothing. Two cases, both leaving the live session intact:
+   - *stranded commits* — commits sit on the worktree's **detached HEAD** (e.g. a
+     pre-fix `/spec-go` committed there instead of on the branch). It prints the
+     count, the sha, and a `git -C <worktree> branch <tmp> <sha>` recovery hint —
+     recover those commits onto the branch, then re-run.
+   - *no worktree* — the spec is live but its worktree is gone. Re-isolate it with
+     `skitterspec spec-env up <name>`, then re-run.
+   Relay the diagnostic to the user and **stop** — do not proceed to teardown.
 2. **Plan + execute.** Run `skitterspec spec-env integrate <name>` and run the
    printed commands **in order**:
    - `git -C <worktree> rebase <base>` — replay the branch onto base.

@@ -187,6 +187,30 @@ test('live release refuses to discard uncommitted fixes on the branch', async ()
   }
 })
 
+test('live status <spec> reports "live: no" when the spec is not live', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    const out = await runQuiet(['spec-env', 'live', 'status', 'feat-x', '--dir', dir])
+    assert.match(out, /spec-env live status: feat-x/)
+    assert.match(out, /spec:\s+feat-x\s+\(branch feat\/x\)/)
+    assert.match(out, /live:\s+no — primary is on main/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live status <spec> reports "live: yes" once the spec holds the primary checkout', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // primary → feat/x
+    // Anchors on the primary checkout — the verdict holds even queried from the worktree.
+    const out = await runQuiet(['spec-env', 'live', 'status', 'feat-x', '--dir', dir])
+    assert.match(out, /live:\s+yes — feat-x holds the primary checkout/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('live abort recovers a crashed session; refuses to discard dirty work', async () => {
   const { dir } = scaffoldRepoWithSpecWorktree()
   try {
