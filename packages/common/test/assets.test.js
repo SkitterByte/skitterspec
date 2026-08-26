@@ -76,8 +76,7 @@ test('/spec-go documents trusting the worktree root via /add-dir', () => {
 })
 
 // Skills whose 00-overview.md template carries the scannable `## Impact` map.
-// Phase 1 lands /spec; Phase 2 extends this to spec-bug + spec-hotfix.
-const IMPACT_TEMPLATE_SKILLS = ['spec']
+const IMPACT_TEMPLATE_SKILLS = ['spec', 'spec-bug', 'spec-hotfix']
 
 test('spec overview templates carry the Impact map section', () => {
   for (const name of IMPACT_TEMPLATE_SKILLS) {

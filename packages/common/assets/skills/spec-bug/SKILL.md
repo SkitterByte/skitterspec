@@ -120,6 +120,26 @@ because work is already underway. Keep it lean:
       commands — confirm no regressions.
 - [ ] <any follow-up hardening, or "None">
 
+## Impact
+
+<The concrete surfaces this spec touches — the scannable blast radius, so a
+reader can eyeball where the spec got something wrong without reading prose.
+`Change` is `add` · `update` · `remove`. `Surface` is guided-but-open: use
+values like Endpoint, Route/UI, Schema/model, DB table/migration, Domain object,
+Service, CLI command, Config key, Skill/rule, Business rule — or whatever fits
+this project (skitterspec itself is a CLI with no HTTP surface). Keep `Detail`
+terse — names/signatures, not sentences. List **only** surfaces that actually
+change; the heading is always present, but if nothing external changes write the
+single line below instead of an empty table. A bug fix often changes no external
+surface — that's fine, use the one-liner.>
+
+| Surface | Change | Detail |
+|---------|--------|--------|
+| <e.g. Endpoint> | update | <e.g. GET /orders (fix null total)> |
+
+<_No external surface changes — internal refactor only._ — use this line in
+place of the table when the spec touches no external surface.>
+
 ## State log
 
 | Date | Status | Folder | By |

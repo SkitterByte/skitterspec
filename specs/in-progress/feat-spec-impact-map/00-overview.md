@@ -1,7 +1,7 @@
 # Spec overview: scannable Impact map
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 done, Phase 2 next
+> **Status:** In Progress — Phases 1–2 done, Phase 3 next
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-26
@@ -95,7 +95,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec` feature template + test | ✅ | [01-feature-template.md](01-feature-template.md) |
-| 2 | `/spec-bug` + `/spec-hotfix` templates + tests | ⬜ | [02-bug-hotfix-templates.md](02-bug-hotfix-templates.md) |
+| 2 | `/spec-bug` + `/spec-hotfix` templates + tests | ✅ | [02-bug-hotfix-templates.md](02-bug-hotfix-templates.md) |
 | 3 | spec-planning rule + `/spec-review` drift check + tests | ⬜ | [03-rule-and-review.md](03-rule-and-review.md) |
 
 ## Open questions
@@ -117,3 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-26 — Phase 1 done: `## Impact` added to the `/spec` feature template
   (after Solution overview) + `IMPACT_TEMPLATE_SKILLS` test in `assets.test.js`.
   Full suite green (417).
+- 2026-08-26 — Phase 2 done: same `## Impact` block added to `/spec-bug` (after
+  `## Fix`) and `/spec-hotfix` (after `## Fix`, before `## Landing`), with a note
+  that a fix/hotfix often has no external surface. Test array extended to all
+  three; suite green (417).
