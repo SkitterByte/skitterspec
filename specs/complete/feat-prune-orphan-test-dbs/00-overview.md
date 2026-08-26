@@ -1,7 +1,7 @@
 # Reap orphaned per-spec test databases
 
 > **Type:** Feature
-> **Status:** In Progress — all phases done, ready for /spec-complete
+> **Status:** Complete (2026-08-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-26
@@ -116,9 +116,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-26 | Ready | backlog | Reuben Greaves |
 | 2026-08-26 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-08-26 — Completed; all phases done, tests green (416/416).
 - 2026-08-26 — Phase 3 done. Wired `spec-env prune` into `/spec-complete` (step
   7.4) and `/spec-cancel` (step 7.4), confirm-first + non-fatal; documented in
   `spec-planning.md` (engine list) and a new `env.config.md` "Pruning orphaned
