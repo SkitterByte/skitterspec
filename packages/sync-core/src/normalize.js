@@ -16,6 +16,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const { findTaskBlocks, collapse } = require('./task-block.js')
 
 // --- markdown / frontmatter parsing -----------------------------------------
 
@@ -165,10 +166,15 @@ function readPhaseFiles(snapshotDir) {
     .map((file) => {
       const raw = fs.readFileSync(path.join(snapshotDir, file), 'utf-8')
       const { data, body } = parseFrontmatter(raw)
-      const goal = (/^\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/m.exec(body) || [])[1] || ''
-      const tasks = (body.match(/^-\s*\[[ x]\]\s*.*$/gm) || []).map((t) =>
-        t.replace(/^-\s*/, '').trim(),
-      )
+      // No /m on either: under /m, `$` matches end-of-LINE, so a non-greedy
+      // scan stops at the first newline and a hand-wrapped bullet or goal loses
+      // every continuation line. Tasks come from findTaskBlocks, which reads a
+      // wrapped bullet as one logical task.
+      // Collapsed, not just captured: the goal becomes a milestone description,
+      // and Linear may canonicalize a soft line break away on save. Collapsing
+      // both sides keeps a wrapped goal from diffing forever.
+      const goal = collapse((/\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/.exec(body) || [])[1] || '')
+      const tasks = findTaskBlocks(body.split('\n')).map((b) => `[${b.mark}] ${b.text}`)
       return {
         phase: file.replace(/\.md$/, ''),
         file,

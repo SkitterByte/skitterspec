@@ -18,6 +18,12 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const {
+  findTaskBlocks,
+  renderTaskBlock,
+  collapse,
+  inferWidth,
+} = require('./task-block.js')
 
 // Serialize a JS value as a YAML-ish frontmatter scalar. null/undefined → the
 // key is dropped (caller shouldn't pass those).
@@ -222,33 +228,31 @@ function applyMilestonesPull(snapshotDir, items) {
 
 // --- task-line denormalizer (keyed issue pull) -----------------------------
 //
-// Tasks live as checkbox lines inside phase files. A pulled issue edit rewrites
-// the matching line (by its inline id) in place; a Linear-only issue appends a
-// new task line; a created issue's id is stamped inline. Removals report-only.
+// Tasks live as (hand-wrapped) checkbox bullets inside phase files. A pulled
+// issue edit rewrites the matching bullet — whole block, re-wrapped — by its
+// inline id; a Linear-only issue appends a new bullet; a created issue's id is
+// stamped inline. Removals report-only. See task-block.js for the wrapping.
 
-const TASK_RE = /^(\s*)-\s*\[([ xX])\]\s*(.*)$/
 const INLINE_ID_RE = /\s*\(([A-Za-z][A-Za-z0-9]*-\d+)\)\s*$/
 
-// Render a task line from an item.
-function taskLine(indent, { id, text, done }) {
-  return `${indent}- [${done ? 'x' : ' '}] ${text}${id ? ` (${id})` : ''}`
-}
-
-// Update the task line carrying inline id `id` (text + checkbox), in place.
+// Update the task carrying inline id `id` (text + checkbox), in place.
+//
+// Block-aware: a task bullet is hand-wrapped across several lines, so the whole
+// block is replaced and the new text re-wrapped in the file's own style. Editing
+// only the first line would strand its continuation lines as orphaned prose.
 function updateTaskLine(snapshotDir, id, { text, done }) {
   const want = String(id)
   for (const file of listPhaseFiles(snapshotDir)) {
     const p = path.join(snapshotDir, file)
     const lines = fs.readFileSync(p, 'utf-8').split('\n')
-    for (let i = 0; i < lines.length; i++) {
-      const m = TASK_RE.exec(lines[i])
-      if (!m) continue
-      const idm = INLINE_ID_RE.exec(m[3])
-      if (idm && idm[1] === want) {
-        lines[i] = taskLine(m[1], { id: want, text, done })
-        fs.writeFileSync(p, lines.join('\n'), 'utf-8')
-        return true
-      }
+    const width = inferWidth(lines)
+    for (const b of findTaskBlocks(lines)) {
+      const idm = INLINE_ID_RE.exec(b.text)
+      if (!idm || idm[1] !== want) continue
+      const rendered = renderTaskBlock({ indent: b.indent, done, text, id: want }, width)
+      lines.splice(b.start, b.end - b.start, ...rendered)
+      fs.writeFileSync(p, lines.join('\n'), 'utf-8')
+      return true
     }
   }
   return false
@@ -262,11 +266,10 @@ function addTaskLine(snapshotDir, item) {
   if (!file) return null
   const p = path.join(snapshotDir, file)
   const lines = fs.readFileSync(p, 'utf-8').split('\n')
-  let lastTask = -1
-  for (let i = 0; i < lines.length; i++) if (TASK_RE.test(lines[i])) lastTask = i
-  const line = taskLine('', item)
-  if (lastTask >= 0) lines.splice(lastTask + 1, 0, line)
-  else lines.push(line)
+  const blocks = findTaskBlocks(lines)
+  const rendered = renderTaskBlock({ indent: '', ...item }, inferWidth(lines))
+  if (blocks.length) lines.splice(blocks[blocks.length - 1].end, 0, ...rendered)
+  else lines.push(...rendered)
   fs.writeFileSync(p, lines.join('\n'), 'utf-8')
   return file
 }
@@ -274,18 +277,21 @@ function addTaskLine(snapshotDir, item) {
 // Stamp an inline id onto the (idless) task line whose text matches — used after
 // the skill creates an issue for a new local task.
 function stampIssueId(snapshotDir, text, id) {
-  const want = String(text).trim()
+  const want = collapse(text)
   for (const file of listPhaseFiles(snapshotDir)) {
     const p = path.join(snapshotDir, file)
     const lines = fs.readFileSync(p, 'utf-8').split('\n')
-    for (let i = 0; i < lines.length; i++) {
-      const m = TASK_RE.exec(lines[i])
-      if (!m || INLINE_ID_RE.test(m[3])) continue
-      if (m[3].trim() === want) {
-        lines[i] = `${m[1]}- [${m[2].toLowerCase() === 'x' ? 'x' : ' '}] ${want} (${id})`
-        fs.writeFileSync(p, lines.join('\n'), 'utf-8')
-        return file
-      }
+    const width = inferWidth(lines)
+    for (const b of findTaskBlocks(lines)) {
+      if (INLINE_ID_RE.test(b.text)) continue
+      if (b.text !== want) continue
+      const rendered = renderTaskBlock(
+        { indent: b.indent, done: b.mark === 'x', text: want, id },
+        width,
+      )
+      lines.splice(b.start, b.end - b.start, ...rendered)
+      fs.writeFileSync(p, lines.join('\n'), 'utf-8')
+      return file
     }
   }
   return null
