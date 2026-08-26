@@ -1,6 +1,6 @@
 # Spec Planning
 
-Spec-driven development is driven by eight lifecycle skills (plus `/spec-connect`
+Spec-driven development is driven by nine lifecycle skills (plus `/spec-connect`
 when isolation is on) — use them rather than hand-rolling specs so the structure
 and lifecycle stay consistent. Each sets a status on the spec header
 (`> **Status:** …`):
@@ -12,6 +12,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-go` | Provision the env, bring dev servers up, implement the next phase | `In Progress` | `specs/in-progress/` |
+| `/spec-to-main` | Land the branch on the base (rebase + ff) **without** finishing — for running the work in CI / a shared env mid-spec; repeatable | `In Progress` (unchanged) | (unchanged) |
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
@@ -20,7 +21,11 @@ Status flow: `Ready → In Progress → Complete` (or `Cancelled` from any state
 `/spec` grills to a **Ready** spec directly — there is no separate grooming
 command; it writes `Draft` only when open questions are deliberately left.
 `/spec-bug` and `/spec-hotfix` are test-first and start straight in `In Progress`
-(work begins immediately), so they skip Draft/Ready.
+(work begins immediately), so they skip Draft/Ready. `/spec-to-main` does **not**
+move the spec through the flow at all — it lands the branch on the base branch
+mid-spec (so the work can run in CI / a shared test env) while the spec stays
+`In Progress` in `specs/in-progress/`; it's the intermediate, repeatable half of
+`/spec-complete`'s landing, without the finalise-and-tear-down.
 
 **Per-spec isolation (opt-in to adopt, then the default policy).** When a project
 adopts isolation (`skitterspec init --isolation`, or `specs/.core/env.config.json`
