@@ -26,6 +26,13 @@ trust the spec's own wording — verify:
 - **Referenced things still exist.** Grep/read for each `file:line`, module,
   function, route, model, type, or symbol the spec names. Flag anything renamed,
   moved, or deleted.
+- **Impact map matches reality.** Walk every row of the `## Impact` table and
+  verify against the code: does the named surface (endpoint, schema/model, DB
+  table/migration, domain object, route, business rule) exist, and does its
+  stated `Change` (add/update/remove) still hold? A stale Impact map is the
+  highest-signal drift — each row is a named, checkable surface, so a wrong row
+  is exactly the "obvious mistake" the map exists to surface. Flag/refresh stale
+  rows (and add rows for surfaces the spec now touches but omits).
 - **Tasks already done.** For each `- [ ]`, check whether the code already
   implements it (it may have landed via other work). Tick `- [x]` what's done.
 - **Decisions still valid.** Re-check each `## Decisions` entry against the
@@ -47,9 +54,9 @@ reading the code, do that instead of asking.
 
 ## 4. Update the spec
 
-- Rewrite stale **Decisions** / **Solution overview** in `00-overview.md` and
-  stale **tasks** in the phase files so they match the current code and the
-  resolved questions. Add/remove tasks within a phase file; add a new phase by
+- Rewrite stale **Decisions** / **Solution overview** and refresh the **Impact
+  map** in `00-overview.md`, and stale **tasks** in the phase files, so they
+  match the current code and the resolved questions. Add/remove tasks within a phase file; add a new phase by
   creating a `0N-<slug>.md` file **and** a matching overview index row, or drop a
   dead phase by removing both. Keep the index and files in sync; **preserve
   completed `[x]` history**.

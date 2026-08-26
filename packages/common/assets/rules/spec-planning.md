@@ -159,9 +159,11 @@ Every spec is a **folder** `specs/<bucket>/<name>/` — never a bare file, even 
 simple changes. Inside it:
 
 - `00-overview.md` is the entry point / dashboard: header, Problem, Decisions,
-  Solution overview, the **phase index** (a table linking to each phase file with
-  its status), Open questions, State log, Changelog. **No per-phase task lists
-  live here.**
+  Solution overview, the **Impact map** (a `Surface | Change | Detail` table
+  naming the concrete surfaces the spec touches — endpoints, schemas, DB tables,
+  domain objects, routes, business rules — as the scannable blast radius), the
+  **phase index** (a table linking to each phase file with its status), Open
+  questions, State log, Changelog. **No per-phase task lists live here.**
 - **One file per phase** — `01-<phase-slug>.md`, `02-<phase-slug>.md`, … in
   execution order. Each holds that phase's goal, its task checkboxes (tests
   included), and any phase-specific notes. Even a single-phase spec gets `01-….md`

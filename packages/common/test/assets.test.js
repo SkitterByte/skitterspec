@@ -90,5 +90,27 @@ test('spec overview templates carry the Impact map section', () => {
   }
 })
 
+test('spec-planning rule documents the Impact map in the overview contents', () => {
+  const text = fs.readFileSync(
+    path.join(ASSETS, 'rules', 'spec-planning.md'),
+    'utf8',
+  )
+  assert.match(
+    text,
+    /entry point \/ dashboard[\s\S]*?Impact map/,
+    'spec-planning lists the Impact map in the 00-overview.md contents',
+  )
+})
+
+test('spec-review re-validates the Impact map as a drift check', () => {
+  const text = skillText('spec-review')
+  assert.match(text, /Impact map/, 'spec-review references the Impact map')
+  assert.match(
+    text,
+    /Walk every row of the[\s\S]*?Impact/,
+    'spec-review instructs walking the ## Impact table against the code',
+  )
+})
+
 // The Linear config template/docs and the sync-command docs are provider assets —
 // covered in the linear package's assets test. (Base README Linear cleanup: Phase 4.)
