@@ -96,6 +96,26 @@ the spec — be specific.>
 <Short prose or bullets describing the chosen shape end-to-end. Optional small
 schema/grammar/output snippets where they remove ambiguity.>
 
+## Impact
+
+<The concrete surfaces this spec touches — the scannable blast radius, so a
+reader can eyeball where the spec got something wrong without reading prose.
+`Change` is `add` · `update` · `remove`. `Surface` is guided-but-open: use
+values like Endpoint, Route/UI, Schema/model, DB table/migration, Domain object,
+Service, CLI command, Config key, Skill/rule, Business rule — or whatever fits
+this project (skitterspec itself is a CLI with no HTTP surface). Keep `Detail`
+terse — names/signatures, not sentences. List **only** surfaces that actually
+change; the heading is always present, but if nothing external changes write the
+single line below instead of an empty table.>
+
+| Surface | Change | Detail |
+|---------|--------|--------|
+| <e.g. Endpoint> | add | <e.g. POST /orders> |
+| <e.g. DB> | update | <e.g. orders (+status col)> |
+
+<_No external surface changes — internal refactor only._ — use this line in
+place of the table when the spec touches no external surface.>
+
 ## Phases
 
 Each phase lives in its own file in this folder. Status: ⬜ not started ·
@@ -163,6 +183,13 @@ Rules for the spec body:
   phase index.
 - **Honour project conventions** when writing tasks — reference the relevant
   `.claude/rules/*.md` rather than re-explaining them.
+- **The `## Impact` table is derived from Phase A items 3 (Affected areas) & 5
+  (Data/API impact)** — a structured place to record what those already surface,
+  not new grilling. It is the scannable substitute for spelling impact out in
+  prose: name the surfaces (endpoints, schemas, DB tables, domain objects,
+  routes, business rules) instead of describing them, keep `Detail` terse, and
+  let it — not paragraphs — carry the blast radius. It complements the `Area:`
+  header (files) by naming behavioural surfaces.
 - **Changelog** is mandatory and lives in the spec. Every later decision or
   course-correction gets a dated one-line entry. Convert relative dates to
   absolute.

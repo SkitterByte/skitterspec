@@ -75,5 +75,21 @@ test('/spec-go documents trusting the worktree root via /add-dir', () => {
   }
 })
 
+// Skills whose 00-overview.md template carries the scannable `## Impact` map.
+// Phase 1 lands /spec; Phase 2 extends this to spec-bug + spec-hotfix.
+const IMPACT_TEMPLATE_SKILLS = ['spec']
+
+test('spec overview templates carry the Impact map section', () => {
+  for (const name of IMPACT_TEMPLATE_SKILLS) {
+    const text = skillText(name)
+    assert.match(text, /^## Impact$/m, `${name} template has an ## Impact heading`)
+    assert.match(
+      text,
+      /\|\s*Surface\s*\|\s*Change\s*\|\s*Detail\s*\|/,
+      `${name} template has the Surface | Change | Detail table header`,
+    )
+  }
+})
+
 // The Linear config template/docs and the sync-command docs are provider assets —
 // covered in the linear package's assets test. (Base README Linear cleanup: Phase 4.)
