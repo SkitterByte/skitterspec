@@ -165,6 +165,32 @@ test('resync updates a stale pristine file but keeps a customized one', async ()
   assert.match(fs.readFileSync(path.join(dir, edited.relPath), 'utf8'), /MINE/, 'customized kept')
 })
 
+test('resync prunes a retired managed skill (pristine) but keeps a customized one', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  // A skill retired by a newer version (e.g. spec-pull after the one-way switch):
+  // managed in the manifest + on disk, but no longer shipped by this package.
+  const retiredRel = path.join('.claude', 'skills', 'spec-pull', 'SKILL.md')
+  const retiredAbs = path.join(dir, retiredRel)
+  fs.mkdirSync(path.dirname(retiredAbs), { recursive: true })
+  fs.writeFileSync(retiredAbs, 'retired skill body')
+  // A second retired file the user edited — must be kept.
+  const customRel = path.join('.claude', 'skills', 'spec-legacy', 'SKILL.md')
+  const customAbs = path.join(dir, customRel)
+  fs.mkdirSync(path.dirname(customAbs), { recursive: true })
+  fs.writeFileSync(customAbs, 'MY EDITS')
+  const m = readManifest(dir)
+  m.files[retiredRel] = sha1('retired skill body') // pristine
+  m.files[customRel] = sha1('the original bundled body') // differs from disk → customized
+  writeManifest(dir, m.files)
+
+  resync(dir, { claudeMd: false })
+
+  assert.ok(!fs.existsSync(retiredAbs), 'pristine retired skill pruned')
+  assert.ok(!fs.existsSync(path.dirname(retiredAbs)), 'emptied skill folder removed')
+  assert.ok(fs.existsSync(customAbs), 'customized retired file kept')
+})
+
 test('resync recreates a missing managed file', async () => {
   const dir = tmpProject()
   await init({ dir, force: false, claudeMd: false, mode: 'init' })

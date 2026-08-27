@@ -26,6 +26,18 @@ test('parseArgs defaults to specs/, dry-run', () => {
   assert.deepStrictEqual(parseArgs(['--exclude', '**/*.orig.md']).exclude, ['**/*.orig.md'])
 })
 
+test('never touches specs/.core (manifest-managed docs)', async () => {
+  const dir = tmpTree()
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  const straddle = ['a **bold that wraps', 'across a line** here'].join('\n')
+  fs.writeFileSync(path.join(dir, 'specs', '.core', 'linear.config.md'), straddle)
+  fs.writeFileSync(path.join(dir, 'specs', 'backlog', 'ok.md'), straddle)
+  const out = capture()
+  await specSanitise([], { cwd: dir, out })
+  assert.doesNotMatch(out.text(), /\.core/, '.core is skipped')
+  assert.strictEqual(fs.readFileSync(path.join(dir, 'specs', '.core', 'linear.config.md'), 'utf8'), straddle)
+})
+
 test('--exclude skips matching files', async () => {
   const dir = tmpTree()
   const straddle = ['a **bold that wraps', 'across a line** here'].join('\n')

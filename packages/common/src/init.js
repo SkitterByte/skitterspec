@@ -259,6 +259,30 @@ function removeRetiredFiles(dir) {
   }
 }
 
+// Prune a file the manifest records as managed but the current package no longer
+// ships — a retired skill (e.g. `spec-pull` after the one-way switch), rule, or
+// template. Without this, upgrading leaves a live, model-visible skill on disk
+// whose instructions invoke a command that no longer exists. Delete it only when
+// PRISTINE (still matches the hash we last wrote) so a user edit is never lost; a
+// customized retired file is kept with a warning. An emptied skill folder is
+// removed. Takes the pre-flush manifest (which still holds the retired entries).
+function pruneRetiredManaged(dir, manifest) {
+  const managedRel = new Set(managedTargets(dir).map((t) => t.relPath))
+  for (const relPath of Object.keys(manifest.files || {})) {
+    if (managedRel.has(relPath)) continue // still shipped by this version
+    const abs = path.join(dir, relPath)
+    if (!fs.existsSync(abs)) continue // already gone
+    if (managedState(dir, relPath, manifest) === 'customized') {
+      report.warnings.push(`retired but kept (you edited it): ${relPath} — delete manually if unused`)
+      continue
+    }
+    fs.unlinkSync(abs)
+    report.removed.push(rel(dir, abs))
+    const folder = path.dirname(abs)
+    if (fs.existsSync(folder) && !fs.readdirSync(folder).length) fs.rmdirSync(folder)
+  }
+}
+
 // Scaffold the opt-in isolation templates into specs/.core/ (the example config
 // + its field docs). Copied, not activated: the feature stays off until the
 // consumer copies env.config.json.example → env.config.json.
@@ -409,6 +433,7 @@ function resync(dir, { force = false, claudeMd = true } = {}) {
   for (const t of managedTargets(dir)) resyncManagedFile(dir, t, manifest, force)
   installFolders(dir)
   removeRetiredFiles(dir)
+  pruneRetiredManaged(dir, manifest)
   if (claudeMd) installClaudeMd(dir, { mode: 'update' })
   flushManifest(dir)
   printReport(dir, 'resync')
