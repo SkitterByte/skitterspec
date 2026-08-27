@@ -251,6 +251,7 @@ function resolveSpec(specArg, dir, config, opts = {}) {
 }
 
 module.exports = {
+  BUCKETS,
   resolveSpec,
   resolveBaseBranch,
   resolvePrimaryCheckout,

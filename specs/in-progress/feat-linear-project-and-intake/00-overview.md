@@ -1,7 +1,7 @@
 # Linear project selection & issue intake
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-08-27)
+> **Status:** In Progress — Phase 2 (Phase 1 done 2026-08-27)
 > **Name:** feat-linear-project-and-intake
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
@@ -138,7 +138,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Config, MCP ops & the `linked` CLI | 🔄 | [01-config-mcp-linked.md](01-config-mcp-linked.md) |
+| 1 | Config, MCP ops & the `linked` CLI | ✅ | [01-config-mcp-linked.md](01-config-mcp-linked.md) |
 | 2 | Project picker on mint (`/spec` + `/spec-push`) | ⬜ | [02-project-picker.md](02-project-picker.md) |
 | 3 | Issue intake seam & adoption | ⬜ | [03-issue-intake.md](03-issue-intake.md) |
 | 4 | Bug routing, docs & 9.1.0 release | ⬜ | [04-bug-routing-docs-release.md](04-bug-routing-docs-release.md) |
@@ -167,3 +167,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   already exists and is required, so only `projectList` is a new MCP op; and the
   engine already keeps `projectId` out of the plan/snapshot, so Phase 2 shrinks to
   swapping the config read for the picker plus a regression test.
+- 2026-08-27 — Phase 1 done. Two additive exports outside the stated Area were
+  needed: `parseFrontmatter` from the `sync-core` barrel and `BUCKETS` from
+  `common/src/env/resolve.js`, so `spec-sync linked` reuses the existing
+  frontmatter parser and bucket list instead of duplicating them. `searchIssues`
+  rides the already-discovered `issueList` op, so intake adds no required MCP tool
+  — only `projectList` is new, and it stays optional.

@@ -82,3 +82,60 @@ test('makeAdapter throws for an op the server did not expose', async () => {
   const adapter = makeAdapter(async () => ({}), { issueRead: 'get_issue' })
   await assert.rejects(() => adapter.createIssue({}), /op not available: issueCreate/)
 })
+
+// --- project picker + intake search (Phase 1 of feat-linear-project-and-intake)
+
+// A workspace that also exposes the project list — what the picker needs.
+const TOOLS_WITH_PROJECTS = [...LINEAR_TOOLS, 'list_projects', 'save_project']
+
+test('projectList resolves list_projects, not the singular get_project', () => {
+  const r = discoverLinear(TOOLS_WITH_PROJECTS)
+  assert.strictEqual(r.ok, true)
+  assert.strictEqual(r.tools.projectList, 'list_projects')
+})
+
+test('projectList is optional — a server without it still pushes', () => {
+  const r = discoverLinear(LINEAR_TOOLS) // get_project only, no list_projects
+  assert.strictEqual(r.ok, true, 'discovery still succeeds')
+  assert.strictEqual(r.tools.projectList, undefined, 'picker simply unavailable')
+  assert.ok(!REQUIRED.includes('projectList'))
+})
+
+test('listProjects throws a named error when the picker op is missing', async () => {
+  const { tools } = discoverLinear(LINEAR_TOOLS)
+  const adapter = makeAdapter(async () => ({}), tools)
+  await assert.rejects(() => adapter.listProjects('T1'), /projectList/)
+})
+
+test('listProjects scopes to the team, and omits the filter when unset', async () => {
+  const calls = []
+  const callTool = async (name, args) => (calls.push({ name, args }), {})
+  const { tools } = discoverLinear(TOOLS_WITH_PROJECTS)
+  const adapter = makeAdapter(callTool, tools)
+
+  await adapter.listProjects('T1')
+  await adapter.listProjects()
+
+  assert.deepStrictEqual(calls[0], { name: 'list_projects', args: { team: 'T1' } })
+  assert.deepStrictEqual(calls[1], { name: 'list_projects', args: {} })
+})
+
+test('searchIssues rides the discovered issueList op — no new required tool', async () => {
+  const calls = []
+  const callTool = async (name, args) => (calls.push({ name, args }), {})
+  const { tools } = discoverLinear(LINEAR_TOOLS)
+  const adapter = makeAdapter(callTool, tools)
+
+  await adapter.searchIssues({ label: 'web-app', teamId: 'T1' })
+  await adapter.searchIssues({ label: 'web-app', query: 'login', teamId: 'T1' })
+  await adapter.searchIssues()
+
+  assert.deepStrictEqual(calls[0], { name: 'list_issues', args: { label: 'web-app', team: 'T1' } })
+  assert.deepStrictEqual(calls[1], {
+    name: 'list_issues',
+    args: { label: 'web-app', query: 'login', team: 'T1' },
+  })
+  // Unset filters are left off entirely rather than sent empty — an empty
+  // `label` would otherwise narrow the inbox to issues with a blank label.
+  assert.deepStrictEqual(calls[2], { name: 'list_issues', args: {} })
+})

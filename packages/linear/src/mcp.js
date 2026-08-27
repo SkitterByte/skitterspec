@@ -29,6 +29,9 @@ const MATCHERS = {
   // list only — NOT `get_issues?`, which would greedily claim the singular
   // `get_issue` (first-name-wins) and leave issueRead/issueList conflated.
   issueList: [/list_?issues?/i, /issues?_?list/i],
+  // The team's Linear Projects, for the `/spec` + `/spec-push` project picker.
+  // Plural-only for the same reason as issueList: `get_project` is a read.
+  projectList: [/list_?projects?/i, /projects?_?list/i],
 }
 
 // The minimum the push engine can't run without: read an issue back and
@@ -113,6 +116,22 @@ function makeAdapter(callTool, resolved) {
     // List a spec issue's sub-issues (read side, for drift). Optional op.
     async listSubIssues(parentId) {
       return callTool(need('issueList'), { parentId })
+    },
+    // The intake inbox: issues matching a label and/or a free-text query, scoped
+    // to a team. Rides the same discovered list op as `listSubIssues` — Linear's
+    // `list_issues` filters on all three — so intake adds no new required tool.
+    // Omitted filters are left off the call rather than sent empty.
+    async searchIssues({ label, query, teamId } = {}) {
+      const args = {}
+      if (label) args.label = label
+      if (query) args.query = query
+      if (teamId) args.team = teamId
+      return callTool(need('issueList'), args)
+    },
+    // The team's projects, for the project picker. Optional: a server without a
+    // project-list tool just means the picker is unavailable, never a failed push.
+    async listProjects(teamId) {
+      return callTool(need('projectList'), teamId ? { team: teamId } : {})
     },
   }
 }

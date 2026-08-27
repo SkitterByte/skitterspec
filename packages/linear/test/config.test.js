@@ -151,3 +151,54 @@ test('merging does not mutate DEFAULT_CONFIG', () => {
   loadLinearConfig(dir)
   assert.strictEqual(DEFAULT_CONFIG.sync.fieldOwnership.description, 'push')
 })
+
+// --- intake (issue intake: `/spec <ISSUE-REF>`, `/spec --from-issue`) --------
+
+test('absent config → intake defaults to no inbox and no bug routing', () => {
+  const { config } = loadLinearConfig(tmpDir())
+  assert.strictEqual(config.intake.label, '')
+  assert.deepStrictEqual(config.intake.bugLabels, [])
+})
+
+test('intake defaults are a fresh copy — mutating one load cannot leak', () => {
+  const a = loadLinearConfig(tmpDir()).config
+  a.intake.bugLabels.push('leaked')
+  const b = loadLinearConfig(tmpDir()).config
+  assert.deepStrictEqual(b.intake.bugLabels, [])
+  assert.deepStrictEqual(DEFAULT_CONFIG.intake.bugLabels, [])
+})
+
+test('intake merges label + bugLabels over the defaults', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { intake: { label: 'web-app', bugLabels: ['bug', 'defect'] } })
+  const { config } = loadLinearConfig(dir)
+  assert.strictEqual(config.intake.label, 'web-app')
+  assert.deepStrictEqual(config.intake.bugLabels, ['bug', 'defect'])
+})
+
+test('intake.bugLabels drops non-strings and trims — never throws', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { intake: { bugLabels: ['  bug  ', '', 3, null, 'defect'] } })
+  const { config } = loadLinearConfig(dir)
+  assert.deepStrictEqual(config.intake.bugLabels, ['bug', 'defect'])
+})
+
+test('intake.label accepts an explicit empty string (string?), unlike `string`', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { intake: { label: '' } })
+  assert.strictEqual(loadLinearConfig(dir).config.intake.label, '')
+})
+
+test('a config with no intake block leaves the defaults intact', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { linear: { teamId: 'T' } })
+  const { config } = loadLinearConfig(dir)
+  assert.strictEqual(config.intake.label, '')
+  assert.deepStrictEqual(config.intake.bugLabels, [])
+})
+
+test('linear.projectId is the picker default — still merged, semantics only', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { linear: { projectId: 'proj-uuid' } })
+  assert.strictEqual(loadLinearConfig(dir).config.linear.projectId, 'proj-uuid')
+})

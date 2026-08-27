@@ -12,6 +12,7 @@
  *   spec-sync push <spec>        print the create/update PLAN the skill applies
  *   spec-sync record <spec>      write the last-pushed snapshot (after apply)
  *   spec-sync status <spec>      read-only drift report (never writes)
+ *   spec-sync linked             list every spec's linear_identifier (offline)
  *
  * The `/spec-push` skill: `push` → apply the plan over MCP → stamp returned ids
  * into the repo → `record`. There is no pull — Linear is not read for content.
@@ -20,10 +21,11 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { findSpecFolder } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
+const { BUCKETS, findSpecFolder } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const {
   normalizeLocal,
   readSnapshot,
+  parseFrontmatter,
   readBase,
   push,
   recordPush,
@@ -56,6 +58,77 @@ function specIdentifier(snapshotDir, config) {
     /* fall through to folder name */
   }
   return path.basename(snapshotDir)
+}
+
+// Read a spec's `linear_identifier` without throwing: an unlinked spec, an
+// unreadable file and a spec with no frontmatter all read as `null`.
+function linkedIdentifier(overviewPath) {
+  let raw
+  try {
+    raw = fs.readFileSync(overviewPath, 'utf-8')
+  } catch {
+    return null
+  }
+  const { data } = parseFrontmatter(raw)
+  return data.linear_identifier ? String(data.linear_identifier) : null
+}
+
+// Every spec under specs/<bucket>/, paired with the Linear issue it is linked to
+// (`null` when it has never been pushed). Folder specs read `snapshot.overviewFile`;
+// legacy bare `<name>.md` specs read the file itself. Sorted for stable output.
+function listSpecs(dir, config) {
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const specs = []
+  for (const bucket of BUCKETS) {
+    const root = path.join(dir, 'specs', bucket)
+    let entries
+    try {
+      entries = fs.readdirSync(root, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      let name
+      let overviewPath
+      if (entry.isDirectory()) {
+        name = entry.name
+        overviewPath = path.join(root, name, overviewFile)
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        name = entry.name.slice(0, -3)
+        overviewPath = path.join(root, entry.name)
+      } else {
+        continue
+      }
+      specs.push({ spec: name, bucket, identifier: linkedIdentifier(overviewPath) })
+    }
+  }
+  return specs.sort((a, b) => a.spec.localeCompare(b.spec))
+}
+
+/**
+ * `spec-sync linked` — which Linear issues are already adopted by a spec.
+ *
+ * Offline and read-only: the intake seam (`/spec <ISSUE-REF>`,
+ * `/spec --from-issue`) subtracts these from the inbox and refuses to adopt an
+ * issue twice, without reading Linear back.
+ */
+function specSyncLinked(dir, config, flags, out) {
+  const specs = listSpecs(dir, config)
+  if (flags.json) {
+    out.write(JSON.stringify(specs, null, 2) + '\n')
+    return
+  }
+  if (!specs.length) {
+    out.write('spec-sync linked: no specs found under specs/\n')
+    return
+  }
+  const lines = ['spec-sync linked:']
+  for (const s of specs) {
+    lines.push(`  ${s.identifier || '—'}\t${s.spec}  (${s.bucket})`)
+  }
+  const n = specs.filter((s) => s.identifier).length
+  lines.push(`  ${n}/${specs.length} linked`)
+  out.write(lines.join('\n') + '\n')
 }
 
 function resolveOrExit(specArg, dir, out) {
@@ -195,10 +268,14 @@ async function specSync(rest, io = {}) {
       return 0
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out) || 0
+    case 'linked':
+      specSyncLinked(dir, config, flags, out)
+      return 0
     default:
-      out.write('Usage: skitterspec spec-sync <normalize|push|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n')
+      out.write('Usage: skitterspec spec-sync <normalize|push|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
+        '       skitterspec spec-sync linked [--json]\n')
       return 0
   }
 }
 
-module.exports = { specSync }
+module.exports = { specSync, listSpecs }

@@ -33,6 +33,13 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
     "projectId": ""       // optional Linear Project the spec issues are added to
   },
 
+  // Issue intake: `/spec <ISSUE-REF>` adopts any issue; `/spec --from-issue`
+  // browses the inbox. Both optional.
+  "intake": {
+    "label": "",          // inbox filter — the label the web app files under
+    "bugLabels": []       // e.g. ["bug"] — these route to /spec-bug instead
+  },
+
   // How a spec's parts map onto Linear objects: a spec is an Issue, each phase a
   // sub-issue (a child issue), tasks are not synced. These are the defaults.
   "mapping": {

@@ -17,6 +17,7 @@
  * Shape (see assets/core/linear.config.md for field docs):
  *   {
  *     linear:   { teamKey, teamId, projectId },
+ *     intake:   { label, bugLabels },
  *     mapping:  { specFolder, phases, tasks },
  *     states:   { backlog, "in-progress", complete, cancelled },
  *     snapshot: { overviewFile },
@@ -37,10 +38,18 @@ const CONFIG_FILE = join('specs', '.core', 'linear.config.json')
 const OWNERSHIP = Object.freeze(['both', 'pull', 'push'])
 
 const DEFAULT_CONFIG = Object.freeze({
-  // `projectId` is optional grouping: when set, every spec issue is added to that
-  // Linear Project (a "Specs" umbrella); empty means the issue stands alone in
-  // the team. (The old `initiativeId` grouped Projects, which no longer exist.)
+  // `projectId` is the project picker's DEFAULT, not a mandate: `/spec` and the
+  // first `/spec-push` offer the team's projects and pre-select this one; empty
+  // means "None (team only)" is pre-selected. It is passed on the issue-create
+  // call only and never stored in the spec or the snapshot, so a PM re-homing the
+  // issue in Linear is invisible to sync. (The old `initiativeId` grouped
+  // Projects, which no longer exist.)
   linear: Object.freeze({ teamKey: '', teamId: '', projectId: '' }),
+  // Issue intake (`/spec <ISSUE-REF>`, `/spec --from-issue`). `label` is the
+  // inbox filter — issues carrying it are what the web app files; `bugLabels`
+  // route an issue to `/spec-bug` instead of `/spec`. Both empty = no inbox to
+  // browse (a bare issue ref still works) and no bug routing.
+  intake: Object.freeze({ label: '', bugLabels: Object.freeze([]) }),
   // A spec is a Linear ISSUE; each phase is a SUB-ISSUE of it; tasks are not
   // synced (they live only in the repo phase files).
   mapping: Object.freeze({ specFolder: 'issue', phases: 'subissue', tasks: 'none' }),
@@ -87,6 +96,7 @@ function isObject(value) {
 function defaults() {
   return {
     linear: { ...DEFAULT_CONFIG.linear },
+    intake: { label: DEFAULT_CONFIG.intake.label, bugLabels: [...DEFAULT_CONFIG.intake.bugLabels] },
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
     snapshot: { ...DEFAULT_CONFIG.snapshot },
@@ -112,6 +122,11 @@ function assign(base, parsed, key, type) {
   } else if (type === 'boolean') {
     if (typeof v === 'boolean') base[key] = v
   }
+}
+
+// Normalise an array config value to trimmed, non-empty strings.
+function stringList(value) {
+  return value.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim())
 }
 
 // Merge (and validate) sync.fieldOwnership. Any key the caller lists joins the
@@ -157,6 +172,13 @@ function mergeConfig(base, parsed) {
     assign(base.linear, parsed.linear, 'projectId', 'string?')
   }
 
+  if (isObject(parsed.intake)) {
+    assign(base.intake, parsed.intake, 'label', 'string?')
+    if (Array.isArray(parsed.intake.bugLabels)) {
+      base.intake.bugLabels = stringList(parsed.intake.bugLabels)
+    }
+  }
+
   if (isObject(parsed.mapping)) {
     assign(base.mapping, parsed.mapping, 'specFolder', 'string')
     assign(base.mapping, parsed.mapping, 'phases', 'string')
@@ -183,9 +205,7 @@ function mergeConfig(base, parsed) {
     mergeFieldOwnership(base.sync.fieldOwnership, parsed.sync.fieldOwnership)
     mergeKeyedFields(base.sync.keyedFields, parsed.sync.keyedFields)
     if (Array.isArray(parsed.sync.localOnlySections)) {
-      base.sync.localOnlySections = parsed.sync.localOnlySections
-        .filter((s) => typeof s === 'string' && s.trim())
-        .map((s) => s.trim())
+      base.sync.localOnlySections = stringList(parsed.sync.localOnlySections)
     }
   }
 

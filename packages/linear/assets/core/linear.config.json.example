@@ -4,6 +4,10 @@
     "teamId": "",
     "projectId": ""
   },
+  "intake": {
+    "label": "",
+    "bugLabels": []
+  },
   "mapping": {
     "specFolder": "issue",
     "phases": "subissue",
