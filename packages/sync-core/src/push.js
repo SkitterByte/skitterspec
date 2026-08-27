@@ -18,6 +18,7 @@
 const { normalizeLocal } = require('./normalize.js')
 const { planChanges, snapshotOf, isEmptyPlan } = require('./compare.js')
 const { readBase, writeBase } = require('./base.js')
+const { detectLegacyMirror } = require('./legacy.js')
 
 // Build the one-way projection from a local snapshot: the spec issue's prose +
 // status, and its phase sub-issues. `status` is the local lifecycle bucket; the
@@ -36,6 +37,12 @@ function push({ dir, snapshotDir, identifier, config }) {
   const projection = projectionOf(snapshotDir, config)
   const snapshot = readBase(dir, identifier, config)
   const plan = planChanges(projection, snapshot)
+  // A spec still linked under the pre-9.0 model reads as unlinked here, so the
+  // plan above is all-creates and would abandon a live mirror. Carry the finding
+  // ON THE PLAN, not as a warning: `--json` routes warnings to stderr, and the
+  // skill that applies this plan is exactly the consumer that would miss them.
+  const legacy = detectLegacyMirror({ dir, snapshotDir, identifier, config })
+  if (legacy) plan.legacy = legacy
   return { ok: true, empty: isEmptyPlan(plan), plan, projection }
 }
 

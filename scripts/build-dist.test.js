@@ -148,3 +148,23 @@ test('the superset bin map aliases `skitterspec` so composed skills work', () =>
   const pkg = JSON.parse(fs.readFileSync(path.join(PKGS, 'skitterspec-linear', 'package.json'), 'utf8'))
   assert.strictEqual(pkg.bin.skitterspec, pkg.bin['skitterspec-linear'], 'skitterspec aliases the superset bin')
 })
+
+// The v8 → v9 guide was thorough, correct, and NOT in the published tarball —
+// `files` listed only bin/src/assets. A field report read that as "the 9.0.0
+// remodel had no migration path". A docs fix that silently stops shipping is the
+// same bug again, so assert the whole chain: built, listed, and identical to the
+// one source at the repo root.
+test('both distributions ship the migration guide', () => {
+  const root = path.join(__dirname, '..')
+  const source = fs.readFileSync(path.join(root, 'MIGRATION.md'), 'utf8')
+
+  for (const pkg of ['skitterspec', 'skitterspec-linear']) {
+    const dist = path.join(root, 'packages', pkg)
+    const shipped = path.join(dist, 'MIGRATION.md')
+    assert.ok(fs.existsSync(shipped), `${pkg} has MIGRATION.md on disk`)
+    assert.strictEqual(fs.readFileSync(shipped, 'utf8'), source, `${pkg} guide matches the root source`)
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(dist, 'package.json'), 'utf8'))
+    assert.ok(manifest.files.includes('MIGRATION.md'), `${pkg} package.json ships it`)
+  }
+})

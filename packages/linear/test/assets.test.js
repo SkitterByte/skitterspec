@@ -57,3 +57,24 @@ test('the spec-go-pull seam fragment reflects one-way (no pull)', () => {
   assert.match(text, /No pull|nothing to (pull|bring down)/i, 'states there is nothing to pull')
   assert.match(text, /\/spec-push/, 'points at /spec-push to refresh the mirror')
 })
+
+// The engine can only put `legacy` on the plan — stopping is the skill's job, and
+// the skill is prose. This asserts the instruction exists and sits BEFORE the
+// apply step, which is the only ordering that prevents the destructive push.
+test('/spec-push halts on a pre-9.0 mirror before applying anything', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-push', 'SKILL.md'), 'utf8')
+  assert.match(text, /`legacy`/, 'names the plan field it must check')
+  assert.match(text, /orphanCount/, 'relays how much would be orphaned')
+  assert.match(text, /MIGRATION\.md/, 'points at the guide')
+  assert.ok(
+    text.indexOf('pre-9.0 mirror') < text.indexOf('## 4. Apply the plan'),
+    'the halt comes before the apply step',
+  )
+})
+
+// SETUP.md is what a project actually reads; the guide it points at must ship.
+test('SETUP.md tells 8.x users to read the migration guide', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'SETUP.md'), 'utf8')
+  assert.match(text, /Upgrading from 8\.x/)
+  assert.match(text, /MIGRATION\.md/)
+})

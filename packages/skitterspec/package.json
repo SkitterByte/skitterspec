@@ -19,7 +19,8 @@
   "files": [
     "bin",
     "src",
-    "assets"
+    "assets",
+    "MIGRATION.md"
   ],
   "engines": {
     "node": ">=18"

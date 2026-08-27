@@ -188,6 +188,7 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
   }
   const p = r.plan
   const lines = [`spec-sync push: ${identifier}`, ...warningLines(snapshotDir, config)]
+  if (p.legacy) lines.push(...legacyLines(p.legacy))
   if (r.empty) lines.push('  nothing to push — mirror matches the last push')
   else {
     if (p.issue) lines.push('  issue: description/state')
@@ -196,6 +197,27 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
     lines.push('  (run with --json for the full plan the skill applies)')
   }
   out.write(lines.join('\n') + '\n')
+}
+
+// The pre-9.0 mirror block. Loud on purpose: the plan below it looks entirely
+// ordinary — an all-creates plan for a spec that reads as unlinked — and
+// applying it mints a second mirror and abandons the first.
+function legacyLines(legacy) {
+  const found = legacy.keys.length ? legacy.keys.join(', ') : 'a pre-9.0 last-pushed snapshot'
+  const where = legacy.files.length ? ` in ${legacy.files.join(', ')}` : ''
+  const out = [
+    '  !! PRE-9.0 MIRROR — do not apply this plan as-is',
+    `     found ${found}${where}`,
+  ]
+  if (legacy.orphans) {
+    const o = legacy.orphans
+    out.push(
+      `     applying it would orphan ${o.total} live object(s): ` +
+        `${o.projects} project(s), ${o.milestones} milestone(s), ${o.issues} task issue(s)`,
+    )
+  }
+  out.push('     migrate first — see MIGRATION.md ("v8 → v9")')
+  return out
 }
 
 // A tracker id as it appears in a spec: `SKI-42`. Deliberately strict — the

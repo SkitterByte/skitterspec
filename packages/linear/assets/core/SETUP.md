@@ -14,6 +14,17 @@ team) that the config reference (`linear.config.md`) assumes you already have.
 
 ---
 
+## Upgrading from 8.x
+
+**v9 remapped the mirror.** A spec is now an **issue** (was a Project), a phase a
+**sub-issue** (was a Milestone), and tasks are no longer objects. The frontmatter
+keys moved with it, so a spec linked under 8.x reads as **unlinked** to v9 — the
+next `/spec-push` would mint a fresh mirror and abandon the old one.
+
+`spec-sync push` detects this and refuses to let the plan be applied blind, but
+read **`MIGRATION.md`** ("v8 → v9", shipped with the package) before upgrading a
+repo with a live mirror. Fresh installs can skip this section.
+
 ## 1. Install the package
 
 Install the Linear superset (or, if you already run the base, switch to it — it

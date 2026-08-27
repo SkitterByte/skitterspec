@@ -31,8 +31,17 @@ const ROOT = path.join(__dirname, '..')
 const PKGS = path.join(ROOT, 'packages')
 
 // The output subdirs each build regenerates (everything else in a distribution
-// package — package.json, README, MIGRATION — is committed and left untouched).
+// package — package.json, README — is committed and left untouched).
 const BUILT_DIRS = ['assets', 'bin', 'src']
+
+// The upgrade guide is written once at the repo root and COPIED into each
+// distribution, because it has to reach users: it documents both the base's
+// v1→v2/v2→v3 moves and the Linear provider's v8→v9 remap, and a guide that
+// isn't in the published tarball may as well not exist (it wasn't, and a field
+// report read as "no migration path" as a result).
+function copyMigrationGuide(out) {
+  copyFile(path.join(ROOT, 'MIGRATION.md'), path.join(out, 'MIGRATION.md'))
+}
 
 // Where each vendored workspace package lands inside a superset's `src/`, and thus
 // how its bare specifier is rewritten. `common/src` flattens to the src root; the
@@ -128,6 +137,7 @@ function buildBase() {
   copyTree(path.join(common, 'src'), path.join(out, 'src'))
   copyTree(path.join(common, 'bin'), path.join(out, 'bin'))
 
+  copyMigrationGuide(out)
   guardNoWorkspaceRequires(path.join(out, 'src'))
   guardNoWorkspaceRequires(path.join(out, 'bin'))
   return out
@@ -157,6 +167,7 @@ function buildLinear() {
   // bin: the superset entry point (delegates to the vendored base CLI + adapter).
   copyTree(path.join(linear, 'bin'), path.join(out, 'bin'), srcRoot)
 
+  copyMigrationGuide(out)
   guardNoWorkspaceRequires(srcRoot)
   guardNoWorkspaceRequires(path.join(out, 'bin'))
   return out
@@ -178,6 +189,7 @@ function buildAll() {
 }
 
 module.exports = {
+  copyMigrationGuide,
   WORKSPACE_REQUIRE_RE,
   rewriteRequires,
   guardNoWorkspaceRequires,

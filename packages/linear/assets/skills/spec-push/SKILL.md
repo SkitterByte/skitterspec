@@ -43,6 +43,16 @@ date — say so and stop. `state` values are local buckets
 (`backlog`/`in-progress`/`complete`/`cancelled`); map each to the Linear
 issue-state NAME via `config.states` at apply time.
 
+### Stop if the plan reports a pre-9.0 mirror
+
+If the plan carries a **`legacy`** field, this spec was linked under the pre-9.0
+model (`linear_project_id` / `linear_milestone_id`). v9 reads the new keys, finds
+none, and the plan above is therefore **all-creates** — applying it mints a fresh
+mirror and **abandons** the existing one. **Stop.** Relay `legacy.keys`,
+`legacy.files` and `legacy.orphanCount` ("this would orphan N live objects"),
+point at `MIGRATION.md` → "v8 → v9", and apply nothing until the user has
+migrated or explicitly confirms they want a new mirror.
+
 ## 3. Discover the Linear MCP tools
 
 Discover the issue **read + create/update** tools at runtime (`get_issue`,

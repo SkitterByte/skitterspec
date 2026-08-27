@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `update` says what it skipped | ✅ | [01-update-reports-skipped.md](01-update-reports-skipped.md) |
-| 2 | Detect and report a pre-9.0 mirror | ⬜ | [02-legacy-mirror-warning.md](02-legacy-mirror-warning.md) |
+| 2 | Detect and report a pre-9.0 mirror | ✅ | [02-legacy-mirror-warning.md](02-legacy-mirror-warning.md) |
 | 3 | `push` refuses without validated states | ⬜ | [03-push-state-gate.md](03-push-state-gate.md) |
 
 ## Open questions
@@ -148,3 +148,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-27 — Phase 1: without `--diff`, a run that kept files now prints a
   one-line pointer to it. A summary nobody knows how to expand is only half the
   fix.
+- 2026-08-27 — Phase 2: `detectLegacyMirror` takes an options object
+  (`{dir, snapshotDir, identifier, config}`), not the positional signature the
+  plan named — it has to read the last-pushed snapshot, which is keyed by
+  identifier. Matches `push`'s own shape.
+- 2026-08-27 — Phase 2: a legacy **snapshot alone** flags the spec, even when the
+  frontmatter is clean. A half-migrated spec whose keys were hand-removed still
+  has a live mirror to orphan, and that is the case least likely to be noticed.
+- 2026-08-27 — Phase 2: `MIGRATION.md` now ships with **both** distributions, not
+  just the Linear one — the single root guide documents the base's v1→v2 and
+  v2→v3 moves as well. `build-dist` copies it and a test asserts the shipped copy
+  is byte-identical to the root source and listed in `files`.

@@ -16,6 +16,7 @@ const { readBase, writeBase } = require('./src/base.js')
 const { push, recordPush, projectionOf } = require('./src/push.js')
 const { writeFrontmatter, stampSubIssueId, stampIssueId, findPhaseFileByTitle, listPhaseFiles } = require('./src/write.js')
 const { sanitizeSpecMarkdown } = require('./src/sanitise.js')
+const { detectLegacyMirror } = require('./src/legacy.js')
 
 module.exports = {
   normalizeLocal,
@@ -41,4 +42,5 @@ module.exports = {
   findPhaseFileByTitle,
   listPhaseFiles,
   sanitizeSpecMarkdown,
+  detectLegacyMirror,
 }
