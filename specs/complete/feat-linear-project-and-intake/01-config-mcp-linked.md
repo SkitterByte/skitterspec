@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-18"
+---
+
 # Phase 1 — Config, MCP ops & the `linked` CLI ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

@@ -1,10 +1,6 @@
 ---
-linear_project_id: "0d24df5c-e999-4474-992a-f721972000d7"
-linear_identifier: "SKI-init-symlink"
-linear_url: "https://linear.app/skitterspec/project/bug-init-crashes-on-a-dangling-symlink-target-14858dcdb93d"
-spec_status: "complete"
-last_synced_at: "2026-07-31T14:20:26.629Z"
-priority: 0
+linear_identifier: "SKI-6"
+linear_url: "https://linear.app/skitterspec/issue/SKI-6/bug-init-crashes-on-a-dangling-symlink-target"
 ---
 
 # Bug: init crashes on a dangling symlink target

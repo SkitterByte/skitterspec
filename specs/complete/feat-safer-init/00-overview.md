@@ -1,8 +1,6 @@
 ---
-linear_project_id: "4590efe4-001d-4608-932a-4b345c948a96"
-linear_identifier: "SKI-safer-init"
-linear_url: "https://linear.app/skitterspec/project/safer-init-detect-existing-setup-offer-resync-reset-leave-27057035fe49"
-spec_status: "complete"
+linear_identifier: "SKI-8"
+linear_url: "https://linear.app/skitterspec/issue/SKI-8/safer-init-detect-existing-setup-offer-resync-reset-leave"
 ---
 
 # Safer init: detect existing setup, offer resync / reset / leave

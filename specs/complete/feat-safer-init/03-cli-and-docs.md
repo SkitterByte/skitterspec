@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-11"
+---
+
 # Phase 3 — CLI detection, prompt, flags + /spec-init docs ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

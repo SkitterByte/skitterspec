@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-20"
+---
+
 # Phase 3 — Issue intake seam & adoption ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

@@ -1,10 +1,6 @@
 ---
-linear_project_id: "77703991-f1de-4f15-bf69-3872f45baf28"
-linear_identifier: "SKI-body-round-trip"
-linear_url: "https://linear.app/skitterspec/project/linear-body-round-trip-phasesmilestones-tasksissues-ca3029784e1d"
-spec_status: "backlog"
-last_synced_at: "2026-07-30T09:09:08.685Z"
-priority: 0
+linear_identifier: "SKI-12"
+linear_url: "https://linear.app/skitterspec/issue/SKI-12/linear-body-round-trip-phasesmilestones-tasksissues"
 ---
 
 # Linear body round-trip: phases↔Milestones, tasks↔Issues

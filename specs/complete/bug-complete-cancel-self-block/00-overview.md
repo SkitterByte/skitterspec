@@ -1,3 +1,8 @@
+---
+linear_identifier: "SKI-7"
+linear_url: "https://linear.app/skitterspec/issue/SKI-7/bug-spec-complete-and-spec-cancel-self-block-on-their-own-edits"
+---
+
 # Bug: /spec-complete and /spec-cancel self-block on their own edits
 
 > **Type:** Bug

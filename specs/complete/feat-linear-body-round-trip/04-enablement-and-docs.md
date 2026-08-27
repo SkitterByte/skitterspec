@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-16"
+---
+
 # Phase 4 — Opt-in config, deletion-divergence reporting, docs ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

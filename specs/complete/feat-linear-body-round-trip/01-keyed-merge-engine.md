@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-13"
+---
+
 # Phase 1 — Per-item (id-keyed) three-way merge in sync-core ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

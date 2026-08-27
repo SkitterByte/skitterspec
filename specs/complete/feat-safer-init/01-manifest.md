@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-9"
+---
+
 # Phase 1 — Install manifest + managed-state classifier ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

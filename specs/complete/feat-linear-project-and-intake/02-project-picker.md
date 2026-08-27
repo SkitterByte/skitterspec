@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-19"
+---
+
 # Phase 2 — Project picker on mint ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

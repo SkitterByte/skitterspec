@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-14"
+---
+
 # Phase 2 — Phases ↔ Milestones round-trip + phase-file denormalizer ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-15"
+---
+
 # Phase 3 — Tasks ↔ Issues round-trip ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done
