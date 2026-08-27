@@ -1,7 +1,7 @@
 # Spec-as-Issue: remap the Linear mirror to Issue + sub-issues
 
 > **Type:** Feature
-> **Status:** In Progress — all phases done, ready for /spec-complete (2026-08-27)
+> **Status:** Complete (2026-08-27)
 > **Name:** feat-spec-as-issue-mapping
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
@@ -123,6 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
 | 2026-08-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -130,6 +131,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   mapping prompted by the one-way redesign: spec=Issue, phases=sub-issues,
   tasks unsynced. Supersedes the narrower "only top-level tasks become issues"
   idea (that was still Project-centric).
+- 2026-08-27 — Completed; all four phases done, 419 tests green. Deferred to the
+  release step (not this spec): the actual `npm version` cut —
+  `skitterspec-linear@9.0.0` (breaking) + base `skitterspec@15.1.0` (Name handle),
+  driven by the committed `feat(sync)!` + `Release-Note!` footers.
 - 2026-08-27 — Phase 4 done: `Name` handle added to the `/spec`, `/spec-bug`,
   `/spec-hotfix` templates + the `spec-planning` rule; READMEs, `MIGRATION.md`
   (v8→v9 section) and the marketing `docs/index.html` reframed to the Issue
