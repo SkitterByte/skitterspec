@@ -68,6 +68,18 @@ test('titleFromText takes the first sentence, guarding versions and abbreviation
   assert.ok(long.startsWith(t))
 })
 
+test('titleFromText cuts at a clause boundary, not mid-phrase', () => {
+  // a long first "sentence": prefer the `:` clause boundary over a hard char cut
+  assert.strictEqual(
+    titleFromText('Add the outbox to `schema.prisma`, modelled on `DbNotificationOutbox`: status, attempts, nextAttemptAt, payload'),
+    'Add the outbox to `schema.prisma`, modelled on `DbNotificationOutbox`',
+  )
+  // never end on a dangling open bracket — drop the unclosed parenthetical
+  const t = titleFromText('Slot the model into an audit bucket (`MODELS_CREATED_ONLY` — added columns) and mirror it in the injector too')
+  assert.doesNotMatch(t, /\($/)
+  assert.ok(!t.includes('(') || t.includes(')'), t)
+})
+
 test('titleFromText on a real paragraph task reads as a one-liner', () => {
   const local = normalizeLocal(FIXTURE, config())
   const long = local.tasks.find((t) => /first-class dedup/.test(t.description))

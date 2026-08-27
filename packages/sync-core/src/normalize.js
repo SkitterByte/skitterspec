@@ -433,6 +433,19 @@ function remoteWorkflowState(project, config) {
   return name != null ? bucketForState(name, config) : null
 }
 
+// Trim a trailing parenthetical whose opener has no matching close — so a cut
+// title never ends on a dangling `(`/`[`.
+function dropUnclosedBracket(t) {
+  for (const [open, close] of [
+    ['(', ')'],
+    ['[', ']'],
+  ]) {
+    const o = t.lastIndexOf(open)
+    if (o !== -1 && t.indexOf(close, o) === -1) t = t.slice(0, o)
+  }
+  return t
+}
+
 // Derive a short Linear issue title from a task's full text: the first sentence,
 // falling back to the first `max` chars at a word boundary. A paragraph-length
 // task keeps its full text as the issue *description* (see the projection); this
@@ -457,8 +470,23 @@ function titleFromText(text, max = 100) {
   title = title.trim()
   if (title.length > max) {
     const cut = title.slice(0, max)
-    const sp = cut.lastIndexOf(' ')
-    title = (sp > 40 ? cut.slice(0, sp) : cut).trim()
+    // Prefer the last clause boundary before the limit — a terminator/separator
+    // to cut AFTER (`.`/`;`/`:`…) or a dash to cut BEFORE — over a bare word break.
+    const minCut = Math.floor(max * 0.4)
+    let boundary = -1
+    let mm
+    const after = /[.!?;:](?=\s|$)/g
+    while ((mm = after.exec(cut)) !== null) boundary = Math.max(boundary, mm.index + 1)
+    const before = /\s[—–]/g
+    while ((mm = before.exec(cut)) !== null) boundary = Math.max(boundary, mm.index)
+    let t
+    if (boundary > minCut) {
+      t = cut.slice(0, boundary)
+    } else {
+      const sp = cut.lastIndexOf(' ')
+      t = sp > 40 ? cut.slice(0, sp) : cut
+    }
+    title = dropUnclosedBracket(t).replace(/[\s.,:;—–([]+$/, '').trim()
   }
   return title
 }
