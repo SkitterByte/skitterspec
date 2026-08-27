@@ -30,11 +30,13 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(config.mapping.phases, 'milestone')
   assert.strictEqual(config.snapshot.overviewFile, '00-overview.md')
   assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base')
-  assert.strictEqual(config.sync.fieldOwnership.description, 'both')
-  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull')
-  // Default synced set is scoped to the fields that round-trip live today.
+  assert.strictEqual(config.sync.fieldOwnership.description, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
+  // One-way: the projection is milestones + issues + description + scalars.
   assert.deepStrictEqual(Object.keys(config.sync.fieldOwnership), [
     'description',
+    'milestones',
+    'tasks',
     'workflowState',
     'priority',
     'labels',
@@ -51,7 +53,7 @@ test('present config → present:true and merged over defaults', () => {
   assert.strictEqual(config.branch.pattern, '{identifier}')
   // untouched defaults
   assert.strictEqual(config.mapping.phases, 'milestone')
-  assert.strictEqual(config.sync.fieldOwnership.priority, 'pull')
+  assert.strictEqual(config.sync.fieldOwnership.priority, 'push')
 })
 
 test('fieldOwnership overrides merge onto defaults and add new fields', () => {
@@ -60,7 +62,7 @@ test('fieldOwnership overrides merge onto defaults and add new fields', () => {
   const { config } = loadLinearConfig(dir)
   assert.strictEqual(config.sync.fieldOwnership.description, 'push') // overridden
   assert.strictEqual(config.sync.fieldOwnership.customField, 'pull') // added
-  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull') // default kept
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push') // default kept
 })
 
 test('keyedFields default empty; merge adds keyed collection fields', () => {
@@ -137,5 +139,5 @@ test('merging does not mutate DEFAULT_CONFIG', () => {
   const dir = tmpDir()
   writeConfig(dir, { sync: { fieldOwnership: { description: 'push' } } })
   loadLinearConfig(dir)
-  assert.strictEqual(DEFAULT_CONFIG.sync.fieldOwnership.description, 'both')
+  assert.strictEqual(DEFAULT_CONFIG.sync.fieldOwnership.description, 'push')
 })

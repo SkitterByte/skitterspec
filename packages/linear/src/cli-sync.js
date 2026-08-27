@@ -1,13 +1,20 @@
 'use strict'
 
 /**
- * `spec-sync` CLI handler — the Linear hybrid-sync engine seam.
+ * `spec-sync` CLI handler — the Linear one-way sync engine seam.
  *
- * Extracted out of the base CLI: this ships only with the Linear provider package,
- * so the base (`@skitterbyte/skitterspec-common`) knows nothing about tracker sync.
- * It drives the provider-neutral engine (`@skitterbyte/skitterspec-sync-core`) with
- * the Linear config loader (`./config.js`) and a file-backed adapter; live
- * MCP-backed sync goes through the /spec-status · /spec-pull · /spec-push skills.
+ * Ships only with the Linear provider package, so the base
+ * (`@skitterbyte/skitterspec-common`) knows nothing about tracker sync. The repo
+ * is the source of truth; Linear is a generated mirror. This drives the
+ * provider-neutral engine (`@skitterbyte/skitterspec-sync-core`):
+ *
+ *   spec-sync normalize <spec>   print the local projection (JSON)
+ *   spec-sync push <spec>        print the create/update PLAN the skill applies
+ *   spec-sync record <spec>      write the last-pushed snapshot (after apply)
+ *   spec-sync status <spec>      read-only drift report (never writes)
+ *
+ * The `/spec-push` skill: `push` → apply the plan over MCP → stamp returned ids
+ * into the repo → `record`. There is no pull — Linear is not read for content.
  */
 
 const fs = require('node:fs')
@@ -16,25 +23,18 @@ const path = require('node:path')
 const { findSpecFolder } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const {
   normalizeLocal,
-  normalizeRemote,
   readSnapshot,
-  classify,
   readBase,
-  pull,
   push,
+  recordPush,
+  projectionOf,
+  planChanges,
+  isEmptyPlan,
+  remoteWorkflowState,
+  validateStates,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const { loadLinearConfig } = require('./config.js')
-
-// A compact, filesystem-safe timestamp (e.g. 20260714-030405) for backup/adapter
-// stamps. Inlined so this handler needs nothing from the base CLI.
-function compactTimestamp() {
-  return new Date()
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace(/\.\d+Z$/, '')
-    .replace('T', '-')
-}
 
 // Resolve a spec argument to its snapshot dir. Accepts a spec name/folder found
 // under specs/** (preferred) or a literal path to a snapshot directory.
@@ -46,8 +46,8 @@ function resolveSnapshotDir(specArg, dir) {
   return null
 }
 
-// The identifier keying the base sidecar: the spec's linear_identifier if set,
-// else its folder name (so the engine is usable before a spec is linked).
+// The identifier keying the snapshot sidecar: the spec's linear_identifier if
+// set, else its folder name (so the engine is usable before a spec is linked).
 function specIdentifier(snapshotDir, config) {
   try {
     const { frontmatter } = readSnapshot(snapshotDir, config)
@@ -58,229 +58,148 @@ function specIdentifier(snapshotDir, config) {
   return path.basename(snapshotDir)
 }
 
-// `spec-sync normalize <spec>` — print the normalized local field set as JSON.
-function specSyncNormalize(dir, config, specArg) {
-  if (!specArg) {
-    process.stdout.write('Usage: skitterspec spec-sync normalize <spec>\n')
-    return
-  }
+function resolveOrExit(specArg, dir, out) {
+  if (!specArg) return null
   const snapshotDir = resolveSnapshotDir(specArg, dir)
   if (!snapshotDir) {
-    process.stdout.write(`spec-sync: spec not found: ${specArg}\n`)
-    return
+    out.write(`spec-sync: spec not found: ${specArg}\n`)
+    return null
   }
-  const local = normalizeLocal(snapshotDir, config)
-  process.stdout.write(JSON.stringify(local, null, 2) + '\n')
+  return snapshotDir
 }
 
-// `spec-sync status <spec> [--remote file]` — read-only per-field divergence
-// (git status analog). With `--remote` (a Linear Project projection, supplied by
-// the /spec-status skill via MCP) it reports true three-way divergence; without
-// it, it compares local vs the committed base only (what changed locally since
-// the last sync).
-function specSyncStatus(dir, config, specArg, flags = {}) {
-  if (!specArg) {
-    process.stdout.write('Usage: skitterspec spec-sync status <spec> [--remote file]\n')
-    return
-  }
-  const snapshotDir = resolveSnapshotDir(specArg, dir)
-  if (!snapshotDir) {
-    process.stdout.write(`spec-sync: spec not found: ${specArg}\n`)
-    return
-  }
-  const identifier = specIdentifier(snapshotDir, config)
-  const local = normalizeLocal(snapshotDir, config)
-  const base = readBase(dir, identifier, config)
+// `spec-sync normalize <spec>` — print the local projection as JSON.
+function specSyncNormalize(dir, config, specArg, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return
+  out.write(JSON.stringify(projectionOf(snapshotDir, config), null, 2) + '\n')
+}
 
-  let remote = base // no remote → compare local vs base
-  let haveRemote = false
+// `spec-sync push <spec> [--json]` — print the create/update PLAN diffed against
+// the last-pushed snapshot. Machine-readable by default; the /spec-push skill
+// applies it over MCP then calls `record`.
+function specSyncPush(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return
+  const identifier = specIdentifier(snapshotDir, config)
+  const r = push({ dir, snapshotDir, identifier, config })
+  if (flags.json || !out.isTTY) {
+    out.write(JSON.stringify(r.plan, null, 2) + '\n')
+    return
+  }
+  const p = r.plan
+  const lines = [`spec-sync push: ${identifier}`]
+  if (r.empty) lines.push('  nothing to push — mirror matches the last push')
+  else {
+    if (p.project) lines.push('  project: description/status')
+    if (p.milestones.create.length) lines.push(`  milestones create: ${p.milestones.create.map((m) => m.name).join(', ')}`)
+    if (p.milestones.update.length) lines.push(`  milestones update: ${p.milestones.update.map((m) => m.id).join(', ')}`)
+    if (p.issues.create.length) lines.push(`  issues create: ${p.issues.create.length}`)
+    if (p.issues.update.length) lines.push(`  issues update: ${p.issues.update.map((i) => i.id).join(', ')}`)
+    lines.push('  (run with --json for the full plan the skill applies)')
+  }
+  out.write(lines.join('\n') + '\n')
+}
+
+// `spec-sync record <spec>` — write the last-pushed snapshot from the CURRENT
+// files. The skill calls this AFTER applying the plan and stamping new ids.
+function specSyncRecord(dir, config, specArg, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return
+  const identifier = specIdentifier(snapshotDir, config)
+  const file = recordPush({ dir, snapshotDir, identifier, config })
+  out.write(`spec-sync record: snapshot written → ${path.relative(dir, file)}\n`)
+}
+
+// `spec-sync status <spec> [--remote file] [--workspace-states file]` — read-only
+// drift report. Never writes. Reports: (a) whether the spec changed since the last
+// push (there is something to push), and (b) with --remote, whether Linear's
+// workflow-state differs from the spec's. With --workspace-states, validates the
+// configured state names and fails loudly on a typo Linear would silently no-op.
+function specSyncStatus(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return
+  const identifier = specIdentifier(snapshotDir, config)
+  const lines = [`spec-sync status: ${identifier}`]
+
+  if (flags.workspaceStates && fs.existsSync(flags.workspaceStates)) {
+    const names = JSON.parse(fs.readFileSync(flags.workspaceStates, 'utf-8'))
+    const missing = validateStates(config, Array.isArray(names) ? names : [])
+    if (missing.length) {
+      out.write(
+        `spec-sync status: ERROR — configured state name(s) not in the workspace: ${missing.join(', ')}. ` +
+          `Linear silently ignores an unknown project status; fix specs/.core/linear.config.json.\n`,
+      )
+      return 1
+    }
+    lines.push('  states: all configured names exist in the workspace')
+  }
+
+  const projection = projectionOf(snapshotDir, config)
+  const snapshot = readBase(dir, identifier, config)
+  const plan = planChanges(projection, snapshot)
+  if (!snapshot) lines.push('  push: never pushed — everything is pending')
+  else if (isEmptyPlan(plan)) lines.push('  push: up to date — nothing changed since the last push')
+  else {
+    const n = plan.milestones.create.length + plan.issues.create.length
+    const u = plan.milestones.update.length + plan.issues.update.length
+    lines.push(`  push: pending — ${n} to create, ${u} to update${plan.project ? ', project changed' : ''}`)
+  }
+
   if (flags.remote && fs.existsSync(flags.remote)) {
-    remote = normalizeRemote(JSON.parse(fs.readFileSync(flags.remote, 'utf-8')), config)
-    haveRemote = true
-  }
-  const fields = classify(local, remote, base, config)
-
-  const out = []
-  out.push(`spec-sync status: ${identifier}${base ? '' : ' (no base yet — never synced)'}`)
-  if (!haveRemote) out.push('  (no --remote given — compared local vs base only)')
-  const changed = fields.filter((f) => f.status !== 'unchanged')
-  if (!changed.length) {
-    out.push(haveRemote ? '  in sync — local, Linear, and base agree' : '  nothing to sync — local matches base')
-  } else {
-    for (const f of changed) {
-      const dir_ = f.pushable && f.pullable ? 'push+pull' : f.pushable ? 'push' : f.pullable ? 'pull' : '—'
-      out.push(`  ${f.status.padEnd(12)} ${f.field.padEnd(18)} (${f.ownership}, ${dir_})`)
-    }
-  }
-  // Deletions are never auto-applied (Decision 7) — surface them for the operator
-  // to resolve by hand: a removed keyed item on either side.
-  const removed = []
-  for (const f of fields) {
-    if (!f.keyed) continue
-    for (const it of f.items) if (it.report) removed.push(`${f.field}#${it.id} (removed in ${it.side})`)
-  }
-  if (removed.length) {
-    out.push('  needs manual resolution — removed, not auto-applied:')
-    for (const r of removed) out.push(`    ${r}`)
-  }
-  process.stdout.write(out.join('\n') + '\n')
-}
-
-// The linked Linear project id for a spec (frontmatter linear_project_id), else
-// its identifier — enough for the file adapter / a single-project remote file.
-function specProjectId(snapshotDir, config) {
-  try {
-    const { frontmatter } = readSnapshot(snapshotDir, config)
-    if (frontmatter.linear_project_id) return String(frontmatter.linear_project_id)
-    if (frontmatter.linear_identifier) return String(frontmatter.linear_identifier)
-  } catch {
-    /* fall through */
-  }
-  return path.basename(snapshotDir)
-}
-
-// A file-backed MCP adapter: reads the remote Project projection from a JSON file
-// and (on push) writes the merged result to `outPath` (default: the same file).
-// This lets `spec-sync push|pull` run the engine deterministically from the CLI /
-// CI. Live MCP-backed sync goes through the /spec-push · /spec-pull skills, which
-// supply the real adapter. `stamp` bumps updatedAt on write.
-function fileAdapter(remotePath, outPath, stamp) {
-  const readRemote = () => JSON.parse(fs.readFileSync(remotePath, 'utf-8'))
-  return {
-    async readProject() {
-      return fs.existsSync(remotePath) ? readRemote() : null
-    },
-    async updateProject(id, updates) {
-      const merged = { ...readRemote(), ...updates, updatedAt: `${stamp}-pushed` }
-      if (outPath) fs.writeFileSync(outPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8')
-      return merged
-    },
-  }
-}
-
-// Print a git-like summary of a pull/push engine result.
-function printSyncResult(kind, result) {
-  const out = []
-  if (result.ok === false && !result.blocked) {
-    out.push(`spec-sync ${kind}: error — ${result.error}`)
-  } else if (result.blocked) {
-    out.push(`spec-sync ${kind}: refused — ${result.message}`)
-  } else {
-    out.push(`spec-sync ${kind}: ok`)
-    if (kind === 'pull') {
-      const keyedApplied = result.keyedApplied || []
-      const keyedCreated = result.keyedCreated || []
-      const keyedReported = result.keyedReported || []
-      if (result.applied.length) out.push(`  applied:   ${result.applied.join(', ')}`)
-      if (keyedApplied.length) out.push(`  updated:   ${keyedApplied.join(', ')} (phase files)`)
-      if (keyedCreated.length) out.push(`  created:   ${keyedCreated.map((c) => c.file).join(', ')}`)
-      if (keyedReported.length) out.push(`  removed:   ${keyedReported.join(', ')} (in Linear — resolve manually)`)
-      if (result.deferred.length) out.push(`  deferred:  ${result.deferred.join(', ')} (body write-back — manual)`)
-      if (
-        !result.applied.length &&
-        !keyedApplied.length &&
-        !keyedCreated.length &&
-        !keyedReported.length &&
-        !result.deferred.length
-      ) {
-        out.push('  nothing to pull — up to date')
-      }
+    const remote = JSON.parse(fs.readFileSync(flags.remote, 'utf-8'))
+    const rState = remoteWorkflowState(remote, config)
+    const lState = projection.status
+    if (rState && lState && rState !== lState) {
+      lines.push(`  drift: Linear workflow-state is "${rState}" but the spec is "${lState}" (repo wins on next push)`)
     } else {
-      if (result.written && result.written.length) out.push(`  written:   ${result.written.join(', ')}`)
-      const mp = result.milestonesPush
-      if (mp && mp.create.length) out.push(`  milestones create: ${mp.create.map((m) => m.name).join(', ')} (skill applies via MCP)`)
-      if (mp && mp.update.length) out.push(`  milestones update: ${mp.update.map((m) => m.id).join(', ')} (skill applies via MCP)`)
-      const ip = result.issuesPush
-      if (ip && ip.create.length) out.push(`  issues create: ${ip.create.length} (skill applies via MCP)`)
-      if (ip && ip.update.length) out.push(`  issues update: ${ip.update.map((i) => i.id).join(', ')} (skill applies via MCP)`)
-      if (result.skipped && result.skipped.length) out.push(`  skipped:   ${result.skipped.join(', ')} (not pushable)`)
-      if (result.note) out.push(`  ${result.note}`)
+      lines.push('  drift: none — Linear workflow-state matches the spec')
     }
-    if (result.backupPath) out.push(`  backup:    ${result.backupPath}`)
-    if (result.basePath) out.push(`  base:      ${result.basePath}`)
   }
-  process.stdout.write(out.join('\n') + '\n')
+
+  out.write(lines.join('\n') + '\n')
+  return 0
 }
 
-// `spec-sync push|pull <spec> [--force] [--remote file] [--out file]`.
-async function specSyncPushPull(kind, dir, config, specArg, flags) {
-  if (!specArg) {
-    process.stdout.write(`Usage: skitterspec spec-sync ${kind} <spec> [--force] [--remote file] [--out file]\n`)
-    return
-  }
-  const snapshotDir = resolveSnapshotDir(specArg, dir)
-  if (!snapshotDir) {
-    process.stdout.write(`spec-sync: spec not found: ${specArg}\n`)
-    return
-  }
-  if (!flags.remote) {
-    process.stdout.write(
-      `spec-sync ${kind}: live Linear sync runs through the /spec-${kind} skill, which ` +
-        'connects the Linear MCP server.\n' +
-        `For a local run, pass --remote <project.json> (a Linear Project projection).\n`,
-    )
-    return
-  }
-  const identifier = specIdentifier(snapshotDir, config)
-  const projectId = specProjectId(snapshotDir, config)
-  const stamp = compactTimestamp()
-  const adapter = fileAdapter(flags.remote, flags.out, stamp)
-  const run = kind === 'pull' ? pull : push
-  const result = await run({
-    dir,
-    snapshotDir,
-    identifier,
-    projectId,
-    adapter,
-    config,
-    force: flags.force,
-    timestamp: new Date().toISOString(),
-  })
-  printSyncResult(kind, result)
-}
-
-// Dispatch `skitterspec spec-sync <sub> [spec] [flags]`. No-ops with a clear
-// message when Linear sync isn't enabled (no specs/.core/linear.config.json).
-async function specSync(rest) {
+async function specSync(rest, io = {}) {
+  const out = io.out || process.stdout
   const [sub, ...args] = rest
-  let dir = process.cwd()
+  let dir = io.cwd || process.cwd()
   const positional = []
-  const flags = { force: false, remote: null, out: null }
+  const flags = { json: false, remote: null, workspaceStates: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
-    else if (args[i] === '--force') flags.force = true
+    else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
-    else if (args[i] === '--out') flags.out = path.resolve(args[++i])
+    else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
 
   const { config, present } = loadLinearConfig(dir)
   if (!present) {
-    process.stdout.write(
+    out.write(
       'spec-sync: Linear sync not enabled (no specs/.core/linear.config.json).\n' +
         'Opt in by copying specs/.core/linear.config.json.example → linear.config.json.\n',
     )
-    return
+    return 0
   }
 
   switch (sub) {
     case 'normalize':
-      specSyncNormalize(dir, config, positional[0])
-      break
-    case 'status':
-      specSyncStatus(dir, config, positional[0], flags)
-      break
-    case 'pull':
-      await specSyncPushPull('pull', dir, config, positional[0], flags)
-      break
+      specSyncNormalize(dir, config, positional[0], out)
+      return 0
     case 'push':
-      await specSyncPushPull('push', dir, config, positional[0], flags)
-      break
+      specSyncPush(dir, config, positional[0], flags, out)
+      return 0
+    case 'record':
+      specSyncRecord(dir, config, positional[0], out)
+      return 0
+    case 'status':
+      return specSyncStatus(dir, config, positional[0], flags, out) || 0
     default:
-      process.stdout.write(
-        'Usage: skitterspec spec-sync <normalize|status|pull|push> <spec> [--force] [--remote file] [--out file]\n',
-      )
+      out.write('Usage: skitterspec spec-sync <normalize|push|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n')
+      return 0
   }
 }
 

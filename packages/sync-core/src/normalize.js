@@ -354,16 +354,28 @@ function normalizeLocal(snapshotDir, config) {
       config.sync.localOnlySections,
       milestonesKeyed ? ['Phases'] : [],
     ),
-    // Keyed milestone items: a phase's linked milestone id (or null when
-    // unlinked), its title and goal. Unlinked phases carry id:null and are
-    // skipped by the keyed compare until they're linked.
+    // Milestone projection items. `ref` is the phase-file basename — the local
+    // handle the push skill stamps a newly-created milestone id back into.
     milestones: phases
       .filter((p) => p.name)
-      .map((p) => ({ id: p.id, name: p.name, goal: p.goal })),
-    // Keyed task items across all phases: inline issue id (or null), text, done.
-    // Deliberately just {id,text,done} so it hashes equal to a remote issue — the
-    // owning phase is recovered at push time by locating the task line.
-    tasks: phases.flatMap((p) => p.tasks.map(parseTaskLine).filter(Boolean)),
+      .map((p) => ({ id: p.id, ref: p.phase, name: p.name, goal: p.goal })),
+    // Issue projection items across all phases. `title` is the first-sentence
+    // Linear title; `description` is the full task text (the mirror keeps both).
+    // `ref` = the collapsed text the push skill matches to stamp a new id in;
+    // `milestoneRef` links the issue to its milestone (id if linked, else phase).
+    tasks: phases.flatMap((p) =>
+      p.tasks
+        .map(parseTaskLine)
+        .filter(Boolean)
+        .map((t) => ({
+          id: t.id,
+          ref: t.text,
+          title: titleFromText(t.text),
+          description: t.text,
+          done: t.done,
+          milestoneRef: p.id || p.phase,
+        })),
+    ),
     phaseBodies: phases.map((p) => ({ phase: p.phase, goal: p.goal })),
     acceptanceCriteria: sections['Acceptance criteria'] || null,
     taskBreakdown: phases.map((p) => ({ phase: p.phase, tasks: p.tasks })),
@@ -410,75 +422,12 @@ function remoteStateName(project) {
   return st
 }
 
-// Real Linear priority is an object `{ value, name }`; accept a bare number too.
-function remotePriority(priority) {
-  if (priority == null) return null
-  if (typeof priority === 'object') return priority.value != null ? priority.value : null
-  return priority
-}
-
-// Real Linear labels are `[{ id, name }]`; accept bare strings too.
-function remoteLabels(labels) {
-  if (!Array.isArray(labels)) return []
-  return labels
-    .map((l) => (typeof l === 'string' ? l : l && l.name != null ? l.name : null))
-    .filter((n) => n != null)
-}
-
-// Whether a remote Linear issue is complete. The real MCP shape is a flat
-// `statusType` ("completed") — accept the legacy `state.type` and `completedAt`
-// / bare `done` too (fixtures, older shapes).
-function remoteIssueDone(iss) {
-  if (iss.done === true) return true
-  const type = iss.statusType != null ? iss.statusType : iss.state && iss.state.type
-  if (type != null) return String(type).toLowerCase() === 'completed'
-  return iss.completedAt != null
-}
-
-/**
- * Normalize a remote Project projection (from the MCP adapter, or a fixture)
- * into the same field set as `normalizeLocal`.
- */
-function normalizeRemote(project, config) {
-  const p = project || {}
-  const milestones = Array.isArray(p.milestones) ? p.milestones : []
-  const stateName = remoteStateName(p)
-  const extracted = {
-    description: p.description != null ? canonicalizeMarkdown(p.description) : null,
-    // Keyed milestone items mirroring normalizeLocal: id, title, goal (the Linear
-    // milestone's description). Progress is Linear-derived and not synced.
-    milestones: milestones.map((m) => ({
-      id: m.id != null ? String(m.id) : null,
-      name: m.name,
-      // A milestone's description mirrors the phase's `**Goal:**` line; strip the
-      // label so it hashes equal to the local goal (which readPhaseFiles already
-      // captures without it).
-      goal: (m.description != null ? m.description : '')
-        .replace(/^\s*\*\*Goal:\*\*\s*/, '')
-        .trim(),
-    })),
-    phaseBodies: milestones.map((m) => ({
-      phase: m.name,
-      goal: (m.description != null ? m.description : '').trim(),
-    })),
-    acceptanceCriteria: p.acceptanceCriteria != null ? p.acceptanceCriteria : null,
-    // Keyed task items from the project's issues: keyed by the human identifier
-    // (SKI-123, what the inline task-line id carries — the Linear MCP returns it as
-    // the issue's `id`), text ← title, done ← a completed-type workflow state.
-    tasks: (Array.isArray(p.issues) ? p.issues : []).map((iss) => ({
-      id: iss.identifier != null ? String(iss.identifier) : iss.id != null ? String(iss.id) : null,
-      text: iss.title != null ? iss.title : '',
-      done: remoteIssueDone(iss),
-    })),
-    taskBreakdown: milestones.map((m) => ({
-      phase: m.name,
-      tasks: Array.isArray(m.tasks) ? m.tasks : [],
-    })),
-    workflowState: stateName != null ? bucketForState(stateName, config) : null,
-    priority: remotePriority(p.priority),
-    labels: remoteLabels(p.labels),
-  }
-  return toFieldSet(extracted, config)
+// The ONE thing one-way sync reads back: the mirror's current workflow state,
+// mapped to the local lifecycle bucket, so `/spec-status` can report a drift
+// ("Linear says Done, your spec says In Progress"). Read-only — it never writes.
+function remoteWorkflowState(project, config) {
+  const name = remoteStateName(project || {})
+  return name != null ? bucketForState(name, config) : null
 }
 
 // Derive a short Linear issue title from a task's full text: the first sentence,
@@ -522,7 +471,6 @@ function validateStates(config, workspaceStates) {
 
 module.exports = {
   normalizeLocal,
-  normalizeRemote,
   readSnapshot,
   parseFrontmatter,
   parseSections,
@@ -534,4 +482,5 @@ module.exports = {
   canonicalizeMarkdown,
   joinEmphasisAcrossBreaks,
   bucketForState,
+  remoteWorkflowState,
 }

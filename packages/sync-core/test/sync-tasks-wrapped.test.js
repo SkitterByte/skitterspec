@@ -15,7 +15,7 @@ const os = require('node:os')
 const path = require('node:path')
 
 const { normalizeLocal } = require('../src/normalize.js')
-const { updateTaskLine, stampIssueId } = require('../src/write.js')
+const { stampIssueId } = require('../src/write.js')
 const { findTaskBlocks, renderTaskBlock } = require('../src/task-block.js')
 const { neutralConfig } = require('./_config.js')
 
@@ -57,15 +57,15 @@ function snapshot() {
 test('a wrapped task keeps its continuation lines in the normalized text', () => {
   const local = normalizeLocal(snapshot(), config())
   assert.strictEqual(local.tasks.length, 2)
-  assert.deepStrictEqual(local.tasks[0], {
-    id: 'SKI-1',
-    done: true,
-    text:
-      'Add `DbProcessEventOutbox` to `prisma/schema.prisma`, modelled on ' +
+  assert.strictEqual(local.tasks[0].id, 'SKI-1')
+  assert.strictEqual(local.tasks[0].done, true)
+  assert.strictEqual(
+    local.tasks[0].description,
+    'Add `DbProcessEventOutbox` to `prisma/schema.prisma`, modelled on ' +
       '`DbNotificationOutbox`: status, attempts, `nextAttemptAt`, plus the event payload.',
-  })
+  )
   assert.strictEqual(local.tasks[1].id, null)
-  assert.match(local.tasks[1].text, /double-applying\.$/)
+  assert.match(local.tasks[1].description, /double-applying\.$/)
 })
 
 test('a wrapped goal keeps its continuation line', () => {
@@ -77,33 +77,15 @@ test('a wrapped goal keeps its continuation line', () => {
   )
 })
 
-test('pulling an edited title replaces the whole block, leaving no orphans', () => {
-  const dir = snapshot()
-  const ok = updateTaskLine(dir, 'SKI-1', { text: 'Much shorter title now', done: true })
-  assert.strictEqual(ok, true)
-
-  const body = fs.readFileSync(path.join(dir, '01-outbox.md'), 'utf-8')
-  assert.match(body, /- \[x\] Much shorter title now \(SKI-1\)/)
-  // the replaced bullet's continuation lines must be gone, not stranded
-  assert.doesNotMatch(body, /DbNotificationOutbox/)
-  assert.doesNotMatch(body, /event payload/)
-  // the untouched sibling task survives intact
-  assert.match(body, /idempotencyKey/)
-  assert.match(body, /double-applying\./)
-
-  // and it still reads back as exactly two tasks
-  assert.strictEqual(normalizeLocal(dir, config()).tasks.length, 2)
-})
-
 test('stamping an id onto a wrapped, idless task re-wraps it in place', () => {
   const dir = snapshot()
   const local = normalizeLocal(dir, config())
-  const file = stampIssueId(dir, local.tasks[1].text, 'SKI-2')
+  const file = stampIssueId(dir, local.tasks[1].description, 'SKI-2')
   assert.strictEqual(file, '01-outbox.md')
 
   const after = normalizeLocal(dir, config())
   assert.strictEqual(after.tasks[1].id, 'SKI-2')
-  assert.strictEqual(after.tasks[1].text, local.tasks[1].text)
+  assert.strictEqual(after.tasks[1].description, local.tasks[1].description)
 
   // still wrapped, and no line blew past the file's width
   const lines = fs.readFileSync(path.join(dir, '01-outbox.md'), 'utf-8').split('\n')

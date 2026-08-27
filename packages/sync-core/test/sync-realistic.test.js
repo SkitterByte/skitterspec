@@ -32,7 +32,7 @@ function config() {
 
 test('hyphenated compounds wrapped at the hyphen survive as one word', () => {
   const local = normalizeLocal(FIXTURE, config())
-  const allTaskText = local.tasks.map((t) => t.text).join('\n')
+  const allTaskText = local.tasks.map((t) => t.description).join('\n')
   assert.match(allTaskText, /models-created-only/, 'task compound stays tight')
   assert.match(allTaskText, /state-entry-with-assignment/)
   assert.doesNotMatch(allTaskText, /models-created- only|state-entry-with- assignment/)
@@ -70,9 +70,9 @@ test('titleFromText takes the first sentence, guarding versions and abbreviation
 
 test('titleFromText on a real paragraph task reads as a one-liner', () => {
   const local = normalizeLocal(FIXTURE, config())
-  const long = local.tasks.find((t) => /first-class dedup/.test(t.text))
+  const long = local.tasks.find((t) => /first-class dedup/.test(t.description))
   assert.ok(long, 'found the paragraph task')
-  const title = titleFromText(long.text)
+  const title = titleFromText(long.description)
   assert.ok(title.length <= 100, `title too long: ${title.length}`)
   assert.ok(!/\n/.test(title))
 })

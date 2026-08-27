@@ -6,7 +6,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { normalizeLocal, normalizeRemote, readSnapshot } = require('../src/normalize.js')
+const { normalizeLocal, readSnapshot } = require('../src/normalize.js')
 const { neutralConfig } = require('./_config.js')
 
 // Neutral defaults config (no live file needed for pure normalization).
@@ -87,15 +87,9 @@ const PROJECT = {
   ],
 }
 
-test('local and remote produce identical field sets (same keys)', () => {
+test('the local projection is exactly the configured field set', () => {
   const local = normalizeLocal(fixtureSpec(), config)
-  const remote = normalizeRemote(PROJECT, config)
-  assert.deepStrictEqual(Object.keys(local).sort(), Object.keys(remote).sort())
-  // and exactly the configured field set
-  assert.deepStrictEqual(
-    Object.keys(local).sort(),
-    Object.keys(config.sync.fieldOwnership).sort(),
-  )
+  assert.deepStrictEqual(Object.keys(local).sort(), Object.keys(config.sync.fieldOwnership).sort())
 })
 
 test('localOnlySections are stripped from the description', () => {
@@ -107,19 +101,11 @@ test('localOnlySections are stripped from the description', () => {
   assert.doesNotMatch(local.description, /State log/)
 })
 
-test('milestones are keyed {id,name,goal} items read from the phase files', () => {
+test('milestones are keyed {id,ref,name,goal} items read from the phase files', () => {
   const local = normalizeLocal(fixtureSpec(), config)
   assert.deepStrictEqual(local.milestones, [
-    { id: null, name: 'First phase', goal: 'Do the first thing well.' },
-    { id: null, name: 'Second phase', goal: 'Do the second thing.' },
-  ])
-})
-
-test('remote milestones map to the same {id,name,goal} shape', () => {
-  const remote = normalizeRemote(PROJECT, config)
-  assert.deepStrictEqual(remote.milestones, [
-    { id: null, name: 'First phase', goal: 'Do the first thing well.' },
-    { id: null, name: 'Second phase', goal: 'Do the second thing.' },
+    { id: null, ref: '01-first', name: 'First phase', goal: 'Do the first thing well.' },
+    { id: null, ref: '02-second', name: 'Second phase', goal: 'Do the second thing.' },
   ])
 })
 

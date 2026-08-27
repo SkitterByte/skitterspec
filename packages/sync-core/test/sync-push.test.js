@@ -1,168 +1,92 @@
 'use strict'
 
+// One-way push engine: build a plan by diffing the local projection against the
+// last-pushed snapshot; record the snapshot after apply; a second push is empty.
+
 const { test } = require('node:test')
 const assert = require('node:assert')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { push } = require('../src/push.js')
-const { normalizeLocal } = require('../src/normalize.js')
+const { push, recordPush } = require('../src/push.js')
+const { planChanges, snapshotOf, isEmptyPlan } = require('../src/compare.js')
+const { stampMilestoneId, stampIssueId } = require('../src/write.js')
 const { neutralConfig } = require('./_config.js')
-const { writeBase, readBase } = require('../src/base.js')
 
-const TS = '2026-01-02T03:04:05.000Z' // fixed input timestamp (no clock reads)
-const ID = 'ENG-42'
-const PROJECT_ID = 'proj_1'
+const ID = 'ENG-1'
 
-const OVERVIEW = `---
-spec_identifier: "ENG-42"
-spec_project_id: "proj_1"
-spec_status: "in-progress"
-priority: 2
-labels: ["a"]
----
-
-# Demo
-
-## Problem
-
-Local problem text.
-
-## Changelog
-
-- local note
-`
-
-// A fake in-memory remote adapter. `raceOnRead` bumps updatedAt on the 2nd read
-// to simulate a writer that raced in during the push.
-function fakeAdapter(project, opts = {}) {
-  let reads = 0
-  const adapter = {
-    project,
-    updateCalls: [],
-    async readProject() {
-      reads += 1
-      if (opts.raceOnRead && reads === 2) return { ...project, updatedAt: opts.raceOnRead }
-      return { ...project }
-    },
-    async updateProject(id, updates) {
-      adapter.updateCalls.push({ id, updates })
-      Object.assign(project, updates, { updatedAt: 't1' })
-      return { ...project }
-    },
-  }
-  return adapter
+function config() {
+  const c = neutralConfig()
+  for (const k of ['phaseBodies', 'acceptanceCriteria', 'taskBreakdown']) delete c.sync.fieldOwnership[k]
+  c.sync.fieldOwnership.tasks = 'push'
+  c.sync.fieldOwnership.milestones = 'push'
+  return c
 }
 
-function setup({ baseOverrides = {}, remoteOverrides = {}, adapterOpts = {} } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-push-'))
-  const specDir = path.join(dir, 'spec')
-  fs.mkdirSync(specDir, { recursive: true })
-  fs.writeFileSync(path.join(specDir, '00-overview.md'), OVERVIEW, 'utf-8')
-
-  const config = neutralConfig()
-  const localNorm = normalizeLocal(specDir, config)
-
-  const remoteRaw = {
-    id: PROJECT_ID,
-    updatedAt: 't0',
-    name: 'Demo',
-    description: localNorm.description,
-    state: 'In Progress',
-    priority: 2,
-    labels: ['a'],
-    milestones: [],
-    ...remoteOverrides,
-  }
-  const base = { ...localNorm, ...baseOverrides }
-  base.__meta = { updatedAt: 't0', syncedAt: 't0', ...(baseOverrides.__meta || {}) }
-  writeBase(dir, ID, config, base)
-
-  const adapter = fakeAdapter(remoteRaw, adapterOpts)
-  return { dir, specDir, config, localNorm, adapter, remoteRaw }
+function snapshot() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oneway-'))
+  const dir = path.join(root, 'specs', 'in-progress', 'demo')
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, '00-overview.md'), '---\nspec_status: in-progress\n---\n\n# Demo\n\n## Problem\n\nBody prose.\n')
+  fs.writeFileSync(
+    path.join(dir, '01-outbox.md'),
+    '# Phase 1 — Durable outbox ⬜\n\n**Goal:** a durable place.\n\n## Tasks\n\n' +
+      '- [ ] Add the outbox table. Modelled on the notification outbox and more.\n' +
+      '- [x] Wire the enqueue path\n',
+  )
+  return { root, dir }
 }
 
-const run = (ctx, force = false) =>
-  push({
-    dir: ctx.dir,
-    snapshotDir: ctx.specDir,
-    identifier: ID,
-    projectId: PROJECT_ID,
-    adapter: ctx.adapter,
-    config: ctx.config,
-    force,
-    timestamp: TS,
-  })
+test('planChanges/snapshotOf are a create→record→empty loop', () => {
+  const projection = {
+    description: 'd',
+    status: 'in-progress',
+    milestones: [{ id: null, ref: '01', name: 'M', goal: 'g' }],
+    issues: [{ id: null, ref: 'task a', title: 'task a', description: 'task a', done: false, milestoneRef: '01' }],
+  }
+  const plan1 = planChanges(projection, null)
+  assert.strictEqual(plan1.milestones.create.length, 1)
+  assert.strictEqual(plan1.issues.create.length, 1)
+  assert.ok(plan1.project, 'project pushed on first run')
 
-test('local-only field is pushed; base + remote updated', async () => {
-  const ctx = setup({ baseOverrides: { description: 'OLD' }, remoteOverrides: { description: 'OLD' } })
-  const r = await run(ctx)
-  assert.strictEqual(r.ok, true)
-  assert.deepStrictEqual(r.written, ['description'])
-  // remote received the local description
-  assert.strictEqual(ctx.adapter.updateCalls.length, 1)
-  assert.strictEqual(ctx.adapter.updateCalls[0].updates.description, ctx.localNorm.description)
-  // base rewritten to local value + new updatedAt
-  const base = readBase(ctx.dir, ID, ctx.config)
-  assert.strictEqual(base.description, ctx.localNorm.description)
-  assert.strictEqual(base.__meta.updatedAt, 't1')
+  // After apply the items gain ids; record the snapshot from the stamped projection.
+  const stamped = {
+    ...projection,
+    milestones: [{ ...projection.milestones[0], id: 'm1' }],
+    issues: [{ ...projection.issues[0], id: 'SKI-1' }],
+  }
+  const snap = snapshotOf(stamped)
+  const plan2 = planChanges(stamped, snap)
+  assert.ok(isEmptyPlan(plan2), 'nothing to push after recording')
+
+  // Editing an issue → a single update; a title-only edit is detected.
+  const edited = { ...stamped, issues: [{ ...stamped.issues[0], description: 'task a EDITED', title: 'task a EDITED' }] }
+  const plan3 = planChanges(edited, snap)
+  assert.strictEqual(plan3.issues.update.length, 1)
+  assert.strictEqual(plan3.issues.update[0].id, 'SKI-1')
+  assert.strictEqual(plan3.milestones.create.length + plan3.milestones.update.length, 0)
 })
 
-test('a pull-owned local edit is never pushed (nothing to push)', async () => {
-  const ctx = setup({
-    baseOverrides: { workflowState: 'backlog' },
-    remoteOverrides: { state: 'Backlog' },
-  })
-  const r = await run(ctx)
-  assert.strictEqual(r.ok, true)
-  assert.deepStrictEqual(r.written, [])
-  assert.strictEqual(r.note, 'nothing to push')
-  assert.strictEqual(ctx.adapter.updateCalls.length, 0)
-})
+test('push over a real snapshot creates, then records, then is idempotent', () => {
+  const { root, dir } = snapshot()
+  const cfg = config()
 
-test('refuses when the remote moved past base (pull first)', async () => {
-  const ctx = setup({ remoteOverrides: { description: 'REMOTE-NEW', updatedAt: 't9' } })
-  const r = await run(ctx)
-  assert.strictEqual(r.ok, false)
-  assert.strictEqual(r.blocked, true)
-  assert.strictEqual(r.reason, 'remote-moved')
-  assert.strictEqual(ctx.adapter.updateCalls.length, 0)
-})
+  const r1 = push({ dir: root, snapshotDir: dir, identifier: ID, config: cfg })
+  assert.strictEqual(r1.empty, false)
+  assert.strictEqual(r1.plan.milestones.create.length, 1)
+  assert.strictEqual(r1.plan.issues.create.length, 2)
+  // issue titles are first-sentence; descriptions are the full text
+  const withSentence = r1.plan.issues.create.find((i) => /Add the outbox table/.test(i.title))
+  assert.strictEqual(withSentence.title, 'Add the outbox table')
+  assert.match(withSentence.description, /Modelled on the notification outbox/)
 
-test('--force wins after backing up the remote side', async () => {
-  const ctx = setup({
-    baseOverrides: { description: 'OLD' },
-    remoteOverrides: { description: 'REMOTE-NEW', updatedAt: 't9' },
-  })
-  const blocked = await run(ctx, false)
-  assert.strictEqual(blocked.blocked, true) // conflict without force
+  // Simulate the skill applying + stamping the returned ids, then recording.
+  stampMilestoneId(dir, '01-outbox.md', 'm1')
+  stampIssueId(dir, r1.plan.issues.create[0].ref, 'SKI-1')
+  stampIssueId(dir, r1.plan.issues.create[1].ref, 'SKI-2')
+  recordPush({ dir: root, snapshotDir: dir, identifier: ID, config: cfg })
 
-  const r = await run(ctx, true)
-  assert.strictEqual(r.ok, true)
-  assert.deepStrictEqual(r.written, ['description'])
-  assert.ok(r.backupPath, 'a remote backup was written')
-  const backup = JSON.parse(fs.readFileSync(r.backupPath, 'utf-8'))
-  assert.strictEqual(backup.description, 'REMOTE-NEW') // the clobbered remote, preserved
-  assert.strictEqual(ctx.adapter.project.description, ctx.localNorm.description) // local won
-})
-
-test('aborts when the remote changes between compare and write (re-read)', async () => {
-  const ctx = setup({
-    baseOverrides: { description: 'OLD' },
-    remoteOverrides: { description: 'OLD' },
-    adapterOpts: { raceOnRead: 't-raced' },
-  })
-  const r = await run(ctx)
-  assert.strictEqual(r.blocked, true)
-  assert.strictEqual(r.reason, 'concurrent-write')
-  assert.strictEqual(ctx.adapter.updateCalls.length, 0)
-})
-
-test('missing remote project → clean error, no writes', async () => {
-  const ctx = setup()
-  ctx.adapter.readProject = async () => null
-  const r = await run(ctx)
-  assert.strictEqual(r.ok, false)
-  assert.match(r.error, /not found/)
+  const r2 = push({ dir: root, snapshotDir: dir, identifier: ID, config: cfg })
+  assert.ok(r2.empty, `second push should be empty, got ${JSON.stringify(r2.plan)}`)
 })

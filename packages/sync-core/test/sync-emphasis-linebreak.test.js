@@ -19,8 +19,8 @@ const os = require('node:os')
 const path = require('node:path')
 
 const { renderTaskBlock, findTaskBlocks, inferWidth } = require('../src/task-block.js')
-const { normalizeLocal, normalizeRemote, canonicalizeMarkdown } = require('../src/normalize.js')
-const { classify, hashField } = require('../src/compare.js')
+const { canonicalizeMarkdown } = require('../src/normalize.js')
+const { hashField } = require('../src/compare.js')
 const { neutralConfig } = require('./_config.js')
 
 // A line "straddles" if an emphasis/link marker opens on it and doesn't close on
@@ -121,26 +121,4 @@ test('B: a mangled remote hashes equal to the clean local (no spurious diff)', (
     hashField(canonicalizeMarkdown('x **a****\n****b** y')),
     hashField(canonicalizeMarkdown('x **a\nb** y')),
   )
-})
-
-// The full pipeline: a local spec with a straddling bold span, and a remote
-// whose description came back mangled, must classify as in-sync — not the
-// dangerous `remote-only`/`pullable` that writes `****` into the repo.
-test('B: normalize + classify treats clean-local vs mangled-remote as in sync', () => {
-  const config = neutralConfig()
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'emphasis-'))
-  fs.writeFileSync(
-    path.join(dir, '00-overview.md'),
-    '# Demo\n\n## Problem\n\nWe must handle **the bold text that wraps\nacross a line** cleanly.\n',
-    'utf-8',
-  )
-  const local = normalizeLocal(dir, config)
-  const remote = normalizeRemote(
-    { description: '# Demo\n\n## Problem\n\nWe must handle **the bold text that wraps****\n****across a line** cleanly.' },
-    config,
-  )
-  const fields = classify(local, remote, local, config)
-  const desc = fields.find((f) => f.field === 'description')
-  assert.strictEqual(desc.status, 'unchanged', `expected in-sync, got ${desc.status}`)
-  assert.strictEqual(desc.pullable, false, 'a mangled remote must not be pullable into the repo')
 })

@@ -1,17 +1,15 @@
 'use strict'
 
 /**
- * The committed base sidecar + the backup-before-force reflog.
+ * The committed **last-pushed snapshot** sidecar.
  *
- * The base is the last-synced snapshot per spec, stored at
- * `{sync.baseDir}/{identifier}.base.json` and committed so each worktree carries
- * its own base and the three-way divergence check stays accurate. After any
- * successful pull/push/force the engine rewrites it (`writeBase`).
- *
- * `backup(side, …)` lands the about-to-be-clobbered side under `{sync.backupDir}`
- * BEFORE a `--force` overwrites it — force never destroys without first writing a
- * copy. The filename carries a caller-supplied timestamp (the engine takes no
- * Date.now(), for reproducible tests) and is made collision-safe with a counter.
+ * One-way sync (repo → Linear) records what it last pushed per spec at
+ * `{sync.baseDir}/{identifier}.base.json`, committed so each worktree carries its
+ * own snapshot. The snapshot is a set of content hashes
+ * (`{ project, milestones: {id:hash}, issues: {id:hash} }`, see compare.js
+ * `snapshotOf`); `planChanges` diffs the current projection against it to decide
+ * create/update/skip — no remote read. After a successful push the engine
+ * rewrites it (`writeBase`). Generic JSON read/write; the shape is the caller's.
  */
 
 const fs = require('node:fs')

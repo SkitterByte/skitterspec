@@ -1,37 +1,41 @@
 'use strict'
 
 /**
- * Provider-neutral spec↔tracker sync engine.
+ * Provider-neutral one-way sync engine (repo → tracker).
  *
- * Every function here is parameterised by a plain `config` object and an injected
- * `adapter` — it knows nothing about any specific tracker or provider. A
- * provider package supplies the config shape, the frontmatter key mapping, and the
- * adapter that talks to its API; this core does the three-way merge.
+ * Every function is parameterised by a plain `config` object — it knows nothing
+ * about any specific tracker. The repo is the source of truth: the engine builds
+ * a local projection, diffs it against a committed last-pushed snapshot
+ * (`planChanges`), and returns a create/update plan the provider skill applies
+ * over its API. No remote content is read or merged.
  */
 
-const { normalizeLocal, normalizeRemote, readSnapshot } = require('./src/normalize.js')
-const { classify, hashField, stableStringify } = require('./src/compare.js')
-const { readBase, writeBase, backup } = require('./src/base.js')
-const { pull } = require('./src/pull.js')
-const { push } = require('./src/push.js')
-const { writeFrontmatter } = require('./src/write.js')
-const { frontmatterPatchFor, localWorkflowState } = require('./src/apply.js')
+const { normalizeLocal, readSnapshot, remoteWorkflowState, titleFromText, validateStates } = require('./src/normalize.js')
+const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify } = require('./src/compare.js')
+const { readBase, writeBase } = require('./src/base.js')
+const { push, recordPush, projectionOf } = require('./src/push.js')
+const { writeFrontmatter, stampMilestoneId, stampIssueId, findPhaseFileByTitle } = require('./src/write.js')
 const { sanitizeSpecMarkdown } = require('./src/sanitise.js')
 
 module.exports = {
   normalizeLocal,
-  normalizeRemote,
   readSnapshot,
-  classify,
+  projectionOf,
+  planChanges,
+  snapshotOf,
+  isEmptyPlan,
+  push,
+  recordPush,
+  remoteWorkflowState,
+  titleFromText,
+  validateStates,
   hashField,
   stableStringify,
   readBase,
   writeBase,
-  backup,
-  pull,
-  push,
   writeFrontmatter,
-  frontmatterPatchFor,
-  localWorkflowState,
+  stampMilestoneId,
+  stampIssueId,
+  findPhaseFileByTitle,
   sanitizeSpecMarkdown,
 }

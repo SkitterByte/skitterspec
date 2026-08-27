@@ -60,11 +60,15 @@ const DEFAULT_CONFIG = Object.freeze({
     // acceptance-criteria and task detail still travel *inside* `description` — a
     // separate milestone/issue round-trip is a future extension (add the fields
     // here to opt a workspace in). Any key you add joins the compared set.
+    // One-way (repo → Linear): every field is repo-owned and pushed. The
+    // `push` marker is kept for the projection field-set; there is no pull.
     fieldOwnership: Object.freeze({
-      description: 'both',
-      workflowState: 'pull',
-      priority: 'pull',
-      labels: 'pull',
+      description: 'push',
+      milestones: 'push',
+      tasks: 'push',
+      workflowState: 'push',
+      priority: 'push',
+      labels: 'push',
     }),
     localOnlySections: Object.freeze(['State log', 'Changelog', 'Open questions']),
     // Fields that are keyed collections (arrays of objects with a stable id),
