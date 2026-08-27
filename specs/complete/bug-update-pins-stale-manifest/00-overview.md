@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-update-pins-stale-manifest (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-27)
+> **Status:** Complete (2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -111,6 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
 | 2026-08-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -134,3 +135,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   customized. The trap needs a *version gap*: the manifest holding an older
   release's hash while the file on disk matches the current one. The test now
   models that, which is what the field report actually described.
+- 2026-08-27 — Completed; the single phase is done, 534 tests green. Nothing
+  deferred. The Open question resolved inside Phase 1 rather than changing scope.
