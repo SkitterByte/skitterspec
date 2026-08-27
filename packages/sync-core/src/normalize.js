@@ -16,7 +16,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { findTaskBlocks, collapse, collapseHyphenAware } = require('./task-block.js')
+const { fenceMask, findTaskBlocks, collapse, collapseHyphenAware } = require('./task-block.js')
 
 // --- markdown / frontmatter parsing -----------------------------------------
 
@@ -57,6 +57,7 @@ function parseScalar(v) {
 // heading text → its content (until the next `## `). The H1 `# ` is the title.
 function parseSections(body) {
   const lines = body.split('\n')
+  const inFence = fenceMask(lines)
   let title = null
   const sections = {}
   let current = null
@@ -64,9 +65,12 @@ function parseSections(body) {
   const flush = () => {
     if (current !== null) sections[current] = buf.join('\n').trim()
   }
-  for (const line of lines) {
-    const h1 = /^#\s+(.*)$/.exec(line)
-    const h2 = /^##\s+(.*)$/.exec(line)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    // A `#`/`##` inside a fenced code block is example text, not a real heading —
+    // treat it as body content so it can't start a phantom section.
+    const h1 = inFence[i] ? null : /^#\s+(.*)$/.exec(line)
+    const h2 = inFence[i] ? null : /^##\s+(.*)$/.exec(line)
     if (h1 && title === null) {
       title = h1[1].trim()
       continue

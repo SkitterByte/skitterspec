@@ -87,6 +87,35 @@ const PROJECT = {
   ],
 }
 
+test('a ## heading inside a fenced code block is not a real section', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-fence-'))
+  const overview = [
+    '# Spec',
+    '',
+    '## Solution overview',
+    '',
+    'We render a template like:',
+    '',
+    '```md',
+    '## Not A Real Section',
+    'example body',
+    '```',
+    '',
+    'and that is the end of the real solution text.',
+    '',
+    '## Open questions',
+    '',
+    '- [ ] a real question',
+  ].join('\n')
+  fs.writeFileSync(path.join(dir, '00-overview.md'), overview, 'utf-8')
+  const { sections } = readSnapshot(dir, config)
+  assert.ok(!('Not A Real Section' in sections), 'fenced ## must not start a section')
+  // the fenced example stays inside the section it was written in
+  assert.match(sections['Solution overview'], /## Not A Real Section/)
+  assert.match(sections['Solution overview'], /end of the real solution text/)
+  assert.ok('Open questions' in sections)
+})
+
 test('the local projection is exactly the configured field set', () => {
   const local = normalizeLocal(fixtureSpec(), config)
   assert.deepStrictEqual(Object.keys(local).sort(), Object.keys(config.sync.fieldOwnership).sort())

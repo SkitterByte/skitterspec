@@ -174,6 +174,45 @@ for (const indent of [2, 4, 6]) {
   })
 }
 
+// A spec often documents a checklist FORMAT inside a fenced code block. Those
+// example bullets are not real tasks — harvesting them would push phantom
+// tracker issues. findTaskBlocks must skip anything inside a ``` / ~~~ fence.
+
+test('example checkboxes inside a ``` fence are not harvested as tasks', () => {
+  const blocks = findTaskBlocks([
+    '## Tasks',
+    '',
+    '- [ ] Real task one',
+    '- [x] Real task two',
+    '',
+    'The format we use looks like:',
+    '',
+    '```markdown',
+    '- [ ] Example placeholder task',
+    '- [ ] Another example',
+    '```',
+    '',
+    '- [ ] Real task three',
+  ])
+  assert.strictEqual(blocks.length, 3, 'only the three real tasks, no fenced examples')
+  assert.deepStrictEqual(
+    blocks.map((b) => b.text),
+    ['Real task one', 'Real task two', 'Real task three'],
+  )
+})
+
+test('example checkboxes inside a ~~~ fence are skipped too', () => {
+  const blocks = findTaskBlocks([
+    '- [ ] Real one',
+    '~~~',
+    '- [ ] fenced example',
+    '~~~',
+    '- [ ] Real two',
+  ])
+  assert.strictEqual(blocks.length, 2)
+  assert.deepStrictEqual(blocks.map((b) => b.text), ['Real one', 'Real two'])
+})
+
 test('a bare + continuation at the hang (indent 6) still joins', () => {
   // The 8.0.4 fix must survive: a bare marker at the hanging indent is prose.
   const [block] = findTaskBlocks([

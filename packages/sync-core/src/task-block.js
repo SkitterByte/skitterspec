@@ -26,6 +26,35 @@ const LIST_MARKER_RE = /^[ \t]*(?:[-*+]|\d+\.)\s/
 // at any indent. (A bare list marker is ambiguous; a checkbox never is.)
 const CHECKBOX_RE = /^[ \t]*[-*+]\s*\[[ xX]\]/
 
+// Mark every line that lies inside a fenced code block — the opening fence, its
+// content, and the closing fence all count as `true`. Line scanners that hunt
+// for markdown structure (task bullets, section headings) use this to ignore an
+// EXAMPLE of that structure shown inside a fence: a spec that documents a
+// checklist format in a ``` block must not have those example bullets harvested
+// as real tasks (and pushed as real tracker issues). Supports ``` and ~~~ fences
+// of any length ≥ 3; a closing fence is a bare marker (no info string) of the
+// same character and at least the opening length.
+function fenceMask(lines) {
+  const mask = new Array(lines.length).fill(false)
+  let open = null // the opening marker string (``` or ~~~ …), or null
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
+    if (open) {
+      mask[i] = true
+      if (/^(`{3,}|~{3,})$/.test(trimmed) && trimmed[0] === open[0] && trimmed.length >= open.length) {
+        open = null
+      }
+      continue
+    }
+    const m = /^[ \t]*(`{3,}|~{3,})/.exec(lines[i])
+    if (m) {
+      open = m[1]
+      mask[i] = true
+    }
+  }
+  return mask
+}
+
 // Collapse a wrapped bullet's lines into the single logical line the rest of the
 // sync engine (and Linear) works in.
 function collapse(text) {
@@ -84,7 +113,9 @@ function spanMask(body) {
  */
 function findTaskBlocks(lines) {
   const blocks = []
+  const inFence = fenceMask(lines)
   for (let i = 0; i < lines.length; i++) {
+    if (inFence[i]) continue // an example bullet inside a ``` block is not a task
     const m = TASK_START_RE.exec(lines[i])
     if (!m) continue
     const parts = [m[3]]
@@ -95,6 +126,7 @@ function findTaskBlocks(lines) {
     for (; j < lines.length; j++) {
       const l = lines[j]
       if (!l.trim()) break
+      if (inFence[j]) break // a fence opening ends the bullet, never continues it
       if (!CONTINUATION_RE.test(l)) break
       if (BLOCK_BREAK_RE.test(l)) {
         // Indent alone can't tell a nested child from a wrapped continuation —
@@ -199,6 +231,7 @@ function inferWidth(lines, fallback = DEFAULT_WIDTH) {
 }
 
 module.exports = {
+  fenceMask,
   findTaskBlocks,
   renderTaskBlock,
   wrapEmphasisAware,
