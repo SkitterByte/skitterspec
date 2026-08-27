@@ -1,7 +1,7 @@
 # Linear project selection & issue intake
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 2 (Phase 1 done 2026-08-27)
+> **Status:** In Progress — Phase 3 (Phase 2 done 2026-08-27)
 > **Name:** feat-linear-project-and-intake
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
@@ -126,6 +126,8 @@ the issue's identifier, leave its project alone.
 | CLI command | add | `spec-sync linked --json` (adopted identifiers, offline) |
 | Domain object | none | push plan unchanged — `projectId` is already skill-applied |
 | Seam | add | `spec-tracker-intake` (fragment + markers in `/spec`, `/spec-bug`) |
+| Seam | add | `spec-project-picker` (fragment + markers in `/spec`, `/spec-push`) |
+| Build | update | `overlayTree` composes provider assets instead of copying |
 | Seam | update | `spec-tracker-link` — project picker before minting |
 | Skill/rule | update | `/spec-push` step 4.1 picks a project instead of reading config |
 | Skill/rule | update | `/spec`, `/spec-bug` accept an issue ref / `--from-issue` |
@@ -139,7 +141,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Config, MCP ops & the `linked` CLI | ✅ | [01-config-mcp-linked.md](01-config-mcp-linked.md) |
-| 2 | Project picker on mint (`/spec` + `/spec-push`) | ⬜ | [02-project-picker.md](02-project-picker.md) |
+| 2 | Project picker on mint (`/spec` + `/spec-push`) | ✅ | [02-project-picker.md](02-project-picker.md) |
 | 3 | Issue intake seam & adoption | ⬜ | [03-issue-intake.md](03-issue-intake.md) |
 | 4 | Bug routing, docs & 9.1.0 release | ⬜ | [04-bug-routing-docs-release.md](04-bug-routing-docs-release.md) |
 
@@ -173,3 +175,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   frontmatter parser and bucket list instead of duplicating them. `searchIssues`
   rides the already-discovered `issueList` op, so intake adds no required MCP tool
   — only `projectList` is new, and it stays optional.
+- 2026-08-27 — Phase 2 done. Single-sourcing the picker needed a build change:
+  `/spec-push` is a provider-only skill that `build-dist.js` overlaid
+  byte-for-byte, so a seam marker there would have shipped raw. `overlayTree` now
+  routes provider assets through `composeAssets`, and the picker is its own
+  `spec-project-picker` seam marked in both `/spec` and `/spec-push` — rather than
+  nesting a marker inside the `spec-tracker-link` fragment, which the
+  single-pass-by-design composer cannot expand.

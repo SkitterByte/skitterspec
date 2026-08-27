@@ -226,3 +226,5 @@ while the repo stays the source of truth — follow the provider's link steps
 below (nothing to do here without one).
 
 <!-- seam:spec-tracker-link -->
+
+<!-- seam:spec-project-picker -->

@@ -10,6 +10,7 @@ const { seamNames, composeText, loadFragments, composeAssets } = require('./comp
 
 const COMMON_ASSETS = path.join(__dirname, '..', 'packages', 'common', 'assets')
 const LINEAR_SEAMS = path.join(__dirname, '..', 'packages', 'linear', 'assets', 'seams')
+const LINEAR_SKILLS = path.join(__dirname, '..', 'packages', 'linear', 'assets', 'skills')
 
 // Every seam name declared across common's shipped markdown assets.
 function commonSeamNames() {
@@ -126,5 +127,41 @@ test('guard: the linear provider supplies a fragment for every common seam', () 
       Object.prototype.hasOwnProperty.call(provided, name),
       `linear provides a fragment for seam:${name}`,
     )
+  }
+})
+
+// The provider's OWN skills are composed too (build-dist overlays them through
+// composeAssets), so a marker there must resolve as well — otherwise /spec-push
+// would ship a raw `<!-- seam:… -->` to users.
+test('guard: a seam used by the provider\'s own skills has a fragment too', () => {
+  const provided = loadFragments(LINEAR_SEAMS)
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(abs)
+      else if (entry.name.endsWith('.md')) {
+        for (const name of seamNames(fs.readFileSync(abs, 'utf8'))) {
+          assert.ok(
+            Object.prototype.hasOwnProperty.call(provided, name),
+            `linear provides a fragment for seam:${name} used by ${entry.name}`,
+          )
+        }
+      }
+    }
+  }
+  walk(LINEAR_SKILLS)
+})
+
+test('the project picker is single-sourced into both mint points', () => {
+  const out = tmp()
+  const fragments = loadFragments(LINEAR_SEAMS)
+  composeAssets(COMMON_ASSETS, out, fragments)
+  composeAssets(LINEAR_SKILLS, path.join(out, 'skills'), fragments)
+
+  for (const skill of ['spec', 'spec-push']) {
+    const text = fs.readFileSync(path.join(out, 'skills', skill, 'SKILL.md'), 'utf8')
+    assert.doesNotMatch(text, /seam:/, `${skill} seam filled`)
+    assert.match(text, /Picking the Linear Project/, `${skill} carries the picker`)
+    assert.match(text, /None \(team only\)/, `${skill} offers the no-project option`)
   }
 })

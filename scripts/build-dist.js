@@ -87,8 +87,12 @@ function copyTree(srcDir, dstDir, srcRoot) {
 }
 
 // Overlay `srcDir` onto an existing `dstDir` (provider files added/over base).
-function overlayTree(srcDir, dstDir) {
-  copyTree(srcDir, dstDir)
+// Overlay a provider's own assets onto the composed tree. `.md` files are put
+// through the same seam substitution as common's, so a provider skill can reuse
+// a fragment (e.g. the project picker, shared by /spec and /spec-push) instead of
+// keeping a second copy of it — and can never ship a raw marker.
+function overlayTree(srcDir, dstDir, fragments = {}) {
+  composeAssets(srcDir, dstDir, fragments)
 }
 
 // Fail the build if any built `.js` still carries a bare workspace require —
@@ -141,8 +145,8 @@ function buildLinear() {
   // Linear-only skills and the linear.config templates.
   const fragments = loadFragments(path.join(linear, 'assets', 'seams'))
   composeAssets(path.join(common, 'assets'), path.join(out, 'assets'), fragments)
-  overlayTree(path.join(linear, 'assets', 'skills'), path.join(out, 'assets', 'skills'))
-  overlayTree(path.join(linear, 'assets', 'core'), path.join(out, 'assets', 'core'))
+  overlayTree(path.join(linear, 'assets', 'skills'), path.join(out, 'assets', 'skills'), fragments)
+  overlayTree(path.join(linear, 'assets', 'core'), path.join(out, 'assets', 'core'), fragments)
 
   // src: common at the root; the engine + adapter vendored under vendor/. All JS
   // has its workspace requires rewritten relative to srcRoot.

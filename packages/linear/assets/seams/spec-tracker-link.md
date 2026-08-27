@@ -14,9 +14,10 @@ A spec is a Linear **issue**; each phase is a **sub-issue**; tasks are not synce
 - **Discover the Linear MCP tools at runtime** (don't hardcode names). If Linear
   isn't connected/authed, relay the fix and stop — leave the spec written and
   local; the user can link it later with `/spec-push`. Do nothing destructive.
-- **Create the Issue** from the spec: `title` from the spec title, `description`
-  from the `00-overview.md` plan, `team` = `linear.teamId`. Attach `project` =
-  `linear.projectId` when one is set (grouping under a "Specs" project).
+- **Pick the Project** — run the picker in **Picking the Linear Project** below,
+  then **create the Issue** from the spec: `title` from the spec title,
+  `description` from the `00-overview.md` plan, `team` = `linear.teamId`, and
+  `project` = the picked id (omitted when the user chose None).
 - **Create a sub-issue per phase** (the `mapping.phases` target — `subissue` by
   default): a child issue with `parentId` = the spec issue, named from each phase
   file, in execution order.

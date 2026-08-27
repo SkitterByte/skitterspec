@@ -45,7 +45,9 @@ issue-state NAME via `config.states` at apply time.
 ## 3. Discover the Linear MCP tools
 
 Discover the issue **read + create/update** tools at runtime (`get_issue`,
-`save_issue` — a single upsert covers create and update). If Linear isn't
+`save_issue` — a single upsert covers create and update), plus the **project
+list** tool if this push will mint the spec issue (see the picker below — it is
+optional; without it the picker is skipped, not failed). If Linear isn't
 connected or a needed tool is missing, relay the fix and stop, **writing
 nothing**.
 
@@ -56,22 +58,19 @@ config — Linear silently ignores an unknown issue state.
 
 ## 4. Apply the plan (order matters)
 
-1. **Spec issue** → if the overview has no `linear_identifier`, create it with
-   `save_issue` (`team` = `linear.teamId`; set `project` = `linear.projectId`
-   when configured, to group it; `title` from the spec title; `description` from
-   `plan.issue.description`; state from `plan.issue.state` via `config.states`).
-   Stamp the returned identifier into `00-overview.md` frontmatter as
-   `linear_identifier` (and `linear_url`). If it already exists and `plan.issue`
-   is present, update it by id.
+1. **Spec issue** → if the overview has no `linear_identifier`, this push
+   **mints** it: run the picker in **Picking the Linear Project** below, then
+   create it with `save_issue` (`team` = `linear.teamId`; `project` = the picked
+   id; `title` from the spec title; `description` from `plan.issue.description`;
+   state from `plan.issue.state` via `config.states`). Stamp the returned
+   identifier into `00-overview.md` frontmatter as `linear_identifier` (and
+   `linear_url`). If it already exists and `plan.issue` is present, **update it by
+   id and send no `project`** — its placement is Linear's from then on.
 2. **Sub-issues create** → for each, `save_issue` with `parentId` = the spec
    issue id (`name` → title, `goal` → description, `state` via `config.states`);
    stamp the returned id into its phase file as `linear_issue_id` (`ref` is the
    phase-file basename).
 3. **Sub-issues update** → `save_issue` by `id` (title/description/state).
-
-If `linear.projectId` is set but the Project is archived or missing, relay
-Linear's error and stop, **writing nothing** already stamped beyond what
-succeeded.
 
 Priority, labels, cycles and comments are Linear-native triage — do **not** push
 them; they're the PM's.
@@ -93,3 +92,5 @@ branch so the mirror-link rides in the PR.
 Summarise what was created/updated in Linear (the spec issue and its
 sub-issues) and confirm the snapshot was recorded. There is no pull — Linear is
 a generated mirror.
+
+<!-- seam:spec-project-picker -->
