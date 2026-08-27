@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-complete-cancel-self-block
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -98,6 +98,7 @@ exactly what the test now catches.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -106,3 +107,8 @@ exactly what the test now catches.
   pre-existing user work.
 - 2026-08-27 — Fixed: dirt check moved ahead of the edits; each skill now commits
   its own bookkeeping. Test green; full suite 468 green.
+- 2026-08-27 — Completed; fix in place, tests green (468). Nothing deferred.
+  Note: the fix only takes effect for this repo's own `.claude/skills` once this
+  branch lands — the symlinks point at the primary checkout, so the
+  `/spec-complete` run that finished this spec was still reading the pre-fix text
+  and followed the corrected flow deliberately.
