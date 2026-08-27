@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-task-subtree-bullets-dropped (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (started 2026-08-27)
+> **Status:** Complete (2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -130,6 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
 | 2026-08-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -163,3 +164,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   deeper than an open task — passes on all 91 phase files, so it needed no
   narrowing. Kept test-only (see the file header): it is a parser property, not
   a spec-authoring one, and `lintPhases` is the channel for the latter.
+- 2026-08-27 — Completed; all three phases done, 530 tests green (515 before).
+  Nothing deferred. Zero mirror churn: every linked spec projects byte-identically
+  to `main`, so no re-push is needed to adopt the fix.
