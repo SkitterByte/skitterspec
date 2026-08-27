@@ -23,12 +23,11 @@
   },
   "sync": {
     "baseDir": "specs/.core/linear-base",
-    "backupDir": "specs/.core/linear-backups",
     "fieldOwnership": {
-      "description": "both",
-      "workflowState": "pull",
-      "priority": "pull",
-      "labels": "pull"
+      "description": "push",
+      "milestones": "push",
+      "tasks": "push",
+      "workflowState": "push"
     },
     "localOnlySections": ["State log", "Changelog", "Open questions"],
     "keyedFields": {}

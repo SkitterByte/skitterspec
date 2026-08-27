@@ -1,10 +1,10 @@
 # @skitterbyte/skitterspec-linear
 
 Spec-driven development for [Claude Code](https://claude.com/claude-code), **with
-Linear hybrid-sync**. A strict **superset** of
+one-way Linear sync**. A strict **superset** of
 [`@skitterbyte/skitterspec`](https://www.npmjs.com/package/@skitterbyte/skitterspec):
-everything in the base filesystem workflow, plus git-like sync between a spec and
-its linked Linear project.
+everything in the base filesystem workflow, plus one-way sync from a spec up to
+its linked Linear project — the repo is canonical, Linear is a generated mirror.
 
 ```sh
 npx @skitterbyte/skitterspec-linear init
@@ -46,27 +46,26 @@ fuller guide):
    That file is the opt-in gate — until it exists, everything below is inert and
    the package behaves exactly like the base.
 
-4. **Link and sync** — `/spec` now creates a linked Linear Project (a Milestone
-   per phase) and stamps the id; then `/spec-status`, `/spec-pull`, `/spec-push`
-   keep the spec and its project in step. Optionally turn on the per-Milestone /
-   per-Issue **body round-trip** (see below).
+4. **Link and push** — `/spec` creates a linked Linear Project (a Milestone per
+   phase) and stamps the id; then `/spec-push` publishes the spec up and
+   `/spec-status` reports what would push. Sync is **one-way**: the repo is the
+   source of truth and Linear is a generated mirror.
 
 ## What the superset adds
 
 On top of the base skills (`/spec`, `/spec-go`, isolation, …):
 
-- **`/spec-status`** — read-only, per-field divergence (local-only / remote-only /
-  conflict / in-sync). Changes nothing.
-- **`/spec-pull [--force]`** — Linear → repo. Applies remote-only fields; refuses
-  to clobber a conflicting local edit unless `--force`.
-- **`/spec-push [--force]`** — repo → Linear. Ownership-respecting,
-  concurrency-checked; refuses if Linear moved since base unless `--force`.
+- **`/spec-status`** — read-only drift report: what the next push would create /
+  update, plus any workflow-state drift. Changes nothing.
+- **`/spec-push`** — repo → Linear, one-way. Diffs the spec against a committed
+  last-pushed snapshot and applies only what changed (project description +
+  status, milestones, issues), stamping the returned ids back into the spec.
 - **`spec-sync` CLI** (`skitterspec-linear spec-sync …`) — the deterministic
   engine behind the skills, for CI / local runs.
 
 The shared `/spec` and `/spec-go` skills come composed with the Linear steps
-filled in: `/spec` links a new spec to a Linear Project (a Milestone per phase),
-and `/spec-go` pulls first so you build against the current shared state.
+filled in: `/spec` links a new spec to a Linear Project (a Milestone per phase).
+There is no pull — the repo is already canonical, so `/spec-go` just builds.
 
 ## Opt-in
 
@@ -78,16 +77,15 @@ behaves exactly like the base.
 setup guide — connecting the `linear` MCP server, finding your team id, linking a
 spec, and a smoke test. Per-field docs live in `specs/.core/linear.config.md`.
 
-**What syncs:** by default the whole spec body travels as the Linear Project
-**`description`** (co-authored, push + pull); **status / priority / labels** are
-Linear-owned (pull only). **Field ownership** (`both` / `pull` / `push`) collapses
-conflicts — only a `both` field that moved on both sides is a real conflict, and
-`--force` backs up the losing side before winning. **Opt into a per-Milestone /
-per-Issue body round-trip** — phases ↔ Linear Milestones and tasks ↔ Issues,
-compared per item — by adding `milestones`/`tasks` to `sync.keyedFields` (see the
-"Body round-trip" section of `linear.config.md`); deletions there are report-only.
-**Base sidecars** (`specs/.core/linear-base/`) are committed; **backups**
-(`specs/.core/linear-backups/`) are gitignored.
+**What pushes:** the spec body travels as the Linear Project **`description`**,
+phases as **Milestones**, tasks as **Issues** (a short first-sentence title, the
+full task text as the description), and the lifecycle bucket sets the project's
+**workflow state**. Priority, labels, cycles and comments are **Linear-native
+triage** — the PM's to set in Linear; one-way sync neither pushes nor reads them,
+so they're never clobbered. A workflow-state a teammate moves in Linear is
+surfaced by `/spec-status` as drift and overwritten on the next push. **Last-pushed
+snapshots** (`specs/.core/linear-base/`, content hashes) are committed so push
+sends only what changed.
 
 Branch naming that embeds the Linear id lives in the isolation config
 (`env.config.json` → `branch.pattern` with `{identifier}`, `branch.identifierField:

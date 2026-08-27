@@ -2,7 +2,7 @@
   "name": "@skitterbyte/skitterspec-provider-linear",
   "version": "0.0.0",
   "private": true,
-  "description": "Linear ticketing provider for skitterspec — the MCP adapter, config, sync skills and seam fragments that layer Linear hybrid-sync onto the base workflow.",
+  "description": "Linear ticketing provider for skitterspec — the MCP adapter, config, sync skills and seam fragments that layer one-way Linear sync (repo → mirror) onto the base workflow.",
   "license": "MIT",
   "author": "Reuben Greaves",
   "type": "commonjs",

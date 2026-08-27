@@ -217,11 +217,11 @@ finish as above.
 ## Phase E — link to a ticketing provider (only if one is installed)
 
 **Only when a ticketing provider is installed and configured** (it ships the
-`/spec-push` · `/spec-pull` · `/spec-status` skills and a provider config under
+`/spec-push` · `/spec-status` skills and a provider config under
 `specs/.core/`). If none is present, skip this phase entirely — the spec stays
 local-only and `/spec` behaves exactly as above. When a provider is present, link
 the spec to the tracker after writing it, so status and discussion live there
-while the repo stays the co-authoring surface — follow the provider's link steps
+while the repo stays the source of truth — follow the provider's link steps
 below (nothing to do here without one).
 
 <!-- seam:spec-tracker-link -->

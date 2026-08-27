@@ -44,8 +44,8 @@ that scripted those CLI verbs keeps working.
 
 ## `@skitterbyte/skitterspec` v1 → v2 (tracker-free base)
 
-**v2 of the base package is tracker-free.** The Linear hybrid-sync feature — the
-`/spec-status`, `/spec-pull`, `/spec-push` skills, the `spec-sync` CLI, the
+**v2 of the base package is tracker-free.** The Linear sync feature — the
+`/spec-status`, `/spec-push` skills, the `spec-sync` CLI, the
 Linear-aware steps of `/spec` and `/spec-go`, and the `linear.config.*`
 templates — moved out of `@skitterbyte/skitterspec` into a separate **superset**
 distribution, `@skitterbyte/skitterspec-linear`. You now install exactly one:
@@ -83,7 +83,7 @@ Switching is one install plus a re-`init`:
    `specs/.core/linear.config.json`, and the committed base sidecars under
    `specs/.core/linear-base/` are read as-is. No re-linking, no re-sync.
 
-That's it — `/spec-status`, `/spec-pull`, `/spec-push`, and `skitterspec-linear
+That's it — `/spec-status`, `/spec-push`, and `skitterspec-linear
 spec-sync …` work exactly as before.
 
 ### One config note — branch naming

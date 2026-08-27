@@ -29,7 +29,7 @@ Ticketing sync is a **separate superset you install instead of this one**:
 | Install | You get |
 |---------|---------|
 | `@skitterbyte/skitterspec` | The base filesystem workflow. No tracker. |
-| `@skitterbyte/skitterspec-linear` | Everything here **plus** Linear hybrid-sync (`/spec-status` · `/spec-pull` · `/spec-push`, the `spec-sync` CLI). |
+| `@skitterbyte/skitterspec-linear` | Everything here **plus** one-way Linear sync (`/spec-status` · `/spec-push`, the `spec-sync` CLI) — repo canonical, Linear a generated mirror. |
 
 Install exactly one — the superset is a strict superset of this package.
 

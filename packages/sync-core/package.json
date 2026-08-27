@@ -2,7 +2,7 @@
   "name": "@skitterbyte/skitterspec-sync-core",
   "version": "0.0.0",
   "private": true,
-  "description": "Provider-neutral three-way spec↔tracker sync engine (normalize, compare, base, pull, push). No tracker-specific code.",
+  "description": "Provider-neutral one-way spec→tracker sync engine (normalize, plan-changes vs a last-pushed snapshot, push). Repo-canonical; no tracker-specific code.",
   "license": "MIT",
   "author": "Reuben Greaves",
   "type": "commonjs",

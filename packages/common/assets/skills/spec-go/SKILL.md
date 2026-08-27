@@ -129,12 +129,11 @@ Before writing any code for this phase, get the workspace clean:
   next phase on top of an uncommitted one. (Skip if this is the first phase —
   there's nothing prior to commit.)
 
-## 3b. Pull from the tracker first (only if a provider is installed)
+## 3b. Sync with the tracker (only if a provider is installed)
 
-**Only when a ticketing provider with a `/spec-pull` skill is installed** and the
-spec is linked to the tracker. Otherwise skip this step — no provider means zero
-change to the flow below. Follow the provider's pull steps below (nothing to do
-here without one).
+**Only when a ticketing provider is installed** and the spec is linked to the
+tracker. Otherwise skip this step — no provider means zero change to the flow
+below. Follow the provider's steps below (nothing to do here without one).
 
 <!-- seam:spec-go-pull -->
 
