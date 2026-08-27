@@ -28,10 +28,16 @@ Then:
 2. **Read the issue** with the discovered issue-read tool: title, description,
    labels, reporter, URL. If Linear isn't connected, say so and offer to carry on
    without it — a spec written from the user's own description is still a spec.
-3. **Route bugs away.** If any label matches `intake.bugLabels`, this is a bug
-   report: say so and tell the user to run **`/spec-bug <ISSUE-REF>`** instead of
-   authoring a Feature spec here. (In `/spec-bug`, this phase behaves identically —
-   adopt the issue, then reproduce as usual.)
+3. **Route bugs away — in `/spec` only.** If any of the issue's labels matches
+   `intake.bugLabels` (case-insensitive), this is a bug report, not a feature
+   request. Say so, name the matching label, and tell the user to run
+   **`/spec-bug <ISSUE-REF>`** — then stop, without authoring a Feature spec.
+   With `intake.bugLabels` unset nothing is routed and every issue is treated as a
+   feature request.
+
+   **In `/spec-bug` this step is skipped** — you are already in the bug path.
+   Adopt the issue, then reproduce it as usual: the issue body is your repro
+   material, and the failing test comes before the spec exactly as normal.
 4. **Seed, don't skip, the grill.** The issue's title becomes the working spec
    title and its description the starting material for **Problem** — quote the
    reporter's words rather than paraphrasing them away. Note the reporter and the
@@ -41,7 +47,9 @@ Then:
 ### Adopting the issue
 
 The issue **becomes** the spec's issue — it is not copied and no second issue is
-minted. After writing the spec:
+minted. This is identical in `/spec` and `/spec-bug`; only *when* it happens
+differs (`/spec` writes the spec in Phase B, `/spec-bug` in its step 4). Once the
+spec file exists:
 
 - **Stamp `linear_identifier` and `linear_url`** in `00-overview.md` frontmatter
   from the adopted issue. That is the whole link: every later skill

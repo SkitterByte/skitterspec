@@ -170,6 +170,21 @@ test('the intake seam reaches /spec and /spec-bug in the superset only', () => {
   }
 })
 
+test('a bug-labelled issue is routed to /spec-bug rather than specced as a feature', () => {
+  const out = tmp()
+  composeAssets(COMMON_ASSETS, out, loadFragments(LINEAR_SEAMS))
+
+  const spec = fs.readFileSync(path.join(out, 'skills', 'spec', 'SKILL.md'), 'utf8')
+  assert.match(spec, /intake\.bugLabels/, '/spec knows the bug labels')
+  assert.match(spec, /\/spec-bug <ISSUE-REF>/, '/spec hands off rather than authoring')
+
+  // /spec-bug carries the same fragment, so adoption is identical there — but it
+  // must not bounce the user onward in a loop.
+  const bug = fs.readFileSync(path.join(out, 'skills', 'spec-bug', 'SKILL.md'), 'utf8')
+  assert.match(bug, /In `\/spec-bug` this step is skipped/, 'no /spec-bug → /spec-bug loop')
+  assert.match(bug, /becomes\*\* the spec's issue/, 'adoption applies in the bug path too')
+})
+
 test('adoption never mints: the intake fragment forbids picker and base sidecar', () => {
   const out = tmp()
   composeAssets(COMMON_ASSETS, out, loadFragments(LINEAR_SEAMS))
