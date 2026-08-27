@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-mirror-fidelity (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (started 2026-08-27)
+> **Status:** Complete (2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -138,6 +138,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
 | 2026-08-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -180,3 +181,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-27 — Phase 5: the docs-claims guard caught `packages/common/README.md`
   asserting "tasks are not synced" — a surface missing from the phase's own task
   list. All five phases are now done; the spec is ready for `/spec-complete`.
+- 2026-08-27 — Completed; all five phases done, 515 tests green. Nothing
+  deferred. Not yet pushed to Linear — `/spec-push` would mirror it as Done.
