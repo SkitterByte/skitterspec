@@ -27,6 +27,12 @@ Before marking complete, confirm the work is actually finished:
 - If genuinely incomplete work remains, **stop and tell the user** rather than
   forcing completion. Offer to finish it (`/spec-go`) or to complete with the
   remaining items explicitly listed as deferred.
+- **Check for pre-existing uncommitted changes — before you touch anything.**
+  Run `git status`. Anything already uncommitted is the *user's* work (a
+  half-finished phase, a stray fix) and must not be swept into the completion
+  commit: offer `/commit` and **stop**. Everything this skill writes in steps 3–4
+  is its own, and step 4 commits that.
+
 
 ## 3. Update the spec
 
@@ -40,17 +46,28 @@ Before marking complete, confirm the work is actually finished:
   `- <YYYY-MM-DD> — Completed; all phases done, tests green.`
   (Note any consciously-deferred items here too.)
 
-## 4. Move to complete
+## 4. Move to complete — and commit it
 
 `mkdir -p specs/complete` then **`git mv`** the file or folder:
 `git mv "specs/in-progress/<name>" "specs/complete/<name>"` (preserve history;
 move the whole folder). The `specs/complete/` folder is the record of finished
 specs — `git log`/the per-spec State log give the completion order.
 
+Then **commit the completion edits** — steps 3–4 are this skill's own output, so
+it finishes its own work rather than handing you a dirty tree:
+
+```
+git add specs/ && git commit -m "chore(spec): complete <name>"
+```
+
+Step 2 established the tree was otherwise clean, so this commits exactly the
+status flip and the move — nothing of yours rides along. **This is what lets step
+6 land:** `integrate` refuses a dirty worktree, so without committing here the
+skill would block on the very edits it just made. Do not `git push`.
+
 ## 5. Report
 
-Confirm the move, the final test result, and list anything deferred. Do **not**
-`git commit` unless the user asks.
+Confirm the move, the commit, the final test result, and list anything deferred.
 
 ## 6. Land the branch (opt-in, only if isolated)
 
@@ -65,8 +82,9 @@ destination in one flow. **How it lands depends on the spec type:**
 A hotfix is built on an old release **tag**, so it can't fast-forward onto `main`.
 Use the hotfix landing instead of the integrate steps below:
 
-1. **Require a clean worktree** — the completion edits (status flip, `git mv` to
-   `complete/`) must be committed first. If dirty, offer `/commit` and **stop**.
+1. **Require a clean worktree.** Step 4 already committed the completion edits, so
+   this should pass. If the tree is *still* dirty, that's unrelated work — offer
+   `/commit` and **stop**.
 2. **Plan + execute.** Run `skitterspec spec-env hotfix land <name>` — add
    `--also <tag>` for each extra release line to patch (test/demo on their own
    versions). Run the printed commands **in order**. It:
@@ -92,9 +110,9 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
 **`/spec-to-main`**: same rebase + fast-forward, but it leaves the spec
 `In Progress` and the worktree standing, and it's repeatable.)
 
-1. **Require a clean worktree.** The completion edits (status flip, the
-   `git mv` to `complete/`) must be committed first — integrate refuses a dirty
-   tree. If it's dirty, offer `/commit` and **stop**; don't auto-commit.
+1. **Require a clean worktree.** Step 4 already committed the completion edits, so
+   integrate's dirty-tree guard should pass. If the tree is *still* dirty, that's
+   unrelated work — offer `/commit` and **stop**; don't sweep it in.
    **If the spec is live** (you took the running instance with `/spec-live`):
    `integrate` is live-aware — it ends the live session first (releases the branch
    back to base, re-isolates it into its worktree, clears the receipt), then prints

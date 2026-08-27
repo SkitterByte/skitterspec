@@ -25,6 +25,10 @@ it verbatim/condensed for the header.
   tick anything that was actually completed before cancelling so the record is
   honest about what landed.
 - Note any partial/abandoned work so it isn't mistaken for unstarted.
+- **Check for pre-existing uncommitted changes — before you touch anything.**
+  Run `git status`. Anything already uncommitted is the *user's* work and must not
+  be swept into the cancellation commit: offer `/commit` and **stop**. Everything
+  this skill writes in steps 4–5 is its own, and step 5 commits that.
 
 ## 4. Stamp the spec
 
@@ -41,16 +45,27 @@ Append a **State log** row:
 Add a **Changelog** entry:
 `- <YYYY-MM-DD> — Cancelled: <reason>.`
 
-## 5. Move to cancelled
+## 5. Move to cancelled — and commit it
 
 `mkdir -p specs/cancelled` then **`git mv`** the file or folder:
 `git mv "specs/<bucket>/<name>" "specs/cancelled/<name>"` (preserve history;
 move the whole folder).
 
+Then **commit the cancellation edits** — this skill wrote them, so it commits
+them:
+
+```
+git add specs/ && git commit -m "chore(spec): cancel <name>"
+```
+
+**This matters more here than anywhere else.** Teardown (step 7) refuses a dirty
+worktree and offers `--force` as the way through — and forcing would destroy the
+cancellation record this skill just wrote. Committing first means teardown never
+needs `--force`. Do not `git push`.
+
 ## 6. Report
 
-Confirm the cancellation, the reason recorded, and the new location. Do **not**
-`git commit` unless the user asks.
+Confirm the cancellation, the reason recorded, the new location, and the commit.
 
 ## 7. Tear down the environment (opt-in, only if configured)
 

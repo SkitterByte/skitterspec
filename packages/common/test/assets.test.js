@@ -114,3 +114,43 @@ test('spec-review re-validates the Impact map as a drift check', () => {
 
 // The Linear config template/docs and the sync-command docs are provider assets —
 // covered in the linear package's assets test. (Base README Linear cleanup: Phase 4.)
+
+// A lifecycle skill that EDITS the spec (status flip + `git mv`) and then hits a
+// clean-tree guard must commit its own edits — otherwise it dirties the worktree
+// and then refuses to proceed because of that dirt, every single run. The guard
+// is still right for work the *user* left uncommitted; the fix is to check for
+// that BEFORE editing, not to stop after.
+const SELF_EDITING = ['spec-complete', 'spec-cancel']
+
+test('a self-editing lifecycle skill commits its own edits before the guard', () => {
+  for (const name of SELF_EDITING) {
+    const text = skillText(name)
+    // assert.ok, not assert.match — a failed match dumps the whole SKILL.md.
+    assert.ok(
+      /commit (its own|the) (completion|cancellation) edits/i.test(text),
+      `${name} commits the edits it made itself`,
+    )
+    assert.ok(/chore\(spec\):/.test(text), `${name} names the commit it makes`)
+    assert.ok(
+      !/Do \*\*not\*\* ?\n?`git commit` unless the user asks/.test(text),
+      `${name} must not blanket-forbid committing — it has to commit its own edits`,
+    )
+  }
+})
+
+test('a self-editing lifecycle skill checks for pre-existing dirt before editing', () => {
+  for (const name of SELF_EDITING) {
+    const text = skillText(name)
+    const pre = text.search(/pre-existing uncommitted changes/i)
+    assert.notStrictEqual(pre, -1, `${name} checks the tree before it edits`)
+    const move = text.search(/## \d\. Move to (complete|cancelled)/)
+    assert.notStrictEqual(move, -1, `${name} has its move step`)
+    assert.ok(pre < move, `${name} checks BEFORE the move, not after`)
+  }
+})
+
+test('/spec-to-main keeps the no-auto-commit rule — it edits nothing itself', () => {
+  const text = skillText('spec-to-main')
+  assert.ok(/don't auto-commit/.test(text), 'the rule is correct where dirt is the user\'s own work')
+  assert.ok(!/## \d\. Move to /.test(text), 'spec-to-main moves no spec, so it dirties nothing')
+})
