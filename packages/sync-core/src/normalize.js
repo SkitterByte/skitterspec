@@ -343,13 +343,18 @@ function readPhaseFiles(snapshotDir) {
       // both sides keeps a wrapped goal from diffing forever.
       const goal = collapseHyphenAware((/\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/.exec(body) || [])[1] || '')
       // Rendered as markdown checklist lines, ready to drop into a sub-issue
-      // description: indentation kept so nesting survives, the bullet marker
-      // normalised to `-`, and any inline `(KEY-123)` stamped on a legacy task
+      // description: indentation kept so nesting survives, each bullet keeping
+      // the marker its author wrote, and any inline `(KEY-123)` stamped on a legacy task
       // line stripped — those ids were per-task issues we no longer create, and
       // they read as noise in the mirror.
       const tasks = findTaskBlocks(body.split('\n')).map((b) => {
-        const parsed = parseTaskLine(`[${b.mark}] ${b.text}`)
-        return `${b.indent}- [${b.mark}] ${parsed ? parsed.text : b.text}`
+        // `findTaskBlocks` also returns the plain sub-bullets written underneath
+        // a task. They carry no checkbox, so they render as the bullet their
+        // author used — emitting `- [ ]` here would invent a task that does not
+        // exist in the repo.
+        const parsed = parseTaskLine(`[${b.checkbox ? b.mark : ' '}] ${b.text}`)
+        const text = parsed ? parsed.text : b.text
+        return b.checkbox ? `${b.indent}- [${b.mark}] ${text}` : `${b.indent}${b.marker} ${text}`
       })
       return {
         phase: file.replace(/\.md$/, ''),

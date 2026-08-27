@@ -117,7 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Claim subtree bullets in the parser (red→green) | ✅ | [01-parser-subtree.md](01-parser-subtree.md) |
-| 2 | Render them, and guard the writers | ⬜ | [02-projection-and-writers.md](02-projection-and-writers.md) |
+| 2 | Render them, and guard the writers | ✅ | [02-projection-and-writers.md](02-projection-and-writers.md) |
 | 3 | Coverage invariant — nothing goes unmirrored | ⬜ | [03-coverage-invariant.md](03-coverage-invariant.md) |
 
 ## Open questions
@@ -149,3 +149,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-27 — Phase 1: sub-bullets keep their own `marker` (`-`, `*`, `1.`)
   rather than being normalised to `-`, so an ordered sub-list survives the round
   trip. Not in the original plan; found while writing the fixtures.
+- 2026-08-27 — Phase 2: churn measured on this repo and it is **zero** — the
+  projection is byte-identical to `main` for all four linked specs, and the 11
+  sub-issue updates the plan reports are pre-existing drift (`main` reports the
+  same 11). No spec here writes sub-bullets under a task, so the new content path
+  is exercised only by fixtures. Decision 6 holds; no duplicates are minted.

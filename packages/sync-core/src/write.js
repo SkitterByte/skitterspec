@@ -128,6 +128,7 @@ function stampIssueId(snapshotDir, text, id) {
     const lines = fs.readFileSync(p, 'utf-8').split('\n')
     const width = inferWidth(lines)
     for (const b of findTaskBlocks(lines)) {
+      if (!b.checkbox) continue // a plain sub-bullet is not a task — never stamp one
       if (INLINE_ID_RE.test(b.text)) continue
       if (b.text !== want) continue
       const rendered = renderTaskBlock({ indent: b.indent, done: b.mark === 'x', text: want, id }, width)

@@ -162,3 +162,52 @@ test('turning checklists off again is also just an update', () => {
   assert.deepStrictEqual(plan.subIssues.create, [])
   assert.strictEqual(plan.subIssues.update.length, 1)
 })
+
+// A note written underneath a task is part of that task's content. It used to be
+// dropped by the parser entirely (bug-task-subtree-bullets-dropped); now it
+// reaches the mirror — as a plain bullet, never as a task that doesn't exist.
+const PHASE_WITH_NOTES = [
+  '# Phase 1 — Engine ⬜',
+  '',
+  '**Goal:** make the engine work.',
+  '',
+  '## Tasks',
+  '',
+  '- [ ] Wire the CLI',
+  '      - [x] Add the --json flag',
+  '            wrapped continuation',
+  '      - **Note:** the flag is positional',
+  '        and its default is off',
+  '      2. Second note',
+  '- [ ] Add tests',
+  '',
+].join('\n')
+
+test('a sub-bullet under a task reaches the checklist as a plain bullet', () => {
+  const goal = normalizeLocal(specDir(PHASE_WITH_NOTES), withTasks('checklist')).subIssues[0].goal
+  const lines = goal.split('\n').filter((l) => /^\s*(-|\d+\.)\s/.test(l))
+
+  assert.deepEqual(lines, [
+    '- [ ] Wire the CLI',
+    '      - [x] Add the --json flag wrapped continuation',
+    '      - **Note:** the flag is positional and its default is off',
+    '      2. Second note',
+    '- [ ] Add tests',
+  ])
+})
+
+test('a sub-bullet is never rendered as a checkbox', () => {
+  const goal = normalizeLocal(specDir(PHASE_WITH_NOTES), withTasks('checklist')).subIssues[0].goal
+  assert.ok(goal.includes('**Note:** the flag is positional'), 'the note is present at all')
+  assert.ok(!/\[[ x]\]\s*\*\*Note:\*\*/.test(goal), 'the note did not become a task')
+  // Three real checkboxes in the source, three in the mirror — no invention.
+  assert.equal((goal.match(/- \[[ x]\]/g) || []).length, 3)
+})
+
+test('nothing written under a task is missing from the checklist', () => {
+  const goal = normalizeLocal(specDir(PHASE_WITH_NOTES), withTasks('checklist')).subIssues[0].goal
+  for (const fragment of ['Wire the CLI', 'Add the --json flag', 'wrapped continuation',
+    'the flag is positional', 'its default is off', 'Second note', 'Add tests']) {
+    assert.ok(goal.includes(fragment), `"${fragment}" reached the mirror`)
+  }
+})
