@@ -3,7 +3,8 @@
 Opt-in config for the Linear sync (`/spec-status`, `/spec-push`, and the
 Linear-aware paths of `/spec` and `/spec-go`). Sync is **one-way**: the repo is
 the source of truth and the Linear **issue** is a **generated mirror**. A spec is
-a Linear issue and each phase a sub-issue; tasks are not synced. Content is
+a Linear issue and each phase a sub-issue; a phase's tasks ride along inside
+that sub-issue's description as a read-only checklist. Content is
 pushed up and never read back or merged — `/spec-push` diffs the spec against a
 committed **last-pushed snapshot** and applies only what changed; `/spec-status`
 is a read-only drift report. The `sync.fieldOwnership` map now just selects the
@@ -41,11 +42,14 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   },
 
   // How a spec's parts map onto Linear objects: a spec is an Issue, each phase a
-  // sub-issue (a child issue), tasks are not synced. These are the defaults.
+  // sub-issue (a child issue). `tasks` selects how a phase's checkboxes reach
+  // that sub-issue: "checklist" mirrors them into its description (default),
+  // "none" leaves the description as the phase's Goal line alone. Either way no
+  // issue is created per task. These are the defaults.
   "mapping": {
     "specFolder": "issue",
     "phases": "subissue",
-    "tasks": "none"
+    "tasks": "checklist"
   },
 
   // Map the spec's lifecycle bucket → the Linear ISSUE workflow-state name. Used
@@ -112,8 +116,18 @@ recreates:
 - **Phases → sub-issues.** Each phase file maps to a child issue (`parentId` = the
   spec issue). The link id lives in the phase file's frontmatter
   (`linear_issue_id`); its title ← the phase h1, its description ← the phase
-  `**Goal:**` line, its state ← the phase heading emoji (⬜/🔄/✅).
-- **Tasks are not synced.** Task checkboxes stay in the repo phase files only.
+  `**Goal:**` line plus its task checklist (see below), its state ← the phase
+  heading emoji (⬜/🔄/✅).
+- **Tasks are mirrored, not synced.** With `mapping.tasks: "checklist"` (the
+  default) a phase's checkboxes are rendered into its sub-issue's description as
+  a markdown checklist — nesting and `[x]` state preserved, any legacy inline
+  `(KEY-123)` stripped. No issue is created per task and nothing is read back, so
+  a box ticked in Linear is overwritten by the next push. Set `"none"` to keep
+  the description as the Goal line alone.
+
+  Turning this on (or off) changes every sub-issue's description, so the first
+  `/spec-push` afterwards reports every already-linked sub-issue as an update.
+  That is expected — they update in place and no duplicates are minted.
 
 Unlinked local items (a spec with no `linear_identifier`, a phase with no
 `linear_issue_id`) are created in Linear on the next `/spec-push`, which stamps

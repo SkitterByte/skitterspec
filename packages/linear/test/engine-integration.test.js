@@ -60,3 +60,20 @@ test('remoteWorkflowState maps a Linear issue state to the local bucket', () => 
   assert.strictEqual(remoteWorkflowState({ state: { name: 'Done' } }, config), 'complete')
   assert.strictEqual(remoteWorkflowState({ state: { name: 'In Progress' } }, config), 'in-progress')
 })
+
+test('the shipped default projects phase tasks as a checklist', () => {
+  // End to end through the REAL loader: sync-core's own fixtures pin
+  // `tasks: 'none'` to keep goal-extraction tests focused, so this is where the
+  // shipped default is proven to reach the plan a provider skill applies.
+  const { dir, specDir } = setup()
+  const { config } = loadLinearConfig(dir)
+  assert.strictEqual(config.mapping.tasks, 'checklist', 'the shipped default')
+
+  const { plan } = push({ dir, snapshotDir: specDir, identifier: ID, config })
+  const sub = plan.subIssues.create[0]
+  assert.match(sub.goal, /^a durable place\./, 'the goal still leads')
+  assert.match(sub.goal, /^## Tasks$/m)
+  assert.match(sub.goal, /^- \[x\] Wire the enqueue path$/m, 'done state survives')
+  assert.match(sub.goal, /^- \[ \] Add the outbox table\. More detail here\.$/m, 'wrapped task is one line')
+})
+

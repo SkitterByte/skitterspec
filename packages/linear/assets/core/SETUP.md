@@ -3,8 +3,9 @@
 A start-to-finish guide to getting `/spec-status` and `/spec-push` working against
 a real Linear workspace. Sync is **one-way**: the repo is the source of truth and
 the linked Linear **issue** is a **generated mirror** — content is pushed up, never
-read back or merged. A spec is a Linear issue and each phase a sub-issue; tasks are
-not synced. Covers the **Linear side** (connecting the MCP server, finding your
+read back or merged. A spec is a Linear issue and each phase a sub-issue, with the
+phase's tasks mirrored into that sub-issue's description as a read-only
+checklist. Covers the **Linear side** (connecting the MCP server, finding your
 team) that the config reference (`linear.config.md`) assumes you already have.
 
 > The whole feature is **opt-in**: until `specs/.core/linear.config.json` exists,

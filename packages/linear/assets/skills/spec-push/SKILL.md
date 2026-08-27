@@ -1,13 +1,14 @@
 ---
 name: spec-push
-description: Push a spec up to its linked Linear issue (repo → Linear, one-way). The repo is the source of truth; Linear is a generated mirror. A spec is a Linear issue and each phase a sub-issue; tasks are not synced. Runs `skitterspec spec-sync push` to get a create/update plan, applies it over MCP (issue description/state, phase sub-issues), stamps the returned ids back into the spec, then records the snapshot. Never reads Linear content back. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-push", "push to Linear", "update the Linear issue from this spec".
+description: Push a spec up to its linked Linear issue (repo → Linear, one-way). The repo is the source of truth; Linear is a generated mirror. A spec is a Linear issue and each phase a sub-issue, with the phase's tasks mirrored read-only into that sub-issue's description. Runs `skitterspec spec-sync push` to get a create/update plan, applies it over MCP (issue description/state, phase sub-issues), stamps the returned ids back into the spec, then records the snapshot. Never reads Linear content back. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-push", "push to Linear", "update the Linear issue from this spec".
 ---
 
 # /spec-push — send a spec up to Linear (one-way)
 
 Repo → Linear. The repo is the **source of truth**; Linear is a **generated
 mirror**. A spec is a Linear **issue**; each phase is a **sub-issue** (a child
-issue). Tasks are not synced — they live only in the repo phase files. This skill
+issue), and a phase's tasks are mirrored into that sub-issue's description as a
+read-only checklist — never as issues of their own. This skill
 computes what changed since the last push and applies it — it never reads Linear
 content back or merges. A person editing the mirror in Linear will see it
 overwritten on the next push.

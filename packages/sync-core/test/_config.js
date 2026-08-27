@@ -10,6 +10,12 @@
  */
 function neutralConfig() {
   return {
+    // `tasks: 'none'` is pinned deliberately, and diverges from the provider's
+    // shipped default ('checklist'): most tests here exercise goal EXTRACTION —
+    // wrapped continuations, keying, push idempotency — and a checklist appended
+    // to every goal would obscure what they assert. The shipped default is
+    // covered where it belongs: sync-task-checklist.test.js for the projection,
+    // and the linear package's config + engine-integration tests end to end.
     mapping: { specFolder: 'issue', phases: 'subissue', tasks: 'none' },
     states: {
       backlog: 'Backlog',

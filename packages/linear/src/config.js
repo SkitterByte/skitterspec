@@ -37,6 +37,13 @@ const CONFIG_FILE = join('specs', '.core', 'linear.config.json')
 
 const OWNERSHIP = Object.freeze(['both', 'pull', 'push'])
 
+// How a phase's task list is projected into its sub-issue description.
+//   checklist — mirror the tasks as a read-only markdown checklist (default)
+//   none      — sub-issue description is the phase's `**Goal:**` line alone
+// Tasks are never read back either way; the repo stays the source of truth and a
+// box ticked in the tracker is overwritten by the next push.
+const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
+
 const DEFAULT_CONFIG = Object.freeze({
   // `projectId` is the project picker's DEFAULT, not a mandate: `/spec` and the
   // first `/spec-push` offer the team's projects and pre-select this one; empty
@@ -52,7 +59,9 @@ const DEFAULT_CONFIG = Object.freeze({
   intake: Object.freeze({ label: '', bugLabels: Object.freeze([]) }),
   // A spec is a Linear ISSUE; each phase is a SUB-ISSUE of it; tasks are not
   // synced (they live only in the repo phase files).
-  mapping: Object.freeze({ specFolder: 'issue', phases: 'subissue', tasks: 'none' }),
+  // A spec is an ISSUE; each phase a SUB-ISSUE of it. `tasks` selects how the
+  // phase's checkboxes reach that sub-issue's description — see TASK_MAPPINGS.
+  mapping: Object.freeze({ specFolder: 'issue', phases: 'subissue', tasks: 'checklist' }),
   // Linear ISSUE workflow-state names — the spec issue's state (from the folder
   // bucket) and each sub-issue's state (from the phase emoji) both map through
   // this one table. They must match the workspace's issue states exactly;
@@ -183,6 +192,15 @@ function mergeConfig(base, parsed) {
     assign(base.mapping, parsed.mapping, 'specFolder', 'string')
     assign(base.mapping, parsed.mapping, 'phases', 'string')
     assign(base.mapping, parsed.mapping, 'tasks', 'string')
+    // Loud on a typo, like fieldOwnership above. Quietly falling back would make
+    // a misspelt value look like a deliberate `none` — the same silent
+    // degradation the phase-status lint exists to stamp out.
+    if (!TASK_MAPPINGS.includes(base.mapping.tasks)) {
+      throw new Error(
+        `Invalid ${CONFIG_FILE}: mapping.tasks = ${JSON.stringify(base.mapping.tasks)} ` +
+          `(expected one of ${TASK_MAPPINGS.join('|')})`,
+      )
+    }
   }
 
   if (isObject(parsed.states)) {
@@ -247,4 +265,5 @@ module.exports = {
   DEFAULT_CONFIG,
   CONFIG_FILE,
   OWNERSHIP,
+  TASK_MAPPINGS,
 }

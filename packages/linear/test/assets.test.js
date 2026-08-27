@@ -28,6 +28,19 @@ test('the Linear config template + docs ship under assets/core', () => {
 
 const seamText = (name) => fs.readFileSync(path.join(ASSETS, 'seams', `${name}.md`), 'utf8')
 
+test('the shipped example config matches the loader defaults it documents', () => {
+  // The example is copied verbatim into a new project, so a value that has
+  // drifted from the default silently opts every new install into old
+  // behaviour — `tasks: "none"` would strip the sub-issue checklists.
+  const example = JSON.parse(
+    fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.json.example'), 'utf8'),
+  )
+  const { DEFAULT_CONFIG } = require('../src/config.js')
+  assert.strictEqual(example.mapping.tasks, DEFAULT_CONFIG.mapping.tasks)
+  assert.strictEqual(example.mapping.phases, DEFAULT_CONFIG.mapping.phases)
+  assert.strictEqual(example.mapping.specFolder, DEFAULT_CONFIG.mapping.specFolder)
+})
+
 test('the spec-tracker-link seam fragment carries the Linear link step', () => {
   const text = seamText('spec-tracker-link')
   assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')

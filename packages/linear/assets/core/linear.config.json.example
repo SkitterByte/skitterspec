@@ -11,7 +11,7 @@
   "mapping": {
     "specFolder": "issue",
     "phases": "subissue",
-    "tasks": "none"
+    "tasks": "checklist"
   },
   "states": {
     "backlog": "Backlog",

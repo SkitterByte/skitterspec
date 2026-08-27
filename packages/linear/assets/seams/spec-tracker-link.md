@@ -9,7 +9,8 @@ Lifted verbatim from the pre-extraction /spec "Phase E".
 If it's absent, skip this phase entirely — the spec stays local-only and `/spec`
 behaves exactly as above. When present, after writing the spec, link it to Linear
 so status and discussion live there while the repo stays the co-authoring surface.
-A spec is a Linear **issue**; each phase is a **sub-issue**; tasks are not synced:
+A spec is a Linear **issue**; each phase is a **sub-issue**, carrying that
+phase's tasks in its description as a read-only checklist:
 
 - **Discover the Linear MCP tools at runtime** (don't hardcode names). If Linear
   isn't connected/authed, relay the fix and stop — leave the spec written and

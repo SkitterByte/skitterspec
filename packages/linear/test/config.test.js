@@ -29,7 +29,7 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(present, false)
   assert.strictEqual(config.mapping.specFolder, 'issue')
   assert.strictEqual(config.mapping.phases, 'subissue')
-  assert.strictEqual(config.mapping.tasks, 'none')
+  assert.strictEqual(config.mapping.tasks, 'checklist')
   assert.strictEqual(config.snapshot.overviewFile, '00-overview.md')
   assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base')
   assert.strictEqual(config.sync.fieldOwnership.description, 'push')
@@ -201,4 +201,21 @@ test('linear.projectId is the picker default — still merged, semantics only', 
   const dir = tmpDir()
   writeConfig(dir, { linear: { projectId: 'proj-uuid' } })
   assert.strictEqual(loadLinearConfig(dir).config.linear.projectId, 'proj-uuid')
+})
+
+test('mapping.tasks accepts checklist and none', () => {
+  for (const mode of ['checklist', 'none']) {
+    const dir = tmpDir()
+    writeConfig(dir, { mapping: { tasks: mode } })
+    assert.strictEqual(loadLinearConfig(dir).config.mapping.tasks, mode)
+  }
+})
+
+test('an unknown mapping.tasks throws rather than degrading to none', () => {
+  // A typo that quietly became `none` would strip every sub-issue's checklist
+  // and look deliberate — the same silent degradation the phase-status lint
+  // exists to stamp out. Fail loudly, as sync.fieldOwnership already does.
+  const dir = tmpDir()
+  writeConfig(dir, { mapping: { tasks: 'checklists' } })
+  assert.throws(() => loadLinearConfig(dir), /mapping\.tasks/)
 })

@@ -342,7 +342,15 @@ function readPhaseFiles(snapshotDir) {
       // and Linear may canonicalize a soft line break away on save. Collapsing
       // both sides keeps a wrapped goal from diffing forever.
       const goal = collapseHyphenAware((/\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/.exec(body) || [])[1] || '')
-      const tasks = findTaskBlocks(body.split('\n')).map((b) => `[${b.mark}] ${b.text}`)
+      // Rendered as markdown checklist lines, ready to drop into a sub-issue
+      // description: indentation kept so nesting survives, the bullet marker
+      // normalised to `-`, and any inline `(KEY-123)` stamped on a legacy task
+      // line stripped — those ids were per-task issues we no longer create, and
+      // they read as noise in the mirror.
+      const tasks = findTaskBlocks(body.split('\n')).map((b) => {
+        const parsed = parseTaskLine(`[${b.mark}] ${b.text}`)
+        return `${b.indent}- [${b.mark}] ${parsed ? parsed.text : b.text}`
+      })
       return {
         phase: file.replace(/\.md$/, ''),
         file,
@@ -472,6 +480,22 @@ function buildDescription(title, sections, localOnlySections, extraSkip = []) {
   return canonicalizeMarkdown(parts.join('\n\n')) || null
 }
 
+// A phase sub-issue's description: its `**Goal:**` line, plus the phase's task
+// list as a markdown checklist when `mapping.tasks` is `checklist`.
+//
+// The checklist is a READ-ONLY mirror like everything else here — the repo is
+// the source of truth, so a box ticked in the tracker is overwritten on the next
+// push. Without it a sub-issue is a title and one sentence, which is too thin to
+// act on; with it the phase is legible to someone working in the tracker without
+// tasks becoming individually-synced objects again.
+function subIssueBody(phase, tasksMode) {
+  if (tasksMode !== 'checklist' || !phase.tasks.length) return phase.goal
+  const parts = []
+  if (phase.goal) parts.push(phase.goal, '')
+  parts.push('## Tasks', '', ...phase.tasks)
+  return parts.join('\n')
+}
+
 /**
  * Normalize a local spec snapshot into the configured field set.
  */
@@ -489,6 +513,7 @@ function normalizeLocal(snapshotDir, config) {
   // so strip the `## Phases` index from the description to avoid duplicating it
   // (as prose AND as sub-issues) in the Linear mirror.
   const phasesProjected = !!(config.sync.fieldOwnership && 'subIssues' in config.sync.fieldOwnership)
+  const tasksMode = (config.mapping && config.mapping.tasks) || 'checklist'
   const extracted = {
     description: buildDescription(
       title,
@@ -499,11 +524,12 @@ function normalizeLocal(snapshotDir, config) {
     // Sub-issue projection: one per phase. `ref` is the phase-file basename — the
     // local handle the push skill stamps a newly-created sub-issue id back into.
     // `state` is the phase's status bucket (from its heading emoji), mapped to a
-    // Linear issue state via `config.states` at push time. Tasks are NOT
-    // projected — they live only in the repo phase files.
+    // Linear issue state via `config.states` at push time. Tasks ride along in
+    // the description as a read-only checklist (`mapping.tasks`), never as
+    // individually-synced objects.
     subIssues: phases
       .filter((p) => p.name)
-      .map((p) => ({ id: p.id, ref: p.phase, name: p.name, goal: p.goal, state: p.state })),
+      .map((p) => ({ id: p.id, ref: p.phase, name: p.name, goal: subIssueBody(p, tasksMode), state: p.state })),
     // Status is the spec's lifecycle bucket. The folder is the source of truth;
     // an explicit `spec_status` frontmatter key overrides it if present.
     workflowState:

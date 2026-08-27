@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-mirror-fidelity (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 3 (started 2026-08-27)
+> **Status:** In Progress — Phase 4 (started 2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -122,7 +122,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Document the H1 status convention in `/spec-review` | ✅ | [01-spec-review-convention.md](01-spec-review-convention.md) |
 | 2 | Three-way phase-status lint, surfaced by the CLI | ✅ | [02-status-lint.md](02-status-lint.md) |
-| 3 | Project phase tasks as a sub-issue checklist | ⬜ | [03-task-checklist.md](03-task-checklist.md) |
+| 3 | Project phase tasks as a sub-issue checklist | ✅ | [03-task-checklist.md](03-task-checklist.md) |
 | 4 | `spec-sync stamp` helper + move both call-sites | ⬜ | [04-stamp-helper.md](04-stamp-helper.md) |
 
 ## Open questions
@@ -159,3 +159,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-27 — Phase 2: dropped `pending` from the `Status:` word list after a
   test showed "pending review" reading as not-started. Decision 5's false-positive
   risk, found in practice.
+- 2026-08-27 — Phase 3: an unknown `mapping.tasks` throws rather than falling
+  back to `none`, matching `sync.fieldOwnership`'s precedent — a silent fallback
+  would be the same degradation Phase 2 fixes.
+- 2026-08-27 — Phase 3: `linear.config.json.example` still pinned
+  `"tasks": "none"` and would have opted every new install out of the default.
+  Fixed and guarded by an assets test comparing it to `DEFAULT_CONFIG`.
+- 2026-08-27 — Phase 3: churn measured on this repo — 3 linked specs, 11
+  sub-issue updates, 0 creates. Decision 7 holds; no duplicates are minted.

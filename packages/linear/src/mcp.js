@@ -4,7 +4,8 @@
  * The Linear MCP boundary — the one place that knows concrete Linear tool names.
  *
  * A spec is a Linear **issue** and each phase a **sub-issue** (a child issue
- * with a `parentId`); tasks are not synced. `discoverLinear(tools)` resolves the
+ * with a `parentId`); a phase's tasks are mirrored into its sub-issue
+ * description, never created as issues. `discoverLinear(tools)` resolves the
  * issue operations the sync needs (read / create / update an issue, optionally
  * list a parent's children) against the *connected* server's advertised tool
  * list at runtime, rather than hardcoding names that drift. If Linear isn't
