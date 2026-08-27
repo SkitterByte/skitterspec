@@ -1,7 +1,7 @@
 # One-way Linear sync — repo is the source of truth, Linear is a generated mirror
 
 > **Type:** Feature
-> **Status:** In Progress — all phases built, tests green (2026-08-27)
+> **Status:** Complete (2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -141,6 +141,7 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
 | 2026-08-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -159,4 +160,9 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
   content, `apply.js`; `cli-sync` push=JSON plan / status=drift report / pull
   removed; `/spec-pull` skill removed, `/spec-push` + `/spec-status` + seam +
   docs rewritten one-way; `spec-sanitise` demoted (+`--exclude`). Net −2000+
-  lines. Full suite 395 green. Remaining: cut `8.0.0`, cancel the folded hotfix.
+  lines. Full suite 395 green. Folded hotfix worktree/branch removed.
+- 2026-08-27 — Reframed the GitHub Pages site + surfaced a refinement: priority/
+  labels are Linear-native triage, so the project push payload is description +
+  status only (never clobbers a PM's triage).
+- 2026-08-27 — Completed; all phases done, tests green (395). Deferred to the
+  operator: cut + publish `skitterspec-linear@8.0.0` (breaking).
