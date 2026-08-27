@@ -450,3 +450,101 @@ test('parse rejects the removed release flags', () => {
   assert.throws(() => parse(['--releases']), /unknown option: --releases/)
   assert.throws(() => parse(['--product-name=Acme']), /unknown option/)
 })
+
+// --- a stale manifest hash must not pin a file out of updates ---------------
+//
+// `managedState` compared the file only against the hash the manifest recorded,
+// never against the package asset. So anything that changed a managed file
+// out-of-band left a stale hash, and that file was classified "customized"
+// forever — silently frozen at whatever version it was, unable to receive the
+// very fix that would have repaired it. Reported from the field after
+// skitterspec's own spec-sanitise damaged specs/.core/*.md.
+
+// Capture what resync prints, so the report can be asserted on.
+function captureResync(dir, opts) {
+  const orig = process.stdout.write
+  let out = ''
+  process.stdout.write = (chunk) => {
+    out += chunk
+    return true
+  }
+  try {
+    resync(dir, opts)
+  } finally {
+    process.stdout.write = orig
+  }
+  return out
+}
+
+test('a file matching the bundled asset is pristine despite a stale hash', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = specPlanning(dir)
+  const m = readManifest(dir)
+  m.files[one.relPath] = sha1('a hash from some other version')
+  writeManifest(dir, m.files)
+
+  // The file on disk is untouched — only the manifest went stale.
+  assert.strictEqual(managedState(dir, one.relPath, m, one.bundled), 'pristine')
+  // Without the asset to compare against there is nothing to heal from.
+  assert.strictEqual(managedState(dir, one.relPath, m), 'customized')
+})
+
+test('a stale hash no longer freezes a file out of an upstream change', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = specPlanning(dir)
+  const m = readManifest(dir)
+  m.files[one.relPath] = sha1('stale') // the file itself is NOT touched
+  writeManifest(dir, m.files)
+
+  const out = captureResync(dir, { claudeMd: false })
+
+  assert.ok(!/customized \(kept\)[\s\S]*spec-planning/.test(out), 'not reported as customized')
+  assert.strictEqual(readManifest(dir).files[one.relPath], sha1(one.bundled), 'manifest healed')
+})
+
+test('a restored file is unpinned, and the manifest heals itself', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = specPlanning(dir)
+  const abs = path.join(dir, one.relPath)
+
+  // 1. The manifest holds the hash of an OLDER release of this asset — the file
+  //    had been updated since. This is what makes the trap inescapable: damage
+  //    alone doesn't strand the manifest, a version gap does.
+  const m = readManifest(dir)
+  m.files[one.relPath] = sha1(one.bundled + '\n<!-- a previous release -->\n')
+  writeManifest(dir, m.files)
+
+  // 2. Something damages the file out-of-band (skitterspec's own sanitise pass,
+  //    in the field). resync correctly keeps it — it cannot know the edit
+  //    wasn't the user's.
+  fs.writeFileSync(abs, one.bundled.replace('Spec Planning', 'Spec- Planning'))
+  const kept = captureResync(dir, { claudeMd: false })
+  assert.match(kept, /customized \(kept\)/)
+  assert.match(fs.readFileSync(abs, 'utf8'), /Spec- Planning/, 'damage kept, not clobbered')
+
+  // 3. The user restores it byte-for-byte from the package. Before the fix the
+  //    stale hash still read "customized" and the file stayed frozen for good —
+  //    locked out of receiving the very fix that would have repaired it.
+  fs.writeFileSync(abs, one.bundled)
+  const healed = captureResync(dir, { claudeMd: false })
+
+  assert.strictEqual(readManifest(dir).files[one.relPath], sha1(one.bundled), 'manifest repaired')
+  assert.match(healed, /manifest repaired/, 'the repair is reported, not silent')
+  assert.match(healed, /spec-planning\.md/)
+})
+
+test('a genuinely edited file is still customized and kept', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const edited = anySkill(dir)
+  fs.appendFileSync(path.join(dir, edited.relPath), '\nMY EDITS\n')
+
+  const out = captureResync(dir, { claudeMd: false })
+
+  assert.match(out, /customized \(kept\)/)
+  assert.match(fs.readFileSync(path.join(dir, edited.relPath), 'utf8'), /MY EDITS/)
+  assert.ok(!/manifest repaired[\s\S]*spec\b/.test(out), 'an edited file is not "repaired"')
+})

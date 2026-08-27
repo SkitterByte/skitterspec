@@ -96,15 +96,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Compare against the bundled asset, and heal the manifest | ⬜ | [01-compare-to-bundled.md](01-compare-to-bundled.md) |
+| 1 | Compare against the bundled asset, and heal the manifest | ✅ | [01-compare-to-bundled.md](01-compare-to-bundled.md) |
 
 ## Open questions
 
-- [ ] `pruneRetiredManaged` (`init.js:269`) also calls `managedState`, but for a
-      file the current package no longer ships — there is no bundled asset to
-      compare against. Confirm during Phase 1 that it keeps its manifest-only
-      behaviour and that the signature change does not silently alter which
-      retired files are kept.
+- [x] **Resolved (Phase 1).** `pruneRetiredManaged` keeps manifest-only
+      comparison: `bundled` is an *optional* fourth argument, and that call site
+      passes none — there is no asset to compare a retired file against. Pinned
+      by the existing retired-file tests, which pass unchanged.
 
 ## State log
 
@@ -123,3 +122,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-27 — Noted that the trigger is already fixed (`ec2fc8c` makes
   `spec-sanitise` skip `.core`), which is why this is scoped to healing existing
   damage rather than preventing new damage.
+- 2026-08-27 — Phase 1: `managedState` gained an **optional fourth argument**
+  (`bundled`) rather than swapping `relPath` for the whole target, as the
+  Solution overview proposed. `pruneRetiredManaged` classifies a file the package
+  no longer ships, so it has no asset to pass; an optional argument states that
+  honestly and left its call site and the existing tests untouched. Resolves the
+  Open question.
+- 2026-08-27 — Phase 1: the first version of the restore test was wrong and
+  passed for the wrong reason — damaging a file does **not** strand the manifest,
+  because `resync` keeps the recorded baseline when it classifies something as
+  customized. The trap needs a *version gap*: the manifest holding an older
+  release's hash while the file on disk matches the current one. The test now
+  models that, which is what the field report actually described.

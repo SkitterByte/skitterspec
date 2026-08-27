@@ -53,7 +53,7 @@ const CORE_FILES = listCoreTemplates()
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
 
-const report = { created: [], updated: [], skipped: [], removed: [], customized: [], warnings: [] }
+const report = { created: [], updated: [], skipped: [], removed: [], customized: [], healed: [], warnings: [] }
 
 function resetReport() {
   for (const k of Object.keys(report)) report[k].length = 0
@@ -132,13 +132,24 @@ function writeManifest(dir, files) {
 
 // Classify a managed file against the manifest baseline.
 //   missing    — not on disk
-//   pristine   — on disk and matches the hash we recorded (ours to update)
-//   customized — on disk but differs (or unknown) — a user edit; keep it
-function managedState(dir, relPath, manifest) {
+//   pristine   — ours to update: it matches the package asset, or the hash we recorded
+//   customized — on disk but differs from both — a user edit; keep it
+//
+// `bundled` (the current package asset) is optional but decisive: a file whose
+// CONTENT equals what we ship is not customized, whatever the manifest says.
+// Without that check a stale hash pinned the file out of updates permanently —
+// anything that changed it out-of-band (an errant tool, a partial restore, a
+// manifest lost and re-seeded at the wrong version) froze it for good, silently.
+// Comparing content first makes the tool self-healing after any restore.
+// `pruneRetiredManaged` passes no `bundled` on purpose: the package no longer
+// ships that file, so there is nothing to compare it against.
+function managedState(dir, relPath, manifest, bundled) {
   const abs = path.join(dir, relPath)
   if (!fs.existsSync(abs)) return 'missing'
+  const onDisk = fs.readFileSync(abs, 'utf8')
+  if (bundled !== undefined && onDisk === bundled) return 'pristine'
   const known = manifest.files[relPath]
-  return known && sha1(fs.readFileSync(abs, 'utf8')) === known ? 'pristine' : 'customized'
+  return known && sha1(onDisk) === known ? 'pristine' : 'customized'
 }
 
 // Reconcile and persist the manifest after an install/resync run: keep prior
@@ -405,7 +416,7 @@ function isExistingSetup(dir) {
 // update; customized (edited) → keep + report, unless `force`.
 function resyncManagedFile(dir, target, manifest, force) {
   const { relPath, abs, bundled } = target
-  const state = managedState(dir, relPath, manifest)
+  const state = managedState(dir, relPath, manifest, bundled)
   const write = (bucket) => {
     ensureDir(path.dirname(abs))
     fs.writeFileSync(abs, bundled)
@@ -420,6 +431,10 @@ function resyncManagedFile(dir, target, manifest, force) {
   }
   // pristine — update only if the bundled content actually changed
   if (fs.readFileSync(abs, 'utf8') === bundled) {
+    // The file is ours and current, but the manifest disagreed — record the
+    // repair rather than healing in silence: a file that quietly starts
+    // updating again is as opaque as one that quietly stopped.
+    if (manifest.files[relPath] !== sha1(bundled)) report.healed.push(relPath)
     writtenHashes[relPath] = sha1(bundled)
     return report.skipped.push(relPath)
   }
@@ -513,6 +528,7 @@ function printReport(dir, mode) {
   line('updated', report.updated)
   line('removed', report.removed)
   line('customized (kept)', report.customized)
+  line('manifest repaired', report.healed)
   line('unchanged', report.skipped)
   if (report.warnings.length) {
     process.stdout.write('\nwarnings:\n')
