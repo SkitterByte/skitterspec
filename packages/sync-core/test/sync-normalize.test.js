@@ -101,6 +101,14 @@ test('localOnlySections are stripped from the description', () => {
   assert.doesNotMatch(local.description, /State log/)
 })
 
+test('the Phases index is stripped from the description (phases push as milestones)', () => {
+  const local = normalizeLocal(fixtureSpec(), config)
+  // milestones is in the projection, so the `## Phases` index must not also
+  // travel inside the description — no duplication in the mirror.
+  assert.doesNotMatch(local.description, /## Phases/)
+  assert.ok(local.milestones.length >= 1, 'phases are projected as milestones instead')
+})
+
 test('milestones are keyed {id,ref,name,goal} items read from the phase files', () => {
   const local = normalizeLocal(fixtureSpec(), config)
   assert.deepStrictEqual(local.milestones, [

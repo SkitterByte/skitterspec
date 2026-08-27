@@ -1,8 +1,8 @@
 'use strict'
 
 /**
- * Config loader for the Linear hybrid-sync feature (`/spec-status`, `/spec-pull`,
- * `/spec-push` and the Linear-aware paths of `/spec` and `/spec-go`).
+ * Config loader for the one-way Linear sync feature (`/spec-status`, `/spec-push`
+ * and the Linear-aware paths of `/spec` and `/spec-go`).
  *
  * Reads `specs/.core/linear.config.json` from the project root and normalises it
  * over frozen defaults. The feature is strictly opt-in: when the file is absent
@@ -54,21 +54,17 @@ const DEFAULT_CONFIG = Object.freeze({
   sync: Object.freeze({
     baseDir: 'specs/.core/linear-base',
     backupDir: 'specs/.core/linear-backups',
-    // The synced field set. Kept to the fields that genuinely round-trip through
-    // the live skill today: the project `description` (co-authored) plus the
-    // Linear-owned status/priority/labels (pull-only). A spec's phase/milestone,
-    // acceptance-criteria and task detail still travel *inside* `description` — a
-    // separate milestone/issue round-trip is a future extension (add the fields
-    // here to opt a workspace in). Any key you add joins the compared set.
-    // One-way (repo → Linear): every field is repo-owned and pushed. The
-    // `push` marker is kept for the projection field-set; there is no pull.
+    // One-way (repo → Linear): the projection field set the repo owns and pushes
+    // — the project `description`, `milestones` (one per phase), `tasks` (one
+    // issue each), and the lifecycle `workflowState`. There is no pull. Priority,
+    // labels, cycles and comments are Linear-native triage — deliberately NOT in
+    // the set, so the PM's triage is never touched. The `push` marker is retained
+    // for shape; any key you add joins the pushed projection.
     fieldOwnership: Object.freeze({
       description: 'push',
       milestones: 'push',
       tasks: 'push',
       workflowState: 'push',
-      priority: 'push',
-      labels: 'push',
     }),
     localOnlySections: Object.freeze(['State log', 'Changelog', 'Open questions']),
     // Fields that are keyed collections (arrays of objects with a stable id),

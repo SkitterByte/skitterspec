@@ -346,13 +346,16 @@ function buildDescription(title, sections, localOnlySections, extraSkip = []) {
  */
 function normalizeLocal(snapshotDir, config) {
   const { frontmatter, title, sections, phases } = readSnapshot(snapshotDir, config)
-  const milestonesKeyed = !!(config.sync.keyedFields && config.sync.keyedFields.milestones)
+  // Phases sync as first-class Milestones whenever `milestones` is in the pushed
+  // projection, so strip the `## Phases` index from the description to avoid
+  // duplicating it (as prose AND as milestones) in the Linear mirror.
+  const milestonesProjected = !!(config.sync.fieldOwnership && 'milestones' in config.sync.fieldOwnership)
   const extracted = {
     description: buildDescription(
       title,
       sections,
       config.sync.localOnlySections,
-      milestonesKeyed ? ['Phases'] : [],
+      milestonesProjected ? ['Phases'] : [],
     ),
     // Milestone projection items. `ref` is the phase-file basename — the local
     // handle the push skill stamps a newly-created milestone id back into.

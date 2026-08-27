@@ -32,14 +32,13 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base')
   assert.strictEqual(config.sync.fieldOwnership.description, 'push')
   assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
-  // One-way: the projection is milestones + issues + description + scalars.
+  // One-way: the projection is description + milestones + issues + workflow
+  // state. Priority/labels are Linear-native triage — not in the set.
   assert.deepStrictEqual(Object.keys(config.sync.fieldOwnership), [
     'description',
     'milestones',
     'tasks',
     'workflowState',
-    'priority',
-    'labels',
   ])
   assert.deepStrictEqual(config.sync.localOnlySections, ['State log', 'Changelog', 'Open questions'])
 })
@@ -53,7 +52,7 @@ test('present config → present:true and merged over defaults', () => {
   assert.strictEqual(config.branch.pattern, '{identifier}')
   // untouched defaults
   assert.strictEqual(config.mapping.phases, 'milestone')
-  assert.strictEqual(config.sync.fieldOwnership.priority, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.tasks, 'push')
 })
 
 test('fieldOwnership overrides merge onto defaults and add new fields', () => {
