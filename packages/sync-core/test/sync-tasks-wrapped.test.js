@@ -153,3 +153,32 @@ test('a genuine nested child (shallower than the hang) still breaks', () => {
   assert.strictEqual(blocks[0].text, 'Parent task with enough text to be real')
   assert.match(blocks[1].text, /Genuine nested child/)
 })
+
+// Regression (8.0.4): the marker-continuation fix keyed on indent, so a nested
+// checkbox AT the hanging indent (6, the default shape for hand-wrapped specs)
+// was swallowed into its parent — the parent then held the children's ids
+// mid-text (reading back id:null) and a push would orphan the live issues and
+// duplicate the parent. A checkbox is unambiguously a task: it must break at
+// ANY indent, while a bare `+`/`-`/`*` at the hang stays a continuation.
+for (const indent of [2, 4, 6]) {
+  test(`a nested checkbox at indent ${indent} breaks (never swallowed)`, () => {
+    const blocks = findTaskBlocks([
+      '- [x] Parent task with enough text to be real (REU-1)',
+      `${' '.repeat(indent)}- [x] Nested child (REU-2)`,
+      `${' '.repeat(indent)}- [ ] Second nested child (REU-3)`,
+    ])
+    assert.strictEqual(blocks.length, 3, `indent ${indent} must break, not swallow`)
+    assert.strictEqual(blocks[0].text, 'Parent task with enough text to be real (REU-1)')
+    assert.match(blocks[1].text, /Nested child \(REU-2\)$/)
+    assert.match(blocks[2].text, /Second nested child \(REU-3\)$/)
+  })
+}
+
+test('a bare + continuation at the hang (indent 6) still joins', () => {
+  // The 8.0.4 fix must survive: a bare marker at the hanging indent is prose.
+  const [block] = findTaskBlocks([
+    '- [x] Parent task with enough text to be real',
+    '      + prose tail that wrapped onto the next line',
+  ])
+  assert.strictEqual(block.text, 'Parent task with enough text to be real + prose tail that wrapped onto the next line')
+})

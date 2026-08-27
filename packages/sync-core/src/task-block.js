@@ -22,6 +22,9 @@ const BLOCK_BREAK_RE = /^[ \t]*(?:[-*+]\s|\d+\.\s|#{1,6}\s|>|\||```)/
 // A list-marker line (unordered or ordered). Distinguished from other block
 // breaks because a wrapped continuation can legitimately begin with one.
 const LIST_MARKER_RE = /^[ \t]*(?:[-*+]|\d+\.)\s/
+// A checkbox bullet — unambiguously a task, so it always starts its own block,
+// at any indent. (A bare list marker is ambiguous; a checkbox never is.)
+const CHECKBOX_RE = /^[ \t]*[-*+]\s*\[[ xX]\]/
 
 // Collapse a wrapped bullet's lines into the single logical line the rest of the
 // sync engine (and Linear) works in.
@@ -86,7 +89,7 @@ function findTaskBlocks(lines) {
     if (!m) continue
     const parts = [m[3]]
     // The hanging indent: where the bullet's text starts (marker width). A
-    // continuation aligns AT this column; a genuine nested bullet is SHALLOWER.
+    // wrapped continuation aligns exactly AT this column.
     const hang = lines[i].length - m[3].length
     let j = i + 1
     for (; j < lines.length; j++) {
@@ -94,14 +97,18 @@ function findTaskBlocks(lines) {
       if (!l.trim()) break
       if (!CONTINUATION_RE.test(l)) break
       if (BLOCK_BREAK_RE.test(l)) {
-        // A list-marker line is a real nested/sibling bullet only when indented
-        // shallower than the hanging indent. AT/after it, a line beginning with
-        // -/*/+/N. is wrapped continuation text, not a new bullet — keep it (else
-        // the task is truncated and its stamped id no longer matches, which makes
-        // the next push create a duplicate issue). Headings, quotes, tables and
-        // fences always break.
+        // Indent alone can't tell a nested child from a wrapped continuation —
+        // both sit at the hanging indent. The *marker* is the reliable signal:
+        //   - a checkbox (- [ ] / - [x]) is unambiguously a task → always break;
+        //   - a bare marker (-/*/+/N.) is wrapped continuation prose ONLY when it
+        //     sits exactly at the hang; shallower or deeper it's a real sub/
+        //     sibling list → break. (Keeping the at-hang continuation preserves
+        //     the task's stamped id, so the next push updates instead of
+        //     creating a duplicate issue.)
+        //   - headings, quotes, tables and fences always break.
+        if (CHECKBOX_RE.test(l)) break
         const indent = l.length - l.trimStart().length
-        if (!LIST_MARKER_RE.test(l) || indent < hang) break
+        if (!LIST_MARKER_RE.test(l) || indent !== hang) break
       }
       parts.push(l.trim())
     }
