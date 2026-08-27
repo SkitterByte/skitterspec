@@ -35,8 +35,9 @@ A spec is a Linear **issue**; each phase is a **sub-issue**; tasks are not synce
   Stamp each phase file's `linear_issue_id` with its sub-issue id. (Status is not
   stored in frontmatter — it comes from the spec's lifecycle folder.)
 - **Write the initial base sidecar** so the spec starts clean and non-diverged —
-  run `skitterspec spec-sync normalize <spec>` to capture the local snapshot as the
+  run `skitterspec spec-sync record <spec>` to capture the local snapshot as the
   committed base (`sync.baseDir`). `/spec-status` should report in-sync right after.
+  (`record` is the writer; `normalize` only *prints* the projection.)
 - **Echo the branch name** from `branch.pattern` so the user knows what `/spec-go`
   will fork.
 
