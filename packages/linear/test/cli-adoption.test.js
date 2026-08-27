@@ -49,7 +49,7 @@ function run(argv, cwd, { tty = false } = {}) {
 
 test('an adopted spec pushes as an update to the existing issue, not a new one', async () => {
   const dir = repoWithSpec({ identifier: ADOPTED })
-  const plan = JSON.parse(await run(['push', 'feat-adopted', '--json'], dir))
+  const plan = JSON.parse(await run(['push', 'feat-adopted', '--json', '--skip-state-check'], dir))
   // `issue` present with no create marker = save_issue keyed by the stamped
   // identifier. The skill supplies the id; the engine supplies the content.
   assert.ok(plan.issue, 'the spec description is pushed over the reporter\'s')
@@ -78,7 +78,7 @@ test('no base sidecar on adoption — the first push is never empty', async () =
     !fs.existsSync(path.join(dir, 'specs', '.core', 'linear-base', `${ADOPTED}.base.json`)),
     'adoption must not pre-record a snapshot',
   )
-  const text = await run(['push', 'feat-adopted'], dir, { tty: true })
+  const text = await run(['push', 'feat-adopted', '--skip-state-check'], dir, { tty: true })
   assert.doesNotMatch(text, /nothing to push/, 'the reporter\'s description gets overwritten')
   assert.match(text, new RegExp(`spec-sync push: ${ADOPTED}`), 'keyed by the adopted issue')
 })
@@ -90,7 +90,7 @@ test('after that first push is applied and recorded, the next one is empty', asy
   // and is legitimately re-created every time.
   stampSubIssueId(path.join(dir, 'specs', 'in-progress', 'feat-adopted'), '01-fix.md', 'SKI-124')
   await run(['record', 'feat-adopted'], dir)
-  const text = await run(['push', 'feat-adopted'], dir, { tty: true })
+  const text = await run(['push', 'feat-adopted', '--skip-state-check'], dir, { tty: true })
   assert.match(text, /nothing to push/)
 })
 

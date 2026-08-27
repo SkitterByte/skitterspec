@@ -184,10 +184,15 @@ With a linked spec, confirm push end-to-end:
   this session. Re-run step 2; remember a fresh add needs a Claude Code restart.
 - **"missing required tools: issueCreate"** — you're on the read-only endpoint
   (or a restricted API key). Use `https://mcp.linear.app/mcp` for push.
-- **A configured state name silently does nothing** — Linear ignores an unknown
-  issue state. Run `/spec-status` (it validates the `states` names against the
-  workspace) and fix `linear.config.json` to the real issue-state names
-  (`Backlog / Todo / In Progress / Done / Canceled`).
+- **"refusing — the configured issue states have not been validated"** — `push`
+  requires the workspace's issue-state names (`--workspace-states <file>`), which
+  `/spec-push` fetches for you. Run the skill rather than the CLI directly, or
+  pass the file yourself.
+- **"refusing — configured state name(s) not in the workspace"** — Linear ignores
+  an unknown issue state, so this is caught before the push rather than after.
+  Fix `linear.config.json` to the real issue-state names
+  (`Backlog / Todo / In Progress / Done / Canceled`). Upgrading from 8.x, the
+  value inverts: project status `Completed` → issue state `Done`.
 - **Reconnecting doesn't switch workspace** — Linear ties the OAuth session to one
   workspace. Remove and re-add the server to authenticate against another.
 - **Bold around an inline code span renders oddly in Linear** — Linear moves the

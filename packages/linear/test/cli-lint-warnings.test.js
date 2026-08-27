@@ -76,7 +76,7 @@ test('human status output carries the warning inline', async () => {
 
 test('push --json keeps stdout pure JSON and warns on stderr', async () => {
   const dir = fixtureRepo()
-  const r = await run(['push', 'feat-drifted', '--json'], dir)
+  const r = await run(['push', 'feat-drifted', '--json', '--skip-state-check'], dir)
   assert.strictEqual(r.code, 0, 'never blocks')
   assert.doesNotThrow(() => JSON.parse(r.out), `stdout must parse as JSON:\n${r.out}`)
   assert.doesNotMatch(r.out, /warning/, 'no warning leaked into the payload')
@@ -95,7 +95,7 @@ test('normalize keeps stdout pure JSON and warns on stderr', async () => {
 
 test('human push output carries the warning above the plan summary', async () => {
   const dir = fixtureRepo()
-  const r = await run(['push', 'feat-drifted'], dir)
+  const r = await run(['push', 'feat-drifted', '--skip-state-check'], dir)
   assert.strictEqual(r.code, 0)
   const warn = r.out.indexOf('warning 01-engine.md')
   const plan = r.out.search(/sub-issues create|nothing to push/)

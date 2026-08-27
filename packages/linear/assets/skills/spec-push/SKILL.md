@@ -20,10 +20,36 @@ tell the user how to enable Linear sync and stop.
 
 Use the argument, else the spec in context; ask if unclear.
 
-## 2. Get the plan from the engine
+## 2. Connect, and validate the issue states
+
+Discover the issue **read + create/update** tools at runtime (`get_issue`,
+`save_issue` — a single upsert covers create and update), plus the **project
+list** tool if this push will mint the spec issue (see the picker below — it is
+optional; without it the picker is skipped, not failed). If Linear isn't
+connected or a needed tool is missing, relay the fix and stop, **writing
+nothing**.
+
+Then fetch the workspace's issue workflow-state **names** and write them to a
+file as a JSON array (e.g. `["Backlog","In Progress","Done","Canceled"]`). Step 3
+requires that file: `push` **refuses to run** without it, because Linear silently
+ignores an unknown issue state — the description lands, the issue never moves,
+and nothing errors. If the check reports a name that isn't in the workspace, stop
+and fix `specs/.core/linear.config.json`.
+
+**If the check refuses, offer to fix it.** The refusal lists every configured
+name the workspace lacks, the workspace's real state names, and — where the
+bucket makes it unambiguous — which one to use instead. Relay that, then offer to
+apply it to `specs/.core/linear.config.json` → `states`, and do so on the user's
+confirmation. Never edit their config without asking, and never guess a bucket
+the refusal made no suggestion for — ask which state they want.
+
+`--skip-state-check` exists for the deliberate exception; do not reach for it to
+get past a failing check.
+
+## 3. Get the plan from the engine
 
 ```
-skitterspec spec-sync push <spec> --json
+skitterspec spec-sync push <spec> --workspace-states <file> --json
 ```
 
 The engine prints a JSON **plan** (no network, no remote read):
@@ -52,20 +78,6 @@ mirror and **abandons** the existing one. **Stop.** Relay `legacy.keys`,
 `legacy.files` and `legacy.orphanCount` ("this would orphan N live objects"),
 point at `MIGRATION.md` → "v8 → v9", and apply nothing until the user has
 migrated or explicitly confirms they want a new mirror.
-
-## 3. Discover the Linear MCP tools
-
-Discover the issue **read + create/update** tools at runtime (`get_issue`,
-`save_issue` — a single upsert covers create and update), plus the **project
-list** tool if this push will mint the spec issue (see the picker below — it is
-optional; without it the picker is skipped, not failed). If Linear isn't
-connected or a needed tool is missing, relay the fix and stop, **writing
-nothing**.
-
-**Validate the issue states first.** Fetch the workspace's issue workflow-state
-names and run `skitterspec spec-sync status <spec> --workspace-states <file>`; if
-it errors (a configured `states` name isn't in the workspace), stop and fix the
-config — Linear silently ignores an unknown issue state.
 
 ## 4. Apply the plan (order matters)
 

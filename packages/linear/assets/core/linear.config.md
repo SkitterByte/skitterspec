@@ -54,7 +54,12 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
 
   // Map the spec's lifecycle bucket → the Linear ISSUE workflow-state name. Used
   // for the spec issue's state (from its folder) AND each sub-issue's state (from
-  // the phase emoji). Names must match the workspace's issue states exactly.
+  // the phase emoji). Names must match the workspace's issue states exactly —
+  // Linear silently IGNORES an unknown state, so a typo pushes clean and the
+  // issue never moves. `/spec-push` fetches the workspace's names and `push`
+  // refuses to run without them, so a wrong name here fails loudly rather than
+  // quietly. (Upgrading from 8.x? The right value inverts: the project status
+  // `Completed` becomes the issue state `Done`.)
   "states": {
     "backlog": "Backlog",
     "in-progress": "In Progress",

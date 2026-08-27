@@ -10,6 +10,7 @@
  *
  *   spec-sync normalize <spec>   print the local projection (JSON)
  *   spec-sync push <spec>        print the create/update PLAN the skill applies
+ *                                (requires --workspace-states; see stateCheckFailure)
  *   spec-sync stamp <spec>       write returned ids back into the spec files
  *   spec-sync record <spec>      write the last-pushed snapshot (after apply)
  *   spec-sync status <spec>      read-only drift report (never writes)
@@ -35,6 +36,7 @@ const {
   isEmptyPlan,
   remoteWorkflowState,
   validateStates,
+  stateSuggestions,
   lintPhases,
   writeFrontmatter,
   stampSubIssueId,
@@ -178,13 +180,18 @@ function specSyncNormalize(dir, config, specArg, out, err) {
 // applies it over MCP then calls `record`.
 function specSyncPush(dir, config, specArg, flags, out, err) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
-  if (!snapshotDir) return
+  if (!snapshotDir) return 1
+  const failure = stateCheckFailure(config, flags)
+  if (failure) {
+    out.write(failure.join('\n') + '\n')
+    return 1
+  }
   const identifier = specIdentifier(snapshotDir, config)
   const r = push({ dir, snapshotDir, identifier, config })
   if (flags.json || !out.isTTY) {
     warnToErr(snapshotDir, config, err)
     out.write(JSON.stringify(r.plan, null, 2) + '\n')
-    return
+    return 0
   }
   const p = r.plan
   const lines = [`spec-sync push: ${identifier}`, ...warningLines(snapshotDir, config)]
@@ -197,6 +204,7 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
     lines.push('  (run with --json for the full plan the skill applies)')
   }
   out.write(lines.join('\n') + '\n')
+  return 0
 }
 
 // The pre-9.0 mirror block. Loud on purpose: the plan below it looks entirely
@@ -218,6 +226,62 @@ function legacyLines(legacy) {
   }
   out.push('     migrate first — see MIGRATION.md ("v8 → v9")')
   return out
+}
+
+/**
+ * Validate the configured `states` names against the workspace, for a command
+ * that REFUSES without them.
+ *
+ * The engine is offline — `mcp.js` is the skill's adapter, not ours — so the
+ * names have to be fetched over MCP and handed in via `--workspace-states`. That
+ * handoff used to be advisory: `/spec-push` told the agent to run it against
+ * `status`, and skipping it sent a state name Linear **silently ignores** (the
+ * description lands, the issue never moves, nothing errors). Requiring the file
+ * turns the one check that catches it from a convention into a precondition.
+ *
+ * Returns null when the caller may proceed, or the lines to print before exiting
+ * non-zero.
+ */
+function stateCheckFailure(config, flags) {
+  if (flags.skipStateCheck) return null
+  if (!flags.workspaceStates) {
+    return [
+      'spec-sync push: refusing — the configured issue states have not been validated',
+      '  pass --workspace-states <file> (a JSON array of the workspace\'s issue',
+      '  workflow-state names, which /spec-push fetches over MCP), or',
+      '  --skip-state-check to push anyway.',
+      '  Linear silently ignores an unknown issue state: the push would look',
+      '  clean and the issue would never move.',
+    ]
+  }
+  if (!fs.existsSync(flags.workspaceStates)) {
+    return [`spec-sync push: refusing — no such --workspace-states file: ${flags.workspaceStates}`]
+  }
+  let names
+  try {
+    names = JSON.parse(fs.readFileSync(flags.workspaceStates, 'utf-8'))
+  } catch (error) {
+    return [`spec-sync push: refusing — --workspace-states is not valid JSON: ${error.message}`]
+  }
+  const list = Array.isArray(names) ? names : []
+  const missing = validateStates(config, list)
+  if (missing.length) {
+    // Say what IS available, and what to use instead. "Done is not a state" sends
+    // you to the Linear UI to go and look; naming the replacement does not.
+    const lines = ['spec-sync push: refusing — configured state name(s) not in the workspace', '']
+    for (const { bucket, configured, suggestion } of stateSuggestions(config, list)) {
+      lines.push(`  states.${bucket}: "${configured}" is not an issue state in this workspace`)
+      if (suggestion) lines.push(`    use "${suggestion}" instead`)
+    }
+    lines.push(
+      '',
+      `  available: ${list.join(', ') || '(the workspace reported none)'}`,
+      '  Fix specs/.core/linear.config.json → states. Linear silently ignores an',
+      '  unknown issue state, so this would have pushed clean and moved nothing.',
+    )
+    return lines
+  }
+  return null
 }
 
 // A tracker id as it appears in a spec: `SKI-42`. Deliberately strict — the
@@ -369,12 +433,13 @@ async function specSync(rest, io = {}) {
   const [sub, ...args] = rest
   let dir = io.cwd || process.cwd()
   const positional = []
-  const flags = { json: false, remote: null, workspaceStates: null, issue: null, url: null, subs: [] }
+  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [] }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
     else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
+    else if (args[i] === '--skip-state-check') flags.skipStateCheck = true
     else if (args[i] === '--issue') flags.issue = args[++i]
     else if (args[i] === '--url') flags.url = args[++i]
     else if (args[i] === '--sub') flags.subs.push(args[++i])
@@ -396,8 +461,7 @@ async function specSync(rest, io = {}) {
       specSyncNormalize(dir, config, positional[0], out, err)
       return 0
     case 'push':
-      specSyncPush(dir, config, positional[0], flags, out, err)
-      return 0
+      return specSyncPush(dir, config, positional[0], flags, out, err) || 0
     case 'stamp':
       return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
@@ -409,7 +473,8 @@ async function specSync(rest, io = {}) {
       specSyncLinked(dir, config, flags, out)
       return 0
     default:
-      out.write('Usage: skitterspec spec-sync <normalize|push|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
+      out.write('Usage: skitterspec spec-sync <normalize|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
+        '       skitterspec spec-sync push <spec> --workspace-states <file> [--json] [--skip-state-check]\n' +
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
         '       skitterspec spec-sync linked [--json]\n')
       return 0

@@ -668,7 +668,43 @@ function validateStates(config, workspaceStates) {
   return configured.filter((name) => !have.has(name.toLowerCase().trim()))
 }
 
+// Words that identify a workspace state as belonging to a lifecycle bucket.
+// Used only to SUGGEST a replacement for a configured name the workspace does
+// not have — never to pick one silently. The 8→9 case this exists for is
+// `complete`, where the correct value inverts: the project status `Completed`
+// became the issue state `Done`, and no string-distance measure gets you from
+// one to the other.
+const BUCKET_WORDS = {
+  backlog: ['backlog', 'triage', 'todo', 'to do'],
+  'in-progress': ['in progress', 'in-progress', 'doing', 'started', 'in review'],
+  complete: ['done', 'complete', 'completed', 'shipped', 'merged', 'released'],
+  cancelled: ['canceled', 'cancelled', 'abandoned', "won't do", 'wont do', 'duplicate'],
+}
+
+/**
+ * For each configured state name the workspace lacks, what to use instead.
+ *
+ * `validateStates` says a name is wrong; this says what is right, which is the
+ * difference between an error you can act on and one you have to go look up.
+ *
+ * @returns {Array<{bucket:string, configured:string, suggestion:string|null}>}
+ */
+function stateSuggestions(config, workspaceStates) {
+  const names = (workspaceStates || []).map((s) => String(s)).filter(Boolean)
+  const have = new Set(names.map((n) => n.toLowerCase().trim()))
+  const out = []
+  for (const [bucket, configured] of Object.entries((config && config.states) || {})) {
+    if (typeof configured !== 'string') continue
+    if (have.has(configured.toLowerCase().trim())) continue
+    const words = BUCKET_WORDS[bucket] || []
+    const suggestion = names.find((n) => words.includes(n.toLowerCase().trim())) || null
+    out.push({ bucket, configured, suggestion })
+  }
+  return out
+}
+
 module.exports = {
+  stateSuggestions,
   normalizeLocal,
   lintPhases,
   readSnapshot,

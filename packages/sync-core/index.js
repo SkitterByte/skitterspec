@@ -10,7 +10,7 @@
  * over its API. No remote content is read or merged.
  */
 
-const { normalizeLocal, lintPhases, readSnapshot, parseFrontmatter, remoteWorkflowState, titleFromText, validateStates } = require('./src/normalize.js')
+const { normalizeLocal, lintPhases, readSnapshot, parseFrontmatter, remoteWorkflowState, titleFromText, validateStates, stateSuggestions } = require('./src/normalize.js')
 const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify } = require('./src/compare.js')
 const { readBase, writeBase } = require('./src/base.js')
 const { push, recordPush, projectionOf } = require('./src/push.js')
@@ -32,6 +32,7 @@ module.exports = {
   remoteWorkflowState,
   titleFromText,
   validateStates,
+  stateSuggestions,
   hashField,
   stableStringify,
   readBase,

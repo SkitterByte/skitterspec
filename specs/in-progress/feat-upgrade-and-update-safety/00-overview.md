@@ -110,14 +110,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `update` says what it skipped | ✅ | [01-update-reports-skipped.md](01-update-reports-skipped.md) |
 | 2 | Detect and report a pre-9.0 mirror | ✅ | [02-legacy-mirror-warning.md](02-legacy-mirror-warning.md) |
-| 3 | `push` refuses without validated states | ⬜ | [03-push-state-gate.md](03-push-state-gate.md) |
+| 3 | `push` refuses without validated states | ✅ | [03-push-state-gate.md](03-push-state-gate.md) |
 
 ## Open questions
 
-- [ ] Phase 3 is a **breaking CLI change** — a `push` invocation that worked
-      yesterday now exits non-zero. Land it as a major bump straight away, or
-      ship one minor where a missing `--workspace-states` warns loudly before it
-      refuses? Decide before starting Phase 3; Phases 1-2 are additive either way.
+- [x] **Resolved:** refuse in **both** cases now — a missing states file and a
+      bad state name both exit non-zero, with `--skip-state-check` as the
+      deliberate escape hatch. This is a breaking CLI change, so
+      `@skitterbyte/skitterspec-linear` needs a **major** bump (9.x → 10.0.0) when
+      released; the commit carries the `!` marker so the release notes file it
+      under *Action required*.
 
 ## State log
 
@@ -159,3 +161,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   just the Linear one — the single root guide documents the base's v1→v2 and
   v2→v3 moves as well. `build-dist` copies it and a test asserts the shipped copy
   is byte-identical to the root source and listed in `files`.
+- 2026-08-27 — Phase 3: the refusal now says what IS available, not just what is
+  wrong. Added `stateSuggestions` to the engine: it maps each failing bucket onto
+  a workspace state by lifecycle keyword, which is the only thing that solves the
+  actual 8→9 case — the workspace's `Completed` and the v9 default `Done` are
+  nowhere near each other by string distance, so a "did you mean" built on edit
+  distance would have been silent exactly where it was needed. Where no bucket
+  match exists it suggests nothing and lists the real states instead of guessing.
+- 2026-08-27 — Phase 3: `/spec-push` now offers to apply the suggested fix to
+  `linear.config.json`, with explicit consent. A refusal the agent can only relay
+  leaves the user doing the lookup the tool already did.
+- 2026-08-27 — Phase 3: the five existing `push` tests now pass
+  `--skip-state-check`. They assert other behaviour and predate the gate; making
+  them satisfy it would have tested the gate five times and their own subject
+  never.

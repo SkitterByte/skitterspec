@@ -78,3 +78,13 @@ test('SETUP.md tells 8.x users to read the migration guide', () => {
   assert.match(text, /Upgrading from 8\.x/)
   assert.match(text, /MIGRATION\.md/)
 })
+
+// A refusal the agent can only relay is half a fix — the skill has to offer to
+// apply it, and has to ask before writing the user's config.
+test('/spec-push offers to fix a bad state name, with consent', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-push', 'SKILL.md'), 'utf8')
+  assert.match(text, /--workspace-states/, 'the states file is passed to push')
+  assert.match(text, /refuses to run/, 'says the check is a precondition, not advice')
+  assert.match(text, /offer to\s*\n?apply it to `specs\/\.core\/linear\.config\.json`/, 'offers the fix')
+  assert.match(text, /[Nn]ever edit their config without asking/, 'and asks first')
+})
