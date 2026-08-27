@@ -608,6 +608,7 @@
         <div class="step-body">
           <h3><span class="cmd">/spec</span> Grill the idea into a spec <span class="step-where term-w">terminal</span></h3>
           <p>You describe what you want. Claude pushes back — edge cases, the data model, how you'll test it — until the shape is genuinely agreed, then writes it out as a phased folder in <code>specs/backlog/</code>. Nothing is coded yet; you're buying clarity first.</p>
+          <p>Work can arrive the other way round, too: <code>/spec SKI-188</code> starts from an existing Linear issue, and <code>/spec --from-issue</code> browses the ones your web app filed. That issue <em>becomes</em> the spec's issue — the reporter's thread stays where it is, and their words carry into the spec's Problem section.</p>
           <div class="mini-term">
 <div class="l"><span style="color:var(--accent)">›</span> /spec sort the task inbox by state + created date</div>
 <div class="l"><span style="color:var(--ink-faint)">  → 3 phases · 9 tasks · tests included</span></div>
@@ -621,9 +622,10 @@
         <div class="step-rail"><div class="step-num">2</div><div class="step-line"></div></div>
         <div class="step-body">
           <h3><span class="cmd">/spec-push</span> Publish it so the team can see it <span class="step-where linear-w">bridge</span></h3>
-          <p>Optional, and the part worth adopting: push publishes the spec as a <b>Linear issue</b> and each phase as a <b>sub-issue</b> (phase name, goal, and state), stamping the returned IDs back into your markdown. Tasks stay in the repo. Now a PM who never opens a terminal can see the plan.</p>
+          <p>Optional, and the part worth adopting: push publishes the spec as a <b>Linear issue</b> and each phase as a <b>sub-issue</b> (phase name, goal, and state), stamping the returned IDs back into your markdown. Tasks stay in the repo. You pick which <b>Project</b> it belongs to as it's created — after that, where it lives is Linear's business. Now a PM who never opens a terminal can see the plan.</p>
           <div class="mini-term">
 <div class="l"><span style="color:var(--accent)">›</span> /spec-push</div>
+<div class="l"><span style="color:var(--ink-faint)">  project?</span> <span style="color:var(--st-progress)">Task Inbox</span> <span style="color:var(--ink-faint)">· Billing · None (team only)</span></div>
 <div class="l"><span style="color:var(--ink-faint)">  created</span> <span style="color:var(--st-progress)">SKI-204</span> <span style="color:var(--ink-faint)">· issue + 2 sub-issues</span></div>
 <div class="l"><span style="color:var(--ink-faint)">  stamped linear_identifier into frontmatter</span> <span style="color:var(--st-complete)">✓</span></div>
           </div>

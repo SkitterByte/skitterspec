@@ -161,10 +161,21 @@ behave exactly as before.
 
 **Mapping** (config-driven): a spec → a Linear **issue** (the spec body as its
 description); each phase (`01-…`, `02-…`) → a **sub-issue** (phase name, `Goal:`,
-and phase-emoji state); tasks are **not** synced. An optional **Project**
-(`linear.projectId`) groups the spec issues. When linked, `/spec` creates the
+and phase-emoji state); tasks are **not** synced. When linked, `/spec` creates the
 issue + a sub-issue per phase and writes the linking frontmatter into
 `00-overview.md`.
+
+**Which Project** the spec issue belongs to is asked once, when the issue is first
+created: a filterable list of the team's projects, defaulting to
+`linear.projectId`, always offering *None*. It's sent on the create call only and
+never stored — so moving a spec issue between projects in Linear sticks, and never
+reads as drift.
+
+**Starting from an issue** (opt-in via `intake`): `/spec SKI-123` adopts an
+existing Linear issue, and `/spec --from-issue [query]` browses the ones labelled
+`intake.label` — what a web app or feedback form files. The issue *becomes* the
+spec's issue, so the reporter's thread survives and nothing is duplicated;
+`intake.bugLabels` route a report to `/spec-bug`, which adopts it the same way.
 
 **The lifecycle:**
 

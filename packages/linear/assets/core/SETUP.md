@@ -65,9 +65,10 @@ It calls the Linear `list_teams` tool and returns rows like:
 Skitterspec — e07c2b54-dcf6-4b6e-81bd-175a9bc79868  (key: SKI)
 ```
 
-Copy the `id` (the UUID). The `key` (e.g. `SKI`) is the short human handle. If you
-want a **Project** to group your spec issues, ask "list my Linear projects" and
-copy that id into `linear.projectId` (optional).
+Copy the `id` (the UUID). The `key` (e.g. `SKI`) is the short human handle. If most
+of your specs belong to one **Project**, ask "list my Linear projects" and copy
+that id into `linear.projectId` — it becomes the *default* the project picker
+pre-selects, not a fixed destination.
 
 ## 4. Scaffold the config
 
@@ -80,7 +81,11 @@ ids from step 3 — the team id is the only required field:
   "linear": {
     "teamKey": "SKI",
     "teamId": "e07c2b54-dcf6-4b6e-81bd-175a9bc79868",
-    "projectId": ""              // optional grouping Project
+    "projectId": ""              // optional: the project picker's default
+  },
+  "intake": {                    // optional: starting a spec from an issue
+    "label": "web-app",          // the inbox `/spec --from-issue` browses
+    "bugLabels": ["bug"]         // issues with these route to /spec-bug
   }
 }
 ```
@@ -94,8 +99,13 @@ Everything else (state names, field ownership) has sensible defaults — see
 A spec syncs once its `00-overview.md` frontmatter carries a `linear_identifier`.
 Two ways to get there:
 
-- **New spec:** run `/spec` — with Linear configured it offers to create a linked
-  Linear **issue** (one sub-issue per phase) and stamps the id for you.
+- **New spec:** run `/spec` — with Linear configured it asks which Project the
+  spec belongs to, creates a linked Linear **issue** (one sub-issue per phase) and
+  stamps the id for you.
+- **From an existing issue:** run `/spec SKI-123` to adopt that issue, or
+  `/spec --from-issue` to browse the `intake.label` inbox and pick one. The issue
+  becomes the spec's issue — nothing is duplicated. A bug-labelled issue routes to
+  `/spec-bug` instead.
 - **Existing spec / existing Linear issue:** add the id by hand. Ask Claude to
   "create a Linear issue for this spec" (or find an existing one's id), then set
   the frontmatter:

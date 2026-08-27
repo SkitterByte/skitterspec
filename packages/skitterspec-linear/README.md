@@ -63,9 +63,12 @@ On top of the base skills (`/spec`, `/spec-go`, isolation, …):
 - **`spec-sync` CLI** (`skitterspec-linear spec-sync …`) — the deterministic
   engine behind the skills, for CI / local runs.
 
-The shared `/spec` and `/spec-go` skills come composed with the Linear steps
-filled in: `/spec` links a new spec to a Linear issue (a sub-issue per phase).
-There is no pull — the repo is already canonical, so `/spec-go` just builds.
+The shared `/spec`, `/spec-bug` and `/spec-go` skills come composed with the
+Linear steps filled in: `/spec` asks which Linear **Project** the spec belongs to,
+then links it to a Linear issue (a sub-issue per phase). `/spec` and `/spec-bug`
+can also start **from** an existing issue — `/spec SKI-123`, or `/spec
+--from-issue` to browse the ones your web app filed. There is no pull — the repo
+is already canonical, so `/spec-go` just builds.
 
 ## Opt-in
 
@@ -84,10 +87,23 @@ issue's **workflow state**. Tasks are **not** synced — they stay in the repo p
 files. Priority, labels, cycles and comments are **Linear-native triage** — the
 PM's to set in Linear; one-way sync neither pushes nor reads them, so they're
 never clobbered. A workflow-state a teammate moves in Linear is surfaced by
-`/spec-status` as drift and overwritten on the next push. Set `linear.projectId`
-to group every spec issue under one Linear **Project**. **Last-pushed snapshots**
+`/spec-status` as drift and overwritten on the next push. **Last-pushed snapshots**
 (`specs/.core/linear-base/`, content hashes) are committed so push sends only what
 changed.
+
+**Which Project a spec lands in** is asked once, when the issue is first created
+— a filterable list of your team's projects, defaulting to `linear.projectId` and
+always offering *None*. It's passed on the create call only and never stored, so
+re-homing a spec issue in Linear sticks: it won't read as drift and won't be moved
+back on the next push.
+
+**Starting from an issue** (`intake.label` / `intake.bugLabels` in the config):
+`/spec SKI-123` adopts that issue, `/spec --from-issue [query]` browses the inbox.
+The issue *becomes* the spec's issue — the reporter's thread, comments and links
+stay put, their words are carried into the spec's **Problem**, and the first push
+replaces the description with the spec. A bug-labelled issue routes to
+`/spec-bug`, which adopts it the same way. `skitterspec-linear spec-sync linked`
+lists what's already adopted, so an issue never becomes two specs.
 
 Branch naming that embeds the Linear id lives in the isolation config
 (`env.config.json` → `branch.pattern` with `{identifier}`, `branch.identifierField:

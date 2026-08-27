@@ -30,7 +30,7 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   "linear": {
     "teamKey": "",        // human-facing key, e.g. "ENG" (optional)
     "teamId": "",         // Linear team UUID (the issue's team)
-    "projectId": ""       // optional Linear Project the spec issues are added to
+    "projectId": ""       // DEFAULT for the project picker (see below)
   },
 
   // Issue intake: `/spec <ISSUE-REF>` adopts any issue; `/spec --from-issue`
@@ -108,8 +108,7 @@ recreates:
 - **Spec → Issue.** The spec is one Linear issue. Its id lives in the overview
   frontmatter (`linear_identifier`); its `description` ← the overview plan (with
   the `Phases` index and local-only sections stripped); its workflow-state ← the
-  spec's lifecycle folder (`specs/<bucket>/`). Set `linear.projectId` to group
-  every spec issue under one Linear Project.
+  spec's lifecycle folder (`specs/<bucket>/`).
 - **Phases → sub-issues.** Each phase file maps to a child issue (`parentId` = the
   spec issue). The link id lives in the phase file's frontmatter
   (`linear_issue_id`); its title ← the phase h1, its description ← the phase
@@ -119,6 +118,40 @@ recreates:
 Unlinked local items (a spec with no `linear_identifier`, a phase with no
 `linear_issue_id`) are created in Linear on the next `/spec-push`, which stamps
 the new id back so they link from then on.
+
+## Which Project a spec issue belongs to
+
+`linear.projectId` is the **default**, not a mandate. When a spec issue is first
+created — by `/spec`, or by the first `/spec-push` if the spec was authored
+offline — you're offered the team's projects, filterable by name, with an explicit
+**None (team only)** option and this id pre-selected.
+
+The choice is passed on the **create call only**. It is never written into the
+spec, never recorded in the snapshot, and never sent on an update. So once the
+issue exists, where it lives is Linear's business: move it between projects and
+`/spec-status` will not call it drift and `/spec-push` will not move it back.
+
+A spec that **adopted** an existing issue (see below) skips the picker entirely —
+it was filed somewhere deliberately.
+
+## Starting a spec from an existing issue
+
+With `intake` configured, a spec can begin life as a Linear issue someone else
+filed:
+
+- `/spec SKI-123` — adopt that issue.
+- `/spec --from-issue [query]` — browse issues labelled `intake.label` (what your
+  web app or feedback form files under), optionally filtered by title.
+
+The issue **becomes** the spec's issue: its identifier is stamped as
+`linear_identifier`, phases become its sub-issues, and the first `/spec-push`
+replaces its description with the spec. The reporter's comments, links and
+subscribers stay on the one issue everyone is already watching; their original
+words are carried into the spec's **Problem** section.
+
+An issue already stamped on a spec can't be adopted twice — `skitterspec spec-sync
+linked` is the list that's checked. An issue labelled with one of
+`intake.bugLabels` routes to `/spec-bug` instead, which adopts it identically.
 
 ## One direction — nothing to reconcile
 

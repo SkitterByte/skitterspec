@@ -1,7 +1,7 @@
 # Linear project selection & issue intake
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 4 (Phase 3 done 2026-08-27)
+> **Status:** In Progress — all phases done, release pending (2026-08-27)
 > **Name:** feat-linear-project-and-intake
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
@@ -81,9 +81,12 @@ register as drift or get overwritten on the next push.
    existing `identifierOf` reader); intake excludes those
    from the inbox and refuses a direct `/spec <ISSUE-REF>` that names one,
    pointing at the existing spec. No remote read, testable without MCP.
-10. **Builds on `feat-spec-as-issue-mapping`; ships as
-    `skitterspec-linear@9.1.0`.** Additive on top of 9.0.0 — new config keys, one
-    new MCP op, one new seam. Base `skitterspec` gains only two seam markers.
+10. **Builds on `feat-spec-as-issue-mapping`; ships inside
+    `skitterspec-linear@9.0.0`.** That spec deferred its own version bump to
+    release time, so 9.0.0 was never cut (npm is still on 8.0.5) — the breaking
+    mapping change and these additive features go out as one major rather than
+    9.0.0 followed immediately by 9.1.0. Base `skitterspec` gains only seam
+    markers.
 
 ## Solution overview
 
@@ -144,7 +147,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Config, MCP ops & the `linked` CLI | ✅ | [01-config-mcp-linked.md](01-config-mcp-linked.md) |
 | 2 | Project picker on mint (`/spec` + `/spec-push`) | ✅ | [02-project-picker.md](02-project-picker.md) |
 | 3 | Issue intake seam & adoption | ✅ | [03-issue-intake.md](03-issue-intake.md) |
-| 4 | Bug routing, docs & 9.1.0 release | ⬜ | [04-bug-routing-docs-release.md](04-bug-routing-docs-release.md) |
+| 4 | Bug routing, docs & 9.0.0 release | ✅ | [04-bug-routing-docs-release.md](04-bug-routing-docs-release.md) |
 
 ## Open questions
 
@@ -189,3 +192,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `spec-tracker-link` seam telling the model to run `spec-sync normalize` to write
   the base — `normalize` only prints; `record` writes — so freshly-linked specs
   have had no sidecar since one-way sync shipped. Fixed in the seam.
+- 2026-08-27 — Phase 4 done, release deferred. Corrected the target version:
+  `skitterspec-linear` is still 8.0.5 on npm because feat-spec-as-issue-mapping
+  deferred its own bump, so there is no 9.0.0 to follow — this work ships *inside*
+  9.0.0, not as 9.1.0. MIGRATION's v8→v9 section absorbed the picker/intake notes
+  instead of gaining a v9.1 section. Cutting the release waits for
+  `/spec-complete` to land the branch on `main`.
