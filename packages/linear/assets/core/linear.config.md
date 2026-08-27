@@ -1,10 +1,12 @@
-# `linear.config.json` — Linear hybrid-sync config
+# `linear.config.json` — Linear one-way sync config
 
-Opt-in config for the git-like Linear sync (`/spec-status`, `/spec-pull`,
-`/spec-push`, and the Linear-aware paths of `/spec` and `/spec-go`). Linear owns
-**status and discussion**; the repo stays the **co-authoring surface for spec
-content**. Sync is bidirectional but git-like: explicit commands, a committed
-**base sidecar** for three-way merge, and no blind overwrites.
+Opt-in config for the Linear sync (`/spec-status`, `/spec-push`, and the
+Linear-aware paths of `/spec` and `/spec-go`). Sync is **one-way**: the repo is
+the source of truth and the Linear project is a **generated mirror**. Content is
+pushed up and never read back or merged — `/spec-push` diffs the spec against a
+committed **last-pushed snapshot** and applies only what changed; `/spec-status`
+is a read-only drift report. The `sync.fieldOwnership` map now just selects the
+projection field set (every field is repo-owned and pushed).
 
 **Every Linear step is gated on this file.** While `specs/.core/linear.config.json`
 is absent the feature is simply unused — `/spec`, `/spec-go`, and the CLI's

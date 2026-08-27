@@ -1,46 +1,51 @@
 ---
 name: spec-status
-description: Show a spec's sync status against its linked Linear project — a read-only, git-status-style per-field divergence (local-only / remote-only / conflict / in-sync). Fetches the Linear project over MCP and runs `skitterspec spec-sync status`. Changes nothing. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-status", "is this spec in sync with Linear", "what's diverged from Linear", or "show spec sync status".
+description: Show a spec's one-way sync status against Linear — a read-only drift report. Reports whether the spec changed since the last push (there's something to push) and, optionally, whether Linear's workflow-state differs from the spec's. Fetches the Linear project over MCP and runs `skitterspec spec-sync status`. Changes nothing. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-status", "is this spec in sync with Linear", "what would push", or "show spec sync status".
 ---
 
-# /spec-status — show a spec's divergence from Linear
+# /spec-status — one-way sync drift report
 
-Read-only. Prints, per field, whether the spec and its linked Linear project have
-diverged since the last sync — the `git status` of the hybrid sync. Writes
-nothing to either side.
+Read-only. Reports two things and writes nothing:
 
-This skill is **opt-in**: it only runs when `specs/.core/linear.config.json`
-exists. If it's absent, tell the user to copy `linear.config.json.example` →
-`linear.config.json` to enable Linear sync, and stop.
+1. **Pending push** — has the spec changed since the last push (are there
+   milestones/issues/description to create or update)?
+2. **State drift** — does Linear's project workflow-state differ from the spec's
+   status? (The repo wins on the next push; this is just a heads-up, e.g. a card
+   moved in Linear.)
+
+The repo is the source of truth; Linear is a generated mirror, so there is no
+per-field "conflict" — only "what would the next push send" and "did the mirror
+drift".
+
+**Opt-in**: only runs when `specs/.core/linear.config.json` exists. If absent,
+tell the user how to enable Linear sync and stop.
 
 ## 1. Identify the target spec
 
-Use the spec named as an argument, else the spec **currently in context**. If
-neither is clear, ask which spec.
+Use the argument, else the spec in context; ask if unclear.
 
-## 2. Fetch the Linear project (read-only)
+## 2. Fetch the Linear project (optional, for drift)
 
-- Read the spec's `linear_project_id` from `00-overview.md` frontmatter. If it's
-  missing, the spec isn't linked yet — say so and stop (link it via `/spec`).
-- Discover the connected Linear MCP tools at runtime (the project-read tool). If
-  Linear isn't connected, relay "connect the `linear` MCP server" and stop — do
-  nothing else.
-- Call the project-read tool for that id and write the returned JSON to a temp
-  file (e.g. under the OS temp dir).
+If the spec has a `linear_project_id`, discover the Linear MCP read tool and write
+the project JSON to a temp file — this lets the report compare workflow-state. If
+Linear isn't connected, skip the drift line (still report pending-push).
+
+Optionally fetch the workspace project-status names to a file to validate the
+configured `states` at the same time.
 
 ## 3. Run the engine
 
 ```
-skitterspec spec-sync status <spec> --remote <tempfile>
+skitterspec spec-sync status <spec> [--remote <projectfile>] [--workspace-states <statesfile>]
 ```
 
-The engine does the three-way compare (local vs Linear vs the committed base) and
-prints each diverged field with its classification and sync direction. Without
-`--remote` it falls back to a local-vs-base comparison (still read-only).
+- Reports `push: pending — N to create, M to update` or `up to date`.
+- With `--remote`, adds a `drift:` line comparing Linear's workflow-state to the
+  spec's status.
+- With `--workspace-states`, fails loudly if a configured state name isn't in the
+  workspace (Linear would silently no-op it).
 
 ## 4. Report
 
-Relay the engine's summary verbatim, then offer the natural next step:
-`/spec-pull` for remote-only changes, `/spec-push` for local-only, and — for a
-`conflict` — resolve locally or use `--force` (which backs up the losing side).
-Never write anything from this skill.
+Relay the engine's output verbatim. Suggest `/spec-push` if a push is pending.
+Never write to either side.

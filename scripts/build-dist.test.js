@@ -126,9 +126,10 @@ test('superset build fills the seams, ships sync, and runs the engine self-conta
   assert.strictEqual(init.status, 0, `superset init failed: ${init.stderr}`)
 
   const installed = listSkills(proj)
-  for (const s of ['spec', 'spec-go', 'spec-hotfix', 'spec-to-main', 'spec-pull', 'spec-push', 'spec-status']) {
+  for (const s of ['spec', 'spec-go', 'spec-hotfix', 'spec-to-main', 'spec-push', 'spec-status']) {
     assert.ok(installed.includes(s), `superset install includes ${s}`)
   }
+  assert.ok(!installed.includes('spec-pull'), 'one-way: no /spec-pull')
   const core = fs.readdirSync(path.join(proj, 'specs', '.core'))
   assert.ok(core.includes('linear.config.json.example'), 'linear.config template scaffolded')
   assert.ok(core.includes('linear.config.md'), 'linear.config docs scaffolded')

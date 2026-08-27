@@ -7,8 +7,8 @@ const path = require('node:path')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 
-test('the three Linear sync skills ship in the linear package', () => {
-  for (const name of ['spec-status', 'spec-pull', 'spec-push']) {
+test('the Linear sync skills ship in the linear package', () => {
+  for (const name of ['spec-status', 'spec-push']) {
     const file = path.join(ASSETS, 'skills', name, 'SKILL.md')
     assert.ok(fs.existsSync(file), `${name}/SKILL.md shipped`)
     const fm = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'))
@@ -37,9 +37,9 @@ test('the spec-tracker-link seam fragment carries the Linear link step', () => {
   assert.match(text, /base sidecar|spec-sync normalize/i, 'writes the initial base')
 })
 
-test('the spec-go-pull seam fragment carries the pull-first step', () => {
+test('the spec-go-pull seam fragment reflects one-way (no pull)', () => {
   const text = seamText('spec-go-pull')
   assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
-  assert.match(text, /\/spec-pull/, 'runs /spec-pull first')
-  assert.match(text, /commit the refreshed snapshot/i, 'commits the refreshed snapshot')
+  assert.match(text, /No pull|nothing to (pull|bring down)/i, 'states there is nothing to pull')
+  assert.match(text, /\/spec-push/, 'points at /spec-push to refresh the mirror')
 })

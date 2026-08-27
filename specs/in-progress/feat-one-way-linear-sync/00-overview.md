@@ -1,13 +1,14 @@
 # One-way Linear sync — repo is the source of truth, Linear is a generated mirror
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-08-27)
+> **Status:** In Progress — all phases built, tests green (2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
-> **Area:** packages/sync-core/src/{normalize,compare,base,push,pull,write,sanitise}.js,
-> packages/linear/src/{cli-sync,config}.js, packages/linear/assets/skills/{spec-push,spec-pull,spec-status},
-> packages/common/assets (spec-go seam)
+> **Area:** packages/sync-core/src/{normalize,compare,base,push,write,sanitise}.js
+> (pull.js, apply.js deleted), packages/linear/src/{cli-sync,config,cli-sanitise}.js,
+> packages/linear/assets/skills/{spec-push,spec-status} (spec-pull deleted),
+> packages/linear/assets/{seams,core}, packages/common/assets (spec-planning rule)
 > **Stack:** worktree
 
 ## Problem
@@ -125,8 +126,8 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Outbound projection: title/description split, push-prep (hyphen), states, realistic fixture | ✅ | [01-outbound-projection.md](01-outbound-projection.md) |
-| 2 | One-sided push engine: last-pushed snapshot + machine-readable plan | ⬜ | [02-push-engine.md](02-push-engine.md) |
-| 3 | Retire pull, prune dead code, repurpose skills + config + docs | ⬜ | [03-retire-pull.md](03-retire-pull.md) |
+| 2 | One-sided push engine: last-pushed snapshot + machine-readable plan | ✅ | [02-push-engine.md](02-push-engine.md) |
+| 3 | Retire pull, prune dead code, repurpose skills + config + docs | ✅ | [03-retire-pull.md](03-retire-pull.md) |
 
 ## Open questions
 
@@ -152,3 +153,10 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 - 2026-08-27 — Phase 1 done: realistic fixture; hyphen-safe collapse everywhere
   (`collapseHyphenAware`, `joinOpenSpans` guard, push-prep); `titleFromText`;
   `validateStates`; corrected project-state defaults. 461 tests green (452 + 9).
+- 2026-08-27 — Phases 2+3 done (built together — the item-shape change couples
+  them): one-sided `push`/`planChanges`/`snapshotOf`, `base.js` → last-pushed
+  snapshot; deleted `pull.js`, `write.js` pull-writeback, `normalizeRemote`
+  content, `apply.js`; `cli-sync` push=JSON plan / status=drift report / pull
+  removed; `/spec-pull` skill removed, `/spec-push` + `/spec-status` + seam +
+  docs rewritten one-way; `spec-sanitise` demoted (+`--exclude`). Net −2000+
+  lines. Full suite 395 green. Remaining: cut `8.0.0`, cancel the folded hotfix.

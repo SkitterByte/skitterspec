@@ -2,20 +2,19 @@
 Seam fragment for the "spec-go-pull" seam in the shared /spec-go skill.
 The build injects this body (comment stripped) when composing the
 skitterspec-linear distribution; the base distribution leaves the seam empty.
-Lifted verbatim from the pre-extraction /spec-go "step 3b".
+One-way sync: there is nothing to pull — the repo is the source of truth.
 -->
 
 **Only when `specs/.core/linear.config.json` exists** and the spec carries a
-`linear_project_id` in its `00-overview.md` frontmatter. Otherwise skip this
-step — no config means zero change to the flow below.
+`linear_project_id`. Otherwise skip this step — no config means zero change.
 
-- **Run `/spec-pull` first.** Bring down anything Linear changed since the last
-  sync (status, priority, discussion-driven fields) so you build against the
-  current shared state, not a stale snapshot. On a conflict it refuses — relay
-  that and let the user resolve before continuing; do not `--force` for them.
-- **Commit the refreshed snapshot** into the feature branch (a small
-  `chore(spec): pull latest from Linear`-style commit) so the frozen spec rides
-  in the PR alongside the code it describes.
-- Linear's GitHub branch/PR automation may now drive status transitions off the
-  branch and PR you pushed in step 2 — expect state to move on the Linear side;
-  keep any manual status edits minimal to avoid fighting it.
+- **No pull.** Linear is a generated mirror in one-way sync, so there is nothing
+  to bring down before building — the repo is already the source of truth. (A
+  workflow-state a teammate moved in Linear is advisory only; `/spec-status`
+  surfaces it. It is overwritten on the next push.)
+- **Optional: refresh the mirror.** If you want Linear to reflect the now
+  in-progress spec, run `/spec-push` to send it up. This is optional at
+  `/spec-go` time — the mirror can equally be refreshed later.
+- Linear's GitHub branch/PR automation may drive status transitions off the
+  branch/PR you pushed in step 2; that's expected and the repo still wins on the
+  next `/spec-push`.

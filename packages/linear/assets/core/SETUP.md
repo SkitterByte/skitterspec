@@ -1,9 +1,11 @@
-# Setting up Linear hybrid-sync
+# Setting up Linear sync (one-way)
 
-A start-to-finish guide to getting `/spec-status`, `/spec-pull`, and `/spec-push`
-working against a real Linear workspace. Covers the **Linear side** (connecting
-the MCP server, finding your team) that the config reference
-(`linear.config.md`) assumes you already have.
+A start-to-finish guide to getting `/spec-status` and `/spec-push` working against
+a real Linear workspace. Sync is **one-way**: the repo is the source of truth and
+the linked Linear project is a **generated mirror** — content is pushed up, never
+read back or merged. Covers the **Linear side** (connecting the MCP server,
+finding your team) that the config reference (`linear.config.md`) assumes you
+already have.
 
 > The whole feature is **opt-in**: until `specs/.core/linear.config.json` exists,
 > everything below is inert and the package behaves exactly like the base
@@ -47,7 +49,7 @@ claude mcp list
 ```
 
 > Read-only trial: use `https://mcp.linear.app/mcp/readonly` to exercise
-> `/spec-status` and `/spec-pull` without granting write access. `/spec-push`
+> `/spec-status` (drift report) without granting write access. `/spec-push`
 > needs the full (writable) endpoint.
 
 ## 3. Find your team id
@@ -108,33 +110,29 @@ Two ways to get there:
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
-| `/spec-status` | — | Read-only. Per-field divergence: `local-only` / `remote-only` / `conflict` / `in sync`. |
-| `/spec-pull`   | Linear → repo | Applies remote-owned fields (status/priority/labels). Refuses a real conflict unless `--force`. |
-| `/spec-push`   | repo → Linear | Sends the co-authored `description` up. Refuses if a co-authored field moved on Linear since your last sync (pull first) unless `--force`. |
+| `/spec-status` | — | Read-only drift report: what would push (create/update), and whether Linear's workflow-state drifted from the spec. Writes nothing. |
+| `/spec-push`   | repo → Linear | Computes a create/update plan vs the last-pushed snapshot and applies it (project description/status, milestones, issues), stamping new ids back into the spec. |
 
-Typical loop: `/spec-status` → `/spec-pull` (take Linear's status) → edit the spec
-in-repo → `/spec-push` (send content up).
+Typical loop: edit the spec in-repo → `/spec-status` (what's pending) →
+`/spec-push` (send it up). There is no pull — Linear is a generated mirror.
 
-### What actually syncs
+### What gets pushed
 
-| Field | Owner | Direction |
-|-------|-------|-----------|
-| `description` (the whole spec body: problem, solution, **phases**, acceptance criteria) | co-authored | push **and** pull |
-| `workflowState` → `spec_status` | Linear | pull only |
-| `priority` | Linear | pull only |
-| `labels` | Linear | pull only |
+| Field | What |
+|-------|------|
+| `description` | the spec body (problem, solution, acceptance criteria) as the project description |
+| `milestones` | one per phase (name + goal) |
+| `issues` | one per task — first-sentence **title**, full task text as the **description** |
+| `workflowState` → project status | the spec's lifecycle bucket, mapped via `states` |
+| `priority`, `labels` | from `00-overview.md` frontmatter |
 
-By default the **entire spec body travels as the project `description`** — phases
-and acceptance criteria included.
+Everything is repo-owned and pushed; a change made directly in Linear is
+overwritten on the next push (`/spec-status` surfaces workflow-state drift).
 
-**Optional: body round-trip.** Opt in — add `milestones`/`tasks` to
-`sync.keyedFields` (and `sync.fieldOwnership`) — and phases sync as **Milestones**
-and tasks as **Issues**, compared per item: edit an individual phase or task in
-Linear and pull just that back into the right phase file / task line, or push
-local changes up. The link ids live in the phase file frontmatter
-(`linear_milestone_id`) and inline on task lines (`- [ ] do it (SKI-123)`).
-Deletions are report-only (surfaced by `/spec-status`, never auto-applied). Full
-details in the "Body round-trip" section of `linear.config.md`.
+Phases push as **Milestones** and tasks as **Issues** by default. The link ids
+live in the phase-file frontmatter (`linear_milestone_id`) and inline on task
+lines (`- [ ] do it (SKI-123)`); `/spec-push` stamps them the first time it
+creates each object, so later pushes update instead of recreate.
 
 Sections listed in `sync.localOnlySections` (default: **State log**, **Changelog**,
 **Open questions**) are stripped from the pushed description — they never leave
@@ -142,24 +140,20 @@ the repo.
 
 ## 7. What to commit
 
-- **Commit** `specs/.core/linear-base/` — the three-way merge's base sidecars
-  (last-synced snapshot per spec). Each worktree carries its own, so it must
-  travel with the branch.
-- **Gitignore** `specs/.core/linear-backups/` — `--force` recovery copies, local
-  and per-machine. Add `specs/.core/linear-backups/` to `.gitignore`.
+- **Commit** `specs/.core/linear-base/` — the last-pushed snapshots (content
+  hashes per spec, so `/spec-push` knows what changed without reading Linear
+  back). Each worktree carries its own, so it must travel with the branch.
 
 ## 8. Smoke test (verify your setup)
 
-With a linked spec, confirm the round-trip end-to-end:
+With a linked spec, confirm push end-to-end:
 
-1. `/spec-status` → note the current divergence.
-2. `/spec-pull` → Linear's status/priority/labels land in the spec's frontmatter
-   (`spec_status`, `priority`, `labels`).
-3. `/spec-status` again → **in sync**. (This also proves description idempotency:
-   Linear rewrites markdown bullets on save, and the sync canonicalizes both
-   sides so that never shows as a spurious change.)
-4. Edit the spec body locally, `/spec-push` → the change lands on the Linear
-   project's description; `/spec-status` returns to **in sync**.
+1. `/spec-status` → shows what would push (`pending — N to create, M to update`).
+2. `/spec-push` → creates the project's milestones/issues and sets the
+   description/status; ids are stamped back into the spec.
+3. `/spec-status` again → **up to date** (nothing changed since the last push).
+4. Edit a task locally, `/spec-push` → the matching issue updates;
+   `/spec-status` returns to **up to date**.
 
 ## Troubleshooting
 
@@ -167,9 +161,9 @@ With a linked spec, confirm the round-trip end-to-end:
   this session. Re-run step 2; remember a fresh add needs a Claude Code restart.
 - **"missing required tools: projectUpdate"** — you're on the read-only endpoint
   (or a restricted API key). Use `https://mcp.linear.app/mcp` for push.
-- **A field won't stop showing as diverged** — that field genuinely differs on
-  the two sides. `pull`-owned fields (status/priority/labels) resolve to Linear;
-  `/spec-pull` reconciles them. For a co-authored `conflict`, resolve locally or
-  `--force` (which backs up the losing side under `sync.backupDir` first).
+- **A configured status name silently does nothing** — Linear ignores an unknown
+  project status. Run `/spec-status` (it validates the `states` names against the
+  workspace) and fix `linear.config.json` to the real project-status names
+  (`Backlog / Planned / In Progress / Completed / Canceled`).
 - **Reconnecting doesn't switch workspace** — Linear ties the OAuth session to one
   workspace. Remove and re-add the server to authenticate against another.

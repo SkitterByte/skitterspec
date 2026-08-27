@@ -20,9 +20,21 @@ function capture() {
 }
 
 test('parseArgs defaults to specs/, dry-run', () => {
-  assert.deepStrictEqual(parseArgs([]), { paths: ['specs'], write: false, width: null })
+  assert.deepStrictEqual(parseArgs([]), { paths: ['specs'], write: false, width: null, exclude: [] })
   assert.strictEqual(parseArgs(['--write']).write, true)
   assert.strictEqual(parseArgs(['--width', '72']).width, 72)
+  assert.deepStrictEqual(parseArgs(['--exclude', '**/*.orig.md']).exclude, ['**/*.orig.md'])
+})
+
+test('--exclude skips matching files', async () => {
+  const dir = tmpTree()
+  const straddle = ['a **bold that wraps', 'across a line** here'].join('\n')
+  fs.writeFileSync(path.join(dir, 'specs', 'backlog', 'keep.md'), straddle)
+  fs.writeFileSync(path.join(dir, 'specs', 'backlog', 'skip.orig.md'), straddle)
+  const out = capture()
+  await specSanitise(['--exclude', '**/*.orig.md'], { cwd: dir, out })
+  assert.match(out.text(), /keep\.md/)
+  assert.doesNotMatch(out.text(), /skip\.orig\.md/)
 })
 
 test('collectMarkdown finds .md recursively and skips node_modules', () => {

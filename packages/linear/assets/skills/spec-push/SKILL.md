@@ -1,14 +1,14 @@
 ---
 name: spec-push
-description: Push a spec's local content up to its linked Linear project (repo → Linear), three-way aware and ownership-respecting. Never pushes pull-owned fields or local-only sections; aborts if Linear moved since the last sync unless --force (which backs up the remote side first). Runs `skitterspec spec-sync push` then applies the blessed writes over MCP. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-push", "push to Linear", "sync my spec up to Linear", or "update the Linear project from this spec".
+description: Push a spec up to its linked Linear project (repo → Linear, one-way). The repo is the source of truth; Linear is a generated mirror. Runs `skitterspec spec-sync push` to get a create/update plan, applies it over MCP (project description/status, milestones, issues), stamps the returned ids back into the spec, then records the snapshot. Never reads Linear content back. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-push", "push to Linear", "update the Linear project from this spec".
 ---
 
-# /spec-push — send spec content up to Linear
+# /spec-push — send a spec up to Linear (one-way)
 
-Repo → Linear. Sends the fields the repo owns/co-authors (description, phases,
-tasks per config) up to the linked project. It **never** writes `pull`-owned
-fields (status/priority/labels) or `localOnlySections`, and it **aborts** if
-Linear moved since the last sync (pull first) unless you `--force`.
+Repo → Linear. The repo is the **source of truth**; Linear is a **generated
+mirror**. This skill computes what changed since the last push and applies it —
+it never reads Linear content back or merges. A person editing the mirror in
+Linear will see it overwritten on the next push.
 
 **Opt-in**: only runs when `specs/.core/linear.config.json` exists. If absent,
 tell the user how to enable Linear sync and stop.
@@ -17,58 +17,63 @@ tell the user how to enable Linear sync and stop.
 
 Use the argument, else the spec in context; ask if unclear.
 
-## 2. Fetch the Linear project
-
-- Read `linear_project_id` from `00-overview.md` frontmatter; if missing, stop
-  (link via `/spec` first).
-- Discover the Linear MCP tools at runtime (project read **and** update). If
-  Linear isn't connected — or the update tool is missing — relay the fix and stop,
-  **writing nothing**.
-- Call the read tool and write the project JSON to a temp file.
-
-## 3. Run the engine (the guard)
+## 2. Get the plan from the engine
 
 ```
-skitterspec spec-sync push <spec> --remote <tempfile> --out <mergedfile> [--force]
+skitterspec spec-sync push <spec> --json
 ```
 
-- **Refused** (`remote-moved` / `concurrent-write` / conflict) — relay the message
-  and **stop**. Do not write to Linear. Suggest `/spec-pull` first.
-- **OK** — the engine has confirmed it's safe, rewritten the base, and stamped
-  `last_synced_at`. Its summary lists the `written` fields (and any `skipped`
-  because they're not pushable).
-- **`--force`** — only when the user explicitly asks. Local wins after the engine
-  backs up the remote side under `sync.backupDir`. Relay the backup path.
+The engine prints a JSON **plan** (no network, no remote read):
 
-## 4. Apply the blessed writes to Linear
+```json
+{
+  "project": { "description": "…", "status": "in-progress", "priority": 2, "labels": ["…"] },
+  "milestones": { "create": [{ "ref": "01-outbox", "name": "…", "goal": "…" }], "update": [{ "id": "…", "name": "…", "goal": "…" }] },
+  "issues": { "create": [{ "ref": "<task text>", "title": "…", "description": "…", "done": false, "milestoneRef": "01-outbox" }], "update": [{ "id": "SKI-1", "title": "…", "description": "…", "done": true }] }
+}
+```
 
-Only when step 3 returned OK: for each `written` field, call the Linear update
-tool with that field's local value (e.g. `description` → the project description).
-The engine has already vetted the change and moved the base — so if a Linear
-write fails, re-run `/spec-pull` to reconcile rather than retrying blindly.
+An empty plan (no project, no create/update) means the mirror is up to date —
+say so and stop.
 
-**Milestones (`milestonesPush` in the result).** When milestones are keyed, the
-engine can't write them itself — apply the plan over MCP:
+## 3. Discover the Linear MCP tools
 
-- `update`: for each `{ id, name, goal }`, call the milestone-save tool with that
-  `id` (name → milestone name, goal → its description).
-- `create`: for each `{ name, goal }`, call the milestone-save tool with no id to
-  create it under the project, then **stamp the returned milestone id** into the
-  matching phase file's frontmatter (`linear_milestone_id`) so it links on the
-  next sync. Match the phase file by its title.
+Discover project + milestone + issue **create/update** tools at runtime. If
+Linear isn't connected or a needed tool is missing, relay the fix and stop,
+**writing nothing**.
 
-Progress is Linear-derived — never push it.
+**Validate the project states first.** Fetch the workspace's project-status
+names and run `skitterspec spec-sync status <spec> --workspace-states <file>`; if
+it errors (a configured `states` name isn't in the workspace), stop and fix the
+config — Linear silently ignores an unknown project status.
 
-**Issues (`issuesPush` in the result).** When tasks are keyed:
+## 4. Apply the plan (order matters)
 
-- `update`: for each `{ id, text, done }`, call the issue-save tool with that `id`
-  (text → title; `done` → a completed state, else a non-completed state — leave an
-  already-non-completed issue's exact state untouched).
-- `create`: for each `{ text, done }`, create an issue under the project (attach it
-  to the milestone of the phase the task lives in when known), then **stamp the new
-  issue identifier inline** on that task line (`… (SKI-123)`), matching by text.
+1. **Milestones create** → create each in Linear; for each, stamp the returned id
+   into its phase file: the `ref` is the phase-file basename.
+2. **Issues create** → create each (link to its milestone by `milestoneRef`,
+   resolving a `create` ref to the id just minted); stamp the returned identifier
+   back onto the matching task line (`ref` is the task's text).
+3. **Milestones/issues update** → save by `id`.
+4. **Project** → set description/status/priority/labels (map `status` — the local
+   bucket — to the Linear project-status name via `config.states`).
 
-## 5. Report
+Map the local status bucket to Linear's project status through `config.states`
+(e.g. `complete → Completed`).
 
-Relay the git-like summary (written / skipped / backup / base) plus which Linear
-fields you updated.
+## 5. Record the snapshot
+
+After everything applied and the ids are stamped into the files:
+
+```
+skitterspec spec-sync record <spec>
+```
+
+This writes the last-pushed snapshot from the now-stamped files, so the next
+`/spec-push` produces an empty plan. Commit the stamped spec + snapshot into the
+branch so the mirror-link rides in the PR.
+
+## 6. Report
+
+Summarise what was created/updated in Linear and confirm the snapshot was
+recorded. There is no pull — Linear is a generated mirror.
