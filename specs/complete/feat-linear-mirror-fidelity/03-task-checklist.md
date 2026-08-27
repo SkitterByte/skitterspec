@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-25"
+---
+
 # Phase 3 — Project phase tasks as a sub-issue checklist ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

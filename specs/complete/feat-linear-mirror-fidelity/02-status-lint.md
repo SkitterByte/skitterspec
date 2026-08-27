@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-24"
+---
+
 # Phase 2 — Three-way phase-status lint, surfaced by the CLI ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

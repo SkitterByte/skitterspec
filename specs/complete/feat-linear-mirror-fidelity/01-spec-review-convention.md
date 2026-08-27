@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-23"
+---
+
 # Phase 1 — Document the H1 status convention in `/spec-review` ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

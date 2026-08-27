@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-27"
+---
+
 # Phase 5 — Refresh the outward-facing docs ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

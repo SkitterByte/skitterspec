@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKI-26"
+---
+
 # Phase 4 — `spec-sync stamp` helper + move both call-sites ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done
