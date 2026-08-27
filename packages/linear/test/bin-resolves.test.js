@@ -59,3 +59,31 @@ test('the root workspace link the bin depends on is declared', () => {
     `root package.json must link ${self} so bin/ can require itself by name`,
   )
 })
+
+test('the bin propagates a non-zero exit code from spec-sync', () => {
+  // The bin used to `await specSync(rest)` and drop the result, so a refused
+  // write and a bad workspace state both looked like success to anything
+  // checking $? — including /spec-push, which is told to stop when
+  // `status --workspace-states` errors. Only spawning the bin catches it;
+  // the unit tests assert the returned code, which was never read.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-exit-'))
+  const cfg = path.join(dir, 'specs', '.core', 'linear.config.json')
+  fs.mkdirSync(path.dirname(cfg), { recursive: true })
+  fs.writeFileSync(cfg, JSON.stringify({ linear: { teamId: 'T1' } }), 'utf-8')
+  const folder = path.join(dir, 'specs', 'in-progress', 'feat-x')
+  fs.mkdirSync(folder, { recursive: true })
+  fs.writeFileSync(path.join(folder, '00-overview.md'), '# X\n', 'utf-8')
+  fs.writeFileSync(path.join(folder, '01-a.md'), '# Phase 1 — A ⬜\n\n**Goal:** a.\n', 'utf-8')
+
+  const refused = runBin(['spec-sync', 'stamp', 'feat-x', '--sub', '09-nope=SKI-2'], dir)
+  assert.strictEqual(refused.status, 1, 'a refused stamp exits 1')
+
+  const ok = runBin(['spec-sync', 'stamp', 'feat-x', '--sub', '01-a=SKI-2'], dir)
+  assert.strictEqual(ok.status, 0, 'a successful stamp exits 0')
+
+  const states = path.join(dir, 'ws.json')
+  fs.writeFileSync(states, JSON.stringify(['Backlog']), 'utf-8')
+  const bad = runBin(['spec-sync', 'status', 'feat-x', '--workspace-states', states], dir)
+  assert.strictEqual(bad.status, 1, 'an unknown configured state exits 1')
+})
+

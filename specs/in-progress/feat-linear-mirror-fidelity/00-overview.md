@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-mirror-fidelity (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 4 (started 2026-08-27)
+> **Status:** In Progress — Phase 5 (started 2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -104,6 +104,7 @@ description with no changes downstream.
 | Surface | Change | Detail |
 |---------|--------|--------|
 | CLI command | add | `spec-sync stamp <spec> --issue --url --sub ref=ID` |
+| CLI command | fix | bin now propagates `spec-sync` exit codes |
 | CLI command | update | `spec-sync normalize\|push\|status` emit warnings |
 | Config key | update | `mapping.tasks` now consumed; default `none` → `checklist` |
 | Domain object | update | sub-issue `goal` gains a `## Tasks` checklist |
@@ -112,6 +113,7 @@ description with no changes downstream.
 | Skill/rule | update | `/spec-push` §4–5 use `spec-sync stamp` |
 | Skill/rule | update | `spec-tracker-link` seam uses `spec-sync stamp` |
 | Docs | update | `linear.config.md` — tasks-as-checklist, lint warnings |
+| Docs | update | npm README + `docs/index.html` — stale "tasks not synced" |
 
 ## Phases
 
@@ -123,7 +125,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Document the H1 status convention in `/spec-review` | ✅ | [01-spec-review-convention.md](01-spec-review-convention.md) |
 | 2 | Three-way phase-status lint, surfaced by the CLI | ✅ | [02-status-lint.md](02-status-lint.md) |
 | 3 | Project phase tasks as a sub-issue checklist | ✅ | [03-task-checklist.md](03-task-checklist.md) |
-| 4 | `spec-sync stamp` helper + move both call-sites | ⬜ | [04-stamp-helper.md](04-stamp-helper.md) |
+| 4 | `spec-sync stamp` helper + move both call-sites | ✅ | [04-stamp-helper.md](04-stamp-helper.md) |
+| 5 | Refresh the outward-facing docs | ⬜ | [05-outward-docs.md](05-outward-docs.md) |
 
 ## Open questions
 
@@ -167,3 +170,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   Fixed and guarded by an assets test comparing it to `DEFAULT_CONFIG`.
 - 2026-08-27 — Phase 3: churn measured on this repo — 3 linked specs, 11
   sub-issue updates, 0 creates. Decision 7 holds; no duplicates are minted.
+- 2026-08-27 — Added Phase 5: a sweep for stale "tasks are not synced" claims
+  found the npm README and the GitHub Pages landing page still assert it, in
+  prose and in the mapping diagram. Phase 3 fixed the package assets only.
+- 2026-08-27 — Phase 4: fixed a pre-existing bug found while testing `stamp` —
+  `bin/skitterspec-linear.js` discarded `specSync`'s exit code, so
+  `status --workspace-states` never signalled a bad state name either, despite
+  `/spec-push` step 3 depending on it. Guarded by a spawn test.

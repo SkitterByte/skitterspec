@@ -15,7 +15,11 @@ const { specSanitise } = require('@skitterbyte/skitterspec-provider-linear/src/c
 async function main(argv) {
   const [cmd, ...rest] = argv
   if (cmd === 'spec-sync') {
-    await specSync(rest)
+    // Propagate the exit code, like spec-sanitise below. Dropping it made
+    // `status --workspace-states` (a bad state name) and `stamp` (a refused
+    // write) both look successful to any caller checking $?, which is exactly
+    // what the /spec-push skill does before it applies a plan.
+    process.exitCode = await specSync(rest)
     return
   }
   if (cmd === 'spec-sanitise') {

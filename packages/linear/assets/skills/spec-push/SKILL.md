@@ -63,22 +63,37 @@ config — Linear silently ignores an unknown issue state.
    **mints** it: run the picker in **Picking the Linear Project** below, then
    create it with `save_issue` (`team` = `linear.teamId`; `project` = the picked
    id; `title` from the spec title; `description` from `plan.issue.description`;
-   state from `plan.issue.state` via `config.states`). Stamp the returned
-   identifier into `00-overview.md` frontmatter as `linear_identifier` (and
-   `linear_url`). If it already exists and `plan.issue` is present, **update it by
-   id and send no `project`** — its placement is Linear's from then on.
+   state from `plan.issue.state` via `config.states`). Keep the returned
+   identifier and url for step 5 — don't hand-edit frontmatter. If it already
+   exists and `plan.issue` is present, **update it by id and send no `project`**
+   — its placement is Linear's from then on.
 2. **Sub-issues create** → for each, `save_issue` with `parentId` = the spec
-   issue id (`name` → title, `goal` → description, `state` via `config.states`);
-   stamp the returned id into its phase file as `linear_issue_id` (`ref` is the
-   phase-file basename).
+   issue id (`name` → title, `goal` → description, `state` via `config.states`).
+   Keep each returned id against its `ref` (the phase-file basename).
 3. **Sub-issues update** → `save_issue` by `id` (title/description/state).
 
 Priority, labels, cycles and comments are Linear-native triage — do **not** push
 them; they're the PM's.
 
-## 5. Record the snapshot
+## 5. Stamp the ids, then record the snapshot
 
-After everything applied and the ids are stamped into the files:
+Write every id you collected back into the spec in **one** call — the engine
+does the file edits, so there is no hand-editing of frontmatter:
+
+```
+skitterspec spec-sync stamp <spec> \
+  --issue SKI-11 --url https://linear.app/… \
+  --sub 01-outbox=SKI-12 --sub 02-api=SKI-13
+```
+
+Pass `--issue`/`--url` only on the push that minted the spec issue; pass one
+`--sub <ref>=<id>` for every sub-issue **created** in step 4.2 (updates already
+have their id). It validates every ref and id **before** writing anything and
+exits non-zero having changed nothing if any is wrong — so a typo can't leave the
+spec half-stamped, pointing at an issue that isn't there. Fix what it reports and
+re-run; it is safe to repeat.
+
+Then record what was pushed:
 
 ```
 skitterspec spec-sync record <spec>

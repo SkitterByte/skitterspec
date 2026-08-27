@@ -10,12 +10,13 @@
  *
  *   spec-sync normalize <spec>   print the local projection (JSON)
  *   spec-sync push <spec>        print the create/update PLAN the skill applies
+ *   spec-sync stamp <spec>       write returned ids back into the spec files
  *   spec-sync record <spec>      write the last-pushed snapshot (after apply)
  *   spec-sync status <spec>      read-only drift report (never writes)
  *   spec-sync linked             list every spec's linear_identifier (offline)
  *
- * The `/spec-push` skill: `push` → apply the plan over MCP → stamp returned ids
- * into the repo → `record`. There is no pull — Linear is not read for content.
+ * The `/spec-push` skill: `push` → apply the plan over MCP → `stamp` the returned
+ * ids into the repo → `record`. There is no pull — Linear is not read for content.
  */
 
 const fs = require('node:fs')
@@ -35,6 +36,9 @@ const {
   remoteWorkflowState,
   validateStates,
   lintPhases,
+  writeFrontmatter,
+  stampSubIssueId,
+  listPhaseFiles,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const { loadLinearConfig } = require('./config.js')
@@ -194,6 +198,89 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
   out.write(lines.join('\n') + '\n')
 }
 
+// A tracker id as it appears in a spec: `SKI-42`. Deliberately strict — the
+// whole point of `stamp` is that a mistyped id is caught here rather than
+// re-minting a duplicate issue on the next push.
+const ID_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/
+
+// Resolve a `--sub` ref to a phase file in the spec folder. Accepts the ref as
+// the plan emits it (`01-outbox`) or with its extension (`01-outbox.md`).
+function resolvePhaseFile(snapshotDir, ref) {
+  const want = String(ref).replace(/\.md$/, '')
+  return listPhaseFiles(snapshotDir).find((f) => f.replace(/\.md$/, '') === want) || null
+}
+
+/**
+ * `spec-sync stamp <spec> --issue KEY-N [--url URL] --sub <ref>=KEY-M …`
+ *
+ * Write the ids a push just returned back into the spec: `linear_identifier` /
+ * `linear_url` onto the overview, `linear_issue_id` onto each phase file. This
+ * was prose in `/spec-push` telling the agent to hand-edit N files — the step
+ * most likely to go wrong at scale, because one mistyped id makes the next push
+ * treat the phase as unlinked and mint a duplicate issue.
+ *
+ * Validates EVERYTHING before writing ANYTHING: a bad ref or id fails the whole
+ * command with nothing touched. A half-stamped spec is worse than an unstamped
+ * one — it looks linked while pointing at the wrong object.
+ *
+ * `record` stays a separate call: this writes the repo, that writes the snapshot,
+ * and the skill sequences them.
+ */
+function specSyncStamp(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+
+  const problems = []
+  if (flags.issue != null && !ID_RE.test(flags.issue)) {
+    problems.push(`--issue ${flags.issue} is not an id like SKI-42`)
+  }
+  if (flags.url != null && !/^https?:\/\//.test(flags.url)) {
+    problems.push(`--url ${flags.url} is not an http(s) URL`)
+  }
+
+  const subs = []
+  for (const raw of flags.subs) {
+    const eq = String(raw).indexOf('=')
+    if (eq === -1) {
+      problems.push(`--sub ${raw} is not <ref>=<id> (e.g. --sub 01-outbox=SKI-43)`)
+      continue
+    }
+    const ref = raw.slice(0, eq)
+    const id = raw.slice(eq + 1)
+    const file = resolvePhaseFile(snapshotDir, ref)
+    if (!file) problems.push(`--sub ${ref}: no phase file in ${path.relative(dir, snapshotDir)}`)
+    if (!ID_RE.test(id)) problems.push(`--sub ${ref}=${id}: not an id like SKI-42`)
+    if (file && ID_RE.test(id)) subs.push({ ref, id, file })
+  }
+
+  if (!problems.length && flags.issue == null && !subs.length) {
+    problems.push('nothing to stamp — pass --issue and/or --sub <ref>=<id>')
+  }
+
+  if (problems.length) {
+    // Every problem at once: fixing them one round-trip at a time is the same
+    // slow hand-editing this command replaces.
+    out.write(['spec-sync stamp: refusing to write — nothing was changed', ...problems.map((p) => `  ${p}`)].join('\n') + '\n')
+    return 1
+  }
+
+  const lines = [`spec-sync stamp: ${path.relative(dir, snapshotDir)}`]
+  if (flags.issue != null || flags.url != null) {
+    const written = writeFrontmatter(snapshotDir, config, {
+      linear_identifier: flags.issue,
+      linear_url: flags.url,
+    })
+    lines.push(`  overview: ${written.join(', ')}`)
+  }
+  for (const s of subs) {
+    stampSubIssueId(snapshotDir, s.file, s.id)
+    lines.push(`  ${s.file}: linear_issue_id = ${s.id}`)
+  }
+  lines.push('  next: skitterspec spec-sync record <spec>')
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
 // `spec-sync record <spec>` — write the last-pushed snapshot from the CURRENT
 // files. The skill calls this AFTER applying the plan and stamping new ids.
 function specSyncRecord(dir, config, specArg, out) {
@@ -260,12 +347,15 @@ async function specSync(rest, io = {}) {
   const [sub, ...args] = rest
   let dir = io.cwd || process.cwd()
   const positional = []
-  const flags = { json: false, remote: null, workspaceStates: null }
+  const flags = { json: false, remote: null, workspaceStates: null, issue: null, url: null, subs: [] }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
     else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
+    else if (args[i] === '--issue') flags.issue = args[++i]
+    else if (args[i] === '--url') flags.url = args[++i]
+    else if (args[i] === '--sub') flags.subs.push(args[++i])
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -286,6 +376,8 @@ async function specSync(rest, io = {}) {
     case 'push':
       specSyncPush(dir, config, positional[0], flags, out, err)
       return 0
+    case 'stamp':
+      return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
       specSyncRecord(dir, config, positional[0], out)
       return 0
@@ -296,6 +388,7 @@ async function specSync(rest, io = {}) {
       return 0
     default:
       out.write('Usage: skitterspec spec-sync <normalize|push|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
+        '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
         '       skitterspec spec-sync linked [--json]\n')
       return 0
   }

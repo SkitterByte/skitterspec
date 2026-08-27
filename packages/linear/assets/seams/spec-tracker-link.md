@@ -22,19 +22,20 @@ phase's tasks in its description as a read-only checklist:
 - **Create a sub-issue per phase** (the `mapping.phases` target — `subissue` by
   default): a child issue with `parentId` = the spec issue, named from each phase
   file, in execution order.
-- **Add the frontmatter block** to `00-overview.md` (above the `#` title) so the
-  spec is linkable:
+- **Stamp the ids** so the spec is linkable — one call, no hand-edited
+  frontmatter:
 
-  ```yaml
-  ---
-  linear_identifier: "<TEAM-123>"
-  linear_url: "https://linear.app/..."
-  last_synced_at: "<ISO-8601 now>"
-  ---
+  ```
+  skitterspec spec-sync stamp <spec> \
+    --issue TEAM-123 --url https://linear.app/… \
+    --sub 01-<slug>=TEAM-124 --sub 02-<slug>=TEAM-125
   ```
 
-  Stamp each phase file's `linear_issue_id` with its sub-issue id. (Status is not
-  stored in frontmatter — it comes from the spec's lifecycle folder.)
+  It writes `linear_identifier`/`linear_url` onto `00-overview.md` and each phase
+  file's `linear_issue_id`, validating every ref and id **before** touching a
+  file — on any problem it changes nothing and exits non-zero, so a typo can't
+  leave the spec pointing at an issue that isn't there. (Status is not stored in
+  frontmatter — it comes from the spec's lifecycle folder.)
 - **Write the initial base sidecar** so the spec starts clean and non-diverged —
   run `skitterspec spec-sync record <spec>` to capture the local snapshot as the
   committed base (`sync.baseDir`). `/spec-status` should report in-sync right after.
