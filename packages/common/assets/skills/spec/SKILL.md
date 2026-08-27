@@ -14,6 +14,8 @@ Lifecycle (the governing skills) — status in parentheses:
 `/spec-cancel` (Cancelled). See `.claude/rules/spec-planning.md`. (There is no
 separate grooming command — `/spec` grills to a Ready spec directly.)
 
+<!-- seam:spec-tracker-intake -->
+
 ## Phase A — reach a clear shared understanding (grill first)
 
 Interview the user until requirement AND proposed solution are unambiguous. Do

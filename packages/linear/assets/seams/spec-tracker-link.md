@@ -37,7 +37,9 @@ A spec is a Linear **issue**; each phase is a **sub-issue**; tasks are not synce
 - **Write the initial base sidecar** so the spec starts clean and non-diverged —
   run `skitterspec spec-sync record <spec>` to capture the local snapshot as the
   committed base (`sync.baseDir`). `/spec-status` should report in-sync right after.
-  (`record` is the writer; `normalize` only *prints* the projection.)
+  (`record` is the writer; `normalize` only *prints* the projection.) Skip this
+  when the spec **adopted** an existing issue — see Phase 0 — because the issue's
+  description is still the reporter's, not the spec.
 - **Echo the branch name** from `branch.pattern` so the user knows what `/spec-go`
   will fork.
 

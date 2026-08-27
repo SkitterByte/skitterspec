@@ -1,7 +1,7 @@
 # Linear project selection & issue intake
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 3 (Phase 2 done 2026-08-27)
+> **Status:** In Progress — Phase 4 (Phase 3 done 2026-08-27)
 > **Name:** feat-linear-project-and-intake
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
@@ -131,6 +131,7 @@ the issue's identifier, leave its project alone.
 | Seam | update | `spec-tracker-link` — project picker before minting |
 | Skill/rule | update | `/spec-push` step 4.1 picks a project instead of reading config |
 | Skill/rule | update | `/spec`, `/spec-bug` accept an issue ref / `--from-issue` |
+| Skill/rule | fix | `spec-tracker-link` said `normalize` where it meant `record` |
 | Docs | update | `linear.config.md`, SETUP.md, READMEs, docs/index.html |
 
 ## Phases
@@ -142,7 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Config, MCP ops & the `linked` CLI | ✅ | [01-config-mcp-linked.md](01-config-mcp-linked.md) |
 | 2 | Project picker on mint (`/spec` + `/spec-push`) | ✅ | [02-project-picker.md](02-project-picker.md) |
-| 3 | Issue intake seam & adoption | ⬜ | [03-issue-intake.md](03-issue-intake.md) |
+| 3 | Issue intake seam & adoption | ✅ | [03-issue-intake.md](03-issue-intake.md) |
 | 4 | Bug routing, docs & 9.1.0 release | ⬜ | [04-bug-routing-docs-release.md](04-bug-routing-docs-release.md) |
 
 ## Open questions
@@ -182,3 +183,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `spec-project-picker` seam marked in both `/spec` and `/spec-push` — rather than
   nesting a marker inside the `spec-tracker-link` fragment, which the
   single-pass-by-design composer cannot expand.
+- 2026-08-27 — Phase 3 done. Inverted the phase's snapshot task: adoption writes
+  **no** base sidecar (recording one would declare the mirror in sync and strand
+  the issue showing the reporter's raw text). While confirming that, found the
+  `spec-tracker-link` seam telling the model to run `spec-sync normalize` to write
+  the base — `normalize` only prints; `record` writes — so freshly-linked specs
+  have had no sidecar since one-way sync shipped. Fixed in the seam.

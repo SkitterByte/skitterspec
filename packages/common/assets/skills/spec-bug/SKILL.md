@@ -13,6 +13,8 @@ Spec type convention (see `.claude/rules/spec-planning.md`):
 - Bug specs are named `bug-<kebab-name>`; feature specs `feat-<kebab-name>`.
 - Every spec header carries `> **Type:** Bug` (or `Feature`).
 
+<!-- seam:spec-tracker-intake -->
+
 ## 1. Reproduce & isolate (light investigation)
 
 Bugs are concrete — confirm, don't over-grill. Establish:

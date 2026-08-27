@@ -152,6 +152,32 @@ test('guard: a seam used by the provider\'s own skills has a fragment too', () =
   walk(LINEAR_SKILLS)
 })
 
+test('the intake seam reaches /spec and /spec-bug in the superset only', () => {
+  const linear = tmp()
+  composeAssets(COMMON_ASSETS, linear, loadFragments(LINEAR_SEAMS))
+  const base = tmp()
+  composeAssets(COMMON_ASSETS, base, {})
+
+  for (const skill of ['spec', 'spec-bug']) {
+    const withLinear = fs.readFileSync(path.join(linear, 'skills', skill, 'SKILL.md'), 'utf8')
+    assert.match(withLinear, /Phase 0 — start from a Linear issue/, `${skill} can start from an issue`)
+    assert.match(withLinear, /--from-issue/, `${skill} documents the inbox flag`)
+    assert.match(withLinear, /spec-sync linked --json/, `${skill} dedups against adopted issues`)
+
+    const plain = fs.readFileSync(path.join(base, 'skills', skill, 'SKILL.md'), 'utf8')
+    assert.doesNotMatch(plain, /seam:/, `${skill} seam emptied in base`)
+    assert.doesNotMatch(plain, /Linear|from-issue/i, `${skill} stays tracker-free in base`)
+  }
+})
+
+test('adoption never mints: the intake fragment forbids picker and base sidecar', () => {
+  const out = tmp()
+  composeAssets(COMMON_ASSETS, out, loadFragments(LINEAR_SEAMS))
+  const spec = fs.readFileSync(path.join(out, 'skills', 'spec', 'SKILL.md'), 'utf8')
+  assert.match(spec, /Do not run the project picker/, 'adoption leaves placement to Linear')
+  assert.match(spec, /Do not write a base sidecar/, 'so the first push overwrites the report')
+})
+
 test('the project picker is single-sourced into both mint points', () => {
   const out = tmp()
   const fragments = loadFragments(LINEAR_SEAMS)
