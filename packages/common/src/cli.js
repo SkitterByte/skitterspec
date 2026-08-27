@@ -60,7 +60,8 @@ Usage:
                               .core config alone.
   skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
                               specs/.core/env.config.json). Subcommands:
-                                up <spec>         plan a worktree + Docker stack + opener
+                                up <spec>         print the plan to provision a worktree +
+                                                  Docker stack (prints commands; creates nothing)
                                 down <spec>       tear down (guards; --keep-volumes, --force)
                                 prune             reap orphaned test-DB volumes (--older-than <days>)
                                 dev up <spec>     start host dev servers on the spec's ports
@@ -176,8 +177,10 @@ function specEnvStatus(dir, config) {
     })
 }
 
-// Provision: allocate the slot, persist the registry, and print the plan the
-// /spec-env skill executes (git worktree add, docker compose up, .env, opener).
+// Plan a provision: allocate the slot, persist the registry, and print the plan
+// the /spec-env skill executes (git worktree add, docker compose up, .env,
+// opener). This creates no worktree and starts no stack — the caller runs the
+// printed commands. Keep the output's verb honest about that.
 function specEnvUp(dir, config, specArg) {
   if (!specArg) {
     process.stdout.write('Usage: skitterspec spec-env up <spec>\n')
@@ -224,7 +227,16 @@ function specEnvUp(dir, config, specArg) {
   const plan = planUp(spec, { slot, attached }, config)
 
   const out = []
-  out.push(`spec-env up: ${spec.folder} ${attached ? '(attached — existing)' : '(provisioned)'}`)
+  // `up` is a planner: it prints commands for the caller to run and creates no
+  // worktree or stack itself (the registry slot and the trust entry, both reported
+  // separately below, are its only writes). Say so in the verb — a past-tense
+  // "(provisioned)" reads as a completed state change, and a caller that believes
+  // it skips the commands and works on `main`, which is what isolation exists to
+  // prevent.
+  out.push(
+    `spec-env up: ${spec.folder} ` +
+      (attached ? '(plan — worktree exists; will attach)' : '(plan — nothing created yet)'),
+  )
   out.push('')
   out.push(`  worktree:  ${plan.worktreePath}`)
   out.push(`  branch:    ${plan.branch}`)
@@ -247,7 +259,7 @@ function specEnvUp(dir, config, specArg) {
     )
   }
   out.push('')
-  out.push('  run these:')
+  out.push('  to provision, run:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   if (plan.openCommand) out.push(`    ${plan.openCommand}`)
   // Seed files first (setup may depend on them), then the setup commands —
@@ -255,7 +267,7 @@ function specEnvUp(dir, config, specArg) {
   const worktreeSteps = [...plan.seedCommands, ...plan.setupCommands]
   if (worktreeSteps.length) {
     out.push('')
-    out.push('  in the worktree, run:')
+    out.push('  then, in the worktree, run:')
     for (const cmd of worktreeSteps) out.push(`    ${cmd}`)
   }
   if (plan.envContents) {

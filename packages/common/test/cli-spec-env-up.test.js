@@ -174,3 +174,48 @@ test('spec-env up leaves a malformed settings.local.json untouched, warns in the
   assert.strictEqual(fs.readFileSync(file, 'utf8'), 'not json {', 'file left intact')
   assert.match(out, /trusted:\s+! .*not valid JSON/, 'plan warns about malformed settings')
 })
+
+// --- regression: `up` plans, and must not claim otherwise ---------------------
+//
+// Reported against 8.0.5. Three layers independently said "fine" for work none of
+// them did: `up` printed "(provisioned)" while creating nothing, the bundled
+// /spec-go skill told the agent the CLI had added the worktree, and the emitted
+// seed commands printed "exists — skipped" when run from the main checkout. An
+// agent that believed them did the spec move, the commit and the push on `main` —
+// the exact outcome per-spec isolation exists to prevent.
+
+test('spec-env up creates nothing, and its verb does not claim it did', async () => {
+  const { dir, folder } = scaffold('plan', { seedFiles: ['.env'], setup: ['pnpm install'] })
+  const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+
+  assert.doesNotMatch(out, /\(provisioned\)/, 'no past-tense success verb')
+  assert.match(out, /\(plan — nothing created yet\)/, 'states the plan created nothing')
+  assert.match(out, /to provision, run:/, 'frames the commands as still to be run')
+
+  const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, 'plan')
+  assert.ok(!fs.existsSync(worktree), 'no worktree was created on disk')
+})
+
+test('spec-env up with the emitted commands not run leaves the spec un-provisioned', async () => {
+  const { dir, folder } = scaffold('unprov')
+  await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+
+  // status is the cheap check an operator/agent would make next.
+  const status = await runQuiet(['spec-env', 'status', '--dir', dir])
+  assert.match(status, /no provisioned specs/, 'status does not report it as provisioned')
+
+  // resolve still describes a worktree that does not exist.
+  const resolved = await runQuiet(['spec-env', 'resolve', folder, '--dir', dir])
+  const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, 'unprov')
+  assert.match(resolved, new RegExp(worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.ok(!fs.existsSync(worktree), 'resolve reports a path that was never created')
+})
+
+test('a re-run of spec-env up does not drift into claiming the worktree exists', async () => {
+  const { dir, folder } = scaffold('rerun')
+  await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+  const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+  assert.match(out, /\(plan — nothing created yet\)/, 'still nothing created')
+  assert.doesNotMatch(out, /attached/, 'does not report attaching a worktree that is absent')
+  assert.match(out, /git worktree add \S+ -b /, 'still emits the fresh-branch form')
+})

@@ -47,16 +47,26 @@ same "in place otherwise" path used when isolation is off. Warn that the work
 will land wherever you currently are (usually `main`); reserve it for a trivial
 change or an explicit request.
 
-- Run `skitterspec spec-env up <name>` (the `spec-env` CLI engine). It adds a git
-  worktree on a branch forked from `main`, and — only when the spec's
-  `> **Stack:**` header is `worktree + docker` — also brings up its Docker stack.
+- Run `skitterspec spec-env up <name>` (the `spec-env` CLI engine). It is a
+  **planner: it prints commands and creates nothing itself.** Under
+  `to provision, run:` it emits the `git worktree add` on a branch forked from
+  `main` and — only when the spec's `> **Stack:**` header is
+  `worktree + docker` — the Docker bring-up.
+  **Run those commands and confirm they succeeded** before anything below: every
+  later step assumes the worktree exists, and the header line says
+  `(plan — nothing created yet)` precisely because at that point it doesn't.
   Print the worktree path and the opener command it emits.
 - **Bootstrap the worktree's dependencies.** A fresh worktree has an empty
   working tree — no installed dependencies, and none of the repo's gitignored
   files (`.env`, local secret/config overrides) — so git hooks, typechecks,
   builds and tests fail until they're in place. `spec-env up` prints the
-  project's configured **`in the worktree, run:`** commands — run them in the
-  worktree, in order, before doing anything else. Those commands are: first any
+  project's configured **`then, in the worktree, run:`** commands — run them in
+  order, before doing anything else. Each one begins by `cd`-ing into the
+  worktree, so it works from any cwd and cannot quietly act on the main
+  checkout; if the worktree is missing it prints
+  **`no worktree at … — run the provisioning commands first`** and exits
+  non-zero. Seeing that means the `git worktree add` above didn't run or didn't
+  work — fix that before going on. Those commands are: first any
   **file seeding** (from `env.config.json` → `seedFiles`), which symlinks or
   copies the configured gitignored files from the main checkout into the fresh
   worktree so setup can rely on them; then the **`setup`** commands (e.g. an

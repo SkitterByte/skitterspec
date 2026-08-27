@@ -16,6 +16,37 @@ const { renderEnvFile, expandOpenCommand } = require('./render.js')
 const { expandTokens } = require('./resolve.js')
 
 /**
+ * Build the POSIX-sh prefix that puts a command in the spec's worktree, or stops.
+ *
+ * Every command under the "then, in the worktree, run:" heading carries this.
+ * Without it those commands stay silent when run from the wrong place: in the
+ * primary checkout `$m` resolves to the checkout itself, so a seed's source and
+ * target are the same path and it prints `exists — skipped` — indistinguishable
+ * from a correctly-provisioned re-run — while a setup command like an install
+ * runs against the main checkout and "succeeds" too. Three layers then agree that
+ * nothing is wrong, and the caller carries on committing to `main`.
+ *
+ * A `cd` is deliberately chosen over comparing `git rev-parse --show-toplevel`
+ * against `worktreePath`: the planned path is a lexical `path.resolve` while git
+ * reports the symlink-resolved one (`/tmp` vs `/private/tmp` on macOS), so a
+ * string compare would refuse a perfectly good worktree. `cd` sidesteps that, and
+ * does better than refusing — it *positions* the command, so a caller who is in
+ * the wrong directory still gets correct behaviour. When the worktree was never
+ * created — the reported case — the `cd` fails and takes the whole command with
+ * it, non-zero and loud.
+ *
+ * Per-command, not once at the top of the block: a single leading `cd` only
+ * protects the sequence if the caller chains it with `&&`, and the reported
+ * failure is precisely a caller that ran the steps as separate statements.
+ */
+function worktreeCd(worktreePath) {
+  return (
+    `cd "${worktreePath}" 2>/dev/null || ` +
+    `{ echo "no worktree at ${worktreePath} — run the provisioning commands first"; exit 1; }`
+  )
+}
+
+/**
  * Build one idempotent POSIX-sh command that seeds a gitignored file from the
  * main checkout into the current worktree (the cwd when the skill runs it).
  *
@@ -84,13 +115,18 @@ function planUp(spec, alloc, config) {
   // config ⇒ no commands ⇒ current behaviour.
   const seed = config.seedFiles || { mode: 'symlink', files: [] }
   const seedMode = seed.mode === 'copy' ? 'copy' : 'symlink'
-  const seedCommands = (seed.files || []).map((file) => seedCommandFor(file, seedMode))
+  const guard = worktreeCd(spec.worktreePath)
+  const seedCommands = (seed.files || []).map(
+    (file) => `${guard}; ${seedCommandFor(file, seedMode)}`,
+  )
 
   // Bootstrap commands run *in the worktree* after `git worktree add` (before
   // Docker/dev), on every provision including re-attach — deps must exist for
   // the worktree to be usable. Kept separate from `commands` (run from the
   // primary checkout root); the CLI prints them under an "in the worktree" head.
-  const setupCommands = (config.setup || []).map((cmd) => expandTokens(cmd, tokens))
+  const setupCommands = (config.setup || []).map(
+    (cmd) => `${guard}; ${expandTokens(cmd, tokens)}`,
+  )
 
   const commands = []
   // Fresh branch → -b; attach an existing branch/slot → plain form (never clobber).
@@ -122,4 +158,4 @@ function planUp(spec, alloc, config) {
   }
 }
 
-module.exports = { planUp, seedCommandFor }
+module.exports = { planUp, seedCommandFor, worktreeCd }

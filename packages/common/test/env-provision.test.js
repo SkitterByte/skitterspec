@@ -3,7 +3,18 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { planUp, seedCommandFor } = require('../src/env/provision.js')
+const { planUp, seedCommandFor, worktreeCd } = require('../src/env/provision.js')
+
+// Every "in the worktree" command is prefixed with the cwd guard. These tests are
+// about the payload (token expansion, mode), so strip the guard and assert the rest;
+// the guard itself is covered by its own tests below.
+function payloads(commands, worktreePath = '/wt/thing') {
+  const prefix = `${worktreeCd(worktreePath)}; `
+  return commands.map((cmd) => {
+    assert.ok(cmd.startsWith(prefix), `missing worktree guard: ${cmd}`)
+    return cmd.slice(prefix.length)
+  })
+}
 
 // A resolved-spec stand-in (planUp only reads these fields).
 function spec(overrides = {}) {
@@ -156,7 +167,7 @@ test('setupCommands expand tokens (slug/branch/worktreePath/portOffset)', () => 
     { slot: 2, attached: false },
     config({ setup: ['pnpm install', 'echo {slug} {branch} {worktreePath} {portOffset}'] }),
   )
-  assert.deepStrictEqual(plan.setupCommands, [
+  assert.deepStrictEqual(payloads(plan.setupCommands), [
     'pnpm install',
     'echo thing feat/thing /wt/thing 3020',
   ])
@@ -164,7 +175,7 @@ test('setupCommands expand tokens (slug/branch/worktreePath/portOffset)', () => 
 
 test('setupCommands are emitted on re-attach too', () => {
   const plan = planUp(spec(), { slot: 0, attached: true }, config({ setup: ['pnpm install'] }))
-  assert.deepStrictEqual(plan.setupCommands, ['pnpm install'])
+  assert.deepStrictEqual(payloads(plan.setupCommands), ['pnpm install'])
 })
 
 test('setupCommands are emitted on a worktree-only spec (empty portOffset token)', () => {
@@ -173,7 +184,7 @@ test('setupCommands are emitted on a worktree-only spec (empty portOffset token)
     { slot: null, attached: false },
     config({ setup: ['pnpm install # {portOffset}'] }),
   )
-  assert.deepStrictEqual(plan.setupCommands, ['pnpm install # '])
+  assert.deepStrictEqual(payloads(plan.setupCommands), ['pnpm install # '])
 })
 
 // --- seedFiles ---
