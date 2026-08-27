@@ -1,5 +1,68 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec-linear` v9 → v10 (`push` validates your issue states)
+
+**`spec-sync push` now refuses to run until the configured `states` names have
+been checked against your Linear workspace.** The check itself is not new — it
+already existed on `spec-sync status --workspace-states` — but it was advisory,
+and skipping it sent a state name Linear **silently ignores**: the description
+lands, the issue never moves, and nothing errors. The base
+`@skitterbyte/skitterspec` is unaffected.
+
+### Breaking change
+
+| | v9 | v10 |
+|---|-----|-----|
+| `spec-sync push <spec>` | runs | **exits 1** unless `--workspace-states <file>` or `--skip-state-check` is passed |
+| A configured state absent from the workspace | pushed, silently no-op | **exits 1**, naming the workspace's real states |
+
+`/spec-push` handles this for you — it fetches the workspace's issue
+workflow-state names over MCP and passes them on. **Nothing changes if you drive
+sync through the skill.** Only a direct CLI caller needs updating.
+
+### What to do
+
+1. **Using `/spec-push`?** Nothing. Run `update` and carry on.
+2. **Calling `spec-sync push` from CI or a script?** Supply the workspace's issue
+   workflow-state names as a JSON array and pass the file:
+
+   ```sh
+   # names come from your Linear workspace, e.g. via the MCP server or the API
+   echo '["Backlog","Todo","In Progress","Done","Canceled"]' > states.json
+   skitterspec spec-sync push my-spec --workspace-states states.json --json
+   ```
+
+   Or opt out deliberately with `--skip-state-check`. Don't reach for it to get
+   past a *failing* check — that check is the only thing standing between you and
+   a push that moves nothing.
+3. **If the check refuses,** it tells you what your workspace actually has and,
+   where the lifecycle bucket makes it unambiguous, which name to use:
+
+   ```
+   spec-sync push: refusing — configured state name(s) not in the workspace
+
+     states.complete: "Done" is not an issue state in this workspace
+       use "Completed" instead
+
+     available: Backlog, Todo, In Progress, Completed, Canceled
+   ```
+
+   Fix `specs/.core/linear.config.json` → `states`. `/spec-push` will offer to
+   apply the fix for you.
+
+### Also in v10 (not breaking)
+
+- **A pre-9.0 mirror is detected before it can be orphaned.** A spec still
+  carrying `linear_project_id` / `linear_milestone_id` reads as unlinked to v9+,
+  so `push` would emit an all-creates plan and abandon the live mirror. The plan
+  now carries a `legacy` field naming how many objects that would strand, and
+  `/spec-push` stops. **If you skipped the v8 → v9 migration below, read it now** —
+  this is the guard that catches you, not a substitute for it.
+- **`update` says what it skipped** — each `customized (kept)` file now reports
+  `+added −removed`, with `--diff` to see the upstream changes you declined.
+- **This guide now ships inside the package** (it wasn't in the published tarball
+  before v10 — `files` listed only `bin`/`src`/`assets`).
+
 ## `@skitterbyte/skitterspec-linear` v8 → v9 (a spec is an Issue, phases are sub-issues)
 
 **v9 remaps the Linear mirror.** A spec is now a Linear **issue** (not a Project),

@@ -72,11 +72,15 @@ test('/spec-push halts on a pre-9.0 mirror before applying anything', () => {
   )
 })
 
-// SETUP.md is what a project actually reads; the guide it points at must ship.
-test('SETUP.md tells 8.x users to read the migration guide', () => {
+// SETUP.md is what a project actually reads, and the version someone is coming
+// FROM is the one they'll look for. A section that names only the oldest jump is
+// one a v9 user scrolls straight past.
+test('SETUP.md points every upgrade path at the migration guide', () => {
   const text = fs.readFileSync(path.join(ASSETS, 'core', 'SETUP.md'), 'utf8')
-  assert.match(text, /Upgrading from 8\.x/)
+  assert.match(text, /Upgrading an existing install/)
   assert.match(text, /MIGRATION\.md/)
+  assert.match(text, /From 9\.x/, 'the breaking states gate')
+  assert.match(text, /From 8\.x/, 'the mirror remap')
 })
 
 // A refusal the agent can only relay is half a fix — the skill has to offer to

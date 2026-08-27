@@ -14,16 +14,25 @@ team) that the config reference (`linear.config.md`) assumes you already have.
 
 ---
 
-## Upgrading from 8.x
+## Upgrading an existing install
 
-**v9 remapped the mirror.** A spec is now an **issue** (was a Project), a phase a
-**sub-issue** (was a Milestone), and tasks are no longer objects. The frontmatter
-keys moved with it, so a spec linked under 8.x reads as **unlinked** to v9 — the
-next `/spec-push` would mint a fresh mirror and abandon the old one.
+Fresh installs can skip this section. **`MIGRATION.md` ships with the package** —
+read the entry for the version you are coming from before upgrading a repo with a
+live mirror.
 
-`spec-sync push` detects this and refuses to let the plan be applied blind, but
-read **`MIGRATION.md`** ("v8 → v9", shipped with the package) before upgrading a
-repo with a live mirror. Fresh installs can skip this section.
+**From 9.x — `push` now validates your issue states.** `spec-sync push` refuses
+to run until the configured `states` names have been checked against the
+workspace. `/spec-push` does that for you, so nothing changes if you drive sync
+through the skill; a script calling the CLI directly must pass
+`--workspace-states <file>` (or `--skip-state-check`). See `MIGRATION.md`
+→ "v9 → v10".
+
+**From 8.x — the mirror was remapped.** A spec is now an **issue** (was a
+Project), a phase a **sub-issue** (was a Milestone), and tasks are no longer
+objects. The frontmatter keys moved with it, so a spec linked under 8.x reads as
+**unlinked** — the next `/spec-push` would mint a fresh mirror and abandon the old
+one. `push` detects this and refuses to let the plan be applied blind, but read
+`MIGRATION.md` → "v8 → v9" first.
 
 ## 1. Install the package
 
