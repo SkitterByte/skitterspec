@@ -2,10 +2,10 @@
 
 A start-to-finish guide to getting `/spec-status` and `/spec-push` working against
 a real Linear workspace. Sync is **one-way**: the repo is the source of truth and
-the linked Linear project is a **generated mirror** — content is pushed up, never
-read back or merged. Covers the **Linear side** (connecting the MCP server,
-finding your team) that the config reference (`linear.config.md`) assumes you
-already have.
+the linked Linear **issue** is a **generated mirror** — content is pushed up, never
+read back or merged. A spec is a Linear issue and each phase a sub-issue; tasks are
+not synced. Covers the **Linear side** (connecting the MCP server, finding your
+team) that the config reference (`linear.config.md`) assumes you already have.
 
 > The whole feature is **opt-in**: until `specs/.core/linear.config.json` exists,
 > everything below is inert and the package behaves exactly like the base
@@ -66,8 +66,8 @@ Skitterspec — e07c2b54-dcf6-4b6e-81bd-175a9bc79868  (key: SKI)
 ```
 
 Copy the `id` (the UUID). The `key` (e.g. `SKI`) is the short human handle. If you
-want an **Initiative** to group your specs, ask "list my Linear initiatives" and
-copy that id too (optional).
+want a **Project** to group your spec issues, ask "list my Linear projects" and
+copy that id into `linear.projectId` (optional).
 
 ## 4. Scaffold the config
 
@@ -80,7 +80,7 @@ ids from step 3 — the team id is the only required field:
   "linear": {
     "teamKey": "SKI",
     "teamId": "e07c2b54-dcf6-4b6e-81bd-175a9bc79868",
-    "initiativeId": ""            // optional
+    "projectId": ""              // optional grouping Project
   }
 }
 ```
@@ -89,20 +89,20 @@ Everything else (state names, field ownership) has sensible defaults — see
 `linear.config.md` to customise. The moment this file exists, the Linear steps in
 `/spec` and `/spec-go` and the three sync skills switch on.
 
-## 5. Link a spec to a Linear project
+## 5. Link a spec to a Linear issue
 
-A spec syncs once its `00-overview.md` frontmatter carries a `linear_project_id`.
+A spec syncs once its `00-overview.md` frontmatter carries a `linear_identifier`.
 Two ways to get there:
 
 - **New spec:** run `/spec` — with Linear configured it offers to create a linked
-  Linear **Project** (one Milestone per phase) and stamps the id for you.
-- **Existing spec / existing Linear project:** add the id by hand. Ask Claude to
-  "create a Linear project for this spec" (or find an existing one's id via
-  `list_projects`), then set the frontmatter:
+  Linear **issue** (one sub-issue per phase) and stamps the id for you.
+- **Existing spec / existing Linear issue:** add the id by hand. Ask Claude to
+  "create a Linear issue for this spec" (or find an existing one's id), then set
+  the frontmatter:
 
   ```yaml
   ---
-  linear_project_id: "640bcb1a-28cd-46b5-b2f8-ff47ce494ed1"
+  linear_identifier: "SKI-123"
   ---
   ```
 
@@ -111,7 +111,7 @@ Two ways to get there:
 | Command | Direction | What it does |
 |---------|-----------|--------------|
 | `/spec-status` | — | Read-only drift report: what would push (create/update), and whether Linear's workflow-state drifted from the spec. Writes nothing. |
-| `/spec-push`   | repo → Linear | Computes a create/update plan vs the last-pushed snapshot and applies it (project description/status, milestones, issues), stamping new ids back into the spec. |
+| `/spec-push`   | repo → Linear | Computes a create/update plan vs the last-pushed snapshot and applies it (issue description/state, phase sub-issues), stamping new ids back into the spec. |
 
 Typical loop: edit the spec in-repo → `/spec-status` (what's pending) →
 `/spec-push` (send it up). There is no pull — Linear is a generated mirror.
@@ -120,20 +120,20 @@ Typical loop: edit the spec in-repo → `/spec-status` (what's pending) →
 
 | Field | What |
 |-------|------|
-| `description` | the spec body (problem, solution, acceptance criteria) as the project description |
-| `milestones` | one per phase (name + goal) |
-| `issues` | one per task — first-sentence **title**, full task text as the **description** |
-| `workflowState` → project status | the spec's lifecycle bucket, mapped via `states` |
+| `description` | the spec body (problem, solution) as the issue description |
+| `subIssues` | one per phase — phase name as **title**, `**Goal:**` as the **description**, phase emoji → **state** |
+| `workflowState` → issue state | the spec's lifecycle folder bucket, mapped via `states` |
 
-Priority, labels, cycles and comments are **Linear-native triage** — the PM's to
-set in Linear. One-way sync neither pushes nor reads them, so they're never
-clobbered. A workflow-state a teammate moves in Linear is surfaced by
-`/spec-status` as drift and overwritten on the next push.
+Tasks, priority, labels, cycles and comments are **Linear-native triage** (or
+repo-only) — never pushed, so they're never clobbered. A workflow-state a teammate
+moves in Linear is surfaced by `/spec-status` as drift and overwritten on the next
+push.
 
-Phases push as **Milestones** and tasks as **Issues** by default. The link ids
-live in the phase-file frontmatter (`linear_milestone_id`) and inline on task
-lines (`- [ ] do it (SKI-123)`); `/spec-push` stamps them the first time it
-creates each object, so later pushes update instead of recreate.
+The spec is one issue and each phase a **sub-issue** (`parentId` = the spec
+issue). The link ids live in frontmatter — `linear_identifier` on the overview,
+`linear_issue_id` on each phase file; `/spec-push` stamps them the first time it
+creates each object, so later pushes update instead of recreate. Set
+`linear.projectId` to add every spec issue to a grouping Linear Project.
 
 Sections listed in `sync.localOnlySections` (default: **State log**, **Changelog**,
 **Open questions**) are stripped from the pushed description — they never leave
@@ -150,22 +150,22 @@ the repo.
 With a linked spec, confirm push end-to-end:
 
 1. `/spec-status` → shows what would push (`pending — N to create, M to update`).
-2. `/spec-push` → creates the project's milestones/issues and sets the
-   description/status; ids are stamped back into the spec.
+2. `/spec-push` → creates the spec issue and its phase sub-issues and sets the
+   description/state; ids are stamped back into the spec.
 3. `/spec-status` again → **up to date** (nothing changed since the last push).
-4. Edit a task locally, `/spec-push` → the matching issue updates;
+4. Edit a phase goal locally, `/spec-push` → the matching sub-issue updates;
    `/spec-status` returns to **up to date**.
 
 ## Troubleshooting
 
 - **"connect the `linear` MCP server"** — the server isn't connected/authed for
   this session. Re-run step 2; remember a fresh add needs a Claude Code restart.
-- **"missing required tools: projectUpdate"** — you're on the read-only endpoint
+- **"missing required tools: issueCreate"** — you're on the read-only endpoint
   (or a restricted API key). Use `https://mcp.linear.app/mcp` for push.
-- **A configured status name silently does nothing** — Linear ignores an unknown
-  project status. Run `/spec-status` (it validates the `states` names against the
-  workspace) and fix `linear.config.json` to the real project-status names
-  (`Backlog / Planned / In Progress / Completed / Canceled`).
+- **A configured state name silently does nothing** — Linear ignores an unknown
+  issue state. Run `/spec-status` (it validates the `states` names against the
+  workspace) and fix `linear.config.json` to the real issue-state names
+  (`Backlog / Todo / In Progress / Done / Canceled`).
 - **Reconnecting doesn't switch workspace** — Linear ties the OAuth session to one
   workspace. Remove and re-add the server to authenticate against another.
 - **Bold around an inline code span renders oddly in Linear** — Linear moves the

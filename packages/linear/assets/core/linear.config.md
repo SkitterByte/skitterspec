@@ -2,7 +2,8 @@
 
 Opt-in config for the Linear sync (`/spec-status`, `/spec-push`, and the
 Linear-aware paths of `/spec` and `/spec-go`). Sync is **one-way**: the repo is
-the source of truth and the Linear project is a **generated mirror**. Content is
+the source of truth and the Linear **issue** is a **generated mirror**. A spec is
+a Linear issue and each phase a sub-issue; tasks are not synced. Content is
 pushed up and never read back or merged — `/spec-push` diffs the spec against a
 committed **last-pushed snapshot** and applies only what changed; `/spec-status`
 is a read-only drift report. The `sync.fieldOwnership` map now just selects the
@@ -12,7 +13,7 @@ projection field set (every field is repo-owned and pushed).
 is absent the feature is simply unused — `/spec`, `/spec-go`, and the CLI's
 `spec-sync` subcommands behave exactly as they do today (local-only). Adopt it by
 copying `linear.config.json.example` → `linear.config.json` here and filling in
-your team / initiative IDs.
+your team ID (and an optional grouping project).
 
 The loader (`src/sync/config.js` → `loadLinearConfig`) merges your file over the
 frozen defaults below and returns `{ config, present }`; `present:false` means no
@@ -23,30 +24,31 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
 
 ```jsonc
 {
-  // Which Linear team/initiative specs sync into. IDs are read by the Phase 2
-  // MCP adapter; leave blank until you connect the `linear` MCP server.
+  // Which Linear team specs sync into, and an optional Project to group them.
+  // IDs are read by the MCP adapter; leave blank until you connect the `linear`
+  // MCP server.
   "linear": {
     "teamKey": "",        // human-facing key, e.g. "ENG" (optional)
-    "teamId": "",         // Linear team UUID (create target)
-    "initiativeId": ""    // optional Initiative that groups these specs
+    "teamId": "",         // Linear team UUID (the issue's team)
+    "projectId": ""       // optional Linear Project the spec issues are added to
   },
 
-  // How a spec's parts map onto Linear objects. Defaults mirror Decision 7:
-  // spec folder → Project, phases → Milestones, tasks → Issues. `phases` may be
-  // switched to "issue" if your workspace doesn't expose project milestones.
+  // How a spec's parts map onto Linear objects: a spec is an Issue, each phase a
+  // sub-issue (a child issue), tasks are not synced. These are the defaults.
   "mapping": {
-    "specFolder": "project",
-    "phases": "milestone",   // "milestone" | "issue"
-    "tasks": "issue"
+    "specFolder": "issue",
+    "phases": "subissue",
+    "tasks": "none"
   },
 
-  // Map the spec's lifecycle bucket → the Linear workflow-state name. Used when
-  // translating workflowState across the boundary (Linear owns status → `pull`).
+  // Map the spec's lifecycle bucket → the Linear ISSUE workflow-state name. Used
+  // for the spec issue's state (from its folder) AND each sub-issue's state (from
+  // the phase emoji). Names must match the workspace's issue states exactly.
   "states": {
     "backlog": "Backlog",
     "in-progress": "In Progress",
     "complete": "Done",
-    "cancelled": "Cancelled"
+    "cancelled": "Canceled"
   },
 
   // The spec's entry-point file the local snapshot + frontmatter live in.
@@ -69,15 +71,14 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
     "baseDir": "specs/.core/linear-base",
 
     // The pushed projection field set (repo → Linear, one-way). The `push` marker
-    // is retained for shape; there is no pull. The default set is the project
-    // `description`, `milestones` (one per phase), `tasks` (one issue each), and
-    // the lifecycle `workflowState`. Priority, labels, cycles and comments are
-    // Linear-native triage — deliberately NOT here, so a PM's triage is never
-    // touched. Any key you add joins the pushed projection.
+    // is retained for shape; there is no pull. The default set is the spec
+    // issue's `description`, its `subIssues` (one per phase — name + goal +
+    // state), and the lifecycle `workflowState`. Tasks, priority, labels, cycles
+    // and comments are NOT here, so a PM's triage is never touched. Any key you
+    // add joins the pushed projection.
     "fieldOwnership": {
       "description": "push",
-      "milestones": "push",
-      "tasks": "push",
+      "subIssues": "push",
       "workflowState": "push"
     },
 
@@ -85,31 +86,32 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
     // are stripped from the pushed `description` (never sent to Linear).
     "localOnlySections": ["State log", "Changelog", "Open questions"],
 
-    // Reserved. Milestones and tasks are always projected per item (each phase →
-    // a Milestone, each task → an Issue), so this no longer needs setting; it is
-    // validated but unused. Leave it `{}`.
+    // Reserved. Sub-issues are always projected per phase, so this no longer
+    // needs setting; it is validated but unused. Leave it `{}`.
     "keyedFields": {}
   }
 }
 ```
 
-## Phases → Milestones, tasks → Issues
+## Spec → Issue, phases → sub-issues
 
 Push maps the spec's structure to Linear's, keyed by id so it updates rather than
 recreates:
 
-- **Phases → Milestones.** Each phase file maps to a Linear Milestone. The link id
-  lives in the phase file's frontmatter (`linear_milestone_id`); its name ← the
-  phase h1, its description ← the phase `**Goal:**` line. The `Phases` index is
-  stripped from the pushed `description` (no duplication).
-- **Tasks → Issues.** Each `- [ ]` task line maps to a Linear Issue. The link id
-  is carried **inline** on the line — `- [ ] do the thing (SKI-123)`. The issue
-  **title** is the task's first sentence; the **description** is the full task
-  text; `[x]`/`[ ]` ↔ a completed / non-completed issue state.
+- **Spec → Issue.** The spec is one Linear issue. Its id lives in the overview
+  frontmatter (`linear_identifier`); its `description` ← the overview plan (with
+  the `Phases` index and local-only sections stripped); its workflow-state ← the
+  spec's lifecycle folder (`specs/<bucket>/`). Set `linear.projectId` to group
+  every spec issue under one Linear Project.
+- **Phases → sub-issues.** Each phase file maps to a child issue (`parentId` = the
+  spec issue). The link id lives in the phase file's frontmatter
+  (`linear_issue_id`); its title ← the phase h1, its description ← the phase
+  `**Goal:**` line, its state ← the phase heading emoji (⬜/🔄/✅).
+- **Tasks are not synced.** Task checkboxes stay in the repo phase files only.
 
-Unlinked local items (a new phase with no `linear_milestone_id`, a task with no
-inline id) are created in Linear on the next `/spec-push`, which stamps the new id
-back so they link from then on.
+Unlinked local items (a spec with no `linear_identifier`, a phase with no
+`linear_issue_id`) are created in Linear on the next `/spec-push`, which stamps
+the new id back so they link from then on.
 
 ## One direction — nothing to reconcile
 

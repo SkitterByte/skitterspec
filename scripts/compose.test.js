@@ -105,7 +105,7 @@ test('superset build: both seams carry the Linear fragment', () => {
   assert.doesNotMatch(spec, /seam:/, 'spec seam filled')
   assert.doesNotMatch(spec, /<!--|-->/, 'fragment doc comment stripped, no marker residue')
   assert.match(spec, /linear\.config\.json/, 'spec-tracker-link fragment injected')
-  assert.match(spec, /Create the Project/i, 'link step present')
+  assert.match(spec, /Create the Issue/i, 'link step present')
   assert.doesNotMatch(spec, /Seam fragment for/, 'fragment header text not injected')
 
   const specGo = fs.readFileSync(path.join(out, 'skills', 'spec-go', 'SKILL.md'), 'utf8')

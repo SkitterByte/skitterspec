@@ -31,9 +31,10 @@ const seamText = (name) => fs.readFileSync(path.join(ASSETS, 'seams', `${name}.m
 test('the spec-tracker-link seam fragment carries the Linear link step', () => {
   const text = seamText('spec-tracker-link')
   assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
-  assert.match(text, /Create the Project/i, 'creates the Linear Project')
-  assert.match(text, /Milestone per phase/i, 'creates a milestone per phase')
-  assert.match(text, /linear_project_id/, 'adds the frontmatter block')
+  assert.match(text, /Create the Issue/i, 'creates the Linear issue')
+  assert.match(text, /sub-issue per phase/i, 'creates a sub-issue per phase')
+  assert.match(text, /linear_identifier/, 'adds the frontmatter block')
+  assert.doesNotMatch(text, /linear_project_id|Create the Project|Milestone per phase/i, 'no stale project/milestone model')
   assert.match(text, /base sidecar|spec-sync normalize/i, 'writes the initial base')
 })
 

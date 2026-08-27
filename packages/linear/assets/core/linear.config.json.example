@@ -2,17 +2,17 @@
   "linear": {
     "teamKey": "",
     "teamId": "",
-    "initiativeId": ""
+    "projectId": ""
   },
   "mapping": {
-    "specFolder": "project",
-    "phases": "milestone",
-    "tasks": "issue"
+    "specFolder": "issue",
+    "phases": "subissue",
+    "tasks": "none"
   },
   "states": {
     "backlog": "Backlog",
     "in-progress": "In Progress",
-    "complete": "Completed",
+    "complete": "Done",
     "cancelled": "Canceled"
   },
   "snapshot": {
@@ -25,8 +25,7 @@
     "baseDir": "specs/.core/linear-base",
     "fieldOwnership": {
       "description": "push",
-      "milestones": "push",
-      "tasks": "push",
+      "subIssues": "push",
       "workflowState": "push"
     },
     "localOnlySections": ["State log", "Changelog", "Open questions"],

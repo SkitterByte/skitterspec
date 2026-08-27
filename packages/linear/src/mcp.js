@@ -3,38 +3,37 @@
 /**
  * The Linear MCP boundary — the one place that knows concrete Linear tool names.
  *
- * `discoverLinear(tools)` resolves the operations the sync needs (read/update a
- * Project, list/create/update Milestones + Issues) against the *connected*
- * server's advertised tool list at runtime, rather than hardcoding names that
- * drift. If Linear isn't connected (empty / zero-match tool list) it returns a
- * clean `{ ok:false, error }` so the caller can stop and do nothing destructive.
+ * A spec is a Linear **issue** and each phase a **sub-issue** (a child issue
+ * with a `parentId`); tasks are not synced. `discoverLinear(tools)` resolves the
+ * issue operations the sync needs (read / create / update an issue, optionally
+ * list a parent's children) against the *connected* server's advertised tool
+ * list at runtime, rather than hardcoding names that drift. If Linear isn't
+ * connected (empty / zero-match tool list) it returns a clean `{ ok:false,
+ * error }` so the caller can stop and do nothing destructive.
  *
  * `makeAdapter(callTool, resolved)` wraps a generic `callTool(name, args)` (the
- * skill's MCP invoker) into the typed async operations push/pull consume. Tests
- * inject a fake adapter directly (an in-memory Project), so the engine stays
- * offline and deterministic; production wires `callTool` to the real MCP server.
+ * skill's MCP invoker) into the typed async operations push consumes. Tests
+ * inject a fake `callTool`, so the engine stays offline and deterministic;
+ * production wires `callTool` to the real MCP server.
  */
 
 // Canonical operations, and the regexes that match a Linear MCP tool name to
 // each. Ordered patterns: first match wins. Matched against the real connected
-// Linear MCP server: it exposes a single upsert `save_*` tool per object (create
-// when no id, update when id given) rather than separate create/update verbs, so
-// each write op accepts `save_*` as well as the legacy `create_`/`update_` names.
+// Linear MCP server: it exposes a single upsert `save_issue` tool (create when
+// no id, update when id given) rather than separate create/update verbs, so each
+// write op accepts `save_issue` as well as the legacy `create_`/`update_` names.
 const MATCHERS = {
-  projectRead: [/get_?project\b/i, /read_?project/i, /project_?get/i],
-  projectUpdate: [/save_?project/i, /update_?project/i, /project_?update/i],
-  projectCreate: [/save_?project/i, /create_?project/i, /project_?create/i],
-  milestoneList: [/list_?.*milestone/i, /milestones?_?list/i, /get_?.*milestones?/i],
-  milestoneCreate: [/save_?.*milestone/i, /create_?.*milestone/i, /milestone_?create/i],
-  milestoneUpdate: [/save_?.*milestone/i, /update_?.*milestone/i, /milestone_?update/i],
-  issueList: [/list_?issues?/i, /issues?_?list/i, /get_?issues?/i],
+  issueRead: [/get_?issue\b/i, /read_?issue/i, /issue_?get/i],
   issueCreate: [/save_?issue/i, /create_?issue/i, /issue_?create/i],
   issueUpdate: [/save_?issue/i, /update_?issue/i, /issue_?update/i],
+  // list only — NOT `get_issues?`, which would greedily claim the singular
+  // `get_issue` (first-name-wins) and leave issueRead/issueList conflated.
+  issueList: [/list_?issues?/i, /issues?_?list/i],
 }
 
-// The minimum the push/pull engine can't run without. Milestone/issue ops are
-// optional in Phase 2 (project description round-trips first).
-const REQUIRED = ['projectRead', 'projectUpdate']
+// The minimum the push engine can't run without: read an issue back and
+// create/upsert one (which also covers sub-issues via a `parentId`).
+const REQUIRED = ['issueRead', 'issueCreate']
 
 // Normalise a tools argument (array of strings or {name} objects) to names.
 function toolNames(tools) {
@@ -70,7 +69,7 @@ function discoverLinear(tools) {
       ok: false,
       error:
         `Linear MCP is connected but missing required tools: ${missing.join(', ')}. ` +
-        'Check the linear server exposes project read + update.',
+        'Check the linear server exposes issue read + create.',
       resolved,
       missing,
     }
@@ -90,41 +89,30 @@ function makeAdapter(callTool, resolved) {
     return name
   }
   return {
-    // Linear's project-read tool keys on `query` (accepts a UUID, key, or slug).
-    async readProject(id) {
-      return callTool(need('projectRead'), { query: id })
+    // Linear's issue-read tool keys on `query` (accepts a UUID, identifier, or
+    // title). Used to read a mirror issue's workflow state for drift reporting.
+    async readIssue(id) {
+      return callTool(need('issueRead'), { query: id })
     },
-    // `save_project` upserts: with `id` it updates, without it creates. Create
-    // needs a name and at least one team (`addTeams`).
-    async createProject(project) {
-      return callTool(need('projectCreate'), { ...project })
-    },
-    async updateProject(id, updates) {
-      return callTool(need('projectUpdate'), { id, ...updates })
-    },
-    // List a project's milestones (the pull read side). Most Linear reads also
-    // return milestones inline on the project via includeMilestones — this is the
-    // explicit list op for callers that need it on its own.
-    async listMilestones(projectId) {
-      return callTool(need('milestoneList'), { project: projectId })
-    },
-    // `save_milestone` requires the owning `project`; upserts on `id`.
-    async createMilestone(projectId, milestone) {
-      return callTool(need('milestoneCreate'), { project: projectId, ...milestone })
-    },
-    async updateMilestone(projectId, id, updates) {
-      return callTool(need('milestoneUpdate'), { project: projectId, id, ...updates })
-    },
-    // Issues (tasks). List the project's issues (pull read side); `save_issue`
-    // upserts on `id`, attached to the project (and optionally a milestone).
-    async listIssues(projectId) {
-      return callTool(need('issueList'), { project: projectId })
-    },
-    async createIssue(projectId, issue) {
-      return callTool(need('issueCreate'), { project: projectId, ...issue })
+    // The SPEC issue. `save_issue` upserts: without `id` it creates, with `id` it
+    // updates. Create needs `title` + `team`; `project` (optional) groups it.
+    async createIssue(issue) {
+      return callTool(need('issueCreate'), { ...issue })
     },
     async updateIssue(id, updates) {
       return callTool(need('issueUpdate'), { id, ...updates })
+    },
+    // A phase SUB-ISSUE: a child issue carrying `parentId` = the spec issue.
+    // Same upsert tool, so it inherits create-on-no-id / update-on-id.
+    async createSubIssue(parentId, subIssue) {
+      return callTool(need('issueCreate'), { parentId, ...subIssue })
+    },
+    async updateSubIssue(id, updates) {
+      return callTool(need('issueUpdate'), { id, ...updates })
+    },
+    // List a spec issue's sub-issues (read side, for drift). Optional op.
+    async listSubIssues(parentId) {
+      return callTool(need('issueList'), { parentId })
     },
   }
 }

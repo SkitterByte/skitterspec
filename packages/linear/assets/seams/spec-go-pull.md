@@ -6,7 +6,7 @@ One-way sync: there is nothing to pull — the repo is the source of truth.
 -->
 
 **Only when `specs/.core/linear.config.json` exists** and the spec carries a
-`linear_project_id`. Otherwise skip this step — no config means zero change.
+`linear_identifier`. Otherwise skip this step — no config means zero change.
 
 - **No pull.** Linear is a generated mirror in one-way sync, so there is nothing
   to bring down before building — the repo is already the source of truth. (A
