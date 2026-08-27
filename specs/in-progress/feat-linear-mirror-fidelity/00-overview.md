@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-mirror-fidelity (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 5 (started 2026-08-27)
+> **Status:** In Progress — all phases done (started 2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -126,7 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Three-way phase-status lint, surfaced by the CLI | ✅ | [02-status-lint.md](02-status-lint.md) |
 | 3 | Project phase tasks as a sub-issue checklist | ✅ | [03-task-checklist.md](03-task-checklist.md) |
 | 4 | `spec-sync stamp` helper + move both call-sites | ✅ | [04-stamp-helper.md](04-stamp-helper.md) |
-| 5 | Refresh the outward-facing docs | ⬜ | [05-outward-docs.md](05-outward-docs.md) |
+| 5 | Refresh the outward-facing docs | ✅ | [05-outward-docs.md](05-outward-docs.md) |
 
 ## Open questions
 
@@ -177,3 +177,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `bin/skitterspec-linear.js` discarded `specSync`'s exit code, so
   `status --workspace-states` never signalled a bad state name either, despite
   `/spec-push` step 3 depending on it. Guarded by a spawn test.
+- 2026-08-27 — Phase 5: the docs-claims guard caught `packages/common/README.md`
+  asserting "tasks are not synced" — a surface missing from the phase's own task
+  list. All five phases are now done; the spec is ready for `/spec-complete`.

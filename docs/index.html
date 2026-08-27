@@ -622,7 +622,7 @@
         <div class="step-rail"><div class="step-num">2</div><div class="step-line"></div></div>
         <div class="step-body">
           <h3><span class="cmd">/spec-push</span> Publish it so the team can see it <span class="step-where linear-w">bridge</span></h3>
-          <p>Optional, and the part worth adopting: push publishes the spec as a <b>Linear issue</b> and each phase as a <b>sub-issue</b> (phase name, goal, and state), stamping the returned IDs back into your markdown. Tasks stay in the repo. You pick which <b>Project</b> it belongs to as it's created — after that, where it lives is Linear's business. Now a PM who never opens a terminal can see the plan.</p>
+          <p>Optional, and the part worth adopting: push publishes the spec as a <b>Linear issue</b> and each phase as a <b>sub-issue</b> (phase name, goal, and state), stamping the returned IDs back into your markdown. Each phase's tasks ride along inside its sub-issue as a read-only checklist. You pick which <b>Project</b> it belongs to as it's created — after that, where it lives is Linear's business. Now a PM who never opens a terminal can see the plan.</p>
           <div class="mini-term">
 <div class="l"><span style="color:var(--accent)">›</span> /spec-push</div>
 <div class="l"><span style="color:var(--ink-faint)">  project?</span> <span style="color:var(--st-progress)">Task Inbox</span> <span style="color:var(--ink-faint)">· Billing · None (team only)</span></div>
@@ -788,7 +788,7 @@
       <div class="map-row">
         <div class="map-l">task checkbox <small>- [ ] add sortBy param</small></div>
         <div class="map-arrow">→</div>
-        <div class="map-r"><span class="pill-l">repo only</span><small>tasks stay in the phase file</small></div>
+        <div class="map-r"><span class="pill-l">Sub-issue body</span><small>mirrored as a read-only checklist</small></div>
       </div>
       <div class="map-row">
         <div class="map-l">lifecycle bucket <small>backlog / in-progress / complete</small></div>
@@ -797,7 +797,7 @@
       </div>
     </div>
 
-    <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:14px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;">The spec body travels as the issue <b style="color:var(--ink-soft)">description</b>, each phase as a <b style="color:var(--ink-soft)">sub-issue</b> (name, goal, state), and the lifecycle folder sets the workflow state. Tasks stay in the repo. Push diffs against a committed last-pushed snapshot, so only what changed is sent — IDs stamped back into the markdown.</p>
+    <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:14px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;">The spec body travels as the issue <b style="color:var(--ink-soft)">description</b>, each phase as a <b style="color:var(--ink-soft)">sub-issue</b> (name, goal, state, and its task list as a read-only checklist), and the lifecycle folder sets the workflow state. Nothing is read back, so a box ticked in Linear is overwritten. Push diffs against a committed last-pushed snapshot, so only what changed is sent — IDs stamped back into the markdown.</p>
 
     <h3 style="margin-top:52px; font-size:1.15rem;" class="reveal">Who owns what — no reconciliation, because there's one owner</h3>
     <p style="color:var(--ink-soft); font-size:.95rem; margin-top:10px; max-width:64ch;" class="reveal">One-way sync means there's nothing to argue about: the repo owns the spec and pushes it; Linear-native triage stays the PM's and is never touched. No base, no conflicts, no <span class="mono">--force</span>.</p>
@@ -904,7 +904,7 @@
           <tr><td class="cmd">/spec-to-main</td><td>Rebase + fast-forward onto base mid-spec, for CI / shared envs.</td><td class="folder">in-progress/</td></tr>
 
           <tr class="grp-row"><td colspan="3">Linear sync — needs linear.config.json</td></tr>
-          <tr><td class="cmd">/spec-status</td><td>Read-only drift report: what the next push would create/update, plus any workflow-state drift.</td><td class="folder">— read-only</td></tr>
+          <tr><td class="cmd">/spec-status</td><td>Read-only drift report: what the next push would create/update, any workflow-state drift, and any phase whose status markers disagree.</td><td class="folder">— read-only</td></tr>
           <tr><td class="cmd">/spec-push</td><td>Repo → Linear, one way. Diffs against the last-pushed snapshot; creates/updates the spec issue and its phase sub-issues; stamps IDs back.</td><td class="folder">→ Linear</td></tr>
         </tbody>
       </table>

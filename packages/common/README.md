@@ -161,7 +161,8 @@ behave exactly as before.
 
 **Mapping** (config-driven): a spec → a Linear **issue** (the spec body as its
 description); each phase (`01-…`, `02-…`) → a **sub-issue** (phase name, `Goal:`,
-and phase-emoji state); tasks are **not** synced. When linked, `/spec` creates the
+phase-emoji state, and the phase's tasks as a read-only checklist in its
+description — no issue is created per task). When linked, `/spec` creates the
 issue + a sub-issue per phase and writes the linking frontmatter into
 `00-overview.md`.
 

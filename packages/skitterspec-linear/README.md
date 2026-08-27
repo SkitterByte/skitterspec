@@ -56,12 +56,14 @@ fuller guide):
 On top of the base skills (`/spec`, `/spec-go`, isolation, …):
 
 - **`/spec-status`** — read-only drift report: what the next push would create /
-  update, plus any workflow-state drift. Changes nothing.
+  update, any workflow-state drift, and any phase whose status signals disagree
+  (see **Phase status** below). Changes nothing.
 - **`/spec-push`** — repo → Linear, one-way. Diffs the spec against a committed
   last-pushed snapshot and applies only what changed (issue description + state,
   phase sub-issues), stamping the returned ids back into the spec.
 - **`spec-sync` CLI** (`skitterspec-linear spec-sync …`) — the deterministic
-  engine behind the skills, for CI / local runs.
+  engine behind the skills, for CI / local runs:
+  `normalize` · `push` · `stamp` · `record` · `status` · `linked`.
 
 The shared `/spec`, `/spec-bug` and `/spec-go` skills come composed with the
 Linear steps filled in: `/spec` asks which Linear **Project** the spec belongs to,
@@ -83,8 +85,10 @@ spec, and a smoke test. Per-field docs live in `specs/.core/linear.config.md`.
 **What pushes:** the spec is one Linear **issue** — the spec body travels as its
 **`description`**, each phase as a **sub-issue** (phase name → title, `**Goal:**`
 → description, phase emoji → state), and the spec's lifecycle folder sets the
-issue's **workflow state**. Tasks are **not** synced — they stay in the repo phase
-files. Priority, labels, cycles and comments are **Linear-native triage** — the
+issue's **workflow state**. A phase's **tasks are mirrored** into its sub-issue's
+description as a read-only checklist (`mapping.tasks: "checklist"`, the default;
+`"none"` keeps the Goal line alone) — no issue is created per task, and a box
+ticked in Linear is overwritten by the next push. Priority, labels, cycles and comments are **Linear-native triage** — the
 PM's to set in Linear; one-way sync neither pushes nor reads them, so they're
 never clobbered. A workflow-state a teammate moves in Linear is surfaced by
 `/spec-status` as drift and overwritten on the next push. **Last-pushed snapshots**
@@ -104,6 +108,13 @@ stay put, their words are carried into the spec's **Problem**, and the first pus
 replaces the description with the spec. A bug-labelled issue routes to
 `/spec-bug`, which adopts it the same way. `skitterspec-linear spec-sync linked`
 lists what's already adopted, so an issue never becomes two specs.
+
+**Phase status.** A phase's state in Linear comes from the `⬜`/`🔄`/`✅` on its
+phase-file **heading** — not from its `> **Status:**` line and not from the
+overview's phase-index row, which are the human mirrors of it. A heading carrying
+no emoji reads as *not started*, so `spec-sync normalize|push|status` warn when
+the emoji is missing or when the three disagree, rather than quietly mirroring a
+finished phase as backlog. The warnings never block a push.
 
 Branch naming that embeds the Linear id lives in the isolation config
 (`env.config.json` → `branch.pattern` with `{identifier}`, `branch.identifierField:
