@@ -40,13 +40,11 @@ function hashField(value) {
 // --- content hashes (id / local handles excluded, so they never affect the
 //     diff — an id stamped in after a create must not read as an edit) ---------
 
+// The project fields the repo owns and pushes: prose + workflow state. Priority,
+// labels, cycles and comments are Linear-native triage — one-way sync neither
+// pushes nor reads them, so a PM's triage is never clobbered.
 function projectHash(p) {
-  return hashField({
-    description: p.description ?? null,
-    status: p.status ?? null,
-    priority: p.priority ?? null,
-    labels: p.labels ?? null,
-  })
+  return hashField({ description: p.description ?? null, status: p.status ?? null })
 }
 const milestoneHash = (m) => hashField({ name: m.name ?? null, goal: m.goal ?? null })
 const issueHash = (t) => hashField({ title: t.title ?? null, description: t.description ?? null, done: !!t.done })
@@ -98,12 +96,7 @@ function planChanges(projection, snapshot) {
 
   const plan = { milestones, issues }
   if (snap.project !== projectHash(p)) {
-    plan.project = {
-      description: p.description ?? null,
-      status: p.status ?? null,
-      priority: p.priority ?? null,
-      labels: p.labels ?? null,
-    }
+    plan.project = { description: p.description ?? null, status: p.status ?? null }
   }
   return plan
 }

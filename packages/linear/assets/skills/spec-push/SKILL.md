@@ -55,8 +55,9 @@ config — Linear silently ignores an unknown project status.
    resolving a `create` ref to the id just minted); stamp the returned identifier
    back onto the matching task line (`ref` is the task's text).
 3. **Milestones/issues update** → save by `id`.
-4. **Project** → set description/status/priority/labels (map `status` — the local
-   bucket — to the Linear project-status name via `config.states`).
+4. **Project** → set description + status (map `status` — the local bucket — to
+   the Linear project-status name via `config.states`). Priority, labels, cycles
+   and comments are Linear-native triage — do **not** push them; they're the PM's.
 
 Map the local status bucket to Linear's project status through `config.states`
 (e.g. `complete → Completed`).

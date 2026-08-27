@@ -124,10 +124,11 @@ Typical loop: edit the spec in-repo → `/spec-status` (what's pending) →
 | `milestones` | one per phase (name + goal) |
 | `issues` | one per task — first-sentence **title**, full task text as the **description** |
 | `workflowState` → project status | the spec's lifecycle bucket, mapped via `states` |
-| `priority`, `labels` | from `00-overview.md` frontmatter |
 
-Everything is repo-owned and pushed; a change made directly in Linear is
-overwritten on the next push (`/spec-status` surfaces workflow-state drift).
+Priority, labels, cycles and comments are **Linear-native triage** — the PM's to
+set in Linear. One-way sync neither pushes nor reads them, so they're never
+clobbered. A workflow-state a teammate moves in Linear is surfaced by
+`/spec-status` as drift and overwritten on the next push.
 
 Phases push as **Milestones** and tasks as **Issues** by default. The link ids
 live in the phase-file frontmatter (`linear_milestone_id`) and inline on task
