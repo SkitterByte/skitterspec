@@ -15,7 +15,8 @@
   "author": "Reuben Greaves",
   "type": "commonjs",
   "bin": {
-    "skitterspec-linear": "bin/skitterspec-linear.js"
+    "skitterspec-linear": "bin/skitterspec-linear.js",
+    "skitterspec": "bin/skitterspec-linear.js"
   },
   "files": [
     "bin",

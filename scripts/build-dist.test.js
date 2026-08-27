@@ -140,3 +140,11 @@ test('superset build fills the seams, ships sync, and runs the engine self-conta
   assert.strictEqual(sync.status, 0, `spec-sync errored: ${sync.stderr}`)
   assert.match(sync.stdout, /Linear sync not enabled/)
 })
+
+test('the superset bin map aliases `skitterspec` so composed skills work', () => {
+  // Every shared skill invokes bare `skitterspec …`; the superset must provide
+  // that name (not only `skitterspec-linear`) or every superset install's first
+  // CLI call is "command not found".
+  const pkg = JSON.parse(fs.readFileSync(path.join(PKGS, 'skitterspec-linear', 'package.json'), 'utf8'))
+  assert.strictEqual(pkg.bin.skitterspec, pkg.bin['skitterspec-linear'], 'skitterspec aliases the superset bin')
+})
