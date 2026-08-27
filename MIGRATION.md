@@ -111,6 +111,79 @@ phase**. The base `@skitterbyte/skitterspec` is unaffected (still v15).
 5. **Task-level issues** created under v8 are no longer managed by the sync —
    close or repurpose them in Linear by hand.
 
+## `@skitterbyte/skitterspec-linear` v7 → v8 (sync goes one-way; `/spec-pull` removed)
+
+**v8 made sync one-way.** The repo became the sole source of truth and Linear a
+**generated mirror**: content is pushed up, never read back or merged. The
+three-way merge engine and everything that fed it were retired.
+
+### Breaking changes
+
+| Area | v7 | v8 |
+|------|-----|-----|
+| Skills | `/spec-status`, `/spec-push`, **`/spec-pull`** | `/spec-status`, `/spec-push` |
+| `spec-sync` subcommands | `normalize`, `push`, `status`, **`pull`** | `normalize`, `push`, `status`, **`record`** |
+| Sidecar | a three-way merge base | the **last-pushed snapshot** (`record` writes it) |
+| `sync.fieldOwnership` | `pull` / `both` values were load-bearing | still parsed; nothing is pulled |
+
+### What to do
+
+1. **Drop `/spec-pull` from any workflow that calls it.** There is no
+   replacement: editing the mirror in Linear is no longer an input. A person
+   editing the issue will see it overwritten by the next push.
+2. **Replace `spec-sync pull` in scripts with `spec-sync record`** — it writes the
+   snapshot from the current repo files after a push is applied.
+3. **Delete stale merge-base sidecars** under `sync.baseDir`; the first push after
+   upgrading writes the new snapshot format.
+
+## `@skitterbyte/skitterspec-linear` v1 → v7 (no breaking changes)
+
+Every major in this range was a **routine version bump**, not a breaking
+contract. The skills (`/spec-status`, `/spec-push`, `/spec-pull`) and the
+`spec-sync` subcommands (`normalize`, `push`, `pull`, `status`) were identical at
+v1 and at v7. Upgrading anywhere inside this range needs **no action** beyond
+re-running `update`.
+
+One thing did change quietly, at **v4**: `sync.fieldOwnership` lost its
+`milestones`, `phaseBodies`, `acceptanceCriteria` and `taskBreakdown` entries when
+that detail moved inside `description`. A config still listing them does not
+error — unknown keys merge in and *join the compared set* — so remove them if
+you have them, or they will be compared against fields that no longer exist.
+
+## `@skitterbyte/skitterspec` v3 → v16 (no breaking changes)
+
+**Nothing in this range requires action.** Thirteen majors sounds like thirteen
+migrations; it was one habit. Every release in this period was cut as a major
+bump regardless of size (see `RELEASING.md`), and the base package's contract
+never broke: **no skill was ever removed and no CLI flag was ever removed** — the
+surface only grew. The spec folder layout
+(`.core`/`backlog`/`in-progress`/`complete`/`cancelled`) is unchanged throughout.
+
+The `feat(sync)!` commits that appear in this window changed
+`@skitterbyte/skitterspec-linear`, which ships separately; the base was bumped
+alongside it in lockstep. If you are on the **superset**, read the provider
+entries above — those are the ones with work in them.
+
+What each major actually added, so you can see what you gain by upgrading:
+
+| Major | What landed |
+|-------|-------------|
+| v4 | `setup` commands bootstrap a fresh worktree's dependencies |
+| v5, v6 | version bumps only |
+| v7 | release docs refreshed; stale scripts dropped |
+| v8 | version bump only |
+| v9 | released alongside the provider's Linear body round-trip |
+| v10, v11 | version bumps only |
+| v12 | install manifest + `update --resync` / `--reset`; **`/spec-live`** overlay |
+| v13 | **`/spec-hotfix`**, **`/spec-to-main`**, `spec-env prune` for orphaned test DBs |
+| v14 | **Impact map** in the spec templates; live-aware `/spec-go`; the docs site |
+| v15 | released alongside the provider's one-way sync switch |
+| v16 | spec `Name:` handle; `/spec-complete` · `/spec-cancel` commit their own edits |
+
+**Spec files written under an older version still read.** The template grew
+(the Impact map at v14, the `Name:` header at v16) but the lifecycle skills treat
+both as optional — `/spec-review` adds them if you want them.
+
 ## `@skitterbyte/skitterspec` v2 → v3 (slimmer surface + local traffic diversion)
 
 **v3 shrinks the everyday command surface to five verbs — `spec → go → connect →
