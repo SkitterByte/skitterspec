@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-upgrade-and-update-safety (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-27)
+> **Status:** Complete (2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -127,6 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
 | 2026-08-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -175,3 +176,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `--skip-state-check`. They assert other behaviour and predate the gate; making
   them satisfy it would have tested the gate five times and their own subject
   never.
+- 2026-08-27 — Completed; all three phases done, 566 tests green (530 before).
+  Nothing deferred. **Action required at release:**
+  `@skitterbyte/skitterspec-linear` takes a **major** bump — `spec-sync push` now
+  refuses without `--workspace-states`.
