@@ -1,7 +1,7 @@
 # Linear project selection & issue intake
 
 > **Type:** Feature
-> **Status:** In Progress — all phases done, release pending (2026-08-27)
+> **Status:** Complete (2026-08-27)
 > **Name:** feat-linear-project-and-intake
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
@@ -160,6 +160,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
 | 2026-08-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -198,3 +199,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   9.0.0, not as 9.1.0. MIGRATION's v8→v9 section absorbed the picker/intake notes
   instead of gaining a v9.1 section. Cutting the release waits for
   `/spec-complete` to land the branch on `main`.
+- 2026-08-27 — Completed; all phases done, tests green (465). **Deferred:** cutting
+  `skitterspec-linear@9.0.0` — the package is still 8.0.5 on npm and the release
+  tags `HEAD`, so it belongs on `main` after this branch lands
+  (`node scripts/release.js skitterspec-linear 9.0.0`, plan first).
