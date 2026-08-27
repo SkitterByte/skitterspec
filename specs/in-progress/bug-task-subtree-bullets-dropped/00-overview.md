@@ -116,7 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Claim subtree bullets in the parser (red→green) | ⬜ | [01-parser-subtree.md](01-parser-subtree.md) |
+| 1 | Claim subtree bullets in the parser (red→green) | ✅ | [01-parser-subtree.md](01-parser-subtree.md) |
 | 2 | Render them, and guard the writers | ⬜ | [02-projection-and-writers.md](02-projection-and-writers.md) |
 | 3 | Coverage invariant — nothing goes unmirrored | ⬜ | [03-coverage-invariant.md](03-coverage-invariant.md) |
 
@@ -142,3 +142,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-27 — Chose separate non-checkbox blocks over joining to the parent
   (Decision 2) after finding that joining reorders content and churns every
   already-pushed parent task's hash.
+- 2026-08-27 — Phase 1: a blank line alone does **not** close a task subtree —
+  a loose nested list is still that task's. What closes it is a later line at or
+  shallower than the task's own marker indent, which keeps a Notes-section bullet
+  out while letting a loose sub-bullet in. Pinned by its own fixture.
+- 2026-08-27 — Phase 1: sub-bullets keep their own `marker` (`-`, `*`, `1.`)
+  rather than being normalised to `-`, so an ordered sub-list survives the round
+  trip. Not in the original plan; found while writing the fixtures.

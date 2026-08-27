@@ -25,6 +25,43 @@ const LIST_MARKER_RE = /^[ \t]*(?:[-*+]|\d+\.)\s/
 // A checkbox bullet — unambiguously a task, so it always starts its own block,
 // at any indent. (A bare list marker is ambiguous; a checkbox never is.)
 const CHECKBOX_RE = /^[ \t]*[-*+]\s*\[[ xX]\]/
+// A bare list bullet — no checkbox — captured with its marker so a sub-bullet
+// is re-rendered as the `-`/`*`/`1.` its author wrote.
+const BULLET_RE = /^([ \t]*)([-*+]|\d+\.)\s+(.*)$/
+
+function indentWidth(line) {
+  return line.length - line.trimStart().length
+}
+
+// Collect the wrapped continuation lines following the bullet opening at
+// `start`, seeded with the opener's own text. Shared by task bullets and plain
+// sub-bullets — both wrap the same way, and both stop at the first line that
+// belongs to something else.
+function collectContinuation(lines, start, hang, inFence, parts) {
+  let j = start + 1
+  for (; j < lines.length; j++) {
+    const l = lines[j]
+    if (!l.trim()) break
+    if (inFence[j]) break // a fence opening ends the bullet, never continues it
+    if (!CONTINUATION_RE.test(l)) break
+    if (BLOCK_BREAK_RE.test(l)) {
+      // Indent alone can't tell a nested child from a wrapped continuation —
+      // both sit at the hanging indent. The *marker* is the reliable signal:
+      //   - a checkbox (- [ ] / - [x]) is unambiguously a task → always break;
+      //   - a bare marker (-/*/+/N.) is wrapped continuation prose ONLY when it
+      //     sits exactly at the hang; shallower or deeper it's a real sub/
+      //     sibling list → break, and the caller's scan claims it as a block of
+      //     its own. (Keeping the at-hang continuation preserves the task's
+      //     stamped id, so the next push updates instead of creating a
+      //     duplicate issue.)
+      //   - headings, quotes, tables and fences always break.
+      if (CHECKBOX_RE.test(l)) break
+      if (!LIST_MARKER_RE.test(l) || indentWidth(l) !== hang) break
+    }
+    parts.push(l.trim())
+  }
+  return { end: j, parts }
+}
 
 // Mark every line that lies inside a fenced code block — the opening fence, its
 // content, and the closing fence all count as `true`. Line scanners that hunt
@@ -107,51 +144,68 @@ function spanMask(body) {
 }
 
 /**
- * Find every task bullet in `lines` as a logical block.
- * @returns {Array<{start:number, end:number, indent:string, mark:string, text:string}>}
+ * Find every task bullet in `lines` as a logical block, plus the non-checkbox
+ * bullets that live inside a task's list subtree.
+ * @returns {Array<{start:number, end:number, indent:string, marker:string,
+ *   checkbox:boolean, mark:string|null, text:string}>}
  *   `end` is exclusive. `text` is the collapsed single-line form, id included.
+ *   `checkbox` is false for a plain sub-bullet; its `mark` is then null and its
+ *   `marker` is the bullet it was written with (`-`, `*`, `1.` …).
  */
 function findTaskBlocks(lines) {
   const blocks = []
   const inFence = fenceMask(lines)
+  // The marker indents of the task bullets whose list subtree is still open,
+  // outermost first. Without this the scan had no model of nesting at all: a
+  // bare bullet that dedented out of a nested checkbox belonged to nothing and
+  // was silently dropped, taking its wrapped continuations with it.
+  const open = []
+
   for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    // A blank line alone doesn't close a subtree — a loose list is still a list.
+    // What closes it is a later line at or shallower than the task's own indent.
+    if (!line.trim()) continue
+    const indent = indentWidth(line)
+    while (open.length && indent <= open[open.length - 1]) open.pop()
     if (inFence[i]) continue // an example bullet inside a ``` block is not a task
-    const m = TASK_START_RE.exec(lines[i])
-    if (!m) continue
-    const parts = [m[3]]
-    // The hanging indent: where the bullet's text starts (marker width). A
-    // wrapped continuation aligns exactly AT this column.
-    const hang = lines[i].length - m[3].length
-    let j = i + 1
-    for (; j < lines.length; j++) {
-      const l = lines[j]
-      if (!l.trim()) break
-      if (inFence[j]) break // a fence opening ends the bullet, never continues it
-      if (!CONTINUATION_RE.test(l)) break
-      if (BLOCK_BREAK_RE.test(l)) {
-        // Indent alone can't tell a nested child from a wrapped continuation —
-        // both sit at the hanging indent. The *marker* is the reliable signal:
-        //   - a checkbox (- [ ] / - [x]) is unambiguously a task → always break;
-        //   - a bare marker (-/*/+/N.) is wrapped continuation prose ONLY when it
-        //     sits exactly at the hang; shallower or deeper it's a real sub/
-        //     sibling list → break. (Keeping the at-hang continuation preserves
-        //     the task's stamped id, so the next push updates instead of
-        //     creating a duplicate issue.)
-        //   - headings, quotes, tables and fences always break.
-        if (CHECKBOX_RE.test(l)) break
-        const indent = l.length - l.trimStart().length
-        if (!LIST_MARKER_RE.test(l) || indent !== hang) break
-      }
-      parts.push(l.trim())
+
+    const t = TASK_START_RE.exec(line)
+    if (t) {
+      // The hanging indent: where the bullet's text starts (marker width). A
+      // wrapped continuation aligns exactly AT this column.
+      const { end, parts } = collectContinuation(lines, i, line.length - t[3].length, inFence, [t[3]])
+      blocks.push({
+        start: i,
+        end,
+        indent: t[1],
+        marker: '-',
+        checkbox: true,
+        mark: t[2].toLowerCase() === 'x' ? 'x' : ' ',
+        text: collapseHyphenAware(parts.join('\n')),
+      })
+      open.push(indent)
+      i = end - 1
+      continue
     }
+
+    // A bare bullet is claimed ONLY inside an open task's subtree. Outside one
+    // it is ordinary prose in the phase file: the projection is the task list,
+    // not the whole body, and widening it here would mirror a Notes section.
+    if (!open.length) continue
+    const b = BULLET_RE.exec(line)
+    if (!b) continue
+    const { end, parts } = collectContinuation(lines, i, line.length - b[3].length, inFence, [b[3]])
     blocks.push({
       start: i,
-      end: j,
-      indent: m[1],
-      mark: m[2].toLowerCase() === 'x' ? 'x' : ' ',
+      end,
+      indent: b[1],
+      marker: b[2],
+      checkbox: false,
+      mark: null,
       text: collapseHyphenAware(parts.join('\n')),
     })
-    i = j - 1
+    i = end - 1
   }
   return blocks
 }
