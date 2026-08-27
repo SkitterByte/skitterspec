@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-task-subtree-bullets-dropped (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-27)
+> **Status:** In Progress — all phases done (started 2026-08-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
@@ -118,7 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Claim subtree bullets in the parser (red→green) | ✅ | [01-parser-subtree.md](01-parser-subtree.md) |
 | 2 | Render them, and guard the writers | ✅ | [02-projection-and-writers.md](02-projection-and-writers.md) |
-| 3 | Coverage invariant — nothing goes unmirrored | ⬜ | [03-coverage-invariant.md](03-coverage-invariant.md) |
+| 3 | Coverage invariant — nothing goes unmirrored | ✅ | [03-coverage-invariant.md](03-coverage-invariant.md) |
 
 ## Open questions
 
@@ -154,3 +154,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   sub-issue updates the plan reports are pre-existing drift (`main` reports the
   same 11). No spec here writes sub-bullets under a task, so the new content path
   is exercised only by fixtures. Decision 6 holds; no duplicates are minted.
+- 2026-08-27 — Phase 3: the invariant was run against pre-fix behaviour over
+  this repo's own corpus and found **3 phase files already losing content** —
+  `feat-spec-from-issue/02` (10 lines), `feat-spec-from-issue/03`, and
+  `feat-spec-hotfix/02-landing-engine.md` (7 lines of landing detail). The bug
+  was not only the reporter's; it was live here too and nothing had noticed.
+- 2026-08-27 — Phase 3: the strict form of the invariant — every non-blank line
+  deeper than an open task — passes on all 91 phase files, so it needed no
+  narrowing. Kept test-only (see the file header): it is a parser property, not
+  a spec-authoring one, and `lintPhases` is the channel for the latter.
