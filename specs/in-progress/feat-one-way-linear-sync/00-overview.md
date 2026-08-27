@@ -124,7 +124,7 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Outbound projection: title/description split, push-prep (hyphen), states, realistic fixture | 🔄 | [01-outbound-projection.md](01-outbound-projection.md) |
+| 1 | Outbound projection: title/description split, push-prep (hyphen), states, realistic fixture | ✅ | [01-outbound-projection.md](01-outbound-projection.md) |
 | 2 | One-sided push engine: last-pushed snapshot + machine-readable plan | ⬜ | [02-push-engine.md](02-push-engine.md) |
 | 3 | Retire pull, prune dead code, repurpose skills + config + docs | ⬜ | [03-retire-pull.md](03-retire-pull.md) |
 
@@ -146,3 +146,9 @@ Each phase lives in its own file. Status: ⬜ not started · 🔄 in progress ·
 - 2026-08-27 — Spec created. Direction set to one-way (repo owns) after a
   production-consumer review; absorbs the pending hyphen-join hotfix and feedback
   items #3 (states), #4 (push plan), #5 (title/description), #8 (fixtures).
+- 2026-08-27 — Re-cut phase boundary: the task-item shape change moved from
+  Phase 1 to Phase 2 (it would break the three-way compare mid-phase); Phase 1 is
+  additive so all baseline tests stay green.
+- 2026-08-27 — Phase 1 done: realistic fixture; hyphen-safe collapse everywhere
+  (`collapseHyphenAware`, `joinOpenSpans` guard, push-prep); `titleFromText`;
+  `validateStates`; corrected project-state defaults. 461 tests green (452 + 9).

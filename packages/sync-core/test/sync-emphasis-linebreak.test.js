@@ -92,6 +92,14 @@ test('inferWidth ignores table rows and infers the prose width', () => {
 
 // --- Defect B: canonicalize the mangled form on both sides -------------------
 
+test('B: a hyphenated compound inside a span joins with no space', () => {
+  assert.strictEqual(
+    canonicalizeMarkdown('a **state-entry-with-\nassignment** here'),
+    'a **state-entry-with-assignment** here',
+  )
+  assert.strictEqual(canonicalizeMarkdown('a **x -\ny** z'), 'a **x - y** z')
+})
+
 test('B: canonicalizeMarkdown joins a clean straddling bold span', () => {
   assert.strictEqual(canonicalizeMarkdown('x **a\nb** y'), 'x **a b** y')
 })

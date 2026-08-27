@@ -12,8 +12,8 @@
   "states": {
     "backlog": "Backlog",
     "in-progress": "In Progress",
-    "complete": "Done",
-    "cancelled": "Cancelled"
+    "complete": "Completed",
+    "cancelled": "Canceled"
   },
   "snapshot": {
     "overviewFile": "00-overview.md"

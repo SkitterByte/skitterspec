@@ -16,7 +16,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { findTaskBlocks, collapse } = require('./task-block.js')
+const { findTaskBlocks, collapse, collapseHyphenAware } = require('./task-block.js')
 
 // --- markdown / frontmatter parsing -----------------------------------------
 
@@ -126,8 +126,14 @@ function joinOpenSpans(text) {
     const c = text[i]
     if (c === '\n') {
       if (!code && (bold || italic || link)) {
-        out.push(' ')
-        while (i + 1 < text.length && (text[i + 1] === ' ' || text[i + 1] === '\t')) i++
+        // Skip the continuation's indentation, then join. A word wrapped at a
+        // hyphen (`state-entry-with-`⏎`assignment`) is one compound — join TIGHT
+        // (no space) so we don't corrupt it; otherwise a single space.
+        let j = i + 1
+        while (j < text.length && (text[j] === ' ' || text[j] === '\t')) j++
+        const softHyphen = text[i - 1] === '-' && /\w/.test(text[i - 2] || '') && /\w/.test(text[j] || '')
+        if (!softHyphen) out.push(' ')
+        i = j - 1
       } else {
         out.push('\n')
       }
@@ -200,6 +206,11 @@ function canonicalizeMarkdown(text) {
     .map((line) => line.replace(/^(\s*)[*+-]( +)/, '$1-$2').replace(/[ \t]+$/, ''))
     .join('\n')
   return joinEmphasisAcrossBreaks(marked)
+    // A word wrapped at a hyphen within a paragraph (`state-entry-with-`⏎
+    // `assignment`) rejoins TIGHT — otherwise Linear (CommonMark) renders the
+    // soft line break as a space and corrupts the compound. Single newline only,
+    // so paragraph breaks are preserved.
+    .replace(/(\w-)[ \t]*\n[ \t]*(?=\w)/g, '$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
@@ -275,7 +286,7 @@ function readPhaseFiles(snapshotDir) {
       // Collapsed, not just captured: the goal becomes a milestone description,
       // and Linear may canonicalize a soft line break away on save. Collapsing
       // both sides keeps a wrapped goal from diffing forever.
-      const goal = collapse((/\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/.exec(body) || [])[1] || '')
+      const goal = collapseHyphenAware((/\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/.exec(body) || [])[1] || '')
       const tasks = findTaskBlocks(body.split('\n')).map((b) => `[${b.mark}] ${b.text}`)
       return {
         phase: file.replace(/\.md$/, ''),
@@ -470,6 +481,45 @@ function normalizeRemote(project, config) {
   return toFieldSet(extracted, config)
 }
 
+// Derive a short Linear issue title from a task's full text: the first sentence,
+// falling back to the first `max` chars at a word boundary. A paragraph-length
+// task keeps its full text as the issue *description* (see the projection); this
+// is only the title, so it must read as a one-liner. Guards decimals/versions
+// (`7.0.2`) and common abbreviations (`e.g.`, `i.e.`, `etc.`) so it doesn't cut
+// mid-number or mid-abbreviation.
+function titleFromText(text, max = 100) {
+  const s = collapse(text)
+  if (!s) return s
+  let title = s
+  const re = /[.!?]/g
+  let m
+  while ((m = re.exec(s)) !== null) {
+    const i = m.index
+    const after = s[i + 1]
+    if (after !== undefined && !/\s/.test(after)) continue // not a sentence end
+    if (/\d/.test(s[i - 1] || '') && /\d/.test(after || '')) continue // 7.0.2, 3.14
+    if (/(^|\s)(e\.g|i\.e|etc|vs|no|fig|cf)$/i.test(s.slice(0, i))) continue // abbrev
+    title = s.slice(0, i) // drop the terminator
+    break
+  }
+  title = title.trim()
+  if (title.length > max) {
+    const cut = title.slice(0, max)
+    const sp = cut.lastIndexOf(' ')
+    title = (sp > 40 ? cut.slice(0, sp) : cut).trim()
+  }
+  return title
+}
+
+// Which configured state NAMES are absent from the live workspace. The skill
+// fetches the workspace's project-status names over MCP and passes them here;
+// a non-empty result means a typo/rename that Linear would silently no-op.
+function validateStates(config, workspaceStates) {
+  const configured = Object.values((config && config.states) || {}).filter((v) => typeof v === 'string')
+  const have = new Set((workspaceStates || []).map((s) => String(s).toLowerCase().trim()))
+  return configured.filter((name) => !have.has(name.toLowerCase().trim()))
+}
+
 module.exports = {
   normalizeLocal,
   normalizeRemote,
@@ -478,6 +528,8 @@ module.exports = {
   parseSections,
   parsePhaseIndex,
   parseTaskLine,
+  titleFromText,
+  validateStates,
   canonicalRemoteStatus,
   canonicalizeMarkdown,
   joinEmphasisAcrossBreaks,

@@ -9,6 +9,11 @@ verbatim. Proven with a fake adapter + the realistic fixture.
 
 ## Tasks
 
+- [ ] Change the projection item shapes (introduced here so the old compare and
+      the new shape never coexist): `normalizeLocal` issues →
+      `{id, title, description, done}` (`title` = `titleFromText(description)`,
+      `description` = full task text), milestones stay `{id, name, goal}`. Done
+      together with `planChanges` below so tests move in one step.
 - [ ] Repurpose `base.js` into a **last-pushed snapshot**: per-object records
       `{ kind, id, hash }` (project, each milestone, each issue) capturing the
       projection we last pushed. Keep the committed-sidecar location; simplify the

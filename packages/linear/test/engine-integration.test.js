@@ -77,7 +77,7 @@ function setup({ remoteOverrides = {} } = {}) {
 }
 
 test('Linear config + MCP adapter drive a sync-core pull (remote-only fields applied)', async () => {
-  const ctx = setup({ remoteOverrides: { state: 'Done', priority: 5 } })
+  const ctx = setup({ remoteOverrides: { state: 'Completed', priority: 5 } })
   const r = await pull({
     dir: ctx.dir,
     snapshotDir: ctx.specDir,
@@ -91,7 +91,7 @@ test('Linear config + MCP adapter drive a sync-core pull (remote-only fields app
   assert.strictEqual(r.ok, true)
   assert.deepStrictEqual(r.applied.sort(), ['priority', 'workflowState'])
 
-  // The Linear `states` map (Done → complete) drove the neutral engine's write.
+  // The Linear `states` map (Completed → complete) drove the neutral engine's write.
   const raw = fs.readFileSync(path.join(ctx.specDir, '00-overview.md'), 'utf-8')
   assert.match(raw, /spec_status: "?complete"?/)
 })

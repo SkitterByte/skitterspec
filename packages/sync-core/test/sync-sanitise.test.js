@@ -18,6 +18,28 @@ function straddles(line) {
 }
 const noStraddle = (text) => text.split('\n').every((l) => !straddles(l))
 
+test('does not space out a hyphenated compound wrapped at the hyphen', () => {
+  const src = [
+    '- [ ] handle a **state-entry-with-',
+    '      assignment** which is ONE event and needs more words to force it',
+  ].join('\n')
+  const { text, changed } = sanitizeSpecMarkdown(src)
+  assert.strictEqual(changed, true)
+  assert.match(text, /state-entry-with-assignment/)
+  assert.doesNotMatch(text, /state-entry-with- assignment/)
+})
+
+test('keeps a non-emphasis hyphenated compound intact when reflowing a block', () => {
+  const src = [
+    'It declares-rather-than-',
+    'strips the field, and **the bold part wraps',
+    'across here** too for good measure with padding.',
+  ].join('\n')
+  const { text } = sanitizeSpecMarkdown(src)
+  assert.match(text, /declares-rather-than-strips/)
+  assert.doesNotMatch(text, /declares-rather-than- strips/)
+})
+
 test('joins a bold span that a task bullet split across lines', () => {
   const src = [
     '- [x] Slot the model into an audit bucket **and mirror it in the test-side',

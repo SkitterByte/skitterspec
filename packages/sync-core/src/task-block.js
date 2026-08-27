@@ -26,6 +26,17 @@ function collapse(text) {
   return String(text).replace(/\s+/g, ' ').trim()
 }
 
+// Like `collapse`, but a word wrapped at a hyphen (`state-entry-with-`⏎
+// `assignment`) rejoins TIGHT — one compound — instead of gaining a space. Every
+// other break collapses to a single space. Use this wherever hand-wrapped prose
+// is flattened to one logical line, so a hard wrap at a hyphen isn't data loss.
+function collapseHyphenAware(text) {
+  return String(text)
+    .replace(/(\w-)[ \t]*\n[ \t]*(?=\w)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // Mark every character of `body` that lies inside an inline emphasis or link
 // span — `**bold**`, `*italic*`, `[text](url)` — so wrapping can avoid breaking
 // one across a line (Linear mangles a straddling `**`/`*`/link on save). Code
@@ -84,7 +95,7 @@ function findTaskBlocks(lines) {
       end: j,
       indent: m[1],
       mark: m[2].toLowerCase() === 'x' ? 'x' : ' ',
-      text: collapse(parts.join(' ')),
+      text: collapseHyphenAware(parts.join('\n')),
     })
     i = j - 1
   }
@@ -171,6 +182,7 @@ module.exports = {
   wrapEmphasisAware,
   spanMask,
   collapse,
+  collapseHyphenAware,
   inferWidth,
   DEFAULT_WIDTH,
 }

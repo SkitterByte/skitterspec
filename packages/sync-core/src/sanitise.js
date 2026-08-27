@@ -15,12 +15,7 @@
  * Pure string→string (`sanitizeSpecMarkdown`); the CLI wraps it with fs walking.
  */
 
-const {
-  wrapEmphasisAware,
-  collapse,
-  inferWidth,
-  DEFAULT_WIDTH,
-} = require('./task-block.js')
+const { wrapEmphasisAware, collapseHyphenAware, inferWidth, DEFAULT_WIDTH } = require('./task-block.js')
 const { joinEmphasisAcrossBreaks } = require('./normalize.js')
 
 // A run of non-blank lines contains an emphasis straddle / mangle iff joining
@@ -30,9 +25,10 @@ function hasStraddle(text) {
 }
 
 // Turn a multi-line region into its clean single logical line: repair mangles and
-// join straddles first (needs the newlines), then collapse whitespace.
+// join straddles first (needs the newlines), then collapse whitespace — hyphen-
+// aware, so a compound wrapped at the hyphen isn't spaced out.
 function cleanLogicalLine(text) {
-  return collapse(joinEmphasisAcrossBreaks(text))
+  return collapseHyphenAware(joinEmphasisAcrossBreaks(text))
 }
 
 // A bullet line: indent, marker (`- `, `* `, `+ `, `1. `, optionally a `[ ]`/`[x]`

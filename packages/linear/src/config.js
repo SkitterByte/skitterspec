@@ -39,11 +39,15 @@ const OWNERSHIP = Object.freeze(['both', 'pull', 'push'])
 const DEFAULT_CONFIG = Object.freeze({
   linear: Object.freeze({ teamKey: '', teamId: '', initiativeId: '' }),
   mapping: Object.freeze({ specFolder: 'project', phases: 'milestone', tasks: 'issue' }),
+  // Linear PROJECT statuses (mapping.specFolder is `project`) — NOT issue-status
+  // names. Linear silently no-ops save_project on an unknown status (200,
+  // unchanged), so these must match the workspace exactly; `validateStates`
+  // checks them at push/status time.
   states: Object.freeze({
     backlog: 'Backlog',
     'in-progress': 'In Progress',
-    complete: 'Done',
-    cancelled: 'Cancelled',
+    complete: 'Completed',
+    cancelled: 'Canceled',
   }),
   snapshot: Object.freeze({ overviewFile: '00-overview.md' }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
