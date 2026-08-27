@@ -1,5 +1,5 @@
 ---
-linear_milestone_id: m1
+linear_issue_id: m1
 ---
 
 # Phase 1 — Durable outbox ⬜
