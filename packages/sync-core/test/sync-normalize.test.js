@@ -151,3 +151,17 @@ test('a spec with no linked fields still yields the full field set', () => {
   assert.strictEqual(local.workflowState, null)
   assert.deepStrictEqual(local.milestones, [])
 })
+
+test('a blockquote whose bold span wraps pushes clean (no stray > in the description)', () => {
+  // The projection path (normalizeLocal → canonicalize) must not swallow the
+  // continuation `>` into the joined text — that landed a stray `>` in Linear.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-norm-bq-'))
+  fs.writeFileSync(
+    path.join(dir, '00-overview.md'),
+    '# Demo\n\n## Problem\n\n> **⚠ SUPERSEDED by\n> the newer plan.**\n',
+    'utf-8',
+  )
+  const local = normalizeLocal(dir, config)
+  assert.match(local.description, /> \*\*⚠ SUPERSEDED by the newer plan\.\*\*/)
+  assert.doesNotMatch(local.description, /by > the/, 'no stray > mid-sentence')
+})

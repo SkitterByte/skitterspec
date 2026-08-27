@@ -19,7 +19,7 @@ const os = require('node:os')
 const path = require('node:path')
 
 const { renderTaskBlock, findTaskBlocks, inferWidth } = require('../src/task-block.js')
-const { canonicalizeMarkdown } = require('../src/normalize.js')
+const { canonicalizeMarkdown, joinEmphasisAcrossBreaks } = require('../src/normalize.js')
 const { hashField } = require('../src/compare.js')
 const { neutralConfig } = require('./_config.js')
 
@@ -102,6 +102,22 @@ test('B: a hyphenated compound inside a span joins with no space', () => {
 
 test('B: canonicalizeMarkdown joins a clean straddling bold span', () => {
   assert.strictEqual(canonicalizeMarkdown('x **a\nb** y'), 'x **a b** y')
+})
+
+test('B: a span across two blockquote lines drops the continuation > marker', () => {
+  // The `>` on the continuation line is a quote marker, not content — joining
+  // must not swallow it mid-text (that landed a stray `>` in Linear).
+  assert.strictEqual(
+    joinEmphasisAcrossBreaks('> **bold starting here\n> and ending here.**'),
+    '> **bold starting here and ending here.**',
+  )
+  // a link span across `> ` lines too
+  assert.strictEqual(
+    joinEmphasisAcrossBreaks('> [link text that\n> wraps](url)'),
+    '> [link text that wraps](url)',
+  )
+  // a blockquote with no straddle is left untouched (no join fires)
+  assert.strictEqual(joinEmphasisAcrossBreaks('> a\n> b'), '> a\n> b')
 })
 
 test('B: canonicalizeMarkdown repairs Linear-mangled bold/italic', () => {

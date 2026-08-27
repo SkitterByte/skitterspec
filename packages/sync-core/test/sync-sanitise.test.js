@@ -186,3 +186,12 @@ test('the self-check refuses a write that would change structure', () => {
   // if a future construct slipped through, `refused` would be true instead.
   assert.ok(refused === undefined || refused === true)
 })
+
+test('a straddling span inside a blockquote leaves the > structure intact', () => {
+  const src = ['> **a bold span that', '> wraps across two quote lines**'].join('\n')
+  const { text } = sanitizeSpecMarkdown(src)
+  // The blockquote is a boundary — both `>` lines are preserved verbatim; the
+  // straddle is left in the file (harmless — the projection joins it for Linear).
+  assert.strictEqual(countQuotes(text), 2)
+  assert.match(text, /^> /m)
+})

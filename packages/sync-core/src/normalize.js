@@ -126,11 +126,13 @@ function joinOpenSpans(text) {
     const c = text[i]
     if (c === '\n') {
       if (!code && (bold || italic || link)) {
-        // Skip the continuation's indentation, then join. A word wrapped at a
-        // hyphen (`state-entry-with-`⏎`assignment`) is one compound — join TIGHT
-        // (no space) so we don't corrupt it; otherwise a single space.
+        // Skip the continuation's indentation AND any blockquote marker (`>`) —
+        // a span wrapped across two `> …` lines is one quoted run, so the join
+        // must drop the continuation `>` rather than swallow it into the text.
+        // Then join: a word wrapped at a hyphen (`state-entry-with-`⏎`assignment`)
+        // is one compound — join TIGHT (no space); otherwise a single space.
         let j = i + 1
-        while (j < text.length && (text[j] === ' ' || text[j] === '\t')) j++
+        while (j < text.length && (text[j] === ' ' || text[j] === '\t' || text[j] === '>')) j++
         const softHyphen = text[i - 1] === '-' && /\w/.test(text[i - 2] || '') && /\w/.test(text[j] || '')
         if (!softHyphen) out.push(' ')
         i = j - 1
