@@ -36,6 +36,29 @@ function cleanLogicalLine(text) {
 const BULLET_RE = /^(\s*)((?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s+)?)(.*)$/
 // Structural blocks we never reflow.
 const PASSTHROUGH_RE = /^\s*(#{1,6}\s|>|\||[-*_]{3,}\s*$|<)/
+// A line that is its own structural block — a blockquote (`>`) or a table/pipe
+// row (`|`). A hard boundary a join must never reach across (else the markers get
+// absorbed into the preceding paragraph as literal text); copied verbatim.
+const STRUCT_LINE_RE = /^[ \t]*[>|]/
+// A fenced-code delimiter.
+const FENCE_RE = /^[ \t]*```/
+
+// A structural fingerprint of a document: the count of block-marker lines that a
+// safe reflow must leave untouched. Used as a self-check — if sanitising changes
+// any of these, the reflow corrupted structure (a blockquote absorbed, a fence
+// eaten, a bullet collapsed) and the write is refused. Cheap insurance against the
+// next corruption class, not just the ones we special-case.
+function structuralSignature(text) {
+  let struct = 0 // blockquote or pipe-row lines
+  let fence = 0
+  let bullets = 0
+  for (const l of String(text).split('\n')) {
+    if (STRUCT_LINE_RE.test(l)) struct++
+    if (FENCE_RE.test(l)) fence++
+    if (BULLET_RE.test(l)) bullets++
+  }
+  return `${struct}|${fence}|${bullets}`
+}
 // A GFM table separator row (only pipes/colons/dashes/spaces, with a pipe AND a
 // dash). Detecting a table by this — not by any stray `|` — so a pipe inside an
 // inline `code|span` doesn't make us treat a whole list as an untouchable table.
@@ -99,11 +122,17 @@ function sanitizeSpecMarkdown(text, { width } = {}) {
   while (i < lines.length) {
     const line = lines[i]
     // Fenced code — copy verbatim through the closing fence.
-    if (/^[ \t]*```/.test(line)) {
+    if (FENCE_RE.test(line)) {
       out.push(line)
       i++
-      while (i < lines.length && !/^[ \t]*```/.test(lines[i])) out.push(lines[i++])
+      while (i < lines.length && !FENCE_RE.test(lines[i])) out.push(lines[i++])
       if (i < lines.length) out.push(lines[i++])
+      continue
+    }
+    // Blockquote / table row — copy the whole run verbatim. A hard boundary: a
+    // join must never reach across it, so it also terminates any preceding block.
+    if (STRUCT_LINE_RE.test(line)) {
+      while (i < lines.length && STRUCT_LINE_RE.test(lines[i])) out.push(lines[i++])
       continue
     }
     if (!line.trim()) {
@@ -111,9 +140,10 @@ function sanitizeSpecMarkdown(text, { width } = {}) {
       i++
       continue
     }
-    // Gather a block of consecutive non-blank, non-fence lines.
+    // Gather a block of consecutive non-blank lines, stopping at any structural
+    // boundary (fence, blockquote, table row) so a reflow can't absorb one.
     let j = i
-    while (j < lines.length && lines[j].trim() && !/^[ \t]*```/.test(lines[j])) j++
+    while (j < lines.length && lines[j].trim() && !FENCE_RE.test(lines[j]) && !STRUCT_LINE_RE.test(lines[j])) j++
     const block = lines.slice(i, j)
     i = j
 
@@ -137,7 +167,13 @@ function sanitizeSpecMarkdown(text, { width } = {}) {
     }
   }
   const result = out.join('\n')
+  // Self-check: a safe reflow never changes the count of structural markers. If it
+  // did, we corrupted something (a blockquote, fence, or bullet) — refuse the write
+  // and hand back the original untouched, flagged for the caller to report.
+  if (result !== src && structuralSignature(result) !== structuralSignature(src)) {
+    return { text: src, changed: false, fixes: 0, refused: true }
+  }
   return { text: result, changed: result !== src, fixes }
 }
 
-module.exports = { sanitizeSpecMarkdown, hasStraddle }
+module.exports = { sanitizeSpecMarkdown, hasStraddle, structuralSignature }

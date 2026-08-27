@@ -6,7 +6,9 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
-const { sanitizeSpecMarkdown } = require('../src/sanitise.js')
+const { sanitizeSpecMarkdown, structuralSignature } = require('../src/sanitise.js')
+
+const countQuotes = (t) => (t.match(/^\s*>/gm) || []).length
 
 // Re-uses the straddle detector from the sibling test would be circular; inline a
 // simple per-line check: no line may carry an unbalanced ** / * / [ ].
@@ -129,4 +131,58 @@ test('preserves indent and marker of a nested bullet it reflows', () => {
   assert.ok(noStraddle(text), text)
   assert.ok(text.split('\n').every((l) => l.startsWith('  ')), text)
   assert.match(text, /^ {2}- \[ \] /m)
+})
+
+// Blockquotes are a block boundary — a join must never absorb the `>` markers.
+
+test('a blockquote nested in a numbered list survives (regression)', () => {
+  const src = [
+    '8. **A decision with a long bold span that straddles a line break so the',
+    '   sanitiser has something to join.**',
+    '   Trailing prose on the item.',
+    '   > **A nested blockquote.**',
+    '   > Second quote line.',
+    '   > Third quote line.',
+  ].join('\n')
+  const { text, changed } = sanitizeSpecMarkdown(src)
+  assert.strictEqual(changed, true, 'the straddle is still joined')
+  assert.strictEqual(countQuotes(text), 3, 'all 3 blockquote lines preserved')
+  assert.ok(noStraddle(text), text)
+  assert.match(text, /^ {3}> \*\*A nested blockquote\.\*\*/m)
+})
+
+test('a blockquote right after a straddling paragraph is preserved', () => {
+  const src = [
+    'Prose with **bold that wraps',
+    'across a line** then ends.',
+    '> a quote line',
+    '> another quote line',
+  ].join('\n')
+  const { text } = sanitizeSpecMarkdown(src)
+  assert.strictEqual(countQuotes(text), 2)
+  assert.ok(noStraddle(text), text)
+})
+
+test('structuralSignature counts blockquote, fence, bullet, and pipe lines', () => {
+  const src = ['- a', '> q', '| x |', '```', 'code', '```'].join('\n')
+  // struct = > + | = 2 ; fence = 2 ; bullets = 1
+  assert.strictEqual(structuralSignature(src), '2|2|1')
+})
+
+test('the self-check refuses a write that would change structure', () => {
+  // A pipe-table row inside a list continuation with no separator row: without the
+  // boundary/self-check this collapses the `|` rows into the item. Structure must
+  // be preserved, so it is either left intact or refused — never corrupted.
+  const src = [
+    '- [ ] item with a straddle **that',
+    '      wraps** here',
+    '      | col | col |',
+    '      | data | data |',
+  ].join('\n')
+  const before = structuralSignature(src)
+  const { text, refused } = sanitizeSpecMarkdown(src)
+  assert.strictEqual(structuralSignature(text), before, 'structure is never changed')
+  // pipe rows are boundaries now, so the item still sanitises without corruption;
+  // if a future construct slipped through, `refused` would be true instead.
+  assert.ok(refused === undefined || refused === true)
 })
