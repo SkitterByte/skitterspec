@@ -80,6 +80,22 @@ test('titleFromText cuts at a clause boundary, not mid-phrase', () => {
   assert.ok(!t.includes('(') || t.includes(')'), t)
 })
 
+test('titleFromText handles a numbered bold label without breaking the title', () => {
+  // Two independent defects on `**1. Schema additions**`: the "1." was read as a
+  // sentence boundary (cutting to "**1"), and the dangling "**" survived into the
+  // plain-text title. Neither must happen — a Linear title is plain text.
+  assert.strictEqual(
+    titleFromText('**1. Schema additions** (`packages/api/prisma/schema.prisma`)'),
+    '1. Schema additions (`packages/api/prisma/schema.prisma`)',
+  )
+  assert.strictEqual(titleFromText('**2. Token encryption util**'), '2. Token encryption util')
+  // emphasis markers are stripped; backticks and snake_case identifiers are kept
+  assert.strictEqual(titleFromText('Refactor the *whole* thing'), 'Refactor the whole thing')
+  assert.strictEqual(titleFromText('Keep `DbFoo` and snake_case_ident intact'), 'Keep `DbFoo` and snake_case_ident intact')
+  // a markdown link is unwrapped to its text
+  assert.strictEqual(titleFromText('See the [design doc](https://x.example/y) here'), 'See the design doc here')
+})
+
 test('titleFromText on a real paragraph task reads as a one-liner', () => {
   const local = normalizeLocal(FIXTURE, config())
   const long = local.tasks.find((t) => /first-class dedup/.test(t.description))

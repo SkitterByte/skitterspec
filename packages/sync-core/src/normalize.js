@@ -439,6 +439,19 @@ function remoteWorkflowState(project, config) {
   return name != null ? bucketForState(name, config) : null
 }
 
+// A Linear issue title is plain text, so markdown emphasis is noise there — and
+// worse, an emphasis run cut mid-title (or a bold LABEL like `**1. Foo**`) can
+// leave a dangling `**`. Strip `*` emphasis markers and unwrap `[text](url)` to
+// `text`. Backticks and `_` are KEPT: task labels lean on inline code
+// (`` `DbFoo` ``) and identifiers use snake_case, and neither breaks a title.
+function stripTitleMarkup(t) {
+  return t
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // [text](url) -> text
+    .replace(/\*/g, '') // bold/italic markers (incl. a dangling ** from a cut)
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // Trim a trailing parenthetical whose opener has no matching close — so a cut
 // title never ends on a dangling `(`/`[`.
 function dropUnclosedBracket(t) {
@@ -469,6 +482,7 @@ function titleFromText(text, max = 100) {
     const after = s[i + 1]
     if (after !== undefined && !/\s/.test(after)) continue // not a sentence end
     if (/\d/.test(s[i - 1] || '') && /\d/.test(after || '')) continue // 7.0.2, 3.14
+    if (/(?:^|[^\w])\d+$/.test(s.slice(0, i))) continue // list ordinal "1." "2."
     if (/(^|\s)(e\.g|i\.e|etc|vs|no|fig|cf)$/i.test(s.slice(0, i))) continue // abbrev
     title = s.slice(0, i) // drop the terminator
     break
@@ -494,7 +508,7 @@ function titleFromText(text, max = 100) {
     }
     title = dropUnclosedBracket(t).replace(/[\s.,:;—–([]+$/, '').trim()
   }
-  return title
+  return stripTitleMarkup(title)
 }
 
 // Which configured state NAMES are absent from the live workspace. The skill
