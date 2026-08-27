@@ -19,6 +19,9 @@ const DEFAULT_WIDTH = 80
 const TASK_START_RE = /^([ \t]*)-\s*\[([ xX])\]\s*(.*)$/
 const CONTINUATION_RE = /^[ \t]+\S/
 const BLOCK_BREAK_RE = /^[ \t]*(?:[-*+]\s|\d+\.\s|#{1,6}\s|>|\||```)/
+// A list-marker line (unordered or ordered). Distinguished from other block
+// breaks because a wrapped continuation can legitimately begin with one.
+const LIST_MARKER_RE = /^[ \t]*(?:[-*+]|\d+\.)\s/
 
 // Collapse a wrapped bullet's lines into the single logical line the rest of the
 // sync engine (and Linear) works in.
@@ -82,12 +85,24 @@ function findTaskBlocks(lines) {
     const m = TASK_START_RE.exec(lines[i])
     if (!m) continue
     const parts = [m[3]]
+    // The hanging indent: where the bullet's text starts (marker width). A
+    // continuation aligns AT this column; a genuine nested bullet is SHALLOWER.
+    const hang = lines[i].length - m[3].length
     let j = i + 1
     for (; j < lines.length; j++) {
       const l = lines[j]
       if (!l.trim()) break
       if (!CONTINUATION_RE.test(l)) break
-      if (BLOCK_BREAK_RE.test(l)) break
+      if (BLOCK_BREAK_RE.test(l)) {
+        // A list-marker line is a real nested/sibling bullet only when indented
+        // shallower than the hanging indent. AT/after it, a line beginning with
+        // -/*/+/N. is wrapped continuation text, not a new bullet — keep it (else
+        // the task is truncated and its stamped id no longer matches, which makes
+        // the next push create a duplicate issue). Headings, quotes, tables and
+        // fences always break.
+        const indent = l.length - l.trimStart().length
+        if (!LIST_MARKER_RE.test(l) || indent < hang) break
+      }
       parts.push(l.trim())
     }
     blocks.push({

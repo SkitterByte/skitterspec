@@ -112,3 +112,44 @@ test('an indented sub-task is read and rewritten at its own indent', () => {
   const rendered = renderTaskBlock({ indent: block.indent, done: false, text: block.text })
   assert.ok(rendered.every((l) => l.startsWith('  ')))
 })
+
+// A wrapped continuation that begins with -/*/+/N. sits AT the hanging indent; a
+// genuine nested bullet is SHALLOWER. Break only on the latter — else the task is
+// truncated, its stamped id stops matching, and the next push creates a duplicate.
+
+test('a continuation beginning with +/-/* at the hang is kept, not truncated', () => {
+  const [block] = findTaskBlocks([
+    '- [x] Task text ending here',
+    '      + continuation with a plus',
+    '      - and a minus-led one',
+    '      normal tail',
+  ])
+  assert.strictEqual(
+    block.text,
+    'Task text ending here + continuation with a plus - and a minus-led one normal tail',
+  )
+})
+
+test('a stamped task with a marker-led continuation still reads back its id', () => {
+  // The inline id sits on the LAST line; a truncating continuation drops it, so
+  // the task reads back id:null and the next push creates a duplicate issue.
+  const { parseTaskLine } = require('../src/normalize.js')
+  const [b] = findTaskBlocks([
+    '- [x] Do the thing',
+    '      + a wrapped continuation',
+    '      that ends here (SKI-42)',
+  ])
+  const parsed = parseTaskLine(`[${b.mark}] ${b.text}`)
+  assert.strictEqual(parsed.id, 'SKI-42', 'id survives so push updates, not duplicates')
+})
+
+test('a genuine nested child (shallower than the hang) still breaks', () => {
+  const blocks = findTaskBlocks([
+    '- [x] Parent task with enough text to be real',
+    '  - [ ] Genuine nested child',
+    '  - [ ] Second nested child',
+  ])
+  assert.strictEqual(blocks.length, 3)
+  assert.strictEqual(blocks[0].text, 'Parent task with enough text to be real')
+  assert.match(blocks[1].text, /Genuine nested child/)
+})
