@@ -22,6 +22,25 @@ This installs the skills + rules into `.claude/`, scaffolds `specs/`, and patche
 `CLAUDE.md`. See `.claude/rules/spec-planning.md` after install to set your
 project's typecheck/test/lint commands.
 
+## Upgrading
+
+```sh
+npx @skitterbyte/skitterspec update
+```
+
+`update` refreshes the files it manages (skills, rules, `specs/.core` docs) and
+**keeps anything you edited**. A file it kept is listed under
+`customized (kept)` with the change it declined summarised as `+added −removed`:
+
+```
+customized (kept):
+  .claude/rules/spec-planning.md  +34 −13
+```
+
+Add `--diff` to see those changes as a unified diff before deciding whether to
+re-apply your edits on top, or `--force` to take the package version and lose
+them. Your `specs/` content and live `.core` config are never touched.
+
 ## Pick one distribution
 
 Ticketing sync is a **separate superset you install instead of this one**:

@@ -108,7 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `update` says what it skipped | 🔄 | [01-update-reports-skipped.md](01-update-reports-skipped.md) |
+| 1 | `update` says what it skipped | ✅ | [01-update-reports-skipped.md](01-update-reports-skipped.md) |
 | 2 | Detect and report a pre-9.0 mirror | ⬜ | [02-legacy-mirror-warning.md](02-legacy-mirror-warning.md) |
 | 3 | `push` refuses without validated states | ⬜ | [03-push-state-gate.md](03-push-state-gate.md) |
 
@@ -140,3 +140,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-27 — Confirmed the sync CLI is offline, so "validate inline" is
   impossible as literally requested; enforcing the existing `--workspace-states`
   handoff is the workable form (Decision 7).
+- 2026-08-27 — Phase 1: neither published README had a section on `update` at
+  all, so "update the README section" became "write one" — both distributions now
+  carry an **Upgrading** section showing the `+added −removed` summary and
+  `--diff`. The gap explains the field report: nothing outward-facing told anyone
+  what `customized (kept)` withheld.
+- 2026-08-27 — Phase 1: without `--diff`, a run that kept files now prints a
+  one-line pointer to it. A summary nobody knows how to expand is only half the
+  fix.

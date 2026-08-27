@@ -79,6 +79,8 @@ Options (init / update):
   --reset                  (init) Start again: reset managed scaffolding fresh
                            (needs --yes; never touches your specs or config)
   --force                  Overwrite skill/rule/script files that already exist
+  --diff                   (update) Show the upstream changes each customized
+                           file declined, as a unified diff
   --dir <path>             Target project dir (default: positional arg or cwd)
   --no-claude-md           Skip creating/patching CLAUDE.md
   --yes, -y                Accept defaults; skip the interactive setup prompts
@@ -104,6 +106,7 @@ function parse(argv) {
     removeReleaseTooling: false,
     resync: false,
     reset: false,
+    diff: false,
   }
   const positional = []
   for (let i = 0; i < argv.length; i++) {
@@ -116,6 +119,7 @@ function parse(argv) {
     else if (a === '--remove-release-tooling') opts.removeReleaseTooling = true
     else if (a === '--resync') opts.resync = true
     else if (a === '--reset') opts.reset = true
+    else if (a === '--diff') opts.diff = true
     else if (a === '--dir') opts.dir = argv[++i]
     else if (a.startsWith('--')) throw new Error(`unknown option: ${a}`)
     else positional.push(a)
@@ -1346,7 +1350,7 @@ async function run(argv) {
           break
         }
         if (action === 'resync') {
-          resync(dir, { claudeMd: opts.claudeMd, force: opts.force })
+          resync(dir, { claudeMd: opts.claudeMd, force: opts.force, diff: opts.diff })
           break
         }
         // action === 'create-missing' → fall through to a normal (skip-existing) init.
@@ -1365,7 +1369,7 @@ async function run(argv) {
     case 'update':
       // `update` is a resync — refresh managed files, keep customized ones
       // (--force to overwrite). Leaves specs/ and live .core config alone.
-      resync(dir, { claudeMd: opts.claudeMd, force: opts.force })
+      resync(dir, { claudeMd: opts.claudeMd, force: opts.force, diff: opts.diff })
       await cleanupReleaseTooling(dir, opts)
       break
     default:

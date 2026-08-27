@@ -51,6 +51,25 @@ fuller guide):
    `/spec-status` reports what would push. Sync is **one-way**: the repo is the
    source of truth and Linear is a generated mirror.
 
+## Upgrading
+
+```sh
+npx @skitterbyte/skitterspec-linear update
+```
+
+`update` refreshes the files it manages (skills, rules, `specs/.core` docs) and
+**keeps anything you edited**. A file it kept is listed under
+`customized (kept)` with the change it declined summarised as `+added −removed`:
+
+```
+customized (kept):
+  .claude/rules/spec-planning.md  +34 −13
+```
+
+Add `--diff` to see those changes as a unified diff before deciding whether to
+re-apply your edits on top, or `--force` to take the package version and lose
+them. Your `specs/` content and live `.core` config are never touched.
+
 ## What the superset adds
 
 On top of the base skills (`/spec`, `/spec-go`, isolation, …):

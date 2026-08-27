@@ -548,3 +548,49 @@ test('a genuinely edited file is still customized and kept', async () => {
   assert.match(fs.readFileSync(path.join(dir, edited.relPath), 'utf8'), /MY EDITS/)
   assert.ok(!/manifest repaired[\s\S]*spec\b/.test(out), 'an edited file is not "repaired"')
 })
+
+// --- update must say WHAT it skipped, not just that it did ------------------
+
+test('a kept file reports the change it declined', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = specPlanning(dir)
+  // A user edit that removes a line and adds two — a real, countable decline.
+  const edited = one.bundled.split('\n')
+  edited.splice(3, 1, 'MY OWN LINE', 'AND ANOTHER')
+  fs.writeFileSync(path.join(dir, one.relPath), edited.join('\n'))
+
+  const out = captureResync(dir, { claudeMd: false })
+
+  assert.match(out, /customized \(kept\)/)
+  assert.match(out, /spec-planning\.md\s+\+\d+ −\d+/, 'the counts are printed beside the file')
+  assert.match(out, /--diff/, 'and the way to see them is pointed at')
+})
+
+test('--diff dumps the declined hunks', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = specPlanning(dir)
+  const edited = one.bundled.split('\n')
+  edited.splice(3, 1, 'MY OWN LINE')
+  fs.writeFileSync(path.join(dir, one.relPath), edited.join('\n'))
+
+  const out = captureResync(dir, { claudeMd: false, diff: true })
+
+  assert.match(out, /this is what you declined/)
+  assert.match(out, /^@@ -\d+,\d+ \+\d+,\d+ @@/m, 'a unified hunk header')
+  assert.match(out, /^-MY OWN LINE$/m, 'the user line the package would drop')
+})
+
+test('a clean update mentions no diffs at all', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const out = captureResync(dir, { claudeMd: false })
+  assert.ok(!/customized \(kept\)/.test(out))
+  assert.ok(!/--diff/.test(out), 'no pointer when nothing was declined')
+})
+
+test('parse accepts --diff', () => {
+  assert.strictEqual(parse(['update', '--diff']).opts.diff, true)
+  assert.strictEqual(parse(['update']).opts.diff, false)
+})

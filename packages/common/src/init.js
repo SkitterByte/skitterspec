@@ -82,6 +82,8 @@ function ensureDir(p) {
 // old version we own" (safe to update) from "a file the user edited" (keep). It
 // lists only managed FILES (skills, rules, .core templates) — never user content.
 
+const { linesDiff } = require('./lines-diff.js')
+
 const MANIFEST_FILE = path.join('specs', '.core', '.skitterspec-manifest.json')
 const MANIFEST_VERSION = 1
 
@@ -427,7 +429,11 @@ function resyncManagedFile(dir, target, manifest, force) {
   if (state === 'customized') {
     if (force) return write('updated')
     writtenHashes[relPath] = manifest.files[relPath] || writtenHashes[relPath] // keep baseline
-    return report.customized.push(relPath)
+    // Carry the change the user just DECLINED. A bare filename tells them a
+    // decision was made on their behalf but not what it was, which leaves
+    // "clobber and re-apply my edits by hand" as the only safe way to upgrade.
+    const { added, removed, hunks } = linesDiff(fs.readFileSync(abs, 'utf8'), bundled)
+    return report.customized.push({ relPath, added, removed, hunks })
   }
   // pristine — update only if the bundled content actually changed
   if (fs.readFileSync(abs, 'utf8') === bundled) {
@@ -441,7 +447,7 @@ function resyncManagedFile(dir, target, manifest, force) {
   write('updated')
 }
 
-function resync(dir, { force = false, claudeMd = true } = {}) {
+function resync(dir, { force = false, claudeMd = true, diff = false } = {}) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
   const manifest = readManifest(dir)
@@ -451,7 +457,7 @@ function resync(dir, { force = false, claudeMd = true } = {}) {
   pruneRetiredManaged(dir, manifest)
   if (claudeMd) installClaudeMd(dir, { mode: 'update' })
   flushManifest(dir)
-  printReport(dir, 'resync')
+  printReport(dir, 'resync', { diff })
 }
 
 // The never-touch set: START AGAIN may only delete a known managed file, and may
@@ -517,7 +523,7 @@ function reset(dir, { claudeMd = true } = {}) {
   printReport(dir, 'reset')
 }
 
-function printReport(dir, mode) {
+function printReport(dir, mode, { diff = false } = {}) {
   const line = (label, items) => {
     if (!items.length) return
     process.stdout.write(`\n${label}:\n`)
@@ -527,12 +533,24 @@ function printReport(dir, mode) {
   line('created', report.created)
   line('updated', report.updated)
   line('removed', report.removed)
-  line('customized (kept)', report.customized)
+  line(
+    'customized (kept)',
+    report.customized.map((c) => `${c.relPath}  +${c.added} \u2212${c.removed}`),
+  )
   line('manifest repaired', report.healed)
   line('unchanged', report.skipped)
   if (report.warnings.length) {
     process.stdout.write('\nwarnings:\n')
     for (const w of report.warnings) process.stdout.write(`  ! ${w}\n`)
+  }
+  if (diff) {
+    for (const c of report.customized) {
+      if (!c.hunks.length) continue
+      process.stdout.write(`\n--- ${c.relPath} (kept — this is what you declined)\n`)
+      for (const h of c.hunks) process.stdout.write(`${h}\n`)
+    }
+  } else if (report.customized.length) {
+    process.stdout.write('\nRe-run with --diff to see the changes those files declined.\n')
   }
   const isolationOn = fs.existsSync(path.join(dir, 'specs', '.core', 'env.config.json'))
   const isolationNote = isolationOn
