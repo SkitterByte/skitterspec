@@ -2,9 +2,9 @@
 
 > **Type:** Bug
 > **Name:** bug-update-pins-stale-manifest (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready
+> **Status:** In Progress — Phase 1 (started 2026-08-27)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
 > **Area:** packages/common/src/init.js
 > **Stack:** worktree
@@ -111,6 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
+| 2026-08-27 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
