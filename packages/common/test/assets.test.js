@@ -102,6 +102,35 @@ test('spec-planning rule documents the Impact map in the overview contents', () 
   )
 })
 
+// The phase-file H1 emoji is the ONE load-bearing status signal (a provider maps
+// it to the phase's tracker state; an absent emoji reads as not-started). Every
+// skill that authors or edits phase files must say so — /spec ships it in the
+// template, /spec-go flips it, and /spec-review creates phase files whenever it
+// migrates a legacy spec into the folder + phase-file form. It shipped without
+// the convention once, and three migrated specs mirrored their complete phases
+// as backlog; this guard is why that can't silently recur.
+const PHASE_HEADING_SKILLS = ['spec-go', 'spec-review']
+
+test('skills that author or edit phase files state the H1 status convention', () => {
+  for (const name of PHASE_HEADING_SKILLS) {
+    const text = skillText(name)
+    // assert.ok, not assert.match — a failed match dumps the whole SKILL.md.
+    assert.ok(/⬜|🔄|✅/u.test(text), `${name} names the status emoji`)
+    assert.ok(/heading|h1/i.test(text), `${name} ties the status to the heading`)
+  }
+})
+
+test('spec-review points the emoji at phase-file creation, not just editing', () => {
+  const text = skillText('spec-review')
+  // The migration path is how the convention gets missed: /spec-review is the
+  // skill that splits a legacy spec into 0N-<slug>.md files from scratch.
+  assert.ok(/authoritative/i.test(text), 'spec-review says the heading wins')
+  assert.ok(
+    /legacy spec|inline phases/i.test(text),
+    'spec-review covers the legacy-migration path that authors phase files',
+  )
+})
+
 test('spec-review re-validates the Impact map as a drift check', () => {
   const text = skillText('spec-review')
   assert.match(text, /Impact map/, 'spec-review references the Impact map')

@@ -8,6 +8,18 @@ warning from `spec-sync normalize|push|status` instead of silently projecting as
 
 ## Tasks
 
+- [ ] **First — make the provider CLI runnable in a worktree.** A fresh worktree
+      can't run `spec-sync` at all: `packages/linear/bin/skitterspec-linear.js`
+      requires its own package by name
+      (`@skitterbyte/skitterspec-provider-linear`), which only resolves via a
+      root `node_modules/@skitterbyte/` link that the configured `setup`
+      (`install --frozen-lockfile`) does not create. Tests still pass, so this
+      hides until you invoke the CLI. Pick one: add the workspace packages to the
+      root `package.json` devDependencies as `workspace:*` (reproducible, and the
+      bin keeps exercising the same by-name resolution), or switch the source bin
+      to relative requires (`scripts/build-dist.js:59` already rewrites them for
+      the published dist, so there is no dist impact either way). Record the
+      choice in the Changelog.
 - [ ] In `packages/sync-core/src/normalize.js`, have `readPhaseFiles` retain the
       raw H1 emoji (`null` when absent) and the `> **Status:**` line text
       alongside the existing fields. Leave `phaseStateBucket` semantics
@@ -32,6 +44,9 @@ warning from `spec-sync normalize|push|status` instead of silently projecting as
 - [ ] Run `pnpm test` — green before the phase is done.
 
 ## Notes
+
+The first task is a prerequisite, not a nice-to-have: every remaining phase
+verifies its work by running `spec-sync` from this worktree.
 
 Reproduce the field failure as a fixture: index row `✅`, a `**Status:** ✅ done`
 line, and an H1 with no emoji. That spec must warn *twice over* — once for the

@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-mirror-fidelity (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 2 (started 2026-08-27)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
 > **Area:** packages/sync-core/src/normalize.js, packages/sync-core/src/write.js, packages/linear/src/cli-sync.js, packages/linear/src/config.js, packages/common/assets/skills/spec-review, packages/linear/assets/skills/spec-push, packages/linear/assets/seams, packages/linear/assets/core/linear.config.md
 > **Stack:** worktree
@@ -120,7 +120,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Document the H1 status convention in `/spec-review` | ⬜ | [01-spec-review-convention.md](01-spec-review-convention.md) |
+| 1 | Document the H1 status convention in `/spec-review` | ✅ | [01-spec-review-convention.md](01-spec-review-convention.md) |
 | 2 | Three-way phase-status lint, surfaced by the CLI | ⬜ | [02-status-lint.md](02-status-lint.md) |
 | 3 | Project phase tasks as a sub-issue checklist | ⬜ | [03-task-checklist.md](03-task-checklist.md) |
 | 4 | `spec-sync stamp` helper + move both call-sites | ⬜ | [04-stamp-helper.md](04-stamp-helper.md) |
@@ -134,6 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
+| 2026-08-27 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
@@ -141,3 +142,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   real-world push, skitterload repo, 4 specs / 13 sub-issues).
 - 2026-08-27 — Decided against a `**Status:**`-line fallback in
   `phaseStateBucket`; the lint warns instead, keeping one convention.
+- 2026-08-27 — Phase 1: wrote the convention provider-neutrally instead of
+  linking `linear.config.md`. `packages/common/assets` has zero Linear
+  references and the base ships `/spec-review` with no provider — a link would
+  have broken the tracker-free base. Guard lives in
+  `packages/common/test/assets.test.js` and covers `/spec-go` too.
+- 2026-08-27 — Found while verifying Phase 1: a fresh worktree cannot run the
+  `spec-sync` CLI (`packages/linear/bin` self-requires
+  `@skitterbyte/skitterspec-provider-linear`, unresolvable without a root
+  workspace link that `setup` doesn't create). Added as the first task of
+  Phase 2, since Phases 2-4 all verify through that CLI.

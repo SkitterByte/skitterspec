@@ -60,6 +60,19 @@ reading the code, do that instead of asking.
   creating a `0N-<slug>.md` file **and** a matching overview index row, or drop a
   dead phase by removing both. Keep the index and files in sync; **preserve
   completed `[x]` history**.
+- **A phase's status is the `⬜`/`🔄`/`✅` on its H1** — `# Phase 2 — <goal> 🔄`.
+  It is mirrored in that file's `> **Status:**` line and in the matching
+  `00-overview.md` phase-index row, but the **heading is the authoritative one**:
+  tooling reads it, and a heading carrying no emoji reads as *not started*. So a
+  finished phase marked only by a `**Status:** done` line is silently wrong
+  everywhere except the file itself. Set all three together.
+- **Especially when you create phase files.** Migrating a legacy spec (a bare
+  `<name>.md`, or a `00-overview.md` with inline phases) into the folder +
+  phase-file form means authoring `0N-<slug>.md` headings from scratch — carry
+  each phase's real status onto its H1 as you split it out, rather than
+  defaulting every new file to `⬜`. A ticketing provider projects that emoji as
+  the phase's state in the tracker, so getting it wrong mirrors a
+  complete phase as not-started.
 - Tick tasks already satisfied by the code; re-open `## Open questions` for
   anything still undecided.
 - Add a dated **Changelog** entry summarising the review (e.g. `- <date> —
