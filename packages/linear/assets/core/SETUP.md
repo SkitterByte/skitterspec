@@ -168,3 +168,9 @@ With a linked spec, confirm push end-to-end:
   (`Backlog / Planned / In Progress / Completed / Canceled`).
 - **Reconnecting doesn't switch workspace** — Linear ties the OAuth session to one
   workspace. Remove and re-add the server to authenticate against another.
+- **Bold around an inline code span renders oddly in Linear** — Linear moves the
+  closing `**` before an inline code span on save (`**no unresolved `` `X` ``**`
+  → `**no unresolved** `` `X` ``). This is a Linear rendering quirk in the mirror
+  only; it never touches your repo (one-way sync never reads content back), so
+  it's cosmetic. Avoid wrapping a whole phrase that ends in code in bold if the
+  mirror's rendering matters to you.
