@@ -253,14 +253,53 @@ function phaseTitle(body) {
   return t || null
 }
 
+// The raw ⬜/🔄/✅ on a phase file's h1, or undefined when it carries none.
+// Kept separate from `phaseStateBucket` because the LINT has to tell "absent"
+// apart from "not-started" — the projection deliberately cannot (see below).
+function headingEmoji(body) {
+  const h1 = /^#\s+(.*)$/m.exec(body)
+  return h1 ? (h1[1].match(/[⬜🔄✅]/u) || [])[0] : undefined
+}
+
+// The `> **Status:** …` line's value, or null when the file has none. This is
+// the human mirror of the heading emoji, not a source of truth — `lintPhases`
+// cross-checks it, and nothing else reads it.
+function phaseStatusLine(body) {
+  const m = /^>.*\*\*Status:\*\*\s*(.+?)\s*$/m.exec(body)
+  return m ? m[1] : null
+}
+
+// Read a `> **Status:**` value leniently into the canonical vocabulary: an emoji
+// if it carries one, else a word we recognise. Returns null for anything else —
+// the line is free prose, and warning on an unrecognised phrasing would train
+// the warning away.
+// `pending` is deliberately NOT here: "pending review" matches as not-started
+// but means roughly the opposite, and a false positive is worse than a missed
+// check — it teaches the reader to ignore the warning.
+const STATUS_WORDS = [
+  [/\b(not[\s-]?started|todo|to[\s-]do|planned)\b/i, 'not-started'],
+  [/\b(in[\s-]?progress|started|doing|wip)\b/i, 'in-progress'],
+  [/\b(done|complete[d]?|finished|shipped)\b/i, 'done'],
+]
+function statusLineValue(line) {
+  if (!line) return null
+  const emoji = (line.match(/[⬜🔄✅]/u) || [])[0]
+  if (emoji) return EMOJI_STATUS[emoji]
+  for (const [re, status] of STATUS_WORDS) if (re.test(line)) return status
+  return null
+}
+
 // A phase's status (from its heading emoji ⬜/🔄/✅) mapped to a state bucket the
 // `states` table understands, so a sub-issue lands in the matching Linear issue
 // state. Unknown/absent → backlog.
+//
+// That fallback conflates "author marked it not-started" with "author used a
+// format we don't parse", which is silent corruption: the wrong state pushes
+// cleanly and `record` then commits it as the INTENDED value. The fix is not
+// leniency here — one convention beats two — it is `lintPhases`, which warns.
 const PHASE_STATE_BUCKET = { 'not-started': 'backlog', 'in-progress': 'in-progress', done: 'complete' }
 function phaseStateBucket(body) {
-  const h1 = /^#\s+(.*)$/m.exec(body)
-  const emoji = h1 ? (h1[1].match(/[⬜🔄✅]/u) || [])[0] : undefined
-  return PHASE_STATE_BUCKET[EMOJI_STATUS[emoji]] || 'backlog'
+  return PHASE_STATE_BUCKET[EMOJI_STATUS[headingEmoji(body)]] || 'backlog'
 }
 
 // Parse a task line (already stripped of its leading "- ") into a keyed item:
@@ -312,9 +351,83 @@ function readPhaseFiles(snapshotDir) {
         name: phaseTitle(body),
         goal: goal.trim(),
         state: phaseStateBucket(body),
+        // Lint-only signals. `emoji` is undefined when the heading carries none
+        // — the distinction `state` throws away; `statusLine` is the raw
+        // `> **Status:**` value. Neither affects the projection.
+        emoji: headingEmoji(body),
+        statusLine: phaseStatusLine(body),
         tasks,
       }
     })
+}
+
+// --- phase-status lint ------------------------------------------------------
+
+/**
+ * Warn where a phase's status signals are absent or disagree.
+ *
+ * A spec carries the same status in three places — the phase file's h1 emoji,
+ * its `> **Status:**` line, and the `00-overview.md` phase-index row — and only
+ * the h1 is load-bearing. Writing the other two correctly while leaving the h1
+ * bare projects a finished phase as `backlog`, pushes cleanly, and records the
+ * wrong value as intended. Nothing looks wrong anywhere.
+ *
+ * Returns `[{ file, code, message }]`, `code` being `missing-status-emoji` or
+ * `status-disagreement`. Pure aside from reads; callers decide how loud to be
+ * (today: printed, never fatal).
+ */
+function lintPhases(snapshotDir, config) {
+  const phases = readPhaseFiles(snapshotDir)
+  if (!phases.length) return []
+
+  // The overview may be absent (a legacy bare `<name>.md` spec) — that is not
+  // itself a lint failure, it just removes one of the three cross-checks.
+  let indexRows = []
+  try {
+    const overviewFile = (config && config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+    const raw = fs.readFileSync(path.join(snapshotDir, overviewFile), 'utf-8')
+    const { sections } = parseSections(parseFrontmatter(raw).body)
+    indexRows = parsePhaseIndex(sections.Phases)
+  } catch {
+    indexRows = []
+  }
+
+  const warnings = []
+  phases.forEach((phase, i) => {
+    if (!phase.emoji) {
+      warnings.push({
+        file: phase.file,
+        code: 'missing-status-emoji',
+        message: `no ⬜/🔄/✅ in the heading — projecting as not-started`,
+      })
+      // Without a heading emoji there is nothing to disagree WITH: the other two
+      // signals can't be checked against a value that was never expressed.
+      return
+    }
+
+    const heading = EMOJI_STATUS[phase.emoji]
+
+    const fromLine = statusLineValue(phase.statusLine)
+    if (fromLine && fromLine !== heading) {
+      warnings.push({
+        file: phase.file,
+        code: 'status-disagreement',
+        message: `heading says ${heading} but its Status line says ${fromLine}`,
+      })
+    }
+
+    // Match the index row by phase title, falling back to position — a renamed
+    // phase shouldn't silently drop the check.
+    const row = indexRows.find((r) => r.name === phase.name) || indexRows[i]
+    if (row && row.status !== heading) {
+      warnings.push({
+        file: phase.file,
+        code: 'status-disagreement',
+        message: `heading says ${heading} but the overview phase-index row says ${row.status}`,
+      })
+    }
+  })
+  return warnings
 }
 
 // --- ownership-driven field set ---------------------------------------------
@@ -526,6 +639,7 @@ function validateStates(config, workspaceStates) {
 
 module.exports = {
   normalizeLocal,
+  lintPhases,
   readSnapshot,
   parseFrontmatter,
   parseSections,

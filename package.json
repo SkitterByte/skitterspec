@@ -2,7 +2,7 @@
   "name": "skitterspec-monorepo",
   "version": "0.0.0",
   "private": true,
-  "description": "skitterspec workspaces — the base spec-driven workflow plus swappable ticketing-provider packages.",
+  "description": "skitterspec workspaces \u2014 the base spec-driven workflow plus swappable ticketing-provider packages.",
   "license": "MIT",
   "author": "Reuben Greaves",
   "type": "commonjs",
@@ -11,7 +11,8 @@
     "node": ">=18"
   },
   "devDependencies": {
-    "@skitterbyte/skittership": "^1.1.0"
+    "@skitterbyte/skittership": "^1.1.0",
+    "@skitterbyte/skitterspec-provider-linear": "workspace:*"
   },
   "scripts": {
     "test": "node --test",

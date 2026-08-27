@@ -34,6 +34,7 @@ const {
   isEmptyPlan,
   remoteWorkflowState,
   validateStates,
+  lintPhases,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const { loadLinearConfig } = require('./config.js')
@@ -131,6 +132,24 @@ function specSyncLinked(dir, config, flags, out) {
   out.write(lines.join('\n') + '\n')
 }
 
+// Phase-status warnings for a spec, one formatted line each.
+//
+// A spec states each phase's status three times — the phase file's h1 emoji, its
+// `> **Status:**` line, and the overview phase-index row — and only the h1 is
+// read. Get it wrong and the phase projects as `backlog`, pushes cleanly, and is
+// recorded as intended: invisible. So every subcommand that reads a projection
+// reports these, and none of them treats one as fatal — a legacy spec must still
+// push. See sync-core `lintPhases`.
+function warningLines(snapshotDir, config) {
+  return lintPhases(snapshotDir, config).map((w) => `  warning ${w.file}: ${w.message}`)
+}
+
+// Emit warnings on stderr, keeping stdout pure for a machine-readable payload.
+function warnToErr(snapshotDir, config, err) {
+  const lines = warningLines(snapshotDir, config)
+  if (lines.length) err.write(lines.join('\n') + '\n')
+}
+
 function resolveOrExit(specArg, dir, out) {
   if (!specArg) return null
   const snapshotDir = resolveSnapshotDir(specArg, dir)
@@ -142,26 +161,29 @@ function resolveOrExit(specArg, dir, out) {
 }
 
 // `spec-sync normalize <spec>` — print the local projection as JSON.
-function specSyncNormalize(dir, config, specArg, out) {
+function specSyncNormalize(dir, config, specArg, out, err) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return
+  // stdout is the projection and nothing else — callers pipe it into jq.
+  warnToErr(snapshotDir, config, err)
   out.write(JSON.stringify(projectionOf(snapshotDir, config), null, 2) + '\n')
 }
 
 // `spec-sync push <spec> [--json]` — print the create/update PLAN diffed against
 // the last-pushed snapshot. Machine-readable by default; the /spec-push skill
 // applies it over MCP then calls `record`.
-function specSyncPush(dir, config, specArg, flags, out) {
+function specSyncPush(dir, config, specArg, flags, out, err) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return
   const identifier = specIdentifier(snapshotDir, config)
   const r = push({ dir, snapshotDir, identifier, config })
   if (flags.json || !out.isTTY) {
+    warnToErr(snapshotDir, config, err)
     out.write(JSON.stringify(r.plan, null, 2) + '\n')
     return
   }
   const p = r.plan
-  const lines = [`spec-sync push: ${identifier}`]
+  const lines = [`spec-sync push: ${identifier}`, ...warningLines(snapshotDir, config)]
   if (r.empty) lines.push('  nothing to push — mirror matches the last push')
   else {
     if (p.issue) lines.push('  issue: description/state')
@@ -191,7 +213,7 @@ function specSyncStatus(dir, config, specArg, flags, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return
   const identifier = specIdentifier(snapshotDir, config)
-  const lines = [`spec-sync status: ${identifier}`]
+  const lines = [`spec-sync status: ${identifier}`, ...warningLines(snapshotDir, config)]
 
   if (flags.workspaceStates && fs.existsSync(flags.workspaceStates)) {
     const names = JSON.parse(fs.readFileSync(flags.workspaceStates, 'utf-8'))
@@ -234,6 +256,7 @@ function specSyncStatus(dir, config, specArg, flags, out) {
 
 async function specSync(rest, io = {}) {
   const out = io.out || process.stdout
+  const err = io.err || process.stderr
   const [sub, ...args] = rest
   let dir = io.cwd || process.cwd()
   const positional = []
@@ -258,10 +281,10 @@ async function specSync(rest, io = {}) {
 
   switch (sub) {
     case 'normalize':
-      specSyncNormalize(dir, config, positional[0], out)
+      specSyncNormalize(dir, config, positional[0], out, err)
       return 0
     case 'push':
-      specSyncPush(dir, config, positional[0], flags, out)
+      specSyncPush(dir, config, positional[0], flags, out, err)
       return 0
     case 'record':
       specSyncRecord(dir, config, positional[0], out)
