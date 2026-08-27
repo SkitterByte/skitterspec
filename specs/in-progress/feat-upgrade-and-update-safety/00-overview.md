@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-upgrade-and-update-safety (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready
+> **Status:** In Progress — Phase 1 (started 2026-08-27)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-27
 > **Area:** packages/common/src/init.js, packages/linear/src/cli-sync.js, packages/sync-core/src/normalize.js, packages/linear/assets/skills/spec-push, packages/linear/assets/core/SETUP.md, packages/skitterspec-linear/package.json
 > **Stack:** worktree
@@ -108,7 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `update` says what it skipped | ⬜ | [01-update-reports-skipped.md](01-update-reports-skipped.md) |
+| 1 | `update` says what it skipped | 🔄 | [01-update-reports-skipped.md](01-update-reports-skipped.md) |
 | 2 | Detect and report a pre-9.0 mirror | ⬜ | [02-legacy-mirror-warning.md](02-legacy-mirror-warning.md) |
 | 3 | `push` refuses without validated states | ⬜ | [03-push-state-gate.md](03-push-state-gate.md) |
 
@@ -124,6 +124,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-27 | Ready | backlog | Reuben Greaves |
+| 2026-08-27 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 

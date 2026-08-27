@@ -1,6 +1,6 @@
-# Phase 1 — `update` says what it skipped ⬜
+# Phase 1 — `update` says what it skipped 🔄
 
-> **Status:** Not started
+> **Status:** In progress
 
 **Goal:** after an `update`, a user can see what each `customized (kept)` file
 declined without opening `node_modules`.
