@@ -113,6 +113,9 @@ status.
 
 Every spec header carries:
 
+- `> **Name:**` — the spec's folder name (`feat-`/`bug-`/`hotfix-<kebab-name>`).
+  It's the handle you pass to `/spec-go` and the other lifecycle skills, surfaced
+  in the header so it's copy-pasteable without digging for the folder name.
 - `> **Author:**` — who created the spec (set at `/spec` / `/spec-bug`, defaults
   to `git config user.name`).
 - `> **Developer:**` — who implements it (`—` until `/spec-go` starts work, then

@@ -155,15 +155,16 @@ config is present — never forced.
 The **repo is the source of truth**; Linear is a **generated mirror**. Sync is
 **one-way**: content is pushed up and never read back or merged. It's **opt-in** —
 everything below is inert until `specs/.core/linear.config.json` exists (copy
-`linear.config.json.example` and fill in your team / initiative IDs; every field
-is documented in `specs/.core/linear.config.md`). Without it, `/spec`, `/spec-go`,
-and the CLI behave exactly as before.
+`linear.config.json.example` and fill in your team id; every field is documented
+in `specs/.core/linear.config.md`). Without it, `/spec`, `/spec-go`, and the CLI
+behave exactly as before.
 
-**Mapping** (config-driven): a spec folder → Linear **Project**; each phase
-(`01-…`, `02-…`) → a **Milestone**; tasks → **Issues** (a short first-sentence
-title, the full task text as the description); an optional **Initiative** groups
-specs. When linked, `/spec` creates the project + a milestone per phase and writes
-the linking frontmatter into `00-overview.md`.
+**Mapping** (config-driven): a spec → a Linear **issue** (the spec body as its
+description); each phase (`01-…`, `02-…`) → a **sub-issue** (phase name, `Goal:`,
+and phase-emoji state); tasks are **not** synced. An optional **Project**
+(`linear.projectId`) groups the spec issues. When linked, `/spec` creates the
+issue + a sub-issue per phase and writes the linking frontmatter into
+`00-overview.md`.
 
 **The lifecycle:**
 

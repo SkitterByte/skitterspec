@@ -1,7 +1,7 @@
 # Spec-as-Issue: remap the Linear mirror to Issue + sub-issues
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 4 (Phases 1–3 done 2026-08-27)
+> **Status:** In Progress — all phases done, ready for /spec-complete (2026-08-27)
 > **Name:** feat-spec-as-issue-mapping
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Config + projection reshaped to issue/sub-issue | ✅ | [01-config-projection.md](01-config-projection.md) |
 | 2 | Plan, snapshot & CLI on the new shape | ✅ | [02-plan-snapshot-cli.md](02-plan-snapshot-cli.md) |
 | 3 | `/spec-push` + `/spec-status` + seam rewritten to MCP issues | ✅ | [03-push-status-skills.md](03-push-status-skills.md) |
-| 4 | Naming handle, docs & 9.0.0 release | ⬜ | [04-naming-docs-release.md](04-naming-docs-release.md) |
+| 4 | Naming handle, docs & 9.0.0 release | ✅ | [04-naming-docs-release.md](04-naming-docs-release.md) |
 
 ## Open questions
 
@@ -130,6 +130,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   mapping prompted by the one-way redesign: spec=Issue, phases=sub-issues,
   tasks unsynced. Supersedes the narrower "only top-level tasks become issues"
   idea (that was still Project-centric).
+- 2026-08-27 — Phase 4 done: `Name` handle added to the `/spec`, `/spec-bug`,
+  `/spec-hotfix` templates + the `spec-planning` rule; READMEs, `MIGRATION.md`
+  (v8→v9 section) and the marketing `docs/index.html` reframed to the Issue
+  model; `build-dist all` confirmed to compose + bundle cleanly (419 green).
+  Deviation from decision 8: the **version bump is left to the release tooling**
+  (not hand-edited) — `feat(sync)!` drives `skitterspec-linear` to 9.0.0, and the
+  base `skitterspec` takes a **minor** (15.1.0) for the `Name` handle. All four
+  phases complete — ready for `/spec-complete`.
 - 2026-08-27 — Phase 3 done: `/spec-push` and `/spec-status` skills, the
   `spec-tracker-link` + `spec-go-pull` seams, and the `linear.config.md` /
   `SETUP.md` / `linear.config.json.example` docs all rewritten to the

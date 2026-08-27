@@ -89,6 +89,7 @@ is usually a single-pass fix, so the `## Fix` block can live directly in
 # Hotfix: <short title>
 
 > **Type:** Hotfix
+> **Name:** hotfix-<kebab-name> (the spec folder name — the handle you paste into `/spec-go`)
 > **Status:** In Progress — fixing (red test added)
 > **Author:** <git user.name — who reported/captured it>
 > **Developer:** <git user.name — you, since you're fixing it now>

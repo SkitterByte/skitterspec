@@ -1,5 +1,41 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec-linear` v8 → v9 (a spec is an Issue, phases are sub-issues)
+
+**v9 remaps the Linear mirror.** A spec is now a Linear **issue** (not a Project),
+each phase a **sub-issue** (not a Milestone), and **tasks are no longer synced**
+(they stay in the repo phase files). This collapses a large spec from ~1 project +
+N milestones + dozens of task-issues down to **one issue + one sub-issue per
+phase**. The base `@skitterbyte/skitterspec` is unaffected (still v15).
+
+### Breaking changes
+
+| Area | v8 | v9 |
+|------|-----|-----|
+| `linear.config.json` → `mapping` | `{specFolder:"project", phases:"milestone", tasks:"issue"}` | `{specFolder:"issue", phases:"subissue", tasks:"none"}` |
+| `linear.config.json` → `linear` | `initiativeId` | `projectId` (optional grouping Project) |
+| `linear.config.json` → `states` | Linear **Project** statuses (e.g. `Completed`) | Linear **issue** workflow states (e.g. `Done`) |
+| `linear.config.json` → `sync.fieldOwnership` | `{description, milestones, tasks, workflowState}` | `{description, subIssues, workflowState}` |
+| Phase frontmatter | `linear_milestone_id` | `linear_issue_id` (the sub-issue id) |
+| Overview frontmatter | `linear_project_id` + `linear_identifier` | `linear_identifier` (the spec issue) |
+| Last-pushed snapshot | `{project, milestones, issues}` | `{issue, subIssues}` |
+
+### What to do
+
+1. **Upgrade and re-run `update`:** `npx @skitterbyte/skitterspec-linear update`.
+   It refreshes the skills, the `linear.config.md` / `SETUP.md` docs, and the
+   config example.
+2. **Edit `specs/.core/linear.config.json`** to the new keys above (or delete it
+   and re-copy `linear.config.json.example`). Point `states` at your workspace's
+   **issue** states; set `linear.projectId` if you want the spec issues grouped.
+3. **Existing pushed specs:** the snapshot format changed, so the first
+   `/spec-push` after upgrading **re-creates** the mirror (a fresh issue +
+   sub-issues). Delete any stale `specs/.core/linear-base/*.base.json` and the old
+   `linear_project_id` / `linear_milestone_id` frontmatter first. If you were
+   pre-first-push, there's nothing to reconcile.
+4. **Task-level issues** created under v8 are no longer managed by the sync —
+   close or repurpose them in Linear by hand.
+
 ## `@skitterbyte/skitterspec` v2 → v3 (slimmer surface + local traffic diversion)
 
 **v3 shrinks the everyday command surface to five verbs — `spec → go → connect →

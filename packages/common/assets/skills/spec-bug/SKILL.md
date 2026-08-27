@@ -95,6 +95,7 @@ because work is already underway. Keep it lean:
 # Bug: <short title>
 
 > **Type:** Bug
+> **Name:** bug-<kebab-name> (the spec folder name — the handle you paste into `/spec-go`)
 > **Status:** In Progress — fixing (red test added)
 > **Author:** <git user.name — who reported/captured it>
 > **Developer:** <git user.name — you, since you're fixing it now>

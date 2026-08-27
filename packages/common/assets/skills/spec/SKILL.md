@@ -73,6 +73,7 @@ the codebase, link rather than duplicate):
 # <Feature title>
 
 > **Type:** Feature
+> **Name:** feat-<kebab-name> (the spec folder name — the handle you paste into `/spec-go`)
 > **Status:** Ready — not started
 > **Author:** <git user.name — `git config user.name`>
 > **Developer:** —
