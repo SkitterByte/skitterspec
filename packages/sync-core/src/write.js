@@ -1,16 +1,16 @@
 'use strict'
 
 /**
- * Push-side writeback: after `push` creates milestones/issues in Linear, the
- * skill stamps each returned id back into the repo so the next push updates
- * rather than recreates. Everything here edits the repo in place:
+ * Push-side writeback: after `push` creates the spec issue + phase sub-issues in
+ * Linear, the skill stamps each returned id back into the repo so the next push
+ * updates rather than recreates. Everything here edits the repo in place:
  *
- *   - `stampMilestoneId(dir, file, id)` — add/update `linear_milestone_id` in a
- *     phase file's frontmatter (locate the file with `findPhaseFileByTitle`).
- *   - `stampIssueId(dir, text, id)` — append `(ID)` to the matching task line,
- *     re-wrapped in the file's own style.
+ *   - `stampSubIssueId(dir, file, id)` — add/update `linear_issue_id` in a phase
+ *     file's frontmatter (locate the file with `findPhaseFileByTitle`).
  *   - `writeFrontmatter(dir, config, patch)` — patch `00-overview.md` frontmatter
- *     (e.g. `last_synced_at`).
+ *     (e.g. the spec issue's `spec_identifier`, `last_synced_at`).
+ *   - `stampIssueId(dir, text, id)` — legacy: append `(ID)` to a task line
+ *     (tasks are no longer synced; kept for the sanitise/util paths).
  *
  * No remote read, no pull writeback — the repo is the source of truth.
  */
@@ -90,7 +90,7 @@ function listPhaseFiles(snapshotDir) {
 }
 
 // Find the phase file whose h1 title matches `name` (used to stamp a freshly
-// created milestone's id back into the phase it came from).
+// created sub-issue's id back into the phase it came from).
 function findPhaseFileByTitle(snapshotDir, name) {
   const want = String(name).trim()
   for (const file of listPhaseFiles(snapshotDir)) {
@@ -106,12 +106,13 @@ function findPhaseFileByTitle(snapshotDir, name) {
   return null
 }
 
-// Add/update linear_milestone_id in a phase file's frontmatter (in place).
-function stampMilestoneId(snapshotDir, file, id) {
+// Add/update linear_issue_id in a phase file's frontmatter (in place) — the
+// sub-issue id for that phase.
+function stampSubIssueId(snapshotDir, file, id) {
   const p = path.join(snapshotDir, file)
   const raw = fs.readFileSync(p, 'utf-8')
   const { fmLines, body, had } = splitFrontmatter(raw)
-  const patched = patchFrontmatterLines(fmLines, { linear_milestone_id: String(id) })
+  const patched = patchFrontmatterLines(fmLines, { linear_issue_id: String(id) })
   const fm = `---\n${patched.join('\n')}\n---\n`
   fs.writeFileSync(p, had ? fm + body : fm + '\n' + raw, 'utf-8')
 }
@@ -144,6 +145,6 @@ module.exports = {
   serialize,
   listPhaseFiles,
   findPhaseFileByTitle,
-  stampMilestoneId,
+  stampSubIssueId,
   stampIssueId,
 }

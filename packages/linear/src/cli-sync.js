@@ -91,11 +91,9 @@ function specSyncPush(dir, config, specArg, flags, out) {
   const lines = [`spec-sync push: ${identifier}`]
   if (r.empty) lines.push('  nothing to push — mirror matches the last push')
   else {
-    if (p.project) lines.push('  project: description/status')
-    if (p.milestones.create.length) lines.push(`  milestones create: ${p.milestones.create.map((m) => m.name).join(', ')}`)
-    if (p.milestones.update.length) lines.push(`  milestones update: ${p.milestones.update.map((m) => m.id).join(', ')}`)
-    if (p.issues.create.length) lines.push(`  issues create: ${p.issues.create.length}`)
-    if (p.issues.update.length) lines.push(`  issues update: ${p.issues.update.map((i) => i.id).join(', ')}`)
+    if (p.issue) lines.push('  issue: description/state')
+    if (p.subIssues.create.length) lines.push(`  sub-issues create: ${p.subIssues.create.map((s) => s.name).join(', ')}`)
+    if (p.subIssues.update.length) lines.push(`  sub-issues update: ${p.subIssues.update.map((s) => s.id).join(', ')}`)
     lines.push('  (run with --json for the full plan the skill applies)')
   }
   out.write(lines.join('\n') + '\n')
@@ -128,7 +126,7 @@ function specSyncStatus(dir, config, specArg, flags, out) {
     if (missing.length) {
       out.write(
         `spec-sync status: ERROR — configured state name(s) not in the workspace: ${missing.join(', ')}. ` +
-          `Linear silently ignores an unknown project status; fix specs/.core/linear.config.json.\n`,
+          `Linear silently ignores an unknown issue state; fix specs/.core/linear.config.json.\n`,
       )
       return 1
     }
@@ -141,9 +139,9 @@ function specSyncStatus(dir, config, specArg, flags, out) {
   if (!snapshot) lines.push('  push: never pushed — everything is pending')
   else if (isEmptyPlan(plan)) lines.push('  push: up to date — nothing changed since the last push')
   else {
-    const n = plan.milestones.create.length + plan.issues.create.length
-    const u = plan.milestones.update.length + plan.issues.update.length
-    lines.push(`  push: pending — ${n} to create, ${u} to update${plan.project ? ', project changed' : ''}`)
+    const n = plan.subIssues.create.length
+    const u = plan.subIssues.update.length
+    lines.push(`  push: pending — ${n} to create, ${u} to update${plan.issue ? ', issue changed' : ''}`)
   }
 
   if (flags.remote && fs.existsSync(flags.remote)) {

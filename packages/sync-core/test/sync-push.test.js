@@ -11,17 +11,13 @@ const path = require('node:path')
 
 const { push, recordPush } = require('../src/push.js')
 const { planChanges, snapshotOf, isEmptyPlan } = require('../src/compare.js')
-const { stampMilestoneId, stampIssueId } = require('../src/write.js')
+const { stampSubIssueId } = require('../src/write.js')
 const { neutralConfig } = require('./_config.js')
 
 const ID = 'ENG-1'
 
 function config() {
-  const c = neutralConfig()
-  for (const k of ['phaseBodies', 'acceptanceCriteria', 'taskBreakdown']) delete c.sync.fieldOwnership[k]
-  c.sync.fieldOwnership.tasks = 'push'
-  c.sync.fieldOwnership.milestones = 'push'
-  return c
+  return neutralConfig() // {description, subIssues, workflowState}
 }
 
 function snapshot() {
@@ -42,30 +38,30 @@ test('planChanges/snapshotOf are a create→record→empty loop', () => {
   const projection = {
     description: 'd',
     status: 'in-progress',
-    milestones: [{ id: null, ref: '01', name: 'M', goal: 'g' }],
-    issues: [{ id: null, ref: 'task a', title: 'task a', description: 'task a', done: false, milestoneRef: '01' }],
+    subIssues: [{ id: null, ref: '01', name: 'M', goal: 'g', state: 'backlog' }],
   }
   const plan1 = planChanges(projection, null)
-  assert.strictEqual(plan1.milestones.create.length, 1)
-  assert.strictEqual(plan1.issues.create.length, 1)
-  assert.ok(plan1.project, 'project pushed on first run')
+  assert.strictEqual(plan1.subIssues.create.length, 1)
+  assert.ok(plan1.issue, 'spec issue pushed on first run')
 
-  // After apply the items gain ids; record the snapshot from the stamped projection.
-  const stamped = {
-    ...projection,
-    milestones: [{ ...projection.milestones[0], id: 'm1' }],
-    issues: [{ ...projection.issues[0], id: 'SKI-1' }],
-  }
+  // After apply the sub-issue gains an id; record the snapshot from it.
+  const stamped = { ...projection, subIssues: [{ ...projection.subIssues[0], id: 'sub1' }] }
   const snap = snapshotOf(stamped)
   const plan2 = planChanges(stamped, snap)
   assert.ok(isEmptyPlan(plan2), 'nothing to push after recording')
 
-  // Editing an issue → a single update; a title-only edit is detected.
-  const edited = { ...stamped, issues: [{ ...stamped.issues[0], description: 'task a EDITED', title: 'task a EDITED' }] }
+  // Editing a sub-issue (goal or state) → a single update.
+  const edited = { ...stamped, subIssues: [{ ...stamped.subIssues[0], goal: 'g EDITED' }] }
   const plan3 = planChanges(edited, snap)
-  assert.strictEqual(plan3.issues.update.length, 1)
-  assert.strictEqual(plan3.issues.update[0].id, 'SKI-1')
-  assert.strictEqual(plan3.milestones.create.length + plan3.milestones.update.length, 0)
+  assert.strictEqual(plan3.subIssues.update.length, 1)
+  assert.strictEqual(plan3.subIssues.update[0].id, 'sub1')
+  assert.ok(!plan3.issue, 'spec issue unchanged')
+
+  // Editing the spec issue prose → plan.issue, no sub-issue churn.
+  const editedIssue = { ...stamped, description: 'd EDITED' }
+  const plan4 = planChanges(editedIssue, snap)
+  assert.ok(plan4.issue, 'spec issue changed')
+  assert.strictEqual(plan4.subIssues.create.length + plan4.subIssues.update.length, 0)
 })
 
 test('push over a real snapshot creates, then records, then is idempotent', () => {
@@ -74,17 +70,14 @@ test('push over a real snapshot creates, then records, then is idempotent', () =
 
   const r1 = push({ dir: root, snapshotDir: dir, identifier: ID, config: cfg })
   assert.strictEqual(r1.empty, false)
-  assert.strictEqual(r1.plan.milestones.create.length, 1)
-  assert.strictEqual(r1.plan.issues.create.length, 2)
-  // issue titles are first-sentence; descriptions are the full text
-  const withSentence = r1.plan.issues.create.find((i) => /Add the outbox table/.test(i.title))
-  assert.strictEqual(withSentence.title, 'Add the outbox table')
-  assert.match(withSentence.description, /Modelled on the notification outbox/)
+  assert.ok(r1.plan.issue, 'spec issue pushed on first run')
+  assert.strictEqual(r1.plan.subIssues.create.length, 1)
+  assert.strictEqual(r1.plan.subIssues.create[0].name, 'Durable outbox')
+  assert.strictEqual(r1.plan.subIssues.create[0].goal, 'a durable place.')
+  assert.strictEqual(r1.plan.subIssues.create[0].state, 'backlog') // ⬜ heading
 
-  // Simulate the skill applying + stamping the returned ids, then recording.
-  stampMilestoneId(dir, '01-outbox.md', 'm1')
-  stampIssueId(dir, r1.plan.issues.create[0].ref, 'SKI-1')
-  stampIssueId(dir, r1.plan.issues.create[1].ref, 'SKI-2')
+  // Simulate the skill applying + stamping the returned sub-issue id, then recording.
+  stampSubIssueId(dir, '01-outbox.md', 'sub1')
   recordPush({ dir: root, snapshotDir: dir, identifier: ID, config: cfg })
 
   const r2 = push({ dir: root, snapshotDir: dir, identifier: ID, config: cfg })

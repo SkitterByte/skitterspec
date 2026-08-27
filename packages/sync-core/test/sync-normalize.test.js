@@ -130,39 +130,44 @@ test('localOnlySections are stripped from the description', () => {
   assert.doesNotMatch(local.description, /State log/)
 })
 
-test('the Phases index is stripped from the description (phases push as milestones)', () => {
+test('the Phases index is stripped from the description (phases push as sub-issues)', () => {
   const local = normalizeLocal(fixtureSpec(), config)
-  // milestones is in the projection, so the `## Phases` index must not also
+  // subIssues is in the projection, so the `## Phases` index must not also
   // travel inside the description — no duplication in the mirror.
   assert.doesNotMatch(local.description, /## Phases/)
-  assert.ok(local.milestones.length >= 1, 'phases are projected as milestones instead')
+  assert.ok(local.subIssues.length >= 1, 'phases are projected as sub-issues instead')
 })
 
-test('milestones are keyed {id,ref,name,goal} items read from the phase files', () => {
+test('sub-issues are keyed {id,ref,name,goal,state} items read from the phase files', () => {
   const local = normalizeLocal(fixtureSpec(), config)
-  assert.deepStrictEqual(local.milestones, [
-    { id: null, ref: '01-first', name: 'First phase', goal: 'Do the first thing well.' },
-    { id: null, ref: '02-second', name: 'Second phase', goal: 'Do the second thing.' },
+  // PHASE1 heading is ✅ → complete; PHASE2 is 🔄 → in-progress.
+  assert.deepStrictEqual(local.subIssues, [
+    { id: null, ref: '01-first', name: 'First phase', goal: 'Do the first thing well.', state: 'complete' },
+    { id: null, ref: '02-second', name: 'Second phase', goal: 'Do the second thing.', state: 'in-progress' },
   ])
 })
 
-test('phaseBodies and taskBreakdown read the phase files', () => {
-  const local = normalizeLocal(fixtureSpec(), config)
-  assert.deepStrictEqual(local.phaseBodies, [
-    { phase: '01-first', goal: 'Do the first thing well.' },
-    { phase: '02-second', goal: 'Do the second thing.' },
-  ])
-  assert.deepStrictEqual(local.taskBreakdown[0], {
-    phase: '01-first',
-    tasks: ['[x] task one', '[ ] task two'],
-  })
-})
-
-test('frontmatter scalars normalise: workflowState, priority, labels', () => {
+test('frontmatter workflowState normalises from spec_status', () => {
   const local = normalizeLocal(fixtureSpec(), config)
   assert.strictEqual(local.workflowState, 'in-progress')
-  assert.strictEqual(local.priority, 2)
-  assert.deepStrictEqual(local.labels, ['sync', 'triage'])
+  // priority/labels are Linear-native triage — not projected
+  assert.strictEqual('priority' in local, false)
+  assert.strictEqual('labels' in local, false)
+})
+
+test('workflowState falls back to the lifecycle folder bucket', () => {
+  // A spec with no spec_status frontmatter (the normal case — status lives in
+  // the `> **Status:**` header) takes its state from specs/<bucket>/<name>/.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bucket-'))
+  const dir = path.join(root, 'specs', 'in-progress', 'demo')
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, '00-overview.md'), '# Demo\n\n## Problem\n\nx\n', 'utf-8')
+  assert.strictEqual(normalizeLocal(dir, config).workflowState, 'in-progress')
+
+  const done = path.join(root, 'specs', 'complete', 'demo2')
+  fs.mkdirSync(done, { recursive: true })
+  fs.writeFileSync(path.join(done, '00-overview.md'), '# Demo\n\n## Problem\n\nx\n', 'utf-8')
+  assert.strictEqual(normalizeLocal(done, config).workflowState, 'complete')
 })
 
 test('readSnapshot exposes frontmatter identifier for base keying', () => {
@@ -176,9 +181,8 @@ test('a spec with no linked fields still yields the full field set', () => {
   fs.writeFileSync(path.join(dir, '00-overview.md'), '# Bare\n\n## Problem\n\nx\n', 'utf-8')
   const local = normalizeLocal(dir, config)
   assert.deepStrictEqual(Object.keys(local).sort(), Object.keys(config.sync.fieldOwnership).sort())
-  assert.deepStrictEqual(local.labels, [])
   assert.strictEqual(local.workflowState, null)
-  assert.deepStrictEqual(local.milestones, [])
+  assert.deepStrictEqual(local.subIssues, [])
 })
 
 test('a blockquote whose bold span wraps pushes clean (no stray > in the description)', () => {

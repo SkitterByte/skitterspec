@@ -14,20 +14,23 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { normalizeLocal } = require('../src/normalize.js')
+const { normalizeLocal, parseTaskLine } = require('../src/normalize.js')
 const { stampIssueId } = require('../src/write.js')
 const { findTaskBlocks, renderTaskBlock } = require('../src/task-block.js')
 const { neutralConfig } = require('./_config.js')
 
+// Tasks are no longer projected to the tracker (a spec is an issue, phases are
+// sub-issues). But the wrapped-bullet PARSER is still load-bearing — write.js and
+// sanitise depend on it — so these regressions now exercise findTaskBlocks /
+// parseTaskLine directly, and the goal via the sub-issue projection.
 function config() {
-  const c = neutralConfig()
-  for (const k of ['phaseBodies', 'acceptanceCriteria', 'taskBreakdown']) {
-    delete c.sync.fieldOwnership[k]
-  }
-  c.sync.fieldOwnership.tasks = 'both'
-  c.sync.fieldOwnership.milestones = 'both'
-  c.sync.keyedFields = { tasks: 'id', milestones: 'id' }
-  return c
+  return neutralConfig() // {description, subIssues, workflowState}
+}
+
+// Parse the phase file's task bullets into {id, text, done} logical tasks.
+function tasksOf(dir) {
+  const body = fs.readFileSync(path.join(dir, '01-outbox.md'), 'utf-8')
+  return findTaskBlocks(body.split('\n')).map((b) => parseTaskLine(`[${b.mark}] ${b.text}`))
 }
 
 const OVERVIEW = `# Demo\n\n## Problem\n\nx\n`
@@ -54,24 +57,24 @@ function snapshot() {
   return dir
 }
 
-test('a wrapped task keeps its continuation lines in the normalized text', () => {
-  const local = normalizeLocal(snapshot(), config())
-  assert.strictEqual(local.tasks.length, 2)
-  assert.strictEqual(local.tasks[0].id, 'SKI-1')
-  assert.strictEqual(local.tasks[0].done, true)
+test('a wrapped task keeps its continuation lines when parsed', () => {
+  const tasks = tasksOf(snapshot())
+  assert.strictEqual(tasks.length, 2)
+  assert.strictEqual(tasks[0].id, 'SKI-1')
+  assert.strictEqual(tasks[0].done, true)
   assert.strictEqual(
-    local.tasks[0].description,
+    tasks[0].text,
     'Add `DbProcessEventOutbox` to `prisma/schema.prisma`, modelled on ' +
       '`DbNotificationOutbox`: status, attempts, `nextAttemptAt`, plus the event payload.',
   )
-  assert.strictEqual(local.tasks[1].id, null)
-  assert.match(local.tasks[1].description, /double-applying\.$/)
+  assert.strictEqual(tasks[1].id, null)
+  assert.match(tasks[1].text, /double-applying\.$/)
 })
 
-test('a wrapped goal keeps its continuation line', () => {
+test('a wrapped goal keeps its continuation line (sub-issue goal)', () => {
   const local = normalizeLocal(snapshot(), config())
   assert.strictEqual(
-    local.milestones[0].goal,
+    local.subIssues[0].goal,
     'a durable place to put a cross-boundary event, and one way to write it. ' +
       'Inert — nothing enqueues yet, so this ships with no behaviour change.',
   )
@@ -79,13 +82,13 @@ test('a wrapped goal keeps its continuation line', () => {
 
 test('stamping an id onto a wrapped, idless task re-wraps it in place', () => {
   const dir = snapshot()
-  const local = normalizeLocal(dir, config())
-  const file = stampIssueId(dir, local.tasks[1].description, 'SKI-2')
+  const before = tasksOf(dir)
+  const file = stampIssueId(dir, before[1].text, 'SKI-2')
   assert.strictEqual(file, '01-outbox.md')
 
-  const after = normalizeLocal(dir, config())
-  assert.strictEqual(after.tasks[1].id, 'SKI-2')
-  assert.strictEqual(after.tasks[1].description, local.tasks[1].description)
+  const after = tasksOf(dir)
+  assert.strictEqual(after[1].id, 'SKI-2')
+  assert.strictEqual(after[1].text, before[1].text)
 
   // still wrapped, and no line blew past the file's width
   const lines = fs.readFileSync(path.join(dir, '01-outbox.md'), 'utf-8').split('\n')

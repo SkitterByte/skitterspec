@@ -16,7 +16,7 @@
  *
  * Shape (see assets/core/linear.config.md for field docs):
  *   {
- *     linear:   { teamKey, teamId, initiativeId },
+ *     linear:   { teamKey, teamId, projectId },
  *     mapping:  { specFolder, phases, tasks },
  *     states:   { backlog, "in-progress", complete, cancelled },
  *     snapshot: { overviewFile },
@@ -37,16 +37,21 @@ const CONFIG_FILE = join('specs', '.core', 'linear.config.json')
 const OWNERSHIP = Object.freeze(['both', 'pull', 'push'])
 
 const DEFAULT_CONFIG = Object.freeze({
-  linear: Object.freeze({ teamKey: '', teamId: '', initiativeId: '' }),
-  mapping: Object.freeze({ specFolder: 'project', phases: 'milestone', tasks: 'issue' }),
-  // Linear PROJECT statuses (mapping.specFolder is `project`) — NOT issue-status
-  // names. Linear silently no-ops save_project on an unknown status (200,
-  // unchanged), so these must match the workspace exactly; `validateStates`
-  // checks them at push/status time.
+  // `projectId` is optional grouping: when set, every spec issue is added to that
+  // Linear Project (a "Specs" umbrella); empty means the issue stands alone in
+  // the team. (The old `initiativeId` grouped Projects, which no longer exist.)
+  linear: Object.freeze({ teamKey: '', teamId: '', projectId: '' }),
+  // A spec is a Linear ISSUE; each phase is a SUB-ISSUE of it; tasks are not
+  // synced (they live only in the repo phase files).
+  mapping: Object.freeze({ specFolder: 'issue', phases: 'subissue', tasks: 'none' }),
+  // Linear ISSUE workflow-state names — the spec issue's state (from the folder
+  // bucket) and each sub-issue's state (from the phase emoji) both map through
+  // this one table. They must match the workspace's issue states exactly;
+  // `validateStates` checks them at push/status time.
   states: Object.freeze({
     backlog: 'Backlog',
     'in-progress': 'In Progress',
-    complete: 'Completed',
+    complete: 'Done',
     cancelled: 'Canceled',
   }),
   snapshot: Object.freeze({ overviewFile: '00-overview.md' }),
@@ -55,22 +60,21 @@ const DEFAULT_CONFIG = Object.freeze({
     baseDir: 'specs/.core/linear-base',
     backupDir: 'specs/.core/linear-backups',
     // One-way (repo → Linear): the projection field set the repo owns and pushes
-    // — the project `description`, `milestones` (one per phase), `tasks` (one
-    // issue each), and the lifecycle `workflowState`. There is no pull. Priority,
+    // — the issue `description`, its `subIssues` (one per phase, name + goal +
+    // state), and the lifecycle `workflowState`. There is no pull. Priority,
     // labels, cycles and comments are Linear-native triage — deliberately NOT in
     // the set, so the PM's triage is never touched. The `push` marker is retained
     // for shape; any key you add joins the pushed projection.
     fieldOwnership: Object.freeze({
       description: 'push',
-      milestones: 'push',
-      tasks: 'push',
+      subIssues: 'push',
       workflowState: 'push',
     }),
     localOnlySections: Object.freeze(['State log', 'Changelog', 'Open questions']),
     // Fields that are keyed collections (arrays of objects with a stable id),
     // compared/merged per item rather than as one opaque value. Map field name →
     // the item's id property. Empty by default — a workspace opts a field in
-    // (e.g. { milestones: "id", tasks: "id" }) once the body round-trip is wired.
+    // (e.g. { subIssues: "ref" }) once the body round-trip is wired.
     keyedFields: Object.freeze({}),
   }),
 })
@@ -150,7 +154,7 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.linear)) {
     assign(base.linear, parsed.linear, 'teamKey', 'string?')
     assign(base.linear, parsed.linear, 'teamId', 'string?')
-    assign(base.linear, parsed.linear, 'initiativeId', 'string?')
+    assign(base.linear, parsed.linear, 'projectId', 'string?')
   }
 
   if (isObject(parsed.mapping)) {

@@ -27,17 +27,18 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   const dir = tmpDir()
   const { config, present } = loadLinearConfig(dir)
   assert.strictEqual(present, false)
-  assert.strictEqual(config.mapping.phases, 'milestone')
+  assert.strictEqual(config.mapping.specFolder, 'issue')
+  assert.strictEqual(config.mapping.phases, 'subissue')
+  assert.strictEqual(config.mapping.tasks, 'none')
   assert.strictEqual(config.snapshot.overviewFile, '00-overview.md')
   assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base')
   assert.strictEqual(config.sync.fieldOwnership.description, 'push')
   assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
-  // One-way: the projection is description + milestones + issues + workflow
-  // state. Priority/labels are Linear-native triage — not in the set.
+  // One-way: the projection is the spec issue's description + its sub-issues +
+  // workflow state. Tasks/priority/labels are not in the set.
   assert.deepStrictEqual(Object.keys(config.sync.fieldOwnership), [
     'description',
-    'milestones',
-    'tasks',
+    'subIssues',
     'workflowState',
   ])
   assert.deepStrictEqual(config.sync.localOnlySections, ['State log', 'Changelog', 'Open questions'])
@@ -51,8 +52,18 @@ test('present config → present:true and merged over defaults', () => {
   assert.strictEqual(config.linear.teamId, 'team_123')
   assert.strictEqual(config.branch.pattern, '{identifier}')
   // untouched defaults
-  assert.strictEqual(config.mapping.phases, 'milestone')
-  assert.strictEqual(config.sync.fieldOwnership.tasks, 'push')
+  assert.strictEqual(config.mapping.phases, 'subissue')
+  assert.strictEqual(config.sync.fieldOwnership.subIssues, 'push')
+})
+
+test('linear.projectId is an optional grouping key (default empty, merges)', () => {
+  const dir = tmpDir()
+  const { config: def } = loadLinearConfig(dir)
+  assert.strictEqual(def.linear.projectId, '')
+  assert.strictEqual('initiativeId' in def.linear, false)
+  writeConfig(dir, { linear: { projectId: 'proj_abc' } })
+  const { config } = loadLinearConfig(dir)
+  assert.strictEqual(config.linear.projectId, 'proj_abc')
 })
 
 test('fieldOwnership overrides merge onto defaults and add new fields', () => {

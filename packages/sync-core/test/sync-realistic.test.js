@@ -8,6 +8,7 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
+const fs = require('node:fs')
 const path = require('node:path')
 
 const {
@@ -16,30 +17,32 @@ const {
   validateStates,
   canonicalizeMarkdown,
 } = require('../src/normalize.js')
-const { collapseHyphenAware } = require('../src/task-block.js')
+const { collapseHyphenAware, findTaskBlocks } = require('../src/task-block.js')
 const { neutralConfig } = require('./_config.js')
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'realistic-spec')
 
 function config() {
-  const c = neutralConfig()
-  for (const k of ['phaseBodies', 'acceptanceCriteria', 'taskBreakdown']) delete c.sync.fieldOwnership[k]
-  c.sync.fieldOwnership.tasks = 'both'
-  c.sync.fieldOwnership.milestones = 'both'
-  c.sync.keyedFields = { tasks: 'id', milestones: 'id' }
-  return c
+  return neutralConfig() // {description, subIssues, workflowState}
+}
+
+// The fixture's task bullets, parsed (tasks are no longer projected, but the
+// wrapped-bullet parser is still exercised here for its hyphen/wrap correctness).
+function fixtureTaskText() {
+  const body = fs.readFileSync(path.join(FIXTURE, '01-outbox.md'), 'utf-8')
+  return findTaskBlocks(body.split('\n')).map((b) => b.text)
 }
 
 test('hyphenated compounds wrapped at the hyphen survive as one word', () => {
   const local = normalizeLocal(FIXTURE, config())
-  const allTaskText = local.tasks.map((t) => t.description).join('\n')
+  const allTaskText = fixtureTaskText().join('\n')
   assert.match(allTaskText, /models-created-only/, 'task compound stays tight')
   assert.match(allTaskText, /state-entry-with-assignment/)
   assert.doesNotMatch(allTaskText, /models-created- only|state-entry-with- assignment/)
 
   // Goal compound too.
-  assert.match(local.milestones[0].goal, /hard-remove-after-ack/)
-  assert.doesNotMatch(local.milestones[0].goal, /hard-remove- after-ack/)
+  assert.match(local.subIssues[0].goal, /hard-remove-after-ack/)
+  assert.doesNotMatch(local.subIssues[0].goal, /hard-remove- after-ack/)
 
   // Description (pushed prose) compounds too.
   assert.match(local.description, /state-entry-with-assignment/)
@@ -97,10 +100,9 @@ test('titleFromText handles a numbered bold label without breaking the title', (
 })
 
 test('titleFromText on a real paragraph task reads as a one-liner', () => {
-  const local = normalizeLocal(FIXTURE, config())
-  const long = local.tasks.find((t) => /first-class dedup/.test(t.description))
+  const long = fixtureTaskText().find((t) => /first-class dedup/.test(t))
   assert.ok(long, 'found the paragraph task')
-  const title = titleFromText(long.description)
+  const title = titleFromText(long)
   assert.ok(title.length <= 100, `title too long: ${title.length}`)
   assert.ok(!/\n/.test(title))
 })

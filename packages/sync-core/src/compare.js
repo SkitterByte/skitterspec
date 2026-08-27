@@ -40,19 +40,20 @@ function hashField(value) {
 // --- content hashes (id / local handles excluded, so they never affect the
 //     diff — an id stamped in after a create must not read as an edit) ---------
 
-// The project fields the repo owns and pushes: prose + workflow state. Priority,
-// labels, cycles and comments are Linear-native triage — one-way sync neither
-// pushes nor reads them, so a PM's triage is never clobbered.
-function projectHash(p) {
-  return hashField({ description: p.description ?? null, status: p.status ?? null })
+// The spec ISSUE fields the repo owns and pushes: prose + workflow state.
+// Priority, labels, cycles and comments are Linear-native triage — one-way sync
+// neither pushes nor reads them, so a PM's triage is never clobbered.
+function specIssueHash(p) {
+  return hashField({ description: p.description ?? null, state: p.status ?? null })
 }
-const milestoneHash = (m) => hashField({ name: m.name ?? null, goal: m.goal ?? null })
-const issueHash = (t) => hashField({ title: t.title ?? null, description: t.description ?? null, done: !!t.done })
+// A phase SUB-ISSUE: its name, goal and state (all repo-owned).
+const subIssueHash = (s) => hashField({ name: s.name ?? null, goal: s.goal ?? null, state: s.state ?? null })
 
 /**
- * The snapshot to commit after a successful push: a content hash per object that
- * currently has an id. Create items (id == null) aren't recorded until the skill
- * stamps their returned id and the next projection includes it.
+ * The snapshot to commit after a successful push: the spec-issue hash plus a
+ * content hash per sub-issue that currently has an id. Create items (id == null)
+ * aren't recorded until the skill stamps their returned id and the next
+ * projection includes it.
  */
 function snapshotOf(projection) {
   const p = projection || {}
@@ -62,54 +63,42 @@ function snapshotOf(projection) {
     return out
   }
   return {
-    project: projectHash(p),
-    milestones: byId(p.milestones, milestoneHash),
-    issues: byId(p.issues, issueHash),
+    issue: specIssueHash(p),
+    subIssues: byId(p.subIssues, subIssueHash),
   }
 }
 
 /**
  * Diff the local projection against the last-pushed snapshot.
- * @returns {{ project?: object, milestones: {create,update}, issues: {create,update} }}
+ * @returns {{ issue?: object, subIssues: {create,update} }}
  *   create items carry a `ref` (local handle) and no id; update items carry `id`.
+ *   `plan.issue` (when present) is the spec issue's description + state; the push
+ *   skill applies `config.linear.projectId` grouping on top of it.
  */
 function planChanges(projection, snapshot) {
   const p = projection || {}
   const snap = snapshot || {}
-  const snapM = snap.milestones || {}
-  const snapI = snap.issues || {}
+  const snapS = snap.subIssues || {}
 
-  const milestones = { create: [], update: [] }
-  for (const m of p.milestones || []) {
-    if (m.id == null) milestones.create.push({ ref: m.ref, name: m.name, goal: m.goal })
-    else if (snapM[String(m.id)] !== milestoneHash(m)) milestones.update.push({ id: m.id, name: m.name, goal: m.goal })
-  }
-
-  const issues = { create: [], update: [] }
-  for (const t of p.issues || []) {
-    if (t.id == null) {
-      issues.create.push({ ref: t.ref, title: t.title, description: t.description, done: !!t.done, milestoneRef: t.milestoneRef })
-    } else if (snapI[String(t.id)] !== issueHash(t)) {
-      issues.update.push({ id: t.id, title: t.title, description: t.description, done: !!t.done })
+  const subIssues = { create: [], update: [] }
+  for (const s of p.subIssues || []) {
+    if (s.id == null) {
+      subIssues.create.push({ ref: s.ref, name: s.name, goal: s.goal, state: s.state })
+    } else if (snapS[String(s.id)] !== subIssueHash(s)) {
+      subIssues.update.push({ id: s.id, name: s.name, goal: s.goal, state: s.state })
     }
   }
 
-  const plan = { milestones, issues }
-  if (snap.project !== projectHash(p)) {
-    plan.project = { description: p.description ?? null, status: p.status ?? null }
+  const plan = { subIssues }
+  if (snap.issue !== specIssueHash(p)) {
+    plan.issue = { description: p.description ?? null, state: p.status ?? null }
   }
   return plan
 }
 
 // True when a plan would push nothing.
 function isEmptyPlan(plan) {
-  return (
-    !plan.project &&
-    !plan.milestones.create.length &&
-    !plan.milestones.update.length &&
-    !plan.issues.create.length &&
-    !plan.issues.update.length
-  )
+  return !plan.issue && !plan.subIssues.create.length && !plan.subIssues.update.length
 }
 
 module.exports = {
@@ -118,7 +107,6 @@ module.exports = {
   isEmptyPlan,
   hashField,
   stableStringify,
-  projectHash,
-  milestoneHash,
-  issueHash,
+  specIssueHash,
+  subIssueHash,
 }

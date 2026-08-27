@@ -19,18 +19,16 @@ const { normalizeLocal } = require('./normalize.js')
 const { planChanges, snapshotOf, isEmptyPlan } = require('./compare.js')
 const { readBase, writeBase } = require('./base.js')
 
-// Build the one-way projection from a local snapshot: the project prose + status,
-// and the milestone/issue items. `status` is the local lifecycle bucket; the
-// skill maps it to the Linear project-state NAME via config.states at apply time.
+// Build the one-way projection from a local snapshot: the spec issue's prose +
+// status, and its phase sub-issues. `status` is the local lifecycle bucket; the
+// skill maps it (and each sub-issue's `state`) to the Linear issue-state NAME via
+// config.states at apply time.
 function projectionOf(snapshotDir, config) {
   const local = normalizeLocal(snapshotDir, config)
   return {
     description: local.description ?? null,
     status: local.workflowState ?? null,
-    priority: local.priority ?? null,
-    labels: Array.isArray(local.labels) ? local.labels : [],
-    milestones: Array.isArray(local.milestones) ? local.milestones : [],
-    issues: Array.isArray(local.tasks) ? local.tasks : [],
+    subIssues: Array.isArray(local.subIssues) ? local.subIssues : [],
   }
 }
 

@@ -6,7 +6,7 @@
  * One-way sync (repo → Linear) records what it last pushed per spec at
  * `{sync.baseDir}/{identifier}.base.json`, committed so each worktree carries its
  * own snapshot. The snapshot is a set of content hashes
- * (`{ project, milestones: {id:hash}, issues: {id:hash} }`, see compare.js
+ * (`{ issue, subIssues: {id:hash} }`, see compare.js
  * `snapshotOf`); `planChanges` diffs the current projection against it to decide
  * create/update/skip — no remote read. After a successful push the engine
  * rewrites it (`writeBase`). Generic JSON read/write; the shape is the caller's.

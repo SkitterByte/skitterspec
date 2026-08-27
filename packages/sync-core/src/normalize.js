@@ -253,6 +253,16 @@ function phaseTitle(body) {
   return t || null
 }
 
+// A phase's status (from its heading emoji ⬜/🔄/✅) mapped to a state bucket the
+// `states` table understands, so a sub-issue lands in the matching Linear issue
+// state. Unknown/absent → backlog.
+const PHASE_STATE_BUCKET = { 'not-started': 'backlog', 'in-progress': 'in-progress', done: 'complete' }
+function phaseStateBucket(body) {
+  const h1 = /^#\s+(.*)$/m.exec(body)
+  const emoji = h1 ? (h1[1].match(/[⬜🔄✅]/u) || [])[0] : undefined
+  return PHASE_STATE_BUCKET[EMOJI_STATUS[emoji]] || 'backlog'
+}
+
 // Parse a task line (already stripped of its leading "- ") into a keyed item:
 // its checkbox state, its text, and the inline Linear issue identifier if present
 // (`… (SKI-123)`). Returns null for a non-task line.
@@ -297,9 +307,11 @@ function readPhaseFiles(snapshotDir) {
       return {
         phase: file.replace(/\.md$/, ''),
         file,
-        id: data.linear_milestone_id != null ? String(data.linear_milestone_id) : null,
+        // The sub-issue id, stamped back into the phase file on first push.
+        id: data.linear_issue_id != null ? String(data.linear_issue_id) : null,
         name: phaseTitle(body),
         goal: goal.trim(),
+        state: phaseStateBucket(body),
         tasks,
       }
     })
@@ -350,47 +362,39 @@ function buildDescription(title, sections, localOnlySections, extraSkip = []) {
 /**
  * Normalize a local spec snapshot into the configured field set.
  */
+// The spec's lifecycle bucket from its folder — the source of truth for status
+// (specs live in specs/<bucket>/<name>/). Maps directly to a `states` key.
+const LIFECYCLE_BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
+function bucketFromPath(snapshotDir) {
+  const parent = path.basename(path.dirname(snapshotDir))
+  return LIFECYCLE_BUCKETS.includes(parent) ? parent : null
+}
+
 function normalizeLocal(snapshotDir, config) {
   const { frontmatter, title, sections, phases } = readSnapshot(snapshotDir, config)
-  // Phases sync as first-class Milestones whenever `milestones` is in the pushed
-  // projection, so strip the `## Phases` index from the description to avoid
-  // duplicating it (as prose AND as milestones) in the Linear mirror.
-  const milestonesProjected = !!(config.sync.fieldOwnership && 'milestones' in config.sync.fieldOwnership)
+  // Phases sync as sub-issues whenever `subIssues` is in the pushed projection,
+  // so strip the `## Phases` index from the description to avoid duplicating it
+  // (as prose AND as sub-issues) in the Linear mirror.
+  const phasesProjected = !!(config.sync.fieldOwnership && 'subIssues' in config.sync.fieldOwnership)
   const extracted = {
     description: buildDescription(
       title,
       sections,
       config.sync.localOnlySections,
-      milestonesProjected ? ['Phases'] : [],
+      phasesProjected ? ['Phases'] : [],
     ),
-    // Milestone projection items. `ref` is the phase-file basename — the local
-    // handle the push skill stamps a newly-created milestone id back into.
-    milestones: phases
+    // Sub-issue projection: one per phase. `ref` is the phase-file basename — the
+    // local handle the push skill stamps a newly-created sub-issue id back into.
+    // `state` is the phase's status bucket (from its heading emoji), mapped to a
+    // Linear issue state via `config.states` at push time. Tasks are NOT
+    // projected — they live only in the repo phase files.
+    subIssues: phases
       .filter((p) => p.name)
-      .map((p) => ({ id: p.id, ref: p.phase, name: p.name, goal: p.goal })),
-    // Issue projection items across all phases. `title` is the first-sentence
-    // Linear title; `description` is the full task text (the mirror keeps both).
-    // `ref` = the collapsed text the push skill matches to stamp a new id in;
-    // `milestoneRef` links the issue to its milestone (id if linked, else phase).
-    tasks: phases.flatMap((p) =>
-      p.tasks
-        .map(parseTaskLine)
-        .filter(Boolean)
-        .map((t) => ({
-          id: t.id,
-          ref: t.text,
-          title: titleFromText(t.text),
-          description: t.text,
-          done: t.done,
-          milestoneRef: p.id || p.phase,
-        })),
-    ),
-    phaseBodies: phases.map((p) => ({ phase: p.phase, goal: p.goal })),
-    acceptanceCriteria: sections['Acceptance criteria'] || null,
-    taskBreakdown: phases.map((p) => ({ phase: p.phase, tasks: p.tasks })),
-    workflowState: frontmatter.spec_status != null ? String(frontmatter.spec_status) : null,
-    priority: frontmatter.priority != null ? frontmatter.priority : null,
-    labels: Array.isArray(frontmatter.labels) ? frontmatter.labels : [],
+      .map((p) => ({ id: p.id, ref: p.phase, name: p.name, goal: p.goal, state: p.state })),
+    // Status is the spec's lifecycle bucket. The folder is the source of truth;
+    // an explicit `spec_status` frontmatter key overrides it if present.
+    workflowState:
+      frontmatter.spec_status != null ? String(frontmatter.spec_status) : bucketFromPath(snapshotDir),
   }
   return toFieldSet(extracted, config)
 }
@@ -422,20 +426,20 @@ function canonicalRemoteStatus(state) {
   return s
 }
 
-// The real Linear projection carries the project's workflow state in `status`
-// (an object `{ name, type }`); accept a bare string / legacy `state` too.
-function remoteStateName(project) {
-  const st = project.status != null ? project.status : project.state
+// The real Linear issue carries its workflow state in `state` (an object
+// `{ name, type }`); accept `status` / a bare string too for robustness.
+function remoteStateName(issue) {
+  const st = issue.state != null ? issue.state : issue.status
   if (st == null) return null
   if (typeof st === 'object') return st.name != null ? st.name : st.type != null ? st.type : null
   return st
 }
 
-// The ONE thing one-way sync reads back: the mirror's current workflow state,
-// mapped to the local lifecycle bucket, so `/spec-status` can report a drift
-// ("Linear says Done, your spec says In Progress"). Read-only — it never writes.
-function remoteWorkflowState(project, config) {
-  const name = remoteStateName(project || {})
+// The ONE thing one-way sync reads back: the mirror issue's current workflow
+// state, mapped to the local lifecycle bucket, so `/spec-status` can report a
+// drift ("Linear says Done, your spec says In Progress"). Read-only — never writes.
+function remoteWorkflowState(issue, config) {
+  const name = remoteStateName(issue || {})
   return name != null ? bucketForState(name, config) : null
 }
 

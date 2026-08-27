@@ -30,7 +30,10 @@ states — proven by the assets/engine-integration tests.
       stores `spec_identifier`, not a project.
 - [ ] Rename stored key handling everywhere: `linear_milestone_id` →
       `linear_issue_id` (phase frontmatter). Grep the assets + code for the old
-      key.
+      key. (Engine already renamed `stampMilestoneId` → `stampSubIssueId`.)
+- [ ] Reconcile the spec-issue identifier key: the engine keys the snapshot on
+      `linear_identifier`. Stamp the created spec issue's id into that same key
+      (not a new `spec_identifier`), and fix decision 7 in the overview to match.
 - [ ] Update `packages/linear/assets/core/linear.config.md` and `SETUP.md` to
       the issue/sub-issue model, `projectId` grouping, and issue-state guidance.
 - [ ] Tests: `packages/linear/test/{assets,engine-integration}.test.js` assert

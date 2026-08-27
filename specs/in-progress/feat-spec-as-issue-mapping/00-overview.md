@@ -1,7 +1,7 @@
 # Spec-as-Issue: remap the Linear mirror to Issue + sub-issues
 
 > **Type:** Feature
-> **Status:** In Progress — Phase 1 (started 2026-08-27)
+> **Status:** In Progress — Phase 3 (Phases 1–2 done 2026-08-27)
 > **Name:** feat-spec-as-issue-mapping
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
@@ -46,9 +46,11 @@ task. The container and the granularity both need to change.
    every spec issue is added to that Linear Project (a "Specs" umbrella);
    otherwise the issue stands alone in the team. `initiativeId` is retired (it
    grouped projects, which no longer exist).
-7. **Id storage:** `spec_identifier` (overview frontmatter) holds the spec
-   **issue** identifier; `linear_milestone_id` (phase frontmatter) is renamed
-   `linear_issue_id` and holds the **sub-issue** identifier.
+7. **Id storage:** the spec **issue** identifier lives in the existing
+   `linear_identifier` overview-frontmatter key (the one the engine already keys
+   the snapshot on — no new key invented); `linear_milestone_id` (phase
+   frontmatter) is renamed `linear_issue_id` and holds the **sub-issue**
+   identifier. (Corrected in Phase 2 from an earlier `spec_identifier` draft.)
 8. **Ships as `skitterspec-linear@9.0.0`** — breaking: config keys, stored
    frontmatter, and the snapshot format all change. Base `skitterspec` is
    unaffected (stays 15.x). Bundles the already-landed title fix (`1d0d301`).
@@ -104,8 +106,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Config + projection reshaped to issue/sub-issue | ⬜ | [01-config-projection.md](01-config-projection.md) |
-| 2 | Plan, snapshot & CLI on the new shape | ⬜ | [02-plan-snapshot-cli.md](02-plan-snapshot-cli.md) |
+| 1 | Config + projection reshaped to issue/sub-issue | ✅ | [01-config-projection.md](01-config-projection.md) |
+| 2 | Plan, snapshot & CLI on the new shape | ✅ | [02-plan-snapshot-cli.md](02-plan-snapshot-cli.md) |
 | 3 | `/spec-push` + `/spec-status` + seam rewritten to MCP issues | ⬜ | [03-push-status-skills.md](03-push-status-skills.md) |
 | 4 | Naming handle, docs & 9.0.0 release | ⬜ | [04-naming-docs-release.md](04-naming-docs-release.md) |
 
@@ -128,3 +130,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   mapping prompted by the one-way redesign: spec=Issue, phases=sub-issues,
   tasks unsynced. Supersedes the narrower "only top-level tasks become issues"
   idea (that was still Project-centric).
+- 2026-08-27 — Phases 1 + 2 done together (projection + plan are one coupled
+  change; the compare/push tests can't go green on Phase 1 alone). Engine
+  reshaped to `{description, workflowState, subIssues[]}` → plan
+  `{issue, subIssues:{create,update}}`; config `mapping`/`states`(issue
+  states)/`projectId`/`fieldOwnership` updated; `stampMilestoneId` →
+  `stampSubIssueId` (`linear_issue_id`). 418 tests green. Two items deferred to
+  Phase 3: reconcile the spec-issue identifier key to the existing
+  `linear_identifier` (drop the invented `spec_identifier`), and per-sub-issue
+  remote-drift in `status --remote`.

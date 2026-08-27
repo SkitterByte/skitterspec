@@ -10,7 +10,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { push, recordPush, remoteWorkflowState, stampMilestoneId, stampIssueId } = require('@skitterbyte/skitterspec-sync-core')
+const { push, recordPush, remoteWorkflowState, stampSubIssueId } = require('@skitterbyte/skitterspec-sync-core')
 const { loadLinearConfig } = require('../src/config.js')
 
 const ID = 'ENG-42'
@@ -38,27 +38,25 @@ test('provider config + one-way engine produce a create plan', () => {
   const { dir, specDir, config } = setup()
   const r = push({ dir, snapshotDir: specDir, identifier: ID, config })
   assert.strictEqual(r.empty, false)
-  assert.ok(r.plan.project, 'project description/status pushed on first run')
-  assert.strictEqual(r.plan.milestones.create.length, 1)
-  assert.strictEqual(r.plan.milestones.create[0].name, 'Durable outbox')
-  assert.strictEqual(r.plan.issues.create.length, 2)
-  const first = r.plan.issues.create.find((i) => /Add the outbox table/.test(i.title))
-  assert.strictEqual(first.title, 'Add the outbox table') // first sentence
-  assert.match(first.description, /More detail here/) // full text
-  assert.strictEqual(r.plan.project.status, 'in-progress')
+  assert.ok(r.plan.issue, 'spec issue description/state pushed on first run')
+  assert.strictEqual(r.plan.issue.state, 'in-progress')
+  // one phase → one sub-issue; tasks are not synced
+  assert.strictEqual(r.plan.subIssues.create.length, 1)
+  assert.strictEqual(r.plan.subIssues.create[0].name, 'Durable outbox')
+  assert.strictEqual(r.plan.subIssues.create[0].state, 'backlog') // ⬜ heading
+  assert.strictEqual(r.plan.subIssues.update.length, 0)
 })
 
 test('after apply + record, the next push is empty (idempotent)', () => {
   const { dir, specDir, config } = setup()
   const r = push({ dir, snapshotDir: specDir, identifier: ID, config })
-  stampMilestoneId(specDir, '01-outbox.md', 'm1')
-  for (const iss of r.plan.issues.create) stampIssueId(specDir, iss.ref, iss.done ? 'SKI-9' : 'SKI-1')
+  for (const s of r.plan.subIssues.create) stampSubIssueId(specDir, `${s.ref}.md`, 'sub1')
   recordPush({ dir, snapshotDir: specDir, identifier: ID, config })
   assert.ok(push({ dir, snapshotDir: specDir, identifier: ID, config }).empty)
 })
 
-test('remoteWorkflowState maps a Linear project status to the local bucket', () => {
+test('remoteWorkflowState maps a Linear issue state to the local bucket', () => {
   const { config } = setup()
-  assert.strictEqual(remoteWorkflowState({ status: { name: 'Completed' } }, config), 'complete')
-  assert.strictEqual(remoteWorkflowState({ status: { name: 'In Progress' } }, config), 'in-progress')
+  assert.strictEqual(remoteWorkflowState({ state: { name: 'Done' } }, config), 'complete')
+  assert.strictEqual(remoteWorkflowState({ state: { name: 'In Progress' } }, config), 'in-progress')
 })

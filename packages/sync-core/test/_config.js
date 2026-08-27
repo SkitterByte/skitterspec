@@ -10,7 +10,7 @@
  */
 function neutralConfig() {
   return {
-    mapping: { specFolder: 'project', phases: 'milestone', tasks: 'issue' },
+    mapping: { specFolder: 'issue', phases: 'subissue', tasks: 'none' },
     states: {
       backlog: 'Backlog',
       'in-progress': 'In Progress',
@@ -24,13 +24,8 @@ function neutralConfig() {
       backupDir: 'specs/.core/sync-backups',
       fieldOwnership: {
         description: 'both',
-        milestones: 'both',
-        phaseBodies: 'both',
-        acceptanceCriteria: 'both',
-        taskBreakdown: 'both',
+        subIssues: 'both',
         workflowState: 'pull',
-        priority: 'pull',
-        labels: 'pull',
       },
       localOnlySections: ['State log', 'Changelog', 'Open questions'],
     },
