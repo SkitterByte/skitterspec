@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-linear-nested-table-corruption (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-28)
+> **Status:** In Progress — Phase 2 (started 2026-08-28)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
@@ -109,8 +109,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Flatten nested tables in the projection | 🔄 | [01-flatten-tables.md](01-flatten-tables.md) |
-| 2 | Read-back verification | ⬜ | [02-verify-round-trip.md](02-verify-round-trip.md) |
+| 1 | Flatten nested tables in the projection | ✅ | [01-flatten-tables.md](01-flatten-tables.md) |
+| 2 | Read-back verification | 🔄 | [02-verify-round-trip.md](02-verify-round-trip.md) |
 
 ## Open questions
 

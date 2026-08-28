@@ -16,6 +16,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const { flattenNestedTables } = require('./tables.js')
 const { fenceMask, findTaskBlocks, collapse, collapseHyphenAware } = require('./task-block.js')
 
 // --- markdown / frontmatter parsing -----------------------------------------
@@ -527,7 +528,7 @@ function buildDescription(title, sections, localOnlySections, extraSkip = []) {
     if (skip.has(heading)) continue
     parts.push(`## ${heading}\n\n${content}`.trim())
   }
-  return canonicalizeMarkdown(parts.join('\n\n')) || null
+  return flattenNestedTables(canonicalizeMarkdown(parts.join('\n\n'))) || null
 }
 
 // A phase sub-issue's description: its `**Goal:**` line, plus the phase's task
@@ -539,7 +540,7 @@ function buildDescription(title, sections, localOnlySections, extraSkip = []) {
 // act on; with it the phase is legible to someone working in the tracker without
 // tasks becoming individually-synced objects again.
 function subIssueBody(phase, tasksMode) {
-  if (tasksMode !== 'checklist' || !phase.tasks.length) return phase.goal
+  if (tasksMode !== 'checklist' || !phase.tasks.length) return flattenNestedTables(phase.goal)
   const parts = []
   if (phase.goal) parts.push(phase.goal, '')
   // One section per source heading, in source order. Checkboxes written before
@@ -550,7 +551,7 @@ function subIssueBody(phase, tasksMode) {
     if (i) parts.push('')
     parts.push(group.heading || '## Tasks', '', ...group.tasks)
   })
-  return parts.join('\n')
+  return flattenNestedTables(parts.join('\n'))
 }
 
 /**
