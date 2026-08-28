@@ -2,9 +2,9 @@
 
 > **Type:** Bug
 > **Name:** bug-release-tag-precedes-publish (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready
+> **Status:** In Progress — Phase 1 (started 2026-08-28)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
 > **Area:** scripts/release.js, scripts/release.test.js, RELEASING.md
 > **Stack:** worktree
@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Tag only after a successful publish | ⬜ | [01-tag-after-publish.md](01-tag-after-publish.md) |
+| 1 | Tag only after a successful publish | 🔄 | [01-tag-after-publish.md](01-tag-after-publish.md) |
 | 2 | Refuse a release with nothing to ship | ⬜ | [02-refuse-empty-release.md](02-refuse-empty-release.md) |
 
 ## Open questions
@@ -115,6 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-28 | Ready | backlog | Reuben Greaves |
+| 2026-08-28 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 

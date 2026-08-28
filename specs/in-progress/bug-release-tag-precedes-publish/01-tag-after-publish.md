@@ -1,6 +1,6 @@
-# Phase 1 — Tag only after a successful publish ⬜
+# Phase 1 — Tag only after a successful publish 🔄
 
-> **Status:** Not started
+> **Status:** In progress
 
 **Goal:** a failed publish leaves no tag, so the tag list only ever asserts
 releases that reached npm.
