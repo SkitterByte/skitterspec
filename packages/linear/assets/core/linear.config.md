@@ -46,6 +46,13 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   // that sub-issue: "checklist" mirrors them into its description (default),
   // "none" leaves the description as the phase's Goal line alone. Either way no
   // issue is created per task. These are the defaults.
+  //
+  // Under "checklist" the mirror keeps the phase file's OWN section headings: a
+  // phase with `## Tasks` and `## Acceptance` arrives as two headed sections, in
+  // source order, each heading reproduced as written. Checkboxes written before
+  // any heading appear under `## Tasks`. A heading with no checkboxes under it
+  // is not mirrored. Nesting, sub-bullets and inline formatting are preserved;
+  // a legacy inline `(KEY-123)` on a task line is stripped.
   "mapping": {
     "specFolder": "issue",
     "phases": "subissue",

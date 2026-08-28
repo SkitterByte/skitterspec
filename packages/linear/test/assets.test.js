@@ -92,3 +92,12 @@ test('/spec-push offers to fix a bad state name, with consent', () => {
   assert.match(text, /offer to\s*\n?apply it to `specs\/\.core\/linear\.config\.json`/, 'offers the fix')
   assert.match(text, /[Nn]ever edit their config without asking/, 'and asks first')
 })
+
+// The reporter could not tell a deliberate projection from an oversight, because
+// nothing wrote down what happens to a phase file's section structure. Whatever
+// the behaviour is, the config reference has to state it.
+test('linear.config.md states how task sections project', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(text, /section headings/, 'says sections are kept')
+  assert.match(text, /before\s*\n?\s*\/\/ any heading appear under `## Tasks`/, 'and what the default is')
+})

@@ -4,8 +4,8 @@ node_modules/
 /tmp/
 
 # Built distributions: bin/src/assets are composed from the private packages by
-# scripts/build-dist.js (at prepack / test time). Only each dist's package.json
-# and README are committed.
+# scripts/build-dist.js (at prepack / test time). Only each dist's package.json,
+# README and MIGRATION.md are committed.
 /packages/skitterspec/assets/
 /packages/skitterspec/bin/
 /packages/skitterspec/src/
