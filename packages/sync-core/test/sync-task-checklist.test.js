@@ -211,3 +211,84 @@ test('nothing written under a task is missing from the checklist', () => {
     assert.ok(goal.includes(fragment), `"${fragment}" reached the mirror`)
   }
 })
+
+// --- task sections survive into the mirror ----------------------------------
+//
+// Every checkbox used to flatten into one hardcoded `## Tasks` list whatever
+// heading it was written under, so criteria under `## Acceptance` arrived
+// indistinguishable from the task list above them. Nothing was lost — it was
+// unreadable, which is a different bug with the same smell.
+
+const PHASE_WITH_SECTIONS = [
+  '# Phase 1 — Engine ⬜',
+  '',
+  '**Goal:** make the engine work.',
+  '',
+  '## Tasks',
+  '',
+  '- [x] Add the parser',
+  '- [ ] Wire the CLI',
+  '',
+  '## Acceptance',
+  '',
+  '- [ ] the CLI exits non-zero on a bad flag',
+  '- [ ] the parser round-trips',
+  '',
+].join('\n')
+
+test('a task section keeps the heading it was written under', () => {
+  const goal = normalizeLocal(specDir(PHASE_WITH_SECTIONS), withTasks('checklist')).subIssues[0].goal
+
+  assert.match(goal, /## Acceptance/, 'the source heading reaches the mirror')
+  // Each checkbox sits under the heading it was written beneath — the whole point.
+  const [, tasks, acceptance] = goal.split(/^## /m)
+  assert.match(tasks, /Wire the CLI/)
+  assert.ok(!/Wire the CLI/.test(acceptance), 'a task did not leak into Acceptance')
+  assert.match(acceptance, /the parser round-trips/)
+  assert.ok(!/round-trips/.test(tasks), 'a criterion did not leak into Tasks')
+})
+
+test('sections keep their source order', () => {
+  const goal = normalizeLocal(specDir(PHASE_WITH_SECTIONS), withTasks('checklist')).subIssues[0].goal
+  assert.ok(goal.indexOf('## Tasks') < goal.indexOf('## Acceptance'))
+})
+
+test('a heading is preserved exactly as written', () => {
+  const body = PHASE_WITH_SECTIONS.replace('## Tasks', '## Tasks — 2a (read-model) ✅')
+  const goal = normalizeLocal(specDir(body), withTasks('checklist')).subIssues[0].goal
+  assert.match(goal, /## Tasks — 2a \(read-model\) ✅/, 'suffix and emoji survive')
+})
+
+// Decision 3 — the common case must not move at all.
+test('checkboxes under no heading still project as ## Tasks', () => {
+  const goal = normalizeLocal(specDir(PHASE), withTasks('checklist')).subIssues[0].goal
+  assert.match(goal, /## Tasks/)
+  assert.equal((goal.match(/^## /gm) || []).length, 1, 'exactly one heading, as today')
+})
+
+test('a heading holding no checkboxes is not emitted', () => {
+  const body = PHASE_WITH_SECTIONS + '\n## Notes\n\nJust prose, no boxes.\n'
+  const goal = normalizeLocal(specDir(body), withTasks('checklist')).subIssues[0].goal
+  assert.ok(!/## Notes/.test(goal), 'an empty section is noise, not fidelity')
+})
+
+test('a heading inside a fence never becomes a section', () => {
+  const body = [
+    '# Phase 1 — Engine ⬜',
+    '',
+    '**Goal:** go.',
+    '',
+    '## Tasks',
+    '',
+    '- [ ] Document the format',
+    '',
+    '```md',
+    '## Acceptance',
+    '- [ ] an example criterion',
+    '```',
+    '',
+  ].join('\n')
+  const goal = normalizeLocal(specDir(body), withTasks('checklist')).subIssues[0].goal
+  assert.ok(!/## Acceptance/.test(goal), 'an example heading is not a real section')
+  assert.ok(!/an example criterion/.test(goal), 'nor is its example checkbox a task')
+})

@@ -101,8 +101,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Group tasks by their source heading | 🔄 | [01-group-by-heading.md](01-group-by-heading.md) |
-| 2 | Measure the churn, and document the projection | ⬜ | [02-churn-and-docs.md](02-churn-and-docs.md) |
+| 1 | Group tasks by their source heading | ✅ | [01-group-by-heading.md](01-group-by-heading.md) |
+| 2 | Measure the churn, and document the projection | 🔄 | [02-churn-and-docs.md](02-churn-and-docs.md) |
 
 ## Open questions
 

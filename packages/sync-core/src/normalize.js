@@ -319,6 +319,46 @@ function parseTaskLine(line) {
   return { id, text, done }
 }
 
+/**
+ * Split a phase's task blocks into the `##` sections they were written under.
+ *
+ * The checklist used to be one flat list under a hardcoded `## Tasks`, so a
+ * criterion written under `## Acceptance` arrived in the mirror as an ordinary
+ * open task. Nothing was lost — it was just unreadable.
+ *
+ * Grouping is done by MAPPING blocks onto headings, not by re-parsing the body
+ * section by section: `findTaskBlocks` tracks open task subtrees across a
+ * continuous body, and slicing that body at every heading would change what a
+ * block claims at a section boundary. A heading inside a fence is not a heading
+ * (`fenceMask`), and the phase file's own `#` H1 is not a section.
+ *
+ * @returns {Array<{heading:string|null, tasks:string[]}>} in source order;
+ *   `heading` is null for blocks that precede every heading, and a heading with
+ *   no blocks under it never appears.
+ */
+function groupTasksByHeading(lines, blocks, renderTask) {
+  const inFence = fenceMask(lines)
+  const headings = []
+  for (let i = 0; i < lines.length; i++) {
+    if (inFence[i]) continue
+    const m = /^(#{2,6})\s+(.*\S)\s*$/.exec(lines[i])
+    if (m) headings.push({ line: i, heading: `${m[1]} ${m[2]}` })
+  }
+
+  const groups = []
+  for (const b of blocks) {
+    let heading = null
+    for (const h of headings) {
+      if (h.line >= b.start) break
+      heading = h.heading
+    }
+    const last = groups[groups.length - 1]
+    if (last && last.heading === heading) last.tasks.push(renderTask(b))
+    else groups.push({ heading, tasks: [renderTask(b)] })
+  }
+  return groups
+}
+
 // Read the phase files (01-*.md, 02-*.md …) in execution order. Each yields its
 // linked milestone id (from optional frontmatter), title, goal and tasks.
 function readPhaseFiles(snapshotDir) {
@@ -347,7 +387,8 @@ function readPhaseFiles(snapshotDir) {
       // the marker its author wrote, and any inline `(KEY-123)` stamped on a legacy task
       // line stripped — those ids were per-task issues we no longer create, and
       // they read as noise in the mirror.
-      const tasks = findTaskBlocks(body.split('\n')).map((b) => {
+      const lines = body.split('\n')
+      const renderTask = (b) => {
         // `findTaskBlocks` also returns the plain sub-bullets written underneath
         // a task. They carry no checkbox, so they render as the bullet their
         // author used — emitting `- [ ]` here would invent a task that does not
@@ -355,7 +396,10 @@ function readPhaseFiles(snapshotDir) {
         const parsed = parseTaskLine(`[${b.checkbox ? b.mark : ' '}] ${b.text}`)
         const text = parsed ? parsed.text : b.text
         return b.checkbox ? `${b.indent}- [${b.mark}] ${text}` : `${b.indent}${b.marker} ${text}`
-      })
+      }
+      const blocks = findTaskBlocks(lines)
+      const tasks = blocks.map(renderTask)
+      const taskGroups = groupTasksByHeading(lines, blocks, renderTask)
       return {
         phase: file.replace(/\.md$/, ''),
         file,
@@ -370,6 +414,7 @@ function readPhaseFiles(snapshotDir) {
         emoji: headingEmoji(body),
         statusLine: phaseStatusLine(body),
         tasks,
+        taskGroups,
       }
     })
 }
@@ -497,7 +542,14 @@ function subIssueBody(phase, tasksMode) {
   if (tasksMode !== 'checklist' || !phase.tasks.length) return phase.goal
   const parts = []
   if (phase.goal) parts.push(phase.goal, '')
-  parts.push('## Tasks', '', ...phase.tasks)
+  // One section per source heading, in source order. Checkboxes written before
+  // any heading keep the `## Tasks` default, so a phase file with a single task
+  // section — every one in this repo's corpus but two — projects unchanged.
+  const groups = phase.taskGroups && phase.taskGroups.length ? phase.taskGroups : [{ heading: null, tasks: phase.tasks }]
+  groups.forEach((group, i) => {
+    if (i) parts.push('')
+    parts.push(group.heading || '## Tasks', '', ...group.tasks)
+  })
   return parts.join('\n')
 }
 

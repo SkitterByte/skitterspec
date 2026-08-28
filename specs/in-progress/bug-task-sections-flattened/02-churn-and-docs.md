@@ -1,6 +1,6 @@
-# Phase 2 — Measure the churn, and document the projection ⬜
+# Phase 2 — Measure the churn, and document the projection 🔄
 
-> **Status:** Not started
+> **Status:** In progress
 
 **Goal:** the re-push cost is a measured number rather than an estimate, and the
 projection's treatment of sections is written down.
