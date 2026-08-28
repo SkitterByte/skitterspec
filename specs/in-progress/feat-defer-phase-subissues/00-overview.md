@@ -96,7 +96,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Withhold unstarted phases from the projection | ✅ | [01-withhold-projection.md](01-withhold-projection.md) |
-| 2 | Surface the deferral: CLI, `/spec-go`, docs | ⬜ | [02-surface-and-docs.md](02-surface-and-docs.md) |
+| 2 | Surface the deferral: CLI, `/spec-go`, docs | ✅ | [02-surface-and-docs.md](02-surface-and-docs.md) |
 
 ## Open questions
 

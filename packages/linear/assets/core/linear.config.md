@@ -47,6 +47,10 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   // "none" leaves the description as the phase's Goal line alone. Either way no
   // issue is created per task. These are the defaults.
   //
+  // `phases` selects WHEN a phase becomes a sub-issue: "subissue" from the
+  // spec's first push (default), or "deferred" only once the work starts — see
+  // "Deferring sub-issues until a spec starts" below.
+  //
   // Under "checklist" the mirror keeps the phase file's OWN section headings: a
   // phase with `## Tasks` and `## Acceptance` arrives as two headed sections, in
   // source order, each heading reproduced as written. Checkboxes written before
@@ -144,6 +148,44 @@ recreates:
 Unlinked local items (a spec with no `linear_identifier`, a phase with no
 `linear_issue_id`) are created in Linear on the next `/spec-push`, which stamps
 the new id back so they link from then on.
+
+## Deferring sub-issues until a spec starts
+
+`mapping.phases` decides *when* a phase becomes a sub-issue:
+
+- `"subissue"` (default) — from the spec's first push. A spec costs `1 + N`
+  `save_issue` calls to mirror, N being its phase count.
+- `"deferred"` — only once the work starts. A spec sitting in `specs/backlog/`
+  mirrors as **the issue alone**; its sub-issues are created by the push that
+  follows `/spec-go`.
+
+Deferral is worth setting when you adopt sync on a project that already has a
+long backlog, where the default means mirroring every phase of every spec nobody
+has started yet — in this repo, 130 calls where 35 would do.
+
+What defers and what does not:
+
+- **Unlinked phases defer; linked ones never do.** A phase already carrying a
+  `linear_issue_id` keeps projecting whatever the mode. One-way sync has no
+  delete, so withholding a live sub-issue would not remove it from Linear — it
+  would freeze it there, never updated again. That makes switching an existing
+  project to `"deferred"` safe: it only changes what has yet to be minted.
+- **The trigger is the spec's projected state**, not its folder alone — so a
+  `spec_status` frontmatter override moves the issue's state and its sub-issues
+  together. Phases defer while that state is `backlog` or `cancelled`; a spec
+  cancelled without ever starting never mints phases it never worked, while one
+  cancelled mid-flight has ids already and keeps them.
+- **A deferred spec keeps its `## Phases` index in the description.** That
+  section is normally stripped because the sub-issues carry it; while they are
+  withheld it is the only place the phase breakdown appears. It drops out of the
+  description in the same push that creates the sub-issues.
+- **`/spec-push` and `/spec-status` say so**, printing `N phase(s) deferred`, and
+  the JSON plan carries a `phasesDeferred` count — a spec with no sub-issues
+  reads as deliberate rather than as phase files that failed to parse.
+
+There is no snapshot state behind this and nothing to migrate: the last-pushed
+snapshot only ever recorded sub-issues that have an id, so a deferred phase is
+simply absent from it and arrives as an ordinary `create` when it projects.
 
 ## Which Project a spec issue belongs to
 

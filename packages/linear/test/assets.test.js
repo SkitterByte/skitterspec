@@ -101,3 +101,29 @@ test('linear.config.md states how task sections project', () => {
   assert.match(text, /section headings/, 'says sections are kept')
   assert.match(text, /before\s*\n?\s*\/\/ any heading appear under `## Tasks`/, 'and what the default is')
 })
+
+// Under `mapping.phases: "deferred"` the /spec-go push is not a nicety — it is
+// what mints the sub-issues. A seam that still called it optional would leave a
+// started spec mirrored as a phase-less issue.
+test('the spec-go-pull seam makes the push mandatory under deferred phases', () => {
+  const text = seamText('spec-go-pull')
+  assert.match(text, /"deferred"/, 'names the mode')
+  assert.match(text, /without asking|do it now/i, 'and says not to treat it as optional')
+  assert.ok(
+    text.indexOf('"subissue"') < text.indexOf('"deferred"'),
+    'keeps the default mode first, so the unchanged behaviour reads first',
+  )
+})
+
+test('/spec-push explains a plan whose sub-issues were deferred', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-push', 'SKILL.md'), 'utf8')
+  assert.match(text, /phasesDeferred/, 'names the plan field')
+  assert.match(text, /failed to parse/, 'rules out the alternative reading')
+})
+
+test('linear.config.md documents when phases become sub-issues', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(text, /## Deferring sub-issues until a spec starts/, 'has its own section')
+  assert.match(text, /already carrying a\s*\n?\s*`linear_issue_id`/, 'states that linked phases never defer')
+  assert.match(text, /## Phases` index/, 'states the description keeps the index meanwhile')
+})

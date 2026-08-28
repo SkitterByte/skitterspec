@@ -114,6 +114,15 @@ never clobbered. A workflow-state a teammate moves in Linear is surfaced by
 (`specs/.core/linear-base/`, content hashes) are committed so push sends only what
 changed.
 
+**Adopting on a long backlog.** By default a spec costs one `save_issue` call
+plus one per phase, so mirroring a backlog that already runs to dozens of specs
+front-loads hundreds of calls for work nobody has started. Set
+`mapping.phases: "deferred"` and a spec sitting in `specs/backlog/` mirrors as
+**the issue alone**, keeping its phase list in the description; its sub-issues are
+created by the push that follows `/spec-go`, when the work actually starts. Phases
+that are already linked keep syncing either way, so switching an existing project
+over never strands a live sub-issue. See `linear.config.md` for the details.
+
 **Which Project a spec lands in** is asked once, when the issue is first created
 — a filterable list of your team's projects, defaulting to `linear.projectId` and
 always offering *None*. It's passed on the create call only and never stored, so

@@ -196,6 +196,7 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
   const p = r.plan
   const lines = [`spec-sync push: ${identifier}`, ...warningLines(snapshotDir, config)]
   if (p.legacy) lines.push(...legacyLines(p.legacy))
+  if (p.phasesDeferred) lines.push(...deferredLines(p.phasesDeferred))
   if (r.empty) lines.push('  nothing to push — mirror matches the last push')
   else {
     if (p.issue) lines.push('  issue: description/state')
@@ -205,6 +206,16 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
   }
   out.write(lines.join('\n') + '\n')
   return 0
+}
+
+// `mapping.phases: 'deferred'` is holding phases back. Said plainly wherever a
+// plan or a status report is printed, because the alternative reading of a spec
+// with no sub-issues is that its phase files failed to parse.
+function deferredLines(n) {
+  return [
+    `  ${n} phase(s) deferred — mapping.phases is "deferred" and this spec has not started`,
+    '     they are created on the push that follows /spec-go',
+  ]
 }
 
 // The pre-9.0 mirror block. Loud on purpose: the plan below it looks entirely
@@ -404,6 +415,9 @@ function specSyncStatus(dir, config, specArg, flags, out) {
   const projection = projectionOf(snapshotDir, config)
   const snapshot = readBase(dir, identifier, config)
   const plan = planChanges(projection, snapshot)
+  // From the projection, not the plan: `status` builds its plan with
+  // `planChanges` directly rather than going through `push`.
+  if (projection.phasesWithheld) lines.push(...deferredLines(projection.phasesWithheld))
   if (!snapshot) lines.push('  push: never pushed — everything is pending')
   else if (isEmptyPlan(plan)) lines.push('  push: up to date — nothing changed since the last push')
   else {
