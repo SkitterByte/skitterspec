@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-defer-phase-subissues (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready
+> **Status:** In Progress — Phase 1 (started 2026-08-28)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
 > **Area:** packages/linear/src/config.js, packages/sync-core/src/normalize.js, packages/linear/src/cli-sync.js, packages/linear/assets/
 > **Stack:** worktree
@@ -107,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-28 | Ready | backlog | Reuben Greaves |
+| 2026-08-28 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
