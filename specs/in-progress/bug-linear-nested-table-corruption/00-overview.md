@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-linear-nested-table-corruption (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 2 (started 2026-08-28)
+> **Status:** Complete (2026-08-28)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
@@ -110,7 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Flatten nested tables in the projection | ✅ | [01-flatten-tables.md](01-flatten-tables.md) |
-| 2 | Read-back verification | 🔄 | [02-verify-round-trip.md](02-verify-round-trip.md) |
+| 2 | Read-back verification | ✅ | [02-verify-round-trip.md](02-verify-round-trip.md) |
 
 ## Open questions
 
@@ -121,6 +121,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-28 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-28 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -134,3 +135,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and the probe did not reproduce the ordered-list renumbering that argued
   against it. Not taken: it moves the table out of its list item, and the
   bullet form is what the reporter verified in production.
+- 2026-08-28 — Phase 2: the reporter's proposed detection rule (reduce to
+  alphanumerics and compare) was corrected — Linear renumbers ordered lists and
+  digits are alphanumeric, so their own listed benign reformat would have fired
+  the warning on every push. Ordered markers are normalised first; a regression
+  test asserts renumbering stays quiet while a lost digit elsewhere does not.
+- 2026-08-28 — Completed; both phases done, **631 tests green** (614 after
+  Phase 1, 605 before). Verified both guards bite: disabling the flatten turns 5
+  red, and reverting the comparator to the reporter's rule turns the renumbering
+  test red. Nothing deferred.

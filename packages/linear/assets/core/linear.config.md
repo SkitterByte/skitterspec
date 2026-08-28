@@ -149,6 +149,32 @@ Unlinked local items (a spec with no `linear_identifier`, a phase with no
 `linear_issue_id`) are created in Linear on the next `/spec-push`, which stamps
 the new id back so they link from then on.
 
+## What is reshaped before sending, and what is checked afterwards
+
+Two safeguards sit either side of the push. Neither is configurable — both exist
+because Linear's markdown parser does not always store what it is given.
+
+**Nested tables are reshaped.** A markdown table written *inside* a list item is
+corrupted by Linear: every data cell loses its first N characters, N being the
+list-content indent Linear renders at (3 per ordered level, 2 per bullet),
+whatever indent the source used. The header row survives, which makes it easy to
+miss. Measured, not inferred — a table at source indent 3, 4 or 6 inside a
+numbered list loses exactly 3 characters per cell. So before sending, a nested
+table is re-emitted as a **bullet list** (2 columns) or a **fenced code block**
+(any other count), both of which round-trip byte-identically. Column-0 tables —
+the `## Phases` index, every Impact map — are never touched, and neither are
+tables inside a fenced example. **Your spec files are not modified**: the source
+markdown is valid and renders correctly in GitHub and every editor, so this
+shapes only the projection.
+
+**The round-trip is verified.** After `/spec-push` applies a plan it reads each
+description back and runs `spec-sync verify`, which compares word characters and
+ignores the reformatting Linear legitimately applies (renumbered ordered lists,
+`-`→`*`, collapsed table separators, checkbox case, whitespace). Anything lost or
+altered is reported with both sides of the first difference. It warns rather than
+fails — the repo is unaffected and re-pushing overwrites the mirror. This is not
+a pull: nothing read back is merged, stamped or written anywhere.
+
 ## Deferring sub-issues until a spec starts
 
 `mapping.phases` decides *when* a phase becomes a sub-issue:

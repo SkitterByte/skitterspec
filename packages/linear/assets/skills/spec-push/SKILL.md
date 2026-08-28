@@ -103,6 +103,36 @@ migrated or explicitly confirms they want a new mirror.
 Priority, labels, cycles and comments are Linear-native triage — do **not** push
 them; they're the PM's.
 
+## 4b. Verify what Linear actually stored
+
+Linear reserialises markdown on save, and it does not always preserve what you
+sent — a table nested in a list item comes back with characters missing from
+every data cell, silently. Check before you record the push as good.
+
+For each issue you created or updated in step 4, read its `description` back
+(`get_issue`) and write what you got to a JSON file:
+
+```json
+{ "issue": "<stored description>", "subIssues": { "01-outbox": "<stored>" } }
+```
+
+Then:
+
+```
+skitterspec spec-sync verify <spec> --stored <file>
+```
+
+It compares against what the engine sent, ignoring the reformatting Linear
+legitimately applies (renumbered ordered lists, `-`→`*`, collapsed table
+separators, checkbox case, whitespace) and reporting only lost or altered **word
+characters**. Relay any divergence — it prints both sides around the first
+difference. It exits 0 either way: the repo is unaffected and still correct, so
+this is a warning, not a failure.
+
+This is **not a pull**. Nothing read here is merged, stamped, or written
+anywhere; the repo remains the only source of truth. Do it before step 5 so a
+corrupted push is visible before the snapshot records it as good.
+
 ## 5. Stamp the ids, then record the snapshot
 
 Write every id you collected back into the spec in **one** call — the engine

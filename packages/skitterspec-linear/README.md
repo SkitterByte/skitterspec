@@ -114,6 +114,13 @@ never clobbered. A workflow-state a teammate moves in Linear is surfaced by
 (`specs/.core/linear-base/`, content hashes) are committed so push sends only what
 changed.
 
+**Fidelity safeguards.** Linear's markdown parser silently drops characters from
+tables nested inside list items, so a nested table is reshaped before sending —
+2-column tables become a bullet list, others a code block — and column-0 tables
+are left alone. Your spec files are never modified. After a push, each stored
+description is read back and compared against what was sent, ignoring Linear's
+own reformatting and reporting anything genuinely lost. Both are automatic.
+
 **Adopting on a long backlog.** By default a spec costs one `save_issue` call
 plus one per phase, so mirroring a backlog that already runs to dozens of specs
 front-loads hundreds of calls for work nobody has started. Set

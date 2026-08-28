@@ -41,6 +41,7 @@ const {
   writeFrontmatter,
   stampSubIssueId,
   listPhaseFiles,
+  compareStored,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const { loadLinearConfig } = require('./config.js')
@@ -441,17 +442,86 @@ function specSyncStatus(dir, config, specArg, flags, out) {
   return 0
 }
 
+/**
+ * `spec-sync verify <spec> --stored <file>` — compare what the tracker STORED
+ * against what we sent, and report any lost text.
+ *
+ * Not a pull: it merges nothing and writes nothing (see sync-core `verify.js`).
+ * The engine is offline, so `/spec-push` does the read over MCP and hands the
+ * result over in a file — the same split `--workspace-states` uses. The file is
+ * `{ "issue": "…", "subIssues": { "<ref>": "…" } }`; any key may be omitted.
+ *
+ * Warns, never fails (exit 0). The mirror is generated and disposable, and a
+ * hard failure after the plan is applied would strand it half-written.
+ */
+function specSyncVerify(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+  if (!flags.stored) {
+    out.write(
+      'spec-sync verify: refusing to run without --stored <file>.\n' +
+        '  The engine is offline: /spec-push reads each description back over MCP\n' +
+        '  and writes {"issue": "…", "subIssues": {"<ref>": "…"}} for this command.\n',
+    )
+    return 1
+  }
+  let stored
+  try {
+    stored = JSON.parse(fs.readFileSync(flags.stored, 'utf-8'))
+  } catch (error) {
+    out.write(`spec-sync verify: cannot read --stored ${flags.stored}: ${error.message}\n`)
+    return 1
+  }
+
+  const identifier = specIdentifier(snapshotDir, config)
+  const projection = projectionOf(snapshotDir, config)
+  const checks = []
+  if (typeof stored.issue === 'string') checks.push(['issue', projection.description, stored.issue])
+  for (const [ref, text] of Object.entries(stored.subIssues || {})) {
+    const sub = projection.subIssues.find((s) => s.ref === ref)
+    if (!sub) {
+      checks.push([`sub-issue ${ref}`, null, text])
+      continue
+    }
+    checks.push([`sub-issue ${ref}`, sub.goal, text])
+  }
+
+  const lines = [`spec-sync verify: ${identifier}`]
+  let bad = 0
+  for (const [label, sent, got] of checks) {
+    if (sent == null) {
+      lines.push(`  ?? ${label}: read back, but the projection has no such phase — stale ref?`)
+      bad++
+      continue
+    }
+    const r = compareStored(sent, got)
+    if (r.ok) continue
+    bad++
+    lines.push(
+      `  !! ${label}: the tracker stored different text — ${Math.abs(r.lost)} character(s) ` +
+        `${r.lost > 0 ? 'lost' : 'added'}, first difference at ${r.at}`,
+      `     sent:   …${r.sentContext}…`,
+      `     stored: …${r.storedContext}…`,
+    )
+  }
+  if (!bad) lines.push(`  ${checks.length} description(s) round-tripped intact`)
+  else lines.push('     the repo is unchanged and still correct; re-push to overwrite the mirror')
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
 async function specSync(rest, io = {}) {
   const out = io.out || process.stdout
   const err = io.err || process.stderr
   const [sub, ...args] = rest
   let dir = io.cwd || process.cwd()
   const positional = []
-  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [] }
+  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
+    else if (args[i] === '--stored') flags.stored = path.resolve(args[++i])
     else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
     else if (args[i] === '--skip-state-check') flags.skipStateCheck = true
     else if (args[i] === '--issue') flags.issue = args[++i]
@@ -483,6 +553,8 @@ async function specSync(rest, io = {}) {
       return 0
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out) || 0
+    case 'verify':
+      return specSyncVerify(dir, config, positional[0], flags, out) || 0
     case 'linked':
       specSyncLinked(dir, config, flags, out)
       return 0
@@ -490,6 +562,7 @@ async function specSync(rest, io = {}) {
       out.write('Usage: skitterspec spec-sync <normalize|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
         '       skitterspec spec-sync push <spec> --workspace-states <file> [--json] [--skip-state-check]\n' +
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
+        '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n')
       return 0
   }

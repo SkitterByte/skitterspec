@@ -127,3 +127,23 @@ test('linear.config.md documents when phases become sub-issues', () => {
   assert.match(text, /already carrying a\s*\n?\s*`linear_issue_id`/, 'states that linked phases never defer')
   assert.match(text, /## Phases` index/, 'states the description keeps the index meanwhile')
 })
+
+// A corrupted push must be caught BEFORE the snapshot records it as good —
+// afterwards the next push produces an empty plan and the damage is permanent
+// until someone edits the spec.
+test('/spec-push verifies the round-trip before stamping', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-push', 'SKILL.md'), 'utf8')
+  assert.match(text, /spec-sync verify/, 'names the command')
+  assert.match(text, /not a pull/i, 'rules out the one-way reading')
+  assert.ok(
+    text.indexOf('spec-sync verify') < text.indexOf('## 5. Stamp the ids'),
+    'the check sits before the stamp',
+  )
+})
+
+test('linear.config.md documents both fidelity safeguards', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(text, /Nested tables are reshaped/, 'the pre-send transform')
+  assert.match(text, /round-trip is verified/, 'the post-push check')
+  assert.match(text, /spec files are not modified/i, 'the no-disk-write promise')
+})
