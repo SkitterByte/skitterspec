@@ -6,8 +6,13 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
+const { spawnSync } = require('node:child_process')
+
 const {
   PACKAGES,
+  TARBALL_INPUTS,
+  lastTagFor,
+  assertShippableChange,
   resolvePackage,
   readVersion,
   writeVersion,
@@ -212,6 +217,7 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
     help: false,
     publish: false,
     yes: false,
+    allowEmpty: false,
     pkg: 'skitterspec',
     bump: 'patch',
   })
@@ -219,6 +225,8 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
   assert.strictEqual(pub.publish, true)
   const yes = parseArgs(['n', 'n', 'skitterspec-linear', 'minor', '--yes'])
   assert.strictEqual(yes.yes, true)
+  const empty = parseArgs(['n', 'n', 'skitterspec', 'patch', '--yes', '--allow-empty'])
+  assert.strictEqual(empty.allowEmpty, true)
 })
 
 // PACKAGES is the small, closed registry the rest keys off.
@@ -259,4 +267,94 @@ test('the tag stays a local step, and stays last', () => {
   const tagStep = plan.steps[plan.steps.length - 1]
   assert.match(tagStep.cmd, /^git tag /, 'the tag is the last step')
   assert.strictEqual(tagStep.phase, 'local', 'and still runs without --publish')
+})
+
+// --- nothing to ship --------------------------------------------------------
+//
+// skitterspec-linear@9.1.0 was a release in which nothing shipped: across every
+// input to its tarball the only change was the version string. A consumer had to
+// unpack both published tarballs to discover that, twice. A minor bump is meant
+// to signal new functionality.
+
+test('TARBALL_INPUTS covers every publishable package', () => {
+  // A third distribution must not be addable without declaring what it ships.
+  assert.deepStrictEqual(Object.keys(TARBALL_INPUTS).sort(), Object.keys(PACKAGES).sort())
+})
+
+test('TARBALL_INPUTS names source packages, never the generated dist dirs', () => {
+  // packages/<dist>/{src,assets,bin} are gitignored and composed at prepack, so a
+  // diff over them is empty for EVERY release — gating on them would read every
+  // release as empty.
+  for (const paths of Object.values(TARBALL_INPUTS)) {
+    for (const p of paths) {
+      assert.ok(!/\/(src|assets|bin)$/.test(p), `${p} is a generated dir, not a git-visible input`)
+    }
+  }
+  assert.ok(TARBALL_INPUTS.skitterspec.includes('packages/common'), 'base composes from common')
+  assert.ok(TARBALL_INPUTS['skitterspec-linear'].includes('packages/sync-core'), 'linear vendors the engine')
+})
+
+test('lastTagFor picks the highest version, not the last listed', () => {
+  const tags = [
+    'skitterspec@9.0.0',
+    'skitterspec@10.0.0',
+    'skitterspec@2.0.1',
+    'skitterspec-linear@10.0.1',
+    'v1.0.0',
+  ]
+  assert.strictEqual(lastTagFor('skitterspec', tags), 'skitterspec@10.0.0')
+  assert.strictEqual(lastTagFor('skitterspec-linear', tags), 'skitterspec-linear@10.0.1')
+  assert.strictEqual(lastTagFor('skitterspec', []), null, 'never released → null')
+})
+
+test('assertShippableChange refuses a release with no changed input', () => {
+  assert.throws(
+    () => assertShippableChange([], { name: 'skitterspec-linear', sinceTag: 'skitterspec-linear@9.0.0' }),
+    /nothing to ship/,
+  )
+  assert.throws(
+    () => assertShippableChange([], { name: 'skitterspec-linear', sinceTag: 'skitterspec-linear@9.0.0' }),
+    /--allow-empty/,
+    'points at the escape hatch',
+  )
+})
+
+test('assertShippableChange allows a real change, a first release, or an explicit opt-in', () => {
+  assert.doesNotThrow(() =>
+    assertShippableChange(['packages/common/src/init.js'], { name: 'skitterspec', sinceTag: 'skitterspec@16.3.0' }),
+  )
+  assert.doesNotThrow(
+    () => assertShippableChange([], { name: 'skitterspec', sinceTag: null }),
+    'a package with no prior tag has nothing to be identical to',
+  )
+  assert.doesNotThrow(() =>
+    assertShippableChange([], { name: 'skitterspec', sinceTag: 'skitterspec@16.3.0', allowEmpty: true }),
+  )
+})
+
+// The two real releases from the field report, measured against this repo's own
+// history — the second is the control that proves the guard does not over-fire.
+test('the guard separates the real empty release from the substantive one', () => {
+  const root = path.join(__dirname, '..')
+  const has = (t) => spawnSync('git', ['rev-parse', '--verify', t], { cwd: root, encoding: 'utf8' }).status === 0
+
+  if (has('skitterspec-linear@9.0.0') && has('skitterspec-linear@9.1.0')) {
+    const changed = spawnSync(
+      'git',
+      ['diff', '--name-only', 'skitterspec-linear@9.0.0', 'skitterspec-linear@9.1.0', '--', ...TARBALL_INPUTS['skitterspec-linear']],
+      { cwd: root, encoding: 'utf8' },
+    ).stdout.split('\n').filter(Boolean)
+      .filter((f) => f !== 'packages/skitterspec-linear/package.json')
+    assert.deepStrictEqual(changed, [], '9.1.0 shipped nothing but a version string')
+  }
+
+  if (has('skitterspec@16.3.0') && has('skitterspec@16.3.2')) {
+    const changed = spawnSync(
+      'git',
+      ['diff', '--name-only', 'skitterspec@16.3.0', 'skitterspec@16.3.2', '--', ...TARBALL_INPUTS.skitterspec],
+      { cwd: root, encoding: 'utf8' },
+    ).stdout.split('\n').filter(Boolean)
+      .filter((f) => f !== 'packages/skitterspec/package.json')
+    assert.ok(changed.length, 'the 16.3.x line did ship content — the guard must not block it')
+  }
 })

@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-release-tag-precedes-publish (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-28)
+> **Status:** Complete (2026-08-28)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
@@ -104,7 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Tag only after a successful publish | ✅ | [01-tag-after-publish.md](01-tag-after-publish.md) |
-| 2 | Refuse a release with nothing to ship | 🔄 | [02-refuse-empty-release.md](02-refuse-empty-release.md) |
+| 2 | Refuse a release with nothing to ship | ✅ | [02-refuse-empty-release.md](02-refuse-empty-release.md) |
 
 ## Open questions
 
@@ -116,6 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-28 | Ready | backlog | Reuben Greaves |
 | 2026-08-28 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-28 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -130,3 +131,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-28 — Found while checking: tags from `14.0.0` onward have never reached
   origin (its newest is `skitterspec@13.0.0`). The phantom tag is therefore local
   only — but a `git push --tags` would publish it along with 25 others.
+- 2026-08-28 — Phase 1: the phantom `skitterspec@16.3.1` tag was deleted after
+  confirming it was absent from origin. `16.3.2` remains the published successor.
+- 2026-08-28 — Phase 2: verified against the live repo — with only `scripts/` and
+  `specs/` touched on this branch, the guard refuses a release of **both**
+  packages, which is the correct answer and a useful demonstration that it reads
+  shipped content rather than commit count.
+- 2026-08-28 — Completed; both phases done, 584 tests green (578 before). Nothing
+  deferred. The release-script change affects the maintainer flow only — no
+  published package behaviour changes.

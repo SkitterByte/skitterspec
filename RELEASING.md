@@ -85,6 +85,34 @@ Both are scoped (`@skitterbyte/…`). The first publish of a scoped package need
 `--access public` or the registry defaults it to a (paid) private package — the
 tool always passes `--access public`.
 
+## Releases that would ship nothing
+
+A release is **refused** when no input to the package's tarball has changed since
+its last tag:
+
+```
+nothing to ship: no tarball input for skitterspec-linear changed since
+skitterspec-linear@9.1.0 — this release would be byte-identical apart from the
+version. Pass --allow-empty if you mean it (a deliberate version alignment).
+```
+
+This exists because `skitterspec-linear@9.1.0` shipped nothing: across every
+input the only change was the version string, and a consumer had to unpack both
+published tarballs to find that out. A minor bump is supposed to signal new
+functionality.
+
+The inputs are the **composing source packages** plus each distribution's own
+committed files — `packages/common` for the base, plus `packages/linear` and
+`packages/sync-core` for the superset. They are deliberately *not*
+`packages/<dist>/{src,assets,bin}`: those are gitignored and composed at prepack,
+so a diff over them is empty for every release and the check would never fire.
+The version bump in the package's own `package.json` is excluded too, or every
+release would look substantive.
+
+Pass `--allow-empty` for a deliberate version-alignment bump. Doing so records
+the intent in the invocation rather than leaving it to be reverse-engineered
+later.
+
 ## Push tags yourself
 
 The tool never pushes. After a local/publish run, push the branch and the tag:
