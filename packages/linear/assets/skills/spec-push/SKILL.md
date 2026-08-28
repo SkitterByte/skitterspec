@@ -65,15 +65,15 @@ The engine prints a JSON **plan** (no network, no remote read):
 ```
 
 An empty plan (no `issue`, no sub-issue create/update) means the mirror is up to
-date — say so and stop.
+date — say so and stop. `state` values are local buckets
+(`backlog`/`in-progress`/`complete`/`cancelled`); map each to the Linear
+issue-state NAME via `config.states` at apply time.
 
 A **`phasesDeferred`** field means `mapping.phases` is `"deferred"` and this spec
 has not started, so its phases are deliberately absent from the plan — the issue
 pushes alone and the sub-issues are minted by the push that follows `/spec-go`.
 Relay the count; it is not a sign the phase files failed to parse. Nothing else
-about applying the plan changes. `state` values are local buckets
-(`backlog`/`in-progress`/`complete`/`cancelled`); map each to the Linear
-issue-state NAME via `config.states` at apply time.
+about applying the plan changes.
 
 ### Stop if the plan reports a pre-9.0 mirror
 
