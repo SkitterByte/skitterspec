@@ -1,6 +1,6 @@
-# Phase 1 — Group tasks by their source heading ⬜
+# Phase 1 — Group tasks by their source heading 🔄
 
-> **Status:** Not started
+> **Status:** In progress
 
 **Goal:** a phase file's task sections survive into the sub-issue description,
 and a file with a single task section projects exactly as it does today.

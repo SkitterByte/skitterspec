@@ -2,9 +2,9 @@
 
 > **Type:** Bug
 > **Name:** bug-task-sections-flattened (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready
+> **Status:** In Progress — Phase 1 (started 2026-08-28)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
 > **Area:** packages/sync-core/src/normalize.js, packages/linear/assets/core/linear.config.md
 > **Stack:** worktree
@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Group tasks by their source heading | ⬜ | [01-group-by-heading.md](01-group-by-heading.md) |
+| 1 | Group tasks by their source heading | 🔄 | [01-group-by-heading.md](01-group-by-heading.md) |
 | 2 | Measure the churn, and document the projection | ⬜ | [02-churn-and-docs.md](02-churn-and-docs.md) |
 
 ## Open questions
@@ -113,6 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-28 | Ready | backlog | Reuben Greaves |
+| 2026-08-28 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
