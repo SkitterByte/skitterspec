@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-task-sections-flattened (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-28)
+> **Status:** Complete (2026-08-28)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
@@ -102,7 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Group tasks by their source heading | ✅ | [01-group-by-heading.md](01-group-by-heading.md) |
-| 2 | Measure the churn, and document the projection | 🔄 | [02-churn-and-docs.md](02-churn-and-docs.md) |
+| 2 | Measure the churn, and document the projection | ✅ | [02-churn-and-docs.md](02-churn-and-docs.md) |
 
 ## Open questions
 
@@ -114,6 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-28 | Ready | backlog | Reuben Greaves |
 | 2026-08-28 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-28 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -124,3 +125,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-28 — Chose heading-mapping over per-section parsing (Decision 1) to
   avoid disturbing the subtree scan that `bug-task-subtree-bullets-dropped`
   installed.
+- 2026-08-28 — Phase 2: churn measured — **1 of 6 linked specs** changes its
+  projection, `feat-linear-body-round-trip`, the one spec here whose phase files
+  use `## Tasks — 2a/2b` sub-headings. Its plan is `create=0 update=4`, and those
+  4 were already pending as pre-existing drift, so the fix adds no re-push of its
+  own. Decision 4 predicted 2 of 91 phase files; both are in that spec.
+- 2026-08-28 — Completed; both phases done, 576 tests green (569 before). Nothing
+  deferred. Ships in the next release of both distributions.
