@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-defer-phase-subissues (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 2 (started 2026-08-28)
+> **Status:** Complete (2026-08-28)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
@@ -108,6 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-28 | Ready | backlog | Reuben Greaves |
 | 2026-08-28 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-28 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -127,3 +128,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   shipped example pins it, so real exposure is a hand-written junk value — which
   now throws on load rather than silently doing nothing. Same trade
   `mapping.tasks` already makes; worth calling out at release time.
+- 2026-08-28 — Phase 2: dropped the planned pseudo-comment key in
+  `linear.config.json.example`. It is clean comment-free JSON copied verbatim
+  into each new project, so the note would ship as cruft; `linear.config.md`
+  carries it instead.
+- 2026-08-28 — Completed; both phases done, **605 tests green** (584 before).
+  Verified the new guards bite: disabling the deferral predicate turns 9 of them
+  red. Nothing deferred.
