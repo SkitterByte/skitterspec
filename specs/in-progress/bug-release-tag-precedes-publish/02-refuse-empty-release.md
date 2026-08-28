@@ -1,6 +1,6 @@
-# Phase 2 — Refuse a release with nothing to ship ⬜
+# Phase 2 — Refuse a release with nothing to ship 🔄
 
-> **Status:** Not started
+> **Status:** In progress
 
 **Goal:** a bump whose tarball would be byte-identical to the last one is
 refused, unless the operator says it is a deliberate version alignment.

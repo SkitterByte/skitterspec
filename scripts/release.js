@@ -155,13 +155,23 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
     })
   }
 
-  steps.push({ phase: 'local', cmd: `git tag ${tag}`, argv: ['git', 'tag', tag], desc: `tag ${tag}` })
+  // Publish BEFORE tagging. `sh` throws on a non-zero exit, so a failed publish
+  // aborts the run — and if the tag were cut first it would survive that abort,
+  // asserting a release npm does not have (skitterspec@16.3.1, tagged and
+  // committed, never published, silently superseded by 16.3.2). Tagging last
+  // inverts the failure: a publish that succeeds and then fails to tag leaves a
+  // real published version to be tagged by hand, which is recoverable and
+  // visible. A tag pointing at nothing is neither.
+  //
+  // The tag stays `phase: 'local'` so `--yes` without `--publish` — the "I prep,
+  // you publish" half — still tags exactly as before.
   steps.push({
     phase: 'publish',
     cmd: `pnpm publish --filter ${npm} --access public --no-git-checks`,
     argv: ['pnpm', 'publish', '--filter', npm, '--access', 'public', '--no-git-checks'],
     desc: 'build (prepack) + publish to npm',
   })
+  steps.push({ phase: 'local', cmd: `git tag ${tag}`, argv: ['git', 'tag', tag], desc: `tag ${tag}` })
 
   // Never executed — printed for the operator to run when ready.
   const followUp = [`git push`, `git push origin ${tag}`]

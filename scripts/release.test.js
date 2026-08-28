@@ -117,8 +117,8 @@ test('buildPlan for a bump emits ordered local steps then publish, and never pus
     'set packages/skitterspec/package.json version → 2.0.1',
     'git add packages/skitterspec/package.json',
     'git commit -m "chore(release): skitterspec@2.0.1"',
-    'git tag skitterspec@2.0.1',
     'pnpm publish --filter @skitterbyte/skitterspec --access public --no-git-checks',
+    'git tag skitterspec@2.0.1',
   ])
 
   // the publish step is the only one gated behind the publish level
@@ -159,7 +159,7 @@ test('buildPlan steps carry an executable argv; the commit message is one token'
   assert.deepStrictEqual(commit.argv, ['git', 'commit', '-m', 'chore(release): skitterspec@2.0.1'])
 })
 
-test('buildPlan for an equal version skips bump/commit and just tags + publishes', () => {
+test('buildPlan for an equal version skips bump/commit and just publishes + tags', () => {
   const plan = buildPlan({
     name: 'skitterspec',
     npm: '@skitterbyte/skitterspec',
@@ -171,8 +171,8 @@ test('buildPlan for an equal version skips bump/commit and just tags + publishes
   assert.strictEqual(plan.needsBump, false)
   const cmds = plan.steps.map((s) => s.cmd)
   assert.deepStrictEqual(cmds, [
-    'git tag skitterspec@2.0.0',
     'pnpm publish --filter @skitterbyte/skitterspec --access public --no-git-checks',
+    'git tag skitterspec@2.0.0',
   ])
 })
 
@@ -224,4 +224,39 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
 // PACKAGES is the small, closed registry the rest keys off.
 test('PACKAGES holds exactly the two publishable distributions', () => {
   assert.deepStrictEqual(Object.keys(PACKAGES).sort(), ['skitterspec', 'skitterspec-linear'])
+})
+
+// A tag cut BEFORE the publish asserts a release npm may not have. `sh` throws on
+// a non-zero exit, so a failed `pnpm publish` aborted the run with the tag
+// already written — which is how skitterspec@16.3.1 came to be tagged, committed
+// and absent from npm, silently superseded by 16.3.2.
+test('the tag is cut only after the publish step', () => {
+  const plan = buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '2.0.0',
+    nextVersion: '2.0.1',
+    level: 'publish',
+  })
+  const publishAt = plan.steps.findIndex((s) => s.phase === 'publish')
+  const tagAt = plan.steps.findIndex((s) => /^git tag /.test(s.cmd))
+  assert.ok(publishAt !== -1 && tagAt !== -1, 'both steps present')
+  assert.ok(publishAt < tagAt, 'publish must precede the tag')
+})
+
+// ...but the tag is still a LOCAL step, so `--yes` without `--publish` — the
+// "I prep, you publish" half — keeps tagging as it always did.
+test('the tag stays a local step, and stays last', () => {
+  const plan = buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '2.0.0',
+    nextVersion: '2.0.1',
+    level: 'publish',
+  })
+  const tagStep = plan.steps[plan.steps.length - 1]
+  assert.match(tagStep.cmd, /^git tag /, 'the tag is the last step')
+  assert.strictEqual(tagStep.phase, 'local', 'and still runs without --publish')
 })

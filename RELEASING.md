@@ -43,6 +43,16 @@ The tool escalates by flag — **a bare run changes nothing**:
   `--yes`; `--no-git-checks` since the tool runs its own guards). The package's
   `prepack` runs `build-dist.js` to assemble the self-contained tree.
 
+**The tag is cut last, after the publish succeeds.** A failed publish therefore
+leaves no tag, so the tag list only ever claims releases that reached npm. The
+inverse failure — a publish that succeeds and then fails to tag — is the
+deliberate trade: you are left with a real published version to tag by hand,
+which is visible and recoverable, whereas a tag pointing at a version npm does
+not have is discovered by a consumer hitting `ETARGET`. (That is not theoretical:
+`skitterspec@16.3.1` was tagged, committed and never published, and was found
+from outside.) Under `--yes` alone the tag still runs — it is the last local step
+either way.
+
 It **never runs `git push`**. When it's done it prints the push commands for you
 to run when ready — see below.
 

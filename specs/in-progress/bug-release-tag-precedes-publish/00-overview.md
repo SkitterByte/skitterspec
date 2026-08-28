@@ -103,8 +103,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Tag only after a successful publish | 🔄 | [01-tag-after-publish.md](01-tag-after-publish.md) |
-| 2 | Refuse a release with nothing to ship | ⬜ | [02-refuse-empty-release.md](02-refuse-empty-release.md) |
+| 1 | Tag only after a successful publish | ✅ | [01-tag-after-publish.md](01-tag-after-publish.md) |
+| 2 | Refuse a release with nothing to ship | 🔄 | [02-refuse-empty-release.md](02-refuse-empty-release.md) |
 
 ## Open questions
 
