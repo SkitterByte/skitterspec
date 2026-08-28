@@ -44,6 +44,17 @@ const OWNERSHIP = Object.freeze(['both', 'pull', 'push'])
 // box ticked in the tracker is overwritten by the next push.
 const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
 
+// When a phase becomes a sub-issue.
+//   subissue — always, from the spec's first push (default)
+//   deferred — only once the work starts: a spec sitting in `backlog` (or
+//              `cancelled` without ever having started) projects the issue
+//              alone, so adopting sync on a long backlog costs one call per
+//              spec instead of one per spec PLUS one per phase. A phase that
+//              already carries an id keeps projecting either way — one-way sync
+//              has no delete, so withholding a LINKED sub-issue would freeze it
+//              in the tracker rather than remove it.
+const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred'])
+
 const DEFAULT_CONFIG = Object.freeze({
   // `projectId` is the project picker's DEFAULT, not a mandate: `/spec` and the
   // first `/spec-push` offer the team's projects and pre-select this one; empty
@@ -201,6 +212,12 @@ function mergeConfig(base, parsed) {
           `(expected one of ${TASK_MAPPINGS.join('|')})`,
       )
     }
+    if (!PHASE_MAPPINGS.includes(base.mapping.phases)) {
+      throw new Error(
+        `Invalid ${CONFIG_FILE}: mapping.phases = ${JSON.stringify(base.mapping.phases)} ` +
+          `(expected one of ${PHASE_MAPPINGS.join('|')})`,
+      )
+    }
   }
 
   if (isObject(parsed.states)) {
@@ -266,4 +283,5 @@ module.exports = {
   CONFIG_FILE,
   OWNERSHIP,
   TASK_MAPPINGS,
+  PHASE_MAPPINGS,
 }

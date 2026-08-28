@@ -15,7 +15,7 @@
  * Date.now(). `recordPush` writes the snapshot sidecar.
  */
 
-const { normalizeLocal } = require('./normalize.js')
+const { normalizeLocal, phasesWithheld } = require('./normalize.js')
 const { planChanges, snapshotOf, isEmptyPlan } = require('./compare.js')
 const { readBase, writeBase } = require('./base.js')
 const { detectLegacyMirror } = require('./legacy.js')
@@ -30,6 +30,10 @@ function projectionOf(snapshotDir, config) {
     description: local.description ?? null,
     status: local.workflowState ?? null,
     subIssues: Array.isArray(local.subIssues) ? local.subIssues : [],
+    // How many phases `mapping.phases: 'deferred'` is holding back. Reporting
+    // only — `snapshotOf`/`specIssueHash` read named fields, so this never
+    // reaches a hash and cannot make an unchanged spec look edited.
+    phasesWithheld: phasesWithheld(snapshotDir, config),
   }
 }
 
@@ -43,6 +47,10 @@ function push({ dir, snapshotDir, identifier, config }) {
   // skill that applies this plan is exactly the consumer that would miss them.
   const legacy = detectLegacyMirror({ dir, snapshotDir, identifier, config })
   if (legacy) plan.legacy = legacy
+  // Same reasoning as `legacy`: carried ON THE PLAN, not as a stderr warning,
+  // because `--json` routes warnings to stderr and the skill applying the plan
+  // is the consumer that most needs to know the missing sub-issues are deliberate.
+  if (projection.phasesWithheld) plan.phasesDeferred = projection.phasesWithheld
   return { ok: true, empty: isEmptyPlan(plan), plan, projection }
 }
 

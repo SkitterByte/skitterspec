@@ -38,10 +38,18 @@ function configWithProject(projectId) {
   return { ...neutralConfig(), linear: { teamKey: '', teamId: 'T1', projectId } }
 }
 
-test('the projection carries no project — only description, status, subIssues', () => {
+test('the projection carries no project — only the pushed fields, plus reporting', () => {
   const { dir } = specTree()
   const projection = projectionOf(dir, configWithProject('proj-a'))
-  assert.deepStrictEqual(Object.keys(projection).sort(), ['description', 'status', 'subIssues'])
+  // Deliberately exact: the point is that nothing new sneaks into the projection
+  // unnoticed. `phasesWithheld` is reporting-only — it names no Linear object and
+  // never reaches a hash (see the snapshot test below).
+  assert.deepStrictEqual(Object.keys(projection).sort(), [
+    'description',
+    'phasesWithheld',
+    'status',
+    'subIssues',
+  ])
 })
 
 test('the plan never carries a project, on create or update', () => {

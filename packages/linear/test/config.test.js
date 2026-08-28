@@ -11,6 +11,7 @@ const {
   DEFAULT_CONFIG,
   CONFIG_FILE,
   OWNERSHIP,
+  PHASE_MAPPINGS,
 } = require('../src/config.js')
 
 function tmpDir() {
@@ -124,9 +125,11 @@ test('states merge field-by-field', () => {
 
 test('ignores unknown keys for forward-compat', () => {
   const dir = tmpDir()
-  writeConfig(dir, { wibble: true, mapping: { unknown: 'x', phases: 'issue' } })
+  // `specFolder` is the free-form known key here: `phases` and `tasks` are both
+  // validated enums, so neither can stand in for "a known key, any value".
+  writeConfig(dir, { wibble: true, mapping: { unknown: 'x', specFolder: 'ticket' } })
   const { config } = loadLinearConfig(dir)
-  assert.strictEqual(config.mapping.phases, 'issue')
+  assert.strictEqual(config.mapping.specFolder, 'ticket')
   assert.strictEqual(config.wibble, undefined)
   assert.strictEqual(config.mapping.unknown, undefined)
 })
@@ -209,6 +212,28 @@ test('mapping.tasks accepts checklist and none', () => {
     writeConfig(dir, { mapping: { tasks: mode } })
     assert.strictEqual(loadLinearConfig(dir).config.mapping.tasks, mode)
   }
+})
+
+test('mapping.phases accepts subissue and deferred, and defaults to subissue', () => {
+  assert.strictEqual(loadLinearConfig(tmpDir()).config.mapping.phases, 'subissue')
+  for (const mode of ['subissue', 'deferred']) {
+    const dir = tmpDir()
+    writeConfig(dir, { mapping: { phases: mode } })
+    assert.strictEqual(loadLinearConfig(dir).config.mapping.phases, mode)
+  }
+})
+
+test('an unknown mapping.phases throws rather than degrading to subissue', () => {
+  // A misspelt `defered` that quietly read as `subissue` is the failure this
+  // option exists to prevent: the adopter sets it precisely to stop a long
+  // backlog costing a call per phase, and would get the old cost with no signal.
+  const dir = tmpDir()
+  writeConfig(dir, { mapping: { phases: 'defered' } })
+  assert.throws(() => loadLinearConfig(dir), /mapping\.phases/)
+})
+
+test('PHASE_MAPPINGS is exactly subissue|deferred', () => {
+  assert.deepStrictEqual([...PHASE_MAPPINGS], ['subissue', 'deferred'])
 })
 
 test('an unknown mapping.tasks throws rather than degrading to none', () => {

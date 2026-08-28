@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-defer-phase-subissues (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-28)
+> **Status:** In Progress — Phase 2 (started 2026-08-28)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-28
@@ -95,7 +95,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Withhold unstarted phases from the projection | ⬜ | [01-withhold-projection.md](01-withhold-projection.md) |
+| 1 | Withhold unstarted phases from the projection | ✅ | [01-withhold-projection.md](01-withhold-projection.md) |
 | 2 | Surface the deferral: CLI, `/spec-go`, docs | ⬜ | [02-surface-and-docs.md](02-surface-and-docs.md) |
 
 ## Open questions
@@ -117,3 +117,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   breakdown still reaches the tracker — just when the work starts.
 - 2026-08-28 — Opt-in over new-default, and an automatic `/spec-go` push, both
   chosen by the maintainer (Decisions 2, 6).
+- 2026-08-28 — Phase 1: the withheld count was first hung off `normalizeLocal`'s
+  return, which two existing tests defend as *exactly* the configured field set.
+  Kept that contract and exposed the count as `phasesWithheld(snapshotDir,
+  config)` instead — a second read of a few small files, in exchange for a
+  reporting-only value that cannot drift into the synced shape or a hash.
+- 2026-08-28 — Phase 1: validating `mapping.phases` tightens a key that was
+  previously free-form and inert. Only `subissue` was ever documented and the
+  shipped example pins it, so real exposure is a hand-written junk value — which
+  now throws on load rather than silently doing nothing. Same trade
+  `mapping.tasks` already makes; worth calling out at release time.

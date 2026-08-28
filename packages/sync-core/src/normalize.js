@@ -564,13 +564,57 @@ function bucketFromPath(snapshotDir) {
   return LIFECYCLE_BUCKETS.includes(parent) ? parent : null
 }
 
+// Lifecycle buckets in which a spec's work has not begun: never started, or
+// abandoned without ever starting. Under `mapping.phases: 'deferred'` these are
+// the states in which phases are not yet worth minting as sub-issues.
+const UNSTARTED_BUCKETS = ['backlog', 'cancelled']
+
+/**
+ * Which phases the projection sends, and how many the `deferred` mapping is
+ * holding back. Pure — split out so both the projection and the CLI's "N phases
+ * deferred" line read the SAME predicate rather than two copies of it.
+ *
+ * Only UNLINKED phases are withheld. A phase that already carries an id keeps
+ * projecting whatever the mode: one-way sync has no delete op, so withholding a
+ * live sub-issue would not remove it from the tracker — it would freeze it there,
+ * never updated again. That makes switching a project to `deferred` safe.
+ */
+// The spec's lifecycle status as projected: its folder bucket, unless the
+// overview frontmatter pins `spec_status`. Shared by the projection and by
+// `phasesWithheld` so the two can never disagree about whether work has started.
+function specStatus(snapshotDir, frontmatter) {
+  return frontmatter && frontmatter.spec_status != null
+    ? String(frontmatter.spec_status)
+    : bucketFromPath(snapshotDir)
+}
+
+function phaseProjection(phases, workflowState, config) {
+  const named = phases.filter((p) => p.name)
+  const deferring =
+    (config.mapping && config.mapping.phases) === 'deferred' && UNSTARTED_BUCKETS.includes(workflowState)
+  const projected = deferring ? named.filter((p) => p.id != null) : named
+  return { projected, withheld: named.length - projected.length }
+}
+
 function normalizeLocal(snapshotDir, config) {
   const { frontmatter, title, sections, phases } = readSnapshot(snapshotDir, config)
+  const tasksMode = (config.mapping && config.mapping.tasks) || 'checklist'
+  // Status is the spec's lifecycle bucket. The folder is the source of truth; an
+  // explicit `spec_status` frontmatter key overrides it if present. Resolved
+  // BEFORE the sub-issue projection because deferral withholds phases by this
+  // status — so the issue's state and its sub-issues always agree on whether the
+  // work has started, however that status was arrived at.
+  const workflowState = specStatus(snapshotDir, frontmatter)
+  const { projected, withheld } = phaseProjection(phases, workflowState, config)
+
   // Phases sync as sub-issues whenever `subIssues` is in the pushed projection,
   // so strip the `## Phases` index from the description to avoid duplicating it
-  // (as prose AND as sub-issues) in the Linear mirror.
-  const phasesProjected = !!(config.sync.fieldOwnership && 'subIssues' in config.sync.fieldOwnership)
-  const tasksMode = (config.mapping && config.mapping.tasks) || 'checklist'
+  // (as prose AND as sub-issues) in the Linear mirror. While deferral is holding
+  // a phase back, that index is the ONLY place the phase appears — stripping it
+  // too would leave a backlog issue with no phase breakdown at all — so it stays
+  // until the sub-issues arrive to replace it.
+  const phasesProjected =
+    !!(config.sync.fieldOwnership && 'subIssues' in config.sync.fieldOwnership) && withheld === 0
   const extracted = {
     description: buildDescription(
       title,
@@ -584,15 +628,30 @@ function normalizeLocal(snapshotDir, config) {
     // Linear issue state via `config.states` at push time. Tasks ride along in
     // the description as a read-only checklist (`mapping.tasks`), never as
     // individually-synced objects.
-    subIssues: phases
-      .filter((p) => p.name)
-      .map((p) => ({ id: p.id, ref: p.phase, name: p.name, goal: subIssueBody(p, tasksMode), state: p.state })),
-    // Status is the spec's lifecycle bucket. The folder is the source of truth;
-    // an explicit `spec_status` frontmatter key overrides it if present.
-    workflowState:
-      frontmatter.spec_status != null ? String(frontmatter.spec_status) : bucketFromPath(snapshotDir),
+    subIssues: projected.map((p) => ({
+      id: p.id,
+      ref: p.phase,
+      name: p.name,
+      goal: subIssueBody(p, tasksMode),
+      state: p.state,
+    })),
+    workflowState,
   }
   return toFieldSet(extracted, config)
+}
+
+/**
+ * How many phases `mapping.phases: 'deferred'` is currently holding back for
+ * this spec — 0 in every other mode.
+ *
+ * Deliberately NOT a key on `normalizeLocal`'s return: that is the configured
+ * field set and nothing else, so a reporting-only value cannot drift into the
+ * synced shape (or a hash). Callers that want to SAY "N phases deferred" ask for
+ * it, at the cost of a second read of a handful of small files.
+ */
+function phasesWithheld(snapshotDir, config) {
+  const { frontmatter, phases } = readSnapshot(snapshotDir, config)
+  return phaseProjection(phases, specStatus(snapshotDir, frontmatter), config).withheld
 }
 
 // --- remote projection ------------------------------------------------------
@@ -758,6 +817,8 @@ function stateSuggestions(config, workspaceStates) {
 module.exports = {
   stateSuggestions,
   normalizeLocal,
+  phaseProjection,
+  phasesWithheld,
   lintPhases,
   readSnapshot,
   parseFrontmatter,
