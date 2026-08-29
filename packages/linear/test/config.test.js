@@ -12,6 +12,8 @@ const {
   CONFIG_FILE,
   OWNERSHIP,
   PHASE_MAPPINGS,
+  TRANSPORTS,
+  DEFAULT_KEY_ENV,
 } = require('../src/config.js')
 
 function tmpDir() {
@@ -243,4 +245,33 @@ test('an unknown mapping.tasks throws rather than degrading to none', () => {
   const dir = tmpDir()
   writeConfig(dir, { mapping: { tasks: 'checklists' } })
   assert.throws(() => loadLinearConfig(dir), /mapping\.tasks/)
+})
+
+// --- apply transport + key variable -----------------------------------------
+
+test('auth.keyEnv defaults to LINEAR_API_KEY and names a variable, not a key', () => {
+  assert.strictEqual(DEFAULT_CONFIG.auth.keyEnv, DEFAULT_KEY_ENV)
+  assert.strictEqual(DEFAULT_KEY_ENV, 'LINEAR_API_KEY')
+  const dir = tmpDir()
+  writeConfig(dir, { auth: { keyEnv: 'WORK_LINEAR_KEY' } })
+  assert.strictEqual(loadLinearConfig(dir).config.auth.keyEnv, 'WORK_LINEAR_KEY')
+})
+
+test('apply.transport defaults to empty — decided at run time by key presence', () => {
+  assert.strictEqual(DEFAULT_CONFIG.apply.transport, '')
+  const dir = tmpDir()
+  writeConfig(dir, { apply: { transport: 'mcp' } })
+  assert.strictEqual(loadLinearConfig(dir).config.apply.transport, 'mcp')
+})
+
+test('an unknown apply.transport throws rather than degrading to mcp', () => {
+  // Same reasoning as the mapping enums: a misspelt `api` that quietly became
+  // MCP would look like a deliberate choice while silently costing the speedup.
+  const dir = tmpDir()
+  writeConfig(dir, { apply: { transport: 'graphql' } })
+  assert.throws(() => loadLinearConfig(dir), /apply\.transport/)
+})
+
+test('TRANSPORTS is exactly api|mcp', () => {
+  assert.deepEqual([...TRANSPORTS], ['api', 'mcp'])
 })

@@ -55,6 +55,15 @@ const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
 //              in the tracker rather than remove it.
 const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred'])
 
+// How `spec-sync apply` reaches Linear. `api` talks to the GraphQL API directly;
+// `mcp` prints the plan for the skill to apply over MCP, as it always has.
+const TRANSPORTS = Object.freeze(['api', 'mcp'])
+
+// The environment variable a Linear personal API key is read from, unless
+// `auth.keyEnv` names another. The config names the VARIABLE, never the key —
+// nothing secret is ever written to the repo.
+const DEFAULT_KEY_ENV = 'LINEAR_API_KEY'
+
 const DEFAULT_CONFIG = Object.freeze({
   // `projectId` is the project picker's DEFAULT, not a mandate: `/spec` and the
   // first `/spec-push` offer the team's projects and pre-select this one; empty
@@ -85,6 +94,12 @@ const DEFAULT_CONFIG = Object.freeze({
   }),
   snapshot: Object.freeze({ overviewFile: '00-overview.md' }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
+  // `keyEnv` names the env var holding the personal API key. It is a NAME, not a
+  // key: putting the secret itself here would commit it.
+  auth: Object.freeze({ keyEnv: DEFAULT_KEY_ENV }),
+  // `transport` is the default for `spec-sync apply --via`. Empty means "decide
+  // at run time": use the API when a key is present, MCP when it isn't.
+  apply: Object.freeze({ transport: '' }),
   sync: Object.freeze({
     baseDir: 'specs/.core/linear-base',
     backupDir: 'specs/.core/linear-backups',
@@ -121,6 +136,8 @@ function defaults() {
     states: { ...DEFAULT_CONFIG.states },
     snapshot: { ...DEFAULT_CONFIG.snapshot },
     branch: { ...DEFAULT_CONFIG.branch },
+    auth: { ...DEFAULT_CONFIG.auth },
+    apply: { ...DEFAULT_CONFIG.apply },
     sync: {
       baseDir: DEFAULT_CONFIG.sync.baseDir,
       backupDir: DEFAULT_CONFIG.sync.backupDir,
@@ -234,6 +251,22 @@ function mergeConfig(base, parsed) {
     assign(base.branch, parsed.branch, 'pattern', 'string')
   }
 
+  if (isObject(parsed.auth)) {
+    assign(base.auth, parsed.auth, 'keyEnv', 'string')
+  }
+
+  if (isObject(parsed.apply)) {
+    assign(base.apply, parsed.apply, 'transport', 'string?')
+    // Loud on a typo, like the mapping enums: a misspelt transport must not
+    // quietly fall back to MCP and look like a deliberate choice.
+    if (base.apply.transport && !TRANSPORTS.includes(base.apply.transport)) {
+      throw new Error(
+        `Invalid ${CONFIG_FILE}: apply.transport = ${JSON.stringify(base.apply.transport)} ` +
+          `(expected one of ${TRANSPORTS.join('|')})`,
+      )
+    }
+  }
+
   if (isObject(parsed.sync)) {
     assign(base.sync, parsed.sync, 'baseDir', 'string')
     assign(base.sync, parsed.sync, 'backupDir', 'string')
@@ -284,4 +317,6 @@ module.exports = {
   OWNERSHIP,
   TASK_MAPPINGS,
   PHASE_MAPPINGS,
+  TRANSPORTS,
+  DEFAULT_KEY_ENV,
 }

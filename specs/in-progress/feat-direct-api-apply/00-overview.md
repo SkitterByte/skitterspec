@@ -108,17 +108,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | GraphQL adapter + credential resolution | ⬜ | [01-api-adapter.md](01-api-adapter.md) |
+| 1 | GraphQL adapter + credential resolution | ✅ | [01-api-adapter.md](01-api-adapter.md) |
 | 2 | `spec-sync apply` for one spec, end to end | ⬜ | [02-apply-command.md](02-apply-command.md) |
 | 3 | Wire `/spec-push` to it, MCP preserved | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
 | 4 | Bulk `apply --all <bucket>` | ⬜ | [04-bulk-apply.md](04-bulk-apply.md) |
 
 ## Open questions
 
-- [ ] None blocking. One detail to confirm during phase 1: Linear's current
-      `Authorization` header form for a personal API key (the reporter believes
-      the raw key with no `Bearer` prefix but has not executed a call). Verify
-      against Linear's docs before writing the adapter, not after.
+- [x] Resolved in phase 1: the personal API key goes in `Authorization` raw,
+      with no `Bearer` prefix (confirmed against Linear's developer docs). The
+      reporter's belief was correct.
 
 ## State log
 
@@ -136,3 +135,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   measured; it is the right check, it just should not be the model's job.
 - 2026-08-29 — Chose the existing `makeAdapter` interface as the transport
   contract after finding it has no consumer outside its own tests.
+- 2026-08-29 — Phase 1 done. Confirmed the raw-key `Authorization` form against
+  Linear's docs, closing the spec's only open question. Added `listIssueStates`
+  beyond the MCP op set so the API path resolves workspace states itself; the
+  contract test therefore asserts "no MCP op missing" rather than set equality.
+  The API needs a state *id* where MCP took a *name*, so `stateIdFor` is the one
+  extra hop the transport adds.
