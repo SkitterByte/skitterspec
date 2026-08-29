@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | GraphQL adapter + credential resolution | ✅ | [01-api-adapter.md](01-api-adapter.md) |
-| 2 | `spec-sync apply` for one spec, end to end | ⬜ | [02-apply-command.md](02-apply-command.md) |
+| 2 | `spec-sync apply` for one spec, end to end | ✅ | [02-apply-command.md](02-apply-command.md) |
 | 3 | Wire `/spec-push` to it, MCP preserved | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
 | 4 | Bulk `apply --all <bucket>` | ⬜ | [04-bulk-apply.md](04-bulk-apply.md) |
 
@@ -141,3 +141,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   contract test therefore asserts "no MCP op missing" rather than set equality.
   The API needs a state *id* where MCP took a *name*, so `stateIdFor` is the one
   extra hop the transport adds.
+- 2026-08-29 — Phase 2 done. Extracted `verifyLines` from `spec-sync verify` so
+  `apply` runs the same comparison rather than a second implementation that could
+  disagree about what counts as lost text. Resumability is proven by a test that
+  fails the second write, asserts the first object is stamped and the second is
+  not, then re-runs and asserts only the missing object is created.

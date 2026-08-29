@@ -45,6 +45,7 @@ const {
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const { loadLinearConfig } = require('./config.js')
+const { resolveApiKey, makeApiAdapter, stateIdFor } = require('./api.js')
 
 // Resolve a spec argument to its snapshot dir. Accepts a spec name/folder found
 // under specs/** (preferred) or a literal path to a snapshot directory.
@@ -474,6 +475,18 @@ function specSyncVerify(dir, config, specArg, flags, out) {
   }
 
   const identifier = specIdentifier(snapshotDir, config)
+  out.write(verifyLines(snapshotDir, config, stored, identifier).join('\n') + '\n')
+  return 0
+}
+
+/**
+ * The verify comparison itself, as reportable lines.
+ *
+ * Split out of `specSyncVerify` so `apply` runs the SAME check on the read-back
+ * it does itself, rather than a second implementation that could disagree about
+ * what counts as lost text.
+ */
+function verifyLines(snapshotDir, config, stored, identifier) {
   const projection = projectionOf(snapshotDir, config)
   const checks = []
   if (typeof stored.issue === 'string') checks.push(['issue', projection.description, stored.issue])
@@ -506,8 +519,206 @@ function specSyncVerify(dir, config, specArg, flags, out) {
   }
   if (!bad) lines.push(`  ${checks.length} description(s) round-tripped intact`)
   else lines.push('     the repo is unchanged and still correct; re-push to overwrite the mirror')
+  return lines
+}
+
+/**
+ * `spec-sync apply <spec> --plan <file> [--via api|mcp] [--project <id>]`
+ *
+ * Apply a push plan to Linear **without any description passing through the
+ * agent**. `/spec-push` used to hand the plan to the model, which re-emitted
+ * every description as generated tokens — twice, once to write and once for the
+ * verify read-back — making throughput a function of decode speed rather than of
+ * Linear's API. This does the writes, the read-back, the stamping and the
+ * snapshot in one call.
+ *
+ * Two guarantees shape the code:
+ *
+ *   - **Nothing is written until everything is checked.** A legacy plan, a
+ *     missing key, or a `config.states` name the workspace lacks all fail before
+ *     the first mutation. A half-applied plan is the one outcome worse than an
+ *     unapplied one.
+ *   - **Each id is stamped the moment its object exists**, not batched at the
+ *     end. An interrupted run therefore leaves the objects it did create linked,
+ *     so the next run's plan sees them as updates and mints no duplicates. That
+ *     is the whole resumability story — there is no separate ledger to disagree
+ *     with the spec files.
+ *
+ * On the MCP transport it writes nothing and prints the plan for the skill to
+ * apply, exactly as before.
+ */
+async function specSyncApply(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+
+  if (!flags.plan) {
+    out.write(
+      'spec-sync apply: refusing to run without --plan <file>.\n' +
+        '  Get one with: skitterspec spec-sync push <spec> --json > plan.json\n',
+    )
+    return 1
+  }
+  let plan
+  try {
+    plan = JSON.parse(fs.readFileSync(flags.plan, 'utf-8'))
+  } catch (error) {
+    out.write(`spec-sync apply: cannot read --plan ${flags.plan}: ${error.message}\n`)
+    return 1
+  }
+
+  // A pre-9.0 mirror reads as unlinked, so its plan is all-creates and applying
+  // it would abandon the live objects. The API path must not do that faster than
+  // a human can read about it.
+  if (plan.legacy) {
+    out.write(
+      ['spec-sync apply: refusing — this spec is linked under the pre-9.0 model.', ...legacyLines(plan.legacy)].join('\n') + '\n',
+    )
+    return 1
+  }
+
+  if (isEmptyPlan(plan)) {
+    out.write('spec-sync apply: nothing to apply — the mirror is up to date.\n')
+    return 0
+  }
+
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+
+  if (transport === 'mcp') {
+    out.write(
+      [
+        'spec-sync apply: transport = mcp (no writes made here)',
+        key.ok ? '  --via mcp was requested' : `  ${key.error}`,
+        '  apply the plan over MCP as /spec-push describes, then run:',
+        '    skitterspec spec-sync stamp <spec> --issue … [--sub <ref>=… …]',
+        '    skitterspec spec-sync record <spec>',
+      ].join('\n') + '\n',
+    )
+    return 0
+  }
+  if (!key.ok) {
+    // --via api (or apply.transport: api) was explicit, so this is a failure
+    // rather than a quiet fallback — and it happens before any write.
+    out.write(`spec-sync apply: refusing — ${key.error}\n`)
+    return 1
+  }
+
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  const teamId = (config.linear && config.linear.teamId) || null
+  // `specIdentifier` falls back to the FOLDER NAME so the engine is usable before
+  // a spec is linked — which makes it useless for deciding whether to create or
+  // update. `linkedIdentifier` is the one that answers "has this been pushed?".
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
+  const lines = ['spec-sync apply: transport = api']
+  const result = { issue: null, subIssues: {} }
+
+  try {
+    // Resolve every state id BEFORE the first write, so a bad config.states
+    // value cannot strand the spec mid-apply.
+    const states = await adapter.listIssueStates(teamId)
+    const stateId = (bucket) => (bucket ? stateIdFor(bucket, config, states) : null)
+    const wanted = new Set()
+    if (plan.issue && plan.issue.state) wanted.add(plan.issue.state)
+    for (const s of (plan.subIssues && plan.subIssues.create) || []) if (s.state) wanted.add(s.state)
+    for (const s of (plan.subIssues && plan.subIssues.update) || []) if (s.state) wanted.add(s.state)
+    for (const bucket of wanted) stateId(bucket)
+
+    // 1. The spec issue. No identifier yet → this push mints it.
+    let parentId = null
+    if (!identifier) {
+      const created = await adapter.createIssue(withoutNull({
+        title: readSnapshot(snapshotDir, config).title,
+        teamId,
+        projectId: flags.project || (config.linear && config.linear.projectId) || null,
+        description: plan.issue && plan.issue.description,
+        stateId: stateId(plan.issue && plan.issue.state),
+      }))
+      if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
+      parentId = created.id
+      // Stamped NOW: an interrupt after this point must not mint a second issue.
+      writeFrontmatter(snapshotDir, config, { linear_identifier: created.identifier, linear_url: created.url })
+      result.issue = { id: created.id, identifier: created.identifier, url: created.url }
+      lines.push(`  issue created: ${created.identifier}`)
+    } else {
+      const existing = await adapter.readIssue(identifier)
+      if (!existing || !existing.id) throw new Error(`no Linear issue found for ${identifier}`)
+      parentId = existing.id
+      result.issue = { id: existing.id, identifier: existing.identifier, url: existing.url }
+      if (plan.issue) {
+        await adapter.updateIssue(existing.id, withoutNull({
+          description: plan.issue.description,
+          stateId: stateId(plan.issue.state),
+        }))
+        lines.push(`  issue updated: ${identifier}`)
+      }
+    }
+
+    // 2. Sub-issue creates — each stamped as it lands, for the same reason.
+    for (const sub of (plan.subIssues && plan.subIssues.create) || []) {
+      const created = await adapter.createSubIssue(parentId, withoutNull({
+        title: sub.name,
+        teamId,
+        description: sub.goal,
+        stateId: stateId(sub.state),
+      }))
+      if (!created || !created.identifier) throw new Error(`Linear returned no issue for sub-issue ${sub.ref}`)
+      const file = resolvePhaseFile(snapshotDir, sub.ref)
+      if (!file) throw new Error(`no phase file for ref ${sub.ref}`)
+      stampSubIssueId(snapshotDir, file, created.identifier)
+      result.subIssues[sub.ref] = created.identifier
+      lines.push(`  sub-issue created: ${sub.ref} → ${created.identifier}`)
+    }
+
+    // 3. Sub-issue updates — already linked, nothing to stamp.
+    for (const sub of (plan.subIssues && plan.subIssues.update) || []) {
+      await adapter.updateIssue(sub.id, withoutNull({
+        title: sub.name,
+        description: sub.goal,
+        stateId: stateId(sub.state),
+      }))
+      result.subIssues[sub.ref || sub.id] = sub.id
+      lines.push(`  sub-issue updated: ${sub.id}`)
+    }
+
+    // 4. Read back what Linear stored and run the SAME check `verify` runs.
+    const stored = { issue: undefined, subIssues: {} }
+    if (result.issue) {
+      const back = await adapter.readIssue(result.issue.id)
+      if (back && typeof back.description === 'string') stored.issue = back.description
+    }
+    for (const [ref, id] of Object.entries(result.subIssues)) {
+      const back = await adapter.readIssue(id)
+      if (back && typeof back.description === 'string') stored.subIssues[ref] = back.description
+    }
+    lines.push(...verifyLines(snapshotDir, config, stored, result.issue ? result.issue.identifier : identifier).map((l) => `  ${l}`))
+
+    // 5. Record the snapshot from the now-stamped files, so the next push is empty.
+    const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config })
+    lines.push(`  snapshot: ${path.relative(dir, file)}`)
+  } catch (error) {
+    // Whatever landed before the failure is already stamped, so re-running
+    // resumes rather than duplicating — say so instead of leaving it ambiguous.
+    out.write(
+      [...lines, `  !! ${error.message}`, '  ids stamped so far are saved — re-run to resume without duplicating'].join('\n') + '\n',
+    )
+    return 1
+  }
+
+  if (flags.json) {
+    out.write(JSON.stringify(result, null, 2) + '\n')
+    return 0
+  }
   out.write(lines.join('\n') + '\n')
   return 0
+}
+
+// Drop null/undefined so a GraphQL input never carries a key it has no value
+// for — Linear rejects an explicit null where it expects a field to be absent.
+function withoutNull(obj) {
+  const out = {}
+  for (const [k, v] of Object.entries(obj)) if (v !== null && v !== undefined) out[k] = v
+  return out
 }
 
 async function specSync(rest, io = {}) {
@@ -516,12 +727,15 @@ async function specSync(rest, io = {}) {
   const [sub, ...args] = rest
   let dir = io.cwd || process.cwd()
   const positional = []
-  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null }
+  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
     else if (args[i] === '--stored') flags.stored = path.resolve(args[++i])
+    else if (args[i] === '--plan') flags.plan = path.resolve(args[++i])
+    else if (args[i] === '--via') flags.via = args[++i]
+    else if (args[i] === '--project') flags.project = args[++i]
     else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
     else if (args[i] === '--skip-state-check') flags.skipStateCheck = true
     else if (args[i] === '--issue') flags.issue = args[++i]
@@ -530,6 +744,12 @@ async function specSync(rest, io = {}) {
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
+  // Injection seam, alongside cwd/out/err: `env` supplies the key lookup and
+  // `adapter`/`fetch` stand in for the network, so `apply` is exercised end to
+  // end offline. Production passes none of them and gets the real thing.
+  flags.env = io.env || process.env
+  if (io.adapter) flags.adapter = io.adapter
+  if (io.fetch) flags.fetch = io.fetch
 
   const { config, present } = loadLinearConfig(dir)
   if (!present) {
@@ -553,6 +773,8 @@ async function specSync(rest, io = {}) {
       return 0
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out) || 0
+    case 'apply':
+      return (await specSyncApply(dir, config, positional[0], flags, out)) || 0
     case 'verify':
       return specSyncVerify(dir, config, positional[0], flags, out) || 0
     case 'linked':
@@ -562,6 +784,7 @@ async function specSync(rest, io = {}) {
       out.write('Usage: skitterspec spec-sync <normalize|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
         '       skitterspec spec-sync push <spec> --workspace-states <file> [--json] [--skip-state-check]\n' +
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
+        '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n')
       return 0
