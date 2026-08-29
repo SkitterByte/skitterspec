@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-direct-api-apply (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-08-29)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
 > **Area:** packages/linear (new api.js, cli-sync, config, spec-push skill), packages/sync-core (push)
 > **Stack:** worktree
@@ -125,6 +125,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-29 | Ready | backlog | Reuben Greaves |
+| 2026-08-29 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
