@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-phase-content-dropped (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-08-29)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
@@ -140,6 +140,7 @@ synthesised for a phase file that has none.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-29 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-29 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -160,3 +161,4 @@ synthesised for a phase file that has none.
   occurrence count rather than absence.
 - 2026-08-29 — Fixed: phase bodies are projected, not rebuilt; test green, full
   suite 637 passing.
+- 2026-08-29 — Completed; all phases done, tests green (637 passing, build clean).
