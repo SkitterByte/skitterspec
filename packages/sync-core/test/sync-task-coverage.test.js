@@ -26,7 +26,13 @@ const path = require('node:path')
 
 const { findTaskBlocks, fenceMask } = require('../src/task-block.js')
 
-const TASK_LINE = /^([ \t]*)-\s*\[[ xX]\]\s/
+// Any single-character mark, matching the parser. This read `[ xX]` and so
+// inherited the exact blind spot it existed to catch: a `[~]` task opened no
+// subtree here, and the lines under it were never required to be claimed
+// (bug-phase-content-dropped). Fenced lines are still skipped, and that one IS
+// deliberate — a fence is not a task subtree, and the projection now passes it
+// through verbatim rather than harvesting it.
+const TASK_LINE = /^([ \t]*)-\s*\[[^\]]\]\s/
 const indentWidth = (l) => l.length - l.trimStart().length
 
 // Every line index that lies inside some task's list subtree, computed from

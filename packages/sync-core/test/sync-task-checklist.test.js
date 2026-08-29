@@ -57,7 +57,7 @@ const PHASE = [
 
 test('checklist mode carries the tasks, their state and their nesting', () => {
   const goal = normalizeLocal(specDir(PHASE), withTasks('checklist')).subIssues[0].goal
-  assert.match(goal, /^make the engine work\./, 'goal still leads')
+  assert.match(goal, /^\*\*Goal:\*\* make the engine work\./, 'goal still leads, label and all')
   assert.match(goal, /^## Tasks$/m, 'has a Tasks heading')
   assert.match(goal, /^- \[x\] Add the parser$/m, 'a done task stays done')
   assert.match(goal, /^- \[ \] Wire the CLI$/m, 'an open task stays open')
@@ -81,7 +81,9 @@ test('a legacy inline (KEY-123) is stripped from the mirrored task', () => {
 test('a phase with no tasks gets no empty Tasks heading', () => {
   const body = ['# Phase 1 — Engine ⬜', '', '**Goal:** make the engine work.', ''].join('\n')
   const goal = normalizeLocal(specDir(body), withTasks('checklist')).subIssues[0].goal
-  assert.strictEqual(goal, 'make the engine work.')
+  // Nothing is synthesised: a heading appears in the body only if the phase file
+  // has one. (The old projection invented `## Tasks`; this one never does.)
+  assert.strictEqual(goal, '**Goal:** make the engine work.')
 })
 
 test('an example checkbox inside a fenced block is not mirrored as a task', () => {
@@ -100,7 +102,12 @@ test('an example checkbox inside a fenced block is not mirrored as a task', () =
     '',
   ].join('\n')
   const goal = normalizeLocal(specDir(body), withTasks('checklist')).subIssues[0].goal
-  assert.doesNotMatch(goal, /not a real task/)
+  // The example SURVIVES — it is content the author wrote, and dropping it is
+  // the bug this projection exists to stop. What must not happen is it being
+  // harvested as a real task: it stays inside its fence, exactly as written,
+  // rather than joining the checklist as a bullet of its own.
+  assert.match(goal, /```markdown\n- \[ \] not a real task\n```/, 'fence intact')
+  assert.equal((goal.match(/not a real task/g) || []).length, 1, 'in the fence and nowhere else')
 })
 
 test('the checklist joins the diff, so editing a task alone is an update', () => {
@@ -266,10 +273,15 @@ test('checkboxes under no heading still project as ## Tasks', () => {
   assert.equal((goal.match(/^## /gm) || []).length, 1, 'exactly one heading, as today')
 })
 
-test('a heading holding no checkboxes is not emitted', () => {
+// Inverted by bug-phase-content-dropped. This asserted that a section holding no
+// checkboxes was dropped — which is precisely how a phase file's prose went
+// missing from the mirror. A sub-issue body is a projection of the file, not a
+// filtered task list, so a section the author wrote is content and survives.
+test('a heading holding no checkboxes is still emitted, with its prose', () => {
   const body = PHASE_WITH_SECTIONS + '\n## Notes\n\nJust prose, no boxes.\n'
   const goal = normalizeLocal(specDir(body), withTasks('checklist')).subIssues[0].goal
-  assert.ok(!/## Notes/.test(goal), 'an empty section is noise, not fidelity')
+  assert.match(goal, /## Notes/)
+  assert.match(goal, /Just prose, no boxes\./)
 })
 
 test('a heading inside a fence never becomes a section', () => {
@@ -289,6 +301,11 @@ test('a heading inside a fence never becomes a section', () => {
     '',
   ].join('\n')
   const goal = normalizeLocal(specDir(body), withTasks('checklist')).subIssues[0].goal
-  assert.ok(!/## Acceptance/.test(goal), 'an example heading is not a real section')
-  assert.ok(!/an example criterion/.test(goal), 'nor is its example checkbox a task')
+  // Both lines survive inside the fence — they are the documented example. What
+  // must not happen is either being READ as structure: the heading must not open
+  // a section (which would let a local-only name strip everything after it), and
+  // the checkbox must not be lifted out into the checklist.
+  assert.match(goal, /```md\n## Acceptance\n- \[ \] an example criterion\n```/, 'fence intact')
+  assert.equal((goal.match(/## Acceptance/g) || []).length, 1, 'in the fence and nowhere else')
+  assert.equal((goal.match(/an example criterion/g) || []).length, 1, 'likewise the checkbox')
 })

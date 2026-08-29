@@ -307,7 +307,10 @@ function phaseStateBucket(body) {
 // its checkbox state, its text, and the inline Linear issue identifier if present
 // (`… (SKI-123)`). Returns null for a non-task line.
 function parseTaskLine(line) {
-  const m = /^\[([ xX])\]\s*(.*)$/.exec(line)
+  // Any single-character mark, matching the parser (`TASK_START_RE`). Only
+  // `x`/`X` is done — every other mark (`~`, `>`, `-` …) is a project's own
+  // vocabulary, carried through verbatim rather than coerced to unchecked.
+  const m = /^\[([^\]])\]\s*(.*)$/.exec(line)
   if (!m) return null
   const done = m[1].toLowerCase() === 'x'
   let text = m[2].trim()
@@ -320,44 +323,31 @@ function parseTaskLine(line) {
   return { id, text, done }
 }
 
-/**
- * Split a phase's task blocks into the `##` sections they were written under.
- *
- * The checklist used to be one flat list under a hardcoded `## Tasks`, so a
- * criterion written under `## Acceptance` arrived in the mirror as an ordinary
- * open task. Nothing was lost — it was just unreadable.
- *
- * Grouping is done by MAPPING blocks onto headings, not by re-parsing the body
- * section by section: `findTaskBlocks` tracks open task subtrees across a
- * continuous body, and slicing that body at every heading would change what a
- * block claims at a section boundary. A heading inside a fence is not a heading
- * (`fenceMask`), and the phase file's own `#` H1 is not a section.
- *
- * @returns {Array<{heading:string|null, tasks:string[]}>} in source order;
- *   `heading` is null for blocks that precede every heading, and a heading with
- *   no blocks under it never appears.
- */
-function groupTasksByHeading(lines, blocks, renderTask) {
-  const inFence = fenceMask(lines)
-  const headings = []
-  for (let i = 0; i < lines.length; i++) {
-    if (inFence[i]) continue
-    const m = /^(#{2,6})\s+(.*\S)\s*$/.exec(lines[i])
-    if (m) headings.push({ line: i, heading: `${m[1]} ${m[2]}` })
-  }
+// Tasks used to be grouped onto their source headings here, because the body was
+// rebuilt from harvested task lines and the headings had to be put back. The
+// projection now emits the phase file itself, so the headings never leave in the
+// first place (bug-phase-content-dropped) and the grouping is gone with them.
 
-  const groups = []
-  for (const b of blocks) {
-    let heading = null
-    for (const h of headings) {
-      if (h.line >= b.start) break
-      heading = h.heading
-    }
-    const last = groups[groups.length - 1]
-    if (last && last.heading === heading) last.tasks.push(renderTask(b))
-    else groups.push({ heading, tasks: [renderTask(b)] })
-  }
-  return groups
+// The phase's stated purpose, in either shape people actually write it: an
+// inline `**Goal:** …` paragraph, or a `## Goal` section. Only the inline form
+// was recognised — so the phase files written the other way (4 of the 96 in this
+// repo, all of them recent) projected an empty goal.
+function phaseGoal(body) {
+  const inline = /\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/.exec(body)
+  if (inline) return inline[1]
+  return parseSections(body).sections.Goal || ''
+}
+
+// One task block back to a single markdown line. `findTaskBlocks` also returns
+// the plain sub-bullets written underneath a task; they carry no checkbox, so
+// they render as the bullet their author used — emitting `- [ ]` here would
+// invent a task that does not exist in the repo. Any inline `(KEY-123)` stamped
+// on a legacy task line is stripped: those ids were per-task issues we no longer
+// create, and they read as noise in the mirror.
+function renderTaskBlockLine(b) {
+  const parsed = parseTaskLine(`[${b.checkbox ? b.mark : ' '}] ${b.text}`)
+  const text = parsed ? parsed.text : b.text
+  return b.checkbox ? `${b.indent}- [${b.mark}] ${text}` : `${b.indent}${b.marker} ${text}`
 }
 
 // Read the phase files (01-*.md, 02-*.md …) in execution order. Each yields its
@@ -382,25 +372,13 @@ function readPhaseFiles(snapshotDir) {
       // Collapsed, not just captured: the goal becomes a milestone description,
       // and Linear may canonicalize a soft line break away on save. Collapsing
       // both sides keeps a wrapped goal from diffing forever.
-      const goal = collapseHyphenAware((/\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|$)/.exec(body) || [])[1] || '')
+      const goal = collapseHyphenAware(phaseGoal(body))
       // Rendered as markdown checklist lines, ready to drop into a sub-issue
       // description: indentation kept so nesting survives, each bullet keeping
-      // the marker its author wrote, and any inline `(KEY-123)` stamped on a legacy task
-      // line stripped — those ids were per-task issues we no longer create, and
-      // they read as noise in the mirror.
+      // the marker its author wrote.
       const lines = body.split('\n')
-      const renderTask = (b) => {
-        // `findTaskBlocks` also returns the plain sub-bullets written underneath
-        // a task. They carry no checkbox, so they render as the bullet their
-        // author used — emitting `- [ ]` here would invent a task that does not
-        // exist in the repo.
-        const parsed = parseTaskLine(`[${b.checkbox ? b.mark : ' '}] ${b.text}`)
-        const text = parsed ? parsed.text : b.text
-        return b.checkbox ? `${b.indent}- [${b.mark}] ${text}` : `${b.indent}${b.marker} ${text}`
-      }
       const blocks = findTaskBlocks(lines)
-      const tasks = blocks.map(renderTask)
-      const taskGroups = groupTasksByHeading(lines, blocks, renderTask)
+      const tasks = blocks.map(renderTaskBlockLine)
       return {
         phase: file.replace(/\.md$/, ''),
         file,
@@ -415,7 +393,11 @@ function readPhaseFiles(snapshotDir) {
         emoji: headingEmoji(body),
         statusLine: phaseStatusLine(body),
         tasks,
-        taskGroups,
+        // The raw body and the parsed blocks, so `subIssueBody` can project the
+        // file rather than rebuild it from fragments. Not part of the pushed
+        // field set — `toFieldSet` picks the projection's keys explicitly.
+        lines,
+        blocks,
       }
     })
 }
@@ -539,19 +521,68 @@ function buildDescription(title, sections, localOnlySections, extraSkip = []) {
 // push. Without it a sub-issue is a title and one sentence, which is too thin to
 // act on; with it the phase is legible to someone working in the tracker without
 // tasks becoming individually-synced objects again.
-function subIssueBody(phase, tasksMode) {
-  if (tasksMode !== 'checklist' || !phase.tasks.length) return flattenNestedTables(phase.goal)
-  const parts = []
-  if (phase.goal) parts.push(phase.goal, '')
-  // One section per source heading, in source order. Checkboxes written before
-  // any heading keep the `## Tasks` default, so a phase file with a single task
-  // section — every one in this repo's corpus but two — projects unchanged.
-  const groups = phase.taskGroups && phase.taskGroups.length ? phase.taskGroups : [{ heading: null, tasks: phase.tasks }]
-  groups.forEach((group, i) => {
-    if (i) parts.push('')
-    parts.push(group.heading || '## Tasks', '', ...group.tasks)
-  })
-  return flattenNestedTables(parts.join('\n'))
+function subIssueBody(phase, tasksMode, localOnlySections) {
+  if (tasksMode !== 'checklist') return flattenNestedTables(phase.goal)
+  return flattenNestedTables(projectPhaseBody(phase, localOnlySections))
+}
+
+/**
+ * Project a phase file into its sub-issue body: the file as written, with each
+ * task bullet replaced by its rendered single-line form.
+ *
+ * This used to REBUILD the body from two harvested fragments — the `**Goal:**`
+ * paragraph and the task lines `findTaskBlocks` claimed — and silently dropped
+ * everything neither covered: prose, whole `##` sections, and any table or
+ * fenced block nested under a task. `buildDescription` never had that problem
+ * because it projects the overview section by section, so the fix is to make the
+ * phase body work the same way — lossless by construction rather than by
+ * enumerating the shapes we remembered.
+ *
+ * Only two things are deliberately left out, and both are pushed as their own
+ * field, so keeping them would duplicate:
+ *
+ *   - the `#` h1, projected as the sub-issue's `name`;
+ *   - the `> **Status:**` line, projected as its `state`.
+ *
+ * Local-only sections are stripped exactly as they are from the description.
+ */
+function projectPhaseBody(phase, localOnlySections) {
+  const skip = new Set(localOnlySections || [])
+  const lines = phase.lines || []
+  const inFence = fenceMask(lines)
+  // Where each task block starts, so the walk can emit its rendered form and
+  // jump the lines it claims. Line-indexed splicing is what `task-block.js` is
+  // built for; everything it does NOT claim is content, and passes through.
+  const blockAt = new Map()
+  for (const b of phase.blocks || []) blockAt.set(b.start, b)
+
+  const out = []
+  let dropping = false // inside a local-only section
+  let seenTitle = false
+  for (let i = 0; i < lines.length; i++) {
+    const block = blockAt.get(i)
+    if (block) {
+      if (!dropping) out.push(renderTaskBlockLine(block))
+      i = block.end - 1
+      continue
+    }
+    const line = lines[i]
+    if (!inFence[i]) {
+      const h2 = /^##\s+(.*\S)\s*$/.exec(line)
+      if (h2) dropping = skip.has(h2[1].trim())
+      if (!seenTitle && /^#\s+/.test(line)) {
+        seenTitle = true
+        continue
+      }
+      if (/^>\s*\*\*Status:\*\*/.test(line)) continue
+    }
+    if (!dropping) out.push(line)
+  }
+  // Collapse the blank runs the removals leave behind, and trim the ends.
+  return out
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 /**
@@ -633,7 +664,7 @@ function normalizeLocal(snapshotDir, config) {
       id: p.id,
       ref: p.phase,
       name: p.name,
-      goal: subIssueBody(p, tasksMode),
+      goal: subIssueBody(p, tasksMode, config.sync.localOnlySections),
       state: p.state,
     })),
     workflowState,

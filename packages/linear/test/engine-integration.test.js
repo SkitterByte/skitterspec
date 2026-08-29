@@ -71,7 +71,7 @@ test('the shipped default projects phase tasks as a checklist', () => {
 
   const { plan } = push({ dir, snapshotDir: specDir, identifier: ID, config })
   const sub = plan.subIssues.create[0]
-  assert.match(sub.goal, /^a durable place\./, 'the goal still leads')
+  assert.match(sub.goal, /^\*\*Goal:\*\* a durable place\./, 'the goal still leads, label and all')
   assert.match(sub.goal, /^## Tasks$/m)
   assert.match(sub.goal, /^- \[x\] Wire the enqueue path$/m, 'done state survives')
   assert.match(sub.goal, /^- \[ \] Add the outbox table\. More detail here\.$/m, 'wrapped task is one line')

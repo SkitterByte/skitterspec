@@ -77,7 +77,7 @@ test('a dropped character is reported with both sides', async () => {
 test('a sub-issue is checked against its phase goal by ref', async () => {
   const dir = fixtureRepo()
   const r = await run(
-    ['verify', 'feat-checked', '--stored', storedFile(dir, { subIssues: { '01-engine': 'go.' } })],
+    ['verify', 'feat-checked', '--stored', storedFile(dir, { subIssues: { '01-engine': '**Goal:** go.' } })],
     dir,
   )
   assert.match(r.out, /round-tripped intact/)

@@ -7,8 +7,11 @@ description: Push a spec up to its linked Linear issue (repo → Linear, one-way
 
 Repo → Linear. The repo is the **source of truth**; Linear is a **generated
 mirror**. A spec is a Linear **issue**; each phase is a **sub-issue** (a child
-issue), and a phase's tasks are mirrored into that sub-issue's description as a
-read-only checklist — never as issues of their own. This skill
+issue), and the phase file is mirrored into that sub-issue's description as
+written — its prose, its sections, and its tasks as a read-only checklist, never
+as issues of their own. Only the phase's h1 and `> **Status:**` line are left
+out, because both are pushed as fields of their own (the sub-issue's title and
+state). This skill
 computes what changed since the last push and applies it — it never reads Linear
 content back or merges. A person editing the mirror in Linear will see it
 overwritten on the next push.

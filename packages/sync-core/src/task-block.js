@@ -16,15 +16,23 @@ const DEFAULT_WIDTH = 80
 
 // Start of a task bullet. The continuation lines that follow are any indented,
 // non-empty lines that are not themselves a bullet or heading.
-const TASK_START_RE = /^([ \t]*)-\s*\[([ xX])\]\s*(.*)$/
+//
+// The mark is ANY single character, not just ` `/`x`. Projects use `[~]` for
+// in-progress, `[>]` for deferred, `[-]` for dropped, and a parser that only
+// knew ` xX` matched none of them — so the whole bullet was claimed by no block
+// and vanished from the mirror (bug-phase-content-dropped). What the mark MEANS
+// is nobody's business here; it is carried through verbatim and re-emitted as
+// written. Only `x`/`X` counts as done (see `parseTaskLine`).
+const TASK_START_RE = /^([ \t]*)-\s*\[([^\]])\]\s*(.*)$/
 const CONTINUATION_RE = /^[ \t]+\S/
 const BLOCK_BREAK_RE = /^[ \t]*(?:[-*+]\s|\d+\.\s|#{1,6}\s|>|\||```)/
 // A list-marker line (unordered or ordered). Distinguished from other block
 // breaks because a wrapped continuation can legitimately begin with one.
 const LIST_MARKER_RE = /^[ \t]*(?:[-*+]|\d+\.)\s/
 // A checkbox bullet — unambiguously a task, so it always starts its own block,
-// at any indent. (A bare list marker is ambiguous; a checkbox never is.)
-const CHECKBOX_RE = /^[ \t]*[-*+]\s*\[[ xX]\]/
+// at any indent. (A bare list marker is ambiguous; a checkbox never is.) Any
+// mark, matching TASK_START_RE.
+const CHECKBOX_RE = /^[ \t]*[-*+]\s*\[[^\]]\]/
 // A bare list bullet — no checkbox — captured with its marker so a sub-bullet
 // is re-rendered as the `-`/`*`/`1.` its author wrote.
 const BULLET_RE = /^([ \t]*)([-*+]|\d+\.)\s+(.*)$/
@@ -181,7 +189,9 @@ function findTaskBlocks(lines) {
         indent: t[1],
         marker: '-',
         checkbox: true,
-        mark: t[2].toLowerCase() === 'x' ? 'x' : ' ',
+        // Case-folded for `x` (the one mark whose meaning we act on), otherwise
+        // verbatim — a project's `~`/`>`/`-` must round-trip as written.
+        mark: t[2].toLowerCase() === 'x' ? 'x' : t[2],
         text: collapseHyphenAware(parts.join('\n')),
       })
       open.push(indent)
@@ -189,9 +199,10 @@ function findTaskBlocks(lines) {
       continue
     }
 
-    // A bare bullet is claimed ONLY inside an open task's subtree. Outside one
-    // it is ordinary prose in the phase file: the projection is the task list,
-    // not the whole body, and widening it here would mirror a Notes section.
+    // A bare bullet is claimed ONLY inside an open task's subtree — there it is
+    // part of the task and must be re-rendered with it. Outside one it is
+    // ordinary prose, which the projection now passes through verbatim, so
+    // claiming it here would only re-wrap a list nobody asked us to touch.
     if (!open.length) continue
     const b = BULLET_RE.exec(line)
     if (!b) continue
