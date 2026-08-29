@@ -1,6 +1,6 @@
 ---
 name: spec-push
-description: Push a spec up to its linked Linear issue (repo → Linear, one-way). The repo is the source of truth; Linear is a generated mirror. A spec is a Linear issue and each phase a sub-issue, with the phase's tasks mirrored read-only into that sub-issue's description. Runs `skitterspec spec-sync push` to get a create/update plan, applies it over MCP (issue description/state, phase sub-issues), stamps the returned ids back into the spec, then records the snapshot. Never reads Linear content back. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-push", "push to Linear", "update the Linear issue from this spec".
+description: Push a spec up to its linked Linear issue (repo → Linear, one-way). The repo is the source of truth; Linear is a generated mirror. A spec is a Linear issue and each phase a sub-issue, with the phase's tasks mirrored read-only into that sub-issue's description. Runs `skitterspec spec-sync push` to get a create/update plan, then applies it with `spec-sync apply` — straight to Linear's API when a key is set (descriptions never pass through the model), or over MCP when it isn't — stamping the returned ids back into the spec and recording the snapshot. Never merges Linear content back. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-push", "push to Linear", "update the Linear issue from this spec".
 ---
 
 # /spec-push — send a spec up to Linear (one-way)
@@ -23,21 +23,37 @@ tell the user how to enable Linear sync and stop.
 
 Use the argument, else the spec in context; ask if unclear.
 
-## 2. Connect, and validate the issue states
+## 2. Pick the transport, and get the workspace states
 
-Discover the issue **read + create/update** tools at runtime (`get_issue`,
-`save_issue` — a single upsert covers create and update), plus the **project
-list** tool if this push will mint the spec issue (see the picker below — it is
-optional; without it the picker is skipped, not failed). If Linear isn't
-connected or a needed tool is missing, relay the fix and stop, **writing
-nothing**.
+**Ask the engine first — it decides, not you:**
 
-Then fetch the workspace's issue workflow-state **names** and write them to a
-file as a JSON array (e.g. `["Backlog","In Progress","Done","Canceled"]`). Step 3
-requires that file: `push` **refuses to run** without it, because Linear silently
-ignores an unknown issue state — the description lands, the issue never moves,
-and nothing errors. If the check reports a name that isn't in the workspace, stop
-and fix `specs/.core/linear.config.json`.
+```
+skitterspec spec-sync states --json
+```
+
+With a Linear API key set (`LINEAR_API_KEY`, or whatever `auth.keyEnv` names) the
+engine talks to Linear directly. That is the **fast path**, and it is the default
+whenever a key is present: descriptions never pass through you, in either
+direction. Without a key it falls back to MCP and everything below works as it
+always has.
+
+- **`transport = api`** → the command prints the workspace's state names as a
+  JSON array. Write it to a file and carry on to step 3.
+  **Skip the MCP tool discovery entirely** — you make no Linear calls here.
+- **`transport = mcp`** → do the MCP work: discover the issue
+  **read + create/update** tools at runtime (`get_issue`, `save_issue` — a single
+  upsert covers create and update), plus the **project list** tool if this push will
+  mint the spec issue (see the picker below — optional; without it the picker is
+  skipped, not failed). If Linear isn't connected or a needed tool is missing,
+  relay the fix and stop, **writing nothing**. Then fetch the workspace's issue
+  workflow-state **names** yourself and write them to a file as a JSON array
+  (e.g. `["Backlog","In Progress","Done","Canceled"]`).
+
+Either way you end up with a states file. Step 3 requires it:
+`push` **refuses to run** without one, because Linear silently ignores an unknown
+issue state — the description lands, the issue never moves, and nothing errors.
+If the check reports a name that isn't in the workspace, stop and fix
+`specs/.core/linear.config.json`.
 
 **If the check refuses, offer to fix it.** The refusal lists every configured
 name the workspace lacks, the workspace's real state names, and — where the
@@ -88,7 +104,37 @@ mirror and **abandons** the existing one. **Stop.** Relay `legacy.keys`,
 point at `MIGRATION.md` → "v8 → v9", and apply nothing until the user has
 migrated or explicitly confirms they want a new mirror.
 
-## 4. Apply the plan (order matters)
+## 4. Apply the plan
+
+**On `transport = api`, this is one command:**
+
+```
+skitterspec spec-sync apply <spec> --plan plan.json
+```
+
+It creates and updates the issue and its sub-issues, reads each description back
+and runs the same check as step 4b, stamps every returned id into the spec, and
+records the snapshot. **Steps 4a–5 below are then already done** — skip to step 6
+and report what it printed, including the transport.
+
+Two things it guarantees, so you don't have to manage them:
+
+- **It writes nothing until everything checkable has been checked** — a legacy
+  plan, a missing key, or a `config.states` name the workspace lacks all fail
+  before the first write.
+- **It stamps each id the moment its object exists.** If a run is interrupted,
+  re-run the same command: the objects it already created are linked, so the new
+  plan sees them as updates and no duplicate is minted. Never "start again" by
+  hand.
+
+If it prints **`transport = mcp`** it has written nothing and is telling you to
+apply the plan yourself — do steps 4a, 4b and 5 below. Pass `--via mcp` to force
+that deliberately.
+
+If the picker is needed (a first push minting the issue), run it first and pass
+the chosen project through as `--project <id>`.
+
+## 4a. Apply it yourself — the MCP path (order matters)
 
 1. **Spec issue** → if the overview has no `linear_identifier`, this push
    **mints** it: run the picker in **Picking the Linear Project** below, then
@@ -106,13 +152,15 @@ migrated or explicitly confirms they want a new mirror.
 Priority, labels, cycles and comments are Linear-native triage — do **not** push
 them; they're the PM's.
 
-## 4b. Verify what Linear actually stored
+## 4b. Verify what Linear actually stored — the MCP path
+
+*(On the API path `apply` already did this. Skip.)*
 
 Linear reserialises markdown on save, and it does not always preserve what you
 sent — a table nested in a list item comes back with characters missing from
 every data cell, silently. Check before you record the push as good.
 
-For each issue you created or updated in step 4, read its `description` back
+For each issue you created or updated in step 4a, read its `description` back
 (`get_issue`) and write what you got to a JSON file:
 
 ```json
@@ -136,7 +184,9 @@ This is **not a pull**. Nothing read here is merged, stamped, or written
 anywhere; the repo remains the only source of truth. Do it before step 5 so a
 corrupted push is visible before the snapshot records it as good.
 
-## 5. Stamp the ids, then record the snapshot
+## 5. Stamp the ids, then record the snapshot — the MCP path
+
+*(On the API path `apply` already did both. Skip.)*
 
 Write every id you collected back into the spec in **one** call — the engine
 does the file edits, so there is no hand-editing of frontmatter:
@@ -148,7 +198,7 @@ skitterspec spec-sync stamp <spec> \
 ```
 
 Pass `--issue`/`--url` only on the push that minted the spec issue; pass one
-`--sub <ref>=<id>` for every sub-issue **created** in step 4.2 (updates already
+`--sub <ref>=<id>` for every sub-issue **created** in step 4a.2 (updates already
 have their id). It validates every ref and id **before** writing anything and
 exits non-zero having changed nothing if any is wrong — so a typo can't leave the
 spec half-stamped, pointing at an issue that isn't there. Fix what it reports and
@@ -167,7 +217,12 @@ branch so the mirror-link rides in the PR.
 ## 6. Report
 
 Summarise what was created/updated in Linear (the spec issue and its
-sub-issues) and confirm the snapshot was recorded. There is no pull — Linear is
-a generated mirror.
+sub-issues), **say which transport was used**, and confirm the snapshot was
+recorded. There is no pull — Linear is a generated mirror.
+
+Saying the transport matters: on the API path you never saw the descriptions, so
+"pushed 12 sub-issues" is the engine's report, not your observation. If it warned
+that Linear stored different text, relay that — the repo is still correct, and a
+re-push overwrites the mirror.
 
 <!-- seam:spec-project-picker -->

@@ -45,7 +45,7 @@ const {
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const { loadLinearConfig } = require('./config.js')
-const { resolveApiKey, makeApiAdapter, stateIdFor } = require('./api.js')
+const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
 
 // Resolve a spec argument to its snapshot dir. Accepts a spec name/folder found
 // under specs/** (preferred) or a literal path to a snapshot directory.
@@ -523,6 +523,60 @@ function verifyLines(snapshotDir, config, stored, identifier) {
 }
 
 /**
+ * `spec-sync states [--json]` — which transport this repo will use, and on the
+ * API path the workspace's issue state NAMES.
+ *
+ * This exists to break a chicken-and-egg in `/spec-push`: the skill cannot know
+ * whether to do MCP work until it knows the transport, but `push` refuses to run
+ * without `--workspace-states`, which on the MCP path only an MCP call can
+ * supply. Asking the engine first makes the skill linear, and on the API path it
+ * removes the state fetch from the model's work entirely — the same reason
+ * `apply` exists.
+ *
+ * Read-only: fetches states, writes nothing, changes nothing.
+ */
+async function specSyncStates(dir, config, flags, out) {
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+
+  if (transport === 'mcp') {
+    if (flags.json) {
+      out.write(JSON.stringify({ transport: 'mcp', reason: key.ok ? 'requested' : key.error, states: null }, null, 2) + '\n')
+      return 0
+    }
+    out.write(
+      [
+        'spec-sync states: transport = mcp',
+        `  ${key.ok ? '--via mcp was requested' : key.error}`,
+        '  fetch the workspace states over MCP, as /spec-push describes',
+      ].join('\n') + '\n',
+    )
+    return 0
+  }
+  if (!key.ok) {
+    out.write(`spec-sync states: refusing — ${key.error}\n`)
+    return 1
+  }
+
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  const teamId = (config.linear && config.linear.teamId) || null
+  let names
+  try {
+    names = await fetchWorkspaceStates(adapter, teamId)
+  } catch (error) {
+    out.write(`spec-sync states: ${error.message}\n`)
+    return 1
+  }
+  if (flags.json) {
+    // The bare array `--workspace-states` takes, so this can be piped into it.
+    out.write(JSON.stringify(names, null, 2) + '\n')
+    return 0
+  }
+  out.write(`spec-sync states: transport = api\n  ${names.join(', ')}\n`)
+  return 0
+}
+
+/**
  * `spec-sync apply <spec> --plan <file> [--via api|mcp] [--project <id>]`
  *
  * Apply a push plan to Linear **without any description passing through the
@@ -773,6 +827,8 @@ async function specSync(rest, io = {}) {
       return 0
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out) || 0
+    case 'states':
+      return (await specSyncStates(dir, config, flags, out)) || 0
     case 'apply':
       return (await specSyncApply(dir, config, positional[0], flags, out)) || 0
     case 'verify':
@@ -784,6 +840,7 @@ async function specSync(rest, io = {}) {
       out.write('Usage: skitterspec spec-sync <normalize|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
         '       skitterspec spec-sync push <spec> --workspace-states <file> [--json] [--skip-state-check]\n' +
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
+        '       skitterspec spec-sync states [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n')

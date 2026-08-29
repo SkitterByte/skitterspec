@@ -92,6 +92,7 @@ steps 4–5. The two paths converge on the same `stamp` + `record`.
 | Surface | Change | Detail |
 |---------|--------|--------|
 | CLI command | add | `spec-sync apply <spec> --plan <file> [--via] [--all]` |
+| CLI command | add | `spec-sync states [--via] [--json]` — transport + state names |
 | Service | add | `packages/linear/src/api.js` — GraphQL adapter, `makeAdapter` shape |
 | Config key | add | `auth.keyEnv` (names the env var; never the key) |
 | Config key | add | `apply.transport` — optional default for `--via` |
@@ -110,7 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | GraphQL adapter + credential resolution | ✅ | [01-api-adapter.md](01-api-adapter.md) |
 | 2 | `spec-sync apply` for one spec, end to end | ✅ | [02-apply-command.md](02-apply-command.md) |
-| 3 | Wire `/spec-push` to it, MCP preserved | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
+| 3 | Wire `/spec-push` to it, MCP preserved | ✅ | [03-skill-wiring.md](03-skill-wiring.md) |
 | 4 | Bulk `apply --all <bucket>` | ⬜ | [04-bulk-apply.md](04-bulk-apply.md) |
 
 ## Open questions
@@ -146,3 +147,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   disagree about what counts as lost text. Resumability is proven by a test that
   fails the second write, asserts the first object is stamped and the second is
   not, then re-runs and asserts only the missing object is created.
+- 2026-08-29 — Phase 3 done, with one addition to the plan: `spec-sync states`.
+  The skill could not choose a transport before `push` demanded a states file
+  that only MCP could supply, and the alternatives (routine `--skip-state-check`,
+  or the skill guessing from the environment) either hollowed out the state gate
+  or duplicated the engine's key resolution. Recorded as a task and a note on
+  phase 3.

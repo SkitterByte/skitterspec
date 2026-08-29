@@ -25,6 +25,12 @@
   "branch": {
     "pattern": "{type}/{slug}"
   },
+  "auth": {
+    "keyEnv": "LINEAR_API_KEY"
+  },
+  "apply": {
+    "transport": ""
+  },
   "sync": {
     "baseDir": "specs/.core/linear-base",
     "fieldOwnership": {

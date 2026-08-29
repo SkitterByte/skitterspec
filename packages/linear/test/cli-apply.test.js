@@ -316,3 +316,46 @@ test('an empty plan is a clean no-op', async () => {
   assert.match(r.out, /up to date/)
   assert.strictEqual(linear.log.length, 0)
 })
+
+// --- `spec-sync states`: the transport decision, asked before anything else ---
+
+test('with a key it reports the api transport and the workspace state names', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['states'], dir, { adapter: fakeLinear() })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /transport = api/)
+  assert.match(r.out, /Backlog, In Progress, Done, Canceled/)
+})
+
+test('--json prints the bare array --workspace-states takes', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['states', '--json'], dir, { adapter: fakeLinear() })
+  // Piped straight into `push --workspace-states`, so the shape must match what
+  // that flag parses — an array of names, nothing wrapping it.
+  assert.deepEqual(JSON.parse(r.out), ['Backlog', 'In Progress', 'Done', 'Canceled'])
+})
+
+test('without a key it reports mcp and tells the skill to fetch them itself', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['states'], dir, { adapter: fakeLinear(), env: {} })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /transport = mcp/)
+  assert.match(r.out, /LINEAR_API_KEY/)
+  assert.match(r.out, /over MCP/)
+})
+
+test('the mcp --json shape is branchable, and carries no states', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['states', '--json'], dir, { adapter: fakeLinear(), env: {} })
+  const got = JSON.parse(r.out)
+  assert.strictEqual(got.transport, 'mcp')
+  assert.strictEqual(got.states, null, 'null, not [] — an empty array would read as "no states exist"')
+})
+
+test('a states fetch that fails reports the reason rather than an empty list', async () => {
+  const dir = fixtureRepo()
+  const broken = { ...fakeLinear(), async listIssueStates() { throw new Error('Linear API unreachable: ECONNREFUSED') } }
+  const r = await run(['states'], dir, { adapter: broken })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /unreachable/)
+})

@@ -175,6 +175,45 @@ altered is reported with both sides of the first difference. It warns rather tha
 fails — the repo is unaffected and re-pushing overwrites the mirror. This is not
 a pull: nothing read back is merged, stamped or written anywhere.
 
+## How the push reaches Linear — `auth` and `apply`
+
+By default `/spec-push` applies its plan **over MCP**: the assistant makes one
+`save_issue` call per object. That works with no setup at all — MCP carries the
+Linear session you are already signed into — but it means every issue description
+is generated as output tokens, and read back the same way, so a large push is
+bounded by the model rather than by Linear.
+
+Set a **Linear personal API key** and the engine talks to Linear directly
+instead:
+
+```bash
+export LINEAR_API_KEY=lin_api_…      # from Linear → Settings → Security & access
+```
+
+```json
+"auth":  { "keyEnv": "LINEAR_API_KEY" },
+"apply": { "transport": "" }
+```
+
+- **`auth.keyEnv`** names the environment variable the key is read from.
+  It names the **variable, never the key** — nothing secret is ever written to
+  this file or to the repo.
+- **`apply.transport`** pins the transport: `"api"`, `"mcp"`, or `""` (the
+  default) to decide per run — the API when a key is present, MCP when it isn't.
+  `spec-sync apply --via <api|mcp>` overrides it for one run.
+
+With a key present, `/spec-push` runs a single `spec-sync apply`, which writes,
+reads back what Linear stored, stamps the ids into your spec and records the
+snapshot. Descriptions never pass through the assistant in either direction.
+
+**An interrupted run is safe to repeat.** Each id is written into the spec as soon
+as its object exists, so re-running applies only what is still missing.
+It never mints a second copy of an issue it already created. There is no ledger
+to keep in step; the spec files are the record.
+
+Without a key, nothing changes: the MCP path is fully supported and remains the
+default for anyone who never sets one.
+
 ## Deferring sub-issues until a spec starts
 
 `mapping.phases` decides *when* a phase becomes a sub-issue:

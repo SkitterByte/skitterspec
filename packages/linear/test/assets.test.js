@@ -147,3 +147,49 @@ test('linear.config.md documents both fidelity safeguards', () => {
   assert.match(text, /round-trip is verified/, 'the post-push check')
   assert.match(text, /spec files are not modified/i, 'the no-disk-write promise')
 })
+
+// The skill and the CLI have to agree about the transport, or the skill will do
+// MCP work on a path that makes no MCP calls — the exact waste this exists to
+// remove. These pin the contract between them.
+test('/spec-push asks the engine for the transport before doing MCP work', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-push', 'SKILL.md'), 'utf8')
+  assert.match(text, /spec-sync states/, 'names the command that decides')
+  assert.ok(
+    text.indexOf('spec-sync states') < text.indexOf('discover the issue'),
+    'the transport is settled before any tool discovery',
+  )
+  assert.match(text, /transport = api/, 'branches on the api answer')
+  assert.match(text, /transport = mcp/, 'and on the mcp answer')
+})
+
+test('/spec-push applies via the engine on the api path', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-push', 'SKILL.md'), 'utf8')
+  assert.match(text, /spec-sync apply <spec> --plan/, 'names the command')
+  assert.ok(text.indexOf('spec-sync apply') < text.indexOf('## 4a.'), 'before the manual path')
+  assert.match(text, /re-run the same command/, 'says an interrupted run is repeatable')
+})
+
+// The MCP path is not deprecated — someone whose only Linear access is their MCP
+// session must still find a complete set of instructions.
+test('/spec-push keeps the full MCP path as a documented fallback', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-push', 'SKILL.md'), 'utf8')
+  for (const step of ['## 4a.', '## 4b.', '## 5.']) {
+    assert.match(text, new RegExp(step.replace(/[.]/g, '\\.')), `${step} survives`)
+  }
+  assert.match(text, /save_issue/, 'the MCP calls are still spelled out')
+  assert.match(text, /--via mcp/, 'and can be forced')
+})
+
+test('linear.config.md documents the key variable without ever holding a key', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(text, /auth\.keyEnv/, 'the field')
+  assert.match(text, /names the \*\*variable, never the key\*\*/, 'and that it is a name, not a secret')
+  assert.match(text, /apply\.transport/, 'the transport default')
+  assert.match(text, /never mints a second copy/, 'the resumability promise')
+})
+
+test('the example config ships the new blocks so they are discoverable', () => {
+  const example = JSON.parse(fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.json.example'), 'utf8'))
+  assert.strictEqual(example.auth.keyEnv, 'LINEAR_API_KEY')
+  assert.strictEqual(example.apply.transport, '', 'empty = decide per run, the safe default')
+})
