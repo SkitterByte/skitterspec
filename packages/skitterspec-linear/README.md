@@ -82,7 +82,27 @@ On top of the base skills (`/spec`, `/spec-go`, isolation, …):
   phase sub-issues), stamping the returned ids back into the spec.
 - **`spec-sync` CLI** (`skitterspec-linear spec-sync …`) — the deterministic
   engine behind the skills, for CI / local runs:
-  `normalize` · `push` · `stamp` · `record` · `status` · `linked`.
+  `normalize` · `push` · `apply` · `states` · `stamp` · `record` · `verify` ·
+  `status` · `linked`.
+- **A direct-API push path.** Set a Linear personal API key and `/spec-push`
+  applies its plan through the engine instead of one assistant call per issue —
+  descriptions never pass through the model, in either direction:
+
+  ```bash
+  export LINEAR_API_KEY=lin_api_…    # Linear → Settings → Security & access
+  ```
+
+  `auth.keyEnv` names the variable (never the key itself); `apply.transport`
+  pins `api`/`mcp`, or leave it empty to use the API whenever a key is present.
+  `--via mcp` forces the original path for one run.
+  **With no key nothing changes** — the MCP path is fully supported and stays
+  the default for anyone who never sets one.
+- **One-command adoption on an existing repo.**
+  `skitterspec-linear spec-sync apply --all complete` pushes every spec in a
+  lifecycle bucket, reporting what it created, updated, skipped and failed. A
+  spec that fails doesn't stop the rest, and re-running retries only those —
+  every id is written into the spec as soon as its object exists, so nothing is
+  ever duplicated. Needs an API key. See `specs/.core/linear.config.md`.
 
 The shared `/spec`, `/spec-bug` and `/spec-go` skills come composed with the
 Linear steps filled in: `/spec` asks which Linear **Project** the spec belongs to,

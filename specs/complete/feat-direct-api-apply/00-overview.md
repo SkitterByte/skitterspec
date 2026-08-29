@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-direct-api-apply (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases built (2026-08-29)
+> **Status:** Complete (2026-08-29)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
@@ -126,6 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-29 | Ready | backlog | Reuben Greaves |
 | 2026-08-29 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-29 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -164,3 +165,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-29 — Throttling implemented as 429 backoff (honouring `Retry-After`,
   exponential otherwise, capped) rather than a fixed proactive rate, which would
   require inventing a limit to target.
+- 2026-08-29 — Completed; all four phases done, 703 tests green, build clean.
+  At completion the phase-3 task "document in the package README" was found
+  ticked but only half done — `linear.config.md` and the example config had it,
+  the distribution README did not. Finished before completing rather than
+  carrying it. **Deferred, deliberately:** the "250-spec push under five minutes"
+  criterion is unproven (engine time is 0.7s; wall time is network-bound and runs
+  ~2.7–8.3 min depending on latency), and the read-back that accounts for half
+  the requests was kept rather than traded away on an unverified assumption. Both
+  are recorded with ranked follow-ups on phase 4.
