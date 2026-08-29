@@ -24,6 +24,11 @@ const { DEFAULT_KEY_ENV } = require('./config.js')
 
 const ENDPOINT = 'https://api.linear.app/graphql'
 
+// Rate-limit handling. Enough retries to ride out a burst without turning a
+// genuinely stuck run into an unbounded one.
+const MAX_RETRIES = 5
+const MAX_BACKOFF_MS = 60_000
+
 /**
  * Resolve the personal API key from the environment.
  *
@@ -56,46 +61,71 @@ const ISSUE_FIELDS = 'id identifier url title description state { id name }'
  * on an HTTP error, and on a GraphQL `errors` payload — an `apply` that half
  * succeeds must be loud, never silent.
  */
-function makeClient({ apiKey, fetch: fetchImpl, endpoint = ENDPOINT }) {
+function makeClient({ apiKey, fetch: fetchImpl, endpoint = ENDPOINT, sleep, maxRetries = MAX_RETRIES }) {
   const doFetch = fetchImpl || globalThis.fetch
   if (typeof doFetch !== 'function') {
     throw new Error('no fetch available — Node 18+ is required for the API transport')
   }
+  // Injected so the retry path is testable without real delays.
+  const wait = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)))
+
   return async function call(query, variables) {
-    let res
-    try {
-      res = await doFetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Raw, no `Bearer` — see the module comment.
-          Authorization: apiKey,
-        },
-        body: JSON.stringify({ query, variables }),
-      })
-    } catch (cause) {
-      throw new Error(`Linear API unreachable: ${cause && cause.message ? cause.message : cause}`)
+    for (let attempt = 0; ; attempt++) {
+      let res
+      try {
+        res = await doFetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Raw, no `Bearer` — see the module comment.
+            Authorization: apiKey,
+          },
+          body: JSON.stringify({ query, variables }),
+        })
+      } catch (cause) {
+        throw new Error(`Linear API unreachable: ${cause && cause.message ? cause.message : cause}`)
+      }
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(
+          `Linear rejected the API key (HTTP ${res.status}) — check the value of your key environment variable`,
+        )
+      }
+      // Rate limited. A bulk backfill is exactly the workload that hits this, and
+      // failing the run would strand a half-mirrored bucket — so wait and retry
+      // rather than surfacing it. Linear says how long to wait; honour that over
+      // guessing, and fall back to exponential backoff when it doesn't.
+      if (res.status === 429 && attempt < maxRetries) {
+        await wait(retryDelay(res, attempt))
+        continue
+      }
+      if (res.status === 429) {
+        throw new Error(`Linear rate-limited this request and did not recover after ${maxRetries} retries`)
+      }
+      if (!res.ok) throw new Error(`Linear API returned HTTP ${res.status}`)
+      const body = await res.json()
+      if (body && Array.isArray(body.errors) && body.errors.length) {
+        throw new Error(`Linear API error: ${body.errors.map((e) => e.message).join('; ')}`)
+      }
+      return body && body.data
     }
-    if (res.status === 401 || res.status === 403) {
-      throw new Error(
-        `Linear rejected the API key (HTTP ${res.status}) — check the value of your key environment variable`,
-      )
-    }
-    if (!res.ok) throw new Error(`Linear API returned HTTP ${res.status}`)
-    const body = await res.json()
-    if (body && Array.isArray(body.errors) && body.errors.length) {
-      throw new Error(`Linear API error: ${body.errors.map((e) => e.message).join('; ')}`)
-    }
-    return body && body.data
   }
+}
+
+// How long to wait before retrying a 429: the server's `Retry-After` (seconds)
+// when it sends one, else exponential backoff from 1s.
+function retryDelay(res, attempt) {
+  const header = res.headers && typeof res.headers.get === 'function' ? res.headers.get('retry-after') : null
+  const seconds = header != null ? Number(header) : NaN
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, MAX_BACKOFF_MS)
+  return Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS)
 }
 
 /**
  * Wrap a GraphQL client into the typed ops the engine uses — the same set
  * `mcp.js`'s `makeAdapter` returns, so the two are interchangeable.
  */
-function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint } = {}) {
-  const call = makeClient({ apiKey, fetch: fetchImpl, endpoint })
+function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries } = {}) {
+  const call = makeClient({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries })
 
   // Issue mutations return the created/updated issue under a payload wrapper.
   const unwrap = (data, field) => (data && data[field] && data[field].issue) || null
@@ -207,6 +237,7 @@ function stateIdFor(bucket, config, states) {
 
 module.exports = {
   ENDPOINT,
+  MAX_RETRIES,
   resolveApiKey,
   makeClient,
   makeApiAdapter,

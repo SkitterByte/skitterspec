@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-direct-api-apply (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-29)
+> **Status:** In Progress — all phases built (2026-08-29)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | GraphQL adapter + credential resolution | ✅ | [01-api-adapter.md](01-api-adapter.md) |
 | 2 | `spec-sync apply` for one spec, end to end | ✅ | [02-apply-command.md](02-apply-command.md) |
 | 3 | Wire `/spec-push` to it, MCP preserved | ✅ | [03-skill-wiring.md](03-skill-wiring.md) |
-| 4 | Bulk `apply --all <bucket>` | ⬜ | [04-bulk-apply.md](04-bulk-apply.md) |
+| 4 | Bulk `apply --all <bucket>` | ✅ | [04-bulk-apply.md](04-bulk-apply.md) |
 
 ## Open questions
 
@@ -153,3 +153,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   or the skill guessing from the environment) either hollowed out the state gate
   or duplicated the engine's key resolution. Recorded as a task and a note on
   phase 3.
+- 2026-08-29 — Phase 4 done. Measured a 250-spec cold push at
+  **0.7s of engine time** (1000 objects, 3.74 MB, Linear faked). The "5 minute"
+  acceptance criterion is **not claimed**: wall time is network-bound at 8
+  sequential requests per 3-phase spec, which is ~2.7 min at 80ms latency but
+  ~8.3 min at 250ms. Half of those are read-backs that could be dropped by
+  trusting the mutation response — deliberately not done, because that trade
+  weakens the fidelity check `verify` exists to provide, on an unverified
+  assumption. Recorded as a ranked follow-up on phase 4.
+- 2026-08-29 — Throttling implemented as 429 backoff (honouring `Retry-After`,
+  exponential otherwise, capped) rather than a fixed proactive rate, which would
+  require inventing a limit to target.

@@ -359,3 +359,143 @@ test('a states fetch that fails reports the reason rather than an empty list', a
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /unreachable/)
 })
+
+// --- bulk: first-time adoption on an established repo ------------------------
+
+// A repo with several specs in one bucket, plus one already linked.
+function bulkRepo(names = ['feat-one', 'feat-two', 'feat-three'], bucket = 'complete') {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bulk-'))
+  const cfg = path.join(dir, CONFIG_FILE)
+  fs.mkdirSync(path.dirname(cfg), { recursive: true })
+  fs.writeFileSync(cfg, JSON.stringify({ linear: { teamId: 'T1' } }), 'utf-8')
+  for (const name of names) {
+    const folder = path.join(dir, 'specs', bucket, name)
+    fs.mkdirSync(folder, { recursive: true })
+    fs.writeFileSync(path.join(folder, '00-overview.md'), `# ${name}\n\n## Problem\n\nSomething.\n`, 'utf-8')
+    fs.writeFileSync(path.join(folder, '01-engine.md'), '# Phase 1 — Engine ⬜\n\n**Goal:** go.\n', 'utf-8')
+  }
+  return dir
+}
+
+const readSpec = (dir, name, file = '00-overview.md') =>
+  fs.readFileSync(path.join(dir, 'specs', 'complete', name, file), 'utf-8')
+
+test('--all pushes every spec in the bucket in one command', async () => {
+  const dir = bulkRepo()
+  const linear = fakeLinear()
+  const r = await run(['apply', '--all', 'complete'], dir, { adapter: linear })
+
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /3 spec\(s\)/)
+  for (const name of ['feat-one', 'feat-two', 'feat-three']) {
+    assert.match(r.out, new RegExp(`${name}: created`))
+    assert.match(readSpec(dir, name), /linear_identifier/, `${name} is linked`)
+    assert.match(readSpec(dir, name, '01-engine.md'), /linear_issue_id/, `${name}'s phase is linked`)
+  }
+  assert.match(r.out, /created 3 · updated 0 · up to date 0 · failed 0/)
+})
+
+test('--all needs no plan files — it computes each plan itself', async () => {
+  const dir = bulkRepo(['feat-one'])
+  const r = await run(['apply', '--all', 'complete'], dir, { adapter: fakeLinear() })
+  assert.strictEqual(r.code, 0)
+  assert.ok(!fs.existsSync(path.join(dir, 'plan.json')), 'no plan file was needed')
+})
+
+test('a spec already up to date is skipped, not re-pushed', async () => {
+  const dir = bulkRepo(['feat-one'])
+  await run(['apply', '--all', 'complete'], dir, { adapter: fakeLinear() })
+  // Second run: the snapshot now matches, so there is nothing to do.
+  const second = fakeLinear()
+  second.store.set('SKI-1', { id: 'uuid-1', identifier: 'SKI-1', url: 'u', description: 'x' })
+  const r = await run(['apply', '--all', 'complete'], dir, { adapter: second })
+  assert.match(r.out, /feat-one: up to date/)
+  assert.match(r.out, /up to date 1/)
+  assert.strictEqual(second.log.length, 0, 'no writes at all')
+})
+
+test('one spec failing does not stop the rest, and is reported', async () => {
+  const dir = bulkRepo()
+  const linear = fakeLinear()
+  const realCreate = linear.createIssue
+  linear.createIssue = async (input) => {
+    if (input.title === 'feat-two') throw new Error('Linear API error: Entity not found')
+    return realCreate(input)
+  }
+  const r = await run(['apply', '--all', 'complete'], dir, { adapter: linear })
+
+  assert.strictEqual(r.code, 1, 'non-zero so a scripted backfill can be checked')
+  assert.match(r.out, /feat-two: Linear API error: Entity not found/)
+  assert.match(r.out, /created 2 · updated 0 · up to date 0 · failed 1/)
+  assert.match(readSpec(dir, 'feat-one'), /linear_identifier/, 'the spec before it still landed')
+  assert.match(readSpec(dir, 'feat-three'), /linear_identifier/, 'and so did the one after')
+})
+
+test('a failed spec is retried on the next run, and nothing duplicates', async () => {
+  const dir = bulkRepo()
+  const first = fakeLinear()
+  const realCreate = first.createIssue
+  first.createIssue = async (input) => {
+    if (input.title === 'feat-two') throw new Error('boom')
+    return realCreate(input)
+  }
+  await run(['apply', '--all', 'complete'], dir, { adapter: first })
+
+  const second = fakeLinear()
+  for (const [name, id] of [['feat-one', 'SKI-1'], ['feat-three', 'SKI-3']]) {
+    second.store.set(id, { id: `uuid-${id}`, identifier: id, url: 'u', description: 'x' })
+    void name
+  }
+  const r = await run(['apply', '--all', 'complete'], dir, { adapter: second })
+  assert.strictEqual(r.code, 0, 'the retry succeeds')
+  const creates = second.log.filter((c) => c.op === 'createIssue' && !c.input.parentId)
+  assert.strictEqual(creates.length, 1, 'only the spec that failed was created')
+  assert.strictEqual(creates[0].input.title, 'feat-two')
+})
+
+test('a pre-9.0 spec in the bucket is refused and named, never applied silently', async () => {
+  const dir = bulkRepo(['feat-one', 'feat-legacy'])
+  // Give one spec the pre-9.0 keys, which read as unlinked and would all-create.
+  const legacy = path.join(dir, 'specs', 'complete', 'feat-legacy', '00-overview.md')
+  fs.writeFileSync(legacy, '---\nlinear_project_id: "abc"\n---\n\n# feat-legacy\n\n## Problem\n\nOld.\n', 'utf-8')
+
+  const linear = fakeLinear()
+  const r = await run(['apply', '--all', 'complete'], dir, { adapter: linear })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /feat-legacy: pre-9\.0 mirror/)
+  assert.match(r.out, /MIGRATION\.md/)
+  assert.match(r.out, /feat-one: created/, 'the healthy spec still went')
+  assert.doesNotMatch(readSpec(dir, 'feat-legacy'), /linear_identifier/, 'and the legacy one was untouched')
+})
+
+test('the summary is printed even when everything succeeds, so nothing is silently capped', async () => {
+  const dir = bulkRepo(['feat-one', 'feat-two'])
+  const r = await run(['apply', '--all', 'complete'], dir, { adapter: fakeLinear() })
+  assert.match(r.out, /2 spec\(s\)/, 'says how many it considered')
+  assert.match(r.out, /created 2/, 'and what it did with them')
+})
+
+test('--all --json gives a scriptable summary', async () => {
+  const dir = bulkRepo(['feat-one'])
+  const r = await run(['apply', '--all', 'complete', '--json'], dir, { adapter: fakeLinear() })
+  const got = JSON.parse(r.out)
+  assert.strictEqual(got.summary.created, 1)
+  assert.strictEqual(got.summary.failed, 0)
+  assert.deepEqual(got.failures, [])
+})
+
+test('--all rejects a bucket that is not one', async () => {
+  const dir = bulkRepo()
+  const r = await run(['apply', '--all', 'finished'], dir, { adapter: fakeLinear() })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /not a bucket/)
+})
+
+test('--all refuses over MCP rather than feeding the model a whole bucket', async () => {
+  const dir = bulkRepo()
+  const linear = fakeLinear()
+  const r = await run(['apply', '--all', 'complete'], dir, { adapter: linear, env: {} })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /--all needs the api transport/)
+  assert.strictEqual(linear.log.length, 0)
+})

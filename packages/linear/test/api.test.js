@@ -233,3 +233,65 @@ test('the key travels only in the Authorization header, never in the payload', a
   assert.strictEqual(init.headers.Authorization, KEY)
   assert.ok(!init.body.includes(KEY), 'the request body carries no key')
 })
+
+// --- rate limiting: what a 250-spec backfill actually hits --------------------
+
+// A fetch that 429s the first `times` calls, then succeeds.
+function rateLimited(times, { retryAfter = null } = {}) {
+  let n = 0
+  const waits = []
+  const fn = async () => {
+    if (n++ < times) {
+      return {
+        ok: false,
+        status: 429,
+        headers: { get: (h) => (h.toLowerCase() === 'retry-after' ? retryAfter : null) },
+        async json() {
+          return {}
+        },
+      }
+    }
+    return { ok: true, status: 200, async json() { return { data: { issue: { id: 'x' } } } } }
+  }
+  fn.waits = waits
+  return fn
+}
+
+test('a 429 is waited out and retried, not surfaced as a failure', async () => {
+  const waits = []
+  const adapter = makeApiAdapter({ apiKey: KEY, fetch: rateLimited(2), sleep: async (ms) => waits.push(ms) })
+  assert.deepEqual(await adapter.readIssue('SKI-1'), { id: 'x' })
+  assert.deepEqual(waits, [1000, 2000], 'exponential backoff when Linear names no delay')
+})
+
+test("Linear's Retry-After is honoured over our own guess", async () => {
+  const waits = []
+  const adapter = makeApiAdapter({
+    apiKey: KEY,
+    fetch: rateLimited(1, { retryAfter: '7' }),
+    sleep: async (ms) => waits.push(ms),
+  })
+  await adapter.readIssue('SKI-1')
+  assert.deepEqual(waits, [7000], 'seconds, converted to ms')
+})
+
+test('a run that never recovers fails loudly rather than retrying forever', async () => {
+  const adapter = makeApiAdapter({
+    apiKey: KEY,
+    fetch: rateLimited(Infinity),
+    sleep: async () => {},
+    maxRetries: 3,
+  })
+  await assert.rejects(() => adapter.readIssue('SKI-1'), /rate-limited.*did not recover after 3 retries/)
+})
+
+test('backoff is capped, so a silly Retry-After cannot stall the run for hours', async () => {
+  const waits = []
+  const adapter = makeApiAdapter({
+    apiKey: KEY,
+    fetch: rateLimited(1, { retryAfter: '99999' }),
+    sleep: async (ms) => waits.push(ms),
+  })
+  await adapter.readIssue('SKI-1')
+  assert.strictEqual(waits[0], 60_000)
+})

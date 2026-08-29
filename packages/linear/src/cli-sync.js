@@ -601,44 +601,193 @@ async function specSyncStates(dir, config, flags, out) {
  * On the MCP transport it writes nothing and prints the plan for the skill to
  * apply, exactly as before.
  */
+/**
+ * Apply one spec's plan. Returns what happened rather than printing it, so the
+ * single-spec command and the bulk loop report in their own voices while sharing
+ * one implementation of the part that actually matters.
+ *
+ * Every id is stamped the moment its object exists — see `specSyncApply`.
+ */
+async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, project, states }) {
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
+  const lines = []
+  const result = { issue: null, subIssues: {} }
+  const stateId = (bucket) => (bucket ? stateIdFor(bucket, config, states) : null)
+
+  // Resolve every state id BEFORE the first write, so a bad config.states value
+  // cannot strand the spec mid-apply.
+  const wanted = new Set()
+  if (plan.issue && plan.issue.state) wanted.add(plan.issue.state)
+  for (const s of (plan.subIssues && plan.subIssues.create) || []) if (s.state) wanted.add(s.state)
+  for (const s of (plan.subIssues && plan.subIssues.update) || []) if (s.state) wanted.add(s.state)
+  for (const bucket of wanted) stateId(bucket)
+
+  // 1. The spec issue. No identifier yet → this push mints it.
+  let parentId = null
+  if (!identifier) {
+    const created = await adapter.createIssue(withoutNull({
+      title: readSnapshot(snapshotDir, config).title,
+      teamId,
+      projectId: project || (config.linear && config.linear.projectId) || null,
+      description: plan.issue && plan.issue.description,
+      stateId: stateId(plan.issue && plan.issue.state),
+    }))
+    if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
+    parentId = created.id
+    // Stamped NOW: an interrupt after this point must not mint a second issue.
+    writeFrontmatter(snapshotDir, config, { linear_identifier: created.identifier, linear_url: created.url })
+    result.issue = { id: created.id, identifier: created.identifier, url: created.url }
+    lines.push(`  issue created: ${created.identifier}`)
+  } else {
+    const existing = await adapter.readIssue(identifier)
+    if (!existing || !existing.id) throw new Error(`no Linear issue found for ${identifier}`)
+    parentId = existing.id
+    result.issue = { id: existing.id, identifier: existing.identifier, url: existing.url }
+    if (plan.issue) {
+      await adapter.updateIssue(existing.id, withoutNull({
+        description: plan.issue.description,
+        stateId: stateId(plan.issue.state),
+      }))
+      lines.push(`  issue updated: ${identifier}`)
+    }
+  }
+
+  // 2. Sub-issue creates — each stamped as it lands, for the same reason.
+  for (const sub of (plan.subIssues && plan.subIssues.create) || []) {
+    const created = await adapter.createSubIssue(parentId, withoutNull({
+      title: sub.name,
+      teamId,
+      description: sub.goal,
+      stateId: stateId(sub.state),
+    }))
+    if (!created || !created.identifier) throw new Error(`Linear returned no issue for sub-issue ${sub.ref}`)
+    const file = resolvePhaseFile(snapshotDir, sub.ref)
+    if (!file) throw new Error(`no phase file for ref ${sub.ref}`)
+    stampSubIssueId(snapshotDir, file, created.identifier)
+    result.subIssues[sub.ref] = created.identifier
+    lines.push(`  sub-issue created: ${sub.ref} → ${created.identifier}`)
+  }
+
+  // 3. Sub-issue updates — already linked, nothing to stamp.
+  for (const sub of (plan.subIssues && plan.subIssues.update) || []) {
+    await adapter.updateIssue(sub.id, withoutNull({
+      title: sub.name,
+      description: sub.goal,
+      stateId: stateId(sub.state),
+    }))
+    result.subIssues[sub.ref || sub.id] = sub.id
+    lines.push(`  sub-issue updated: ${sub.id}`)
+  }
+
+  // 4. Read back what Linear stored and run the SAME check `verify` runs.
+  const stored = { issue: undefined, subIssues: {} }
+  if (result.issue) {
+    const back = await adapter.readIssue(result.issue.id)
+    if (back && typeof back.description === 'string') stored.issue = back.description
+  }
+  for (const [ref, id] of Object.entries(result.subIssues)) {
+    const back = await adapter.readIssue(id)
+    if (back && typeof back.description === 'string') stored.subIssues[ref] = back.description
+  }
+  const verify = verifyLines(snapshotDir, config, stored, result.issue ? result.issue.identifier : identifier)
+  lines.push(...verify.map((l) => `  ${l}`))
+  const lost = verify.some((l) => l.includes('!!') || l.includes('??'))
+
+  // 5. Record the snapshot from the now-stamped files, so the next push is empty.
+  const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config })
+  lines.push(`  snapshot: ${path.relative(dir, file)}`)
+  return { result, lines, lost }
+}
+
+/**
+ * `spec-sync apply <spec> --plan <file> [--via api|mcp] [--project <id>]`
+ * `spec-sync apply --all <bucket> [--via api|mcp] [--json]`
+ *
+ * Apply a push plan to Linear **without any description passing through the
+ * agent**. `/spec-push` used to hand the plan to the model, which re-emitted
+ * every description as generated tokens — twice, once to write and once for the
+ * verify read-back — making throughput a function of decode speed rather than of
+ * Linear's API. This does the writes, the read-back, the stamping and the
+ * snapshot in one call.
+ *
+ * Two guarantees shape the code:
+ *
+ *   - **Nothing is written until everything is checked.** A legacy plan, a
+ *     missing key, or a `config.states` name the workspace lacks all fail before
+ *     the first mutation. A half-applied plan is the one outcome worse than an
+ *     unapplied one.
+ *   - **Each id is stamped the moment its object exists**, not batched at the
+ *     end. An interrupted run therefore leaves the objects it did create linked,
+ *     so the next run's plan sees them as updates and mints no duplicates. That
+ *     is the whole resumability story — there is no separate ledger to disagree
+ *     with the spec files.
+ *
+ * `--all <bucket>` walks every spec in one lifecycle bucket, computing each plan
+ * in process (no plan files) and carrying on past a spec that fails. That is
+ * first-time adoption on an established repo: one command instead of a session.
+ *
+ * On the MCP transport it writes nothing and prints the plan for the skill to
+ * apply, exactly as before.
+ */
 async function specSyncApply(dir, config, specArg, flags, out) {
-  const snapshotDir = resolveOrExit(specArg, dir, out)
-  if (!snapshotDir) return 1
-
-  if (!flags.plan) {
-    out.write(
-      'spec-sync apply: refusing to run without --plan <file>.\n' +
-        '  Get one with: skitterspec spec-sync push <spec> --json > plan.json\n',
-    )
-    return 1
-  }
-  let plan
-  try {
-    plan = JSON.parse(fs.readFileSync(flags.plan, 'utf-8'))
-  } catch (error) {
-    out.write(`spec-sync apply: cannot read --plan ${flags.plan}: ${error.message}\n`)
+  const bulk = flags.all != null
+  if (bulk && !BUCKETS.includes(flags.all)) {
+    out.write(`spec-sync apply: --all ${flags.all} is not a bucket (${BUCKETS.join('|')})\n`)
     return 1
   }
 
-  // A pre-9.0 mirror reads as unlinked, so its plan is all-creates and applying
-  // it would abandon the live objects. The API path must not do that faster than
-  // a human can read about it.
-  if (plan.legacy) {
-    out.write(
-      ['spec-sync apply: refusing — this spec is linked under the pre-9.0 model.', ...legacyLines(plan.legacy)].join('\n') + '\n',
-    )
-    return 1
-  }
+  let snapshotDir = null
+  let plan = null
+  if (!bulk) {
+    snapshotDir = resolveOrExit(specArg, dir, out)
+    if (!snapshotDir) return 1
+    if (!flags.plan) {
+      out.write(
+        'spec-sync apply: refusing to run without --plan <file>.\n' +
+          '  Get one with: skitterspec spec-sync push <spec> --json > plan.json\n' +
+          '  Or apply a whole bucket at once with --all <bucket>.\n',
+      )
+      return 1
+    }
+    try {
+      plan = JSON.parse(fs.readFileSync(flags.plan, 'utf-8'))
+    } catch (error) {
+      out.write(`spec-sync apply: cannot read --plan ${flags.plan}: ${error.message}\n`)
+      return 1
+    }
 
-  if (isEmptyPlan(plan)) {
-    out.write('spec-sync apply: nothing to apply — the mirror is up to date.\n')
-    return 0
+    // A pre-9.0 mirror reads as unlinked, so its plan is all-creates and applying
+    // it would abandon the live objects. The API path must not do that faster
+    // than a human can read about it.
+    if (plan.legacy) {
+      out.write(
+        ['spec-sync apply: refusing — this spec is linked under the pre-9.0 model.', ...legacyLines(plan.legacy)].join('\n') + '\n',
+      )
+      return 1
+    }
+    if (isEmptyPlan(plan)) {
+      out.write('spec-sync apply: nothing to apply — the mirror is up to date.\n')
+      return 0
+    }
   }
 
   const key = resolveApiKey(config, flags.env || process.env)
   const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
 
   if (transport === 'mcp') {
+    if (bulk) {
+      // Bulk over MCP is the very thing this command exists to avoid; pretending
+      // to support it would hand the model every description in the bucket.
+      out.write(
+        [
+          'spec-sync apply: --all needs the api transport (no writes made here)',
+          `  ${key.ok ? '--via mcp was requested' : key.error}`,
+          '  push specs one at a time with /spec-push, or set a key and re-run.',
+        ].join('\n') + '\n',
+      )
+      return 1
+    }
     out.write(
       [
         'spec-sync apply: transport = mcp (no writes made here)',
@@ -659,112 +808,107 @@ async function specSyncApply(dir, config, specArg, flags, out) {
 
   const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
   const teamId = (config.linear && config.linear.teamId) || null
-  // `specIdentifier` falls back to the FOLDER NAME so the engine is usable before
-  // a spec is linked — which makes it useless for deciding whether to create or
-  // update. `linkedIdentifier` is the one that answers "has this been pushed?".
-  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
-  const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
-  const lines = ['spec-sync apply: transport = api']
-  const result = { issue: null, subIssues: {} }
-
+  let states
   try {
-    // Resolve every state id BEFORE the first write, so a bad config.states
-    // value cannot strand the spec mid-apply.
-    const states = await adapter.listIssueStates(teamId)
-    const stateId = (bucket) => (bucket ? stateIdFor(bucket, config, states) : null)
-    const wanted = new Set()
-    if (plan.issue && plan.issue.state) wanted.add(plan.issue.state)
-    for (const s of (plan.subIssues && plan.subIssues.create) || []) if (s.state) wanted.add(s.state)
-    for (const s of (plan.subIssues && plan.subIssues.update) || []) if (s.state) wanted.add(s.state)
-    for (const bucket of wanted) stateId(bucket)
-
-    // 1. The spec issue. No identifier yet → this push mints it.
-    let parentId = null
-    if (!identifier) {
-      const created = await adapter.createIssue(withoutNull({
-        title: readSnapshot(snapshotDir, config).title,
-        teamId,
-        projectId: flags.project || (config.linear && config.linear.projectId) || null,
-        description: plan.issue && plan.issue.description,
-        stateId: stateId(plan.issue && plan.issue.state),
-      }))
-      if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
-      parentId = created.id
-      // Stamped NOW: an interrupt after this point must not mint a second issue.
-      writeFrontmatter(snapshotDir, config, { linear_identifier: created.identifier, linear_url: created.url })
-      result.issue = { id: created.id, identifier: created.identifier, url: created.url }
-      lines.push(`  issue created: ${created.identifier}`)
-    } else {
-      const existing = await adapter.readIssue(identifier)
-      if (!existing || !existing.id) throw new Error(`no Linear issue found for ${identifier}`)
-      parentId = existing.id
-      result.issue = { id: existing.id, identifier: existing.identifier, url: existing.url }
-      if (plan.issue) {
-        await adapter.updateIssue(existing.id, withoutNull({
-          description: plan.issue.description,
-          stateId: stateId(plan.issue.state),
-        }))
-        lines.push(`  issue updated: ${identifier}`)
-      }
-    }
-
-    // 2. Sub-issue creates — each stamped as it lands, for the same reason.
-    for (const sub of (plan.subIssues && plan.subIssues.create) || []) {
-      const created = await adapter.createSubIssue(parentId, withoutNull({
-        title: sub.name,
-        teamId,
-        description: sub.goal,
-        stateId: stateId(sub.state),
-      }))
-      if (!created || !created.identifier) throw new Error(`Linear returned no issue for sub-issue ${sub.ref}`)
-      const file = resolvePhaseFile(snapshotDir, sub.ref)
-      if (!file) throw new Error(`no phase file for ref ${sub.ref}`)
-      stampSubIssueId(snapshotDir, file, created.identifier)
-      result.subIssues[sub.ref] = created.identifier
-      lines.push(`  sub-issue created: ${sub.ref} → ${created.identifier}`)
-    }
-
-    // 3. Sub-issue updates — already linked, nothing to stamp.
-    for (const sub of (plan.subIssues && plan.subIssues.update) || []) {
-      await adapter.updateIssue(sub.id, withoutNull({
-        title: sub.name,
-        description: sub.goal,
-        stateId: stateId(sub.state),
-      }))
-      result.subIssues[sub.ref || sub.id] = sub.id
-      lines.push(`  sub-issue updated: ${sub.id}`)
-    }
-
-    // 4. Read back what Linear stored and run the SAME check `verify` runs.
-    const stored = { issue: undefined, subIssues: {} }
-    if (result.issue) {
-      const back = await adapter.readIssue(result.issue.id)
-      if (back && typeof back.description === 'string') stored.issue = back.description
-    }
-    for (const [ref, id] of Object.entries(result.subIssues)) {
-      const back = await adapter.readIssue(id)
-      if (back && typeof back.description === 'string') stored.subIssues[ref] = back.description
-    }
-    lines.push(...verifyLines(snapshotDir, config, stored, result.issue ? result.issue.identifier : identifier).map((l) => `  ${l}`))
-
-    // 5. Record the snapshot from the now-stamped files, so the next push is empty.
-    const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config })
-    lines.push(`  snapshot: ${path.relative(dir, file)}`)
+    states = await adapter.listIssueStates(teamId)
   } catch (error) {
-    // Whatever landed before the failure is already stamped, so re-running
-    // resumes rather than duplicating — say so instead of leaving it ambiguous.
-    out.write(
-      [...lines, `  !! ${error.message}`, '  ids stamped so far are saved — re-run to resume without duplicating'].join('\n') + '\n',
-    )
+    out.write(`spec-sync apply: ${error.message}\n`)
     return 1
   }
+  const shared = { dir, config, adapter, teamId, project: flags.project, states }
 
-  if (flags.json) {
-    out.write(JSON.stringify(result, null, 2) + '\n')
+  if (!bulk) {
+    const lines = ['spec-sync apply: transport = api']
+    let applied
+    try {
+      applied = await applyOneSpec({ ...shared, snapshotDir, plan })
+    } catch (error) {
+      // Whatever landed before the failure is already stamped, so re-running
+      // resumes rather than duplicating — say so instead of leaving it ambiguous.
+      out.write(
+        [...lines, `  !! ${error.message}`, '  ids stamped so far are saved — re-run to resume without duplicating'].join('\n') + '\n',
+      )
+      return 1
+    }
+    if (flags.json) {
+      out.write(JSON.stringify(applied.result, null, 2) + '\n')
+      return 0
+    }
+    out.write([...lines, ...applied.lines].join('\n') + '\n')
     return 0
   }
-  out.write(lines.join('\n') + '\n')
-  return 0
+
+  // --- bulk -------------------------------------------------------------------
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const specs = listSpecs(dir, config).filter((s) => s.bucket === flags.all)
+  const lines = [`spec-sync apply --all ${flags.all}: transport = api, ${specs.length} spec(s)`]
+  const summary = { created: 0, updated: 0, upToDate: 0, failed: 0, altered: 0 }
+  const failures = []
+
+  const fail = (spec, why) => {
+    summary.failed++
+    failures.push(`${spec}: ${why}`)
+    lines.push(`  x ${spec}: ${why}`)
+  }
+
+  for (const { spec } of specs) {
+    const specDir = resolveSnapshotDir(spec, dir)
+    if (!specDir) {
+      fail(spec, 'could not resolve its folder')
+      continue
+    }
+    let specPlan
+    try {
+      specPlan = push({ dir, snapshotDir: specDir, identifier: specIdentifier(specDir, config), config }).plan
+    } catch (error) {
+      fail(spec, error.message)
+      continue
+    }
+    // Never silently: applying this would abandon a live pre-9.0 mirror.
+    if (specPlan.legacy) {
+      fail(spec, `pre-9.0 mirror — would orphan ${specPlan.legacy.orphanCount} object(s); see MIGRATION.md`)
+      continue
+    }
+    if (isEmptyPlan(specPlan)) {
+      summary.upToDate++
+      lines.push(`  . ${spec}: up to date`)
+      continue
+    }
+    const minted = !linkedIdentifier(path.join(specDir, overviewFile))
+    let applied
+    try {
+      applied = await applyOneSpec({ ...shared, snapshotDir: specDir, plan: specPlan })
+    } catch (error) {
+      fail(spec, error.message)
+      continue
+    }
+    if (minted) summary.created++
+    else summary.updated++
+    const id = applied.result.issue ? applied.result.issue.identifier : '?'
+    const subs = Object.keys(applied.result.subIssues).length
+    lines.push(`  ok ${spec}: ${minted ? 'created' : 'updated'} ${id}${subs ? ` (+${subs} sub-issue(s))` : ''}`)
+    if (applied.lost) {
+      summary.altered++
+      lines.push(...applied.lines.filter((l) => l.includes('!!') || l.includes('??')))
+    }
+  }
+
+  lines.push(
+    '',
+    `  created ${summary.created} · updated ${summary.updated} · up to date ${summary.upToDate} · failed ${summary.failed}`,
+  )
+  if (summary.altered) {
+    lines.push(`  ${summary.altered} spec(s) had text altered by Linear — the repo is unchanged and still correct`)
+  }
+  if (failures.length) {
+    lines.push('', '  failed:')
+    for (const f of failures) lines.push(`    ${f}`)
+    lines.push('  re-run to retry them — everything already created is linked, so nothing duplicates')
+  }
+  if (flags.json) out.write(JSON.stringify({ summary, failures }, null, 2) + '\n')
+  else out.write(lines.join('\n') + '\n')
+  // Non-zero when anything failed, so a scripted backfill is checkable.
+  return summary.failed ? 1 : 0
 }
 
 // Drop null/undefined so a GraphQL input never carries a key it has no value
@@ -781,7 +925,7 @@ async function specSync(rest, io = {}) {
   const [sub, ...args] = rest
   let dir = io.cwd || process.cwd()
   const positional = []
-  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null }
+  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -789,6 +933,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--stored') flags.stored = path.resolve(args[++i])
     else if (args[i] === '--plan') flags.plan = path.resolve(args[++i])
     else if (args[i] === '--via') flags.via = args[++i]
+    else if (args[i] === '--all') flags.all = args[++i]
     else if (args[i] === '--project') flags.project = args[++i]
     else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
     else if (args[i] === '--skip-state-check') flags.skipStateCheck = true
@@ -842,6 +987,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
         '       skitterspec spec-sync states [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
+        '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n')
       return 0
