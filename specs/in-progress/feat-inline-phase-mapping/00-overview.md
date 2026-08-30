@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-inline-phase-mapping (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 2 (started 2026-08-30)
+> **Status:** In Progress — Phase 3 (started 2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
@@ -106,7 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Per-bucket resolution for the existing modes | ✅ | [01-mode-resolver.md](01-mode-resolver.md) |
-| 2 | The `inline` projection | ⬜ | [02-inline-projection.md](02-inline-projection.md) |
+| 2 | The `inline` projection | ✅ | [02-inline-projection.md](02-inline-projection.md) |
 | 3 | Surface it: CLI, skills, docs | ⬜ | [03-surface-and-docs.md](03-surface-and-docs.md) |
 
 ## Open questions
@@ -144,3 +144,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-30 — Phase 1: the valid bucket keys are `Object.keys(states)` rather
   than a second literal list; `mapping.phases` and `states` key on the same
   folder bucket, so deriving one from the other stops them drifting.
+- 2026-08-30 — Phase 2: inlined phase bodies are demoted two heading levels so
+  they nest under the `###` that introduces them. Emitting the sub-issue body
+  verbatim, as the solution sketch showed, would put `## Tasks` at the same level
+  as `## Problem` and pull every later phase under it. Only `#` run lengths
+  change, so the one-composer guarantee holds and is asserted directly.
+- 2026-08-30 — Phase 2: `phaseProjection` returns `inlined` separately from
+  `withheld`. The two modes filter sub-issues identically, but an inlined phase
+  is present in the mirror, so folding it into `withheld` would make the CLI's
+  "N phases deferred" line report the opposite of what happened.

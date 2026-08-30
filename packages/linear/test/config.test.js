@@ -217,9 +217,9 @@ test('mapping.tasks accepts checklist and none', () => {
   }
 })
 
-test('mapping.phases accepts subissue and deferred, and defaults to subissue', () => {
+test('mapping.phases accepts every mode as a scalar, and defaults to subissue', () => {
   assert.strictEqual(loadLinearConfig(tmpDir()).config.mapping.phases, 'subissue')
-  for (const mode of ['subissue', 'deferred']) {
+  for (const mode of PHASE_MAPPINGS) {
     const dir = tmpDir()
     writeConfig(dir, { mapping: { phases: mode } })
     assert.strictEqual(loadLinearConfig(dir).config.mapping.phases, mode)
@@ -235,8 +235,8 @@ test('an unknown mapping.phases throws rather than degrading to subissue', () =>
   assert.throws(() => loadLinearConfig(dir), /mapping\.phases/)
 })
 
-test('PHASE_MAPPINGS is exactly subissue|deferred', () => {
-  assert.deepStrictEqual([...PHASE_MAPPINGS], ['subissue', 'deferred'])
+test('PHASE_MAPPINGS is exactly subissue|deferred|inline', () => {
+  assert.deepStrictEqual([...PHASE_MAPPINGS], ['subissue', 'deferred', 'inline'])
 })
 
 test('mapping.phases also accepts a map of lifecycle bucket to mode', () => {

@@ -585,6 +585,65 @@ function projectPhaseBody(phase, localOnlySections) {
     .trim()
 }
 
+// Phases inline as `###`, hanging under the `## Phases` index that lists them.
+// The body they carry is a whole document in its own right and starts at `##`,
+// so it demotes to sit under that heading rather than break out of it.
+const INLINE_PHASE_LEVEL = 3
+const MAX_HEADING_LEVEL = 6
+
+/**
+ * Shift every heading in a projected phase body `by` levels, so an inlined phase
+ * nests under the `###` that introduces it.
+ *
+ * Projected for a sub-issue the body is the whole description and its `## Tasks`
+ * is correctly top-level. Inlined it is a subsection, and an undemoted `## Tasks`
+ * would read as a sibling of `## Problem` — pulling every following phase under
+ * it in the outline. Only the `#` run length changes; the content is the same
+ * bytes either way, which is the point of sharing one composer.
+ */
+function demoteHeadings(body, by) {
+  const lines = body.split('\n')
+  const inFence = fenceMask(lines)
+  return lines
+    .map((line, i) => {
+      if (inFence[i]) return line
+      const h = /^(#{1,6})(\s)/.exec(line)
+      if (!h) return line
+      return '#'.repeat(Math.min(h[1].length + by, MAX_HEADING_LEVEL)) + line.slice(h[1].length)
+    })
+    .join('\n')
+}
+
+// The phase file's h1 exactly as written — `Phase 2 — The inline projection 🔄`.
+// `projectPhaseBody` drops it because a sub-issue projects the title as `name`
+// and the emoji as `state`; inlined there are no such fields, so this heading is
+// the only place either can live, and the raw line is where both still are.
+function phaseHeading(phase) {
+  for (const line of phase.lines || []) {
+    const h1 = /^#\s+(.*\S)\s*$/.exec(line)
+    if (h1) return h1[1]
+  }
+  return phase.name
+}
+
+/**
+ * Append the inlined phases to the spec issue's description as `###` sections.
+ *
+ * The body is `subIssueBody`'s — the SAME composer the sub-issue form uses, so
+ * `inline` inherits its fidelity guarantee instead of growing a second extractor
+ * that drops content, which is exactly what the reporting project had to
+ * hand-roll before this existed.
+ */
+function withInlinePhases(description, inlined, tasksMode, localOnlySections) {
+  if (!inlined.length) return description
+  const sections = inlined.map((phase) => {
+    const body = demoteHeadings(subIssueBody(phase, tasksMode, localOnlySections) || '', INLINE_PHASE_LEVEL - 1)
+    const heading = '#'.repeat(INLINE_PHASE_LEVEL) + ` ${phaseHeading(phase)}`
+    return body ? `${heading}\n\n${body}` : heading
+  })
+  return [description, ...sections].filter(Boolean).join('\n\n') || null
+}
+
 /**
  * Normalize a local spec snapshot into the configured field set.
  */
@@ -651,10 +710,25 @@ function specStatus(snapshotDir, frontmatter) {
 
 function phaseProjection(phases, workflowState, config) {
   const named = phases.filter((p) => p.name)
-  const deferring =
-    phaseModeFor(workflowState, config) === 'deferred' && UNSTARTED_BUCKETS.includes(workflowState)
-  const projected = deferring ? named.filter((p) => p.id != null) : named
-  return { projected, withheld: named.length - projected.length }
+  const mode = phaseModeFor(workflowState, config)
+  // `deferred` and `inline` both send only phases that ALREADY carry an id, and
+  // for the same reason: one-way sync has no delete op, so withholding a live
+  // sub-issue would freeze it in the tracker rather than remove it (Decision 4).
+  // They differ only in where an unlinked phase goes — nowhere yet, or into the
+  // spec issue's own description.
+  const deferring = mode === 'deferred' && UNSTARTED_BUCKETS.includes(workflowState)
+  const projected = deferring || mode === 'inline' ? named.filter((p) => p.id != null) : named
+  const unlinked = named.filter((p) => p.id == null)
+  return {
+    projected,
+    // Held back until the work starts. Nothing carries them meanwhile, which is
+    // why the `## Phases` index stays and the CLI says how many.
+    withheld: deferring ? unlinked.length : 0,
+    // Rendered into the description instead. Deliberately NOT counted as
+    // withheld: nothing is missing from the mirror, so a report that said "N
+    // phases deferred" would be describing the opposite of what happened.
+    inlined: mode === 'inline' ? unlinked : [],
+  }
 }
 
 function normalizeLocal(snapshotDir, config) {
@@ -666,22 +740,34 @@ function normalizeLocal(snapshotDir, config) {
   // status — so the issue's state and its sub-issues always agree on whether the
   // work has started, however that status was arrived at.
   const workflowState = specStatus(snapshotDir, frontmatter)
-  const { projected, withheld } = phaseProjection(phases, workflowState, config)
+  const { projected, withheld, inlined } = phaseProjection(phases, workflowState, config)
 
-  // Phases sync as sub-issues whenever `subIssues` is in the pushed projection,
-  // so strip the `## Phases` index from the description to avoid duplicating it
-  // (as prose AND as sub-issues) in the Linear mirror. While deferral is holding
-  // a phase back, that index is the ONLY place the phase appears — stripping it
-  // too would leave a backlog issue with no phase breakdown at all — so it stays
-  // until the sub-issues arrive to replace it.
-  const phasesProjected =
-    !!(config.sync.fieldOwnership && 'subIssues' in config.sync.fieldOwnership) && withheld === 0
+  // Strip the `## Phases` index only when the SUB-ISSUES replace it: they carry
+  // every phase, so keeping the index would duplicate the list as prose AND as
+  // objects. It stays whenever they do not — while deferral holds a phase back
+  // the index is the only place that phase appears, and under `inline` there are
+  // no new sub-issues at all, so it is the issue's only table of contents
+  // (Decision 3).
+  //
+  // Keyed on the resolved MODE rather than on `subIssues` being an owned field:
+  // ownership says WHICH fields sync, which is a different question from how
+  // phases are shaped, and `inline` answers the second one per spec (Decision 5).
+  // Ownership still gets a say — an unowned `subIssues` pushes no sub-issues at
+  // all, so the index has to stay there too.
+  const syncsSubIssues = !!(config.sync.fieldOwnership && 'subIssues' in config.sync.fieldOwnership)
+  const phasesCarriedBySubIssues =
+    syncsSubIssues && phaseModeFor(workflowState, config) !== 'inline' && withheld === 0
   const extracted = {
-    description: buildDescription(
-      title,
-      sections,
+    description: withInlinePhases(
+      buildDescription(
+        title,
+        sections,
+        config.sync.localOnlySections,
+        phasesCarriedBySubIssues ? ['Phases'] : [],
+      ),
+      inlined,
+      tasksMode,
       config.sync.localOnlySections,
-      phasesProjected ? ['Phases'] : [],
     ),
     // Sub-issue projection: one per phase. `ref` is the phase-file basename — the
     // local handle the push skill stamps a newly-created sub-issue id back into.

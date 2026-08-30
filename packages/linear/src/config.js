@@ -53,6 +53,12 @@ const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
 //              already carries an id keeps projecting either way — one-way sync
 //              has no delete, so withholding a LINKED sub-issue would freeze it
 //              in the tracker rather than remove it.
+//   inline   — never: each phase becomes a SECTION of the spec issue's own
+//              description instead, and the `## Phases` index stays as its table
+//              of contents. For work nobody will pick up phase by phase — 250
+//              finished specs are 250 issues worth reading and 669 sub-issues
+//              worth nobody's attention. Keeps an already-linked phase's
+//              sub-issue for the same reason `deferred` does.
 //
 // `mapping.phases` takes one of these as a scalar (one mode for the whole repo)
 // OR a map keyed by lifecycle bucket — `{ "backlog": "subissue", "complete":
@@ -60,7 +66,7 @@ const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
 // flight and something else entirely for work that finished long ago. A bucket
 // the map omits gets DEFAULT_PHASE_MODE, so a partial map adds an exception
 // rather than silently suppressing phases everywhere it is silent.
-const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred'])
+const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred', 'inline'])
 const DEFAULT_PHASE_MODE = 'subissue'
 
 // How `spec-sync apply` reaches Linear. `api` talks to the GraphQL API directly;
