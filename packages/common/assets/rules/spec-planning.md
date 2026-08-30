@@ -66,17 +66,23 @@ Beneath it, `skitterspec spec-env live <take|release|abort|status>` is the engin
 
 **Ticketing-provider sync (opt-in, a separate package).** The base is
 tracker-free: it knows nothing about any specific ticketing system. A
-ticketing provider is installed as its own distribution that plugs into two named
-**seams** in the shared skills (`/spec` Phase E, `/spec-go` step 3b) and fulfils a
-skill-name + CLI contract. Sync is **one-way**: the repo is the source of truth
-and the tracker is a **generated mirror**. It ships `/spec-push` (repo→tracker;
-computes a create/update plan against a committed last-pushed snapshot and applies
-it) and `/spec-status` (read-only drift report — what would push, and whether the
-tracker's workflow-state drifted), backed by a `spec-sync` CLI. There is no
-content pull — the tracker is never read back or merged. When a provider is
-present, `/spec` also links the spec to the tracker. With no provider installed
-the seams are empty and every skill behaves as a plain filesystem workflow. See
-the provider package's own docs for its config and field reference.
+ticketing provider is installed as its own distribution that plugs into named
+**seams** in the shared skills and fulfils a skill-name + CLI contract.
+Sync is **one-way**: the repo is the source of truth and the tracker is a
+**generated mirror**. It ships `/spec-push` (repo→tracker; computes a create/update plan
+against a committed last-pushed snapshot and applies it) and `/spec-status`
+(read-only drift report — what would push, and whether the tracker's
+workflow-state drifted), backed by a `spec-sync` CLI. There is no content pull —
+the tracker is never read back or merged.
+
+**Every skill that moves a spec through the lifecycle carries a seam**, so the
+mirror keeps up without anyone remembering to push: `/spec`, `/spec-bug` and
+`/spec-hotfix` link the spec they create; `/spec-go` refreshes it as work starts;
+`/spec-complete`, `/spec-cancel` and `/spec-review` refresh it after they change
+it. `/spec-to-main` and `/spec-live` carry none — they change no status.
+With no provider installed the seams are empty and every skill behaves as a plain
+filesystem workflow. See the provider package's own docs for its config and field
+reference.
 
 ## Project conventions (fill this in)
 

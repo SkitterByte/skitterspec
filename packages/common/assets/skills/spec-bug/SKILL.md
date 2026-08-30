@@ -158,6 +158,8 @@ The **State log** is the folder/status audit trail; later transitions
 (`/spec-complete`, `/spec-cancel`) append a row. The **Changelog** is for the
 fix narrative and decisions — keep them separate.
 
+<!-- seam:spec-tracker-link -->
+
 ## 5. Drive to GREEN
 
 - Implement the **minimal, root-cause** fix. Match surrounding code; honour all

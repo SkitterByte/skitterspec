@@ -82,6 +82,8 @@ reading the code, do that instead of asking.
   re-grooming, knock it back to `Draft` (set `> **Status:** Draft` and append a
   **State log** row).
 
+<!-- seam:spec-tracker-sync -->
+
 ## 5. Report
 
 Summarise the drift found, what you changed, any questions still open, and

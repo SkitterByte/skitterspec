@@ -156,6 +156,8 @@ place of the table when the spec touches no external surface.>
 Keep the **State log** (state transitions) separate from the **Changelog** (fix
 narrative and decisions).
 
+<!-- seam:spec-tracker-link -->
+
 ## 6. Drive to GREEN
 
 - Implement the **minimal, root-cause** fix on the branch. Match surrounding code;

@@ -216,3 +216,65 @@ test('the terminal skills stay provider-neutral in their own source', () => {
     assert.doesNotMatch(text, /linear/i, `${skill} must not name a specific tracker`)
   }
 })
+
+// A spec that is never linked is never mirrored, and /spec-bug and /spec-hotfix
+// are exactly the skills invoked mid-incident, when nobody is thinking about the
+// tracker. Both must link at creation, like /spec does.
+for (const [skill, greenStep] of [
+  ['spec-bug', '## 5. Drive to GREEN'],
+  ['spec-hotfix', '## 6. Drive to GREEN'],
+]) {
+  test(`${skill} links the spec it just wrote, before driving the fix`, () => {
+    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
+    const seam = text.indexOf('<!-- seam:spec-tracker-link -->')
+    assert.ok(seam !== -1, 'the link seam is present')
+    // Before the fix work, so the issue exists WHILE the work happens rather
+    // than being backfilled once it is over.
+    assert.ok(seam < text.indexOf(greenStep), 'linking precedes the fix')
+  })
+}
+
+test('spec-review refreshes the mirror after it rewrites the spec', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-review', 'SKILL.md'), 'utf8')
+  const seam = text.indexOf('<!-- seam:spec-tracker-sync -->')
+  assert.ok(seam !== -1, 'the sync seam is present')
+  assert.ok(seam > text.indexOf('## 4. Update the spec'), 'after the rewrite, not before')
+  assert.ok(seam < text.indexOf('## 5. Report'), 'and before the report')
+})
+
+test('the creating and reviewing skills stay provider-neutral in their source', () => {
+  for (const skill of ['spec-bug', 'spec-hotfix', 'spec-review']) {
+    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
+    assert.doesNotMatch(text, /linear/i, `${skill} must not name a specific tracker`)
+  }
+})
+
+// The whole point of this change: no skill that moves a spec through the
+// lifecycle may be left without a tracker step. This is the backstop that makes
+// adding a NEW lifecycle skill surface the question.
+test('every skill that changes spec state carries a tracker seam', () => {
+  const expected = {
+    spec: 'spec-tracker-link',
+    'spec-bug': 'spec-tracker-link',
+    'spec-hotfix': 'spec-tracker-link',
+    'spec-go': 'spec-go-pull',
+    'spec-complete': 'spec-tracker-sync',
+    'spec-cancel': 'spec-tracker-sync',
+    'spec-review': 'spec-tracker-sync',
+  }
+  const missing = []
+  for (const [skill, seam] of Object.entries(expected)) {
+    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
+    if (!text.includes(`<!-- seam:${seam} -->`)) missing.push(`${skill} (${seam})`)
+  }
+  assert.deepEqual(missing, [], `lifecycle skills with no tracker step: ${missing.join(', ')}`)
+})
+
+// /spec-to-main and /spec-live change no status — a push from them would send an
+// unchanged projection. Asserted so "add a seam everywhere" is a deliberate no.
+test('the skills that change no status carry no tracker seam', () => {
+  for (const skill of ['spec-to-main', 'spec-live']) {
+    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
+    assert.doesNotMatch(text, /<!--\s*seam:/, `${skill} moves no spec between buckets`)
+  }
+})

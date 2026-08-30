@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-lifecycle-tracker-sync (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-30)
+> **Status:** In Progress — all phases built (2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -95,6 +95,7 @@ Run `/spec-push` now, without asking …
 | Skill/rule | update | `/spec-bug`, `/spec-hotfix` — link on create |
 | Skill/rule | update | `/spec-review` — refresh after the rewrite |
 | Skill/rule | add | `seams/spec-tracker-sync.md` |
+| Skill/rule | update | `rules/spec-planning.md` — the seam set is no longer two |
 | Skill/rule | update | `seams/spec-tracker-link.md` — use `spec-sync apply` |
 | Skill/rule | update | `seams/spec-project-picker.md` — list via the engine |
 | CLI command | add | `spec-sync projects [--via] [--json]` — the picker's list |
@@ -111,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The sync fragment + terminal transitions | ✅ | [01-terminal-transitions.md](01-terminal-transitions.md) |
 | 2 | Modernise the link fragment to `apply` | ✅ | [02-modernise-link.md](02-modernise-link.md) |
-| 3 | Link on create, refresh after review | ⬜ | [03-create-and-review.md](03-create-and-review.md) |
+| 3 | Link on create, refresh after review | ✅ | [03-create-and-review.md](03-create-and-review.md) |
 
 ## Open questions
 
@@ -151,3 +152,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   contract — every failure exits 0 with a reason and a `null` list. The old
   "skip `record` for an adopted issue" caveat dissolved, since `apply` pushes and
   records together and the two cannot disagree.
+- 2026-08-30 — Phase 3 done. `/spec-hotfix` intake was checked as the task asked
+  and deliberately left out: it is a separate feature, and the intake fragment's
+  "a bare id anywhere in the arguments" collides with the required positional tag
+  `/spec-hotfix v33.16.4 <name>`. Recorded rather than guessed at. Added a
+  backstop test over the whole skill→seam mapping, so a future lifecycle skill
+  cannot be added without deciding which seam it carries; `/spec-to-main` and
+  `/spec-live` are asserted to carry none, making that a decision rather than an
+  oversight. Updated `spec-planning.md`, which still said "two named seams".
