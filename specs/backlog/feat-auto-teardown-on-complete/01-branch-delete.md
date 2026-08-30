@@ -1,0 +1,39 @@
+# Phase 1 — Delete a merged branch that is ahead of its remote ⬜
+
+> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+
+**Goal:** teardown deletes the branch of a landed spec instead of refusing it,
+proven by a test at the exact shape `/spec-go` leaves behind — merged into base,
+ahead of `origin/<branch>`.
+
+## Tasks
+
+- [ ] In `planDown` (`packages/common/src/env/teardown.js`), emit `git branch -D`
+      when `worktreeState.merged` is true, alongside the existing `tagLanded`
+      case; keep `-d` for every other path.
+- [ ] Rewrite the comment above it: `-d`'s refusal is about the branch being
+      ahead of its **upstream ref**, which is a different question from whether
+      the commits are recoverable. `merged` (ancestor of base) already answers
+      the second, and is what makes `-D` safe here.
+- [ ] Confirm the forced teardown of a genuinely unmerged branch still emits
+      `-d`, so it fails loudly rather than destroying unlanded commits.
+- [ ] Rewrite `branch delete is -d (merged-only), never -D`
+      (`packages/common/test/env-teardown.test.js:170`) — it asserts the exact
+      opposite of the new intent, so it must be re-stated rather than extended.
+      Update the two merged-case assertions at `:53` and `:144`/`:157`/`:166` to
+      match.
+- [ ] Add tests: a merged branch plans `-D`; a tag-landed hotfix still plans
+      `-D`; an unmerged branch under `--force` still plans `-d`. Run the
+      project's test command (`node --test`) — green before the phase is done.
+
+## Notes
+
+Why the existing suite did not catch this: `planDown` is a **pure planner**. It
+receives `worktreeState` and emits a command string, so it can see `merged` but
+never the branch's relationship to its upstream ref — which is the thing `-d`
+actually objects to. No unit test of a pure planner can surface the failure; it
+only appears when the emitted command runs against a real repo.
+
+That is also why the fix belongs in the flag choice rather than in a new probe:
+`merged` already implies the commits are on base, which is strictly more than
+`-d` verifies, so there is nothing further to detect.
