@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-lifecycle-tracker-sync (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases built (2026-08-30)
+> **Status:** Complete (2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -129,6 +129,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-30 | Ready | backlog | Reuben Greaves |
 | 2026-08-30 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-30 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -160,3 +161,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   cannot be added without deciding which seam it carries; `/spec-to-main` and
   `/spec-live` are asserted to carry none, making that a decision rather than an
   oversight. Updated `spec-planning.md`, which still said "two named seams".
+- 2026-08-30 — Completed; all three phases done, 725 tests green, build clean.
+  Verified against the built output rather than the source: every lifecycle skill
+  in the Linear distribution carries its tracker step with no dangling marker, and
+  every one in the base distribution mentions no tracker at all.
+  **Deferred, deliberately:** intake for `/spec-hotfix` (a separate feature, and
+  its argument grammar collides with the required positional tag) — recorded on
+  phase 3.
