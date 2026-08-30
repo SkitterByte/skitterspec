@@ -99,7 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-hotfix` adopts an issue | ✅ | [01-hotfix-intake.md](01-hotfix-intake.md) |
-| 2 | Route production issues to it | ⬜ | [02-hotfix-routing.md](02-hotfix-routing.md) |
+| 2 | Route production issues to it | ✅ | [02-hotfix-routing.md](02-hotfix-routing.md) |
 | 3 | Docs, and the stale adoption prose | ⬜ | [03-docs-and-drift.md](03-docs-and-drift.md) |
 
 ## Open questions
@@ -135,3 +135,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   stale in the first place. Two existing tests widened with it: the `/spec-bug`
   self-loop guard now covers `/spec-hotfix` (same risk, same fragment), and the
   intake-reach test now asserts all three creating skills.
+- 2026-08-30 — Phase 2 done, correcting a mistake in its own plan. The plan said
+  to skip routing in `/spec-hotfix` "exactly as the bug check is skipped inside
+  `/spec-bug`", which would have made `/spec-bug` swallow a production label and
+  fix on `main` while prod stayed broken. Skips are per-check, not per-skill:
+  `/spec-bug` skips the bug check (self-loop) but still runs the hotfix check,
+  because that is an escalation rather than a loop.

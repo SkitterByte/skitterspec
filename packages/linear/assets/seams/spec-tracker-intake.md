@@ -29,17 +29,40 @@ Then:
 2. **Read the issue** with the discovered issue-read tool: title, description,
    labels, reporter, URL. If Linear isn't connected, say so and offer to carry on
    without it — a spec written from the user's own description is still a spec.
-3. **Route bugs away — in `/spec` only.** If any of the issue's labels matches
-   `intake.bugLabels` (case-insensitive), this is a bug report, not a feature
-   request. Say so, name the matching label, and tell the user to run
-   **`/spec-bug <ISSUE-REF>`** — then stop, without authoring a Feature spec.
-   With `intake.bugLabels` unset nothing is routed and every issue is treated as a
-   feature request.
+3. **Route the issue to the right skill.** Match the issue's labels
+   (case-insensitively) against two lists, **checking `hotfixLabels` first**:
 
-   **In `/spec-bug` and `/spec-hotfix` this step is skipped** — you are already
-   in a bug path. Adopt the issue, then reproduce it as usual: the issue body is
-   your repro material, and the failing test comes before the spec exactly as
-   normal.
+   - **`intake.hotfixLabels`** → this is broken in **production**, so it needs a
+     fix against the released version, not `main`. Say so, name the matching
+     label, and tell the user to run **`/spec-hotfix <ISSUE-REF>`** — then stop.
+   - **`intake.bugLabels`** → a bug report, not a feature request. Say so, name
+     the label, and tell the user to run **`/spec-bug <ISSUE-REF>`** — then stop,
+     without authoring a Feature spec.
+
+   **Hotfix wins when an issue carries both**, and deliberately: production is the
+   more specific destination, and the two mistakes are not equally costly. Routing
+   a prod issue to `/spec-bug` produces a fix that lands on `main` and never
+   reaches the running version — discovered only when someone asks why it hasn't
+   shipped. The reverse is a hotfix branch for something that could have waited,
+   which is merely wasteful.
+
+   With a list unset, nothing routes through it; with both unset every issue is
+   treated as a feature request, exactly as before.
+
+   **Which checks run depends on where you are**, because a skip is about not
+   bouncing someone to the skill they are already in — not about ignoring an
+   escalation:
+
+   - **In `/spec`** — both checks run.
+   - **In `/spec-bug`** — the bug check is skipped (it would route you to
+     yourself), but the **hotfix check still runs**. A bug report labelled for
+     production is not "already handled" by being in the bug path: `/spec-bug`
+     fixes on `main`, and prod would stay broken. Say so and hand off.
+   - **In `/spec-hotfix`** — both are skipped. It is already the most specific
+     destination; there is nowhere left to route.
+
+   Then adopt the issue and reproduce it as usual: the issue body is your repro
+   material, and the failing test comes before the spec exactly as normal.
 4. **Seed, don't skip, the grill.** The issue's title becomes the working spec
    title and its description the starting material for **Problem** — or
    **Symptom** in a bug or hotfix spec, which is where a report belongs. Quote the

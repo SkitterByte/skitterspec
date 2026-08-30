@@ -180,17 +180,19 @@ test('a bug-labelled issue is routed to /spec-bug rather than specced as a featu
 
   // /spec-bug carries the same fragment, so adoption is identical there — but it
   // must not bounce the user onward in a loop.
-  // Both bug paths carry the same fragment, so the skip has to name both or one
-  // of them bounces the user onward to itself.
+  // A skip exists to stop a skill routing to itself — NOT to swallow an
+  // escalation. /spec-bug must still be told when an issue needs a hotfix,
+  // because fixing on main leaves production broken.
   for (const skill of ['spec-bug', 'spec-hotfix']) {
     const text = fs.readFileSync(path.join(out, 'skills', skill, 'SKILL.md'), 'utf8')
-    assert.match(
-      text,
-      /In `\/spec-bug` and `\/spec-hotfix` this step is skipped/,
-      `no /${skill} → /${skill} loop`,
-    )
+    assert.match(text, /the bug check is skipped \(it would route you to\s*\n?\s*yourself\)/, `no /${skill} self-loop`)
     assert.match(text, /becomes\*\* the spec's issue/, `adoption applies in /${skill} too`)
   }
+
+  const bugPath = fs.readFileSync(path.join(out, 'skills', 'spec-bug', 'SKILL.md'), 'utf8')
+  assert.match(bugPath, /\*\*hotfix check still runs\*\*/, '/spec-bug can still escalate to /spec-hotfix')
+  const hotfixPath = fs.readFileSync(path.join(out, 'skills', 'spec-hotfix', 'SKILL.md'), 'utf8')
+  assert.match(hotfixPath, /In `\/spec-hotfix`\*\* — both are skipped/, '/spec-hotfix has nowhere left to route')
 })
 
 test('adoption never mints: the intake fragment forbids picker and base sidecar', () => {

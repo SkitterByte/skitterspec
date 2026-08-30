@@ -17,7 +17,7 @@
  * Shape (see assets/core/linear.config.md for field docs):
  *   {
  *     linear:   { teamKey, teamId, projectId },
- *     intake:   { label, bugLabels },
+ *     intake:   { label, bugLabels, hotfixLabels },
  *     mapping:  { specFolder, phases, tasks },
  *     states:   { backlog, "in-progress", complete, cancelled },
  *     snapshot: { overviewFile },
@@ -74,9 +74,13 @@ const DEFAULT_CONFIG = Object.freeze({
   linear: Object.freeze({ teamKey: '', teamId: '', projectId: '' }),
   // Issue intake (`/spec <ISSUE-REF>`, `/spec --from-issue`). `label` is the
   // inbox filter — issues carrying it are what the web app files; `bugLabels`
-  // route an issue to `/spec-bug` instead of `/spec`. Both empty = no inbox to
-  // browse (a bare issue ref still works) and no bug routing.
-  intake: Object.freeze({ label: '', bugLabels: Object.freeze([]) }),
+  // route an issue to `/spec-bug` instead of `/spec`, and `hotfixLabels` route it
+  // to `/spec-hotfix` — a bug that has to be patched on the released version, not
+  // fixed on main. All empty = no inbox to browse (a bare issue ref still works)
+  // and no routing. `hotfixLabels` wins over `bugLabels` on an issue carrying
+  // both: production is the more specific destination, and the cost of getting it
+  // wrong is asymmetric — a fix that lands only on main never reaches prod.
+  intake: Object.freeze({ label: '', bugLabels: Object.freeze([]), hotfixLabels: Object.freeze([]) }),
   // A spec is a Linear ISSUE; each phase is a SUB-ISSUE of it; tasks are not
   // synced (they live only in the repo phase files).
   // A spec is an ISSUE; each phase a SUB-ISSUE of it. `tasks` selects how the
@@ -131,7 +135,11 @@ function isObject(value) {
 function defaults() {
   return {
     linear: { ...DEFAULT_CONFIG.linear },
-    intake: { label: DEFAULT_CONFIG.intake.label, bugLabels: [...DEFAULT_CONFIG.intake.bugLabels] },
+    intake: {
+      label: DEFAULT_CONFIG.intake.label,
+      bugLabels: [...DEFAULT_CONFIG.intake.bugLabels],
+      hotfixLabels: [...DEFAULT_CONFIG.intake.hotfixLabels],
+    },
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
     snapshot: { ...DEFAULT_CONFIG.snapshot },
@@ -213,6 +221,9 @@ function mergeConfig(base, parsed) {
     assign(base.intake, parsed.intake, 'label', 'string?')
     if (Array.isArray(parsed.intake.bugLabels)) {
       base.intake.bugLabels = stringList(parsed.intake.bugLabels)
+    }
+    if (Array.isArray(parsed.intake.hotfixLabels)) {
+      base.intake.hotfixLabels = stringList(parsed.intake.hotfixLabels)
     }
   }
 

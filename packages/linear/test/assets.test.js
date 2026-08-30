@@ -273,3 +273,29 @@ test('intake tells a hotfix to mine the issue for a version, as a suggestion', (
   assert.match(text, /never used as a default/i, 'not a default')
   assert.match(text, /not what is deployed/, 'and says why')
 })
+
+// The two routing mistakes are not equally costly, so the precedence is a
+// decision the fragment has to state rather than an accident of ordering.
+test('intake routes production issues to /spec-hotfix, ahead of bug routing', () => {
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /intake\.hotfixLabels/, 'names the config key')
+  assert.match(text, /\/spec-hotfix <ISSUE-REF>/, 'hands off to the hotfix skill')
+  assert.match(text, /checking `hotfixLabels` first/, 'the order is explicit')
+  assert.match(text, /Hotfix wins when an issue carries both/, 'and stated as a rule')
+  assert.ok(
+    text.indexOf('intake.hotfixLabels') < text.indexOf('intake.bugLabels'),
+    'hotfix is checked before bug in the text an agent reads top-down',
+  )
+})
+
+test('the fragment says why hotfix wins, not just that it does', () => {
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /never\s+reaches the running version/, 'the expensive direction')
+  assert.match(text, /merely wasteful/, 'and the cheap one')
+})
+
+test('unset label lists leave intake behaving exactly as before', () => {
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /With a list unset, nothing routes through it/)
+  assert.match(text, /both unset every issue is\s*\n?\s*treated as a feature request/)
+})

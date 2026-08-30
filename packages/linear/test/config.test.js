@@ -275,3 +275,31 @@ test('an unknown apply.transport throws rather than degrading to mcp', () => {
 test('TRANSPORTS is exactly api|mcp', () => {
   assert.deepEqual([...TRANSPORTS], ['api', 'mcp'])
 })
+
+// --- hotfix routing ----------------------------------------------------------
+
+test('intake.hotfixLabels defaults empty and merges like bugLabels', () => {
+  assert.deepEqual([...DEFAULT_CONFIG.intake.hotfixLabels], [], 'nothing routes by default')
+  const dir = tmpDir()
+  writeConfig(dir, { intake: { hotfixLabels: ['production', ' prod '] } })
+  // Normalised through the same stringList as bugLabels — trimmed, blanks dropped.
+  assert.deepEqual(loadLinearConfig(dir).config.intake.hotfixLabels, ['production', 'prod'])
+})
+
+test('the two label lists are independent', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { intake: { bugLabels: ['bug'] } })
+  const { config } = loadLinearConfig(dir)
+  assert.deepEqual(config.intake.bugLabels, ['bug'])
+  assert.deepEqual([...config.intake.hotfixLabels], [], 'setting one does not disturb the other')
+})
+
+test('a mutated intake list cannot leak into the frozen defaults', () => {
+  // defaults() spreads both lists; a shared reference would let one project's
+  // config bleed into the next load in the same process.
+  const dir = tmpDir()
+  writeConfig(dir, { intake: { hotfixLabels: ['production'] } })
+  loadLinearConfig(dir).config.intake.hotfixLabels.push('leaked')
+  assert.deepEqual([...DEFAULT_CONFIG.intake.hotfixLabels], [], 'defaults untouched')
+  assert.deepEqual(loadLinearConfig(dir).config.intake.hotfixLabels, ['production'], 'reload is clean')
+})
