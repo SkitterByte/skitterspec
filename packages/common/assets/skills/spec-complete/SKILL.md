@@ -130,14 +130,14 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
      recover those commits onto the branch, then re-run.
    - *no worktree* — the spec is live but its worktree is gone. Re-isolate it with
      `skitterspec spec-env up <name>`, then re-run.
-   Relay the diagnostic to the user and **stop** — do not proceed to teardown.
+   Relay the diagnostic to the user and **stop** — do not tear anything down.
 2. **Plan + execute.** Run `skitterspec spec-env integrate <name>` and run the
    printed commands **in order**:
    - `git -C <worktree> rebase <base>` — replay the branch onto base.
    - `git -C <mainRepoPath> merge --ff-only <branch>` — fast-forward base.
    On a **rebase conflict** (non-zero exit), run
    `git -C <worktree> rebase --abort`, relay the conflict, and **stop** — leave it
-   to the user; do not offer teardown.
+   to the user; do not tear anything down.
    On a **no-op** ("already landed"), just say so and continue.
 3. **Re-test on base.** Run the project's test command from the primary checkout;
    it must be **green** before you call the landing done.
@@ -146,9 +146,22 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
 
 ## 7. Tear down the environment (opt-in, only if configured)
 
-**Only when `specs/.core/env.config.json` exists**, offer — don't force — to
-reclaim the finished spec's environment. On confirmation, run the `spec-env` CLI
-directly (the old `/spec-env-down` skill is gone — teardown is folded in here):
+**Only when `specs/.core/env.config.json` exists.** Reclaiming the environment is
+what completing a spec *is*, so sub-steps 1–3 run **automatically — do not ask**.
+Run the `spec-env` CLI directly (the old `/spec-env-down` skill is gone —
+teardown is folded in here).
+
+**The precondition is that the work actually landed.** Only tear down when step 6
+completed: it landed (or reported "already landed") **and** the base suite came
+back green. A rebase conflict, a work-loss abort or a red suite means step 6 told
+you to stop — tear nothing down, because the worktree is where the user picks the
+problem up. That precondition is what makes a confirmation redundant: by the time
+you get here the branch is an ancestor of base and the engine's guards have
+nothing left to protect.
+
+**Opt-out:** if the user passed **`--keep-env`**, skip sub-steps 1–3, say the
+worktree and branch are being kept, and go straight to sub-step 4. Mention
+`skitterspec spec-env up <name>` re-attaches it later either way.
 
 1. **Disconnect the proxy if this spec is connected.** If `.spec-env/connected`
    names this spec, run `skitterspec spec-env connect main` first so the
@@ -156,20 +169,28 @@ directly (the old `/spec-env-down` skill is gone — teardown is folded in here)
 2. **Stop its host dev servers:** `skitterspec spec-env dev down <name>` (a
    no-op when none are running / configured).
 3. **Remove worktree + stack + slot:** run `skitterspec spec-env down <name>`
-   and execute the commands it prints, in order. After a **feature/bug** landing
-   the branch is merged into base, so teardown needs **no `--force`** and deletes
-   the branch (`git branch -d`). After a **hotfix** landing the branch isn't
-   merged (it was tagged + cherry-picked), but its head is captured by the deploy
-   tag, so teardown still needs no `--force` and drops the branch with
-   `git branch -D` (the tag holds the commits). It still respects the guards (won't
-   destroy a dirty, or unpushed-and-unlanded, worktree without `--force`).
+   and execute the commands it prints, in order. After a landing — merged into
+   base for a **feature/bug**, captured by the deploy tag for a **hotfix** —
+   teardown needs **no `--force`** and drops the branch with `git branch -D`,
+   which is safe precisely because the commits are already somewhere else. It
+   still respects the guards (won't destroy a dirty, or unpushed-and-unlanded,
+   worktree without `--force`), so if it *does* refuse, relay that and stop
+   rather than reaching for `--force`.
 4. **Reap orphaned test-DB volumes:** run `skitterspec spec-env prune`. It lists
    Docker volumes in the repo namespace that belong to **no live spec** (no
    worktree) — leftovers from declined/aborted teardowns, manual
    `git worktree remove`, or `--keep-volumes`. Show the user the orphan list and,
    **only on their confirmation**, execute the printed `docker volume rm`
-   commands. Non-fatal: if prune can't run (Docker down) or the user declines,
-   report it and finish completing anyway — never block the spec on it. Skip when
-   Docker isn't in use (the command self-reports "no orphaned volumes").
+   commands. **This one still asks**, unlike 1–3: it reaps volumes belonging to
+   *other* specs, and this spec having landed cleanly says nothing about those.
+   Non-fatal: if prune can't run (Docker down) or the user declines, report it and
+   finish completing anyway — never block the spec on it. Skip when Docker isn't
+   in use (the command self-reports "no orphaned volumes").
+
+**Say what you reclaimed.** With no confirmation step the user never saw this
+coming, so the final report must name the worktree path removed and the branch
+deleted (or, under `--keep-env`, that both were kept). A teardown nobody
+authorised and nobody was told about is the one way this step can lose someone's
+place.
 
 If `env.config.json` is absent, skip this entirely — behave exactly as before.

@@ -208,6 +208,42 @@ for (const [skill, moveMarker] of [
   })
 }
 
+// Reclaiming the environment is what completing a spec IS, and by the time step 7
+// runs the branch is an ancestor of base with the engine's own guards in front of
+// it — so a confirmation gate there stops the flow to re-ask a question already
+// answered. /spec-cancel is deliberately NOT included: its branch is abandoned
+// work that never landed, which is a different risk.
+test('/spec-complete tears the environment down without asking', () => {
+  const text = skillText('spec-complete')
+  const step7 = text.slice(text.indexOf('## 7.'))
+  assert.doesNotMatch(step7, /offer — don't force/, 'no confirmation gate on teardown')
+  assert.match(step7, /automatically — do not ask/, 'says so explicitly')
+  // The precondition is what makes the confirmation redundant; without it stated,
+  // teardown could run after a conflict and take the worktree the user needs.
+  assert.match(step7, /Only tear down when step 6[\s\S]{0,20}completed/, 'gated on the landing')
+  // With nothing to confirm, the report is the only place the user learns.
+  assert.match(step7, /Say what you reclaimed/, 'reports what it removed')
+})
+
+test('/spec-complete keeps --keep-env as the opt-out', () => {
+  const step7 = skillText('spec-complete').slice(skillText('spec-complete').indexOf('## 7.'))
+  assert.match(step7, /`--keep-env`/, 'names the flag')
+  assert.match(step7, /skip sub-steps 1–3/, 'says what it skips')
+})
+
+test('the volume prune still asks, because it reaps other specs\' volumes', () => {
+  // The reasoning that removes the teardown prompt does not reach prune: "this
+  // spec landed cleanly" says nothing about orphans left by other specs.
+  const step7 = skillText('spec-complete').slice(skillText('spec-complete').indexOf('## 7.'))
+  assert.match(step7, /only on their confirmation/i, 'prune keeps its gate')
+  assert.match(step7, /This one still asks/, 'and says why it differs from 1–3')
+})
+
+test('/spec-cancel still offers teardown rather than forcing it', () => {
+  const text = skillText('spec-cancel')
+  assert.match(text, /offer — don't force/, 'a cancelled branch never landed')
+})
+
 // The base distribution is tracker-free. These skills may carry the marker (it
 // composes to nothing without a provider) but must never name a tracker.
 test('the terminal skills stay provider-neutral in their own source', () => {
