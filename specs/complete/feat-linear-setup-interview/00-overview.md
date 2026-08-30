@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-setup-interview (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-30)
+> **Status:** Complete (2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -107,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-30 | Ready | backlog | Reuben Greaves |
 | 2026-08-30 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-30 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -148,3 +149,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-30 — Phase 3: named the initiative follow-on hook as `listProjects` in
   `src/api.js` rather than the spec's `api.js:190` — a line number in shipped
   docs rots on the next edit above it.
+- 2026-08-30 — Completed; all three phases done, tests green (831). Verified the
+  whole flow end to end through the built distribution: `init` prints the setup
+  pointer, sync stays inert until a config exists, a renamed workspace state is
+  refused with the fixing flag named, and the corrected run writes a two-section
+  config that switches sync on.
