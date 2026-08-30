@@ -183,3 +183,36 @@ test('/spec-to-main keeps the no-auto-commit rule — it edits nothing itself', 
   assert.ok(/don't auto-commit/.test(text), 'the rule is correct where dirt is the user\'s own work')
   assert.ok(!/## \d\. Move to /.test(text), 'spec-to-main moves no spec, so it dirties nothing')
 })
+
+// --- tracker seam placement --------------------------------------------------
+
+// The sync seam's POSITION is load-bearing, and both halves are silent when
+// wrong. Before the `git mv` the projection still reads the old folder bucket, so
+// the tracker is set to the state the spec is leaving. After the commit, the ids
+// and snapshot the push writes are left uncommitted, and `spec-env integrate`
+// refuses to land a dirty worktree. Only the gap between them is correct.
+for (const [skill, moveMarker] of [
+  ['spec-complete', 'specs/complete/<name>'],
+  ['spec-cancel', 'specs/cancelled/<name>'],
+]) {
+  test(`${skill} syncs the tracker after the move and before the commit`, () => {
+    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
+    const seam = text.indexOf('<!-- seam:spec-tracker-sync -->')
+    const move = text.indexOf(moveMarker)
+    const commit = text.indexOf('git add specs/ && git commit')
+
+    assert.ok(seam !== -1, 'the seam is present')
+    assert.ok(move !== -1 && commit !== -1, 'the move and commit steps are recognisable')
+    assert.ok(move < seam, 'the push must see the spec in its new bucket')
+    assert.ok(seam < commit, 'the commit must sweep up what the push writes')
+  })
+}
+
+// The base distribution is tracker-free. These skills may carry the marker (it
+// composes to nothing without a provider) but must never name a tracker.
+test('the terminal skills stay provider-neutral in their own source', () => {
+  for (const skill of ['spec-complete', 'spec-cancel']) {
+    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
+    assert.doesNotMatch(text, /linear/i, `${skill} must not name a specific tracker`)
+  }
+})

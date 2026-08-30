@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The sync fragment + terminal transitions | ⬜ | [01-terminal-transitions.md](01-terminal-transitions.md) |
+| 1 | The sync fragment + terminal transitions | ✅ | [01-terminal-transitions.md](01-terminal-transitions.md) |
 | 2 | Modernise the link fragment to `apply` | ⬜ | [02-modernise-link.md](02-modernise-link.md) |
 | 3 | Link on create, refresh after review | ⬜ | [03-create-and-review.md](03-create-and-review.md) |
 
@@ -136,3 +136,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   thing being complained about: a step the developer has to remember.
 - 2026-08-30 — Chose to skip unlinked specs at terminal transitions rather than
   mint a born-`Done` issue.
+- 2026-08-30 — Phase 1 done. Course-correction: the "mention it in the report
+  step" task was implemented in the fragment rather than the skill, because
+  editing the shared report step leaked provider prose into the tracker-free base
+  distribution — caught by the build test, reverted. Added two guards the plan did
+  not call for: every referenced seam must have a fragment (a missing one is
+  silent in the superset as well as the base), and the dangling-marker check now
+  walks every skill rather than `/spec` alone.

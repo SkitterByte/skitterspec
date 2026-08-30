@@ -168,3 +168,53 @@ test('both distributions ship the migration guide', () => {
     assert.ok(manifest.files.includes('MIGRATION.md'), `${pkg} package.json ships it`)
   }
 })
+
+// A marker with no fragment composes to NOTHING — in the superset as well as the
+// base. That is silent: the build succeeds, the skill ships, and the provider
+// step is simply absent. The only defence is checking the two sets agree.
+test('every seam referenced by a skill has a fragment to fill it', () => {
+  const { loadFragments } = require('./compose.js')
+  const fragments = Object.keys(loadFragments(path.join(PKGS, 'linear', 'assets', 'seams')))
+  const referenced = new Set()
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(abs)
+      else if (entry.name.endsWith('.md')) {
+        for (const m of fs.readFileSync(abs, 'utf8').matchAll(/<!--\s*seam:([a-z0-9-]+)\s*-->/gi)) referenced.add(m[1])
+      }
+    }
+  }
+  walk(path.join(PKGS, 'common', 'assets'))
+  walk(path.join(PKGS, 'linear', 'assets', 'skills'))
+
+  const orphans = [...referenced].filter((s) => !fragments.includes(s))
+  assert.deepEqual(orphans, [], `seam markers with no fragment: ${orphans.join(', ')}`)
+})
+
+// The base check used to look at /spec alone, which only caught a dangling marker
+// in the one skill that had them. Seams now sit in six skills.
+test('no base skill ships a dangling seam marker', () => {
+  const dist = buildBase()
+  const skillsDir = path.join(dist, 'assets', 'skills')
+  const offenders = []
+  for (const skill of fs.readdirSync(skillsDir)) {
+    const file = path.join(skillsDir, skill, 'SKILL.md')
+    if (!fs.existsSync(file)) continue
+    if (/<!--\s*seam:/.test(fs.readFileSync(file, 'utf8'))) offenders.push(skill)
+  }
+  assert.deepEqual(offenders, [], `base skills with an unfilled seam marker: ${offenders.join(', ')}`)
+})
+
+test('the terminal skills carry the tracker step in the superset and not in the base', () => {
+  const linear = buildLinear()
+  const base = buildBase()
+  for (const skill of ['spec-complete', 'spec-cancel']) {
+    const withProvider = read(linear, 'assets', 'skills', skill, 'SKILL.md')
+    assert.match(withProvider, /Refresh the mirror now/, `${skill} syncs in the superset`)
+    assert.doesNotMatch(withProvider, /<!--\s*seam:/, `${skill} has no marker left`)
+
+    const without = read(base, 'assets', 'skills', skill, 'SKILL.md')
+    assert.doesNotMatch(without, /mirror|linear/i, `${skill} stays tracker-free in the base`)
+  }
+})

@@ -51,6 +51,8 @@ Add a **Changelog** entry:
 `git mv "specs/<bucket>/<name>" "specs/cancelled/<name>"` (preserve history;
 move the whole folder).
 
+<!-- seam:spec-tracker-sync -->
+
 Then **commit the cancellation edits** — this skill wrote them, so it commits
 them:
 

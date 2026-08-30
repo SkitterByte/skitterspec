@@ -193,3 +193,31 @@ test('the example config ships the new blocks so they are discoverable', () => {
   assert.strictEqual(example.auth.keyEnv, 'LINEAR_API_KEY')
   assert.strictEqual(example.apply.transport, '', 'empty = decide per run, the safe default')
 })
+
+// --- the lifecycle sync fragment ---------------------------------------------
+
+// This fragment is what closes the "someone has to remember to push" gap, so the
+// three rules that make it safe to run unprompted have to be stated in it — an
+// agent reading only this text must not have to infer them.
+test('the sync fragment states the three rules that make it safe unprompted', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'seams', 'spec-tracker-sync.md'), 'utf8')
+  assert.match(text, /without asking/, 'it pushes rather than offering')
+  assert.match(text, /linear_identifier/, 'gated on the spec being linked')
+  assert.match(text, /Never mint/, 'an unlinked spec is skipped, not created')
+  assert.match(text, /Never fatal/, 'a failed push does not block the operation')
+  assert.match(text, /finish the operation anyway/i, 'and says so explicitly')
+})
+
+test('the sync fragment explains why its position matters', () => {
+  // The placement is asserted in packages/common; this asserts the REASON travels
+  // with the fragment, so anyone moving a marker meets the constraint first.
+  const text = fs.readFileSync(path.join(ASSETS, 'seams', 'spec-tracker-sync.md'), 'utf8')
+  assert.match(text, /after the `git mv` and before the commit/i)
+  assert.match(text, /folder bucket/, 'why after the move')
+  assert.match(text, /integrate/, 'why before the commit')
+})
+
+test('the sync fragment points at the cheap transport rather than assuming it', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'seams', 'spec-tracker-sync.md'), 'utf8')
+  assert.match(text, /apply\.transport|API key/, 'says why an automatic push is affordable')
+})

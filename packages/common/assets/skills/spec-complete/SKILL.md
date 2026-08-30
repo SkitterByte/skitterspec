@@ -53,6 +53,8 @@ Before marking complete, confirm the work is actually finished:
 move the whole folder). The `specs/complete/` folder is the record of finished
 specs — `git log`/the per-spec State log give the completion order.
 
+<!-- seam:spec-tracker-sync -->
+
 Then **commit the completion edits** — steps 3–4 are this skill's own output, so
 it finishes its own work rather than handing you a dirty tree:
 
