@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-local-dev-link (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (started 2026-08-30)
+> **Status:** Complete (2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -99,6 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-30 | Ready | backlog | Reuben Greaves |
 | 2026-08-30 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-30 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -126,3 +127,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   than warning. A worktree link dangles when `/spec-complete` removes it, and the
   primary checkout is always available — so a warning would only ever be ignored
   into a broken state.
+- 2026-08-30 — Completed; all phases done, tests green (802).
