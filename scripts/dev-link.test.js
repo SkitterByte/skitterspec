@@ -18,6 +18,7 @@ const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
 const SCRIPT = path.join(__dirname, 'dev-link.js')
+const { primaryCheckout } = require('./dev-link.js')
 
 function run(args) {
   return spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8' })
@@ -60,4 +61,41 @@ test('the script builds before it links — the ordering the whole thing is for'
   const link = src.indexOf("'pnpm', ['add'")
   assert.ok(build !== -1 && link !== -1, 'both steps are present')
   assert.ok(build < link, 'build precedes link')
+})
+
+// A spec worktree is removed by /spec-complete when the spec lands, so a link
+// into one dangles at exactly the moment the work became available. Detection is
+// the `.git` FILE a linked worktree carries (`gitdir: <primary>/.git/worktrees/…`)
+// where a primary checkout has a `.git` directory.
+//
+// Fixture-driven on purpose: asserting against the repo the suite happens to be
+// running in would invert every time the work moved between worktree and main.
+test('a linked worktree is detected, and names its primary checkout', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-wt-'))
+  fs.writeFileSync(path.join(dir, '.git'), 'gitdir: /Users/me/code/proj/.git/worktrees/thing\n')
+  assert.strictEqual(primaryCheckout(dir), '/Users/me/code/proj')
+})
+
+test('a primary checkout is not mistaken for a worktree', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-primary-'))
+  fs.mkdirSync(path.join(dir, '.git'))
+  assert.strictEqual(primaryCheckout(dir), null, 'a .git directory is the primary')
+})
+
+test('a non-git directory, or a .git file of another shape, is left alone', () => {
+  // The guard must never refuse something it does not understand — that would
+  // block linking from a perfectly ordinary checkout.
+  const plain = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-nogit-'))
+  assert.strictEqual(primaryCheckout(plain), null)
+
+  const odd = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-oddgit-'))
+  fs.writeFileSync(path.join(odd, '.git'), 'gitdir: /somewhere/else\n')
+  assert.strictEqual(primaryCheckout(odd), null, 'no /.git/worktrees/ segment')
+})
+
+test('the refusal names the worktree, the reason, and the primary to use', () => {
+  const src = fs.readFileSync(SCRIPT, 'utf8')
+  assert.match(src, /refusing to link from a spec worktree/)
+  assert.match(src, /would dangle/, 'says why')
+  assert.match(src, /link from the primary checkout instead/, 'says what to do')
 })

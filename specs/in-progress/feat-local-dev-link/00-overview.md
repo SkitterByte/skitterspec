@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-local-dev-link (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 2 (started 2026-08-30)
+> **Status:** In Progress — all phases done (started 2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -71,6 +71,7 @@ the two-repo round trip. Neither adds a code path to the shipped product —
 |---------|--------|--------|
 | Config key | add | `prepare` script on both distribution package.jsons |
 | Script | add | `npm run dev:link <consumer> [dist]` — build, then link |
+| Script | add | `npm run dev:unlink <consumer>` — back to the published package |
 | CLI command | update | bin exits with a clear message when `src/` is missing |
 | Script | add | `npm run dev:sync <consumer-dir>` |
 | Docs | add | README: local dev-link recipe and its two footguns |
@@ -86,7 +87,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Make a linked package build and fail clearly | ✅ | [01-linkable-package.md](01-linkable-package.md) |
-| 2 | The round-trip: dev:sync and the documented recipe | ⬜ | [02-sync-and-docs.md](02-sync-and-docs.md) |
+| 2 | The round-trip: dev:sync and the documented recipe | ✅ | [02-sync-and-docs.md](02-sync-and-docs.md) |
 
 ## Open questions
 
@@ -112,3 +113,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   which builds before linking — the only ordering that yields a working bin.
   `prepare` is kept as a correct-but-partial hook; the bin guard is kept for the
   built-then-cleaned case it does cover.
+- 2026-08-30 — Phase 2: `dev:sync` detects the linked distribution rather than
+  taking it as an argument, and verifies the link resolves to *this* repo. A
+  consumer on the published package has the same `node_modules` path, so a
+  name-only check would sync it successfully and change nothing.
+- 2026-08-30 — Phase 2 reopened after a docs review: the first-time `init` step
+  and the undo path were both missing, and `pnpm add …@link:` turned out to write
+  an **absolute machine-local path** into the consumer's package.json — a thing
+  that must never be committed and was nowhere documented. Added `dev:unlink`, a
+  link-time warning, and the README callout.
+- 2026-08-30 — Phase 2: `dev:link` **refuses** to run from a spec worktree rather
+  than warning. A worktree link dangles when `/spec-complete` removes it, and the
+  primary checkout is always available — so a warning would only ever be ignored
+  into a broken state.
