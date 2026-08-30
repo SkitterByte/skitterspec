@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-inline-phase-mapping (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (started 2026-08-30)
+> **Status:** Complete (2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
@@ -125,6 +125,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-29 | Ready | backlog | Reuben Greaves |
 | 2026-08-30 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-30 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -157,3 +158,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   line prints only when the mode is not `subissue`. The machine consumer should
   read one field rather than learn a default; the human one should not get a line
   restating the obvious on every ordinary push.
+- 2026-08-30 — Completed; all phases done, tests green (774).
