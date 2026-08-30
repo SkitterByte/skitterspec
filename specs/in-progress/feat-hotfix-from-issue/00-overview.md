@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-hotfix-from-issue (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-30)
+> **Status:** In Progress — all phases built (2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -100,7 +100,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `/spec-hotfix` adopts an issue | ✅ | [01-hotfix-intake.md](01-hotfix-intake.md) |
 | 2 | Route production issues to it | ✅ | [02-hotfix-routing.md](02-hotfix-routing.md) |
-| 3 | Docs, and the stale adoption prose | ⬜ | [03-docs-and-drift.md](03-docs-and-drift.md) |
+| 3 | Docs, and the stale adoption prose | ✅ | [03-docs-and-drift.md](03-docs-and-drift.md) |
 
 ## Open questions
 
@@ -141,3 +141,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   fix on `main` while prod stayed broken. Skips are per-check, not per-skill:
   `/spec-bug` skips the bug check (self-loop) but still runs the hotfix check,
   because that is an escalation rather than a loop.
+- 2026-08-30 — Phase 3 done. Confirmed the "no base sidecar at adoption" rule is
+  still load-bearing after the link seam started pushing at creation — an empty
+  base is what makes that push an update over the reporter's text. Also found the
+  distribution README still describing the composed set as `/spec`, `/spec-bug`
+  and `/spec-go`, predating the seams added by `feat-lifecycle-tracker-sync`;
+  rewritten to name every lifecycle skill rather than patched narrowly.

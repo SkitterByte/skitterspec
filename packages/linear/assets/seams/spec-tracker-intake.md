@@ -89,10 +89,12 @@ it happens differs (`/spec` writes the spec in Phase B, `/spec-bug` in its step 
   somewhere deliberately — where it lives is Linear's business, and adoption is
   not a mint.
 - **Do not write a base sidecar.** Leaving `sync.baseDir` empty for this spec is
-  what makes the first `/spec-push` push the spec over the reporter's original
+  what makes the **linking push** send the spec over the reporter's original
   description (an **update** to the existing issue, plus a sub-issue per phase).
   Recording a snapshot here would declare the mirror already in sync and strand
   the issue showing the raw report forever.
-- **Say what will happen** in the finish-up message: the first `/spec-push` will
-  overwrite the issue's description with the spec, and the original report is
-  preserved in the spec's **Problem** section.
+- **Say what will happen** in the finish-up message. The linking step runs right
+  after the spec is written, so the issue's description is replaced by the spec
+  **then** — not on some later manual push. The reporter's words are not lost:
+  they are quoted in the spec's **Problem** (or **Symptom**) section, and Linear
+  keeps the original in the issue's history.

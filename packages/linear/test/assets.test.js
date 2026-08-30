@@ -299,3 +299,51 @@ test('unset label lists leave intake behaving exactly as before', () => {
   assert.match(text, /With a list unset, nothing routes through it/)
   assert.match(text, /both unset every issue is\s*\n?\s*treated as a feature request/)
 })
+
+// --- adoption prose, after the link seam started pushing at creation ---------
+
+// feat-lifecycle-tracker-sync made linking apply immediately, so an adopted
+// issue's description is replaced THEN, not on a later manual push. The old
+// wording promised otherwise, on the one point a reporter cares about.
+test('the fragment says the overwrite happens at creation, not on a later push', () => {
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /linking push/i, 'names what actually overwrites')
+  assert.match(text, /not on some later manual push/, 'and rules out the old reading')
+  assert.doesNotMatch(text, /the first `\/spec-push` will\s*\n?\s*overwrite/, 'stale promise gone')
+})
+
+test('the fragment still forbids a base sidecar, and says why', () => {
+  // Load-bearing: an empty base is what makes the adopting push an UPDATE over
+  // the reporter's text rather than a no-op that declares the mirror in sync.
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /Do not write a base sidecar/)
+  assert.match(text, /declare the mirror already in sync/, 'the failure it prevents')
+})
+
+test('the fragment says where the reporter words survive, for either template', () => {
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /\*\*Problem\*\* \(or \*\*Symptom\*\*\)/, 'both section names')
+  assert.match(text, /Linear\s*\n?\s*keeps the original/, 'and that Linear keeps the original')
+})
+
+// --- hotfixLabels is documented where someone would look for it -------------
+
+test('the example config ships hotfixLabels beside bugLabels', () => {
+  const example = JSON.parse(fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.json.example'), 'utf8'))
+  assert.deepEqual(example.intake.hotfixLabels, [], 'present and empty — nothing routes by default')
+  assert.ok('bugLabels' in example.intake, 'and still beside the one it mirrors')
+})
+
+test('linear.config.md documents the routing and its precedence', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(text, /intake\.hotfixLabels/, 'the key')
+  assert.match(text, /hotfixLabels` wins when an issue carries both/i, 'the precedence')
+  assert.match(text, /never reaches the running version/, 'and why it is that way round')
+  assert.match(text, /`\/spec-bug` still checks `hotfixLabels`/, 'the escalation rule')
+})
+
+test('linear.config.md shows starting a hotfix from an issue', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(text, /\/spec-hotfix v33\.16\.4 SKI-123/, 'the invocation')
+  assert.match(text, /never used as a default/, 'and that the version is only a suggestion')
+})

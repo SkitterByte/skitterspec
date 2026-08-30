@@ -104,12 +104,15 @@ On top of the base skills (`/spec`, `/spec-go`, isolation, …):
   every id is written into the spec as soon as its object exists, so nothing is
   ever duplicated. Needs an API key. See `specs/.core/linear.config.md`.
 
-The shared `/spec`, `/spec-bug` and `/spec-go` skills come composed with the
-Linear steps filled in: `/spec` asks which Linear **Project** the spec belongs to,
-then links it to a Linear issue (a sub-issue per phase). `/spec` and `/spec-bug`
-can also start **from** an existing issue — `/spec SKI-123`, or `/spec
---from-issue` to browse the ones your web app filed. There is no pull — the repo
-is already canonical, so `/spec-go` just builds.
+**Every skill that moves a spec through its lifecycle** comes composed with the
+Linear steps filled in, so the mirror keeps up without anyone remembering to
+push: `/spec`, `/spec-bug` and `/spec-hotfix` link the spec they create (asking
+which **Project** it belongs to, and minting a sub-issue per phase);
+`/spec-go` refreshes it as work starts; `/spec-complete`, `/spec-cancel` and
+`/spec-review` refresh it after they change it. All three creating skills can
+also start **from** an existing issue — `/spec SKI-123`,
+`/spec-hotfix v33.16.4 SKI-123`, or `--from-issue` to browse the ones your web
+app filed. There is no pull — the repo is already canonical.
 
 ## Opt-in
 
@@ -156,13 +159,17 @@ always offering *None*. It's passed on the create call only and never stored, so
 re-homing a spec issue in Linear sticks: it won't read as drift and won't be moved
 back on the next push.
 
-**Starting from an issue** (`intake.label` / `intake.bugLabels` in the config):
-`/spec SKI-123` adopts that issue, `/spec --from-issue [query]` browses the inbox.
-The issue *becomes* the spec's issue — the reporter's thread, comments and links
-stay put, their words are carried into the spec's **Problem**, and the first push
-replaces the description with the spec. A bug-labelled issue routes to
-`/spec-bug`, which adopts it the same way. `skitterspec-linear spec-sync linked`
-lists what's already adopted, so an issue never becomes two specs.
+**Starting from an issue** (the `intake` block in the config): `/spec SKI-123`
+adopts that issue, `--from-issue [query]` browses the inbox, and `/spec-bug` and
+`/spec-hotfix` adopt the same way — `/spec-hotfix v33.16.4 SKI-123` starts a
+patch to a released version from the issue that reported it. The issue *becomes*
+the spec's issue — the reporter's thread, comments and links stay put, their
+words are carried into the spec's **Problem** (or **Symptom**), and the linking
+push replaces the description with the spec as it is created. Labels route an
+issue onward: `intake.hotfixLabels` to `/spec-hotfix`, `intake.bugLabels` to
+`/spec-bug`, with hotfix winning when an issue carries both.
+`skitterspec-linear spec-sync linked` lists what's already adopted, so an issue
+never becomes two specs.
 
 **Phase status.** A phase's state in Linear comes from the `⬜`/`🔄`/`✅` on its
 phase-file **heading** — not from its `> **Status:**` line and not from the

@@ -6,7 +6,8 @@
   },
   "intake": {
     "label": "",
-    "bugLabels": []
+    "bugLabels": [],
+    "hotfixLabels": []
   },
   "mapping": {
     "specFolder": "issue",

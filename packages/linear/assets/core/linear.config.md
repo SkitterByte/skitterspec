@@ -35,10 +35,11 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   },
 
   // Issue intake: `/spec <ISSUE-REF>` adopts any issue; `/spec --from-issue`
-  // browses the inbox. Both optional.
+  // browses the inbox. All optional.
   "intake": {
     "label": "",          // inbox filter — the label the web app files under
-    "bugLabels": []       // e.g. ["bug"] — these route to /spec-bug instead
+    "bugLabels": [],      // e.g. ["bug"] — these route to /spec-bug instead
+    "hotfixLabels": []    // e.g. ["production"] — these route to /spec-hotfix
   },
 
   // How a spec's parts map onto Linear objects: a spec is an Issue, each phase a
@@ -275,16 +276,40 @@ filed:
 - `/spec SKI-123` — adopt that issue.
 - `/spec --from-issue [query]` — browse issues labelled `intake.label` (what your
   web app or feedback form files under), optionally filtered by title.
+- `/spec-bug SKI-123` — same, for a bug.
+- `/spec-hotfix v33.16.4 SKI-123` — same, for a bug that has to be patched on a
+  released version. Give the tag or be asked for it; any version the report
+  mentions is offered as a suggestion, never used as a default.
 
 The issue **becomes** the spec's issue: its identifier is stamped as
-`linear_identifier`, phases become its sub-issues, and the first `/spec-push`
-replaces its description with the spec. The reporter's comments, links and
-subscribers stay on the one issue everyone is already watching; their original
-words are carried into the spec's **Problem** section.
+`linear_identifier`, phases become its sub-issues, and the **linking push**
+— which runs as the spec is created — replaces its description with the spec. The
+reporter's comments, links and subscribers stay on the one issue everyone is
+already watching; their original words are carried into the spec's **Problem**
+(or **Symptom**) section, and Linear keeps the original in the issue's history.
 
 An issue already stamped on a spec can't be adopted twice — `skitterspec spec-sync
-linked` is the list that's checked. An issue labelled with one of
-`intake.bugLabels` routes to `/spec-bug` instead, which adopts it identically.
+linked` is the list that's checked.
+
+### Routing an issue to the right skill
+
+Two optional label lists send an issue to a more specific skill, checked in this
+order:
+
+| List | Routes to | Means |
+|------|-----------|-------|
+| `intake.hotfixLabels` | `/spec-hotfix` | broken in production — patch the released version |
+| `intake.bugLabels` | `/spec-bug` | a bug, fixed on `main` like any other |
+
+**`hotfixLabels` wins when an issue carries both.** The two mistakes are not
+equally costly: routing a production issue to `/spec-bug` produces a fix that
+lands on `main` and never reaches the running version — noticed only when someone
+asks why it hasn't shipped. The reverse is a hotfix branch for something that
+could have waited.
+
+`/spec-bug` still checks `hotfixLabels` — being in the bug path is not a reason to
+miss that production is broken. `/spec-hotfix` checks neither; it is already the
+most specific destination. Leave a list empty and nothing routes through it.
 
 ## One direction — nothing to reconcile
 
