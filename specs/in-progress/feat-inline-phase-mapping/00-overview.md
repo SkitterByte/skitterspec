@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-inline-phase-mapping (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-08-30)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
 > **Area:** packages/linear (config), packages/sync-core (normalize), spec-push/spec-status skills
 > **Stack:** worktree
@@ -124,6 +124,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-29 | Ready | backlog | Reuben Greaves |
+| 2026-08-30 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
