@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-local-dev-link (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-30)
+> **Status:** In Progress — Phase 2 (started 2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -70,6 +70,7 @@ the two-repo round trip. Neither adds a code path to the shipped product —
 | Surface | Change | Detail |
 |---------|--------|--------|
 | Config key | add | `prepare` script on both distribution package.jsons |
+| Script | add | `npm run dev:link <consumer> [dist]` — build, then link |
 | CLI command | update | bin exits with a clear message when `src/` is missing |
 | Script | add | `npm run dev:sync <consumer-dir>` |
 | Docs | add | README: local dev-link recipe and its two footguns |
@@ -84,7 +85,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Make a linked package build and fail clearly | ⬜ | [01-linkable-package.md](01-linkable-package.md) |
+| 1 | Make a linked package build and fail clearly | ✅ | [01-linkable-package.md](01-linkable-package.md) |
 | 2 | The round-trip: dev:sync and the documented recipe | ⬜ | [02-sync-and-docs.md](02-sync-and-docs.md) |
 
 ## Open questions
@@ -104,3 +105,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `prepack` only; `init` copies skills rather than symlinking them; `resync`
   already updates pristine managed files without `--force`, so the refresh half
   of the loop needs documenting rather than building.
+- 2026-08-30 — Phase 1: **Decision 1 was wrong.** `prepare` does not fire on a
+  pnpm `link:` install, and an unbuilt package produces no bin shim at all, so
+  the symptom is `command not found` rather than a resolution error. Verified by
+  linking an unbuilt package into a throwaway consumer. Added `npm run dev:link`,
+  which builds before linking — the only ordering that yields a working bin.
+  `prepare` is kept as a correct-but-partial hook; the bin guard is kept for the
+  built-then-cleaned case it does cover.

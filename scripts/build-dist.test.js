@@ -218,3 +218,42 @@ test('the terminal skills carry the tracker step in the superset and not in the 
     assert.doesNotMatch(without, /mirror|linear/i, `${skill} stays tracker-free in the base`)
   }
 })
+
+// --- linkability -------------------------------------------------------------
+
+// A distribution's bin/src/assets are composed and gitignored, so a checkout that
+// has not been built is a package with nothing in it. `prepare` is the lifecycle
+// hook that covers install-from-directory and runs before `prepack` on publish;
+// `prepack` stays as the publish-only guarantee. Both are needed and mean
+// different things, so neither may quietly disappear.
+test('every distribution builds itself on prepare as well as prepack', () => {
+  for (const dist of ['skitterspec', 'skitterspec-linear']) {
+    const pkg = JSON.parse(fs.readFileSync(path.join(PKGS, dist, 'package.json'), 'utf8'))
+    const expected = `node ../../scripts/build-dist.js ${dist}`
+    assert.strictEqual(pkg.scripts.prepare, expected, `${dist} prepare builds itself`)
+    assert.strictEqual(pkg.scripts.prepack, expected, `${dist} prepack unchanged`)
+  }
+})
+
+// pnpm does NOT run `prepare` for a `link:` dependency, so an unbuilt package
+// links with no bin shim at all. Once it HAS been built and linked, a later
+// `git clean` leaves the shim pointing at nothing — and that is the case this
+// guard exists for. Verified by running the real bin with no sibling src/.
+for (const [pkgDir, binFile, name] of [
+  ['common', 'skitterspec.js', 'skitterspec'],
+  ['linear', 'skitterspec-linear.js', 'skitterspec-linear'],
+]) {
+  test(`${name}'s bin explains a missing build instead of failing to resolve`, () => {
+    const dir = tmpDir('nobuild')
+    fs.mkdirSync(path.join(dir, 'bin'))
+    fs.copyFileSync(path.join(PKGS, pkgDir, 'bin', binFile), path.join(dir, 'bin', binFile))
+    // deliberately no sibling src/
+    const r = spawnSync(process.execPath, [path.join(dir, 'bin', binFile), '--help'], {
+      encoding: 'utf8',
+    })
+    assert.strictEqual(r.status, 1, 'exits non-zero')
+    assert.match(r.stderr, /no build output/, 'names the cause')
+    assert.match(r.stderr, /npm run build/, 'names the fix')
+    assert.doesNotMatch(r.stderr, /MODULE_NOT_FOUND/, 'not a raw resolution error')
+  })
+}
