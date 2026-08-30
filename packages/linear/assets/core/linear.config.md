@@ -215,15 +215,64 @@ to keep in step; the spec files are the record.
 Without a key, nothing changes: the MCP path is fully supported and remains the
 default for anyone who never sets one.
 
-## Deferring sub-issues until a spec starts
+## How phases are mirrored — `mapping.phases`
 
-`mapping.phases` decides *when* a phase becomes a sub-issue:
+`mapping.phases` decides *whether and when* a phase becomes a sub-issue:
 
 - `"subissue"` (default) — from the spec's first push. A spec costs `1 + N`
   `save_issue` calls to mirror, N being its phase count.
 - `"deferred"` — only once the work starts. A spec sitting in `specs/backlog/`
   mirrors as **the issue alone**; its sub-issues are created by the push that
   follows `/spec-go`.
+- `"inline"` — never. Each phase becomes a **section of the spec issue's own
+  description**, with its full task list, and the `## Phases` index stays as the
+  table of contents. One issue per spec, however many phases it has.
+
+### One mode, or one per bucket
+
+Either form is valid:
+
+```json
+"mapping": { "phases": "subissue" }
+```
+
+```json
+"mapping": {
+  "phases": { "backlog": "subissue", "in-progress": "subissue", "complete": "inline" }
+}
+```
+
+A **scalar** applies one mode to the whole repo — that is what every config was
+before per-bucket mapping, and it still means exactly what it meant. A **map**
+keys the mode by the spec's lifecycle bucket: `backlog`, `in-progress`,
+`complete`, `cancelled`. A bucket the map **omits defaults to `subissue`**, so a
+partial map adds an exception for the buckets it names rather than quietly
+changing the ones it does not.
+
+An unknown key or an unknown mode is a **loud error** at load, not a fallback: a
+misspelt `"completed"` that read as "the map said nothing" would go on minting
+exactly the sub-issues the config was written to stop, and look deliberate doing
+it.
+
+Why per bucket rather than per repo: phases became sub-issues so that parallel
+agents could be assigned one each. That reasoning holds for work in flight and
+does not hold for work that finished long ago — a repo with 250 completed specs
+gets 669 sub-issues nobody will ever read. Set `complete: "inline"` and those
+mirror as 250 readable issues, while the backlog keeps the assignable sub-issues
+that made the choice worth it.
+
+### Switching modes is non-destructive
+
+**A phase already carrying a `linear_issue_id` keeps its sub-issue in every
+mode**, and is never *also* inlined. One-way sync has no delete op, so
+withholding a live sub-issue would not remove it from Linear — it would freeze it
+there, never updated again. So changing `mapping.phases` only ever changes what
+has yet to be minted, and a spec part-way through keeps a coherent mirror.
+
+**Adopting on an established repo:** set `complete: "inline"` (and `"deferred"`
+or `"inline"` for `backlog`) **before** the first backfill push. Finished specs
+then never mint sub-issues at all, rather than minting them and stranding them.
+
 
 Deferral is worth setting when you adopt sync on a project that already has a
 long backlog, where the default means mirroring every phase of every spec nobody
@@ -248,10 +297,42 @@ What defers and what does not:
 - **`/spec-push` and `/spec-status` say so**, printing `N phase(s) deferred`, and
   the JSON plan carries a `phasesDeferred` count — a spec with no sub-issues
   reads as deliberate rather than as phase files that failed to parse.
+- **Both also print the resolved mode** as `phases: <mode>` whenever it is not
+  the default, naming the bucket it resolved through, and the JSON plan always
+  carries it as `phaseMode`. With a per-bucket map the config alone no longer
+  tells you which mode a given spec got, so the report is where that is stated.
 
 There is no snapshot state behind this and nothing to migrate: the last-pushed
 snapshot only ever recorded sub-issues that have an id, so a deferred phase is
 simply absent from it and arrives as an ordinary `create` when it projects.
+
+### What `inline` renders
+
+Each unlinked phase is appended to the description as a `###` section carrying
+the **same body its sub-issue would have had** — the identical composer, so
+`inline` inherits every fidelity guarantee the sub-issue form has rather than
+being a second, thinner projection. The body's own headings are demoted to nest
+under that `###` (a phase's `## Tasks` would otherwise read as a sibling of the
+spec's `## Problem` and drag every later phase under it).
+
+```markdown
+## Phases
+
+| # | Phase | Status | File |
+| 1 | Mode resolver | ✅ | [01-mode-resolver.md](01-mode-resolver.md) |
+
+### Phase 1 — Mode resolver ✅
+
+**Goal:** one resolver decides the mode for a spec.
+
+#### Tasks
+
+- [x] Extend the config loader
+```
+
+The phase heading is the phase file's h1 **as written**, emoji included: a
+sub-issue projects its title as `name` and its status emoji as `state`, and
+inlined there are no such fields for either to live in.
 
 ## Which Project a spec issue belongs to
 

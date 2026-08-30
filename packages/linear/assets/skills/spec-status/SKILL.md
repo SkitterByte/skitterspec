@@ -50,3 +50,12 @@ skitterspec spec-sync status <spec> [--remote <issuefile>] [--workspace-states <
 
 Relay the engine's output verbatim. Suggest `/spec-push` if a push is pending.
 Never write to either side.
+
+A **`phases: <mode>`** line names the phase mode that resolved for this spec's
+lifecycle bucket, and appears only when it is not the default `subissue`.
+`mapping.phases` may be a per-bucket map, so this is the only place the mode a
+given spec got is stated. Under **`inline`** the phases live in the spec issue's
+description rather than as sub-issues, so "0 to create" is the expected shape
+rather than a sign the phase files failed to parse; under **`deferred`** the
+`N phase(s) deferred` line above it says how many are still waiting on
+`/spec-go`. Relay both lines as printed.

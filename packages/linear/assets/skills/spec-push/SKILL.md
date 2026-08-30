@@ -94,6 +94,21 @@ pushes alone and the sub-issues are minted by the push that follows `/spec-go`.
 Relay the count; it is not a sign the phase files failed to parse. Nothing else
 about applying the plan changes.
 
+The plan always carries a **`phaseMode`** field — `subissue`, `deferred` or
+`inline` — the mode that resolved for THIS spec's lifecycle bucket.
+`mapping.phases` may be a per-bucket map, so the config alone no longer tells you
+which mode a given spec got. Relay it whenever it is not `subissue`:
+
+- **`inline`** — no sub-issues are created at all. Each unlinked phase is a
+  section of the spec issue's own description, and the `## Phases` index stays as
+  its table of contents. A plan with no sub-issue creates is the expected shape,
+  not a parse failure. A phase that already carries an id keeps its sub-issue and
+  still appears under `subIssues` — apply those normally.
+- **`deferred`** — as above; the `phasesDeferred` count says how many are waiting.
+
+Nothing about how you apply the plan changes in either mode: apply exactly the
+`issue` and `subIssues` the plan lists.
+
 ### Stop if the plan reports a pre-9.0 mirror
 
 If the plan carries a **`legacy`** field, this spec was linked under the pre-9.0

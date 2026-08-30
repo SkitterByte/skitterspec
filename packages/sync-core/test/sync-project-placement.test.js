@@ -42,10 +42,11 @@ test('the projection carries no project — only the pushed fields, plus reporti
   const { dir } = specTree()
   const projection = projectionOf(dir, configWithProject('proj-a'))
   // Deliberately exact: the point is that nothing new sneaks into the projection
-  // unnoticed. `phasesWithheld` is reporting-only — it names no Linear object and
-  // never reaches a hash (see the snapshot test below).
+  // unnoticed. `phasesWithheld` and `phaseMode` are reporting-only — they name no
+  // Linear object and never reach a hash (see the snapshot test below).
   assert.deepStrictEqual(Object.keys(projection).sort(), [
     'description',
+    'phaseMode',
     'phasesWithheld',
     'status',
     'subIssues',

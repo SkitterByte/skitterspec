@@ -147,11 +147,34 @@ test('/spec-push explains a plan whose sub-issues were deferred', () => {
   assert.match(text, /failed to parse/, 'rules out the alternative reading')
 })
 
-test('linear.config.md documents when phases become sub-issues', () => {
+test('linear.config.md documents whether and when phases become sub-issues', () => {
   const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
-  assert.match(text, /## Deferring sub-issues until a spec starts/, 'has its own section')
+  assert.match(text, /## How phases are mirrored — `mapping.phases`/, 'has its own section')
   assert.match(text, /already carrying a\s*\n?\s*`linear_issue_id`/, 'states that linked phases never defer')
   assert.match(text, /## Phases` index/, 'states the description keeps the index meanwhile')
+  // All three modes, both config forms, and the two rules an adopter has to know
+  // BEFORE a backfill mints 669 sub-issues it cannot delete.
+  for (const mode of ['"subissue"', '"deferred"', '"inline"']) {
+    assert.match(text, new RegExp(mode.replace(/"/g, '`?"')), `documents ${mode}`)
+  }
+  assert.match(text, /omits defaults to `subissue`/, 'states the per-bucket default')
+  assert.match(text, /loud error/, 'states that a bad key or mode fails at load')
+  assert.match(text, /before\*\* the first backfill push/, 'states the adoption path')
+})
+
+test('the push and status skills relay the resolved phase mode', () => {
+  // The engine prints it and the plan carries it, but the skill is what the user
+  // actually reads. Under `inline` a plan with zero sub-issue creates is the
+  // expected shape, and a skill that did not say so would report it as nothing
+  // to do — or as a parse failure.
+  const push = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-push', 'SKILL.md'), 'utf8')
+  assert.match(push, /`phaseMode`/, 'names the plan field')
+  assert.match(push, /inline/, 'covers the mode that mints nothing')
+  assert.match(push, /already carries an id keeps its sub-issue/, 'and the mixed case')
+
+  const status = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-status', 'SKILL.md'), 'utf8')
+  assert.match(status, /phases: <mode>/, 'names the line it must relay')
+  assert.match(status, /inline/)
 })
 
 // A corrupted push must be caught BEFORE the snapshot records it as good —

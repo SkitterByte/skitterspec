@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-inline-phase-mapping (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 3 (started 2026-08-30)
+> **Status:** In Progress — all phases done (started 2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Per-bucket resolution for the existing modes | ✅ | [01-mode-resolver.md](01-mode-resolver.md) |
 | 2 | The `inline` projection | ✅ | [02-inline-projection.md](02-inline-projection.md) |
-| 3 | Surface it: CLI, skills, docs | ⬜ | [03-surface-and-docs.md](03-surface-and-docs.md) |
+| 3 | Surface it: CLI, skills, docs | ✅ | [03-surface-and-docs.md](03-surface-and-docs.md) |
 
 ## Open questions
 
@@ -153,3 +153,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `withheld`. The two modes filter sub-issues identically, but an inlined phase
   is present in the mirror, so folding it into `withheld` would make the CLI's
   "N phases deferred" line report the opposite of what happened.
+- 2026-08-30 — Phase 3: `plan.phaseMode` is set on every plan, while the human
+  line prints only when the mode is not `subissue`. The machine consumer should
+  read one field rather than learn a default; the human one should not get a line
+  restating the obvious on every ordinary push.

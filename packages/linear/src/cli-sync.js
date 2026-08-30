@@ -199,6 +199,7 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
   const lines = [`spec-sync push: ${identifier}`, ...warningLines(snapshotDir, config)]
   if (p.legacy) lines.push(...legacyLines(p.legacy))
   if (p.phasesDeferred) lines.push(...deferredLines(p.phasesDeferred))
+  lines.push(...phaseModeLines(p.phaseMode, r.projection.status))
   if (r.empty) lines.push('  nothing to push — mirror matches the last push')
   else {
     if (p.issue) lines.push('  issue: description/state')
@@ -218,6 +219,25 @@ function deferredLines(n) {
     `  ${n} phase(s) deferred — mapping.phases is "deferred" and this spec has not started`,
     '     they are created on the push that follows /spec-go',
   ]
+}
+
+// Which phase mode resolved for this spec, and what it means for the plan below.
+//
+// Silent for `subissue`: the sub-issue lines are right there and explain
+// themselves. Said for anything else, because `mapping.phases` can now be a
+// per-bucket map — so the mode that applied is no longer readable off the config
+// without knowing which bucket the spec is in, and the alternative reading of a
+// spec with no sub-issues is that its phase files failed to parse.
+function phaseModeLines(mode, bucket) {
+  if (!mode || mode === 'subissue') return []
+  const why = {
+    inline: 'each phase is a section of this issue\'s description, not a sub-issue',
+    deferred: 'unlinked phases are held back until the spec leaves backlog/cancelled',
+  }[mode]
+  const where = bucket ? ` for this spec's bucket ("${bucket}")` : ''
+  const lines = [`  phases: ${mode} — mapping.phases resolved${where}`]
+  if (why) lines.push(`     ${why}`)
+  return lines
 }
 
 // The pre-9.0 mirror block. Loud on purpose: the plan below it looks entirely
@@ -420,6 +440,7 @@ function specSyncStatus(dir, config, specArg, flags, out) {
   // From the projection, not the plan: `status` builds its plan with
   // `planChanges` directly rather than going through `push`.
   if (projection.phasesWithheld) lines.push(...deferredLines(projection.phasesWithheld))
+  lines.push(...phaseModeLines(projection.phaseMode, projection.status))
   if (!snapshot) lines.push('  push: never pushed — everything is pending')
   else if (isEmptyPlan(plan)) lines.push('  push: up to date — nothing changed since the last push')
   else {

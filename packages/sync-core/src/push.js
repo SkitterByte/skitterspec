@@ -15,7 +15,7 @@
  * Date.now(). `recordPush` writes the snapshot sidecar.
  */
 
-const { normalizeLocal, phasesWithheld } = require('./normalize.js')
+const { normalizeLocal, phasesWithheld, phaseModeFor } = require('./normalize.js')
 const { planChanges, snapshotOf, isEmptyPlan } = require('./compare.js')
 const { readBase, writeBase } = require('./base.js')
 const { detectLegacyMirror } = require('./legacy.js')
@@ -34,6 +34,11 @@ function projectionOf(snapshotDir, config) {
     // only — `snapshotOf`/`specIssueHash` read named fields, so this never
     // reaches a hash and cannot make an unchanged spec look edited.
     phasesWithheld: phasesWithheld(snapshotDir, config),
+    // The phase mode that resolved for THIS spec's bucket. Reporting only, on
+    // the same terms: a spec with no sub-issues has to read as deliberate rather
+    // than as phase files that failed to parse, and with `mapping.phases` now a
+    // per-bucket map, which mode applied is no longer readable off the config.
+    phaseMode: phaseModeFor(local.workflowState, config),
   }
 }
 
@@ -51,6 +56,10 @@ function push({ dir, snapshotDir, identifier, config }) {
   // because `--json` routes warnings to stderr and the skill applying the plan
   // is the consumer that most needs to know the missing sub-issues are deliberate.
   if (projection.phasesWithheld) plan.phasesDeferred = projection.phasesWithheld
+  // Always set, unlike the two above: the skill relaying this should not have to
+  // know that an absent field means `subissue`. `isEmptyPlan` and `snapshotOf`
+  // both read named fields, so an extra key cannot make a spec look edited.
+  plan.phaseMode = projection.phaseMode
   return { ok: true, empty: isEmptyPlan(plan), plan, projection }
 }
 

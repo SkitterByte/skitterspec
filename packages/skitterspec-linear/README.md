@@ -144,14 +144,32 @@ are left alone. Your spec files are never modified. After a push, each stored
 description is read back and compared against what was sent, ignoring Linear's
 own reformatting and reporting anything genuinely lost. Both are automatic.
 
-**Adopting on a long backlog.** By default a spec costs one `save_issue` call
-plus one per phase, so mirroring a backlog that already runs to dozens of specs
-front-loads hundreds of calls for work nobody has started. Set
-`mapping.phases: "deferred"` and a spec sitting in `specs/backlog/` mirrors as
-**the issue alone**, keeping its phase list in the description; its sub-issues are
-created by the push that follows `/spec-go`, when the work actually starts. Phases
-that are already linked keep syncing either way, so switching an existing project
-over never strands a live sub-issue. See `linear.config.md` for the details.
+**How phases are mirrored** is `mapping.phases`, and it takes one mode for the
+whole repo *or* one per lifecycle bucket:
+
+```json
+"mapping": { "phases": { "backlog": "deferred", "complete": "inline" } }
+```
+
+- `"subissue"` (default) — every phase is a sub-issue from the spec's first push,
+  so agents can be assigned one each.
+- `"deferred"` — unlinked phases wait until the work starts. A spec sitting in
+  `specs/backlog/` mirrors as **the issue alone**, keeping its phase list in the
+  description; the sub-issues arrive with the push that follows `/spec-go`. Worth
+  it when adopting sync on a backlog of dozens of specs, where the default
+  front-loads hundreds of calls for work nobody has started.
+- `"inline"` — phases become **sections of the spec issue's own description**,
+  full task lists included, and no sub-issues are minted. For work nobody will
+  pick up phase by phase: 250 completed specs are 250 readable issues instead of
+  250 issues plus 669 sub-issues.
+
+The per-bucket form exists because those answers differ by *when*, not by repo —
+finished work wants one issue, work in flight wants the assignable sub-issues.
+A bucket the map omits defaults to `"subissue"`; a bad key or mode fails loudly at
+load. Phases already carrying an id keep their sub-issue in every mode and are
+never also inlined, so switching an existing project over never strands a live
+sub-issue. `/spec-push` and `/spec-status` print the mode that resolved. See
+`linear.config.md` for the details and the adoption path.
 
 **Which Project a spec lands in** is asked once, when the issue is first created
 — a filterable list of your team's projects, defaulting to `linear.projectId` and
