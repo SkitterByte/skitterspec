@@ -377,6 +377,7 @@ function loadLinearConfig(dir = process.cwd()) {
 module.exports = {
   loadLinearConfig,
   mergeConfig,
+  defaults,
   DEFAULT_CONFIG,
   CONFIG_FILE,
   OWNERSHIP,

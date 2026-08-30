@@ -93,7 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `spec-sync init-config` — validate and write | ⬜ | [01-init-config.md](01-init-config.md) |
+| 1 | `spec-sync init-config` — validate and write | ✅ | [01-init-config.md](01-init-config.md) |
 | 2 | The `/spec-linear-setup` skill | ⬜ | [02-setup-skill.md](02-setup-skill.md) |
 | 3 | Make it the documented path | ⬜ | [03-docs.md](03-docs.md) |
 
@@ -116,3 +116,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   for or discovers anything.
 - 2026-08-30 — Scoped initiatives out deliberately: with none in the workspace, a
   project-picker filter cannot be validated against real use.
+- 2026-08-30 — Phase 1: `init-config` dispatches ahead of the config load —
+  every other subcommand exits early when no config is present, which is exactly
+  the state setup runs in. That also lets `--force` replace a config too
+  malformed for the loader to parse.
+- 2026-08-30 — Phase 1: added `--state <bucket>=<name>`, beyond the spec's flag
+  list. Validation could otherwise only refuse; the operator's fix would have
+  been to hand-edit the file the command exists to write. The refusal now prints
+  the exact flag to re-run with, using the existing `stateSuggestions`.
+- 2026-08-30 — Phase 1: `--states` stays optional (`push`'s equivalent is
+  mandatory) because `spec-sync states` needs a config to run — requiring
+  discovered names would make the config unbootstrappable. Unvalidated runs say
+  so loudly.

@@ -44,7 +44,7 @@ const {
   compareStored,
 } = require('@skitterbyte/skitterspec-sync-core')
 
-const { loadLinearConfig } = require('./config.js')
+const { loadLinearConfig, mergeConfig, defaults: configDefaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
 
 // Resolve a spec argument to its snapshot dir. Accepts a spec name/folder found
@@ -980,6 +980,184 @@ async function specSyncApply(dir, config, specArg, flags, out) {
   return summary.failed ? 1 : 0
 }
 
+// A comma-separated label flag (`--bug-labels bug,defect`) as the trimmed,
+// non-empty list the config stores.
+function labelList(value) {
+  return String(value || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/**
+ * `spec-sync init-config --team-id <id> [flags]`
+ *
+ * Turn values gathered from the workspace into a valid
+ * `specs/.core/linear.config.json`. The engine half of `/spec-linear-setup`:
+ * the skill discovers over MCP and interviews, this validates and writes, so a
+ * malformed config can never be the model's formatting. Same split as
+ * `/spec-push` gathering and `spec-sync apply` writing.
+ *
+ * Three things shape it:
+ *
+ *   - **Only the keys the operator set are written.** The shipped defaults
+ *     already carry every other value; restating them buries the two or three
+ *     lines that are genuinely this repo's, and freezes today's defaults into a
+ *     file that then never picks up a change to them.
+ *   - **Nothing is written until the loader would accept it.** The draft is run
+ *     through `mergeConfig` — the very function `loadLinearConfig` uses — so an
+ *     enum this rejects is exactly an enum that would have thrown on first use.
+ *   - **State names are checked here, not at first push.** Linear silently
+ *     ignores an unknown issue state, so a workspace that renamed `Done` gets a
+ *     mirror that never moves. `--states` makes that a setup-time failure with
+ *     the replacement named.
+ *
+ * `--states` is optional, and deliberately so: `spec-sync states` cannot run
+ * before a config exists (every other subcommand exits early on `present:false`),
+ * so requiring it here would make the config unbootstrappable. The skill always
+ * passes it from MCP discovery; a bare CLI run without it writes and says
+ * loudly that the names are unverified.
+ */
+function specSyncInitConfig(dir, flags, out) {
+  const file = path.join(dir, CONFIG_FILE)
+  const rel = CONFIG_FILE
+  const existed = fs.existsSync(file)
+  const fail = (lines, extra = {}) => {
+    if (flags.json) {
+      out.write(JSON.stringify({ ok: false, file: rel, error: lines[0], ...extra }, null, 2) + '\n')
+    } else {
+      out.write(lines.join('\n') + '\n')
+    }
+    return 1
+  }
+
+  if (existed && !flags.force) {
+    return fail([
+      `spec-sync init-config: refusing — ${rel} already exists`,
+      '  pass --force to replace it. Re-running setup on a configured repo is',
+      '  meant to be a way to CHECK the setup, not a way to lose it.',
+    ])
+  }
+  if (!flags.teamId) {
+    return fail([
+      'spec-sync init-config: refusing — --team-id is required',
+      '  it is the one value with no useful default: without it nothing knows',
+      '  which Linear team a spec files into.',
+    ])
+  }
+
+  // Only what the operator actually set. Empty strings/arrays are treated as
+  // "not set" — the defaults already say that, and more clearly.
+  const draft = {}
+  const linear = {}
+  if (flags.teamId) linear.teamId = flags.teamId
+  if (flags.teamKey) linear.teamKey = flags.teamKey
+  if (flags.projectId) linear.projectId = flags.projectId
+  draft.linear = linear
+  const intake = {}
+  if (flags.intakeLabel) intake.label = flags.intakeLabel
+  if (flags.bugLabels.length) intake.bugLabels = flags.bugLabels
+  if (flags.hotfixLabels.length) intake.hotfixLabels = flags.hotfixLabels
+  if (Object.keys(intake).length) draft.intake = intake
+  if (Object.keys(flags.stateNames).length) draft.states = { ...flags.stateNames }
+
+  for (const bucket of Object.keys(flags.stateNames)) {
+    if (!LIFECYCLE_BUCKETS.includes(bucket)) {
+      return fail([
+        `spec-sync init-config: refusing — --state ${bucket}=… is not a lifecycle bucket`,
+        `  expected one of ${LIFECYCLE_BUCKETS.join(', ')}`,
+      ])
+    }
+  }
+
+  // The loader's own merge, so anything it would reject is rejected now rather
+  // than on the first command that reads the file.
+  let effective
+  try {
+    effective = mergeConfig(configDefaults(), draft)
+  } catch (error) {
+    return fail([`spec-sync init-config: refusing — ${error.message}`])
+  }
+
+  // Workspace state names, when the caller discovered them.
+  let workspace = null
+  if (flags.statesFile) {
+    if (!fs.existsSync(flags.statesFile)) {
+      return fail([`spec-sync init-config: refusing — no such --states file: ${flags.statesFile}`])
+    }
+    let parsed
+    try {
+      parsed = JSON.parse(fs.readFileSync(flags.statesFile, 'utf-8'))
+    } catch (error) {
+      return fail([`spec-sync init-config: refusing — --states is not valid JSON: ${error.message}`])
+    }
+    if (!Array.isArray(parsed)) {
+      return fail(['spec-sync init-config: refusing — --states must be a JSON array of state names'])
+    }
+    workspace = parsed.map((s) => String(s)).filter(Boolean)
+
+    const missing = validateStates(effective, workspace)
+    if (missing.length) {
+      const lines = ['spec-sync init-config: refusing — configured state name(s) not in the workspace', '']
+      for (const { bucket, configured, suggestion } of stateSuggestions(effective, workspace)) {
+        lines.push(`  states.${bucket}: "${configured}" is not an issue state in this workspace`)
+        if (suggestion) lines.push(`    pass --state ${bucket}="${suggestion}"`)
+      }
+      lines.push(
+        '',
+        `  available: ${workspace.join(', ') || '(the workspace reported none)'}`,
+        '  Linear silently ignores an unknown issue state, so writing this would',
+        '  have produced a mirror that never moves.',
+      )
+      return fail(lines, { missing })
+    }
+  }
+
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(draft, null, 2) + '\n', 'utf-8')
+
+  const checked = Object.keys(effective.states).length
+  if (flags.json) {
+    out.write(
+      JSON.stringify(
+        {
+          ok: true,
+          file: rel,
+          replaced: existed,
+          wrote: draft,
+          validated: {
+            teamId: flags.teamId,
+            states: workspace ? { checked, against: workspace.length, missing: [] } : null,
+          },
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+    return 0
+  }
+
+  const lines = [`spec-sync init-config: wrote ${rel}`]
+  lines.push(`  team:      ${flags.teamKey ? `${flags.teamKey} · ` : ''}${flags.teamId}`)
+  lines.push(`  project:   ${flags.projectId || '(none — team only; the picker offers the rest)'}`)
+  if (draft.intake) {
+    const bits = []
+    if (intake.label) bits.push(`inbox "${intake.label}"`)
+    if (intake.bugLabels) bits.push(`bug: ${intake.bugLabels.join(', ')}`)
+    if (intake.hotfixLabels) bits.push(`hotfix: ${intake.hotfixLabels.join(', ')}`)
+    lines.push(`  intake:    ${bits.join(' · ')}`)
+  }
+  if (workspace) {
+    lines.push(`  states:    ${checked} checked against ${workspace.length} workspace state(s) — all present`)
+  } else {
+    lines.push(`  states:    NOT validated — the defaults (${Object.values(effective.states).join(', ')}) are assumed`)
+    lines.push('             pass --states <file> to check them; a renamed state pushes clean and moves nothing')
+  }
+  lines.push(`  Wrote ${Object.keys(draft).length} section(s); everything else uses the shipped defaults.`)
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
 // Drop null/undefined so a GraphQL input never carries a key it has no value
 // for — Linear rejects an explicit null where it expects a field to be absent.
 function withoutNull(obj) {
@@ -994,7 +1172,8 @@ async function specSync(rest, io = {}) {
   const [sub, ...args] = rest
   let dir = io.cwd || process.cwd()
   const positional = []
-  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null }
+  const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
+    force: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -1009,6 +1188,19 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--issue') flags.issue = args[++i]
     else if (args[i] === '--url') flags.url = args[++i]
     else if (args[i] === '--sub') flags.subs.push(args[++i])
+    else if (args[i] === '--force') flags.force = true
+    else if (args[i] === '--team-id') flags.teamId = String(args[++i] || '').trim()
+    else if (args[i] === '--team-key') flags.teamKey = String(args[++i] || '').trim()
+    else if (args[i] === '--project-id') flags.projectId = String(args[++i] || '').trim()
+    else if (args[i] === '--intake-label') flags.intakeLabel = String(args[++i] || '').trim()
+    else if (args[i] === '--bug-labels') flags.bugLabels = labelList(args[++i])
+    else if (args[i] === '--hotfix-labels') flags.hotfixLabels = labelList(args[++i])
+    else if (args[i] === '--state') {
+      // `--state complete=Shipped`, repeatable. Only the buckets a workspace
+      // actually renamed get written; the rest keep the defaults.
+      const [bucket, ...rest] = String(args[++i] || '').split('=')
+      flags.stateNames[String(bucket).trim()] = rest.join('=').trim()
+    } else if (args[i] === '--states') flags.statesFile = path.resolve(args[++i])
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -1018,6 +1210,11 @@ async function specSync(rest, io = {}) {
   flags.env = io.env || process.env
   if (io.adapter) flags.adapter = io.adapter
   if (io.fetch) flags.fetch = io.fetch
+
+  // Dispatched ahead of the load on purpose: this is the command you run when
+  // there is no config, and `--force` must be able to replace one that is
+  // malformed enough for the loader to throw on.
+  if (sub === 'init-config') return specSyncInitConfig(dir, flags, out)
 
   const { config, present } = loadLinearConfig(dir)
   if (!present) {
@@ -1061,7 +1258,10 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
-        '       skitterspec spec-sync linked [--json]\n')
+        '       skitterspec spec-sync linked [--json]\n' +
+        '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +
+        '                    [--intake-label L] [--bug-labels a,b] [--hotfix-labels a,b]\n' +
+        '                    [--state <bucket>=<name> …] [--states <file>] [--force] [--json]\n')
       return 0
   }
 }
