@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-hotfix-from-issue (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases built (2026-08-30)
+> **Status:** Complete (2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -118,6 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-30 | Ready | backlog | Reuben Greaves |
 | 2026-08-30 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-30 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -147,3 +148,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   distribution README still describing the composed set as `/spec`, `/spec-bug`
   and `/spec-go`, predating the seams added by `feat-lifecycle-tracker-sync`;
   rewritten to name every lifecycle skill rather than patched narrowly.
+- 2026-08-30 — Completed; all three phases done, 743 tests green, build clean.
+  Verified against the built output: the Linear distribution's `/spec-hotfix`
+  carries intake, routing and the version suggestion, `/spec-bug` carries the
+  escalation, and the base distribution names no tracker anywhere. Nothing
+  deferred.
