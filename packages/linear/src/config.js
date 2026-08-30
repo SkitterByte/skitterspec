@@ -53,7 +53,15 @@ const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
 //              already carries an id keeps projecting either way — one-way sync
 //              has no delete, so withholding a LINKED sub-issue would freeze it
 //              in the tracker rather than remove it.
+//
+// `mapping.phases` takes one of these as a scalar (one mode for the whole repo)
+// OR a map keyed by lifecycle bucket — `{ "backlog": "subissue", "complete":
+// "deferred" }` — because a repo can want assignable sub-issues for work in
+// flight and something else entirely for work that finished long ago. A bucket
+// the map omits gets DEFAULT_PHASE_MODE, so a partial map adds an exception
+// rather than silently suppressing phases everywhere it is silent.
 const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred'])
+const DEFAULT_PHASE_MODE = 'subissue'
 
 // How `spec-sync apply` reaches Linear. `api` talks to the GraphQL API directly;
 // `mcp` prints the plan for the skill to apply over MCP, as it always has.
@@ -85,7 +93,7 @@ const DEFAULT_CONFIG = Object.freeze({
   // synced (they live only in the repo phase files).
   // A spec is an ISSUE; each phase a SUB-ISSUE of it. `tasks` selects how the
   // phase's checkboxes reach that sub-issue's description — see TASK_MAPPINGS.
-  mapping: Object.freeze({ specFolder: 'issue', phases: 'subissue', tasks: 'checklist' }),
+  mapping: Object.freeze({ specFolder: 'issue', phases: DEFAULT_PHASE_MODE, tasks: 'checklist' }),
   // Linear ISSUE workflow-state names — the spec issue's state (from the folder
   // bucket) and each sub-issue's state (from the phase emoji) both map through
   // this one table. They must match the workspace's issue states exactly;
@@ -126,6 +134,11 @@ const DEFAULT_CONFIG = Object.freeze({
     keyedFields: Object.freeze({}),
   }),
 })
+
+// The lifecycle buckets a per-bucket `mapping.phases` map may key on. Derived
+// from `states` rather than restated: both maps key on the spec's folder bucket,
+// so they cannot drift apart.
+const LIFECYCLE_BUCKETS = Object.freeze(Object.keys(DEFAULT_CONFIG.states))
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -189,6 +202,47 @@ function mergeFieldOwnership(base, parsed) {
   }
 }
 
+// Merge (and validate) `mapping.phases` in either of its two forms: a scalar
+// mode for the whole repo, or a map of lifecycle bucket → mode. Loud on a bad
+// key or value, like fieldOwnership and mapping.tasks — a misspelt bucket would
+// otherwise read as a deliberate default and go on minting the sub-issues the
+// config was written to stop.
+function mergePhaseMapping(base, parsed) {
+  const value = parsed.phases
+  if (typeof value === 'string') {
+    if (value.trim()) base.phases = value.trim()
+  } else if (isObject(value)) {
+    const byBucket = {}
+    for (const [bucket, mode] of Object.entries(value)) {
+      if (!LIFECYCLE_BUCKETS.includes(bucket)) {
+        throw new Error(
+          `Invalid ${CONFIG_FILE}: mapping.phases.${bucket} is not a lifecycle bucket ` +
+            `(expected one of ${LIFECYCLE_BUCKETS.join('|')})`,
+        )
+      }
+      if (!PHASE_MAPPINGS.includes(mode)) {
+        throw new Error(
+          `Invalid ${CONFIG_FILE}: mapping.phases.${bucket} = ${JSON.stringify(mode)} ` +
+            `(expected one of ${PHASE_MAPPINGS.join('|')})`,
+        )
+      }
+      byBucket[bucket] = mode
+    }
+    base.phases = byBucket
+  } else if (value !== undefined) {
+    throw new Error(
+      `Invalid ${CONFIG_FILE}: mapping.phases = ${JSON.stringify(value)} ` +
+        `(expected one of ${PHASE_MAPPINGS.join('|')}, or a map of lifecycle bucket to mode)`,
+    )
+  }
+  if (typeof base.phases === 'string' && !PHASE_MAPPINGS.includes(base.phases)) {
+    throw new Error(
+      `Invalid ${CONFIG_FILE}: mapping.phases = ${JSON.stringify(base.phases)} ` +
+        `(expected one of ${PHASE_MAPPINGS.join('|')}, or a map of lifecycle bucket to mode)`,
+    )
+  }
+}
+
 // Merge (and validate) sync.keyedFields. Each value is the item's id property
 // name (a non-empty string); a field listed here is compared per item.
 function mergeKeyedFields(base, parsed) {
@@ -229,7 +283,6 @@ function mergeConfig(base, parsed) {
 
   if (isObject(parsed.mapping)) {
     assign(base.mapping, parsed.mapping, 'specFolder', 'string')
-    assign(base.mapping, parsed.mapping, 'phases', 'string')
     assign(base.mapping, parsed.mapping, 'tasks', 'string')
     // Loud on a typo, like fieldOwnership above. Quietly falling back would make
     // a misspelt value look like a deliberate `none` — the same silent
@@ -240,12 +293,7 @@ function mergeConfig(base, parsed) {
           `(expected one of ${TASK_MAPPINGS.join('|')})`,
       )
     }
-    if (!PHASE_MAPPINGS.includes(base.mapping.phases)) {
-      throw new Error(
-        `Invalid ${CONFIG_FILE}: mapping.phases = ${JSON.stringify(base.mapping.phases)} ` +
-          `(expected one of ${PHASE_MAPPINGS.join('|')})`,
-      )
-    }
+    mergePhaseMapping(base.mapping, parsed.mapping)
   }
 
   if (isObject(parsed.states)) {
@@ -328,6 +376,7 @@ module.exports = {
   OWNERSHIP,
   TASK_MAPPINGS,
   PHASE_MAPPINGS,
+  LIFECYCLE_BUCKETS,
   TRANSPORTS,
   DEFAULT_KEY_ENV,
 }

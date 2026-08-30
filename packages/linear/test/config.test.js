@@ -12,6 +12,7 @@ const {
   CONFIG_FILE,
   OWNERSHIP,
   PHASE_MAPPINGS,
+  LIFECYCLE_BUCKETS,
   TRANSPORTS,
   DEFAULT_KEY_ENV,
 } = require('../src/config.js')
@@ -236,6 +237,50 @@ test('an unknown mapping.phases throws rather than degrading to subissue', () =>
 
 test('PHASE_MAPPINGS is exactly subissue|deferred', () => {
   assert.deepStrictEqual([...PHASE_MAPPINGS], ['subissue', 'deferred'])
+})
+
+test('mapping.phases also accepts a map of lifecycle bucket to mode', () => {
+  // A repo can want assignable sub-issues for work in flight and none for the
+  // 250 specs that finished long ago — one scalar cannot say both.
+  const dir = tmpDir()
+  const phases = { backlog: 'deferred', 'in-progress': 'subissue', complete: 'deferred' }
+  writeConfig(dir, { mapping: { phases } })
+  assert.deepStrictEqual(loadLinearConfig(dir).config.mapping.phases, phases)
+})
+
+test('a partial map is stored as written — the omitted buckets are the resolver\'s job', () => {
+  // The loader records intent; `phaseModeFor` supplies `subissue` for a bucket
+  // the map omits. Padding the map here would put the default in two places.
+  const dir = tmpDir()
+  writeConfig(dir, { mapping: { phases: { complete: 'deferred' } } })
+  assert.deepStrictEqual(loadLinearConfig(dir).config.mapping.phases, { complete: 'deferred' })
+})
+
+test('a mapping.phases key that is not a lifecycle bucket throws', () => {
+  // `completed` reading as "the map said nothing" would go on minting exactly
+  // the sub-issues the config was written to stop, and look deliberate doing it.
+  const dir = tmpDir()
+  writeConfig(dir, { mapping: { phases: { completed: 'deferred' } } })
+  assert.throws(() => loadLinearConfig(dir), /mapping\.phases\.completed/)
+})
+
+test('an unknown mode inside a mapping.phases map throws', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { mapping: { phases: { complete: 'defered' } } })
+  assert.throws(() => loadLinearConfig(dir), /mapping\.phases\.complete/)
+})
+
+test('a mapping.phases that is neither a string nor a map throws', () => {
+  for (const bad of [['deferred'], 3, true]) {
+    const dir = tmpDir()
+    writeConfig(dir, { mapping: { phases: bad } })
+    assert.throws(() => loadLinearConfig(dir), /mapping\.phases/, JSON.stringify(bad))
+  }
+})
+
+test('LIFECYCLE_BUCKETS is the states map\'s keys — the two cannot drift', () => {
+  assert.deepStrictEqual([...LIFECYCLE_BUCKETS], Object.keys(DEFAULT_CONFIG.states))
+  assert.deepStrictEqual([...LIFECYCLE_BUCKETS], ['backlog', 'in-progress', 'complete', 'cancelled'])
 })
 
 test('an unknown mapping.tasks throws rather than degrading to none', () => {

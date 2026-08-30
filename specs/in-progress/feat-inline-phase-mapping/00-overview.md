@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-inline-phase-mapping (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-30)
+> **Status:** In Progress — Phase 2 (started 2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-29
@@ -105,7 +105,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Per-bucket resolution for the existing modes | ⬜ | [01-mode-resolver.md](01-mode-resolver.md) |
+| 1 | Per-bucket resolution for the existing modes | ✅ | [01-mode-resolver.md](01-mode-resolver.md) |
 | 2 | The `inline` projection | ⬜ | [02-inline-projection.md](02-inline-projection.md) |
 | 3 | Surface it: CLI, skills, docs | ⬜ | [03-surface-and-docs.md](03-surface-and-docs.md) |
 
@@ -136,3 +136,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   in flight; that reasoning applies to active buckets, not finished ones.
 - 2026-08-29 — Adopted `deferred`'s "already-linked phases keep their sub-issue"
   rule for `inline` too, so switching modes is non-destructive under one-way sync.
+- 2026-08-30 — Phase 1: `phaseModeFor` returns the mode the config *names*, and
+  `deferred`'s "only while unstarted" gate stays in `phaseProjection`. Folding
+  the gate into the resolver would have made a scalar `deferred` resolve to
+  `subissue` for a complete spec — breaking the compatibility guarantee the
+  phase's own tests assert, and misreporting the config in Phase 3's CLI line.
+- 2026-08-30 — Phase 1: the valid bucket keys are `Object.keys(states)` rather
+  than a second literal list; `mapping.phases` and `states` key on the same
+  folder bucket, so deriving one from the other stops them drifting.

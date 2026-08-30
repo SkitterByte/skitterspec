@@ -601,6 +601,35 @@ function bucketFromPath(snapshotDir) {
 // the states in which phases are not yet worth minting as sub-issues.
 const UNSTARTED_BUCKETS = ['backlog', 'cancelled']
 
+// The mode a bucket gets when a per-bucket `mapping.phases` map omits it. Adding
+// a bucket to the map is therefore an EXCEPTION for that bucket, not a switch
+// that silently suppresses phases everywhere the map is silent. Matches the
+// scalar default in the provider's config so both forms start from one place.
+const DEFAULT_PHASE_MODE = 'subissue'
+
+/**
+ * The phase mode configured for one lifecycle bucket.
+ *
+ * `mapping.phases` is EITHER a scalar — one mode for the whole repo, which is
+ * what every config was before per-bucket mapping — or a map keyed by lifecycle
+ * bucket (`{ backlog: 'subissue', complete: 'inline' }`), because a repo can
+ * legitimately want assignable sub-issues for work in flight and none at all for
+ * 250 finished specs. A scalar resolves to itself for every bucket, so existing
+ * configs are unchanged.
+ *
+ * The SINGLE place a mode is decided: the projection and the description's
+ * `## Phases` index both read it, so they cannot disagree about one spec.
+ */
+function phaseModeFor(bucket, config) {
+  const configured = config && config.mapping && config.mapping.phases
+  if (typeof configured === 'string') return configured
+  if (configured && typeof configured === 'object' && !Array.isArray(configured)) {
+    const mode = configured[bucket]
+    return typeof mode === 'string' ? mode : DEFAULT_PHASE_MODE
+  }
+  return DEFAULT_PHASE_MODE
+}
+
 /**
  * Which phases the projection sends, and how many the `deferred` mapping is
  * holding back. Pure — split out so both the projection and the CLI's "N phases
@@ -623,7 +652,7 @@ function specStatus(snapshotDir, frontmatter) {
 function phaseProjection(phases, workflowState, config) {
   const named = phases.filter((p) => p.name)
   const deferring =
-    (config.mapping && config.mapping.phases) === 'deferred' && UNSTARTED_BUCKETS.includes(workflowState)
+    phaseModeFor(workflowState, config) === 'deferred' && UNSTARTED_BUCKETS.includes(workflowState)
   const projected = deferring ? named.filter((p) => p.id != null) : named
   return { projected, withheld: named.length - projected.length }
 }
@@ -850,6 +879,7 @@ module.exports = {
   stateSuggestions,
   normalizeLocal,
   phaseProjection,
+  phaseModeFor,
   phasesWithheld,
   lintPhases,
   readSnapshot,
