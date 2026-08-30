@@ -1,7 +1,8 @@
 <!--
-Seam fragment for the "spec-tracker-intake" seam in the shared /spec and
-/spec-bug skills. Runs BEFORE the grill: it turns an existing Linear issue into
-the starting material for a spec, and makes that issue the spec's own issue.
+Seam fragment for the "spec-tracker-intake" seam in the shared /spec, /spec-bug
+and /spec-hotfix skills. Runs BEFORE the grill (and, in /spec-hotfix, before the
+base tag is established): it turns an existing Linear issue into the starting
+material for a spec, and makes that issue the spec's own issue.
 The build injects this body when composing the skitterspec-linear distribution;
 the base distribution leaves the seam empty.
 -->
@@ -35,21 +36,28 @@ Then:
    With `intake.bugLabels` unset nothing is routed and every issue is treated as a
    feature request.
 
-   **In `/spec-bug` this step is skipped** — you are already in the bug path.
-   Adopt the issue, then reproduce it as usual: the issue body is your repro
-   material, and the failing test comes before the spec exactly as normal.
+   **In `/spec-bug` and `/spec-hotfix` this step is skipped** — you are already
+   in a bug path. Adopt the issue, then reproduce it as usual: the issue body is
+   your repro material, and the failing test comes before the spec exactly as
+   normal.
 4. **Seed, don't skip, the grill.** The issue's title becomes the working spec
-   title and its description the starting material for **Problem** — quote the
+   title and its description the starting material for **Problem** — or
+   **Symptom** in a bug or hotfix spec, which is where a report belongs. Quote the
    reporter's words rather than paraphrasing them away. Note the reporter and the
    issue URL for context. Everything after this runs exactly as normal: an issue
    is a *request*, not a groomed spec, so grill it as hard as anything else.
 
+   **In `/spec-hotfix`, also mine the issue for a version.** Any release-shaped
+   string in the report is a *suggestion* for the base tag, offered when the skill
+   asks which version prod is running — never used as a default. The reporter's
+   version is the one they saw the bug on, which is often not what is deployed.
+
 ### Adopting the issue
 
 The issue **becomes** the spec's issue — it is not copied and no second issue is
-minted. This is identical in `/spec` and `/spec-bug`; only *when* it happens
-differs (`/spec` writes the spec in Phase B, `/spec-bug` in its step 4). Once the
-spec file exists:
+minted. This is identical in `/spec`, `/spec-bug` and `/spec-hotfix`; only *when*
+it happens differs (`/spec` writes the spec in Phase B, `/spec-bug` in its step 4,
+`/spec-hotfix` in its step 5). Once the spec file exists:
 
 - **Stamp `linear_identifier` and `linear_url`** in `00-overview.md` frontmatter
   from the adopted issue. That is the whole link: every later skill

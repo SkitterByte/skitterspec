@@ -247,3 +247,29 @@ test('the sync fragment points at the cheap transport rather than assuming it', 
   const text = fs.readFileSync(path.join(ASSETS, 'seams', 'spec-tracker-sync.md'), 'utf8')
   assert.match(text, /apply\.transport|API key/, 'says why an automatic push is affordable')
 })
+
+// --- intake, now shared by three skills --------------------------------------
+
+// One fragment for /spec, /spec-bug and /spec-hotfix — forking a hotfix copy
+// would be two texts to drift apart, which is how the link fragment went stale.
+test('the intake fragment serves all three creating skills', () => {
+  const text = seamText('spec-tracker-intake')
+  for (const skill of ['/spec`', '/spec-bug`', '/spec-hotfix`']) {
+    assert.ok(text.includes(skill), `names ${skill}`)
+  }
+  assert.match(text, /`\/spec-hotfix` in its step 5/, 'says when it runs for a hotfix')
+})
+
+test('intake seeds Symptom for a bug or hotfix, not just Problem', () => {
+  // A report belongs under Symptom in those templates; sending it to Problem
+  // would put the reporter's words in a section the template does not have.
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /\*\*Symptom\*\* in a bug or hotfix spec/)
+})
+
+test('intake tells a hotfix to mine the issue for a version, as a suggestion', () => {
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /mine the issue for a version/i)
+  assert.match(text, /never used as a default/i, 'not a default')
+  assert.match(text, /not what is deployed/, 'and says why')
+})

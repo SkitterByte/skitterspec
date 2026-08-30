@@ -98,7 +98,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-hotfix` adopts an issue | ⬜ | [01-hotfix-intake.md](01-hotfix-intake.md) |
+| 1 | `/spec-hotfix` adopts an issue | ✅ | [01-hotfix-intake.md](01-hotfix-intake.md) |
 | 2 | Route production issues to it | ⬜ | [02-hotfix-routing.md](02-hotfix-routing.md) |
 | 3 | Docs, and the stale adoption prose | ⬜ | [03-docs-and-drift.md](03-docs-and-drift.md) |
 
@@ -130,3 +130,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and expensive.
 - 2026-08-30 — Chose hotfix routing to win over bug routing on an issue carrying
   both labels, because the cost of the wrong call is asymmetric.
+- 2026-08-30 — Phase 1 done. Generalised the intake fragment for a third caller
+  rather than forking a hotfix copy — a second text is how the link fragment went
+  stale in the first place. Two existing tests widened with it: the `/spec-bug`
+  self-loop guard now covers `/spec-hotfix` (same risk, same fragment), and the
+  intake-reach test now asserts all three creating skills.

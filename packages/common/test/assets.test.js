@@ -278,3 +278,33 @@ test('the skills that change no status carry no tracker seam', () => {
     assert.doesNotMatch(text, /<!--\s*seam:/, `${skill} moves no spec between buckets`)
   }
 })
+
+// --- /spec-hotfix intake -----------------------------------------------------
+
+// A hotfix is written under time pressure, against a released tag, by whoever is
+// on. That is the worst moment to be retyping a report from another window — so
+// it adopts the issue like the other two creating skills.
+test('spec-hotfix adopts an issue before it establishes the tag', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-hotfix', 'SKILL.md'), 'utf8')
+  const seam = text.indexOf('<!-- seam:spec-tracker-intake -->')
+  assert.ok(seam !== -1, 'the intake seam is present')
+  // Before the tag step, so the issue is in hand when the skill asks which
+  // version prod is running — that is what lets it offer what the report says.
+  assert.ok(seam < text.indexOf('## 1. Establish the base version'), 'intake precedes the tag')
+})
+
+test('an issue-ref-shaped argument is a ref, never a spec name', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-hotfix', 'SKILL.md'), 'utf8')
+  assert.match(text, /never a name/i, 'the disambiguation rule is stated')
+  assert.match(text, /SKI-123/, 'with a concrete example')
+  assert.match(text, /Release tags don't take that shape/, 'and why the two cannot collide')
+})
+
+// The one failure here that is both easy and expensive: forking from the version
+// the reporter happened to be on rather than the one that is deployed.
+test('the base tag is offered from the issue but never assumed', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-hotfix', 'SKILL.md'), 'utf8')
+  assert.match(text, /ask which version prod is running/, 'still asks')
+  assert.match(text, /offer any versions it mentions/i, 'offers what the report says')
+  assert.match(text, /not a default/, 'and is explicit that it is not a default')
+})

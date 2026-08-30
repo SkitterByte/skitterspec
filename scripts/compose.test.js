@@ -152,13 +152,13 @@ test('guard: a seam used by the provider\'s own skills has a fragment too', () =
   walk(LINEAR_SKILLS)
 })
 
-test('the intake seam reaches /spec and /spec-bug in the superset only', () => {
+test('the intake seam reaches every creating skill, in the superset only', () => {
   const linear = tmp()
   composeAssets(COMMON_ASSETS, linear, loadFragments(LINEAR_SEAMS))
   const base = tmp()
   composeAssets(COMMON_ASSETS, base, {})
 
-  for (const skill of ['spec', 'spec-bug']) {
+  for (const skill of ['spec', 'spec-bug', 'spec-hotfix']) {
     const withLinear = fs.readFileSync(path.join(linear, 'skills', skill, 'SKILL.md'), 'utf8')
     assert.match(withLinear, /Phase 0 — start from a Linear issue/, `${skill} can start from an issue`)
     assert.match(withLinear, /--from-issue/, `${skill} documents the inbox flag`)
@@ -180,9 +180,17 @@ test('a bug-labelled issue is routed to /spec-bug rather than specced as a featu
 
   // /spec-bug carries the same fragment, so adoption is identical there — but it
   // must not bounce the user onward in a loop.
-  const bug = fs.readFileSync(path.join(out, 'skills', 'spec-bug', 'SKILL.md'), 'utf8')
-  assert.match(bug, /In `\/spec-bug` this step is skipped/, 'no /spec-bug → /spec-bug loop')
-  assert.match(bug, /becomes\*\* the spec's issue/, 'adoption applies in the bug path too')
+  // Both bug paths carry the same fragment, so the skip has to name both or one
+  // of them bounces the user onward to itself.
+  for (const skill of ['spec-bug', 'spec-hotfix']) {
+    const text = fs.readFileSync(path.join(out, 'skills', skill, 'SKILL.md'), 'utf8')
+    assert.match(
+      text,
+      /In `\/spec-bug` and `\/spec-hotfix` this step is skipped/,
+      `no /${skill} → /${skill} loop`,
+    )
+    assert.match(text, /becomes\*\* the spec's issue/, `adoption applies in /${skill} too`)
+  }
 })
 
 test('adoption never mints: the intake fragment forbids picker and base sidecar', () => {

@@ -1,6 +1,6 @@
 ---
 name: spec-hotfix
-description: Fix a production bug on the exact released version — fork a worktree from a release tag, drive it red→green like /spec-bug, then land it by tagging a new patch (for CI/CD to deploy) and cherry-picking the fix back onto main. ALWAYS starts from a base tag and works on the hotfix's own branch, never on main. Creates specs/in-progress/hotfix-<name>/00-overview.md. Use when the user says "/spec-hotfix", "hotfix <tag>", "prod is broken on <version>", "patch the released version", or needs a fix shipped against a tagged release rather than main.
+description: Fix a production bug on the exact released version — fork a worktree from a release tag, drive it red→green like /spec-bug, then land it by tagging a new patch (for CI/CD to deploy) and cherry-picking the fix back onto main. ALWAYS starts from a base tag and works on the hotfix's own branch, never on main. Can start from a tracker issue when a provider is installed (`/spec-hotfix <tag> <ISSUE-REF>`), adopting it as the hotfix's issue. Creates specs/in-progress/hotfix-<name>/00-overview.md. Use when the user says "/spec-hotfix", "hotfix <tag>", "prod is broken on <version>", "patch the released version", or needs a fix shipped against a tagged release rather than main.
 ---
 
 # /spec-hotfix — fix a released version, tag it, cherry-pick back to main
@@ -20,11 +20,24 @@ Spec type convention (see `.claude/rules/spec-planning.md`):
 tag + cherry-pick — it needs the isolation engine (`specs/.core/env.config.json`).
 If isolation is absent, say so and stop; there is no in-place path.
 
+<!-- seam:spec-tracker-intake -->
+
 ## 1. Establish the base version (the tag)
 
-- Take the release tag from the argument — `/spec-hotfix <tag> <name>` (e.g.
-  `/spec-hotfix v33.16.4 login-crash`). If it's missing, **ask which version prod
-  is running** — don't guess.
+- **Read the arguments.** `/spec-hotfix <tag> <name>` (e.g.
+  `/spec-hotfix v33.16.4 login-crash`). An argument shaped like an issue
+  reference — letters, a hyphen, digits (`SKI-123`) —
+  is **always a reference, never a name**, so `/spec-hotfix v33.16.4 SKI-123` and
+  `/spec-hotfix SKI-123`
+  both mean "adopt that issue". Release tags don't take that shape, so the two
+  can't be confused. With no name and no reference, ask what to call it.
+- Take the release tag from the argument. If it's missing,
+  **ask which version prod is running** — don't guess. When an issue was adopted
+  above, **offer any versions it mentions** as suggestions — clearly labelled as
+  the reporter's words, not a default — and still wait for the answer. A reporter
+  usually names
+  the version they *saw* the bug on, which is not necessarily what is deployed,
+  and a hotfix forked from the wrong tag fails late.
 - **Verify the tag exists** before anything else:
   `git rev-parse --verify <tag>^{commit}`. If it doesn't resolve, stop and ask.
 
