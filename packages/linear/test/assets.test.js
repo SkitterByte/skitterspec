@@ -8,7 +8,7 @@ const path = require('node:path')
 const ASSETS = path.join(__dirname, '..', 'assets')
 
 test('the Linear sync skills ship in the linear package', () => {
-  for (const name of ['spec-status', 'spec-push']) {
+  for (const name of ['spec-status', 'spec-push', 'spec-linear-setup']) {
     const file = path.join(ASSETS, 'skills', name, 'SKILL.md')
     assert.ok(fs.existsSync(file), `${name}/SKILL.md shipped`)
     const fm = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'))
@@ -369,4 +369,95 @@ test('linear.config.md shows starting a hotfix from an issue', () => {
   const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
   assert.match(text, /\/spec-hotfix v33\.16\.4 SKI-123/, 'the invocation')
   assert.match(text, /never used as a default/, 'and that the version is only a suggestion')
+})
+
+// ---------------------------------------------------------------------------
+// /spec-linear-setup — configure by interview rather than by hand
+// ---------------------------------------------------------------------------
+
+// The skill source is hard-wrapped, so any prose assertion has to be
+// whitespace-insensitive — otherwise a re-wrap breaks a test that has nothing
+// to do with the change.
+const setupSkill = () =>
+  fs
+    .readFileSync(path.join(ASSETS, 'skills', 'spec-linear-setup', 'SKILL.md'), 'utf8')
+    .replace(/\s+/g, ' ')
+
+test('/spec-linear-setup is discovered by the skill list, and is provider-only', () => {
+  // `listSkills()` finds any assets/skills/<name>/SKILL.md — no registration.
+  // This asserts the contract it relies on, and that the tracker-free base
+  // ships no tracker setup skill.
+  const discovered = fs
+    .readdirSync(path.join(ASSETS, 'skills'), { withFileTypes: true })
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(ASSETS, 'skills', e.name, 'SKILL.md')))
+    .map((e) => e.name)
+  assert.ok(discovered.includes('spec-linear-setup'), 'the provider ships it')
+
+  const { SKILLS } = require('@skitterbyte/skitterspec-common/src/init.js')
+  assert.ok(!SKILLS.includes('spec-linear-setup'), 'the base ships none')
+})
+
+test('/spec-linear-setup discovers the workspace before it asks anything', () => {
+  const text = setupSkill()
+  // The whole point: offer real lists, never prompt for a raw id.
+  for (const tool of ['list_teams', 'list_projects', 'list_issue_labels', 'list_issue_statuses']) {
+    assert.ok(text.includes(tool), `names the ${tool} discovery tool`)
+  }
+  assert.match(text, /never prompts for a raw id/i)
+})
+
+test('/spec-linear-setup interviews the structure, not just the fields', () => {
+  // Decision 2 — the gap was that nothing asked how the work is organised.
+  const text = setupSkill()
+  assert.match(text, /by team, or by project/i, 'asks how products map to the workspace')
+  assert.match(text, /Team per product/i, 'offers the team-per-product shape')
+  assert.match(text, /Project per product/i, 'and the project-per-product shape')
+  assert.match(text, /Recommend/, 'recommends an answer, as the other spec skills do')
+})
+
+test('/spec-linear-setup says a config pins ONE team for the repo', () => {
+  // With several teams the choice is which product this repo holds — a fact
+  // the operator cannot infer from a list of team names.
+  const text = setupSkill()
+  assert.match(text, /pins exactly one team for the whole repo/i)
+  assert.match(text, /Several teams/, 'handles the many-team case')
+  assert.match(text, /One team/, 'and the single-team case')
+  assert.match(text, /spans two teams/, 'and says plainly when sync cannot express the split')
+})
+
+test('/spec-linear-setup writes through the engine, never by hand', () => {
+  const text = setupSkill()
+  assert.match(text, /spec-sync init-config/, 'hands the values to the engine')
+  assert.match(text, /--states/, 'and passes the discovered state names for validation')
+  assert.doesNotMatch(text, /write the JSON yourself|compose the config/i, 'never composes JSON')
+  assert.match(text, /--force/, 'knows the overwrite flag')
+})
+
+test('/spec-linear-setup validates the state names and relays the fix', () => {
+  const text = setupSkill()
+  assert.match(text, /silently ignores an unknown issue state/i, 'says why it matters')
+  assert.match(text, /--state complete="Shipped"/, 'shows the fixing flag')
+  assert.match(text, /never apply one they didn't agree to/i, 'a suggestion still needs consent')
+})
+
+test('/spec-linear-setup degrades rather than half-writing a config', () => {
+  // Matches the project picker's rule; and the file existing is what switches
+  // every other command on, so a partial write is worse than no write.
+  const text = setupSkill()
+  assert.match(text, /Degrade, never block/i)
+  assert.match(text, /SETUP\.md/, 'points at the manual path')
+  assert.match(text, /stop without writing anything/i)
+})
+
+test('/spec-linear-setup reviews an existing config instead of overwriting it', () => {
+  const text = setupSkill()
+  assert.match(text, /default to \*\*reviewing\*\* it, not replacing it/i)
+  assert.match(text, /Only write when the user asks for it/i)
+})
+
+test('/spec-linear-setup names no specific workspace, product or team', () => {
+  // It ships to every consumer: the interview asks how THIS workspace is
+  // organised; it must not assume a shape or leak the author's own.
+  const text = setupSkill()
+  assert.doesNotMatch(text, /e07c2b54|SKI2/, 'no real ids or team keys')
 })

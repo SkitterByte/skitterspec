@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `spec-sync init-config` — validate and write | ✅ | [01-init-config.md](01-init-config.md) |
-| 2 | The `/spec-linear-setup` skill | ⬜ | [02-setup-skill.md](02-setup-skill.md) |
+| 2 | The `/spec-linear-setup` skill | ✅ | [02-setup-skill.md](02-setup-skill.md) |
 | 3 | Make it the documented path | ⬜ | [03-docs.md](03-docs.md) |
 
 ## Open questions
@@ -128,3 +128,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   mandatory) because `spec-sync states` needs a config to run — requiring
   discovered names would make the config unbootstrappable. Unvalidated runs say
   so loudly.
+- 2026-08-30 — Phase 2: the skill asks the structure question in two parts —
+  which team this repo files into (the config pins exactly one, which reframes
+  the question as "which product's work does this repo hold"), then whether the
+  workspace splits products by team or by project. Named the third shape too
+  (projects as milestones/quarters), where the right answer is to leave
+  `projectId` empty and let the picker ask each time.
+- 2026-08-30 — Phase 2: the skill states that initiatives are not used for
+  placement and says what to do instead (pick the project inside the initiative),
+  rather than staying silent on a structure a workspace may well use. Support
+  itself stays out of scope per Decision 5.
+- 2026-08-30 — Phase 2: confirmed the zero-registration claim by building the
+  distribution and running `init` into a scratch repo — `spec-linear-setup`
+  installs alongside the other skills with no code change.
