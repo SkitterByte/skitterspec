@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-auto-teardown-on-complete (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-08-30)
+> **Status:** In Progress — Phase 2 (started 2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Delete a merged branch that is ahead of its remote | ⬜ | [01-branch-delete.md](01-branch-delete.md) |
+| 1 | Delete a merged branch that is ahead of its remote | ✅ | [01-branch-delete.md](01-branch-delete.md) |
 | 2 | Tear down automatically on a clean completion | ⬜ | [02-auto-teardown.md](02-auto-teardown.md) |
 
 ## Open questions
@@ -115,3 +115,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the same run. Confirmed `offer — don't force` has been in the skill since
   `369c89e`, so the prompt is original rather than a regression — but it guards
   nothing the engine's own checks do not.
+- 2026-08-30 — Phase 1: verified against real git that `-d`'s refusal is driven
+  by the branch being ahead of its **upstream ref**, and corrected the spec's
+  reasoning — `origin/<branch>` lags because the phase commits after `/spec-go`'s
+  push were never pushed, not because landing fast-forwards base (which does not
+  touch the remote ref). The fix is unchanged; the explanation was wrong.

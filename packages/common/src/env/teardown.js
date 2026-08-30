@@ -33,7 +33,10 @@ function planDown(spec, config, flags, ctx) {
   // A hotfix lands by tag + cherry-pick, so its branch is never an ancestor of
   // base — but once its head is captured by a tag (the deploy tag from
   // `hotfix land`), the commits are recoverable and the branch is safe to drop.
-  // Treat "reachable from a tag" as landed, alongside merged.
+  // Treat "reachable from a tag" as landed, alongside merged. Read twice below:
+  // it decides whether the unpushed guard blocks, and whether the branch delete
+  // can use `-D` — the same question ("are these commits recoverable?"), so the
+  // two must never answer it differently.
   const landed = Boolean(worktreeState.merged || worktreeState.reachableFromTag)
 
   // --- guards (overridable with --force) ---
@@ -88,15 +91,26 @@ function planDown(spec, config, flags, ctx) {
   )
 
   // --- delete the branch ---
-  // Runs after the worktree remove frees the branch. Normally `-d` (safe: refuses
-  // an unmerged branch, never -D). A tag-landed hotfix branch is intentionally NOT
-  // an ancestor of base, so `-d` would refuse it — but its commits are captured by
-  // the deploy tag, so `-D` is safe *only* in that case. Everything else stays `-d`;
-  // on a forced teardown of a genuinely unmerged branch it fails loudly and the
-  // skill relays it rather than -D-ing.
+  // Runs after the worktree remove frees the branch. `-D` exactly when we have
+  // PROVEN the commits survive the delete, `-d` otherwise.
+  //
+  // `-d` looks like the safe default and mostly is, but its refusal answers a
+  // different question from ours: it also declines a branch that is ahead of its
+  // upstream ref, reporting `not yet merged to refs/remotes/origin/<branch>,
+  // even though it is merged to HEAD`. That fires on the ordinary spec flow —
+  // `/spec-go` pushes the branch when it provisions, and the phase commits after
+  // it are landed locally rather than pushed — so teardown meets a branch whose
+  // every commit is on `main` and `-d` refuses it. `merged` (HEAD is an ancestor
+  // of base) already establishes what we actually care about, and establishes it
+  // more strongly than `-d` checks.
+  //
+  // `reachableFromTag` is the same argument for a hotfix: never an ancestor of
+  // base, but its head is captured by the deploy tag.
+  //
+  // Everything else keeps `-d`, so a forced teardown of a genuinely unlanded
+  // branch fails loudly and the skill relays it rather than -D-ing.
   if (spec.branch) {
-    const tagLanded = Boolean(worktreeState.reachableFromTag && !worktreeState.merged)
-    commands.push(`git branch ${tagLanded ? '-D' : '-d'} ${spec.branch}`)
+    commands.push(`git branch ${landed ? '-D' : '-d'} ${spec.branch}`)
   }
 
   return { blocked: false, reason: null, commands, backupCommand, backupPath, volumesDropped }
