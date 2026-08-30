@@ -558,12 +558,22 @@ function printReport(dir, mode, { diff = false } = {}) {
       ' at /spec-go (Docker is a per-spec escalation — set > **Stack:** in the spec).\n'
     : 'Per-spec isolation is opt-in: re-run with --isolation (or copy' +
       ' specs/.core/env.config.json.example → env.config.json) to enable it.\n'
+  // A provider superset ships its own `spec-<provider>-setup` skill; the base
+  // ships none. Discovering it from what was actually installed keeps this file
+  // tracker-free — it never has to know which tracker (if any) is in the box.
+  const setupSkill = SKILLS.find((s) => /^spec-.+-setup$/.test(s))
+  const trackerNote = setupSkill
+    ? `Tracker sync is opt-in: run /${setupSkill} to configure it` +
+      ' (it discovers your workspace and writes the config), or see' +
+      ' specs/.core/SETUP.md.\n'
+    : ''
   process.stdout.write(
     '\nDone. Skills resolve as /spec, /spec-go, /spec-complete, /spec-cancel,' +
       ' /spec-bug, /spec-review, /spec-init, /spec-connect.\n' +
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
       " project's stack, then run /spec.\n" +
-      isolationNote,
+      isolationNote +
+      trackerNote,
   )
 }
 

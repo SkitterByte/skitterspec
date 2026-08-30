@@ -349,6 +349,28 @@ issue exists, where it lives is Linear's business: move it between projects and
 A spec that **adopted** an existing issue (see below) skips the picker entirely —
 it was filed somewhere deliberately.
 
+### Known limits — one team per repo, no initiatives
+
+Two things this config deliberately cannot express today. Both are limits, not
+oversights; `/spec-linear-setup` says so during setup rather than letting you
+find out later.
+
+**One team per repo.** `linear.teamId` is a single value, so every spec in a repo
+files into the same Linear team. If your workspace runs a team per product and a
+repo genuinely spans two of them, sync has no way to say that — pick the team
+that owns most of the work, or split the specs across two checkouts. (Splitting
+products by **project** inside one team has no such limit: that is what
+`projectId` and the picker are for.)
+
+**Initiatives are not used for placement.** A spec issue attaches to a team and
+optionally a project — never to an initiative. If your projects are grouped under
+initiatives the grouping still works in Linear; you just pick the project inside
+the initiative, and the initiative follows from it. What's missing is *filtering
+the picker* by initiative, which would matter to a workspace with enough projects
+that the flat list stops being useful. The hook is already there when it does:
+Linear's `list_projects` accepts an `initiative` filter, and the API adapter's
+`listProjects` (`src/api.js`) queries `team(id) { projects }` sending none.
+
 ## Starting a spec from an existing issue
 
 With `intake` configured, a spec can begin life as a Linear issue someone else

@@ -32,7 +32,7 @@ Read `specs/.core/linear.config.json`.
 Then confirm MCP is reachable by making the first discovery call in step 2.
 **Degrade, never block:** if Linear isn't connected or the tools are missing, say
 so in one line — *"Linear MCP not connected — can't discover the workspace"* —
-point at the manual path in `SETUP.md` ("Scaffold the config"), and
+point at the manual path in `SETUP.md` ("Configure by hand"), and
 **stop without writing anything**. A half-written config is worse than none:
 every other command switches on the moment the file exists.
 

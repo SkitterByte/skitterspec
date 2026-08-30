@@ -1,26 +1,30 @@
-# Phase 3 — Make it the documented path ⬜
+# Phase 3 — Make it the documented path ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a new install is told to run the skill, and someone who cannot (or will
 not) still has a manual walkthrough that works.
 
 ## Tasks
 
-- [ ] Rewrite `SETUP.md` steps 3–4 to lead with `/spec-linear-setup`, keeping the
+- [x] Rewrite `SETUP.md` steps 3–4 to lead with `/spec-linear-setup`, keeping the
       manual "find your team id / copy the example" path below it as the explicit
       fallback (Decision 4) rather than deleting it.
-- [ ] Document what setup validates — state names in particular — and why a
+- [x] Document what setup validates — state names in particular — and why a
       rename would otherwise surface as a mirror that never moves.
-- [ ] Point `init`'s post-install output at the skill, so the config step is
+- [x] Point `init`'s post-install output at the skill, so the config step is
       discoverable from the terminal rather than only from a doc.
-- [ ] Note the known limitation in `linear.config.md`: one team per repo, and
+- [x] Note the known limitation in `linear.config.md`: one team per repo, and
       initiatives unsupported, with the follow-on hook named
       (`list_projects` takes an `initiative` filter; `api.js:190` sends none).
-- [ ] Add tests: `SETUP.md` names the skill, and still documents the manual path;
+- [x] Add tests: `SETUP.md` names the skill, and still documents the manual path;
       `linear.config.md` states the one-team-per-repo limit. Extend the existing
       `assets.test.js` doc assertions. Run `node --test` — green before the phase
       is done.
+- [x] Update the troubleshooting entry for a bad state name to point at the
+      skill, and fix the skill's own pointer into `SETUP.md` after the heading
+      was renamed — with a test pinning the cross-reference so a future rename
+      cannot leave it dangling.
 
 ## Notes
 

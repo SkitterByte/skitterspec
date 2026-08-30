@@ -95,7 +95,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `spec-sync init-config` — validate and write | ✅ | [01-init-config.md](01-init-config.md) |
 | 2 | The `/spec-linear-setup` skill | ✅ | [02-setup-skill.md](02-setup-skill.md) |
-| 3 | Make it the documented path | ⬜ | [03-docs.md](03-docs.md) |
+| 3 | Make it the documented path | ✅ | [03-docs.md](03-docs.md) |
 
 ## Open questions
 
@@ -141,3 +141,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-08-30 — Phase 2: confirmed the zero-registration claim by building the
   distribution and running `init` into a scratch repo — `spec-linear-setup`
   installs alongside the other skills with no code change.
+- 2026-08-30 — Phase 3: `init`'s post-install line finds the setup skill by
+  shape (`spec-<provider>-setup`) rather than naming Linear, so the base stays
+  tracker-free and any future provider gets the line for free. Verified both
+  distributions: the superset prints it, the base prints nothing.
+- 2026-08-30 — Phase 3: named the initiative follow-on hook as `listProjects` in
+  `src/api.js` rather than the spec's `api.js:190` — a line number in shipped
+  docs rots on the next edit above it.

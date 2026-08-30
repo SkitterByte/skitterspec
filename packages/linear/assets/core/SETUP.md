@@ -73,28 +73,83 @@ claude mcp list
 > `/spec-status` (drift report) without granting write access. `/spec-push`
 > needs the full (writable) endpoint.
 
-## 3. Find your team id
+## 3. Configure — run `/spec-linear-setup`
 
-`linear.config.json` needs your Linear **team UUID**. The easiest way is to just
-ask Claude once the MCP server is connected:
+With the MCP server connected, let the skill do it:
 
-> "List my Linear teams with their ids."
+```
+/spec-linear-setup
+```
 
-It calls the Linear `list_teams` tool and returns rows like:
+It discovers your workspace (teams, projects, labels, issue workflow states),
+asks how the work is **organised**, and writes `specs/.core/linear.config.json`
+for you. You pick from real lists — no UUID is ever typed by hand.
+
+The questions it asks, and why each one matters:
+
+| It asks | Because |
+|---------|---------|
+| Which team does this repo file into? | The config pins **one team per repo**. With several teams the real question is which product's work this repo holds. |
+| Are products split by team, or by project? | Team-per-product ⇒ `teamId` *is* the product and `projectId` stays empty. Project-per-product ⇒ one team, and `projectId` is the picker's default. |
+| Which labels drive intake? | `intake.label` is the inbox `/spec --from-issue` browses; `bugLabels`/`hotfixLabels` route an issue to `/spec-bug` or `/spec-hotfix`. Optional — "none" leaves intake off. |
+
+### What setup validates
+
+The skill hands your answers to `skitterspec spec-sync init-config`, which
+**checks them before writing** — the config is never composed by the model.
+
+The check that earns its keep is on the **workflow-state names**.
+`states` maps each lifecycle bucket to a Linear issue-state name, and
+**Linear silently ignores an issue state it doesn't recognise**: no error, no
+warning. So a workspace that renamed `Done` to `Shipped` would push perfectly
+clean and produce a mirror that *never moves* — and you'd find out weeks later
+wondering why nothing in Linear reflects your specs. Setup compares the
+configured names against the workspace's real ones and refuses, naming the flag
+that fixes each:
+
+```
+states.complete: "Done" is not an issue state in this workspace
+  pass --state complete="Shipped"
+```
+
+It also writes **only the keys that differ from the defaults**, so the file shows
+the handful of choices that are actually yours and keeps inheriting the rest as
+they improve.
+
+**Re-running is safe.** With a config already present the skill *reviews* it
+against the live workspace rather than replacing it — the quickest way to find
+out that a team was archived or a state renamed. It only rewrites if you ask.
+
+## 4. Configure by hand (if you're not using Claude Code)
+
+The skill is the recommended path, not the only one — the CLI works on its own.
+
+**Find your team id.** Ask Claude ("List my Linear teams with their ids"), or
+call Linear's `list_teams` yourself. You'll get rows like:
 
 ```
 Skitterspec — e07c2b54-dcf6-4b6e-81bd-175a9bc79868  (key: SKI)
 ```
 
-Copy the `id` (the UUID). The `key` (e.g. `SKI`) is the short human handle. If most
-of your specs belong to one **Project**, ask "list my Linear projects" and copy
-that id into `linear.projectId` — it becomes the *default* the project picker
-pre-selects, not a fixed destination.
+Copy the `id` (the UUID); the `key` (e.g. `SKI`) is the short human handle.
 
-## 4. Scaffold the config
+**Then either run the engine directly:**
 
-`init` dropped a `specs/.core/linear.config.json.example`. Copy it and fill in the
-ids from step 3 — the team id is the only required field:
+```sh
+skitterspec spec-sync init-config \
+  --team-id e07c2b54-dcf6-4b6e-81bd-175a9bc79868 --team-key SKI \
+  --intake-label web-app --bug-labels bug \
+  --states states.json          # a JSON array of your issue-state names
+```
+
+`--states` is optional here (unlike `/spec-push`'s check, which is mandatory) —
+without a config there is nothing to read a team from, so the names can't be
+fetched first. Pass it if you have them; without it the command writes and tells
+you the names are unverified.
+
+**Or copy the example and edit it.** `init` dropped a
+`specs/.core/linear.config.json.example`; the team id is the only required
+field:
 
 ```jsonc
 // specs/.core/linear.config.json
@@ -114,6 +169,10 @@ ids from step 3 — the team id is the only required field:
 Everything else (state names, field ownership) has sensible defaults — see
 `linear.config.md` to customise. The moment this file exists, the Linear steps in
 `/spec` and `/spec-go` and the three sync skills switch on.
+
+> Editing by hand skips the state-name check described above. If you go this
+> route and your workspace renamed any state, `/spec-push` catches it at your
+> first push instead.
 
 ## 5. Link a spec to a Linear issue
 
@@ -199,7 +258,8 @@ With a linked spec, confirm push end-to-end:
   pass the file yourself.
 - **"refusing — configured state name(s) not in the workspace"** — Linear ignores
   an unknown issue state, so this is caught before the push rather than after.
-  Fix `linear.config.json` to the real issue-state names
+  The refusal names the replacement for each; re-run `/spec-linear-setup` to fix
+  it, or edit `linear.config.json` → `states` to the real issue-state names
   (`Backlog / Todo / In Progress / Done / Canceled`). Upgrading from 8.x, the
   value inverts: project status `Completed` → issue state `Done`.
 - **Reconnecting doesn't switch workspace** — Linear ties the OAuth session to one

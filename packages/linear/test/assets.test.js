@@ -461,3 +461,83 @@ test('/spec-linear-setup names no specific workspace, product or team', () => {
   const text = setupSkill()
   assert.doesNotMatch(text, /e07c2b54|SKI2/, 'no real ids or team keys')
 })
+
+// ---------------------------------------------------------------------------
+// Phase 3 — the skill is the documented path, the manual one still works
+// ---------------------------------------------------------------------------
+
+const flat = (rel) => fs.readFileSync(path.join(ASSETS, 'core', rel), 'utf8').replace(/\s+/g, ' ')
+
+test('SETUP.md leads with the skill', () => {
+  const text = flat('SETUP.md')
+  assert.match(text, /## 3\. Configure — run `\/spec-linear-setup`/, 'step 3 is the skill')
+  assert.match(text, /discovers your workspace/i)
+  // Ordering matters: the skill has to come before the manual walkthrough, or
+  // "recommended path" is just a claim.
+  assert.ok(
+    text.indexOf('/spec-linear-setup') < text.indexOf('Configure by hand'),
+    'the skill is offered before the by-hand path',
+  )
+})
+
+test('the skill points at a heading SETUP.md actually has', () => {
+  // The degrade path is only useful if its pointer resolves.
+  const heading = /## 4\. Configure by hand/
+  assert.match(flat('SETUP.md'), heading)
+  assert.match(setupSkill(), /`SETUP\.md` \("Configure by hand"\)/)
+})
+
+test('SETUP.md still documents the manual path, both ways', () => {
+  // Decision 4 — the CLI is usable without Claude Code. A setup story that only
+  // works inside one client would make the package quietly client-locked.
+  const text = flat('SETUP.md')
+  assert.match(text, /## 4\. Configure by hand/, 'the fallback survives')
+  assert.match(text, /not the only one/i, 'and does not read as deprecated')
+  assert.match(text, /spec-sync init-config/, 'the engine is runnable directly')
+  assert.match(text, /linear\.config\.json\.example/, 'and the copy-the-example path remains')
+  assert.match(text, /List my Linear teams with their ids/, 'finding the team id is still documented')
+})
+
+test('SETUP.md says what setup validates, and what a rename would cost', () => {
+  const text = flat('SETUP.md')
+  assert.match(text, /What setup validates/i)
+  assert.match(text, /silently ignores an issue state it doesn't recognise/i, 'the failure mode')
+  assert.match(text, /never moves/i, 'and its symptom')
+  assert.match(text, /--state complete="Shipped"/, 'and the fix it prints')
+  assert.match(text, /Editing by hand skips the state-name check/i, 'the by-hand tradeoff is named')
+})
+
+test('linear.config.md records the one-team-per-repo limit', () => {
+  const text = flat('linear.config.md')
+  assert.match(text, /One team per repo/i)
+  assert.match(text, /every spec in a repo files into the same Linear team/i)
+  assert.match(text, /split the specs across two checkouts/i, 'and says what to do instead')
+})
+
+test('linear.config.md records the initiative limit with its follow-on hook named', () => {
+  // Scoped out deliberately (Decision 5). Naming the hook is what stops the
+  // next person re-deriving where the filter would go.
+  const text = flat('linear.config.md')
+  assert.match(text, /Initiatives are not used for placement/i)
+  assert.match(text, /list_projects` accepts an `initiative` filter/, 'the hook')
+  assert.match(text, /listProjects/, 'and where it would be sent from')
+})
+
+test("init points at a provider's setup skill without naming any tracker", () => {
+  // The base discovers `spec-<provider>-setup` from what was actually
+  // installed, so the superset gets the line and the tracker-free base prints
+  // nothing — with no mention of Linear in the code that composes it.
+  // (`PROTECTED_CONFIG` elsewhere in the file names linear.config.json on
+  // purpose: it is a don't-delete list, not knowledge of a tracker.)
+  const initSrc = fs.readFileSync(
+    require.resolve('@skitterbyte/skitterspec-common/src/init.js'),
+    'utf8',
+  )
+  const from = initSrc.indexOf('const setupSkill = SKILLS.find')
+  assert.ok(from !== -1, 'the setup skill is discovered')
+  const block = initSrc.slice(from, initSrc.indexOf('async function init('))
+
+  assert.match(block, /\^spec-\.\+-setup\$/, 'discovers the setup skill by shape')
+  assert.match(block, /Tracker sync is opt-in/, 'and prints a next step when one is installed')
+  assert.doesNotMatch(block, /linear/i, 'the output names no tracker')
+})
