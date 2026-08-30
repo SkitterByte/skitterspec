@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-auto-teardown-on-complete (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (started 2026-08-30)
+> **Status:** Complete (2026-08-30)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
@@ -107,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-08-30 | Ready | backlog | Reuben Greaves |
 | 2026-08-30 | In Progress | in-progress | Reuben Greaves |
+| 2026-08-30 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -124,3 +125,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   not in the original plan. Dropping the prompt also dropped the only signal that
   the worktree was about to be removed; an unannounced teardown is worse than the
   prompt it replaced.
+- 2026-08-30 — Completed; all phases done, tests green (780).
