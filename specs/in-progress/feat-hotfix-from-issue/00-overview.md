@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-hotfix-from-issue (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-08-30)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-08-30
 > **Area:** packages/common (spec-hotfix, spec, spec-bug skills), packages/linear (intake seam, config, docs)
 > **Stack:** worktree
@@ -117,6 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-08-30 | Ready | backlog | Reuben Greaves |
+| 2026-08-30 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
