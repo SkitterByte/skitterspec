@@ -602,6 +602,54 @@ async function specSyncStates(dir, config, flags, out) {
  * apply, exactly as before.
  */
 /**
+ * `spec-sync projects [--json]` — the team's Linear Projects, for the picker.
+ *
+ * The picker is the one interactive step in linking a spec, and on the API path
+ * there is no MCP tool to list from — the whole point of that path is that the
+ * agent makes no Linear calls. So the engine offers the list, exactly as
+ * `spec-sync states` offers workspace states.
+ *
+ * Degrades rather than blocks: no key, or a Linear that will not answer, exits 0
+ * with an empty list and says why. A missing picker must never fail `/spec`.
+ */
+async function specSyncProjects(dir, config, flags, out) {
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const teamId = (config.linear && config.linear.teamId) || null
+
+  const degrade = (reason) => {
+    if (flags.json) out.write(JSON.stringify({ transport, projects: null, reason }, null, 2) + '\n')
+    else out.write(`spec-sync projects: ${reason}\n`)
+    return 0
+  }
+  if (transport === 'mcp') {
+    return degrade(
+      `transport = mcp — ${key.ok ? '--via mcp was requested' : key.error}; list projects over MCP instead`,
+    )
+  }
+  if (!key.ok) return degrade(key.error)
+
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  let projects
+  try {
+    projects = await adapter.listProjects(teamId)
+  } catch (error) {
+    // The picker's contract is "degrade, never block" — a project list we cannot
+    // fetch means no picker, not a failed link.
+    return degrade(`could not list projects (${error.message}); continuing without the picker`)
+  }
+  const rows = projects.map((p) => ({ id: p.id, name: p.name })).filter((p) => p.id)
+  if (flags.json) {
+    out.write(JSON.stringify({ transport: 'api', projects: rows }, null, 2) + '\n')
+    return 0
+  }
+  out.write(
+    [`spec-sync projects: transport = api, ${rows.length} project(s)`, ...rows.map((p) => `  ${p.id}  ${p.name}`)].join('\n') + '\n',
+  )
+  return 0
+}
+
+/**
  * Apply one spec's plan. Returns what happened rather than printing it, so the
  * single-spec command and the bulk loop report in their own voices while sharing
  * one implementation of the part that actually matters.
@@ -972,6 +1020,8 @@ async function specSync(rest, io = {}) {
       return 0
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out) || 0
+    case 'projects':
+      return (await specSyncProjects(dir, config, flags, out)) || 0
     case 'states':
       return (await specSyncStates(dir, config, flags, out)) || 0
     case 'apply':
@@ -986,6 +1036,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync push <spec> --workspace-states <file> [--json] [--skip-state-check]\n' +
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
         '       skitterspec spec-sync states [--via api|mcp] [--json]\n' +
+        '       skitterspec spec-sync projects [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +

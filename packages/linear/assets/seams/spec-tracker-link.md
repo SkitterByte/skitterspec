@@ -1,51 +1,60 @@
 <!--
-Seam fragment for the "spec-tracker-link" seam in the shared /spec skill.
-The build injects this body (comment stripped) when composing the
-skitterspec-linear distribution; the base distribution leaves the seam empty.
-Lifted verbatim from the pre-extraction /spec "Phase E".
+Seam fragment for the "spec-tracker-link" seam — the FIRST push of a spec, which
+mints its Linear issue. Injected into the shared /spec skill, and into the other
+skills that create a spec (/spec-bug, /spec-hotfix). The build injects this body
+(comment stripped) when composing the skitterspec-linear distribution; the base
+distribution leaves the seam empty.
+
+Deliberately spec-type-agnostic: it says "the spec you just wrote", never "this
+feature", so a bug or hotfix reads correctly through the same text.
 -->
 
 **Only when `specs/.core/linear.config.json` exists** (Linear sync is opted in).
-If it's absent, skip this phase entirely — the spec stays local-only and `/spec`
-behaves exactly as above. When present, after writing the spec, link it to Linear
-so status and discussion live there while the repo stays the co-authoring surface.
-A spec is a Linear **issue**; each phase is a **sub-issue**, carrying that
-phase's tasks in its description as a read-only checklist:
+If it's absent, skip this entirely — the spec stays local-only and the skill
+behaves exactly as above. When present, link the spec you just wrote so status
+and discussion live in Linear while the repo stays the source of truth. A spec is
+a Linear **issue**; each phase is a **sub-issue**, carrying that phase's tasks in
+its description as a read-only checklist.
 
-- **Discover the Linear MCP tools at runtime** (don't hardcode names). If Linear
-  isn't connected/authed, relay the fix and stop — leave the spec written and
-  local; the user can link it later with `/spec-push`. Do nothing destructive.
-- **Pick the Project** — run the picker in **Picking the Linear Project** below,
-  then **create the Issue** from the spec: `title` from the spec title,
-  `description` from the `00-overview.md` plan, `team` = `linear.teamId`, and
-  `project` = the picked id (omitted when the user chose None).
-- **Create a sub-issue per phase** (the `mapping.phases` target — `subissue` by
-  default): a child issue with `parentId` = the spec issue, named from each phase
-  file, in execution order.
-- **Stamp the ids** so the spec is linkable — one call, no hand-edited
-  frontmatter:
+**Linking is just the first push**, so it runs the same engine path `/spec-push`
+does — you never create the issue by hand:
 
-  ```
-  skitterspec spec-sync stamp <spec> \
-    --issue TEAM-123 --url https://linear.app/… \
-    --sub 01-<slug>=TEAM-124 --sub 02-<slug>=TEAM-125
-  ```
+1. **Pick the transport.** `skitterspec spec-sync states --json`. With a Linear
+   API key set it answers `api` and prints the workspace's state names; without
+   one it answers `mcp` and you do the MCP work `/spec-push` describes. Write the
+   state names to a file for step 3.
+2. **Pick the Project** — run the picker in **Picking the Linear Project** below.
+   Keep the chosen id for step 4.
+3. **Get the plan.**
+   `skitterspec spec-sync push <spec> --workspace-states <file> --json > plan.json`
+   — the spec is unlinked, so this plan is all-creates: the issue and one
+   sub-issue per phase.
+4. **Apply it.**
+   `skitterspec spec-sync apply <spec> --plan plan.json --project <chosen id>`.
+   That creates the issue and its sub-issues and checks what Linear stored. It
+   then **stamps the ids into the spec** — `linear_identifier`/`linear_url` on the
+   overview, `linear_issue_id` on each phase — and **records the base snapshot**,
+   so `/spec-status` reports in-sync immediately. There is no hand-editing of
+   frontmatter and no separate `stamp` or `record` call.
 
-  It writes `linear_identifier`/`linear_url` onto `00-overview.md` and each phase
-  file's `linear_issue_id`, validating every ref and id **before** touching a
-  file — on any problem it changes nothing and exits non-zero, so a typo can't
-  leave the spec pointing at an issue that isn't there. (Status is not stored in
-  frontmatter — it comes from the spec's lifecycle folder.)
-- **Write the initial base sidecar** so the spec starts clean and non-diverged —
-  run `skitterspec spec-sync record <spec>` to capture the local snapshot as the
-  committed base (`sync.baseDir`). `/spec-status` should report in-sync right after.
-  (`record` is the writer; `normalize` only *prints* the projection.) Skip this
-  when the spec **adopted** an existing issue — see Phase 0 — because the issue's
-  description is still the reporter's, not the spec.
-- **Echo the branch name** from `branch.pattern` so the user knows what `/spec-go`
-  will fork.
+   If it prints `transport = mcp`, it wrote nothing: apply the plan over MCP as
+   `/spec-push` steps 4a–5 describe, ending with `spec-sync stamp` and
+   `spec-sync record`. That path is fully supported — it is what anyone without
+   an API key uses.
+5. **Echo the branch name** from `branch.pattern` so the user knows what
+   `/spec-go` will fork.
+
+**If Linear can't be reached**, say so in one line and leave the spec written and
+local — it is still a perfectly good spec, and `/spec-push` links it later. Do
+nothing destructive.
+
+**A spec that adopted an existing issue** (see the intake step) is already
+stamped, so its plan is an **update**, not a create: applying it replaces the
+reporter's description with the spec. That is the one-way rule working as
+intended — the repo is canonical and the original text stays in Linear's history.
+Skip the project picker for an adopted issue: its placement is Linear's.
 
 Leave committing to the existing convention (the user commits the spec as usual)
 and **never auto-push git** — Linear's own automation reacts to real branch/PR
-events later. Report the Linear issue URL and the base as part of Phase C's
-finish-up message.
+events later. Report the Linear issue URL as part of the skill's finish-up
+message.

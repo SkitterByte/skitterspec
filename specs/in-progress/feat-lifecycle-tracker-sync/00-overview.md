@@ -96,6 +96,8 @@ Run `/spec-push` now, without asking …
 | Skill/rule | update | `/spec-review` — refresh after the rewrite |
 | Skill/rule | add | `seams/spec-tracker-sync.md` |
 | Skill/rule | update | `seams/spec-tracker-link.md` — use `spec-sync apply` |
+| Skill/rule | update | `seams/spec-project-picker.md` — list via the engine |
+| CLI command | add | `spec-sync projects [--via] [--json]` — the picker's list |
 
 No engine, CLI, config or projection changes. The base distribution is unaffected:
 every new seam composes to nothing without a provider.
@@ -108,7 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The sync fragment + terminal transitions | ✅ | [01-terminal-transitions.md](01-terminal-transitions.md) |
-| 2 | Modernise the link fragment to `apply` | ⬜ | [02-modernise-link.md](02-modernise-link.md) |
+| 2 | Modernise the link fragment to `apply` | ✅ | [02-modernise-link.md](02-modernise-link.md) |
 | 3 | Link on create, refresh after review | ⬜ | [03-create-and-review.md](03-create-and-review.md) |
 
 ## Open questions
@@ -143,3 +145,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   not call for: every referenced seam must have a fragment (a missing one is
   silent in the superset as well as the base), and the dangling-marker check now
   walks every skill rather than `/spec` alone.
+- 2026-08-30 — Phase 2 done. Added `spec-sync projects` beyond the plan: the
+  picker's drift was not fixable by wording, because on the API path there is no
+  MCP tool to list projects from. It follows the picker's "degrade, never block"
+  contract — every failure exits 0 with a reason and a `null` list. The old
+  "skip `record` for an adopted issue" caveat dissolved, since `apply` pushes and
+  records together and the two cannot disagree.

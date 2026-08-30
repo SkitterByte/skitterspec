@@ -44,11 +44,37 @@ test('the shipped example config matches the loader defaults it documents', () =
 test('the spec-tracker-link seam fragment carries the Linear link step', () => {
   const text = seamText('spec-tracker-link')
   assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
-  assert.match(text, /Create the Issue/i, 'creates the Linear issue')
   assert.match(text, /sub-issue per phase/i, 'creates a sub-issue per phase')
-  assert.match(text, /linear_identifier/, 'adds the frontmatter block')
+  assert.match(text, /linear_identifier/, 'the spec ends up carrying the id')
   assert.doesNotMatch(text, /linear_project_id|Create the Project|Milestone per phase/i, 'no stale project/milestone model')
-  assert.match(text, /base sidecar|spec-sync normalize/i, 'writes the initial base')
+  assert.match(text, /records the base snapshot/i, 'the base is written, so /spec-status starts in-sync')
+})
+
+// Linking is the FIRST push, so it must take the same engine path /spec-push
+// does. It used to walk the agent through discovering MCP tools and creating the
+// issue by hand — drift left behind when /spec-push moved to `spec-sync apply`,
+// which meant /spec linked the slow way and re-implemented stamping.
+test('linking goes through the engine, not by hand', () => {
+  const text = seamText('spec-tracker-link')
+  assert.match(text, /spec-sync states/, 'asks the engine for the transport first')
+  assert.match(text, /spec-sync push .*--json/, 'gets a plan')
+  assert.match(text, /spec-sync apply .*--plan/, 'and applies it')
+  assert.doesNotMatch(text, /Discover the Linear MCP tools at runtime/, 'no hand-rolled MCP discovery')
+  assert.doesNotMatch(text, /no hand-edited\s*\n?\s*frontmatter/i, 'stamping is not re-explained; apply does it')
+})
+
+test('the link fragment keeps the MCP path reachable', () => {
+  const text = seamText('spec-tracker-link')
+  assert.match(text, /transport = mcp/, 'branches on the mcp answer')
+  assert.match(text, /fully supported/, 'and does not read as deprecated')
+})
+
+// Injected into /spec, /spec-bug and /spec-hotfix, so it must not assume it is
+// describing a feature spec.
+test('the link fragment reads for any spec type', () => {
+  const text = seamText('spec-tracker-link')
+  assert.doesNotMatch(text, /this feature|the feature you/i, 'no feature-only wording')
+  assert.doesNotMatch(text, /Phase E/, 'no reference to /spec\'s own phase lettering')
 })
 
 test('the spec-go-pull seam fragment reflects one-way (no pull)', () => {

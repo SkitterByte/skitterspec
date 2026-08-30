@@ -499,3 +499,47 @@ test('--all refuses over MCP rather than feeding the model a whole bucket', asyn
   assert.match(r.out, /--all needs the api transport/)
   assert.strictEqual(linear.log.length, 0)
 })
+
+// --- `spec-sync projects`: the picker's list on the API path -----------------
+
+// The picker is the one interactive step in linking, and on the API path there is
+// no MCP tool to list from — the whole point of that path is that the agent makes
+// no Linear calls. Its contract is "degrade, never block": every failure exits 0.
+
+const PROJECTS = [{ id: 'p1', name: 'Platform' }, { id: 'p2', name: 'Growth' }]
+const withProjects = (extra = {}) => ({ ...fakeLinear(), async listProjects() { return PROJECTS }, ...extra })
+
+test('it lists the team projects on the api transport', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['projects'], dir, { adapter: withProjects() })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /transport = api, 2 project\(s\)/)
+  assert.match(r.out, /p1 {2}Platform/)
+})
+
+test('--json gives the picker id/name pairs', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['projects', '--json'], dir, { adapter: withProjects() })
+  const got = JSON.parse(r.out)
+  assert.strictEqual(got.transport, 'api')
+  assert.deepEqual(got.projects, PROJECTS)
+})
+
+test('no key degrades to a reason, exit 0 — a missing picker never blocks', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['projects', '--json'], dir, { adapter: withProjects(), env: {} })
+  assert.strictEqual(r.code, 0, 'exit 0: the caller carries on without a picker')
+  const got = JSON.parse(r.out)
+  assert.strictEqual(got.transport, 'mcp')
+  assert.strictEqual(got.projects, null, 'null, not [] — "could not ask", not "none exist"')
+  assert.match(got.reason, /over MCP/)
+})
+
+test('a Linear that will not answer also degrades rather than failing', async () => {
+  const dir = fixtureRepo()
+  const broken = withProjects({ async listProjects() { throw new Error('Linear API returned HTTP 500') } })
+  const r = await run(['projects'], dir, { adapter: broken })
+  assert.strictEqual(r.code, 0, 'still not a failure')
+  assert.match(r.out, /could not list projects/)
+  assert.match(r.out, /continuing without the picker/)
+})
