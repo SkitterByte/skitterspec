@@ -217,9 +217,14 @@ function assertPrimaryOnMain(config, git) {
  * (the primary checkout), so a worktree-only spec resolves to the right base.
  */
 function resolveSpec(specArg, dir, config, opts = {}) {
-  const found = findSpecFolder(specArg, dir, opts.searchDirs || [])
+  const searchDirs = opts.searchDirs || []
+  const found = findSpecFolder(specArg, dir, searchDirs)
   if (!found) {
-    throw new Error(`spec not found under specs/**: ${specArg}`)
+    // Name the roots we looked under: the usual cause is a spec that only exists
+    // on its own branch, and the message should say where we didn't find it.
+    throw new Error(
+      `spec not found under specs/**: ${specArg} (searched: ${[dir, ...searchDirs].join(', ')})`,
+    )
   }
 
   const { type, slug } = splitPrefix(found.folder)

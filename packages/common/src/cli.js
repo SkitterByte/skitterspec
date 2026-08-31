@@ -190,7 +190,7 @@ function specEnvUp(dir, config, specArg) {
     process.stdout.write('Usage: skitterspec spec-env up <spec>\n')
     return
   }
-  const spec = resolveSpec(specArg, dir, config)
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
 
   // Live-safe: if this spec is already live on the primary checkout (its branch was
   // branch-switched in by `live take`), a `git worktree add` would fail — the branch
@@ -357,7 +357,7 @@ function specEnvDown(dir, config, specArg, flags) {
     process.stdout.write('Usage: skitterspec spec-env down <spec> [--keep-volumes] [--force]\n')
     return
   }
-  const spec = resolveSpec(specArg, dir, config)
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
 
   // A worktree-only spec never held a slot but its worktree still needs removing,
   // so "nothing to do" means neither a slot nor a worktree exists.
@@ -457,6 +457,31 @@ function liveWorktreePaths(dir) {
     }
   }
   return paths
+}
+
+// Resolve a spec argument the ONE way every spec-env subcommand resolves it:
+// against the primary checkout first, then the spec's own worktree, then every
+// other checkout git knows about. An in-progress spec is git-mv'd into
+// specs/in-progress/ **on its own branch**, so it exists only in its worktree —
+// a primary-checkout-only lookup fails for exactly the specs these commands
+// serve. The first fallback is the worktree path the config derives for this
+// spec (cheap, no git); the rest come from `git worktree list`, so a worktree
+// provisioned under an older `worktree.root` still resolves. Identity and
+// coordinate tokens always expand against `dir` (the primary checkout), so the
+// answer is identical whether the command was run from main or a worktree.
+function resolveSpecWithWorktree(dir, config, specArg) {
+  const { slug } = splitPrefix(path.basename(specArg))
+  const { repo, repoSlug } = repoInfo(dir)
+  const wtTokens = { repo, repoSlug, slug }
+  const worktreeGuess = path.resolve(
+    dir,
+    expandTokens(config.worktree.root, wtTokens),
+    expandTokens(config.worktree.folderPattern, wtTokens),
+  )
+  const searchDirs = [...new Set([worktreeGuess, ...liveWorktreePaths(dir)])].filter(
+    (p) => p !== dir,
+  )
+  return resolveSpec(specArg, dir, config, { searchDirs })
 }
 
 // Every spec folder name found under specs/* across the given checkout roots.
@@ -771,7 +796,7 @@ function specEnvResolve(dir, config, specArg) {
     process.stdout.write('Usage: skitterspec spec-env resolve <spec>\n')
     return
   }
-  const r = resolveSpec(specArg, dir, config)
+  const r = resolveSpecWithWorktree(dir, config, specArg)
   process.stdout.write(
     `spec:       ${r.folder} (${r.bucket})\n` +
       `type/slug:  ${r.type} / ${r.slug}\n` +
@@ -792,7 +817,7 @@ async function specEnvDev(dir, config, positional) {
     process.stdout.write('Usage: skitterspec spec-env dev <up|down> <spec>\n')
     return
   }
-  const spec = resolveSpec(specArg, dir, config)
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
   if (!config.dev.length) {
     process.stdout.write(
       'spec-env dev: no dev processes configured — set "dev": [...] in env.config.json.\n',
@@ -888,7 +913,7 @@ async function specEnvConnect(dir, config, specArg) {
     return
   }
 
-  const spec = resolveSpec(target, dir, config)
+  const spec = resolveSpecWithWorktree(dir, config, target)
   const registry = readRegistry(dir, config)
   if (!Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)) {
     process.stdout.write(
@@ -982,20 +1007,6 @@ async function specEnvLive(dir, config, positional) {
     default:
       process.stdout.write('Usage: skitterspec spec-env live <take|release|abort|status> [spec]\n')
   }
-}
-
-// Resolve a spec, offering its worktree as a fallback search dir — a spec authored
-// on its own branch may not exist in the primary checkout's specs/**.
-function resolveSpecWithWorktree(dir, config, specArg) {
-  const { slug } = splitPrefix(path.basename(specArg))
-  const { repo, repoSlug } = repoInfo(dir)
-  const wtTokens = { repo, repoSlug, slug }
-  const worktreeGuess = path.resolve(
-    dir,
-    expandTokens(config.worktree.root, wtTokens),
-    expandTokens(config.worktree.folderPattern, wtTokens),
-  )
-  return resolveSpec(specArg, dir, config, { searchDirs: [worktreeGuess] })
 }
 
 // Take the running instance: rebase the spec's branch onto base, free it from its

@@ -185,6 +185,20 @@ test('resolveSpec throws a clear error when the spec is not found', () => {
   assert.throws(() => resolveSpec('feat-missing', dir, baseConfig()), /spec not found/)
 })
 
+test('resolveSpec names every root it searched when the spec is not found', () => {
+  // The usual cause is a spec that only exists on its own branch, so the message
+  // has to say which checkouts were looked in — "not found" alone sent a field
+  // report chasing the wrong root.
+  const dir = scaffold('feat-thing')
+  const wt = path.join(dir, 'nope-wt')
+  assert.throws(() => resolveSpec('feat-missing', dir, baseConfig(), { searchDirs: [wt] }), (err) => {
+    assert.match(err.message, /spec not found under specs\/\*\*: feat-missing/)
+    assert.ok(err.message.includes(dir), 'names the primary checkout')
+    assert.ok(err.message.includes(wt), 'names the fallback search dir')
+    return true
+  })
+})
+
 test('resolveSpec: searchDirs finds a spec that lives only in a worktree', () => {
   // The integrate bug: a spec authored entirely on its branch was never
   // committed to the primary checkout, so its folder is absent there and
