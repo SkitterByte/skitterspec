@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-negative-checks-rule (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-02)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
 > **Area:** packages/common/assets/rules/negative-checks.md (new), packages/sync-core/src, packages/common/src/init.js, packages/linear/src/doctor.js
 > **Stack:** worktree
@@ -106,6 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
+| 2026-09-02 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
