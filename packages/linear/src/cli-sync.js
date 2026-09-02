@@ -158,8 +158,15 @@ function warnToErr(snapshotDir, config, err) {
   if (lines.length) err.write(lines.join('\n') + '\n')
 }
 
+// Resolve a spec argument to its folder, or null with a message on stdout.
+// EVERY failure path here must print and EVERY caller must return a non-zero
+// code: /spec-push checks $? before it applies a plan, so a resolve failure that
+// exits 0 reads as "nothing to do" rather than "I could not find the spec".
 function resolveOrExit(specArg, dir, out) {
-  if (!specArg) return null
+  if (!specArg) {
+    out.write('spec-sync: no spec given\n')
+    return null
+  }
   const snapshotDir = resolveSnapshotDir(specArg, dir)
   if (!snapshotDir) {
     out.write(`spec-sync: spec not found: ${specArg}\n`)
@@ -171,7 +178,7 @@ function resolveOrExit(specArg, dir, out) {
 // `spec-sync normalize <spec>` — print the local projection as JSON.
 function specSyncNormalize(dir, config, specArg, out, err) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
-  if (!snapshotDir) return
+  if (!snapshotDir) return 1
   // stdout is the projection and nothing else — callers pipe it into jq.
   warnToErr(snapshotDir, config, err)
   out.write(JSON.stringify(projectionOf(snapshotDir, config), null, 2) + '\n')
@@ -404,7 +411,7 @@ function specSyncStamp(dir, config, specArg, flags, out) {
 // files. The skill calls this AFTER applying the plan and stamping new ids.
 function specSyncRecord(dir, config, specArg, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
-  if (!snapshotDir) return
+  if (!snapshotDir) return 1
   const identifier = specIdentifier(snapshotDir, config)
   const file = recordPush({ dir, snapshotDir, identifier, config })
   out.write(`spec-sync record: snapshot written → ${path.relative(dir, file)}\n`)
@@ -417,7 +424,7 @@ function specSyncRecord(dir, config, specArg, out) {
 // configured state names and fails loudly on a typo Linear would silently no-op.
 function specSyncStatus(dir, config, specArg, flags, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
-  if (!snapshotDir) return
+  if (!snapshotDir) return 1
   const identifier = specIdentifier(snapshotDir, config)
   const lines = [`spec-sync status: ${identifier}`, ...warningLines(snapshotDir, config)]
 
@@ -1227,15 +1234,13 @@ async function specSync(rest, io = {}) {
 
   switch (sub) {
     case 'normalize':
-      specSyncNormalize(dir, config, positional[0], out, err)
-      return 0
+      return specSyncNormalize(dir, config, positional[0], out, err) || 0
     case 'push':
       return specSyncPush(dir, config, positional[0], flags, out, err) || 0
     case 'stamp':
       return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
-      specSyncRecord(dir, config, positional[0], out)
-      return 0
+      return specSyncRecord(dir, config, positional[0], out) || 0
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out) || 0
     case 'projects':
