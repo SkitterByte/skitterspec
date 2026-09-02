@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Carve out `linear.html` and cross-link the two | ✅ | [01-split.md](01-split.md) |
-| 2 | The full setup path on `linear.html` | ⬜ | [02-setup-path.md](02-setup-path.md) |
+| 2 | The full setup path on `linear.html` | ✅ | [02-setup-path.md](02-setup-path.md) |
 | 3 | Refresh `index.html` and the docs README | ⬜ | [03-base-and-readme.md](03-base-and-readme.md) |
 
 ## Open questions
@@ -134,3 +134,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   now four permanent tests. Splitting one page into two turns every in-page
   anchor into a possible cross-page link, and a dead one fails silently.
   Verified non-vacuous by injecting a dead anchor and watching it fail.
+- 2026-09-02 — Phase 2 done. Blocked mid-phase on an ordering problem:
+  `spec-sync doctor` existed only on the unlanded `feat-setup-doctor`
+  branch, so neither the real output nor the verify-every-verb guard was
+  possible here. Landed that spec first, rebased, then built.
+- 2026-09-02 — Output blocks are the real renderer's, captured from live
+  runs. Team identifiers are genericised on the `retarget` example (a
+  hypothetical `ENG` → `PLT` rename) rather than exposing a private
+  workspace; the `doctor` blocks use this repo's own already-public team.
+- 2026-09-02 — The first version of the verb guard was VACUOUS: it matched
+  raw HTML, and the verb sits inside a highlighting `<span>`, so it checked
+  nothing and passed. Caught by injecting a fake verb and seeing it still
+  pass. Both guards now strip markup, and both were re-verified by injection.

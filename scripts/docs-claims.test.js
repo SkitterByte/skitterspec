@@ -133,3 +133,54 @@ test('each page carries its own canonical og:url', () => {
   assert.strictEqual(new Set(urls).size, urls.length, `og:url must differ per page, got ${JSON.stringify(urls)}`)
   assert.ok(urls.some((u) => u.endsWith('/linear.html')), 'the Linear page points at itself')
 })
+
+// --- the pages must not name a command that does not exist -------------------
+//
+// The site is the first thing anyone reads, and it is verified by nobody: a verb
+// renamed in the engine leaves the page confidently instructing people to run
+// something that is gone. `spec-sync doctor` was documented for a whole release
+// after it had been renamed to `retarget`.
+
+const CLI = () => fs.readFileSync(path.join(ROOT, 'packages/linear/src/cli-sync.js'), 'utf8')
+
+// Commands on the page are syntax-highlighted, so the verb usually sits inside a
+// <span>. Matching the raw HTML silently found nothing — a guard that checks
+// nothing is worse than no guard, so strip the markup first.
+const textOf = (rel) => readPage(rel).replace(/<[^>]+>/g, '')
+
+test('every spec-sync verb shown on the site is a real subcommand', () => {
+  const cli = CLI()
+  const dispatched = new Set([
+    ...[...cli.matchAll(/case '([a-z][a-z-]*)':/g)].map((m) => m[1]),
+    ...[...cli.matchAll(/sub === '([a-z][a-z-]*)'/g)].map((m) => m[1]),
+  ])
+  assert.ok(dispatched.size > 5, `found the dispatch, got ${JSON.stringify([...dispatched])}`)
+
+  for (const rel of PAGES) {
+    // Anchored to the real invocation so prose ("the spec-sync operations") is
+    // not read as a verb.
+    for (const m of textOf(rel).matchAll(/skitterspec(?:-linear)? spec-sync ([a-z][a-z-]+)/g)) {
+      assert.ok(dispatched.has(m[1]), `${rel} says to run \`spec-sync ${m[1]}\`, which is not dispatched`)
+    }
+  }
+})
+
+test('every skill named on the site is a skill that ships', () => {
+  const shipped = new Set()
+  for (const pkg of ['common', 'linear']) {
+    const dir = path.join(ROOT, 'packages', pkg, 'assets', 'skills')
+    if (!fs.existsSync(dir)) continue
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md'))) shipped.add(e.name)
+    }
+  }
+  assert.ok(shipped.size > 10, `found the skills, got ${shipped.size}`)
+
+  for (const rel of PAGES) {
+    // `/spec-…` anywhere in the prose is an instruction to run it.
+    for (const m of textOf(rel).matchAll(/\/(?:spec)(-[a-z-]+)?(?=[\s.,)]|$)/gm)) {
+      const name = m[0].slice(1)
+      assert.ok(shipped.has(name), `${rel} names /${name}, which is not a shipped skill`)
+    }
+  }
+})

@@ -635,11 +635,173 @@
   </div>
 </section>
 
-<!-- ============ SETUP / CHECK / FIX / SYNC — phase 2 ============ -->
-<section id="setup"><div class="wrap"><div class="section-head reveal"><h2>Set up</h2></div></div></section>
-<section id="check"><div class="wrap"><div class="section-head reveal"><h2>Check</h2></div></div></section>
-<section id="fix"><div class="wrap"><div class="section-head reveal"><h2>Fix</h2></div></div></section>
-<section id="sync"><div class="wrap"><div class="section-head reveal"><h2>Everyday sync</h2></div></div></section>
+<!-- ============ SET UP ============ -->
+<section id="setup" class="quick">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Set up</div>
+      <h2>From no Linear at all to a linked spec.</h2>
+      <p class="lede">Four steps. The only one that needs care is the API key, and the reason is that you should never paste one into a chat — including this one.</p>
+    </div>
+
+    <div class="quick-grid reveal">
+      <div class="qbox">
+        <h3><span class="q-badge">1</span> A team to file into</h3>
+        <p>A repo maps to exactly <strong>one Linear team</strong>. If you run a team per product, that team <em>is</em> the product; if you run one team with a project per product, pick the team and set a default project later.</p>
+        <p>You never type a UUID by hand — step&nbsp;3 discovers the teams and you pick from a list.</p>
+      </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">2</span> Install, and connect Linear</h3>
+        <p>Install the superset <strong>or</strong> the base — never both; the superset contains the whole base.</p>
+        <div class="code"><span class="c"># scaffold into .claude/ + specs/</span>
+npx @skitterbyte/skitterspec-linear <span class="p">init</span>
+
+<span class="c"># connect Linear's own MCP server (once per machine)</span>
+claude mcp add --transport http linear \
+  https://mcp.linear.app/mcp</div>
+        <p>A newly added server only appears in <span class="mono">/mcp</span> after Claude Code restarts.</p>
+      </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">3</span> Configure by interview</h3>
+        <p>In Claude Code, run <span class="mono">/spec-linear-setup</span>. It reads your workspace and asks which team this repo files into, whether products split by team or by project, and which labels drive intake — then writes <span class="mono">specs/.core/linear.config.json</span> for you.</p>
+        <p><strong>It also checks your workflow-state names against the workspace.</strong> That check is the one that earns its keep: Linear <em>silently ignores</em> an issue state it does not recognise, so a workspace that renamed <span class="mono">Done</span> pushes perfectly cleanly and produces a mirror that never moves.</p>
+        <p class="hero-note">Not using Claude Code? The CLI works standalone — see <span class="mono">specs/.core/SETUP.md</span>, shipped in the package. Editing the config by hand skips the state check above.</p>
+      </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">4</span> Your API key</h3>
+        <p>With a key, descriptions go straight to Linear's API and never pass through the model. Without one everything still works over MCP — it is genuinely optional.</p>
+        <div class="code"><span class="c"># run this yourself, in your own terminal</span>
+skitterspec spec-sync <span class="p">credentials set</span></div>
+        <p><strong>Never paste a key into a conversation</strong> — it enters the transcript and may be logged. The command reads it from stdin and stores it per team; it refuses to take one as an argument, because argv is visible to <span class="mono">ps</span> and shell history.</p>
+        <p class="hero-note">Already have a <span class="mono">LINEAR_API_KEY</span> for a different workspace? Set <span class="mono">auth.keyEnv</span> in your config to a repo-specific variable name, or the generic one shadows this repo's key.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CHECK ============ -->
+<section id="check" class="scenario">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Check</div>
+      <h2>One command tells you whether any of that worked.</h2>
+      <p class="sub">Four layers get set up by four different commands. <span class="mono">doctor</span> is the only thing that reports all of them at once.</p>
+    </div>
+
+    <div class="win reveal" aria-label="Terminal running skitterspec spec-sync doctor">
+      <div class="win-bar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="title">skitterspec spec-sync doctor</span>
+      </div>
+      <div class="term">
+<div class="l"><span class="prompt">$</span> <span class="cmd">skitterspec spec-sync doctor</span></div>
+<div class="l">skitterspec doctor:</div>
+<div class="l">  scaffold   <span class="ok">ok</span>       specs/ + 16 skills installed</div>
+<div class="l">  isolation  <span class="ok">ok</span>       env.config.json — worktree per spec</div>
+<div class="l">  tracker    <span class="ok">ok</span>       linear.config.json — team e07c2b54… (SKS)</div>
+<div class="l">  key        <span class="warn">missing</span>  no key for SKS</div>
+<div class="l"><span class="dim">                      → skitterspec spec-sync credentials set</span></div>
+<div class="l">  remote     <span class="info">skipped</span>  pass --check-remote to verify against Linear</div>
+<div class="l"> </div>
+<div class="l">  1 check(s) need attention.</div>
+      </div>
+    </div>
+
+    <p class="reveal">Every row that needs attention names the command that fixes it, so there is nothing to look up. <strong>A <span class="mono">missing</span> row is an opt-in you have not taken</strong> — reported, but it does not fail the run. Only a <span class="mono">broken</span> row (configured, but wrong) exits non-zero, which is what lets a skill branch on the exit code.</p>
+
+    <p class="reveal">Add <span class="mono">--check-remote</span> to prove the configuration actually works, rather than merely that it parses — one call confirming the team resolves and your key is accepted:</p>
+
+    <div class="win reveal" aria-label="Terminal running doctor with --check-remote">
+      <div class="win-bar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="title">skitterspec spec-sync doctor --check-remote</span>
+      </div>
+      <div class="term">
+<div class="l"><span class="prompt">$</span> <span class="cmd">skitterspec spec-sync doctor --check-remote</span></div>
+<div class="l">  scaffold   <span class="ok">ok</span>       specs/ + 16 skills installed</div>
+<div class="l">  isolation  <span class="ok">ok</span>       env.config.json — worktree per spec</div>
+<div class="l">  tracker    <span class="ok">ok</span>       linear.config.json — team e07c2b54… (SKS)</div>
+<div class="l">  key        <span class="ok">ok</span>       …sCU8 from the environment (LINEAR_API_KEY)</div>
+<div class="l">  remote     <span class="ok">ok</span>       team SKS resolves, key accepted</div>
+<div class="l"> </div>
+<div class="l">  <span class="ok">ready.</span></div>
+      </div>
+    </div>
+
+    <p class="reveal"><span class="mono">--json</span> emits the same rows for a script. The key is only ever shown as a masked fingerprint with its source, and nothing Linear returns is echoed back — an error body can quote the request that produced it.</p>
+  </div>
+</section>
+
+<!-- ============ FIX ============ -->
+<section id="fix">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Fix</div>
+      <h2>When a team gets renamed.</h2>
+      <p class="sub">The one repair that is not obvious, because it touches three places at once.</p>
+    </div>
+
+    <p class="reveal">Renaming a Linear team rewrites the key in every issue identifier — <span class="mono">ENG-7</span> becomes <span class="mono">PLT-7</span>. Your repo stamps those identifiers in spec frontmatter, in the last-pushed snapshot <em>filenames</em>, and in the sub-issue <em>keys inside</em> those snapshots. Nothing moves them, so the next push fails with <span class="mono">no Linear issue found for ENG-7</span>.</p>
+
+    <div class="win reveal" aria-label="Terminal running skitterspec spec-sync retarget">
+      <div class="win-bar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="title">skitterspec spec-sync retarget</span>
+      </div>
+      <div class="term">
+<div class="l"><span class="prompt">$</span> <span class="cmd">skitterspec spec-sync retarget</span></div>
+<div class="l">spec-sync retarget: team fbcaaf05… (Platform)</div>
+<div class="l">  recorded key: ENG  (from config)</div>
+<div class="l">  linear  key:  PLT   <span class="warn">&lt;- renamed</span></div>
+<div class="l"> </div>
+<div class="l">  would rewrite:</div>
+<div class="l">    22 frontmatter stamp(s)  (linear_identifier, linear_url, linear_issue_id)</div>
+<div class="l">    6 base snapshot(s)      (rename + re-key subIssues)</div>
+<div class="l">    1 config key            (linear.teamKey)</div>
+<div class="l"> </div>
+<div class="l">  spot-check: <span class="ok">PLT-7 resolves, title matches the spec</span></div>
+<div class="l">  <span class="dim">dry-run — re-run with --yes to apply.</span></div>
+      </div>
+    </div>
+
+    <p class="reveal">It never takes the new key as an argument — a typo would rewrite every stamp to a key that does not exist. Instead it asks Linear for the team's current key (the team <em>id</em> survives a rename) and <strong>spot-checks one identifier by title</strong> before calling the plan safe: <span class="mono">PLT-7</span> existing does not make it the issue that was <span class="mono">ENG-7</span>.</p>
+
+    <p class="reveal"><span class="mono">--yes</span> applies it, refusing on a dirty tree so the rewrite lands as one reviewable, revertable change. It rewrites machine-read fields only — identifiers written in your prose are the historical record and are left exactly as they are. Nothing is pushed; your next ordinary <span class="mono">/spec-push</span> reconciles content now that its issues resolve again.</p>
+
+    <p class="reveal">For everything else, <span class="mono">doctor</span> already names the command on the row that needs it.</p>
+  </div>
+</section>
+
+<!-- ============ EVERYDAY ============ -->
+<section id="sync" class="scenario">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Everyday</div>
+      <h2>Two commands, one direction.</h2>
+      <p class="sub">The repo is the source of truth. There is no pull.</p>
+    </div>
+
+    <div class="cards-3 reveal">
+      <div class="icard">
+        <h3><span class="mono">/spec-status</span></h3>
+        <p>Read-only. What the next push would create or update, whether Linear's workflow-state has drifted, and whether a phase's status markers disagree with each other. Writes nothing.</p>
+      </div>
+      <div class="icard">
+        <h3><span class="mono">/spec-push</span></h3>
+        <p>Repo → Linear. Diffs against the last-pushed snapshot, creates or updates the spec issue and its phase sub-issues, and stamps the returned ids back into your markdown.</p>
+      </div>
+      <div class="icard">
+        <h3><span class="mono">/spec-sync</span></h3>
+        <p>The repo-wide operations: what is linked, the workspace's states and projects, read-back verification, and mirroring a whole bucket at once. Run it bare for an overview.</p>
+      </div>
+    </div>
+
+    <p class="reveal">Every lifecycle skill already refreshes the mirror as it goes, so in practice you rarely push by hand. The full list of commands lives on <a href="index.html#reference">the base page's reference</a>.</p>
+  </div>
+</section>
 
 <footer>
   <div class="wrap foot-inner">
