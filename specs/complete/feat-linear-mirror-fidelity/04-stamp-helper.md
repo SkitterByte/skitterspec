@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-26"
+linear_issue_id: "SKS-26"
 ---
 
 # Phase 4 — `spec-sync stamp` helper + move both call-sites ✅

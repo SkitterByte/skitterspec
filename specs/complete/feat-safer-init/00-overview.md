@@ -1,6 +1,6 @@
 ---
-linear_identifier: "SKI-8"
-linear_url: "https://linear.app/skitterspec/issue/SKI-8/safer-init-detect-existing-setup-offer-resync-reset-leave"
+linear_identifier: "SKS-8"
+linear_url: "https://linear.app/skitterspec/issue/SKS-8/safer-init-detect-existing-setup-offer-resync-reset-leave"
 ---
 
 # Safer init: detect existing setup, offer resync / reset / leave

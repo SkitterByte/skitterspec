@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-11"
+linear_issue_id: "SKS-11"
 ---
 
 # Phase 3 — CLI detection, prompt, flags + /spec-init docs ✅

@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-20"
+linear_issue_id: "SKS-20"
 ---
 
 # Phase 3 — Issue intake seam & adoption ✅

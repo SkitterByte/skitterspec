@@ -1,6 +1,6 @@
 ---
-linear_identifier: "SKI-6"
-linear_url: "https://linear.app/skitterspec/issue/SKI-6/bug-init-crashes-on-a-dangling-symlink-target"
+linear_identifier: "SKS-6"
+linear_url: "https://linear.app/skitterspec/issue/SKS-6/bug-init-crashes-on-a-dangling-symlink-target"
 ---
 
 # Bug: init crashes on a dangling symlink target

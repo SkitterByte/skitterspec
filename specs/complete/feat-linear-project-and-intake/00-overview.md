@@ -1,6 +1,6 @@
 ---
-linear_identifier: "SKI-17"
-linear_url: "https://linear.app/skitterspec/issue/SKI-17/linear-project-selection-and-issue-intake"
+linear_identifier: "SKS-17"
+linear_url: "https://linear.app/skitterspec/issue/SKS-17/linear-project-selection-and-issue-intake"
 ---
 
 # Linear project selection & issue intake

@@ -1,10 +1,10 @@
 {
   "issue": "317cde98376f31a2708c270106eef1daa3a498ab",
   "subIssues": {
-    "SKI-23": "f692c3ab8a5b1294fc099419dd4fc14ac5a57990",
-    "SKI-24": "0d2db7a9276ab6b16bf9ffdae92f3e534d4d667b",
-    "SKI-25": "125af0232cf57466d32bb9b691fbab7a469c01b5",
-    "SKI-26": "4bbbc19f0aae665570eb125a48ecbf9f556ce0d4",
-    "SKI-27": "68d7fb3649b1b86a149aaed0f1fee70f032af1f7"
+    "SKS-23": "f692c3ab8a5b1294fc099419dd4fc14ac5a57990",
+    "SKS-24": "0d2db7a9276ab6b16bf9ffdae92f3e534d4d667b",
+    "SKS-25": "125af0232cf57466d32bb9b691fbab7a469c01b5",
+    "SKS-26": "4bbbc19f0aae665570eb125a48ecbf9f556ce0d4",
+    "SKS-27": "68d7fb3649b1b86a149aaed0f1fee70f032af1f7"
   }
 }

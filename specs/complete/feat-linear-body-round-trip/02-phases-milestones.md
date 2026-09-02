@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-14"
+linear_issue_id: "SKS-14"
 ---
 
 # Phase 2 — Phases ↔ Milestones round-trip + phase-file denormalizer ✅

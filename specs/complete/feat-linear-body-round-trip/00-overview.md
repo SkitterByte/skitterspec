@@ -1,6 +1,6 @@
 ---
-linear_identifier: "SKI-12"
-linear_url: "https://linear.app/skitterspec/issue/SKI-12/linear-body-round-trip-phasesmilestones-tasksissues"
+linear_identifier: "SKS-12"
+linear_url: "https://linear.app/skitterspec/issue/SKS-12/linear-body-round-trip-phasesmilestones-tasksissues"
 ---
 
 # Linear body round-trip: phases↔Milestones, tasks↔Issues

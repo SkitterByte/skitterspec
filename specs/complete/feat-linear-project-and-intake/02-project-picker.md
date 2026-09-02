@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-19"
+linear_issue_id: "SKS-19"
 ---
 
 # Phase 2 — Project picker on mint ✅

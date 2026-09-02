@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-23"
+linear_issue_id: "SKS-23"
 ---
 
 # Phase 1 — Document the H1 status convention in `/spec-review` ✅

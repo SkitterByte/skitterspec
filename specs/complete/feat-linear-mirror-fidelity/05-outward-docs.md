@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-27"
+linear_issue_id: "SKS-27"
 ---
 
 # Phase 5 — Refresh the outward-facing docs ✅

@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-18"
+linear_issue_id: "SKS-18"
 ---
 
 # Phase 1 — Config, MCP ops & the `linked` CLI ✅

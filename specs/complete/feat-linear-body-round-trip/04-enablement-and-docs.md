@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-16"
+linear_issue_id: "SKS-16"
 ---
 
 # Phase 4 — Opt-in config, deletion-divergence reporting, docs ✅

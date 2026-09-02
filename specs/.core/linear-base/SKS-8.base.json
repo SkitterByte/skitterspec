@@ -1,8 +1,8 @@
 {
   "issue": "3e6214d06cf496a4dc21bbe3db508b26e4b6d201",
   "subIssues": {
-    "SKI-9": "e21dd8037e839b6fbca88345d3a4f46399806fe8",
-    "SKI-10": "6de0adedefa6d12d89c79fcdf175474340fe3929",
-    "SKI-11": "9be46a8e83bf77e253331bc9e76aa6be5b99d31e"
+    "SKS-9": "e21dd8037e839b6fbca88345d3a4f46399806fe8",
+    "SKS-10": "6de0adedefa6d12d89c79fcdf175474340fe3929",
+    "SKS-11": "9be46a8e83bf77e253331bc9e76aa6be5b99d31e"
   }
 }

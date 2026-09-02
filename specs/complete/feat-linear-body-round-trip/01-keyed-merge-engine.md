@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-13"
+linear_issue_id: "SKS-13"
 ---
 
 # Phase 1 — Per-item (id-keyed) three-way merge in sync-core ✅

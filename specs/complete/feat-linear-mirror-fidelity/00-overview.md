@@ -1,6 +1,6 @@
 ---
-linear_identifier: "SKI-22"
-linear_url: "https://linear.app/skitterspec/issue/SKI-22/linear-mirror-fidelity-phase-status-lint-richer-sub-issues-id-stamping"
+linear_identifier: "SKS-22"
+linear_url: "https://linear.app/skitterspec/issue/SKS-22/linear-mirror-fidelity-phase-status-lint-richer-sub-issues-id-stamping"
 ---
 
 # Linear mirror fidelity — phase-status lint, richer sub-issues, id stamping

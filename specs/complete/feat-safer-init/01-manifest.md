@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-9"
+linear_issue_id: "SKS-9"
 ---
 
 # Phase 1 — Install manifest + managed-state classifier ✅

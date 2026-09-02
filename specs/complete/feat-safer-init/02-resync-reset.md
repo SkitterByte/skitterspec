@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-10"
+linear_issue_id: "SKS-10"
 ---
 
 # Phase 2 — Resync + reset engine (with the hard guard) ✅

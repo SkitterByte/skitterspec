@@ -1,5 +1,5 @@
 ---
-linear_issue_id: "SKI-24"
+linear_issue_id: "SKS-24"
 ---
 
 # Phase 2 — Three-way phase-status lint, surfaced by the CLI ✅
