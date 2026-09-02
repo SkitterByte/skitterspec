@@ -117,7 +117,7 @@ themselves are content-derived and stay valid, so `status` must still read
 | Skill | add | `/spec-sync` (Linear distribution only) |
 | CLI command | add | `spec-sync doctor [--write] [--json]` |
 | CLI command | update | `spec-sync verify` — refuses a `.base.json` as `--stored` |
-| Domain object | add | `adapter.readTeam(teamId) → { key, name }` (api + mcp) |
+| Domain object | add | `adapter.readTeam(teamId) → { key, name }` (api only) |
 | Config key | update | `linear.teamKey` rewritten by `doctor --write` |
 
 No change to the projection, the snapshot format, or any push/apply write path.
@@ -175,3 +175,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   observation: a real recorded snapshot, repaired, and `spec-sync status`
   still reads `up to date` under the new key.
 - 2026-09-02 — Completed; all three phases done, tests green (932/932).
+- 2026-09-02 — Corrected the Impact row for `readTeam`: it reads (api only),
+  matching the deviation logged above. The table still said (api + mcp).
