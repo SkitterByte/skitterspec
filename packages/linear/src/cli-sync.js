@@ -1776,6 +1776,10 @@ async function specSync(rest, io = {}) {
   const [sub, ...args] = rest
   let dir = io.cwd || process.cwd()
   const positional = []
+  // Anything `--`-prefixed that no branch below consumed. Collected rather than
+  // pushed onto `positional`, where it was silently discarded — see the refusal
+  // after the loop.
+  const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
     force: false, yes: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
   for (let i = 0; i < args.length; i++) {
@@ -1817,8 +1821,34 @@ async function specSync(rest, io = {}) {
       const [bucket, ...rest] = String(args[++i] || '').split('=')
       flags.stateNames[String(bucket).trim()] = rest.join('=').trim()
     } else if (args[i] === '--states') flags.statesFile = path.resolve(args[++i])
+    else if (args[i].startsWith('--')) unknownFlags.push(args[i])
     else positional.push(args[i])
   }
+  // REFUSE AN UNKNOWN FLAG, before anything runs.
+  //
+  // These used to land in `positional` and vanish. That is merely untidy for a
+  // typo, but it turned a RENAMED flag into a silent no-op: `--write` moved to
+  // `--yes` when `doctor` became `retarget`, so `spec-sync doctor --write` — the
+  // exact 10.4.0 invocation for repairing a renamed team — parsed, ran the
+  // readiness report instead, ignored the flag and exited 0. A script would read
+  // that as "repaired".
+  //
+  // A spec name never starts with `--`, so this cannot swallow a real argument.
+  if (unknownFlags.length) {
+    const lines = [`spec-sync: unknown flag ${unknownFlags.join(', ')}`]
+    // Renamed flags get a specific hand-off; a bare "unknown flag" would leave
+    // the caller to guess what replaced it.
+    if (unknownFlags.includes('--write')) {
+      lines.push(
+        '  --write was replaced by --yes, and the command that repairs a renamed',
+        '  team is now `spec-sync retarget --yes` (it was `doctor --write`).',
+      )
+    }
+    lines.push('  run `skitterspec spec-sync` for the full usage.')
+    out.write(lines.join('\n') + '\n')
+    return 1
+  }
+
   dir = path.resolve(dir)
   // Injection seam, alongside cwd/out/err: `env` supplies the key lookup and
   // `adapter`/`fetch` stand in for the network, so `apply` is exercised end to
