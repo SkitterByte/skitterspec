@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-docs-site-split (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases built (2026-09-02)
+> **Status:** Complete (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -120,6 +120,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
 | 2026-09-02 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-02 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -162,3 +163,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   not store empty folders and a bucket disappearing is normal — the same
   fact behind `bug-scaffold-empty-buckets`, said once where a new user
   meets it.
+- 2026-09-02 — Completed; all three phases done, tests green (997/997).
