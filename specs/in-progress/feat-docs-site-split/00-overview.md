@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-docs-site-split (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-02)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
 > **Area:** docs/index.html, docs/linear.html (new), docs/README.md
 > **Stack:** worktree
@@ -119,6 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
+| 2026-09-02 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
