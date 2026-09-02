@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-negative-checks-rule (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (2026-09-02)
+> **Status:** Complete (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -107,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
 | 2026-09-02 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-02 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -131,3 +132,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   refusal still exits 1. `isolation` and `tracker` have no false-positive mode,
   recorded in a comment rather than a hollow test. Audit total across the three
   phases: three accusing checks corrected, one rule shipped, 22 new tests.
+- 2026-09-02 — Completed; all phases done, tests green (1025 passing).
