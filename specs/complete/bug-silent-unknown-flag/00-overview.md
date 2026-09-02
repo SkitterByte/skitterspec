@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-silent-unknown-flag (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -84,6 +84,7 @@ starts with `--`, so no real argument can be swallowed by the new rule.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-02 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-02 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -94,3 +95,4 @@ starts with `--`, so no real argument can be swallowed by the new rule.
   unknown flag: the reported case was one symptom of the `else positional.push`
   arm, and fixing only `--write` would leave the next renamed flag to fail the
   same way.
+- 2026-09-02 — Completed; fix verified, tests green (1002/1002).
