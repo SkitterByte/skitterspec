@@ -257,3 +257,36 @@ for (const [pkgDir, binFile, name] of [
     assert.doesNotMatch(r.stderr, /MODULE_NOT_FOUND/, 'not a raw resolution error')
   })
 }
+
+// A composed `bin/` entry must land EXECUTABLE. npm sets the exec bit on bin
+// entries when it packs, so a published install papers over a 0644 bin and only
+// `link:` consumers ever see it — as EACCES on a command that plainly exists.
+// That is precisely the path `dev:link` serves, so the build has to get it right
+// on its own. Asserting on content cannot see a mode, which is why this shipped:
+// the superset rewrites its bin's requires (writeFileSync → 0644) while the base
+// copies verbatim (copyFileSync → mode preserved), so only the superset broke.
+for (const [dist, binFile] of [
+  ['skitterspec', 'skitterspec.js'],
+  ['skitterspec-linear', 'skitterspec-linear.js'],
+]) {
+  test(`${dist} composes an executable bin`, () => {
+    const out = dist === 'skitterspec' ? buildBase() : buildLinear()
+    const mode = fs.statSync(path.join(out, 'bin', binFile)).mode
+    assert.ok(mode & 0o100, `${binFile} is owner-executable (got ${(mode & 0o777).toString(8)})`)
+  })
+}
+
+// The mode rule is general, not a bin special-case: the require-rewriting branch
+// of copyFile must reproduce the source's mode for every file it touches, the
+// same way copyFileSync does. Pinning both ends stops a future "just chmod the
+// bin" patch from re-opening the hole for anything else that needs a mode.
+test('the require-rewriting copy preserves modes, executable or not', () => {
+  const out = buildLinear()
+  const exec = fs.statSync(path.join(out, 'bin', 'skitterspec-linear.js')).mode & 0o777
+  const plain = fs.statSync(path.join(out, 'src', 'cli.js')).mode & 0o777
+  const srcExec = fs.statSync(path.join(PKGS, 'linear', 'bin', 'skitterspec-linear.js')).mode & 0o777
+  const srcPlain = fs.statSync(path.join(PKGS, 'common', 'src', 'cli.js')).mode & 0o777
+  assert.strictEqual(exec, srcExec, 'bin keeps the source mode')
+  assert.strictEqual(plain, srcPlain, 'a rewritten src file keeps the source mode')
+  assert.ok(!(plain & 0o100), 'a non-bin source file is not made executable')
+})

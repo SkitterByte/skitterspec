@@ -74,10 +74,19 @@ function rmDir(p) {
 }
 
 // Copy a file, rewriting workspace requires in `.js` when `srcRoot` is given.
+//
+// Both branches must reproduce the source's MODE, not just its bytes.
+// `copyFileSync` carries the mode for free; `writeFileSync` creates the file at
+// the default 0644 and silently drops the executable bit. That matters for
+// exactly one file — a composed `bin/` entry — and only for `link:` consumers,
+// because npm sets the exec bit on `bin` entries when it packs a tarball. So a
+// published install is fine and a linked one fails EACCES on a command that
+// plainly exists. `dev:link` is the whole path this hits.
 function copyFile(src, dst, srcRoot) {
   fs.mkdirSync(path.dirname(dst), { recursive: true })
   if (srcRoot && src.endsWith('.js')) {
     fs.writeFileSync(dst, rewriteRequires(fs.readFileSync(src, 'utf8'), dst, srcRoot))
+    fs.chmodSync(dst, fs.statSync(src).mode & 0o777)
   } else {
     fs.copyFileSync(src, dst)
   }
