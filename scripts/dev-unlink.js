@@ -23,6 +23,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
+const { installFlags } = require('./dev-link.js')
 
 const ROOT = path.join(__dirname, '..')
 const DISTS = ['skitterspec', 'skitterspec-linear']
@@ -66,12 +67,16 @@ function main(argv) {
     return
   }
 
+  // Read the consumer's shape while the link is still in its manifest — after
+  // the remove there is nothing left to tell us which section it lived in.
+  const flags = installFlags(consumer, dist)
+
   // Remove BEFORE adding. `pnpm add <name>` alone sees the dependency already
   // satisfied by the link and no-ops, leaving the `link:` spec in package.json
   // while reporting success — which is worse than doing nothing, because it
   // tells you the link is gone when it is not.
-  execFileSync('pnpm', ['remove', `${SCOPE}/${dist}`], { stdio: 'inherit', cwd: consumer })
-  execFileSync('pnpm', ['add', `${SCOPE}/${dist}`], { stdio: 'inherit', cwd: consumer })
+  execFileSync('pnpm', ['remove', ...flags, `${SCOPE}/${dist}`], { stdio: 'inherit', cwd: consumer })
+  execFileSync('pnpm', ['add', ...flags, `${SCOPE}/${dist}`], { stdio: 'inherit', cwd: consumer })
   console.log(
     `\ndev-unlink: ${consumer} is back on the published ${SCOPE}/${dist}.\n` +
       '  if you were pinned to an older version, set it now — the link replaced that range.',

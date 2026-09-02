@@ -50,6 +50,34 @@ function primaryCheckout(root = ROOT) {
   return at === -1 ? null : gitdir.slice(0, at)
 }
 
+// The extra pnpm flags THIS consumer needs. Both exist to stop the link from
+// quietly reshaping the project it is testing in:
+//
+//   -w  a pnpm workspace ROOT refuses a bare `pnpm add` outright
+//       (ERR_PNPM_ADDING_TO_ROOT) — adding to the root of a monorepo is usually
+//       a mistake. Here it is precisely what we mean: the CLI is a repo-wide
+//       dev tool, not a dependency of one workspace package.
+//   -D  `pnpm add` writes to `dependencies`. When the consumer keeps the
+//       distribution in devDependencies — most do; it is a dev tool — adding
+//       without -D MOVES it. The link would work and the diff would silently
+//       rewrite the project's dependency shape, which is not ours to change.
+//
+// Read the manifest before any remove/add: afterwards the entry is gone and the
+// section it lived in is unknowable.
+function installFlags(consumer, dist) {
+  const flags = []
+  const workspace = ['pnpm-workspace.yaml', 'pnpm-workspace.yml']
+  if (workspace.some((f) => fs.existsSync(path.join(consumer, f)))) flags.push('-w')
+  let pkg
+  try {
+    pkg = JSON.parse(fs.readFileSync(path.join(consumer, 'package.json'), 'utf8'))
+  } catch {
+    return flags // unreadable manifest is pnpm's error to report, not ours
+  }
+  if (pkg.devDependencies && pkg.devDependencies[`${SCOPE}/${dist}`]) flags.push('-D')
+  return flags
+}
+
 function main(argv) {
   const [consumerArg, distArg = 'skitterspec-linear'] = argv
   if (!consumerArg) fail('usage: node scripts/dev-link.js <consumer-dir> [' + DISTS.join('|') + ']')
@@ -82,7 +110,10 @@ function main(argv) {
 
   const pkgDir = path.join(ROOT, 'packages', distArg)
   const spec = `${SCOPE}/${distArg}@link:${pkgDir}`
-  execFileSync('pnpm', ['add', spec], { stdio: 'inherit', cwd: consumer })
+  execFileSync('pnpm', ['add', ...installFlags(consumer, distArg), spec], {
+    stdio: 'inherit',
+    cwd: consumer,
+  })
 
   console.log(
     `\ndev-link: ${SCOPE}/${distArg} linked into ${consumer}\n` +
@@ -95,7 +126,7 @@ function main(argv) {
   )
 }
 
-module.exports = { primaryCheckout }
+module.exports = { primaryCheckout, installFlags }
 
 // CLI: node scripts/dev-link.js <consumer-dir> [skitterspec|skitterspec-linear]
 if (require.main === module) main(process.argv.slice(2))

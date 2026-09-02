@@ -18,7 +18,7 @@ const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
 const SCRIPT = path.join(__dirname, 'dev-link.js')
-const { primaryCheckout } = require('./dev-link.js')
+const { primaryCheckout, installFlags } = require('./dev-link.js')
 
 function run(args) {
   return spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8' })
@@ -98,4 +98,53 @@ test('the refusal names the worktree, the reason, and the primary to use', () =>
   assert.match(src, /refusing to link from a spec worktree/)
   assert.match(src, /would dangle/, 'says why')
   assert.match(src, /link from the primary checkout instead/, 'says what to do')
+})
+
+// A consumer is not always a plain single-package project. Two shapes make a
+// bare `pnpm add` either fail outright or succeed while rewriting the project:
+// a pnpm workspace ROOT, and a distribution kept in devDependencies.
+test('a pnpm workspace root gets -w — pnpm refuses to add to it without one', () => {
+  const dir = tmpDir('workspace')
+  fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"c","version":"1.0.0"}')
+  fs.writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), "packages:\n  - 'apps/*'\n")
+  assert.deepStrictEqual(installFlags(dir, 'skitterspec-linear'), ['-w'])
+})
+
+test('a dist already in devDependencies gets -D, so the link does not move it', () => {
+  // Without -D, pnpm writes the link into `dependencies` and leaves the old
+  // devDependencies entry behind — the link works and the consumer's dependency
+  // shape changes underneath it.
+  const dir = tmpDir('devdep')
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    '{"name":"c","devDependencies":{"@skitterbyte/skitterspec-linear":"10.0.1"}}',
+  )
+  assert.deepStrictEqual(installFlags(dir, 'skitterspec-linear'), ['-D'])
+})
+
+test('an ordinary consumer gets no extra flags', () => {
+  const dir = tmpDir('plain')
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    '{"name":"c","dependencies":{"@skitterbyte/skitterspec-linear":"10.0.1"}}',
+  )
+  assert.deepStrictEqual(installFlags(dir, 'skitterspec-linear'), [])
+})
+
+test('the flags are per-distribution — a different dist in devDeps is not ours', () => {
+  const dir = tmpDir('otherdist')
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    '{"name":"c","devDependencies":{"@skitterbyte/skitterspec-linear":"10.0.1"}}',
+  )
+  assert.deepStrictEqual(installFlags(dir, 'skitterspec'), [])
+})
+
+test('an unreadable manifest still yields the workspace flag, and does not throw', () => {
+  // pnpm reports a broken package.json far better than we can; the helper must
+  // not turn it into a stack trace from here.
+  const dir = tmpDir('brokenjson')
+  fs.writeFileSync(path.join(dir, 'package.json'), '{ not json')
+  fs.writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), 'packages: []\n')
+  assert.deepStrictEqual(installFlags(dir, 'skitterspec-linear'), ['-w'])
 })
