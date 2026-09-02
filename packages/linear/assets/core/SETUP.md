@@ -237,7 +237,19 @@ the repo.
 
 ## 8. Smoke test (verify your setup)
 
-With a linked spec, confirm push end-to-end:
+**Start here — one command answers "did it work?":**
+
+```
+skitterspec spec-sync doctor              # every layer, offline
+skitterspec spec-sync doctor --check-remote   # …and prove the key reaches Linear
+```
+
+It reports the scaffold, per-spec isolation, the tracker config and the API key
+in one table, and every row that needs attention names the command that fixes
+it. It exits non-zero only when something is **broken** (configured but wrong) —
+a `missing` row is an opt-in you have not taken, which is fine.
+
+Then, with a linked spec, confirm push end-to-end:
 
 1. `/spec-status` → shows what would push (`pending — N to create, M to update`).
 2. `/spec-push` → creates the spec issue and its phase sub-issues and sets the

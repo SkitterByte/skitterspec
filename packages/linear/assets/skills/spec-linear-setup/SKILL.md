@@ -159,22 +159,33 @@ paraphrase it into "done".
 
 ## 8. Report and hand off
 
-Confirm the file written and what it says, then name the next step:
+**Finish by checking, not by describing.** Run:
+
+```
+skitterspec spec-sync doctor
+```
+
+and relay its table. That is the difference between a summary of what setup
+*meant* to do and a check of what is actually true — including the layers this
+skill never touched (the scaffold, isolation) and the one it deliberately does
+not set (the key). Every row that needs attention names its own fix, so there is
+nothing to paraphrase.
+
+It exits non-zero only when a layer is **broken** — configured but wrong. A
+`missing` row is an opt-in nobody took, which is fine; report it, don't treat it
+as a failure.
+
+Then name the next step:
 
 - `/spec` — write a spec; with Linear configured it offers the project picker,
   creates the linked issue and stamps the id.
 - `/spec-status` — read-only drift report, the safe way to prove the link works.
 - `/spec-push` — send a spec up.
 
-Then **check the API key, but never ask for it.** Run:
-
-```
-skitterspec spec-sync credentials status
-```
-
-It reports whether a key is set and where from, and never prints the value. If
-it says `key: not set`, tell the user to run this **themselves, in their own
-terminal**:
+**Never ask for the API key.** `doctor`'s `key` row already reports whether one
+is set and where from, masked — `spec-sync credentials status` says the same in
+more detail if you need it. If the key is missing, tell the user to run this
+**themselves, in their own terminal**:
 
 ```
 skitterspec spec-sync credentials set

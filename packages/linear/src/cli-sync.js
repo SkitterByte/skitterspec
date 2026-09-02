@@ -51,6 +51,7 @@ const {
 
 const { loadLinearConfig, mergeConfig, defaults: configDefaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
+const { runChecks } = require('./doctor.js')
 const {
   storePath,
   storeMode,
@@ -581,6 +582,124 @@ function verifyLines(snapshotDir, config, stored, identifier) {
   if (!bad) lines.push(`  ${checks.length} description(s) round-tripped intact`)
   else lines.push('     the repo is unchanged and still correct; re-push to overwrite the mirror')
   return lines
+}
+
+/**
+ * `spec-sync doctor [--json]` — is this project set up, across every layer?
+ *
+ * The scaffold, isolation, the tracker config and the key are each checked by a
+ * different command or by none, so nothing answered the whole question. This
+ * does, and every failing row names the command that fixes it.
+ *
+ * The report itself is `doctor.js`, which is pure — this half only GATHERS. It
+ * is the one place allowed to touch the filesystem for that, and it must not
+ * throw doing it: a doctor that dies on a malformed config is useless on exactly
+ * the repo that needs it. So every read is wrapped, and a parse failure becomes
+ * a `broken` row rather than a stack trace.
+ *
+ * Dispatched BEFORE the config load for the same reason (like `init-config`):
+ * the loader throws on malformed JSON and the dispatcher short-circuits when no
+ * config exists, so a doctor sitting after it could never report the two states
+ * it most needs to.
+ */
+async function specSyncDoctor(dir, flags, out) {
+  const state = gatherState(dir, flags)
+  if (flags.remoteCheck) state.remote = await checkRemote(state, flags)
+
+  const report = runChecks(state)
+
+  if (flags.json) {
+    out.write(JSON.stringify(report, null, 2) + '\n')
+    return report.ok ? 0 : 1
+  }
+
+  const width = Math.max(...report.checks.map((c) => c.label.length))
+  const lines = ['skitterspec doctor:']
+  for (const c of report.checks) {
+    lines.push(`  ${c.label.padEnd(width)}  ${c.state.padEnd(8)} ${c.detail}`)
+    // The fix sits under the row it belongs to, indented past the state column,
+    // so a wall of rows still reads as "this one, and here is the command".
+    if (c.fix) lines.push(`  ${' '.repeat(width)}  ${' '.repeat(8)} → ${c.fix}`)
+  }
+  // Everything not `ok`/`skipped` needs a human's attention — including a
+  // `missing` one, which is why the count and the EXIT CODE differ: a declined
+  // opt-in is worth reporting but must not fail the run (see `runChecks`).
+  const attention = report.checks.filter((c) => c.state === 'broken' || c.state === 'missing').length
+  lines.push('')
+  lines.push(attention ? `  ${attention} check(s) need attention.` : '  ready.')
+
+  out.write(lines.join('\n') + '\n')
+  return report.ok ? 0 : 1
+}
+
+// The live half — phase 3. Until then `--check-remote` reports that it is not
+// available yet rather than silently doing nothing.
+async function checkRemote() {
+  return { checked: true, ok: false, error: 'the remote check is not implemented yet' }
+}
+
+// Read the project's real state for `runChecks`. Never throws: every probe that
+// can fail reports the failure as data.
+function gatherState(dir, flags) {
+  const state = { scaffold: {}, isolation: {}, tracker: {}, key: {}, remote: { checked: false } }
+
+  const specs = path.join(dir, 'specs')
+  state.scaffold.specsDir = fs.existsSync(specs)
+  if (state.scaffold.specsDir) {
+    state.scaffold.buckets = BUCKETS.filter((b) => fs.existsSync(path.join(specs, b)))
+    state.scaffold.skills = countSkills(dir)
+  }
+
+  const envFile = path.join(dir, 'specs', '.core', 'env.config.json')
+  state.isolation.present = fs.existsSync(envFile)
+  if (state.isolation.present) {
+    try {
+      JSON.parse(fs.readFileSync(envFile, 'utf-8'))
+      state.isolation.parsed = true
+    } catch (error) {
+      state.isolation.parsed = false
+      state.isolation.error = error.message
+    }
+  }
+
+  state.tracker.present = fs.existsSync(path.join(dir, CONFIG_FILE))
+  let config = null
+  if (state.tracker.present) {
+    try {
+      config = loadLinearConfig(dir).config
+      state.tracker.parsed = true
+      state.tracker.teamId = (config.linear && config.linear.teamId) || ''
+      state.tracker.teamKey = (config.linear && config.linear.teamKey) || ''
+    } catch (error) {
+      state.tracker.parsed = false
+      state.tracker.error = error.message
+    }
+  }
+
+  // Without a parsed config there is no `auth.keyEnv` and no team to key on, so
+  // there is nothing to look up — the key row reports as skipped instead.
+  if (config) {
+    const resolved = resolveApiKey(config, flags.env || process.env)
+    state.key = resolved.ok
+      ? { ok: true, source: resolved.source === 'env' ? `the environment (${resolved.envVar})` : resolved.source, fingerprint: fingerprint(resolved.key) }
+      : { ok: false, error: `no key for ${state.tracker.teamKey || state.tracker.teamId}` }
+  }
+
+  state._config = config
+  return state
+}
+
+// How many skills are installed in the target project.
+function countSkills(dir) {
+  const skills = path.join(dir, '.claude', 'skills')
+  try {
+    return fs
+      .readdirSync(skills, { withFileTypes: true })
+      .filter((e) => (e.isDirectory() || e.isSymbolicLink()) && fs.existsSync(path.join(skills, e.name, 'SKILL.md')))
+      .length
+  } catch {
+    return 0
+  }
 }
 
 /**
@@ -1603,7 +1722,7 @@ async function specSync(rest, io = {}) {
   let dir = io.cwd || process.cwd()
   const positional = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    force: false, yes: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
+    force: false, yes: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -1620,6 +1739,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--sub') flags.subs.push(args[++i])
     else if (args[i] === '--force') flags.force = true
     else if (args[i] === '--yes') flags.yes = true
+    else if (args[i] === '--check-remote') flags.remoteCheck = true
     else if (args[i] === '--stdin') flags.stdin = true
     else if (args[i] === '--command') flags.command = String(args[++i] || '').trim()
     else if (args[i] === '--key') {
@@ -1656,6 +1776,11 @@ async function specSync(rest, io = {}) {
   // there is no config, and `--force` must be able to replace one that is
   // malformed enough for the loader to throw on.
   if (sub === 'init-config') return specSyncInitConfig(dir, flags, out)
+
+  // Same reason as init-config: this is the command you run when the config is
+  // missing or malformed, so it must not sit behind a loader that throws on the
+  // one and short-circuits on the other.
+  if (sub === 'doctor') return await specSyncDoctor(dir, flags, out)
 
   const { config, present } = loadLinearConfig(dir)
   if (!present) {
@@ -1704,6 +1829,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
+        '       skitterspec spec-sync doctor [--check-remote] [--json]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +
         '                    [--intake-label L] [--bug-labels a,b] [--hotfix-labels a,b]\n' +
         '                    [--state <bucket>=<name> …] [--states <file>] [--force] [--json]\n')

@@ -89,7 +89,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The offline checks, as a pure report | ✅ | [01-offline-checks.md](01-offline-checks.md) |
-| 2 | The command, and the skill that runs it | ⬜ | [02-command-and-skill.md](02-command-and-skill.md) |
+| 2 | The command, and the skill that runs it | ✅ | [02-command-and-skill.md](02-command-and-skill.md) |
 | 3 | Verify it actually works against Linear | ⬜ | [03-check-remote.md](03-check-remote.md) |
 
 ## Open questions
@@ -117,3 +117,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-02 — Added a `skipped` state the spec did not name, for rows that
   are neither satisfied nor a problem: the key when no tracker exists, and
   the remote row before `--check-remote`.
+- 2026-09-02 — Phase 2 done. `doctor` is dispatched ahead of the config load,
+  so it survives a malformed `linear.config.json` and still reports on a repo
+  with no tracker at all — the two cases it exists for, and the two every
+  other subcommand opts out of.
+- 2026-09-02 — The summary counts `missing` as needing attention while the
+  exit code turns on `broken` alone, matching the overview's example output:
+  a declined opt-in is worth reporting but must not fail the run.
+- 2026-09-02 — Removed the `spec-sync doctor` ban added by
+  feat-team-key-retarget. It was right when doctor had been deleted, then
+  blocked this spec's own command; it is now a generic check that every verb
+  named in an asset is really dispatched.

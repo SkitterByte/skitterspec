@@ -645,11 +645,33 @@ test('the retarget verb is discoverable from spec-status and the config doc', ()
   assert.match(doc, /teamKey/, 'and explains why teamKey is worth setting')
 })
 
-test('no shipped asset still refers to the removed doctor command', () => {
-  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])
+test('every spec-sync verb named in a shipped asset is a real subcommand', () => {
+  // Supersedes an earlier guard that banned the specific string `spec-sync
+  // doctor` after that verb was removed. It caught the drift it was written for,
+  // then blocked `doctor` being legitimately reintroduced as a different command.
+  // Checking against the dispatch instead is self-maintaining: it catches a verb
+  // that stops existing, and permits one that starts.
+  const cli = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli-sync.js'), 'utf8')
+  const dispatched = new Set([
+    ...[...cli.matchAll(/case '([a-z][a-z-]*)':/g)].map((m) => m[1]),
+    ...[...cli.matchAll(/sub === '([a-z][a-z-]*)'/g)].map((m) => m[1]),
+  ])
+  assert.ok(dispatched.size > 5, `found the dispatch, got ${JSON.stringify([...dispatched])}`)
+
+  const walk = (d) =>
+    fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])
+
   for (const file of walk(ASSETS)) {
     const text = fs.readFileSync(file, 'utf8')
-    assert.doesNotMatch(text, /spec-sync doctor/, `${path.relative(ASSETS, file)} names a command that no longer exists`)
+    // Anchored to the real invocation (`skitterspec[-linear] spec-sync <verb>`),
+    // so prose like "the repo-wide spec-sync operations" is not read as a verb.
+    for (const m of text.matchAll(/skitterspec(?:-linear)? spec-sync ([a-z][a-z-]+)/g)) {
+      const verb = m[1]
+      assert.ok(
+        dispatched.has(verb),
+        `${path.relative(ASSETS, file)} names \`spec-sync ${verb}\`, which cli-sync does not dispatch`,
+      )
+    }
   }
 })
