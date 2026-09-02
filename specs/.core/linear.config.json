@@ -6,6 +6,11 @@
   },
   "intake": {
     "label": "",
-    "bugLabels": ["bug"]
+    "bugLabels": [
+      "bug"
+    ]
+  },
+  "auth": {
+    "keyEnv": "SKITTERSPEC_LINEAR_API_KEY"
   }
 }
