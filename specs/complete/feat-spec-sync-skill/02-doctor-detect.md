@@ -9,8 +9,9 @@ archived — the case the naive check gets wrong.
 ## Tasks
 
 - [x] Add `readTeam(teamId) → { key, name }` to the API adapter
-      (`packages/linear/src/api.js`) and the MCP adapter, keeping the two
-      interchangeable as `makeAdapter` already requires.
+      (`packages/linear/src/api.js`). API-only, and `doctor` refuses over MCP —
+      see the Changelog: the operation contract is one-directional, and a
+      per-ref sweep over MCP would be a model round-trip per ref.
 - [x] Verify during build that Linear's `issue(id:)` resolves **archived**
       issues. If it does not, that invalidates decision 5 — stop and re-decide
       rather than silently falling back to a bulk query.
