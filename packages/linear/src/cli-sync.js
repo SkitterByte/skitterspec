@@ -754,13 +754,22 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
   }
 
   // 3. Sub-issue updates — already linked, nothing to stamp.
+  //
+  // Keyed by REF, never by id: step 4 matches the read-back against the
+  // projection, which keys phases by ref. Keying an update by its id made every
+  // updated sub-issue report as a stale ref on every push. A plan written before
+  // updates carried a ref still resolves — by id, off the projection.
+  const refById = new Map()
+  for (const s of projectionOf(snapshotDir, config).subIssues || []) {
+    if (s.id != null) refById.set(String(s.id), s.ref)
+  }
   for (const sub of (plan.subIssues && plan.subIssues.update) || []) {
     await adapter.updateIssue(sub.id, withoutNull({
       title: sub.name,
       description: sub.goal,
       stateId: stateId(sub.state),
     }))
-    result.subIssues[sub.ref || sub.id] = sub.id
+    result.subIssues[sub.ref || refById.get(String(sub.id)) || sub.id] = sub.id
     lines.push(`  sub-issue updated: ${sub.id}`)
   }
 

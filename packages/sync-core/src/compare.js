@@ -71,7 +71,9 @@ function snapshotOf(projection) {
 /**
  * Diff the local projection against the last-pushed snapshot.
  * @returns {{ issue?: object, subIssues: {create,update} }}
- *   create items carry a `ref` (local handle) and no id; update items carry `id`.
+ *   create items carry a `ref` (local handle) and no id; update items carry both
+ *   — the `ref` because the read-back check matches sub-issues to phases BY ref,
+ *   and an update with only an id makes every one of them look unmatched.
  *   `plan.issue` (when present) is the spec issue's description + state; the push
  *   skill applies `config.linear.projectId` grouping on top of it.
  */
@@ -85,7 +87,7 @@ function planChanges(projection, snapshot) {
     if (s.id == null) {
       subIssues.create.push({ ref: s.ref, name: s.name, goal: s.goal, state: s.state })
     } else if (snapS[String(s.id)] !== subIssueHash(s)) {
-      subIssues.update.push({ id: s.id, name: s.name, goal: s.goal, state: s.state })
+      subIssues.update.push({ ref: s.ref, id: s.id, name: s.name, goal: s.goal, state: s.state })
     }
   }
 

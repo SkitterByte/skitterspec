@@ -543,3 +543,45 @@ test('a Linear that will not answer also degrades rather than failing', async ()
   assert.match(r.out, /could not list projects/)
   assert.match(r.out, /continuing without the picker/)
 })
+
+// --- the update path: every push after the first one -------------------------
+//
+// Creates carry a `ref` through the plan; updates historically did not, so the
+// read-back keyed those entries by ISSUE ID and then looked them up as refs —
+// making every updated sub-issue report as a stale ref on every push. The check
+// that exists to catch mirror corruption cried wolf 100% of the time.
+
+// Push once so the spec is linked and snapshotted, then change a phase goal, so
+// the next `push` produces an UPDATE plan rather than a create.
+async function pushedOnceThenEdited(dir, linear) {
+  await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, { adapter: linear })
+  const file = path.join(dir, 'specs/in-progress/feat-applied/01-engine.md')
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').replace('**Goal:** go.', '**Goal:** go faster.'), 'utf-8')
+  const r = await run(['push', 'feat-applied', '--json', '--skip-state-check'], dir)
+  return JSON.parse(r.out)
+}
+
+test('an updated sub-issue verifies clean — it is not reported as a stale ref', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear()
+  const plan = await pushedOnceThenEdited(dir, linear)
+  assert.strictEqual(plan.subIssues.update.length, 1, 'the edited phase is an update, not a create')
+
+  const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, plan)], dir, { adapter: linear })
+
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /sub-issue updated: SKI-2/)
+  assert.doesNotMatch(r.out, /stale ref/, 'the sub-issue it just updated is in the projection')
+  assert.match(r.out, /round-tripped intact/)
+})
+
+test('a genuinely stale ref is still reported on the update path', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear()
+  const plan = await pushedOnceThenEdited(dir, linear)
+  // The phase this update points at no longer exists — the case the check is for.
+  plan.subIssues.update[0].ref = '09-ghost'
+
+  const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, plan)], dir, { adapter: linear })
+  assert.match(r.out, /no such phase/)
+})
