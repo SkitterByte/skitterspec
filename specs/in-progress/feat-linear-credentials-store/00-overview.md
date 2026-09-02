@@ -118,7 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The store and the resolution chain (read side) | ⬜ | [01-store-and-resolution.md](01-store-and-resolution.md) |
+| 1 | The store and the resolution chain (read side) | ✅ | [01-store-and-resolution.md](01-store-and-resolution.md) |
 | 2 | Set it out-of-band; check it from the skill | ⬜ | [02-set-and-check.md](02-set-and-check.md) |
 | 3 | Delegate to a password manager via keyCommand | ⬜ | [03-key-command.md](03-key-command.md) |
 
@@ -135,6 +135,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-02 — Phase 1: `resolveApiKey` skips the store lookup entirely when no
+  `teamId` is configured. Discovered while implementing — without it, unit tests
+  using the default config read the real `~/.config` and the suite becomes
+  machine-dependent. Also correct on its own terms: the store is keyed by team.
 - 2026-09-02 — Spec created. An earlier shape had `/spec-linear-setup` prompt
   for the key and store it; rejected, because that routes a secret through the
   conversation. Split into a scaffold/report half and a human-run setter.

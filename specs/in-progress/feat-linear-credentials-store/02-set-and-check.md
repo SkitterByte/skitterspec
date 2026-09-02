@@ -22,6 +22,9 @@
 - [ ] Update `/spec-linear-setup` step 8: run `credentials status`, report what
       is missing, and print the `credentials set` command for the user to run —
       never prompt for a key in the interview.
+- [ ] Point the no-key error at `credentials set` — Phase 1 deliberately left it
+      naming only the store file, so that phase shipped without advertising a
+      command that did not exist yet.
 - [ ] Document the store, the command, and the precedence in `linear.config.md`.
 - [ ] Add tests: `set --stdin` writes `0600`; `--key` is refused; `status` masks
       the value and names the source; `unset` leaves other teams intact; an

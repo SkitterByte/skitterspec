@@ -29,27 +29,65 @@ const ENDPOINT = 'https://api.linear.app/graphql'
 const MAX_RETRIES = 5
 const MAX_BACKOFF_MS = 60_000
 
+const { storePath, readStore, keyForTeam } = require('./credentials.js')
+
 /**
- * Resolve the personal API key from the environment.
+ * Resolve the personal API key, environment first.
  *
- * Returns `{ ok: true, key, envVar }`, or `{ ok: false, envVar, error }` when
- * unset — a value the caller branches on rather than an exception, because "no
- * key" is a normal state that means "use MCP", not a failure.
+ * Order — first hit wins:
+ *   1. `process.env[auth.keyEnv]`  (default LINEAR_API_KEY) — CI and every
+ *      existing setup, so this path is unchanged.
+ *   2. the user-level credentials store, keyed by `linear.teamId`.
+ *
+ * Returns `{ ok: true, key, envVar, source }` where `source` is `'env'` or
+ * `'store'`, or `{ ok: false, envVar, error }` when nothing is set — a value the
+ * caller branches on rather than an exception, because "no key" is a normal
+ * state that means "use MCP", not a failure. A store that exists but is
+ * unreadable or world-readable is reported in `error`; it never silently
+ * degrades to "no key", or the leak would be invisible.
  *
  * The key is never part of the returned error, and callers must keep it out of
  * logs, plans, snapshots and stamped frontmatter.
  */
-function resolveApiKey(config, env = process.env) {
+function resolveApiKey(config, env = process.env, deps = {}) {
   const envVar = (config && config.auth && config.auth.keyEnv) || DEFAULT_KEY_ENV
-  const key = env[envVar]
-  if (typeof key !== 'string' || !key.trim()) {
+  const fromEnv = env[envVar]
+  if (typeof fromEnv === 'string' && fromEnv.trim()) {
+    return { ok: true, key: fromEnv.trim(), envVar, source: 'env' }
+  }
+
+  // The store is keyed by team, so with no teamId there is nothing to look up —
+  // skip the read entirely. That also keeps callers with no Linear config (and
+  // every unit test using the defaults) off the real filesystem.
+  const teamId = config && config.linear && config.linear.teamId
+  if (!teamId) {
     return {
       ok: false,
       envVar,
       error: `no Linear API key — set ${envVar}, or apply the plan over MCP with --via mcp`,
     }
   }
-  return { ok: true, key: key.trim(), envVar }
+
+  const file = (deps.storePath || storePath)(env)
+  const result = (deps.readStore || readStore)(file)
+  if (result.ok) {
+    const key = keyForTeam(result.store, teamId)
+    if (key) return { ok: true, key, envVar, source: 'store', path: file }
+  }
+
+  // A store that is present but unusable is a distinct, reportable problem —
+  // don't let a permissions refusal read as "you never set a key".
+  const detail = result.ok || result.code === 'absent' ? '' : `\n  ${result.reason}`
+  return {
+    ok: false,
+    envVar,
+    path: file,
+    // Names only what exists TODAY. Phase 2 adds `credentials set` and points at
+    // it here; until then this would send a user to a command that prints usage.
+    error:
+      `no Linear API key — set ${envVar}, add one to ${file}, ` +
+      `or apply the plan over MCP with --via mcp${detail}`,
+  }
 }
 
 // Fields we read back on every write. `identifier` and `url` are what the skill
