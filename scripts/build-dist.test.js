@@ -290,3 +290,44 @@ test('the require-rewriting copy preserves modes, executable or not', () => {
   assert.strictEqual(plain, srcPlain, 'a rewritten src file keeps the source mode')
   assert.ok(!(plain & 0o100), 'a non-bin source file is not made executable')
 })
+
+// `init` reports the two opt-ins from what is on disk. Isolation always did;
+// tracker sync did not — it printed "opt-in: run /…-setup" even on a repo that
+// had already configured it, telling you to set up what was already set up. The
+// base must still say nothing at all, having no provider to name.
+test('init reports tracker sync as ON once its config exists', () => {
+  const outside = copyDistOut(buildLinear(), 'tracker-note')
+  const proj = tmpDir('tracker-proj')
+  const bin = path.join(outside, 'bin', 'skitterspec-linear.js')
+  const init = () =>
+    spawnSync(process.execPath, [bin, 'init', proj, '--yes', '--no-claude-md'], { encoding: 'utf8' })
+      .stdout
+
+  assert.match(init(), /Tracker sync is opt-in: run \/spec-linear-setup/, 'unconfigured')
+
+  fs.writeFileSync(
+    path.join(proj, 'specs', '.core', 'linear.config.json'),
+    JSON.stringify({ linear: { teamId: 'team-abc' } }),
+  )
+  const after = init()
+  assert.match(after, /Tracker sync is ON: linear/, 'configured')
+  assert.doesNotMatch(after, /Tracker sync is opt-in/, 'and not both at once')
+})
+
+test('the base names no tracker at all, configured or not', () => {
+  const outside = copyDistOut(buildBase(), 'tracker-note-base')
+  const proj = tmpDir('tracker-proj-base')
+  const bin = path.join(outside, 'bin', 'skitterspec.js')
+  spawnSync(process.execPath, [bin, 'init', proj, '--yes', '--no-claude-md'], { encoding: 'utf8' })
+  // Even with a provider's config present, the base ships no setup skill and so
+  // has no provider to name — it must stay silent rather than guess.
+  fs.writeFileSync(
+    path.join(proj, 'specs', '.core', 'linear.config.json'),
+    JSON.stringify({ linear: { teamId: 'team-abc' } }),
+  )
+  const out = spawnSync(process.execPath, [bin, 'init', proj, '--yes', '--no-claude-md'], {
+    encoding: 'utf8',
+  }).stdout
+  assert.doesNotMatch(out, /Tracker sync/i)
+  assert.doesNotMatch(out, /linear/i, 'the base stays tracker-free')
+})

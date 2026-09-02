@@ -562,11 +562,21 @@ function printReport(dir, mode, { diff = false } = {}) {
   // ships none. Discovering it from what was actually installed keeps this file
   // tracker-free — it never has to know which tracker (if any) is in the box.
   const setupSkill = SKILLS.find((s) => /^spec-.+-setup$/.test(s))
-  const trackerNote = setupSkill
-    ? `Tracker sync is opt-in: run /${setupSkill} to configure it` +
-      ' (it discovers your workspace and writes the config), or see' +
-      ' specs/.core/SETUP.md.\n'
-    : ''
+  const provider = setupSkill ? /^spec-(.+)-setup$/.exec(setupSkill)[1] : null
+  // …and the same derivation gives the provider's config filename, so this can
+  // report tracker sync the way it reports isolation above — from what is
+  // actually on disk. It used to say "opt-in: run /…-setup" even on a repo that
+  // had already configured it, telling you to set up what was already set up.
+  const trackerOn =
+    provider && fs.existsSync(path.join(dir, 'specs', '.core', `${provider}.config.json`))
+  const trackerNote = !setupSkill
+    ? ''
+    : trackerOn
+      ? `Tracker sync is ON: ${provider} — the repo stays the source of truth;` +
+        ' /spec-push mirrors a spec up and /spec-status reports drift.\n'
+      : `Tracker sync is opt-in: run /${setupSkill} to configure it` +
+        ' (it discovers your workspace and writes the config), or see' +
+        ' specs/.core/SETUP.md.\n'
   process.stdout.write(
     '\nDone. Skills resolve as /spec, /spec-go, /spec-complete, /spec-cancel,' +
       ' /spec-bug, /spec-review, /spec-init, /spec-connect.\n' +
