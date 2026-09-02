@@ -8,7 +8,7 @@ const path = require('node:path')
 const ASSETS = path.join(__dirname, '..', 'assets')
 
 test('the Linear sync skills ship in the linear package', () => {
-  for (const name of ['spec-status', 'spec-push', 'spec-linear-setup']) {
+  for (const name of ['spec-status', 'spec-push', 'spec-sync', 'spec-linear-setup']) {
     const file = path.join(ASSETS, 'skills', name, 'SKILL.md')
     assert.ok(fs.existsSync(file), `${name}/SKILL.md shipped`)
     const fm = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'))
@@ -556,4 +556,50 @@ test('the setup skill checks readiness and never asks for the key', () => {
   assert.match(skill, /themselves, in their own\s+terminal/, 'says who runs it')
   assert.match(skill, /Do not ask the user to paste an API key/, 'states the prohibition')
   assert.match(skill, /transcript/, 'and why — the reason is what makes it stick')
+})
+
+// --- /spec-sync: the repo-wide operations ------------------------------------
+//
+// The motivating friction was a user typing `spec-sync` and getting
+// `command not found` — the binary is a local devDependency and never on PATH.
+// A skill that prints a bare `spec-sync …` recreates exactly that.
+
+const specSync = () => fs.readFileSync(path.join(ASSETS, 'skills', 'spec-sync', 'SKILL.md'), 'utf8')
+
+test('/spec-sync always states the full invocation, never a bare command', () => {
+  const text = specSync()
+  assert.match(text, /pnpm exec skitterspec-linear spec-sync/, 'shows the runnable invocation')
+  assert.match(text, /never on `?PATH`?/i, 'says why the bare command fails')
+  for (const line of text.split('\n')) {
+    assert.ok(
+      !/^\s*(\$\s*)?spec-sync\s+\w/.test(line),
+      `no bare "spec-sync …" the user could copy: ${line.trim()}`,
+    )
+  }
+})
+
+test('/spec-sync defers per-spec work rather than duplicating it', () => {
+  const text = specSync()
+  assert.match(text, /\/spec-push/, 'hands single-spec push to /spec-push')
+  assert.match(text, /\/spec-status/, 'hands per-spec drift to /spec-status')
+  assert.match(text, /duplicate|two front doors/i, 'says why it defers')
+})
+
+test('/spec-sync answers a bare invocation with the repo-wide overview', () => {
+  assert.match(specSync(), /no argument[\s\S]{0,80}linked/i, 'bare ask routes to `linked`')
+})
+
+test('/spec-sync splits creates from updates before a bulk apply', () => {
+  const text = specSync()
+  const all = text.slice(text.indexOf('apply --all'))
+  assert.match(all, /confirm/i, 'bulk apply is confirmed first')
+  assert.match(all, /create/i)
+  assert.match(all, /update/i)
+  assert.match(all, /new (issues|objects)/i, 'says a create makes new objects in the tracker')
+})
+
+test('/spec-sync warns off the snapshot footgun in verify', () => {
+  const text = specSync()
+  assert.match(text, /\.base\.json/, 'names the file that must not be passed')
+  assert.match(text, /hash/i, 'says why — it stores hashes, not descriptions')
 })

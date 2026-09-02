@@ -1,6 +1,6 @@
-# Phase 1 — The `/spec-sync` skill, and the `verify` footgun guard ⬜
+# Phase 1 — The `/spec-sync` skill, and the `verify` footgun guard ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a `/spec-sync` skill that answers a bare "run spec-sync" with the
 repo-wide overview and routes plain language to the right subcommand, proven by
@@ -8,27 +8,27 @@ asset tests over its SKILL.md plus an engine test for the `verify` guard.
 
 ## Tasks
 
-- [ ] Add `packages/linear/assets/skills/spec-sync/SKILL.md` with frontmatter
+- [x] Add `packages/linear/assets/skills/spec-sync/SKILL.md` with frontmatter
       `name` + `description` matching the style of the sibling `spec-push` /
       `spec-status` skills. No manifest edit needed — `listSkills()`
       (`packages/common/src/init.js:43`) discovers it.
-- [ ] Document the opt-in gate (`specs/.core/linear.config.json` must exist) and
+- [x] Document the opt-in gate (`specs/.core/linear.config.json` must exist) and
       the exact invocation, `pnpm exec skitterspec-linear spec-sync …`, naming
       that the binary is a local devDependency and is not on PATH.
-- [ ] Route bare `/spec-sync` → `linked`, and cover `states`, `projects`,
+- [x] Route bare `/spec-sync` → `linked`, and cover `states`, `projects`,
       `verify`, `stamp`, `apply --all <bucket>`.
-- [ ] Defer explicitly to `/spec-push` (single-spec push/apply) and
+- [x] Defer explicitly to `/spec-push` (single-spec push/apply) and
       `/spec-status` (per-spec drift) rather than duplicating them.
-- [ ] Require confirmation before `apply --all`, stating **create and update counts separately**
+- [x] Require confirmation before `apply --all`, stating **create and update counts separately**
       — a create mints new objects in the tracker.
-- [ ] Guard `verify` in the engine: `spec-sync verify --stored` refuses a path
+- [x] Guard `verify` in the engine: `spec-sync verify --stored` refuses a path
       under `sync.baseDir` or matching `*.base.json`, naming what the file
       actually is (content hashes, not descriptions) and what `--stored` wants.
-- [ ] Extend `packages/linear/test/assets.test.js` — add `spec-sync` to the
+- [x] Extend `packages/linear/test/assets.test.js` — add `spec-sync` to the
       "sync skills ship in the linear package" list, and assert the SKILL.md
       states the full invocation, defers to `/spec-push`, and splits
       create/update in its `--all` confirmation.
-- [ ] Add an engine test for the `--stored` snapshot refusal in
+- [x] Add an engine test for the `--stored` snapshot refusal in
       `packages/linear/test/cli-verify.test.js`; run `pnpm test` — green before
       the phase is done.
 

@@ -129,7 +129,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The `/spec-sync` skill, and the `verify` footgun guard | ⬜ | [01-skill.md](01-skill.md) |
+| 1 | The `/spec-sync` skill, and the `verify` footgun guard | ✅ | [01-skill.md](01-skill.md) |
 | 2 | `spec-sync doctor` — detect, read-only | ⬜ | [02-doctor-detect.md](02-doctor-detect.md) |
 | 3 | `doctor --write` — repair behind a clean-tree guard | ⬜ | [03-doctor-repair.md](03-doctor-repair.md) |
 
@@ -147,3 +147,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-02 — Spec created from `handoff-skitterspec-spec-sync-skill.md`.
+- 2026-09-02 — Phase 1 done. The `verify` guard refuses a snapshot by both
+  filename (`*.base.json`) and location (under `sync.baseDir`), so a stray
+  `stored.json` written into `linear-base/` is caught too.

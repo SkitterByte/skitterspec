@@ -108,3 +108,47 @@ test('a malformed --stored file fails clearly', async () => {
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /cannot read --stored/)
 })
+
+// --- the snapshot footgun ----------------------------------------------------
+//
+// `--stored` wants what the tracker CURRENTLY holds. A `linear-base/*.base.json`
+// is the last-pushed SNAPSHOT — content hashes keyed by identifier — and it
+// parses as valid JSON, so passing one produced a confident, entirely bogus
+// "5045 character(s) lost" against an intact mirror in a real run.
+
+test('a .base.json snapshot is refused as --stored, not compared', async () => {
+  const dir = fixtureRepo()
+  const base = path.join(dir, 'specs', '.core', 'linear-base')
+  fs.mkdirSync(base, { recursive: true })
+  const snapshot = path.join(base, 'SKI-1.base.json')
+  fs.writeFileSync(snapshot, JSON.stringify({ issue: 'a1b2c3', subIssues: { 'SKI-2': 'd4e5f6' } }), 'utf-8')
+
+  const r = await run(['verify', 'feat-checked', '--stored', snapshot], dir)
+  assert.strictEqual(r.code, 1, 'refused, not a clean bill of health')
+  assert.match(r.out, /snapshot, not a read-back/)
+  assert.match(r.out, /subIssues/, 'names the shape --stored actually wants')
+  assert.doesNotMatch(r.out, /character\(s\) (lost|added)/, 'no bogus comparison was run')
+  assert.doesNotMatch(r.out, /round-tripped intact/, 'and no clean bill of health')
+})
+
+test('a snapshot is refused by location too, whatever it is named', async () => {
+  const dir = fixtureRepo()
+  const base = path.join(dir, 'specs', '.core', 'linear-base')
+  fs.mkdirSync(base, { recursive: true })
+  const stray = path.join(base, 'stored.json')
+  fs.writeFileSync(stray, JSON.stringify({ subIssues: { '01-engine': '**Goal:** go.' } }), 'utf-8')
+
+  const r = await run(['verify', 'feat-checked', '--stored', stray], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /snapshot, not a read-back/)
+})
+
+test('an ordinary read-back file is still accepted', async () => {
+  const dir = fixtureRepo()
+  const r = await run(
+    ['verify', 'feat-checked', '--stored', storedFile(dir, { subIssues: { '01-engine': '**Goal:** go.' } })],
+    dir,
+  )
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /round-tripped intact/)
+})

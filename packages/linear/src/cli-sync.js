@@ -502,6 +502,26 @@ function specSyncVerify(dir, config, specArg, flags, out) {
     )
     return 1
   }
+  // A `.base.json` is the LAST-PUSHED SNAPSHOT, not a read-back: it stores
+  // content HASHES keyed by identifier, never description text. Passed as
+  // `--stored` it parses fine and compares a description against a hash, so the
+  // report is confidently, entirely wrong — a real field run read "5045
+  // character(s) lost" off an intact mirror. Refused here rather than only
+  // documented, because a guard is enforceable and prose is not.
+  const snapshotRoot = path.resolve(dir, config.sync.baseDir)
+  const isSnapshot =
+    flags.stored.endsWith('.base.json') || !path.relative(snapshotRoot, flags.stored).startsWith('..')
+  if (isSnapshot) {
+    out.write(
+      `spec-sync verify: ${path.relative(dir, flags.stored)} is a last-pushed snapshot, not a read-back.\n` +
+        '  It holds content hashes keyed by identifier — comparing one against a\n' +
+        '  description reports enormous bogus losses on a perfectly intact mirror.\n' +
+        '  --stored wants what the tracker CURRENTLY holds:\n' +
+        '    {"issue": "…", "subIssues": {"<ref>": "…"}}\n' +
+        '  /spec-push reads that back over MCP and writes it for this command.\n',
+    )
+    return 1
+  }
   let stored
   try {
     stored = JSON.parse(fs.readFileSync(flags.stored, 'utf-8'))
