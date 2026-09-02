@@ -126,6 +126,11 @@ function deriveRecordedKey(dir, config) {
     if (m) keys.add(m[1])
   }
 
+  // BLIND SPOT: the scan sees `.md` frontmatter under the four lifecycle buckets
+  // and the snapshot filenames — nothing else. A stamp anywhere else (a spec
+  // parked outside a bucket, a non-markdown file) is invisible, so `no stamped
+  // identifiers` means "none where we looked". That is why it refuses instead of
+  // concluding the repo is unstamped: the caller stops, and a human looks.
   const found = [...keys].sort()
   if (found.length === 1) return { key: found[0], source: 'stamps' }
   if (!found.length) return { key: null, source: null, keys: [], reason: 'no stamped identifiers found under specs/' }

@@ -80,3 +80,43 @@ test('an empty stored description against real content is caught', () => {
   assert.strictEqual(r.ok, false)
   assert.ok(r.lost > 0)
 })
+
+// --- stays silent on the reformatting the tracker legitimately applies -------
+//
+// Each of these is an intact mirror. A false positive here tells the user their
+// content was lost when it wasn't, on a push that worked.
+// See `.claude/rules/negative-checks.md`.
+
+test('a `+` bullet coming back as `*` is benign', () => {
+  // The marker set the normaliser accepts is `*`, `+` and `-`; the first two had
+  // no test, so a narrower regex would have passed review.
+  const sent = '+ first\n+ second'
+  assert.strictEqual(compareStored(sent, '* first\n* second').ok, true)
+})
+
+test('re-indenting a nested list is benign', () => {
+  // Linear rewrites nesting depth in spaces. Indentation is whitespace, which
+  // the reduced stream drops entirely — this pins that it stays dropped.
+  const sent = '- outer\n  - inner\n    - deeper'
+  assert.strictEqual(compareStored(sent, '- outer\n    - inner\n        - deeper').ok, true)
+})
+
+test('a heading rewritten with a trailing hash run is benign', () => {
+  assert.strictEqual(compareStored('## Decisions', '## Decisions ##').ok, true)
+})
+
+test('an empty description on both sides is intact, not lost', () => {
+  // A phase with no goal sends ''. Comparing nothing to nothing must report
+  // clean rather than dividing by an absence.
+  assert.strictEqual(compareStored('', '').ok, true)
+  assert.strictEqual(compareStored(null, null).ok, true)
+})
+
+test('a whole word dropped from the middle is still reported', () => {
+  // The counterweight: every benign transform above is normalised away, so this
+  // proves the normalising did not hollow the check out.
+  const sent = 'The extraction key is rotated every ninety days.'
+  const r = compareStored(sent, 'The extraction key is rotated days.')
+  assert.strictEqual(r.ok, false)
+  assert.strictEqual(r.lost, 'everyninety'.length)
+})

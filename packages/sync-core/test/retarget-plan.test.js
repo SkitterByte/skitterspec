@@ -203,3 +203,45 @@ test('a repo with no stamps at all reports that, rather than throwing', () => {
 test('movePrefix preserves the number and ignores other keys', () => {
   assert.strictEqual(movePrefix('SKI-7 and SKI-1234 and ABC-7', 'SKI', 'SKS'), 'SKS-7 and SKS-1234 and ABC-7')
 })
+
+// --- stays silent where the old key is only prose ----------------------------
+//
+// A retarget REWRITES the repo, so a false positive here edits files that were
+// correct. See `.claude/rules/negative-checks.md`.
+
+test('a repo whose only mention of the old key is prose plans nothing', () => {
+  // Not just "prose comes back byte-identical" (asserted above) — the plan is
+  // EMPTY, so `spec-sync retarget` reports nothing to do rather than offering a
+  // confident rewrite of a repo that was never stamped.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-retarget-prose-'))
+  const folder = path.join(dir, 'specs', 'complete', 'feat-prose-only')
+  fs.mkdirSync(folder, { recursive: true })
+  fs.writeFileSync(
+    path.join(folder, '00-overview.md'),
+    '# Prose only\n\nSKI-7 is mentioned in the changelog, and SKI-28 in a note.\n',
+    'utf-8',
+  )
+  const config = CONFIG('')
+  const plan = planRetarget({ dir, oldKey: 'SKI', newKey: 'SKS', config })
+  assert.ok(isEmptyRetarget(plan), 'nothing to move')
+  assert.deepStrictEqual(plan.stamps, [])
+  assert.deepStrictEqual(plan.snapshots, [])
+})
+
+test('frontmatter naming a foreign key only leaves the plan empty', () => {
+  // The stamps exist, they are simply not ours. "Stamps found" must not stand in
+  // for "stamps under the key we are moving".
+  const f = fixtureRepo({ teamKey: '' })
+  const plan = planRetarget({ dir: f.dir, oldKey: 'OTHER', newKey: 'NEW', config: f.config })
+  assert.ok(isEmptyRetarget(plan), 'a key we do not carry moves nothing')
+})
+
+test('a repo with no stamps refuses rather than reporting a key', () => {
+  // Paired with the plan above: `deriveRecordedKey` returning null is what makes
+  // the caller stop. A key guessed from an empty scan would retarget blind.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-retarget-unstamped-'))
+  fs.mkdirSync(path.join(dir, 'specs', 'backlog'), { recursive: true })
+  const got = deriveRecordedKey(dir, CONFIG(''))
+  assert.strictEqual(got.key, null)
+  assert.match(got.reason, /no stamped identifiers/)
+})

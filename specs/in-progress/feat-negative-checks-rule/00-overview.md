@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-negative-checks-rule (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-02)
+> **Status:** In Progress — Phase 3 (started 2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Write and ship the rule | ✅ | [01-rule.md](01-rule.md) |
-| 2 | Audit the sync-core checks | ⬜ | [02-audit-sync-core.md](02-audit-sync-core.md) |
+| 2 | Audit the sync-core checks | ✅ | [02-audit-sync-core.md](02-audit-sync-core.md) |
 | 3 | Audit init and the doctor rows | ⬜ | [03-audit-init-doctor.md](03-audit-init-doctor.md) |
 
 ## Open questions
@@ -117,3 +117,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   headings, since Phases 2–3 audit against those headings by name. Also noted
   the new rule in the base README's installed-tree listing, which named
   `spec-planning.md` as the only installed rule.
+- 2026-09-02 — Phase 2 found one real false positive, in `lintPhases`: an
+  overview phase-index row whose Status cell holds prose parsed as the
+  `not-started` default, and the disagreement check then accused a healthy spec
+  of contradicting a value the overview never stated. Fixed by the rule's first
+  point — `parsePhaseIndex` rows now carry `stated`, and only a row that used
+  the emoji vocabulary is treated as evidence. `compareStored` and `retarget`
+  needed no correction; both gained stays-silent tests and a named blind spot.

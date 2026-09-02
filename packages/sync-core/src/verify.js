@@ -63,6 +63,11 @@ function stream(text) {
  *   `at` is the index in the reduced stream where they first diverge, with ~40
  *   characters of each side around it so the warning names the damage.
  */
+// BLIND SPOT: a `stored` the caller never fetched is indistinguishable here
+// from a description the tracker really did store empty — both reduce to `''`
+// and read as total loss. The evidence that the read happened lives with the
+// caller, so it must pass only a description it actually read back (`verifyLines`
+// gates on `typeof stored.issue === 'string'` for exactly this reason).
 function compareStored(sent, stored) {
   const a = stream(sent)
   const b = stream(stored)

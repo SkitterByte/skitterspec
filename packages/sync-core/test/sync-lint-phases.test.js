@@ -28,16 +28,16 @@ const config = neutralConfig()
 // Build a spec folder. `index` rows are `[name, emoji]`; each phase is
 // `{ file, heading, statusLine }` — heading written verbatim so a test can omit
 // the emoji entirely.
-function specDir({ index = [], phases = [], overview = true }) {
+function specDir({ index = [], phases = [], overview = true, phaseIndex = true, bare = null }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-lint-'))
   if (overview) {
     const rows = index.map(([name, emoji], i) => `| ${i + 1} | ${name} | ${emoji} | [0${i + 1}-x.md](0${i + 1}-x.md) |`)
-    fs.writeFileSync(
-      path.join(dir, '00-overview.md'),
-      ['# Spec', '', '## Phases', '', '| # | Phase | Status | File |', '|---|-------|--------|------|', ...rows, ''].join('\n'),
-      'utf-8',
-    )
+    const body = ['# Spec', '']
+    if (phaseIndex) body.push('## Phases', '', '| # | Phase | Status | File |', '|---|-------|--------|------|', ...rows)
+    else body.push('## Problem', '', 'No phase index at all.')
+    fs.writeFileSync(path.join(dir, '00-overview.md'), body.concat('').join('\n'), 'utf-8')
   }
+  if (bare) fs.writeFileSync(path.join(dir, bare), '# Legacy spec\n\n## Tasks\n\n- [x] Ship it\n', 'utf-8')
   for (const p of phases) {
     const body = [`# ${p.heading}`, '']
     if (p.statusLine) body.push(`> Spec: [00-overview.md](00-overview.md) · **Status:** ${p.statusLine}`, '')
@@ -147,6 +147,62 @@ test('a renamed phase still matches its index row by position', () => {
     phases: [{ file: '01-x.md', heading: 'Phase 1 — New name ✅', statusLine: 'Done' }],
   })
   assert.deepStrictEqual(codes(lintPhases(dir, config)), ['01-x.md:status-disagreement'])
+})
+
+// --- stays silent on healthy-but-unusual input -------------------------------
+//
+// Every case below is a spec with nothing wrong with it. `lintPhases` warns on
+// every read, so a false positive is paid repeatedly and trains the warning
+// away — which costs more than the whole check earns.
+// See `.claude/rules/negative-checks.md`.
+
+test('a legacy bare <name>.md spec lints clean', () => {
+  // No `NN-*.md` files, so there is no heading emoji to be missing. The check
+  // must not read "found no phase files" as "found phases with no status".
+  const dir = specDir({ overview: false, bare: 'feat-legacy.md' })
+  assert.deepStrictEqual(lintPhases(dir, config), [])
+})
+
+test('an overview with no phase index drops that cross-check silently', () => {
+  // The overview exists but has no `## Phases` table — a spec mid-migration, or
+  // one that never grew an index. Two signals still agree; the third was never
+  // written, and absence is not disagreement.
+  const dir = specDir({
+    phaseIndex: false,
+    phases: [{ file: '01-x.md', heading: 'Phase 1 — Engine ✅', statusLine: 'Done' }],
+  })
+  assert.deepStrictEqual(lintPhases(dir, config), [])
+})
+
+test('an index row stating its status in words is not read as not-started', () => {
+  // The false positive this audit found: a Status cell holding `Done` parses to
+  // the `not-started` DEFAULT, and the warning then quoted the overview as
+  // saying something nobody wrote — on a spec whose h1 (the load-bearing signal)
+  // is correct. A row only counts as evidence where it used the emoji.
+  const dir = specDir({
+    index: [['Engine', 'Done']],
+    phases: [{ file: '01-x.md', heading: 'Phase 1 — Engine ✅', statusLine: 'Done' }],
+  })
+  assert.deepStrictEqual(lintPhases(dir, config), [])
+})
+
+test('an emoji row still disagrees loudly — the fix did not mute the check', () => {
+  const dir = specDir({
+    index: [['Engine', '⬜']],
+    phases: [{ file: '01-x.md', heading: 'Phase 1 — Engine ✅', statusLine: 'Done' }],
+  })
+  assert.deepStrictEqual(codes(lintPhases(dir, config)), ['01-x.md:status-disagreement'])
+})
+
+test('a missing overview with all its own signals agreeing stays silent', () => {
+  // The existing missing-overview test pairs it with a bare heading, so the
+  // warning it asserts comes from the heading, not the overview. This is the
+  // half that proves the dropped cross-check itself accuses no one.
+  const dir = specDir({
+    overview: false,
+    phases: [{ file: '01-x.md', heading: 'Phase 1 — Engine ✅', statusLine: 'Done' }],
+  })
+  assert.deepStrictEqual(lintPhases(dir, config), [])
 })
 
 test('lintPhases writes nothing', () => {

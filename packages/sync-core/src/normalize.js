@@ -237,7 +237,12 @@ function parsePhaseIndex(phasesSection) {
     if (!/^\d+$/.test(n)) continue // skip header + separator rows
     const name = cells[2]
     const emoji = (cells[3].match(/[⬜🔄✅]/u) || [])[0]
-    rows.push({ name, status: EMOJI_STATUS[emoji] || 'not-started' })
+    // `stated` separates "the row says not-started" from "the row said nothing
+    // we recognise". A cell holding the word `Done`, an em dash, or a legacy
+    // spec's freeform text expresses no status in this vocabulary, and reading
+    // its absence as `not-started` let lintPhases quote the overview as saying
+    // something it never said.
+    rows.push({ name, status: EMOJI_STATUS[emoji] || 'not-started', stated: Boolean(emoji) })
   }
   return rows
 }
@@ -419,6 +424,10 @@ function readPhaseFiles(snapshotDir) {
  */
 function lintPhases(snapshotDir, config) {
   const phases = readPhaseFiles(snapshotDir)
+  // BLIND SPOT: `readPhaseFiles` only sees `NN-*.md`, so a legacy bare
+  // `<name>.md` spec yields no phases at all. Silence is the right answer —
+  // there is no phase file to carry an emoji — but it is silence from having
+  // looked nowhere, not from having looked and found everything in order.
   if (!phases.length) return []
 
   // The overview may be absent (a legacy bare `<name>.md` spec) — that is not
@@ -459,8 +468,14 @@ function lintPhases(snapshotDir, config) {
 
     // Match the index row by phase title, falling back to position — a renamed
     // phase shouldn't silently drop the check.
+    //
+    // BLIND SPOT: the index is only evidence where it used the emoji vocabulary.
+    // A row whose Status cell holds prose (or nothing) parses as `not-started`,
+    // which is a default, not a statement — cross-checking against it accused a
+    // healthy spec of a disagreement with a value nobody wrote. `stated` is the
+    // positive signal: compare only against a status the row actually expressed.
     const row = indexRows.find((r) => r.name === phase.name) || indexRows[i]
-    if (row && row.status !== heading) {
+    if (row && row.stated && row.status !== heading) {
       warnings.push({
         file: phase.file,
         code: 'status-disagreement',
