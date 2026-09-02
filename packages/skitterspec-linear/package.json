@@ -1,6 +1,6 @@
 {
   "name": "@skitterbyte/skitterspec-linear",
-  "version": "10.2.0",
+  "version": "10.3.0",
   "description": "Spec-driven development for Claude Code, with one-way Linear sync \u2014 a superset of @skitterbyte/skitterspec: the base filesystem workflow plus /spec-status \u00b7 /spec-push and the spec-sync CLI. The repo is canonical; Linear is a generated mirror. Install this OR the base, not both.",
   "keywords": [
     "claude",
