@@ -658,7 +658,14 @@ async function checkRemote(state, flags) {
   try {
     team = await adapter.readTeam(state.tracker.teamId)
   } catch (error) {
-    return { checked: true, ok: false, ...classifyRemoteFailure(error) }
+    const failure = classifyRemoteFailure(error)
+    // NEVER ANSWERED is not the same as ANSWERED NO. An unreachable API or a
+    // rate-limit means the check did not run — the setup is unexamined, not
+    // wrong — so it reports `skipped`, the same state as "you didn't ask for
+    // it". Calling it `broken` exited 1 on a healthy project that merely had no
+    // network, and every skill branching on that code failed with it.
+    if (failure.reached === false) return { checked: true, skipped: true, reason: failure.reason }
+    return { checked: true, ok: false, ...failure }
   }
   if (!team || !team.key) {
     return {
@@ -674,16 +681,23 @@ async function checkRemote(state, flags) {
 // Map a thrown API error onto our own short reason. Matched on the shapes
 // `api.js` raises; anything unrecognised degrades to a generic line rather than
 // leaking the message.
+//
+// BLIND SPOT: matching on message text, so an api.js rewording lands here as the
+// unrecognised case. That is why the fallback stays `broken` — Linear ANSWERED
+// and refused, which is evidence of a problem even when we cannot name it. Only
+// a request that got no answer at all (`reached: false`) is un-evidence.
 function classifyRemoteFailure(error) {
   const m = String((error && error.message) || '')
   if (/rejected the API key|HTTP 401|HTTP 403/.test(m)) {
     return { reason: 'Linear rejected the key — it may be revoked or for another workspace', fix: 'skitterspec spec-sync credentials set' }
   }
+  // `reached: false` — the request never got an answer, so it says nothing about
+  // whether this project is set up correctly. See the caller.
   if (/unreachable/.test(m)) {
-    return { reason: 'Linear could not be reached — check your connection', fix: null }
+    return { reason: 'Linear could not be reached — check your connection', fix: null, reached: false }
   }
   if (/rate-limited/.test(m)) {
-    return { reason: 'Linear rate-limited the request and did not recover', fix: null }
+    return { reason: 'Linear rate-limited the request and did not recover', fix: null, reached: false }
   }
   if (/Entity not found|not found/i.test(m)) {
     return { reason: 'no team with that id in this workspace', fix: '/spec-linear-setup' }
@@ -735,9 +749,19 @@ function gatherState(dir, flags) {
   // there is nothing to look up — the key row reports as skipped instead.
   if (config) {
     const resolved = resolveApiKey(config, flags.env || process.env)
+    // A key resolves from the environment, the store, or a `keyCommand` the
+    // store runs — `resolveApiKey` covers all three, so the row must not be read
+    // as "env var unset".
+    //
+    // When it does NOT resolve, `resolveApiKey` appends the reason on later
+    // lines: a store that is world-readable, or a keyCommand that failed.
+    // Dropping it reported a broken command as `no key for SKS` and sent the
+    // user to set a key they had already set (`credentials status` keeps it for
+    // the same reason).
+    const why = resolved.ok ? '' : resolved.error.split('\n').slice(1).map((l) => l.trim()).filter(Boolean).join('; ')
     state.key = resolved.ok
       ? { ok: true, source: resolved.source === 'env' ? `the environment (${resolved.envVar})` : resolved.source, fingerprint: fingerprint(resolved.key) }
-      : { ok: false, error: `no key for ${state.tracker.teamKey || state.tracker.teamId}` }
+      : { ok: false, error: `no key for ${state.tracker.teamKey || state.tracker.teamId}${why ? ` — ${why}` : ''}` }
   }
 
   state._config = config

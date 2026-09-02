@@ -89,6 +89,10 @@ function scaffoldCheck(s = {}) {
   return row('scaffold', 'scaffold', 'ok', `specs/ + ${s.skills} skills installed`)
 }
 
+// Isolation and tracker have NO false-positive mode, and no test is added for
+// one: each only says `broken` on positive evidence — a file that is present and
+// does not parse, or a config that parses and holds no teamId. Absence is
+// reported as `missing`, an opt-in not taken, which never fails the run.
 function isolationCheck(s = {}) {
   if (!s.present) {
     return row('isolation', 'isolation', 'missing', 'not enabled — every spec builds in place', 'skitterspec init --isolation')
@@ -114,6 +118,11 @@ function trackerCheck(s = {}) {
   return row('tracker', 'tracker', 'ok', `linear.config.json — team ${team}`)
 }
 
+// BLIND SPOT: `s.ok` collapses three sources — the env var, the store, and a
+// `keyCommand` the store runs. An absent env var is not an absent key, and the
+// caller resolves all three before this sees it. `s.error` carries WHY when one
+// of them failed; passing it through is what keeps a broken keyCommand from
+// being reported as a key the user never set.
 function keyCheck(s = {}, tracker = {}) {
   // Without a tracker there is nothing for a key to authenticate, so asking for
   // one would be noise.
@@ -135,8 +144,11 @@ function remoteCheck(s = {}) {
   if (!s.checked) {
     return row('remote', 'remote', 'skipped', 'pass --check-remote to verify against Linear')
   }
-  // Asked for, but there was nothing to ask WITH — no key, or no team id. That
-  // is not a remote failure; the row that owns it already reported it.
+  // Asked for, but the check did not run — either there was nothing to ask WITH
+  // (no key, no team id; the row that owns that already reported it), or the
+  // request never got an answer (unreachable, rate-limited). Neither says this
+  // project is misconfigured, and `broken` here exits 1 for every skill
+  // branching on the code. The caller decides which failures land here.
   if (s.skipped) {
     return row('remote', 'remote', 'skipped', s.reason || 'nothing to check against')
   }

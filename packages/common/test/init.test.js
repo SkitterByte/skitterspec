@@ -598,3 +598,54 @@ test('parse accepts --diff', () => {
   assert.strictEqual(parse(['update', '--diff']).opts.diff, true)
   assert.strictEqual(parse(['update']).opts.diff, false)
 })
+
+// --- stays silent / stays hands-off on a healthy project ---------------------
+//
+// resync REWRITES files, so a wrong classification here destroys a user's work,
+// and `isExistingSetup` decides whether init treats a repo as new or as an
+// upgrade. See `.claude/rules/negative-checks.md`.
+
+test('a pre-manifest install resyncs without clobbering an edit', async () => {
+  // Repos installed before the manifest existed have no baseline at all. An
+  // unknown hash must read as `customized` — the user's edit is kept — rather
+  // than as "not ours, overwrite it". This is the rule's own worked example.
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = specPlanning(dir)
+  const abs = path.join(dir, one.relPath)
+  const edited = one.bundled + '\n<!-- our team also does X -->\n'
+  fs.writeFileSync(abs, edited)
+  fs.rmSync(path.join(dir, 'specs', '.core', MANIFEST_FILE), { force: true })
+
+  assert.strictEqual(managedState(dir, one.relPath, readManifest(dir), one.bundled), 'customized')
+  const out = captureResync(dir, { claudeMd: false })
+  assert.strictEqual(fs.readFileSync(abs, 'utf8'), edited, 'the edit survived')
+  assert.match(out, /customized \(kept\)/, 'and the decision is reported, not silent')
+})
+
+test('a pre-manifest install whose files are untouched still updates', async () => {
+  // The counterweight: biasing the unknown toward keeping must not freeze a
+  // pristine file. Content equal to the bundled asset is `pristine` whatever the
+  // manifest says (or doesn't).
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = specPlanning(dir)
+  fs.rmSync(path.join(dir, 'specs', '.core', MANIFEST_FILE), { force: true })
+  assert.strictEqual(managedState(dir, one.relPath, readManifest(dir), one.bundled), 'pristine')
+})
+
+test("a repo with its own CLAUDE.md and skills is not read as a skitterspec setup", async () => {
+  // `isExistingSetup` decides new-install vs upgrade. Someone else's `.claude/`
+  // is not evidence of ours — matching on the directory rather than on what we
+  // actually install would read every Claude Code project as half-installed.
+  const dir = tmpProject()
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# House rules\n\nNothing to do with specs.\n', 'utf8')
+  fs.mkdirSync(path.join(dir, '.claude', 'skills', 'their-skill'), { recursive: true })
+  fs.writeFileSync(path.join(dir, '.claude', 'skills', 'their-skill', 'SKILL.md'), '---\nname: their-skill\n---\n', 'utf8')
+  fs.mkdirSync(path.join(dir, 'specs'), { recursive: true })
+
+  assert.strictEqual(isExistingSetup(dir), false, 'a bare specs/ and a foreign skill are not ours')
+  await init({ dir, force: false, claudeMd: true, mode: 'init' })
+  assert.strictEqual(isExistingSetup(dir), true, 'and after init it is')
+  assert.match(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8'), /House rules/, 'their CLAUDE.md kept')
+})

@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-negative-checks-rule (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 3 (started 2026-09-02)
+> **Status:** In Progress — all phases done (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -95,7 +95,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Write and ship the rule | ✅ | [01-rule.md](01-rule.md) |
 | 2 | Audit the sync-core checks | ✅ | [02-audit-sync-core.md](02-audit-sync-core.md) |
-| 3 | Audit init and the doctor rows | ⬜ | [03-audit-init-doctor.md](03-audit-init-doctor.md) |
+| 3 | Audit init and the doctor rows | ✅ | [03-audit-init-doctor.md](03-audit-init-doctor.md) |
 
 ## Open questions
 
@@ -124,3 +124,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   point — `parsePhaseIndex` rows now carry `stated`, and only a row that used
   the emoji vocabulary is treated as evidence. `compareStored` and `retarget`
   needed no correction; both gained stays-silent tests and a named blind spot.
+- 2026-09-02 — Phase 3 found two more false positives, both in `doctor`: a
+  transport failure (unreachable, rate-limited) was reported `broken` and exited
+  1 on a healthy project with no network, and the `key` row dropped the reason a
+  `keyCommand` failed, reporting it as a key never set. Both fixed; an answered
+  refusal still exits 1. `isolation` and `tracker` have no false-positive mode,
+  recorded in a comment rather than a hollow test. Audit total across the three
+  phases: three accusing checks corrected, one rule shipped, 22 new tests.

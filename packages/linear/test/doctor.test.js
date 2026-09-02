@@ -198,6 +198,16 @@ test('no row ever carries the key itself', () => {
   assert.ok(!JSON.stringify(r).includes(secret), 'the report is safe for a skill to print by construction')
 })
 
+test('a remote check that never got an answer is skipped, not broken', () => {
+  // The caller classifies a transport failure as `skipped` (see `checkRemote`);
+  // this pins the state machine's half of it — `skipped` keeps `ok` true, so an
+  // unexamined layer never fails the run.
+  const r = withState({ remote: { checked: true, skipped: true, reason: 'Linear could not be reached' } })
+  assert.strictEqual(find(r, 'remote').state, 'skipped')
+  assert.match(find(r, 'remote').detail, /could not be reached/, 'it still says what happened')
+  assert.strictEqual(r.ok, true, 'we could not tell, so we do not accuse')
+})
+
 test('every branch of the matrix yields a known state', () => {
   // The row builder refuses an unknown state, but only if it is reached — so
   // walk the branches rather than trusting one happy path.

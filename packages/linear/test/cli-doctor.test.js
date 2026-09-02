@@ -288,3 +288,75 @@ test('a scaffold with no .core is still caught', () => {
     assert.match(r.out, /\.core/)
   })
 })
+
+// --- stays silent on a healthy project ---------------------------------------
+//
+// doctor EXITS NON-ZERO and skills branch on that, so a false `broken` fails
+// other people's automation rather than merely printing a wrong line. Every case
+// below is a project with nothing wrong with it.
+// See `.claude/rules/negative-checks.md`.
+
+// A credentials store at $XDG_CONFIG_HOME, owner-only as readStore demands.
+function storeWith(teams) {
+  const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-doctor-xdg-'))
+  const file = path.join(xdg, 'skitterspec', 'credentials.json')
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify({ teams }), { mode: 0o600 })
+  fs.chmodSync(file, 0o600)
+  return xdg
+}
+
+test('a key from a keyCommand is ok, not missing', async () => {
+  // The env var is the FIRST source, not the only one: a key can come from the
+  // store or from a command the store runs for a password manager. Reading "env
+  // var unset" as "no key" would tell a fully-configured project to set one.
+  const xdg = storeWith({ T1: { keyCommand: `printf ${SECRET}` } })
+  const r = await run(['doctor'], configuredRepo(), { XDG_CONFIG_HOME: xdg })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /key\s+ok/)
+  assert.ok(!r.out.includes(SECRET), 'and still never prints it')
+})
+
+test('a keyCommand that fails is reported as failing, not as never set', async () => {
+  // Still `missing` — there IS no usable key — but the detail must say why.
+  // `no key for SKS` alone sends the user to set a key they already set.
+  const xdg = storeWith({ T1: { keyCommand: 'echo nope >&2; exit 3' } })
+  const r = await run(['doctor'], configuredRepo(), { XDG_CONFIG_HOME: xdg })
+  assert.match(r.out, /key\s+missing/)
+  assert.match(r.out, /keyCommand failed/, 'names the real problem')
+})
+
+test('an unreachable Linear does not make the project broken', async () => {
+  // No answer is not a NO. The setup is unexamined, not wrong — and a laptop off
+  // the network must not fail every skill that branches on doctor's exit code.
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat(() => {
+      throw new Error('Linear API unreachable: getaddrinfo ENOTFOUND api.linear.app')
+    }),
+  })
+  assert.strictEqual(r.code, 0, 'a network failure is not a setup failure')
+  assert.match(r.out, /remote\s+skipped/)
+  assert.match(r.out, /could not be reached/, 'still says what happened')
+})
+
+test('a rate-limited check is skipped rather than called broken', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat(() => {
+      throw new Error('Linear rate-limited the request and did not recover')
+    }),
+  })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /remote\s+skipped/)
+})
+
+test('an answered refusal is still broken — the fix did not mute the check', async () => {
+  // The counterweight: Linear ANSWERED and refused. That is evidence, and it
+  // must still exit 1.
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat(() => {
+      throw new Error('Linear rejected the API key')
+    }),
+  })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /remote\s+broken/)
+})

@@ -406,6 +406,11 @@ function installClaudeMd(dir, { mode }) {
 
 // True when the repo looks already set up: any managed file present, any spec
 // lifecycle folder, or the CLAUDE.md spec marker (Decision 1 — detect eagerly).
+// Is skitterspec already installed here? Matched on what we ACTUALLY install —
+// our managed files, our lifecycle folders, our CLAUDE.md marker — never on
+// `.claude/` merely existing: someone else's skills are not evidence of ours,
+// and reading them as ours would treat every Claude Code project as a
+// half-finished install.
 function isExistingSetup(dir) {
   if (managedTargets(dir).some((t) => fs.existsSync(t.abs))) return true
   if (SPEC_FOLDERS.some((f) => fs.existsSync(path.join(dir, 'specs', f)))) return true
