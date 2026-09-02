@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-credentials-store (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-02)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
 > **Area:** packages/linear/src/credentials.js (new), packages/linear/src/api.js, packages/linear/src/cli-sync.js, packages/linear/assets/skills/spec-linear-setup/SKILL.md, packages/linear/assets/core/linear.config.md
 > **Stack:** worktree
@@ -131,6 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
+| 2026-09-02 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
