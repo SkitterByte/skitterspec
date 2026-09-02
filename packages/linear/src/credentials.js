@@ -111,4 +111,83 @@ function fingerprint(key) {
   return `…${key.slice(-4)}`
 }
 
-module.exports = { storePath, readStore, keyForTeam, fingerprint, DIR_NAME, FILE_NAME }
+
+/**
+ * Record a key for one team, creating the store at `0600` and its directory at
+ * `0700`. Other teams' entries are preserved.
+ *
+ * Refuses rather than writing when the existing store is unreadable or
+ * over-permissive — the same guard as reading, because silently rewriting a
+ * world-readable file would leave the leak in place.
+ *
+ * Returns `{ ok: true, path, created }` or `{ ok: false, reason }`. The key is
+ * never echoed back in either.
+ */
+function writeKey(file, teamId, key, deps = {}) {
+  const mkdir = deps.mkdir || fs.mkdirSync
+  const write = deps.write || fs.writeFileSync
+  const chmod = deps.chmod || fs.chmodSync
+  const exists = deps.exists || fs.existsSync
+
+  if (!teamId) return { ok: false, reason: 'no team id — nothing to key the entry by' }
+  if (typeof key !== 'string' || !key.trim()) return { ok: false, reason: 'empty key — nothing stored' }
+
+  const created = !exists(file)
+  let store = { version: 1, teams: {} }
+  if (!created) {
+    const current = readStore(file, deps)
+    if (!current.ok) return { ok: false, reason: current.reason, code: current.code }
+    store = current.store
+    if (!store.teams || typeof store.teams !== 'object') store.teams = {}
+    if (!store.version) store.version = 1
+  }
+
+  store.teams[teamId] = { ...(store.teams[teamId] || {}), key: key.trim() }
+
+  mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
+  write(file, JSON.stringify(store, null, 2) + '\n', { mode: 0o600 })
+  // `mode` on writeFileSync only applies when the file is CREATED, so an
+  // existing file keeps its mode — narrow it explicitly.
+  chmod(file, 0o600)
+  return { ok: true, path: file, created }
+}
+
+/**
+ * Remove one team's entry, leaving every other team intact. A store or entry
+ * that isn't there is a clean no-op, not an error.
+ */
+function removeKey(file, teamId, deps = {}) {
+  const write = deps.write || fs.writeFileSync
+  const current = readStore(file, deps)
+  if (!current.ok) {
+    if (current.code === 'absent') return { ok: true, path: file, removed: false }
+    return { ok: false, reason: current.reason, code: current.code }
+  }
+  const teams = current.store.teams
+  if (!teams || !teams[teamId]) return { ok: true, path: file, removed: false }
+  delete teams[teamId]
+  write(file, JSON.stringify(current.store, null, 2) + '\n', { mode: 0o600 })
+  return { ok: true, path: file, removed: true }
+}
+
+/** The store's permission bits as an octal string, or null when absent. */
+function storeMode(file, deps = {}) {
+  const stat = deps.stat || fs.statSync
+  try {
+    return (stat(file).mode & 0o777).toString(8)
+  } catch {
+    return null
+  }
+}
+
+module.exports = {
+  storePath,
+  readStore,
+  keyForTeam,
+  fingerprint,
+  writeKey,
+  removeKey,
+  storeMode,
+  DIR_NAME,
+  FILE_NAME,
+}

@@ -189,6 +189,26 @@ instead:
 
 ```bash
 export LINEAR_API_KEY=lin_api_…      # from Linear → Settings → Security & access
+
+Or store it once, for every repo on the machine, instead of exporting it in each:
+
+```
+skitterspec spec-sync credentials set        # prompts; input is hidden
+skitterspec spec-sync credentials status     # readiness only, never the value
+skitterspec spec-sync credentials unset      # remove this team's key
+```
+
+That writes `$XDG_CONFIG_HOME/skitterspec/credentials.json` (else
+`~/.config/…`) at mode `600`, keyed by team id. Resolution order is **environment
+variable first, then the store**, so CI is unaffected. A store readable by other
+users is refused with the `chmod` to run rather than used.
+
+`set` reads the key from a hidden prompt, or from a pipe with `--stdin`. There is
+deliberately **no `--key <value>` flag**: a secret in the command line is visible
+in shell history and to `ps`. For the same reason, run `set` yourself — never
+paste a key into an assistant conversation, where it would enter the transcript.
+`status` exists so an assistant can confirm readiness without ever seeing the
+key.
 ```
 
 ```json

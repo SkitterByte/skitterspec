@@ -46,6 +46,13 @@ const {
 
 const { loadLinearConfig, mergeConfig, defaults: configDefaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
+const {
+  storePath,
+  storeMode,
+  fingerprint,
+  writeKey,
+  removeKey,
+} = require('./credentials.js')
 
 // Resolve a spec argument to its snapshot dir. Accepts a spec name/folder found
 // under specs/** (preferred) or a literal path to a snapshot directory.
@@ -1173,6 +1180,164 @@ function withoutNull(obj) {
   return out
 }
 
+// --- credentials -------------------------------------------------------------
+
+/**
+ * `spec-sync credentials <status|set|unset>` — manage the user-level API key.
+ *
+ * The split here is deliberate and is the whole point of the feature:
+ *
+ *   `status`  is SAFE FOR A SKILL TO RUN. It reports readiness and never the
+ *             value — path, mode, team, and a masked fingerprint.
+ *   `set`     is for a HUMAN, run outside the model. It reads the key from a TTY
+ *             with echo off (or `--stdin`), never from argv.
+ *
+ * A key typed into a chat enters the transcript, is sent to the model and may be
+ * logged; moving where a key is STORED is worthless if it travels through the
+ * conversation to get there. So nothing in this file ever prints a key, and
+ * `--key <value>` is refused rather than supported.
+ */
+async function specSyncCredentials(config, action, flags, out) {
+  const env = flags.env || process.env
+  const file = storePath(env)
+  const teamId = (config.linear && config.linear.teamId) || ''
+  const teamKey = (config.linear && config.linear.teamKey) || ''
+  const label = teamKey ? `${teamId} (${teamKey})` : teamId
+
+  if (!teamId) {
+    out.write(
+      'spec-sync credentials: no linear.teamId in specs/.core/linear.config.json.\n' +
+        '  The store is keyed by team — run `spec-sync init-config` first.\n',
+    )
+    return 1
+  }
+
+  if (action === 'status' || !action) return credentialsStatus(config, file, label, flags, out)
+  if (action === 'set') return credentialsSet(file, teamId, label, flags, out)
+  if (action === 'unset') return credentialsUnset(file, teamId, label, out)
+
+  out.write('Usage: skitterspec spec-sync credentials <status|set|unset> [--stdin] [--json]\n')
+  return 1
+}
+
+// Readiness only — the command a skill runs. Never prints the key.
+function credentialsStatus(config, file, label, flags, out) {
+  const resolved = resolveApiKey(config, flags.env || process.env)
+  const mode = storeMode(file)
+  const present = resolved.ok
+  const payload = {
+    store: file,
+    mode,
+    team: label,
+    key: present ? { present: true, source: resolved.source, fingerprint: fingerprint(resolved.key) } : { present: false },
+  }
+  if (flags.json) {
+    out.write(JSON.stringify(payload, null, 2) + '\n')
+    return present ? 0 : 1
+  }
+
+  const lines = ['spec-sync credentials:']
+  lines.push(`  store:  ${file}${mode ? ` (${mode})` : ' (not created yet)'}`)
+  lines.push(`  team:   ${label}`)
+  if (present) {
+    const where = resolved.source === 'env' ? `environment (${resolved.envVar})` : 'store'
+    lines.push(`  key:    set — ${fingerprint(resolved.key)} from the ${where}`)
+  } else {
+    lines.push('  key:    not set')
+    lines.push('')
+    lines.push('  Run this yourself, in your own terminal — not through an assistant:')
+    lines.push('    skitterspec spec-sync credentials set')
+  }
+  out.write(lines.join('\n') + '\n')
+  return present ? 0 : 1
+}
+
+// The human-facing setter. TTY prompt with echo off, or `--stdin` for a pipe.
+async function credentialsSet(file, teamId, label, flags, out) {
+  if (flags.keyArgGiven) {
+    out.write(
+      'spec-sync credentials: --key is not supported, on purpose.\n' +
+        '  A secret in the command line is visible in shell history and to `ps`.\n' +
+        '  Run `credentials set` with no arguments and paste at the prompt (input\n' +
+        '  is hidden), or pipe it: `… | credentials set --stdin`.\n',
+    )
+    return 1
+  }
+
+  let key
+  if (flags.stdin) {
+    key = (await readAllStdin(flags.input || process.stdin)).trim()
+    if (!key) {
+      out.write('spec-sync credentials: nothing on stdin — no key stored.\n')
+      return 1
+    }
+  } else {
+    const input = flags.input || process.stdin
+    if (!input.isTTY) {
+      out.write(
+        'spec-sync credentials: not a terminal — cannot prompt for a key.\n' +
+          '  Run it in your own terminal, or pipe the key with --stdin.\n',
+      )
+      return 1
+    }
+    key = (await promptHidden(`Linear personal API key for ${label} (hidden): `, input, out)).trim()
+    if (!key) {
+      out.write('spec-sync credentials: empty input — no key stored.\n')
+      return 1
+    }
+  }
+
+  const r = writeKey(file, teamId, key)
+  if (!r.ok) {
+    out.write(`spec-sync credentials: ${r.reason}\n`)
+    return 1
+  }
+  out.write(`spec-sync credentials: key stored for ${label} in ${r.path} (600)\n`)
+  return 0
+}
+
+function credentialsUnset(file, teamId, label, out) {
+  const r = removeKey(file, teamId)
+  if (!r.ok) {
+    out.write(`spec-sync credentials: ${r.reason}\n`)
+    return 1
+  }
+  out.write(
+    r.removed
+      ? `spec-sync credentials: removed the key for ${label} from ${r.path}\n`
+      : `spec-sync credentials: no key stored for ${label} — nothing to remove\n`,
+  )
+  return 0
+}
+
+// Read stdin to completion (for `--stdin`).
+function readAllStdin(input) {
+  return new Promise((resolve, reject) => {
+    let data = ''
+    input.setEncoding('utf-8')
+    input.on('data', (chunk) => (data += chunk))
+    input.on('end', () => resolve(data))
+    input.on('error', reject)
+  })
+}
+
+// Prompt on a TTY with the input hidden. `_writeToOutput` is readline's own echo
+// hook — silencing it is what keeps the key off the screen (and out of a
+// screen-shared terminal or a recorded session).
+function promptHidden(question, input, out) {
+  const readline = require('node:readline')
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input, output: process.stdout, terminal: true })
+    out.write(question)
+    rl.question('', (answer) => {
+      out.write('\n')
+      rl.close()
+      resolve(answer)
+    })
+    rl._writeToOutput = () => {}
+  })
+}
+
 async function specSync(rest, io = {}) {
   const out = io.out || process.stdout
   const err = io.err || process.stderr
@@ -1196,6 +1361,15 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--url') flags.url = args[++i]
     else if (args[i] === '--sub') flags.subs.push(args[++i])
     else if (args[i] === '--force') flags.force = true
+    else if (args[i] === '--stdin') flags.stdin = true
+    else if (args[i] === '--key') {
+      // Consumed and DELIBERATELY DISCARDED. A secret in argv is visible in
+      // shell history and to `ps`, so this is refused rather than supported —
+      // but it must still be swallowed here, or the value would fall through to
+      // `positional` and end up printed back in a usage message.
+      i++
+      flags.keyArgGiven = true
+    }
     else if (args[i] === '--team-id') flags.teamId = String(args[++i] || '').trim()
     else if (args[i] === '--team-key') flags.teamKey = String(args[++i] || '').trim()
     else if (args[i] === '--project-id') flags.projectId = String(args[++i] || '').trim()
@@ -1254,8 +1428,11 @@ async function specSync(rest, io = {}) {
     case 'linked':
       specSyncLinked(dir, config, flags, out)
       return 0
+    case 'credentials':
+      return await specSyncCredentials(config, positional[0], flags, out)
     default:
       out.write('Usage: skitterspec spec-sync <normalize|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
+        '       skitterspec spec-sync credentials <status|set|unset> [--stdin] [--json]\n' +
         '       skitterspec spec-sync push <spec> --workspace-states <file> [--json] [--skip-state-check]\n' +
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
         '       skitterspec spec-sync states [--via api|mcp] [--json]\n' +

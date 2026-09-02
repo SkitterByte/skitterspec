@@ -119,7 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The store and the resolution chain (read side) | ✅ | [01-store-and-resolution.md](01-store-and-resolution.md) |
-| 2 | Set it out-of-band; check it from the skill | ⬜ | [02-set-and-check.md](02-set-and-check.md) |
+| 2 | Set it out-of-band; check it from the skill | ✅ | [02-set-and-check.md](02-set-and-check.md) |
 | 3 | Delegate to a password manager via keyCommand | ⬜ | [03-key-command.md](03-key-command.md) |
 
 ## Open questions
@@ -135,6 +135,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-02 — Phase 2: `--key` is parsed-and-discarded rather than left
+  unrecognised — an unparsed flag falls through to `positional` and the secret
+  would be echoed in a usage message, refusing it while leaking it.
 - 2026-09-02 — Phase 1: `resolveApiKey` skips the store lookup entirely when no
   `teamId` is configured. Discovered while implementing — without it, unit tests
   using the default config read the real `~/.config` and the suite becomes

@@ -82,11 +82,9 @@ function resolveApiKey(config, env = process.env, deps = {}) {
     ok: false,
     envVar,
     path: file,
-    // Names only what exists TODAY. Phase 2 adds `credentials set` and points at
-    // it here; until then this would send a user to a command that prints usage.
     error:
-      `no Linear API key — set ${envVar}, add one to ${file}, ` +
-      `or apply the plan over MCP with --via mcp${detail}`,
+      `no Linear API key — set ${envVar}, run \`skitterspec spec-sync credentials set\` ` +
+      `to store one in ${file}, or apply the plan over MCP with --via mcp${detail}`,
   }
 }
 

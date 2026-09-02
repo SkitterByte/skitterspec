@@ -541,3 +541,19 @@ test("init points at a provider's setup skill without naming any tracker", () =>
   assert.match(block, /Tracker sync is opt-in/, 'and prints a next step when one is installed')
   assert.doesNotMatch(block, /linear/i, 'the output names no tracker')
 })
+
+// The setup skill must CHECK the key, never collect it. Prose is what a model
+// acts on, so this rule only holds if it is pinned the same way the base's
+// tracker-free skills are — an instruction nobody asserts on is an instruction
+// that quietly erodes.
+test('the setup skill checks readiness and never asks for the key', () => {
+  const skill = fs.readFileSync(
+    path.join(__dirname, '..', 'assets', 'skills', 'spec-linear-setup', 'SKILL.md'),
+    'utf-8',
+  )
+  assert.match(skill, /credentials status/, 'runs the readiness check')
+  assert.match(skill, /credentials set/, 'names the command the user runs')
+  assert.match(skill, /themselves, in their own\s+terminal/, 'says who runs it')
+  assert.match(skill, /Do not ask the user to paste an API key/, 'states the prohibition')
+  assert.match(skill, /transcript/, 'and why — the reason is what makes it stick')
+})

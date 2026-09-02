@@ -146,10 +146,8 @@ test('no key at all reports every way to set one, and stays a normal state', () 
   assert.strictEqual(r.ok, false)
   assert.match(r.error, /LINEAR_API_KEY/, 'names the env var')
   assert.match(r.error, /credentials\.json/, 'names the store file')
+  assert.match(r.error, /credentials set/, 'names the command that stores one')
   assert.match(r.error, /--via mcp/, 'still offers the MCP fallback')
-  // Phase 2 adds `credentials set` and points here; until it exists the message
-  // must not send anyone to a command that only prints usage.
-  assert.doesNotMatch(r.error, /credentials set/, 'no command that does not exist yet')
 })
 
 test('an unusable store is surfaced, not silently read as "no key set"', () => {
