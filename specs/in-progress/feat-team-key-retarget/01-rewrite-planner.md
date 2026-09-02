@@ -1,6 +1,6 @@
-# Phase 1 — Pure rewrite planner over stamps, snapshots and config ⬜
+# Phase 1 — Pure rewrite planner over stamps, snapshots and config ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** given an old and new team key, enumerate every machine-read field that
 must change — and nothing else — as a pure plan, proven by fixtures that include
@@ -8,7 +8,7 @@ prose the planner must leave alone.
 
 ## Tasks
 
-- [ ] Add `packages/sync-core/src/retarget.js` with `planRetarget({ dir, oldKey,
+- [x] Add `packages/sync-core/src/retarget.js` with `planRetarget({ dir, oldKey,
       newKey, config })` returning `{ stamps, snapshots, configKey }` — no writes.
       **Move `packages/linear/src/doctor.js` here rather than writing it fresh:**
       `scanDrift` is `planRetarget` with the old key implicit, and its
@@ -23,21 +23,28 @@ prose the planner must leave alone.
 - [x] `snapshots`: for each `{sync.baseDir}/<oldKey>-<n>.base.json`, plan the
       rename plus the `subIssues` key remap, preserving each hash value and the
       file's existing formatting. *(Built in 10.4.0; hash preservation is proven by the round-trip test where `spec-sync status` still reads `up to date`.)*
-- [ ] Add `deriveRecordedKey(dir, config)` — returns `config.linear.teamKey` when
+- [x] Add `deriveRecordedKey(dir, config)` — returns `config.linear.teamKey` when
       set, else the single prefix observed across `specs/**` stamps; returns a
       structured "ambiguous" result (never a throw) when the stamps disagree, so
       the caller phrases its own refusal.
-- [ ] Export both from `packages/sync-core/index.js`.
-- [ ] Add `packages/sync-core/test/retarget-plan.test.js` covering: frontmatter
+- [x] Export both from `packages/sync-core/index.js`.
+- [x] Add `packages/sync-core/test/retarget-plan.test.js` covering: frontmatter
       rewritten; **prose containing `SKI-28` left byte-identical**; a doc
       placeholder outside frontmatter untouched; `linear_url` slug preserved;
       snapshot rename + re-key; `deriveRecordedKey` with an empty `teamKey`; and
       the ambiguous-stamps case. Port the equivalents out of
       `packages/linear/test/cli-doctor.test.js` — the first five already exist
       there; only `deriveRecordedKey`'s two cases are new.
-- [ ] Run `pnpm test` — green before the phase is done.
+- [x] Match the identifier **case-insensitively**, preserving the case it was
+      written in — `linear_url` carries it lowercased in the path
+      (`…/issue/reu-188/…`), so an uppercase-only rule silently skips it.
+- [x] Run `pnpm test` — green before the phase is done.
 
 ## Notes
+
+`doctor.js` is not deleted here: `cli-sync.js` still imports it, and phase 2 is
+what repoints the CLI. Phase 1 leaves the two coexisting for exactly one phase
+rather than breaking a green build mid-move.
 
 Prose is the phase's sharpest constraint and the reason the planner is pure and
 fixture-tested: a naive repo-wide `SKI-` → `SKS-` substitution passes a casual

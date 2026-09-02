@@ -22,6 +22,7 @@ const { sanitizeSpecMarkdown } = require('./src/sanitise.js')
 const { detectLegacyMirror } = require('./src/legacy.js')
 const { compareStored } = require('./src/verify.js')
 const { flattenNestedTables } = require('./src/tables.js')
+const { planRetarget, applyRetarget, deriveRecordedKey, isEmptyRetarget, dirtyPaths } = require('./src/retarget.js')
 
 module.exports = {
   normalizeLocal,
@@ -51,4 +52,9 @@ module.exports = {
   detectLegacyMirror,
   compareStored,
   flattenNestedTables,
+  planRetarget,
+  applyRetarget,
+  deriveRecordedKey,
+  isEmptyRetarget,
+  dirtyPaths,
 }

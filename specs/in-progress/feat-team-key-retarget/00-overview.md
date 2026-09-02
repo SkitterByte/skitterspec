@@ -126,7 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Pure rewrite planner over stamps, snapshots and config | ⬜ | [01-rewrite-planner.md](01-rewrite-planner.md) |
+| 1 | Pure rewrite planner over stamps, snapshots and config | ✅ | [01-rewrite-planner.md](01-rewrite-planner.md) |
 | 2 | Detect the rename and print the plan (read-only) | ⬜ | [02-detect-and-dry-run.md](02-detect-and-dry-run.md) |
 | 3 | Apply it, guarded and spot-checked | ⬜ | [03-apply-guarded.md](03-apply-guarded.md) |
 
@@ -153,3 +153,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-02 — Dropped the per-ref existence sweep in favour of decision 4's
   single title-matched spot-check: cheaper, tests identity rather than mere
   existence, and keeps the MCP path workable.
+- 2026-09-02 — Phase 1 done. Validating the planner against `~/code/ereqs`
+  exposed something the fixtures could not: `linear_url` carries the
+  identifier **lowercased** in its path, so the uppercase-only rule skipped
+  29 of 33 real urls — the same ones the hand-repair missed, because they do
+  not look like stamps. Matching is now case-insensitive and preserves the
+  case written. A `REU`→`ERQ` plan over ereqs now fixes 29 files, prose
+  byte-identical.
+- 2026-09-02 — `doctor.js` stays until phase 2 repoints `cli-sync.js` at
+  `sync-core`; deleting it in phase 1 would break a green build mid-move.
