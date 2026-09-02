@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-spec-sync-skill (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-02)
+> **Status:** In Progress — all phases built (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The `/spec-sync` skill, and the `verify` footgun guard | ✅ | [01-skill.md](01-skill.md) |
 | 2 | `spec-sync doctor` — detect, read-only | ✅ | [02-doctor-detect.md](02-doctor-detect.md) |
-| 3 | `doctor --write` — repair behind a clean-tree guard | ⬜ | [03-doctor-repair.md](03-doctor-repair.md) |
+| 3 | `doctor --write` — repair behind a clean-tree guard | ✅ | [03-doctor-repair.md](03-doctor-repair.md) |
 
 ## Open questions
 
@@ -165,3 +165,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   counts prose `mentions` (149 in ereqs) as an explicitly un-repaired
   category. Without the former, phase 3 would repair filenames but strand
   the keys inside them; without the latter, `--write` would look total.
+- 2026-09-02 — Phase 3 done. Repair rewrites frontmatter stamps scoped to
+  the frontmatter block only, so the prose mentions counted in phase 2 are
+  provably left alone. Snapshot keys are rewritten before the filename
+  moves; `git mv` is used where the file is tracked, falling back to a
+  plain rename for an untracked one.
+- 2026-09-02 — The round-trip is now a test rather than a field
+  observation: a real recorded snapshot, repaired, and `spec-sync status`
+  still reads `up to date` under the new key.

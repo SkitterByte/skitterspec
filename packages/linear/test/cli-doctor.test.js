@@ -16,6 +16,7 @@ const assert = require('node:assert')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
+const { execFileSync } = require('node:child_process')
 
 const { specSync } = require('../src/cli-sync.js')
 const { CONFIG_FILE } = require('../src/config.js')
@@ -51,6 +52,19 @@ function fixtureRepo({ stampKey = 'REU', configKey = 'REU', specs = 3 } = {}) {
       'utf-8',
     )
   }
+  return dir
+}
+
+// Make a fixture a real, committed git repo — the clean-tree guard runs actual
+// git, so faking it would test nothing.
+function commitAll(dir) {
+  const git = (...args) =>
+    execFileSync('git', ['-C', dir, ...args], { stdio: ['ignore', 'ignore', 'ignore'] })
+  git('init', '-q')
+  git('config', 'user.email', 'test@example.com')
+  git('config', 'user.name', 'Test')
+  git('add', '-A')
+  git('commit', '-qm', 'fixture')
   return dir
 }
 
@@ -214,4 +228,94 @@ test('an unrelated identifier-shaped token in prose is not counted as drift', as
     got.mentions.every((m) => m.from.startsWith('REU-')),
     `only the repo's own stale key is counted, got ${JSON.stringify(got.mentions.map((m) => m.from))}`,
   )
+})
+
+// --- repair ------------------------------------------------------------------
+
+const read = (dir, ...p) => fs.readFileSync(path.join(dir, ...p), 'utf-8')
+const baseDir = (dir) => path.join(dir, 'specs', '.core', 'linear-base')
+
+test('--write refuses on a dirty tree, changing nothing', async () => {
+  const dir = commitAll(fixtureRepo({ specs: 2 }))
+  fs.writeFileSync(path.join(dir, 'unrelated.txt'), 'work in progress', 'utf-8')
+
+  const before = read(dir, 'specs/complete/feat-0/00-overview.md')
+  const r = await run(['doctor', '--write'], dir, { adapter: fakeLinear() })
+
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /--write refused/)
+  assert.match(r.out, /uncommitted change/)
+  assert.strictEqual(read(dir, 'specs/complete/feat-0/00-overview.md'), before, 'nothing was rewritten')
+  assert.ok(fs.existsSync(path.join(baseDir(dir), 'REU-100.base.json')), 'and nothing was moved')
+})
+
+test('--write rewrites stamps, snapshot names, their keys and the config together', async () => {
+  const dir = commitAll(fixtureRepo({ specs: 2 }))
+  const r = await run(['doctor', '--write'], dir, { adapter: fakeLinear() })
+
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /repaired:/)
+  assert.match(read(dir, 'specs/complete/feat-0/00-overview.md'), /linear_identifier: "ERQ-100"/)
+  assert.match(read(dir, 'specs/complete/feat-0/00-overview.md'), /issue\/ERQ-100\//, 'the url too')
+  assert.match(read(dir, 'specs/complete/feat-0/01-engine.md'), /linear_issue_id: "ERQ-101"/)
+  assert.ok(fs.existsSync(path.join(baseDir(dir), 'ERQ-100.base.json')), 'snapshot moved')
+  assert.ok(!fs.existsSync(path.join(baseDir(dir), 'REU-100.base.json')), 'and the old name is gone')
+  const snap = JSON.parse(read(dir, 'specs/.core/linear-base/ERQ-100.base.json'))
+  assert.deepEqual(Object.keys(snap.subIssues), ['ERQ-101'], 'the key inside moved too')
+  assert.match(read(dir, 'specs/.core/linear.config.json'), /"teamKey":"?\s*"?ERQ/)
+})
+
+test('the content hashes survive the rename untouched', async () => {
+  const dir = commitAll(fixtureRepo({ specs: 1 }))
+  const before = JSON.parse(read(dir, 'specs/.core/linear-base/REU-100.base.json'))
+  await run(['doctor', '--write'], dir, { adapter: fakeLinear() })
+  const after = JSON.parse(read(dir, 'specs/.core/linear-base/ERQ-100.base.json'))
+  assert.strictEqual(after.issue, before.issue, 'the spec-issue hash is content-derived, not key-derived')
+  assert.strictEqual(after.subIssues['ERQ-101'], before.subIssues['REU-101'], 'and so is the sub-issue hash')
+})
+
+test('prose mentions are left exactly as they were', async () => {
+  const dir = commitAll(fixtureRepo({ specs: 1 }))
+  await run(['doctor', '--write'], dir, { adapter: fakeLinear() })
+  assert.match(read(dir, 'specs/complete/feat-0/01-engine.md'), /Done earlier \(REU-100\)/, 'prose is untouched')
+  assert.match(read(dir, 'specs/complete/feat-0/01-engine.md'), /linear_issue_id: "ERQ-101"/, 'the stamp is not')
+})
+
+test('a ref that resolves to no issue is left alone, reported, and fails the run', async () => {
+  const dir = commitAll(fixtureRepo({ specs: 2 }))
+  const r = await run(['doctor', '--write'], dir, { adapter: fakeLinear({ absent: new Set(['ERQ-102']) }) })
+
+  assert.strictEqual(r.code, 1, 'a partial repair must not read as a complete one')
+  assert.match(r.out, /LEFT ALONE/)
+  assert.match(read(dir, 'specs/complete/feat-1/00-overview.md'), /linear_identifier: "REU-102"/, 'unrepaired')
+  assert.ok(fs.existsSync(path.join(baseDir(dir), 'REU-102.base.json')), 'its snapshot did not move')
+  assert.match(read(dir, 'specs/complete/feat-0/00-overview.md'), /linear_identifier: "ERQ-100"/, 'the rest did')
+})
+
+test('a repaired repo scans clean on the next run', async () => {
+  const dir = commitAll(fixtureRepo({ specs: 2 }))
+  await run(['doctor', '--write'], dir, { adapter: fakeLinear() })
+  const r = await run(['doctor'], dir, { adapter: fakeLinear() })
+  assert.match(r.out, /drift:\s+none/, 'the repair is complete, not partial')
+})
+
+// The claim the hand-repair in the field actually rested on: after restamping
+// config + stamps + snapshot filenames + the keys inside them, `spec-sync
+// status` still reads "up to date". The fixtures above use placeholder hashes,
+// so this one records a REAL snapshot first and re-reads it through the normal
+// status path after the rename.
+test('spec-sync status still reads up to date after a repair', async () => {
+  const dir = fixtureRepo({ specs: 1 })
+  const recorded = await run(['record', 'feat-0'], dir)
+  assert.strictEqual(recorded.code, 0)
+  const before = await run(['status', 'feat-0', '--skip-state-check'], dir)
+  assert.match(before.out, /up to date/, 'the recorded snapshot matches the spec to begin with')
+
+  commitAll(dir)
+  const w = await run(['doctor', '--write'], dir, { adapter: fakeLinear() })
+  assert.strictEqual(w.code, 0)
+
+  const after = await run(['status', 'feat-0', '--skip-state-check'], dir)
+  assert.match(after.out, /ERQ-100/, 'status now reads the spec under the new key')
+  assert.match(after.out, /up to date/, 'and the content hashes survived the rename')
 })

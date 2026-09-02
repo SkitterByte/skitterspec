@@ -17,6 +17,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const { execFileSync } = require('node:child_process')
 
 const { BUCKETS } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const { parseFrontmatter } = require('@skitterbyte/skitterspec-sync-core')
@@ -200,4 +201,141 @@ function fileCount(drift) {
   return new Set([...drift.stamps.map((s) => s.file), ...drift.urls.map((u) => u.file)]).size
 }
 
-module.exports = { scanDrift, isClean, fileCount, retarget, specMarkdownFiles }
+// --- repair ------------------------------------------------------------------
+
+// `git status --porcelain` over `dir`: [] when clean, the offending lines when
+// dirty, null when this is not a git repo at all.
+function dirtyPaths(dir) {
+  let out
+  try {
+    out = execFileSync('git', ['-C', dir, 'status', '--porcelain'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+  } catch {
+    return null
+  }
+  return out ? out.split('\n') : []
+}
+
+// Rewrite identifier tokens INSIDE a file's frontmatter block only.
+//
+// Scoped to the frontmatter on purpose: the same token appears in spec prose,
+// which repair deliberately leaves alone. A blind whole-file replace would
+// rewrite narrative text as a side effect of fixing a stamp.
+function rewriteFrontmatter(raw, replacements) {
+  const m = /^(---\n[\s\S]*?\n---)(\n[\s\S]*)?$/.exec(raw)
+  if (!m) return raw
+  let head = m[1]
+  for (const [from, to] of replacements) head = head.split(from).join(to)
+  return head + (m[2] || '')
+}
+
+// Move a file, preferring `git mv` so history survives. Falls back to a plain
+// rename when the file is untracked (git mv refuses those) or git is absent.
+function moveFile(dir, from, to) {
+  try {
+    execFileSync('git', ['-C', dir, 'mv', from, to], { stdio: ['ignore', 'ignore', 'ignore'] })
+    return 'git mv'
+  } catch {
+    fs.renameSync(path.join(dir, from), path.join(dir, to))
+    return 'rename'
+  }
+}
+
+/**
+ * Apply a scan's repairs. Everything moves together — config, stamps, snapshot
+ * filenames and the identifier keys inside them — because a half-repaired repo
+ * is harder to reason about than an un-repaired one.
+ *
+ * `skip` is the set of `from` identifiers that resolve to NO issue under the new
+ * key. Those are left exactly as they are: repair fixes what is provably
+ * repairable, and reports the rest rather than inventing a target.
+ *
+ * Prose mentions are never touched — see `scanDrift`.
+ */
+function repairDrift(dir, config, drift, { skip = new Set() } = {}) {
+  const keep = (r) => !skip.has(r.from)
+  const changed = { files: [], snapshots: [], config: false, skipped: 0 }
+
+  // 1. Frontmatter stamps and urls, one pass per file.
+  const byFile = new Map()
+  for (const r of [...drift.stamps, ...drift.urls]) {
+    if (!keep(r)) {
+      changed.skipped++
+      continue
+    }
+    if (!byFile.has(r.file)) byFile.set(r.file, [])
+    byFile.get(r.file).push([r.from, r.to])
+  }
+  for (const [rel, replacements] of byFile) {
+    const abs = path.join(dir, rel)
+    const raw = fs.readFileSync(abs, 'utf-8')
+    const next = rewriteFrontmatter(raw, replacements)
+    if (next !== raw) {
+      fs.writeFileSync(abs, next, 'utf-8')
+      changed.files.push(rel)
+    }
+  }
+
+  // 2. Snapshot sub-issue keys, rewritten BEFORE the filename moves so the path
+  //    being read is still the one the scan recorded.
+  const keysByFile = new Map()
+  for (const k of drift.snapshotKeys) {
+    if (!keep(k)) {
+      changed.skipped++
+      continue
+    }
+    if (!keysByFile.has(k.file)) keysByFile.set(k.file, [])
+    keysByFile.get(k.file).push(k)
+  }
+  for (const [rel, keys] of keysByFile) {
+    const abs = path.join(dir, rel)
+    const body = JSON.parse(fs.readFileSync(abs, 'utf-8'))
+    const subIssues = {}
+    // The hashes are CONTENT-derived, so they survive a rename untouched — only
+    // the keys move. Rebuilt rather than mutated so key order stays stable.
+    for (const [ident, hash] of Object.entries(body.subIssues || {})) {
+      const hit = keys.find((k) => k.from === ident)
+      subIssues[hit ? hit.to : ident] = hash
+    }
+    fs.writeFileSync(abs, JSON.stringify({ ...body, subIssues }, null, 2) + '\n', 'utf-8')
+  }
+
+  // 3. Snapshot filenames.
+  const baseRel = config.sync.baseDir
+  for (const snap of drift.snapshots) {
+    const ident = snap.from.slice(0, -'.base.json'.length)
+    if (skip.has(ident)) {
+      changed.skipped++
+      continue
+    }
+    const how = moveFile(dir, path.join(baseRel, snap.from), path.join(baseRel, snap.to))
+    changed.snapshots.push({ ...snap, how })
+  }
+
+  // 4. The config key, last: it is the thing that makes the next scan read
+  //    clean, so it should not flip before the files it describes have moved.
+  if (drift.config) {
+    const file = path.join(dir, 'specs', '.core', 'linear.config.json')
+    const raw = fs.readFileSync(file, 'utf-8')
+    // Textual, not parse-and-restringify: the config is hand-edited and carries
+    // comments and ordering a JSON round-trip would silently discard.
+    fs.writeFileSync(file, raw.replace(/("teamKey"\s*:\s*")([^"]*)(")/, `$1${drift.config.to}$3`), 'utf-8')
+    changed.config = true
+  }
+
+  return changed
+}
+
+module.exports = {
+  scanDrift,
+  isClean,
+  fileCount,
+  retarget,
+  specMarkdownFiles,
+  dirtyPaths,
+  repairDrift,
+  rewriteFrontmatter,
+}

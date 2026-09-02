@@ -156,6 +156,20 @@ A `missing` count that looks alarmingly high is worth a second look before you
 relay it as fact — the first hand-run of this check reported 146 of 198 refs as
 non-existent when every one was healthy and merely archived.
 
+**`--write` repairs it — confirm first, and state the counts.** It rewrites the
+config key, the frontmatter stamps, the snapshot filenames and the identifier
+keys inside them, all together. It refuses on a dirty git tree, because the
+repair is one large diff and has to be reviewable (and `git checkout -- .`-able)
+on its own — so commit or stash before offering it.
+
+It exits non-zero when it left anything behind: a ref that resolves to no issue
+is **not** rewritten, because repair fixes what is provably repairable rather
+than inventing a target. Relay that as an unfinished repair, not a success.
+
+After a repair, `spec-sync status` should still read `up to date` — the snapshot
+hashes are content-derived, so only their keys move. If it does not, say so
+rather than pushing over it.
+
 ## 8. Report
 
 Relay the engine's output. Name the subcommand you ran, in full, so the user can

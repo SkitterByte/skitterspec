@@ -46,7 +46,7 @@ const {
 
 const { loadLinearConfig, mergeConfig, defaults: configDefaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
-const { scanDrift, isClean, fileCount } = require('./doctor.js')
+const { scanDrift, isClean, fileCount, dirtyPaths, repairDrift } = require('./doctor.js')
 const {
   storePath,
   storeMode,
@@ -692,9 +692,45 @@ async function specSyncDoctor(dir, config, flags, out) {
   for (const m of missing.slice(0, 10)) lines.push(`           ${m.from} → ${m.to} does not exist`)
   if (missing.length > 10) lines.push(`           … and ${missing.length - 10} more`)
 
-  lines.push('  run with --write to repair (requires a clean git tree)')
+  if (!flags.write) {
+    lines.push('  run with --write to repair (requires a clean git tree)')
+    out.write(lines.join('\n') + '\n')
+    return 0
+  }
+
+  // A repair rewrites hundreds of stamps across dozens of files. That is only
+  // safe to hand someone if it arrives as ONE reviewable diff they can throw
+  // away with `git checkout -- .` — which a dirty tree destroys. Same guard
+  // `spec-env integrate` uses, and for the same reason.
+  const dirty = dirtyPaths(dir)
+  if (dirty === null) {
+    lines.push('  --write refused: not a git repository, so the rewrite would not be reviewable')
+    out.write(lines.join('\n') + '\n')
+    return 1
+  }
+  if (dirty.length) {
+    lines.push(`  --write refused: ${dirty.length} uncommitted change(s) — commit or stash first`)
+    for (const d of dirty.slice(0, 10)) lines.push(`           ${d}`)
+    if (dirty.length > 10) lines.push(`           … and ${dirty.length - 10} more`)
+    lines.push('           the repair is one large diff; it must be reviewable on its own')
+    out.write(lines.join('\n') + '\n')
+    return 1
+  }
+
+  const skip = new Set(missing.map((m) => m.from))
+  const changed = repairDrift(dir, config, drift, { skip })
+  lines.push('  repaired:')
+  lines.push(`           ${changed.files.length} spec file(s)`)
+  lines.push(`           ${changed.snapshots.length} snapshot file(s) moved`)
+  if (changed.config) lines.push('           config linear.teamKey')
+  if (changed.skipped) {
+    lines.push(`           ${changed.skipped} ref(s) LEFT ALONE — they resolve to no issue under ${team.key}`)
+  }
+  lines.push('  review the diff, then commit it')
   out.write(lines.join('\n') + '\n')
-  return 0
+  // Non-zero when anything was left behind, so a caller cannot read a partial
+  // repair as a complete one.
+  return changed.skipped ? 1 : 0
 }
 
 /**
@@ -1547,7 +1583,7 @@ async function specSync(rest, io = {}) {
   let dir = io.cwd || process.cwd()
   const positional = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    force: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
+    force: false, write: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -1563,6 +1599,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--url') flags.url = args[++i]
     else if (args[i] === '--sub') flags.subs.push(args[++i])
     else if (args[i] === '--force') flags.force = true
+    else if (args[i] === '--write') flags.write = true
     else if (args[i] === '--stdin') flags.stdin = true
     else if (args[i] === '--command') flags.command = String(args[++i] || '').trim()
     else if (args[i] === '--key') {
@@ -1646,7 +1683,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n' +
-        '       skitterspec spec-sync doctor [--json]\n' +
+        '       skitterspec spec-sync doctor [--write] [--json]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +
         '                    [--intake-label L] [--bug-labels a,b] [--hotfix-labels a,b]\n' +
         '                    [--state <bucket>=<name> …] [--states <file>] [--force] [--json]\n')
