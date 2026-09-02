@@ -93,7 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Write and ship the rule | ⬜ | [01-rule.md](01-rule.md) |
+| 1 | Write and ship the rule | ✅ | [01-rule.md](01-rule.md) |
 | 2 | Audit the sync-core checks | ⬜ | [02-audit-sync-core.md](02-audit-sync-core.md) |
 | 3 | Audit init and the doctor rows | ⬜ | [03-audit-init-doctor.md](03-audit-init-doctor.md) |
 
@@ -111,3 +111,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-02 — Spec created after the same defect shipped three times in one day.
+- 2026-09-02 — Phase 1: the rule ships as `negative-checks.md` and needed no
+  manifest edit, as expected. Added two guards rather than one — the install
+  assertion the phase called for, plus a content test on the rule's four
+  headings, since Phases 2–3 audit against those headings by name. Also noted
+  the new rule in the base README's installed-tree listing, which named
+  `spec-planning.md` as the only installed rule.

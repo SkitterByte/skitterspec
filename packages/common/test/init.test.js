@@ -57,6 +57,10 @@ test('init scaffolds skills, rule, folders', async () => {
       `rule ${r} installed`,
     )
   }
+  // Named, not just covered by the loop above: a rule that ships is a product
+  // surface, and the loop would pass just as happily if assets/rules/ lost it.
+  assert.ok(RULES.includes('negative-checks.md'), 'negative-checks rule registered')
+  assert.ok(exists(dir, '.claude', 'rules', 'negative-checks.md'), 'negative-checks rule installed')
   for (const f of ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']) {
     assert.ok(fs.existsSync(path.join(dir, 'specs', f)), `folder ${f}`)
   }

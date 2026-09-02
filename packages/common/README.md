@@ -39,6 +39,7 @@ never clobbers customised files. It writes:
 ```
 .claude/skills/spec*/SKILL.md   # the 8 spec-lifecycle skills
 .claude/rules/spec-planning.md  # governing rule (the single source of truth)
+.claude/rules/negative-checks.md # writing checks that accuse safely
 specs/{.core,backlog,in-progress,complete,cancelled}/
 CLAUDE.md                       # adds a "## Spec workflow" section (created if absent)
 ```

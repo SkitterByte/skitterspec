@@ -102,6 +102,23 @@ test('spec-planning rule documents the Impact map in the overview contents', () 
   )
 })
 
+test('negative-checks rule states all four points', () => {
+  const text = fs.readFileSync(
+    path.join(ASSETS, 'rules', 'negative-checks.md'),
+    'utf8',
+  )
+  // Phases 2 and 3 audit the codebase's accusing checks against these four —
+  // a point silently dropped from the rule would take its audit with it.
+  for (const heading of [
+    /^## 1\. Prefer a positive signal to an absence$/m,
+    /^## 2\. Name the blind spot beside the check$/m,
+    /^## 3\. Pair every accusation with a stays-silent test$/m,
+    /^## 4\. Bias the unknown case toward inaction$/m,
+  ]) {
+    assert.ok(heading.test(text), `negative-checks.md carries ${heading}`)
+  }
+})
+
 // The phase-file H1 emoji is the ONE load-bearing status signal (a provider maps
 // it to the phase's tracker state; an absent emoji reads as not-started). Every
 // skill that authors or edits phase files must say so — /spec ships it in the
