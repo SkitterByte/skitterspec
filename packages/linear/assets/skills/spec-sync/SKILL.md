@@ -36,7 +36,7 @@ In a project that installs the Linear superset the binary is
 | "did the mirror survive the push?" | `verify <spec> --stored <file>` |
 | "link this spec to KEY-1 by hand" | `stamp <spec> --issue KEY-1` |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
-| "is the team key stale?", "did Linear get renamed?" | `doctor` |
+| "is the team key stale?", "did Linear get renamed?" | `retarget` |
 | push one spec, or "what would push?" | **defer** — see below |
 
 **With no argument, run `linked`.** It is the repo-wide overview, it is
@@ -131,44 +131,34 @@ its object exists, so an interrupted run continues rather than duplicating.
 
 `--all` refuses over MCP by design — bulk goes through the API path.
 
-## 7. `doctor` — identifier drift after a team rename
+## 7. `retarget` — after a Linear team is renamed
 
 ```
-pnpm exec skitterspec-linear spec-sync doctor [--json]
+pnpm exec skitterspec-linear spec-sync retarget [--yes]
 ```
 
-Renaming a Linear team changes every issue's identifier prefix and **nothing in
-the repo moves**: the stamps, the config `teamKey`, and the snapshot filenames
-and their sub-issue keys all keep the old prefix. `doctor` reports that. It is
-read-only and needs the **API transport** — it reads one issue per drifted ref,
-which over MCP would be a model round-trip each.
+Renaming a Linear team rewrites the key in every issue identifier, and **nothing
+in the repo moves**: the frontmatter stamps, the config `teamKey`, and the
+snapshot filenames and their sub-issue keys all keep the old prefix, so
+`/spec-push` starts failing with `no Linear issue found for SKI-7`.
 
-It reports three things, deliberately separately:
+`retarget` detects the rename (the team id survives it; the key does not) and
+rewrites those fields. Read-only until `--yes`.
 
-- **drift** — what `--write` would repair: stamps, snapshot filenames and keys,
-  the config key.
-- **mentions** — stale refs in spec *prose* (`(REU-61)` beside a task). Reported,
-  **never rewritten** — say so, so nobody reads a repair as total.
-- **missing** — refs that resolve to no issue under the new key. A different
-  problem; repair leaves them alone.
+- It **never takes the new key as an argument** — a typo would rewrite every
+  stamp to a key that does not exist.
+- It **spot-checks one identifier by title** before reporting the plan as safe.
+  Existence is not identity: `SKS-7` existing does not make it the issue that was
+  `SKI-7`. A mismatch refuses, and writes nothing.
+- It rewrites **machine-read fields only**. Identifiers in spec prose are the
+  historical record and are left alone — so do not report a retarget as having
+  made the repo free of the old key.
+- `--yes` refuses on a dirty tree, so the rewrite lands as one revertable change.
+  It pushes nothing: only the repo's stamps move, and the next ordinary
+  `/spec-push` reconciles content now that its issues resolve again.
 
-A `missing` count that looks alarmingly high is worth a second look before you
-relay it as fact — the first hand-run of this check reported 146 of 198 refs as
-non-existent when every one was healthy and merely archived.
-
-**`--write` repairs it — confirm first, and state the counts.** It rewrites the
-config key, the frontmatter stamps, the snapshot filenames and the identifier
-keys inside them, all together. It refuses on a dirty git tree, because the
-repair is one large diff and has to be reviewable (and `git checkout -- .`-able)
-on its own — so commit or stash before offering it.
-
-It exits non-zero when it left anything behind: a ref that resolves to no issue
-is **not** rewritten, because repair fixes what is provably repairable rather
-than inventing a target. Relay that as an unfinished repair, not a success.
-
-After a repair, `spec-sync status` should still read `up to date` — the snapshot
-hashes are content-derived, so only their keys move. If it does not, say so
-rather than pushing over it.
+Over MCP the team key is unreadable (`get_team` does not return it), so it says
+so and asks you to confirm the key rather than guessing.
 
 ## 8. Report
 

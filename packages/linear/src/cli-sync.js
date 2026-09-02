@@ -42,11 +42,15 @@ const {
   stampSubIssueId,
   listPhaseFiles,
   compareStored,
+  planRetarget,
+  applyRetarget,
+  deriveRecordedKey,
+  isEmptyRetarget,
+  dirtyPaths,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const { loadLinearConfig, mergeConfig, defaults: configDefaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
-const { scanDrift, isClean, fileCount, dirtyPaths, repairDrift } = require('./doctor.js')
 const {
   storePath,
   storeMode,
@@ -580,47 +584,55 @@ function verifyLines(snapshotDir, config, stored, identifier) {
 }
 
 /**
- * `spec-sync doctor [--json]` — identifier drift against the team's CURRENT key.
+ * `spec-sync retarget [--yes]` — repoint a mirror after a team-key rename.
  *
- * A Linear team rename leaves every stamped identifier, the config `teamKey` and
- * every snapshot filename on the old prefix, and nothing noticed. This reports
- * it. Read-only: exit 0 whether or not it finds drift; non-zero only when it
- * could not look (no key, MCP, unreadable team).
+ * Renaming a Linear team rewrites the key in every issue identifier, and the
+ * repo stamps those in three places. Nothing moved them, so afterwards
+ * `/spec-push` fails with `no Linear issue found for SKI-7` — the right failure,
+ * with no way out but a hand rewrite (done twice by hand on 2026-09-02).
  *
- * Two things it deliberately does NOT do:
+ * The rewrite itself is provider-neutral and lives in `sync-core/retarget.js`.
+ * Only two things here touch Linear:
  *
- * 1. It does not trust `config.linear.teamKey` for the current key — that value
- *    is itself one of the things that goes stale, so trusting it would make the
- *    drift invisible. `teamId` survives a rename; the key does not.
- * 2. It does not resolve refs with a bulk `team.issues` query. That connection
- *    excludes archived issues AND caps at 250 per page, so the naive version
- *    reports most of a healthy repo as missing — measured on a real workspace:
- *    328 issues, 149 archived, and the unpaginated default returns 179. Reading
- *    each ref individually has no list to page and no archived flag to forget;
- *    `issue(id:)` resolves an archived issue by identifier (also verified).
+ * 1. **Detection.** `teamId` survives a rename, so ask Linear for that team's
+ *    CURRENT key and compare it with the recorded one. A difference IS the
+ *    rename. It is never taken as an argument: nothing stops a typo rewriting
+ *    every stamp to a key that does not exist.
+ * 2. **One spot-check.** Resolve the first remapped identifier and compare its
+ *    TITLE to the spec's. That is what makes the number-preservation assumption
+ *    safe, and it tests identity rather than mere existence — `SKS-7` existing
+ *    does not make it the issue that was `SKI-7`. One read, which is also what
+ *    keeps the MCP path viable.
  */
-async function specSyncDoctor(dir, config, flags, out) {
-  const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
-
-  // One read PER DRIFTED REF is the whole design; over MCP that is a model
-  // round-trip each, which is impractical at the scale this exists for (198 refs
-  // in the run that motivated it). Refused rather than quietly slow — the same
-  // call `apply --all` makes.
-  if (transport === 'mcp') {
-    out.write(
-      [
-        'spec-sync doctor: needs the api transport (nothing was read)',
-        `  ${key.ok ? '--via mcp was requested' : key.error}`,
-        '  it reads one issue per drifted ref, which MCP would route through the model.',
-      ].join('\n') + '\n',
-    )
+async function specSyncRetarget(dir, config, flags, out) {
+  const teamId = (config.linear && config.linear.teamId) || ''
+  if (!teamId) {
+    out.write('spec-sync retarget: no linear.teamId in specs/.core/linear.config.json — nothing to compare against.\n')
     return 1
   }
 
-  const teamId = (config.linear && config.linear.teamId) || ''
-  if (!teamId) {
-    out.write('spec-sync doctor: no linear.teamId in specs/.core/linear.config.json — nothing to compare against.\n')
+  const recorded = deriveRecordedKey(dir, config)
+  if (!recorded.key) {
+    out.write(`spec-sync retarget: cannot tell which key this repo is stamped with.\n  ${recorded.reason}\n`)
+    return 1
+  }
+
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+
+  // Linear's MCP `get_team` does not return the team key (observed 2026-09-02),
+  // so the one fact detection needs is unavailable there. Report what IS known
+  // and let the operator supply it, rather than guessing or silently skipping.
+  if (transport === 'mcp') {
+    out.write(
+      [
+        'spec-sync retarget: transport = mcp — cannot read the team key (nothing was changed)',
+        `  ${key.ok ? '--via mcp was requested' : key.error}`,
+        `  recorded key: ${recorded.key} (from ${recorded.source})`,
+        "  Linear's MCP get_team does not return a team key, so a rename cannot be detected here.",
+        '  Confirm the current key in Linear, then set an API key and re-run for the plan.',
+      ].join('\n') + '\n',
+    )
     return 1
   }
 
@@ -629,108 +641,116 @@ async function specSyncDoctor(dir, config, flags, out) {
   try {
     team = await adapter.readTeam(teamId)
   } catch (error) {
-    out.write(`spec-sync doctor: could not read the team: ${error.message}\n`)
+    out.write(`spec-sync retarget: could not read the team: ${error.message}\n`)
     return 1
   }
   if (!team || !team.key) {
-    out.write(`spec-sync doctor: Linear returned no team for ${teamId}\n`)
+    out.write(`spec-sync retarget: Linear returned no team for ${teamId}\n`)
     return 1
   }
 
-  const drift = scanDrift(dir, config, team.key)
+  const header = [
+    `spec-sync retarget: team ${teamId} (${team.name || team.key})`,
+    `  recorded key: ${recorded.key}  (from ${recorded.source})`,
+    `  linear  key:  ${team.key}${team.key === recorded.key ? '' : '   <- renamed'}`,
+  ]
 
-  // Only the DISTINCT drifted identifiers are checked, so 221 stamps of 198
-  // identifiers cost 198 reads.
-  const missing = []
-  for (const ref of drift.refs) {
-    let got
-    try {
-      got = await adapter.readIssue(ref.to)
-    } catch (error) {
-      out.write(`spec-sync doctor: could not read ${ref.to}: ${error.message}\n`)
-      return 1
-    }
-    if (!got) missing.push(ref)
-  }
-
-  if (flags.json) {
-    out.write(JSON.stringify({ team: { id: team.id, key: team.key, name: team.name }, ...drift, missing }, null, 2) + '\n')
+  if (team.key === recorded.key) {
+    out.write([...header, '', '  already current — nothing to retarget'].join('\n') + '\n')
     return 0
   }
 
-  const was = [...new Set(drift.refs.map((r) => r.from.split('-')[0]))]
-  const lines = [`spec-sync doctor: team ${team.key}${was.length ? ` (stamps still on ${was.join(', ')})` : ''}`]
-  if (isClean(drift)) {
-    lines.push('  drift:   none — every stamped identifier is on the current team key')
+  const plan = planRetarget({ dir, oldKey: recorded.key, newKey: team.key, config })
+  if (isEmptyRetarget(plan)) {
+    out.write([...header, '', '  the key moved, but nothing in the repo is stamped with it'].join('\n') + '\n')
+    return 0
+  }
+
+  // Spot-check BEFORE reporting the plan as safe: a wrong mapping is caught
+  // here, not after the files have moved.
+  const check = await spotCheck({ dir, config, plan, adapter, oldKey: recorded.key, newKey: team.key })
+  const lines = [
+    ...header,
+    '',
+    '  would rewrite:',
+    `    ${plan.stamps.length} frontmatter stamp(s)  (linear_identifier, linear_url, linear_issue_id)`,
+    `    ${plan.snapshots.length} base snapshot(s)      (rename + re-key subIssues)`,
+    `    ${plan.configKey ? 1 : 0} config key            (linear.teamKey)`,
+    '',
+    `  spot-check: ${check.line}`,
+  ]
+
+  if (!check.ok) {
+    lines.push('  refusing — the mapping is not safe to apply')
+    out.write(lines.join('\n') + '\n')
+    return 1
+  }
+
+  if (!flags.yes) {
+    lines.push('  dry-run — re-run with --yes to apply.')
     out.write(lines.join('\n') + '\n')
     return 0
   }
 
-  const driftLines = []
-  const stamped = drift.stamps.length + drift.urls.length
-  if (stamped) driftLines.push(`${stamped} stamp(s) across ${fileCount(drift)} file(s), ${drift.refs.length} distinct ref(s)`)
-  if (drift.snapshots.length || drift.snapshotKeys.length) {
-    const parts = []
-    if (drift.snapshots.length) parts.push(`${drift.snapshots.length} filename(s)`)
-    if (drift.snapshotKeys.length) parts.push(`${drift.snapshotKeys.length} sub-issue key(s)`)
-    driftLines.push(`snapshots: ${parts.join(' + ')} under ${config.sync.baseDir}`)
-  }
-  if (drift.config) driftLines.push(`config linear.teamKey = "${drift.config.from}"`)
-  lines.push(`  drift:   ${driftLines[0]}`)
-  for (const l of driftLines.slice(1)) lines.push(`           ${l}`)
-
-  // Reported SEPARATELY from drift: a ref that resolves is repairable, one that
-  // does not is a different problem and must not be silently rewritten.
-  // Prose mentions are NOT repaired, so they are reported outside the drift
-  // block — a report that folded them in would imply --write fixes them.
-  if (drift.mentions.length) {
-    lines.push(
-      `  mentions: ${drift.mentions.length} stale ref(s) in spec prose — reported, NOT repaired by --write`,
-    )
-  }
-  lines.push(`  missing: ${missing.length} ref(s) that resolve to no issue under ${team.key}`)
-  for (const m of missing.slice(0, 10)) lines.push(`           ${m.from} → ${m.to} does not exist`)
-  if (missing.length > 10) lines.push(`           … and ${missing.length - 10} more`)
-
-  if (!flags.write) {
-    lines.push('  run with --write to repair (requires a clean git tree)')
-    out.write(lines.join('\n') + '\n')
-    return 0
-  }
-
-  // A repair rewrites hundreds of stamps across dozens of files. That is only
-  // safe to hand someone if it arrives as ONE reviewable diff they can throw
-  // away with `git checkout -- .` — which a dirty tree destroys. Same guard
-  // `spec-env integrate` uses, and for the same reason.
   const dirty = dirtyPaths(dir)
   if (dirty === null) {
-    lines.push('  --write refused: not a git repository, so the rewrite would not be reviewable')
+    lines.push('  --yes refused: not a git repository, so the rewrite would not be reviewable')
     out.write(lines.join('\n') + '\n')
     return 1
   }
   if (dirty.length) {
-    lines.push(`  --write refused: ${dirty.length} uncommitted change(s) — commit or stash first`)
+    lines.push(`  --yes refused: ${dirty.length} uncommitted change(s) — commit or stash first`)
     for (const d of dirty.slice(0, 10)) lines.push(`           ${d}`)
     if (dirty.length > 10) lines.push(`           … and ${dirty.length - 10} more`)
-    lines.push('           the repair is one large diff; it must be reviewable on its own')
+    lines.push('           the rewrite must land as one reviewable, revertable change')
     out.write(lines.join('\n') + '\n')
     return 1
   }
 
-  const skip = new Set(missing.map((m) => m.from))
-  const changed = repairDrift(dir, config, drift, { skip })
-  lines.push('  repaired:')
-  lines.push(`           ${changed.files.length} spec file(s)`)
-  lines.push(`           ${changed.snapshots.length} snapshot file(s) moved`)
-  if (changed.config) lines.push('           config linear.teamKey')
-  if (changed.skipped) {
-    lines.push(`           ${changed.skipped} ref(s) LEFT ALONE — they resolve to no issue under ${team.key}`)
-  }
-  lines.push('  review the diff, then commit it')
+  const changed = applyRetarget(plan, { dir, config })
+  lines.push(
+    '  applied:',
+    `    ${changed.files.length} spec file(s)`,
+    `    ${changed.snapshots.length} snapshot(s) moved`,
+    ...(changed.configKey ? ['    config linear.teamKey'] : []),
+    "  nothing was pushed — only the repo's stamps moved; the mirror is untouched.",
+    '  review the diff, then commit it.',
+  )
   out.write(lines.join('\n') + '\n')
-  // Non-zero when anything was left behind, so a caller cannot read a partial
-  // repair as a complete one.
-  return changed.skipped ? 1 : 0
+  return 0
+}
+
+/**
+ * Resolve the first remapped SPEC issue and compare its title to the spec's.
+ *
+ * Deliberately ONE read. Checking every ref instead would cost a request each
+ * (~198 on a real repo), force an MCP refusal, and still only prove the issues
+ * exist — not that they are the same issues.
+ */
+async function spotCheck({ dir, config, plan, adapter, oldKey, newKey }) {
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const stamp = plan.stamps.find((s) => path.basename(s.file) === overviewFile)
+  if (!stamp) return { ok: true, line: 'skipped — no spec issue in the plan to check' }
+
+  const before = parseFrontmatter(stamp.from).data.linear_identifier
+  if (!before) return { ok: true, line: 'skipped — no linear_identifier in the plan to check' }
+  const from = String(before).trim()
+  const to = `${newKey}-${from.slice(oldKey.length + 1)}`
+
+  let issue
+  try {
+    issue = await adapter.readIssue(to)
+  } catch (error) {
+    return { ok: false, line: `${to} could not be read — ${error.message}` }
+  }
+  if (!issue) return { ok: false, line: `${from} → ${to}, but ${to} does not exist in Linear` }
+
+  const expected = readSnapshot(path.dirname(path.join(dir, stamp.file)), config).title
+  const got = issue.title || ''
+  if (expected && got && expected.trim() !== got.trim()) {
+    return { ok: false, line: `${to} resolves, but its title is "${got}" — the spec's is "${expected}"` }
+  }
+  return { ok: true, line: `${to} resolves, title matches the spec` }
 }
 
 /**
@@ -1583,7 +1603,7 @@ async function specSync(rest, io = {}) {
   let dir = io.cwd || process.cwd()
   const positional = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    force: false, write: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
+    force: false, yes: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -1599,7 +1619,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--url') flags.url = args[++i]
     else if (args[i] === '--sub') flags.subs.push(args[++i])
     else if (args[i] === '--force') flags.force = true
-    else if (args[i] === '--write') flags.write = true
+    else if (args[i] === '--yes') flags.yes = true
     else if (args[i] === '--stdin') flags.stdin = true
     else if (args[i] === '--command') flags.command = String(args[++i] || '').trim()
     else if (args[i] === '--key') {
@@ -1661,8 +1681,8 @@ async function specSync(rest, io = {}) {
       return (await specSyncProjects(dir, config, flags, out)) || 0
     case 'states':
       return (await specSyncStates(dir, config, flags, out)) || 0
-    case 'doctor':
-      return (await specSyncDoctor(dir, config, flags, out)) || 0
+    case 'retarget':
+      return (await specSyncRetarget(dir, config, flags, out)) || 0
     case 'apply':
       return (await specSyncApply(dir, config, positional[0], flags, out)) || 0
     case 'verify':
@@ -1683,7 +1703,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n' +
-        '       skitterspec spec-sync doctor [--write] [--json]\n' +
+        '       skitterspec spec-sync retarget [--yes]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +
         '                    [--intake-label L] [--bug-labels a,b] [--hotfix-labels a,b]\n' +
         '                    [--state <bucket>=<name> …] [--states <file>] [--force] [--json]\n')

@@ -127,7 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Pure rewrite planner over stamps, snapshots and config | ✅ | [01-rewrite-planner.md](01-rewrite-planner.md) |
-| 2 | Detect the rename and print the plan (read-only) | ⬜ | [02-detect-and-dry-run.md](02-detect-and-dry-run.md) |
+| 2 | Detect the rename and print the plan (read-only) | ✅ | [02-detect-and-dry-run.md](02-detect-and-dry-run.md) |
 | 3 | Apply it, guarded and spot-checked | ⬜ | [03-apply-guarded.md](03-apply-guarded.md) |
 
 ## Open questions
@@ -162,3 +162,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   byte-identical.
 - 2026-09-02 — `doctor.js` stays until phase 2 repoints `cli-sync.js` at
   `sync-core`; deleting it in phase 1 would break a green build mid-move.
+- 2026-09-02 — Phase 2 done. `spec-sync doctor` is gone: the verb is now
+  `retarget`, `--write` is `--yes`, `doctor.js` and `cli-doctor.test.js` are
+  deleted, and `cli-sync.js` imports the planner from `sync-core`. The
+  `/spec-sync` skill was repointed in the same phase rather than phase 3, so
+  no phase ships a skill documenting a command that does not exist.
+- 2026-09-02 — The per-ref sweep and its MCP refusal are gone with it; the
+  MCP path now reports that `get_team` returns no key and asks the operator
+  to confirm, as decision 9 intended.

@@ -234,7 +234,7 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
       if (data && data.team) return (data.team.projects && data.team.projects.nodes) || []
       return (data && data.projects && data.projects.nodes) || []
     },
-    // The team's CURRENT key, which is what `doctor` compares stamped
+    // The team's CURRENT key, which is what `retarget` compares stamped
     // identifiers against. Read from Linear rather than `config.linear.teamKey`
     // on purpose: the config key is itself one of the things that goes stale
     // when a team is renamed, so trusting it would make drift invisible. The
