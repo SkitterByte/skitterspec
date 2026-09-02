@@ -295,3 +295,17 @@ test('backoff is capped, so a silly Retry-After cannot stall the run for hours',
   await adapter.readIssue('SKI-1')
   assert.strictEqual(waits[0], 60_000)
 })
+
+// --- readTeam: what `doctor` compares stamped identifiers against ------------
+
+test('readTeam returns the team key, which is what a rename changes', async () => {
+  const f = fakeFetch({ team: { id: 'T1', key: 'ERQ', name: 'eReqs' } })
+  const got = await adapterWith(f).readTeam('T1')
+  assert.deepEqual(got, { id: 'T1', key: 'ERQ', name: 'eReqs' })
+  assert.match(f.calls[0].body.query, /team\(id: \$id\)/)
+  assert.deepEqual(f.calls[0].body.variables, { id: 'T1' })
+})
+
+test('readTeam is null for a team that is not there, rather than throwing', async () => {
+  assert.strictEqual(await adapterWith(fakeFetch({ team: null })).readTeam('nope'), null)
+})

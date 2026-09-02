@@ -234,6 +234,18 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
       if (data && data.team) return (data.team.projects && data.team.projects.nodes) || []
       return (data && data.projects && data.projects.nodes) || []
     },
+    // The team's CURRENT key, which is what `doctor` compares stamped
+    // identifiers against. Read from Linear rather than `config.linear.teamKey`
+    // on purpose: the config key is itself one of the things that goes stale
+    // when a team is renamed, so trusting it would make drift invisible. The
+    // teamId is stable across a rename; the key is not.
+    //
+    // API-only, like `listIssueStates` — see the operation-contract test: the
+    // API adapter may add ops, it may only never be missing one.
+    async readTeam(teamId) {
+      const data = await call(`query($id: String!) { team(id: $id) { id key name } }`, { id: teamId })
+      return (data && data.team) || null
+    },
     // The workspace's issue workflow states, in the shape `--workspace-states`
     // already accepts, so the existing state check is reused rather than forked.
     async listIssueStates(teamId) {

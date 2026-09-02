@@ -36,6 +36,7 @@ In a project that installs the Linear superset the binary is
 | "did the mirror survive the push?" | `verify <spec> --stored <file>` |
 | "link this spec to KEY-1 by hand" | `stamp <spec> --issue KEY-1` |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
+| "is the team key stale?", "did Linear get renamed?" | `doctor` |
 | push one spec, or "what would push?" | **defer** — see below |
 
 **With no argument, run `linked`.** It is the repo-wide overview, it is
@@ -130,7 +131,32 @@ its object exists, so an interrupted run continues rather than duplicating.
 
 `--all` refuses over MCP by design — bulk goes through the API path.
 
-## 7. Report
+## 7. `doctor` — identifier drift after a team rename
+
+```
+pnpm exec skitterspec-linear spec-sync doctor [--json]
+```
+
+Renaming a Linear team changes every issue's identifier prefix and **nothing in
+the repo moves**: the stamps, the config `teamKey`, and the snapshot filenames
+and their sub-issue keys all keep the old prefix. `doctor` reports that. It is
+read-only and needs the **API transport** — it reads one issue per drifted ref,
+which over MCP would be a model round-trip each.
+
+It reports three things, deliberately separately:
+
+- **drift** — what `--write` would repair: stamps, snapshot filenames and keys,
+  the config key.
+- **mentions** — stale refs in spec *prose* (`(REU-61)` beside a task). Reported,
+  **never rewritten** — say so, so nobody reads a repair as total.
+- **missing** — refs that resolve to no issue under the new key. A different
+  problem; repair leaves them alone.
+
+A `missing` count that looks alarmingly high is worth a second look before you
+relay it as fact — the first hand-run of this check reported 146 of 198 refs as
+non-existent when every one was healthy and merely archived.
+
+## 8. Report
 
 Relay the engine's output. Name the subcommand you ran, in full, so the user can
 re-run it themselves. For anything that wrote, say what changed in Linear and

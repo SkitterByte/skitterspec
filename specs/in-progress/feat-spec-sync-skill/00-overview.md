@@ -130,7 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The `/spec-sync` skill, and the `verify` footgun guard | ✅ | [01-skill.md](01-skill.md) |
-| 2 | `spec-sync doctor` — detect, read-only | ⬜ | [02-doctor-detect.md](02-doctor-detect.md) |
+| 2 | `spec-sync doctor` — detect, read-only | ✅ | [02-doctor-detect.md](02-doctor-detect.md) |
 | 3 | `doctor --write` — repair behind a clean-tree guard | ⬜ | [03-doctor-repair.md](03-doctor-repair.md) |
 
 ## Open questions
@@ -150,3 +150,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-02 — Phase 1 done. The `verify` guard refuses a snapshot by both
   filename (`*.base.json`) and location (under `sync.baseDir`), so a stray
   `stored.json` written into `linear-base/` is caught too.
+- 2026-09-02 — Phase 2 done. Decision 5 verified against the live ERQ
+  workspace: 328 issues, 149 archived; `issue(id:)` resolves an archived
+  issue by identifier, and the unpaginated `team.issues` default returns
+  only 179. The per-ref sweep is correct and the documented trap is real.
+- 2026-09-02 — Deviation: `readTeam` is added to the **API adapter only**
+  and `doctor` refuses over MCP, rather than adding an MCP op. The
+  operation contract (`api.test.js`) is one-directional — the API adapter
+  may add ops, as `listIssueStates` already does — and a per-ref sweep over
+  MCP would be one model round-trip per ref, which `apply --all` already
+  refuses for the same reason.
+- 2026-09-02 — Scope found during the phase: detection also covers the
+  identifier keys inside each snapshot's `subIssues` map (26 in ereqs), and
+  counts prose `mentions` (149 in ereqs) as an explicitly un-repaired
+  category. Without the former, phase 3 would repair filenames but strand
+  the keys inside them; without the latter, `--write` would look total.

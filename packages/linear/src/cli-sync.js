@@ -46,6 +46,7 @@ const {
 
 const { loadLinearConfig, mergeConfig, defaults: configDefaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
+const { scanDrift, isClean, fileCount } = require('./doctor.js')
 const {
   storePath,
   storeMode,
@@ -576,6 +577,124 @@ function verifyLines(snapshotDir, config, stored, identifier) {
   if (!bad) lines.push(`  ${checks.length} description(s) round-tripped intact`)
   else lines.push('     the repo is unchanged and still correct; re-push to overwrite the mirror')
   return lines
+}
+
+/**
+ * `spec-sync doctor [--json]` — identifier drift against the team's CURRENT key.
+ *
+ * A Linear team rename leaves every stamped identifier, the config `teamKey` and
+ * every snapshot filename on the old prefix, and nothing noticed. This reports
+ * it. Read-only: exit 0 whether or not it finds drift; non-zero only when it
+ * could not look (no key, MCP, unreadable team).
+ *
+ * Two things it deliberately does NOT do:
+ *
+ * 1. It does not trust `config.linear.teamKey` for the current key — that value
+ *    is itself one of the things that goes stale, so trusting it would make the
+ *    drift invisible. `teamId` survives a rename; the key does not.
+ * 2. It does not resolve refs with a bulk `team.issues` query. That connection
+ *    excludes archived issues AND caps at 250 per page, so the naive version
+ *    reports most of a healthy repo as missing — measured on a real workspace:
+ *    328 issues, 149 archived, and the unpaginated default returns 179. Reading
+ *    each ref individually has no list to page and no archived flag to forget;
+ *    `issue(id:)` resolves an archived issue by identifier (also verified).
+ */
+async function specSyncDoctor(dir, config, flags, out) {
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+
+  // One read PER DRIFTED REF is the whole design; over MCP that is a model
+  // round-trip each, which is impractical at the scale this exists for (198 refs
+  // in the run that motivated it). Refused rather than quietly slow — the same
+  // call `apply --all` makes.
+  if (transport === 'mcp') {
+    out.write(
+      [
+        'spec-sync doctor: needs the api transport (nothing was read)',
+        `  ${key.ok ? '--via mcp was requested' : key.error}`,
+        '  it reads one issue per drifted ref, which MCP would route through the model.',
+      ].join('\n') + '\n',
+    )
+    return 1
+  }
+
+  const teamId = (config.linear && config.linear.teamId) || ''
+  if (!teamId) {
+    out.write('spec-sync doctor: no linear.teamId in specs/.core/linear.config.json — nothing to compare against.\n')
+    return 1
+  }
+
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  let team
+  try {
+    team = await adapter.readTeam(teamId)
+  } catch (error) {
+    out.write(`spec-sync doctor: could not read the team: ${error.message}\n`)
+    return 1
+  }
+  if (!team || !team.key) {
+    out.write(`spec-sync doctor: Linear returned no team for ${teamId}\n`)
+    return 1
+  }
+
+  const drift = scanDrift(dir, config, team.key)
+
+  // Only the DISTINCT drifted identifiers are checked, so 221 stamps of 198
+  // identifiers cost 198 reads.
+  const missing = []
+  for (const ref of drift.refs) {
+    let got
+    try {
+      got = await adapter.readIssue(ref.to)
+    } catch (error) {
+      out.write(`spec-sync doctor: could not read ${ref.to}: ${error.message}\n`)
+      return 1
+    }
+    if (!got) missing.push(ref)
+  }
+
+  if (flags.json) {
+    out.write(JSON.stringify({ team: { id: team.id, key: team.key, name: team.name }, ...drift, missing }, null, 2) + '\n')
+    return 0
+  }
+
+  const was = [...new Set(drift.refs.map((r) => r.from.split('-')[0]))]
+  const lines = [`spec-sync doctor: team ${team.key}${was.length ? ` (stamps still on ${was.join(', ')})` : ''}`]
+  if (isClean(drift)) {
+    lines.push('  drift:   none — every stamped identifier is on the current team key')
+    out.write(lines.join('\n') + '\n')
+    return 0
+  }
+
+  const driftLines = []
+  const stamped = drift.stamps.length + drift.urls.length
+  if (stamped) driftLines.push(`${stamped} stamp(s) across ${fileCount(drift)} file(s), ${drift.refs.length} distinct ref(s)`)
+  if (drift.snapshots.length || drift.snapshotKeys.length) {
+    const parts = []
+    if (drift.snapshots.length) parts.push(`${drift.snapshots.length} filename(s)`)
+    if (drift.snapshotKeys.length) parts.push(`${drift.snapshotKeys.length} sub-issue key(s)`)
+    driftLines.push(`snapshots: ${parts.join(' + ')} under ${config.sync.baseDir}`)
+  }
+  if (drift.config) driftLines.push(`config linear.teamKey = "${drift.config.from}"`)
+  lines.push(`  drift:   ${driftLines[0]}`)
+  for (const l of driftLines.slice(1)) lines.push(`           ${l}`)
+
+  // Reported SEPARATELY from drift: a ref that resolves is repairable, one that
+  // does not is a different problem and must not be silently rewritten.
+  // Prose mentions are NOT repaired, so they are reported outside the drift
+  // block — a report that folded them in would imply --write fixes them.
+  if (drift.mentions.length) {
+    lines.push(
+      `  mentions: ${drift.mentions.length} stale ref(s) in spec prose — reported, NOT repaired by --write`,
+    )
+  }
+  lines.push(`  missing: ${missing.length} ref(s) that resolve to no issue under ${team.key}`)
+  for (const m of missing.slice(0, 10)) lines.push(`           ${m.from} → ${m.to} does not exist`)
+  if (missing.length > 10) lines.push(`           … and ${missing.length - 10} more`)
+
+  lines.push('  run with --write to repair (requires a clean git tree)')
+  out.write(lines.join('\n') + '\n')
+  return 0
 }
 
 /**
@@ -1505,6 +1624,8 @@ async function specSync(rest, io = {}) {
       return (await specSyncProjects(dir, config, flags, out)) || 0
     case 'states':
       return (await specSyncStates(dir, config, flags, out)) || 0
+    case 'doctor':
+      return (await specSyncDoctor(dir, config, flags, out)) || 0
     case 'apply':
       return (await specSyncApply(dir, config, positional[0], flags, out)) || 0
     case 'verify':
@@ -1525,6 +1646,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n' +
+        '       skitterspec spec-sync doctor [--json]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +
         '                    [--intake-label L] [--bug-labels a,b] [--hotfix-labels a,b]\n' +
         '                    [--state <bucket>=<name> …] [--states <file>] [--force] [--json]\n')
