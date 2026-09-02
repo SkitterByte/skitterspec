@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-team-key-retarget (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases built (2026-09-02)
+> **Status:** Complete (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -140,6 +140,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
 | 2026-09-02 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-02 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -178,3 +179,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-02 — Added asset guards after noting in phase 2 that renaming the
   verb broke the skill's docs and no test failed. Verified non-vacuous by
   pointing the routing table at a fake verb and watching it fail.
+- 2026-09-02 — Completed; all three phases done, tests green (947/947).
