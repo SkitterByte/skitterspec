@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-scaffold-empty-buckets (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -87,6 +87,7 @@ condition counts as a broken scaffold.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-02 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-02 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -96,3 +97,4 @@ condition counts as a broken scaffold.
   not missing") asserted the very behaviour being retired, and one CLI fixture
   built buckets without `.core`. Both were corrected — the fixture now matches
   what `init` really produces.
+- 2026-09-02 — Completed; fix verified, tests green (991/991).
