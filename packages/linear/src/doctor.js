@@ -66,12 +66,22 @@ function scaffoldCheck(s = {}) {
   if (!s.specsDir) {
     return row('scaffold', 'scaffold', 'missing', 'no specs/ folder', 'skitterspec init')
   }
-  const buckets = s.buckets || []
-  const missing = ['backlog', 'in-progress', 'complete', 'cancelled'].filter((b) => !buckets.includes(b))
-  if (missing.length) {
-    // Present but incomplete is a half-install, which is exactly when repair
-    // matters — so it is broken, not missing.
-    return row('scaffold', 'scaffold', 'broken', `specs/ is missing ${missing.join(', ')}`, 'skitterspec init --resync')
+  // A LIFECYCLE BUCKET IS NOT CHECKED, deliberately. git does not track empty
+  // directories, so `specs/in-progress/` disappears whenever no spec is in
+  // progress and returns the moment one starts — every lifecycle skill runs
+  // `mkdir -p` before it moves a spec. Checking for it reported a healthy repo
+  // as broken, and exited 1 under any skill branching on the code.
+  //
+  // `.core` is the signal that survives: `init` always writes the config
+  // templates and the manifest into it, so it is never an empty directory.
+  if (!s.core) {
+    return row(
+      'scaffold',
+      'scaffold',
+      'broken',
+      'specs/ exists but specs/.core/ is missing — a half-installed scaffold',
+      'skitterspec init --resync',
+    )
   }
   if (!s.skills) {
     return row('scaffold', 'scaffold', 'broken', 'specs/ exists but no skills are installed', 'skitterspec init --resync')

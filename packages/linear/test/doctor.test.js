@@ -17,7 +17,7 @@ const assert = require('node:assert')
 const { runChecks, STATES } = require('../src/doctor.js')
 
 const READY = {
-  scaffold: { specsDir: true, buckets: ['backlog', 'in-progress', 'complete', 'cancelled'], skills: 12 },
+  scaffold: { specsDir: true, core: true, buckets: ['backlog', 'in-progress', 'complete', 'cancelled'], skills: 12 },
   isolation: { present: true, parsed: true },
   tracker: { present: true, parsed: true, teamId: 'e07c', teamKey: 'SKS' },
   key: { ok: true, source: 'the environment (LINEAR_API_KEY)', fingerprint: '…sCU8' },
@@ -68,6 +68,35 @@ test('a tracker config with no teamId is broken — it is configured but unusabl
   assert.strictEqual(r.ok, false)
 })
 
+// --- git cannot keep an empty directory --------------------------------------
+
+test('an empty lifecycle bucket is not a broken scaffold', () => {
+  // git does not track empty directories, so `specs/in-progress/` genuinely
+  // vanishes whenever no spec is in progress — and reappears the moment one
+  // starts, because every lifecycle skill runs `mkdir -p` before it moves a
+  // spec. Calling that broken cries wolf on a healthy repo, and exits 1 under
+  // any skill branching on the code.
+  const r = withState({ scaffold: { specsDir: true, core: true, buckets: ['backlog', 'complete', 'cancelled'], skills: 12 } })
+  assert.strictEqual(find(r, 'scaffold').state, 'ok', 'a missing empty bucket is normal, not damage')
+  assert.strictEqual(r.ok, true)
+})
+
+test('every bucket missing is still fine when the scaffold itself is there', () => {
+  // A freshly cloned repo with nothing in progress and nothing cancelled has
+  // only the buckets that happen to hold files.
+  const r = withState({ scaffold: { specsDir: true, core: true, buckets: [], skills: 12 } })
+  assert.strictEqual(find(r, 'scaffold').state, 'ok')
+})
+
+test('specs/ without .core IS a broken scaffold — that is the real half-install', () => {
+  // `.core` always receives files from init (the config templates and the
+  // manifest), so unlike a bucket it is a signal git can actually keep.
+  const r = withState({ scaffold: { specsDir: true, core: false, buckets: ['backlog'], skills: 12 } })
+  assert.strictEqual(find(r, 'scaffold').state, 'broken')
+  assert.match(find(r, 'scaffold').detail, /\.core/)
+  assert.strictEqual(r.ok, false)
+})
+
 // --- each layer, missing in turn ---------------------------------------------
 
 test('no specs/ folder at all is missing, and names init', () => {
@@ -77,11 +106,13 @@ test('no specs/ folder at all is missing, and names init', () => {
   assert.strictEqual(c.fix, 'skitterspec init')
 })
 
-test('a half-installed scaffold is broken, not missing', () => {
-  const r = withState({ scaffold: { specsDir: true, buckets: ['backlog'], skills: 12 } })
+test('specs/ without skills is a broken scaffold', () => {
+  // Retired the bucket-based version of this: a missing bucket turned out to be
+  // normal (git drops empty directories), so it can no longer stand for a
+  // half-install. `.core` and the skills are what actually go missing.
+  const r = withState({ scaffold: { specsDir: true, core: true, buckets: ['backlog'], skills: 0 } })
   const c = find(r, 'scaffold')
   assert.strictEqual(c.state, 'broken', 'a partial install is exactly when repair matters')
-  assert.match(c.detail, /in-progress/)
   assert.strictEqual(r.ok, false)
 })
 
@@ -172,7 +203,8 @@ test('every branch of the matrix yields a known state', () => {
   // walk the branches rather than trusting one happy path.
   const variants = [
     { scaffold: { specsDir: false } },
-    { scaffold: { specsDir: true, buckets: [], skills: 0 } },
+    { scaffold: { specsDir: true, core: false, buckets: [], skills: 0 } },
+    { scaffold: { specsDir: true, core: true, buckets: [], skills: 12 } },
     { scaffold: { ...READY.scaffold, skills: 0 } },
     { isolation: { present: false } },
     { isolation: { present: true, parsed: false } },

@@ -699,6 +699,8 @@ function gatherState(dir, flags) {
   const specs = path.join(dir, 'specs')
   state.scaffold.specsDir = fs.existsSync(specs)
   if (state.scaffold.specsDir) {
+    state.scaffold.core = fs.existsSync(path.join(specs, '.core'))
+    // Reported for context only — a missing bucket is normal (see scaffoldCheck).
     state.scaffold.buckets = BUCKETS.filter((b) => fs.existsSync(path.join(specs, b)))
     state.scaffold.skills = countSkills(dir)
   }

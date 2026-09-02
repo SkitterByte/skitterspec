@@ -31,6 +31,10 @@ function scaffoldedRepo() {
   for (const b of ['backlog', 'in-progress', 'complete', 'cancelled']) {
     fs.mkdirSync(path.join(dir, 'specs', b), { recursive: true })
   }
+  // `init` always writes the config templates and the manifest into `.core`, so
+  // a scaffolded repo has it — and unlike an empty bucket, git keeps it.
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, 'specs', '.core', '.skitterspec-manifest.json'), '{}', 'utf-8')
   for (const s of ['spec', 'spec-go', 'spec-complete']) {
     fs.mkdirSync(path.join(dir, '.claude', 'skills', s), { recursive: true })
     fs.writeFileSync(path.join(dir, '.claude', 'skills', s, 'SKILL.md'), `---\nname: ${s}\n---\n`, 'utf-8')
@@ -260,4 +264,27 @@ test('--check-remote --json carries the remote row and leaks nothing', async () 
   const got = JSON.parse(r.out)
   assert.strictEqual(got.checks.find((c) => c.id === 'remote').state, 'ok')
   assert.ok(!r.out.includes(SECRET))
+})
+
+test('a repo with no spec in progress is not reported as broken', () => {
+  // The bug: git does not track empty directories, so `specs/in-progress/`
+  // vanishes whenever nothing is in progress. doctor called that broken and
+  // exited 1 on a healthy repo.
+  const dir = scaffoldedRepo()
+  fs.rmdirSync(path.join(dir, 'specs', 'in-progress'))
+  return run(['doctor'], dir).then((r) => {
+    assert.strictEqual(r.code, 0, 'a healthy repo must not fail the run')
+    assert.match(r.out, /scaffold\s+ok/)
+    assert.doesNotMatch(r.out, /missing in-progress/)
+  })
+})
+
+test('a scaffold with no .core is still caught', () => {
+  const dir = scaffoldedRepo()
+  fs.rmSync(path.join(dir, 'specs', '.core'), { recursive: true, force: true })
+  return run(['doctor'], dir).then((r) => {
+    assert.strictEqual(r.code, 1)
+    assert.match(r.out, /scaffold\s+broken/)
+    assert.match(r.out, /\.core/)
+  })
 })
