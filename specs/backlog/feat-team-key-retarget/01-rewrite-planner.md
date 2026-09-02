@@ -10,13 +10,19 @@ prose the planner must leave alone.
 
 - [ ] Add `packages/sync-core/src/retarget.js` with `planRetarget({ dir, oldKey,
       newKey, config })` returning `{ stamps, snapshots, configKey }` — no writes.
-- [ ] `stamps`: for each `specs/**/*.md`, rewrite `SKI-<n>` → `SKS-<n>` **only**
+      **Move `packages/linear/src/doctor.js` here rather than writing it fresh:**
+      `scanDrift` is `planRetarget` with the old key implicit, and its
+      `rewriteFrontmatter` / snapshot-key logic already does the work below.
+      Drop its `mentions` category — prose is out of scope (decision 5), and
+      counting it only existed to caveat a repair that now never touches prose.
+- [x] `stamps`: for each `specs/**/*.md`, rewrite `SKI-<n>` → `SKS-<n>` **only**
       inside the leading `---` frontmatter block, covering `linear_identifier`,
       `linear_url` (identifier segment only, slug preserved) and
       `linear_issue_id`. Reuse `parseFrontmatter` from `normalize.js`.
-- [ ] `snapshots`: for each `{sync.baseDir}/<oldKey>-<n>.base.json`, plan the
+      *(Built in 10.4.0 as `rewriteFrontmatter`; carries over with the move.)*
+- [x] `snapshots`: for each `{sync.baseDir}/<oldKey>-<n>.base.json`, plan the
       rename plus the `subIssues` key remap, preserving each hash value and the
-      file's existing formatting.
+      file's existing formatting. *(Built in 10.4.0; hash preservation is proven by the round-trip test where `spec-sync status` still reads `up to date`.)*
 - [ ] Add `deriveRecordedKey(dir, config)` — returns `config.linear.teamKey` when
       set, else the single prefix observed across `specs/**` stamps; returns a
       structured "ambiguous" result (never a throw) when the stamps disagree, so
@@ -26,7 +32,9 @@ prose the planner must leave alone.
       rewritten; **prose containing `SKI-28` left byte-identical**; a doc
       placeholder outside frontmatter untouched; `linear_url` slug preserved;
       snapshot rename + re-key; `deriveRecordedKey` with an empty `teamKey`; and
-      the ambiguous-stamps case.
+      the ambiguous-stamps case. Port the equivalents out of
+      `packages/linear/test/cli-doctor.test.js` — the first five already exist
+      there; only `deriveRecordedKey`'s two cases are new.
 - [ ] Run `pnpm test` — green before the phase is done.
 
 ## Notes

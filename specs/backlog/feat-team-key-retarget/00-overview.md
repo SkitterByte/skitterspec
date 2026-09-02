@@ -58,6 +58,19 @@ day — teams get renamed as products get named.
 9. **CLI-only; no `/spec-retarget` skill.** Every other rare verb (`projects`,
    `states`, `verify`, `linked`) is CLI-only. Discovery comes from `/spec-status`,
    which already reports drift, plus a line in `linear.config.md`.
+10. **Supersedes the shipped `spec-sync doctor`.** `skitterspec-linear@10.4.0`
+    shipped this feature under the wrong name, in the wrong package: the verb
+    `doctor` and the file `packages/linear/src/doctor.js` both belong to
+    `feat-setup-doctor`, which was already Ready in the backlog when it was
+    written. This spec is the correct design and the shipped code is retrofitted
+    onto it — renamed to `retarget`, `--write` → `--yes`, planner moved to
+    `sync-core`. Freeing the name is the point, not a side effect.
+11. **One title-matched spot-check, not a per-ref existence sweep.** `10.4.0`
+    reads every drifted ref to confirm it exists. That is ~198 reads on a real
+    repo, it forces an MCP refusal, and existence proves nothing about
+    *identity* — `SKS-7` existing does not make it the issue that was `SKI-7`.
+    Decision 4's single title comparison tests the actual assumption at one read,
+    which is what keeps the MCP path viable. The sweep is dropped.
 
 ## Solution overview
 
@@ -103,6 +116,8 @@ path reports what it can and asks the operator to confirm rather than guessing.
 | Spec frontmatter | update | `linear_identifier`, `linear_url`, `linear_issue_id` |
 | Snapshot files | update | `{sync.baseDir}/<id>.base.json` renamed + `subIssues` re-keyed |
 | Skill/rule | update | `/spec-status` points at `retarget` on a key mismatch |
+| CLI command | remove | `spec-sync doctor` — renamed to `retarget`, freeing the verb |
+| Module | remove | `packages/linear/src/doctor.js` — moved to `sync-core/src/retarget.js` |
 
 ## Phases
 
@@ -128,3 +143,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-02 — Spec created, after renaming two teams by hand the same day.
+- 2026-09-02 — Reviewed vs codebase after `skitterspec-linear@10.4.0` shipped
+  this feature as `spec-sync doctor`, built without reading the backlog. Ticked
+  what already exists (`readTeam`, the frontmatter-scoped rewrite, snapshot
+  rename + re-key, prose left alone, the dirty-tree guard, `git mv`); retargeted
+  the remaining tasks onto renaming and moving that code rather than writing it
+  fresh. Added decisions 10 and 11.
+- 2026-09-02 — Dropped the per-ref existence sweep in favour of decision 4's
+  single title-matched spot-check: cheaper, tests identity rather than mere
+  existence, and keeps the MCP path workable.

@@ -7,16 +7,18 @@ the tree is already dirty.
 
 ## Tasks
 
-- [ ] Add `applyRetarget(plan, { dir, git })` to `retarget.js`: write the
+- [x] Add `applyRetarget(plan, { dir, git })` to `retarget.js`: write the
       frontmatter rewrites, `git mv` each snapshot, rewrite `subIssues` keys, and
       set `config.linear.teamKey` — editing the config as text so unrelated
-      formatting is preserved.
-- [ ] Guard first: refuse when any file the plan would touch has uncommitted
+      formatting is preserved. *(Shipped in 10.4.0 as `repairDrift`, including the textual config edit and the `git mv` with rename fallback; moves and is renamed with phase 1.)*
+- [x] Guard first: refuse when any file the plan would touch has uncommitted
       changes, naming them. The rewrite must land as one revertable change.
+      *(Shipped in 10.4.0 — note it refuses on **any** dirty file, not only the ones in the plan. Broader than specified; keep it, and say so in the refusal.)*
 - [ ] Re-run the spot-check at apply time, not just at plan time, so a stale plan
       cannot be applied.
-- [ ] Wire `--yes` in `cli-sync.js`; print what changed and that nothing was
-      pushed — the mirror is untouched, only the repo's stamps moved.
+- [ ] Wire `--yes` in `cli-sync.js` (renaming the shipped `--write`); print what
+      changed and that nothing was pushed — the mirror is untouched, only the
+      repo's stamps moved.
 - [ ] Point `/spec-status` at `retarget` when it sees a recorded/live key
       mismatch, and document the verb in `linear.config.md`.
 - [ ] Add an end-to-end test over a fixture repo with real `git`: stamped specs,
