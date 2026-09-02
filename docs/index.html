@@ -772,7 +772,7 @@
     <div class="section-head reveal">
       <div class="eyebrow">Command reference</div>
       <h2>Every skill, and what it does to the spec.</h2>
-      <p class="lede">Bucket is status — each command moves the spec's folder and stamps its header. The Linear group only lights up when a <span class="mono" style="font-size:.9em">linear.config.json</span> is present.</p>
+      <p class="lede">Bucket is status — each command moves the spec's folder and stamps its header. The Linear group ships only with the <a href="linear.html">superset</a>. Sync itself waits for a <span class="mono" style="font-size:.9em">linear.config.json</span>, but <span class="mono" style="font-size:.9em">/spec-linear-setup</span> and <span class="mono" style="font-size:.9em">spec-sync doctor</span> are what you run <em>before</em> one exists.</p>
     </div>
 
     <div class="table-wrap reveal">
@@ -798,9 +798,11 @@
           <tr><td class="cmd">/spec-connect</td><td>Proxy canonical localhost ports to a spec's own dev stack.</td><td class="folder">—</td></tr>
           <tr><td class="cmd">/spec-to-main</td><td>Rebase + fast-forward onto base mid-spec, for CI / shared envs.</td><td class="folder">in-progress/</td></tr>
 
-          <tr class="grp-row"><td colspan="3">Linear sync — needs linear.config.json</td></tr>
+          <tr class="grp-row"><td colspan="3">Linear sync — the superset only</td></tr>
+          <tr><td class="cmd">/spec-linear-setup</td><td>Configure sync by interview; validates your workflow-state names.</td><td class="folder">—</td></tr>
           <tr><td class="cmd">/spec-status</td><td>Read-only drift report: what the next push would create/update, any workflow-state drift, and any phase whose status markers disagree.</td><td class="folder">— read-only</td></tr>
           <tr><td class="cmd">/spec-push</td><td>Repo → Linear, one way. Diffs against the last-pushed snapshot; creates/updates the spec issue and its phase sub-issues; stamps IDs back.</td><td class="folder">→ Linear</td></tr>
+          <tr><td class="cmd">/spec-sync</td><td>The repo-wide operations: what is linked, workspace states and projects, read-back checks, bulk mirroring.</td><td class="folder">— read-only by default</td></tr>
         </tbody>
       </table>
     </div>
@@ -812,37 +814,56 @@
   <div class="wrap">
     <div class="section-head reveal">
       <div class="eyebrow">Get started</div>
-      <h2>Two files stand between you and using the Linear layer.</h2>
-      <p class="lede">You already know the terminal half. The reason you're not on Linear yet isn't complexity — it's that no one showed you it's an opt-in config, not a migration. Here it is.</p>
+      <h2>One command scaffolds it. Nothing else is required.</h2>
+      <p class="lede">The base is tracker-free and stays that way. No account, no config, no service — your specs are markdown in your repo, and every command is a filesystem operation.</p>
     </div>
 
     <div class="quick-grid reveal">
       <div class="qbox">
-        <h3><span class="q-badge">1</span> Set up the workflow</h3>
-        <p>The scaffolder writes the spec skills into <span class="mono">.claude/</span> and the <span class="mono">specs/</span> lifecycle folders, and wires version control. Idempotent — safe to re-run.</p>
-        <div class="code"><span class="c"># scaffold into .claude/ + specs/  (this OR the base)</span>
-npx @skitterbyte/skitterspec-linear <span class="p">init</span>
+        <h3><span class="q-badge">1</span> Scaffold it</h3>
+        <p>Writes the spec skills into <span class="mono">.claude/</span>, the <span class="mono">specs/</span> lifecycle folders, and the rules the skills follow. Idempotent — safe to re-run, and it repairs a half-install rather than clobbering your edits.</p>
+        <div class="code"><span class="c"># tracker-free base</span>
+npx @skitterbyte/skitterspec <span class="p">init</span>
 
-<span class="c"># tracker-free base instead:</span>
-<span class="c"># npx @skitterbyte/skitterspec init</span>
-
-<span class="c"># then, in Claude Code, plan something</span>
-<span class="p">/spec</span> add CSV export to reports</div>
+<span class="c"># or the Linear superset instead — one OR the other,</span>
+<span class="c"># never both; the superset contains the whole base</span>
+<span class="c"># npx @skitterbyte/skitterspec-linear init</span></div>
       </div>
 
       <div class="qbox">
-        <h3><span class="q-badge">2</span> Wake up Linear</h3>
-        <p>Add the MCP server, then drop one config file. Until it exists, every command is a plain filesystem workflow — nothing to undo.</p>
-        <div class="code"><span class="c"># 1 · connect the Linear MCP server</span>
-claude mcp add --transport http linear \
-  https://mcp.linear.app/mcp
+        <h3><span class="q-badge">2</span> Plan something</h3>
+        <p>In Claude Code. <span class="mono">/spec</span> grills you to a shared understanding first, then writes a phased spec into <span class="mono">specs/backlog/</span> — it does not start coding.</p>
+        <div class="code"><span class="p">/spec</span> add CSV export to reports
 
-<span class="c"># 2 · gate the sync on one file</span>
-specs/.core/<span class="p">linear.config.json</span>
+<span class="c"># then build it, phase by phase</span>
+<span class="p">/spec-go</span> feat-csv-export
 
-<span class="c"># 3 · publish your first spec</span>
-<span class="p">/spec-push</span></div>
+<span class="c"># verify, land, tear down</span>
+<span class="p">/spec-complete</span></div>
       </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">3</span> Where things live</h3>
+        <p>A spec's <strong>folder is its status</strong> — there is no index to keep in step, and <span class="mono">git log</span> is the history.</p>
+        <div class="code">specs/
+  <span class="p">backlog/</span>       ready to build
+  <span class="p">in-progress/</span>   being built now
+  <span class="p">complete/</span>      done
+  <span class="p">cancelled/</span>     dropped, with a reason
+  .core/         rules + config</div>
+        <p class="hero-note">Git does not store empty folders, so a bucket disappears when nothing is in it and returns when something is. That is normal.</p>
+      </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">4</span> Optional: a worktree per spec</h3>
+        <p>Turn on per-spec isolation and <span class="mono">/spec-go</span> gives every in-progress spec its own git worktree and branch. Several specs run side by side without stashing, and <span class="mono">main</span> stays free.</p>
+        <div class="code">npx @skitterbyte/skitterspec init <span class="p">--isolation</span></div>
+        <p>Teardown is folded into <span class="mono">/spec-complete</span> and <span class="mono">/spec-cancel</span>, so finishing a spec reclaims its worktree.</p>
+      </div>
+    </div>
+
+    <div class="cta-row reveal">
+      <a class="btn btn-primary" href="linear.html">Want it mirrored in Linear? →</a>
     </div>
   </div>
 </section>

@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-docs-site-split (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-02)
+> **Status:** In Progress — all phases built (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -108,7 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Carve out `linear.html` and cross-link the two | ✅ | [01-split.md](01-split.md) |
 | 2 | The full setup path on `linear.html` | ✅ | [02-setup-path.md](02-setup-path.md) |
-| 3 | Refresh `index.html` and the docs README | ⬜ | [03-base-and-readme.md](03-base-and-readme.md) |
+| 3 | Refresh `index.html` and the docs README | ✅ | [03-base-and-readme.md](03-base-and-readme.md) |
 
 ## Open questions
 
@@ -146,3 +146,19 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   raw HTML, and the verb sits inside a highlighting `<span>`, so it checked
   nothing and passed. Caught by injecting a fake verb and seeing it still
   pass. Both guards now strip markup, and both were re-verified by injection.
+- 2026-09-02 — Phase 3 done. `index.html`'s Get started is now the base
+  path: scaffold, plan, where things live, optional isolation — ending in a
+  hand-off to `linear.html`. The reference gained `/spec-linear-setup` and
+  `/spec-sync`, and its group label is corrected: the Linear group ships
+  with the superset, and two of its commands are what you run BEFORE a
+  config exists.
+- 2026-09-02 — `docs/README.md` no longer pins versions. The invariant is
+  now a test — every verb and skill named on a page must exist, no dead
+  links, no off-origin fetch, own `og:url` — which holds at any version. The
+  README says plainly what the tests cannot check: whether the prose is
+  still true, and whether pasted output still matches what the command
+  prints.
+- 2026-09-02 — The base page's 'where things live' card states that git does
+  not store empty folders and a bucket disappearing is normal — the same
+  fact behind `bug-scaffold-empty-buckets`, said once where a new user
+  meets it.

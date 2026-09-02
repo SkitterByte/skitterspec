@@ -2,8 +2,16 @@
 
 Marketing + docs site for **skitterspec** and the **skitterspec-linear** superset.
 
-`index.html` — no build step, no dependencies, all CSS/JS and the favicon
-inlined. Two sibling assets support link previews: `og.png` (the 1200×630 social
+Two pages, each self-contained — no build step, no dependencies, all CSS/JS and
+the favicon inlined:
+
+| Page | Owns |
+|------|------|
+| `index.html` | The landing page and the **tracker-free base**: the loop, the walkthrough, the full command reference, and getting started with no tracker. |
+| `linear.html` | The **Linear superset**, end to end: a new team, `/spec-linear-setup`, the API key, checking with `spec-sync doctor`, and repairing a renamed team with `spec-sync retarget`. |
+
+Each links to the other; the command reference stays whole on `index.html` so one
+page still answers "what are all the commands?". Two sibling assets support link previews: `og.png` (the 1200×630 social
 card, referenced by absolute URL because scrapers require a real raster image)
 and `favicon.svg` (the icon source; also inlined into `index.html`). It all lives
 outside the `packages/*` pnpm workspace glob, so it has no effect on
@@ -22,9 +30,11 @@ Just open the file:
 
 ```
 open docs/index.html          # macOS
+open docs/linear.html
 ```
 
-Or serve it (any static server works):
+Or serve them (any static server works — needed if you want the cross-page links
+to behave exactly as deployed):
 
 ```
 npx serve docs
@@ -36,8 +46,9 @@ npx serve docs
 2. **Source:** Deploy from a branch.
 3. **Branch:** `main`, **Folder:** `/docs`.
 
-GitHub serves `docs/index.html` at the site root. (No `.nojekyll` needed — it's a
-single self-contained file with no `_`-prefixed asset paths.)
+GitHub serves `docs/index.html` at the site root and `docs/linear.html` at
+`/linear.html` — no extra configuration for the second page. (No `.nojekyll`
+needed — both are self-contained files with no `_`-prefixed asset paths.)
 
 Prefer to keep an arbitrary folder name / more control? Switch the Pages source to
 **GitHub Actions** and add `.github/workflows/pages.yml` using
@@ -46,8 +57,18 @@ file the `/docs` branch deploy above is the least machinery.
 
 ## Editing
 
-`index.html` is theme-aware (light/dark, with a manual toggle), responsive, and
-respects `prefers-reduced-motion`. Keep it dependency-free — inline any new CSS
-or JS rather than linking a CDN. Content is verified against the package source
-(skitterspec v13, skitterspec-linear v6); update the version line in the footer
-when those bump.
+Both pages are theme-aware (light/dark, with a manual toggle), responsive, and
+respect `prefers-reduced-motion`. Keep them dependency-free — inline any new CSS
+or JS rather than linking a CDN. `og.png` is shared deliberately: one social card
+for the project, with only `og:url` and the title/description differing per page.
+
+**Content is verified by test, not by a version note.** `scripts/docs-claims.test.js`
+asserts that every `spec-sync` verb and every `/spec-…` skill named on either page
+really exists in the engine, that no in-page or cross-page link is dead, that
+neither page fetches anything off-origin, and that each carries its own canonical
+`og:url`. Those hold at any version, which a pinned number does not — this note
+used to read "verified against v13 / v6" long after both had moved on.
+
+Two things the tests cannot check, so check them yourself when editing: that the
+prose is still true, and that the pasted command output still matches what the
+command prints.
