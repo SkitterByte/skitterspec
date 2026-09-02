@@ -29,7 +29,8 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   // IDs are read by the MCP adapter; leave blank until you connect the `linear`
   // MCP server.
   "linear": {
-    "teamKey": "",        // human-facing key, e.g. "ENG" (optional)
+    "teamKey": "",        // human-facing key, e.g. "ENG" — the RECORDED key;
+                          // see "Renaming a team" below (optional)
     "teamId": "",         // Linear team UUID (the issue's team)
     "projectId": ""       // DEFAULT for the project picker (see below)
   },
@@ -483,3 +484,28 @@ Linear-native triage and are never touched. No base merge, no conflicts, no
   last-pushed snapshot is content hashes of the last push, so `/spec-push` knows
   what changed without reading Linear back; each worktree carries its own, so it
   must travel with the branch.
+
+## Renaming a team
+
+Renaming a Linear team rewrites the key in every issue identifier (`ENG-7` →
+`PLT-7`). The repo stamps identifiers in three places — spec frontmatter, the
+`linear-base` snapshot filenames, and the `subIssues` keys inside them — and
+nothing moves them, so afterwards `/spec-push` fails with
+`no Linear issue found for ENG-7`.
+
+```
+skitterspec spec-sync retarget          # what would change
+skitterspec spec-sync retarget --yes    # apply it
+```
+
+`teamId` survives a rename, so the command asks Linear for that team's *current*
+key and compares it with `teamKey` — which is why `teamKey` is worth setting even
+though nothing else reads it. With `teamKey` empty it falls back to the prefix
+observed in the stamps, and refuses if those disagree rather than guessing.
+
+Before reporting a plan as safe it resolves one remapped identifier and compares
+its **title** to the spec's: a team rename preserves issue numbers, and this is
+what proves it did. `--yes` refuses on a dirty tree so the rewrite lands as one
+revertable change, and it rewrites machine-read fields only — identifiers in
+spec prose are the historical record and are left alone. It pushes nothing; the
+next ordinary `/spec-push` reconciles content once its issues resolve again.

@@ -46,6 +46,24 @@ skitterspec spec-sync status <spec> [--remote <issuefile>] [--workspace-states <
 - With `--workspace-states`, fails loudly if a configured state name isn't in the
   workspace (Linear would silently no-op it).
 
+## 3b. A key mismatch is a different problem
+
+If the spec's `linear_identifier` carries a **different team key** than
+`linear.teamKey` in `specs/.core/linear.config.json` — or the issue read in step
+2 came back under another key — the team was renamed and the repo's stamps are
+stale. That is not push drift and `/spec-push` cannot fix it: it will fail with
+`no Linear issue found for <old>-<n>`.
+
+Point the user at the CLI and stop:
+
+```
+pnpm exec skitterspec-linear spec-sync retarget
+```
+
+Read-only until `--yes`. Do not attempt the rewrite by hand — the identifiers
+live in frontmatter, snapshot filenames and the keys inside those snapshots, and
+a hand edit misses some (it has, twice).
+
 ## 4. Report
 
 Relay the engine's output verbatim. Suggest `/spec-push` if a push is pending.

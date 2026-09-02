@@ -603,3 +603,53 @@ test('/spec-sync warns off the snapshot footgun in verify', () => {
   assert.match(text, /\.base\.json/, 'names the file that must not be passed')
   assert.match(text, /hash/i, 'says why — it stores hashes, not descriptions')
 })
+
+// --- the docs must name commands that exist ----------------------------------
+//
+// `spec-sync doctor` was renamed to `retarget` and NOTHING failed: the skill
+// went on documenting a command the CLI no longer had. These pin the pointers
+// that make the verb discoverable, and the routing table to real verbs.
+
+const { PROVIDER_COMMANDS } = require('../src/commands.js')
+
+test('every spec-sync verb the skill routes to is a real subcommand', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-sync', 'SKILL.md'), 'utf8')
+  const usage = String(PROVIDER_COMMANDS['spec-sync'].usage)
+  assert.ok(usage, 'spec-sync is a provider command')
+  // The routing table's right-hand cell may hold several verbs, or a verb with
+  // its arguments (`verify <spec> --stored <file>`), so take the leading word of
+  // every backticked span in it. Rows that route nowhere (`**defer**`) have none.
+  const rows = [...text.matchAll(/^\|(?!\s*-+)[^\n]*\|([^|\n]*)\|\s*$/gm)].map((m) => m[1])
+  const routed = [
+    ...new Set(
+      rows
+        .flatMap((cell) => [...cell.matchAll(/`([^`]+)`/g)].map((m) => m[1].trim().split(/\s+/)[0]))
+        .filter((v) => /^[a-z][a-z-]*$/.test(v)),
+    ),
+  ]
+  assert.ok(routed.length >= 6, `found the routing table, got ${JSON.stringify(routed)}`)
+  const cli = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli-sync.js'), 'utf8')
+  for (const verb of routed) {
+    assert.match(cli, new RegExp(`case '${verb}':`), `/spec-sync routes to \`${verb}\`, which cli-sync must dispatch`)
+  }
+})
+
+test('the retarget verb is discoverable from spec-status and the config doc', () => {
+  const status = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-status', 'SKILL.md'), 'utf8')
+  assert.match(status, /spec-sync retarget/, 'a key mismatch points at the verb that fixes it')
+  assert.match(status, /no Linear issue found/, 'and says what the failure looks like')
+
+  const doc = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(doc, /## Renaming a team/)
+  assert.match(doc, /spec-sync retarget --yes/)
+  assert.match(doc, /teamKey/, 'and explains why teamKey is worth setting')
+})
+
+test('no shipped asset still refers to the removed doctor command', () => {
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])
+  for (const file of walk(ASSETS)) {
+    const text = fs.readFileSync(file, 'utf8')
+    assert.doesNotMatch(text, /spec-sync doctor/, `${path.relative(ASSETS, file)} names a command that no longer exists`)
+  }
+})
