@@ -88,7 +88,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The offline checks, as a pure report | ⬜ | [01-offline-checks.md](01-offline-checks.md) |
+| 1 | The offline checks, as a pure report | ✅ | [01-offline-checks.md](01-offline-checks.md) |
 | 2 | The command, and the skill that runs it | ⬜ | [02-command-and-skill.md](02-command-and-skill.md) |
 | 3 | Verify it actually works against Linear | ⬜ | [03-check-remote.md](03-check-remote.md) |
 
@@ -108,3 +108,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-02 — Spec created, after `init` was found reporting tracker sync as
   unconfigured on a configured repo (fixed in `f75e612`). That bug was one layer
   of the same gap: no single place answers "is this set up?".
+- 2026-09-02 — Phase 1 done. `runChecks` is pure and `fs`-free, so all
+  twelve branches of the matrix are driven from literals.
+- 2026-09-02 — Wording note: decision 6 says "exit non-zero when anything is
+  missing", but phases 1 and 2 both say `ok`/exit-0 turns on `broken` alone,
+  which is what decision 7 and the example output mean. Built to the phases;
+  decision 6's prose is the loose one.
+- 2026-09-02 — Added a `skipped` state the spec did not name, for rows that
+  are neither satisfied nor a problem: the key when no tracker exists, and
+  the remote row before `--check-remote`.
