@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-credentials-store (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (2026-09-02)
+> **Status:** Complete (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -132,9 +132,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
 | 2026-09-02 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-02 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-02 — Completed; all three phases done, tests green (899).
 - 2026-09-02 — Phase 3: `set --command` refuses a command with a key embedded in
   it. Refusing `--key` made that the obvious workaround, and it leaks worse — a
   command is displayed by `status` and stored in clear.
