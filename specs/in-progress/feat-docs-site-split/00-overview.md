@@ -106,7 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Carve out `linear.html` and cross-link the two | ⬜ | [01-split.md](01-split.md) |
+| 1 | Carve out `linear.html` and cross-link the two | ✅ | [01-split.md](01-split.md) |
 | 2 | The full setup path on `linear.html` | ⬜ | [02-setup-path.md](02-setup-path.md) |
 | 3 | Refresh `index.html` and the docs README | ⬜ | [03-base-and-readme.md](03-base-and-readme.md) |
 
@@ -125,3 +125,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-09-02 — Spec created. Audit found the page stale by omission only: all 13
   skills it names still exist, and nothing retired is referenced.
+- 2026-09-02 — Phase 1 done. `index.html` 997 → 891 lines; `linear.html` is
+  685. The `#linear` id stays on the base page as a pointer section, so any
+  existing link to `…/#linear` still lands somewhere sensible; the moved
+  section is `#why` on the new page.
+- 2026-09-02 — Scope found during the phase: `docs/linear.html` had to be
+  added to `docs-claims.test.js`'s `SURFACES`, and the standalone checks are
+  now four permanent tests. Splitting one page into two turns every in-page
+  anchor into a possible cross-page link, and a dead one fails silently.
+  Verified non-vacuous by injecting a dead anchor and watching it fail.

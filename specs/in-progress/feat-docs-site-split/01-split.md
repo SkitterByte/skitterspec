@@ -1,6 +1,6 @@
-# Phase 1 — Carve out `linear.html` and cross-link the two ⬜
+# Phase 1 — Carve out `linear.html` and cross-link the two ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a second self-contained page exists, the Linear-only content has moved
 onto it, and each page points at the other — proven by both rendering standalone
@@ -8,19 +8,25 @@ with no shared asset.
 
 ## Tasks
 
-- [ ] Create `docs/linear.html` from `index.html`'s shell: the same inline CSS,
+- [x] Create `docs/linear.html` from `index.html`'s shell: the same inline CSS,
       theme toggle, reduced-motion handling and inlined favicon, with its own
       `<title>`, `og:`/`twitter:` tags and `og:url`.
-- [ ] Move the Linear-only sections across — the "Add Linear" opt-in section and
+- [x] Move the Linear-only sections across — the "Add Linear" opt-in section and
       the native-vs-custom comparison — leaving `index.html` a short pointer in
       their place rather than a hole.
-- [ ] Keep the full command reference on `index.html` (decision 3); on
+- [x] Keep the full command reference on `index.html` (decision 3); on
       `linear.html` reference it by link rather than duplicating the table.
-- [ ] Cross-link: `index.html`'s nav gains a `linear.html` entry, and
+- [x] Cross-link: `index.html`'s nav gains a `linear.html` entry, and
       `linear.html` links back to the base page in its nav and its footer.
-- [ ] Verify both pages standalone: open each with the other file absent and
+- [x] Verify both pages standalone: open each with the other file absent and
       confirm no broken layout, no missing asset, no console error.
-- [ ] Confirm neither page requests anything off-origin except the existing
+- [x] Add `docs/linear.html` to the `SURFACES` list in
+      `scripts/docs-claims.test.js` — without it the new page escapes the
+      retired-claims guard entirely.
+- [x] Make the standalone checks permanent tests rather than a one-off run:
+      in-page anchors resolve, cross-page links resolve to a real file and id,
+      no off-origin request, and each page carries its own `og:url`.
+- [x] Confirm neither page requests anything off-origin except the existing
       `og.png` absolute URL (scrapers need a real raster) — grep for `http` in
       `src`/`href` and check each hit is deliberate.
 

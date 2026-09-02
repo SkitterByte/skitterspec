@@ -26,6 +26,7 @@ const ROOT = path.join(__dirname, '..')
 const SURFACES = [
   'README.md',
   'docs/index.html',
+  'docs/linear.html',
   'packages/skitterspec-linear/README.md',
   'packages/skitterspec/README.md',
   'packages/common/README.md',
@@ -77,4 +78,58 @@ test('the guard leaves the still-true framing sayable', () => {
   for (const s of fine) {
     assert.ok(!RETIRED.some((re) => re.test(s)), `false positive on: ${s}`)
   }
+})
+
+// --- the pages must not link into thin air -----------------------------------
+//
+// Splitting one page into two turns every in-page `#anchor` into a possible
+// cross-page link, and a dead one fails silently: the browser just does nothing.
+// Nothing else checks the site, so this does.
+
+const PAGES = ['docs/index.html', 'docs/linear.html']
+
+const idsOf = (html) => new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))
+const readPage = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
+
+test('every in-page anchor points at an id that exists on that page', () => {
+  for (const rel of PAGES) {
+    const html = readPage(rel)
+    const ids = idsOf(html)
+    for (const m of html.matchAll(/href="#([^"]+)"/g)) {
+      assert.ok(ids.has(m[1]), `${rel} links to #${m[1]}, which is not an id on that page`)
+    }
+  }
+})
+
+test('every cross-page link resolves to a real file and a real anchor', () => {
+  for (const rel of PAGES) {
+    const html = readPage(rel)
+    for (const m of html.matchAll(/href="([a-z-]+\.html)(?:#([^"]+))?"/g)) {
+      const target = path.join(ROOT, 'docs', m[1])
+      assert.ok(fs.existsSync(target), `${rel} links to ${m[1]}, which does not exist`)
+      if (m[2]) {
+        assert.ok(
+          idsOf(fs.readFileSync(target, 'utf8')).has(m[2]),
+          `${rel} links to ${m[1]}#${m[2]}, which is not an id on that page`,
+        )
+      }
+    }
+  }
+})
+
+test('each page is self-contained — no off-origin request', () => {
+  // og:image is an absolute URL by necessity (scrapers need a real raster), but
+  // it is metadata, not something the page fetches. Anything the BROWSER would
+  // request must be local or inline: the site has no build step and no CDN.
+  for (const rel of PAGES) {
+    for (const m of readPage(rel).matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)) {
+      assert.fail(`${rel} would fetch ${m[1]} — inline it or vendor it instead`)
+    }
+  }
+})
+
+test('each page carries its own canonical og:url', () => {
+  const urls = PAGES.map((rel) => /og:url" content="([^"]+)"/.exec(readPage(rel))[1])
+  assert.strictEqual(new Set(urls).size, urls.length, `og:url must differ per page, got ${JSON.stringify(urls)}`)
+  assert.ok(urls.some((u) => u.endsWith('/linear.html')), 'the Linear page points at itself')
 })

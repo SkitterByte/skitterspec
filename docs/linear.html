@@ -3,24 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="skitterspec — spec-driven development for Claude Code that stays in git, with an optional one-way Linear sync: the repo is canonical, Linear is a generated mirror. Scenario walkthrough and the terminal-vs-Linear division of labour.">
+<meta name="description" content="Set up the skitterspec Linear superset end to end: a new team, the config interview, your API key, then check it works with spec-sync doctor and repair a renamed team with spec-sync retarget. One-way sync — the repo is canonical, Linear is a generated mirror.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNWFiN2YyIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzFhODZkNiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0idXJsKCNnKSIvPgogIDxwYXRoIGQ9Ik0xOS41IDcuNSBMMjMuMiA3LjUgTDEyLjUgMjQuNSBMOC44IDI0LjUgWiIgZmlsbD0iI2ZmZiIvPgo8L3N2Zz4K">
 <link rel="alternate icon" href="favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="skitterspec — spec-driven development that stays in git">
-<meta property="og:description" content="Drive a feature from a grilled spec to landed, tested code in your terminal. Add Linear and the same spec becomes an issue your team can review — a generated mirror of your git-canonical spec, kept current with one-way push.">
+<meta property="og:title" content="skitterspec + Linear — set it up, check it, fix it">
+<meta property="og:description" content="From a new Linear team to a verified mirror: the config interview, the API key, and one command that tells you whether it actually works.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://skitterbyte.github.io/skitterspec/">
+<meta property="og:url" content="https://skitterbyte.github.io/skitterspec/linear.html">
 <meta property="og:site_name" content="skitterspec">
 <meta property="og:image" content="https://skitterbyte.github.io/skitterspec/og.png">
 <meta property="og:image:width" content="2400">
 <meta property="og:image:height" content="1260">
 <meta property="og:image:alt" content="skitterspec — Your specs live in git. Linear just watches.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="skitterspec — spec-driven development that stays in git">
-<meta name="twitter:description" content="From a grilled spec to landed, tested code in your terminal. Add Linear and the same spec becomes an issue your team can review.">
+<meta name="twitter:title" content="skitterspec + Linear — set it up, check it, fix it">
+<meta name="twitter:description" content="From a new Linear team to a verified mirror, with one command that tells you whether it actually works.">
 <meta name="twitter:image" content="https://skitterbyte.github.io/skitterspec/og.png">
-<title>skitterspec — spec-driven development that stays in git</title>
+<title>skitterspec + Linear — set up, check, fix</title>
 <style>
   :root {
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -485,376 +485,170 @@
       <span>skitterspec <small>+ linear</small></span>
     </div>
     <nav class="nav-links">
-      <a href="#loop">The loop</a>
-      <a href="#scenario">Walkthrough</a>
-      <a href="#surfaces">Two surfaces</a>
-      <a href="#linear">Add Linear</a>
-      <a href="linear.html">Linear setup</a>
-      <a href="#reference">Reference</a>
-      <a class="pkg pill" href="#quickstart">Get started</a>
+      <a href="index.html">Base</a>
+      <a href="#why">Why</a>
+      <a href="#setup">Set up</a>
+      <a href="#check">Check</a>
+      <a href="#fix">Fix</a>
+      <a href="#sync">Everyday</a>
+      <a class="pkg pill" href="#setup">Get started</a>
       <button class="theme-btn" id="themeToggle" aria-label="Toggle colour theme">◐</button>
     </nav>
   </div>
 </header>
 
 <!-- ============ HERO ============ -->
-<section class="hero" style="padding-top:clamp(56px,8vw,96px);">
-  <div class="wrap hero-grid">
-    <div class="reveal in">
-      <div class="eyebrow">Spec-driven development · for Claude Code</div>
-      <h1>Your specs live in <span class="hl">git.</span><br>Linear just watches.</h1>
-      <p class="sub">skitterspec drives a feature from <strong>a grilled spec</strong> to <strong>landed, tested code</strong> — entirely in your terminal. Add the Linear layer and that same spec shows up as an issue your team can review and triage — a generated mirror of your git-canonical spec, pushed up one way.</p>
-      <div class="cta-row">
-        <a href="#scenario" class="btn btn-primary">See it end to end →</a>
-        <a href="#surfaces" class="btn btn-ghost">Terminal vs Linear?</a>
-      </div>
-      <p class="hero-note">git-native · worktree-isolated · tracker-optional</p>
-    </div>
-
-    <div class="surfaces reveal in">
-      <div class="win" aria-label="Terminal running skitterspec">
-        <div class="win-bar">
-          <span class="dots"><i></i><i></i><i></i></span>
-          <span class="title">claude-code — feat-sort-inbox</span>
-        </div>
-        <div class="term">
-<div class="l"><span class="prompt">›</span> <span class="cmd">/spec-go</span> <span class="dim">feat-sort-inbox</span></div>
-<div class="l"><span class="dim">  provisioning worktree …</span> <span class="ok">✓</span></div>
-<div class="l"><span class="dim">  dev servers up on :3012 / :8092</span> <span class="ok">✓</span></div>
-<div class="l"><span class="dim">  implementing</span> <span class="info">Phase 2 · sort controls</span></div>
-<div class="l"><span class="dim">  tests</span> <span class="warn">red → green</span> <span class="ok">✓ 14 passing</span></div>
-<div class="l"><span class="prompt">›</span> <span class="cmd">/spec-push</span></div>
-<div class="l"><span class="dim">  SKI-204 ← spec issue + 2 sub-issues</span> <span class="ok">↑ synced</span></div>
-        </div>
-      </div>
-
-      <div class="surface-link"><span class="bar"></span>one spec · two surfaces<span class="bar"></span></div>
-
-      <div class="lcard" aria-label="The same spec shown as a Linear issue">
-        <div class="lcard-top">
-          <div>
-            <div class="id">SKI-204 · Issue</div>
-            <div class="name">Sort the task inbox</div>
-          </div>
-          <span class="status progress">In Progress</span>
-        </div>
-        <div class="lcard-body">
-          <div class="issue done"><span class="box"></span>Phase 1 · schema + column<span class="tag">SKI-205</span></div>
-          <div class="issue"><span class="box"></span>Phase 2 · sort controls<span class="tag">SKI-208</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ THE CORE LOOP ============ -->
-<section id="loop">
+<section class="hero">
   <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">The core loop</div>
-      <h2>Three commands carry a feature from idea to landed.</h2>
-      <p class="lede">Everything else is a branch off this spine. Each command sets the spec's status and moves its folder, so the repo tree <em>is</em> the board — no status field to keep honest by hand.</p>
-    </div>
-
-    <div class="pipeline reveal">
-      <div class="stage">
-        <span class="num">01 · PLAN</span>
-        <h3><span class="cmdname">/spec</span></h3>
-        <p>Claude grills you to a genuinely shared understanding of the problem <em>and</em> the approach, then writes one concise, phased, test-included spec.</p>
-        <div class="foot"><span class="status ready">Ready</span> specs/backlog/</div>
-        <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </div>
-      <div class="stage">
-        <span class="num">02 · BUILD</span>
-        <h3><span class="cmdname">/spec-go</span></h3>
-        <p>Provisions the spec's own git worktree, brings its dev servers up, and implements the next phase — phase isn't done until its tests are green.</p>
-        <div class="foot"><span class="status progress">In Progress</span> specs/in-progress/</div>
-        <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </div>
-      <div class="stage">
-        <span class="num">03 · LAND</span>
-        <h3><span class="cmdname">/spec-complete</span></h3>
-        <p>Verifies every phase is done and tests pass, lands the branch on your base, then tears the worktree and stack down. Clean exit.</p>
-        <div class="foot"><span class="status complete">Complete</span> specs/complete/</div>
-      </div>
-    </div>
-
-    <div class="side-skills reveal">
-      <span class="lbl">branches off the spine:</span>
-      <span class="chip"><b>/spec-bug</b> · red→green from a repro</span>
-      <span class="chip"><b>/spec-hotfix</b> · fix a released tag</span>
-      <span class="chip"><b>/spec-review</b> · refresh a stale spec</span>
-      <span class="chip"><b>/spec-live</b> · test on your running server</span>
-      <span class="chip"><b>/spec-connect</b> · proxy a spec to localhost</span>
-      <span class="chip"><b>/spec-to-main</b> · land mid-spec for CI</span>
-      <span class="chip"><b>/spec-cancel</b> · shelve with a reason</span>
-    </div>
-  </div>
-</section>
-
-<!-- ============ SCENARIO WALKTHROUGH ============ -->
-<section id="scenario" class="scenario">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">Walkthrough · ship a feature</div>
-      <h2>One feature, start to finish — and exactly where each moment happens.</h2>
-      <p class="lede">Follow "sort the task inbox" through the whole lifecycle. Watch the colour of the label: <span class="step-where term-w">terminal</span> is where you build, <span class="step-where linear-w">linear.app</span> is where the work gets reviewed and processed.</p>
-    </div>
-
-    <div class="steps reveal">
-      <!-- 1 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">1</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec</span> Grill the idea into a spec <span class="step-where term-w">terminal</span></h3>
-          <p>You describe what you want. Claude pushes back — edge cases, the data model, how you'll test it — until the shape is genuinely agreed, then writes it out as a phased folder in <code>specs/backlog/</code>. Nothing is coded yet; you're buying clarity first.</p>
-          <p>Work can arrive the other way round, too: <code>/spec SKI-188</code> starts from an existing Linear issue, and <code>/spec --from-issue</code> browses the ones your web app filed. That issue <em>becomes</em> the spec's issue — the reporter's thread stays where it is, and their words carry into the spec's Problem section.</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec sort the task inbox by state + created date</div>
-<div class="l"><span style="color:var(--ink-faint)">  → 3 phases · 9 tasks · tests included</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  → specs/backlog/feat-sort-inbox/00-overview.md</span> <span style="color:var(--st-complete)">Ready</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">2</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec-push</span> Publish it so the team can see it <span class="step-where linear-w">bridge</span></h3>
-          <p>Optional, and the part worth adopting: push publishes the spec as a <b>Linear issue</b> and each phase as a <b>sub-issue</b> (phase name, goal, and state), stamping the returned IDs back into your markdown. Each phase's tasks ride along inside its sub-issue as a read-only checklist. You pick which <b>Project</b> it belongs to as it's created — after that, where it lives is Linear's business. Now a PM who never opens a terminal can see the plan.</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-push</div>
-<div class="l"><span style="color:var(--ink-faint)">  project?</span> <span style="color:var(--st-progress)">Task Inbox</span> <span style="color:var(--ink-faint)">· Billing · None (team only)</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  created</span> <span style="color:var(--st-progress)">SKI-204</span> <span style="color:var(--ink-faint)">· issue + 2 sub-issues</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  stamped linear_identifier into frontmatter</span> <span style="color:var(--st-complete)">✓</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">3</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3>Review &amp; prioritise it <span class="step-where linear-w">linear.app</span></h3>
-          <p>In Linear, your teammate sets the priority to High, adds a <code>frontend</code> label, drops a comment on the second phase, and moves it into the current cycle. None of that touches your repo — priority, labels, cycles and comments are Linear-native triage, and one-way sync leaves them alone.</p>
-          <div class="lcard" style="max-width:440px">
-            <div class="lcard-top">
-              <div><div class="id">SKI-204 · updated in Linear</div><div class="name">Sort the task inbox</div></div>
-              <span class="status progress">High</span>
-            </div>
-            <div class="lcard-body" style="gap:9px">
-              <div class="issue" style="padding-left:0"><span style="color:var(--st-progress)">◆</span> priority → High · label <b style="color:var(--ink)">frontend</b></div>
-              <div class="issue" style="padding-left:0"><span style="color:var(--st-ready)">💬</span> "can we default to created-date?" — on Phase 2</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">4</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec-go</span> Build the next phase <span class="step-where term-w">terminal</span></h3>
-          <p>Back in the terminal. The repo is already canonical, so there's nothing to pull down — <code>/spec-go</code> spins up an isolated worktree and dev servers, then implements the phase — red tests to green before it's done. (Read priority and notes in Linear whenever you like; they don't gate the build.)</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-go feat-sort-inbox</div>
-<div class="l"><span style="color:var(--ink-faint)">  repo is canonical · no pull needed</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  worktree ../wt/feat-sort-inbox · servers :3012</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  Phase 2 · sort controls</span> <span style="color:var(--st-progress)">red</span> <span style="color:var(--ink-faint)">→</span> <span style="color:var(--st-complete)">green ✓</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 5 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">5</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec-status</span> See what would push <span class="step-where term-w">terminal</span></h3>
-          <p>A read-only drift report. It shows what the next push would create or update, and flags if Linear's workflow-state drifted from the spec (a card someone moved). It changes nothing — you always know what a push would move before you run it.</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-status</div>
-<div class="l"><span style="color:var(--st-complete)">  ↑ pending</span>   2 sub-issues to update · issue changed</div>
-<div class="l"><span style="color:var(--st-progress)">  ~ drift</span>     Linear state "Todo" · spec "in-progress"</div>
-<div class="l"><span style="color:var(--ink-faint)">  repo wins on the next push</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 6 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">6</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec-complete</span> Land it and tear down <span class="step-where term-w">terminal</span></h3>
-          <p>Verifies every phase is done and green, fast-forwards the branch onto your base, tears the worktree and stack down, and moves the spec to <code>specs/complete/</code>. A final push flips the Linear issue to Done — the board reflects reality because reality drove it.</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-complete</div>
-<div class="l"><span style="color:var(--ink-faint)">  all phases ✓ · 14 tests green · landed on main</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  worktree + stack torn down</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  SKI-204 →</span> <span style="color:var(--st-complete)">Complete</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ TWO SURFACES ============ -->
-<section id="surfaces">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">Two surfaces · one source of truth</div>
-      <h2>The terminal does the work. Linear.app reviews and processes it.</h2>
-      <p class="lede">This is the split that's easy to miss — and the reason to bother wiring Linear in at all. You don't manage the project in <em>either</em> tool; you manage it in the repo, and each surface shows the slice its people need.</p>
-    </div>
-
-    <div class="duo reveal">
-      <div class="duo-col term-col">
-        <span class="duo-tag">◱ Terminal · Claude Code</span>
-        <h3>Where the work happens</h3>
-        <p>The doing surface. This is where the spec is authored and where every line of code and test gets written. The repo is the source of truth — it lives here.</p>
-        <ul class="duo-list">
-          <li><span class="mk">/</span><span><b>Grill &amp; author</b> the spec — problem, approach, phases, tests</span></li>
-          <li><span class="mk">/</span><span><b>Provision</b> isolated worktrees + dev servers per spec</span></li>
-          <li><span class="mk">/</span><span><b>Implement</b> phase by phase, driving tests red → green</span></li>
-          <li><span class="mk">/</span><span><b>Land &amp; tear down</b> — rebase, fast-forward, clean up</span></li>
-        </ul>
-        <p class="who">who lives here → you + Claude, mid-flow</p>
-      </div>
-
-      <div class="duo-col linear-col">
-        <span class="duo-tag">◲ Linear.app · the website</span>
-        <h3>Where it's reviewed &amp; processed</h3>
-        <p>The coordinating surface. A projection of your specs that non-terminal people — PMs, leads, stakeholders — can read, discuss, and triage without ever cloning the repo.</p>
-        <ul class="duo-list">
-          <li><span class="mk">◆</span><span><b>See status</b> at a glance across every project and cycle</span></li>
-          <li><span class="mk">◆</span><span><b>Set priority &amp; labels</b>, slot work into cycles</span></li>
-          <li><span class="mk">◆</span><span><b>Discuss</b> in comments — decisions attached to the work</span></li>
-          <li><span class="mk">◆</span><span><b>Report &amp; plan</b> across teams, initiatives, roadmaps</span></li>
-        </ul>
-        <p class="who">who lives here → PMs, leads, stakeholders</p>
-      </div>
-    </div>
-
-    <div class="bridge reveal">
-      <div class="b-cmds">
-        <span class="chip"><b>/spec-push</b> repo → Linear</span>
-        <span class="chip"><b>/spec-status</b> what would push · drift</span>
-      </div>
-      <p><b>One way: the repo is canonical, Linear is a generated mirror.</b> Push publishes structure &amp; content and the workflow state; Linear-native triage — priority, labels, cycles, comments — is the PM's and is left untouched. Nothing is read back or merged, so there's nothing to clobber.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ============ ADD LINEAR (pointer) ============ -->
-<section id="linear" class="scenario">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">Optional</p>
-      <h2>Add Linear</h2>
-      <p class="sub">Opt in with one config file. Your repo stays canonical; Linear mirrors it.</p>
-    </div>
-    <p class="reveal">
-      The <span class="mono">@skitterbyte/skitterspec-linear</span> superset is everything on this
-      page plus one-way sync: a spec becomes a Linear issue and each phase a sub-issue, pushed
-      from the repo and never read back. It is opt-in — until
-      <span class="mono">specs/.core/linear.config.json</span> exists, nothing changes.
-    </p>
-    <p class="reveal">
-      <a class="pkg pill" href="linear.html">Set it up, check it, fix it →</a>
+    <p class="eyebrow reveal">@skitterbyte/skitterspec-linear</p>
+    <h1 class="reveal">Set it up. Prove it works.</h1>
+    <p class="lede reveal">
+      The Linear superset is the base plus one-way sync. Everything below is opt-in:
+      until <span class="mono">specs/.core/linear.config.json</span> exists, every command is a
+      plain filesystem workflow. New here? Start with <a href="index.html">the base</a>.
     </p>
   </div>
 </section>
 
-<!-- ============ REFERENCE ============ -->
-<section id="reference">
+<!-- ============ ADD LINEAR ============ -->
+<section id="why" class="scenario">
   <div class="wrap">
     <div class="section-head reveal">
-      <div class="eyebrow">Command reference</div>
-      <h2>Every skill, and what it does to the spec.</h2>
-      <p class="lede">Bucket is status — each command moves the spec's folder and stamps its header. The Linear group only lights up when a <span class="mono" style="font-size:.9em">linear.config.json</span> is present.</p>
+      <div class="eyebrow">Add Linear · the superset</div>
+      <h2>Opt in with one config file. Your repo stays canonical; Linear mirrors it.</h2>
+      <p class="lede">The base skitterspec is tracker-free — it knows nothing about Linear. Drop a <code style="font-family:var(--font-mono);font-size:.9em;background:var(--card-2);padding:1px 6px;border-radius:5px;border:1px solid var(--line-soft)">specs/.core/linear.config.json</code> in and the sync skills wake up. No config, no Linear — every other command behaves identically.</p>
     </div>
 
-    <div class="table-wrap reveal">
-      <table>
-        <thead>
-          <tr><th>Command</th><th>What it does</th><th>Lands in</th></tr>
-        </thead>
-        <tbody>
-          <tr class="grp-row"><td colspan="3">Core lifecycle</td></tr>
-          <tr><td class="cmd">/spec</td><td>Grill to a shared understanding, then write a groomed, phased spec.</td><td class="folder">backlog/ · Ready</td></tr>
-          <tr><td class="cmd">/spec-go</td><td>Provision worktree + dev servers, implement the next phase to green.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-complete</td><td>Verify all phases + tests, land on base, tear down.</td><td class="folder">complete/</td></tr>
-          <tr><td class="cmd">/spec-cancel</td><td>Record progress, stamp a reason, tear down.</td><td class="folder">cancelled/</td></tr>
-
-          <tr class="grp-row"><td colspan="3">Entry points &amp; upkeep</td></tr>
-          <tr><td class="cmd">/spec-bug</td><td>Reproduce with a failing test, then drive red → green.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-hotfix</td><td>Fork a worktree from a release tag; land by tag + cherry-pick.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-review</td><td>Re-validate a spec against the codebase; refresh stale parts.</td><td class="folder">— unchanged</td></tr>
-          <tr><td class="cmd">/spec-init</td><td>Bootstrap or repair the workflow in a project (idempotent).</td><td class="folder">—</td></tr>
-
-          <tr class="grp-row"><td colspan="3">Run &amp; test locally</td></tr>
-          <tr><td class="cmd">/spec-live</td><td>Check the branch out in your primary checkout — reuse the running server.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-connect</td><td>Proxy canonical localhost ports to a spec's own dev stack.</td><td class="folder">—</td></tr>
-          <tr><td class="cmd">/spec-to-main</td><td>Rebase + fast-forward onto base mid-spec, for CI / shared envs.</td><td class="folder">in-progress/</td></tr>
-
-          <tr class="grp-row"><td colspan="3">Linear sync — needs linear.config.json</td></tr>
-          <tr><td class="cmd">/spec-status</td><td>Read-only drift report: what the next push would create/update, any workflow-state drift, and any phase whose status markers disagree.</td><td class="folder">— read-only</td></tr>
-          <tr><td class="cmd">/spec-push</td><td>Repo → Linear, one way. Diffs against the last-pushed snapshot; creates/updates the spec issue and its phase sub-issues; stamps IDs back.</td><td class="folder">→ Linear</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<!-- ============ QUICKSTART ============ -->
-<section id="quickstart" class="quick">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">Get started</div>
-      <h2>Two files stand between you and using the Linear layer.</h2>
-      <p class="lede">You already know the terminal half. The reason you're not on Linear yet isn't complexity — it's that no one showed you it's an opt-in config, not a migration. Here it is.</p>
-    </div>
-
-    <div class="quick-grid reveal">
-      <div class="qbox">
-        <h3><span class="q-badge">1</span> Set up the workflow</h3>
-        <p>The scaffolder writes the spec skills into <span class="mono">.claude/</span> and the <span class="mono">specs/</span> lifecycle folders, and wires version control. Idempotent — safe to re-run.</p>
-        <div class="code"><span class="c"># scaffold into .claude/ + specs/  (this OR the base)</span>
-npx @skitterbyte/skitterspec-linear <span class="p">init</span>
-
-<span class="c"># tracker-free base instead:</span>
-<span class="c"># npx @skitterbyte/skitterspec init</span>
-
-<span class="c"># then, in Claude Code, plan something</span>
-<span class="p">/spec</span> add CSV export to reports</div>
+    <div class="cards-3 reveal">
+      <div class="icard">
+        <span class="k">HOW IT TALKS</span>
+        <h3>Over the Linear MCP server</h3>
+        <p>No API keys, no bespoke client. It rides the official hosted Linear MCP endpoint — OAuth, the same surface Claude Code already uses. The custom part is only the one-way projection on top.</p>
       </div>
+      <div class="icard">
+        <span class="k">HOW IT DIFFS</span>
+        <h3>Against a last-pushed snapshot</h3>
+        <p>Content hashes of the last push live in <span class="mono" style="font-size:.85em">specs/.core/linear-base/</span>. Each push diffs the current spec against them to send only what changed — no remote read, no merge.</p>
+      </div>
+      <div class="icard">
+        <span class="k">HOW IT'S SAFE</span>
+        <h3>The repo always wins</h3>
+        <p>One direction, so nothing is ever read back or clobbered. A card moved in Linear is surfaced by <span class="mono" style="font-size:.85em">/spec-status</span> as drift and overwritten on the next push — the mirror can't fight the source.</p>
+      </div>
+    </div>
 
-      <div class="qbox">
-        <h3><span class="q-badge">2</span> Wake up Linear</h3>
-        <p>Add the MCP server, then drop one config file. Until it exists, every command is a plain filesystem workflow — nothing to undo.</p>
-        <div class="code"><span class="c"># 1 · connect the Linear MCP server</span>
-claude mcp add --transport http linear \
-  https://mcp.linear.app/mcp
+    <h3 style="margin-top:56px; font-size:1.15rem;" class="reveal">The mapping — spec structure becomes Linear structure</h3>
+    <div class="map reveal">
+      <div class="map-row">
+        <div class="map-l">spec folder <small>specs/&lt;bucket&gt;/feat-name/</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">Issue</span><small>the whole spec, one issue</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">phase file <small>01-schema.md, 02-controls.md …</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">Sub-issue</span><small>one per phase — name, goal, state</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">task checkbox <small>- [ ] add sortBy param</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">Sub-issue body</span><small>mirrored as a read-only checklist</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">lifecycle bucket <small>backlog / in-progress / complete</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">Workflow state</span><small>mapped in config</small></div>
+      </div>
+    </div>
 
-<span class="c"># 2 · gate the sync on one file</span>
-specs/.core/<span class="p">linear.config.json</span>
+    <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:14px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;">The spec body travels as the issue <b style="color:var(--ink-soft)">description</b>, each phase as a <b style="color:var(--ink-soft)">sub-issue</b> (name, goal, state, and its task list as a read-only checklist), and the lifecycle folder sets the workflow state. Nothing is read back, so a box ticked in Linear is overwritten. Push diffs against a committed last-pushed snapshot, so only what changed is sent — IDs stamped back into the markdown.</p>
 
-<span class="c"># 3 · publish your first spec</span>
-<span class="p">/spec-push</span></div>
+    <h3 style="margin-top:52px; font-size:1.15rem;" class="reveal">Who owns what — no reconciliation, because there's one owner</h3>
+    <p style="color:var(--ink-soft); font-size:.95rem; margin-top:10px; max-width:64ch;" class="reveal">One-way sync means there's nothing to argue about: the repo owns the spec and pushes it; Linear-native triage stays the PM's and is never touched. No base, no conflicts, no <span class="mono">--force</span>.</p>
+    <div class="own reveal">
+      <div class="own-card own-push">
+        <div class="oh"><span class="d"></span>repo owns · pushed</div>
+        <p>The spec body / description, phases &amp; tasks, completion state, and the workflow state. Authored in the repo, published up. State log, changelog &amp; open questions stay local — never leak to Linear.</p>
+      </div>
+      <div class="own-card own-pull">
+        <div class="oh"><span class="d"></span>Linear-native · left alone</div>
+        <p>Priority, labels, cycles, discussion. The PM's to set in Linear; one-way sync neither pushes nor reads them, so it never fights the PM for them.</p>
+      </div>
+      <div class="own-card own-both">
+        <div class="oh"><span class="d"></span>drift · surfaced, not merged</div>
+        <p>Move a card in Linear and <span class="mono">/spec-status</span> flags the workflow-state drift — advisory only. The repo wins on the next push; there's nothing to reconcile.</p>
       </div>
     </div>
   </div>
 </section>
+
+<!-- ============ VS NATIVE ============ -->
+<section id="vs">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Why not just the native connector?</div>
+      <h2>The plumbing is native. Keeping your repo canonical isn't.</h2>
+      <p class="lede">Linear, Claude Code and Warp already talk to each other — a hosted MCP CRUD surface, an agent that codes from an assigned issue, one-shot "turn this plan into issues." Every bit of it treats <em>Linear</em> as the source of truth. skitterspec keeps that source in your git repo and mirrors it to Linear one way — which is the one thing none of them ship.</p>
+    </div>
+
+    <div class="cmp-scroll reveal">
+      <div class="cmp">
+        <div class="cmp-head">
+          <div class="cmp-cell cmp-feat"></div>
+          <div class="cmp-cell cmp-native">Native Linear + Claude Code</div>
+          <div class="cmp-cell cmp-ours">skitterspec + Linear</div>
+        </div>
+        <div class="cmp-row">
+          <div class="cmp-cell cmp-feat">source of truth</div>
+          <div class="cmp-cell cmp-native"><span class="cmp-mark">Linear — the board is canonical</span></div>
+          <div class="cmp-cell cmp-ours"><span class="cmp-mark">Your git repo — the spec files</span></div>
+        </div>
+        <div class="cmp-row">
+          <div class="cmp-cell cmp-feat">data flow</div>
+          <div class="cmp-cell cmp-native"><span class="cmp-mark">Issue → code → PR, one direction</span></div>
+          <div class="cmp-cell cmp-ours"><span class="cmp-mark">Repo → Linear, one way — a generated mirror</span></div>
+        </div>
+        <div class="cmp-row">
+          <div class="cmp-cell cmp-feat">plan → tasks</div>
+          <div class="cmp-cell cmp-native"><span class="cmp-mark">One-shot prompt, no re-sync</span></div>
+          <div class="cmp-cell cmp-ours"><span class="cmp-mark">Re-pushed on change, IDs stamped back</span></div>
+        </div>
+        <div class="cmp-row">
+          <div class="cmp-cell cmp-feat">conflicts</div>
+          <div class="cmp-cell cmp-native"><span class="cmp-mark">Last writer wins</span></div>
+          <div class="cmp-cell cmp-ours"><span class="cmp-mark">None — the repo is always canonical</span></div>
+        </div>
+        <div class="cmp-row">
+          <div class="cmp-cell cmp-feat">the spec itself</div>
+          <div class="cmp-cell cmp-native"><span class="cmp-mark">Lives in the tracker / a doc</span></div>
+          <div class="cmp-cell cmp-ours"><span class="cmp-mark">Lives in git — reviewed, versioned</span></div>
+        </div>
+        <div class="cmp-row">
+          <div class="cmp-cell cmp-feat">setup</div>
+          <div class="cmp-cell cmp-native"><span class="cmp-mark">Built-in connector</span></div>
+          <div class="cmp-cell cmp-ours"><span class="cmp-mark">One opt-in config file</span></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="cmp-note reveal">The genuinely custom part is keeping the repo <b>canonical</b> and projecting it one way — the last-pushed snapshot that sends only what changed, the first-sentence-title / full-text-description mapping, IDs stamped back into your markdown. Everything underneath — the transport, OAuth, issue CRUD — is delegated to Linear's own MCP server rather than rebuilt. The community tools that attempt file↔Linear sync (md-linear-sync, linear-md) are last-writer-wins; here the repo simply always wins, so there's nothing to lose.</p>
+  </div>
+</section>
+
+<!-- ============ SETUP / CHECK / FIX / SYNC — phase 2 ============ -->
+<section id="setup"><div class="wrap"><div class="section-head reveal"><h2>Set up</h2></div></div></section>
+<section id="check"><div class="wrap"><div class="section-head reveal"><h2>Check</h2></div></div></section>
+<section id="fix"><div class="wrap"><div class="section-head reveal"><h2>Fix</h2></div></div></section>
+<section id="sync"><div class="wrap"><div class="section-head reveal"><h2>Everyday sync</h2></div></div></section>
 
 <footer>
   <div class="wrap foot-inner">
     <p>skitterspec · skitterspec-linear — spec-driven development that stays in git, built for Claude Code.</p>
     <div class="foot-links">
-      <a href="#loop">The loop</a>
-      <a href="#scenario">Walkthrough</a>
-      <a href="#linear">Add Linear</a>
-      <a href="#quickstart">Get started</a>
+      <a href="index.html">Base</a>
+      <a href="#setup">Set up</a>
+      <a href="#check">Check</a>
+      <a href="index.html#reference">Command reference</a>
     </div>
   </div>
 </footer>
