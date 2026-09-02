@@ -4,8 +4,13 @@
 /**
  * The Linear-provider distribution's bin — a superset of the base CLI.
  *
- * `spec-sync …` is handled here (the provider engine seam); every other command
- * (`init`, `update`, `spec-env`, `--help`, …) delegates to the base CLI unchanged.
+ * The provider's own commands are routed from ONE table (`src/commands.js`),
+ * which also generates their `--help` section; every other command (`init`,
+ * `update`, `spec-env`, …) delegates to the base CLI unchanged.
+ *
+ * `--help` is the exception that has to be handled here rather than delegated:
+ * the base prints its own HELP const, which cannot know what a provider adds, so
+ * delegating made this distribution report that `spec-sync` did not exist.
  */
 
 // This package's bin/, src/ and assets/ are COMPOSED by scripts/build-dist.js and
@@ -27,24 +32,33 @@ if (!existsSync(join(__dirname, '..', 'src'))) {
   process.exit(1)
 }
 
-const { run } = require('@skitterbyte/skitterspec-common/src/cli.js')
-const { specSync } = require('@skitterbyte/skitterspec-provider-linear/src/cli-sync.js')
-const { specSanitise } = require('@skitterbyte/skitterspec-provider-linear/src/cli-sanitise.js')
+const { run, HELP } = require('@skitterbyte/skitterspec-common/src/cli.js')
+const {
+  PROVIDER_COMMANDS,
+  providerHelpSection,
+} = require('@skitterbyte/skitterspec-provider-linear/src/commands.js')
 
 async function main(argv) {
   const [cmd, ...rest] = argv
-  if (cmd === 'spec-sync') {
-    // Propagate the exit code, like spec-sanitise below. Dropping it made
-    // `status --workspace-states` (a bad state name) and `stamp` (a refused
-    // write) both look successful to any caller checking $?, which is exactly
-    // what the /spec-push skill does before it applies a plan.
-    process.exitCode = await specSync(rest)
+
+  // Base help + what this distribution adds. Matched on the COMMAND SLOT only,
+  // never the whole argv: `spec-sanitise --help` must reach that command's own
+  // help, not be swallowed by the top-level one.
+  if (!cmd || cmd === '--help' || cmd === '-h') {
+    process.stdout.write(`${HELP}\n${providerHelpSection()}`)
     return
   }
-  if (cmd === 'spec-sanitise') {
-    process.exitCode = await specSanitise(rest)
+
+  const provider = PROVIDER_COMMANDS[cmd]
+  if (provider) {
+    // Propagate the exit code. Dropping it made `spec-sync status
+    // --workspace-states` (a bad state name) and `stamp` (a refused write) both
+    // look successful to any caller checking $?, which is exactly what the
+    // /spec-push skill does before it applies a plan.
+    process.exitCode = await provider.run(rest)
     return
   }
+
   await run(argv)
 }
 

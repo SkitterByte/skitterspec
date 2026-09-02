@@ -48,6 +48,29 @@ const { renderRoutes, portsInUse, waitListening } = require('./env/proxy.js')
 
 const pkg = require('../package.json')
 
+// Commands this (tracker-free) base does NOT ship, and the distribution that
+// does. Without this the base says only "unknown command: spec-sync", which a
+// user correctly reads as "no such feature" — nothing anywhere named the
+// distribution that has it, so they were stranded. Naming Linear here is a
+// diagnostic string, not provider machinery: `init.js` already knows
+// `linear.config.json` and `linear-base/` by name in order to protect them.
+const PROVIDER_COMMANDS = {
+  'spec-sync': '@skitterbyte/skitterspec-linear',
+  'spec-sanitise': '@skitterbyte/skitterspec-linear',
+}
+
+function unknownCommand(cmd) {
+  const dist = PROVIDER_COMMANDS[cmd]
+  if (dist) {
+    return (
+      `unknown command: ${cmd} — this is the base distribution, which does not ` +
+      `ship it.\n  ${cmd} comes from ${dist} (a superset of this package): ` +
+      `install that instead.`
+    )
+  }
+  return `unknown command: ${cmd} (try --help)`
+}
+
 const HELP = `skitterspec — spec-driven-development for Claude Code
 
 Usage:
@@ -1384,8 +1407,8 @@ async function run(argv) {
       await cleanupReleaseTooling(dir, opts)
       break
     default:
-      throw new Error(`unknown command: ${cmd} (try --help)`)
+      throw new Error(unknownCommand(cmd))
   }
 }
 
-module.exports = { run, parse }
+module.exports = { run, parse, HELP, unknownCommand }
