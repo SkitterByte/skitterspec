@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-setup-doctor (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases built (2026-09-02)
+> **Status:** Complete (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -102,6 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
 | 2026-09-02 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-02 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -137,3 +138,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   different key now points at a `spec-sync retarget` that exists.
 - 2026-09-02 — Verified end to end against a real workspace
   (`--dir ~/code/ereqs`): all five rows `ok`, `ready.`, exit 0.
+- 2026-09-02 — Completed; all three phases done, tests green (986/986).
