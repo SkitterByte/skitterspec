@@ -51,6 +51,7 @@ const {
   storeMode,
   fingerprint,
   writeKey,
+  writeKeyCommand,
   removeKey,
 } = require('./credentials.js')
 
@@ -1197,7 +1198,7 @@ function withoutNull(obj) {
  * conversation to get there. So nothing in this file ever prints a key, and
  * `--key <value>` is refused rather than supported.
  */
-async function specSyncCredentials(config, action, flags, out) {
+async function specSyncCredentials(dir, config, action, flags, out) {
   const env = flags.env || process.env
   const file = storePath(env)
   const teamId = (config.linear && config.linear.teamId) || ''
@@ -1212,7 +1213,7 @@ async function specSyncCredentials(config, action, flags, out) {
     return 1
   }
 
-  if (action === 'status' || !action) return credentialsStatus(config, file, label, flags, out)
+  if (action === 'status' || !action) return credentialsStatus(dir, config, file, label, flags, out)
   if (action === 'set') return credentialsSet(file, teamId, label, flags, out)
   if (action === 'unset') return credentialsUnset(file, teamId, label, out)
 
@@ -1221,7 +1222,7 @@ async function specSyncCredentials(config, action, flags, out) {
 }
 
 // Readiness only — the command a skill runs. Never prints the key.
-function credentialsStatus(config, file, label, flags, out) {
+function credentialsStatus(dir, config, file, label, flags, out) {
   const resolved = resolveApiKey(config, flags.env || process.env)
   const mode = storeMode(file)
   const present = resolved.ok
@@ -1237,13 +1238,34 @@ function credentialsStatus(config, file, label, flags, out) {
   }
 
   const lines = ['spec-sync credentials:']
+  const strayed = repoConfigKeyCommand(dir)
+  if (strayed) {
+    lines.push(
+      '  note:   a keyCommand in specs/.core/linear.config.json is IGNORED.',
+      '          That file is committed, so a command there would run on the',
+      '          machine of anyone who cloned the repo. Record it here instead:',
+      '            skitterspec spec-sync credentials set --command <cmd>',
+    )
+  }
   lines.push(`  store:  ${file}${mode ? ` (${mode})` : ' (not created yet)'}`)
   lines.push(`  team:   ${label}`)
   if (present) {
-    const where = resolved.source === 'env' ? `environment (${resolved.envVar})` : 'store'
+    const where =
+      resolved.source === 'env'
+        ? `environment (${resolved.envVar})`
+        : resolved.source === 'command'
+          ? 'keyCommand'
+          : 'store'
     lines.push(`  key:    set — ${fingerprint(resolved.key)} from the ${where}`)
+    if (resolved.command) lines.push(`  runs:   ${resolved.command}`)
   } else {
     lines.push('  key:    not set')
+    // `resolveApiKey` appends a reason when the store or its keyCommand is
+    // broken rather than merely absent. Dropping it here would report a failing
+    // command as "you never set a key" and send the user to set it again.
+    for (const detail of resolved.error.split('\n').slice(1)) {
+      if (detail.trim()) lines.push(`  problem:${detail.replace(/^ +/, ' ')}`)
+    }
     lines.push('')
     lines.push('  Run this yourself, in your own terminal — not through an assistant:')
     lines.push('    skitterspec spec-sync credentials set')
@@ -1262,6 +1284,22 @@ async function credentialsSet(file, teamId, label, flags, out) {
         '  is hidden), or pipe it: `… | credentials set --stdin`.\n',
     )
     return 1
+  }
+
+  // A command is not a secret — it names WHERE the key lives, so unlike --key it
+  // is safe on the command line and nothing is prompted for.
+  if (flags.command) {
+    const r = writeKeyCommand(file, teamId, flags.command)
+    if (!r.ok) {
+      out.write(`spec-sync credentials: ${r.reason}\n`)
+      return 1
+    }
+    out.write(
+      `spec-sync credentials: ${label} will resolve its key by running:\n` +
+        `  ${flags.command}\n` +
+        `  recorded in ${r.path} (600)\n`,
+    )
+    return 0
   }
 
   let key
@@ -1308,6 +1346,22 @@ function credentialsUnset(file, teamId, label, out) {
       : `spec-sync credentials: no key stored for ${label} — nothing to remove\n`,
   )
   return 0
+}
+
+// Is a keyCommand set in the REPO's committed config? It is never honoured — the
+// loader drops unknown keys — but silently ignoring it would leave someone
+// wondering why their command never runs, so `status` calls it out.
+function repoConfigKeyCommand(dir) {
+  try {
+    const raw = fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8')
+    const parsed = JSON.parse(raw)
+    const auth = parsed && parsed.auth
+    return auth && typeof auth.keyCommand === 'string' && auth.keyCommand.trim()
+      ? auth.keyCommand.trim()
+      : null
+  } catch {
+    return null
+  }
 }
 
 // Read stdin to completion (for `--stdin`).
@@ -1362,6 +1416,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--sub') flags.subs.push(args[++i])
     else if (args[i] === '--force') flags.force = true
     else if (args[i] === '--stdin') flags.stdin = true
+    else if (args[i] === '--command') flags.command = String(args[++i] || '').trim()
     else if (args[i] === '--key') {
       // Consumed and DELIBERATELY DISCARDED. A secret in argv is visible in
       // shell history and to `ps`, so this is refused rather than supported —
@@ -1429,7 +1484,7 @@ async function specSync(rest, io = {}) {
       specSyncLinked(dir, config, flags, out)
       return 0
     case 'credentials':
-      return await specSyncCredentials(config, positional[0], flags, out)
+      return await specSyncCredentials(dir, config, positional[0], flags, out)
     default:
       out.write('Usage: skitterspec spec-sync <normalize|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
         '       skitterspec spec-sync credentials <status|set|unset> [--stdin] [--json]\n' +

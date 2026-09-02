@@ -29,7 +29,7 @@ const ENDPOINT = 'https://api.linear.app/graphql'
 const MAX_RETRIES = 5
 const MAX_BACKOFF_MS = 60_000
 
-const { storePath, readStore, keyForTeam } = require('./credentials.js')
+const { storePath, readStore, resolveTeamKey } = require('./credentials.js')
 
 /**
  * Resolve the personal API key, environment first.
@@ -70,14 +70,20 @@ function resolveApiKey(config, env = process.env, deps = {}) {
 
   const file = (deps.storePath || storePath)(env)
   const result = (deps.readStore || readStore)(file)
+  let commandReason = ''
   if (result.ok) {
-    const key = keyForTeam(result.store, teamId)
-    if (key) return { ok: true, key, envVar, source: 'store', path: file }
+    const found = (deps.resolveTeamKey || resolveTeamKey)(result.store, teamId, deps)
+    if (found.key) {
+      return { ok: true, key: found.key, envVar, source: found.source, command: found.command, path: file }
+    }
+    // A keyCommand that exists but did not produce a key is a real problem —
+    // surfacing it is the difference between "fix your command" and silence.
+    if (found.reason) commandReason = `\n  ${found.reason}`
   }
 
   // A store that is present but unusable is a distinct, reportable problem —
   // don't let a permissions refusal read as "you never set a key".
-  const detail = result.ok || result.code === 'absent' ? '' : `\n  ${result.reason}`
+  const detail = (result.ok || result.code === 'absent' ? '' : `\n  ${result.reason}`) + commandReason
   return {
     ok: false,
     envVar,

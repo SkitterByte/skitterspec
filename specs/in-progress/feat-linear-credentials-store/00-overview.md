@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-linear-credentials-store (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-02)
+> **Status:** In Progress — all phases done (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -120,7 +120,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The store and the resolution chain (read side) | ✅ | [01-store-and-resolution.md](01-store-and-resolution.md) |
 | 2 | Set it out-of-band; check it from the skill | ✅ | [02-set-and-check.md](02-set-and-check.md) |
-| 3 | Delegate to a password manager via keyCommand | ⬜ | [03-key-command.md](03-key-command.md) |
+| 3 | Delegate to a password manager via keyCommand | ✅ | [03-key-command.md](03-key-command.md) |
 
 ## Open questions
 
@@ -135,6 +135,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-02 — Phase 3: `set --command` refuses a command with a key embedded in
+  it. Refusing `--key` made that the obvious workaround, and it leaks worse — a
+  command is displayed by `status` and stored in clear.
 - 2026-09-02 — Phase 2: `--key` is parsed-and-discarded rather than left
   unrecognised — an unparsed flag falls through to `positional` and the secret
   would be echoed in a usage message, refusing it while leaking it.

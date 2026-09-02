@@ -209,6 +209,39 @@ in shell history and to `ps`. For the same reason, run `set` yourself — never
 paste a key into an assistant conversation, where it would enter the transcript.
 `status` exists so an assistant can confirm readiness without ever seeing the
 key.
+
+### Delegating to a password manager
+
+Rather than storing the key at all, record a **command** that prints it. A
+command is not a secret, so unlike `--key` it is safe as an argument:
+
+```
+# 1Password CLI
+skitterspec spec-sync credentials set --command 'op read op://Private/linear/token'
+
+# pass
+skitterspec spec-sync credentials set --command 'pass show linear/api-key'
+
+# macOS Keychain (add once: security add-generic-password -s skitterspec -a linear -w)
+skitterspec spec-sync credentials set --command 'security find-generic-password -w -s skitterspec -a linear'
+```
+
+The command runs on each resolution; its stdout, trimmed, is the key. A non-zero
+exit or empty output means "no key", which simply falls back to MCP — with the
+reason shown by `credentials status`, so a broken command is never silently
+inert. It has 60 seconds to complete, enough for a biometric or master-password
+prompt. Recording a command replaces any stored key for that team, so the
+command actually runs.
+
+A command with a key written into it (`--command 'echo lin_api_…'`) is
+**refused**: commands are displayed by `status` and stored in clear, so that is
+strictly worse than storing the key. Use `credentials set` for a key.
+
+> **`keyCommand` is honoured only from the user-level store — never from
+> `specs/.core/linear.config.json`.** That file is committed and travels with the
+> repo, so a command named there would run on the machine of anyone who cloned it
+> and ran `spec-sync`. If one is found there it is ignored, and `credentials
+> status` says so.
 ```
 
 ```json
