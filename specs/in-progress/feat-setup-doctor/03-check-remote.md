@@ -1,27 +1,29 @@
-# Phase 3 — Verify it actually works against Linear ⬜
+# Phase 3 — Verify it actually works against Linear ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `--check-remote` proves the configured team resolves and the key is
 accepted, rather than merely that the config is well-formed.
 
 ## Tasks
 
-- [ ] Add a `remote` check: with `--check-remote`, one `team(id:)` call via the
+- [x] Add a `remote` check: with `--check-remote`, one `team(id:)` call via the
       existing adapter (reusing `readTeam`); without it, state `skipped` and a
       line saying how to run it — never a silent omission.
-- [ ] Report `broken` with what came back when the team does not resolve or the
+- [x] Report `broken` with what came back when the team does not resolve or the
       key is rejected, distinguishing "no key, so nothing to check" (`skipped`)
       from "key present and refused" (`broken`).
-- [ ] Confirm the live team key matches `linear.teamKey`, and point at
+- [x] Confirm the live team key matches `linear.teamKey`, and point at
       `spec-sync retarget` on a mismatch (see `feat-team-key-retarget`) — a
       renamed team is exactly the drift this check should catch.
-- [ ] Never let an API error message reach the output unfiltered, in case it
+- [x] Never let an API error message reach the output unfiltered, in case it
       echoes the request; report status and a short reason.
-- [ ] Add tests with a stubbed adapter: resolves; team not found; auth rejected;
+- [x] Add tests with a stubbed adapter: resolves; team not found; auth rejected;
       no key → skipped; a key-mismatch pointing at retarget. Assert the key never
       appears in output on any path.
-- [ ] Run `pnpm test` — green before the phase is done.
+- [x] Update the phase-1 test that asserted the raw API message reaches the
+      output — it predates this phase's no-relay rule and contradicted it.
+- [x] Run `pnpm test` — green before the phase is done.
 
 ## Notes
 

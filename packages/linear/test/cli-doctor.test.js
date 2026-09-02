@@ -51,13 +51,14 @@ function configuredRepo({ trackerJson = null } = {}) {
   return dir
 }
 
-function run(argv, cwd, env = {}) {
+function run(argv, cwd, env = {}, io = {}) {
   const out = []
   return specSync(argv, {
     cwd,
     out: { write: (s) => out.push(s), isTTY: true },
     err: { write: () => {} },
     env,
+    ...io,
   }).then((code) => ({ code, out: out.join('') }))
 }
 
@@ -161,4 +162,102 @@ test('doctor runs without a tracker config, where every other subcommand opts ou
   assert.doesNotMatch(r.out, /Linear sync not enabled/, 'doctor reports rather than opting out')
   assert.match(r.out, /scaffold\s+ok/)
   assert.match(r.out, /tracker\s+missing/, 'and says so as a row')
+})
+
+// --- --check-remote: proving the config actually works -----------------------
+//
+// Well-formed config is not working config: the team id may not resolve and the
+// key may be revoked. The invariant across every path below is that neither the
+// key nor Linear's own error text reaches the output.
+
+const linearThat = (behaviour) => ({
+  async readTeam(id) {
+    if (typeof behaviour === 'function') return behaviour(id)
+    return behaviour
+  },
+})
+
+test('--check-remote confirms the team resolves and the key is accepted', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKS', name: 'Skitterspec' }),
+  })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /remote\s+ok\s+team SKS resolves, key accepted/)
+  assert.ok(!r.out.includes(SECRET))
+})
+
+test('a rejected key is broken, and never echoes what Linear said', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat(() => {
+      throw new Error(`Linear rejected the API key (HTTP 401) — sent ${SECRET}`)
+    }),
+  })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /remote\s+broken/)
+  assert.match(r.out, /revoked or for another workspace/, 'our wording')
+  assert.ok(!r.out.includes(SECRET), 'even though the API error contained it')
+  assert.doesNotMatch(r.out, /HTTP 401/, 'the raw message is not relayed')
+})
+
+test('a team that does not resolve is broken, and points at setup', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat(() => {
+      throw new Error('Linear API error: Entity not found: Team')
+    }),
+  })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /no team with that id/)
+  assert.match(r.out, /spec-linear-setup/)
+  assert.doesNotMatch(r.out, /Entity not found/, 'classified, not relayed')
+})
+
+test('an unreachable Linear is reported without a fix to offer', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat(() => {
+      throw new Error('Linear API unreachable: getaddrinfo ENOTFOUND api.linear.app')
+    }),
+  })
+  assert.match(r.out, /could not be reached/)
+  assert.doesNotMatch(r.out, /ENOTFOUND/, 'no transport detail leaks')
+})
+
+test('an unrecognised failure degrades to a generic line rather than leaking it', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat(() => {
+      throw new Error(`something odd happened involving ${SECRET}`)
+    }),
+  })
+  assert.match(r.out, /Linear did not accept the request/)
+  assert.ok(!r.out.includes(SECRET))
+  assert.doesNotMatch(r.out, /something odd/)
+})
+
+test('with no key, the remote check is skipped rather than failed', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), {}, {
+    adapter: linearThat(() => {
+      throw new Error('should never be called')
+    }),
+  })
+  assert.strictEqual(r.code, 0, 'the key row already owns that problem')
+  assert.match(r.out, /remote\s+skipped\s+no key/)
+})
+
+test('a renamed team is caught here, and points at retarget', async () => {
+  // The config records SKS; Linear now says the team is SKZ. Every stamped
+  // identifier in the repo is stale — which is exactly feat-team-key-retarget.
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKZ', name: 'Skitterspec' }),
+  })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /the team was renamed/)
+  assert.match(r.out, /spec-sync retarget/)
+})
+
+test('--check-remote --json carries the remote row and leaks nothing', async () => {
+  const r = await run(['doctor', '--check-remote', '--json'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKS' }),
+  })
+  const got = JSON.parse(r.out)
+  assert.strictEqual(got.checks.find((c) => c.id === 'remote').state, 'ok')
+  assert.ok(!r.out.includes(SECRET))
 })

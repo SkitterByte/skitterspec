@@ -113,10 +113,28 @@ test('the remote check is skipped until asked for, and says how to ask', () => {
 })
 
 test('a remote check that fails is broken — well-formed config is not working config', () => {
-  const r = withState({ remote: { checked: true, ok: false, error: 'Entity not found: Team' } })
+  // `reason` is the caller's own classified wording, never the API's message —
+  // an error body can echo the request back, and a skill prints this.
+  const r = withState({ remote: { checked: true, ok: false, reason: 'no team with that id in this workspace', fix: '/spec-linear-setup' } })
   const c = find(r, 'remote')
   assert.strictEqual(c.state, 'broken')
-  assert.match(c.detail, /Entity not found/)
+  assert.match(c.detail, /no team with that id/)
+  assert.strictEqual(c.fix, '/spec-linear-setup')
+  assert.strictEqual(r.ok, false)
+})
+
+test('a remote check asked for with nothing to ask with is skipped, not broken', () => {
+  const r = withState({ remote: { checked: true, skipped: true, reason: 'no key, so there is nothing to check with' } })
+  assert.strictEqual(find(r, 'remote').state, 'skipped')
+  assert.strictEqual(r.ok, true, 'the key row already owns that problem')
+})
+
+test('a team that resolves under a different key is a rename, and points at retarget', () => {
+  const r = withState({ remote: { checked: true, ok: true, teamKey: 'SKS', recordedKey: 'SKI' } })
+  const c = find(r, 'remote')
+  assert.strictEqual(c.state, 'broken')
+  assert.match(c.detail, /renamed/)
+  assert.strictEqual(c.fix, 'skitterspec spec-sync retarget')
   assert.strictEqual(r.ok, false)
 })
 

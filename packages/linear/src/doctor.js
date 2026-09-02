@@ -125,10 +125,31 @@ function remoteCheck(s = {}) {
   if (!s.checked) {
     return row('remote', 'remote', 'skipped', 'pass --check-remote to verify against Linear')
   }
+  // Asked for, but there was nothing to ask WITH — no key, or no team id. That
+  // is not a remote failure; the row that owns it already reported it.
+  if (s.skipped) {
+    return row('remote', 'remote', 'skipped', s.reason || 'nothing to check against')
+  }
   if (!s.ok) {
     // Well-formed config is not working config: the id may not resolve, or the
     // key may be revoked. Either way this is configured-but-wrong.
-    return row('remote', 'remote', 'broken', s.error || 'Linear did not accept the request', 'skitterspec spec-sync credentials set')
+    //
+    // `reason` is composed by the caller from a CLASSIFIED failure, never from a
+    // raw API message — an error body can echo the request back, and this is the
+    // command a skill prints.
+    return row('remote', 'remote', 'broken', s.reason || 'Linear did not accept the request', s.fix || 'skitterspec spec-sync credentials set')
+  }
+  if (s.teamKey && s.recordedKey && s.teamKey !== s.recordedKey) {
+    // The team resolved and the key worked — but it is not the team this repo
+    // thinks it files into. That is a rename, and every stamped identifier in
+    // the repo is now stale.
+    return row(
+      'remote',
+      'remote',
+      'broken',
+      `team resolves as ${s.teamKey}, but the config records ${s.recordedKey} — the team was renamed`,
+      'skitterspec spec-sync retarget',
+    )
   }
   return row('remote', 'remote', 'ok', `team ${s.teamKey} resolves, key accepted`)
 }

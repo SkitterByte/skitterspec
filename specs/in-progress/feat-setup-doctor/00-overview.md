@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-setup-doctor (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-02)
+> **Status:** In Progress — all phases built (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -90,7 +90,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The offline checks, as a pure report | ✅ | [01-offline-checks.md](01-offline-checks.md) |
 | 2 | The command, and the skill that runs it | ✅ | [02-command-and-skill.md](02-command-and-skill.md) |
-| 3 | Verify it actually works against Linear | ⬜ | [03-check-remote.md](03-check-remote.md) |
+| 3 | Verify it actually works against Linear | ✅ | [03-check-remote.md](03-check-remote.md) |
 
 ## Open questions
 
@@ -128,3 +128,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   feat-team-key-retarget. It was right when doctor had been deleted, then
   blocked this spec's own command; it is now a generic check that every verb
   named in an asset is really dispatched.
+- 2026-09-02 — Phase 3 done. Every remote failure is classified into our own
+  wording — rejected key, unreachable, rate-limited, no such team, unknown —
+  so no API message reaches the output. A test throws an error containing the
+  key itself and asserts it never appears.
+- 2026-09-02 — The rename check is live rather than anticipated:
+  feat-team-key-retarget completed first, so a team resolving under a
+  different key now points at a `spec-sync retarget` that exists.
+- 2026-09-02 — Verified end to end against a real workspace
+  (`--dir ~/code/ereqs`): all five rows `ok`, `ready.`, exit 0.

@@ -632,10 +632,63 @@ async function specSyncDoctor(dir, flags, out) {
   return report.ok ? 0 : 1
 }
 
-// The live half — phase 3. Until then `--check-remote` reports that it is not
-// available yet rather than silently doing nothing.
-async function checkRemote() {
-  return { checked: true, ok: false, error: 'the remote check is not implemented yet' }
+/**
+ * The live half of the report: one `team(id:)` call proving the id resolves and
+ * the key is accepted. Well-formed config is not working config.
+ *
+ * Opt-in because it is the only part that needs the network — the offline checks
+ * have to stay usable with no connectivity, which is exactly when a setup
+ * problem is most annoying to diagnose.
+ *
+ * **No API message is ever relayed.** A GraphQL error body can echo the request
+ * back, and this is a command a skill prints; so a failure is CLASSIFIED into a
+ * short reason of our own words.
+ */
+async function checkRemote(state, flags) {
+  if (!state.tracker.parsed || !state.tracker.teamId) {
+    return { checked: true, skipped: true, reason: 'no usable tracker config to check against' }
+  }
+  if (!state.key.ok) {
+    return { checked: true, skipped: true, reason: 'no key, so there is nothing to check with' }
+  }
+
+  const key = resolveApiKey(state._config, flags.env || process.env)
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  let team
+  try {
+    team = await adapter.readTeam(state.tracker.teamId)
+  } catch (error) {
+    return { checked: true, ok: false, ...classifyRemoteFailure(error) }
+  }
+  if (!team || !team.key) {
+    return {
+      checked: true,
+      ok: false,
+      reason: 'the key was accepted, but no team has that id',
+      fix: '/spec-linear-setup',
+    }
+  }
+  return { checked: true, ok: true, teamKey: team.key, recordedKey: state.tracker.teamKey }
+}
+
+// Map a thrown API error onto our own short reason. Matched on the shapes
+// `api.js` raises; anything unrecognised degrades to a generic line rather than
+// leaking the message.
+function classifyRemoteFailure(error) {
+  const m = String((error && error.message) || '')
+  if (/rejected the API key|HTTP 401|HTTP 403/.test(m)) {
+    return { reason: 'Linear rejected the key — it may be revoked or for another workspace', fix: 'skitterspec spec-sync credentials set' }
+  }
+  if (/unreachable/.test(m)) {
+    return { reason: 'Linear could not be reached — check your connection', fix: null }
+  }
+  if (/rate-limited/.test(m)) {
+    return { reason: 'Linear rate-limited the request and did not recover', fix: null }
+  }
+  if (/Entity not found|not found/i.test(m)) {
+    return { reason: 'no team with that id in this workspace', fix: '/spec-linear-setup' }
+  }
+  return { reason: 'Linear did not accept the request', fix: null }
 }
 
 // Read the project's real state for `runChecks`. Never throws: every probe that
