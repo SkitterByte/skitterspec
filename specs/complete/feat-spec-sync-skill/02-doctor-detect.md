@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKS-32"
+---
+
 # Phase 2 — `spec-sync doctor` — detect, read-only ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

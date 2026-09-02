@@ -1,3 +1,8 @@
+---
+linear_identifier: "SKS-29"
+linear_url: "https://linear.app/skitterspec/issue/SKS-29/bug-verify-reports-every-updated-sub-issue-as-a-stale-ref"
+---
+
 # Bug: verify reports every updated sub-issue as a stale ref
 
 > **Type:** Bug

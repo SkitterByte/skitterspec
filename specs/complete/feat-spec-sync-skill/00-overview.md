@@ -1,3 +1,8 @@
+---
+linear_identifier: "SKS-30"
+linear_url: "https://linear.app/skitterspec/issue/SKS-30/spec-sync-skill-and-identifier-drift-doctor"
+---
+
 # /spec-sync skill and identifier-drift doctor
 
 > **Type:** Feature

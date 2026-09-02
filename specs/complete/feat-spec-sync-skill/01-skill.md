@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKS-31"
+---
+
 # Phase 1 — The `/spec-sync` skill, and the `verify` footgun guard ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done

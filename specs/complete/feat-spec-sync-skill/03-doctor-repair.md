@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKS-33"
+---
+
 # Phase 3 — `doctor --write` — repair behind a clean-tree guard ✅
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done
