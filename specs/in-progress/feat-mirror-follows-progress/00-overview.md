@@ -113,7 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `/spec-go` mirrors phase start and phase completion | ✅ | [01-spec-go.md](01-spec-go.md) |
 | 2 | `/spec-bug` and `/spec-hotfix` refresh after the fix | ✅ | [02-bug-hotfix.md](02-bug-hotfix.md) |
-| 3 | The backstop checks placement, not presence | ⬜ | [03-placement-backstop.md](03-placement-backstop.md) |
+| 3 | The backstop checks placement, not presence | ✅ | [03-placement-backstop.md](03-placement-backstop.md) |
 
 ## Open questions
 
@@ -128,6 +128,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-03 — Phase 3: extracted the check into `seamPlacementProblem` so it
+  could be unit-tested both ways, and added a positive "it can fire" test
+  alongside the stays-silent one. Probed it against a simulated pre-fix
+  `/spec-go` to prove it is not vacuous.
+- 2026-09-03 — Phase 2: anchored the new ordering tests on the `Tick the Fix
+  tasks` write rather than the section heading, so moving the ticks below the
+  seam still fails.
 - 2026-09-03 — Phase 1: also renamed the two stale `spec-go-pull` tests in
   the linear package and the `compose.test.js` message; the presence map at
   `assets.test.js:308` now names `spec-tracker-progress` until Phase 3 turns it

@@ -356,25 +356,83 @@ test('the creating and reviewing skills stay provider-neutral in their source', 
   }
 })
 
-// The whole point of this change: no skill that moves a spec through the
-// lifecycle may be left without a tracker step. This is the backstop that makes
-// adding a NEW lifecycle skill surface the question.
-test('every skill that changes spec state carries a tracker seam', () => {
-  const expected = {
-    spec: 'spec-tracker-link',
-    'spec-bug': 'spec-tracker-link',
-    'spec-hotfix': 'spec-tracker-link',
-    'spec-go': 'spec-tracker-progress',
-    'spec-complete': 'spec-tracker-sync',
-    'spec-cancel': 'spec-tracker-sync',
-    'spec-review': 'spec-tracker-sync',
-  }
-  const missing = []
-  for (const [skill, seam] of Object.entries(expected)) {
+// Each lifecycle skill's LAST tracker seam, paired with the last spec-progress
+// write it has to follow. Presence alone is not enough: /spec-go carried a seam
+// for months while both its phase writes happened after it, so every phase
+// sub-issue sat in Backlog for a whole build and jumped to Done at the end. The
+// anchors are the skills' real words, so a reworded step fails loudly here
+// rather than silently matching nothing.
+const SEAM_PLACEMENT = {
+  spec: ['spec-tracker-link', '> **Status:** Ready — not started'],
+  'spec-bug': ['spec-tracker-progress', 'Tick the Fix tasks'],
+  'spec-hotfix': ['spec-tracker-progress', 'Tick the Fix tasks'],
+  'spec-go': ['spec-tracker-progress', 'flip the matching phase-index row to `✅`'],
+  'spec-complete': ['spec-tracker-sync', 'specs/complete/<name>'],
+  'spec-cancel': ['spec-tracker-sync', 'specs/cancelled/<name>'],
+  'spec-review': ['spec-tracker-sync', '## 4. Update the spec'],
+}
+
+// Returns a problem string, or null when the skill is fine. A function rather
+// than inline asserts so the two tests below can feed it literals — the one that
+// proves it fires, and the one that proves it stays quiet.
+//
+// BLIND SPOT: SEAM_PLACEMENT is hand-maintained, so a NEW lifecycle skill that
+// nobody adds to it is not checked at all — this asserts the seven listed skills
+// are right, never that the list is complete. There is no positive signal for
+// "is this skill part of the lifecycle?" to widen it with: the skills directory
+// also holds /spec-connect, /spec-live and /spec-init, which correctly have no
+// seam. Adding a lifecycle skill means adding it here, by hand.
+function seamPlacementProblem(skill, text, seam, lastWrite) {
+  const marker = `<!-- seam:${seam} -->`
+  // lastIndexOf on both: a skill may carry several seams (/spec-bug links early
+  // AND refreshes late), and it is the LAST one that has to follow the write.
+  const at = text.lastIndexOf(marker)
+  const wrote = text.lastIndexOf(lastWrite)
+  if (at === -1) return `${skill}: no ${marker}`
+  // An anchor that has drifted out of the asset yields -1, which would compare
+  // as "the seam comes after it" and pass while checking nothing. That vacuous
+  // pass is how the /spec-go defect shipped, so a missing anchor is a failure.
+  if (wrote === -1) return `${skill}: anchor ${JSON.stringify(lastWrite)} not found`
+  if (at < wrote) return `${skill}: ${marker} precedes the write it mirrors`
+  return null
+}
+
+test('every skill that changes spec state syncs AFTER its last write', () => {
+  const problems = []
+  for (const [skill, [seam, lastWrite]] of Object.entries(SEAM_PLACEMENT)) {
     const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
-    if (!text.includes(`<!-- seam:${seam} -->`)) missing.push(`${skill} (${seam})`)
+    const problem = seamPlacementProblem(skill, text, seam, lastWrite)
+    if (problem) problems.push(problem)
   }
-  assert.deepEqual(missing, [], `lifecycle skills with no tracker step: ${missing.join(', ')}`)
+  assert.deepEqual(problems, [], `misplaced tracker steps:\n  ${problems.join('\n  ')}`)
+})
+
+// Proves the check can fire — all three ways it is allowed to.
+test('the placement check catches a seam that is missing, early, or unanchored', () => {
+  const early = 'intro\n<!-- seam:s -->\nflip it to done\n'
+  assert.match(seamPlacementProblem('x', early, 's', 'flip it to done'), /precedes the write/)
+  assert.match(seamPlacementProblem('x', 'flip it to done\n', 's', 'flip it to done'), /no <!-- seam:s -->/)
+  assert.match(seamPlacementProblem('x', '<!-- seam:s -->\n', 's', 'reworded'), /not found/)
+})
+
+// The stays-silent case (.claude/rules/negative-checks.md rule 3): a healthy but
+// UNUSUAL skill — two seams, the earlier one deliberately before the write, as
+// /spec-bug and /spec-hotfix are — must not be accused. Without this, "the seam
+// comes before the write" reads as a defect in the skills that are correct.
+test('the placement check stays silent on a skill that links early and syncs late', () => {
+  const healthy = [
+    '## 4. Write it',
+    '<!-- seam:spec-tracker-link -->',
+    '## 5. Drive to GREEN',
+    'Tick the Fix tasks; add a Changelog line.',
+    '<!-- seam:spec-tracker-progress -->',
+    '## 6. Report',
+  ].join('\n')
+  assert.equal(
+    seamPlacementProblem('spec-bug', healthy, 'spec-tracker-progress', 'Tick the Fix tasks'),
+    null,
+    'an early link seam is correct, not a misplacement',
+  )
 })
 
 // /spec-to-main and /spec-live change no status — a push from them would send an
