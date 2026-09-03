@@ -139,20 +139,20 @@ Before writing any code for this phase, get the workspace clean:
   next phase on top of an uncommitted one. (Skip if this is the first phase —
   there's nothing prior to commit.)
 
-## 3b. Sync with the tracker (only if a provider is installed)
-
-**Only when a ticketing provider is installed** and the spec is linked to the
-tracker. Otherwise skip this step — no provider means zero change to the flow
-below. Follow the provider's steps below (nothing to do here without one).
-
-<!-- seam:spec-go-pull -->
-
 ## 4. Implement the phase
 
 Identify the **first unfinished phase** from the `00-overview.md` phase index,
 then open its phase file (`0N-<slug>.md`) — that file holds the tasks. Mark it
 started: set the phase-file heading to `🔄` and its `> **Status:**` to
 `In progress`, and flip the matching row in the overview phase index to `🔄`.
+
+**Then sync with the tracker (only if a provider is installed).** The phase has
+just changed state, so refresh the mirror before the build starts — that is what
+makes the phase show as in progress *while* it is being built rather than only
+once it is over. Without a provider this is a no-op and nothing below changes.
+
+<!-- seam:spec-go-start -->
+
 Then build it, following the project rules in `.claude/rules/*.md` and `CLAUDE.md`:
 
 - Work task by task through the phase file. Make focused edits that match
@@ -174,6 +174,12 @@ Then build it, following the project rules in `.claude/rules/*.md` and `CLAUDE.m
   constraint), add a dated **Changelog** entry in `00-overview.md`.
 - If new work surfaced, add it as tasks to the appropriate phase file (or add a
   new phase file + index row) rather than doing it silently.
+
+**Then refresh the mirror (only if a provider is installed).** The phase is done
+in the repo now; leaving the tracker to catch up at `/spec-complete` is what makes
+a mirror lag a whole spec behind. Without a provider this is a no-op.
+
+<!-- seam:spec-tracker-progress -->
 
 ## 6. Report
 

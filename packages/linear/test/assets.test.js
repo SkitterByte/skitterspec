@@ -77,11 +77,20 @@ test('the link fragment reads for any spec type', () => {
   assert.doesNotMatch(text, /Phase E/, 'no reference to /spec\'s own phase lettering')
 })
 
-test('the spec-go-pull seam fragment reflects one-way (no pull)', () => {
-  const text = seamText('spec-go-pull')
+test('the spec-go-start seam fragment reflects one-way (no pull)', () => {
+  const text = seamText('spec-go-start')
   assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
   assert.match(text, /No pull|nothing to (pull|bring down)/i, 'states there is nothing to pull')
   assert.match(text, /\/spec-push/, 'points at /spec-push to refresh the mirror')
+})
+
+// The fragment fires after /spec-go has marked the phase 🔄, and the push writes
+// a snapshot the skill does not commit. Saying so is what stops the next reader
+// treating a dirty specs/.core/ as someone else's uncommitted work.
+test('the spec-go-start seam warns that it leaves specs/.core dirty', () => {
+  const text = seamText('spec-go-start')
+  assert.match(text, /snapshot/i, 'names what gets written')
+  assert.match(text, /does not commit|dirty/i, 'says the skill leaves it uncommitted')
 })
 
 // The engine can only put `legacy` on the plan — stopping is the skill's job, and
@@ -131,14 +140,29 @@ test('linear.config.md states how task sections project', () => {
 // Under `mapping.phases: "deferred"` the /spec-go push is not a nicety — it is
 // what mints the sub-issues. A seam that still called it optional would leave a
 // started spec mirrored as a phase-less issue.
-test('the spec-go-pull seam makes the push mandatory under deferred phases', () => {
-  const text = seamText('spec-go-pull')
+test('the spec-go-start seam makes the push mandatory under BOTH phase modes', () => {
+  const text = seamText('spec-go-start')
   assert.match(text, /"deferred"/, 'names the mode')
   assert.match(text, /without asking|do it now/i, 'and says not to treat it as optional')
   assert.ok(
     text.indexOf('"subissue"') < text.indexOf('"deferred"'),
     'keeps the default mode first, so the unchanged behaviour reads first',
   )
+  // The defect this fragment was moved to fix: under the DEFAULT mode the push
+  // used to be "optional — refresh now or later", so in practice it never ran
+  // and every phase sub-issue sat in Backlog for the whole build.
+  assert.doesNotMatch(text, /\boptional\b/i, 'the default mode is no longer opt-in')
+})
+
+// A second fragment, not a reuse of spec-tracker-sync: that one documents a
+// git-mv-then-commit ordering /spec-go, /spec-bug and /spec-hotfix do not have.
+test('the spec-tracker-progress seam refreshes without asking and never mints', () => {
+  const text = seamText('spec-tracker-progress')
+  assert.match(text, /linear\.config\.json/, 'gate references linear.config.json')
+  assert.match(text, /without asking/i, 'refreshes without a confirmation gate')
+  assert.match(text, /Never mint/i, 'an unlinked spec is skipped, not created')
+  assert.match(text, /Never fatal/i, 'a failed push does not stop the skill')
+  assert.doesNotMatch(text, /Why it sits here/, 'does not inherit spec-tracker-sync prose')
 })
 
 test('/spec-push explains a plan whose sub-issues were deferred', () => {

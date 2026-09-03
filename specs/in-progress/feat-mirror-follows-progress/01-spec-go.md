@@ -2,45 +2,45 @@
 linear_issue_id: "SKS-35"
 ---
 
-# Phase 1 — `/spec-go` mirrors phase start and phase completion ⬜
+# Phase 1 — `/spec-go` mirrors phase start and phase completion ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `/spec-go` refreshes the mirror when a phase starts and again when it
 finishes, proven by placement tests that fail against today's asset.
 
 ## Tasks
 
-- [ ] `git mv packages/linear/assets/seams/spec-go-pull.md` to `spec-go-start.md`
+- [x] `git mv packages/linear/assets/seams/spec-go-pull.md` to `spec-go-start.md`
       and rename the marker in `packages/common/assets/skills/spec-go/SKILL.md`.
       Keep the "No pull" bullet — it is still the standing reason the seam does
       not read Linear.
-- [ ] Move the `<!-- seam:spec-go-start -->` marker out of step 3b and into
+- [x] Move the `<!-- seam:spec-go-start -->` marker out of step 3b and into
       step 4, immediately after the paragraph that sets the phase heading to `🔄`
       and flips the overview index row. Leave 3b's prose about the step-2 move in
       place, or fold it into the relocated fragment — the seam must not sit
       before a write it is meant to mirror.
-- [ ] Make the push **mandatory under `subissue`**, not optional. Replace the
+- [x] Make the push **mandatory under `subissue`**, not optional. Replace the
       "Refresh now or later" wording; keep the `deferred` branch's minting
       explanation, which is still the reason that mode differs.
-- [ ] Add `packages/linear/assets/seams/spec-tracker-progress.md`, carrying the
+- [x] Add `packages/linear/assets/seams/spec-tracker-progress.md`, carrying the
       `spec-tracker-sync` discipline verbatim in substance: only when the config
       exists and the spec carries a `linear_identifier`, refresh without asking,
       **never mint**, **never fatal**, and say what happened in the report. Do
       **not** copy its "Why it sits here" section — see decision 3.
-- [ ] Place `<!-- seam:spec-tracker-progress -->` after step 5 and before
+- [x] Place `<!-- seam:spec-tracker-progress -->` after step 5 and before
       `## 6. Report`, so the report can state the mirror outcome.
-- [ ] State in the fragment that the push writes a base snapshot which `/spec-go`
+- [x] State in the fragment that the push writes a base snapshot which `/spec-go`
       does not commit (decision 6), so the reader is not surprised by a dirty
       `specs/.core/` afterwards.
-- [ ] Add placement tests in `packages/common/test/assets.test.js` mirroring the
+- [x] Add placement tests in `packages/common/test/assets.test.js` mirroring the
       `/spec-complete` pair: the start seam falls after the `🔄` flip and before
       step 5; the progress seam falls after the `✅` flip and before `## 6.`.
       Confirm both **fail** against the current asset before wiring the fix —
       a placement test that passes on the broken input proves nothing.
-- [ ] Assert `/spec-go` stays provider-neutral in its own source (no `/linear/i`),
+- [x] Assert `/spec-go` stays provider-neutral in its own source (no `/linear/i`),
       matching the existing checks on the terminal and creating skills.
-- [ ] Run `pnpm test` — green before the phase is done.
+- [x] Run `pnpm test` — green before the phase is done.
 
 ## Notes
 

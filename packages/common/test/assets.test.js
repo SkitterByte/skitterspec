@@ -295,6 +295,39 @@ test('spec-review refreshes the mirror after it rewrites the spec', () => {
   assert.ok(seam < text.indexOf('## 5. Report'), 'and before the report')
 })
 
+// /spec-go changes state TWICE — once when the phase starts, once when it
+// finishes — and both writes live in steps 4 and 5, after the step-3b seam that
+// used to be its only tracker step. A push that fires before the `🔄` flip
+// mirrors the state the phase is LEAVING, which is how phase sub-issues sat in
+// Backlog for a whole build and all jumped to Done at /spec-complete.
+test('/spec-go syncs at phase start, after the 🔄 flip', () => {
+  const text = skillText('spec-go')
+  const started = text.indexOf('flip the matching row in the overview phase index to `🔄`')
+  const seam = text.indexOf('<!-- seam:spec-go-start -->')
+  const record = text.indexOf('## 5. Record progress')
+
+  assert.ok(started !== -1, 'the phase-start write is recognisable')
+  assert.ok(seam !== -1, 'the start seam is present')
+  assert.ok(started < seam, 'the push must see the phase already marked in progress')
+  assert.ok(seam < record, 'and must not wait until the phase is finished')
+})
+
+test('/spec-go refreshes the mirror after it records the phase', () => {
+  const text = skillText('spec-go')
+  const done = text.indexOf('flip the matching phase-index row to `✅`')
+  const seam = text.indexOf('<!-- seam:spec-tracker-progress -->')
+  const report = text.indexOf('## 6. Report')
+
+  assert.ok(done !== -1, 'the phase-done write is recognisable')
+  assert.ok(seam !== -1, 'the progress seam is present')
+  assert.ok(done < seam, 'the push must see the phase already marked done')
+  assert.ok(seam < report, 'and the report must be able to state the outcome')
+})
+
+test('spec-go stays provider-neutral in its own source', () => {
+  assert.doesNotMatch(skillText('spec-go'), /linear/i, 'spec-go must not name a specific tracker')
+})
+
 test('the creating and reviewing skills stay provider-neutral in their source', () => {
   for (const skill of ['spec-bug', 'spec-hotfix', 'spec-review']) {
     const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
@@ -310,7 +343,7 @@ test('every skill that changes spec state carries a tracker seam', () => {
     spec: 'spec-tracker-link',
     'spec-bug': 'spec-tracker-link',
     'spec-hotfix': 'spec-tracker-link',
-    'spec-go': 'spec-go-pull',
+    'spec-go': 'spec-tracker-progress',
     'spec-complete': 'spec-tracker-sync',
     'spec-cancel': 'spec-tracker-sync',
     'spec-review': 'spec-tracker-sync',

@@ -111,7 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-go` mirrors phase start and phase completion | ⬜ | [01-spec-go.md](01-spec-go.md) |
+| 1 | `/spec-go` mirrors phase start and phase completion | ✅ | [01-spec-go.md](01-spec-go.md) |
 | 2 | `/spec-bug` and `/spec-hotfix` refresh after the fix | ⬜ | [02-bug-hotfix.md](02-bug-hotfix.md) |
 | 3 | The backstop checks placement, not presence | ⬜ | [03-placement-backstop.md](03-placement-backstop.md) |
 
@@ -128,6 +128,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-03 — Phase 1: also renamed the two stale `spec-go-pull` tests in
+  the linear package and the `compose.test.js` message; the presence map at
+  `assets.test.js:308` now names `spec-tracker-progress` until Phase 3 turns it
+  into a placement map.
 - 2026-09-03 — Spec created. Audit found the defect in three skills, not one:
   `/spec-bug` and `/spec-hotfix` tick tasks after their link seam, which the
   presence-only backstop could not see.
