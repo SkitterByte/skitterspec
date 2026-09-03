@@ -37,6 +37,8 @@ In a project that installs the Linear superset the binary is
 | "link this spec to KEY-1 by hand" | `stamp <spec> --issue KEY-1` |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
 | "is the team key stale?", "did Linear get renamed?" | `retarget` |
+| "what ticket am I on?", writing a commit | `ref` |
+| "what shipped in this release?" | `released` |
 | push one spec, or "what would push?" | **defer** — see below |
 
 **With no argument, run `linked`.** It is the repo-wide overview, it is
@@ -131,7 +133,29 @@ its object exists, so an interrupted run continues rather than duplicating.
 
 `--all` refuses over MCP by design — bulk goes through the API path.
 
-## 7. `retarget` — after a Linear team is renamed
+## 7. `ref` and `released` — tickets in commits
+
+```
+pnpm exec skitterspec-linear spec-sync ref [--json]
+pnpm exec skitterspec-linear spec-sync released [<range>] [--json]
+```
+
+`ref` prints the ticket for the branch you are on, so a commit can carry
+`Refs: <KEY-N>` — see `.claude/rules/commit-trailers.md`. **Off a spec branch, or
+on a spec that is not linked, it prints nothing and exits non-zero.** That is the
+correct answer, not an error to work around: do not invent a ref, and never write
+`Refs: none`.
+
+`released` reports the tickets in a commit range — by default since the most
+recent tag, and it always prints the range it chose so a wrong default is
+visible. It is **read-only**: it does not move anything in Linear. A release can
+be cut and never deployed, so transitioning tickets stays a deliberate act.
+
+Relay the **unreferenced count** even when it is zero. A chore commit
+legitimately carries no ticket and a *missed* trailer looks identical, so
+omitting the number reads as "everything is accounted for" when it may not be.
+
+## 8. `retarget` — after a Linear team is renamed
 
 ```
 pnpm exec skitterspec-linear spec-sync retarget [--yes]
@@ -160,7 +184,7 @@ rewrites those fields. Read-only until `--yes`.
 Over MCP the team key is unreadable (`get_team` does not return it), so it says
 so and asks you to confirm the key rather than guessing.
 
-## 8. Report
+## 9. Report
 
 Relay the engine's output. Name the subcommand you ran, in full, so the user can
 re-run it themselves. For anything that wrote, say what changed in Linear and

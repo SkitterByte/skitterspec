@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-38/ticket-refs-in-commits-
 
 > **Type:** Feature
 > **Name:** feat-commit-ticket-refs (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-02)
+> **Status:** In Progress — all phases built (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -124,7 +124,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `spec-sync ref` and the trailer rule | ✅ | [01-ref-and-rule.md](01-ref-and-rule.md) |
-| 2 | `spec-sync released` — a release's ticket list | ⬜ | [02-released-report.md](02-released-report.md) |
+| 2 | `spec-sync released` — a release's ticket list | ✅ | [02-released-report.md](02-released-report.md) |
 
 ## Open questions
 
@@ -150,3 +150,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   distribution" task is what caught it. Asset tests that read
   `packages/linear/assets` check the SOURCE; only a build-dist test sees what
   a consumer actually installs.
+- 2026-09-02 — Phase 2 done. The planned `lastTagFor` reuse is impossible:
+  `scripts/` is outside `TARBALL_INPUTS`, so shipped code cannot require it,
+  and its `name@version` scheme is this repo's rather than a consumer's. The
+  default range comes from `git describe --tags --abbrev=0` instead, and the
+  chosen range is always printed so a wrong guess is visible.
+- 2026-09-02 — Verified end to end on this repo's own history: the range
+  since the last tag reports SKS-38 with its title read from Linear, and
+  counts the commits carrying no ref.

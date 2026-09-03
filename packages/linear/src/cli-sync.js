@@ -25,6 +25,7 @@ const path = require('node:path')
 
 const { BUCKETS, findSpecFolder, branchFor, splitPrefix, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
+const { ticketsInRange } = require('./released.js')
 const { execFileSync } = require('node:child_process')
 const {
   normalizeLocal,
@@ -860,6 +861,106 @@ function countSkills(dir) {
   } catch {
     return 0
   }
+}
+
+/**
+ * `spec-sync released [<range>] [--json]` — the tickets a release contains.
+ *
+ * Read-only, and deliberately so: it reports what shipped, it does not move
+ * anything. A release can be cut and never deployed, and workflow state is
+ * pushed from a spec's lifecycle bucket — "released" is not one, so moving
+ * tickets here would be a new kind of write with no dry run.
+ *
+ * The default range is the most recent tag reachable from HEAD, resolved with
+ * `git describe` rather than by knowing a tag scheme. This repo tags
+ * `name@version`, but a consumer may tag `v1.2.3` — and the scheme lives in
+ * `scripts/`, which is not shipped. The chosen range is always printed, so a
+ * wrong guess is visible rather than silent.
+ */
+async function specSyncReleased(dir, config, rangeArg, flags, out) {
+  const git = (argv) => {
+    try {
+      return execFileSync('git', ['-C', dir, ...argv], { stdio: ['ignore', 'pipe', 'ignore'] }).toString()
+    } catch {
+      return null
+    }
+  }
+
+  let range = rangeArg
+  if (!range) {
+    const tag = (git(['describe', '--tags', '--abbrev=0']) || '').trim()
+    if (!tag) {
+      out.write(
+        'spec-sync released: no range given and no tag to default from.\n' +
+          '  Pass one explicitly, e.g. spec-sync released v1.2.0..HEAD\n',
+      )
+      return 1
+    }
+    range = `${tag}..HEAD`
+  }
+
+  // NUL-delimited so a subject or body containing the separator cannot split a
+  // record; RS between commits for the same reason.
+  const raw = git(['log', '--format=%H%x00%s%x00%b%x1e', range])
+  if (raw === null) {
+    out.write(`spec-sync released: git could not resolve the range "${range}".\n`)
+    return 1
+  }
+
+  const commits = raw
+    .split('\x1e')
+    .map((r) => r.replace(/^\n/, ''))
+    .filter((r) => r.trim())
+    .map((record) => {
+      const [sha, subject, ...rest] = record.split('\x00')
+      return { sha, subject, body: rest.join('\x00') }
+    })
+
+  const report = ticketsInRange(commits)
+
+  // Titles are an ENRICHMENT: the scan itself is offline. No key, the MCP
+  // transport, or a read failure degrades to bare refs — never a failure.
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  let titles = null
+  let titleNote = ''
+  if (report.tickets.length && transport === 'api') {
+    const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+    titles = {}
+    for (const t of report.tickets) {
+      try {
+        const issue = await adapter.readIssue(t.ref)
+        if (issue && issue.title) titles[t.ref] = issue.title
+      } catch {
+        titleNote = '  (titles unavailable — Linear could not be read)'
+        titles = null
+        break
+      }
+    }
+  } else if (report.tickets.length) {
+    titleNote = `  (titles unavailable — transport = ${transport})`
+  }
+
+  if (flags.json) {
+    out.write(JSON.stringify({ range, ...report, titles }, null, 2) + '\n')
+    return 0
+  }
+
+  const lines = [`spec-sync released: ${range}`, '']
+  if (!report.tickets.length) lines.push('  no ticket references found')
+  for (const t of report.tickets) {
+    const title = titles && titles[t.ref] ? `  ${titles[t.ref]}` : ''
+    lines.push(`  ${t.ref}${title}`)
+  }
+  if (titleNote) lines.push(titleNote)
+  lines.push('')
+  lines.push(`  ${report.tickets.length} ticket(s) in ${report.total} commit(s)`)
+  // Said even when zero: a chore commit legitimately carries no ticket and a
+  // MISSED trailer looks identical, so silence here would read as "everything is
+  // accounted for".
+  lines.push(`  ${report.unreferenced} commit(s) carry no ref`)
+  out.write(lines.join('\n') + '\n')
+  return 0
 }
 
 /**
@@ -2097,6 +2198,8 @@ async function specSync(rest, io = {}) {
       return (await specSyncProjects(dir, config, flags, out)) || 0
     case 'states':
       return (await specSyncStates(dir, config, flags, out)) || 0
+    case 'released':
+      return (await specSyncReleased(dir, config, positional[0], flags, out)) || 0
     case 'ref':
       return specSyncRef(dir, config, flags, out, err) || 0
     case 'retarget':
@@ -2122,6 +2225,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync ref [--json]\n' +
+        '       skitterspec spec-sync released [<range>] [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
         '       skitterspec spec-sync doctor [--check-remote] [--mcp <file>] [--json]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +
