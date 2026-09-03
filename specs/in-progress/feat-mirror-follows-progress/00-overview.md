@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-34/the-mirror-follows-prog
 
 > **Type:** Feature
 > **Name:** feat-mirror-follows-progress (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-03)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-03
 > **Area:** packages/common/assets/skills/spec-go/SKILL.md, packages/common/assets/skills/spec-bug/SKILL.md, packages/common/assets/skills/spec-hotfix/SKILL.md, packages/linear/assets/seams/, packages/common/test/assets.test.js
 > **Stack:** worktree
@@ -124,6 +124,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-03 | Ready | backlog | Reuben Greaves |
+| 2026-09-03 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
