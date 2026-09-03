@@ -57,6 +57,7 @@ function runChecks(state = {}) {
     projectCheck(state.project, state.tracker, state.remote),
     keyCheck(state.key, state.tracker),
     remoteCheck(state.remote),
+    mcpCheck(state.mcp, state.tracker, state.project, state.remote),
   ]
   // `missing` is a declined opt-in, so it must not fail the run. Only a
   // configured-but-wrong layer does.
@@ -223,5 +224,66 @@ function remoteCheck(s = {}) {
   }
   return row('remote', 'remote', 'ok', `team ${s.teamKey} resolves, key accepted`)
 }
+
+/**
+ * Do the two transports point at the same place?
+ *
+ * A repo reaches Linear over the API or over MCP, chosen per invocation, and
+ * they are configured independently: the API key belongs to whatever workspace
+ * issued it, the MCP server to whatever workspace it was connected to. Nothing
+ * made them agree, so the destination could depend on which transport ran.
+ *
+ * `s` is what a skill read over MCP (see `readMcpFacts`). Three sources are
+ * compared — the repo's config, the API key's workspace, and the MCP server's —
+ * and a disagreement is `broken` because writes would land in the wrong place.
+ *
+ * IDS, NEVER NAMES: a renamed workspace, team or project keeps its id, and
+ * `retarget` exists precisely because a team KEY is not identity.
+ *
+ * BLIND SPOT: the file is a snapshot the skill took, so `ok` means the sources
+ * agreed WHEN IT WAS FETCHED. And a field the skill could not fetch is absent —
+ * absence is unchecked, so it never produces `broken`. The row can only speak
+ * about pairs it holds both halves of, which is why it names them.
+ */
+function mcpCheck(s, tracker = {}, project = {}, remote = {}) {
+  if (!s) {
+    return row('mcp', 'mcp', 'skipped', 'pass --mcp <file> to check the MCP server points at the same place')
+  }
+
+  const apiOrg = remote && remote.organization
+  const pairs = [
+    ['workspace', s.workspace && s.workspace.id, apiOrg && apiOrg.id, s.workspace && s.workspace.name, apiOrg && apiOrg.name, "the API key's workspace"],
+    ['team', s.team && s.team.id, tracker.teamId, s.team && s.team.key, tracker.teamKey, 'the config'],
+    ['project', s.project && s.project.id, project && project.configured, s.project && s.project.name, null, 'the config'],
+  ]
+
+  const checked = []
+  for (const [what, mcpId, otherId, mcpName, otherName, whose] of pairs) {
+    // Both halves, or nothing to compare. An absent id is a question nobody
+    // asked, not an answer of "no".
+    if (!mcpId || !otherId) continue
+    checked.push(what)
+    if (mcpId !== otherId) {
+      return row(
+        'mcp',
+        'mcp',
+        'broken',
+        `${what} mismatch — the MCP server says ${describe(mcpName, mcpId)}, ${whose} says ` +
+          `${describe(otherName, otherId)}; writes land wherever the transport does`,
+        '/spec-linear-setup',
+      )
+    }
+  }
+
+  if (!checked.length) {
+    return row('mcp', 'mcp', 'skipped', 'the --mcp file names nothing that can be compared yet')
+  }
+  const where = (s.workspace && s.workspace.name) || (s.team && s.team.key) || 'the same place'
+  return row('mcp', 'mcp', 'ok', `${where} — ${checked.join(', ')} agree across both transports`)
+}
+
+// `Name (id)` when a name is known, the bare id otherwise — the id is what was
+// compared, so it is always shown.
+const describe = (name, id) => (name ? `"${name}" (${id})` : String(id))
 
 module.exports = { runChecks, STATES }

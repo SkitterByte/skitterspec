@@ -604,6 +604,14 @@ function verifyLines(snapshotDir, config, stored, identifier) {
  */
 async function specSyncDoctor(dir, flags, out) {
   const state = gatherState(dir, flags)
+  if (flags.mcp) {
+    const read = readMcpFacts(flags.mcp)
+    if (read.error) {
+      out.write(`spec-sync doctor: cannot read --mcp ${flags.mcp}: ${read.error}\n`)
+      return 1
+    }
+    state.mcp = read.facts
+  }
   if (flags.remoteCheck) state.remote = await checkRemote(state, flags)
 
   const report = runChecks(state)
@@ -675,8 +683,22 @@ async function checkRemote(state, flags) {
       fix: '/spec-linear-setup',
     }
   }
-  // The team resolved, so the key works. Only now is it worth spending a second
-  // call on the project — and only when one is configured.
+  // The team resolved, so the key works. Only now is it worth spending further
+  // calls — on the workspace this key belongs to (so the MCP row has an API side
+  // to compare against, and only when there is an MCP side to compare with), and
+  // on the project, when one is configured.
+  let organization = null
+  if (state.mcp && state.mcp.workspace && typeof adapter.readOrganization === 'function') {
+    try {
+      organization = await adapter.readOrganization()
+    } catch {
+      // Unexamined, exactly like the project below: the team read already proved
+      // the key works, so a failure here is not evidence about the config.
+      organization = null
+    }
+  }
+
+
   let project = null
   // `readProject` is API-only. An adapter without it cannot answer the question,
   // and a `TypeError` caught below would be dressed up as Linear refusing the
@@ -700,7 +722,35 @@ async function checkRemote(state, flags) {
     }
   }
 
-  return { checked: true, ok: true, teamKey: team.key, recordedKey: state.tracker.teamKey, project }
+  return { checked: true, ok: true, teamKey: team.key, teamId: team.id, organization, recordedKey: state.tracker.teamKey, project }
+}
+
+/**
+ * The MCP server's view of where this repo files, as the calling skill read it.
+ *
+ * The engine never speaks MCP — the same split `--workspace-states` and
+ * `verify --stored` use — so a skill fetches `get_workspace` / `get_team` /
+ * `get_project` and writes them here:
+ *
+ *   { "workspace": {"id","name"}, "team": {"id","key"}, "project": {"id","name"} }
+ *
+ * Every field is optional. A field the skill could not fetch is ABSENT, and
+ * absent means unchecked — never mismatched. That distinction is the whole
+ * safety of the row: it is a comparison, so it can only speak about the pairs it
+ * actually has both halves of.
+ */
+function readMcpFacts(file) {
+  let parsed
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+  } catch (error) {
+    return { error: error.message }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { error: 'expected an object with workspace / team / project keys' }
+  }
+  const pick = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : null)
+  return { facts: { workspace: pick(parsed.workspace), team: pick(parsed.team), project: pick(parsed.project) } }
 }
 
 // Map a thrown API error onto our own short reason. Matched on the shapes
@@ -1860,12 +1910,13 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    force: false, yes: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
+    mcp: null, force: false, yes: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
     else if (args[i] === '--stored') flags.stored = path.resolve(args[++i])
+    else if (args[i] === '--mcp') flags.mcp = path.resolve(args[++i])
     else if (args[i] === '--plan') flags.plan = path.resolve(args[++i])
     else if (args[i] === '--via') flags.via = args[++i]
     else if (args[i] === '--all') flags.all = args[++i]
@@ -1997,7 +2048,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
-        '       skitterspec spec-sync doctor [--check-remote] [--json]\n' +
+        '       skitterspec spec-sync doctor [--check-remote] [--mcp <file>] [--json]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +
         '                    [--intake-label L] [--bug-labels a,b] [--hotfix-labels a,b]\n' +
         '                    [--state <bucket>=<name> …] [--states <file>] [--force] [--json]\n')

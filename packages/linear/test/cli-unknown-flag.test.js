@@ -78,7 +78,7 @@ test('every flag the usage advertises is accepted', async () => {
   // Asserting the exit code would be wrong: this fixture has no skills, so
   // `doctor` legitimately exits 1. What matters is that the FLAG parsed.
   const dir = repo()
-  for (const argv of [['linked', '--json'], ['doctor', '--json'], ['doctor', '--check-remote', '--json']]) {
+  for (const argv of [['linked', '--json'], ['doctor', '--json'], ['doctor', '--check-remote', '--json'], ['doctor', '--mcp', path.join(dir, 'mcp.json'), '--json']]) {
     const r = await run(argv, dir)
     assert.doesNotMatch(r.out, /unrecognised|unknown flag/i, `${argv.join(' ')} must not be refused, got: ${r.out}`)
   }

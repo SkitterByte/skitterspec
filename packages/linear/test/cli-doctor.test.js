@@ -148,7 +148,7 @@ test('--json parses, carries every row, and leaks no key', async () => {
   const r = await run(['doctor', '--json'], configuredRepo(), { LINEAR_API_KEY: SECRET })
   const got = JSON.parse(r.out)
   assert.strictEqual(got.ok, true)
-  assert.deepEqual(got.checks.map((c) => c.id), ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote'])
+  assert.deepEqual(got.checks.map((c) => c.id), ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote', 'mcp'])
   assert.ok(!r.out.includes(SECRET), 'not in the machine payload either')
 })
 
@@ -451,4 +451,76 @@ test('a project id that resolves to nothing is broken', async () => {
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /project\s+broken/)
   assert.match(r.out, /does not resolve/)
+})
+
+// --- --mcp: the two transports must point at the same place --------------------
+
+// The file a skill writes from get_workspace / get_team / get_project.
+function mcpFile(dir, facts) {
+  const file = path.join(dir, 'mcp.json')
+  fs.writeFileSync(file, JSON.stringify(facts), 'utf-8')
+  return file
+}
+
+test('without --mcp the row is skipped and says how to ask', async () => {
+  const r = await run(['doctor'], configuredRepo())
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /mcp\s+skipped/)
+  assert.match(r.out, /--mcp <file>/)
+})
+
+test('a matching --mcp file reports ok against the config', async () => {
+  const dir = configuredRepo()
+  const file = mcpFile(dir, { team: { id: 'T1', key: 'SKS' }, project: { id: 'p1', name: 'Platform' } })
+  const r = await run(['doctor', '--mcp', file], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /mcp\s+ok/)
+})
+
+test('a team the MCP server does not share is broken, naming both', async () => {
+  const dir = configuredRepo()
+  const file = mcpFile(dir, { team: { id: 'T9', key: 'OTH' } })
+  const r = await run(['doctor', '--mcp', file], dir)
+  assert.strictEqual(r.code, 1, 'a skill branching on the code must not proceed')
+  assert.match(r.out, /mcp\s+broken/)
+  assert.match(r.out, /"OTH" \(T9\)/)
+  assert.match(r.out, /T1/)
+})
+
+test('the API workspace and the MCP workspace are compared under --check-remote', async () => {
+  const dir = configuredRepo()
+  const file = mcpFile(dir, { workspace: { id: 'org9', name: 'Acme' }, team: { id: 'T1', key: 'SKS' } })
+  const r = await run(['doctor', '--check-remote', '--mcp', file], dir, { LINEAR_API_KEY: SECRET }, {
+    adapter: {
+      async readTeam() {
+        return { id: 'T1', key: 'SKS' }
+      },
+      async readOrganization() {
+        return { id: 'org1', name: 'Skitterbyte' }
+      },
+      async readProject() {
+        return { id: 'p1', name: 'Platform', teams: [{ id: 'T1' }] }
+      },
+    },
+  })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /workspace mismatch/)
+  assert.ok(!r.out.includes(SECRET), 'and no key in the diagnostic')
+})
+
+test('a malformed --mcp file is refused, not guessed at', async () => {
+  const dir = configuredRepo()
+  const file = path.join(dir, 'mcp.json')
+  fs.writeFileSync(file, '{ not json', 'utf-8')
+  const r = await run(['doctor', '--mcp', file], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /cannot read --mcp/)
+})
+
+test('an --mcp file that is a JSON array is refused with the shape it wants', async () => {
+  const dir = configuredRepo()
+  const file = mcpFile(dir, ['nope'])
+  const r = await run(['doctor', '--mcp', file], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /workspace \/ team \/ project/)
 })

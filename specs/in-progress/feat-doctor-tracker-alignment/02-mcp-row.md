@@ -1,6 +1,6 @@
-# Phase 2 — The MCP row and the cross-check ⬜
+# Phase 2 — The MCP row and the cross-check ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `doctor --mcp <file>` proves the MCP server, the API key and the config
 all name the same workspace, team and project — and says so loudly when they
@@ -8,31 +8,31 @@ don't, without changing anything.
 
 ## Tasks
 
-- [ ] Add `readOrganization()` to the API adapter, returning `{ id, name, urlKey }`
+- [x] Add `readOrganization()` to the API adapter, returning `{ id, name, urlKey }`
       — the API key's workspace identity. Cover it in `api.test.js`.
-- [ ] Add the `--mcp <file>` flag to `spec-sync doctor`, resolved and read like
+- [x] Add the `--mcp <file>` flag to `spec-sync doctor`, resolved and read like
       `--workspace-states` (path resolution, a clear refusal for a missing or
       malformed file — reuse the wording `verify --stored` already uses).
-- [ ] Carry the file into `state.mcp` as data: `{ workspace, team, project }`.
+- [x] Carry the file into `state.mcp` as data: `{ workspace, team, project }`.
       Never throw on a partial file — a field the skill could not fetch is
       absent, and absent means unchecked, not mismatched.
-- [ ] Add `mcpCheck` to `doctor.js`:
+- [x] Add `mcpCheck` to `doctor.js`:
       - no file → `skipped`, naming the flag;
       - every id present and equal → `ok`, naming the workspace;
       - any id present on both sides and different → `broken`, printing **both**
         identities and pointing at `/spec-linear-setup`.
-- [ ] Compare **ids only** (organization, team, project). Add a test that a
+- [x] Compare **ids only** (organization, team, project). Add a test that a
       renamed workspace or team — same id, different name — is `ok`.
-- [ ] Name the blind spot in a comment: the file is a snapshot the skill took, so
+- [x] Name the blind spot in a comment: the file is a snapshot the skill took, so
       `ok` means the two agreed *when it was fetched*; and a field absent from the
       file is unchecked, which is why absence never produces `broken`.
-- [ ] **Stays-silent tests** (see `.claude/rules/negative-checks.md`): no `--mcp`
+- [x] **Stays-silent tests** (see `.claude/rules/negative-checks.md`): no `--mcp`
       file leaves the run `ok`; a file naming only the workspace does not accuse
       over the team it says nothing about; a repo with no API key still reports
       the config-vs-MCP comparison rather than skipping the row wholesale.
-- [ ] Counterweight test: differing workspace ids exit 1 and print both, and the
+- [x] Counterweight test: differing workspace ids exit 1 and print both, and the
       detail never contains an API key or a token.
-- [ ] Add/extend tests covering this phase; run the project's typecheck and
+- [x] Add/extend tests covering this phase; run the project's typecheck and
       test commands (see `.claude/rules/spec-planning.md`) — green before the
       phase is done.
 
@@ -45,3 +45,19 @@ case `skitterload` is actually in.
 
 `doctor.js` stays pure: the file is read in `cli-sync.js` and handed over as
 data, exactly like the workspace states.
+
+## Outcome
+
+Built as planned. Two details worth recording:
+
+- **The row is a comparison, so it needs both halves.** A pair is only checked
+  when the `--mcp` file AND the other source both carry that id; anything else is
+  skipped. That makes the partial-fetch case safe by construction rather than by
+  a special case, and it is why the `ok` detail names which pairs agreed.
+- **`ok` is not claimed for free.** A file naming only a workspace, with no API
+  organization to compare it against, reports `skipped` — not `ok`. A clean bill
+  of health nobody earned is the failure this whole spec is about.
+
+The API's `readOrganization` is fetched only when the file carries a workspace to
+compare it with, so `--check-remote` costs nothing extra for anyone not using the
+cross-check.

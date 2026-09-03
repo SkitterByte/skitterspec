@@ -35,8 +35,8 @@ test('a fully configured project is ok, with every layer reported', () => {
   assert.strictEqual(r.ok, true)
   assert.deepEqual(
     r.checks.map((c) => c.id),
-    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote'],
-    'all four layers, plus the project and remote rows — project sits with tracker, its config',
+    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote', 'mcp'],
+    'all four layers, plus project, remote and the cross-transport row',
   )
   for (const c of r.checks) assert.ok(STATES.includes(c.state), `${c.id} has a known state`)
 })
@@ -233,7 +233,7 @@ test('every branch of the matrix yields a known state', () => {
   ]
   for (const v of variants) {
     const r = withState(v)
-    assert.strictEqual(r.checks.length, 6, `${JSON.stringify(v)} still reports every layer`)
+    assert.strictEqual(r.checks.length, 7, `${JSON.stringify(v)} still reports every layer`)
     for (const c of r.checks) {
       assert.ok(STATES.includes(c.state), `${c.id} → ${c.state} for ${JSON.stringify(v)}`)
       assert.ok(typeof c.detail === 'string' && c.detail, `${c.id} explains itself`)
@@ -246,7 +246,92 @@ test('runChecks tolerates being handed nothing at all', () => {
   // A caller that failed to gather state must get a report saying so, not a
   // crash — this is the command a skill runs to find out what is wrong.
   const r = runChecks()
-  assert.strictEqual(r.checks.length, 6)
+  assert.strictEqual(r.checks.length, 7)
   assert.strictEqual(find(r, 'scaffold').state, 'missing')
   assert.strictEqual(r.ok, true, 'nothing configured is nothing broken')
+})
+
+// --- the cross-transport row --------------------------------------------------
+//
+// Two transports, configured independently, and nothing made them agree. This
+// row accuses only where it holds BOTH halves of a pair.
+// See `.claude/rules/negative-checks.md`.
+
+const MCP = { workspace: { id: 'org1', name: 'Skitterbyte' }, team: { id: 'e07c', key: 'SKS' }, project: { id: 'p1', name: 'Platform' } }
+const REMOTE_OK = { checked: true, ok: true, teamKey: 'SKS', organization: { id: 'org1', name: 'Skitterbyte' } }
+
+test('no --mcp file skips the row and keeps the run ok', () => {
+  const r = withState({})
+  assert.strictEqual(find(r, 'mcp').state, 'skipped')
+  assert.match(find(r, 'mcp').detail, /--mcp/, 'names how to ask')
+  assert.strictEqual(r.ok, true)
+})
+
+test('every id agreeing is ok, and names what was compared', () => {
+  const r = withState({ mcp: MCP, tracker: { ...READY.tracker, teamId: 'e07c' }, project: { configured: 'p1' }, remote: REMOTE_OK })
+  assert.strictEqual(find(r, 'mcp').state, 'ok')
+  assert.match(find(r, 'mcp').detail, /workspace, team, project agree/)
+  assert.strictEqual(r.ok, true)
+})
+
+test('a renamed workspace is not a mismatch — ids are identity', () => {
+  // Same id, different name on each side. `retarget` exists because a team KEY
+  // is not identity; the same is true of every name here.
+  const renamed = { ...MCP, workspace: { id: 'org1', name: 'Skitterbyte Ltd' }, team: { id: 'e07c', key: 'SKZ' } }
+  const r = withState({ mcp: renamed, tracker: { ...READY.tracker, teamId: 'e07c' }, project: { configured: 'p1' }, remote: REMOTE_OK })
+  assert.strictEqual(find(r, 'mcp').state, 'ok')
+})
+
+test('a file naming only the workspace does not accuse over the team', () => {
+  // The skill could not fetch the team. Unchecked is not mismatched — a row that
+  // read absence as disagreement would fire on every partial fetch.
+  const r = withState({ mcp: { workspace: { id: 'org1', name: 'Skitterbyte' } }, remote: REMOTE_OK })
+  assert.strictEqual(find(r, 'mcp').state, 'ok')
+  assert.match(find(r, 'mcp').detail, /workspace agree/)
+})
+
+test('a file with nothing comparable is skipped, not ok', () => {
+  // No API organization to compare the workspace against and no team in the
+  // file: claiming `ok` here would be a clean bill of health nobody earned.
+  const r = withState({ mcp: { workspace: { id: 'org1' } }, remote: { checked: false } })
+  assert.strictEqual(find(r, 'mcp').state, 'skipped')
+  assert.strictEqual(r.ok, true)
+})
+
+test('the config and MCP are still compared with no API key at all', () => {
+  // The case skitterload is in. Two sources are enough — the row must not wait
+  // for a third that will never arrive.
+  const r = withState({
+    mcp: { team: { id: 'other', key: 'OTH' } },
+    tracker: { ...READY.tracker, teamId: 'e07c' },
+    key: { ok: false },
+    remote: { checked: false },
+  })
+  assert.strictEqual(find(r, 'mcp').state, 'broken')
+  assert.match(find(r, 'mcp').detail, /team mismatch/)
+})
+
+test('a workspace mismatch is broken and names both sides', () => {
+  const r = withState({
+    mcp: { ...MCP, workspace: { id: 'org9', name: 'Acme' } },
+    tracker: { ...READY.tracker, teamId: 'e07c' },
+    remote: REMOTE_OK,
+  })
+  const mcp = find(r, 'mcp')
+  assert.strictEqual(mcp.state, 'broken')
+  assert.strictEqual(r.ok, false, 'writes would land in the wrong workspace')
+  assert.match(mcp.detail, /"Acme" \(org9\)/, 'the MCP side')
+  assert.match(mcp.detail, /"Skitterbyte" \(org1\)/, 'and the API side')
+  assert.strictEqual(mcp.fix, '/spec-linear-setup')
+})
+
+test('a project mismatch is caught too, against the config', () => {
+  const r = withState({
+    mcp: { ...MCP, project: { id: 'p9', name: 'Elsewhere' } },
+    tracker: { ...READY.tracker, teamId: 'e07c' },
+    project: { configured: 'p1' },
+    remote: REMOTE_OK,
+  })
+  assert.strictEqual(find(r, 'mcp').state, 'broken')
+  assert.match(find(r, 'mcp').detail, /project mismatch/)
 })

@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-doctor-tracker-alignment (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 2 (started 2026-09-03)
+> **Status:** In Progress — Phase 3 (started 2026-09-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-03
@@ -113,7 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The project row | ✅ | [01-project-row.md](01-project-row.md) |
-| 2 | The MCP row and the cross-check | ⬜ | [02-mcp-row.md](02-mcp-row.md) |
+| 2 | The MCP row and the cross-check | ✅ | [02-mcp-row.md](02-mcp-row.md) |
 | 3 | Teach the setup skill to fetch it | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
 
 ## Open questions
@@ -136,3 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   shared one. Also guarded the case where the adapter has no `readProject`: the
   `TypeError` was being classified as Linear refusing the request, turning our
   own gap into a `broken` row against the user's config.
+- 2026-09-03 — Phase 2: the `mcp` row compares a pair only when both sources
+  carry that id, so a partial MCP fetch is unchecked rather than mismatched — and
+  a file with nothing comparable reports `skipped`, not `ok`. Added `--mcp` to
+  the advertised-flags guard so it cannot be silently dropped.

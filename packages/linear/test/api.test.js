@@ -105,6 +105,13 @@ test('an unreachable API is reported as such, not as a bad key', async () => {
   await assert.rejects(() => adapterWith(boom).readIssue('SKI-1'), /unreachable/)
 })
 
+test('readOrganization returns the workspace the key belongs to', async () => {
+  const f = fakeFetch({ organization: { id: 'org1', name: 'Skitterbyte', urlKey: 'skitterbyte' } })
+  const got = await adapterWith(f).readOrganization()
+  assert.deepEqual(got, { id: 'org1', name: 'Skitterbyte', urlKey: 'skitterbyte' })
+  assert.match(f.calls[0].body.query, /organization/)
+})
+
 test('readProject returns the project and the teams it belongs to', async () => {
   const f = fakeFetch({ project: { id: 'p1', name: 'Platform', teams: { nodes: [{ id: 't1', key: 'SKS' }] } } })
   const got = await adapterWith(f).readProject('p1')

@@ -246,6 +246,16 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
       const data = await call(`query($id: String!) { team(id: $id) { id key name } }`, { id: teamId })
       return (data && data.team) || null
     },
+    // The WORKSPACE this key belongs to. The one fact that says whether the API
+    // transport and the MCP transport are pointed at the same Linear at all —
+    // every other id could match by coincidence across two workspaces, but an
+    // organization id is the workspace.
+    //
+    // API-only, like `readTeam`.
+    async readOrganization() {
+      const data = await call('query { organization { id name urlKey } }')
+      return (data && data.organization) || null
+    },
     // One project by id, with the teams it belongs to — enough to answer both
     // halves of the `project` doctor row: does this id resolve at all, and is it
     // a project of the team this repo files into?
