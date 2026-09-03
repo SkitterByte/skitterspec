@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-38/ticket-refs-in-commits-
 
 > **Type:** Feature
 > **Name:** feat-commit-ticket-refs (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases built (2026-09-02)
+> **Status:** Complete (2026-09-02)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-02
@@ -136,6 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-02 | Ready | backlog | Reuben Greaves |
 | 2026-09-02 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-02 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -158,3 +159,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-02 — Verified end to end on this repo's own history: the range
   since the last tag reports SKS-38 with its title read from Linear, and
   counts the commits carrying no ref.
+- 2026-09-02 — Completed; both phases done, tests green (1101/1101).
