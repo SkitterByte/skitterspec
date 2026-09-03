@@ -403,6 +403,22 @@ issue exists, where it lives is Linear's business: move it between projects and
 A spec that **adopted** an existing issue (see below) skips the picker entirely —
 it was filed somewhere deliberately.
 
+`skitterspec spec-sync doctor` reports what this setting is doing:
+
+| `linear.projectId` | Row | Meaning |
+|--------------------|-----|---------|
+| unset | `missing` | specs file to the team, and the picker asks each push — a supported choice, and it never fails the run |
+| set | `ok` | the id is there; add `--check-remote` to resolve it against Linear |
+| set, resolves in the team | `ok` | the project exists and this team is one of its teams |
+| set, resolves elsewhere | `broken` | specs would file out of the team — exits non-zero |
+| set, resolves to nothing | `broken` | a deleted or mistyped id |
+
+`doctor --mcp <file>` additionally compares this id — and the team and workspace —
+against what the Linear **MCP server** reports, so the two transports cannot
+quietly point at different places. A mismatch is `broken` and names both sides; it
+is never resolved by rewriting this file, because which side is wrong is yours to
+say.
+
 ### Known limits — one team per repo, no initiatives
 
 Two things this config deliberately cannot express today. Both are limits, not

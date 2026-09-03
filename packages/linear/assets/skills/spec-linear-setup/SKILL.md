@@ -47,6 +47,11 @@ anything. The interview offers real lists; it never prompts for a raw id.
 | `list_projects` | the projects, per candidate team — names + ids, minus archived/completed |
 | `list_issue_statuses` | the team's **issue workflow-state names**, exactly as spelled |
 | `list_issue_labels` | the label names available for intake routing |
+| `get_workspace` | **which workspace this MCP server is connected to** — id + name |
+
+`get_workspace` is not part of the interview: nothing is asked about it. It is
+recorded so step 8 can prove the MCP server and the API key are pointed at the
+same Linear, which nothing else establishes.
 
 Projects, labels and statuses are all **team-scoped** — fetch them for the team
 once step 3 has settled it, not for the whole workspace up front.
@@ -159,10 +164,22 @@ paraphrase it into "done".
 
 ## 8. Report and hand off
 
-**Finish by checking, not by describing.** Run:
+**Finish by checking, not by describing.** First write down what the MCP server
+says, from the reads you already made in step 2 — no extra round trip unless a
+project was chosen and you have not read it yet (`get_project`):
+
+```json
+{ "workspace": {"id": "…", "name": "…"},
+  "team":      {"id": "…", "key": "SKS"},
+  "project":   {"id": "…", "name": "…"} }
+```
+
+Every key is optional, and **omit what you could not fetch** rather than guessing
+— an absent field is reported as unchecked, while a wrong one is reported as a
+mismatch. Then run:
 
 ```
-skitterspec spec-sync doctor
+skitterspec spec-sync doctor --mcp <factsfile>
 ```
 
 and relay its table. That is the difference between a summary of what setup
@@ -173,7 +190,17 @@ nothing to paraphrase.
 
 It exits non-zero only when a layer is **broken** — configured but wrong. A
 `missing` row is an opt-in nobody took, which is fine; report it, don't treat it
-as a failure.
+as a failure. An empty `project` row is exactly that: specs file to the team and
+the picker asks each push.
+
+**A `broken` `mcp` row is the one to stop on.** It means the MCP server and the
+config (or the API key) name different workspaces, teams or projects — so where a
+spec lands depends on which transport ran. Relay both sides as the row prints
+them and **stop**: do not rewrite the config to make them agree. Which one is
+correct is the user's to say — the API key may be the wrong one just as easily as
+the config, and picking a winner silently sends their specs somewhere they did
+not choose. Ask which is right, then re-run this skill (or reconnect the MCP
+server) to match it.
 
 Then name the next step:
 

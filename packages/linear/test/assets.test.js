@@ -675,3 +675,23 @@ test('every spec-sync verb named in a shipped asset is a real subcommand', () =>
     }
   }
 })
+
+// --- the cross-transport check is only real if the skill runs it --------------
+
+test('the setup skill reads the workspace and hands it to doctor', () => {
+  // `doctor --mcp` can only catch a mismatch if something produces the file. The
+  // engine never speaks MCP, so this step in the skill IS the MCP half of the
+  // check — dropped from the skill, the row silently reports `skipped` forever
+  // and nothing looks wrong.
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-linear-setup', 'SKILL.md'), 'utf8')
+  assert.match(text, /get_workspace/, 'it reads which workspace the MCP server is on')
+  assert.match(text, /doctor --mcp/, 'and hands the facts to doctor')
+  // Decision 4: a mismatch is reported, never resolved by rewriting the config.
+  assert.match(text, /do not rewrite the config/i, 'it refuses to pick a winner')
+})
+
+test('the config doc states what doctor reports for each projectId case', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(text, /`missing`/, 'an unset project is a declined opt-in')
+  assert.match(text, /file out of the team|resolves elsewhere/, 'and a foreign one is broken')
+})

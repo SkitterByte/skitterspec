@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-doctor-tracker-alignment (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 3 (started 2026-09-03)
+> **Status:** In Progress — all phases done (2026-09-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-03
@@ -114,7 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The project row | ✅ | [01-project-row.md](01-project-row.md) |
 | 2 | The MCP row and the cross-check | ✅ | [02-mcp-row.md](02-mcp-row.md) |
-| 3 | Teach the setup skill to fetch it | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
+| 3 | Teach the setup skill to fetch it | ✅ | [03-skill-wiring.md](03-skill-wiring.md) |
 
 ## Open questions
 
@@ -140,3 +140,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   carry that id, so a partial MCP fetch is unchecked rather than mismatched — and
   a file with nothing comparable reports `skipped`, not `ok`. Added `--mcp` to
   the advertised-flags guard so it cannot be silently dropped.
+- 2026-09-03 — Phase 3: `/spec-linear-setup` records `get_workspace` (not part of
+  the interview — recorded purely so the transports can be compared) and passes
+  the facts to `doctor --mcp` in the readiness check it already ran. The skill is
+  told to stop on a mismatch and never rewrite the config, per decision 4.
