@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-doctor-tracker-alignment (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (2026-09-03)
+> **Status:** Complete (2026-09-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-03
@@ -126,6 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-03 | Ready | backlog | Reuben Greaves |
 | 2026-09-03 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-03 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -144,3 +145,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the interview — recorded purely so the transports can be compared) and passes
   the facts to `doctor --mcp` in the readiness check it already ran. The skill is
   told to stop on a mismatch and never rewrite the config, per decision 4.
+- 2026-09-03 — Completed; all three phases done, tests green (1057 passing).
