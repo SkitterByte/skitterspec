@@ -23,7 +23,9 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { BUCKETS, findSpecFolder } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
+const { BUCKETS, findSpecFolder, branchFor, splitPrefix, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
+const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
+const { execFileSync } = require('node:child_process')
 const {
   normalizeLocal,
   readSnapshot,
@@ -858,6 +860,76 @@ function countSkills(dir) {
   } catch {
     return 0
   }
+}
+
+/**
+ * `spec-sync ref [--json]` — the ticket this branch's work belongs to.
+ *
+ * Exists so neither a person nor a model has to go spelunking for the id when
+ * writing a commit: `Refs: $(spec-sync ref)`. With a fast-forward-only history
+ * the commit message is the ONLY place a ticket survives into the range a
+ * release scans — branch names never reach it.
+ *
+ * The branch→spec direction is the INVERSE of what `/spec-go` provisions with,
+ * so it is computed by running `branchFor` over each spec and matching, rather
+ * than by re-deriving the pattern here. A second implementation of the naming
+ * rule would drift from the one that created the branch.
+ *
+ * **Every no-ref case prints nothing on stdout** and exits non-zero. A commit on
+ * `main`, or on a spec kept deliberately local, has no ticket — and a command
+ * that wrote an error message to stdout would see a shell splice it straight
+ * into the commit body via `$(…)`.
+ */
+function specSyncRef(dir, config, flags, out, err) {
+  const say = (msg) => err.write(`spec-sync ref: ${msg}\n`)
+
+  const git = (argv) => {
+    try {
+      return execFileSync('git', ['-C', dir, ...argv], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+    } catch {
+      return null
+    }
+  }
+  const branch = currentBranch(git)
+  if (!branch) {
+    say('not on a git branch (detached HEAD, or not a git repository)')
+    return 1
+  }
+
+  const env = loadEnvConfig(dir).config
+  let match = null
+  for (const bucket of BUCKETS) {
+    let entries
+    try {
+      entries = fs.readdirSync(path.join(dir, 'specs', bucket), { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      const specPath = path.join(dir, 'specs', bucket, entry.name)
+      const { type, slug } = splitPrefix(entry.name)
+      if (branchFor({ type, slug, path: specPath }, env) === branch) {
+        match = { folder: entry.name, bucket, path: specPath }
+        break
+      }
+    }
+    if (match) break
+  }
+
+  if (!match) {
+    say(`branch "${branch}" is not a spec branch — no ticket to reference`)
+    return 1
+  }
+
+  const identifier = linkedIdentifier(path.join(match.path, (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'))
+  if (!identifier) {
+    say(`${match.folder} is not linked to Linear — /spec-push to mirror it`)
+    return 1
+  }
+
+  out.write(flags.json ? JSON.stringify({ ref: identifier, spec: match.folder, branch }, null, 2) + '\n' : `${identifier}\n`)
+  return 0
 }
 
 /**
@@ -2025,6 +2097,8 @@ async function specSync(rest, io = {}) {
       return (await specSyncProjects(dir, config, flags, out)) || 0
     case 'states':
       return (await specSyncStates(dir, config, flags, out)) || 0
+    case 'ref':
+      return specSyncRef(dir, config, flags, out, err) || 0
     case 'retarget':
       return (await specSyncRetarget(dir, config, flags, out)) || 0
     case 'apply':
@@ -2047,6 +2121,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n' +
+        '       skitterspec spec-sync ref [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
         '       skitterspec spec-sync doctor [--check-remote] [--mcp <file>] [--json]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +

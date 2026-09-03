@@ -38,9 +38,10 @@ or `/spec-complete`.
    when it merges. `Refs:` is inert to Linear's automation and greppable by us.
 3. **The linear package ships `.claude/rules/commit-trailers.md`.** Rules are
    already discovered dynamically (`listRules`, `packages/common/src/init.js:26`)
-   and provider assets are overlaid wholesale by `build-dist.js`, so the file
-   reaches `.claude/rules/` with **no installer change** — and the tracker-free
-   base distribution never ships it. Rejected a git hook: it appends the trailer
+   and installed to `.claude/rules/`, where they load as project instructions —
+   and the tracker-free base distribution never ships it. (`build-dist.js` needed
+   one line: it overlaid only the provider's `skills` and `core`, so a rule was
+   composed away silently. See the Changelog.) Rejected a git hook: it appends the trailer
    after the fact rather than the commit being written correctly, and it is
    invasive infrastructure this repo has none of.
 4. **A `spec-sync ref` helper resolves the ticket**, so neither a person nor a
@@ -122,7 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `spec-sync ref` and the trailer rule | ⬜ | [01-ref-and-rule.md](01-ref-and-rule.md) |
+| 1 | `spec-sync ref` and the trailer rule | ✅ | [01-ref-and-rule.md](01-ref-and-rule.md) |
 | 2 | `spec-sync released` — a release's ticket list | ⬜ | [02-released-report.md](02-released-report.md) |
 
 ## Open questions
@@ -139,3 +140,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-02 — Spec created.
+- 2026-09-02 — Phase 1 done. Decision 3 was wrong on one point: `build-dist.js`
+  overlays the provider's `skills` and `core`, **not** `rules`, so
+  `commit-trailers.md` was present in source and absent from the built
+  distribution — installed nowhere, with nothing failing. Added the overlay
+  line and a dist-level test in both directions; verified non-vacuous by
+  removing the line and watching the test fail.
+- 2026-09-02 — The phase's own "verify it ships only in the Linear
+  distribution" task is what caught it. Asset tests that read
+  `packages/linear/assets` check the SOURCE; only a build-dist test sees what
+  a consumer actually installs.

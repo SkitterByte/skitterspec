@@ -331,3 +331,31 @@ test('the base names no tracker at all, configured or not', () => {
   assert.doesNotMatch(out, /Tracker sync/i)
   assert.doesNotMatch(out, /linear/i, 'the base stays tracker-free')
 })
+
+// --- provider rules ----------------------------------------------------------
+//
+// `build-dist` originally overlaid only the provider's `skills` and `core`, so a
+// rule added under `packages/linear/assets/rules/` was composed away silently:
+// present in the source, absent from the distribution, and therefore never
+// installed. Nothing failed. These pin the overlay in both directions.
+
+test('a provider rule reaches the superset and is installed by init', () => {
+  const dist = buildLinear()
+  const rules = fs.readdirSync(path.join(dist, 'assets', 'rules'))
+  assert.ok(rules.includes('commit-trailers.md'), `superset must ship the provider rule, got ${rules}`)
+
+  const outside = copyDistOut(dist, 'linear-rules-out')
+  const proj = tmpDir('linear-rules-proj')
+  const bin = path.join(outside, 'bin', 'skitterspec-linear.js')
+  const init = spawnSync('node', [bin, 'init', proj, '--yes', '--no-claude-md'], { encoding: 'utf8' })
+  assert.strictEqual(init.status, 0, `superset init failed: ${init.stderr}`)
+
+  const installed = fs.readdirSync(path.join(proj, '.claude', 'rules'))
+  assert.ok(installed.includes('commit-trailers.md'), `init must install it, got ${installed}`)
+})
+
+test('the tracker-free base ships no provider rule', () => {
+  const rules = fs.readdirSync(path.join(buildBase(), 'assets', 'rules'))
+  assert.ok(!rules.includes('commit-trailers.md'), 'the base must stay tracker-free')
+  assert.ok(rules.includes('spec-planning.md'), 'but it still ships the common rules')
+})

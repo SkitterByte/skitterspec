@@ -161,10 +161,16 @@ function buildLinear() {
   for (const d of BUILT_DIRS) rmDir(path.join(out, d))
 
   // Assets: compose common with the Linear fragments filled, then overlay the
-  // Linear-only skills and the linear.config templates.
+  // Linear-only skills, rules and linear.config templates.
+  //
+  // `rules` is overlaid for the same reason as `skills`: a provider rule is
+  // tracker-specific, so it must reach the superset and NOT the tracker-free
+  // base. `listRules` (common/src/init.js) then discovers it and installs it to
+  // `.claude/rules/`, where it is loaded as a project instruction.
   const fragments = loadFragments(path.join(linear, 'assets', 'seams'))
   composeAssets(path.join(common, 'assets'), path.join(out, 'assets'), fragments)
   overlayTree(path.join(linear, 'assets', 'skills'), path.join(out, 'assets', 'skills'), fragments)
+  overlayTree(path.join(linear, 'assets', 'rules'), path.join(out, 'assets', 'rules'), fragments)
   overlayTree(path.join(linear, 'assets', 'core'), path.join(out, 'assets', 'core'), fragments)
 
   // src: common at the root; the engine + adapter vendored under vendor/. All JS

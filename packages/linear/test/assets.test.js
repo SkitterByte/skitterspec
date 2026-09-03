@@ -719,3 +719,31 @@ test('the config doc states what doctor reports for each projectId case', () => 
   assert.match(text, /`missing`/, 'an unset project is a declined opt-in')
   assert.match(text, /file out of the team|resolves elsewhere/, 'and a foreign one is broken')
 })
+
+// --- the commit-trailer rule -------------------------------------------------
+//
+// Shipped by the provider, never by the tracker-free base. `build-dist.js` has
+// to overlay `assets/rules` for that to happen — it originally overlaid only
+// `skills` and `core`, so the rule silently never reached the distribution.
+
+test('the commit-trailer rule ships in the linear package', () => {
+  const file = path.join(ASSETS, 'rules', 'commit-trailers.md')
+  assert.ok(fs.existsSync(file), 'commit-trailers.md shipped')
+  const text = fs.readFileSync(file, 'utf8')
+  assert.match(text, /Refs:/, 'names the trailer key')
+  assert.match(text, /spec-sync ref/, 'says where the value comes from')
+})
+
+test('the rule forbids Linear magic words, and says why', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'rules', 'commit-trailers.md'), 'utf8')
+  for (const word of ['Fixes', 'Closes', 'Resolves']) {
+    assert.match(text, new RegExp(`\\b${word}\\b`), `names ${word} as forbidden`)
+  }
+  assert.match(text, /released/i, 'explains that a ticket moves on release, not merge')
+})
+
+test('the rule says to omit the trailer rather than invent one', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'rules', 'commit-trailers.md'), 'utf8')
+  assert.match(text, /omit the trailer/i)
+  assert.match(text, /Refs: none/, 'and rules out the fake-value escape hatch by name')
+})
