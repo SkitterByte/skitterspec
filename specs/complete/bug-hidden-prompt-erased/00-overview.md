@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-hidden-prompt-erased (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-03
@@ -103,6 +103,7 @@ the prompt was erased — the user sees a blank line and a process that looks hu
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-03 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-03 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -110,3 +111,4 @@ the prompt was erased — the user sees a blank line and a process that looks hu
 - 2026-09-03 — Fixed: readline owns the prompt and redraws it; `--stdin` refuses
   on a TTY. The test blind spot was `promptHidden` writing to `out` while
   readline cleared `process.stdout` — the two are one stream in production.
+- 2026-09-03 — Completed; fix landed, tests green (1028 passing).
