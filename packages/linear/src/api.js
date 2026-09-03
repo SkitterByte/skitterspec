@@ -246,6 +246,26 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
       const data = await call(`query($id: String!) { team(id: $id) { id key name } }`, { id: teamId })
       return (data && data.team) || null
     },
+    // One project by id, with the teams it belongs to — enough to answer both
+    // halves of the `project` doctor row: does this id resolve at all, and is it
+    // a project of the team this repo files into?
+    //
+    // `teams`, not `team`: a Linear project can span several teams, so belonging
+    // is a membership test. Treating it as a single field would report a healthy
+    // shared project as foreign.
+    //
+    // API-only, like `readTeam` — the adapter may add ops, it may only never be
+    // missing one (see the operation-contract test).
+    async readProject(projectId) {
+      const data = await call(
+        `query($id: String!) { project(id: $id) { id name teams { nodes { id key } } } }`,
+        { id: projectId },
+      )
+      const project = (data && data.project) || null
+      if (!project) return null
+      const teams = (project.teams && project.teams.nodes) || []
+      return { id: project.id, name: project.name, teams }
+    },
     // The workspace's issue workflow states, in the shape `--workspace-states`
     // already accepts, so the existing state check is reused rather than forked.
     async listIssueStates(teamId) {

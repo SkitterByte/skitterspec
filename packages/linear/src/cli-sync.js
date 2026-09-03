@@ -675,7 +675,32 @@ async function checkRemote(state, flags) {
       fix: '/spec-linear-setup',
     }
   }
-  return { checked: true, ok: true, teamKey: team.key, recordedKey: state.tracker.teamKey }
+  // The team resolved, so the key works. Only now is it worth spending a second
+  // call on the project — and only when one is configured.
+  let project = null
+  // `readProject` is API-only. An adapter without it cannot answer the question,
+  // and a `TypeError` caught below would be dressed up as Linear refusing the
+  // request — accusing the user's config of a gap that is ours. Unexamined.
+  if (state.project && state.project.configured && typeof adapter.readProject === 'function') {
+    try {
+      const found = await adapter.readProject(state.project.configured)
+      project = found
+        ? {
+            resolved: true,
+            name: found.name,
+            // Membership, not equality: a Linear project can span teams.
+            belongsToTeam: (found.teams || []).some((t) => t && t.id === state.tracker.teamId),
+          }
+        : { resolved: false }
+    } catch (error) {
+      // Same rule as the team read: NEVER ANSWERED is not ANSWERED NO. A
+      // transport failure leaves the project unexamined rather than accused.
+      const failure = classifyRemoteFailure(error)
+      project = failure.reached === false ? null : { resolved: false, reason: failure.reason }
+    }
+  }
+
+  return { checked: true, ok: true, teamKey: team.key, recordedKey: state.tracker.teamKey, project }
 }
 
 // Map a thrown API error onto our own short reason. Matched on the shapes
@@ -708,7 +733,7 @@ function classifyRemoteFailure(error) {
 // Read the project's real state for `runChecks`. Never throws: every probe that
 // can fail reports the failure as data.
 function gatherState(dir, flags) {
-  const state = { scaffold: {}, isolation: {}, tracker: {}, key: {}, remote: { checked: false } }
+  const state = { scaffold: {}, isolation: {}, tracker: {}, key: {}, project: {}, remote: { checked: false } }
 
   const specs = path.join(dir, 'specs')
   state.scaffold.specsDir = fs.existsSync(specs)
@@ -739,6 +764,10 @@ function gatherState(dir, flags) {
       state.tracker.parsed = true
       state.tracker.teamId = (config.linear && config.linear.teamId) || ''
       state.tracker.teamKey = (config.linear && config.linear.teamKey) || ''
+      // Offline this is all that can be known: whether a string is there. That a
+      // well-formed id names a LIVE project is only answerable with
+      // --check-remote, which is why the row says what it checked.
+      state.project.configured = (config.linear && config.linear.projectId) || ''
     } catch (error) {
       state.tracker.parsed = false
       state.tracker.error = error.message

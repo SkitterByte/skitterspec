@@ -21,6 +21,7 @@ const READY = {
   isolation: { present: true, parsed: true },
   tracker: { present: true, parsed: true, teamId: 'e07c', teamKey: 'SKS' },
   key: { ok: true, source: 'the environment (LINEAR_API_KEY)', fingerprint: '…sCU8' },
+  project: { configured: '71179728-5e8d-4b10-9c44-e6b11cb41eb7' },
   remote: { checked: false },
 }
 
@@ -34,8 +35,8 @@ test('a fully configured project is ok, with every layer reported', () => {
   assert.strictEqual(r.ok, true)
   assert.deepEqual(
     r.checks.map((c) => c.id),
-    ['scaffold', 'isolation', 'tracker', 'key', 'remote'],
-    'all four layers, plus the remote row',
+    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote'],
+    'all four layers, plus the project and remote rows — project sits with tracker, its config',
   )
   for (const c of r.checks) assert.ok(STATES.includes(c.state), `${c.id} has a known state`)
 })
@@ -224,11 +225,15 @@ test('every branch of the matrix yields a known state', () => {
     { key: { ok: false } },
     { remote: { checked: true, ok: true, teamKey: 'SKS' } },
     { remote: { checked: true, ok: false } },
+    { project: { configured: '' } },
+    { project: { configured: 'p1' }, remote: { checked: true, ok: true, teamKey: 'SKS', project: { resolved: false } } },
+    { project: { configured: 'p1' }, remote: { checked: true, ok: true, teamKey: 'SKS', project: { resolved: true, name: 'X', belongsToTeam: false } } },
+    { project: { configured: 'p1' }, remote: { checked: true, ok: true, teamKey: 'SKS', project: { resolved: true, name: 'X', belongsToTeam: true } } },
     {},
   ]
   for (const v of variants) {
     const r = withState(v)
-    assert.strictEqual(r.checks.length, 5, `${JSON.stringify(v)} still reports every layer`)
+    assert.strictEqual(r.checks.length, 6, `${JSON.stringify(v)} still reports every layer`)
     for (const c of r.checks) {
       assert.ok(STATES.includes(c.state), `${c.id} → ${c.state} for ${JSON.stringify(v)}`)
       assert.ok(typeof c.detail === 'string' && c.detail, `${c.id} explains itself`)
@@ -241,7 +246,7 @@ test('runChecks tolerates being handed nothing at all', () => {
   // A caller that failed to gather state must get a report saying so, not a
   // crash — this is the command a skill runs to find out what is wrong.
   const r = runChecks()
-  assert.strictEqual(r.checks.length, 5)
+  assert.strictEqual(r.checks.length, 6)
   assert.strictEqual(find(r, 'scaffold').state, 'missing')
   assert.strictEqual(r.ok, true, 'nothing configured is nothing broken')
 })

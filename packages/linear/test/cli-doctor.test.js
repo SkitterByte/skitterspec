@@ -43,13 +43,15 @@ function scaffoldedRepo() {
 }
 
 // Everything: scaffold, isolation, tracker.
-function configuredRepo({ trackerJson = null } = {}) {
+function configuredRepo({ trackerJson = null, projectId = 'p1' } = {}) {
   const dir = scaffoldedRepo()
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), JSON.stringify({ worktree: {} }), 'utf-8')
   fs.writeFileSync(
     path.join(dir, CONFIG_FILE),
-    trackerJson !== null ? trackerJson : JSON.stringify({ linear: { teamId: 'T1', teamKey: 'SKS' } }),
+    trackerJson !== null
+      ? trackerJson
+      : JSON.stringify({ linear: { teamId: 'T1', teamKey: 'SKS', ...(projectId ? { projectId } : {}) } }),
     'utf-8',
   )
   return dir
@@ -146,7 +148,7 @@ test('--json parses, carries every row, and leaks no key', async () => {
   const r = await run(['doctor', '--json'], configuredRepo(), { LINEAR_API_KEY: SECRET })
   const got = JSON.parse(r.out)
   assert.strictEqual(got.ok, true)
-  assert.deepEqual(got.checks.map((c) => c.id), ['scaffold', 'isolation', 'tracker', 'key', 'remote'])
+  assert.deepEqual(got.checks.map((c) => c.id), ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote'])
   assert.ok(!r.out.includes(SECRET), 'not in the machine payload either')
 })
 
@@ -174,11 +176,21 @@ test('doctor runs without a tracker config, where every other subcommand opts ou
 // key may be revoked. The invariant across every path below is that neither the
 // key nor Linear's own error text reaches the output.
 
-const linearThat = (behaviour) => ({
+const linearThat = (behaviour, project) => ({
   async readTeam(id) {
     if (typeof behaviour === 'function') return behaviour(id)
     return behaviour
   },
+  // Only when a test supplies one: an adapter WITHOUT `readProject` is itself a
+  // case worth covering (the project stays unexamined rather than accused).
+  ...(project === undefined
+    ? {}
+    : {
+        async readProject(id) {
+          if (typeof project === 'function') return project(id)
+          return project
+        },
+      }),
 })
 
 test('--check-remote confirms the team resolves and the key is accepted', async () => {
@@ -359,4 +371,84 @@ test('an answered refusal is still broken — the fix did not mute the check', a
   })
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /remote\s+broken/)
+})
+
+// --- the project row ----------------------------------------------------------
+//
+// Where specs get FILED. A false positive here either fails a healthy repo's run
+// or, worse, says nothing while specs land in another team's project.
+// See `.claude/rules/negative-checks.md`.
+
+test('no project configured is missing, not broken, and keeps the run ok', async () => {
+  // The live case: a repo that files to the team and picks a project each push
+  // (skitterload runs this way). It must never fail the run.
+  const r = await run(['doctor'], configuredRepo({ projectId: '' }))
+  assert.strictEqual(r.code, 0, 'a declined opt-in exits 0')
+  assert.match(r.out, /project\s+missing/)
+  assert.match(r.out, /picker asks each push/, 'says what happens instead')
+})
+
+test('a configured project is not called ok-against-Linear until it is checked', async () => {
+  const r = await run(['doctor'], configuredRepo())
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /project\s+ok/)
+  assert.match(r.out, /not checked against Linear/, 'claims only what it established')
+})
+
+test('a project that resolves inside the team reports ok, named', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKS' }, { id: 'p1', name: 'Platform', teams: [{ id: 'T1', key: 'SKS' }] }),
+  })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /project\s+ok\s+"Platform"/)
+})
+
+test('a project spanning several teams still belongs to ours', async () => {
+  // Membership, not equality: a Linear project can span teams, and treating the
+  // first one as THE team would accuse a healthy shared project.
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKS' }, { id: 'p1', name: 'Shared', teams: [{ id: 'T9' }, { id: 'T1' }] }),
+  })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /project\s+ok/)
+})
+
+test('an unreachable Linear leaves the project unexamined, not broken', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKS' }, () => {
+      throw new Error('Linear API unreachable: getaddrinfo ENOTFOUND api.linear.app')
+    }),
+  })
+  assert.strictEqual(r.code, 0, 'no answer is not a wrong answer')
+  assert.match(r.out, /project\s+ok\s+p1 — configured, not checked/)
+})
+
+test('an adapter that cannot read projects leaves the row unexamined', async () => {
+  // The gap would be OURS, not the config's. Dressing a missing operation up as
+  // Linear refusing the request would accuse the user of our bug.
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKS' }),
+  })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /project\s+ok\s+p1 — configured, not checked/)
+})
+
+test('a project belonging to another team is broken, and says specs would leave', async () => {
+  // The counterweight: this is the case the row exists for, and it must exit 1.
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKS' }, { id: 'p1', name: 'Someone Else', teams: [{ id: 'T9', key: 'OTH' }] }),
+  })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /project\s+broken/)
+  assert.match(r.out, /not a project of team SKS/)
+  assert.match(r.out, /file out of the team/)
+})
+
+test('a project id that resolves to nothing is broken', async () => {
+  const r = await run(['doctor', '--check-remote'], configuredRepo(), { LINEAR_API_KEY: SECRET }, {
+    adapter: linearThat({ id: 'T1', key: 'SKS' }, null),
+  })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /project\s+broken/)
+  assert.match(r.out, /does not resolve/)
 })

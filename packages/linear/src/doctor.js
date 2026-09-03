@@ -54,6 +54,7 @@ function runChecks(state = {}) {
     scaffoldCheck(state.scaffold),
     isolationCheck(state.isolation),
     trackerCheck(state.tracker),
+    projectCheck(state.project, state.tracker, state.remote),
     keyCheck(state.key, state.tracker),
     remoteCheck(state.remote),
   ]
@@ -123,6 +124,53 @@ function trackerCheck(s = {}) {
 // caller resolves all three before this sees it. `s.error` carries WHY when one
 // of them failed; passing it through is what keeps a broken keyCommand from
 // being reported as a key the user never set.
+// Where specs get filed. `projectId` is the picker's DEFAULT, not a mandate
+// (`config.js`), so an unset one is a declined opt-in and NEVER fails the run —
+// filing to the team and choosing a project each push is a supported way to work.
+//
+// BLIND SPOT: offline this can only see that a string is present. A well-formed
+// id naming a deleted project, or one belonging to another team, reads `ok`
+// until `--check-remote` resolves it — so the detail says which of the two was
+// actually established rather than implying the stronger one.
+function projectCheck(s = {}, tracker = {}, remote = {}) {
+  if (!tracker.present) return row('project', 'project', 'skipped', 'no tracker configured')
+  if (!s.configured) {
+    return row(
+      'project',
+      'project',
+      'missing',
+      'no linear.projectId — specs file to the team, and the picker asks each push',
+      '/spec-linear-setup',
+    )
+  }
+
+  const found = remote && remote.project
+  // Configured but unexamined — either --check-remote was not passed, or it was
+  // and Linear never answered. Both are "we did not look", not "it is wrong".
+  if (!found) {
+    return row('project', 'project', 'ok', `${s.configured} — configured, not checked against Linear`)
+  }
+  if (!found.resolved) {
+    return row(
+      'project',
+      'project',
+      'broken',
+      found.reason || `linear.projectId ${s.configured} does not resolve in this workspace`,
+      '/spec-linear-setup',
+    )
+  }
+  if (!found.belongsToTeam) {
+    return row(
+      'project',
+      'project',
+      'broken',
+      `"${found.name}" is not a project of team ${tracker.teamKey || tracker.teamId} — specs would file out of the team`,
+      '/spec-linear-setup',
+    )
+  }
+  return row('project', 'project', 'ok', `"${found.name}" (${s.configured}) in team ${tracker.teamKey || tracker.teamId}`)
+}
+
 function keyCheck(s = {}, tracker = {}) {
   // Without a tracker there is nothing for a key to authenticate, so asking for
   // one would be noise.

@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-doctor-tracker-alignment (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-03)
+> **Status:** In Progress — Phase 2 (started 2026-09-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-03
@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The project row | ⬜ | [01-project-row.md](01-project-row.md) |
+| 1 | The project row | ✅ | [01-project-row.md](01-project-row.md) |
 | 2 | The MCP row and the cross-check | ⬜ | [02-mcp-row.md](02-mcp-row.md) |
 | 3 | Teach the setup skill to fetch it | ⬜ | [03-skill-wiring.md](03-skill-wiring.md) |
 
@@ -131,3 +131,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-09-03 — Spec created after `skitterload` was found configured with an
   empty `projectId` and no API key, which `doctor` reports as ready.
+- 2026-09-03 — Phase 1: `readProject` returns the project's **teams**, not a
+  single team — a project can span teams, and equality would accuse a healthy
+  shared one. Also guarded the case where the adapter has no `readProject`: the
+  `TypeError` was being classified as Linear refusing the request, turning our
+  own gap into a `broken` row against the user's config.

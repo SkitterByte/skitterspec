@@ -105,6 +105,32 @@ test('an unreachable API is reported as such, not as a bad key', async () => {
   await assert.rejects(() => adapterWith(boom).readIssue('SKI-1'), /unreachable/)
 })
 
+test('readProject returns the project and the teams it belongs to', async () => {
+  const f = fakeFetch({ project: { id: 'p1', name: 'Platform', teams: { nodes: [{ id: 't1', key: 'SKS' }] } } })
+  const got = await adapterWith(f).readProject('p1')
+  assert.deepEqual(got, { id: 'p1', name: 'Platform', teams: [{ id: 't1', key: 'SKS' }] })
+  assert.match(f.calls[0].body.query, /project\(id: \$id\)/)
+  assert.strictEqual(f.calls[0].body.variables.id, 'p1')
+})
+
+test('readProject returns null for an id that resolves to nothing', async () => {
+  // Distinct from a throw: "no such project" is an answer, and the caller turns
+  // it into a row rather than a stack trace.
+  assert.strictEqual(await adapterWith(fakeFetch({ project: null })).readProject('gone'), null)
+})
+
+test('a project with no teams comes back with an empty list, not a crash', async () => {
+  const f = fakeFetch({ project: { id: 'p1', name: 'Orphan', teams: null } })
+  assert.deepEqual((await adapterWith(f).readProject('p1')).teams, [])
+})
+
+test('readProject surfaces a transport failure', async () => {
+  const boom = async () => {
+    throw new TypeError('fetch failed')
+  }
+  await assert.rejects(() => adapterWith(boom).readProject('p1'), /unreachable/)
+})
+
 // --- the operation contract --------------------------------------------------
 
 test('it exposes exactly the operations the MCP adapter does', () => {
