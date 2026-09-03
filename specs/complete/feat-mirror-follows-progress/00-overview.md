@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-34/the-mirror-follows-prog
 
 > **Type:** Feature
 > **Name:** feat-mirror-follows-progress (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-03)
+> **Status:** Complete (2026-09-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-03
@@ -125,9 +125,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-03 | Ready | backlog | Reuben Greaves |
 | 2026-09-03 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-03 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-03 — Completed; all phases done, tests green (1066).
 - 2026-09-03 — Phase 3: extracted the check into `seamPlacementProblem` so it
   could be unit-tested both ways, and added a positive "it can fire" test
   alongside the stays-silent one. Probed it against a simulated pre-fix
