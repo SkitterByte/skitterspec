@@ -180,6 +180,13 @@ narrative and decisions).
 - Commit the fix to the `hotfix/<slug>` branch (this commit is what gets tagged
   and cherry-picked). Tick the Fix tasks; add a Changelog line.
 
+**Then refresh the mirror (only if a provider is installed).** The Fix tasks are
+ticked, so the repo is now the truth about this fix — and this skill can take a
+bug all the way to green without `/spec-go` ever running. Without a provider this
+is a no-op.
+
+<!-- seam:spec-tracker-progress -->
+
 ## 7. Report
 
 Summarise: the base tag, root cause, the failing→passing test, the fix, and the

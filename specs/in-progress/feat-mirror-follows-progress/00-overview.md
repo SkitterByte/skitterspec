@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-go` mirrors phase start and phase completion | ✅ | [01-spec-go.md](01-spec-go.md) |
-| 2 | `/spec-bug` and `/spec-hotfix` refresh after the fix | ⬜ | [02-bug-hotfix.md](02-bug-hotfix.md) |
+| 2 | `/spec-bug` and `/spec-hotfix` refresh after the fix | ✅ | [02-bug-hotfix.md](02-bug-hotfix.md) |
 | 3 | The backstop checks placement, not presence | ⬜ | [03-placement-backstop.md](03-placement-backstop.md) |
 
 ## Open questions

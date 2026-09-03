@@ -173,6 +173,13 @@ test, split the fix into phase files (`01-<slug>.md` …) with a phase index in
 `00-overview.md`, and leave the spec in `in-progress` for `/spec-go` to continue.
 Say so explicitly — don't fake green.
 
+**Then refresh the mirror (only if a provider is installed).** The Fix tasks are
+ticked, so the repo is now the truth about this fix — and this skill can take a
+bug all the way to green without `/spec-go` ever running. Without a provider this
+is a no-op.
+
+<!-- seam:spec-tracker-progress -->
+
 ## 6. Report
 
 Summarise: root cause, the failing→passing test, the fix, and the full test

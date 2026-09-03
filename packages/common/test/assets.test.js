@@ -273,9 +273,9 @@ test('the terminal skills stay provider-neutral in their own source', () => {
 // A spec that is never linked is never mirrored, and /spec-bug and /spec-hotfix
 // are exactly the skills invoked mid-incident, when nobody is thinking about the
 // tracker. Both must link at creation, like /spec does.
-for (const [skill, greenStep] of [
-  ['spec-bug', '## 5. Drive to GREEN'],
-  ['spec-hotfix', '## 6. Drive to GREEN'],
+for (const [skill, greenStep, reportStep] of [
+  ['spec-bug', '## 5. Drive to GREEN', '## 6. Report'],
+  ['spec-hotfix', '## 6. Drive to GREEN', '## 7. Report'],
 ]) {
   test(`${skill} links the spec it just wrote, before driving the fix`, () => {
     const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
@@ -284,6 +284,27 @@ for (const [skill, greenStep] of [
     // Before the fix work, so the issue exists WHILE the work happens rather
     // than being backfilled once it is over.
     assert.ok(seam < text.indexOf(greenStep), 'linking precedes the fix')
+  })
+
+  // The link seam fires BEFORE the fix, so nothing it sends can carry the ticks
+  // the fix produces. These two skills can take a bug from report to green
+  // without /spec-go ever running, so with no second seam a fully-fixed bug is
+  // mirrored as an issue whose tasks are all still open, indefinitely.
+  test(`${skill} refreshes the mirror after it ticks the Fix tasks`, () => {
+    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
+    const link = text.indexOf('<!-- seam:spec-tracker-link -->')
+    const ticks = text.indexOf('Tick the Fix tasks')
+    const progress = text.indexOf('<!-- seam:spec-tracker-progress -->')
+    const report = text.indexOf(reportStep)
+
+    assert.ok(ticks !== -1, 'the tick-the-tasks write is recognisable')
+    assert.ok(report !== -1, 'the report step is recognisable')
+    assert.ok(progress !== -1, 'the progress seam is present')
+    // Anchored on the WRITE, not the section heading: the seam has to follow the
+    // ticks themselves, and a later reshuffle of the step must not slip past it.
+    assert.ok(link < ticks, 'the link still precedes the fix')
+    assert.ok(ticks < progress, 'the refresh follows the ticks it mirrors')
+    assert.ok(progress < report, 'and precedes the report, which states the outcome')
   })
 }
 
