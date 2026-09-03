@@ -15,7 +15,7 @@ const assert = require('node:assert')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
-const { Readable } = require('node:stream')
+const { Readable, PassThrough } = require('node:stream')
 
 const { specSync } = require('../src/cli-sync.js')
 
@@ -42,12 +42,13 @@ function scaffold() {
 }
 
 // Drive the CLI with a captured stdout and an injected env/stdin.
-async function run(argv, s, { stdin } = {}) {
+async function run(argv, s, { stdin, input } = {}) {
   let out = ''
   const io = {
     out: { write: (c) => ((out += c), true) },
     err: { write: () => true },
     env: { XDG_CONFIG_HOME: s.xdg },
+    ...(input ? { input } : {}),
   }
   const orig = process.stdin
   if (stdin) Object.defineProperty(process, 'stdin', { value: Readable.from([stdin]), configurable: true })
@@ -165,6 +166,24 @@ test('set refuses to prompt when stdin is not a terminal', async () => {
     assert.notStrictEqual(code, 0)
     assert.match(out, /not a terminal/)
     assert.match(out, /--stdin/, 'offers the pipe instead')
+  } finally {
+    s.cleanup()
+  }
+})
+
+test('--stdin on a terminal refuses instead of waiting for an EOF', async () => {
+  // Reported from the field: `credentials set --stdin` typed at a prompt printed
+  // nothing and never returned. Nothing was piped, so it sat waiting for an
+  // end-of-input a terminal never sends — a silent, indefinite wait that reads
+  // as a crash. A TTY on stdin is positive evidence that no pipe exists.
+  const s = scaffold()
+  try {
+    const tty = new PassThrough()
+    tty.isTTY = true
+    const { code, out } = await run(['credentials', 'set', '--stdin'], s, { input: tty })
+    assert.notStrictEqual(code, 0, 'it returns rather than hanging')
+    assert.match(out, /--stdin expects a pipe/)
+    assert.match(out, /without --stdin to be prompted/, 'names the interactive form')
   } finally {
     s.cleanup()
   }

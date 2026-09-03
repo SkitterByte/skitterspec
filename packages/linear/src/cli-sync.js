@@ -1706,7 +1706,19 @@ async function credentialsSet(file, teamId, label, flags, out) {
 
   let key
   if (flags.stdin) {
-    key = (await readAllStdin(flags.input || process.stdin)).trim()
+    const piped = flags.input || process.stdin
+    // A TTY on stdin is positive evidence that nothing was piped: `--stdin` then
+    // waits for an EOF a terminal never sends, printing nothing while it does.
+    // Refuse and name the two working forms rather than blocking forever.
+    if (piped.isTTY) {
+      out.write(
+        'spec-sync credentials: --stdin expects a pipe, but stdin is a terminal.\n' +
+          '  Run it without --stdin to be prompted (input is hidden), or pipe the key:\n' +
+          '    <command that prints the key> | skitterspec spec-sync credentials set --stdin\n',
+      )
+      return 1
+    }
+    key = (await readAllStdin(piped)).trim()
     if (!key) {
       out.write('spec-sync credentials: nothing on stdin — no key stored.\n')
       return 1
@@ -1778,19 +1790,33 @@ function readAllStdin(input) {
 }
 
 // Prompt on a TTY with the input hidden. `_writeToOutput` is readline's own echo
-// hook — silencing it is what keeps the key off the screen (and out of a
+// hook — filtering it is what keeps the key off the screen (and out of a
 // screen-shared terminal or a recorded session).
+//
+// READLINE OWNS THE PROMPT, deliberately. Writing it ourselves and then starting
+// the interface loses it: readline clears from the cursor to the end of the
+// screen (`ESC[0J`) before its first redraw, so the prompt was wiped the instant
+// it appeared and the user was left staring at a blank line while the process
+// waited for a key — indistinguishable from a hang.
+//
+// The hook is assigned BEFORE `question`, so the very first redraw goes through
+// it. readline hands it `prompt + what has been typed`; re-writing only the
+// prompt is what keeps the key hidden while the prompt survives every redraw.
 function promptHidden(question, input, out) {
   const readline = require('node:readline')
   return new Promise((resolve) => {
-    const rl = readline.createInterface({ input, output: process.stdout, terminal: true })
-    out.write(question)
-    rl.question('', (answer) => {
+    // `out`, never `process.stdout`: they are the same stream in production, and
+    // hardcoding one half meant readline cleared a screen the prompt had not
+    // been written to under test — the split that hid this bug from the suite.
+    const rl = readline.createInterface({ input, output: out, terminal: true })
+    rl._writeToOutput = (s) => {
+      if (s.includes(question)) out.write(question)
+    }
+    rl.question(question, (answer) => {
       out.write('\n')
       rl.close()
       resolve(answer)
     })
-    rl._writeToOutput = () => {}
   })
 }
 
@@ -1880,6 +1906,10 @@ async function specSync(rest, io = {}) {
   flags.env = io.env || process.env
   if (io.adapter) flags.adapter = io.adapter
   if (io.fetch) flags.fetch = io.fetch
+  // The stdin seam. `credentials set` branches on whether stdin is a TTY, and
+  // with no way to inject one the suite could only ever exercise the non-TTY
+  // half — which is how a prompt that erased itself reached a release.
+  if (io.input) flags.input = io.input
 
   // Dispatched ahead of the load on purpose: this is the command you run when
   // there is no config, and `--force` must be able to replace one that is
@@ -1946,4 +1976,4 @@ async function specSync(rest, io = {}) {
   }
 }
 
-module.exports = { specSync, listSpecs }
+module.exports = { specSync, listSpecs, promptHidden }
