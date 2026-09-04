@@ -29,7 +29,11 @@
  * by construction rather than by convention.
  */
 
-const STATES = ['ok', 'missing', 'broken', 'skipped']
+// `warn` sits between `ok` and `broken`: worth a human's attention, but not a
+// failure. A ladder whose last rung never closes an issue is a real problem for
+// most projects and a deliberate choice for some, and only the project knows
+// which — so it is said, and the exit code is left alone.
+const STATES = ['ok', 'missing', 'broken', 'skipped', 'warn']
 
 // A row is a check. `fix` is the exact command to run, or null when there is
 // nothing to fix.
@@ -57,11 +61,73 @@ function runChecks(state = {}) {
     projectCheck(state.project, state.tracker, state.remote),
     keyCheck(state.key, state.tracker),
     remoteCheck(state.remote),
+    ladderCheck(state.ladder, state.tracker),
     mcpCheck(state.mcp, state.tracker, state.project, state.remote),
   ]
   // `missing` is a declined opt-in, so it must not fail the run. Only a
   // configured-but-wrong layer does.
   return { ok: !checks.some((c) => c.state === 'broken'), checks }
+}
+
+/**
+ * The deployment ladder's shape, when one is declared.
+ *
+ * WHAT COULD FOOL THIS CHECK, and why it is a `warn` rather than a refusal: a
+ * workspace can close an issue by automation (a merged PR, a linked release)
+ * rather than by the last rung's own type, and a ladder that stops at a
+ * `started` state is then perfectly healthy. Only the project knows which it is.
+ *
+ * It needs the workspace's state TYPES, which only the API transport returns —
+ * `--workspace-states` and the MCP path carry names alone. Without them the row
+ * is `skipped`: not knowing a type is not evidence of a bad one.
+ */
+function ladderCheck(s = {}, tracker = {}) {
+  if (!tracker.present) return row('ladder', 'ladder', 'skipped', 'no tracker configured')
+  const stages = Array.isArray(s.stages) ? s.stages : []
+  if (!stages.length) {
+    return row('ladder', 'ladder', 'skipped', 'no deployment ladder declared')
+  }
+
+  const summary = stages.map((st) => `${st.key} -> ${st.state}`).join(', ')
+  const states = Array.isArray(s.workspaceStates) ? s.workspaceStates : null
+  if (!states) {
+    return row('ladder', 'ladder', 'skipped', `${stages.length} rung(s), unchecked: ${summary}`)
+  }
+
+  const byName = new Map(
+    states.filter((st) => st && typeof st.name === 'string').map((st) => [st.name.toLowerCase().trim(), st]),
+  )
+  // A list that arrived EMPTY, or held nothing with a name, cannot prove a rung
+  // is absent — it is a lookup that saw nothing, not a workspace without these
+  // states. Accusing every rung off that would be the exact absence-as-evidence
+  // mistake the negative-checks rule exists for.
+  if (!byName.size) {
+    return row('ladder', 'ladder', 'skipped', `${stages.length} rung(s), unchecked: ${summary}`)
+  }
+  const unknown = stages.filter((st) => !byName.has(String(st.state).toLowerCase().trim()))
+  if (unknown.length) {
+    return row(
+      'ladder',
+      'ladder',
+      'broken',
+      `rung state(s) not in this workspace: ${unknown.map((st) => `${st.key} -> "${st.state}"`).join(', ')}` +
+        ' — Linear silently ignores an unknown state, so these would move nothing',
+      '/spec-linear-setup',
+    )
+  }
+
+  const last = stages[stages.length - 1]
+  const type = (byName.get(String(last.state).toLowerCase().trim()) || {}).type
+  if (type !== 'completed') {
+    return row(
+      'ladder',
+      'ladder',
+      'warn',
+      `ends at "${last.state}" (type: ${type || 'unknown'}) — an issue finishing the ladder never reaches a ` +
+        'completed state. Add a final rung, or ignore this if Linear automation closes them.',
+    )
+  }
+  return row('ladder', 'ladder', 'ok', `${stages.length} rung(s): ${summary}`)
 }
 
 function scaffoldCheck(s = {}) {

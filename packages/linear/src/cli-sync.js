@@ -634,6 +634,7 @@ async function specSyncDoctor(dir, flags, out) {
     state.mcp = read.facts
   }
   if (flags.remoteCheck) state.remote = await checkRemote(state, flags)
+  if (state.remote && state.remote.issueStates) state.ladder.workspaceStates = state.remote.issueStates
 
   const report = runChecks(state)
 
@@ -653,7 +654,7 @@ async function specSyncDoctor(dir, flags, out) {
   // Everything not `ok`/`skipped` needs a human's attention — including a
   // `missing` one, which is why the count and the EXIT CODE differ: a declined
   // opt-in is worth reporting but must not fail the run (see `runChecks`).
-  const attention = report.checks.filter((c) => c.state === 'broken' || c.state === 'missing').length
+  const attention = report.checks.filter((c) => c.state === 'broken' || c.state === 'missing' || c.state === 'warn').length
   lines.push('')
   lines.push(attention ? `  ${attention} check(s) need attention.` : '  ready.')
 
@@ -743,7 +744,20 @@ async function checkRemote(state, flags) {
     }
   }
 
-  return { checked: true, ok: true, teamKey: team.key, teamId: team.id, organization, recordedKey: state.tracker.teamKey, project }
+  // Only fetched when a ladder is declared: the rows that do not need state
+  // types must not pay for a call that answers a question nobody asked.
+  let issueStates = null
+  if (releaseStages(state._config).length && typeof adapter.listIssueStates === 'function') {
+    try {
+      issueStates = await adapter.listIssueStates(state.tracker.teamId)
+    } catch {
+      // Unexamined, on the same rule as the project read: a transport failure is
+      // not evidence about the ladder's shape.
+      issueStates = null
+    }
+  }
+
+  return { checked: true, ok: true, teamKey: team.key, teamId: team.id, organization, recordedKey: state.tracker.teamKey, project, issueStates }
 }
 
 /**
@@ -865,6 +879,9 @@ function gatherState(dir, flags) {
   }
 
   state._config = config
+  // Declared here, checked only if `--check-remote` fetches the state TYPES the
+  // shape check needs (see `ladderCheck`). Offline, the row stays `skipped`.
+  state.ladder = { stages: releaseStages(config) }
   return state
 }
 
@@ -1981,6 +1998,10 @@ function specSyncInitConfig(dir, flags, out) {
   if (flags.hotfixLabels.length) intake.hotfixLabels = flags.hotfixLabels
   if (Object.keys(intake).length) draft.intake = intake
   if (Object.keys(flags.stateNames).length) draft.states = { ...flags.stateNames }
+  // The ladder, in the order given. `mergeConfig` below is what validates the
+  // shape — a blank key or a duplicate fails there, in one place, rather than
+  // being re-checked here and drifting from the loader.
+  if (flags.stages.length) draft.release = { stages: flags.stages }
 
   for (const bucket of Object.keys(flags.stateNames)) {
     if (!LIFECYCLE_BUCKETS.includes(bucket)) {
@@ -2337,7 +2358,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null, stages: [] }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -2380,6 +2401,11 @@ async function specSync(rest, io = {}) {
       // actually renamed get written; the rest keep the defaults.
       const [bucket, ...rest] = String(args[++i] || '').split('=')
       flags.stateNames[String(bucket).trim()] = rest.join('=').trim()
+    } else if (args[i] === '--stage') {
+      // `--stage test="On Test"`, repeatable. Order matters and is the order
+      // given, so the ladder is written exactly as the operator listed it.
+      const [key, ...rest] = String(args[++i] || '').split('=')
+      flags.stages.push({ key: String(key).trim(), state: rest.join('=').trim() })
     } else if (args[i] === '--states') flags.statesFile = path.resolve(args[++i])
     else if (args[i].startsWith('--')) unknownFlags.push(args[i])
     else positional.push(args[i])

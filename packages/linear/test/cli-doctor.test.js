@@ -148,7 +148,7 @@ test('--json parses, carries every row, and leaks no key', async () => {
   const r = await run(['doctor', '--json'], configuredRepo(), { LINEAR_API_KEY: SECRET })
   const got = JSON.parse(r.out)
   assert.strictEqual(got.ok, true)
-  assert.deepEqual(got.checks.map((c) => c.id), ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote', 'mcp'])
+  assert.deepEqual(got.checks.map((c) => c.id), ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote', 'ladder', 'mcp'])
   assert.ok(!r.out.includes(SECRET), 'not in the machine payload either')
 })
 

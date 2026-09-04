@@ -35,7 +35,7 @@ test('a fully configured project is ok, with every layer reported', () => {
   assert.strictEqual(r.ok, true)
   assert.deepEqual(
     r.checks.map((c) => c.id),
-    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote', 'mcp'],
+    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote', 'ladder', 'mcp'],
     'all four layers, plus project, remote and the cross-transport row',
   )
   for (const c of r.checks) assert.ok(STATES.includes(c.state), `${c.id} has a known state`)
@@ -233,7 +233,7 @@ test('every branch of the matrix yields a known state', () => {
   ]
   for (const v of variants) {
     const r = withState(v)
-    assert.strictEqual(r.checks.length, 7, `${JSON.stringify(v)} still reports every layer`)
+    assert.strictEqual(r.checks.length, 8, `${JSON.stringify(v)} still reports every layer`)
     for (const c of r.checks) {
       assert.ok(STATES.includes(c.state), `${c.id} → ${c.state} for ${JSON.stringify(v)}`)
       assert.ok(typeof c.detail === 'string' && c.detail, `${c.id} explains itself`)
@@ -246,7 +246,7 @@ test('runChecks tolerates being handed nothing at all', () => {
   // A caller that failed to gather state must get a report saying so, not a
   // crash — this is the command a skill runs to find out what is wrong.
   const r = runChecks()
-  assert.strictEqual(r.checks.length, 7)
+  assert.strictEqual(r.checks.length, 8)
   assert.strictEqual(find(r, 'scaffold').state, 'missing')
   assert.strictEqual(r.ok, true, 'nothing configured is nothing broken')
 })
@@ -334,4 +334,110 @@ test('a project mismatch is caught too, against the config', () => {
   })
   assert.strictEqual(find(r, 'mcp').state, 'broken')
   assert.match(find(r, 'mcp').detail, /project mismatch/)
+})
+
+// --- the deployment ladder row ----------------------------------------------
+//
+// The check needs the workspace's state TYPES, which only the API transport
+// returns. Everything it does when it lacks them is a decision about acting on
+// an absence — see `.claude/rules/negative-checks.md`.
+
+const WS = [
+  { id: '1', name: 'Backlog', type: 'backlog' },
+  { id: '2', name: 'In Progress', type: 'started' },
+  { id: '3', name: 'On Test', type: 'started' },
+  { id: '4', name: 'Ready for Demo', type: 'started' },
+  { id: '5', name: 'Done', type: 'completed' },
+]
+
+const ladder = (over) => find(withState({ ladder: over }), 'ladder')
+
+// The STAYS-SILENT case: a project that declared no ladder must never be
+// accused of a badly-shaped one.
+test('ladder: no ladder declared is skipped, and keeps the run ok', () => {
+  for (const state of [undefined, {}, { stages: [] }, { stages: null }]) {
+    const c = ladder(state)
+    assert.strictEqual(c.state, 'skipped')
+    assert.match(c.detail, /no deployment ladder declared/)
+    assert.strictEqual(c.fix, null, 'nothing to fix')
+  }
+  assert.strictEqual(withState({ ladder: {} }).ok, true)
+})
+
+test('ladder: without a tracker there is nothing to check against', () => {
+  const r = runChecks({ ...READY, tracker: { present: false }, ladder: { stages: [{ key: 'p', state: 'Done' }] } })
+  assert.strictEqual(find(r, 'ladder').state, 'skipped')
+})
+
+// Not knowing a type is not evidence of a bad one.
+test('ladder: declared but unchecked is skipped, and still shows the rungs', () => {
+  const c = ladder({ stages: [{ key: 'test', state: 'On Test' }, { key: 'prod', state: 'Done' }] })
+  assert.strictEqual(c.state, 'skipped')
+  assert.match(c.detail, /2 rung\(s\), unchecked/)
+  assert.match(c.detail, /test -> On Test, prod -> Done/)
+})
+
+test('ladder: a ladder ending in a completed-type state is ok', () => {
+  const c = ladder({
+    stages: [{ key: 'test', state: 'On Test' }, { key: 'prod', state: 'Done' }],
+    workspaceStates: WS,
+  })
+  assert.strictEqual(c.state, 'ok')
+  assert.match(c.detail, /2 rung\(s\)/)
+})
+
+test('ladder: a ladder ending in a started-type state warns, without failing', () => {
+  const r = runChecks({
+    ...READY,
+    ladder: {
+      stages: [{ key: 'test', state: 'On Test' }, { key: 'demo', state: 'Ready for Demo' }],
+      workspaceStates: WS,
+    },
+  })
+  const c = find(r, 'ladder')
+  assert.strictEqual(c.state, 'warn')
+  assert.match(c.detail, /ends at "Ready for Demo" \(type: started\)/)
+  assert.match(c.detail, /never reaches a completed state/)
+  assert.match(c.detail, /ignore this if Linear automation closes them/, 'names what would make the check wrong')
+  assert.strictEqual(r.ok, true, 'a warn must not fail the run')
+})
+
+test('ladder: a rung the workspace lacks is broken, and fails the run', () => {
+  const r = runChecks({
+    ...READY,
+    ladder: { stages: [{ key: 'test', state: 'Nowhere' }, { key: 'prod', state: 'Done' }], workspaceStates: WS },
+  })
+  const c = find(r, 'ladder')
+  assert.strictEqual(c.state, 'broken')
+  assert.match(c.detail, /test -> "Nowhere"/)
+  assert.match(c.detail, /silently ignores/)
+  assert.strictEqual(c.fix, '/spec-linear-setup')
+  assert.strictEqual(r.ok, false)
+})
+
+test('ladder: rung names match case-insensitively, like every other state lookup', () => {
+  const c = ladder({ stages: [{ key: 'prod', state: 'done' }], workspaceStates: WS })
+  assert.strictEqual(c.state, 'ok')
+})
+
+test('ladder: a single completed rung is a valid ladder', () => {
+  const c = ladder({ stages: [{ key: 'prod', state: 'Done' }], workspaceStates: WS })
+  assert.strictEqual(c.state, 'ok')
+})
+
+// A lookup that saw nothing is not a workspace missing these states.
+test('ladder: an empty or nameless workspace list is unchecked, never an accusation', () => {
+  for (const workspaceStates of [[], [null], [{ id: 'x' }], [{ name: 42 }]]) {
+    const c = ladder({ stages: [{ key: 'prod', state: 'Done' }], workspaceStates })
+    assert.strictEqual(c.state, 'skipped', `${JSON.stringify(workspaceStates)} proves nothing`)
+    assert.match(c.detail, /unchecked/)
+  }
+})
+
+test('ladder: one usable name is enough to start accusing a rung that is absent', () => {
+  const c = ladder({
+    stages: [{ key: 'prod', state: 'Nowhere' }],
+    workspaceStates: [{ id: '1', name: 'Done', type: 'completed' }],
+  })
+  assert.strictEqual(c.state, 'broken')
 })

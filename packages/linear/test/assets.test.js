@@ -747,3 +747,27 @@ test('the rule says to omit the trailer rather than invent one', () => {
   assert.match(text, /omit the trailer/i)
   assert.match(text, /Refs: none/, 'and rules out the fake-value escape hatch by name')
 })
+
+test('the CI wiring guide ships, and points at commands that exist', () => {
+  const file = path.join(ASSETS, 'core', 'ci-stages.md')
+  assert.ok(fs.existsSync(file), 'ci-stages.md shipped')
+  const text = fs.readFileSync(file, 'utf8')
+  // Every `spec-sync <verb>` the page instructs someone to run must be a verb
+  // the CLI dispatches. A page confidently naming a renamed command is worse
+  // than no page — see scripts/docs-claims.test.js for the same rule on the site.
+  const cli = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli-sync.js'), 'utf8')
+  // Two dispatch shapes: the switch, and the handful checked BEFORE the config
+  // load (`init-config`, `doctor`) so they can report a malformed config.
+  const verbs = new Set([
+    ...[...cli.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]),
+    ...[...cli.matchAll(/sub === '([a-z-]+)'/g)].map((m) => m[1]),
+  ])
+  const named = new Set([...text.matchAll(/spec-sync ([a-z-]+)/g)].map((m) => m[1]))
+  for (const verb of named) {
+    assert.ok(verbs.has(verb), `ci-stages.md names "spec-sync ${verb}", which the CLI does not dispatch`)
+  }
+  assert.ok(named.has('stage'), 'the page is about the stage verb')
+  // The env var it tells people to set must be the one the loader reads.
+  const { DEFAULT_KEY_ENV } = require('../src/config.js')
+  assert.match(text, new RegExp(DEFAULT_KEY_ENV))
+})

@@ -216,3 +216,62 @@ test('init-config runs when no config exists — every other subcommand bows out
   const init = await run(dir, ['--team-id', 'T1'])
   assert.strictEqual(init.code, 0)
 })
+
+// --- the deployment ladder --------------------------------------------------
+
+test('--stage writes the ladder in the order given', async () => {
+  const dir = repo()
+  const r = await run(dir, ['--team-id', 'T1', '--stage', 'test=On Test', '--stage', 'demo=Ready for Demo', '--stage', 'prod=Done'])
+  assert.strictEqual(r.code, 0, r.text)
+  assert.deepStrictEqual(written(dir).release.stages, [
+    { key: 'test', state: 'On Test' },
+    { key: 'demo', state: 'Ready for Demo' },
+    { key: 'prod', state: 'Done' },
+  ])
+})
+
+// The STAYS-SILENT case: a setup that names no stages must not gain a ladder.
+test('no --stage leaves the ladder out of the file entirely', async () => {
+  const dir = repo()
+  const r = await run(dir, ['--team-id', 'T1'])
+  assert.strictEqual(r.code, 0, r.text)
+  assert.ok(!('release' in written(dir)), 'no empty ladder is invented')
+})
+
+test('a malformed --stage is refused by the loader, not written', async () => {
+  const dir = repo()
+  const r = await run(dir, ['--team-id', 'T1', '--stage', 'test='])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.text, /release\.stages\[0\]\.state/)
+  assert.ok(!fs.existsSync(path.join(dir, CONFIG_FILE)), 'nothing written')
+})
+
+test('a duplicate --stage key is refused', async () => {
+  const dir = repo()
+  const r = await run(dir, ['--team-id', 'T1', '--stage', 'test=On Test', '--stage', 'test=Done'])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.text, /duplicate/)
+})
+
+test('a stage name the workspace lacks is refused with the rung named', async () => {
+  const dir = repo()
+  const r = await run(dir, [
+    '--team-id', 'T1',
+    '--stage', 'test=On Test',
+    '--states', statesFile(dir, ['Backlog', 'In Progress', 'Done', 'Canceled']),
+  ])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.text, /release\.stages\[test\]: "On Test" is not an issue state/)
+})
+
+test('a ladder the workspace covers is written', async () => {
+  const dir = repo()
+  const r = await run(dir, [
+    '--team-id', 'T1',
+    '--stage', 'prod=Done',
+    '--states', statesFile(dir, ['Backlog', 'In Progress', 'Done', 'Canceled']),
+  ])
+  assert.strictEqual(r.code, 0, r.text)
+  assert.deepStrictEqual(written(dir).release.stages, [{ key: 'prod', state: 'Done' }])
+  assert.deepStrictEqual(loadLinearConfig(dir).config.release.stages, [{ key: 'prod', state: 'Done' }])
+})

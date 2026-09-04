@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-41/project-configured-depl
 
 > **Type:** Feature
 > **Name:** feat-deployment-stage-ladder (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 4 next (Phase 3 done 2026-09-04)
+> **Status:** In Progress — all phases done (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -138,7 +138,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `release.stages` config + name validation | ✅ | [01-stages-config.md](01-stages-config.md) |
 | 2 | State diffs independently of description | ✅ | [02-state-field-split.md](02-state-field-split.md) |
 | 3 | `spec-sync stage` — the write verb | ✅ | [03-stage-verb.md](03-stage-verb.md) |
-| 4 | Doctor ladder check + CI wiring docs | ⬜ | [04-doctor-and-docs.md](04-doctor-and-docs.md) |
+| 4 | Doctor ladder check + CI wiring docs | ✅ | [04-doctor-and-docs.md](04-doctor-and-docs.md) |
 
 ## Open questions
 
@@ -154,6 +154,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-04 — Spec created.
+- 2026-09-04 — Phase 4 done. The CI guide went to
+  `packages/linear/assets/core/ci-stages.md` rather than `docs/`: that folder is
+  the marketing site, and the guide belongs with the config it describes, where
+  it installs into the consumer's `specs/.core/`. `doctor` gained a `warn` state
+  (attention without failure — there was no room between `ok` and `broken`), and
+  `init-config` gained `--stage <key>=<state>` so the interview can write a
+  ladder. An empty workspace-state list reads as unchecked rather than as missing
+  rungs — written the wrong way first, and caught by a test that accepted either
+  outcome.
 - 2026-09-04 — Phase 3 done. Two corrections to the plan. A rung and a
   lifecycle bucket can share a state name (`states.complete` and a `prod` rung
   are both naturally `Done`), which made a just-completed spec read as already
