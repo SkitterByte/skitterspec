@@ -41,6 +41,16 @@ const {
 async function main(argv) {
   const [cmd, ...rest] = argv
 
+// The check above asks whether src/ exists, which is inert in a workspace source
+// package — src/ is committed there. That is exactly where the other half of the
+// problem lives: a source package HAS a runnable bin and src, but its assets/ is
+// PRE-composition (seam markers still literal). Installing from it writes those
+// markers into the user's skills. So ask a second, positive question before any
+// install command runs.
+  if (cmd === 'init' || cmd === 'update') {
+    require('@skitterbyte/skitterspec-common/src/init.js').assertComposedAssets()
+  }
+
   // Base help + what this distribution adds. Matched on the COMMAND SLOT only,
   // never the whole argv: `spec-sanitise --help` must reach that command's own
   // help, not be swallowed by the top-level one.

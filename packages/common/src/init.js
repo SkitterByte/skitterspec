@@ -97,6 +97,59 @@ function renderCommand(content, dir) {
   return content.split('{{exec}}').join(detectPackageManager(dir))
 }
 
+// --- composed-assets guard -------------------------------------------------
+//
+// A source package's `assets/` is PRE-composition: `<!-- seam:NAME -->` is still
+// literal text that scripts/build-dist.js replaces — with a provider's fragment
+// for the provider distribution, with nothing for the base. Only a built
+// distribution's assets are installable.
+//
+// This is a POSITIVE signal, not an absence: a seam marker must be **present**
+// for the guard to fire, so it cannot misfire on a tree it simply failed to read.
+// And it refuses rather than repairing — installing the wrong thing is the
+// expensive mistake here. In a dev-linked checkout the installed skills are
+// symlinks to the composed distribution, so a `--force` install would write
+// these markers straight through the link and into the built assets.
+const SEAM_RE = /<!--\s*seam:[A-Za-z0-9_-]+\s*-->/
+
+function assetFiles(dir) {
+  const out = []
+  const walk = (d) => {
+    let entries
+    try {
+      entries = fs.readdirSync(d, { withFileTypes: true })
+    } catch {
+      return // a distribution need not ship every asset kind
+    }
+    for (const e of entries) {
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (e.name.endsWith('.md')) out.push(p)
+    }
+  }
+  walk(dir)
+  return out
+}
+
+// Throws when this package's assets are uncomposed. Called from the **bins** —
+// the outermost boundary, and the only way a real install happens — never from
+// init()/resync()/run(), which the unit tests legitimately drive against this
+// source tree. Guarding any deeper would make the library untestable while
+// protecting nothing extra.
+function assertComposedAssets() {
+  const offenders = assetFiles(ASSETS)
+    .filter((f) => SEAM_RE.test(fs.readFileSync(f, 'utf8')))
+    .map((f) => path.relative(ASSETS, f))
+  if (!offenders.length) return
+  throw new Error(
+    `refusing to install: this package's assets are uncomposed (${offenders.length} ` +
+      `file(s) still carry a <!-- seam:… --> marker, e.g. ${offenders[0]}).\n` +
+      '  These are a workspace source package\'s assets, not a distribution\'s. ' +
+      'Run "npm run build" in the skitterspec repo, then run the command again ' +
+      'from the built distribution.',
+  )
+}
+
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
 
@@ -689,6 +742,7 @@ module.exports = {
   resync,
   reset,
   assertSafeToDelete,
+  assertComposedAssets,
   detectPackageManager,
   renderCommand,
 }

@@ -22,7 +22,23 @@ if (!existsSync(join(__dirname, '..', 'src'))) {
 
 const { run } = require('../src/cli.js')
 
-run(process.argv.slice(2)).catch((err) => {
+// The check above asks whether src/ exists, which is inert in a workspace source
+// package — src/ is committed there. That is exactly where the other half of the
+// problem lives: a source package HAS a runnable bin and src, but its assets/ is
+// PRE-composition (seam markers still literal). Installing from it writes those
+// markers into the user's skills. So ask a second, positive question before any
+// install command runs.
+const argv = process.argv.slice(2)
+if (argv[0] === 'init' || argv[0] === 'update') {
+  try {
+    require('../src/init.js').assertComposedAssets()
+  } catch (err) {
+    console.error(`skitterspec: ${err.message}`)
+    process.exit(1)
+  }
+}
+
+run(argv).catch((err) => {
   console.error(`skitterspec: ${err.message}`)
   process.exit(1)
 })
