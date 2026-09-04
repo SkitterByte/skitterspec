@@ -173,7 +173,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Zero-arg spec resolution from the worktree list | ✅ | [01-zero-arg-resolution.md](01-zero-arg-resolution.md) |
 | 2 | A `commands/` lane in the installer | ✅ | [02-commands-lane.md](02-commands-lane.md) |
-| 3 | Move spec-connect and spec-live to commands | ⬜ | [03-move-engine-verbs.md](03-move-engine-verbs.md) |
+| 3 | Move spec-connect and spec-live to commands | ✅ | [03-move-engine-verbs.md](03-move-engine-verbs.md) |
 | 4 | Take the remaining engine skills out of the listing | ⬜ | [04-disable-model-invocation.md](04-disable-model-invocation.md) |
 
 ## Open questions
@@ -199,6 +199,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-04 — Chose the slot registry over the `specs/in-progress/` bucket as
   the source for zero-arg resolution, after finding the bucket absent from this
   repo — git does not store an empty directory.
+- 2026-09-04 — Phase 3: the refusal audit came back clean — every guard `spec-live`'s SKILL.md described (hotfix, docker stack, migration branch) was already enforced in `packages/common/src/env/live.js` and already tested, so deleting the skill lost no behaviour.
+- 2026-09-04 — Phase 3: three existing tests encoded the old skills-only shape and were updated rather than weakened — `init.test.js`, `assets.test.js`, and `scripts/docs-claims.test.js`, the last now accepting a shipped command as satisfying a `/spec-…` mention in the docs.
 - 2026-09-04 — Phase 2: mechanism verified. `/spike-bangtest hello` proved that a `` !`…` `` block in a `.claude/commands/` file executes **before** the model turn and that `$ARGUMENTS` interpolates inside it, with no Bash tool call in the turn. Phase 3's command bodies can be written as designed.
 - 2026-09-04 — Phase 2: **Decision 6 needs no code.** `pruneRetiredManaged` already retires a file the current version stopped shipping only when the manifest proves it pristine, keeping and warning about a user-edited one. The spec proposed building machinery that exists; Phase 3 just stops shipping the two skills.
 - 2026-09-04 — Phase 2: `assets/commands/` ships empty for now, so the install/manifest integration tests moved to Phase 3, where the first real command assets exist. The lane's pure functions (`detectPackageManager`, `renderCommand`, `managedTargets` coverage) are unit-tested here.

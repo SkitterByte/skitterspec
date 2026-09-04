@@ -9,6 +9,7 @@ const path = require('node:path')
 const {
   init,
   SKILLS,
+  COMMANDS,
   RULES,
   MANIFEST_FILE,
   sha1,
@@ -298,8 +299,13 @@ test('removes retired folder index files left by an earlier version', async () =
   assert.ok(exists(dir, 'specs', 'complete', '.gitkeep'), 'complete kept via .gitkeep')
 })
 
-test('registers spec-connect and not the retired env skills', () => {
-  assert.ok(SKILLS.includes('spec-connect'), 'spec-connect registered')
+test('registers the env verbs as commands, not skills, and not the retired ones', () => {
+  // spec-connect / spec-live moved to `.claude/commands/`: each pre-executes one
+  // spec-env verb and relays it, so there is no judgment for a skill to carry.
+  assert.ok(COMMANDS.includes('spec-connect.md'), 'spec-connect ships as a command')
+  assert.ok(COMMANDS.includes('spec-live.md'), 'spec-live ships as a command')
+  assert.ok(!SKILLS.includes('spec-connect'), 'spec-connect is no longer a skill')
+  assert.ok(!SKILLS.includes('spec-live'), 'spec-live is no longer a skill')
   // spec-env / spec-env-down / spec-ready were removed in 3.0.0 — provisioning
   // folds into /spec-go, teardown into /spec-complete·/spec-cancel, grooming
   // into /spec. The `spec-env` CLI engine stays; only the skills are gone.

@@ -7,7 +7,8 @@ description: Promote a spec into active development and build the next phase —
 
 The "up" button: it promotes the spec, provisions its worktree, brings its host
 dev servers up on the spec's reserved ports (with your OK), then builds the phase.
-Diverting your browser to the spec is a separate explicit step — `/spec-connect`.
+Diverting your browser to the spec is a separate explicit step the **user**
+types — `/spec-connect` (a slash command, not a skill you can invoke).
 
 ## 1. Identify the target spec
 
@@ -33,8 +34,8 @@ branch. Instead skip the provisioning bullets and step 2b, leave the spec where
 it is, and go straight to **step 4**, implementing the phase **in the primary
 checkout on the branch** — edits and commits there advance the branch, and
 `/spec-complete` lands them. (`spec-env up` refuses while live and says the same.
-To return to an isolated worktree instead, run `/spec-live main` first, then
-re-run `/spec-go`.)
+To return to an isolated worktree instead, ask the user to type `/spec-live main`
+first, then re-run `/spec-go`.)
 
 **If per-spec isolation is enabled** (`specs/.core/env.config.json` exists), the
 spec **isn't already live** (the check above), and it doesn't already have a
@@ -121,11 +122,12 @@ runnable — its UI/API on the spec's reserved port block, isolated from `main`.
   dev process detached on its port, logs to `.spec-env/logs/`, and waits on each
   `health` check. With no `dev` configured it's a clean no-op; skip this step.
 - **Diverting your browser is a separate step.** To test the spec at your normal
-  `localhost` URL, run **`/spec-connect <name>`** (exclusive — it exposes this
-  spec on the canonical ports; `/spec-connect main` hands them back). `/spec-go`
-  never seizes the canonical ports on its own. For a **code-only** spec, the
-  lighter **`/spec-live <name>`** reuses your already-running dev server (a
-  branch-switch, no second stack) — `/spec-live main` hands it back.
+  `localhost` URL, the **user** types **`/spec-connect <name>`** (exclusive — it
+  exposes this spec on the canonical ports; `/spec-connect main` hands them back).
+  `/spec-go` never seizes the canonical ports on its own. For a **code-only** spec,
+  the lighter **`/spec-live <name>`** reuses the already-running dev server (a
+  branch-switch, no second stack) — `/spec-live main` hands it back. Both are
+  user-only slash commands: tell the user to run one, never try to invoke it.
 
 ## 3. Pre-flight — commit prior work
 

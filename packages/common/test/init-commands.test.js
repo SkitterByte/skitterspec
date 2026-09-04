@@ -108,3 +108,151 @@ test('stays silent: a distribution with no command assets manages none', () => {
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// --- install / manifest integration -----------------------------------------
+//
+// These need real command assets to install, which is why they live here rather
+// than with the pure-function tests above.
+
+const { init, managedState, readManifest } = require('../src/init.js')
+
+async function installInto(lockfile = 'pnpm-lock.yaml') {
+  const dir = tmp([lockfile])
+  const quiet = process.stdout.write.bind(process.stdout)
+  process.stdout.write = () => true
+  try {
+    await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  } finally {
+    process.stdout.write = quiet
+  }
+  return dir
+}
+
+const cmdPath = (dir, name) => path.join(dir, '.claude', 'commands', name)
+
+test('init installs every command with the detected prefix baked in', async () => {
+  const dir = await installInto('pnpm-lock.yaml')
+  try {
+    for (const name of COMMANDS) {
+      const body = fs.readFileSync(cmdPath(dir, name), 'utf8')
+      assert.doesNotMatch(body, /\{\{exec\}\}/, `${name} has no placeholder left`)
+      assert.match(body, /pnpm exec skitterspec/, `${name} carries a working invocation`)
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a yarn project gets the yarn invocation, not pnpm', async () => {
+  const dir = await installInto('yarn.lock')
+  try {
+    const body = fs.readFileSync(cmdPath(dir, COMMANDS[0]), 'utf8')
+    assert.match(body, /yarn skitterspec/, 'rendered for yarn')
+    assert.doesNotMatch(body, /pnpm exec/, 'no pnpm leaked in')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// The interpolation must be stable: if managedTargets compared raw asset text,
+// a pristine install would read as customized on its very next run.
+test('stays silent: a freshly installed command reads back as pristine', async () => {
+  const dir = await installInto()
+  try {
+    const manifest = readManifest(dir)
+    for (const name of COMMANDS) {
+      const rel = path.join('.claude', 'commands', name)
+      const bundled = managedTargets(dir).find((t) => t.relPath === rel).bundled
+      assert.strictEqual(
+        managedState(dir, rel, manifest, bundled),
+        'pristine',
+        `${name} is not mistaken for a user edit`,
+      )
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('an edited command is classified customized and kept', async () => {
+  const dir = await installInto()
+  try {
+    const rel = path.join('.claude', 'commands', COMMANDS[0])
+    fs.writeFileSync(path.join(dir, rel), '# mine now\n')
+    const manifest = readManifest(dir)
+    const bundled = managedTargets(dir).find((t) => t.relPath === rel).bundled
+    assert.strictEqual(managedState(dir, rel, manifest, bundled), 'customized')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// Both commands are user-only: they mutate git and port state, and being absent
+// from the model-facing listing is the whole point of the move.
+test('every shipped command is marked disable-model-invocation', () => {
+  const assets = path.join(__dirname, '..', 'assets', 'commands')
+  for (const name of COMMANDS) {
+    const body = fs.readFileSync(path.join(assets, name), 'utf8')
+    assert.match(body, /^disable-model-invocation:\s*true$/m, `${name} is user-only`)
+    assert.match(body, /^!`/m, `${name} pre-executes its verb`)
+  }
+})
+
+// --- retirement of the superseded skills ------------------------------------
+//
+// Existing installs carry `.claude/skills/spec-connect/SKILL.md` and
+// `.../spec-live/SKILL.md`. No RETIRED_FILES entry is needed: the manifest lists
+// them, this version no longer ships them, and `pruneRetiredManaged` deletes
+// exactly the ones it can prove are ours.
+
+const { resync } = require('../src/init.js')
+const { sha1, writeManifest } = require('../src/init.js')
+
+// Simulate an install made before the move: the old skill on disk, recorded in
+// the manifest with the hash we would have written.
+function seedRetiredSkill(dir, name, body) {
+  const rel = path.join('.claude', 'skills', name, 'SKILL.md')
+  const abs = path.join(dir, rel)
+  fs.mkdirSync(path.dirname(abs), { recursive: true })
+  fs.writeFileSync(abs, body)
+  const manifest = readManifest(dir)
+  manifest.files[rel] = sha1(body)
+  writeManifest(dir, manifest.files)
+  return rel
+}
+
+function quietResync(dir) {
+  const quiet = process.stdout.write.bind(process.stdout)
+  process.stdout.write = () => true
+  try {
+    resync(dir, { claudeMd: false })
+  } finally {
+    process.stdout.write = quiet
+  }
+}
+
+test('resync retires a pristine spec-connect skill left by an older install', async () => {
+  const dir = await installInto()
+  try {
+    const rel = seedRetiredSkill(dir, 'spec-connect', '# old skill\n')
+    quietResync(dir)
+    assert.ok(!fs.existsSync(path.join(dir, rel)), 'the superseded skill was removed')
+    assert.ok(fs.existsSync(cmdPath(dir, 'spec-connect.md')), 'the command replaced it')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// Bias the unknown case toward inaction: an unrecognised hash could be a user's
+// edit or a lost manifest, and only one of those readings is safe to act on.
+test('stays silent: an edited spec-live skill is kept, not deleted', async () => {
+  const dir = await installInto()
+  try {
+    const rel = seedRetiredSkill(dir, 'spec-live', '# old skill\n')
+    fs.writeFileSync(path.join(dir, rel), '# old skill, with my notes\n')
+    quietResync(dir)
+    assert.ok(fs.existsSync(path.join(dir, rel)), 'a user edit is never discarded')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})

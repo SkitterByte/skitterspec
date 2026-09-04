@@ -437,10 +437,14 @@ test('the placement check stays silent on a skill that links early and syncs lat
 
 // /spec-to-main and /spec-live change no status — a push from them would send an
 // unchanged projection. Asserted so "add a seam everywhere" is a deliberate no.
-test('the skills that change no status carry no tracker seam', () => {
-  for (const skill of ['spec-to-main', 'spec-live']) {
-    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
-    assert.doesNotMatch(text, /<!--\s*seam:/, `${skill} moves no spec between buckets`)
+test('the lifecycle entries that change no status carry no tracker seam', () => {
+  const text = fs.readFileSync(path.join(ASSETS, 'skills', 'spec-to-main', 'SKILL.md'), 'utf8')
+  assert.doesNotMatch(text, /<!--\s*seam:/, 'spec-to-main moves no spec between buckets')
+  // spec-live is a command now; it changes no status either, and a command body
+  // has no seam to fill in the first place.
+  for (const cmd of ['spec-connect.md', 'spec-live.md']) {
+    const body = fs.readFileSync(path.join(ASSETS, 'commands', cmd), 'utf8')
+    assert.doesNotMatch(body, /<!--\s*seam:/, `${cmd} moves no spec between buckets`)
   }
 })
 

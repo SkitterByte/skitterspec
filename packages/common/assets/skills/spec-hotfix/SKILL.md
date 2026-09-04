@@ -194,7 +194,7 @@ full test result. The spec stays in `in-progress`.
 
 - **`/spec-live` is refused for a hotfix** — its branch is built on an old tag, so
   hot-reloading it onto the running dev server could break the shared instance.
-  To test it, use `/spec-connect` (its own isolated stack).
+  To test it, the user runs `/spec-connect` (its own isolated stack).
 - Suggest **`/spec-complete`** to land it: it patch-bumps the base tag, tags the
   hotfix branch **locally** (you push it to deploy), and cherry-picks the fix onto
   `main`. Add `--also <tag>` at completion to also patch other release lines

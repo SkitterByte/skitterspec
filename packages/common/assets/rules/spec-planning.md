@@ -1,7 +1,7 @@
 # Spec Planning
 
-Spec-driven development is driven by nine lifecycle skills (plus `/spec-connect`
-when isolation is on) — use them rather than hand-rolling specs so the structure
+Spec-driven development is driven by nine lifecycle skills (plus the
+`/spec-connect` and `/spec-live` **commands** when isolation is on) — use them rather than hand-rolling specs so the structure
 and lifecycle stay consistent. Each sets a status on the spec header
 (`> **Status:** …`):
 
@@ -16,6 +16,14 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
+
+**Skills vs commands.** The table above lists **skills** — Claude reads them and
+exercises judgment. `/spec-connect` and `/spec-live` are instead **slash commands**
+(`.claude/commands/`): each pre-executes one `skitterspec spec-env` verb and
+relays its output, so there is no judgment to apply and no model turn spent
+finding one. They are marked `disable-model-invocation`, meaning **only you can
+run them** — a skill that wants one will tell you to type it rather than invoking
+it.
 
 Status flow: `Ready → In Progress → Complete` (or `Cancelled` from any state).
 `/spec` grills to a **Ready** spec directly — there is no separate grooming
@@ -50,7 +58,7 @@ tag and `/spec-complete` lands it via `spec-env hotfix land` (tag + cherry-pick)
 not a fast-forward. Isolation is **orthogonal to lifecycle status** and inactive
 when `env.config.json` is absent — every skill then behaves as it does today.
 
-**Live overlay (`/spec-live`) — the light way to test a spec.** `/spec-connect`
+**Live overlay (`/spec-live`, a command) — the light way to test a spec.** `/spec-connect`
 runs a spec's *own* dev stack and proxies the canonical ports to it (one stack per
 spec). **Live overlay** instead reuses the one dev server you already have running:
 `/spec-live <spec>` rebases the branch onto base, frees it from its worktree, and

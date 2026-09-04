@@ -120,7 +120,7 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
    back to base, re-isolates it into its worktree, clears the receipt), then prints
    the normal landing plan. Commit any live fixes to the branch first; it refuses
    if the primary checkout is dirty, or if a *different* spec holds it (release that
-   one with `/spec-live main`). Teardown (step 7) is unchanged.
+   one by typing `/spec-live main`). Teardown (step 7) is unchanged.
    **Work-loss abort.** Before it ends the live session, `integrate` checks the
    work is actually landable and **aborts loudly** rather than finalize a spec
    having landed nothing. Two cases, both leaving the live session intact:

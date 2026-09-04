@@ -173,14 +173,21 @@ test('every skill named on the site is a skill that ships', () => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       if (e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md'))) shipped.add(e.name)
     }
+    // A `/spec-…` in the prose is an instruction to run it, and a slash COMMAND
+    // satisfies that as well as a skill does — so both lanes count as shipped.
+    const cmds = path.join(ROOT, 'packages', pkg, 'assets', 'commands')
+    if (!fs.existsSync(cmds)) continue
+    for (const f of fs.readdirSync(cmds)) {
+      if (f.endsWith('.md')) shipped.add(f.slice(0, -3))
+    }
   }
-  assert.ok(shipped.size > 10, `found the skills, got ${shipped.size}`)
+  assert.ok(shipped.size > 10, `found the skills and commands, got ${shipped.size}`)
 
   for (const rel of PAGES) {
     // `/spec-…` anywhere in the prose is an instruction to run it.
     for (const m of textOf(rel).matchAll(/\/(?:spec)(-[a-z-]+)?(?=[\s.,)]|$)/gm)) {
       const name = m[0].slice(1)
-      assert.ok(shipped.has(name), `${rel} names /${name}, which is not a shipped skill`)
+      assert.ok(shipped.has(name), `${rel} names /${name}, which ships as neither a skill nor a command`)
     }
   }
 })

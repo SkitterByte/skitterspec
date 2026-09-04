@@ -51,7 +51,7 @@ uncommitted changes, offer `/commit` and **stop**; don't auto-commit.
 back to base, re-isolates it into its worktree, clears the receipt), then prints
 the landing plan. Commit any live fixes to the branch first; it refuses if the
 primary checkout is dirty, or if a *different* spec holds it (release that one with
-`/spec-live main`).
+`/spec-live main`, which the user types).
 
 ## 3. Tests must be green before landing
 
