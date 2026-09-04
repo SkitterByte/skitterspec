@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-64/bug-release-tags-are-li
 
 > **Type:** Bug
 > **Name:** bug-lightweight-release-tags (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -108,8 +108,10 @@ the *idioms that do not*.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-04 — Bug reproduced; failing test added (red).
+- 2026-09-04 — Completed; 1280 tests green.
 - 2026-09-04 — Fixed: release tags are annotated; docs and pinned tests updated.
