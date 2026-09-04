@@ -67,12 +67,31 @@ measuring an empty set.
 ## Fix
 
 - [x] `git rm` the two dangling symlinks.
-- [x] Replace the copied `.claude/commands/*.md` with symlinks into
-      `packages/skitterspec-linear/assets/commands/`, matching how every skill is
-      linked — so both lanes go live on edit.
-- [x] Add `scripts/claude-links.test.js`: no `.claude/` symlink may dangle, every
-      shipped command must be linked (not copied), and the precondition above.
+- [x] Track `.claude/commands/*.md` as **installed copies**, not symlinks — see
+      the correction below. Linking them was tried first and is wrong.
+- [x] Add `scripts/claude-links.test.js`: the dogfood precondition; no `.claude/`
+      symlink may dangle; commands must be **copies** carrying no `{{exec}}`; and
+      skills must be **links**, so the two lanes cannot silently swap.
+- [x] Verify the guard is not vacuous by re-introducing the symlink and watching
+      it fail, then reverting.
 - [x] Failing tests now pass (GREEN); `pnpm test` — **1271 green**.
+
+## Correction — commands must not be symlinked
+
+The first attempt at this fix symlinked `.claude/commands/*.md` into the built
+assets, "for consistency with the skills". That is wrong, and the merge onto
+`main` is what caught it: the untracked installed copies blocked the fast-forward,
+and comparing them showed why.
+
+A **skill** asset is complete once `build-dist` composes its seams away, so a
+link to it is live and correct. A **command** asset is not: it carries an
+`{{exec}}` placeholder that `renderCommand` fills at *install* time with the
+package manager detected from the lockfile. Symlinked, that placeholder reaches
+the live file — `/spec-connect` would try to run a program called `{{exec}}`.
+
+So the lanes differ for a real reason, and the reason is now a test rather than
+a fact someone has to know. "Make it consistent with the skills" is the obvious
+wrong move, and the guard exists because it was actually made.
 
 ## Correction to the record
 
@@ -101,6 +120,7 @@ rather than a change to `dev-link`.
 
 - 2026-09-04 — Bug reproduced; failing test added (red).
 - 2026-09-04 — Fixed: dead links removed, commands linked, guard added.
-- 2026-09-04 — Completed; 1271 tests green.
+- 2026-09-04 — Corrected the fix before landing: symlinking commands would have shipped the `{{exec}}` placeholder into the live file. Commands stay installed copies; the test now pins both lanes and was verified to fail on the symlink.
+- 2026-09-04 — Completed; tests green.
 - 2026-09-04 — Corrected an earlier misattribution to `dev-link`; nothing in the
   repo creates these links, which is the point.

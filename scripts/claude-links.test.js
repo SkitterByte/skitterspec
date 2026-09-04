@@ -53,20 +53,42 @@ test('no symlink under .claude/ points at a missing target', () => {
   )
 })
 
-// Both lanes are linked, or neither is: a command whose asset is edited must go
-// live the same way a skill's does, or the two behave differently for no reason
-// the reader can see.
-test('every shipped command is linked, like the skills are', () => {
-  const assets = path.join(ROOT, 'packages', 'skitterspec-linear', 'assets', 'commands')
-  if (!fs.existsSync(assets)) return // unbuilt checkout — build-dist covers that
-  const shipped = fs.readdirSync(assets).filter((f) => f.endsWith('.md'))
-  assert.ok(shipped.length, 'the distribution ships commands')
-  for (const f of shipped) {
-    const link = path.join(CLAUDE, 'commands', f)
-    assert.ok(fs.existsSync(link), `.claude/commands/${f} is missing`)
+// Commands are the DELIBERATE exception to the symlink pattern, and the reason
+// is worth stating because "make it consistent with the skills" is the obvious
+// wrong move — it was made while fixing this very bug, and caught only by a
+// merge conflict.
+//
+// A skill asset is complete once build-dist composes its seams away, so a link to
+// it is live and correct. A command asset is NOT complete: it carries an
+// `{{exec}}` placeholder that `renderCommand` fills at INSTALL time with the
+// package manager detected from the lockfile. Link it and the placeholder reaches
+// the live file, so `/spec-connect` would try to run a program called `{{exec}}`.
+test('commands are installed copies, never links, and carry no placeholder', () => {
+  const dir = path.join(CLAUDE, 'commands')
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.md')) : []
+  assert.ok(files.length, '.claude/commands is populated — run `skitterspec update`')
+  for (const f of files) {
+    const p = path.join(dir, f)
     assert.ok(
-      fs.lstatSync(link).isSymbolicLink(),
-      `.claude/commands/${f} is a copy, not a link — edits to the asset will not go live`,
+      !fs.lstatSync(p).isSymbolicLink(),
+      `${f} is a symlink to its asset; the {{exec}} placeholder would never be filled`,
     )
+    assert.doesNotMatch(
+      fs.readFileSync(p, 'utf8'),
+      /\{\{exec\}\}/,
+      `${f} still carries {{exec}} — it was copied from the asset instead of installed`,
+    )
+  }
+})
+
+// The inverse, so the two lanes cannot silently swap: skills MUST be links, or an
+// edited asset stops going live and the dogfood setup quietly stops working.
+test('skills are links, so an edited asset is live', () => {
+  const own = fs
+    .readdirSync(path.join(CLAUDE, 'skills'), { withFileTypes: true })
+    .filter((e) => e.name.startsWith('spec'))
+  assert.ok(own.length > 5, `expected the spec skills, found ${own.length}`)
+  for (const e of own) {
+    assert.ok(e.isSymbolicLink(), `.claude/skills/${e.name} is a copy — asset edits will not go live`)
   }
 })
