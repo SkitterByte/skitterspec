@@ -803,6 +803,64 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
   </div>
 </section>
 
+<section id="engine">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Under the skills</div>
+      <h2>Every spec-sync verb, and who runs it.</h2>
+      <p class="lede">Most of these are plumbing that <span class="mono" style="font-size:.9em">/spec-push</span> and <span class="mono" style="font-size:.9em">/spec-status</span> drive for you — listed so you can read a plan or debug a mirror, not so you type them. The last group is the part worth knowing by hand. The CLI is a local devDependency and never on <span class="mono" style="font-size:.9em">PATH</span>, so every one of these is reached as <span class="mono" style="font-size:.9em">pnpm exec skitterspec-linear spec-sync …</span>.</p>
+    </div>
+
+    <div class="table-wrap reveal">
+      <table>
+        <thead>
+          <tr><th>Verb</th><th>What it does</th><th>Run by</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
+          <tr><td class="cmd">spec-sync push &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync apply &lt;spec&gt;</td><td>Apply a plan, stamp the returned ids into the spec, and record the snapshot.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync status &lt;spec&gt;</td><td>Drift report — what would push, and whether Linear's workflow-state moved.</td><td class="folder">/spec-status</td></tr>
+          <tr><td class="cmd">spec-sync verify &lt;spec&gt;</td><td>Read back what Linear stored and compare it to what was sent.</td><td class="folder">/spec-push · you</td></tr>
+          <tr><td class="cmd">spec-sync stamp &lt;spec&gt;</td><td>Write issue ids into a spec's frontmatter. The MCP path's last step — or a manual link.</td><td class="folder">/spec-push · you</td></tr>
+          <tr><td class="cmd">spec-sync record &lt;spec&gt;</td><td>Record the base snapshot that later drift is measured against.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync normalize &lt;spec&gt;</td><td>Normalise a spec's markdown the way the mirror will store it.</td><td class="folder">internal</td></tr>
+          <tr><td class="cmd">spec-sync states</td><td>The workspace's issue workflow-state names — used to validate your config.</td><td class="folder">/spec-push · you</td></tr>
+          <tr><td class="cmd">spec-sync projects</td><td>The team's projects, for the picker that runs when a spec issue is minted.</td><td class="folder">/spec · you</td></tr>
+
+          <tr class="grp-row"><td colspan="3">Setup &amp; health</td></tr>
+          <tr><td class="cmd">spec-sync init-config</td><td>Validate answers and write <span class="mono">linear.config.json</span>. Driven by the setup interview.</td><td class="folder">/spec-linear-setup</td></tr>
+          <tr><td class="cmd">spec-sync doctor</td><td>One command that tells you whether scaffold, isolation, tracker and key are wired. <a href="#check">See above</a>.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync credentials</td><td>Store, show or clear the API key without putting it in a shell history. <a href="#check">See above</a>.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync retarget</td><td>Rewrite stale identifiers after a team is renamed. Read-only until <span class="mono">--yes</span>. <a href="#fix">See above</a>.</td><td class="folder">you</td></tr>
+
+          <tr class="grp-row"><td colspan="3">Reporting — the ones you'd actually type</td></tr>
+          <tr><td class="cmd">spec-sync linked</td><td>Every spec and the issue it is linked to — how much of the repo is mirrored.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync ref</td><td>The ticket for the commit you are writing, answered from the branch.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync released</td><td>The tickets a release contains, scanned from a commit range.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync stage</td><td>Move a release's tickets onto a deployment stage.</td><td class="folder">you</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="reveal">
+      <div class="code"><span class="c"># what ticket does this commit belong to? (the commit-trailer rule uses this)</span>
+$ skitterspec spec-sync <span class="p">ref</span>
+SKS-58
+
+<span class="c"># what shipped since the last release tag</span>
+$ skitterspec spec-sync <span class="p">released</span>
+spec-sync released: skitterspec-linear@10.6.0..HEAD
+
+  SKS-58  Document the spec-env and spec-sync CLI engines
+  SKS-57  Bug: the docs site's quoted CLI output drifts unchecked
+  SKS-56  Bug: init/update from a source package installs uncomposed assets</div>
+      <p class="lede"><b>Two of these are honest about having nothing to say.</b> <span class="mono" style="font-size:.9em">ref</span> exits non-zero and prints nothing on a commit with no ticket — on <span class="mono" style="font-size:.9em">main</span>, or a spec kept deliberately local — so a trailer is omitted rather than invented. <span class="mono" style="font-size:.9em">released</span> counts unreferenced commits rather than hiding them.</p>
+    </div>
+  </div>
+</section>
+
+
 <footer>
   <div class="wrap foot-inner">
     <p>skitterspec · skitterspec-linear — spec-driven development that stays in git, built for Claude Code.</p>

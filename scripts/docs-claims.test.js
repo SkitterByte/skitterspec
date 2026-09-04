@@ -275,6 +275,19 @@ const ENGINES = {
     page: 'docs/index.html',
     undocumented: {},
   },
+  'spec-sync': {
+    source: 'packages/linear/src/cli-sync.js',
+    // Two dispatch forms, same as the name check above uses. Whole-file here
+    // rather than function-bounded: this file's only switch IS the dispatch, and
+    // the result is asserted against a floor below.
+    verbs: (src) =>
+      new Set([
+        ...[...src.matchAll(/case '([a-z][a-z-]*)':/g)].map((m) => m[1]),
+        ...[...src.matchAll(/sub === '([a-z][a-z-]*)'/g)].map((m) => m[1]),
+      ]),
+    page: 'docs/linear.html',
+    undocumented: {},
+  },
 }
 
 test('each engine dispatch is readable, or these guards mean nothing', () => {
