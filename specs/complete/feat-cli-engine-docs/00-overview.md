@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-58/document-the-spec-env-a
 
 > **Type:** Feature
 > **Name:** feat-cli-engine-docs (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-04)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -106,7 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] None.
+- [x] None — both phases resolved as planned.
 
 ## State log
 
@@ -114,10 +114,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-04 | Ready | backlog | Reuben Greaves |
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-04 — Spec created.
 - 2026-09-04 — Phase 1: found that `spec-env status` reports `no provisioned specs` in a Docker-less project because it reads only the slot registry — the same wrong-signal defect fixed for zero-arg resolution in `feat-script-only-commands`. Documented with a caveat and logged as a follow-up bug rather than fixed on a docs branch.
+- 2026-09-04 — Completed; both phases done, 1263 tests green, both distributions build. Three follow-ups recorded and deliberately not fixed here: `spec-env status` reading only the Docker registry, `dev-link`'s dangling symlinks, and the untracked install output in the primary checkout.
 - 2026-09-04 — Phase 2: all 17 spec-sync verbs documented, so the `undocumented` allowlist ships empty. Confirmed by counting dispatch vs page rows (17/17) rather than trusting a passing suite — an empty allowlist and a vacuous guard look identical from the outside.
 - 2026-09-04 — Phase 1: the docs page is now the only place that documents optional spec-name resolution from the current worktree.
