@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-57/bug-the-docs-sites-quot
 
 > **Type:** Bug
 > **Name:** bug-stale-docs-samples (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -101,8 +101,10 @@ became false — so adding a section belongs to a docs feature, not this fix.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-04 — Bug reproduced; failing test added (red).
+- 2026-09-04 — Completed; 1259 tests green, both distributions build.
 - 2026-09-04 — Fixed: docs corrected and a value-comparing guard added; test green.
