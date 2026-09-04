@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `spec-env` reference on index.html | 🔄 | [01-spec-env-reference.md](01-spec-env-reference.md) |
+| 1 | `spec-env` reference on index.html | ✅ | [01-spec-env-reference.md](01-spec-env-reference.md) |
 | 2 | `spec-sync` reference on linear.html | ⬜ | [02-spec-sync-reference.md](02-spec-sync-reference.md) |
 
 ## Open questions
@@ -118,3 +118,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-04 — Spec created.
+- 2026-09-04 — Phase 1: found that `spec-env status` reports `no provisioned specs` in a Docker-less project because it reads only the slot registry — the same wrong-signal defect fixed for zero-arg resolution in `feat-script-only-commands`. Documented with a caveat and logged as a follow-up bug rather than fixed on a docs branch.
+- 2026-09-04 — Phase 1: the docs page is now the only place that documents optional spec-name resolution from the current worktree.

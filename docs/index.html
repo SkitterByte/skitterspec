@@ -809,6 +809,58 @@
   </div>
 </section>
 
+<section id="engine">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Under the skills</div>
+      <h2>The engine the skills drive — and the bits you drive yourself.</h2>
+      <p class="lede"><span class="mono" style="font-size:.9em">skitterspec spec-env</span> is the per-spec isolation engine: worktrees, dev servers, the proxy, landing, teardown. Most of its verbs are <b>planners</b> — they print commands and create nothing, and a skill runs what they print. Reach for them directly only when you want to see the plan, or for the three at the bottom that have no skill in front of them.</p>
+    </div>
+
+    <div class="table-wrap reveal">
+      <table>
+        <thead>
+          <tr><th>Verb</th><th>What it does</th><th>Run by</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp-row"><td colspan="3">Planners — they print commands; the skill executes them</td></tr>
+          <tr><td class="cmd">spec-env up &lt;spec&gt;</td><td>Plan a worktree (and a Docker stack, if the spec's <span class="mono">Stack</span> asks for one). Creates nothing.</td><td class="folder">/spec-go</td></tr>
+          <tr><td class="cmd">spec-env down &lt;spec&gt;</td><td>Plan teardown — remove the worktree, delete the branch, drop the stack.</td><td class="folder">/spec-complete · /spec-cancel</td></tr>
+          <tr><td class="cmd">spec-env integrate &lt;spec&gt;</td><td>Plan the landing: rebase onto base, then fast-forward. Live-aware.</td><td class="folder">/spec-complete · /spec-to-main</td></tr>
+          <tr><td class="cmd">spec-env hotfix land &lt;spec&gt;</td><td>Plan a hotfix landing — tag the patch, cherry-pick onto main.</td><td class="folder">/spec-complete</td></tr>
+
+          <tr class="grp-row"><td colspan="3">Actions — they do the thing</td></tr>
+          <tr><td class="cmd">spec-env dev up|down &lt;spec&gt;</td><td>Start or stop the spec's host dev servers on its reserved ports.</td><td class="folder">/spec-go</td></tr>
+          <tr><td class="cmd">spec-env connect &lt;spec|main&gt;</td><td>Point your canonical localhost ports at one spec's dev servers. Bare, or <span class="mono">main</span>, hands them back.</td><td class="folder">/spec-connect</td></tr>
+          <tr><td class="cmd">spec-env live take|release|abort|status</td><td>Hand the running instance to one spec by checking its branch out in the primary checkout.</td><td class="folder">/spec-live</td></tr>
+
+          <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
+          <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-env prune</td><td>List orphaned test-DB volumes left by aborted teardowns, and the commands to remove them.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-env status</td><td>List specs holding a Docker port-block slot. See the note below.</td><td class="folder">you</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="reveal">
+      <p class="lede"><b>The spec name is optional.</b> Omit it and the engine uses the worktree you are standing in — so inside a spec's worktree, every verb above just works. From the primary checkout with several worktrees open it lists them and stops, rather than guessing.</p>
+      <div class="code"><span class="c"># from inside a spec's worktree</span>
+$ skitterspec spec-env <span class="p">resolve</span>
+spec:       feat-cli-engine-docs (backlog)
+type/slug:  feat / cli-engine-docs
+branch:     feat/cli-engine-docs
+worktree:   /Users/you/code/skitterspec-wt/cli-engine-docs
+project:    skitterspec_cli-engine-docs
+
+<span class="c"># nothing to reap, and it says what it protected</span>
+$ skitterspec spec-env <span class="p">prune</span>
+spec-env prune: no orphaned volumes in skitterspec_* (0 namespace volume(s), 1 live spec(s) protected).</div>
+      <p class="lede"><b>One caveat on <span class="mono" style="font-size:.9em">status</span>.</b> It lists the Docker <em>slot registry</em>, and a slot is only allocated for a spec whose <span class="mono" style="font-size:.9em">Stack</span> is <span class="mono" style="font-size:.9em">worktree + docker</span>. In a project with Docker off it reports <span class="mono" style="font-size:.9em">no provisioned specs</span> even while worktrees are standing. Use <span class="mono" style="font-size:.9em">git worktree list</span>, or <span class="mono" style="font-size:.9em">spec-env resolve</span>, for the plain-worktree picture.</p>
+    </div>
+  </div>
+</section>
+
+
 <!-- ============ QUICKSTART ============ -->
 <section id="quickstart" class="quick">
   <div class="wrap">

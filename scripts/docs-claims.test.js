@@ -245,3 +245,106 @@ test('every "N skills installed" the site quotes matches the shipped count', () 
   assert.ok(quoted > 0, 'the doctor sample is still on the page — if it moved, retarget this test')
 })
 
+// --- the engines: both directions --------------------------------------------
+//
+// The check above catches a page naming a verb that does not exist. It cannot
+// catch the reverse — an engine growing a verb nobody documented — which is the
+// failure that left `spec-env` entirely absent from the site through several
+// releases while every test stayed green.
+//
+// So each engine is checked both ways. Verbs that are deliberately internal are
+// named here WITH A REASON rather than skipped wholesale: a new verb then fails
+// the suite until someone decides which side it belongs on. A blanket allowance
+// would have hidden exactly what this is for.
+
+const ENGINES = {
+  'spec-env': {
+    source: 'packages/common/src/cli.js',
+    // Anchored to the `switch (sub)` inside specEnv(), not every `case` in the
+    // file — cli.js has several unrelated switches, and matching them all would
+    // demand docs for verbs this engine does not have.
+    verbs: (src) => {
+      const start = src.indexOf('async function specEnv(')
+      // Bound the slice to that function: cli.js's own top-level switch also has
+      // `case 'init':`, and running past the end silently demanded docs for it.
+      const open = src.indexOf('switch (sub)', start)
+      const end = src.indexOf('\n}', open)
+      const block = src.slice(open, end)
+      return new Set([...block.matchAll(/^ {4}case '([a-z][a-z-]*)':/gm)].map((m) => m[1]))
+    },
+    page: 'docs/index.html',
+    undocumented: {},
+  },
+}
+
+test('each engine dispatch is readable, or these guards mean nothing', () => {
+  for (const [name, e] of Object.entries(ENGINES)) {
+    const verbs = e.verbs(fs.readFileSync(path.join(ROOT, e.source), 'utf8'))
+    assert.ok(verbs.size > 5, `${name}: found the dispatch, got ${JSON.stringify([...verbs])}`)
+  }
+})
+
+// Key on engine + verb, never the bare word: both engines have a `status`, and
+// they do unrelated things. Matching loosely would let one satisfy the other.
+test('every verb an engine dispatches is documented, or allowlisted with a reason', () => {
+  for (const [name, e] of Object.entries(ENGINES)) {
+    const verbs = e.verbs(fs.readFileSync(path.join(ROOT, e.source), 'utf8'))
+    const cells = commandCells(e.page)
+    for (const verb of verbs) {
+      if (e.undocumented[verb]) {
+        assert.ok(e.undocumented[verb].length > 10, `${name} ${verb}: allowlisted without a reason`)
+        continue
+      }
+      assert.ok(
+        cells.some((c) => c === `${name} ${verb}` || c.startsWith(`${name} ${verb} `)),
+        `${name} dispatches \`${verb}\`, which ${e.page} never mentions — document it, ` +
+          'or add it to that engine\'s `undocumented` map with a reason',
+      )
+    }
+  }
+})
+
+// Read the table's command cells, not the running prose. Matching prose found
+// `spec-env is` in "spec-env is the per-spec isolation engine" and demanded a
+// verb called `is` — the same trap the spec-sync check above already documents.
+const commandCells = (rel) =>
+  [...readPage(rel).matchAll(/<td class="cmd">([^<]+)<\/td>/g)].map((m) =>
+    m[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(),
+  )
+
+test('every engine verb the page names is one the engine dispatches', () => {
+  for (const [name, e] of Object.entries(ENGINES)) {
+    const verbs = e.verbs(fs.readFileSync(path.join(ROOT, e.source), 'utf8'))
+    const cells = commandCells(e.page).filter((c) => c.startsWith(`${name} `))
+    assert.ok(cells.length, `${e.page} has no ${name} rows — did the table move?`)
+    for (const cell of cells) {
+      const verb = cell.slice(name.length + 1).split(/\s/)[0]
+      assert.ok(verbs.has(verb), `${e.page} documents \`${name} ${verb}\`, which is not dispatched`)
+    }
+  }
+})
+
+// stays-silent (.claude/rules/negative-checks.md rule 3): the guard must not fire
+// on the healthy shapes — a documented verb, and one allowlisted with a reason.
+test('stays silent: a documented verb and a reasoned allowlist entry both pass', () => {
+  const fake = {
+    demo: {
+      source: 'packages/common/src/cli.js',
+      verbs: () => new Set(['resolve', 'madeup']),
+      page: 'docs/index.html',
+      undocumented: { madeup: 'not a real verb — fixture for this test' },
+    },
+  }
+  for (const [name, e] of Object.entries(fake)) {
+    for (const verb of e.verbs()) {
+      if (e.undocumented[verb]) {
+        assert.ok(e.undocumented[verb].length > 10, 'reason survives')
+        continue
+      }
+      // `resolve` is documented on the page as `spec-env resolve`, so a lookup
+      // keyed on the real engine name finds it and says nothing.
+      assert.ok(textOf('docs/index.html').includes(`spec-env ${verb}`), `${name} ${verb}`)
+    }
+  }
+})
+

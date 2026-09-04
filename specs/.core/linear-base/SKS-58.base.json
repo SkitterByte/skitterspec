@@ -1,11 +1,11 @@
 {
-  "issue": "d0b81164b39a0916fbca60518627514d0f95a67d",
+  "issue": "1d47e23220c5512e23e98583f581a2546e1b0d3b",
   "issueFields": {
     "description": "b92d3c0a2a08c63c6fa340892eb8a2dcc892e520",
-    "state": "5767f380fa5d574444763a1753c78be1df8d9037"
+    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1"
   },
   "subIssues": {
-    "SKS-59": "e4a8f4d4ba6597a14d75a2ed988f56a31cfc9297",
+    "SKS-59": "7ed1094b0b6afcd396ec359dc66cc0e6b123d02f",
     "SKS-60": "2ca486033bf1a4ae33e9429e89d3da8337e34bd5"
   }
 }
