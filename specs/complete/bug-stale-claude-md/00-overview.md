@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-63/bug-the-shipped-claudem
 
 > **Type:** Bug
 > **Name:** bug-stale-claude-md (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -94,8 +94,10 @@ from this bug, so they are not committed here.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-04 — Bug reproduced; failing test added (red).
+- 2026-09-04 — Completed; 1276 tests green.
 - 2026-09-04 — Fixed: section corrected, CLAUDE.md regenerated and tracked.
