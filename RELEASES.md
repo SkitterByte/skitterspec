@@ -1,10 +1,11 @@
 # Release Notes
 
-> **⚠️ Historical — no longer maintained.** This file records the
-> single-package-era `skitterspec 1.0.x`. The generator was removed when the
-> repo became a monorepo; releases now run per package via `scripts/release.js`
-> (see [RELEASING.md](RELEASING.md)). Per-package release-note generation is a
-> later deferred spec — until then this is history, not the current record.
+> **⚠️ Historical — superseded.** This file records the single-package
+> `skitterspec 1.0.x` era. Per-package release notes now live in
+> [RELEASES-skitterspec.md](./RELEASES-skitterspec.md) and
+> [RELEASES-skitterspec-linear.md](./RELEASES-skitterspec-linear.md), generated
+> from `Release-Note:` footers at release time by `scripts/release-notes.js`.
+> This stays as history.
 
 What's new for users of skitterspec. For the full technical log see
 [CHANGELOG.md](./CHANGELOG.md).

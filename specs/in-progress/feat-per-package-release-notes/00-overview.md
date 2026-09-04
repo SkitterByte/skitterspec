@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Commit selection and package attribution | ✅ | [01-attribution.md](01-attribution.md) |
-| 2 | Render, wire into release.js, backfill | ⬜ | [02-render-and-wire.md](02-render-and-wire.md) |
+| 2 | Render, wire into release.js, backfill | ✅ | [02-render-and-wire.md](02-render-and-wire.md) |
 
 ## Open questions
 
@@ -120,4 +120,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-09-04 — Spec created.
 - 2026-09-04 — Phase 1: `skittership update` wired a `version` hook and `changelog`/`releases` npm scripts alongside the generators. All reverted — the hook can never fire (the root `preversion` guard refuses root versioning) and the scripts would run the single-series generator Decision 5 rejects.
+- 2026-09-04 — Phase 2: the backfill against real history caught three bugs the unit tests could not — `parseCommit`'s single-argument signature (which made the driver report "no user-facing change" on a ten-note range), `orphansFor` using a fixed package for the range, and a doubled product name in the header. Fixtures agreed with every one of them.
 - 2026-09-04 — Phase 1: three of eighteen footer-carrying commits attribute to no package (two website, one release tooling); none should have carried a footer. Added a Phase 2 task to **report** orphans rather than drop them silently.

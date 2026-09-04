@@ -190,3 +190,91 @@ test('stays silent: a first release includes every footer-carrying commit', () =
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// --- completeness: every footer is accounted for -----------------------------
+//
+// The whole point of this pipeline is that a written note reaches a reader. A
+// note silently dropped is indistinguishable from one lost, so assert the two
+// sets partition: every footer-carrying commit either attributes to at least one
+// package, or is reported as an orphan. Nothing may fall between.
+
+const { orphansFor, renderFor, releasesFileFor, PACKAGES } = require('./release-notes.js')
+
+test('every footer-carrying commit is either attributed or reported', () => {
+  const dir = scaffold()
+  try {
+    commit(dir, 'packages/common/a.js', 'feat(cli): shared\n\nRelease-Note: Shared.')
+    commit(dir, 'packages/linear/b.js', 'feat(sync): provider\n\nRelease-Note: Provider.')
+    commit(dir, 'docs/x.md', 'docs(site): website\n\nRelease-Note: Website.')
+    const opts = { cwd: dir, tags: [] }
+    const all = notesInRange(null, 'HEAD', dir)
+    const attributed = new Set()
+    for (const pkg of PACKAGES) {
+      for (const c of notesFor(pkg, '1.0.0', opts)) attributed.add(c.hash)
+    }
+    const orphans = orphansFor(PACKAGES[0], '1.0.0', opts).map((c) => c.hash)
+    assert.strictEqual(
+      attributed.size + orphans.length,
+      all.length,
+      'attributed + orphaned accounts for every footer, with no overlap',
+    )
+    assert.strictEqual(orphans.length, 1, 'the docs-only commit is the orphan')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('orphansFor uses the named package range, not a fixed one', () => {
+  const dir = scaffold()
+  try {
+    commit(dir, 'docs/x.md', 'docs(site): before\n\nRelease-Note: Before.')
+    git(dir, 'tag', 'skitterspec-linear@1.0.0')
+    commit(dir, 'docs/y.md', 'docs(site): after\n\nRelease-Note: After.')
+    const tags = git(dir, 'tag', '--list').split('\n').filter(Boolean)
+    const got = orphansFor('skitterspec-linear', '1.1.0', { cwd: dir, tags }).map((c) => c.subject)
+    // Asked about the superset, the range must start at ITS tag — an earlier
+    // version always used PACKAGES[0] and reported the whole history instead.
+    assert.deepStrictEqual(got, ['docs(site): after'])
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// --- rendering --------------------------------------------------------------
+
+test('renderFor writes a section and is idempotent on a re-run', () => {
+  const dir = scaffold()
+  try {
+    commit(dir, 'packages/common/a.js', 'feat(cli): thing\n\nRelease-Note: A user-facing thing.')
+    const opts = { cwd: dir, tags: [], isoDate: '2026-01-02', config: { scopeAreas: {}, changelogFile: 'CHANGELOG.md' } }
+    const first = renderFor('skitterspec', '1.0.0', opts)
+    assert.ok(first.written, 'the file was written')
+    const once = fs.readFileSync(first.file, 'utf8')
+    assert.match(once, /## 1\.0\.0/, 'the section is present')
+    assert.match(once, /A user-facing thing\./, 'the note text is present')
+    renderFor('skitterspec', '1.0.0', opts)
+    const twice = fs.readFileSync(first.file, 'utf8')
+    assert.strictEqual(twice, once, 're-running upserts rather than duplicating')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// stays-silent: a release that touched only the other distribution is a normal
+// outcome, not an error — it must write nothing rather than an empty section.
+test('stays silent: no user-facing change writes no file', () => {
+  const dir = scaffold()
+  try {
+    commit(dir, 'packages/linear/a.js', 'feat(sync): provider only\n\nRelease-Note: Provider.')
+    const res = renderFor('skitterspec', '1.0.0', {
+      cwd: dir,
+      tags: [],
+      config: { scopeAreas: {}, changelogFile: 'CHANGELOG.md' },
+    })
+    assert.strictEqual(res.written, false, 'nothing written')
+    assert.ok(!fs.existsSync(path.join(dir, releasesFileFor('skitterspec'))), 'no empty file left')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+

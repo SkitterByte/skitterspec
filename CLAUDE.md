@@ -74,3 +74,11 @@ notes. See `.claude/rules/commit-messages.md` for the full commit grammar.
   releases`. Filenames, product name, and the scope→area map live in
   `skittership.config.json`.
 <!-- skittership:end -->
+
+> **In this monorepo**, the paragraph above describes skittership's default
+> single-package flow. Here the `npm version` hook and the `changelog`/`releases`
+> scripts are deliberately absent: `scripts/release.js` edits each package's
+> `package.json` directly, so no `version` lifecycle hook fires, and the shipped
+> generator walks one tag series where this repo has two. Release notes are
+> written per package by `scripts/release-notes.js`, which `release.js` runs as
+> part of a release — see [RELEASING.md](./RELEASING.md).

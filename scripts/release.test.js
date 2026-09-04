@@ -120,7 +120,8 @@ test('buildPlan for a bump emits ordered local steps then publish, and never pus
   const cmds = plan.steps.map((s) => s.cmd)
   assert.deepStrictEqual(cmds, [
     'set packages/skitterspec/package.json version → 2.0.1',
-    'git add packages/skitterspec/package.json',
+    'node scripts/release-notes.js skitterspec 2.0.1',
+    'git add packages/skitterspec/package.json RELEASES-skitterspec.md',
     'git commit -m "chore(release): skitterspec@2.0.1"',
     'pnpm publish --filter @skitterbyte/skitterspec --access public --no-git-checks',
     'git tag -a skitterspec@2.0.1 -m "skitterspec 2.0.1"',
@@ -415,5 +416,62 @@ test('a --yes run cuts the same annotated tag', () => {
   const step = tagStep(planFor('yes'))
   assert.ok(step, 'the local run still tags')
   assert.ok(step.argv.includes('-a'), 'and it is annotated there too')
+})
+
+// --- release notes ordering --------------------------------------------------
+//
+// The notes are generated BEFORE the stage and commit, so the file lands in the
+// release commit itself. Publishing a version whose notes were never committed
+// is the failure this ordering prevents: the version ships and the record does
+// not, and nothing about the published package reveals the gap.
+
+test('release notes are written, staged and committed before publish', () => {
+  const plan = buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '2.0.0',
+    nextVersion: '2.0.1',
+    level: 'publish',
+  })
+  const at = (re) => plan.steps.findIndex((s) => re.test(s.cmd))
+  const notes = at(/release-notes\.js/)
+  const stage = at(/^git add /)
+  const commit = at(/^git commit /)
+  const publish = plan.steps.findIndex((s) => s.phase === 'publish')
+
+  assert.ok(notes >= 0, 'a notes step exists')
+  assert.ok(notes < stage, 'notes are written before staging')
+  assert.ok(stage < commit, 'staged before committing')
+  assert.ok(commit < publish, 'committed before publish')
+})
+
+test('the stage step includes the notes file, not just package.json', () => {
+  const plan = buildPlan({
+    name: 'skitterspec-linear',
+    npm: '@skitterbyte/skitterspec-linear',
+    dirRel: 'packages/skitterspec-linear',
+    currentVersion: '1.0.0',
+    nextVersion: '1.1.0',
+    level: 'yes',
+  })
+  const stage = plan.steps.find((s) => /^git add /.test(s.cmd))
+  assert.match(stage.cmd, /RELEASES-skitterspec-linear\.md/, 'the notes file is staged')
+  assert.ok(stage.argv.includes('RELEASES-skitterspec-linear.md'), 'and in the argv')
+})
+
+// An equal-version release skips the bump and commit entirely, so there is
+// nothing to attach notes to — the step must not appear and claim otherwise.
+test('an equal-version release emits no notes step', () => {
+  const plan = buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '2.0.0',
+    nextVersion: '2.0.0',
+    level: 'publish',
+  })
+  assert.strictEqual(plan.needsBump, false)
+  assert.ok(!plan.steps.some((s) => /release-notes\.js/.test(s.cmd)), 'no notes step')
 })
 

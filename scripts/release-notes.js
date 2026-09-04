@@ -20,6 +20,7 @@
  */
 
 const { execFileSync } = require('node:child_process')
+const fs = require('node:fs')
 const path = require('node:path')
 
 const ROOT = path.join(__dirname, '..')
@@ -134,8 +135,92 @@ function notesFor(pkg, version, opts = {}) {
   return notesInRange(from, opts.to || 'HEAD', cwd).filter((c) => c.packages.has(pkg))
 }
 
+// --- rendering ---------------------------------------------------------------
+//
+// Everything below delegates to the installed generator. Its bucketing, its
+// `Release-Note!:` / `Release-Area:` grammar and its section format are the
+// product's, not this repo's — reimplementing any of it would let the two drift
+// while both looked right.
+
+const gen = require('./generate-releases.cjs')
+const { parseCommit } = require('./lib/git-commits.cjs')
+
+const releasesFileFor = (pkg) => `RELEASES-${pkg}.md`
+
+function loadShipConfig() {
+  const raw = fs.readFileSync(path.join(ROOT, 'skittership.config.json'), 'utf8')
+  const cfg = JSON.parse(raw)
+  return {
+    // productName is unused: each file names its own package, which is the
+    // product from the reader's side. Kept out rather than rendered as
+    // "skitterspec (skitterspec)".
+    scopeAreas: cfg.releases?.scopeAreas || {},
+    changelogFile: cfg.changelog?.file || 'CHANGELOG.md',
+  }
+}
+
+/**
+ * Render the notes for one package/version and upsert them into its file.
+ *
+ * Returns { file, written, notes } — `written` is false when the package has no
+ * user-facing change in the range, which is a normal outcome for a release that
+ * only touched the other distribution.
+ */
+function renderFor(pkg, version, opts = {}) {
+  const cwd = opts.cwd || ROOT
+  const cfg = opts.config || loadShipConfig()
+  // parseCommit takes ONE NUL-delimited `hash\0subject\0body` string — the shape
+  // its own `git log --pretty` emits — not three arguments. Passing three
+  // silently returned null for every commit and reported "no user-facing change"
+  // on a range with ten notes in it.
+  const NUL = String.fromCharCode(0)
+  const commits = (opts.commits || notesFor(pkg, version, opts))
+    .map((c) => parseCommit([c.hash, c.subject, c.body || ''].join(NUL)))
+    .filter(Boolean)
+  const notes = commits.map((c) => gen.parseReleaseNote(c, cfg.scopeAreas)).filter(Boolean)
+
+  const file = path.join(cwd, releasesFileFor(pkg))
+  if (!notes.length) return { file, written: false, notes }
+
+  const isoDate = opts.isoDate || new Date().toISOString().slice(0, 10)
+  const section = gen.renderReleasesSection(version, isoDate, notes)
+  const existing = fs.existsSync(file)
+    ? fs.readFileSync(file, 'utf8')
+    : gen.defaultReleasesHeader(pkg, cfg.changelogFile)
+  fs.writeFileSync(file, gen.upsertReleasesSection(existing, section, version))
+  return { file, written: true, notes }
+}
+
+/**
+ * Footer-carrying commits in the range that attribute to NO package.
+ *
+ * Reported, never swallowed. A dropped note and a lost note look identical from
+ * the outside, and the three found when this was written were all footers that
+ * should not have been added — website and release-tooling changes that ship in
+ * neither distribution.
+ *
+ * Takes the package so the RANGE is that package's own. An earlier version used
+ * PACKAGES[0] regardless and, asked about skitterspec-linear 10.7.0, resolved the
+ * range from the highest skitterspec tag below 10.7.0 — years of history, and 15
+ * orphans reported instead of 3.
+ */
+function orphansFor(pkg, version, opts = {}) {
+  const cwd = opts.cwd || ROOT
+  const tags =
+    opts.tags ||
+    git(['tag', '--list'], cwd)
+      .split('\n')
+      .map((t) => t.trim())
+      .filter(Boolean)
+  const from = previousTagFor(pkg, version, tags)
+  return notesInRange(from, opts.to || 'HEAD', cwd).filter((c) => c.packages.size === 0)
+}
+
 module.exports = {
   PACKAGES,
+  releasesFileFor,
+  renderFor,
+  orphansFor,
   FEEDS,
   parseSemver,
   cmpSemver,
@@ -144,3 +229,30 @@ module.exports = {
   notesInRange,
   notesFor,
 }
+
+// --- CLI ---------------------------------------------------------------------
+
+if (require.main === module) {
+  const [pkg, version] = process.argv.slice(2)
+  if (!PACKAGES.includes(pkg) || !parseSemver(version || '')) {
+    process.stderr.write(`Usage: release-notes.js <${PACKAGES.join('|')}> <x.y.z>\n`)
+    process.exit(1)
+  }
+  const { file, written, notes } = renderFor(pkg, version)
+  process.stdout.write(
+    written
+      ? `release-notes: ${notes.length} note(s) -> ${path.relative(ROOT, file)}\n`
+      : `release-notes: no user-facing change for ${pkg} in this range — nothing written\n`,
+  )
+  // Orphans are reported on EVERY run, not just when something looks wrong: a
+  // note dropped in silence is indistinguishable from a note lost.
+  const orphans = orphansFor(pkg, version)
+  if (orphans.length) {
+    process.stdout.write(
+      `  ${orphans.length} Release-Note footer(s) attribute to no package and were not included:\n`,
+    )
+    for (const c of orphans) process.stdout.write(`    ${c.subject}\n`)
+    process.stdout.write('  (a change shipping in neither distribution should not carry a footer)\n')
+  }
+}
+

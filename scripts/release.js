@@ -158,11 +158,21 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
       cmd: `set ${dirRel}/package.json version → ${nextVersion}`,
       desc: `set ${name} version → ${nextVersion}`,
     })
+    // Notes BEFORE the stage, so the generated file is committed with the bump.
+    // A release that publishes without its notes committed is the ordering
+    // failure this prevents — the version would ship and the record would not.
+    const notesFile = `RELEASES-${name}.md`
     steps.push({
       phase: 'local',
-      cmd: `git add ${dirRel}/package.json`,
-      argv: ['git', 'add', `${dirRel}/package.json`],
-      desc: 'stage the version bump',
+      cmd: `node scripts/release-notes.js ${name} ${nextVersion}`,
+      argv: ['node', 'scripts/release-notes.js', name, nextVersion],
+      desc: `write ${notesFile} from the Release-Note footers`,
+    })
+    steps.push({
+      phase: 'local',
+      cmd: `git add ${dirRel}/package.json ${notesFile}`,
+      argv: ['git', 'add', `${dirRel}/package.json`, notesFile],
+      desc: 'stage the version bump + release notes',
     })
     steps.push({
       phase: 'local',

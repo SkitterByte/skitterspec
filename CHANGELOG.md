@@ -1,11 +1,12 @@
 # Changelog
 
 > **⚠️ Historical — no longer maintained.** This file records the
-> single-package-era `skitterspec 1.0.x`. Since the repo became a monorepo, the
-> scripts that generated it have been removed and releases run per package via
-> `scripts/release.js` (see [RELEASING.md](RELEASING.md)). Per-package changelog
-> generation is a later deferred spec; until then this is history, not the
-> current record.
+> single-package `skitterspec 1.0.x` era. The dev-facing changelog has the same
+> per-package problem the release notes had, and has not been given the same
+> treatment yet; `git log` per tag range is the current record. User-facing notes
+> ARE generated — see
+> [RELEASES-skitterspec.md](./RELEASES-skitterspec.md) and
+> [RELEASES-skitterspec-linear.md](./RELEASES-skitterspec-linear.md).
 
 All notable changes to this project will be documented in this file.
 
