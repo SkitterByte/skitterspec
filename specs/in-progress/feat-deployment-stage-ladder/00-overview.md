@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-41/project-configured-depl
 
 > **Type:** Feature
 > **Name:** feat-deployment-stage-ladder (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-04)
+> **Status:** In Progress — Phase 2 next (Phase 1 done 2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -135,7 +135,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `release.stages` config + name validation | 🔄 | [01-stages-config.md](01-stages-config.md) |
+| 1 | `release.stages` config + name validation | ✅ | [01-stages-config.md](01-stages-config.md) |
 | 2 | State diffs independently of description | ⬜ | [02-state-field-split.md](02-state-field-split.md) |
 | 3 | `spec-sync stage` — the write verb | ⬜ | [03-stage-verb.md](03-stage-verb.md) |
 | 4 | Doctor ladder check + CI wiring docs | ⬜ | [04-doctor-and-docs.md](04-doctor-and-docs.md) |
@@ -154,6 +154,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-04 — Spec created.
+- 2026-09-04 — Phase 1 done. `stateSuggestions` now returns a `label`
+  (`states.complete` / `release.stages[test]`) so a single printer serves both
+  the bucket map and the ladder; that broke `init-config`'s remediation line,
+  which still read `bucket` — the existing suite caught it. Verified the new
+  tests non-vacuous by removing the stage names from `configuredStateNames` and
+  watching exactly the two intended tests fail.
 - 2026-09-04 — Design refined during grilling: the planned `release.cedeAfter`
   knob was dropped. Reading `compare.js:47` showed `specIssueHash` welds
   description and state, so push re-asserts state on any prose edit; diffing the

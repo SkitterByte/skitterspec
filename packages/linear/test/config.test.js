@@ -15,7 +15,11 @@ const {
   LIFECYCLE_BUCKETS,
   TRANSPORTS,
   DEFAULT_KEY_ENV,
+  releaseStages,
+  stageFor,
 } = require('../src/config.js')
+const { validateStates, stateSuggestions } = require('@skitterbyte/skitterspec-sync-core')
+const { configuredStateNames } = require('@skitterbyte/skitterspec-sync-core/src/normalize.js')
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-linearcfg-'))
@@ -347,4 +351,109 @@ test('a mutated intake list cannot leak into the frozen defaults', () => {
   loadLinearConfig(dir).config.intake.hotfixLabels.push('leaked')
   assert.deepEqual([...DEFAULT_CONFIG.intake.hotfixLabels], [], 'defaults untouched')
   assert.deepEqual(loadLinearConfig(dir).config.intake.hotfixLabels, ['production'], 'reload is clean')
+})
+
+// --- release.stages: the project's deployment ladder -------------------------
+
+test('release.stages: a valid ladder loads in declared order', () => {
+  const dir = tmpDir()
+  writeConfig(dir, {
+    release: {
+      stages: [
+        { key: 'test', state: 'On Test' },
+        { key: 'demo', state: 'Ready for Demo' },
+        { key: 'prod', state: 'Done' },
+      ],
+    },
+  })
+  const { config } = loadLinearConfig(dir)
+  assert.deepStrictEqual(
+    config.release.stages.map((s) => s.key),
+    ['test', 'demo', 'prod'],
+  )
+  assert.strictEqual(config.release.stages[1].state, 'Ready for Demo')
+  assert.strictEqual(stageFor(config, 'prod').state, 'Done')
+  assert.strictEqual(stageFor(config, 'nope'), null)
+})
+
+// The STAYS-SILENT case (.claude/rules/negative-checks.md rule 3): a project
+// that never declared a ladder must be entirely unaffected by it — no throw, no
+// default rungs, and nothing added to the names the workspace check accuses.
+test('release.stages: absent block is silent — empty ladder, no extra state names', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { linear: { teamKey: 'ENG' } })
+  const { config } = loadLinearConfig(dir)
+  assert.deepStrictEqual(config.release.stages, [])
+  assert.deepStrictEqual(releaseStages(config), [])
+  assert.deepStrictEqual(
+    configuredStateNames(config).sort(),
+    ['Backlog', 'Canceled', 'Done', 'In Progress'].sort(),
+  )
+  assert.deepStrictEqual(validateStates(config, ['Backlog', 'In Progress', 'Done', 'Canceled']), [])
+})
+
+test('release.stages: an explicitly empty array is also silent', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { release: { stages: [] } })
+  const { config } = loadLinearConfig(dir)
+  assert.deepStrictEqual(config.release.stages, [])
+  assert.deepStrictEqual(stateSuggestions(config, ['Backlog', 'In Progress', 'Done', 'Canceled']), [])
+})
+
+test('release.stages: a non-array is a hard error', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { release: { stages: { test: 'On Test' } } })
+  assert.throws(() => loadLinearConfig(dir), /release\.stages/)
+})
+
+test('release.stages: a missing or blank key/state is a hard error naming the index', () => {
+  for (const bad of [{ state: 'On Test' }, { key: 'test' }, { key: '  ', state: 'On Test' }, { key: 'test', state: '' }]) {
+    const dir = tmpDir()
+    writeConfig(dir, { release: { stages: [{ key: 'ok', state: 'Done' }, bad] } })
+    assert.throws(() => loadLinearConfig(dir), /release\.stages\[1\]\.(key|state)/)
+  }
+})
+
+test('release.stages: a duplicate key is a hard error', () => {
+  const dir = tmpDir()
+  writeConfig(dir, {
+    release: { stages: [{ key: 'test', state: 'On Test' }, { key: 'test', state: 'Done' }] },
+  })
+  assert.throws(() => loadLinearConfig(dir), /duplicate/)
+})
+
+test('release.stages: entries are trimmed', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { release: { stages: [{ key: ' test ', state: ' On Test ' }] } })
+  const { config } = loadLinearConfig(dir)
+  assert.deepStrictEqual(config.release.stages, [{ key: 'test', state: 'On Test' }])
+})
+
+test('release.stages: stage names join the workspace state check', () => {
+  const dir = tmpDir()
+  writeConfig(dir, {
+    release: { stages: [{ key: 'test', state: 'On Test' }, { key: 'prod', state: 'Done' }] },
+  })
+  const { config } = loadLinearConfig(dir)
+  const workspace = ['Backlog', 'In Progress', 'Done', 'Canceled']
+  // "On Test" is not in the workspace; every bucket name is.
+  assert.deepStrictEqual(validateStates(config, workspace), ['On Test'])
+  const suggestions = stateSuggestions(config, workspace)
+  assert.strictEqual(suggestions.length, 1)
+  assert.strictEqual(suggestions[0].label, 'release.stages[test]')
+  assert.strictEqual(suggestions[0].configured, 'On Test')
+  // No guess is offered for a stage: the vocabulary is the project's own.
+  assert.strictEqual(suggestions[0].suggestion, null)
+})
+
+test('release.stages: a ladder the workspace fully covers is silent', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { release: { stages: [{ key: 'prod', state: 'Done' }] } })
+  const { config } = loadLinearConfig(dir)
+  assert.deepStrictEqual(validateStates(config, ['Backlog', 'In Progress', 'Done', 'Canceled']), [])
+})
+
+test('release.stages: the lifecycle bucket list is unchanged by the ladder', () => {
+  assert.deepStrictEqual(LIFECYCLE_BUCKETS, ['backlog', 'in-progress', 'complete', 'cancelled'])
+  assert.ok(!LIFECYCLE_BUCKETS.includes('test'))
 })

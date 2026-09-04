@@ -23,6 +23,9 @@
   "snapshot": {
     "overviewFile": "00-overview.md"
   },
+  "release": {
+    "stages": []
+  },
   "branch": {
     "pattern": "{type}/{slug}"
   },

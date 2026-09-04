@@ -20,6 +20,7 @@
  *     intake:   { label, bugLabels, hotfixLabels },
  *     mapping:  { specFolder, phases, tasks },
  *     states:   { backlog, "in-progress", complete, cancelled },
+ *     release:  { stages: [{ key, state }] },
  *     snapshot: { overviewFile },
  *     branch:   { pattern },
  *     sync: {
@@ -78,6 +79,19 @@ const TRANSPORTS = Object.freeze(['api', 'mcp'])
 // nothing secret is ever written to the repo.
 const DEFAULT_KEY_ENV = 'LINEAR_API_KEY'
 
+// The project's OWN deployment ladder: where a ticket goes AFTER its spec is
+// complete — deployed to test, approved for demo, live in prod. Deliberately an
+// open, ORDERED list in the project's vocabulary rather than a fixed set: one
+// team's `On Test`/`Ready for Demo` is another's `staging`, and most projects
+// have none at all. Empty (the default) means the project declared no ladder,
+// and every stage-aware path is simply unused.
+//
+// It is NOT keyed by lifecycle bucket, unlike `states` and `mapping.phases`.
+// A deployment stage is a fact about an ENVIRONMENT, and no folder under
+// `specs/` can ever derive one — which is why it must not join
+// LIFECYCLE_BUCKETS.
+const DEFAULT_RELEASE_STAGES = Object.freeze([])
+
 const DEFAULT_CONFIG = Object.freeze({
   // `projectId` is the project picker's DEFAULT, not a mandate: `/spec` and the
   // first `/spec-push` offer the team's projects and pre-select this one; empty
@@ -111,6 +125,10 @@ const DEFAULT_CONFIG = Object.freeze({
     cancelled: 'Canceled',
   }),
   snapshot: Object.freeze({ overviewFile: '00-overview.md' }),
+  // See DEFAULT_RELEASE_STAGES above. `stages` is ordered: the order is recorded
+  // for reporting and doctor's ladder check, and deliberately NOT enforced — a
+  // rollback from test and a hotfix going straight to prod are both legitimate.
+  release: Object.freeze({ stages: DEFAULT_RELEASE_STAGES }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // `keyEnv` names the env var holding the personal API key. It is a NAME, not a
   // key: putting the secret itself here would commit it.
@@ -162,6 +180,7 @@ function defaults() {
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
     snapshot: { ...DEFAULT_CONFIG.snapshot },
+    release: { stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })) },
     branch: { ...DEFAULT_CONFIG.branch },
     auth: { ...DEFAULT_CONFIG.auth },
     apply: { ...DEFAULT_CONFIG.apply },
@@ -249,6 +268,55 @@ function mergePhaseMapping(base, parsed) {
   }
 }
 
+// Merge (and validate) `release.stages` — the project's deployment ladder.
+//
+// Loud on a malformed entry, like fieldOwnership and mapping.phases above: this
+// list names Linear states, and Linear SILENTLY IGNORES an unknown state. A
+// half-typed ladder would push clean and move nothing, which is exactly the
+// failure `validateStates` exists to stop — so a bad shape fails here, at load,
+// rather than at the first deploy nobody is watching.
+//
+// An ABSENT `release` block is not an error: it is the opt-out, and the whole
+// feature is unused without it.
+function mergeReleaseStages(base, parsed) {
+  const value = parsed.stages
+  if (value === undefined) return
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `Invalid ${CONFIG_FILE}: release.stages = ${JSON.stringify(value)} ` +
+        '(expected an array of { key, state })',
+    )
+  }
+  const stages = []
+  const seen = new Set()
+  value.forEach((entry, i) => {
+    if (!isObject(entry)) {
+      throw new Error(
+        `Invalid ${CONFIG_FILE}: release.stages[${i}] = ${JSON.stringify(entry)} ` +
+          '(expected { key, state })',
+      )
+    }
+    for (const field of ['key', 'state']) {
+      if (typeof entry[field] !== 'string' || !entry[field].trim()) {
+        throw new Error(
+          `Invalid ${CONFIG_FILE}: release.stages[${i}].${field} = ${JSON.stringify(entry[field])} ` +
+            '(expected a non-empty string)',
+        )
+      }
+    }
+    const key = entry.key.trim()
+    if (seen.has(key)) {
+      throw new Error(
+        `Invalid ${CONFIG_FILE}: release.stages[${i}].key = ${JSON.stringify(key)} is a duplicate ` +
+          '(a stage key is how CI names the rung, so it must be unique)',
+      )
+    }
+    seen.add(key)
+    stages.push({ key, state: entry.state.trim() })
+  })
+  base.stages = stages
+}
+
 // Merge (and validate) sync.keyedFields. Each value is the item's id property
 // name (a non-empty string); a field listed here is compared per item.
 function mergeKeyedFields(base, parsed) {
@@ -312,6 +380,10 @@ function mergeConfig(base, parsed) {
     assign(base.snapshot, parsed.snapshot, 'overviewFile', 'string')
   }
 
+  if (isObject(parsed.release)) {
+    mergeReleaseStages(base.release, parsed.release)
+  }
+
   if (isObject(parsed.branch)) {
     assign(base.branch, parsed.branch, 'pattern', 'string')
   }
@@ -350,7 +422,8 @@ function mergeConfig(base, parsed) {
  * Returns `{ config, present }`:
  *   - missing file → `{ config: defaults, present: false }` (opt-out; never throws)
  *   - present      → `{ config: merged,   present: true }`
- * Malformed JSON or a bad `fieldOwnership` enum → throws a clear Error.
+ * Malformed JSON, a bad `fieldOwnership` enum, or a malformed `release.stages`
+ * entry → throws a clear Error.
  */
 function loadLinearConfig(dir = process.cwd()) {
   const base = defaults()
@@ -374,8 +447,25 @@ function loadLinearConfig(dir = process.cwd()) {
   return { config: mergeConfig(base, parsed), present: true }
 }
 
+/**
+ * The project's declared deployment ladder, always an array (empty = none
+ * declared). Callers read this rather than reaching into the config, so an
+ * older config object without a `release` block cannot throw.
+ */
+function releaseStages(config) {
+  const stages = config && config.release && config.release.stages
+  return Array.isArray(stages) ? stages : []
+}
+
+/** The ladder rung with this key, or null. */
+function stageFor(config, key) {
+  return releaseStages(config).find((s) => s.key === key) || null
+}
+
 module.exports = {
   loadLinearConfig,
+  releaseStages,
+  stageFor,
   mergeConfig,
   defaults,
   DEFAULT_CONFIG,

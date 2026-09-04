@@ -52,7 +52,14 @@ const {
   dirtyPaths,
 } = require('@skitterbyte/skitterspec-sync-core')
 
-const { loadLinearConfig, mergeConfig, defaults: configDefaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
+const {
+  loadLinearConfig,
+  mergeConfig,
+  defaults: configDefaults,
+  CONFIG_FILE,
+  LIFECYCLE_BUCKETS,
+  releaseStages,
+} = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
 const { runChecks } = require('./doctor.js')
 const {
@@ -326,8 +333,8 @@ function stateCheckFailure(config, flags) {
     // Say what IS available, and what to use instead. "Done is not a state" sends
     // you to the Linear UI to go and look; naming the replacement does not.
     const lines = ['spec-sync push: refusing — configured state name(s) not in the workspace', '']
-    for (const { bucket, configured, suggestion } of stateSuggestions(config, list)) {
-      lines.push(`  states.${bucket}: "${configured}" is not an issue state in this workspace`)
+    for (const { label, configured, suggestion } of stateSuggestions(config, list)) {
+      lines.push(`  ${label}: "${configured}" is not an issue state in this workspace`)
       if (suggestion) lines.push(`    use "${suggestion}" instead`)
     }
     lines.push(
@@ -1250,11 +1257,39 @@ async function specSyncStates(dir, config, flags, out) {
   }
   if (flags.json) {
     // The bare array `--workspace-states` takes, so this can be piped into it.
+    // Deliberately NOT widened to carry the configured vocabulary: every caller
+    // pipes this straight into that flag, and an object here would break them.
     out.write(JSON.stringify(names, null, 2) + '\n')
     return 0
   }
-  out.write(`spec-sync states: transport = api\n  ${names.join(', ')}\n`)
+  const lines = ['spec-sync states: transport = api', `  workspace: ${names.join(', ')}`]
+  lines.push(...configuredVocabularyLines(config, names))
+  out.write(lines.join('\n') + '\n')
   return 0
+}
+
+// The state names this project's config points at, shown against what the
+// workspace actually has — the bucket map, then the deployment ladder in its
+// declared order. One command then shows the whole vocabulary, instead of the
+// ladder living only in a file nobody re-reads.
+//
+// A name the workspace lacks is flagged here but nothing is refused: `states`
+// is a report. The push path is where that is fatal.
+function configuredVocabularyLines(config, names) {
+  const have = new Set((names || []).map((n) => String(n).toLowerCase().trim()))
+  const mark = (name) => (have.has(String(name).toLowerCase().trim()) ? '' : '   <- not in the workspace')
+  const lines = ['', '  configured:']
+  for (const [bucket, name] of Object.entries((config && config.states) || {})) {
+    lines.push(`    states.${bucket}: ${name}${mark(name)}`)
+  }
+  const stages = releaseStages(config)
+  if (stages.length) {
+    lines.push(`    release.stages: ${stages.length} rung(s), in order`)
+    stages.forEach((stage, i) => {
+      lines.push(`      ${i + 1}. ${stage.key} -> ${stage.state}${mark(stage.state)}`)
+    })
+  }
+  return lines
 }
 
 /**
@@ -1768,9 +1803,11 @@ function specSyncInitConfig(dir, flags, out) {
     const missing = validateStates(effective, workspace)
     if (missing.length) {
       const lines = ['spec-sync init-config: refusing — configured state name(s) not in the workspace', '']
-      for (const { bucket, configured, suggestion } of stateSuggestions(effective, workspace)) {
-        lines.push(`  states.${bucket}: "${configured}" is not an issue state in this workspace`)
-        if (suggestion) lines.push(`    pass --state ${bucket}="${suggestion}"`)
+      for (const { bucket, label, configured, suggestion } of stateSuggestions(effective, workspace)) {
+        lines.push(`  ${label}: "${configured}" is not an issue state in this workspace`)
+        // `--state <bucket>=<name>` only addresses the bucket map; a ladder rung
+        // is edited in the config, and never carries a suggestion anyway.
+        if (suggestion && bucket) lines.push(`    pass --state ${bucket}="${suggestion}"`)
       }
       lines.push(
         '',

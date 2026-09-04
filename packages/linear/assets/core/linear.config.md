@@ -85,6 +85,13 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
     "overviewFile": "00-overview.md"
   },
 
+  // The project's OWN deployment ladder — where a ticket goes AFTER its spec is
+  // complete. Empty (the default) means no ladder is declared and every
+  // stage-aware path is unused. See "The deployment ladder" below.
+  "release": {
+    "stages": []
+  },
+
   // Git branch name derived for a linked spec. Tokens: {type}, {slug},
   // {identifier} (the Linear issue/project identifier, e.g. ENG-123). Shared
   // with the isolation engine's branch derivation (src/env/resolve.js).
@@ -121,6 +128,45 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   }
 }
 ```
+
+## The deployment ladder (`release.stages`)
+
+A spec's lifecycle stops at `complete`. Where a ticket goes **after** that —
+deployed to test, approved for demo, live in prod — is a fact about an
+**environment**, and nothing under `specs/` can derive it. `release.stages` is
+where a project declares that ladder in its own vocabulary:
+
+```jsonc
+"release": {
+  "stages": [
+    { "key": "test", "state": "On Test" },
+    { "key": "demo", "state": "Ready for Demo" },
+    { "key": "prod", "state": "Done" }
+  ]
+}
+```
+
+- **`key`** is what CI names (`spec-sync stage test …`); **`state`** is the
+  Linear issue state it moves to. Pipelines reference the *key*, never the state
+  name, so renaming a Linear column is one edit here rather than a hunt through
+  pipeline YAML.
+- **Every `state` is checked against the workspace** alongside `states`, at push
+  and setup time. Linear **silently ignores** an unknown issue state, so an
+  unchecked typo would deploy cleanly and move nothing, forever.
+- **Order is recorded, not enforced.** It drives reporting and the doctor check;
+  a rollback from test, or a hotfix going straight to prod, is legitimate and is
+  never refused.
+- **Keys must be unique**, and a malformed entry is a hard error at load — the
+  same treatment `sync.fieldOwnership` and `mapping.phases` get.
+- **Absent or empty = the opt-out.** Nothing about the ladder affects a project
+  that has not declared one.
+
+Unlike `states` and `mapping.phases`, this is **not** keyed by lifecycle bucket:
+the buckets are a closed set the repo derives, and a deployment stage never is.
+
+Run `skitterspec spec-sync states` to see the whole configured vocabulary — the
+bucket map and the ladder — against what the workspace actually has.
+
 
 ## Spec → Issue, phases → sub-issues
 

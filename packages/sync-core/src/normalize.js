@@ -932,11 +932,26 @@ function titleFromText(text, max = 100) {
   return stripTitleMarkup(title)
 }
 
+// Every state NAME the config points at: the lifecycle bucket map, plus the
+// project's deployment ladder when it declares one. Both reach Linear the same
+// way and fail the same way, so both are checked by the same lookup.
+function configuredStateNames(config) {
+  const names = Object.values((config && config.states) || {}).filter((v) => typeof v === 'string')
+  const stages = (config && config.release && config.release.stages) || []
+  for (const stage of Array.isArray(stages) ? stages : []) {
+    if (stage && typeof stage.state === 'string') names.push(stage.state)
+  }
+  return names
+}
+
 // Which configured state NAMES are absent from the live workspace. The skill
 // fetches the workspace's project-status names over MCP and passes them here;
 // a non-empty result means a typo/rename that Linear would silently no-op.
+//
+// A project with no `release.stages` contributes nothing here, so the ladder
+// cannot make this accuse a config that was fine before it existed.
 function validateStates(config, workspaceStates) {
-  const configured = Object.values((config && config.states) || {}).filter((v) => typeof v === 'string')
+  const configured = configuredStateNames(config)
   const have = new Set((workspaceStates || []).map((s) => String(s).toLowerCase().trim()))
   return configured.filter((name) => !have.has(name.toLowerCase().trim()))
 }
@@ -971,13 +986,29 @@ function stateSuggestions(config, workspaceStates) {
     if (have.has(configured.toLowerCase().trim())) continue
     const words = BUCKET_WORDS[bucket] || []
     const suggestion = names.find((n) => words.includes(n.toLowerCase().trim())) || null
-    out.push({ bucket, configured, suggestion })
+    out.push({ bucket, configured, suggestion, label: `states.${bucket}` })
+  }
+  // Deployment-ladder rungs, reported the same way. No suggestion is offered:
+  // BUCKET_WORDS describes lifecycle vocabulary, and a stage name is the
+  // project's own — guessing "On Test" meant "In Progress" would be worse than
+  // saying nothing.
+  const stages = (config && config.release && config.release.stages) || []
+  for (const stage of Array.isArray(stages) ? stages : []) {
+    if (!stage || typeof stage.state !== 'string') continue
+    if (have.has(stage.state.toLowerCase().trim())) continue
+    out.push({
+      bucket: null,
+      configured: stage.state,
+      suggestion: null,
+      label: `release.stages[${stage.key}]`,
+    })
   }
   return out
 }
 
 module.exports = {
   stateSuggestions,
+  configuredStateNames,
   normalizeLocal,
   phaseProjection,
   phaseModeFor,

@@ -139,3 +139,50 @@ test('the refusal reaches the shell as a non-zero exit', () => {
   assert.strictEqual(r.status, 1, `exited ${r.status}:\n${r.stdout}${r.stderr}`)
   assert.match(r.stdout, /refusing/)
 })
+
+// --- the ladder is gated by the same check ----------------------------------
+//
+// A `release.stages` rung reaches Linear exactly the way a bucket state does,
+// and fails exactly the way one does — silently. So it goes through the same
+// gate rather than a parallel one.
+
+function withStages(dir, stages) {
+  const cfg = path.join(dir, CONFIG_FILE)
+  const parsed = JSON.parse(fs.readFileSync(cfg, 'utf-8'))
+  parsed.release = { stages }
+  fs.writeFileSync(cfg, JSON.stringify(parsed), 'utf-8')
+  return dir
+}
+
+test('push refuses on a deployment-stage name the workspace does not have', async () => {
+  const dir = withStages(fixtureRepo(), [
+    { key: 'test', state: 'On Test' },
+    { key: 'prod', state: 'Done' },
+  ])
+  const file = statesFile(dir, GOOD)
+  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /release\.stages\[test\]: "On Test" is not an issue state/, 'names the rung by key')
+  assert.ok(!/states\.complete/.test(r.out), 'the bucket map is fine and is not accused')
+})
+
+// The STAYS-SILENT case: a healthy ladder must not make a push that worked
+// before start refusing.
+test('push proceeds when every rung is a real workspace state', async () => {
+  const dir = withStages(fixtureRepo(), [
+    { key: 'test', state: 'Triage' },
+    { key: 'prod', state: 'Done' },
+  ])
+  const file = statesFile(dir, GOOD)
+  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  assert.strictEqual(r.code, 0)
+  assert.ok(!/refusing/.test(r.out), 'no refusal')
+})
+
+test('push with no ladder declared is unaffected by the check', async () => {
+  const dir = fixtureRepo()
+  const file = statesFile(dir, GOOD)
+  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  assert.strictEqual(r.code, 0)
+  assert.ok(!/release\.stages/.test(r.out), 'says nothing about a ladder that does not exist')
+})
