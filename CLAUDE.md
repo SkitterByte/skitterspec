@@ -1,4 +1,4 @@
-# stale-claude-md
+# skitterspec
 
 <!-- skitterspec:start -->
 ## Spec workflow
