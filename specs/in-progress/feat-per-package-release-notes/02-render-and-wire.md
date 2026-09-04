@@ -38,6 +38,10 @@ already banked for 16.8.0 / 10.7.0 are backfilled.
       appears in exactly the files its paths attribute to — the completeness
       check, since a silently dropped note is the failure mode this whole spec
       exists to end.
+- [ ] **Report orphans.** A footer attributing to no package must be printed as a
+      warning by the driver, never dropped in silence — Phase 1 found three, all
+      of which should not have carried a footer at all. Silence here is
+      indistinguishable from losing a real note.
 - [ ] Run `pnpm test` — green before the phase is done.
 
 ## Notes
