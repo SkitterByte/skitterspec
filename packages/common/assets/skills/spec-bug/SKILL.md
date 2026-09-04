@@ -53,8 +53,22 @@ provision from — you'll flesh it out in §4:
   the worktree path, the opener, and any `in the worktree, run:` bootstrap steps.
 - Run the printed `git worktree add`. **The worktree forks from `main`'s last
   commit, so your uncommitted stub doesn't travel with it** — move it across so
-  `main` is left pristine:
-  `mv specs/in-progress/bug-<name> <worktreePath>/specs/in-progress/`.
+  `main` is left pristine. **Create the destination bucket first:**
+
+  ```
+  mkdir -p <worktreePath>/specs/in-progress
+  mv specs/in-progress/bug-<name> <worktreePath>/specs/in-progress/
+  ```
+
+  The `mkdir -p` is not belt-and-braces. Git does not store empty directories,
+  so `specs/in-progress/` is **absent** from a fresh worktree whenever that
+  bucket happens to be empty on `main` — the common case, since it empties every
+  time the last in-progress spec completes. `mv` into a missing destination
+  renames your spec folder **to** `specs/in-progress`, silently: the spec's files
+  end up one level too high, `00-overview.md` sits where the bucket should be,
+  and every later step still appears to work until something cannot find the
+  spec. Confirm the result before carrying on — you want
+  `<worktreePath>/specs/in-progress/bug-<name>/00-overview.md`.
 - **Bootstrap the worktree.** A fresh worktree has no installed dependencies and
   none of the repo's gitignored files (`.env`, local overrides). Run the printed
   `in the worktree, run:` steps (file seeding, then `setup`) in order, before

@@ -21,7 +21,7 @@ const { CONFIG_FILE } = require('../src/config.js')
 
 // A repo with one spec, on a real git branch — `ref` reads HEAD via git, so the
 // branch has to actually exist.
-function fixtureRepo({ folder = 'feat-safer-init', identifier = 'SKS-7', branch = 'feat/safer-init', bucket = 'in-progress' } = {}) {
+function fixtureRepo({ folder = 'feat-safer-init', identifier = 'SKS-7', branch = 'feat/safer-init', bucket = 'in-progress', others = [] } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-ref-'))
   const cfg = path.join(dir, CONFIG_FILE)
   fs.mkdirSync(path.dirname(cfg), { recursive: true })
@@ -31,6 +31,14 @@ function fixtureRepo({ folder = 'feat-safer-init', identifier = 'SKS-7', branch 
   fs.mkdirSync(spec, { recursive: true })
   const fm = identifier ? `---\nlinear_identifier: "${identifier}"\n---\n\n` : ''
   fs.writeFileSync(path.join(spec, '00-overview.md'), `${fm}# Spec\n`, 'utf-8')
+
+  // Other specs sharing the repo — the backlog spec authored mid-branch is one.
+  for (const o of others) {
+    const dirO = path.join(dir, 'specs', o.bucket || 'backlog', o.folder)
+    fs.mkdirSync(dirO, { recursive: true })
+    const fmO = o.identifier ? `---\nlinear_identifier: "${o.identifier}"\n---\n\n` : ''
+    fs.writeFileSync(path.join(dirO, '00-overview.md'), `${fmO}# Spec\n`, 'utf-8')
+  }
 
   const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'ignore', 'ignore'] })
   git('init', '-q')
@@ -108,4 +116,82 @@ test('outside a git repository it exits non-zero with empty stdout', async () =>
   assert.strictEqual(r.code, 1)
   assert.strictEqual(r.out, '')
   assert.match(r.err, /not on a git branch/)
+})
+
+// --- `ref <spec>` — the explicit override ------------------------------------
+//
+// `ref` answers "what ticket does this BRANCH belong to", which is the same
+// thing as "what ticket does this COMMIT belong to" only while you are
+// committing that branch's own implementation work. Author a backlog spec
+// part-way through another spec and the two diverge: the commit is entirely the
+// new spec's, and the branch answer is a wrong ref stamped on it.
+//
+// Naming the spec resolves it directly. The bare form is untouched — it still
+// always follows the branch, so there is no staged-path guesswork and no ref
+// that silently disagrees with where you are.
+
+// The reported case: mid-branch on one spec, committing another spec's files.
+const midBranch = () =>
+  fixtureRepo({
+    folder: 'feat-walk-to-run',
+    identifier: 'SKS-90',
+    branch: 'feat/walk-to-run',
+    others: [{ folder: 'feat-distance-prescriptions', identifier: 'SKS-102' }],
+  })
+
+test('a named spec resolves to ITS ref, not the branch it is committed from', async () => {
+  const r = await run(['ref', 'feat-distance-prescriptions'], midBranch())
+  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.out, 'SKS-102\n', "the commit's spec, not feat/walk-to-run's SKS-90")
+})
+
+test('a named spec resolves from a branch that is no spec at all', async () => {
+  const dir = fixtureRepo({ branch: 'main', others: [{ folder: 'feat-distance-prescriptions', identifier: 'SKS-102' }] })
+  const r = await run(['ref', 'feat-distance-prescriptions'], dir)
+  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.out, 'SKS-102\n', 'naming the spec makes the branch irrelevant')
+})
+
+test('--json on a named spec reports the spec asked for and the real branch', async () => {
+  const r = await run(['ref', 'feat-distance-prescriptions', '--json'], midBranch())
+  assert.deepEqual(JSON.parse(r.out), {
+    ref: 'SKS-102',
+    spec: 'feat-distance-prescriptions',
+    branch: 'feat/walk-to-run',
+  })
+})
+
+test('a named spec is found in any lifecycle bucket', async () => {
+  const dir = fixtureRepo({ others: [{ folder: 'bug-old-thing', identifier: 'SKS-55', bucket: 'complete' }] })
+  assert.strictEqual((await run(['ref', 'bug-old-thing'], dir)).out, 'SKS-55\n')
+})
+
+// The no-ref contract holds for the named form too: stdout stays empty so a
+// `$(…)` splice can never put an error message inside a commit message.
+
+test('an unknown spec name exits non-zero with EMPTY stdout', async () => {
+  const r = await run(['ref', 'feat-no-such-spec'], midBranch())
+  assert.strictEqual(r.code, 1)
+  assert.strictEqual(r.out, '', 'nothing for a shell to splice into a commit')
+  assert.match(r.err, /feat-no-such-spec/)
+})
+
+test('a named spec that is not linked exits non-zero with empty stdout', async () => {
+  const dir = fixtureRepo({ others: [{ folder: 'feat-local-only', identifier: null }] })
+  const r = await run(['ref', 'feat-local-only'], dir)
+  assert.strictEqual(r.code, 1)
+  assert.strictEqual(r.out, '')
+  assert.match(r.err, /feat-local-only is not linked/)
+})
+
+// --- the default must not move ----------------------------------------------
+//
+// The stays-silent half of the fix: adding the override must not make the bare
+// form clever. It follows the branch even when the repo is full of other linked
+// specs that a staged-path heuristic might have preferred.
+
+test('the bare form still follows the branch when other linked specs exist', async () => {
+  const r = await run(['ref'], midBranch())
+  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.out, 'SKS-90\n', 'unchanged: the branch is the default answer')
 })

@@ -53,6 +53,26 @@ Briefly play back the agreed understanding before writing.
 
 This skill is for **features**. For bugs, use `/spec-bug` (test-first, red→green).
 
+### Write it from the base branch
+
+**Check where you are before creating the folder.** A backlog spec belongs on
+the base branch (`main`). If you are on another spec's branch — most likely
+inside its worktree, because a design question came up part-way through
+implementing it — say so before writing, and offer to author the spec from the
+primary checkout instead.
+
+It matters for more than tidiness: a spec written inside another spec's worktree
+**physically lives on that branch**. It is not on `main` until that spec lands,
+it is invisible to anyone listing `specs/backlog/` meanwhile, and if that spec is
+cancelled the new spec is cancelled with it. Committing it there also mis-stamps
+the commit's ticket trailer, since that is resolved from the branch (see
+`.claude/rules/commit-trailers.md`, installed with a ticketing provider).
+
+**Warn, don't refuse** — doing this deliberately is legitimate, and the user may
+have a reason. If they continue, carry on exactly as normal, and mention that
+the trailer for that commit wants `spec-sync ref <new-spec-name>` rather than the
+bare form.
+
 - **Every spec is a folder** — never a bare file, even for a one-line change:
   `specs/backlog/feat-<kebab-name>/`. Create it with `mkdir -p`.
 - The entry point is **always `00-overview.md`** — the index/dashboard for the

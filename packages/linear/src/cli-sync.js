@@ -1205,12 +1205,27 @@ async function specSyncStage(dir, config, stageKey, rangeArg, flags, out) {
 }
 
 /**
- * `spec-sync ref [--json]` — the ticket this branch's work belongs to.
+ * `spec-sync ref [<spec>] [--json]` — the ticket a commit's work belongs to.
  *
  * Exists so neither a person nor a model has to go spelunking for the id when
  * writing a commit: `Refs: $(spec-sync ref)`. With a fast-forward-only history
  * the commit message is the ONLY place a ticket survives into the range a
  * release scans — branch names never reach it.
+ *
+ * **Bare, it answers from the branch**, which is the same thing as "the ticket
+ * this commit belongs to" only while you are committing that branch's own
+ * implementation work. `/spec` requires no particular branch, so authoring a
+ * backlog spec part-way through another spec makes the two diverge: the commit
+ * is entirely the new spec's and the branch answer is a wrong ref stamped on it.
+ * **Naming the spec resolves it directly** — the branch is then not consulted at
+ * all, so it also works from `main`.
+ *
+ * The default deliberately stays branch-derived rather than inferring the spec
+ * from staged paths. Inference would change what gets stamped based on a lookup
+ * that `git commit -a`, partial staging, or a spec touching shared code each
+ * blind — silently, and in the destructive direction (a plausible wrong ref
+ * beats no ref for looking correct). An explicit override cannot be blinded, and
+ * needs no answer for mixed staging.
  *
  * The branch→spec direction is the INVERSE of what `/spec-go` provisions with,
  * so it is computed by running `branchFor` over each spec and matching, rather
@@ -1220,10 +1235,24 @@ async function specSyncStage(dir, config, stageKey, rangeArg, flags, out) {
  * **Every no-ref case prints nothing on stdout** and exits non-zero. A commit on
  * `main`, or on a spec kept deliberately local, has no ticket — and a command
  * that wrote an error message to stdout would see a shell splice it straight
- * into the commit body via `$(…)`.
+ * into the commit body via `$(…)`. That contract covers the named form too: an
+ * unknown spec name must FAIL rather than quietly falling back to the branch,
+ * which would turn a typo into a confidently wrong ref.
  */
-function specSyncRef(dir, config, flags, out, err) {
+function specSyncRef(dir, config, specArg, flags, out, err) {
   const say = (msg) => err.write(`spec-sync ref: ${msg}\n`)
+
+  // Shared tail: an unlinked spec is a no-ref case like any other, so it keeps
+  // stdout empty whichever form asked.
+  const emitRef = (spec, branch) => {
+    const identifier = linkedIdentifier(path.join(spec.path, (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'))
+    if (!identifier) {
+      say(`${spec.folder} is not linked to Linear — /spec-push to mirror it`)
+      return 1
+    }
+    out.write(flags.json ? JSON.stringify({ ref: identifier, spec: spec.folder, branch }, null, 2) + '\n' : `${identifier}\n`)
+    return 0
+  }
 
   const git = (argv) => {
     try {
@@ -1233,6 +1262,18 @@ function specSyncRef(dir, config, flags, out, err) {
     }
   }
   const branch = currentBranch(git)
+
+  // The named form answers about the SPEC, so a missing branch is irrelevant to
+  // it — resolve before the branch is required at all.
+  if (specArg) {
+    const named = findSpecFolder(specArg, dir)
+    if (!named) {
+      say(`no spec folder named "${specArg}" in specs/ — check the name`)
+      return 1
+    }
+    return emitRef(named, branch || null)
+  }
+
   if (!branch) {
     say('not on a git branch (detached HEAD, or not a git repository)')
     return 1
@@ -1264,14 +1305,7 @@ function specSyncRef(dir, config, flags, out, err) {
     return 1
   }
 
-  const identifier = linkedIdentifier(path.join(match.path, (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'))
-  if (!identifier) {
-    say(`${match.folder} is not linked to Linear — /spec-push to mirror it`)
-    return 1
-  }
-
-  out.write(flags.json ? JSON.stringify({ ref: identifier, spec: match.folder, branch }, null, 2) + '\n' : `${identifier}\n`)
-  return 0
+  return emitRef(match, branch)
 }
 
 /**
@@ -2486,7 +2520,7 @@ async function specSync(rest, io = {}) {
     case 'stage':
       return (await specSyncStage(dir, config, positional[0], positional[1], flags, out)) || 0
     case 'ref':
-      return specSyncRef(dir, config, flags, out, err) || 0
+      return specSyncRef(dir, config, positional[0], flags, out, err) || 0
     case 'retarget':
       return (await specSyncRetarget(dir, config, flags, out)) || 0
     case 'apply':
@@ -2509,7 +2543,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync linked [--json]\n' +
-        '       skitterspec spec-sync ref [--json]\n' +
+        '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +
         '       skitterspec spec-sync stage <key> [<range>] [--apply] [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
