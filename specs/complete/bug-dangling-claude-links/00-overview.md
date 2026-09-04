@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-62/bug-tracked-claude-syml
 
 > **Type:** Bug
 > **Name:** bug-dangling-claude-links (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -95,10 +95,12 @@ rather than a change to `dev-link`.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-04 — Bug reproduced; failing test added (red).
 - 2026-09-04 — Fixed: dead links removed, commands linked, guard added.
+- 2026-09-04 — Completed; 1271 tests green.
 - 2026-09-04 — Corrected an earlier misattribution to `dev-link`; nothing in the
   repo creates these links, which is the point.
