@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-52/bug-a-shallow-clone-sil
 
 > **Type:** Bug
 > **Name:** bug-shallow-range-undercount (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed, tests green
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -118,9 +118,14 @@ refusal is additive: a complete range behaves exactly as before.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-04 — Completed; fix done, tests green (1199/1199). Nothing deferred.
+  The two originally-failing tests pass, and the three stays-silent tests that
+  passed before the fix still pass — which is what proves the guard did not
+  simply become stricter.
 - 2026-09-04 — Fixed: `readCommitRange` now checks
   `git merge-base --is-ancestor <base> <head>` before trusting `git log`, and
   refuses an unreachable base naming the shallow cause. Tests green (1199/1199).
