@@ -185,23 +185,48 @@ async function cleanupReleaseTooling(dir, opts) {
 
 // --- spec-env: per-spec isolation engine (Phase 1: status + resolve) --------
 
-// Print provisioned specs, their slots, and port blocks from the registry.
+/**
+ * Print what is provisioned: every spec that owns a git worktree, with its slot
+ * and port block when it has one.
+ *
+ * The worktree — not the slot registry — is what "provisioned" means. `specEnvUp`
+ * allocates a slot only when `wantsDocker`, so a `Stack: worktree` spec never
+ * enters the registry and a project with `docker.enabled: false` has an
+ * permanently empty one. Reading the registry alone reported `no provisioned
+ * specs` while worktrees were standing.
+ *
+ * The registry is still read, but only to ANNOTATE a spec that has a slot — it
+ * is the authority on port blocks and nothing else.
+ *
+ * BLIND SPOT: a worktree removed behind git's back (`rm -rf` without
+ * `git worktree prune`) stays listed until pruned. That over-reports, which is
+ * the harmless direction for a read-only report.
+ */
 function specEnvStatus(dir, config) {
-  const registry = readRegistry(dir, config)
-  const names = Object.keys(registry.slots)
-  if (!names.length) {
+  const worktreePaths = liveWorktreePaths(dir)
+  const provisioned = allSpecs(dir, config, worktreePaths)
+    .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath) }))
+    // The primary checkout is itself in `git worktree list`; a spec is
+    // provisioned only when it has its OWN worktree, separate from it.
+    .filter((s) => s.wt !== dir && worktreePaths.has(s.wt))
+    .sort((a, b) => a.folder.localeCompare(b.folder))
+
+  if (!provisioned.length) {
     process.stdout.write('spec-env: no provisioned specs.\n')
     return
   }
+
+  const registry = readRegistry(dir, config)
   process.stdout.write('Provisioned specs:\n')
-  names
-    .sort((a, b) => registry.slots[a] - registry.slots[b])
-    .forEach((name) => {
-      const slot = registry.slots[name]
+  for (const { folder, wt } of provisioned) {
+    const slot = registry.slots[folder]
+    let ports = ''
+    if (slot !== undefined) {
       const off = portOffset(slot, config)
-      const hi = off + config.docker.portsPerSpec - 1
-      process.stdout.write(`  ${name}  slot ${slot}  ports ${off}-${hi}\n`)
-    })
+      ports = `  slot ${slot}  ports ${off}-${off + config.docker.portsPerSpec - 1}`
+    }
+    process.stdout.write(`  ${folder}${ports}\n    ${path.relative(dir, wt) || wt}\n`)
+  }
 }
 
 // Plan a provision: allocate the slot, persist the registry, and print the plan

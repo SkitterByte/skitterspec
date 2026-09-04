@@ -837,7 +837,7 @@
           <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-env prune</td><td>List orphaned test-DB volumes left by aborted teardowns, and the commands to remove them.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-env status</td><td>List specs holding a Docker port-block slot. See the note below.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-env status</td><td>List every spec that has a worktree, with its port block if it has one.</td><td class="folder">you</td></tr>
         </tbody>
       </table>
     </div>
@@ -855,7 +855,7 @@ project:    skitterspec_cli-engine-docs
 <span class="c"># nothing to reap, and it says what it protected</span>
 $ skitterspec spec-env <span class="p">prune</span>
 spec-env prune: no orphaned volumes in skitterspec_* (0 namespace volume(s), 1 live spec(s) protected).</div>
-      <p class="lede"><b>One caveat on <span class="mono" style="font-size:.9em">status</span>.</b> It lists the Docker <em>slot registry</em>, and a slot is only allocated for a spec whose <span class="mono" style="font-size:.9em">Stack</span> is <span class="mono" style="font-size:.9em">worktree + docker</span>. In a project with Docker off it reports <span class="mono" style="font-size:.9em">no provisioned specs</span> even while worktrees are standing. Use <span class="mono" style="font-size:.9em">git worktree list</span>, or <span class="mono" style="font-size:.9em">spec-env resolve</span>, for the plain-worktree picture.</p>
+      <p class="lede"><b>What <span class="mono" style="font-size:.9em">status</span> counts.</b> A spec is provisioned when it has a <em>worktree</em> — so every in-flight spec appears, whether or not it runs Docker. Specs that do get a slot and a port block shown beside them; the rest just show their worktree path.</p>
     </div>
   </div>
 </section>
