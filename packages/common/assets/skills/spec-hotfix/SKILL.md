@@ -65,8 +65,22 @@ that header — must exist **before** `spec-env up`:
   bootstrap steps.
 - Run the printed `git worktree add`. **The worktree is checked out at the tag,
   so your uncommitted stub doesn't travel with it** — move it across so `main`
-  stays pristine:
-  `mv specs/in-progress/hotfix-<name> <worktreePath>/specs/in-progress/`.
+  stays pristine. **Create the destination bucket first:**
+
+  ```
+  mkdir -p <worktreePath>/specs/in-progress
+  mv specs/in-progress/hotfix-<name> <worktreePath>/specs/in-progress/
+  ```
+
+  The `mkdir -p` is not belt-and-braces. Git does not store empty directories, so
+  `specs/in-progress/` is **absent** from the worktree whenever nothing was in
+  progress at that point in history — and here that point is an **old release
+  tag**, where it is absent more often than not. `mv` into a missing destination
+  renames your spec folder **to** `specs/in-progress`, silently: the spec's files
+  end up one level too high, `00-overview.md` sits where the bucket should be, and
+  every later step still appears to work until something cannot find the spec.
+  Confirm the result before carrying on — you want
+  `<worktreePath>/specs/in-progress/hotfix-<name>/00-overview.md`.
 - **Bootstrap the worktree.** A fresh worktree has no installed dependencies and
   none of the repo's gitignored files (`.env`, local overrides). Run the printed
   `in the worktree, run:` steps (file seeding, then setup) in order, before
