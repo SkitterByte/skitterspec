@@ -1,0 +1,48 @@
+{
+  "linear": {
+    "teamKey": "",
+    "teamId": "",
+    "projectId": ""
+  },
+  "intake": {
+    "label": "",
+    "bugLabels": [],
+    "hotfixLabels": []
+  },
+  "mapping": {
+    "specFolder": "issue",
+    "phases": "subissue",
+    "tasks": "checklist"
+  },
+  "states": {
+    "backlog": "Backlog",
+    "in-progress": "In Progress",
+    "complete": "Done",
+    "cancelled": "Canceled"
+  },
+  "snapshot": {
+    "overviewFile": "00-overview.md"
+  },
+  "release": {
+    "stages": []
+  },
+  "branch": {
+    "pattern": "{type}/{slug}"
+  },
+  "auth": {
+    "keyEnv": "LINEAR_API_KEY"
+  },
+  "apply": {
+    "transport": ""
+  },
+  "sync": {
+    "baseDir": "specs/.core/linear-base",
+    "fieldOwnership": {
+      "description": "push",
+      "subIssues": "push",
+      "workflowState": "push"
+    },
+    "localOnlySections": ["State log", "Changelog", "Open questions"],
+    "keyedFields": {}
+  }
+}

@@ -148,6 +148,24 @@ no live `env.config.json` was found.
     "refuseTeardownIfUnpushed": true
   },
 
+  // What teardown cleans up beyond this machine. `/spec-go` pushes the spec
+  // branch when it provisions, so without this a completed spec leaves a merged
+  // branch on the remote forever. `deleteRemoteBranch`:
+  //   "prompt"  (default) — plan `git push <remote> --delete <branch>` in its own
+  //             "confirm with the user first" section; /spec-complete and
+  //             /spec-cancel ask before running it.
+  //   "never"   — omit it; clean the remote up yourself.
+  //   "always"  — fold it into `run these:` and never ask.
+  // Only ever planned for a branch that has LANDED (merged into base, or captured
+  // by a hotfix's deploy tag) and whose remote-tracking ref this clone can
+  // actually see. Until a branch lands, the remote copy is its only backup, so
+  // --force does NOT enable this. A branch pushed from another machine has no
+  // local ref here and is simply missed — teardown under-cleans rather than
+  // deleting something it cannot see. An unrecognised value means "prompt".
+  "teardown": {
+    "deleteRemoteBranch": "prompt"
+  },
+
   // Live overlay (`spec-env live` / `/spec-live`): test a spec on the already-
   // running dev server by checking its branch out in the primary checkout.
   // `migrations` is a list of globs (`**`, `*`, `?`) marking migration files; a
