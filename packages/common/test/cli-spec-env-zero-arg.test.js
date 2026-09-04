@@ -1,8 +1,9 @@
 'use strict'
 
 // Zero-arg spec resolution: a `spec-env` subcommand called without a spec name
-// resolves the sole spec that has a worktree, and refuses rather than guesses
-// when it cannot tell. See `soleProvisionedSpec` in ../src/cli.js.
+// resolves the worktree it is being run from, else the sole spec that has one,
+// and refuses rather than guesses when it cannot tell. See `soleProvisionedSpec`
+// in ../src/cli.js.
 
 const { test } = require('node:test')
 const assert = require('node:assert')
@@ -100,6 +101,65 @@ test('an explicit spec still wins over an ambiguous set of worktrees', async () 
     assert.match(out, /feat-beta/, 'used the named spec')
     assert.doesNotMatch(out, /name the one you mean/, 'did not treat it as ambiguous')
   } finally {
+    cleanup(dir)
+  }
+})
+
+// The signal that carries the feature: several worktrees at once is the normal
+// shape of this workflow, so "the only one" would rarely resolve on its own.
+test('running from inside a worktree resolves that spec, ambiguity notwithstanding', async () => {
+  const dir = scaffold()
+  const cwd = process.cwd()
+  try {
+    addSpec(dir, 'feat-alpha')
+    addSpec(dir, 'feat-beta')
+    addWorktree(dir, 'feat-alpha')
+    const beta = addWorktree(dir, 'feat-beta')
+    process.chdir(beta)
+    const out = await runQuiet(['spec-env', 'resolve', '--dir', dir])
+    assert.match(out, /feat-beta/, 'resolved the worktree we are standing in')
+    assert.doesNotMatch(out, /name the one you mean/, 'cwd settled the ambiguity')
+  } finally {
+    process.chdir(cwd)
+    cleanup(dir)
+  }
+})
+
+test('a subdirectory of a worktree resolves it too', async () => {
+  const dir = scaffold()
+  const cwd = process.cwd()
+  try {
+    addSpec(dir, 'feat-alpha')
+    addSpec(dir, 'feat-beta')
+    addWorktree(dir, 'feat-alpha')
+    const beta = addWorktree(dir, 'feat-beta')
+    const nested = path.join(beta, 'specs', '.core')
+    fs.mkdirSync(nested, { recursive: true })
+    process.chdir(nested)
+    const out = await runQuiet(['spec-env', 'resolve', '--dir', dir])
+    assert.match(out, /feat-beta/, 'resolved from a nested cwd')
+  } finally {
+    process.chdir(cwd)
+    cleanup(dir)
+  }
+})
+
+test('standing in the primary checkout does not resolve an ambiguous set', async () => {
+  const dir = scaffold()
+  const cwd = process.cwd()
+  try {
+    addSpec(dir, 'feat-alpha')
+    addSpec(dir, 'feat-beta')
+    addWorktree(dir, 'feat-alpha')
+    addWorktree(dir, 'feat-beta')
+    process.chdir(dir)
+    await assert.rejects(
+      () => runQuiet(['spec-env', 'resolve', '--dir', dir]),
+      /name the one you mean/,
+      'the primary checkout is not a spec',
+    )
+  } finally {
+    process.chdir(cwd)
     cleanup(dir)
   }
 })

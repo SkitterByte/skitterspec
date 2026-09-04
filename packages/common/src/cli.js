@@ -475,10 +475,19 @@ function liveWorktreePaths(dir) {
 }
 
 /**
- * The spec to act on when the caller named none: the one that has a worktree.
+ * The spec to act on when the caller named none.
  *
- * `git worktree list` is the authority, and deliberately so. Two nearer-looking
- * signals are both wrong here:
+ * Two signals, strongest first:
+ *
+ *   1. **The worktree you are standing in.** A spec-env verb run from inside a
+ *      spec's worktree means that spec — there is nothing to infer. This is the
+ *      case that carries the feature in practice: several worktrees at once is
+ *      the normal shape of this workflow, so "the only one" rarely resolves.
+ *   2. **The only spec that has a worktree**, when cwd says nothing (you are in
+ *      the primary checkout, or somewhere else entirely).
+ *
+ * `git worktree list` is the authority for both, and deliberately so. Two
+ * nearer-looking signals are wrong here:
  *
  *   - The **slot registry** covers only Docker specs — `specEnvUp` allocates a
  *     slot exclusively when `wantsDocker`, so a `Stack: worktree` spec never
@@ -488,42 +497,51 @@ function liveWorktreePaths(dir) {
  *     that it has a worktree — and git does not track an empty directory, so the
  *     bucket disappears the moment it empties.
  *
- * A spec having its own worktree is what every caller (`up`, `down`, `dev`,
- * `integrate`, `hotfix land`, `resolve`, `live take`) actually needs to be true,
- * and it is a thing that must be *present* for the answer to be yes.
- *
- * Three outcomes, never two: exactly one → that spec; several → throw, listing
- * them; none → throw, pointing at /spec-go. *Cannot tell* never becomes a guess.
+ * Three outcomes, never two: resolved → that spec; several candidates and no cwd
+ * hint → throw, listing them; none → throw, pointing at /spec-go. *Cannot tell*
+ * never becomes a guess.
  *
  * BLIND SPOT: a spec taken live with `/spec-live` has had its branch moved into
  * the primary checkout and its worktree left on a detached HEAD — it still has a
- * worktree, so it is still listed here, which is correct. What would fool this
- * is a worktree removed behind git's back (`rm -rf` without `git worktree
- * prune`); git keeps listing it as prunable. That over-reports rather than
- * under-reports, so the failure is an ambiguity error, never a wrong spec.
+ * worktree, so it is still a candidate, which is correct. What would fool this is
+ * a worktree removed behind git's back (`rm -rf` without `git worktree prune`);
+ * git keeps listing it as prunable. That over-reports rather than under-reports,
+ * so the failure is an ambiguity error, never a wrong spec.
  */
-function soleProvisionedSpec(dir, config) {
+function soleProvisionedSpec(dir, config, cwd = process.cwd()) {
   const worktreePaths = liveWorktreePaths(dir)
-  const names = allSpecs(dir, config, worktreePaths)
-    .filter((s) => {
-      const wt = path.resolve(s.worktreePath)
-      // The primary checkout is itself in `git worktree list`; a spec is
-      // provisioned only when it has its OWN worktree, separate from it.
-      return wt !== dir && worktreePaths.has(wt)
-    })
-    .map((s) => s.folder)
-    .sort()
+  const provisioned = allSpecs(dir, config, worktreePaths)
+    .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath) }))
+    // The primary checkout is itself in `git worktree list`; a spec is
+    // provisioned only when it has its OWN worktree, separate from it.
+    .filter((s) => s.wt !== dir && worktreePaths.has(s.wt))
+    .sort((a, b) => a.folder.localeCompare(b.folder))
 
-  if (names.length === 1) return names[0]
-  if (names.length === 0) {
+  // 1. Standing inside a spec's worktree names it outright. Deepest match wins,
+  //    so a nested worktree is not shadowed by an ancestor one.
+  let here
+  try {
+    here = fs.realpathSync(path.resolve(cwd))
+  } catch {
+    here = path.resolve(cwd)
+  }
+  const inside = provisioned
+    .filter((s) => here === s.wt || here.startsWith(s.wt + path.sep))
+    .sort((a, b) => b.wt.length - a.wt.length)[0]
+  if (inside) return inside.folder
+
+  // 2. Otherwise only an unambiguous set answers.
+  if (provisioned.length === 1) return provisioned[0].folder
+  if (provisioned.length === 0) {
     throw new Error(
       'no spec given, and no spec has a worktree — name one explicitly, or run ' +
         '/spec-go to provision it.',
     )
   }
   throw new Error(
-    `no spec given, and ${names.length} specs have worktrees — name the one you mean:\n` +
-      names.map((n, i) => `  ${i + 1}. ${n}`).join('\n'),
+    `no spec given, and ${provisioned.length} specs have worktrees — name the one ` +
+      `you mean, or run this from inside one:\n` +
+      provisioned.map((s, i) => `  ${i + 1}. ${s.folder}`).join('\n'),
   )
 }
 

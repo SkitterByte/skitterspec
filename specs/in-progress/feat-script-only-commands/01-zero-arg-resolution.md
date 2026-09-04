@@ -6,9 +6,9 @@ linear_issue_id: "SKS-47"
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
-**Goal:** `skitterspec spec-env <verb>` works with no spec argument, resolving
-from `git worktree list` — so no skill has to make the model find the spec first.
-Proven by unit tests over the three cases (one, several, none).
+**Goal:** `skitterspec spec-env <verb>` works with no spec argument — resolving
+the worktree it is run from, else the sole spec that has one — so no skill has to
+make the model find the spec first. Proven by unit tests over every outcome.
 
 ## Tasks
 
@@ -48,6 +48,18 @@ Proven by unit tests over the three cases (one, several, none).
       `specs/in-progress/` directory in the primary checkout resolves cleanly.
 - [x] Run the project's test command — 1110 tests green, and `pnpm build`
       composes both distributions.
+
+### Amendment — resolve from the cwd first
+
+- [x] Resolve **the worktree the command is run from** ahead of the sole-worktree
+      rule, deepest match winning, so a nested worktree is not shadowed. Several
+      worktrees at once is the normal shape of this workflow, so "the only one"
+      rarely fires on its own.
+- [x] Fall through to the sole-worktree rule and then the listing errors when the
+      cwd is the primary checkout or outside every worktree.
+- [x] Add tests: resolves from inside a worktree despite an ambiguous set; resolves
+      from a nested subdirectory; the primary checkout still refuses.
+- [x] Re-run `pnpm test` — 1113 green.
 
 ## Notes
 
