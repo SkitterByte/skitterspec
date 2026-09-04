@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-67"
 ---
 
-# Phase 1 — Commit selection and package attribution ⬜
+# Phase 1 — Commit selection and package attribution 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** Given a package and a version, produce the exact list of
 `Release-Note:`-carrying commits that belong to it — correct tag series, correct

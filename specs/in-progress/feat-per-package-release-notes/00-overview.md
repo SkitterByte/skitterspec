@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-66/per-package-release-not
 
 > **Type:** Feature
 > **Name:** feat-per-package-release-notes (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-04)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
 > **Area:** scripts/release-notes.js, scripts/release.js, RELEASES.md, CHANGELOG.md, package.json
 > **Stack:** worktree
@@ -102,7 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Commit selection and package attribution | ⬜ | [01-attribution.md](01-attribution.md) |
+| 1 | Commit selection and package attribution | 🔄 | [01-attribution.md](01-attribution.md) |
 | 2 | Render, wire into release.js, backfill | ⬜ | [02-render-and-wire.md](02-render-and-wire.md) |
 
 ## Open questions
@@ -114,6 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | Ready | backlog | Reuben Greaves |
+| 2026-09-04 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
