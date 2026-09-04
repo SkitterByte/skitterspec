@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-42"
 ---
 
-# Phase 1 — `release.stages` config + name validation ⬜
+# Phase 1 — `release.stages` config + name validation 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** a project can declare its own deployment ladder, and a stage name the
 workspace lacks fails loudly instead of pushing clean and never moving.

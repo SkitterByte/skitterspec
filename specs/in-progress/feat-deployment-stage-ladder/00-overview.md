@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-41/project-configured-depl
 
 > **Type:** Feature
 > **Name:** feat-deployment-stage-ladder (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-04)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
 > **Area:** packages/linear/src/config.js, packages/linear/src/cli-sync.js, packages/linear/src/doctor.js, packages/sync-core/src/compare.js, packages/sync-core/src/push.js, packages/sync-core/src/normalize.js, packages/skitterspec-linear/assets/core, docs
 > **Stack:** worktree
@@ -135,7 +135,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `release.stages` config + name validation | ⬜ | [01-stages-config.md](01-stages-config.md) |
+| 1 | `release.stages` config + name validation | 🔄 | [01-stages-config.md](01-stages-config.md) |
 | 2 | State diffs independently of description | ⬜ | [02-state-field-split.md](02-state-field-split.md) |
 | 3 | `spec-sync stage` — the write verb | ⬜ | [03-stage-verb.md](03-stage-verb.md) |
 | 4 | Doctor ladder check + CI wiring docs | ⬜ | [04-doctor-and-docs.md](04-doctor-and-docs.md) |
@@ -149,6 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | Ready | backlog | Reuben Greaves |
+| 2026-09-04 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
