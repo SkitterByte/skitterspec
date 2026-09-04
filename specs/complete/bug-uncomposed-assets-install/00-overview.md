@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-56/bug-initupdate-from-a-s
 
 > **Type:** Bug
 > **Name:** bug-uncomposed-assets-install (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -98,10 +98,14 @@ markers, so the guard can never be silently measuring nothing.
       `pnpm build` composes both distributions.
 - [x] Stays-silent tests: a composed distribution passes the guard; prose that
       merely discusses seams (`spec-planning.md`) does not trip it.
-- [ ] Follow-up, out of scope here: `dev-link` leaves **dangling symlinks** when a
-      skill is retired — `.claude/skills/spec-connect` and `spec-live` currently
-      point at targets removed by `feat-script-only-commands`. Nothing reconciles
-      them. Captured as its own bug rather than smuggled in here.
+## Follow-up (not fixed here)
+
+`scripts/dev-link.js` leaves **dangling symlinks** when a skill is retired:
+`.claude/skills/spec-connect` and `.claude/skills/spec-live` still point at
+directories that `feat-script-only-commands` removed, and nothing reconciles
+them. Harmless — the replacement commands work — but it will recur on every
+future retirement. Deliberately left out of this branch rather than smuggled in
+with an unrelated fix; it wants its own `/spec-bug`.
 
 ## Impact
 
@@ -123,11 +127,13 @@ happens through a bin.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-04 — Bug reproduced; failing test added (red).
 - 2026-09-04 — Fixed: `assertComposedAssets` guard called from both bins; test green.
+- 2026-09-04 — Completed; fix green, 1257 tests pass, both distributions build. One follow-up recorded and deliberately **not** fixed here: dev-link's dangling symlinks after a skill retirement.
 - 2026-09-04 — Guard moved twice before landing — from `init()`/`resync()`/`reset()`,
   then from the CLI dispatch, out to the bins. Each inner position broke existing
   tests that drive the source tree deliberately, which is the signal that the
