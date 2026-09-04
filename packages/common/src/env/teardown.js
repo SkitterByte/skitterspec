@@ -13,6 +13,12 @@
  * Volumes are the only destructive action — dropped by default (reclaims disk)
  * unless `--keep-volumes`, and always backed up first when a `backupCommand` is
  * configured.
+ *
+ * `commands` is safe for a caller to run BLIND — that is the property the remote
+ * delete must not break. A remote branch delete reaches outside this machine, so
+ * it is returned in a separate `remoteCommands` array that the skills confirm
+ * with the user before running, and it never enters `commands` unless the
+ * project has opted in with `teardown.deleteRemoteBranch: "always"`.
  */
 
 const { expandTokens } = require('./resolve.js')
@@ -21,9 +27,10 @@ const { expandTokens } = require('./resolve.js')
  * @param {object} spec  resolved spec: { slug, branch, worktreePath, projectName, ... }
  * @param {object} config normalised env config.
  * @param {object} flags { keepVolumes, force }
- * @param {object} ctx   { worktreeState: { dirty, unpushed, merged, reachableFromTag }, timestamp }
- * @returns {object} { blocked, reason, commands, backupCommand, backupPath,
- *                     volumesDropped }
+ * @param {object} ctx   { worktreeState: { dirty, unpushed, merged, reachableFromTag,
+ *                     remoteBranch }, timestamp }
+ * @returns {object} { blocked, reason, commands, remoteCommands, backupCommand,
+ *                     backupPath, volumesDropped }
  */
 function planDown(spec, config, flags, ctx) {
   const { worktreeState = {}, timestamp } = ctx || {}
@@ -113,7 +120,57 @@ function planDown(spec, config, flags, ctx) {
     commands.push(`git branch ${landed ? '-D' : '-d'} ${spec.branch}`)
   }
 
-  return { blocked: false, reason: null, commands, backupCommand, backupPath, volumesDropped }
+  // --- delete the branch on the remote (planned, never run here) ---
+  //
+  // `/spec-go` pushes the branch at provision time, so a completed spec otherwise
+  // leaves a merged branch on the remote forever. Cleaning that up is the goal;
+  // doing it safely is the constraint.
+  //
+  // Gated on `landed` because until the branch is merged (or captured by a tag)
+  // the remote copy is the ONLY backup of the work — that is the whole reason
+  // `refuseTeardownIfUnpushed` exists, and deleting the remote branch of an
+  // unlanded spec would defeat it. `--force` deliberately does NOT enable this:
+  // force is for "I accept losing this worktree", not "also reach out and delete
+  // the backup". The same `landed` that decides `-D` vs `-d` decides this, so the
+  // two can never disagree about whether the commits are recoverable.
+  //
+  // A null `remoteBranch` plans nothing. An absence is not evidence — the branch
+  // may well be on a remote this clone cannot see (pushed from another machine),
+  // and the honest answer to "is there a remote branch?" is then "cannot tell",
+  // which routes to doing nothing.
+  const remoteCommands = []
+  const policy = (config.teardown && config.teardown.deleteRemoteBranch) || 'prompt'
+  if (spec.branch && landed && worktreeState.remoteBranch && policy !== 'never') {
+    // `remoteBranch` is a short ref like "origin/feat/thing" and the branch name
+    // itself contains slashes, so the remote is what remains once the exact
+    // "/<branch>" suffix is stripped — not the text before the first slash.
+    //
+    // If it does not end that way the ref maps to a differently-named branch on
+    // the remote (a push refspec, or push.default set to something exotic). We
+    // cannot tell what to delete, so we plan nothing rather than guess at a
+    // branch name on someone's shared remote.
+    const suffix = `/${spec.branch}`
+    if (worktreeState.remoteBranch.endsWith(suffix)) {
+      const remote = worktreeState.remoteBranch.slice(0, -suffix.length)
+      if (remote) {
+        const cmd = `git push ${remote} --delete ${spec.branch}`
+        // "always" is the project saying it never wants to be asked, so the push
+        // joins the run-blind list. Everything else keeps it quarantined.
+        if (policy === 'always') commands.push(cmd)
+        else remoteCommands.push(cmd)
+      }
+    }
+  }
+
+  return {
+    blocked: false,
+    reason: null,
+    commands,
+    remoteCommands,
+    backupCommand,
+    backupPath,
+    volumesDropped,
+  }
 }
 
 function blocked(reason) {
@@ -121,6 +178,7 @@ function blocked(reason) {
     blocked: true,
     reason,
     commands: [],
+    remoteCommands: [],
     backupCommand: null,
     backupPath: null,
     volumesDropped: false,

@@ -1,0 +1,11 @@
+{
+  "issue": "922907dcf404ef596a656ba7c2dd363cbdf3e45b",
+  "issueFields": {
+    "description": "1df653ec1dac41ec1ac7238250be52a20c7d08c1",
+    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1"
+  },
+  "subIssues": {
+    "SKS-54": "230a5622290690ea3ec6695b855387fc515dfe16",
+    "SKS-55": "78376088106b7143a4796467170b65ff3b2ee006"
+  }
+}

@@ -176,6 +176,17 @@ worktree and branch are being kept, and go straight to sub-step 4. Mention
    still respects the guards (won't destroy a dirty, or unpushed-and-unlanded,
    worktree without `--force`), so if it *does* refuse, relay that and stop
    rather than reaching for `--force`.
+
+   **If the plan prints a `remote branch — confirm with the user first:`
+   section, ask before running it.** `/spec-go` pushed this branch when it
+   provisioned, so the remote copy outlives teardown unless someone deletes it.
+   The planner only ever offers this for a branch that has **landed**, so say so
+   plainly when you ask — the commits are on the base branch (or captured by the
+   deploy tag), so deleting the remote branch loses nothing. On a yes, run the
+   printed `git push <remote> --delete <branch>`; on a no, leave it and say the
+   remote branch is still there. Never fold it into the `run these:` batch — a
+   project that wants it unattended sets `teardown.deleteRemoteBranch: "always"`
+   in `env.config.json`, and then it appears in `run these:` instead of here.
 4. **Reap orphaned test-DB volumes:** run `skitterspec spec-env prune`. It lists
    Docker volumes in the repo namespace that belong to **no live spec** (no
    worktree) — leftovers from declined/aborted teardowns, manual

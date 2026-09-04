@@ -81,6 +81,15 @@ directly (the old `/spec-env-down` skill is gone — teardown is folded in here)
 3. `skitterspec spec-env down <name>` — then execute the printed commands to
    remove the worktree/stack and free the slot. It respects the teardown guards
    (won't destroy a dirty/unpushed worktree without `--force`).
+
+   If the plan prints a `remote branch — confirm with the user first:` section,
+   **ask before running that line** — it is a `git push <remote> --delete`, and
+   the branch is merged, so it loses nothing. Usually there is nothing to ask:
+   a cancelled spec is normally **unlanded**, and the planner deliberately never
+   offers the remote delete then, because the pushed branch is the only surviving
+   copy of abandoned work. Seeing no such section here is the expected case, not
+   a fault — and if the user wants the remote branch gone anyway, that is their
+   call to make explicitly, not something to tidy away on their behalf.
 4. `skitterspec spec-env prune` — reap orphaned test-DB volumes that belong to no
    live spec (leftovers from declined/aborted teardowns or manual worktree
    removal). Show the orphan list and, **only on the user's confirmation**, run

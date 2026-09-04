@@ -29,6 +29,7 @@
  *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
  *     baseBranch: "",          // "" = auto-detect (origin/HEAD → main → master)
  *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed },
+ *     teardown: { deleteRemoteBranch },
  *     live:     { migrations: [ "glob", ... ] }  // migration globs → `live take`
  *               // refuses a branch that changes them (code-only v1)
  *     hotfix:   { bump, cherryPickMain, targets }  // `hotfix land`: patch-bump the
@@ -79,6 +80,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // Integration base branch. Empty = auto-detect (origin/HEAD → main → master).
   baseBranch: '',
   guards: Object.freeze({ refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true }),
+  // Teardown cleanup beyond this machine. `deleteRemoteBranch` decides what
+  // `spec-env down` does about the branch `/spec-go` pushed: "prompt" (default)
+  // plans the delete in its own confirm-first section for the skill to ask about,
+  // "never" omits it, "always" folds it into the run-blind command list. Only ever
+  // planned for a LANDED branch — see teardown.js.
+  teardown: Object.freeze({ deleteRemoteBranch: 'prompt' }),
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
@@ -109,6 +116,7 @@ function defaults() {
     branch: { ...DEFAULT_CONFIG.branch },
     baseBranch: DEFAULT_CONFIG.baseBranch,
     guards: { ...DEFAULT_CONFIG.guards },
+    teardown: { ...DEFAULT_CONFIG.teardown },
     live: { migrations: [] },
     hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
@@ -252,6 +260,17 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.guards)) {
     assign(base.guards, parsed.guards, 'refuseTeardownIfDirty', 'boolean')
     assign(base.guards, parsed.guards, 'refuseTeardownIfUnpushed', 'boolean')
+  }
+
+  // An unrecognised policy falls through to the default rather than erroring or
+  // being taken literally — a typo ("Always", "yes") must not silently become a
+  // stronger setting than the author typed, and "prompt" is the one value that
+  // cannot act without a human first.
+  if (isObject(parsed.teardown)) {
+    const policy = parsed.teardown.deleteRemoteBranch
+    if (policy === 'prompt' || policy === 'never' || policy === 'always') {
+      base.teardown.deleteRemoteBranch = policy
+    }
   }
 
   if (isObject(parsed.live) && Array.isArray(parsed.live.migrations)) {

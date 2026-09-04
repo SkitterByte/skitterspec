@@ -261,3 +261,28 @@ test('hotfix block merges bump/cherryPickMain and normalizes targets', () => {
   assert.strictEqual(config.hotfix.bump, 'patch') // untouched default
   assert.deepStrictEqual(config.hotfix.targets, ['v30.2.1', 'v29.0.0'])
 })
+
+test('teardown block defaults to prompt', () => {
+  const dir = tmpDir()
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.teardown, { deleteRemoteBranch: 'prompt' })
+  assert.strictEqual(DEFAULT_CONFIG.teardown.deleteRemoteBranch, 'prompt')
+})
+
+test('teardown accepts the three policies', () => {
+  for (const policy of ['prompt', 'never', 'always']) {
+    const dir = tmpDir()
+    writeEnvConfig(dir, { teardown: { deleteRemoteBranch: policy } })
+    assert.strictEqual(loadEnvConfig(dir).config.teardown.deleteRemoteBranch, policy)
+  }
+})
+
+test('an unrecognised teardown policy falls back to prompt, not to a stronger one', () => {
+  // A typo must never resolve to "always" — that is the one value that deletes a
+  // remote branch without anyone being asked.
+  for (const bogus of ['Always', 'yes', true, '', null, 'ALWAYS']) {
+    const dir = tmpDir()
+    writeEnvConfig(dir, { teardown: { deleteRemoteBranch: bogus } })
+    assert.strictEqual(loadEnvConfig(dir).config.teardown.deleteRemoteBranch, 'prompt')
+  }
+})

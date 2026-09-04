@@ -28,6 +28,9 @@ function config(overrides = {}) {
       refuseTeardownIfUnpushed: true,
       ...(overrides.guards || {}),
     },
+    // Only present when a test asks for it — a bare config() models the existing
+    // configs in the wild, which have no teardown block at all.
+    ...(overrides.teardown ? { teardown: overrides.teardown } : {}),
   }
 }
 
@@ -209,4 +212,112 @@ test('the delete flag and the unpushed guard read the same landed verdict', () =
 test('a spec with no branch → no branch-delete command', () => {
   const p = planDown(spec({ branch: undefined }), config(), {}, CTX())
   assert.ok(!p.commands.some((c) => c.startsWith('git branch')), 'no branch delete without a branch')
+})
+
+// --- the remote branch ------------------------------------------------------
+//
+// `/spec-go` pushes the branch at provision time, so without this a completed
+// spec leaves a merged branch on the remote forever. The delete is planned into
+// `remoteCommands`, NEVER `commands`: a caller running `plan.commands` blind must
+// not reach a shared remote.
+
+const LANDED = (over = {}) => CTX({ merged: true, remoteBranch: 'origin/feat/thing', ...over })
+
+test('a landed branch plans the remote delete OUTSIDE the run-blind commands', () => {
+  const p = planDown(spec(), config(), {}, LANDED())
+  assert.deepStrictEqual(p.remoteCommands, ['git push origin --delete feat/thing'])
+  assert.ok(
+    !p.commands.some((c) => c.includes('push')),
+    'commands must stay safe to run without asking anyone',
+  )
+  assert.ok(p.commands.some((c) => c === 'git branch -D feat/thing'))
+})
+
+test('an unlanded branch plans no remote delete, even under --force', () => {
+  // The remote copy is the only backup until the work has landed. --force means
+  // "I accept losing this worktree", not "delete my backup too".
+  const p = planDown(spec(), config(), { force: true }, CTX({ merged: false, unpushed: true, remoteBranch: 'origin/feat/thing' }))
+  assert.strictEqual(p.blocked, false)
+  assert.deepStrictEqual(p.remoteCommands, [])
+})
+
+test('a hotfix captured by a tag counts as landed', () => {
+  // Never an ancestor of base, but the deploy tag holds its commits — the same
+  // predicate that earns `-D` earns the remote delete.
+  const p = planDown(spec(), config(), {}, CTX({ reachableFromTag: true, remoteBranch: 'origin/feat/thing' }))
+  assert.deepStrictEqual(p.remoteCommands, ['git push origin --delete feat/thing'])
+})
+
+// --- stays silent -----------------------------------------------------------
+//
+// The healthy-but-unusual input: a landed spec whose branch was simply never
+// pushed. There is nothing to delete and nothing to warn about, and an absence is
+// not evidence — the branch may sit on a remote this clone cannot see.
+
+test('a landed branch with NO remote ref plans nothing and says nothing', () => {
+  const p = planDown(spec({ stack: 'worktree' }), config(), {}, CTX({ merged: true, remoteBranch: null }))
+  assert.strictEqual(p.blocked, false)
+  assert.deepStrictEqual(p.remoteCommands, [])
+  assert.strictEqual(p.reason, null)
+  assert.deepStrictEqual(p.commands, [
+    'git worktree remove /wt/thing',
+    'git branch -D feat/thing',
+  ], 'byte-identical to a teardown that never knew about remotes')
+})
+
+test('a spec with no branch at all plans nothing', () => {
+  const p = planDown(spec({ branch: null }), config(), {}, LANDED())
+  assert.deepStrictEqual(p.remoteCommands, [])
+})
+
+// --- policy -----------------------------------------------------------------
+
+test('"never" omits the remote delete entirely', () => {
+  const p = planDown(spec(), config({ teardown: { deleteRemoteBranch: 'never' } }), {}, LANDED())
+  assert.deepStrictEqual(p.remoteCommands, [])
+  assert.ok(!p.commands.some((c) => c.includes('push')))
+})
+
+test('"always" folds the push into run-these and leaves no second section', () => {
+  const p = planDown(spec(), config({ teardown: { deleteRemoteBranch: 'always' } }), {}, LANDED())
+  assert.deepStrictEqual(p.remoteCommands, [])
+  assert.strictEqual(p.commands[p.commands.length - 1], 'git push origin --delete feat/thing')
+})
+
+test('an absent teardown block behaves as "prompt"', () => {
+  const cfg = config()
+  assert.ok(!('teardown' in cfg), 'fixture has no teardown block, like every existing config')
+  assert.deepStrictEqual(planDown(spec(), cfg, {}, LANDED()).remoteCommands, [
+    'git push origin --delete feat/thing',
+  ])
+})
+
+// --- remotes other than origin ----------------------------------------------
+
+test('a non-origin remote is honoured', () => {
+  const p = planDown(spec(), config(), {}, CTX({ merged: true, remoteBranch: 'upstream/feat/thing' }))
+  assert.deepStrictEqual(p.remoteCommands, ['git push upstream --delete feat/thing'])
+})
+
+test('a slashed branch name splits on the branch, not the first slash', () => {
+  const p = planDown(
+    spec({ branch: 'feat/deep/nested/thing' }),
+    config(),
+    {},
+    CTX({ merged: true, remoteBranch: 'origin/feat/deep/nested/thing' }),
+  )
+  assert.deepStrictEqual(p.remoteCommands, ['git push origin --delete feat/deep/nested/thing'])
+})
+
+test('a remote ref that maps to a different branch name plans nothing', () => {
+  // A push refspec can map local `feat/thing` to something else on the remote.
+  // We cannot tell what to delete, so we guess at nothing on a shared remote.
+  const p = planDown(spec(), config(), {}, CTX({ merged: true, remoteBranch: 'origin/renamed-elsewhere' }))
+  assert.deepStrictEqual(p.remoteCommands, [])
+})
+
+test('a blocked plan carries an empty remoteCommands', () => {
+  const p = planDown(spec(), config(), {}, CTX({ dirty: true, merged: true, remoteBranch: 'origin/feat/thing' }))
+  assert.strictEqual(p.blocked, true)
+  assert.deepStrictEqual(p.remoteCommands, [])
 })

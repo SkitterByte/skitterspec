@@ -324,7 +324,7 @@ function gitReader(cwd) {
 // ancestor of it (fully landed), which lets teardown skip the unpushed guard.
 function worktreeGitState(worktreePath, base) {
   if (!fs.existsSync(worktreePath)) {
-    return { dirty: false, unpushed: false, merged: true, reachableFromTag: false }
+    return { dirty: false, unpushed: false, merged: true, reachableFromTag: false, remoteBranch: null }
   }
   const git = gitReader(worktreePath)
 
@@ -353,7 +353,41 @@ function worktreeGitState(worktreePath, base) {
   const pointing = git(['tag', '--points-at', 'HEAD'])
   const reachableFromTag = pointing !== null && pointing.length > 0
 
-  return { dirty, unpushed, merged, reachableFromTag }
+  // remoteBranch = the remote-tracking ref for this worktree's branch when one
+  // actually exists here (e.g. "origin/feat/thing"), else null. Teardown plans a
+  // remote delete off it, so it has to be a ref we can SEE — never an inference
+  // from the branch name, and never a bare assumption that `origin` has it.
+  //
+  // WHAT WOULD FOOL THIS, both left open deliberately:
+  //   * A STALE ref — the branch was deleted from another clone and this one
+  //     hasn't pruned. We plan a delete that no-ops: `git push --delete` errors
+  //     on a branch that isn't there, which is loud, not destructive.
+  //   * A branch pushed FROM ANOTHER MACHINE has no remote-tracking ref here, so
+  //     teardown misses it and the remote branch survives. That is the safe
+  //     direction — under-cleaning. Closing it means `git ls-remote`, which makes
+  //     every teardown network-dependent for what is cosmetic cleanup. Not done.
+  //
+  // Upstream first, so a non-`origin` remote is honoured; `--abbrev-ref` gives the
+  // short ref, and the verify catches an upstream configured for a ref that is
+  // gone. With no upstream (the branch was pushed without `-u`), ask each remote
+  // in turn rather than guessing a name.
+  let remoteBranch = null
+  const upstream = git(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
+  if (upstream && git(['rev-parse', '--verify', '--quiet', `refs/remotes/${upstream}`]) !== null) {
+    remoteBranch = upstream
+  } else {
+    const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'])
+    if (branch && branch !== 'HEAD') {
+      for (const remote of (git(['remote']) || '').split('\n').map((r) => r.trim()).filter(Boolean)) {
+        if (git(['rev-parse', '--verify', '--quiet', `refs/remotes/${remote}/${branch}`]) !== null) {
+          remoteBranch = `${remote}/${branch}`
+          break
+        }
+      }
+    }
+  }
+
+  return { dirty, unpushed, merged, reachableFromTag, remoteBranch }
 }
 
 // A deterministic-enough compact timestamp for backup filenames (CLI-only; the
@@ -411,6 +445,15 @@ function specEnvDown(dir, config, specArg, flags) {
   out.push('')
   out.push('  run these:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  // Kept out of `run these:` on purpose — everything above is local and
+  // reversible-ish, while this reaches a shared remote. The skills ask before
+  // running it; a project that never wants to be asked sets
+  // `teardown.deleteRemoteBranch: "always"`, which folds it in above instead.
+  if (plan.remoteCommands && plan.remoteCommands.length) {
+    out.push('')
+    out.push('  remote branch — confirm with the user first:')
+    for (const cmd of plan.remoteCommands) out.push(`    ${cmd}`)
+  }
   process.stdout.write(out.join('\n') + '\n')
 }
 
@@ -671,6 +714,15 @@ function specEnvPrune(dir, config, flags) {
   out.push('')
   out.push('  run these:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  // Kept out of `run these:` on purpose — everything above is local and
+  // reversible-ish, while this reaches a shared remote. The skills ask before
+  // running it; a project that never wants to be asked sets
+  // `teardown.deleteRemoteBranch: "always"`, which folds it in above instead.
+  if (plan.remoteCommands && plan.remoteCommands.length) {
+    out.push('')
+    out.push('  remote branch — confirm with the user first:')
+    for (const cmd of plan.remoteCommands) out.push(`    ${cmd}`)
+  }
   process.stdout.write(out.join('\n') + '\n')
 }
 
