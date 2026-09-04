@@ -585,3 +585,57 @@ test('a genuinely stale ref is still reported on the update path', async () => {
   const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, plan)], dir, { adapter: linear })
   assert.match(r.out, /no such phase/)
 })
+
+// --- a partial issue plan (one field, not both) ------------------------------
+//
+// Since description and state diff independently (compare.js `issueChanges`), a
+// plan can carry either alone. `withoutNull` was always meant to tolerate that;
+// these prove it rather than assume it — a state quietly sent as `null` would
+// clear the issue's state in Linear, and a description sent as `null` would
+// blank the mirror.
+
+function linkedRepo(extraConfig = {}) {
+  const dir = fixtureRepo(extraConfig)
+  const file = path.join(dir, 'specs/in-progress/feat-applied/00-overview.md')
+  fs.writeFileSync(file, `---\nlinear_identifier: "SKI-9"\n---\n\n${fs.readFileSync(file, 'utf-8')}`, 'utf-8')
+  return dir
+}
+
+function seeded(adapter) {
+  const issue = { id: 'uuid-9', identifier: 'SKI-9', url: 'u', title: 'Applied', description: 'old' }
+  adapter.store.set(issue.id, issue)
+  adapter.store.set(issue.identifier, issue)
+  return adapter
+}
+
+test('a description-only plan sends no state', async () => {
+  const dir = linkedRepo()
+  const linear = seeded(fakeLinear())
+  const plan = { issue: { description: '# New prose' }, subIssues: { create: [], update: [] } }
+  const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, plan)], dir, { adapter: linear })
+
+  assert.strictEqual(r.code, 0)
+  const update = linear.log.find((e) => e.op === 'updateIssue')
+  assert.deepStrictEqual(Object.keys(update.input), ['description'], 'stateId is absent, not null')
+})
+
+test('a state-only plan sends no description', async () => {
+  const dir = linkedRepo()
+  const linear = seeded(fakeLinear())
+  const plan = { issue: { state: 'complete' }, subIssues: { create: [], update: [] } }
+  const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, plan)], dir, { adapter: linear })
+
+  assert.strictEqual(r.code, 0)
+  const update = linear.log.find((e) => e.op === 'updateIssue')
+  assert.deepStrictEqual(Object.keys(update.input), ['stateId'], 'the mirror description is not blanked')
+})
+
+test('a state-only plan still resolves its state id before writing', async () => {
+  const dir = linkedRepo({ states: { complete: 'Nope' } })
+  const linear = seeded(fakeLinear())
+  const plan = { issue: { state: 'complete' }, subIssues: { create: [], update: [] } }
+  const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, plan)], dir, { adapter: linear })
+
+  assert.notStrictEqual(r.code, 0, 'a bad state name fails before the first write')
+  assert.ok(!linear.log.some((e) => e.op === 'updateIssue'), 'nothing was written')
+})

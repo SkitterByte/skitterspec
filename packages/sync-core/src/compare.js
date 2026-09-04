@@ -43,8 +43,27 @@ function hashField(value) {
 // The spec ISSUE fields the repo owns and pushes: prose + workflow state.
 // Priority, labels, cycles and comments are Linear-native triage — one-way sync
 // neither pushes nor reads them, so a PM's triage is never clobbered.
+//
+// The COMBINED hash, retained for snapshots written before the fields were split
+// (and read by any older CLI still pointed at this repo). New pushes diff
+// `issueFields` below; this stays so neither direction breaks on the other.
 function specIssueHash(p) {
   return hashField({ description: p.description ?? null, state: p.status ?? null })
+}
+
+// Per-field hashes of the same two values.
+//
+// They are hashed SEPARATELY because they have different owners once a spec is
+// finished. The repo owns the description forever, but the workflow state is
+// handed off: a deploy pipeline (see `release.stages`) moves the issue past
+// `complete`, and welding the two meant any prose edit re-emitted the state and
+// dragged the issue back. Diffing them apart is what lets a push touch the
+// description without re-asserting a state someone else now owns.
+function specIssueFieldHashes(p) {
+  return {
+    description: hashField(p.description ?? null),
+    state: hashField(p.status ?? null),
+  }
 }
 // A phase SUB-ISSUE: its name, goal and state (all repo-owned).
 const subIssueHash = (s) => hashField({ name: s.name ?? null, goal: s.goal ?? null, state: s.state ?? null })
@@ -63,7 +82,11 @@ function snapshotOf(projection) {
     return out
   }
   return {
+    // Both shapes are written: `issueFields` is what a current push diffs, and
+    // `issue` keeps a snapshot readable by anything still expecting the combined
+    // hash. Cheap insurance — two SHA-1s of text already in hand.
     issue: specIssueHash(p),
+    issueFields: specIssueFieldHashes(p),
     subIssues: byId(p.subIssues, subIssueHash),
   }
 }
@@ -92,10 +115,41 @@ function planChanges(projection, snapshot) {
   }
 
   const plan = { subIssues }
-  if (snap.issue !== specIssueHash(p)) {
-    plan.issue = { description: p.description ?? null, state: p.status ?? null }
-  }
+  const issue = issueChanges(p, snap)
+  if (issue) plan.issue = issue
   return plan
+}
+
+/**
+ * What changed about the spec issue itself — `{description}`, `{state}`, or
+ * both, or null when neither did.
+ *
+ * Three states, not two: a snapshot may carry the split hashes, only the old
+ * combined one, or nothing at all. Only the first can say which field moved.
+ *
+ * The other two are UNKNOWN, and route to the harmless branch — today's welded
+ * behaviour, sending both fields. Sending a state that did not change is
+ * redundant; withholding one that did would leave the mirror silently stale, and
+ * that is the failure worth avoiding. The push rewrites the snapshot in the new
+ * shape, so a spec passes through `unknown` exactly once.
+ */
+function issueChanges(projection, snapshot) {
+  const p = projection || {}
+  const snap = snapshot || {}
+  const both = () => ({ description: p.description ?? null, state: p.status ?? null })
+
+  const fields = snap.issueFields
+  if (fields === null || typeof fields !== 'object' || Array.isArray(fields)) {
+    // No split hashes recorded: an old snapshot, or no snapshot at all (a
+    // create, which needs both fields anyway).
+    return snap.issue === specIssueHash(p) ? null : both()
+  }
+
+  const want = specIssueFieldHashes(p)
+  const changed = {}
+  if (fields.description !== want.description) changed.description = p.description ?? null
+  if (fields.state !== want.state) changed.state = p.status ?? null
+  return Object.keys(changed).length ? changed : null
 }
 
 // True when a plan would push nothing.
@@ -105,6 +159,8 @@ function isEmptyPlan(plan) {
 
 module.exports = {
   planChanges,
+  issueChanges,
+  specIssueFieldHashes,
   snapshotOf,
   isEmptyPlan,
   hashField,

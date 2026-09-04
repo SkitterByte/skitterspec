@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-41/project-configured-depl
 
 > **Type:** Feature
 > **Name:** feat-deployment-stage-ladder (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 2 next (Phase 1 done 2026-09-04)
+> **Status:** In Progress — Phase 3 next (Phase 2 done 2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -136,7 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `release.stages` config + name validation | ✅ | [01-stages-config.md](01-stages-config.md) |
-| 2 | State diffs independently of description | ⬜ | [02-state-field-split.md](02-state-field-split.md) |
+| 2 | State diffs independently of description | ✅ | [02-state-field-split.md](02-state-field-split.md) |
 | 3 | `spec-sync stage` — the write verb | ⬜ | [03-stage-verb.md](03-stage-verb.md) |
 | 4 | Doctor ladder check + CI wiring docs | ⬜ | [04-doctor-and-docs.md](04-doctor-and-docs.md) |
 
@@ -154,6 +154,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-04 — Spec created.
+- 2026-09-04 — Phase 2 done. The snapshot now carries both the split
+  `issueFields` hashes and the original combined `issue` hash, so an older CLI
+  reading a newer snapshot still works — cheaper than a migration. `applyOneSpec`
+  needed no change (`withoutNull` already handles a one-field plan); tests prove
+  it rather than assume it. Verified non-vacuous by welding the fields back
+  together and by dropping the ladder branch from `bucketForState`.
 - 2026-09-04 — Phase 1 done. `stateSuggestions` now returns a `label`
   (`states.complete` / `release.stages[test]`) so a single printer serves both
   the bucket map and the ladder; that broke `init-config`'s remediation line,

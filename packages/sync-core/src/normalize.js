@@ -818,10 +818,31 @@ function phasesWithheld(snapshotDir, config) {
 
 // --- remote projection ------------------------------------------------------
 
+// The lifecycle bucket a deployment ladder descends FROM. A spec is handed over
+// to the deploy pipeline once it is finished, so every rung sits downstream of
+// `complete` — a ticket on "On Test" is a completed spec that has been deployed,
+// not a spec that moved somewhere else.
+const LADDER_ORIGIN_BUCKET = 'complete'
+
+// The declared ladder rung with this state name, or null.
+function stageForState(state, config) {
+  if (state == null) return null
+  const want = String(state).toLowerCase().trim()
+  const stages = (config && config.release && config.release.stages) || []
+  if (!Array.isArray(stages)) return null
+  return stages.find((s) => s && typeof s.state === 'string' && s.state.toLowerCase().trim() === want) || null
+}
+
 // Map a remote workflow-state name back to the local lifecycle bucket (the
 // vocabulary `spec_status` uses) via config.states, so local and remote
 // workflowState hash equal when semantically equal. Falls back to a lowercased
 // raw value when the state isn't one of the configured names.
+//
+// A DECLARED DEPLOYMENT STAGE reads as `complete`, deliberately. Without this
+// the fallback lowercases it — "On Test" becomes "on test", which equals no
+// bucket — and every deployed spec reports as drifted forever, for the whole
+// time it sits in the pipeline. The project told us these states are downstream
+// of a finished spec, so they are not a disagreement about where the spec is.
 function bucketForState(state, config) {
   if (state == null) return null
   const states = (config && config.states) || {}
@@ -829,6 +850,7 @@ function bucketForState(state, config) {
   for (const [bucket, name] of Object.entries(states)) {
     if (typeof name === 'string' && name.toLowerCase().trim() === want) return bucket
   }
+  if (stageForState(state, config)) return LADDER_ORIGIN_BUCKET
   return want
 }
 
@@ -858,6 +880,13 @@ function remoteStateName(issue) {
 function remoteWorkflowState(issue, config) {
   const name = remoteStateName(issue || {})
   return name != null ? bucketForState(name, config) : null
+}
+
+// The declared ladder rung a remote issue is currently sitting on, or null.
+// Pairs with `remoteWorkflowState`: that says which bucket the issue maps to,
+// this says whether it got there by being deployed. Read-only.
+function remoteStage(issue, config) {
+  return stageForState(remoteStateName(issue || {}), config)
 }
 
 // A Linear issue title is plain text, so markdown emphasis is noise there — and
@@ -1025,5 +1054,8 @@ module.exports = {
   canonicalizeMarkdown,
   joinEmphasisAcrossBreaks,
   bucketForState,
+  stageForState,
+  remoteStage,
   remoteWorkflowState,
+  LADDER_ORIGIN_BUCKET,
 }
