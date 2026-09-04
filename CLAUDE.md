@@ -1,3 +1,6 @@
+# stale-claude-md
+
+<!-- skitterspec:start -->
 ## Spec workflow
 
 Spec-driven development runs through the lifecycle **skills** below — use them so
@@ -51,3 +54,4 @@ the latter gets a namespaced stack. Teardown is folded into **`/spec-complete`**
 Most are planners the skills run; omit the spec name and it uses the worktree you
 are standing in. Independent of lifecycle
 status; inactive when `env.config.json` is absent.
+<!-- skitterspec:end -->
