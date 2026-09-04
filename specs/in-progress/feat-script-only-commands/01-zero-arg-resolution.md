@@ -2,47 +2,63 @@
 linear_issue_id: "SKS-47"
 ---
 
-# Phase 1 — Zero-arg spec resolution from the registry ⬜
+# Phase 1 — Zero-arg spec resolution from the worktree list ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `skitterspec spec-env <verb>` works with no spec argument, resolving
-from the slot registry — so no skill has to make the model find the spec first.
+from `git worktree list` — so no skill has to make the model find the spec first.
 Proven by unit tests over the three cases (one, several, none).
 
 ## Tasks
 
-- [ ] Add a `listRegisteredSpecs(rootDir, config)` helper to
-      `packages/skitterspec/src/env/registry.js` returning the registered spec
-      names in slot order (missing registry file → `[]`, matching `readRegistry`'s
-      existing tolerance).
-- [ ] Extend `resolveSpec` (`packages/skitterspec/src/env/resolve.js:219`) to
-      accept a falsy `specArg`: consult the registry, and resolve the sole
-      registered name as if it had been passed.
-- [ ] Throw a listing error when several specs are registered — a numbered list of
-      names plus the verb to re-run — and a distinct error naming `/spec-go` when
-      none is. Both exit non-zero via the existing CLI error path.
-- [ ] Name the blind spot in a comment beside the registry lookup: the registry is
-      machine-local and gitignored, so it is empty on a fresh clone and after a
-      manual `.spec-env/` wipe — which means "no specs registered", never "no specs
-      exist". Cite why the `specs/in-progress/` bucket is deliberately not
-      consulted (git drops empty directories).
-- [ ] Confirm `resolveSpecWithWorktree` (`packages/skitterspec/src/cli.js:495`)
-      passes a missing arg straight through, so every `spec-env` subcommand
-      inherits the behaviour without per-verb changes.
-- [ ] Update the `spec-env` usage string (`packages/skitterspec/src/cli.js:1332`)
-      to show `[spec]` as genuinely optional and say what omitting it does.
-- [ ] Add tests: sole-registered resolves; several → non-zero with every name
-      listed; none → non-zero naming `/spec-go`; an explicit arg still wins over a
-      registry with several entries.
-- [ ] Add the **stays-silent** test required by `.claude/rules/negative-checks.md`:
-      a healthy repo with exactly one registered spec and **no** `specs/in-progress/`
-      directory on disk must resolve cleanly and emit no warning — the empty-bucket
-      case that motivated Decision 1.
-- [ ] Run the project's typecheck and test commands (see
-      `.claude/rules/spec-planning.md`) — green before the phase is done.
+- [x] ~~Add a `listRegisteredSpecs` helper to the registry~~ — **abandoned.** The
+      slot registry covers Docker specs only (`specEnvUp` allocates a slot solely
+      when `wantsDocker`), so it is permanently empty in a `docker.enabled: false`
+      project. See the Changelog entry and Decision 1 as revised.
+- [x] Add `soleProvisionedSpec(dir, config)` to `packages/common/src/cli.js`,
+      resolving the sole spec that owns a git worktree via the existing
+      `liveWorktreePaths` + `allSpecs` helpers.
+- [x] Throw a listing error when several specs have worktrees — a numbered list of
+      names — and a distinct error naming `/spec-go` when none does. Both exit
+      non-zero via `bin/skitterspec.js`.
+- [x] Name the blind spot in a comment beside the lookup: why the registry and the
+      `specs/in-progress/` bucket are both rejected as sources, and that a worktree
+      removed behind git's back over-reports (an ambiguity error) rather than
+      resolving the wrong spec.
+- [x] Resolve the name at the head of `resolveSpecWithWorktree`
+      (`packages/common/src/cli.js`) — it calls `path.basename(specArg)`
+      immediately, so a falsy argument threw a `TypeError` there.
+- [x] Drop the `if (!specArg) { usage; return }` guard from exactly the seven
+      subcommands named in Decision 8 (`up`, `down`, `dev`, `integrate`,
+      `hotfix land`, `resolve`, `live take`) so the resolution is reached. Left
+      `connect` (missing arg means `main`) and `live status` (repo-wide report)
+      untouched.
+- [x] Update the `spec-env` usage string to show `[spec]` as optional, say what
+      omitting it does, and name the two subcommands that keep their own meaning.
+- [x] Add a regression test that `spec-env connect` with no argument still
+      **disconnects** and `spec-env live status` with no argument still prints the
+      repo-wide report — the two meanings Decision 8 protects.
+- [x] Add tests: sole-provisioned resolves; several → throws listing every name;
+      none → throws naming `/spec-go`; an explicit arg still wins; a bucketed spec
+      with no worktree is not counted.
+- [x] Add the **stays-silent** tests required by
+      `.claude/rules/negative-checks.md`: a docker-less project with an empty
+      registry resolves cleanly, and a spec authored on its branch with **no**
+      `specs/in-progress/` directory in the primary checkout resolves cleanly.
+- [x] Run the project's test command — 1110 tests green, and `pnpm build`
+      composes both distributions.
 
 ## Notes
+
+Removing those seven usage guards also changes their exit code on an
+unresolvable argument from 0 (print usage, return) to non-zero (throw). That is
+the intended behaviour per Decision 2 and is called out in the Impact table.
+
+The project has no `typecheck` or `lint` script — `pnpm test` (node --test) is
+the whole gate, with `pnpm build` proving both distributions still compose.
+Phases 2–4 should say `pnpm test` rather than "the project's typecheck and test
+commands".
 
 This phase is independently useful and ships alone: it removes the "identify the
 target" lookup from *every* engine skill, whether or not the later phases land.

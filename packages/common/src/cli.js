@@ -209,10 +209,6 @@ function specEnvStatus(dir, config) {
 // opener). This creates no worktree and starts no stack — the caller runs the
 // printed commands. Keep the output's verb honest about that.
 function specEnvUp(dir, config, specArg) {
-  if (!specArg) {
-    process.stdout.write('Usage: skitterspec spec-env up <spec>\n')
-    return
-  }
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
   // Live-safe: if this spec is already live on the primary checkout (its branch was
@@ -376,10 +372,6 @@ function compactTimestamp() {
 // the shared parent of every spec's worktree and harmless when empty; removing it
 // would just re-prompt on the next /spec-go (see spec: isolation-trusts-worktree-dir).
 function specEnvDown(dir, config, specArg, flags) {
-  if (!specArg) {
-    process.stdout.write('Usage: skitterspec spec-env down <spec> [--keep-volumes] [--force]\n')
-    return
-  }
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
   // A worktree-only spec never held a slot but its worktree still needs removing,
@@ -482,6 +474,59 @@ function liveWorktreePaths(dir) {
   return paths
 }
 
+/**
+ * The spec to act on when the caller named none: the one that has a worktree.
+ *
+ * `git worktree list` is the authority, and deliberately so. Two nearer-looking
+ * signals are both wrong here:
+ *
+ *   - The **slot registry** covers only Docker specs — `specEnvUp` allocates a
+ *     slot exclusively when `wantsDocker`, so a `Stack: worktree` spec never
+ *     appears in it and a project with `docker.enabled: false` has a permanently
+ *     empty registry. Absence there says nothing about provisioning.
+ *   - The **`specs/in-progress/` bucket** says a spec is being worked on, not
+ *     that it has a worktree — and git does not track an empty directory, so the
+ *     bucket disappears the moment it empties.
+ *
+ * A spec having its own worktree is what every caller (`up`, `down`, `dev`,
+ * `integrate`, `hotfix land`, `resolve`, `live take`) actually needs to be true,
+ * and it is a thing that must be *present* for the answer to be yes.
+ *
+ * Three outcomes, never two: exactly one → that spec; several → throw, listing
+ * them; none → throw, pointing at /spec-go. *Cannot tell* never becomes a guess.
+ *
+ * BLIND SPOT: a spec taken live with `/spec-live` has had its branch moved into
+ * the primary checkout and its worktree left on a detached HEAD — it still has a
+ * worktree, so it is still listed here, which is correct. What would fool this
+ * is a worktree removed behind git's back (`rm -rf` without `git worktree
+ * prune`); git keeps listing it as prunable. That over-reports rather than
+ * under-reports, so the failure is an ambiguity error, never a wrong spec.
+ */
+function soleProvisionedSpec(dir, config) {
+  const worktreePaths = liveWorktreePaths(dir)
+  const names = allSpecs(dir, config, worktreePaths)
+    .filter((s) => {
+      const wt = path.resolve(s.worktreePath)
+      // The primary checkout is itself in `git worktree list`; a spec is
+      // provisioned only when it has its OWN worktree, separate from it.
+      return wt !== dir && worktreePaths.has(wt)
+    })
+    .map((s) => s.folder)
+    .sort()
+
+  if (names.length === 1) return names[0]
+  if (names.length === 0) {
+    throw new Error(
+      'no spec given, and no spec has a worktree — name one explicitly, or run ' +
+        '/spec-go to provision it.',
+    )
+  }
+  throw new Error(
+    `no spec given, and ${names.length} specs have worktrees — name the one you mean:\n` +
+      names.map((n, i) => `  ${i + 1}. ${n}`).join('\n'),
+  )
+}
+
 // Resolve a spec argument the ONE way every spec-env subcommand resolves it:
 // against the primary checkout first, then the spec's own worktree, then every
 // other checkout git knows about. An in-progress spec is git-mv'd into
@@ -493,6 +538,10 @@ function liveWorktreePaths(dir) {
 // coordinate tokens always expand against `dir` (the primary checkout), so the
 // answer is identical whether the command was run from main or a worktree.
 function resolveSpecWithWorktree(dir, config, specArg) {
+  // Fill in a missing argument first: everything below (starting with
+  // path.basename) assumes a string, and every subcommand that reaches here is
+  // one where a missing spec was previously a usage error.
+  specArg = specArg || soleProvisionedSpec(dir, config)
   const { slug } = splitPrefix(path.basename(specArg))
   const { repo, repoSlug } = repoInfo(dir)
   const wtTokens = { repo, repoSlug, slug }
@@ -611,10 +660,6 @@ function specEnvPrune(dir, config, flags) {
 // Queries git for the facts, prints the plan / block / no-op. The /spec-complete
 // skill executes the printed commands (and aborts a conflicting rebase).
 function specEnvIntegrate(dir, config, specArg) {
-  if (!specArg) {
-    process.stdout.write('Usage: skitterspec spec-env integrate <spec>\n')
-    return
-  }
 
   // `dir` is already anchored on the primary checkout by the dispatch, so it is
   // both where the spec resolves and the target of the fast-forward — /spec-complete
@@ -734,8 +779,9 @@ function specEnvIntegrate(dir, config, specArg) {
 function specEnvHotfix(dir, config, positional, flags) {
   const action = positional[0]
   const specArg = positional[1]
-  if (action !== 'land' || !specArg) {
-    process.stdout.write('Usage: skitterspec spec-env hotfix land <spec> [--also <tag>]...\n')
+  // The action must be named; the spec may be omitted (resolved from the registry).
+  if (action !== 'land') {
+    process.stdout.write('Usage: skitterspec spec-env hotfix land [spec] [--also <tag>]...\n')
     return
   }
 
@@ -815,10 +861,6 @@ function specEnvHotfix(dir, config, positional, flags) {
 
 // Print the resolved identity/coordinates for a single spec.
 function specEnvResolve(dir, config, specArg) {
-  if (!specArg) {
-    process.stdout.write('Usage: skitterspec spec-env resolve <spec>\n')
-    return
-  }
   const r = resolveSpecWithWorktree(dir, config, specArg)
   process.stdout.write(
     `spec:       ${r.folder} (${r.bucket})\n` +
@@ -836,8 +878,9 @@ function specEnvResolve(dir, config, specArg) {
 async function specEnvDev(dir, config, positional) {
   const action = positional[0]
   const specArg = positional[1]
-  if ((action !== 'up' && action !== 'down') || !specArg) {
-    process.stdout.write('Usage: skitterspec spec-env dev <up|down> <spec>\n')
+  // The action must be named; the spec may be omitted (resolved from the registry).
+  if (action !== 'up' && action !== 'down') {
+    process.stdout.write('Usage: skitterspec spec-env dev <up|down> [spec]\n')
     return
   }
   const spec = resolveSpecWithWorktree(dir, config, specArg)
@@ -1035,11 +1078,6 @@ async function specEnvLive(dir, config, positional) {
 // Take the running instance: rebase the spec's branch onto base, free it from its
 // worktree, and check it out in the primary checkout so the dev server reloads it.
 async function specEnvLiveTake(dir, config, specArg) {
-  if (!specArg) {
-    process.stdout.write('Usage: skitterspec spec-env live take <spec>\n')
-    return
-  }
-
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
   // Probe the primary checkout's git state (IO stays here; the planner is pure).
@@ -1329,7 +1367,11 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>]\n',
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>]\n' +
+          '  [spec] is optional for up/down/dev/integrate/hotfix/resolve and live take:\n' +
+          '  omit it and the sole provisioned spec is used (several -> it lists them).\n' +
+          '  NOTE connect and live status keep their own meaning for a missing spec:\n' +
+          '  connect disconnects (= main), live status reports on the whole repo.\n',
       )
   }
 }

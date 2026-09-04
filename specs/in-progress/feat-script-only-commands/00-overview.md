@@ -11,7 +11,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-46/script-only-commands-sp
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
-> **Area:** packages/common/src/init.js, packages/common/src/env/resolve.js, packages/skitterspec/src/env/resolve.js, packages/skitterspec/src/env/registry.js, packages/skitterspec/src/cli.js, packages/common/assets/skills/, packages/common/assets/commands/, scripts/build-dist.js
+> **Area:** packages/common/src/init.js, packages/common/src/cli.js, packages/common/src/env/resolve.js, packages/common/src/env/registry.js, packages/common/assets/skills/, packages/common/assets/commands/, packages/linear/assets/skills/, scripts/build-dist.js
 > **Stack:** worktree
 
 ## Problem
@@ -28,7 +28,7 @@ Two things drive the cost, and neither is the skill body:
    per-session tax for verbs that are one CLI call.
 2. **Every engine skill opens by making the model find the spec.** They all carry
    the same paragraph — *"use the argument, else the spec in context, else ask"* —
-   and they must, because `resolveSpec` (`packages/skitterspec/src/env/resolve.js:219`)
+   and they must, because `resolveSpec` (`packages/common/src/env/resolve.js:219`)
    throws unless handed an explicit name. There is no zero-arg path, so the model
    goes reading `specs/in-progress/` before it can run anything.
 
@@ -38,18 +38,21 @@ CLI should have answered itself.
 
 ## Decisions
 
-1. **Zero-arg resolution reads the slot registry, not the spec buckets.**
-   `.spec-env/registry.json` (`packages/skitterspec/src/env/registry.js`) maps spec
-   name → slot and is the single source of truth for which specs have a
-   provisioned environment. That is the **positive signal** every `spec-env` verb
-   actually needs. Rejected: scanning `specs/in-progress/` — an absence there means
-   nothing, because git does not store an empty directory (the folder is missing
-   from this very repo), which is precisely the failure `negative-checks.md`
-   documents.
+1. **Zero-arg resolution reads `git worktree list`, not the slot registry and not
+   the spec buckets.** Every `spec-env` verb acts on a spec's **worktree**, so
+   "does this spec have a worktree" is the thing that must be *present* for the
+   answer to be yes, and git is its authority. Rejected: the **slot registry**
+   (`.spec-env/registry.json`) — `specEnvUp` allocates a slot only when
+   `wantsDocker`, so a `Stack: worktree` spec never enters it and a project with
+   `docker.enabled: false` has a permanently empty registry; and the
+   **`specs/in-progress/` bucket** — it says work is under way, not that a
+   worktree exists, and git does not store an empty directory, so the folder
+   vanishes the moment it empties (it is absent from this repo's primary
+   checkout right now).
 
 2. **Ambiguity and emptiness both exit non-zero; neither guesses.** One registered
-   spec → use it. Several → print a numbered list and exit non-zero. None → say no
-   spec has a provisioned environment and point at `/spec-go`. The *cannot tell*
+   spec has a worktree → use it. Several → print a numbered list and exit
+   non-zero. None → say so and point at `/spec-go`. The *cannot tell*
    case routes to inaction, never to picking a spec (`negative-checks.md` rule 4).
 
 3. **Only `spec-connect` and `spec-live` become commands.** They are the only two
@@ -89,15 +92,27 @@ CLI should have answered itself.
    rather than calling them, so `disable-model-invocation` breaks nothing. Verified
    at spec time; re-checked as a task.
 
+8. **Zero-arg resolution replaces a usage error — never an existing meaning.**
+   Two `spec-env` subcommands already assign a meaning to a missing spec argument:
+   `connect` treats it as `main` (i.e. **disconnect** — `specEnvConnect` does
+   `const target = specArg || 'main'`), and `live status` returns the repo-wide
+   report rather than a per-spec verdict. Resolving those from the registry would
+   silently invert `spec-env connect` from "hand the ports back" to "seize them".
+   Registry resolution is therefore applied only where a missing argument is
+   currently a `Usage:` error: `up`, `down`, `dev`, `integrate`, `hotfix land`,
+   `resolve`, `live take`.
+
 ## Solution overview
 
 Three independent pieces, landing in dependency order.
 
-**Zero-arg resolution** — `resolveSpec` gains a path for a missing `specArg`:
-consult the registry, return the sole entry, or throw a listing error. Every
-`spec-env` subcommand inherits it through `resolveSpecWithWorktree`
-(`packages/skitterspec/src/cli.js:495`), so the "find the spec" paragraph stops
-being the model's job for *all* skills, not just the two being moved.
+**Zero-arg resolution** — a `soleProvisionedSpec` helper in
+`packages/common/src/cli.js` reuses the existing `liveWorktreePaths` +
+`allSpecs` pair to find the specs that own a git worktree, and returns the sole
+one or throws a listing error. `resolveSpecWithWorktree` calls it when the
+argument is missing, so every `spec-env` subcommand inherits it and the "find the
+spec" paragraph stops being the model's job for *all* skills, not just the two
+being moved.
 
 **A `commands/` lane in the installer** — `init.js` discovers
 `assets/commands/*.md` the same way `listSkills()` discovers skills, installs them
@@ -129,8 +144,10 @@ job is to relay. Their old `SKILL.md` files are retired manifest-aware.
 
 | Surface | Change | Detail |
 |---------|--------|--------|
-| CLI | update | `spec-env <verb>` accepts no spec arg — resolves via registry |
+| CLI | add | `soleProvisionedSpec` — resolves the sole worktree-owning spec |
+| CLI | update | `up`/`down`/`dev`/`integrate`/`hotfix land`/`resolve`/`live take` accept no spec arg |
 | CLI | add | ambiguity/empty listing errors, exit non-zero |
+| CLI | update | `spec-env up` etc. now exit non-zero on an unresolvable arg (was exit 0 + usage) |
 | Installer | add | `.claude/commands/` lane + `listCommands()` + `{{exec}}` interpolation |
 | Installer | add | package-manager detection from lockfile |
 | Installer | update | `removeRetiredFiles` becomes manifest-aware |
@@ -147,7 +164,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Zero-arg spec resolution from the registry | ⬜ | [01-zero-arg-resolution.md](01-zero-arg-resolution.md) |
+| 1 | Zero-arg spec resolution from the worktree list | ✅ | [01-zero-arg-resolution.md](01-zero-arg-resolution.md) |
 | 2 | A `commands/` lane in the installer | ⬜ | [02-commands-lane.md](02-commands-lane.md) |
 | 3 | Move spec-connect and spec-live to commands | ⬜ | [03-move-engine-verbs.md](03-move-engine-verbs.md) |
 | 4 | Take the remaining engine skills out of the listing | ⬜ | [04-disable-model-invocation.md](04-disable-model-invocation.md) |
@@ -175,6 +192,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-04 — Chose the slot registry over the `specs/in-progress/` bucket as
   the source for zero-arg resolution, after finding the bucket absent from this
   repo — git does not store an empty directory.
+- 2026-09-04 — Phase 1: **revised Decision 1** — the slot registry is not the signal it claimed. `specEnvUp` (`packages/common/src/cli.js:236`) allocates a slot only for Docker specs, so a `Stack: worktree` spec never enters the registry and a `docker.enabled: false` project has a permanently empty one; resolution would have fired never rather than always. Switched the source to `git worktree list`, which is authoritative for both stacks and already read by the CLI. The original decision asserted a positive signal without establishing that it covered the cases — the failure `negative-checks.md` describes.
+- 2026-09-04 — Phase 1: recorded that the repo has no `typecheck` or `lint` script; `pnpm test` is the gate and `pnpm build` proves both distributions compose. Later phases should say so rather than "the project's typecheck and test commands".
+- 2026-09-04 — Phase 1: corrected the Area and every file reference — `packages/skitterspec/src/` is **generated and gitignored** (`scripts/build-dist.js` copies it from `packages/common/src/`); the source tree is `packages/common/src/`. Line numbers were unaffected, the copy being byte-for-byte.
+- 2026-09-04 — Phase 1: added Decision 8 after finding `spec-env connect` already reads a missing argument as `main` (disconnect) and `live status` as the repo-wide report. Registry resolution is scoped to the seven subcommands where a missing argument is currently a `Usage:` error, so no existing meaning is inverted.
 - 2026-09-04 — Started. The spec was authored and linked while still untracked,
   so it was moved straight into `specs/in-progress/` on the branch rather than
   `git mv`-d out of `backlog` — it never existed in `backlog` on any commit.
