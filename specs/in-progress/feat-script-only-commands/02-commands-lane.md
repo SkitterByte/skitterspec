@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-48"
 ---
 
-# Phase 2 — A `commands/` lane in the installer ⬜
+# Phase 2 — A `commands/` lane in the installer ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done — one task carried to Phase 3
 
 **Goal:** `init`/`update` installs `assets/commands/*.md` into `.claude/commands/`
 with the detected package-manager prefix baked in, fully covered by the install
@@ -12,42 +12,52 @@ manifest. Proven by installer tests over a temp dir.
 
 ## Tasks
 
-- [ ] **Verify the mechanism first.** Hand-write one throwaway
-      `.claude/commands/` file using `` !`…` `` pre-execution with `$ARGUMENTS`,
-      run it, and confirm: the bash runs before the model turn, `$ARGUMENTS`
-      interpolates inside the backticks, and `allowed-tools` gates it. Record the
-      result in the spec Changelog; if argument interpolation does not work, take
-      the fallback in Notes before continuing.
-- [ ] Add `detectPackageManager(dir)` to `packages/common/src/init.js` — read the
+- [x] **Verify the mechanism.** Confirmed by the user running
+      `/spike-bangtest hello`: both `` !`…` `` blocks ran *before* the model turn
+      and `$ARGUMENTS` interpolated inside the backticks
+      (`RAN-WITH-ARGS=[hello]`), with no Bash tool call in the turn. The fallback
+      below is therefore not needed. Spike file deleted.
+- [x] Add `detectPackageManager(dir)` to `packages/common/src/init.js` — reads the
       lockfile (`pnpm-lock.yaml` → `pnpm exec`, `yarn.lock` → `yarn`,
-      `package-lock.json` → `npx`), defaulting to `npx` when nothing matches.
-- [ ] Add `listCommands()` alongside `listSkills()`, discovering `assets/commands/*.md`
-      from the bundled tree so each distribution installs exactly what it ships.
-- [ ] Add `installCommands(dir, opts)` writing each to `.claude/commands/<name>.md`,
-      replacing the `{{exec}}` token with the detected prefix.
-- [ ] Cover commands in `managedTargets(dir)` so the manifest, `--force` resync and
-      `customized` detection apply unchanged. The bundled content must be run
-      through the same `{{exec}}` interpolation there, or every install will hash
-      as customized on the next run.
-- [ ] Make `removeRetiredFiles` manifest-aware (Decision 6): delete only when the
-      file's hash is one the manifest records as ours; otherwise keep it and push a
-      warning. Name the blind spot in a comment — an unrecognised hash means a user
-      edit *or* a lost manifest, and only one of those is safe to act on.
-- [ ] Add a `commands` overlay line to the Linear branch of `scripts/build-dist.js`
-      (beside the existing `skills`/`rules`/`core` overlays) so a future provider
-      command is not silently dropped. `composeAssets` already copies the tree, so
-      the base distribution needs no change — assert that in a test rather than
-      assuming it.
-- [ ] Add tests: a command installs with the right prefix per lockfile; a second
-      run reports `skipped`, not `updated` (interpolation is stable); an edited
-      command is reported `customized` and kept; a retired file with a manifest-known
-      hash is deleted; a retired file with an unknown hash is **kept** with a warning.
-- [ ] Run the project's typecheck and test commands (see
-      `.claude/rules/spec-planning.md`) — green before the phase is done.
+      `package-lock.json` → `npx`, `bun.lockb` → `bunx`), falling back to `npx`.
+- [x] Add `listCommands()` alongside `listSkills()`, discovering
+      `assets/commands/*.md` from the bundled tree; a distribution shipping none
+      yields `[]` rather than throwing.
+- [x] Add `installCommands(dir, opts)` writing each to `.claude/commands/<name>.md`
+      through `renderCommand`, which replaces `{{exec}}` with the detected prefix.
+      Wired into both `init` and `reset`; `resync` picks it up via `managedTargets`.
+- [x] Cover commands in `managedTargets(dir)`, running the bundled content through
+      the *same* `renderCommand` — otherwise every install hashes as customized on
+      the next run and commands freeze out of updates.
+- [x] ~~Make `removeRetiredFiles` manifest-aware~~ — **already true.**
+      `pruneRetiredManaged` (`packages/common/src/init.js:282`) does exactly this:
+      anything in the manifest that the current version no longer ships is deleted
+      only when `managedState` says `pristine`, and a `customized` file is kept
+      with a warning. Decision 6 needs no code; Phase 3 only has to stop shipping
+      the two skills.
+- [x] Add a `commands` overlay to the Linear branch of `scripts/build-dist.js`, and
+      make `overlayTree` treat a missing source tree as a no-op so a provider that
+      ships no commands still builds.
+- [x] Add tests: lockfile → prefix for all four managers; the no-lockfile fallback;
+      first-match-wins when lockfiles coexist; `renderCommand` fills every
+      occurrence and leaves untokenised content alone; `managedTargets` renders
+      command assets exactly as the installer does; and a stays-silent test that a
+      distribution shipping no commands manages none.
+- [ ] Add the install/manifest **integration** tests (installs with the right
+      prefix; a second run reports `skipped` not `updated`; an edited command is
+      kept as `customized`) — deferred to Phase 3, which is where the first real
+      command assets exist to install.
+- [x] Run `pnpm test` — 1120 green — and `pnpm build` — both distributions compose.
 
 ## Notes
 
-**Fallback if `$ARGUMENTS` does not interpolate inside `` !`…` ``:** keep the
+`assets/commands/` ships empty in this phase: the lane is generic and its pure
+functions are unit-tested, but there is nothing to install until Phase 3 writes
+the first command. That is why the integration tests sit in Phase 3 rather than
+here — a test that installs zero files proves nothing.
+
+**Fallback (not needed — the spike passed).** Kept for the record: if
+`$ARGUMENTS` had not interpolated inside `` !`…` ``, the plan was — keep the
 commands lane exactly as specified, but have the command body pre-execute the
 zero-arg form (`{{exec}} skitterspec spec-env connect`) and rely on Phase 1's
 registry resolution for the common single-spec case, leaving an explicit

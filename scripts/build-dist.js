@@ -109,7 +109,10 @@ function copyTree(srcDir, dstDir, srcRoot) {
 // through the same seam substitution as common's, so a provider skill can reuse
 // a fragment (e.g. the project picker, shared by /spec and /spec-push) instead of
 // keeping a second copy of it — and can never ship a raw marker.
+// A provider need not ship every asset kind (it may have skills but no commands),
+// so a missing source tree is a clean no-op rather than a build failure.
 function overlayTree(srcDir, dstDir, fragments = {}) {
+  if (!fs.existsSync(srcDir)) return
   composeAssets(srcDir, dstDir, fragments)
 }
 
@@ -170,6 +173,10 @@ function buildLinear() {
   const fragments = loadFragments(path.join(linear, 'assets', 'seams'))
   composeAssets(path.join(common, 'assets'), path.join(out, 'assets'), fragments)
   overlayTree(path.join(linear, 'assets', 'skills'), path.join(out, 'assets', 'skills'), fragments)
+  // Commands are overlaid for the same reason as skills: a provider may ship its
+  // own `.claude/commands/` entries. `composeAssets` already copies common's
+  // whole assets tree, so the base distribution needs nothing here.
+  overlayTree(path.join(linear, 'assets', 'commands'), path.join(out, 'assets', 'commands'), fragments)
   overlayTree(path.join(linear, 'assets', 'rules'), path.join(out, 'assets', 'rules'), fragments)
   overlayTree(path.join(linear, 'assets', 'core'), path.join(out, 'assets', 'core'), fragments)
 

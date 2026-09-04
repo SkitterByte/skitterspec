@@ -38,8 +38,11 @@ CLI should have answered itself.
 
 ## Decisions
 
-1. **Zero-arg resolution reads `git worktree list`, not the slot registry and not
-   the spec buckets.** Every `spec-env` verb acts on a spec's **worktree**, so
+1. **Zero-arg resolution reads `git worktree list` — the worktree you are
+   standing in first, then the sole provisioned spec — not the slot registry and
+   not the spec buckets.** Running a verb from inside a spec's worktree names
+   that spec outright, which is what makes the feature useful given that several
+   worktrees at once is the normal shape of this workflow. Every `spec-env` verb acts on a spec's **worktree**, so
    "does this spec have a worktree" is the thing that must be *present* for the
    answer to be yes, and git is its authority. Rejected: the **slot registry**
    (`.spec-env/registry.json`) — `specEnvUp` allocates a slot only when
@@ -78,13 +81,17 @@ CLI should have answered itself.
    the project's pnpm convention) and shipping a repo-local shim (an extra tracked
    file in every consumer).
 
-6. **Superseded skill files are retired only when they are provably ours.**
-   Moving `spec-connect`/`spec-live` out of `.claude/skills/` leaves a stale
-   `SKILL.md` in every existing install. `removeRetiredFiles` currently deletes
-   unconditionally (`packages/common/src/init.js:258`), which was safe for generated
-   index caches but is not safe for a file a user may have edited. Retirement must
-   consult the manifest: hash matches something we wrote → delete; unrecognised →
-   keep it and warn. Being wrong costs a redundant file, never the user's edit.
+6. **Superseded skill files are retired only when they are provably ours —
+   already implemented.** Moving `spec-connect`/`spec-live` out of
+   `.claude/skills/` leaves a stale `SKILL.md` in every existing install, and
+   `pruneRetiredManaged` (`packages/common/src/init.js:282`) already handles it
+   correctly: anything the manifest lists that the current version no longer
+   ships is deleted only when `managedState` reports `pristine`, while a
+   `customized` file is kept with a warning. No code is needed — Phase 3 simply
+   stops shipping the two skills and the existing machinery retires them. (The
+   older `removeRetiredFiles`/`RETIRED_FILES` path, which deletes
+   unconditionally, stays scoped to the generated index caches it was written
+   for.)
 
 7. **Cross-references become instructions to the user, not model invocations.**
    `/spec-go`, `/spec-complete`, `/spec-hotfix` and `/spec-to-main` mention
@@ -150,7 +157,7 @@ job is to relay. Their old `SKILL.md` files are retired manifest-aware.
 | CLI | update | `spec-env up` etc. now exit non-zero on an unresolvable arg (was exit 0 + usage) |
 | Installer | add | `.claude/commands/` lane + `listCommands()` + `{{exec}}` interpolation |
 | Installer | add | package-manager detection from lockfile |
-| Installer | update | `removeRetiredFiles` becomes manifest-aware |
+| Installer | update | `overlayTree` no-ops on a missing provider asset tree |
 | Skill/rule | remove | `.claude/skills/spec-connect/`, `.claude/skills/spec-live/` |
 | Skill/rule | add | `.claude/commands/spec-connect.md`, `.claude/commands/spec-live.md` |
 | Skill/rule | update | `disable-model-invocation` on spec-status, spec-sync, spec-to-main |
@@ -165,7 +172,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Zero-arg spec resolution from the worktree list | ✅ | [01-zero-arg-resolution.md](01-zero-arg-resolution.md) |
-| 2 | A `commands/` lane in the installer | ⬜ | [02-commands-lane.md](02-commands-lane.md) |
+| 2 | A `commands/` lane in the installer | ✅ | [02-commands-lane.md](02-commands-lane.md) |
 | 3 | Move spec-connect and spec-live to commands | ⬜ | [03-move-engine-verbs.md](03-move-engine-verbs.md) |
 | 4 | Take the remaining engine skills out of the listing | ⬜ | [04-disable-model-invocation.md](04-disable-model-invocation.md) |
 
@@ -192,6 +199,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-04 — Chose the slot registry over the `specs/in-progress/` bucket as
   the source for zero-arg resolution, after finding the bucket absent from this
   repo — git does not store an empty directory.
+- 2026-09-04 — Phase 2: mechanism verified. `/spike-bangtest hello` proved that a `` !`…` `` block in a `.claude/commands/` file executes **before** the model turn and that `$ARGUMENTS` interpolates inside it, with no Bash tool call in the turn. Phase 3's command bodies can be written as designed.
+- 2026-09-04 — Phase 2: **Decision 6 needs no code.** `pruneRetiredManaged` already retires a file the current version stopped shipping only when the manifest proves it pristine, keeping and warning about a user-edited one. The spec proposed building machinery that exists; Phase 3 just stops shipping the two skills.
+- 2026-09-04 — Phase 2: `assets/commands/` ships empty for now, so the install/manifest integration tests moved to Phase 3, where the first real command assets exist. The lane's pure functions (`detectPackageManager`, `renderCommand`, `managedTargets` coverage) are unit-tested here.
+- 2026-09-04 — Phase 1 amendment: added cwd-first resolution after confirming with the author that **more than one worktree at a time is the normal case**. "The sole provisioned spec" would therefore have resolved rarely; the worktree the command is run from resolves nearly always, and costs nothing when it does not apply. Decision 1 revised again to lead with it.
 - 2026-09-04 — Phase 1: **revised Decision 1** — the slot registry is not the signal it claimed. `specEnvUp` (`packages/common/src/cli.js:236`) allocates a slot only for Docker specs, so a `Stack: worktree` spec never enters the registry and a `docker.enabled: false` project has a permanently empty one; resolution would have fired never rather than always. Switched the source to `git worktree list`, which is authoritative for both stacks and already read by the CLI. The original decision asserted a positive signal without establishing that it covered the cases — the failure `negative-checks.md` describes.
 - 2026-09-04 — Phase 1: recorded that the repo has no `typecheck` or `lint` script; `pnpm test` is the gate and `pnpm build` proves both distributions compose. Later phases should say so rather than "the project's typecheck and test commands".
 - 2026-09-04 — Phase 1: corrected the Area and every file reference — `packages/skitterspec/src/` is **generated and gitignored** (`scripts/build-dist.js` copies it from `packages/common/src/`); the source tree is `packages/common/src/`. Line numbers were unaffected, the copy being byte-for-byte.

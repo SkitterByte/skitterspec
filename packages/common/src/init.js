@@ -23,6 +23,21 @@ function listSkills() {
     .sort()
 }
 
+// Slash commands shipped as `assets/commands/*.md`, installed to
+// `.claude/commands/`. Discovered from the bundled tree exactly like skills, so
+// each distribution installs precisely what it ships.
+function listCommands() {
+  const dir = path.join(ASSETS, 'commands')
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.md'))
+      .sort()
+  } catch {
+    return [] // a distribution may ship no commands
+  }
+}
+
 function listRules() {
   return fs
     .readdirSync(path.join(ASSETS, 'rules'))
@@ -42,6 +57,8 @@ function listCoreTemplates() {
 
 const SKILLS = listSkills()
 
+const COMMANDS = listCommands()
+
 const RULES = listRules()
 
 const SPEC_FOLDERS = ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']
@@ -49,6 +66,36 @@ const SPEC_FOLDERS = ['.core', 'backlog', 'in-progress', 'complete', 'cancelled'
 // Opt-in config templates, scaffolded into specs/.core/ (the base ships the
 // env.config isolation templates; a provider superset also ships its own).
 const CORE_FILES = listCoreTemplates()
+
+// The CLI is a local devDependency and never on PATH, so a command file that
+// pre-executes it must carry a literal, working invocation. Detect the runner
+// from the lockfile and bake it in at write time.
+//
+// The lockfile is a POSITIVE signal — a file that must be present for the answer
+// to be yes — rather than an absence. When none is found we do not guess a
+// package manager we have no evidence for; `npx` is the fallback because it is
+// the one runner that works across all three installs.
+const PACKAGE_MANAGERS = [
+  ['pnpm-lock.yaml', 'pnpm exec'],
+  ['yarn.lock', 'yarn'],
+  ['package-lock.json', 'npx'],
+  ['bun.lockb', 'bunx'],
+]
+
+function detectPackageManager(dir) {
+  for (const [lockfile, exec] of PACKAGE_MANAGERS) {
+    if (fs.existsSync(path.join(dir, lockfile))) return exec
+  }
+  return 'npx'
+}
+
+// Fill a command file's `{{exec}}` placeholders. Kept a pure function of
+// (content, dir) so `managedTargets` can compare against exactly what
+// `installCommands` would write — otherwise every install would hash as
+// customized on the next run.
+function renderCommand(content, dir) {
+  return content.split('{{exec}}').join(detectPackageManager(dir))
+}
 
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
@@ -99,13 +146,15 @@ function sha1(content) {
 // the bundled content that ships in this distribution's assets.
 function managedTargets(dir) {
   const out = []
-  const add = (assetRel, targetAbs) =>
+  const add = (assetRel, targetAbs, render = (c) => c) =>
     out.push({
       relPath: rel(dir, targetAbs),
       abs: targetAbs,
-      bundled: fs.readFileSync(path.join(ASSETS, assetRel), 'utf8'),
+      bundled: render(fs.readFileSync(path.join(ASSETS, assetRel), 'utf8'), dir),
     })
   for (const name of SKILLS) add(path.join('skills', name, 'SKILL.md'), path.join(dir, '.claude', 'skills', name, 'SKILL.md'))
+  for (const name of COMMANDS)
+    add(path.join('commands', name), path.join(dir, '.claude', 'commands', name), renderCommand)
   for (const name of RULES) add(path.join('rules', name), path.join(dir, '.claude', 'rules', name))
   for (const asset of CORE_FILES) add(asset, path.join(dir, 'specs', '.core', path.basename(asset)))
   return out
@@ -227,6 +276,16 @@ function installSkills(dir, opts) {
       path.join(dir, '.claude', 'skills', name, 'SKILL.md'),
       opts,
     )
+  }
+}
+
+function installCommands(dir, opts) {
+  for (const name of COMMANDS) {
+    const content = renderCommand(
+      fs.readFileSync(path.join(ASSETS, 'commands', name), 'utf8'),
+      dir,
+    )
+    writeFile(dir, path.join(dir, '.claude', 'commands', name), content, opts)
   }
 }
 
@@ -519,6 +578,7 @@ function reset(dir, { claudeMd = true } = {}) {
   }
   if (claudeMd) stripClaudeMdSection(dir)
   installSkills(dir, { force: true })
+  installCommands(dir, { force: true })
   installRule(dir, { force: true })
   installFolders(dir)
   removeRetiredFiles(dir)
@@ -597,6 +657,7 @@ async function init({ dir, force, claudeMd, mode, isolation }) {
   resetReport()
 
   installSkills(dir, { force })
+  installCommands(dir, { force })
   installRule(dir, { force })
   installFolders(dir)
   removeRetiredFiles(dir)
@@ -615,6 +676,7 @@ async function init({ dir, force, claudeMd, mode, isolation }) {
 module.exports = {
   init,
   SKILLS,
+  COMMANDS,
   RULES,
   SPEC_FOLDERS,
   MANIFEST_FILE,
@@ -627,4 +689,6 @@ module.exports = {
   resync,
   reset,
   assertSafeToDelete,
+  detectPackageManager,
+  renderCommand,
 }
