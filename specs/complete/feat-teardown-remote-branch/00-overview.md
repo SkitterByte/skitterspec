@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-53/remote-branch-cleanup-i
 
 > **Type:** Feature
 > **Name:** feat-teardown-remote-branch (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -107,6 +107,7 @@ Additive. A spec with no remote ref produces byte-identical output to before, an
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -116,3 +117,7 @@ Additive. A spec with no remote ref produces byte-identical output to before, an
   SKILL.md does say to push the branch, but prescribes no command, so upstream
   may never be configured. That is why the ref lookup falls back to scanning the
   configured remotes rather than relying on `@{u}` alone.
+- 2026-09-04 — Completed; both phases done, tests green (1221/1221). Nothing
+  deferred. Verified each phase claim against the code rather than the
+  checkboxes, and confirmed both built distributions carry the docs and the two
+  skill edits.
