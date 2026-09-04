@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-41/project-configured-depl
 
 > **Type:** Feature
 > **Name:** feat-deployment-stage-ladder (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all phases done (2026-09-04)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -150,9 +150,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-04 | Ready | backlog | Reuben Greaves |
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-04 — Completed; all four phases done, tests green (1187/1187).
+  Nothing deferred. Verified read-only against the live workspace: the doctor
+  ladder row reports `ok` and `warn` correctly, and a `stage` dry run over this
+  repo's own history refused to move SKS-41 because its spec was still in
+  progress.
 - 2026-09-04 — Spec created.
 - 2026-09-04 — Phase 4 done. The CI guide went to
   `packages/linear/assets/core/ci-stages.md` rather than `docs/`: that folder is
