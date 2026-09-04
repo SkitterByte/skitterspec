@@ -27,17 +27,13 @@ saving is measured rather than assumed.
       the flag, and — the inverse — that the judgment skills stay model-invocable,
       so a compose or overlay change cannot silently drop or add it.
 - [x] Run `pnpm test` — 1130 green — and `pnpm build` — both distributions compose.
-- [ ] **DEFERRED — confirm each still works when the user types it.** Partly
-      evidenced: the Phase 2 spike `/spike-bangtest` carried
-      `disable-model-invocation: true` and the user invoked it successfully, so
-      the flag demonstrably does not block user invocation. That was a *command*
-      file, though, and these three are *skills*; the field is documented as the
-      same, but the case has not been exercised. It also cannot be exercised from
-      here — an agent cannot self-invoke a slash command, and the installed copies
-      under `.claude/skills/` do not carry the flag until `skitterspec update`
-      re-installs them from these assets. **The real check:** after this branch
-      lands, run `skitterspec update`, start a fresh session, and type
-      `/spec-status`. If it runs, the flag is correct.
+- [x] **Confirm each still works when the user types it — done 2026-09-04.**
+      After `pnpm exec skitterspec-linear update` installed the flagged assets,
+      the user typed `/spec-status` and it loaded and ran normally, with
+      `disable-model-invocation: true` on line 4 of the invoked
+      `.claude/skills/spec-status/SKILL.md`. Together with the Phase 2 spike —
+      where a flagged *command* was user-invoked successfully — the flag is shown
+      to restrict model invocation only, on both file types.
 
 ## Measurement
 
