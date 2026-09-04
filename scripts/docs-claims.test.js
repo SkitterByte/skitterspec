@@ -191,3 +191,57 @@ test('every skill named on the site is a skill that ships', () => {
     }
   }
 })
+
+// --- quoted CLI output must match what the CLI would actually print ----------
+//
+// The guards above check that the site names real commands. They say nothing
+// about the VALUES it quotes, and a sample of tool output is read as fact — so a
+// stale one is a lie the reader has no way to spot. `16 skills installed` sat on
+// the page through the release that moved two skills to `.claude/commands/`,
+// with the whole suite green, because nothing compared the number to the tree.
+//
+// Counted from the ASSETS the distribution ships, not from an install: an
+// installed `.claude/skills/` also holds whatever other tools put there, so it
+// is not a figure the docs could ever state.
+
+function shippedCounts() {
+  const kinds = { skills: new Set(), commands: new Set() }
+  for (const pkg of ['common', 'linear']) {
+    const skills = path.join(ROOT, 'packages', pkg, 'assets', 'skills')
+    if (fs.existsSync(skills)) {
+      for (const e of fs.readdirSync(skills, { withFileTypes: true })) {
+        if (e.isDirectory() && fs.existsSync(path.join(skills, e.name, 'SKILL.md'))) {
+          kinds.skills.add(e.name)
+        }
+      }
+    }
+    const cmds = path.join(ROOT, 'packages', pkg, 'assets', 'commands')
+    if (fs.existsSync(cmds)) {
+      for (const f of fs.readdirSync(cmds)) if (f.endsWith('.md')) kinds.commands.add(f.slice(0, -3))
+    }
+  }
+  return { skills: kinds.skills.size, commands: kinds.commands.size }
+}
+
+test('the shipped catalogue is countable at all', () => {
+  const { skills, commands } = shippedCounts()
+  assert.ok(skills > 5, `found the skills, got ${skills}`)
+  assert.ok(commands > 0, `found the commands, got ${commands}`)
+})
+
+test('every "N skills installed" the site quotes matches the shipped count', () => {
+  const { skills } = shippedCounts()
+  let quoted = 0
+  for (const rel of PAGES) {
+    for (const m of textOf(rel).matchAll(/(\d+)\s+skills installed/g)) {
+      quoted++
+      assert.strictEqual(
+        Number(m[1]),
+        skills,
+        `${rel} quotes "${m[1]} skills installed"; the distribution ships ${skills}`,
+      )
+    }
+  }
+  assert.ok(quoted > 0, 'the doctor sample is still on the page — if it moved, retarget this test')
+})
+

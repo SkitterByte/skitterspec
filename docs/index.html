@@ -794,8 +794,8 @@
           <tr><td class="cmd">/spec-init</td><td>Bootstrap or repair the workflow in a project (idempotent).</td><td class="folder">—</td></tr>
 
           <tr class="grp-row"><td colspan="3">Run &amp; test locally</td></tr>
-          <tr><td class="cmd">/spec-live</td><td>Check the branch out in your primary checkout — reuse the running server.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-connect</td><td>Proxy canonical localhost ports to a spec's own dev stack.</td><td class="folder">—</td></tr>
+          <tr><td class="cmd">/spec-live</td><td>Check the branch out in your primary checkout — reuse the running server. A <b>command</b>: it runs the verb directly, so you type it yourself.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-connect</td><td>Proxy canonical localhost ports to a spec's own dev stack. A <b>command</b>, like <span class="mono">/spec-live</span>.</td><td class="folder">—</td></tr>
           <tr><td class="cmd">/spec-to-main</td><td>Rebase + fast-forward onto base mid-spec, for CI / shared envs.</td><td class="folder">in-progress/</td></tr>
 
           <tr class="grp-row"><td colspan="3">Linear sync — the superset only</td></tr>
@@ -821,7 +821,7 @@
     <div class="quick-grid reveal">
       <div class="qbox">
         <h3><span class="q-badge">1</span> Scaffold it</h3>
-        <p>Writes the spec skills into <span class="mono">.claude/</span>, the <span class="mono">specs/</span> lifecycle folders, and the rules the skills follow. Idempotent — safe to re-run, and it repairs a half-install rather than clobbering your edits.</p>
+        <p>Writes the spec skills and slash commands into <span class="mono">.claude/</span>, the <span class="mono">specs/</span> lifecycle folders, and the rules they follow. Idempotent — safe to re-run, and it repairs a half-install rather than clobbering your edits.</p>
         <div class="code"><span class="c"># tracker-free base</span>
 npx @skitterbyte/skitterspec <span class="p">init</span>
 
