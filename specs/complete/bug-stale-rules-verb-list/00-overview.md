@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-65/bug-spec-planningmds-ve
 
 > **Type:** Bug
 > **Name:** bug-stale-rules-verb-list (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -86,8 +86,10 @@ exactly nine rows. An earlier report in this session called it stale; it was not
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-04 — Bug reproduced; failing test added (red).
+- 2026-09-04 — Completed; 1280 tests green.
 - 2026-09-04 — Fixed: verb list completed, guard widened to all prose assets.
