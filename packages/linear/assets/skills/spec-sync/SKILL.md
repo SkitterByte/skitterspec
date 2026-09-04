@@ -1,6 +1,7 @@
 ---
 name: spec-sync
 description: Run the repo-wide spec-sync operations against Linear — what's linked, the workspace's states and projects, read-back verification, manual stamping, and bulk `apply --all <bucket>`. Run it bare for the repo-wide overview. Wraps the `spec-sync` CLI, which is a local devDependency and never on PATH, so this skill always states the full invocation. Defers to /spec-push and /spec-status for per-spec work. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-sync", "run spec-sync", "what's linked to Linear", "which states does the workspace have", or "mirror the whole backlog".
+disable-model-invocation: true
 ---
 
 # /spec-sync — the repo-wide Linear sync operations

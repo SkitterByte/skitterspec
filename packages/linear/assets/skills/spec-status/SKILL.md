@@ -1,6 +1,7 @@
 ---
 name: spec-status
 description: Show a spec's one-way sync status against Linear — a read-only drift report. Reports whether the spec changed since the last push (there's something to push) and, optionally, whether Linear's issue workflow-state differs from the spec's. Fetches the Linear issue over MCP and runs `skitterspec spec-sync status`. Changes nothing. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-status", "is this spec in sync with Linear", "what would push", or "show spec sync status".
+disable-model-invocation: true
 ---
 
 # /spec-status — one-way sync drift report

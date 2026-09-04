@@ -174,7 +174,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Zero-arg spec resolution from the worktree list | ✅ | [01-zero-arg-resolution.md](01-zero-arg-resolution.md) |
 | 2 | A `commands/` lane in the installer | ✅ | [02-commands-lane.md](02-commands-lane.md) |
 | 3 | Move spec-connect and spec-live to commands | ✅ | [03-move-engine-verbs.md](03-move-engine-verbs.md) |
-| 4 | Take the remaining engine skills out of the listing | ⬜ | [04-disable-model-invocation.md](04-disable-model-invocation.md) |
+| 4 | Take the remaining engine skills out of the listing | ✅ | [04-disable-model-invocation.md](04-disable-model-invocation.md) |
 
 ## Open questions
 
@@ -199,6 +199,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-04 — Chose the slot registry over the `specs/in-progress/` bucket as
   the source for zero-arg resolution, after finding the bucket absent from this
   repo — git does not store an empty directory.
+- 2026-09-04 — Phase 4: **measured.** Removing five descriptions from the model-facing listing saves 2619 chars (~654 tokens) per session — 34% of a listing that was 15 skills / 7636 chars at `3e58d49`. Per invocation, `/spec-connect` drops from a 2764-char skill body plus a Bash round-trip to a 574-char pre-executed command; `/spec-live` from 4184 to 648. The session saving is unconditional; the per-invocation saving depends on actually using the commands.
+- 2026-09-04 — Phase 4: the flag changed no hand-off — every reference to the three skills was descriptive, and `spec-push` (which `/spec-go` genuinely invokes) stays model-invocable, now guarded by an inverse test.
 - 2026-09-04 — Phase 3: the refusal audit came back clean — every guard `spec-live`'s SKILL.md described (hotfix, docker stack, migration branch) was already enforced in `packages/common/src/env/live.js` and already tested, so deleting the skill lost no behaviour.
 - 2026-09-04 — Phase 3: three existing tests encoded the old skills-only shape and were updated rather than weakened — `init.test.js`, `assets.test.js`, and `scripts/docs-claims.test.js`, the last now accepting a shipped command as satisfying a `/spec-…` mention in the docs.
 - 2026-09-04 — Phase 2: mechanism verified. `/spike-bangtest hello` proved that a `` !`…` `` block in a `.claude/commands/` file executes **before** the model turn and that `$ARGUMENTS` interpolates inside it, with no Bash tool call in the turn. Phase 3's command bodies can be written as designed.

@@ -25,6 +25,12 @@ finding one. They are marked `disable-model-invocation`, meaning **only you can
 run them** — a skill that wants one will tell you to type it rather than invoking
 it.
 
+`/spec-to-main`, `/spec-status` and `/spec-sync` stay **skills** — each carries
+real judgment (green tests before a land; an MCP fetch and a team-key check; ten
+subcommands) — but they are marked user-only too, since nobody reaches them
+except by typing them. Everything else in the table above stays model-invocable,
+which is what lets `/spec-go` hand off to `/spec-push` as work progresses.
+
 Status flow: `Ready → In Progress → Complete` (or `Cancelled` from any state).
 `/spec` grills to a **Ready** spec directly — there is no separate grooming
 command; it writes `Draft` only when open questions are deliberately left.

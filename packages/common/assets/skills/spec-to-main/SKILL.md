@@ -1,6 +1,7 @@
 ---
 name: spec-to-main
 description: Land an in-progress spec's branch onto main WITHOUT finishing it — rebase + fast-forward so the work reaches main (to run it in CI / a shared test env), while the worktree stays and the spec stays In Progress. Repeatable — land again as you commit more. Targets a spec by name (arg) or the spec in context. Use when the user says "/spec-to-main", "land this on main but keep going", "I need this on main to run tests before finishing", or "merge to main without completing the spec".
+disable-model-invocation: true
 ---
 
 # /spec-to-main — land the branch on main, keep the spec open
