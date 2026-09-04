@@ -1,0 +1,1 @@
+../../packages/linear/assets/rules/commit-trailers.md
