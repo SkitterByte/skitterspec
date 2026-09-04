@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-59"
 ---
 
-# Phase 1 — `spec-env` reference on index.html ⬜
+# Phase 1 — `spec-env` reference on index.html 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** `index.html` documents all ten `spec-env` verbs, each labelled by who
 runs it, and the docs-claims suite fails if the engine gains a verb the page does

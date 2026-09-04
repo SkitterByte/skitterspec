@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-58/document-the-spec-env-a
 
 > **Type:** Feature
 > **Name:** feat-cli-engine-docs (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-04)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
 > **Area:** docs/index.html, docs/linear.html, scripts/docs-claims.test.js
 > **Stack:** worktree
@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `spec-env` reference on index.html | ⬜ | [01-spec-env-reference.md](01-spec-env-reference.md) |
+| 1 | `spec-env` reference on index.html | 🔄 | [01-spec-env-reference.md](01-spec-env-reference.md) |
 | 2 | `spec-sync` reference on linear.html | ⬜ | [02-spec-sync-reference.md](02-spec-sync-reference.md) |
 
 ## Open questions
@@ -113,6 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | Ready | backlog | Reuben Greaves |
+| 2026-09-04 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
