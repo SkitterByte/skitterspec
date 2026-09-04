@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-61/bug-spec-env-status-ign
 
 > **Type:** Bug
 > **Name:** bug-status-ignores-worktrees (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -95,11 +95,13 @@ are not provisioned (a bucketed spec with no worktree, or the primary checkout).
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-04 — Bug reproduced; failing test added (red).
 - 2026-09-04 — Fixed: status enumerates worktrees, registry annotates ports only.
+- 2026-09-04 — Completed; 1268 tests green.
 - 2026-09-04 — Removed the docs caveat this defect had earned itself a day earlier;
   documenting a bug is not the same as fixing it, and the page now describes real
   behaviour.
