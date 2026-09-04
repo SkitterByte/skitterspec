@@ -62,6 +62,17 @@ Tags are `name@version` (short, unscoped): `skitterspec@2.0.1`,
 `skitterspec-linear@1.1.0`. The constant `@skitterbyte/` scope carries no
 information and is omitted. Legacy flat `v*` tags stay as history.
 
+They are **annotated** (`git tag -a … -m "<name> <version>"`), and that is
+load-bearing rather than cosmetic. `git push --follow-tags` — how a tag normally
+travels with the branch it belongs to, and what most push aliases wrap — sends
+annotated tags and nothing else. A lightweight release tag stays local while the
+push reports success, which is how seven tags for published versions accumulated
+unpushed across five releases. Annotation also records who cut the release and
+when.
+
+The follow-up commands the tool prints still name the tag explicitly, so they
+work either way.
+
 ## Guards
 
 Before mutating anything, the tool fails closed on:

@@ -123,7 +123,7 @@ test('buildPlan for a bump emits ordered local steps then publish, and never pus
     'git add packages/skitterspec/package.json',
     'git commit -m "chore(release): skitterspec@2.0.1"',
     'pnpm publish --filter @skitterbyte/skitterspec --access public --no-git-checks',
-    'git tag skitterspec@2.0.1',
+    'git tag -a skitterspec@2.0.1 -m "skitterspec 2.0.1"',
   ])
 
   // the publish step is the only one gated behind the publish level
@@ -177,7 +177,7 @@ test('buildPlan for an equal version skips bump/commit and just publishes + tags
   const cmds = plan.steps.map((s) => s.cmd)
   assert.deepStrictEqual(cmds, [
     'pnpm publish --filter @skitterbyte/skitterspec --access public --no-git-checks',
-    'git tag skitterspec@2.0.0',
+    'git tag -a skitterspec@2.0.0 -m "skitterspec 2.0.0"',
   ])
 })
 
@@ -358,3 +358,62 @@ test('the guard separates the real empty release from the substantive one', () =
     assert.ok(changed.length, 'the 16.3.x line did ship content — the guard must not block it')
   }
 })
+
+// --- the tag must be annotated ----------------------------------------------
+//
+// `git tag <name>` makes a LIGHTWEIGHT tag: a bare ref with no tag object. It
+// looks identical in `git tag --list`, and that is the problem — every ordinary
+// way of pushing tags alongside a branch skips it in silence.
+//
+// `git push --follow-tags` sends annotated tags reachable from the commits and
+// nothing else, so a lightweight release tag stays local while the push reports
+// success. Seven tags for published versions accumulated that way across five
+// releases, found only when someone asked whether their push alias sent tags.
+//
+// An annotated tag also records who cut the release and when, which a tag
+// asserting "this version reached npm" ought to carry.
+
+const tagStep = (plan) => plan.steps.find((s) => /^git tag /.test(s.cmd))
+
+const planFor = (level = 'publish') =>
+  buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '2.0.0',
+    nextVersion: '2.0.1',
+    level,
+  })
+
+test('the release tag is annotated, so --follow-tags will send it', () => {
+  const step = tagStep(planFor())
+  assert.ok(step, 'there is a tag step')
+  assert.ok(
+    step.argv.includes('-a'),
+    `tag step is lightweight: ${step.argv.join(' ')} — --follow-tags would skip it`,
+  )
+  assert.ok(step.argv.includes('-m'), 'an annotated tag needs a message')
+})
+
+test('the tag message names the release, not just the tag', () => {
+  const step = tagStep(planFor())
+  const msg = step.argv[step.argv.indexOf('-m') + 1]
+  assert.match(msg, /skitterspec/, 'names the package')
+  assert.match(msg, /2\.0\.1/, 'names the version')
+})
+
+// The printed command and the argv are two representations of one step; a reader
+// copying the printed form must get the same tag the tool would create.
+test('the printed tag command matches the argv it would run', () => {
+  const step = tagStep(planFor())
+  assert.match(step.cmd, /^git tag -a /, `printed form is stale: ${step.cmd}`)
+  assert.ok(step.cmd.includes('skitterspec@2.0.1'), 'printed form names the tag')
+})
+
+// Local-only runs tag too, so the annotation must not be conditional on publish.
+test('a --yes run cuts the same annotated tag', () => {
+  const step = tagStep(planFor('yes'))
+  assert.ok(step, 'the local run still tags')
+  assert.ok(step.argv.includes('-a'), 'and it is annotated there too')
+})
+

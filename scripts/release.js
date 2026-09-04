@@ -188,7 +188,20 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
     argv: ['pnpm', 'publish', '--filter', npm, '--access', 'public', '--no-git-checks'],
     desc: 'build (prepack) + publish to npm',
   })
-  steps.push({ phase: 'local', cmd: `git tag ${tag}`, argv: ['git', 'tag', tag], desc: `tag ${tag}` })
+  // ANNOTATED, deliberately. `git tag <name>` alone makes a lightweight tag — a
+  // bare ref with no tag object — and `git push --follow-tags`, which is how a
+  // tag normally travels with its branch, sends annotated tags and nothing else.
+  // A lightweight release tag therefore stays local while the push reports
+  // success: seven of them accumulated for published versions across five
+  // releases before anyone noticed. The annotation also records who cut the
+  // release and when, which a tag asserting "this reached npm" should carry.
+  const tagMsg = `${name} ${nextVersion}`
+  steps.push({
+    phase: 'local',
+    cmd: `git tag -a ${tag} -m "${tagMsg}"`,
+    argv: ['git', 'tag', '-a', tag, '-m', tagMsg],
+    desc: `tag ${tag}`,
+  })
 
   // Never executed — printed for the operator to run when ready.
   const followUp = [`git push`, `git push origin ${tag}`]
