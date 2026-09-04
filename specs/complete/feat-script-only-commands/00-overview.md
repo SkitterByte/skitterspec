@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-46/script-only-commands-sp
 
 > **Type:** Feature
 > **Name:** feat-script-only-commands (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-04)
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -178,9 +178,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] None — the one unknown (whether `$ARGUMENTS` interpolates inside a
-      `` !`…` `` block) is a verification task at the head of Phase 2, with a
-      documented fallback in that phase's notes.
+- [x] ~~Whether `$ARGUMENTS` interpolates inside a `` !`…` `` block~~ — resolved
+      in Phase 2: it does, and the pre-execution happens before the model turn.
+- [ ] **Deferred:** confirming the three `disable-model-invocation` skills still
+      run when the user types them (Phase 4). Needs `skitterspec update` plus a
+      fresh session after this branch lands — see Phase 4 for the exact check.
 
 ## State log
 
@@ -188,6 +190,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-04 | Ready | backlog | Reuben Greaves |
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -199,6 +202,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-04 — Chose the slot registry over the `specs/in-progress/` bucket as
   the source for zero-arg resolution, after finding the bucket absent from this
   repo — git does not store an empty directory.
+- 2026-09-04 — Completed; all four phases done, 1130 tests green, both distributions build. **One item deferred:** confirming the three `disable-model-invocation` skills still run when the user types them. It cannot be checked from an agent turn (no self-invocation) and the installed `.claude/skills/` copies do not carry the flag until `skitterspec update` re-installs them. The Phase 2 spike showed the flag does not block user invocation for a *command*; the *skill* case is unexercised. Check it with `skitterspec update` and a fresh session after landing.
 - 2026-09-04 — Phase 4: **measured.** Removing five descriptions from the model-facing listing saves 2619 chars (~654 tokens) per session — 34% of a listing that was 15 skills / 7636 chars at `3e58d49`. Per invocation, `/spec-connect` drops from a 2764-char skill body plus a Bash round-trip to a 574-char pre-executed command; `/spec-live` from 4184 to 648. The session saving is unconditional; the per-invocation saving depends on actually using the commands.
 - 2026-09-04 — Phase 4: the flag changed no hand-off — every reference to the three skills was descriptive, and `spec-push` (which `/spec-go` genuinely invokes) stays model-invocable, now guarded by an inverse test.
 - 2026-09-04 — Phase 3: the refusal audit came back clean — every guard `spec-live`'s SKILL.md described (hotfix, docker stack, migration branch) was already enforced in `packages/common/src/env/live.js` and already tested, so deleting the skill lost no behaviour.

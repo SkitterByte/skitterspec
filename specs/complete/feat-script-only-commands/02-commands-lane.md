@@ -43,10 +43,10 @@ manifest. Proven by installer tests over a temp dir.
       occurrence and leaves untokenised content alone; `managedTargets` renders
       command assets exactly as the installer does; and a stays-silent test that a
       distribution shipping no commands manages none.
-- [ ] Add the install/manifest **integration** tests (installs with the right
-      prefix; a second run reports `skipped` not `updated`; an edited command is
-      kept as `customized`) — deferred to Phase 3, which is where the first real
-      command assets exist to install.
+- [x] Add the install/manifest **integration** tests (installs with the right
+      prefix; a fresh install reads back `pristine`; an edited command is kept as
+      `customized`) — done in Phase 3, where the first real command assets exist
+      to install. See `packages/common/test/init-commands.test.js`.
 - [x] Run `pnpm test` — 1120 green — and `pnpm build` — both distributions compose.
 
 ## Notes
