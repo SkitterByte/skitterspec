@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-51/bug-spec-sync-ref-retur
 
 > **Type:** Bug
 > **Name:** bug-ref-branch-mismatch (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed, tests green
+> **Status:** Complete (2026-09-04)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-04
@@ -145,6 +145,7 @@ Additive: every existing `spec-sync ref` invocation resolves exactly as before.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-04 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-04 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -166,3 +167,7 @@ Additive: every existing `spec-sync ref` invocation resolves exactly as before.
   nesting by hand. `/spec-hotfix` carries the identical instruction and is left
   untouched by request; `/spec-go` does not (it moves the spec inside the
   worktree, so there is no cross-checkout `mv`).
+- 2026-09-04 — Completed; all fix tasks done, tests green (1108/1108). Nothing
+  deferred. `/spec-hotfix` carries the same `mv` defect fixed here in
+  `/spec-bug` and was left untouched by request — it is not a loose end of this
+  spec, but it is still there.
