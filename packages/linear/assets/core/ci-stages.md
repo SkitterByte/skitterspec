@@ -51,9 +51,12 @@ guessed at.
 2. **An API key as a pipeline secret**, exposed as the env var named by
    `auth.keyEnv` (default `LINEAR_API_KEY`). The config names the *variable*,
    never the key. `--apply` needs the API transport and refuses over MCP.
-3. **Full history for the range.** A shallow clone cannot see the previous tag —
-   fetch tags and enough depth, or the range resolves to nothing and the step
-   silently moves nothing.
+3. **Full history for the range** (CI: `fetch-depth: 0`). Fetching tags is not
+   enough on its own: it makes the tag *resolve* without deepening the history,
+   so `git log <tag>..HEAD` would return only the commits the clone happens to
+   hold. `stage` and `released` check this and **refuse** rather than report a
+   partial range, so a shallow checkout fails the step loudly instead of
+   deploying a release that quietly leaves tickets behind.
 4. **Run `spec-sync doctor --check-remote` once** after setup. It reports the
    ladder's rungs against the workspace and warns if the last rung never closes
    an issue.

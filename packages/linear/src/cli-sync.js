@@ -913,6 +913,36 @@ function countSkills(dir) {
  * wrong guess is visible rather than silent.
  */
 /**
+ * The base of a two-dot range that git cannot actually reach from the head, or
+ * null when the range is trustworthy (or is not a shape we can check).
+ *
+ * Deliberately NOT "is this repository shallow?". A shallow clone deep enough to
+ * contain the base has a COMPLETE range and is perfectly healthy — refusing it
+ * would accuse a working setup, which is the failure the stays-silent test in
+ * `cli-shallow-range.test.js` pins down. `merge-base --is-ancestor` asks the
+ * narrower question the range actually depends on.
+ *
+ * A range that is not `A..B` (a bare ref, a `...` symmetric difference, a
+ * revision expression) has no single base to check, so it is left alone: a guard
+ * that cannot see the shape must not pretend to have checked it. The shallow
+ * warning in the caller covers that case instead.
+ */
+function unreachableBase(git, range) {
+  const text = String(range || '')
+  if (text.includes('...')) return null
+  const parts = text.split('..')
+  if (parts.length !== 2) return null
+  const [base, head] = [parts[0].trim(), parts[1].trim() || 'HEAD']
+  if (!base) return null
+  // `is-ancestor` answers with its EXIT CODE, so a null return (non-zero) is the
+  // "not an ancestor" answer, not a missing tool. A base git cannot resolve at
+  // all falls through to the existing `git log` refusal, which names it better.
+  if (git(['rev-parse', '-q', '--verify', `${base}^{commit}`]) === null) return null
+  if (git(['rev-parse', '-q', '--verify', `${head}^{commit}`]) === null) return null
+  return git(['merge-base', '--is-ancestor', base, head]) === null ? base : null
+}
+
+/**
  * Resolve a commit range and read it, shared by `released` (which reports on it)
  * and `stage` (which acts on it). Both must agree on what a release contains,
  * and a second copy of this would be a second answer.
@@ -940,6 +970,25 @@ function readCommitRange(dir, rangeArg, verb) {
       }
     }
     range = `${tag}..HEAD`
+  }
+
+  // WHAT WOULD FOOL THIS: `git log` reports a TRUNCATED history as a successful
+  // one. On a shallow clone whose depth stops before the base, `git log
+  // base..HEAD` exits 0 and returns only the commits it happens to hold, so the
+  // range silently loses tickets. The tag itself resolves — `rev-parse --verify`
+  // passes — so "does the base exist?" is not the question. The question is
+  // whether the base is in THIS history, which is what `merge-base` answers.
+  const unreachable = unreachableBase(git, range)
+  if (unreachable) {
+    return {
+      error: [
+        `spec-sync ${verb}: refusing — "${unreachable}" is not reachable in this clone's history.`,
+        '  The range would silently report fewer commits than it contains.',
+        '  This is usually a shallow clone: fetching tags makes the tag resolve',
+        '  without deepening the history. Fetch full history (CI: fetch-depth: 0),',
+        '  or pass a range whose base is present.',
+      ],
+    }
   }
 
   // NUL-delimited so a subject or body containing the separator cannot split a
