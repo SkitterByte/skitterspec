@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-70/bug-release-reports-cou
 
 > **Type:** Bug
 > **Name:** bug-release-counts-spec-commits
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -142,6 +142,7 @@ commit in its own range:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-08 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-08 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -150,3 +151,6 @@ commit in its own range:
   failures).
 - 2026-09-08 — Fixed: commits whose changed paths are all under
   `release.ignorePaths` no longer contribute tickets; test green.
+- 2026-09-08 — Completed; all phases done, tests green (1196 passing). The
+  `stage` backwards-move question and the ERQ-461 interaction are recorded under
+  Open questions as deliberate non-changes.
