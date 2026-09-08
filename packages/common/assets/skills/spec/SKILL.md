@@ -23,7 +23,12 @@ not write the spec until this is resolved.
 
 - Break the problem into **distinctive areas** and work them in logical order,
   resolving dependencies between decisions one at a time.
-- Ask **one question at a time**. For each, give your **recommended answer**.
+- **Batch independent questions; sequence dependent ones.** When several
+  questions do not affect each other's answers, put them to the user together
+  (up to four at once — use the harness's multi-question ask tool where it has
+  one) rather than spending a round trip on each. When an answer would change
+  what you ask next, ask that one alone and wait for it. Give your
+  **recommended answer** either way.
 - If a question can be answered by **reading the codebase, read it** instead of
   asking. Verify endpoints/models/files actually exist before relying on them.
 - Cover, at minimum, the areas that apply:

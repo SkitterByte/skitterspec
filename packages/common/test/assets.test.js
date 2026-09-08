@@ -507,3 +507,59 @@ test('the base tag is offered from the issue but never assumed', () => {
   assert.match(text, /offer any versions it mentions/i, 'offers what the report says')
   assert.match(text, /not a default/, 'and is explicit that it is not a default')
 })
+
+// --- Grilling cadence --------------------------------------------------------
+//
+// `/spec` and `/spec-review` interview the user before writing. They used to
+// mandate "one question at a time", which costs a full model round trip per
+// question even when the questions are independent of one another — five
+// unrelated questions became five turns for no gain in answer quality.
+//
+// The rule is now conditional: batch what is independent, sequence what is not.
+// Both halves matter, so both are guarded — dropping the sequencing half would
+// invite asking a question whose wording depends on an answer not yet given.
+//
+// THE BLIND SPOT: "one at a time" is still correct prose elsewhere. `/spec`
+// tells the reader to work through DEPENDENCIES between decisions one at a
+// time, which is about ordering the analysis, not about how many questions go
+// in a message. So this matches the retired instruction — asking QUESTIONS one
+// at a time — and never the bare phrase. The stays-silent test below pins that.
+const GRILLING_SKILLS = ['spec', 'spec-review']
+const retiredCadence = /(?:ask|asking)\b[^.]*\bone question at a time|one question at a time\b/i
+
+test('no grilling skill still mandates one question at a time', () => {
+  const offenders = []
+  for (const name of GRILLING_SKILLS) {
+    if (retiredCadence.test(skillText(name))) offenders.push(name)
+  }
+  assert.deepStrictEqual(offenders, [], `still mandates one-question-at-a-time: ${offenders.join(', ')}`)
+})
+
+test('the grilling skills tell you to batch AND to sequence', () => {
+  // The replacement, not merely the absence of the old rule. Without this a
+  // deletion would satisfy the guard above while leaving no cadence at all.
+  for (const name of GRILLING_SKILLS) {
+    const text = skillText(name)
+    assert.match(text, /batch(?:ing|ed)?\b/i, `${name} says to batch independent questions`)
+    assert.match(text, /independent/i, `${name} names independence as the condition`)
+    assert.match(text, /recommended answer/i, `${name} still asks for a recommended answer`)
+  }
+  const spec = skillText('spec')
+  assert.match(spec, /ask that one alone and wait/i, 'spec keeps the sequencing half')
+})
+
+test('the cadence guard stays silent on ordering dependent decisions', () => {
+  // Healthy-but-unusual input: the sentence that must remain sayable. Resolving
+  // dependencies one at a time is about the order of the analysis, and a guard
+  // that could not tell it from the retired instruction would forbid correct
+  // advice — and would fire on /spec today, which still says exactly this.
+  const fine = [
+    'resolving dependencies between decisions one at a time.',
+    'Work the areas one at a time, in logical order.',
+  ]
+  for (const s of fine) {
+    assert.ok(!retiredCadence.test(s), `false positive on: ${s}`)
+  }
+  const spec = skillText('spec')
+  assert.match(spec, /decisions one at a time/, 'the live sentence this must not accuse is still there')
+})

@@ -48,9 +48,9 @@ trust the spec's own wording — verify:
 
 Where the drift forces a choice (the old approach no longer fits, a referenced
 thing is gone, scope is now ambiguous), grill the user like `/spec` Phase A —
-**one question at a time, with a recommended answer** — but scoped tightly to
-the drift. Don't re-litigate decisions that still hold. If you can resolve it by
-reading the code, do that instead of asking.
+**batching independent questions, each with a recommended answer** — but scoped
+tightly to the drift. Don't re-litigate decisions that still hold. If you can
+resolve it by reading the code, do that instead of asking.
 
 ## 4. Update the spec
 

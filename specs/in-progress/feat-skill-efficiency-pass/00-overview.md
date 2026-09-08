@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-72/skill-and-command-effic
 
 > **Type:** Feature
 > **Name:** feat-skill-efficiency-pass (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 4 (started 2026-09-08)
+> **Status:** In Progress — all four phases done, ready for /spec-complete
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Retire stale spec-ready claims + guard | ✅ | [01-stale-refs.md](01-stale-refs.md) |
 | 2 | Trim always-loaded context | ✅ | [02-trim-always-loaded.md](02-trim-always-loaded.md) |
 | 3 | Single-source shared blocks via common fragments | ✅ | [03-shared-fragments.md](03-shared-fragments.md) |
-| 4 | Batched grilling | ⬜ | [04-batched-grilling.md](04-batched-grilling.md) |
+| 4 | Batched grilling | ✅ | [04-batched-grilling.md](04-batched-grilling.md) |
 
 ## Open questions
 
@@ -158,3 +158,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   real invariant — every declared seam is supplied by exactly one side. That also
   closes a hole they shared: an unfilled seam composes to nothing, so a forgotten
   fragment silently deletes the passage while every no-raw-marker test passes.
+- 2026-09-08 — Phase 4: the cadence guard matches the retired instruction
+  (asking *questions* one at a time), never the bare phrase. `/spec` still
+  legitimately says to resolve dependencies between decisions one at a time —
+  that is about ordering the analysis, not about how many questions go in a
+  message — so a guard on the phrase alone would have accused correct advice
+  in the very file it was added to protect.
+- 2026-09-08 — Phase 4: paired the negative guard with a positive one. Deleting
+  the cadence rule outright would satisfy "no longer mandates one at a time"
+  while leaving no guidance at all, so both halves are asserted — batch what is
+  independent, sequence what is not.
