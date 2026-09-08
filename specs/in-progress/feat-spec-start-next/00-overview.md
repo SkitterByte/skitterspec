@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-86/spec-start-spec-next-th
 
 > **Type:** Feature
 > **Name:** feat-spec-start-next (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 2 (started 2026-09-08)
+> **Status:** In Progress — Phase 3 (started 2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Extract /spec-next | ✅ | [01-spec-next.md](01-spec-next.md) |
-| 2 | Build /spec-start | ⬜ | [02-spec-start.md](02-spec-start.md) |
+| 2 | Build /spec-start | ✅ | [02-spec-start.md](02-spec-start.md) |
 | 3 | Engine glue | ⬜ | [03-engine-glue.md](03-engine-glue.md) |
 | 4 | Retire /spec-go | ⬜ | [04-retire-spec-go.md](04-retire-spec-go.md) |
 | 5 | Complete from a worktree session | ⬜ | [05-complete-from-worktree.md](05-complete-from-worktree.md) |
@@ -152,3 +152,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-08 — Phase 1: `spec-next`'s intro deliberately does not reference
   `/spec-go`, so Phase 4's retirement needs no edit here — the only remaining
   reference is the `spec-go-start` seam, which Phase 4 renames as planned.
+- 2026-09-08 — Phase 2: `/spec-start` carries **no** tracker seam, and the
+  skill says why. My first draft copied `spec-tracker-intake`, `-link` and the
+  project picker from `/spec`, which was wrong: those belong to skills that
+  CREATE a spec and mint its issue. `spec-start` creates nothing, and the one
+  state change it makes (spec → in-progress) is mirrored by the refresh
+  `/spec-next` runs immediately after. Two pushes one commit apart would have
+  sent the same thing twice.
+- 2026-09-08 — Phase 2: `/spec-live` is user-only, so worktree mode's
+  bring-the-branch-here step prints it and ends the turn rather than pretending
+  the skill can run it. That is one hand-off remaining in worktree mode — but
+  for a *branch swap the operator must authorise*, not for a terminal window,
+  and it disappears entirely in checkout mode.

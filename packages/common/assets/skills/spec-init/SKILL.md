@@ -22,9 +22,9 @@ clobber customised content. Finish with a summary of created vs already-present.
 > **Leave alone**. Non-interactively it only adds what's missing; `--resync` /
 > `--reset` (reset needs `--yes`) drive the stronger actions.
 
-The system is **ten skills**: `spec` (feature), `spec-bug` (bug),
-`spec-hotfix` (a bug fixed on a released tag), `spec-review`, `spec-go`,
-`spec-next`, `spec-to-main`, `spec-complete`, `spec-cancel`, and this
+The system is **eleven skills**: `spec` (feature), `spec-bug` (bug),
+`spec-hotfix` (a bug fixed on a released tag), `spec-review`, `spec-start`,
+`spec-next`, `spec-go`, `spec-to-main`, `spec-complete`, `spec-cancel`, and this
 `spec-init`. The lifecycle is `backlog → in-progress → complete / cancelled`,
 with `.core` holding always-apply project rules.
 
@@ -64,7 +64,7 @@ project wants everything tracked, remove it. Confirm with
 
 ## 3. Verify the skills are installed
 
-Check each of the ten skills resolves — `.claude/skills/<name>/SKILL.md`
+Check each of the eleven skills resolves — `.claude/skills/<name>/SKILL.md`
 (project) or `~/.claude/skills/<name>/` (global). List any missing. This skill
 scaffolds the project; it does **not** regenerate skill bodies — missing skills
 must be copied in (e.g. `npx @skitterbyte/skitterspec init`) from a global install

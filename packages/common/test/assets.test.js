@@ -694,3 +694,63 @@ test('/spec-next does not provision — that is /spec-start', () => {
     assert.doesNotMatch(text, absent, `provisioning must not appear: ${absent}`)
   }
 })
+
+// --- /spec-start: the gate is the whole design -------------------------------
+//
+// One checkout holds one spec in flight. The gate is what makes that true, and
+// it is a REFUSAL rather than an auto-park because every way past it moves
+// somebody's unfinished work: stashing hides it, committing decides for them,
+// `/spec-live main` rebases a branch they were mid-thought on. The refusal costs
+// one command; guessing wrong costs an afternoon.
+test('/spec-start gates on a free workbench before anything else', () => {
+  const text = skillText('spec-start')
+  const gate = text.indexOf('## 1. The gate')
+  assert.ok(gate > 0 && gate < text.indexOf('## 2.'), 'the gate is section 1')
+  assert.match(text, /on the base branch/i, 'requires base')
+  assert.match(text, /clean/i, 'requires a clean tree')
+})
+
+test('/spec-start names all three ways out of the gate', () => {
+  // A refusal that does not say how to proceed is just an obstacle.
+  const text = skillText('spec-start')
+  for (const way of ['/spec-complete', '/spec-cancel', '/spec-live main']) {
+    assert.ok(text.includes(way), `names ${way} as a way out`)
+  }
+})
+
+test('/spec-start never works around its own gate', () => {
+  const flat = skillText('spec-start').replace(/\s+/g, ' ')
+  assert.match(flat, /Never get past the gate yourself/i, 'forbids it explicitly')
+  assert.match(flat, /Do not stash/i, 'names stashing')
+  assert.match(flat, /do not switch branches/i, 'names switching')
+})
+
+test('/spec-start parks a spec the live overlay refuses, rather than blocking it', () => {
+  // Stateful specs and hotfixes cannot take the primary checkout, but they must
+  // still be startable — the manual worktree tab is their workbench.
+  const flat = skillText('spec-start').replace(/\s+/g, ' ')
+  assert.match(flat, /parks\s*\*{0,2}\s*instead/i, 'parking is the answer')
+  assert.match(flat, /git -C <worktreePath>/, 'housekeeping still happens, anchored')
+  assert.match(flat, /run `\/spec-next` from a session there/i, 'names the way to build it')
+})
+
+test('/spec-start flows into /spec-next rather than stopping', () => {
+  // The operator asked to START the spec; ending on "now run /spec-next" would
+  // reintroduce the two-invocation cost this split exists to remove.
+  const flat = skillText('spec-start').replace(/\s+/g, ' ')
+  assert.match(flat, /carry straight on into `\/spec-next`/i)
+  assert.match(flat, /Do not stop and ask/i)
+})
+
+test('/spec-start has no --here, because it is here', () => {
+  const text = skillText('spec-start')
+  assert.match(text, /There is no `--here`/, 'says so explicitly for anyone migrating')
+})
+
+test('/spec-start carries no tracker seam, and says why', () => {
+  // It creates no spec and mints no issue; /spec-next's refresh covers the one
+  // state change it makes. An unexplained absence would read as an oversight.
+  const text = skillText('spec-start')
+  assert.doesNotMatch(text, /<!-- seam:/, 'no seam markers')
+  assert.match(text, /Why there is no tracker seam here/, 'the absence is documented')
+})
