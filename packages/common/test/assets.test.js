@@ -75,6 +75,36 @@ test('/spec-go documents trusting the worktree root via /add-dir', () => {
   }
 })
 
+// A worktree is only isolated for the AGENT. The shell that launched the session
+// stays in the main checkout, and every terminal derives its git UI — branch chip,
+// uncommitted-changes/diff panel — from the shell's cwd, not from ours. Reaching
+// into the worktree with absolute paths therefore runs a whole spec with the diff
+// panel describing a clean `main`, silently: nothing is broken, so nothing warns.
+// /spec-go used to offer that as a co-equal option; it now hands off and stops.
+test('/spec-go hands off to a session rooted in the worktree, and stops', () => {
+  const text = skillText('spec-go')
+  assert.match(text, /hand off to a session rooted there, and stop/i, 'names the hand-off')
+  assert.match(text, /end your turn/i, 'tells the agent to stop rather than carry on')
+  assert.match(text, /shell stays in the main\s+checkout/i, 'explains WHY — the shell is left behind')
+})
+
+// The stop must not become a loop: the re-run arrives INSIDE the worktree, and an
+// agent that hands off again from there would never build anything.
+test('/spec-go does not hand off twice once it is in the worktree', () => {
+  const text = skillText('spec-go')
+  assert.match(text, /Already there\?/, 'carries the already-in-the-worktree guard')
+  assert.match(text, /Never hand off twice/i, 'says so explicitly')
+})
+
+// An escape hatch has to exist (a one-line phase, a spec reviewed another way),
+// but it is opt-in and it states its cost — otherwise it silently becomes the
+// default again the first time the hand-off is inconvenient.
+test('/spec-go keeps --here as a costed opt-out', () => {
+  const text = skillText('spec-go')
+  assert.match(text, /`--here`/, 'names the flag')
+  assert.match(text, /diff view will track the main checkout/i, 'makes the agent state the cost')
+})
+
 // Skills whose 00-overview.md template carries the scannable `## Impact` map.
 const IMPACT_TEMPLATE_SKILLS = ['spec', 'spec-bug', 'spec-hotfix']
 

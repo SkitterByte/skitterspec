@@ -73,17 +73,40 @@ change or an explicit request.
   worktree so setup can rely on them; then the **`setup`** commands (e.g. an
   install command). With neither configured there's nothing to run; add
   `seedFiles`/`setup` if agents keep stalling on a missing `.env` or dependencies.
-- **Trust the worktree for this session.** The engine wrote the printed
-  `trusted:` root into `.claude/settings.local.json` (gitignored) so future
-  sessions trust it automatically — but that file likely won't hot-reload now,
-  so run `/add-dir <trusted root>` before editing into the worktree, or the
-  first edits will prompt.
-- **Do the rest in the worktree**, on the branch: open it (the printed opener, or
-  a fresh Claude session rooted there) or, staying in this session, act on the
-  worktree path with absolute paths / `git -C <worktreePath>`. The spec move,
-  header edits **and** the phase's code all happen on the branch — so the spec's
-  evolution travels with the code it describes and lands in one PR. `main` changes
-  only when that branch merges (at `/spec-complete`).
+- **Trust the worktree.** The engine wrote the printed `trusted:` root into
+  `.claude/settings.local.json` (gitignored), so the session you hand off to
+  below trusts it automatically. It only matters *now* if you stay in **this**
+  session (`--here`): that file likely won't hot-reload, so run
+  `/add-dir <trusted root>` before editing into the worktree, or the first
+  edits will prompt.
+- **Everything from here happens in the worktree, on the branch** — the spec
+  move, the header edits **and** the phase's code — so the spec's evolution
+  travels with the code it describes and lands in one PR. `main` changes only
+  when that branch merges (at `/spec-complete`).
+- **So hand off to a session rooted there, and stop.** Print the worktree path
+  and the opener command `spec-env up` emitted, tell the user to run it (or to
+  open a terminal tab in the worktree themselves) and re-run `/spec-go` from
+  there — then **end your turn**. Don't move the spec, don't start dev servers,
+  don't build the phase from here. Nothing below has run yet, and the re-run
+  picks all of it up.
+  **Already there?** If this session's cwd is *already* inside the worktree —
+  the re-run, or a session the opener started — the hand-off is done: carry
+  straight on to the spec move below. Never hand off twice.
+- **Why the stop is hard.** Reaching into the worktree from this session moves
+  only the *agent's* working directory; the **shell stays in the main
+  checkout**. Terminals derive their git UI from the shell's cwd, so the branch
+  chip and the uncommitted-changes/diff panel keep reporting the main checkout
+  — a clean tree, no changes — for the whole spec. You lose pre-commit review
+  of everything you are about to write, and nothing warns you: the panel isn't
+  broken, it is faithfully describing a directory you left. Starting the
+  session *in* the worktree costs one command and the whole class of problem
+  disappears.
+- **Opt-out — `--here`.** If the user passes `--here` (or asks to carry on in
+  this session anyway), skip the hand-off and act on the worktree path with
+  absolute paths / `git -C <worktreePath>`. Say plainly, once, that their
+  terminal's diff view will track the main checkout rather than this spec.
+  Reasonable for a small phase they'll review another way; a poor default for a
+  spec they intend to live in.
 
 Then move the spec (in the worktree when isolated, in place otherwise):
 
