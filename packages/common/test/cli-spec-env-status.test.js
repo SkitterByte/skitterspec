@@ -144,3 +144,52 @@ test('stays silent: the primary checkout is never listed as a provisioned spec',
     cleanup(dir)
   }
 })
+
+// --- `in-flight:` is a machine seam, and it answers in three states ----------
+//
+// `/spec-next` reads this line to decide which spec it may build, so its format
+// is a contract, not display text. Three states rather than two: a branch
+// switched by hand carries no receipt, so the spec is genuinely UNKNOWN even
+// though the checkout is plainly busy. Calling that `none` would invite building
+// the wrong spec — the one mistake this line exists to prevent.
+
+function liveStatus(dir) {
+  const bin = path.join(__dirname, '..', 'bin', 'skitterspec.js')
+  return execFileSync('node', [bin, 'spec-env', 'live', 'status'], { cwd: dir }).toString()
+}
+
+function repoWithConfig() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-inflight-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), '{}')
+  const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: 'ignore' })
+  git('init', '-qb', 'main')
+  git('config', 'user.email', 't@t')
+  git('config', 'user.name', 'T')
+  git('add', '-A')
+  git('commit', '-qm', 'init')
+  return dir
+}
+
+test('in-flight reports none on a free workbench', () => {
+  const out = liveStatus(repoWithConfig())
+  assert.match(out, /^ {2}in-flight: none/m, 'the stable line, with the stable prefix')
+})
+
+test('in-flight reports unknown for a branch with no receipt', () => {
+  const dir = repoWithConfig()
+  execFileSync('git', ['-C', dir, 'switch', '-qc', 'feat/by-hand'], { stdio: 'ignore' })
+  const out = liveStatus(dir)
+  assert.match(out, /^ {2}in-flight: unknown/m, 'not "none" — the checkout is busy')
+  assert.match(out, /feat\/by-hand/, 'names what it can see')
+})
+
+test('the in-flight line is present in every state, so a caller can rely on it', () => {
+  // A seam that sometimes vanishes forces callers back to parsing prose.
+  const free = liveStatus(repoWithConfig())
+  const dir = repoWithConfig()
+  execFileSync('git', ['-C', dir, 'switch', '-qc', 'feat/x'], { stdio: 'ignore' })
+  for (const out of [free, liveStatus(dir)]) {
+    assert.strictEqual((out.match(/^ {2}in-flight: /gm) || []).length, 1, 'exactly one in-flight line')
+  }
+})

@@ -134,6 +134,9 @@ function migrationsHit(files, patterns) {
  * ctx:
  *   primary        { onBase, branch, baseBranch } — the guard result for the primary checkout
  *   primaryPath    absolute path of the primary checkout (the checkout target)
+ *   inFlight       string|null — folder of the spec holding the primary, from
+ *                  its receipt; null when nothing is recorded (a hand-switched
+ *                  branch), which degrades the message to the branch name
  *   clean          boolean — primary checkout working tree is clean
  *   worktreeClean  boolean — the SPEC WORKTREE's tree is clean (the rebase runs there)
  *   worktreeExists boolean — the spec's worktree is on disk
@@ -167,9 +170,16 @@ function planTake(spec, config, ctx) {
   //    (or you) already holds the live instance.
   if (!c.primary || !c.primary.onBase) {
     const on = c.primary && c.primary.branch ? c.primary.branch : '(detached)'
+    // Name the SPEC, not just the branch, and name every way out. `/spec-start`
+    // relays this refusal verbatim as its gate, so whatever is missing here is
+    // missing from the operator's only explanation of why they are stuck —
+    // "release it with /spec-live main" alone reads as the sole option when
+    // completing or cancelling the held spec are usually the ones they want.
+    const held = c.inFlight ? `${c.inFlight} (branch ${on})` : on
     return block(
-      `primary checkout is on ${on}, not ${base} — a spec already holds the live ` +
-        'instance; release it with `/spec-live main` first',
+      `primary checkout is on ${on}, not ${base} — ${held} already holds it. ` +
+        'Free the workbench first: `/spec-complete` if it is finished, ' +
+        '`/spec-cancel` if it is not wanted, or `/spec-live main` to park it',
     )
   }
   // 2. Never switch a dirty tree — the checkout is reset back to base on release.

@@ -1378,6 +1378,7 @@ async function specEnvLiveTake(dir, config, specArg) {
   const plan = planTake(spec, config, {
     primary,
     primaryPath: dir,
+    inFlight: (readReceipt(dir, config) || {}).spec || null,
     clean,
     worktreeClean,
     worktreeExists,
@@ -1582,9 +1583,23 @@ function specEnvLiveStatus(dir, config, specArg) {
   const state = onBase
     ? 'on base — free'
     : `feature in control — not on ${baseBranch}`
+
+  // `in-flight:` is a MACHINE SEAM, like the per-spec `live:` line above, and
+  // `/spec-next` reads it to decide which spec it is allowed to build. It answers
+  // in three states rather than two, because "cannot tell" is real here: a branch
+  // switched by hand carries no receipt, so the spec is unknown even though the
+  // checkout is plainly busy. Reporting that as `none` would invite building the
+  // wrong spec; reporting the branch says what is true and lets the caller stop.
+  const inFlight = onBase
+    ? 'none — the workbench is free'
+    : receipt && receipt.spec
+      ? `${receipt.spec}  (branch ${branch || '(detached)'})`
+      : `unknown  (branch ${branch || '(detached)'} — no receipt; switched by hand?)`
+
   process.stdout.write(
     'spec-env live:\n' +
       `  primary:   ${branch || '(detached)'}  (${state})\n` +
+      `  in-flight: ${inFlight}\n` +
       `  receipt:   ${summarizeReceipt(receipt)}\n`,
   )
 }

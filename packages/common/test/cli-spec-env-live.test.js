@@ -354,3 +354,63 @@ test('a clean worktree still passes, so the new guard is not a blanket refusal',
   })
   assert.strictEqual(plan.blocked, false)
 })
+
+// --- the gate's refusal is /spec-start's only explanation ---------------------
+//
+// `/spec-start` relays this text verbatim as its gate, so anything missing here
+// is missing from the operator's sole account of why they are stuck. It used to
+// name only the branch and only `/spec-live main` — which reads as the one way
+// out when completing or cancelling the held spec are usually what they want.
+
+test('the off-base refusal names the spec in flight, not just the branch', () => {
+  const { planTake } = require('../src/env/live.js')
+  const spec = { folder: 'feat-new', branch: 'feat/new', worktreePath: '/wt', type: 'feature', stack: 'worktree' }
+  const plan = planTake(spec, {}, {
+    primary: { onBase: false, branch: 'feat/old' },
+    base: 'main', clean: true, worktreeClean: true, worktreeExists: true,
+    serverUp: null, migrationsHit: false,
+    inFlight: 'feat-old',
+  })
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /feat-old/, 'names the spec, which is what the operator recognises')
+  assert.match(plan.reason, /feat\/old/, 'and its branch')
+})
+
+test('the refusal names all three ways to free the workbench', () => {
+  const { planTake } = require('../src/env/live.js')
+  const spec = { folder: 'feat-new', branch: 'feat/new', worktreePath: '/wt', type: 'feature', stack: 'worktree' }
+  const plan = planTake(spec, {}, {
+    primary: { onBase: false, branch: 'feat/old' },
+    base: 'main', clean: true, worktreeClean: true, worktreeExists: true,
+    serverUp: null, migrationsHit: false, inFlight: 'feat-old',
+  })
+  for (const way of ['/spec-complete', '/spec-cancel', '/spec-live main']) {
+    assert.ok(plan.reason.includes(way), `offers ${way}`)
+  }
+})
+
+test('with no receipt the refusal degrades to the branch, and still refuses', () => {
+  // A hand-switched branch has no receipt. The message must stay useful rather
+  // than claiming a spec it cannot name — and must not stop refusing.
+  const { planTake } = require('../src/env/live.js')
+  const spec = { folder: 'feat-new', branch: 'feat/new', worktreePath: '/wt', type: 'feature', stack: 'worktree' }
+  const plan = planTake(spec, {}, {
+    primary: { onBase: false, branch: 'feat/hand' },
+    base: 'main', clean: true, worktreeClean: true, worktreeExists: true,
+    serverUp: null, migrationsHit: false, inFlight: null,
+  })
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /feat\/hand/)
+  assert.doesNotMatch(plan.reason, /undefined|null/, 'no placeholder leaked into the text')
+})
+
+test('a free workbench is not refused — the gate stays silent when it should', () => {
+  const { planTake } = require('../src/env/live.js')
+  const spec = { folder: 'feat-new', branch: 'feat/new', worktreePath: '/wt', type: 'feature', stack: 'worktree' }
+  const plan = planTake(spec, {}, {
+    primary: { onBase: true, branch: 'main' },
+    base: 'main', clean: true, worktreeClean: true, worktreeExists: true,
+    serverUp: null, migrationsHit: false, inFlight: null,
+  })
+  assert.strictEqual(plan.blocked, false)
+})
