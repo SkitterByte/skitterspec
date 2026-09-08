@@ -28,6 +28,22 @@ no live `env.config.json` was found.
 ```jsonc
 {
   // Where sibling worktrees are created and how their dirs are named.
+  // Where a spec's branch gets built.
+  //
+  //   "worktree"  (default) — every spec gets its own git worktree. Several
+  //               specs run side by side and `main` stays free, at the cost of
+  //               one terminal session per spec (`/spec-go` opens it for you).
+  //   "checkout"  — the branch is built in the primary checkout instead. One
+  //               spec at a time, but no second session and no hand-off: the
+  //               terminal you are already in follows the work.
+  //
+  // Pick it for how you work, not for what this repo contains — a project with
+  // no dev servers may still want several specs in flight. An unrecognised
+  // value falls back to "worktree" rather than erroring.
+  //
+  // Not to be confused with `seedFiles.mode`, which is "symlink" | "copy".
+  "mode": "worktree",
+
   "worktree": {
     "root": "../{repo}-wt",   // dir that holds all spec worktrees; sibling of
                               // the primary checkout, never nested inside it.

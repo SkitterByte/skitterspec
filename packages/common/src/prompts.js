@@ -7,7 +7,8 @@
  * test suite never imports the interactive UI.
  *
  * `isolationSeed` pre-fills the per-spec isolation question. Returns
- * `{ isolation }`.
+ * `{ isolation, mode }` — `mode` is only asked when isolation is enabled, and
+ * is `'worktree'` otherwise (the value the config defaults to anyway).
  */
 
 async function promptSetup({ isolationSeed = false } = {}) {
@@ -23,15 +24,42 @@ async function promptSetup({ isolationSeed = false } = {}) {
     {
       type: 'confirm',
       name: 'isolation',
-      message: 'Enable per-spec isolation — a git worktree per spec?',
+      message: 'Enable per-spec isolation — build each spec on its own branch?',
       initial: isolationSeed,
+    },
+    {
+      // Only reachable when isolation was accepted: `prev` is the previous
+      // answer, and returning null skips the question entirely.
+      type: (prev) => (prev ? 'select' : null),
+      name: 'mode',
+      message: 'Where should a spec be built?',
+      hint: '- this is the trade, not a preference',
+      initial: 0,
+      choices: [
+        {
+          title: 'Its own worktree (default)',
+          value: 'worktree',
+          description: 'several specs at once, main left free — one terminal session per spec',
+        },
+        {
+          title: 'The checkout you are in',
+          value: 'checkout',
+          description: 'one spec at a time, no second session — your terminal follows the work',
+        },
+      ],
     },
   ]
 
   const ans = await prompts(questions, { onCancel })
   if (cancelled) throw new Error('Setup cancelled')
 
-  return { isolation: Boolean(ans.isolation) }
+  // Anything other than an explicit 'checkout' resolves to the default, so a
+  // skipped or cancelled-into-default answer can never select the mode that
+  // puts a spec's work in the primary checkout.
+  return {
+    isolation: Boolean(ans.isolation),
+    mode: ans.mode === 'checkout' ? 'checkout' : 'worktree',
+  }
 }
 
 /**

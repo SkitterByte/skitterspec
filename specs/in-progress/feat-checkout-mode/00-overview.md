@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-77/checkout-mode-end-the-p
 
 > **Type:** Feature
 > **Name:** feat-checkout-mode (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 2 (started 2026-09-08)
+> **Status:** In Progress — Phase 3 (started 2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -102,7 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Run the configured opener | ✅ | [01-auto-open.md](01-auto-open.md) |
-| 2 | The `mode` config key | ⬜ | [02-mode-key.md](02-mode-key.md) |
+| 2 | The `mode` config key | ✅ | [02-mode-key.md](02-mode-key.md) |
 | 3 | `/spec-go` provisions in place | ⬜ | [03-spec-go-checkout.md](03-spec-go-checkout.md) |
 | 4 | Land, tear down, refuse | ⬜ | [04-lifecycle.md](04-lifecycle.md) |
 
@@ -142,3 +142,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   opener, which would have contradicted the hand-off once it started running it.
   Reconciled to say the opener runs later, after the worktree is bootstrapped —
   a session must not open onto a tree with no dependencies installed.
+- 2026-09-08 — Phase 2: **Decision 3's "refused by name" was wrong for this
+  codebase and was overturned.** The env-config loader is lenient by design and
+  `teardown.deleteRemoteBranch` already documents the better rule — an
+  unrecognised value falls through to the default rather than erroring or being
+  taken literally. Refusing would have broken every `spec-env` command over a
+  single typo. `mode` follows that precedent; the safeguard is the fallback
+  *direction*, always `worktree`, never `checkout`.
+- 2026-09-08 — Phase 2: `init` already had a `mode` parameter meaning
+  `init`|`update`, and `seedFiles` already had a `mode` meaning `symlink`|`copy`.
+  The config key stays `mode` (unambiguous at the top level of the file), but the
+  plumbing is `workspaceMode` so the two cannot be misread at a call site, and a
+  test pins that setting one never moves the other.
+- 2026-09-08 — Phase 2: the resolved mode is not surfaced in `spec-env up` yet —
+  it would be a lie while provisioning still always makes a worktree. Added to
+  Phase 3, where it starts being true.

@@ -29,6 +29,10 @@ operator's existing Warp window shows the right diffs throughout.
 - [ ] Keep the live check ahead of both paths — in checkout mode `live: yes` is
       impossible by construction, so state that rather than leaving a check that
       can never fire.
+- [ ] Surface the resolved `mode` in `spec-env up`'s plan output, beside
+      `stack:`. Phase 2 deliberately left this out — the loader falls back
+      silently, so the operator's only evidence of a mistyped mode is the plan
+      telling them which one actually resolved.
 - [ ] Rebuild dists (`pnpm build`).
 - [ ] Add/extend tests covering this phase: the checkout-mode plan emits a branch
       switch and no worktree/bootstrap/opener commands; the dirty-tree and

@@ -655,3 +655,49 @@ test("a repo with its own CLAUDE.md and skills is not read as a skitterspec setu
   assert.strictEqual(isExistingSetup(dir), true, 'and after init it is')
   assert.match(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8'), /House rules/, 'their CLAUDE.md kept')
 })
+
+// --- adopting isolation records the chosen workspace mode --------------------
+//
+// `workspaceMode` is deliberately NOT called `mode` at this call site: `init`
+// already takes a `mode` meaning 'init' | 'update', and threading a second,
+// unrelated `mode` through the same options object is how the wrong one gets
+// read. The config file's key is still `mode`; only the plumbing is renamed.
+
+test('adopting isolation writes the default mode without special-casing', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  const cfg = JSON.parse(
+    fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), 'utf-8'),
+  )
+  assert.strictEqual(cfg.mode, 'worktree', 'the template already carries the default')
+})
+
+test('choosing checkout mode is recorded in the written config', async () => {
+  const dir = tmpProject()
+  await init({
+    dir, force: false, claudeMd: false, mode: 'init',
+    isolation: true, workspaceMode: 'checkout',
+  })
+  const cfg = JSON.parse(
+    fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), 'utf-8'),
+  )
+  assert.strictEqual(cfg.mode, 'checkout')
+  // The rest of the template must survive the rewrite — it is re-serialised, so
+  // a careless write could drop keys the operator never chose to lose.
+  assert.ok(cfg.worktree && cfg.docker && cfg.branch, 'other config blocks intact')
+})
+
+test('declining isolation writes no config at all, whatever the mode says', async () => {
+  // A stays-silent case: `workspaceMode` must not become a back door that
+  // creates an env.config.json for a repo that opted out of isolation, since
+  // the file's mere existence is what switches every spec-env command on.
+  const dir = tmpProject()
+  await init({
+    dir, force: false, claudeMd: false, mode: 'init',
+    isolation: false, workspaceMode: 'checkout',
+  })
+  assert.ok(
+    !fs.existsSync(path.join(dir, 'specs', '.core', 'env.config.json')),
+    'no isolation config written for a repo that declined it',
+  )
+})

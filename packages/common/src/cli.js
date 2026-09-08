@@ -1560,11 +1560,21 @@ async function run(argv) {
       // Fresh repo (or create-missing): isolation defaults OFF; a flag or an
       // interactive "yes" opts in. Only prompt for isolation on a fresh repo.
       let isolation = opts.isolation === true
+      let workspaceMode = 'worktree'
       if (interactive && !isExistingSetup(dir)) {
         const { promptSetup } = require('./prompts.js')
-        isolation = (await promptSetup({ isolationSeed: isolation })).isolation
+        const answers = await promptSetup({ isolationSeed: isolation })
+        isolation = answers.isolation
+        workspaceMode = answers.mode
       }
-      await init({ dir, force: opts.force, claudeMd: opts.claudeMd, mode: 'init', isolation })
+      await init({
+        dir,
+        force: opts.force,
+        claudeMd: opts.claudeMd,
+        mode: 'init',
+        isolation,
+        workspaceMode,
+      })
       break
     }
     case 'update':

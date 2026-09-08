@@ -427,14 +427,20 @@ function installCore(dir, opts) {
 // Only called when the operator opts in, and never on `update` (adopting isolation
 // is a deliberate choice, not something a re-sync flips on). Idempotent: writeFile
 // never clobbers an existing env.config.json without --force.
-function installIsolation(dir, { enabled }, opts) {
+function installIsolation(dir, { enabled, workspaceMode }, opts) {
   if (!enabled) return
-  copyAsset(
-    dir,
-    path.join('core', 'env.config.json.example'),
-    path.join(dir, 'specs', '.core', 'env.config.json'),
-    opts,
-  )
+  const target = path.join(dir, 'specs', '.core', 'env.config.json')
+  copyAsset(dir, path.join('core', 'env.config.json.example'), target, opts)
+
+  // Only 'checkout' is written; 'worktree' is already what the template says and
+  // what the loader defaults to, so the common path leaves the file untouched.
+  // Guarded by existsSync because copyAsset legitimately declines to overwrite a
+  // config the operator already customized — rewriting it here would undo that.
+  if (workspaceMode === 'checkout' && fs.existsSync(target)) {
+    const parsed = JSON.parse(fs.readFileSync(target, 'utf8'))
+    parsed.mode = 'checkout'
+    fs.writeFileSync(target, `${JSON.stringify(parsed, null, 2)}\n`)
+  }
   trustWorktreeRoot(dir)
 }
 
@@ -705,7 +711,10 @@ function printReport(dir, mode, { diff = false } = {}) {
   )
 }
 
-async function init({ dir, force, claudeMd, mode, isolation }) {
+// `mode` here is the INSTALL mode ('init' | 'update'), long-standing and
+// unrelated to the config's own `mode` key — which arrives as `workspaceMode`
+// precisely so the two cannot be confused at a call site.
+async function init({ dir, force, claudeMd, mode, isolation, workspaceMode }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
 
@@ -716,7 +725,7 @@ async function init({ dir, force, claudeMd, mode, isolation }) {
   removeRetiredFiles(dir)
   installCore(dir, { force })
   // Adopting isolation writes the live env.config.json — init only, never update.
-  if (mode !== 'update') installIsolation(dir, { enabled: isolation }, { force })
+  if (mode !== 'update') installIsolation(dir, { enabled: isolation, workspaceMode }, { force })
   if (claudeMd) installClaudeMd(dir, { mode })
 
   // Record what we wrote (and migrate a pre-manifest repo) so a later resync can

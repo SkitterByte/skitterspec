@@ -286,3 +286,62 @@ test('an unrecognised teardown policy falls back to prompt, not to a stronger on
     assert.strictEqual(loadEnvConfig(dir).config.teardown.deleteRemoteBranch, 'prompt')
   }
 })
+
+// --- `mode`: where a spec's branch gets built --------------------------------
+
+test('mode defaults to worktree, so an installed repo does not change on upgrade', () => {
+  const dir = tmpDir()
+  assert.strictEqual(loadEnvConfig(dir).config.mode, 'worktree')
+  writeEnvConfig(dir, {})
+  assert.strictEqual(loadEnvConfig(dir).config.mode, 'worktree')
+  assert.strictEqual(DEFAULT_CONFIG.mode, 'worktree')
+})
+
+test('mode accepts the two real values', () => {
+  for (const mode of ['worktree', 'checkout']) {
+    const dir = tmpDir()
+    writeEnvConfig(dir, { mode })
+    assert.strictEqual(loadEnvConfig(dir).config.mode, mode)
+  }
+})
+
+test('an unrecognised mode falls back to worktree, never to checkout', () => {
+  // Same policy as `teardown.deleteRemoteBranch` above, and the fallback
+  // DIRECTION is the point rather than the fallback itself: "worktree" is the
+  // conservative value. A typo costs an extra terminal session; the opposite
+  // default would put a spec's commits in the primary checkout without anyone
+  // having chosen that.
+  for (const bad of ['Checkout', 'CHECKOUT', 'in-place', 'primary', '', 42, null, {}, []]) {
+    const dir = tmpDir()
+    writeEnvConfig(dir, { mode: bad })
+    assert.strictEqual(
+      loadEnvConfig(dir).config.mode,
+      'worktree',
+      `mode ${JSON.stringify(bad)} should fall back to worktree`,
+    )
+  }
+})
+
+test('mode is independent of seedFiles.mode, which shares only the name', () => {
+  // The two are unrelated enums at different levels. Setting one must not move
+  // the other — a real risk given both are called "mode".
+  const dir = tmpDir()
+  writeEnvConfig(dir, { mode: 'checkout', seedFiles: { mode: 'copy', files: ['.env'] } })
+  const { config } = loadEnvConfig(dir)
+  assert.strictEqual(config.mode, 'checkout')
+  assert.strictEqual(config.seedFiles.mode, 'copy')
+
+  const other = tmpDir()
+  writeEnvConfig(other, { seedFiles: { mode: 'copy', files: ['.env'] } })
+  assert.strictEqual(loadEnvConfig(other).config.mode, 'worktree', 'seedFiles.mode did not leak upward')
+})
+
+test('the shipped example config carries mode at its default', () => {
+  // The template is what an adopting repo actually gets, so the key has to be
+  // visible there — a config key nobody can see is a key nobody sets.
+  const example = path.join(
+    __dirname, '..', 'assets', 'core', 'env.config.json.example',
+  )
+  const parsed = JSON.parse(fs.readFileSync(example, 'utf-8'))
+  assert.strictEqual(parsed.mode, 'worktree')
+})

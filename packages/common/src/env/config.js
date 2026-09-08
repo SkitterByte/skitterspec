@@ -13,6 +13,9 @@
  *
  * Shape (see specs/.core/env.config.md for field docs):
  *   {
+ *     mode:     "worktree" | "checkout",  // where a spec's branch is built —
+ *               // its own worktree (default), or the primary checkout in place.
+ *               // NOTE: unrelated to `seedFiles.mode`, which is symlink|copy.
  *     worktree: { root, folderPattern },
  *     docker:   { enabled, composeFile, projectNamePattern, portBase,
  *                 portsPerSpec, envFile, backupCommand },
@@ -44,6 +47,16 @@ const { join } = require('node:path')
 const CONFIG_FILE = join('specs', '.core', 'env.config.json')
 
 const DEFAULT_CONFIG = Object.freeze({
+  // Where a spec's branch is built. "worktree" gives every spec its own checkout
+  // — parallel specs, `main` left free — at the cost of a terminal session per
+  // spec. "checkout" builds the branch in the primary checkout instead: one spec
+  // at a time, in the terminal you are already sitting in.
+  //
+  // Defaults to "worktree" so no installed repo changes behaviour on upgrade.
+  // Never inferred from whether `dev`/`docker` are configured: a repo with no
+  // dev servers may still want parallel specs, and absence of configuration is
+  // not evidence of intent (see .claude/rules/negative-checks.md).
+  mode: 'worktree',
   worktree: Object.freeze({ root: '../{repo}-wt', folderPattern: '{slug}' }),
   docker: Object.freeze({
     enabled: true,
@@ -105,6 +118,7 @@ function isObject(value) {
 // A fresh, deeply-mutable copy of the defaults to merge onto.
 function defaults() {
   return {
+    mode: DEFAULT_CONFIG.mode,
     worktree: { ...DEFAULT_CONFIG.worktree },
     docker: { ...DEFAULT_CONFIG.docker },
     seedFiles: { mode: DEFAULT_CONFIG.seedFiles.mode, files: [] },
@@ -256,6 +270,15 @@ function mergeConfig(base, parsed) {
 
   assign(base, parsed, 'registry', 'string')
   assign(base, parsed, 'baseBranch', 'string')
+
+  // Same treatment as `teardown.deleteRemoteBranch` below, for the same reason:
+  // an unrecognised value falls through to the default rather than erroring or
+  // being taken literally. The fallback direction matters — "worktree" is the
+  // conservative one, so a typo ("Checkout", "in-place") costs an extra terminal
+  // session, never a spec's work landing somewhere the author did not choose.
+  if (parsed.mode === 'worktree' || parsed.mode === 'checkout') {
+    base.mode = parsed.mode
+  }
 
   if (isObject(parsed.guards)) {
     assign(base.guards, parsed.guards, 'refuseTeardownIfDirty', 'boolean')
