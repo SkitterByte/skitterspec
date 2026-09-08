@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-77/checkout-mode-end-the-p
 
 > **Type:** Feature
 > **Name:** feat-checkout-mode (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-08)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
 > **Area:** packages/common/src/env (config.js, provision.js, integrate.js, teardown.js, live.js, proxy.js), packages/common/assets/skills (spec-go, spec-complete, spec-to-main, spec-init), packages/common/assets/core (env.config.md, env.config.json.example), packages/common/src/prompts.js
 > **Stack:** worktree
@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Run the configured opener | ⬜ | [01-auto-open.md](01-auto-open.md) |
+| 1 | Run the configured opener | 🔄 | [01-auto-open.md](01-auto-open.md) |
 | 2 | The `mode` config key | ⬜ | [02-mode-key.md](02-mode-key.md) |
 | 3 | `/spec-go` provisions in place | ⬜ | [03-spec-go-checkout.md](03-spec-go-checkout.md) |
 | 4 | Land, tear down, refuse | ⬜ | [04-lifecycle.md](04-lifecycle.md) |
@@ -115,6 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-08 | Ready | backlog | Reuben Greaves |
+| 2026-09-08 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 

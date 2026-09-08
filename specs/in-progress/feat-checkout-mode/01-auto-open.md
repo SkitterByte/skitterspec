@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-78"
 ---
 
-# Phase 1 — Run the configured opener ⬜
+# Phase 1 — Run the configured opener 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** handing off no longer makes the operator copy a path — `/spec-go` runs
 `open.command` itself, and still stops for the re-run.
