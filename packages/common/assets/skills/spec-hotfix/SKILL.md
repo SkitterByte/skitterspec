@@ -1,6 +1,6 @@
 ---
 name: spec-hotfix
-description: Fix a production bug on the exact released version — fork a worktree from a release tag, drive it red→green like /spec-bug, then land it by tagging a new patch (for CI/CD to deploy) and cherry-picking the fix back onto main. ALWAYS starts from a base tag and works on the hotfix's own branch, never on main. Can start from a tracker issue when a provider is installed (`/spec-hotfix <tag> <ISSUE-REF>`), adopting it as the hotfix's issue. Creates specs/in-progress/hotfix-<name>/00-overview.md. Use when the user says "/spec-hotfix", "hotfix <tag>", "prod is broken on <version>", "patch the released version", or needs a fix shipped against a tagged release rather than main.
+description: Fix a production bug on the exact released version — fork a worktree from a release tag, drive it red→green, then land it by tagging a new patch for CI/CD and cherry-picking the fix onto main. ALWAYS starts from a base tag and works on the hotfix's own branch, never on main. Use when the user says "/spec-hotfix", "hotfix <tag>", "prod is broken on <version>", "patch the released version", or needs a fix shipped against a tagged release rather than main.
 ---
 
 # /spec-hotfix — fix a released version, tag it, cherry-pick back to main

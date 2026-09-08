@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-72/skill-and-command-effic
 
 > **Type:** Feature
 > **Name:** feat-skill-efficiency-pass (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-08)
+> **Status:** In Progress — Phase 3 (started 2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -92,7 +92,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Retire stale spec-ready claims + guard | ✅ | [01-stale-refs.md](01-stale-refs.md) |
-| 2 | Trim always-loaded context | ⬜ | [02-trim-always-loaded.md](02-trim-always-loaded.md) |
+| 2 | Trim always-loaded context | ✅ | [02-trim-always-loaded.md](02-trim-always-loaded.md) |
 | 3 | Single-source shared blocks via common fragments | ⬜ | [03-shared-fragments.md](03-shared-fragments.md) |
 | 4 | Batched grilling | ⬜ | [04-batched-grilling.md](04-batched-grilling.md) |
 
@@ -121,3 +121,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-08 — Phase 1: added a positive check (spec-init's enumeration vs the
   skills on disk) beyond the negative guard the phase specified — the guard
   catches a retired name that lingers but not a new skill the sentence forgets.
+- 2026-09-08 — Phase 2: only 6 of the 13 descriptions were over budget; the
+  other 7 were already lean and were left alone rather than churned for the
+  sake of the task wording. Always-loaded description text fell 6503 → 5103
+  chars, and `claude-md-section.md` 53 → 15 lines.
+- 2026-09-08 — Phase 2: the budget test gained two companions. A routing floor
+  (every description keeps a `Use when …` trigger), because a length budget on
+  its own is satisfiable by deleting exactly the phrases that make a skill
+  findable; and a YAML-safety check, because a `": "` in a plain scalar breaks
+  the frontmatter so the skill stops loading at all — hit while drafting.
+- 2026-09-08 — Phase 2: `assets-prose.test.js` asserted every prose asset
+  *contains* a skills table (a per-file vacuity guard). Moving the table out of
+  `claude-md-section.md` made that false, so the row count was rescoped to the
+  whole corpus — it still cannot pass with no table anywhere, but a file may now
+  legitimately point at the rule file instead of duplicating it.

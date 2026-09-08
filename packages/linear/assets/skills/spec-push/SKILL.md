@@ -1,6 +1,6 @@
 ---
 name: spec-push
-description: Push a spec up to its linked Linear issue (repo → Linear, one-way). The repo is the source of truth; Linear is a generated mirror. A spec is a Linear issue and each phase a sub-issue, with the phase's tasks mirrored read-only into that sub-issue's description. Runs `skitterspec spec-sync push` to get a create/update plan, then applies it with `spec-sync apply` — straight to Linear's API when a key is set (descriptions never pass through the model), or over MCP when it isn't — stamping the returned ids back into the spec and recording the snapshot. Never merges Linear content back. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-push", "push to Linear", "update the Linear issue from this spec".
+description: Push a spec up to its linked Linear issue (repo → Linear, one-way). The repo is the source of truth and Linear a generated mirror, so content is never read back or merged. A spec is an issue and each phase a sub-issue. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-push", "push to Linear", "update the Linear issue from this spec".
 ---
 
 # /spec-push — send a spec up to Linear (one-way)

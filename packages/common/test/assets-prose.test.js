@@ -61,15 +61,24 @@ test('every /spec-… these assets name is a skill or command that ships', () =>
 // by proximity and fired on a sentence that reads "nine lifecycle skills (plus
 // the /spec-connect and /spec-live **commands**)" — which is correct prose. A
 // guard that cannot tell those apart trains people to ignore it.
+// The vacuity guard counts rows across the WHOLE corpus, not per file. A prose
+// asset is allowed to carry no skills table at all: `claude-md-section.md` is
+// installed into every consumer's CLAUDE.md and so is paid for on every session,
+// which is why it now points at `spec-planning.md` for the table rather than
+// duplicating it. Requiring a table in each file would forbid that, and would
+// forbid it by failing a test about COMMANDS — an error message pointing at the
+// wrong problem entirely.
 test('no command appears as a row in a skills table', () => {
   const commands = shipped('commands')
+  let rowsSeen = 0
   for (const [name, file] of PROSE) {
     const rows = [...text(file).matchAll(/^\|\s*`?\/(spec[a-z-]*)`?\s*\|/gm)].map((m) => m[1])
-    assert.ok(rows.length > 5, `${name}: found the skills table, got ${rows.length} rows`)
+    rowsSeen += rows.length
     for (const r of rows) {
       assert.ok(!commands.has(r), `${name}: /${r} is a command but is listed as a skill`)
     }
   }
+  assert.ok(rowsSeen > 5, `no skills table found in any prose asset — got ${rowsSeen} rows`)
 })
 
 // A verb list on a page is a claim about the engine, and this one had gone five

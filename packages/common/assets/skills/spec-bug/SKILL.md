@@ -1,6 +1,6 @@
 ---
 name: spec-bug
-description: Investigate a bug, capture it as a Bug-type spec, and drive it red→green. When per-spec isolation is enabled it provisions a worktree first, so the failing test and fix land on the bug's own branch, never on main. ALWAYS starts by reproducing the bug with a failing test, then writes the spec and works the test to green. Creates specs/in-progress/bug-<name>/00-overview.md. Use when the user reports a bug, says "/spec-bug", "investigate this bug", "this is broken — find and fix it", or pastes an error/stack trace.
+description: Investigate a bug, capture it as a Bug-type spec, and drive it red→green. ALWAYS starts by reproducing the bug with a failing test, then writes the spec and works the test to green — on the bug's own branch, never on main. Use when the user reports a bug, says "/spec-bug", "investigate this bug", "this is broken — find and fix it", or pastes an error/stack trace.
 ---
 
 # /spec-bug — investigate a bug, prove it with a failing test, fix it

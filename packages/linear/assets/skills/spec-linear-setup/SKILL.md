@@ -1,6 +1,6 @@
 ---
 name: spec-linear-setup
-description: Configure Linear sync for this repo by interview rather than by hand. Discovers the workspace over MCP (teams, projects, labels, issue workflow states), asks how the work is organised — which team this repo files into, whether products are split by team or by project, which labels drive intake — then hands the answers to `skitterspec spec-sync init-config`, which validates them and writes specs/.core/linear.config.json. Checks the configured workflow-state names against the workspace, so a renamed state is caught now instead of silently producing a mirror that never moves. Safe to re-run: an existing config is reviewed, never overwritten without consent. Use when the user says "/spec-linear-setup", "set up Linear sync", "connect this repo to Linear", "configure linear.config.json", or "check my Linear setup".
+description: Configure Linear sync for this repo by interview rather than by hand — discovers the workspace, asks how the work is organised, then validates the answers and writes specs/.core/linear.config.json. Safe to re-run; an existing config is reviewed, never overwritten without consent. Use when the user says "/spec-linear-setup", "set up Linear sync", "connect this repo to Linear", "configure linear.config.json", or "check my Linear setup".
 ---
 
 # /spec-linear-setup — configure Linear sync by interview
