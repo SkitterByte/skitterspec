@@ -1151,23 +1151,51 @@ const DEPS_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.l
 // receipt is advisory metadata. `status` is read-only; `take` performs the switch
 // (release/abort land in a later phase).
 async function specEnvLive(dir, config, positional) {
-  const action = positional[0] || 'status'
+  const { action, specArg } = liveGrammar(dir, config, positional)
   switch (action) {
     case 'status':
-      specEnvLiveStatus(dir, config, positional[1])
+      specEnvLiveStatus(dir, config, specArg)
       break
     case 'take':
-      await specEnvLiveTake(dir, config, positional[1])
+      await specEnvLiveTake(dir, config, specArg)
       break
     case 'release':
-      await specEnvLiveRelease(dir, config, positional[1])
+      await specEnvLiveRelease(dir, config, specArg)
       break
     case 'abort':
       await specEnvLiveAbort(dir, config)
       break
     default:
-      process.stdout.write('Usage: skitterspec spec-env live <take|release|abort|status> [spec]\n')
+      process.stdout.write(
+        'Usage: skitterspec spec-env live <spec>|<base branch>|<take|release|abort|status> [spec]\n',
+      )
   }
+}
+
+const LIVE_VERBS = new Set(['status', 'take', 'release', 'abort'])
+
+// The two front doors every doc names — `/spec-live <spec>` and `/spec-live main`
+// — translated to verbs. They live here rather than in the command because
+// `.claude/commands/spec-live.md` relays `$ARGUMENTS` untranslated (it is a
+// pre-executed script, with no model turn to rewrite them); the skill this
+// replaced did the translation itself, which is how these forms came to be
+// documented but unimplemented. `connect` needs no equivalent — its argument was
+// always spec-shaped (`specArg || 'main'`).
+//
+// VERB PRECEDENCE IS DELIBERATE, and so is the order below: the four verbs and
+// the base branch are matched BEFORE the spec-name fallback, so a spec folder
+// that happens to be called `status` cannot silently branch-switch the primary
+// checkout. Such a spec is still reachable — as `live take status`. The literal
+// `main` is honoured even where the base branch is named something else,
+// matching `connect main`, so the muscle memory works in either repo.
+function liveGrammar(dir, config, positional) {
+  const [first, second] = positional
+  if (!first) return { action: 'status', specArg: undefined }
+  if (LIVE_VERBS.has(first)) return { action: first, specArg: second }
+  if (first === 'main' || first === resolveBaseBranch(config, gitReader(dir))) {
+    return { action: 'release', specArg: undefined }
+  }
+  return { action: 'take', specArg: first }
 }
 
 // Take the running instance: rebase the spec's branch onto base, free it from its
@@ -1466,7 +1494,9 @@ async function specEnv(rest) {
           '  [spec] is optional for up/down/dev/integrate/hotfix/resolve and live take:\n' +
           '  omit it and the sole provisioned spec is used (several -> it lists them).\n' +
           '  NOTE connect and live status keep their own meaning for a missing spec:\n' +
-          '  connect disconnects (= main), live status reports on the whole repo.\n',
+          '  connect disconnects (= main), live status reports on the whole repo.\n' +
+          '  connect and live also take a bare spec name: `live <spec>` takes the\n' +
+          '  instance, `live main` (or your base branch) hands it back.\n',
       )
   }
 }

@@ -1,6 +1,6 @@
 ---
-description: Put one spec live on the already-running dev server (take | release | abort | status)
-argument-hint: "[take <spec> | release | abort | status]"
+description: Put one spec live on the already-running dev server — `<spec>` takes it, a bare `take` takes the spec you are on, `main` hands the instance back
+argument-hint: "[<spec> | main | take | release | abort | status]"
 allowed-tools: Bash({{exec}} skitterspec spec-env live:*)
 disable-model-invocation: true
 ---
