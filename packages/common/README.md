@@ -15,14 +15,15 @@ project rules.
 
 | Skill | Action | Status | Folder |
 |-------|--------|--------|--------|
-| `/spec` | (Feature) Grill to a shared understanding, then write a concise spec | `Draft` | `specs/backlog/` |
+| `/spec` | (Feature) Grill to a shared understanding, then write a groomed spec | `Ready` (or `Draft`) | `specs/backlog/` |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
-| `/spec-ready` | Confirm the spec is groomed | `Ready` | `specs/backlog/` |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
-| `/spec-go` | Implement the next phase (with tests) | `In Progress` | `specs/in-progress/` |
-| `/spec-complete` | Verify all phases done + tests green | `Complete` | `specs/complete/` |
-| `/spec-cancel` | Record progress, stamp a reason | `Cancelled` | `specs/cancelled/` |
-| `/spec-init` | Bootstrap/repair the workflow (manual path) | — | — |
+| `/spec-go` | Provision the env, bring dev servers up, implement the next phase | `In Progress` | `specs/in-progress/` |
+| `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
+| `/spec-cancel` | Record progress, stamp a reason; tear down | `Cancelled` | `specs/cancelled/` |
+| `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag | `In Progress` | `specs/in-progress/` |
+| `/spec-to-main` | Land the branch on the base mid-spec, without finishing | (unchanged) | (unchanged) |
+| `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
 
 ## Install into a project
 

@@ -361,3 +361,122 @@ test('stays silent: a documented verb and a reasoned allowlist entry both pass',
   }
 })
 
+
+// ---------------------------------------------------------------------------
+// Retired skills must not be shipped as if they were still installable.
+//
+// `spec-env`, `spec-env-down` and `spec-ready` were folded away in 3.0.0, but
+// `spec-init` went on telling operators the system is "eight skills" and listing
+// `spec-ready` among them, and the base README kept a `/spec-ready` row in its
+// skill table. Both read as instructions, not history: someone following them
+// looks for a skill that cannot resolve.
+//
+// THE BLIND SPOT: a retired name is not itself evidence of a stale claim. The
+// migration guides and the READMEs' version-history sections name these skills
+// *because* they were removed, which is the whole point of those documents, and
+// `init.test.js` asserts the name is absent by using it. So this guards the
+// SHAPE of a current-tense listing — a skill-table row whose first cell is the
+// skill — never the mere appearance of the string. MIGRATION.md files are
+// additionally outside SURFACES, which is why their retired-skill table rows
+// (`| /spec-ready | Folded into /spec |`) are never scanned.
+const RETIRED_SKILLS = ['spec-ready', 'spec-env', 'spec-env-down']
+
+// A markdown table row that presents the skill as an available one: it is the
+// row's FIRST cell, optionally slash-prefixed and/or code-quoted.
+const retiredSkillRow = (name) => new RegExp(`^\\|\\s*\`?/?${name}\`?\\s*\\|`, 'i')
+
+test('no shipped surface lists a retired skill as available', () => {
+  const hits = []
+  for (const rel of SURFACES) {
+    const abs = path.join(ROOT, rel)
+    if (!fs.existsSync(abs)) continue
+    fs.readFileSync(abs, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        for (const name of RETIRED_SKILLS) {
+          if (retiredSkillRow(name).test(line)) {
+            hits.push(`${rel}:${i + 1}: ${line.trim().slice(0, 120)}`)
+          }
+        }
+      })
+  }
+  assert.deepStrictEqual(hits, [], `retired skill still listed as available:\n${hits.join('\n')}`)
+})
+
+test('the retired-skill guard would actually fire on the row it retires', () => {
+  // A guard that matches nothing is worse than no guard — it reads as coverage.
+  const samples = [
+    '| `/spec-ready` | Confirm the spec is groomed | `Ready` | `specs/backlog/` |',
+    '| /spec-env | Provision the environment | — | — |',
+    '| `spec-env-down` | Tear it down | — | — |',
+  ]
+  for (const s of samples) {
+    assert.ok(
+      RETIRED_SKILLS.some((n) => retiredSkillRow(n).test(s)),
+      `should have matched: ${s}`,
+    )
+  }
+})
+
+test('the retired-skill guard stays silent on documenting the removal', () => {
+  // Healthy-but-unusual input: prose that names the retired skills precisely
+  // because they are gone. This must stay sayable, or the migration guides and
+  // version histories become unwritable.
+  const fine = [
+    '`/spec-env`, `/spec-env-down`, and `/spec-ready` skills (the `skitterspec spec-env` CLI engine stays).',
+    'Grooming folded into `/spec` — `/spec-ready` is gone; go straight to `/spec-go`.',
+    "assert.ok(!SKILLS.includes('spec-ready'), 'spec-ready skill removed')",
+  ]
+  for (const s of fine) {
+    assert.ok(
+      !RETIRED_SKILLS.some((n) => retiredSkillRow(n).test(s)),
+      `false positive on: ${s}`,
+    )
+  }
+
+  // And prove that silence is exercised against live content rather than only
+  // these samples: a scanned surface really does still name a retired skill.
+  const v3 = fs.readFileSync(path.join(ROOT, 'packages/skitterspec/README.md'), 'utf8')
+  assert.ok(
+    v3.includes('/spec-ready'),
+    'expected the version history to still name the retired skill — if this ever ' +
+      'stops being true, the stays-silent case above is no longer testing anything',
+  )
+})
+
+// The negative guard above catches a retired name that lingers; it cannot catch
+// a NEW skill the sentence forgets. So assert the positive signal instead: the
+// enumeration in `spec-init` must name exactly the lifecycle skills that exist
+// on disk, counted correctly. Adding or removing one now fails here with the
+// doc to fix, rather than shipping a count nobody reconciles.
+//
+// Scoped to `packages/common/assets/skills` deliberately: that directory IS the
+// lifecycle set. A provider superset composes extra SYNC skills (`spec-push`,
+// `spec-status`, …) into its distribution, and this sentence does not count
+// those — so counting a built dist's directory instead would make it wrong.
+const NUMBER_WORDS = {
+  seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+}
+
+test('spec-init names exactly the lifecycle skills it ships', () => {
+  const skillsDir = path.join(ROOT, 'packages/common/assets/skills')
+  const shipped = fs
+    .readdirSync(skillsDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(skillsDir, e.name, 'SKILL.md')))
+    .map((e) => e.name)
+    .sort()
+
+  const text = fs.readFileSync(path.join(skillsDir, 'spec-init/SKILL.md'), 'utf8')
+  const m = text.match(/The system is \*\*(\w+) skills\*\*:([\s\S]*?)\n\n/)
+  assert.ok(m, 'spec-init should carry a "The system is **N skills**:" enumeration')
+
+  const [, countWord, enumeration] = m
+  assert.strictEqual(
+    NUMBER_WORDS[countWord.toLowerCase()],
+    shipped.length,
+    `spec-init says "${countWord} skills" but ${shipped.length} ship: ${shipped.join(', ')}`,
+  )
+
+  const missing = shipped.filter((name) => !enumeration.includes(`\`${name}\``))
+  assert.deepStrictEqual(missing, [], `spec-init's list omits: ${missing.join(', ')}`)
+})

@@ -91,7 +91,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Retire stale spec-ready claims + guard | 🔄 | [01-stale-refs.md](01-stale-refs.md) |
+| 1 | Retire stale spec-ready claims + guard | ✅ | [01-stale-refs.md](01-stale-refs.md) |
 | 2 | Trim always-loaded context | ⬜ | [02-trim-always-loaded.md](02-trim-always-loaded.md) |
 | 3 | Single-source shared blocks via common fragments | ⬜ | [03-shared-fragments.md](03-shared-fragments.md) |
 | 4 | Batched grilling | ⬜ | [04-batched-grilling.md](04-batched-grilling.md) |
@@ -110,3 +110,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-08 — Spec created from an efficiency review of all shipped skills/commands.
+- 2026-09-08 — Phase 1: the base README's skill table was stale beyond the
+  `/spec-ready` row (`/spec` status wrong, `/spec-hotfix` and `/spec-to-main`
+  missing), so the whole table was refreshed to the canonical nine rather than
+  half-fixed.
+- 2026-09-08 — Phase 1: scoped the retired-skill guard to a skill-table ROW
+  rather than the bare name. `packages/skitterspec/README.md` is a scanned
+  surface and legitimately names the retired skills in its v3 version history,
+  so a string match would have accused correct history.
+- 2026-09-08 — Phase 1: added a positive check (spec-init's enumeration vs the
+  skills on disk) beyond the negative guard the phase specified — the guard
+  catches a retired name that lingers but not a new skill the sentence forgets.
