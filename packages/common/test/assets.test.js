@@ -648,3 +648,49 @@ test('/spec-go relays the checkout refusals instead of working around them', () 
   assert.match(flat, /one spec at a time/i, 'gives the reason')
   assert.match(flat, /do not switch away/i, 'forbids working around it')
 })
+
+// --- /spec-next: the building half, gated on a spec being in flight ----------
+//
+// `/spec-go` conflated provisioning with building, which is why the worktree
+// hand-off needed a second invocation of the same command. `/spec-next` is the
+// building half alone — the command you re-run per phase, and the one a session
+// in a parked worktree runs directly.
+//
+// Its resolution order is the load-bearing part. This skill WRITES CODE, so
+// picking the wrong spec produces commits on a branch nobody asked for; it
+// therefore refuses rather than falling back to whatever spec was last
+// discussed, which is exactly the guess a helpful agent would otherwise make.
+test('/spec-next resolves the spec in flight, in a stated order', () => {
+  const text = skillText('spec-next')
+  assert.match(text, /## 1\. Identify the spec in flight/, 'resolution comes first')
+  assert.match(text, /spec-env live status/, 'the live receipt is the primary signal')
+  assert.match(text, /worktree you are standing in/i, 'the manual-parallel path')
+  assert.match(text, /current branch, in `checkout` mode/i, 'checkout mode has no worktree')
+})
+
+test('/spec-next refuses rather than guessing a spec from context', () => {
+  const text = skillText('spec-next')
+  assert.match(text, /no spec in flight/i, 'names the refusal')
+  assert.match(text, /\/spec-start <name>/, 'points at the way out')
+  assert.match(text, /Never fall back to the spec "in context"/i, 'forbids the tempting guess')
+})
+
+test('/spec-next carries the build half whole, seams included', () => {
+  // Extraction, not rewrite: the tracker seams must travel or a provider
+  // distribution silently loses its progress-refresh steps.
+  const text = skillText('spec-next')
+  for (const section of [/Pre-flight/, /Implement the phase/, /Record progress/, /Report/]) {
+    assert.match(text, section, `build section present: ${section}`)
+  }
+  assert.match(text, /<!-- seam:spec-tracker-progress -->/, 'progress seam travelled')
+  assert.match(text, /Tests are part of the phase/i, 'the green-before-done rule survived')
+})
+
+test('/spec-next does not provision — that is /spec-start', () => {
+  // The split is the point. If provisioning language creeps back in, the two
+  // commands have re-merged and the hand-off problem returns with them.
+  const text = skillText('spec-next')
+  for (const absent of [/git worktree add/, /spec-env up/, /hand off/i]) {
+    assert.doesNotMatch(text, absent, `provisioning must not appear: ${absent}`)
+  }
+})

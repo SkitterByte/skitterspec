@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-86/spec-start-spec-next-th
 
 > **Type:** Feature
 > **Name:** feat-spec-start-next (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-08)
+> **Status:** In Progress — Phase 2 (started 2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -102,7 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Extract /spec-next | ⬜ | [01-spec-next.md](01-spec-next.md) |
+| 1 | Extract /spec-next | ✅ | [01-spec-next.md](01-spec-next.md) |
 | 2 | Build /spec-start | ⬜ | [02-spec-start.md](02-spec-start.md) |
 | 3 | Engine glue | ⬜ | [03-engine-glue.md](03-engine-glue.md) |
 | 4 | Retire /spec-go | ⬜ | [04-retire-spec-go.md](04-retire-spec-go.md) |
@@ -144,3 +144,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   remote-control arming) are dropped whole — one session driving one workbench
   cures what they treated. Warp/RC research stands recorded above for the
   archive.
+- 2026-09-08 — Phase 1: the skill-count guards added this morning fired on the
+  tenth skill — `spec-init`'s enumeration and two counts on the docs site were
+  updated to ten/14. The count moves again in Phase 2 (spec-start) and Phase 4
+  (spec-go removed); each phase ends green, so each updates it in turn. That
+  churn is the guard working, not friction to route around.
+- 2026-09-08 — Phase 1: `spec-next`'s intro deliberately does not reference
+  `/spec-go`, so Phase 4's retirement needs no edit here — the only remaining
+  reference is the `spec-go-start` seam, which Phase 4 renames as planned.
