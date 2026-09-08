@@ -37,10 +37,32 @@ checkout on the branch** — edits and commits there advance the branch, and
 To return to an isolated worktree instead, ask the user to type `/spec-live main`
 first, then re-run `/spec-go`.)
 
-**If per-spec isolation is enabled** (`specs/.core/env.config.json` exists), the
-spec **isn't already live** (the check above), and it doesn't already have a
-worktree, provision it **first**, so all the housekeeping below lands on the
-spec's branch and never on `main`:
+### Which mode is this project in?
+
+**Read `mode` from `specs/.core/env.config.json`** (default `worktree`). It
+decides where the branch is built, and the two paths differ enough that guessing
+wastes a whole provisioning round.
+
+- **`checkout`** — the branch is built **in the primary checkout**. Run
+  `skitterspec spec-env up <name>` and then the single `git switch` it prints.
+  There is no worktree, so **skip every bullet below** — no bootstrap (the
+  checkout already has its dependencies), no `/add-dir`, no opener, and above
+  all **no hand-off**: you are already in the right place, so carry straight on
+  to the spec move and build the phase in this session.
+  The planner refuses rather than surprising you — a dirty tree (switching would
+  carry the user's work onto the new branch) or standing on **another** spec's
+  branch (checkout mode holds one spec at a time). Relay either refusal and
+  stop; do not switch away from someone's unfinished branch to get past it.
+  Being on **this** spec's branch already is not a refusal, it is the re-run.
+  The live check above is moot here — with no worktree there is nothing to take
+  live, and `mode: checkout` is the permanent version of what `/spec-live` does
+  temporarily.
+- **`worktree`** (default) — the spec gets its own worktree, and everything
+  below applies.
+
+**In `worktree` mode**, when the spec **isn't already live** (the check above)
+and doesn't already have a worktree, provision it **first**, so all the
+housekeeping below lands on the spec's branch and never on `main`:
 
 **Opt-out:** if the user passes `--no-worktree` (or explicitly asks to work in
 place), skip the provisioning bullets below and build on the current branch — the

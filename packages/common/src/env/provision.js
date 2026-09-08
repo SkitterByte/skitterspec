@@ -158,4 +158,61 @@ function planUp(spec, alloc, config) {
   }
 }
 
-module.exports = { planUp, seedCommandFor, worktreeCd }
+/**
+ * Plan `spec-env up` in CHECKOUT mode — the branch is built in the primary
+ * checkout and there is no worktree at all.
+ *
+ * Pure: every git fact it needs arrives in `ctx`, and it writes nothing.
+ *
+ * ctx: { current, base, onBase, clean, branchExists }
+ *
+ * What it refuses, and why each is a refusal rather than a warning:
+ *  - a dirty tree, because `git switch -c` CARRIES uncommitted changes onto the
+ *    new branch. That is silent and it is the operator's work, so it is theirs
+ *    to place, not ours.
+ *  - standing on another branch, because switching away from it is a decision
+ *    about someone else's unfinished spec. Being on THIS spec's branch is not a
+ *    refusal — it is the re-run, and the answer is "already attached".
+ *
+ * There is no bootstrap and no opener: the primary checkout already has its
+ * dependencies, and no new session is being opened.
+ */
+function planCheckoutUp(spec, ctx, config) {
+  const base = ctx.base || (config && config.baseBranch) || 'main'
+  const result = {
+    mode: 'checkout',
+    blocked: false,
+    reason: null,
+    attached: false,
+    branch: spec.branch,
+    checkoutPath: ctx.checkoutPath || null,
+    commands: [],
+  }
+  const block = (reason) => ({ ...result, blocked: true, reason })
+
+  // Order matters: report "already attached" before anything else, so a re-run
+  // on the spec's own branch is never refused for a dirty tree it legitimately
+  // has — you are mid-phase, with the phase's own edits in progress.
+  if (ctx.current && ctx.current === spec.branch) {
+    return { ...result, attached: true }
+  }
+  if (!ctx.clean) {
+    return block(
+      'the primary checkout has uncommitted changes — commit or stash them first ' +
+        '(switching would carry them onto the new branch)',
+    )
+  }
+  if (!ctx.onBase) {
+    return block(
+      `the primary checkout is on ${ctx.current || '(detached)'}, not ${base} — ` +
+        'finish or park that branch first; checkout mode holds one spec at a time',
+    )
+  }
+
+  result.commands.push(
+    ctx.branchExists ? `git switch ${spec.branch}` : `git switch -c ${spec.branch}`,
+  )
+  return result
+}
+
+module.exports = { planUp, planCheckoutUp, seedCommandFor, worktreeCd }

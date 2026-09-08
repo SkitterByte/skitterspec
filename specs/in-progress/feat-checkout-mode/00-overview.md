@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-77/checkout-mode-end-the-p
 
 > **Type:** Feature
 > **Name:** feat-checkout-mode (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 3 (started 2026-09-08)
+> **Status:** In Progress — Phase 4 (started 2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Run the configured opener | ✅ | [01-auto-open.md](01-auto-open.md) |
 | 2 | The `mode` config key | ✅ | [02-mode-key.md](02-mode-key.md) |
-| 3 | `/spec-go` provisions in place | ⬜ | [03-spec-go-checkout.md](03-spec-go-checkout.md) |
+| 3 | `/spec-go` provisions in place | ✅ | [03-spec-go-checkout.md](03-spec-go-checkout.md) |
 | 4 | Land, tear down, refuse | ⬜ | [04-lifecycle.md](04-lifecycle.md) |
 
 ## Open questions
@@ -157,3 +157,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-08 — Phase 2: the resolved mode is not surfaced in `spec-env up` yet —
   it would be a lie while provisioning still always makes a worktree. Added to
   Phase 3, where it starts being true.
+- 2026-09-08 — Phase 3: checkout-mode provisioning is a pure planner
+  (`planCheckoutUp`) like every other `spec-env` verb, so its refusals are
+  testable without touching a repo. Verified end to end in a throwaway repo as
+  well — create, re-attach, dirty refusal and other-branch refusal.
+- 2026-09-08 — Phase 3: the live check is moot in checkout mode and the skill
+  says so rather than leaving a check that can never fire. With no worktree
+  there is nothing to take live — `mode: checkout` is the permanent form of what
+  `/spec-live` does temporarily.
+- 2026-09-08 — Phase 3: both plans now print a `mode:` line, closing the gap
+  Phase 2 left open. It is the operator's only evidence of which mode resolved,
+  since the loader falls back silently on a typo.

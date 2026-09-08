@@ -604,3 +604,47 @@ test('/spec-go does not open a window in a non-interactive run', () => {
   assert.match(text, /non-interactive/i, 'names the non-interactive case')
   assert.match(text, /nobody is sitting at/i, 'says why it is skipped')
 })
+
+// --- /spec-go branches on the workspace mode ---------------------------------
+//
+// Checkout mode's entire value is that the hand-off does not happen, so the
+// skill has to say that explicitly. An agent that read the mode but still handed
+// off would produce the worst of both: a branch in the primary checkout AND a
+// stop telling the operator to go somewhere that does not exist.
+test('/spec-go reads the mode and describes both paths', () => {
+  const text = skillText('spec-go')
+  assert.match(text, /Read `mode` from `specs\/\.core\/env\.config\.json`/, 'reads the key')
+  assert.match(text, /`checkout`/, 'names the checkout path')
+  assert.match(text, /`worktree`.{0,20}\(default\)/s, 'names worktree as the default')
+})
+
+test('/spec-go skips the hand-off in checkout mode', () => {
+  const text = skillText('spec-go')
+  const checkout = text.slice(text.indexOf('- **`checkout`**'), text.indexOf('- **`worktree`**'))
+  assert.ok(checkout.length > 200, 'found the checkout branch of the instructions')
+  assert.match(checkout, /no hand-off/i, 'says the hand-off does not happen')
+  assert.match(checkout, /carry straight on/i, 'says to continue in this session')
+})
+
+test('/spec-go still hands off in worktree mode — the default is unchanged', () => {
+  // A pin, not new coverage. The whole point of defaulting to `worktree` is that
+  // an installed repo behaves exactly as before, hand-off included.
+  const text = skillText('spec-go')
+  assert.match(text, /hand off to a session rooted there, and stop/i)
+  assert.match(text, /In `worktree` mode/, 'scopes the worktree bullets to that mode')
+})
+
+test('/spec-go relays the checkout refusals instead of working around them', () => {
+  // The refusals exist to protect uncommitted work and another spec's branch.
+  // An agent that "helpfully" stashed or switched would defeat both.
+  const text = skillText('spec-go')
+  // Whitespace-normalised: where the prose happens to wrap is a formatting
+  // artefact, and a guard that fails on a re-wrap trains people to ignore it.
+  const flat = text
+    .slice(text.indexOf('- **`checkout`**'), text.indexOf('- **`worktree`**'))
+    .replace(/\s+/g, ' ')
+  assert.match(flat, /dirty tree/i, 'names the dirty-tree refusal')
+  assert.match(flat, /another\*\* spec's branch/i, 'names the other-branch refusal')
+  assert.match(flat, /one spec at a time/i, 'gives the reason')
+  assert.match(flat, /do not switch away/i, 'forbids working around it')
+})

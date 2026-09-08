@@ -37,7 +37,7 @@ const {
   planAbort,
 } = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
-const { planUp } = require('./env/provision.js')
+const { planUp, planCheckoutUp } = require('./env/provision.js')
 const { planDown } = require('./env/teardown.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate } = require('./env/integrate.js')
@@ -233,8 +233,62 @@ function specEnvStatus(dir, config) {
 // the /spec-env skill executes (git worktree add, docker compose up, .env,
 // opener). This creates no worktree and starts no stack — the caller runs the
 // printed commands. Keep the output's verb honest about that.
+// `spec-env up` in checkout mode. Gathers the git facts, hands them to the pure
+// planner, and prints the plan or the refusal.
+function specEnvUpCheckout(dir, config, spec) {
+  const git = gitReader(dir)
+  const primary = assertPrimaryOnMain(config, git)
+  const base = resolveBaseBranch(config, git)
+  const status = git(['status', '--porcelain'])
+
+  const plan = planCheckoutUp(
+    spec,
+    {
+      current: primary.branch,
+      base,
+      onBase: primary.onBase,
+      // A null status means git could not be read at all. Treated as NOT clean:
+      // the harmless outcome of being wrong is a refusal the operator can act
+      // on, and the harmful one is carrying their work onto a new branch.
+      clean: status !== null && status.length === 0,
+      branchExists: git(['rev-parse', '--verify', `refs/heads/${spec.branch}`]) !== null,
+      checkoutPath: dir,
+    },
+    config,
+  )
+
+  if (plan.blocked) {
+    process.stdout.write(`spec-env up: blocked — ${plan.reason}.\n`)
+    return
+  }
+
+  const out = [
+    `spec-env up: ${spec.folder} ` +
+      (plan.attached ? '(already on this branch — nothing to do)' : '(plan — nothing created yet)'),
+    '',
+    `  mode:      checkout (branch built in the primary checkout)`,
+    `  checkout:  ${plan.checkoutPath}`,
+    `  branch:    ${plan.branch}`,
+    '  stack:     checkout-only (no worktree, no docker, no port block)',
+  ]
+  if (plan.commands.length) {
+    out.push('')
+    out.push('  to provision, run:')
+    for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
 function specEnvUp(dir, config, specArg) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
+
+  // Checkout mode: the branch is built in the primary checkout, so none of the
+  // worktree machinery below applies — no slot, no trust entry, no bootstrap and
+  // no opener. Handled first precisely so none of that runs by accident.
+  if (config.mode === 'checkout') {
+    specEnvUpCheckout(dir, config, spec)
+    return
+  }
 
   // Live-safe: if this spec is already live on the primary checkout (its branch was
   // branch-switched in by `live take`), a `git worktree add` would fail — the branch
@@ -295,6 +349,10 @@ function specEnvUp(dir, config, specArg) {
   } else {
     out.push('  stack:     worktree-only (no docker, no port block)')
   }
+  // The loader falls back silently on an unrecognised `mode`, so this line is
+  // the operator's only evidence of which mode actually resolved — print it
+  // whenever it was set explicitly, right or wrong.
+  out.push('  mode:      worktree (each spec gets its own checkout)')
   if (trust.reason === 'malformed') {
     out.push(
       '  trusted:   ! .claude/settings.local.json is not valid JSON — left it;' +
