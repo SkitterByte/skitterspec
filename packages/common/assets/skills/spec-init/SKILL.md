@@ -28,6 +28,15 @@ The system is **nine skills**: `spec` (feature), `spec-bug` (bug),
 lifecycle is `backlog → in-progress → complete / cancelled`, with `.core`
 holding always-apply project rules.
 
+## 0. Workspace mode (only when adopting isolation)
+
+If this project is adopting per-spec isolation, ask which `mode` belongs in
+`specs/.core/env.config.json` — `worktree` (default; a checkout per spec, several
+at once, one terminal session each) or `checkout` (the branch is built in the
+checkout you are already in; one spec at a time, no hand-off). It is a question
+about how the operator works, not about what the repo contains, so ask rather
+than infer it from whether dev servers or Docker are configured.
+
 ## 1. Folders
 
 Create any that are missing; drop a `.gitkeep` into ones that would otherwise be

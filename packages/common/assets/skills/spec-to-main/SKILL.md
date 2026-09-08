@@ -26,9 +26,11 @@ repeatable**: new commits put the branch ahead of base again, and you can run
 ## 0. Preconditions — when this applies
 
 - **Isolation must be on** (`specs/.core/env.config.json` exists **and** the spec
-  is on a worktree provisioned by `/spec-go`). If isolation is absent, there is
-  nothing to land — the spec is authored directly on `main` already. Say so and
-  stop.
+  was provisioned by `/spec-go` — a worktree, or its branch in the checkout under
+  `mode: checkout`). If isolation is absent, there is nothing to land — the spec
+  is authored directly on `main` already. Say so and stop. `spec-env integrate`
+  reads `mode` and emits the matching plan; in checkout mode it rebases in place,
+  switches to base and fast-forwards, all in the one repo.
 - **Feature / Bug specs only.** A **Hotfix** (`Type: Hotfix`) is built on a
   release *tag* and cannot fast-forward onto `main` — refuse it and point the user
   at `/spec-complete` (it lands a hotfix via tag + cherry-pick). Check the header

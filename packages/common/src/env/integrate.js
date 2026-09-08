@@ -16,6 +16,11 @@
  *
  * @param {object} spec  resolved spec: { branch, worktreePath, folder, ... }
  * @param {object} config normalised env config (unused today; kept for symmetry).
+ * In CHECKOUT mode there is no worktree: the branch is already checked out in the
+ * primary checkout, so landing is a rebase in place, a switch to base, and the
+ * fast-forward. `planIntegrateCheckout` below covers that; the shape of what it
+ * returns is identical so callers need no second code path.
+ *
  * @param {object} ctx   { worktreeState: { dirty }, base, aheadOfBase, mainRepoPath }
  * @returns {object} { blocked, noop, reason, commands, base, branch }
  */
@@ -43,4 +48,59 @@ function planIntegrate(spec, config, ctx) {
   }
 }
 
-module.exports = { planIntegrate }
+/**
+ * Pure integrate planner for CHECKOUT mode.
+ *
+ * The branch lives in the primary checkout, so `git -C <worktree> rebase` — the
+ * worktree-mode plan — has nothing to address. Landing is three steps in one
+ * repo: rebase onto base, switch to base, fast-forward.
+ *
+ * The switch is what makes this safe to repeat. Leaving the checkout on the spec
+ * branch after landing would mean the next `spec-env up` refuses ("standing on
+ * another spec's branch") for a spec that is finished, and the operator would
+ * have to know to switch back by hand.
+ *
+ * ctx: { dirty, base, aheadOfBase, checkoutPath, onBranch }
+ */
+function planIntegrateCheckout(spec, config, ctx) {
+  const { dirty, base, aheadOfBase, checkoutPath, onBranch } = ctx || {}
+  const branch = spec.branch
+  const result = { blocked: false, noop: false, reason: null, commands: [], base, branch }
+
+  // "Already landed" is answered FIRST, before any refusal. A landed spec needs
+  // no action wherever the checkout happens to be standing — and after a
+  // successful land it is standing on base, so asking "not on the branch" here
+  // would refuse the very spec this just finished landing. /spec-complete calls
+  // integrate again on exactly that state.
+  if (!aheadOfBase) {
+    return { ...result, noop: true }
+  }
+  if (dirty) {
+    return {
+      ...result,
+      blocked: true,
+      reason: 'the checkout has uncommitted changes — commit the completion first',
+    }
+  }
+  // There IS something to land, so where you are standing now matters: the
+  // branch is the checkout in this mode, and landing from elsewhere would
+  // rebase and fast-forward a branch the operator is not looking at.
+  if (onBranch === false) {
+    return {
+      ...result,
+      blocked: true,
+      reason: `the checkout is not on ${branch} — switch to it before landing`,
+    }
+  }
+
+  return {
+    ...result,
+    commands: [
+      `git -C ${checkoutPath} rebase ${base}`,
+      `git -C ${checkoutPath} switch ${base}`,
+      `git -C ${checkoutPath} merge --ff-only ${branch}`,
+    ],
+  }
+}
+
+module.exports = { planIntegrate, planIntegrateCheckout }

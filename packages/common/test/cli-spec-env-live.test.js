@@ -312,3 +312,45 @@ test('live <base branch> releases where the base is not named main', async () =>
     cleanup(dir)
   }
 })
+
+// --- the rebase that could not start is not a conflict -----------------------
+//
+// Observed 2026-09-08: `/spec-live` reported "hit conflicts — resolve them in
+// <worktree>" when the real cause was one unstaged file. Two people then went
+// looking for a conflict that did not exist. Two things were wrong and both are
+// fixed here — the planner now validates the tree the rebase actually runs in,
+// and the CLI reports git's own words when the rebase never began.
+
+test('live take refuses a dirty WORKTREE, not just a dirty primary checkout', () => {
+  const { planTake } = require("../src/env/live.js")
+  const spec = { folder: 'feat-x', branch: 'feat/x', worktreePath: '/wt', type: 'feature', stack: 'worktree' }
+  const ctx = {
+    primary: { onBase: true, branch: 'main' },
+    base: 'main',
+    clean: true, // the primary checkout is spotless...
+    worktreeClean: false, // ...and the worktree, where the rebase runs, is not
+    worktreeExists: true,
+    serverUp: null,
+    migrationsHit: false,
+  }
+  const plan = planTake(spec, {}, ctx)
+  assert.strictEqual(plan.blocked, true, 'refused before any rebase runs')
+  assert.match(plan.reason, /worktree has uncommitted changes/i)
+  assert.match(plan.reason, /\/wt/, 'names the tree to clean up')
+})
+
+test('a clean worktree still passes, so the new guard is not a blanket refusal', () => {
+  // The stays-silent half: this check must not fire on the ordinary case.
+  const { planTake } = require("../src/env/live.js")
+  const spec = { folder: 'feat-x', branch: 'feat/x', worktreePath: '/wt', type: 'feature', stack: 'worktree' }
+  const plan = planTake(spec, {}, {
+    primary: { onBase: true, branch: 'main' },
+    base: 'main',
+    clean: true,
+    worktreeClean: true,
+    worktreeExists: true,
+    serverUp: null,
+    migrationsHit: false,
+  })
+  assert.strictEqual(plan.blocked, false)
+})

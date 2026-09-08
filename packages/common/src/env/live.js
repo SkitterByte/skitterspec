@@ -135,6 +135,7 @@ function migrationsHit(files, patterns) {
  *   primary        { onBase, branch, baseBranch } — the guard result for the primary checkout
  *   primaryPath    absolute path of the primary checkout (the checkout target)
  *   clean          boolean — primary checkout working tree is clean
+ *   worktreeClean  boolean — the SPEC WORKTREE's tree is clean (the rebase runs there)
  *   worktreeExists boolean — the spec's worktree is on disk
  *   base           resolved base branch name (rebase target)
  *   baseMainCommit primary HEAD before the switch (receipt / crash recovery)
@@ -178,6 +179,19 @@ function planTake(spec, config, ctx) {
   // 3. Need a worktree holding the branch to detach and hand over.
   if (!c.worktreeExists) {
     return block(`${spec.folder} has no worktree — run \`/spec-go ${spec.folder}\` first`)
+  }
+  // 3b. The WORKTREE's own tree, not the primary checkout's. Check 2 above reads
+  //     the checkout we switch INTO; the rebase runs in the worktree, and git
+  //     refuses to rebase over uncommitted changes. Checking only the primary
+  //     let a dirty worktree through to fail at the rebase, where the failure
+  //     was then reported as a merge conflict — a wrong cause for a real
+  //     problem, which is worse than no message. Validate the tree the
+  //     operation actually touches.
+  if (c.worktreeClean === false) {
+    return block(
+      `${spec.folder}'s worktree has uncommitted changes — commit or stash them in ` +
+        `${spec.worktreePath} first (the rebase cannot run over them)`,
+    )
   }
   // 4. A hotfix is built on an old release tag; checking its branch out under the
   //    running dev server risks schema/DB drift breaking the shared instance.

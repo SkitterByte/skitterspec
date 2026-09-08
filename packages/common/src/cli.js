@@ -38,9 +38,9 @@ const {
 } = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
-const { planDown } = require('./env/teardown.js')
+const { planDown, planDownCheckout } = require('./env/teardown.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
-const { planIntegrate } = require('./env/integrate.js')
+const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
 const { planHotfixLand } = require('./env/hotfix.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy } = require('./env/supervise.js')
@@ -493,6 +493,39 @@ function specEnvDown(dir, config, specArg, flags) {
 
   // A worktree-only spec never held a slot but its worktree still needs removing,
   // so "nothing to do" means neither a slot nor a worktree exists.
+  // Checkout mode first: there is no worktree and no registry slot by design, so
+  // the "not provisioned" guard below would report a live spec as absent.
+  if (config.mode === 'checkout') {
+    const dgit = gitReader(dir)
+    const dbase = resolveBaseBranch(config, dgit)
+    if (dgit(['rev-parse', '--verify', `refs/heads/${spec.branch}`]) === null) {
+      process.stdout.write(`spec-env down: ${spec.folder} has no branch — nothing to do.\n`)
+      return
+    }
+    const dst = dgit(['status', '--porcelain'])
+    const contains = dgit(['branch', '--contains', spec.branch, '--list', dbase])
+    const dplan = planDownCheckout(spec, config, flags, {
+      dirty: dst === null || dst.length > 0,
+      landed: Boolean(contains && contains.trim()),
+      onBranch: dgit(['rev-parse', '--abbrev-ref', 'HEAD']) === spec.branch,
+      base: dbase,
+      checkoutPath: dir,
+    })
+    if (dplan.blocked) {
+      process.stdout.write(
+        `spec-env down: blocked — ${dplan.reason}.\n` +
+          'Re-run with --force to tear down anyway (deletes the branch).\n',
+      )
+      return
+    }
+    const dout = [`spec-env down: ${spec.folder}`, '',
+                  '  mode:      checkout (no worktree, no slot, no volumes)',
+                  `  branch:    ${dplan.branch}`, '', '  run these:']
+    for (const cmd of dplan.commands) dout.push(`    ${cmd}`)
+    process.stdout.write(dout.join('\n') + '\n')
+    return
+  }
+
   const registry = readRegistry(dir, config)
   const hasSlot = Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)
   if (!hasSlot && !fs.existsSync(spec.worktreePath)) {
@@ -822,6 +855,39 @@ function specEnvIntegrate(dir, config, specArg) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
   const base = resolveBaseBranch(config, gitReader(dir))
 
+  // Checkout mode short-circuits everything below. The live handling in
+  // particular reads "primary is on the spec's branch" as a live session — true
+  // in worktree mode, and simply where the branch LIVES in checkout mode, so it
+  // would refuse to land a spec sitting exactly where it belongs.
+  if (config.mode === 'checkout') {
+    const cgit = gitReader(dir)
+    const cst = cgit(['status', '--porcelain'])
+    const cahead = cgit(['rev-list', '--count', `${base}..${spec.branch}`])
+    const cplan = planIntegrateCheckout(spec, config, {
+      dirty: cst === null || cst.length > 0,
+      base,
+      aheadOfBase: cahead !== null && Number(cahead) > 0,
+      checkoutPath: dir,
+      onBranch: cgit(['rev-parse', '--abbrev-ref', 'HEAD']) === spec.branch,
+    })
+    if (cplan.blocked) {
+      process.stdout.write(`spec-env integrate: blocked — ${cplan.reason}.\n`)
+      return
+    }
+    if (cplan.noop) {
+      process.stdout.write(
+        `spec-env integrate: ${spec.folder} already landed on ${base} — nothing to integrate.\n`,
+      )
+      return
+    }
+    const cout = [`spec-env integrate: ${spec.folder}`, '', '  mode:      checkout',
+                  `  base:      ${base}`, `  branch:    ${cplan.branch}`, '',
+                  '  run these (abort the rebase on conflict):']
+    for (const cmd of cplan.commands) cout.push(`    ${cmd}`)
+    process.stdout.write(cout.join('\n') + '\n')
+    return
+  }
+
   // Live-aware: if this spec is live on the primary checkout (branch-switched by
   // `live take`), end the live session first — release back to base, re-isolate the
   // branch, clear the receipt — so the normal rebase→ff plan below applies
@@ -1108,6 +1174,16 @@ function proxyProcFor(config, routesFileAbs) {
 // bundled proxy pointing at that spec's warm dev servers. `connect main` stops
 // the proxy so the primary checkout owns the canonical ports again.
 async function specEnvConnect(dir, config, specArg) {
+  // Both verbs exist to route around the work living somewhere other than the
+  // checkout you are in — a proxy to a second stack, or a temporary branch swap.
+  // Checkout mode closes that gap permanently, so there is nothing to route.
+  if (config.mode === 'checkout') {
+    process.stdout.write(
+      'spec-env connect: not applicable in checkout mode — the spec is built in the ' +
+        'primary checkout, so your dev server already serves it on the canonical ports.\\n',
+    )
+    return
+  }
   const sdir = stateDirLabel(config)
   const abs = (rel) => path.resolve(dir, rel)
   const routesFile = `${sdir}/proxy.json`
@@ -1209,6 +1285,17 @@ const DEPS_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.l
 // receipt is advisory metadata. `status` is read-only; `take` performs the switch
 // (release/abort land in a later phase).
 async function specEnvLive(dir, config, positional) {
+  // Both verbs exist to route around the work living somewhere other than the
+  // checkout you are in — a proxy to a second stack, or a temporary branch swap.
+  // Checkout mode closes that gap permanently, so there is nothing to route.
+  if (config.mode === 'checkout') {
+    process.stdout.write(
+      'spec-env live: not applicable in checkout mode — the spec branch is already ' +
+        'checked out here. `mode: checkout` is the permanent form of what live overlay ' +
+        'does temporarily.\\n',
+    )
+    return
+  }
   const { action, specArg } = liveGrammar(dir, config, positional)
   switch (action) {
     case 'status':
@@ -1268,6 +1355,10 @@ async function specEnvLiveTake(dir, config, specArg) {
   const status = primaryGit(['status', '--porcelain'])
   const clean = status !== null && status.length === 0
   const worktreeExists = fs.existsSync(spec.worktreePath)
+  // The tree the rebase actually runs in. Unreadable → treated as dirty: being
+  // wrong that way costs a message, the other way moves work we could not see.
+  const wtStatus = worktreeExists ? gitReader(spec.worktreePath)(['status', '--porcelain']) : ''
+  const worktreeClean = wtStatus !== null && wtStatus.length === 0
   const baseMainCommit = primaryGit(['rev-parse', 'HEAD'])
 
   // Diff base...branch to spot migration / dependency changes (best-effort).
@@ -1288,6 +1379,7 @@ async function specEnvLiveTake(dir, config, specArg) {
     primary,
     primaryPath: dir,
     clean,
+    worktreeClean,
     worktreeExists,
     base,
     baseMainCommit,
@@ -1307,10 +1399,19 @@ async function specEnvLiveTake(dir, config, specArg) {
   // Execute the switch. Rebase first; on conflict, abort and bail (state untouched).
   const reb = runGit(spec.worktreePath, ['rebase', base])
   if (!reb.ok) {
-    runGit(spec.worktreePath, ['rebase', '--abort'])
+    // A rebase fails two ways and they need different answers. It can REFUSE TO
+    // START (unstaged changes, a missing base) — nothing to abort, nothing to
+    // resolve — or start and CONFLICT. Calling both "hit conflicts" sent people
+    // hunting a conflict that did not exist, and `--abort` on a rebase that
+    // never began discarded git's own explanation of what was actually wrong.
+    const started = runGit(spec.worktreePath, ['rebase', '--show-current-patch']).ok
+    if (started) runGit(spec.worktreePath, ['rebase', '--abort'])
     process.stdout.write(
-      `spec-env live take: rebase of ${spec.branch} onto ${base} hit conflicts — ` +
-        `resolve them in ${spec.worktreePath}, then retry.\n`,
+      started
+        ? `spec-env live take: rebase of ${spec.branch} onto ${base} hit conflicts — ` +
+            `resolve them in ${spec.worktreePath}, then retry.\n`
+        : `spec-env live take: rebase of ${spec.branch} onto ${base} could not start — ` +
+            `git said:\n    ${reb.err.split('\n').join('\n    ')}\n`,
     )
     return
   }

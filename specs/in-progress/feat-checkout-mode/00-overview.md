@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-77/checkout-mode-end-the-p
 
 > **Type:** Feature
 > **Name:** feat-checkout-mode (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 4 (started 2026-09-08)
+> **Status:** In Progress — all four phases done, ready for /spec-complete
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -104,7 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Run the configured opener | ✅ | [01-auto-open.md](01-auto-open.md) |
 | 2 | The `mode` config key | ✅ | [02-mode-key.md](02-mode-key.md) |
 | 3 | `/spec-go` provisions in place | ✅ | [03-spec-go-checkout.md](03-spec-go-checkout.md) |
-| 4 | Land, tear down, refuse | ⬜ | [04-lifecycle.md](04-lifecycle.md) |
+| 4 | Land, tear down, refuse | ✅ | [04-lifecycle.md](04-lifecycle.md) |
 
 ## Open questions
 
@@ -168,3 +168,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-08 — Phase 3: both plans now print a `mode:` line, closing the gap
   Phase 2 left open. It is the operator's only evidence of which mode resolved,
   since the loader falls back silently on a typo.
+- 2026-09-08 — Phase 4: two ordering bugs found by running the lifecycle end to
+  end rather than by unit tests. `integrate`'s live handling reads "primary is on
+  the spec's branch" as a live session, which in checkout mode is simply where the
+  branch lives — it refused to land a spec sitting exactly where it belongs, so the
+  mode branch had to move above it. And `planIntegrateCheckout` asked "are you on
+  the branch?" before "is it already landed?", which refused the very spec that had
+  just landed — the state `/spec-complete` always calls integrate in.
+- 2026-09-08 — Phase 4: the binary-name question is settled in favour of the
+  contract requiring the alias, not the commands naming the install. The commands
+  are shared assets composed into every distribution, so templating a binary name
+  would add a seam for something with one right answer — and the published superset
+  already aliases both. Stated in the provider contract, guarded by a test.
+- 2026-09-08 — Phase 4: stating that contract initially named the provider in a
+  *common* asset, and the base build's brand-leak guard caught it. Reworded to name
+  no provider — the tracker-free base must not learn about one through its own docs.

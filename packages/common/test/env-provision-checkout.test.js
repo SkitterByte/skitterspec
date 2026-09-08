@@ -70,3 +70,83 @@ test('an unreadable git state is treated as dirty, not as clean', () => {
   const plan = planCheckoutUp(SPEC, ctx({ clean: false, current: null, onBase: false }), {})
   assert.strictEqual(plan.blocked, true)
 })
+
+// --- checkout-mode landing and teardown --------------------------------------
+
+const { planIntegrateCheckout } = require('../src/env/integrate.js')
+const { planDownCheckout } = require('../src/env/teardown.js')
+
+const ictx = (over = {}) => ({
+  dirty: false, base: 'main', aheadOfBase: true, checkoutPath: '/repo', onBranch: true, ...over,
+})
+
+test('landing in checkout mode rebases, switches to base, then fast-forwards', () => {
+  const plan = planIntegrateCheckout(SPEC, {}, ictx())
+  assert.deepStrictEqual(plan.commands, [
+    'git -C /repo rebase main',
+    'git -C /repo switch main',
+    'git -C /repo merge --ff-only feat/thing',
+  ])
+})
+
+test('the switch to base is part of landing, not an afterthought', () => {
+  // Leaving the checkout on a landed branch would make the NEXT `spec-env up`
+  // refuse ("standing on another spec's branch") for a spec that is finished.
+  const plan = planIntegrateCheckout(SPEC, {}, ictx())
+  assert.ok(
+    plan.commands.some((c) => c.includes('switch main')),
+    'landing returns the checkout to base',
+  )
+})
+
+test('an already-landed spec is a no-op wherever the checkout stands', () => {
+  // Regression: this ordering was wrong first time round. After a successful
+  // land the checkout is ON BASE, so asking "are you on the branch?" first
+  // refused the very spec that had just been landed — which /spec-complete
+  // hits every time, because it calls integrate again.
+  for (const over of [{ onBranch: false }, { onBranch: false, dirty: true }, {}]) {
+    const plan = planIntegrateCheckout(SPEC, {}, ictx({ aheadOfBase: false, ...over }))
+    assert.strictEqual(plan.noop, true, `landed spec should be a no-op (${JSON.stringify(over)})`)
+    assert.strictEqual(plan.blocked, false)
+  }
+})
+
+test('landing is refused from the wrong branch when there IS work to land', () => {
+  const plan = planIntegrateCheckout(SPEC, {}, ictx({ onBranch: false }))
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /not on feat\/thing/)
+})
+
+const GUARDS = { guards: { refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true } }
+const dctx = (over = {}) => ({
+  dirty: false, landed: true, onBranch: true, base: 'main', checkoutPath: '/repo', ...over,
+})
+
+test('checkout teardown switches off the branch before deleting it', () => {
+  // git refuses to delete the branch you are standing on, so the order is
+  // correctness rather than tidiness.
+  const plan = planDownCheckout(SPEC, GUARDS, {}, dctx())
+  assert.deepStrictEqual(plan.commands, [
+    'git -C /repo switch main',
+    'git -C /repo branch -D feat/thing',
+  ])
+})
+
+test('checkout teardown removes no worktree, slot or volume', () => {
+  const text = JSON.stringify(planDownCheckout(SPEC, GUARDS, {}, dctx()))
+  for (const absent of ['worktree remove', 'docker', 'volume']) {
+    assert.ok(!text.includes(absent), `checkout teardown should not mention ${absent}`)
+  }
+})
+
+test('an unlanded branch is refused, because the delete is what loses it', () => {
+  const plan = planDownCheckout(SPEC, GUARDS, {}, dctx({ landed: false }))
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /not merged into main/)
+})
+
+test('--force tears down an unlanded branch, as it does in worktree mode', () => {
+  const plan = planDownCheckout(SPEC, GUARDS, { force: true }, dctx({ landed: false, dirty: true }))
+  assert.strictEqual(plan.blocked, false)
+  assert.ok(plan.commands.some((c) => c.includes('branch -d ')), 'unlanded uses -d, not -D')
+})

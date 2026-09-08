@@ -73,7 +73,10 @@ Confirm the move, the commit, the final test result, and list anything deferred.
 
 ## 6. Land the branch (opt-in, only if isolated)
 
-**Only when `specs/.core/env.config.json` exists and the spec is on a worktree**
+**Only when `specs/.core/env.config.json` exists and the spec was provisioned**
+(a worktree in `worktree` mode, or its branch in the checkout in `checkout`
+mode — `spec-env integrate` and `down` pick the right plan from `mode`, so the
+commands you run differ but these steps do not)
 (it was provisioned by `/spec-go` or `/spec-hotfix`). Otherwise skip this entirely
 — a non-isolated spec has nothing to land, and `/spec-complete` behaves exactly as
 before. When it applies, offer to land the finished branch so the work reaches its

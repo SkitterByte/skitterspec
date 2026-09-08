@@ -185,4 +185,42 @@ function blocked(reason) {
   }
 }
 
-module.exports = { planDown }
+/**
+ * Pure teardown planner for CHECKOUT mode.
+ *
+ * There is no worktree to remove, no slot and no volumes — the only thing a
+ * finished spec leaves behind is its branch, and the checkout standing on it.
+ *
+ * Order is load-bearing: git refuses to delete the branch you are on, so the
+ * switch to base must come first. It is also what returns the checkout to a
+ * state the next `spec-env up` will accept.
+ *
+ * The same "are these commits recoverable?" question decides `-d` vs `-D`, and
+ * it is asked exactly as worktree-mode teardown asks it — a landed branch is
+ * safe to force-delete because its commits are on base (or under a tag); an
+ * unlanded one is not, and is refused rather than quietly dropped.
+ *
+ * ctx: { dirty, landed, onBranch, base, checkoutPath }
+ */
+function planDownCheckout(spec, config, flags, ctx) {
+  const { dirty, landed, onBranch, base, checkoutPath } = ctx || {}
+  const force = Boolean(flags && flags.force)
+  const result = { mode: 'checkout', blocked: false, reason: null, commands: [], branch: spec.branch }
+  const block = (reason) => ({ ...result, blocked: true, reason })
+
+  if (!force) {
+    if (config.guards.refuseTeardownIfDirty && dirty) {
+      return block('the checkout has uncommitted changes')
+    }
+    if (!landed) {
+      return block(`${spec.branch} is not merged into ${base} — landing it first is what makes the delete safe`)
+    }
+  }
+
+  const commands = []
+  if (onBranch !== false) commands.push(`git -C ${checkoutPath} switch ${base}`)
+  commands.push(`git -C ${checkoutPath} branch ${landed ? '-D' : '-d'} ${spec.branch}`)
+  return { ...result, commands }
+}
+
+module.exports = { planDown, planDownCheckout }

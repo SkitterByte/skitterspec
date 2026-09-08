@@ -41,6 +41,17 @@ mid-spec (so the work can run in CI / a shared test env) while the spec stays
 `In Progress` in `specs/in-progress/`; it's the intermediate, repeatable half of
 `/spec-complete`'s landing, without the finalise-and-tear-down.
 
+**Two workspace modes.** `specs/.core/env.config.json` → `mode` decides where a
+spec's branch is built. **`worktree`** (the default) gives each spec its own
+checkout — several specs at once and `main` left free, at the cost of one
+terminal session per spec, which `/spec-go` opens for you. **`checkout`** builds
+the branch in the primary checkout instead: one spec at a time, but no second
+session and no hand-off, so the terminal you are already in follows the work.
+Pick it for how you work rather than for what the project contains — a repo with
+no dev servers may still want several specs in flight. In `checkout` mode
+`/spec-connect` and `/spec-live` do not apply and say so: both exist to reach
+work that lives elsewhere, which is the gap that mode removes.
+
 **Per-spec isolation (opt-in to adopt, then the default policy).** When a project
 adopts isolation (`skitterspec init --isolation`, or `specs/.core/env.config.json`
 present), `/spec-go` gives **every** in-progress spec its own git worktree
@@ -83,6 +94,13 @@ Beneath it, `skitterspec spec-env live <take|release|abort|status>` is the engin
 tracker-free: it knows nothing about any specific ticketing system. A
 ticketing provider is installed as its own distribution that plugs into named
 **seams** in the shared skills and fulfils a skill-name + CLI contract.
+
+Part of that contract is the **binary name**: the shipped `/spec-connect` and
+`/spec-live` commands invoke `skitterspec`, so a superset that replaces the base
+must expose that name too, alongside whatever it calls itself — one entry point
+under two names. A distribution shipping only its own name leaves those commands
+failing with `command not found`, which reads as a broken install rather than a
+missing alias.
 Sync is **one-way**: the repo is the source of truth and the tracker is a
 **generated mirror**. It ships `/spec-push` (repo→tracker; computes a create/update plan
 against a committed last-pushed snapshot and applies it) and `/spec-status`
