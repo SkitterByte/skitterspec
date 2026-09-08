@@ -24,7 +24,8 @@
     "overviewFile": "00-overview.md"
   },
   "release": {
-    "stages": []
+    "stages": [],
+    "ignorePaths": ["specs/"]
   },
   "branch": {
     "pattern": "{type}/{slug}"

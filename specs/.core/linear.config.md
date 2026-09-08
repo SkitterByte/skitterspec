@@ -88,8 +88,12 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   // The project's OWN deployment ladder — where a ticket goes AFTER its spec is
   // complete. Empty (the default) means no ladder is declared and every
   // stage-aware path is unused. See "The deployment ladder" below.
+  //
+  // `ignorePaths` is what `released`/`stage` treat as BOOKKEEPING rather than
+  // shipped work — see "Bookkeeping commits" below. `[]` opts out.
   "release": {
-    "stages": []
+    "stages": [],
+    "ignorePaths": ["specs/"]
   },
 
   // Git branch name derived for a linked spec. Tokens: {type}, {slug},
@@ -166,6 +170,44 @@ the buckets are a closed set the repo derives, and a deployment stage never is.
 
 Run `skitterspec spec-sync states` to see the whole configured vocabulary — the
 bucket map and the ladder — against what the workspace actually has.
+
+
+## Bookkeeping commits (`release.ignorePaths`)
+
+`spec-sync released` and `spec-sync stage` answer "what did this release
+contain?" from the `Refs:` trailers in the range. Left alone, that over-answers:
+a spec's `chore(spec): complete <name>` commit carries the **same ref** as the
+code it describes, but lands **after** the tag that shipped that code — so the
+ticket turns up in two consecutive release ranges, once for its code and once
+for its paperwork. Downstream, a deployment ladder then drags an issue that had
+already reached the top back down a rung.
+
+`release.ignorePaths` names the repo-relative prefixes that are paperwork:
+
+```jsonc
+"release": {
+  "ignorePaths": ["specs/"]
+}
+```
+
+- **Paths, not subjects.** `chore(spec):` is a convention a mislabelled commit
+  escapes; what a commit changed is a fact. A commit touching an ignored path
+  **and** a source file still counts — it shipped code.
+- **Prefixes, not globs.** `specs` and `specs/` both mean the directory, and a
+  prefix matches only on a path boundary, so `specs/` never swallows
+  `specs-archive/`. Name a single file to ignore just that file.
+- **Only a commit whose paths are ALL ignored is dropped**, and only when git
+  actually listed paths for it. A merge commit (for which git lists none) counts,
+  as does every commit if the path read fails — a lookup that saw nothing knows
+  nothing, and dropping a ticket nobody notices is worse than the double-count
+  this is fixing.
+- **Every drop is disclosed.** The report says `N commit(s) ignored as
+  bookkeeping`, and `--json` carries `ignored` / `ignoredCommits`.
+- **`[]` is the opt-out**; a blank entry is a hard error, since `""` is a prefix
+  of every path and would silently empty the release.
+
+Default: `["specs/"]`. A project that keeps its paperwork elsewhere names its own
+directories instead.
 
 
 ## Spec → Issue, phases → sub-issues
