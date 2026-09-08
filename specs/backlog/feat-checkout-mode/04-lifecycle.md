@@ -26,6 +26,19 @@ two commands that have no meaning in checkout mode say so by name.
       become "isolation is enabled", with the engine choosing the plan by mode.
 - [ ] Amend `/spec-init` and `.claude/rules/spec-planning.md` so the isolation
       description names both modes and the trade between them.
+- [ ] **Fix `live take`'s rebase diagnosis — it names the wrong cause.**
+      `cli.js:1250-1257` treats *any* non-zero `git rebase` exit as
+      "hit conflicts — resolve them in <worktree>", discards git's own stderr,
+      and then runs `rebase --abort` on a rebase that may never have started.
+      Observed 2026-09-08 — the real cause was an unstaged file, and the message
+      sent two people hunting a conflict that did not exist. Report git's actual
+      failure, and distinguish "refused to start" from "started and conflicted".
+- [ ] **Check the tree the operation actually touches.** The planner computes
+      `clean` from the PRIMARY checkout (`cli.js:1211`) and then rebases the
+      WORKTREE, whose state it never inspects — so a dirty worktree reaches the
+      rebase and fails there instead of being refused up front with a reason.
+      Add the worktree to the preconditions in `live.js`, alongside the existing
+      primary-checkout check.
 - [ ] Rebuild dists (`pnpm build`).
 - [ ] Add/extend tests covering this phase: checkout-mode integrate and teardown
       plans, both refusals firing with the mode named, and **stays-silent** cases
@@ -33,6 +46,11 @@ two commands that have no meaning in checkout mode say so by name.
       Run `pnpm test` — green before the phase is done.
 
 ## Notes
+
+The two rebase-diagnosis tasks are not checkout-mode work as such — they were
+found while taking a spec live during `feat-skill-efficiency-pass` — but they
+live in the same `live`/`integrate` code this phase already rewrites, so fixing
+them here costs one pass instead of two.
 
 Verify a full checkout-mode spec end to end before calling this done: `/spec-go`
 → commit → `/spec-complete`, with the branch landing on `main` and the checkout

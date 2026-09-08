@@ -119,3 +119,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-08 — Spec created after `8ffa6fc` made the per-spec hand-off explicit and recurring.
+- 2026-09-08 — Phase 4 gained two tasks from live use of `/spec-live`. Its
+  rebase failure is reported as "hit conflicts" whatever the cause, with git's
+  own stderr discarded, and the planner checks the primary checkout's
+  cleanliness while rebasing the worktree — so a dirty worktree is diagnosed as
+  a merge conflict. Both sit in the code this phase already rewrites.
