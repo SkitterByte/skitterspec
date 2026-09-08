@@ -39,6 +39,14 @@ two commands that have no meaning in checkout mode say so by name.
       rebase and fails there instead of being refused up front with a reason.
       Add the worktree to the preconditions in `live.js`, alongside the existing
       primary-checkout check.
+- [ ] **Stop assuming the `skitterspec` binary name resolves.** Both shipped
+      commands invoke `skitterspec` (`assets/commands/spec-connect.md`,
+      `spec-live.md`), and the `spec-sync` skill states the superset "also
+      answers to `skitterspec`". True for a consumer of the published superset;
+      not true wherever only the provider package is installed. Decide whether
+      the commands should name the binary the install actually provides, or
+      whether every provider must alias `skitterspec` — and say which in the
+      provider contract, because today it is assumed rather than stated.
 - [ ] Rebuild dists (`pnpm build`).
 - [ ] Add/extend tests covering this phase: checkout-mode integrate and teardown
       plans, both refusals firing with the mode named, and **stays-silent** cases

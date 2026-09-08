@@ -125,3 +125,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   own stderr discarded, and the planner checks the primary checkout's
   cleanliness while rebasing the worktree — so a dirty worktree is diagnosed as
   a merge conflict. Both sit in the code this phase already rewrites.
+- 2026-09-08 — Phase 4 gained a third task after `/spec-live` failed outright
+  in this repo with `Command "skitterspec" not found`. The commands hardcode
+  that binary name; the published superset aliases it, but the dev-time provider
+  package did not, so it resolved here only through a stale pnpm shim from an
+  older install. Fixed for this repo in `009be5c`; the open question is whether
+  the *contract* should require the alias or the commands should stop assuming
+  it.
