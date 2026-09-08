@@ -1,0 +1,12 @@
+{
+  "issue": "3a100db1a849950cf359de92348da8241fc5fb4e",
+  "issueFields": {
+    "description": "a03828d64d6f5fe9f89c1a096885f5958dfaae16",
+    "state": "32fd35c2acdce9c0e61628435e1b18efd7f4dea1"
+  },
+  "subIssues": {
+    "SKS-83": "4d0982be8b302444e3a7e1d2121e26ec0763c552",
+    "SKS-84": "4a9c0f3829a7fee27ce93cf9f5dae8b5a92789fa",
+    "SKS-85": "e4efb0cfce90cc2f53da976af8a268288efb8f87"
+  }
+}
