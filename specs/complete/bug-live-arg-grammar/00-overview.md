@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-69/bug-spec-live-name-and-
 
 > **Type:** Bug
 > **Name:** bug-live-arg-grammar (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — fixed (tests green)
+> **Status:** Complete (2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-07
@@ -112,6 +112,7 @@ verbs win over a same-named spec.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-07 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-08 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -133,3 +134,7 @@ verbs win over a same-named spec.
   "the current spec" — a bare `take` — stayed invisible at the point of typing.
   Hint and description updated. **Not** changing bare `/spec-live` from status to
   take: a bare word must not branch-switch the primary checkout.
+- 2026-09-08 — Completed; all Fix tasks done, suite green (1306/1306). The two
+  originally-red tests (`live <spec> means take`, `live main means release`)
+  pass. Nothing deferred; `/spec-live-current` stays rejected on the record
+  above, not deferred.
