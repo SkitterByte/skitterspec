@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-77/checkout-mode-end-the-p
 
 > **Type:** Feature
 > **Name:** feat-checkout-mode (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all four phases done, ready for /spec-complete
+> **Status:** Complete (2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -116,6 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-08 | Ready | backlog | Reuben Greaves |
 | 2026-09-08 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-08 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -183,3 +184,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-08 — Phase 4: stating that contract initially named the provider in a
   *common* asset, and the base build's brand-leak guard caught it. Reworded to name
   no provider — the tracker-free base must not learn about one through its own docs.
+- 2026-09-08 — Completed; all four phases done, 1385 tests green. The hand-off
+  that prompted this spec is now optional: `mode: checkout` builds a spec on its
+  branch in the checkout you are already in. `worktree` stays the default, so no
+  installed repo changes behaviour on upgrade.
