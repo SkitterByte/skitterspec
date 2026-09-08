@@ -6,31 +6,30 @@ linear_issue_id: "SKS-88"
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 
-**Goal:** `/spec-start <name>` takes a backlog spec to "building has begun":
-provisioned, moved, mirrored, and handed off (or flowed into `/spec-next`).
+**Goal:** `/spec-start <name>` puts a spec in flight on this checkout — or
+refuses, naming what is in flight and the ways out.
 
 ## Tasks
 
-- [ ] Create `packages/common/assets/skills/spec-start/SKILL.md` from `spec-go`'s
-      steps 1–2b: identify, mode branch (worktree provision via `spec-env up` /
-      checkout via the printed `git switch`), bootstrap, dev servers (confirm
-      first), then — new — the spec move, header stamps, State-log row and
-      tracker refresh happen **from the parent via `git -C <worktree>`**, and are
-      committed + pushed before any hand-off (Decision 4: mechanical
-      housekeeping only; code never happens here).
-- [ ] Add `--remote` (alias `--no-tab`): skip the hand-off entirely and build
-      inline in this session against the worktree (anchored paths — the `--here`
-      mechanics), because a phone-driven operator has no terminal diff panel to
-      protect and cannot reach a local tab. Say once that the terminal's diff
-      view won't follow, mirroring `--here`'s wording.
-- [ ] End by mode: worktree + `open.tab` configured → run `spec-env tab <name>`
-      (Phase 3) and end the turn; worktree without it → today's fallback
-      (opener/path + "run `/spec-next` there"); checkout → continue inline as
-      `/spec-next`. Keep `--here`, `--no-worktree`, `--plan` opt-outs with
-      today's wording, `--here` pointing at `/spec-next` now.
-- [ ] Fold `/spec-bug`'s and `/spec-hotfix`'s stub-move instructions down to
-      "spec-start moves it" where applicable — the parent-side move is now the
-      designed path, not a gotcha (keep the `mkdir -p` rationale with it).
-- [ ] Add/extend tests: hand-off ends the turn (pin), never hands off twice
-      (pin), checkout mode carries straight on, description budget; run
-      `pnpm build` + `pnpm test` — green before the phase is done.
+- [ ] Create `packages/common/assets/skills/spec-start/SKILL.md`:
+      **the gate first** — this checkout must be on base with a clean tree and
+      nothing in flight; otherwise relay the refusal (name the in-flight spec;
+      offer `/spec-complete`, `/spec-cancel`, `/spec-live main`) and stop.
+      Never park, stash or switch to get past it.
+- [ ] Worktree mode: run `spec-env up` + provisioning + bootstrap (unchanged),
+      then take the branch live (`spec-env live take` — Phase 3 wires the
+      composed path), then housekeeping in the primary on the branch: `git mv`
+      to in-progress, headers, State-log row, tracker refresh, commit. Then
+      flow straight into `/spec-next` in this session.
+- [ ] Checkout mode: today's flow renamed — the printed `git switch`,
+      housekeeping, flow into `/spec-next`.
+- [ ] Live-refused spec (stateful/migrations): provision + housekeeping via
+      `git -C <worktree>`, leave the branch parked, run `open.command` if set,
+      print the path and "run `/spec-next` from a session there". Relay the
+      engine's refusal reason verbatim — do not restate it.
+- [ ] Keep `--plan` and `--no-worktree`; drop `--here` (spec-start IS here) and
+      note that in the MIGRATION entry (Phase 4 writes it).
+- [ ] Add/extend tests: the gate refuses on a dirty tree / another spec /
+      off-base, and its wording names the three ways out; a live-refused spec
+      parks rather than blocks; description budget; run `pnpm build` +
+      `pnpm test` — green before the phase is done.

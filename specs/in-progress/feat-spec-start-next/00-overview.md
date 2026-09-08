@@ -16,100 +16,84 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-86/spec-start-spec-next-th
 
 ## Problem
 
-`/spec-go` conflates two jobs — provision an environment, and build a phase —
-and the seam between them is where the worktree hand-off hurts: the operator
-must open a session in the worktree and run `/spec-go` a second time, because
-the building has to happen where the terminal's diff panel can see it. Warp
-cannot repoint an existing tab (no AppleScript/CLI for existing sessions), but
-its Tab Configs carry a `directory` **and** a `commands` list and open in the
-**current window** via `warp://tab_config/<name>` — so the tab that satisfies
-the diff panel can also launch the second session itself. What blocks using
-that is the conflation: there is no command meaning just "build the next phase
-here" for the tab to run.
+`/spec-go` conflates provisioning with building, and every fix for the seam
+between them has grown machinery: a hand-off session, an auto-opened Warp tab,
+remote-control arming for the tab, teardown that must not strand the tab. The
+design review of 2026-09-08 found the simpler invariant underneath: **one
+workbench** — the checkout a session sits in — with exactly one spec in flight
+on it, entered and left deliberately. Two commands express that; no surface
+ever opens another.
 
 ## Decisions
 
-1. **Split `/spec-go` into `/spec-start` and `/spec-next`.** `spec-start` owns
-   identify + provision + the spec's move to `in-progress` on its branch +
-   tracker refresh + the hand-off; `spec-next` owns pre-flight, marking the
-   phase 🔄, the build, recording progress and the mirror push — the part you
-   re-run per phase, and the command the tab runs. Rejected: keeping one skill
-   with a flag — the tab needs a name that means only "build", and the split is
-   the fix for the conflation, not a renaming exercise.
-2. **`/spec-go` is removed, not aliased** — a MIGRATION.md entry, exactly like
-   `/spec-ready` and `/spec-env` in 3.0. `init` update removes the installed
-   skill (the retired-files mechanism); the retired-skill guard in
-   `docs-claims.test.js` gains `spec-go`. Rejected: a deprecated router skill —
-   one more thing to maintain and then remove anyway. Major version bump.
-3. **Worktree-mode hand-off: `spec-start` writes a per-spec Warp Tab Config**
-   (`directory` = worktree, `commands` = [`claude "/spec-next"`]) **and opens
-   `warp://tab_config/<name>`** — a tab in the current window whose shell lives
-   in the worktree and whose Claude session is already building. Fresh session;
-   the spec is the context carrier, which is the workflow's own premise.
-   In the base engine behind config (`open.tab: "warp"`, default off) — the
-   whole Warp-ness is ~50 lines of toml + a deeplink, not a package. Rejected:
-   a `@skitterbyte/skitterspec-warp` package (session decision, 2026-09-08).
-4. **Housekeeping stays in the parent session, deliberately.** `spec-start`
-   commits the spec move/headers on the branch via `git -C <worktree>` before
-   the tab opens. The `8ffa6fc` rule ("never build where the diff panel can't
-   see") applies to *code*; mechanical, immediately-committed housekeeping has
-   nothing for a diff panel to miss. This also ends the untracked-stub shuffle
-   `/spec-bug` documents at length: created in the parent, moved by `spec-start`.
-5. **Checkout mode: `spec-start` flows straight into `/spec-next` inline** —
-   same session, one command builds the phase, exactly today's checkout
-   behaviour under the new names. No tab: the checkout is the view.
-6. **Fallback is today's hand-off.** `open.tab` unset (or not Warp): run
-   `open.command` if set, print the worktree path, say "run `/spec-next` from a
-   session there". Nothing breaks for non-Warp users. Unknown tab-config state
-   (dir missing, deeplink fails) → fall back the same way, never refuse.
-7. **The tab closes itself, because nothing else can.** Warp has no
-   close-a-tab action, but it closes a tab when its shell exits — so the tab
-   config's command chain is `claude "/spec-next"; exit`, and quitting Claude is
-   what closes the tab. `/spec-complete` run inside the tab relocates to the
-   primary checkout before teardown (never saw off the branch you sit on), then
-   says plainly: work is on base in the primary checkout, `/exit` closes this
-   tab. Rejected: leaving the tab stranded on a deleted directory — the exact
-   confusion this spec exists to end.
-8. **Phone-driven sessions skip the tab by explicit flag, and the tab can
-   carry Remote Control for the forgotten case.** Detection is impossible
-   today — Remote Control is observable interactively (`[rc active]`, `/rc`)
-   but has no documented env var, file or CLI query a skill could read — so
-   `spec-start --remote` (alias `--no-tab`) builds inline in the current
-   session instead: from a phone there is no visible terminal, so the diff-panel
-   cost that justifies the hand-off is zero. As a belt for the forgotten flag,
-   `open.tabRemote: true` makes the tab command
-   `claude --remote-control "/spec-next"; exit`, so a tab opened anyway appears
-   in the phone's session list and can be hopped to. Opt-in, because it changes
-   the session's reachability posture. Rejected: parsing `/rc` output or marker
-   files — undocumented and fragile; revisit when a scriptable signal ships.
-9. **`feat-spec-diff` is cancelled** (SKS-82): the auto tab is the
-   correct-diff surface, so a separate viewer command has nothing left to add.
-   `--here` remains a costed opt-out on `spec-start`.
+1. **Split `/spec-go` into `/spec-start` and `/spec-next`.** `spec-start` puts a
+   spec in flight on this checkout; `spec-next` builds the next phase of the
+   spec in flight — the command you re-run per phase. Rejected: one skill with
+   a flag — the conflation is the bug.
+2. **`/spec-go` is removed, not aliased** — MIGRATION.md entry like the 3.0
+   retirements; `init` update removes the installed skill; the retired-skill
+   guard gains `spec-go`. Major version bump.
+3. **`spec-start` refuses unless this checkout is on base with nothing in
+   flight.** No auto-swap, no auto-park: the refusal names what is in flight
+   and the ways out (`/spec-complete`, `/spec-cancel`, or `/spec-live main` to
+   park it), and the operator restores the workbench deliberately. Rejected:
+   swapping the in-flight spec out automatically — an uncommitted tree, a
+   half-built phase, and a surprise rebase are all decisions, not side effects.
+4. **In flight = the branch is in this checkout.** Worktree mode: `spec-start`
+   provisions the worktree, then takes the branch live in the primary checkout
+   (the existing `live take` engine — rebase, detach the worktree, switch);
+   the worktree is a parking spot, not a workplace. Checkout mode: a plain
+   `git switch`. Either way the spec move, headers and tracker refresh happen
+   here, on the branch, committed normally — the parent-session housekeeping
+   dance and the stub shuffle both dissolve.
+5. **`spec-next` builds the spec in flight, and only that.** Resolution: the
+   live spec of the checkout you are in, or the spec of the worktree you are
+   standing in (the manual-parallel path below); on base with nothing in
+   flight it refuses — "no spec in flight — `/spec-start <name>`".
+6. **Parallelism is manual, and preserved.** Many provisioned worktrees may
+   exist; the operator opens a terminal tab in one (their normal habit) and
+   runs `/spec-next` there. Nothing ever opens a tab for them — the 2026-09-08
+   review judged auto-opened tabs an annoyance to reach parity with a habit
+   that already works, and unreachable from a phone besides. One spec per tab
+   is the rule; the engine's live receipt guards the primary, and a worktree
+   session is its own workbench.
+7. **A live-refused spec (stateful stack, migrations) parks instead of
+   swapping.** `spec-start` still provisions and does the housekeeping (via
+   `git -C <worktree>`), then leaves the branch in its worktree, prints the
+   path (running `open.command` when configured), and says to run `/spec-next`
+   from a session there. The live engine's refusals stay exactly as they are —
+   they protect the shared instance, and the manual-tab path needs no
+   weakening of them.
+8. **The tab and remote-control machinery is dropped entirely** — no
+   `open.tab`, no `tabRemote`, no Warp toml generation, no `; exit` lifecycle.
+   One session driving one workbench cures what they treated: the phone
+   reaches the only session there is, and nothing strands on a deleted
+   directory it wasn't standing in. Re-spec if a genuine
+   two-sessions-building-at-once need ever appears.
+9. **`feat-spec-diff` stays cancelled** (SKS-82); `--here` disappears with
+   `spec-go` — `spec-start` IS here.
 
 ## Solution overview
 
-Four passes: extract `/spec-next` from `spec-go`'s build half (its description
-carries the old "build the next phase" triggers); build `/spec-start` from the
-provision half, ending in the mode-appropriate hand-off; add the engine's
-`spec-env tab <name>` verb + `open.tab` key (writes the toml into Warp's
-tab-config directory — locate it at implementation — then opens the deeplink,
-executing not printing); then retire `/spec-go` across the 24 files that name
-it, including renaming the provider seam `spec-go-start` → `spec-next-start`
-(a build-time contract, so common and linear move together in one commit).
-The existing `assets-prose` guard ("every /spec-… named is a skill that
-ships") sweeps stragglers mechanically.
+Five passes: extract `/spec-next` (build half, in-flight resolution, refusal);
+build `/spec-start` (refuse-unless-clean-base, provision + live-take or
+`git switch`, housekeeping on the branch, flow straight into `/spec-next`);
+engine glue — compose existing verbs (`spec-env up`, `live take`) rather than
+new machinery, sharpening the in-flight refusal wording and giving `spec-next`'s
+resolution a `spec-env` query; retire `/spec-go` across every surface naming it
+(24 files at spec time — re-grep), including the `spec-go-start` seam rename;
+and make `/spec-complete`·`/spec-cancel` safe when run from a manual worktree
+session (relocate before teardown — the stranding risk survives exactly there).
 
 ## Impact
 
 | Surface | Change | Detail |
 |---------|--------|--------|
-| Skill/rule | add | spec-start, spec-next (SKILL.md × both asset trees' composition) |
-| Skill/rule | remove | spec-go (+ MIGRATION.md entry, retired-files removal on update) |
-| Skill/rule | update | every asset naming /spec-go (24 files, incl. spec templates' Name header) |
-| CLI command | add | `spec-env tab <name>` (writes + opens the Warp Tab Config) |
-| Config key | add | `open.tab` ("warp" \| "", default "") |
+| Skill/rule | add | spec-start, spec-next |
+| Skill/rule | remove | spec-go (+ MIGRATION.md, retired-files removal, retired guard) |
+| Skill/rule | update | every asset naming /spec-go; spec-complete/cancel relocate rule |
+| CLI command | update | `spec-env live take` refusal wording; an in-flight query for spec-next |
 | Seam | rename | `spec-go-start` → `spec-next-start` (common + linear, one commit) |
-| Test | update | retired-skill guard += spec-go; new tab-verb + fallback tests |
 
 ## Phases
 
@@ -120,9 +104,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Extract /spec-next | ⬜ | [01-spec-next.md](01-spec-next.md) |
 | 2 | Build /spec-start | ⬜ | [02-spec-start.md](02-spec-start.md) |
-| 3 | The Warp tab hand-off | ⬜ | [03-warp-tab.md](03-warp-tab.md) |
+| 3 | Engine glue | ⬜ | [03-engine-glue.md](03-engine-glue.md) |
 | 4 | Retire /spec-go | ⬜ | [04-retire-spec-go.md](04-retire-spec-go.md) |
-| 5 | Complete from the tab | ⬜ | [05-complete-from-tab.md](05-complete-from-tab.md) |
+| 5 | Complete from a worktree session | ⬜ | [05-complete-from-worktree.md](05-complete-from-worktree.md) |
 
 ## Open questions
 
@@ -151,3 +135,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `--remote`/`--no-tab` builds inline; `open.tabRemote` arms the tab. Filing
   feedback for a detection signal is a task, and auto-detection replaces the
   flag if one ever ships.
+- 2026-09-08 — **Design pivot before any phase began: the tab hand-off is out;
+  the one-workbench model is in.** spec-start refuses unless the checkout is on
+  base (no auto-swap, no auto-park); in flight means the branch is in this
+  checkout (live-take in worktree mode, git switch in checkout mode);
+  parallelism is the operator's own tabs into parked worktrees. Decisions 3, 7
+  and 8 of the previous revision (Warp tab config, `; exit` lifecycle,
+  remote-control arming) are dropped whole — one session driving one workbench
+  cures what they treated. Warp/RC research stands recorded above for the
+  archive.
