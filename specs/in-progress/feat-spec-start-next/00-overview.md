@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-86/spec-start-spec-next-th
 
 > **Type:** Feature
 > **Name:** feat-spec-start-next (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-08)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
 > **Area:** packages/common/assets/skills (spec-go split into spec-start/spec-next, + every skill naming /spec-go), packages/common/src (cli.js, env/config.js, init.js), packages/linear/assets/seams, packages/common/assets/rules, MIGRATION.md
 > **Stack:** worktree
@@ -121,6 +121,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-08 | Ready | backlog | Reuben Greaves |
+| 2026-09-08 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
