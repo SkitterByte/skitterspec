@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-72/skill-and-command-effic
 
 > **Type:** Feature
 > **Name:** feat-skill-efficiency-pass (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — all four phases done, ready for /spec-complete
+> **Status:** Complete (2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -106,6 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-08 | Ready | backlog | Reuben Greaves |
 | 2026-09-08 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-08 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -168,3 +169,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the cadence rule outright would satisfy "no longer mandates one at a time"
   while leaving no guidance at all, so both halves are asserted — batch what is
   independent, sequence what is not.
+- 2026-09-08 — Completed; all four phases done, 1351 tests green. Two of the
+  planned extractions in Phase 3 were dropped on measurement rather than forced
+  through, and three existing guards were widened where this work made their
+  assumptions false.
