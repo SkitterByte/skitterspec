@@ -185,6 +185,8 @@ narrative and decisions).
 
 <!-- seam:spec-tracker-link -->
 
+<!-- seam:spec-project-picker -->
+
 ## 6. Drive to GREEN
 
 - Implement the **minimal, root-cause** fix on the branch. Match surrounding code;

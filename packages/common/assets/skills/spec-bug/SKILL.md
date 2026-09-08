@@ -174,6 +174,8 @@ fix narrative and decisions — keep them separate.
 
 <!-- seam:spec-tracker-link -->
 
+<!-- seam:spec-project-picker -->
+
 ## 5. Drive to GREEN
 
 - Implement the **minimal, root-cause** fix. Match surrounding code; honour all

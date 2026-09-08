@@ -206,6 +206,32 @@ test('no base skill ships a dangling seam marker', () => {
   assert.deepEqual(offenders, [], `base skills with an unfilled seam marker: ${offenders.join(', ')}`)
 })
 
+// The INVERSE of the marker guard above, and the direction it cannot see. That
+// one asks "does every marker have a fragment?"; a skill can still send the
+// reader to a section that no marker ever brings in, because the prose doing the
+// pointing lives in a SHARED fragment while the section arrives via a marker each
+// skill must carry itself. /spec and /spec-push carried it; /spec-bug and
+// /spec-hotfix pointed at it and did not, so an agent following either one
+// literally hit a dead end — silently, since composing succeeds either way.
+test('no composed skill points at a section it does not define', () => {
+  const dist = buildLinear()
+  const skillsDir = path.join(dist, 'assets', 'skills')
+  // "run the picker in **Name** below" / "see **Name** below" — a cross-reference
+  // to a section of this same file, which must therefore have that heading.
+  const CROSSREF = /\*\*([A-Z][^*\n]{3,60})\*\* below/g
+  const offenders = []
+  for (const skill of fs.readdirSync(skillsDir)) {
+    const file = path.join(skillsDir, skill, 'SKILL.md')
+    if (!fs.existsSync(file)) continue
+    const text = fs.readFileSync(file, 'utf8')
+    for (const [, name] of text.matchAll(CROSSREF)) {
+      const heading = new RegExp(`^#{1,4} ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm')
+      if (!heading.test(text)) offenders.push(`${skill} → "${name}"`)
+    }
+  }
+  assert.deepEqual(offenders, [], `dangling cross-references: ${offenders.join(', ')}`)
+})
+
 test('the terminal skills carry the tracker step in the superset and not in the base', () => {
   const linear = buildLinear()
   const base = buildBase()
