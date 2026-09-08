@@ -27,6 +27,15 @@ whose shell lives in the worktree and whose Claude is already running
       then open `warp://tab_config/spec-<slug>` via `open`. Executes, not
       prints; on any failure report and print the manual hand-off instead —
       never refuse provisioning over a viewer.
+- [ ] Add `open.tabRemote` (boolean, default false): when true the tab command
+      becomes `claude --remote-control "/spec-next"; exit`, so a tab opened
+      while phone-driving still appears in the operator's claude.ai session
+      list. Document beside it that a heavy phone user can instead set
+      `remoteControlAtStartup: true` in `~/.claude/settings.json` and leave this
+      off — every session, tabs included, then starts reachable.
+- [ ] File `/feedback` requesting a scriptable remote-control signal (env var or
+      `claude status --json`), and note in the skill that `--remote` becomes
+      auto-detection when one ships.
 - [ ] Guards, refusing or degrading by name: checkout mode (nothing to hand
       off), no worktree (`/spec-start` first), spec live (the primary checkout
       already is the session).

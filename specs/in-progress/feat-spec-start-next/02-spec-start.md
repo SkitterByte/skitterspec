@@ -18,6 +18,11 @@ provisioned, moved, mirrored, and handed off (or flowed into `/spec-next`).
       tracker refresh happen **from the parent via `git -C <worktree>`**, and are
       committed + pushed before any hand-off (Decision 4: mechanical
       housekeeping only; code never happens here).
+- [ ] Add `--remote` (alias `--no-tab`): skip the hand-off entirely and build
+      inline in this session against the worktree (anchored paths — the `--here`
+      mechanics), because a phone-driven operator has no terminal diff panel to
+      protect and cannot reach a local tab. Say once that the terminal's diff
+      view won't follow, mirroring `--here`'s wording.
 - [ ] End by mode: worktree + `open.tab` configured → run `spec-env tab <name>`
       (Phase 3) and end the turn; worktree without it → today's fallback
       (opener/path + "run `/spec-next` there"); checkout → continue inline as

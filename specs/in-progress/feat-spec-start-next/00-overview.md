@@ -70,7 +70,19 @@ here" for the tab to run.
    says plainly: work is on base in the primary checkout, `/exit` closes this
    tab. Rejected: leaving the tab stranded on a deleted directory — the exact
    confusion this spec exists to end.
-8. **`feat-spec-diff` is cancelled** (SKS-82): the auto tab is the
+8. **Phone-driven sessions skip the tab by explicit flag, and the tab can
+   carry Remote Control for the forgotten case.** Detection is impossible
+   today — Remote Control is observable interactively (`[rc active]`, `/rc`)
+   but has no documented env var, file or CLI query a skill could read — so
+   `spec-start --remote` (alias `--no-tab`) builds inline in the current
+   session instead: from a phone there is no visible terminal, so the diff-panel
+   cost that justifies the hand-off is zero. As a belt for the forgotten flag,
+   `open.tabRemote: true` makes the tab command
+   `claude --remote-control "/spec-next"; exit`, so a tab opened anyway appears
+   in the phone's session list and can be hopped to. Opt-in, because it changes
+   the session's reachability posture. Rejected: parsing `/rc` output or marker
+   files — undocumented and fragile; revisit when a scriptable signal ships.
+9. **`feat-spec-diff` is cancelled** (SKS-82): the auto tab is the
    correct-diff surface, so a separate viewer command has nothing left to add.
    `--here` remains a costed opt-out on `spec-start`.
 
@@ -132,3 +144,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   would tear down the session's own cwd. Added Decision 7 and Phase 5 —
   relocate before teardown, and the `; exit` chain makes quitting Claude close
   the tab, since Warp exposes no way to close it from outside.
+- 2026-09-08 — Remote-control research: enabling RC at launch is scriptable
+  (`claude --remote-control`, `CLAUDE_CODE_REMOTE_CONTROL=true`,
+  `remoteControlAtStartup`), but no scriptable detection exists — sessions
+  appear on the phone only once RC is explicitly activated. Added Decision 8:
+  `--remote`/`--no-tab` builds inline; `open.tabRemote` arms the tab. Filing
+  feedback for a detection signal is a task, and auto-detection replaces the
+  flag if one ever ships.
