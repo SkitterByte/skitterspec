@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-71/bug-spec-bug-and-spec-h
 
 > **Type:** Bug
 > **Name:** bug-dangling-project-picker-ref
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -110,6 +110,7 @@ is caught without anyone extending a list.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-08 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-08 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -117,3 +118,4 @@ is caught without anyone extending a list.
   composed-output guard in `scripts/build-dist.test.js` (red, naming both
   offenders).
 - 2026-09-08 — Fixed: both skills now carry the picker seam; test green.
+- 2026-09-08 — Completed; all phases done, tests green (1332 passing).
