@@ -6,10 +6,11 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { seamNames, composeText, loadFragments, composeAssets } = require('./compose.js')
+const { seamNames, composeText, loadFragments, mergeFragments, composeAssets } = require('./compose.js')
 
 const COMMON_ASSETS = path.join(__dirname, '..', 'packages', 'common', 'assets')
 const LINEAR_SEAMS = path.join(__dirname, '..', 'packages', 'linear', 'assets', 'seams')
+const COMMON_SEAMS = path.join(__dirname, '..', 'packages', 'common', 'seams')
 const LINEAR_SKILLS = path.join(__dirname, '..', 'packages', 'linear', 'assets', 'skills')
 
 // Every seam name declared across common's shipped markdown assets.
@@ -118,23 +119,60 @@ test('superset build: both seams carry the Linear fragment', () => {
 
 // --- Guard: the seam contract between common and the provider ----------------
 
-test('guard: the linear provider supplies a fragment for every common seam', () => {
+// Every declared seam must be filled by exactly ONE side.
+//
+// This replaced a guard that required the PROVIDER to supply every common seam,
+// which stopped being true once common gained fragments shared between its own
+// skills (the Impact-map guidance, the worktree bootstrap). Those must be filled
+// in the base distribution too, where no provider exists.
+//
+// It also closes a hole the old guard left. An unfilled seam does not survive as
+// a visible marker — `composeText` fills an unknown seam with NOTHING — so a
+// common skill that declares `<!-- seam:foo -->` with no fragment anywhere ships
+// with that passage silently deleted, and every "no raw marker survives" test
+// still passes. Requiring a supplier is the only thing that catches it.
+test('guard: every common seam is supplied by exactly one of common or the provider', () => {
   const declared = commonSeamNames()
   assert.ok(declared.length >= 2, 'common declares its seams')
-  const provided = loadFragments(LINEAR_SEAMS)
-  for (const name of declared) {
-    assert.ok(
-      Object.prototype.hasOwnProperty.call(provided, name),
-      `linear provides a fragment for seam:${name}`,
-    )
-  }
+  const common = loadFragments(COMMON_SEAMS)
+  const provider = loadFragments(LINEAR_SEAMS)
+
+  const orphaned = declared.filter(
+    (n) => !Object.prototype.hasOwnProperty.call(common, n) && !Object.prototype.hasOwnProperty.call(provider, n),
+  )
+  assert.deepStrictEqual(
+    orphaned,
+    [],
+    `seam declared with no fragment on either side — its text would vanish from the ` +
+      `composed output silently: ${orphaned.join(', ')}`,
+  )
+
+  // The other half of "exactly one" — mergeFragments refuses a name both sides
+  // define, so the merge itself is the assertion.
+  assert.doesNotThrow(() => mergeFragments(common, provider), 'common and provider seam names are disjoint')
+})
+
+test('guard: a common-owned seam is filled in the BASE distribution, not just the superset', () => {
+  // The base has no provider, so a seam common owns is the only kind that can
+  // carry text there. If common's fragment went missing the base would compose
+  // the passage away to nothing while the superset still looked correct.
+  const common = loadFragments(COMMON_SEAMS)
+  assert.ok(Object.keys(common).length > 0, 'common ships its own fragments')
+
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'seam-base-'))
+  composeAssets(COMMON_ASSETS, out, common)
+  const specText = fs.readFileSync(path.join(out, 'skills', 'spec', 'SKILL.md'), 'utf8')
+  assert.match(specText, /The concrete surfaces this spec touches/, 'impact-map guidance reached the base')
+  assert.doesNotMatch(specText, /seam:/, 'no marker survives in the base')
 })
 
 // The provider's OWN skills are composed too (build-dist overlays them through
 // composeAssets), so a marker there must resolve as well — otherwise /spec-push
 // would ship a raw `<!-- seam:… -->` to users.
 test('guard: a seam used by the provider\'s own skills has a fragment too', () => {
-  const provided = loadFragments(LINEAR_SEAMS)
+  // Merged, because build-dist overlays provider skills with BOTH fragment sets —
+  // so a provider skill is free to reuse one of common's.
+  const provided = mergeFragments(loadFragments(COMMON_SEAMS), loadFragments(LINEAR_SEAMS))
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const abs = path.join(dir, entry.name)
@@ -215,4 +253,34 @@ test('the project picker is single-sourced into both mint points', () => {
     assert.match(text, /Picking the Linear Project/, `${skill} carries the picker`)
     assert.match(text, /None \(team only\)/, `${skill} offers the no-project option`)
   }
+})
+
+// --- mergeFragments ----------------------------------------------------------
+
+test('mergeFragments combines the two sides', () => {
+  const merged = mergeFragments({ shared: 'A' }, { tracker: 'B' })
+  assert.deepStrictEqual(merged, { shared: 'A', tracker: 'B' })
+})
+
+test('mergeFragments refuses a name both sides define', () => {
+  // Not a preference for one side — there is no correct winner. The same marker
+  // would compose to common's text in the base and the provider's in the
+  // superset, and nothing in either output would show that it had happened.
+  assert.throws(
+    () => mergeFragments({ dup: 'from common' }, { dup: 'from provider' }),
+    /defined by both common and the provider: dup/,
+  )
+})
+
+test('mergeFragments treats missing sides as empty', () => {
+  assert.deepStrictEqual(mergeFragments(), {})
+  assert.deepStrictEqual(mergeFragments({ a: '1' }), { a: '1' })
+})
+
+test('an orphaned seam composes to nothing — which is why the guard must exist', () => {
+  // Non-vacuity proof for the coverage guard above: this is what a forgotten
+  // fragment actually does. No marker, no error, just missing instructions.
+  const composed = composeText('before\n<!-- seam:never-defined -->\nafter', {})
+  assert.strictEqual(composed, 'before\n\nafter')
+  assert.doesNotMatch(composed, /seam:/, 'the evidence is gone, not merely wrong')
 })

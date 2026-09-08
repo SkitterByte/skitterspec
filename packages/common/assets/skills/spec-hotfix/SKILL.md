@@ -81,14 +81,7 @@ that header — must exist **before** `spec-env up`:
   every later step still appears to work until something cannot find the spec.
   Confirm the result before carrying on — you want
   `<worktreePath>/specs/in-progress/hotfix-<name>/00-overview.md`.
-- **Bootstrap the worktree.** A fresh worktree has no installed dependencies and
-  none of the repo's gitignored files (`.env`, local overrides). Run the printed
-  `in the worktree, run:` steps (file seeding, then setup) in order, before
-  anything else.
-- **Trust the worktree for this session.** The engine wrote the printed
-  `trusted:` root into `.claude/settings.local.json`, but it won't hot-reload now
-  — run `/add-dir <trusted root>` before editing into the worktree, or the first
-  edits will prompt.
+<!-- seam:worktree-bootstrap -->
 - **Do everything below in the worktree**, on the `hotfix/<slug>` branch — the red
   test, the fix, and the rest of the spec. Act with absolute paths /
   `git -C <worktreePath>`, or open a fresh session rooted there. `main` changes
@@ -145,16 +138,10 @@ is usually a single-pass fix, so the `## Fix` block can live directly in
 
 ## Impact
 
-<The concrete surfaces this spec touches — the scannable blast radius, so a
-reader can eyeball where the spec got something wrong without reading prose.
-`Change` is `add` · `update` · `remove`. `Surface` is guided-but-open: use
-values like Endpoint, Route/UI, Schema/model, DB table/migration, Domain object,
-Service, CLI command, Config key, Skill/rule, Business rule — or whatever fits
-this project (skitterspec itself is a CLI with no HTTP surface). Keep `Detail`
-terse — names/signatures, not sentences. List **only** surfaces that actually
-change; the heading is always present, but if nothing external changes write the
-single line below instead of an empty table. A hotfix should be minimal — often
-no external surface changes; that's fine, use the one-liner.>
+<!-- seam:impact-map-guidance -->
+
+<A hotfix should be minimal — often no external surface changes; that's
+fine, use the one-liner.>
 
 | Surface | Change | Detail |
 |---------|--------|--------|

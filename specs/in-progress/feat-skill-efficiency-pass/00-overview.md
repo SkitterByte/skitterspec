@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-72/skill-and-command-effic
 
 > **Type:** Feature
 > **Name:** feat-skill-efficiency-pass (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 3 (started 2026-09-08)
+> **Status:** In Progress — Phase 4 (started 2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -93,7 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Retire stale spec-ready claims + guard | ✅ | [01-stale-refs.md](01-stale-refs.md) |
 | 2 | Trim always-loaded context | ✅ | [02-trim-always-loaded.md](02-trim-always-loaded.md) |
-| 3 | Single-source shared blocks via common fragments | ⬜ | [03-shared-fragments.md](03-shared-fragments.md) |
+| 3 | Single-source shared blocks via common fragments | ✅ | [03-shared-fragments.md](03-shared-fragments.md) |
 | 4 | Batched grilling | ⬜ | [04-batched-grilling.md](04-batched-grilling.md) |
 
 ## Open questions
@@ -135,3 +135,26 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `claude-md-section.md` made that false, so the row count was rescoped to the
   whole corpus — it still cannot pass with no table anywhere, but a file may now
   legitimately point at the rule file instead of duplicating it.
+- 2026-09-08 — Phase 3: **the duplication was measured before extracting, and
+  two of the four planned extractions did not survive it.** Impact-map guidance
+  91-92% identical (extracted); bootstrap + trust bullets 99.6%/100% (extracted);
+  worktree section as a whole 58.7% and its `mkdir -p` paragraph 38.6% (left
+  local); "identify the target spec" 25-34% across six skills (dropped); the two
+  teardown sections 8.6% (dropped). Decision 3's "only blocks ≥90% identical are
+  extracted" bar is what settled each one — the spec's own ×6 and ×2 counts were
+  written from reading, not measuring, and were wrong.
+- 2026-09-08 — Phase 3: common's fragments live at `packages/common/seams/`, not
+  `assets/seams/` as the spec said. A build copies common's *whole* assets tree
+  into the distribution, so a fragment under `assets/` would be published as if
+  it were an installable asset. A provider's seams can sit under `assets/`
+  because only named subtrees of a provider are ever overlaid.
+- 2026-09-08 — Phase 3: two deliberate output changes, both recorded rather than
+  smuggled. The per-type Impact caveat moved out of the shared paragraph into a
+  note of its own, and spec-hotfix's plain `setup` became `` `setup` `` to match
+  spec-bug — the one-character drift that proved the two copies were being
+  maintained separately. Everything else composes byte-identically.
+- 2026-09-08 — Phase 3: both existing seam guards assumed every fragment was the
+  *provider's*, so common-owned fragments read as orphans. Widened both to the
+  real invariant — every declared seam is supplied by exactly one side. That also
+  closes a hole they shared: an unfilled seam composes to nothing, so a forgotten
+  fragment silently deletes the passage while every no-raw-marker test passes.

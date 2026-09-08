@@ -90,7 +90,28 @@ function composeAssets(srcDir, outDir, fragments = {}) {
   walk('.')
 }
 
-module.exports = { SEAM_RE, seamNames, composeText, loadFragments, composeAssets }
+/**
+ * Merge the fragments EVERY distribution shares (common's own) with those of the
+ * selected provider, refusing a name used by both.
+ *
+ * The refusal is the point. A silent override would let one seam name mean the
+ * common text in the base distribution and the provider's text in the superset —
+ * the same marker, in the same skill, composing to two different instructions,
+ * with nothing in either output to show it happened. There is no correct winner
+ * to pick, so the build stops and the name gets changed.
+ */
+function mergeFragments(common = {}, provider = {}) {
+  const clashes = Object.keys(provider).filter((name) => name in common)
+  if (clashes.length) {
+    throw new Error(
+      `compose: seam name(s) defined by both common and the provider: ${clashes.join(', ')} — ` +
+        'rename one; a provider fragment must not silently shadow a shared one',
+    )
+  }
+  return { ...common, ...provider }
+}
+
+module.exports = { SEAM_RE, seamNames, composeText, loadFragments, mergeFragments, composeAssets }
 
 // CLI: node scripts/compose.js <srcAssetsDir> <outDir> [providerSeamsDir]
 // With no seams dir, produces the base distribution (all seams emptied).

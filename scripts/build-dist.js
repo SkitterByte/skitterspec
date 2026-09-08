@@ -25,7 +25,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { composeAssets, loadFragments } = require('./compose.js')
+const { composeAssets, loadFragments, mergeFragments } = require('./compose.js')
 
 const ROOT = path.join(__dirname, '..')
 const PKGS = path.join(ROOT, 'packages')
@@ -33,6 +33,16 @@ const PKGS = path.join(ROOT, 'packages')
 // The output subdirs each build regenerates (everything else in a distribution
 // package — package.json, README — is committed and left untouched).
 const BUILT_DIRS = ['assets', 'bin', 'src']
+
+// Common's own seam fragments — text shared by several of ITS OWN skills, filled
+// into every distribution (the base included, where provider seams stay empty).
+//
+// They live at `packages/common/seams/`, deliberately OUTSIDE `assets/`: a build
+// copies common's whole assets tree into the distribution, so a fragment stored
+// under `assets/` would be published as though it were an installable asset. A
+// provider's seams (`packages/linear/assets/seams/`) can sit under assets/
+// because only named subtrees of a provider are ever overlaid.
+const commonSeams = () => loadFragments(path.join(PKGS, 'common', 'seams'))
 
 // The upgrade guide is written once at the repo root and COPIED into each
 // distribution, because it has to reach users: it documents both the base's
@@ -143,8 +153,9 @@ function buildBase() {
   const common = path.join(PKGS, 'common')
   for (const d of BUILT_DIRS) rmDir(path.join(out, d))
 
-  // Assets: compose common with every seam emptied (no provider).
-  composeAssets(path.join(common, 'assets'), path.join(out, 'assets'), {})
+  // Assets: compose common with its own shared fragments filled and every
+  // PROVIDER seam emptied (there is no provider in the base distribution).
+  composeAssets(path.join(common, 'assets'), path.join(out, 'assets'), commonSeams())
   // bin + src: common is already self-contained (only `prompts` + relative requires).
   copyTree(path.join(common, 'src'), path.join(out, 'src'))
   copyTree(path.join(common, 'bin'), path.join(out, 'bin'))
@@ -170,7 +181,7 @@ function buildLinear() {
   // tracker-specific, so it must reach the superset and NOT the tracker-free
   // base. `listRules` (common/src/init.js) then discovers it and installs it to
   // `.claude/rules/`, where it is loaded as a project instruction.
-  const fragments = loadFragments(path.join(linear, 'assets', 'seams'))
+  const fragments = mergeFragments(commonSeams(), loadFragments(path.join(linear, 'assets', 'seams')))
   composeAssets(path.join(common, 'assets'), path.join(out, 'assets'), fragments)
   overlayTree(path.join(linear, 'assets', 'skills'), path.join(out, 'assets', 'skills'), fragments)
   // Commands are overlaid for the same reason as skills: a provider may ship its

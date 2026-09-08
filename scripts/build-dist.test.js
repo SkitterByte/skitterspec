@@ -173,8 +173,16 @@ test('both distributions ship the migration guide', () => {
 // base. That is silent: the build succeeds, the skill ships, and the provider
 // step is simply absent. The only defence is checking the two sets agree.
 test('every seam referenced by a skill has a fragment to fill it', () => {
-  const { loadFragments } = require('./compose.js')
-  const fragments = Object.keys(loadFragments(path.join(PKGS, 'linear', 'assets', 'seams')))
+  const { loadFragments, mergeFragments } = require('./compose.js')
+  // Both sources: common owns the fragments shared between its OWN skills (filled
+  // in every distribution), the provider owns the tracker ones (filled only in the
+  // superset). A marker is an orphan only when NEITHER supplies it.
+  const fragments = Object.keys(
+    mergeFragments(
+      loadFragments(path.join(PKGS, 'common', 'seams')),
+      loadFragments(path.join(PKGS, 'linear', 'assets', 'seams')),
+    ),
+  )
   const referenced = new Set()
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
