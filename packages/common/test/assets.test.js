@@ -563,3 +563,44 @@ test('the cadence guard stays silent on ordering dependent decisions', () => {
   const spec = skillText('spec')
   assert.match(spec, /decisions one at a time/, 'the live sentence this must not accuse is still there')
 })
+
+// --- The hand-off runs the opener -------------------------------------------
+//
+// `spec-env up` emits an expanded `open.command`, and /spec-go used to PRINT it
+// for the operator to copy. That made every new spec cost a manual step whose
+// only content was a path the engine had already computed — and `env.config.md`
+// had described the key as one that gets run since it was introduced, so the
+// skill was the half that disagreed with the documented contract.
+//
+// The stop itself is unchanged and still guarded below: opening a window does
+// not move THIS session, so the hand-off must still end the turn.
+test('/spec-go runs the configured opener at the hand-off', () => {
+  const text = skillText('spec-go')
+  assert.match(text, /\*\*Run\*\* the opener/i, 'the opener is run, not printed')
+  assert.match(text, /open\.command/, 'names the config key it depends on')
+})
+
+test('/spec-go still stops after opening — the window is not the hand-off', () => {
+  // Regression pin: running the opener must not read as "the hand-off happened".
+  // The new session is a DIFFERENT session; this one still has to end its turn,
+  // or it would carry on building in the checkout it was told to leave.
+  const text = skillText('spec-go')
+  assert.match(text, /end your turn/i, 'still ends the turn')
+  assert.match(text, /re-run `\/spec-go`/i, 'still asks for the re-run')
+  assert.match(text, /Never hand off twice/i, 'still guards the double hand-off')
+})
+
+test('/spec-go degrades when there is no opener to run', () => {
+  // `open.command` defaults to empty, so the no-opener path is the DEFAULT one,
+  // not an edge case. It must still say what to do rather than silently doing
+  // nothing and stopping.
+  const text = skillText('spec-go')
+  assert.match(text, /With no opener configured/i, 'covers the empty-command case')
+  assert.match(text, /open a\s+terminal tab there themselves/i, 'falls back to the manual instruction')
+})
+
+test('/spec-go does not open a window in a non-interactive run', () => {
+  const text = skillText('spec-go')
+  assert.match(text, /non-interactive/i, 'names the non-interactive case')
+  assert.match(text, /nobody is sitting at/i, 'says why it is skipped')
+})

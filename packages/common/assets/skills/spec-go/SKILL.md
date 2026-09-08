@@ -56,7 +56,9 @@ change or an explicit request.
   **Run those commands and confirm they succeeded** before anything below: every
   later step assumes the worktree exists, and the header line says
   `(plan — nothing created yet)` precisely because at that point it doesn't.
-  Print the worktree path and the opener command it emits.
+  Print the worktree path. The opener it emits is **run** at the hand-off
+  below, not here — the worktree has to exist and be bootstrapped before a
+  session opens into it.
 - **Bootstrap the worktree's dependencies.** A fresh worktree has an empty
   working tree — no installed dependencies, and none of the repo's gitignored
   files (`.env`, local secret/config overrides) — so git hooks, typechecks,
@@ -83,12 +85,19 @@ change or an explicit request.
   move, the header edits **and** the phase's code — so the spec's evolution
   travels with the code it describes and lands in one PR. `main` changes only
   when that branch merges (at `/spec-complete`).
-- **So hand off to a session rooted there, and stop.** Print the worktree path
-  and the opener command `spec-env up` emitted, tell the user to run it (or to
-  open a terminal tab in the worktree themselves) and re-run `/spec-go` from
-  there — then **end your turn**. Don't move the spec, don't start dev servers,
-  don't build the phase from here. Nothing below has run yet, and the re-run
-  picks all of it up.
+- **So hand off to a session rooted there, and stop.** **Run** the opener
+  `spec-env up` printed — the project configured `open.command` precisely so
+  this step does not have to be manual, and an empty value is how a project
+  says "do not auto-open". Then print the worktree path, tell the user to
+  re-run `/spec-go` from the session it opened — and **end your turn**. Don't
+  move the spec, don't start dev servers, don't build the phase from here.
+  Nothing below has run yet, and the re-run picks all of it up.
+  **With no opener configured** (`open.command` empty, or none emitted), there
+  is nothing to run: print the worktree path and ask the user to open a
+  terminal tab there themselves, exactly as before.
+  **Never open a window nobody is sitting at.** In a non-interactive run — a
+  scripted or headless invocation — skip the opener and print the path instead.
+  It is the operator's terminal, not a build artefact.
   **Already there?** If this session's cwd is *already* inside the worktree —
   the re-run, or a session the opener started — the hand-off is done: carry
   straight on to the spec move below. Never hand off twice.

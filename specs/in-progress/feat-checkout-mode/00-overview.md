@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-77/checkout-mode-end-the-p
 
 > **Type:** Feature
 > **Name:** feat-checkout-mode (the spec folder name — the handle you paste into `/spec-go`)
-> **Status:** In Progress — Phase 1 (started 2026-09-08)
+> **Status:** In Progress — Phase 2 (started 2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Run the configured opener | 🔄 | [01-auto-open.md](01-auto-open.md) |
+| 1 | Run the configured opener | ✅ | [01-auto-open.md](01-auto-open.md) |
 | 2 | The `mode` config key | ⬜ | [02-mode-key.md](02-mode-key.md) |
 | 3 | `/spec-go` provisions in place | ⬜ | [03-spec-go-checkout.md](03-spec-go-checkout.md) |
 | 4 | Land, tear down, refuse | ⬜ | [04-lifecycle.md](04-lifecycle.md) |
@@ -132,3 +132,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   older install. Fixed for this repo in `009be5c`; the open question is whether
   the *contract* should require the alias or the commands should stop assuming
   it.
+- 2026-09-08 — Phase 1: `env.config.md` already described `open.command` as a
+  key that gets **run**, with an empty value meaning "nothing is opened". So
+  this was not a behaviour change so much as the skill catching up with its own
+  documented contract — the doc was right and `/spec-go` was the half that
+  diverged. The doc gained only the timing (after bootstrap) and the
+  non-interactive skip.
+- 2026-09-08 — Phase 1: the provisioning bullet told the agent to *print* the
+  opener, which would have contradicted the hand-off once it started running it.
+  Reconciled to say the opener runs later, after the worktree is bootstrapped —
+  a session must not open onto a tree with no dependencies installed.
