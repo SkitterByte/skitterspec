@@ -61,6 +61,7 @@ const {
   CONFIG_FILE,
   LIFECYCLE_BUCKETS,
   releaseStages,
+  releaseIgnorePaths,
   stageFor,
 } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
@@ -943,6 +944,38 @@ function unreachableBase(git, range) {
 }
 
 /**
+ * The paths each commit in the range changed, as sha → string[], or null when
+ * git could not be asked at all.
+ *
+ * A SECOND `git log` rather than `--name-only` on the first one: that format is
+ * NUL-delimited so a body cannot split a record, and appending a file list to
+ * the same stream would put one commit's files inside the next commit's record.
+ * `-z` also stops git C-quoting a non-ASCII filename (`"specs/\303\251.md"`),
+ * which a prefix match would then miss.
+ *
+ * Returning null on failure is deliberate: the caller leaves every commit's
+ * paths unknown, nothing is filtered, and the report is exactly what it was
+ * before the filter existed. A read that failed must not be able to empty a
+ * release.
+ */
+function readChangedPaths(git, range) {
+  const raw = git(['log', '-z', '--format=%x1e%H', '--name-only', range])
+  if (raw === null) return null
+  const bySha = new Map()
+  for (const chunk of raw.split('\x1e')) {
+    if (!chunk.trim()) continue
+    const [sha, ...names] = chunk.split('\x00')
+    const id = String(sha || '').trim()
+    if (!id) continue
+    bySha.set(
+      id,
+      names.map((n) => n.replace(/^\n+/, '').trim()).filter(Boolean),
+    )
+  }
+  return bySha
+}
+
+/**
  * Resolve a commit range and read it, shared by `released` (which reports on it)
  * and `stage` (which acts on it). Both must agree on what a release contains,
  * and a second copy of this would be a second answer.
@@ -1007,6 +1040,14 @@ function readCommitRange(dir, rangeArg, verb) {
       return { sha, subject, body: rest.join('\x00') }
     })
 
+  // What each commit CHANGED, so bookkeeping can be told from shipped work. A
+  // commit git listed no files for keeps `paths: null` — unknown, never
+  // "changed nothing" — see `onlyIgnoredPaths`.
+  const pathsBySha = readChangedPaths(git, range)
+  for (const commit of commits) {
+    commit.paths = (pathsBySha && pathsBySha.get(commit.sha)) || null
+  }
+
   return { range, commits }
 }
 
@@ -1018,7 +1059,7 @@ async function specSyncReleased(dir, config, rangeArg, flags, out) {
   }
   const { range, commits } = read
 
-  const report = ticketsInRange(commits)
+  const report = ticketsInRange(commits, { ignorePaths: releaseIgnorePaths(config) })
 
   // Titles are an ENRICHMENT: the scan itself is offline. No key, the MCP
   // transport, or a read failure degrades to bare refs — never a failure.
@@ -1061,6 +1102,12 @@ async function specSyncReleased(dir, config, rangeArg, flags, out) {
   // MISSED trailer looks identical, so silence here would read as "everything is
   // accounted for".
   lines.push(`  ${report.unreferenced} commit(s) carry no ref`)
+  // A filter that removes commits without saying so reads as "there was nothing
+  // there". Named only when it actually fired — on a project with no paperwork
+  // in the range there is nothing to disclose.
+  if (report.ignored) {
+    lines.push(`  ${report.ignored} commit(s) ignored as bookkeeping (release.ignorePaths)`)
+  }
   out.write(lines.join('\n') + '\n')
   return 0
 }
@@ -1110,7 +1157,7 @@ async function specSyncStage(dir, config, stageKey, rangeArg, flags, out) {
   }
   const { range, commits } = read
 
-  const report = ticketsInRange(commits)
+  const report = ticketsInRange(commits, { ignorePaths: releaseIgnorePaths(config) })
   const teamKey = (config.linear && config.linear.teamKey) || ''
   const parts = partitionStageMoves({
     tickets: report.tickets,
@@ -1211,6 +1258,7 @@ async function specSyncStage(dir, config, stageKey, rangeArg, flags, out) {
             unreadable: unreadable.map((t) => t.ref),
           },
           unreferencedCommits: report.unreferenced,
+          ignoredCommits: report.ignored,
           totalCommits: report.total,
         },
         null,
@@ -1248,6 +1296,9 @@ async function specSyncStage(dir, config, stageKey, rangeArg, flags, out) {
   // legitimately carries no ref and a MISSED trailer looks identical, so silence
   // would read as "every commit is accounted for".
   lines.push(`  ${report.unreferenced} commit(s) carry no ref, of ${report.total}`)
+  if (report.ignored) {
+    lines.push(`  ${report.ignored} commit(s) ignored as bookkeeping (release.ignorePaths)`)
+  }
   if (!applying) lines.push('  dry run — pass --apply to move them')
   out.write(lines.join('\n') + '\n')
   return failed.length ? 1 : 0

@@ -64,6 +64,17 @@ function repo({ stages = LADDER, teamKey = 'SKS', specs = {} } = {}) {
       git('add', '-A')
       git('commit', '-q', '-m', message)
     },
+    // Commit touching exactly these repo-relative paths — what the bookkeeping
+    // filter reads, as opposed to the subject line.
+    commitPaths(message, paths) {
+      for (const rel of paths) {
+        const file = path.join(dir, rel)
+        fs.mkdirSync(path.dirname(file), { recursive: true })
+        fs.appendFileSync(file, message + '\n')
+      }
+      git('add', '-A')
+      git('commit', '-q', '-m', message)
+    },
     tag: (name) => git('tag', name),
   }
 }
@@ -348,4 +359,43 @@ test('a genuine rung name still drives the order check', async () => {
     adapter: fakeLinear({ 'SKS-1': issue('One', 'Ready for Demo') }),
   })
   assert.match(got.out, /moves back from "demo"/)
+})
+
+// --- bookkeeping commits do not move anything --------------------------------
+//
+// The regression this closes: a spec's `chore(spec): complete <name>` commit
+// lands AFTER the tag that shipped its code, so the ticket appeared in the NEXT
+// release too — and `stage` dragged an issue that had reached the top of the
+// ladder back down a rung. `released` merely reported it wrongly; here it wrote.
+
+test('a ticket whose only commit in the range is paperwork is not moved', async () => {
+  const r = repo({ specs: { 'SKS-1': 'complete' } })
+  r.commit('base')
+  r.commitPaths('feat(a): the actual work\n\nRefs: SKS-1', ['src/a.js'])
+  r.tag('v1.0.0')
+  r.commitPaths('chore(spec): complete feat-a\n\nRefs: SKS-1', ['specs/complete/feat-sks-1/00-overview.md'])
+
+  const adapter = fakeLinear({ 'SKS-1': issue('Work', 'Done') })
+  const got = await run(['stage', 'test', 'v1.0.0..HEAD', '--apply'], r.dir, { adapter })
+  assert.strictEqual(got.code, 0)
+  assert.deepEqual(adapter.writes, [], 'SKS-1 shipped in v1.0.0 — this range does not own it')
+  assert.match(got.out, /moved nothing/)
+  assert.match(got.out, /1 commit\(s\) ignored as bookkeeping/, 'the exclusion is disclosed, not silent')
+})
+
+// THE STAYS-SILENT TEST for the write path: a real deployment still deploys.
+test('an ordinary code commit still moves its ticket', async () => {
+  const r = repo({ specs: { 'SKS-1': 'complete' } })
+  r.commit('base')
+  r.tag('v1.0.0')
+  r.commitPaths('feat(a): the actual work\n\nRefs: SKS-1', ['src/a.js', 'specs/complete/feat-sks-1/00-overview.md'])
+
+  const adapter = fakeLinear({ 'SKS-1': issue('Work', 'In Progress') })
+  const got = await run(['stage', 'test', 'v1.0.0..HEAD', '--apply'], r.dir, { adapter })
+  assert.strictEqual(got.code, 0)
+  assert.deepEqual(
+    adapter.writes,
+    [{ id: 'uuid-SKS-1', input: { stateId: 'st-test' } }],
+    'it shipped code, so it climbs the ladder',
+  )
 })

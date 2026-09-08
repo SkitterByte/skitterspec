@@ -52,17 +52,76 @@ function refsInBody(body) {
 }
 
 /**
+ * Whether a commit's changed paths are ENTIRELY bookkeeping.
+ *
+ * The problem it solves: a spec's `chore(spec): complete <name>` commit carries
+ * the same `Refs:` trailer as the code it describes, but lands after the tag
+ * that shipped that code — so the ticket turns up in two consecutive release
+ * ranges, once for its code and once for its paperwork.
+ *
+ * Deliberately a POSITIVE signal: it says yes only when it actually saw paths
+ * and every one of them sits under an ignored prefix. It never reasons from an
+ * absence.
+ *
+ * WHAT WOULD FOOL THE OTHER PHRASING ("no unignored path was found"): git lists
+ * no files at all for a MERGE commit (without `-m`) — verified, not assumed —
+ * nor for a genuinely empty one, and a `git log` that failed outright yields no
+ * paths for anything. Under that phrasing every one of those becomes a release
+ * silently losing its tickets. Under this one they mean "nothing was seen, so
+ * nothing is known", which keeps the pre-filter behaviour: an over-claimed
+ * ticket is noticed when someone looks for it, whereas a ticket that quietly
+ * belongs to no release never is.
+ *
+ * Matching is path-prefix, not glob: `specs` and `specs/` both mean the
+ * directory, and a prefix only matches on a path SEGMENT boundary, so `specs/`
+ * never swallows `specs-archive/`.
+ *
+ * @param {string[]|null|undefined} paths repo-relative paths the commit changed
+ * @param {string[]} ignorePaths repo-relative prefixes that are bookkeeping
+ */
+function onlyIgnoredPaths(paths, ignorePaths) {
+  if (!Array.isArray(paths) || !paths.length) return false
+  const prefixes = (Array.isArray(ignorePaths) ? ignorePaths : [])
+    .filter((p) => typeof p === 'string' && p.trim())
+    .map((p) => p.trim().replace(/^\.\//, '').replace(/\/+$/, ''))
+    .filter(Boolean)
+  if (!prefixes.length) return false
+  return paths.every((raw) => {
+    const file = String(raw == null ? '' : raw)
+      .trim()
+      .replace(/^\.\//, '')
+    // An unreadable entry is an unknown, not an ignored one — it makes the whole
+    // commit count, per the bias above.
+    if (!file) return false
+    return prefixes.some((prefix) => file === prefix || file.startsWith(`${prefix}/`))
+  })
+}
+
+/**
  * Fold commits into the report a release needs.
  *
- * @param {Array<{sha?:string, subject?:string, body?:string}>} commits
- * @returns {{tickets: Array<{ref:string, commits:number}>, unreferenced:number, total:number}}
+ * @param {Array<{sha?:string, subject?:string, body?:string, paths?:string[]}>} commits
+ * @param {{ignorePaths?:string[]}} [options] `ignorePaths` marks bookkeeping —
+ *   see `onlyIgnoredPaths`. Omitted (or empty) means nothing is ignored, so the
+ *   report is what it was before the filter existed.
+ * @returns {{tickets: Array<{ref:string, commits:number}>, unreferenced:number, ignored:number, total:number}}
  *   `tickets` is deduped in FIRST-SEEN order: a ticket touched by eight commits
- *   is listed once, where it first appears, not eight times.
+ *   is listed once, where it first appears, not eight times. `ignored` is
+ *   reported rather than merely subtracted — a filter that removes commits in
+ *   silence reads as "there was nothing there".
  */
-function ticketsInRange(commits) {
+function ticketsInRange(commits, options = {}) {
+  const ignorePaths = (options && options.ignorePaths) || []
   const seen = new Map()
   let unreferenced = 0
+  let ignored = 0
   for (const commit of commits || []) {
+    if (onlyIgnoredPaths(commit && commit.paths, ignorePaths)) {
+      // Not counted as unreferenced either: that number exists to surface a
+      // MISSED trailer, and a paperwork commit is not a gap someone should hunt.
+      ignored++
+      continue
+    }
     const refs = [...new Set(refsInBody(commit && commit.body))]
     if (!refs.length) {
       unreferenced++
@@ -73,6 +132,7 @@ function ticketsInRange(commits) {
   return {
     tickets: [...seen.entries()].map(([ref, count]) => ({ ref, commits: count })),
     unreferenced,
+    ignored,
     total: (commits || []).length,
   }
 }
@@ -161,4 +221,4 @@ function stageOrderWarning(stages, fromState, toKey, lifecycleStates = []) {
   return null
 }
 
-module.exports = { ticketsInRange, refsInBody, partitionStageMoves, stageOrderWarning }
+module.exports = { ticketsInRange, refsInBody, onlyIgnoredPaths, partitionStageMoves, stageOrderWarning }

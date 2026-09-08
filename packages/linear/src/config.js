@@ -92,6 +92,23 @@ const DEFAULT_KEY_ENV = 'LINEAR_API_KEY'
 // LIFECYCLE_BUCKETS.
 const DEFAULT_RELEASE_STAGES = Object.freeze([])
 
+// Repo-relative path prefixes whose commits are BOOKKEEPING, not shipped work.
+//
+// A spec's `chore(spec): complete <name>` commit carries the same `Refs:`
+// trailer as the code it describes, but lands AFTER the tag that shipped that
+// code — so without this the ticket appears in two consecutive release ranges:
+// once for its code, once for its paperwork. Measured on one consumer, 14 of the
+// 22 ref-carrying commits in 300 were spec bookkeeping, so this is the dominant
+// case rather than an edge one.
+//
+// PATHS, not commit subjects. `chore(spec):` is a convention a mislabelled
+// commit escapes; what a commit changed is a fact. A commit touching an ignored
+// path AND a source file still counts — it shipped code.
+//
+// An explicit `[]` is the opt-out, and a project that keeps its paperwork
+// elsewhere names its own directories here.
+const DEFAULT_RELEASE_IGNORE_PATHS = Object.freeze(['specs/'])
+
 const DEFAULT_CONFIG = Object.freeze({
   // `projectId` is the project picker's DEFAULT, not a mandate: `/spec` and the
   // first `/spec-push` offer the team's projects and pre-select this one; empty
@@ -128,7 +145,9 @@ const DEFAULT_CONFIG = Object.freeze({
   // See DEFAULT_RELEASE_STAGES above. `stages` is ordered: the order is recorded
   // for reporting and doctor's ladder check, and deliberately NOT enforced — a
   // rollback from test and a hotfix going straight to prod are both legitimate.
-  release: Object.freeze({ stages: DEFAULT_RELEASE_STAGES }),
+  // `ignorePaths` (see DEFAULT_RELEASE_IGNORE_PATHS) is what `released`/`stage`
+  // treat as bookkeeping rather than shipped work.
+  release: Object.freeze({ stages: DEFAULT_RELEASE_STAGES, ignorePaths: DEFAULT_RELEASE_IGNORE_PATHS }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // `keyEnv` names the env var holding the personal API key. It is a NAME, not a
   // key: putting the secret itself here would commit it.
@@ -180,7 +199,10 @@ function defaults() {
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
     snapshot: { ...DEFAULT_CONFIG.snapshot },
-    release: { stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })) },
+    release: {
+      stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })),
+      ignorePaths: [...DEFAULT_CONFIG.release.ignorePaths],
+    },
     branch: { ...DEFAULT_CONFIG.branch },
     auth: { ...DEFAULT_CONFIG.auth },
     apply: { ...DEFAULT_CONFIG.apply },
@@ -317,6 +339,35 @@ function mergeReleaseStages(base, parsed) {
   base.stages = stages
 }
 
+// Merge (and validate) release.ignorePaths — the path prefixes whose commits are
+// bookkeeping. Loud on anything but an array of non-empty strings, like
+// release.stages above: a bad value that quietly fell back to the default would
+// let a project believe it had opted out and go on double-counting tickets.
+//
+// A BLANK entry is rejected rather than dropped. `""` is a prefix of every path,
+// so a stray empty string would silently ignore every commit in the range and
+// report a release as containing nothing — the loudest possible wrong answer,
+// arriving as silence.
+function mergeReleaseIgnorePaths(base, parsed) {
+  const value = parsed.ignorePaths
+  if (value === undefined) return
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `Invalid ${CONFIG_FILE}: release.ignorePaths = ${JSON.stringify(value)} ` +
+        '(expected an array of repo-relative path prefixes)',
+    )
+  }
+  value.forEach((entry, i) => {
+    if (typeof entry !== 'string' || !entry.trim()) {
+      throw new Error(
+        `Invalid ${CONFIG_FILE}: release.ignorePaths[${i}] = ${JSON.stringify(entry)} ` +
+          '(expected a non-empty repo-relative path prefix, e.g. "specs/")',
+      )
+    }
+  })
+  base.ignorePaths = stringList(value)
+}
+
 // Merge (and validate) sync.keyedFields. Each value is the item's id property
 // name (a non-empty string); a field listed here is compared per item.
 function mergeKeyedFields(base, parsed) {
@@ -382,6 +433,7 @@ function mergeConfig(base, parsed) {
 
   if (isObject(parsed.release)) {
     mergeReleaseStages(base.release, parsed.release)
+    mergeReleaseIgnorePaths(base.release, parsed.release)
   }
 
   if (isObject(parsed.branch)) {
@@ -462,9 +514,23 @@ function stageFor(config, key) {
   return releaseStages(config).find((s) => s.key === key) || null
 }
 
+/**
+ * The path prefixes whose commits are bookkeeping, always an array.
+ *
+ * A config object that predates the field gets the DEFAULT — the list
+ * `loadLinearConfig` would have produced — rather than an empty one, so an older
+ * object cannot quietly turn the filter off. An explicit `[]` survives
+ * `Array.isArray` and is honoured as the opt-out.
+ */
+function releaseIgnorePaths(config) {
+  const paths = config && config.release && config.release.ignorePaths
+  return Array.isArray(paths) ? paths : [...DEFAULT_RELEASE_IGNORE_PATHS]
+}
+
 module.exports = {
   loadLinearConfig,
   releaseStages,
+  releaseIgnorePaths,
   stageFor,
   mergeConfig,
   defaults,
@@ -476,4 +542,5 @@ module.exports = {
   LIFECYCLE_BUCKETS,
   TRANSPORTS,
   DEFAULT_KEY_ENV,
+  DEFAULT_RELEASE_IGNORE_PATHS,
 }

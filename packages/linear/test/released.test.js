@@ -81,8 +81,107 @@ test('a commit naming the same ref twice counts once for that commit', () => {
 })
 
 test('an empty range reports zeroes rather than throwing', () => {
-  assert.deepEqual(ticketsInRange([]), { tickets: [], unreferenced: 0, total: 0 })
-  assert.deepEqual(ticketsInRange(undefined), { tickets: [], unreferenced: 0, total: 0 })
+  assert.deepEqual(ticketsInRange([]), { tickets: [], unreferenced: 0, ignored: 0, total: 0 })
+  assert.deepEqual(ticketsInRange(undefined), { tickets: [], unreferenced: 0, ignored: 0, total: 0 })
+})
+
+// --- bookkeeping commits (release.ignorePaths) --------------------------------
+//
+// A spec's `chore(spec): complete <name>` commit carries the same ref as the
+// code it describes but lands AFTER the tag that shipped that code, so the
+// ticket turned up in two consecutive releases. The filter's job is to drop
+// exactly those — and, far more importantly, to fire at nothing else.
+
+const { onlyIgnoredPaths } = require('../src/released.js')
+
+const SPECS = ['specs/']
+
+test('a commit touching only ignored paths contributes no ticket', () => {
+  const got = ticketsInRange(
+    [
+      {
+        body: 'chore(spec): complete feat-thing\n\nRefs: SKS-1',
+        paths: ['specs/complete/feat-thing/00-overview.md', 'specs/.core/linear-base/SKS-1.base.json'],
+      },
+    ],
+    { ignorePaths: SPECS },
+  )
+  assert.deepEqual(got.tickets, [], 'paperwork does not put the ticket in the release')
+  assert.strictEqual(got.ignored, 1)
+  assert.strictEqual(got.unreferenced, 0, 'an ignored commit is not a missing trailer either')
+  assert.strictEqual(got.total, 1, 'total still counts every commit in the range, honestly')
+})
+
+test('a commit touching an ignored path AND a source file still contributes', () => {
+  const got = ticketsInRange(
+    [{ body: 'feat(a): thing\n\nRefs: SKS-1', paths: ['specs/in-progress/feat-thing/01-do.md', 'src/a.js'] }],
+    { ignorePaths: SPECS },
+  )
+  assert.deepEqual(got.tickets, [{ ref: 'SKS-1', commits: 1 }], 'it shipped code, so it is in the release')
+  assert.strictEqual(got.ignored, 0)
+})
+
+// THE STAYS-SILENT TEST. Being wrong here costs a ticket that belongs to no
+// release at all, which nobody ever notices — strictly worse than the
+// double-count this filter was written to stop.
+test('an ordinary code commit is completely unaffected by the filter', () => {
+  const commits = [
+    { body: 'feat(a): one\n\nRefs: SKS-1', paths: ['src/a.js'] },
+    { body: 'fix(b): two\n\nRefs: SKS-2', paths: ['packages/b/src/b.js', 'packages/b/test/b.test.js'] },
+    { body: 'chore: tidy', paths: ['README.md'] },
+  ]
+  const filtered = ticketsInRange(commits, { ignorePaths: SPECS })
+  const unfiltered = ticketsInRange(commits)
+  assert.deepEqual(filtered, unfiltered, 'the filter changes nothing about ordinary work')
+  assert.strictEqual(filtered.ignored, 0)
+  assert.strictEqual(filtered.unreferenced, 1)
+})
+
+test('a prefix matches on a path boundary, so specs/ does not swallow specs-archive/', () => {
+  assert.strictEqual(onlyIgnoredPaths(['specs-archive/old.md'], SPECS), false)
+  assert.strictEqual(onlyIgnoredPaths(['specsomething.js'], SPECS), false)
+  assert.strictEqual(onlyIgnoredPaths(['specs/a.md'], SPECS), true)
+})
+
+test('a trailing slash, a bare name and a ./ prefix all mean the same directory', () => {
+  assert.strictEqual(onlyIgnoredPaths(['specs/a.md'], ['specs']), true)
+  assert.strictEqual(onlyIgnoredPaths(['specs/a.md'], ['specs//']), true)
+  assert.strictEqual(onlyIgnoredPaths(['./specs/a.md'], ['./specs/']), true)
+})
+
+test('the file at the prefix itself is ignored, not just what is under it', () => {
+  assert.strictEqual(onlyIgnoredPaths(['docs/RELEASES.md'], ['docs/RELEASES.md']), true)
+})
+
+// --- what must NOT be read as "all paths ignored" ----------------------------
+//
+// Each of these is git legitimately listing no files: a merge commit (no `-m`),
+// a genuinely empty commit, or a `git log` that failed and left the caller with
+// nothing. Phrased as "no unignored path was found", every one of them empties a
+// release.
+
+test('unknown paths make a commit count, never vanish', () => {
+  for (const paths of [null, undefined, [], ['']]) {
+    assert.strictEqual(onlyIgnoredPaths(paths, SPECS), false, `paths = ${JSON.stringify(paths)}`)
+  }
+  const got = ticketsInRange([{ body: 'Refs: SKS-1', paths: null }], { ignorePaths: SPECS })
+  assert.deepEqual(got.tickets, [{ ref: 'SKS-1', commits: 1 }])
+  assert.strictEqual(got.ignored, 0)
+})
+
+test('an empty or absent ignore list ignores nothing', () => {
+  const commit = { body: 'Refs: SKS-1', paths: ['specs/complete/feat-thing/00-overview.md'] }
+  assert.deepEqual(ticketsInRange([commit], { ignorePaths: [] }).tickets, [{ ref: 'SKS-1', commits: 1 }])
+  assert.deepEqual(ticketsInRange([commit], {}).tickets, [{ ref: 'SKS-1', commits: 1 }])
+  assert.deepEqual(ticketsInRange([commit]).tickets, [{ ref: 'SKS-1', commits: 1 }])
+})
+
+test('a blank or malformed ignore entry cannot ignore everything', () => {
+  assert.strictEqual(onlyIgnoredPaths(['src/a.js'], ['']), false)
+  assert.strictEqual(onlyIgnoredPaths(['src/a.js'], ['  ']), false)
+  assert.strictEqual(onlyIgnoredPaths(['src/a.js'], ['/']), false)
+  assert.strictEqual(onlyIgnoredPaths(['src/a.js'], [null, 42]), false)
+  assert.strictEqual(onlyIgnoredPaths(['src/a.js'], 'specs/'), false, 'a string, not a list, ignores nothing')
 })
 
 // --- partitionStageMoves / stageOrderWarning (pure, no git, no network) ------

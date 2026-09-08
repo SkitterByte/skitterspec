@@ -156,6 +156,14 @@ Relay the **unreferenced count** even when it is zero. A chore commit
 legitimately carries no ticket and a *missed* trailer looks identical, so
 omitting the number reads as "everything is accounted for" when it may not be.
 
+**Bookkeeping commits are excluded.** A spec's `chore(spec): complete <name>`
+commit carries the same ref as the code it describes but lands *after* the tag
+that shipped it, so counting it would put the ticket in two consecutive releases.
+A commit whose changed paths are **all** under `release.ignorePaths` (default
+`specs/`) contributes nothing; one that touches an ignored path *and* a source
+file still counts. Relay the **ignored count** whenever it is non-zero — that is
+the report saying which commits it set aside.
+
 ## 8. `retarget` — after a Linear team is renamed
 
 ```

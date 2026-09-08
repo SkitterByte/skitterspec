@@ -16,6 +16,7 @@ const {
   TRANSPORTS,
   DEFAULT_KEY_ENV,
   releaseStages,
+  releaseIgnorePaths,
   stageFor,
 } = require('../src/config.js')
 const { validateStates, stateSuggestions } = require('@skitterbyte/skitterspec-sync-core')
@@ -420,6 +421,62 @@ test('release.stages: a duplicate key is a hard error', () => {
     release: { stages: [{ key: 'test', state: 'On Test' }, { key: 'test', state: 'Done' }] },
   })
   assert.throws(() => loadLinearConfig(dir), /duplicate/)
+})
+
+// --- release.ignorePaths: which commits are bookkeeping ----------------------
+
+test('release.ignorePaths: the default is the spec folder', () => {
+  const dir = tmpDir()
+  writeConfig(dir, {})
+  const { config } = loadLinearConfig(dir)
+  assert.deepStrictEqual(config.release.ignorePaths, ['specs/'])
+  assert.deepStrictEqual(releaseIgnorePaths(config), ['specs/'])
+})
+
+test('release.ignorePaths: a project names its own directories', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { release: { ignorePaths: [' planning/ ', 'docs/decisions'] } })
+  assert.deepStrictEqual(loadLinearConfig(dir).config.release.ignorePaths, ['planning/', 'docs/decisions'])
+})
+
+test('release.ignorePaths: an explicitly empty array is the opt-out, and survives', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { release: { ignorePaths: [] } })
+  const { config } = loadLinearConfig(dir)
+  assert.deepStrictEqual(config.release.ignorePaths, [])
+  assert.deepStrictEqual(releaseIgnorePaths(config), [], 'an opt-out must not be re-defaulted')
+})
+
+test('release.ignorePaths: a config object predating the field gets the default, not silence', () => {
+  // A caller that hand-builds a config (or an older snapshot of one) must not
+  // quietly turn the filter off — that is the direction that loses tickets.
+  assert.deepStrictEqual(releaseIgnorePaths({}), ['specs/'])
+  assert.deepStrictEqual(releaseIgnorePaths({ release: {} }), ['specs/'])
+  assert.deepStrictEqual(releaseIgnorePaths(null), ['specs/'])
+})
+
+test('release.ignorePaths: a non-array is a hard error', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { release: { ignorePaths: 'specs/' } })
+  assert.throws(() => loadLinearConfig(dir), /release\.ignorePaths/)
+})
+
+test('release.ignorePaths: a blank entry is refused, never dropped in silence', () => {
+  // "" is a prefix of every path, so a stray blank would ignore every commit in
+  // the range and report a release as containing nothing.
+  for (const bad of ['', '   ', null, 42]) {
+    const dir = tmpDir()
+    writeConfig(dir, { release: { ignorePaths: ['specs/', bad] } })
+    assert.throws(() => loadLinearConfig(dir), /release\.ignorePaths\[1\]/, `entry ${JSON.stringify(bad)}`)
+  }
+})
+
+test('release.ignorePaths: the loaded list cannot mutate the frozen defaults', () => {
+  const dir = tmpDir()
+  writeConfig(dir, {})
+  loadLinearConfig(dir).config.release.ignorePaths.push('leaked')
+  assert.deepStrictEqual([...DEFAULT_CONFIG.release.ignorePaths], ['specs/'], 'defaults untouched')
+  assert.deepStrictEqual(loadLinearConfig(dir).config.release.ignorePaths, ['specs/'], 'reload is clean')
 })
 
 test('release.stages: entries are trimmed', () => {

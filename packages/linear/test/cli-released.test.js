@@ -34,10 +34,33 @@ function repo() {
       git('add', '-A')
       git('commit', '-q', '-m', message)
     },
+    // Commit `message`, touching exactly these repo-relative paths. What a
+    // commit CHANGED is the input the bookkeeping filter reads, so a test of it
+    // has to control the paths rather than the subject.
+    commitPaths(message, paths) {
+      for (const rel of paths) {
+        const file = path.join(dir, rel)
+        fs.mkdirSync(path.dirname(file), { recursive: true })
+        fs.appendFileSync(file, message + '\n')
+      }
+      git('add', '-A')
+      git('commit', '-q', '-m', message)
+    },
     tag(name) {
       git('tag', name)
     },
+    git,
   }
+}
+
+// Replace the repo's config. Written before the base commit so `git add -A` in a
+// later commit cannot sweep the edit into the range under test.
+function configure(r, extra) {
+  fs.writeFileSync(
+    path.join(r.dir, CONFIG_FILE),
+    JSON.stringify({ linear: { teamId: 'T1' }, ...extra }),
+    'utf-8',
+  )
 }
 
 function run(argv, cwd, io = {}) {
@@ -167,4 +190,119 @@ test('a multi-line body with a subject containing separators still parses', asyn
 
   const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
   assert.deepEqual(json.tickets, [{ ref: 'SKS-7', commits: 1 }])
+})
+
+// --- bookkeeping commits, over real git --------------------------------------
+//
+// The reproduction this filter exists for: a spec's `chore(spec): complete
+// <name>` commit carries the same ref as the code it describes, but lands AFTER
+// the tag that shipped that code — so the ticket appeared in two consecutive
+// release ranges, once for its code and once for its paperwork. Consumers then
+// attributed it to a release it was never in.
+
+test('a spec bookkeeping commit does not put its ticket in the next release', async () => {
+  const r = repo()
+  r.commit('chore: base')
+  r.commitPaths('feat(a): the actual work\n\nRefs: SKS-1', ['src/a.js'])
+  r.tag('v1.0.0')
+  r.commitPaths('chore(spec): complete feat-a\n\nRefs: SKS-1', [
+    'specs/complete/feat-a/00-overview.md',
+    'specs/.core/linear-base/SKS-1.base.json',
+  ])
+
+  const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
+  assert.deepEqual(json.tickets, [], 'SKS-1 shipped in v1.0.0; its paperwork is not a second release')
+  assert.strictEqual(json.ignored, 1)
+  assert.strictEqual(json.unreferenced, 0, 'paperwork is not a missing trailer')
+  assert.strictEqual(json.total, 1, 'the range still honestly reports its size')
+})
+
+test('a commit changing a spec AND code still contributes — it shipped code', async () => {
+  const r = repo()
+  r.commit('chore: base')
+  r.tag('v1.0.0')
+  r.commitPaths('feat(a): work, with the spec ticked off\n\nRefs: SKS-1', [
+    'specs/in-progress/feat-a/01-do-it.md',
+    'src/a.js',
+  ])
+
+  const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-1', commits: 1 }])
+  assert.strictEqual(json.ignored, 0)
+})
+
+// THE STAYS-SILENT TEST. A filter that fires at ordinary work costs a ticket
+// that belongs to no release at all — and unlike a double-count, nobody notices.
+test('an ordinary release of code commits is completely unaffected', async () => {
+  const r = repo()
+  r.commit('chore: base')
+  r.tag('v1.0.0')
+  r.commitPaths('feat(a): one\n\nRefs: SKS-1', ['src/a.js'])
+  r.commitPaths('fix(b): two\n\nRefs: SKS-2', ['packages/b/src/b.js', 'packages/b/test/b.test.js'])
+  r.commitPaths('chore: bump deps', ['package.json'])
+
+  const got = await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)
+  const json = JSON.parse(got.out)
+  assert.strictEqual(got.code, 0)
+  assert.deepEqual(json.tickets, [
+    { ref: 'SKS-2', commits: 1 },
+    { ref: 'SKS-1', commits: 1 },
+  ])
+  assert.strictEqual(json.ignored, 0, 'nothing was filtered')
+  assert.strictEqual(json.unreferenced, 1)
+  assert.strictEqual(json.total, 3)
+})
+
+// git lists NO files for a merge commit (without `-m`). Read as "no unignored
+// path was found", that would drop every merge commit's ticket from every
+// release — the silent failure the positive phrasing exists to prevent.
+test('a merge commit, for which git lists no files at all, still counts', async () => {
+  const r = repo()
+  r.commit('chore: base')
+  r.tag('v1.0.0')
+  r.git('checkout', '-q', '-b', 'side')
+  r.commitPaths('feat(a): on the branch', ['src/a.js'])
+  r.git('checkout', '-q', 'master')
+  r.commitPaths('chore: on the trunk', ['src/trunk.js'])
+  r.git('merge', '-q', '--no-ff', 'side', '-m', 'merge side\n\nRefs: SKS-5')
+
+  const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-5', commits: 1 }], 'no paths seen means unknown, never ignored')
+  assert.strictEqual(json.ignored, 0)
+})
+
+test('the filter is configurable — an empty list opts out entirely', async () => {
+  const r = repo()
+  configure(r, { release: { ignorePaths: [] } })
+  r.commit('chore: base')
+  r.tag('v1.0.0')
+  r.commitPaths('chore(spec): complete feat-a\n\nRefs: SKS-1', ['specs/complete/feat-a/00-overview.md'])
+
+  const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-1', commits: 1 }], 'opted out, so nothing is filtered')
+  assert.strictEqual(json.ignored, 0)
+})
+
+test('a project keeping its paperwork elsewhere names its own directories', async () => {
+  const r = repo()
+  configure(r, { release: { ignorePaths: ['planning/', 'docs/decisions'] } })
+  r.commit('chore: base')
+  r.tag('v1.0.0')
+  r.commitPaths('docs: wrap up\n\nRefs: SKS-1', ['planning/feat-a.md', 'docs/decisions/0001.md'])
+  r.commitPaths('chore(spec): complete feat-b\n\nRefs: SKS-2', ['specs/complete/feat-b/00-overview.md'])
+
+  const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-2', commits: 1 }], 'specs/ is no longer ignored; the named dirs are')
+  assert.strictEqual(json.ignored, 1)
+})
+
+test('the ignored count is disclosed in the text report, never silent', async () => {
+  const r = repo()
+  r.commit('chore: base')
+  r.tag('v1.0.0')
+  r.commitPaths('chore(spec): complete feat-a\n\nRefs: SKS-1', ['specs/complete/feat-a/00-overview.md'])
+
+  const got = await run(['released', 'v1.0.0..HEAD'], r.dir)
+  assert.match(got.out, /1 commit\(s\) ignored as bookkeeping/, 'a silent drop reads as "nothing was there"')
+  assert.match(got.out, /release\.ignorePaths/, 'names the knob that did it')
 })
