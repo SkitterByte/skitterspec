@@ -5,7 +5,7 @@
 
 Spec-driven development runs through the lifecycle **skills** — use them so
 structure and lifecycle stay consistent. The everyday loop is
-**`spec → go → commit → complete`**, with `/spec-connect` when you want to test
+**`spec → start → next → commit → complete`**, with `/spec-connect` when you want to test
 the spec in a browser.
 
 **Skills vs commands.** The lifecycle skills are read by Claude, which exercises

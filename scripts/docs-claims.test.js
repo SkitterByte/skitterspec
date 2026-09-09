@@ -480,3 +480,34 @@ test('spec-init names exactly the lifecycle skills it ships', () => {
   const missing = shipped.filter((name) => !enumeration.includes(`\`${name}\``))
   assert.deepStrictEqual(missing, [], `spec-init's list omits: ${missing.join(', ')}`)
 })
+
+// The everyday-loop diagram names skills WITHOUT their `spec-` prefix
+// (`spec → start → next → …`), so every guard keyed on the full skill name —
+// including the retired-skill one above — reads straight past it. It survived
+// the /spec-go retirement sweep for exactly that reason, still telling every
+// consumer's CLAUDE.md to run a command that no longer exists.
+//
+// Checked against the skills on disk rather than a hard-coded list, so the
+// diagram cannot drift again the next time the lifecycle changes.
+test('the everyday-loop diagram names steps that are real skills', () => {
+  const SURFACES_WITH_LOOP = ['CLAUDE.md', 'packages/common/assets/claude-md-section.md']
+  const skillsDir = path.join(ROOT, 'packages/common/assets/skills')
+  const ships = new Set(fs.readdirSync(skillsDir).map((n) => `spec-${n.replace(/^spec-?/, '')}`))
+  ships.add('spec') // the loop's first step is /spec itself
+
+  let checked = 0
+  for (const rel of SURFACES_WITH_LOOP) {
+    const abs = path.join(ROOT, rel)
+    if (!fs.existsSync(abs)) continue
+    const m = fs.readFileSync(abs, 'utf8').match(/\*\*`(spec(?: → [a-z-]+)+)`\*\*/)
+    if (!m) continue
+    checked++
+    for (const step of m[1].split(' → ')) {
+      // `commit` is skittership's, not ours; every other step must be a skill.
+      if (step === 'commit') continue
+      const name = step === 'spec' ? 'spec' : `spec-${step}`
+      assert.ok(ships.has(name), `${rel} loop names "${step}", but /${name} does not ship`)
+    }
+  }
+  assert.ok(checked > 0, 'found at least one loop diagram — otherwise this guard is vacuous')
+})

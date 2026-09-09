@@ -567,7 +567,7 @@
       <div class="stage">
         <span class="num">02 · BUILD</span>
         <h3><span class="cmdname">/spec-start</span></h3>
-        <p>Provisions the spec's own git worktree, brings its dev servers up, and implements the next phase — phase isn't done until its tests are green.</p>
+        <p>Puts the spec in flight on your checkout — provisions its worktree, brings dev servers up, promotes it to in-progress — then builds phase 1. Each phase after that is <code>/spec-next</code>, and a phase isn't done until its tests are green.</p>
         <div class="foot"><span class="status progress">In Progress</span> specs/in-progress/</div>
         <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </div>
@@ -656,9 +656,9 @@
         <div class="step-rail"><div class="step-num">4</div><div class="step-line"></div></div>
         <div class="step-body">
           <h3><span class="cmd">/spec-next</span> Build the next phase <span class="step-where term-w">terminal</span></h3>
-          <p>Back in the terminal. The repo is already canonical, so there's nothing to pull down — <code>/spec-start</code> spins up an isolated worktree and dev servers, then implements the phase — red tests to green before it's done. (Read priority and notes in Linear whenever you like; they don't gate the build.)</p>
+          <p>Back in the terminal. The repo is already canonical, so there's nothing to pull down — <code>/spec-start</code> already put the spec in flight, and <code>/spec-next</code> builds each remaining phase — red tests to green before one is done. (Read priority and notes in Linear whenever you like; they don't gate the build.)</p>
           <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-next feat-sort-inbox</div>
+<div class="l"><span style="color:var(--accent)">›</span> /spec-next</div>
 <div class="l"><span style="color:var(--ink-faint)">  repo is canonical · no pull needed</span></div>
 <div class="l"><span style="color:var(--ink-faint)">  worktree ../wt/feat-sort-inbox · servers :3012</span></div>
 <div class="l"><span style="color:var(--ink-faint)">  Phase 2 · sort controls</span> <span style="color:var(--st-progress)">red</span> <span style="color:var(--ink-faint)">→</span> <span style="color:var(--st-complete)">green ✓</span></div>
@@ -783,7 +783,8 @@
         <tbody>
           <tr class="grp-row"><td colspan="3">Core lifecycle</td></tr>
           <tr><td class="cmd">/spec</td><td>Grill to a shared understanding, then write a groomed, phased spec.</td><td class="folder">backlog/ · Ready</td></tr>
-          <tr><td class="cmd">/spec-start</td><td>Provision worktree + dev servers, implement the next phase to green.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-start</td><td>Put a spec in flight on this checkout — provision, promote, then build phase 1.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-next</td><td>Build the next phase of the spec in flight, to green. Re-run per phase.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/spec-complete</td><td>Verify all phases + tests, land on base, tear down.</td><td class="folder">complete/</td></tr>
           <tr><td class="cmd">/spec-cancel</td><td>Record progress, stamp a reason, tear down.</td><td class="folder">cancelled/</td></tr>
 
