@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-115/list-specs-from-linear
 
 > **Type:** Feature
 > **Name:** feat-linear-spec-list (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 5 (started 2026-09-09)
+> **Status:** Complete (2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -156,6 +156,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
 | 2026-09-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -254,3 +255,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   it as if it existed. Adding it turned `--next`'s bespoke refusal into a general
   rule: the four scope flags are alternatives, and any two of them are refused
   before a transport is even chosen.
+- 2026-09-09 — Completed; all five phases done, tests green (715 in
+  packages/linear, 1679 at the repo root). Nothing deferred.
