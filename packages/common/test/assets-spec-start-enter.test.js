@@ -71,3 +71,53 @@ test('the rules file no longer promises a terminal session per spec', () => {
   assert.doesNotMatch(PLANNING, /one\s*\n?terminal session per spec/)
   assert.match(PLANNING, /same terminal/)
 })
+
+/**
+ * The opener is now the FALLBACK for reaching a worktree, not the way a start
+ * ends. That is a claim about WHERE in the skill it appears, so the tests below
+ * slice the prose rather than searching all of it: an `open.command` line that
+ * drifts back onto the entered path reinstates the second window without
+ * failing any whole-file match.
+ */
+
+const ENV_DOC = read('core', 'env.config.md')
+
+// The entered path runs from the step-2 heading to the step-3 heading; the
+// hand-off is everything from step 3 to the end of worktree mode.
+function worktreeSections() {
+  const enter = SKILL.indexOf('Enter the worktree')
+  const handoff = SKILL.indexOf('When you cannot enter, hand off as before')
+  const end = SKILL.indexOf('### `checkout` mode')
+  assert.ok(enter > 0 && handoff > enter && end > handoff, 'worktree mode lost its shape')
+  return { entered: SKILL.slice(enter, handoff), handoff: SKILL.slice(handoff, end) }
+}
+
+test('provisioning defers the opener instead of running it', () => {
+  assert.match(SKILL, /\*{0,2}except\*{0,2}\s*\n?\s*the `open\.command` line/)
+})
+
+test('the opener and /add-dir live only on the hand-off branch', () => {
+  const { entered, handoff } = worktreeSections()
+  assert.doesNotMatch(entered, /open\.command/, 'opener leaked onto the entered path')
+  assert.doesNotMatch(entered, /\/add-dir/, '/add-dir leaked onto the entered path')
+  assert.match(handoff, /open\.command/)
+  assert.match(handoff, /\/add-dir/)
+})
+
+test('the entered path says the trust step is moot, not skipped', () => {
+  // Dropping /add-dir without saying why reads as an oversight and invites
+  // someone to "restore" it onto the path where it does nothing.
+  assert.match(SKILL, /writes are then in-cwd/)
+})
+
+test('env.config.md documents the opener as the fallback', () => {
+  assert.match(ENV_DOC, /the FALLBACK for reaching a/)
+  assert.match(ENV_DOC, /only when it\s*\n?\s*\/\/ could not switch in place/)
+})
+
+test('env.config.md keeps the notes that were already true', () => {
+  // Empty-means-off and the non-interactive skip are unaffected by the demotion;
+  // losing them in the rewrite would be a silent regression in the docs.
+  assert.match(ENV_DOC, /Empty = nothing is opened/)
+  assert.match(ENV_DOC, /A non-interactive run skips it either way/)
+})

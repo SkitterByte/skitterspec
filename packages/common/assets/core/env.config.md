@@ -124,13 +124,18 @@ no live `env.config.json` was found.
     "host": "127.0.0.1"     // bind host for the canonical ports
   },
 
-  // Optional, editor/terminal-agnostic opener. `/spec-start` RUNS it when it hands
-  // you into a new worktree — after provisioning and bootstrap, so the session
-  // opens onto a tree that is ready to work in. The template is expanded with
-  // {worktreePath}, {slug}, {branch}, {projectName}, {portOffset}.
+  // Optional, editor/terminal-agnostic opener — the FALLBACK for reaching a
+  // worktree. `/spec-start` normally moves the session you typed into into the
+  // worktree, and then there is nothing to open: it runs this only when it
+  // could not switch in place (the session is already inside another worktree,
+  // or the harness cannot move it). Run after provisioning and bootstrap, so
+  // the session opens onto a tree that is ready to work in. The template is
+  // expanded with {worktreePath}, {slug}, {branch}, {projectName},
+  // {portOffset}.
   // Empty = nothing is opened (the path is just printed), which is how you turn
-  // the auto-open off. A non-interactive run skips it either way — an opened
-  // window nobody is sitting at helps no one.
+  // the auto-open off, and the right value unless you actually want a second
+  // window on the fallback path. A non-interactive run skips it either way — an
+  // opened window nobody is sitting at helps no one.
   // Examples: "code {worktreePath}", "tmux new-window -c {worktreePath}",
   // or a "warp://..." deeplink for Warp users.
   "open": {

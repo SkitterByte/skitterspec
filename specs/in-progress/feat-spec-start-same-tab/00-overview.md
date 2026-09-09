@@ -136,7 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-start` enters the worktree in-session | ✅ | [01-enter-worktree.md](01-enter-worktree.md) |
-| 2 | `open.command` becomes the fallback opener | ⬜ | [02-opener-fallback.md](02-opener-fallback.md) |
+| 2 | `open.command` becomes the fallback opener | ✅ | [02-opener-fallback.md](02-opener-fallback.md) |
 | 3 | Teardown leaves the session before removing the tree | ⬜ | [03-teardown-exit.md](03-teardown-exit.md) |
 
 ## Open questions
