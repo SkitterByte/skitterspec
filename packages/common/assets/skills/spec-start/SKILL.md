@@ -1,6 +1,6 @@
 ---
 name: spec-start
-description: Put a spec in flight on this checkout — provision its branch, move it to in-progress, refresh the tracker, then build phase 1. Refuses unless the checkout is on the base branch with nothing already in flight, so it never parks or swaps someone's unfinished work. Use when the user says "/spec-start", "start this spec", or "begin implementing <spec>".
+description: Put a spec in flight — provision its branch, move it to in-progress, refresh the tracker, then build phase 1. Commits the spec itself when that is all that is uncommitted, and refuses to touch anyone else's unfinished work. Use when the user says "/spec-start", "start this spec", or "begin implementing <spec>".
 ---
 
 # /spec-start — put a spec in flight
@@ -12,27 +12,30 @@ finishing it is `/spec-complete`.
 
 ## 1. The gate — refuse unless the workbench is free
 
-**Check this first, before resolving anything or touching a file.** In
-`worktree` mode run `skitterspec spec-env live status`; in `checkout` mode read
-the current branch. The workbench must be:
+**Check this first, before resolving anything or touching a file.** What the
+gate demands depends on the mode, because the two modes hold work in different
+places — read `mode` from `specs/.core/env.config.json` (default `worktree`).
 
-- **on the base branch** (`main`, or the configured `baseBranch`), and
-- **clean** — no uncommitted changes, *except* the spec you are starting, which
-  `spec-env up` commits for you (see below).
+**`worktree` mode — the tree must be clean, and that is all.** The spec is built
+in its own worktree, so another spec being in flight is not a conflict; it is the
+parallelism the mode exists for. The only requirement is that this checkout has
+no uncommitted work — *except* the spec you are starting, which `spec-env up`
+commits for you (see below). Nothing is switched here and nothing is parked.
 
-**If it isn't, relay what is in flight and stop.** Name the spec holding the
-checkout and the three ways out, then end your turn:
+**`checkout` mode — the workbench must be free**: on the base branch (`main`, or
+the configured `baseBranch`) and clean, since the branch is built right here and
+this mode holds one spec at a time. If it isn't, relay what is in flight and
+stop — name the spec holding the checkout and the two ways out, then end your
+turn:
 
 - **`/spec-complete`** — it's finished; land it and free the workbench.
 - **`/spec-cancel`** — it isn't wanted; record why and free the workbench.
-- **`/spec-live main`** *(worktree mode)* — park it: the branch goes back to its
-  worktree and stays exactly as it is, ready to resume later.
 
 **Never get past the gate yourself.** Do not stash, do not commit **another
-spec's** work, do not `/spec-live main` for them, do not switch branches. A
-half-built phase and a rebase are each a decision someone must make deliberately
-— and the cost of guessing is another spec's work moved without its author
-asking. A refusal costs one command; the alternative can cost an afternoon.
+spec's** work, do not switch branches for them. An uncommitted tree and a
+half-built phase are each a decision someone must make deliberately — and the
+cost of guessing is another spec's work moved without its author asking. A
+refusal costs one command; the alternative can cost an afternoon.
 
 **The one exception is the spec you are starting.** `spec-env up` classifies the
 uncommitted tree against the target spec and answers one of three ways — relay
@@ -64,13 +67,11 @@ would fork from — otherwise you get a branch missing the very spec it is for.
   spec is a `<name>/` folder whose entry point is `00-overview.md`, with one
   file per phase beside it (`01-<slug>.md`, `02-…`). Legacy specs may be a bare
   `<name>.md`, or a `00-overview.md` with inline phases — handle those too.
-- A spec already in `specs/in-progress/` was started before. If its branch is
-  parked in a worktree, this skill brings it back into flight; say so rather
-  than reporting a fresh start.
+- A spec already in `specs/in-progress/` was started before. Its worktree
+  probably still exists, so this is a re-attach: say so rather than reporting a
+  fresh start, and skip the housekeeping that is already done.
 
-## 3. Put its branch in this checkout
-
-**Read `mode` from `specs/.core/env.config.json`** (default `worktree`).
+## 3. Build its branch
 
 ### `worktree` mode
 
@@ -79,20 +80,15 @@ would fork from — otherwise you get a branch missing the very spec it is for.
    its **`then, in the worktree, run:`** steps in order (file seeding, then
    `setup`): a fresh worktree has no dependencies and none of the repo's
    gitignored files, so hooks, typechecks and tests fail until they are there.
-2. **Bring the branch here.** Tell the user to type **`/spec-live <name>`** — it
-   rebases the branch, frees it from the worktree and checks it out in this
-   checkout, which is what makes this session the workbench. It is a user-only
-   command, so you cannot run it: print it, end your turn, and pick up at step 4
-   when they re-run `/spec-start`.
-   **Already here?** If the live check in step 1 showed this spec live, or the
-   branch is already checked out, the move is done — carry straight on.
-3. **A spec the live overlay refuses** — a hotfix, a stateful spec
-   (`Stack: worktree + docker`), or a branch touching migrations — **parks
-   instead.** Do the housekeeping in step 4 with `git -C <worktreePath>`, run
-   `open.command` if configured, print the worktree path, and say to run
-   `/spec-next` from a session there. Relay the engine's refusal reason as it
-   printed it; those guards protect a shared dev instance and are not yours to
-   weaken.
+2. **The branch stays in its worktree.** That is where the spec is built — it is
+   what the mode is for, and it is why `main` stays free and several specs can run
+   at once. Do the step 4 housekeeping there with `git -C <worktreePath>`, then run
+   `open.command` if one is configured, print the worktree path, and say to run
+   **`/spec-next`** from a session in it.
+   **Do not move the branch into this checkout**, and do not ask the operator to.
+   `/spec-live` is for testing a finished-enough spec on the already-running dev
+   server; it is not the way work gets started, and reaching for it here is what
+   used to split a start across two invocations.
    **Trust the worktree first.** `spec-env up` wrote the printed `trusted:` root
    into `.claude/settings.local.json`, but that file will not hot-reload in this
    session — run `/add-dir <trusted root>` before editing into the worktree, or
@@ -101,14 +97,16 @@ would fork from — otherwise you get a branch missing the very spec it is for.
 ### `checkout` mode
 
 Run `skitterspec spec-env up <name>` and the single `git switch` it prints.
-There is no worktree, no bootstrap, no live step — the checkout is already the
+There is no worktree, no bootstrap and no hand-off — the checkout is already the
 workbench. Its planner enforces the same gate from the engine side, so relay any
 refusal and stop.
 
 ## 4. Move the spec into development
 
-On the branch, in this checkout (or via `git -C <worktreePath>` for a parked
-spec):
+**Do this before any hand-off**, so no path can end with a provisioned worktree
+and a spec still reading `Ready` in `specs/backlog/`. In `worktree` mode run it
+against the worktree with `git -C <worktreePath>`; in `checkout` mode the branch
+is already here.
 
 - `git mv "specs/backlog/<name>" "specs/in-progress/<name>"` if it isn't there
   already (`mkdir -p specs/in-progress` first). Use `git mv` to keep history.
@@ -137,10 +135,21 @@ invoke it yourself.
 
 ## 6. Build phase 1
 
-**Carry straight on into `/spec-next`** in this session: it marks phase 1
-started, refreshes the mirror again, builds it with tests and reports. Do not
-stop and ask the operator to run it — the workbench is set up and they asked to
-start the spec.
+**`checkout` mode — carry straight on into `/spec-next`** in this session: it
+marks phase 1 started, refreshes the mirror again, builds it with tests and
+reports. Do not stop and ask the operator to run it: the branch is here and they
+asked to start the spec.
+
+**`worktree` mode — the spec is built in its worktree**, so this invocation ends
+with it provisioned, housekept and a session opened there. Say that plainly and
+tell them to run `/spec-next` in it.
+
+`/spec-next` resolves the spec it is *standing in* — the live spec of the
+checkout, the worktree its cwd is inside, or the branch in `checkout` mode — and
+a name argument narrows a re-run rather than selecting a spec elsewhere. That
+refusal is deliberate: building the wrong spec's phase writes commits on a branch
+nobody asked for. **Do not work around it**, and do not offer to build the phase
+from here.
 
 ## Opt-outs
 

@@ -85,19 +85,21 @@ test('/spec-start documents trusting the worktree root via /add-dir', () => {
 // authorise (`/spec-live`, a user-only command), not a window someone opens for
 // them — but it is still a hard stop, and for the same reason: this session
 // cannot perform it, so carrying on regardless would build somewhere wrong.
-test('/spec-start stops at the branch swap it cannot perform itself', () => {
+// There is no branch swap any more: worktree mode builds the spec where it
+// provisioned it. The swap used to route through `/spec-live`, a user-only
+// command, which split every start across two invocations with the housekeeping
+// stranded in between.
+test('/spec-start never routes a start through the live overlay', () => {
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
-  assert.match(flat, /`\/spec-live <name>`/, 'names the user-only command')
-  assert.match(flat, /end your turn/i, 'stops rather than carrying on')
-  assert.match(flat, /user-only command, so you cannot run it/i, 'explains why it must stop')
+  assert.doesNotMatch(flat, /type \*{0,2}`\/spec-live <name>`/, 'does not ask for the swap')
+  assert.doesNotMatch(flat, /re-run `\/spec-start`/i, 'does not ask to be run twice')
+  assert.match(flat, /branch stays in its worktree/i, 'says where the spec is built')
 })
 
-// The stop must not become a loop: the re-run arrives with the branch already
-// here, and a skill that asked for the swap again would never build anything.
-test('/spec-start does not ask for the swap twice', () => {
-  const text = skillText('spec-start')
-  assert.match(text, /Already here\?/, 'carries the already-swapped guard')
-  assert.match(text, /carry straight on/i, 'continues rather than re-asking')
+test('/spec-start says the live overlay is for testing, not for starting', () => {
+  const flat = skillText('spec-start').replace(/\s+/g, ' ')
+  assert.match(flat, /Do not move the branch into this checkout/i)
+  assert.match(flat, /`\/spec-live` is for testing/i)
 })
 
 // Skills whose 00-overview.md template carries the scannable `## Impact` map.
@@ -620,10 +622,12 @@ test('/spec-start gates on a free workbench before anything else', () => {
   assert.match(text, /clean/i, 'requires a clean tree')
 })
 
-test('/spec-start names all three ways out of the gate', () => {
-  // A refusal that does not say how to proceed is just an obstacle.
+test('/spec-start names the ways out of the checkout-mode gate', () => {
+  // A refusal that does not say how to proceed is just an obstacle. `/spec-live
+  // main` is no longer among them: parking to free the workbench is a
+  // one-workbench answer, and only checkout mode holds one spec now.
   const text = skillText('spec-start')
-  for (const way of ['/spec-complete', '/spec-cancel', '/spec-live main']) {
+  for (const way of ['/spec-complete', '/spec-cancel']) {
     assert.ok(text.includes(way), `names ${way} as a way out`)
   }
 })
@@ -635,13 +639,21 @@ test('/spec-start never works around its own gate', () => {
   assert.match(flat, /do not switch branches/i, 'names switching')
 })
 
-test('/spec-start parks a spec the live overlay refuses, rather than blocking it', () => {
-  // Stateful specs and hotfixes cannot take the primary checkout, but they must
-  // still be startable — the manual worktree tab is their workbench.
+test('/spec-start builds every worktree-mode spec the same way', () => {
+  // What used to be the parked path — housekeep in the worktree, open a session,
+  // build there — is now the only path. A hotfix and a stateful spec stopped
+  // being special cases here the moment nothing tried to take the checkout.
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
-  assert.match(flat, /parks\s*\*{0,2}\s*instead/i, 'parking is the answer')
-  assert.match(flat, /git -C <worktreePath>/, 'housekeeping still happens, anchored')
-  assert.match(flat, /run `\/spec-next` from a session there/i, 'names the way to build it')
+  assert.match(flat, /git -C <worktreePath>/, 'housekeeping is anchored to the worktree')
+  assert.match(flat, /run \*{0,2}`\/spec-next`\*{0,2} from a session in it/i, 'names the way to build it')
+  assert.doesNotMatch(flat, /a spec the live overlay refuses/i, 'no refusal-only branch left')
+})
+
+test('/spec-start housekeeps before it hands off', () => {
+  // The ordering IS the fix: the other way round leaves a provisioned worktree
+  // whose spec still reads Ready in specs/backlog/.
+  const flat = skillText('spec-start').replace(/\s+/g, ' ')
+  assert.match(flat, /Do this before any hand-off/i)
 })
 
 test('/spec-start flows into /spec-next rather than stopping', () => {
@@ -680,28 +692,27 @@ test('/spec-start carries no tracker seam, and says why', () => {
 //
 //  * The MODE BRANCH moved to /spec-start, which owns provisioning.
 
-test('/spec-start runs the opener only for a parked spec', () => {
+test('/spec-start opens a session in the worktree it provisioned', () => {
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
-  assert.match(flat, /run `open\.command` if configured/i, 'the parked path opens a session')
-  assert.match(flat, /parks\s*\*{0,2}\s*instead/i, 'and it is the parked path, not the normal one')
+  assert.match(flat, /run `open\.command` if one is configured/i, 'opens a session there')
 })
 
 test('/spec-start reads the mode and describes both paths', () => {
   const text = skillText('spec-start')
-  assert.match(text, /Read `mode` from `specs\/\.core\/env\.config\.json`/, 'reads the key')
+  assert.match(text, /read `mode` from `specs\/\.core\/env\.config\.json`/i, 'reads the key')
   assert.match(text, /### `worktree` mode/, 'names the worktree path')
   assert.match(text, /### `checkout` mode/, 'names the checkout path')
 })
 
-test('/spec-start needs no branch swap in checkout mode', () => {
-  // The checkout IS the workbench there, so the one stop worktree mode still
-  // has does not exist: one command starts the spec and builds phase 1.
+test('/spec-start needs no hand-off in checkout mode', () => {
+  // The checkout IS the workbench there, so it alone carries straight on into
+  // phase 1 in the same session.
   const text = skillText('spec-start')
   const checkout = text
     .slice(text.indexOf('### `checkout` mode'), text.indexOf('## 4.'))
     .replace(/\s+/g, ' ')
   assert.ok(checkout.length > 100, 'found the checkout section')
-  assert.match(checkout, /no live step/i, 'says the swap is unnecessary')
+  assert.match(checkout, /no hand-off/i, 'says none is needed')
   assert.match(checkout, /already the workbench/i, 'explains why')
 })
 

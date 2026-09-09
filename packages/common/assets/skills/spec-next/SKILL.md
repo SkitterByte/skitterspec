@@ -26,7 +26,7 @@ Resolve **in this order**, and stop at the first that answers:
    branch the checkout is on names the spec.
 
 **If none answers, refuse and stop:**
-`no spec in flight — run /spec-start <name> to put one on this checkout`.
+`no spec in flight — run /spec-start <name> to start one`.
 
 **Never fall back to the spec "in context".** A spec discussed in conversation
 is not a spec in flight, and this skill writes real code: building the wrong
