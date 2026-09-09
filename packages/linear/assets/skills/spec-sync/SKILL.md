@@ -34,6 +34,7 @@ In a project that installs the Linear superset the binary is
 |---------------|-----|
 | bare `/spec-sync`, "what's linked?", "how much is mirrored?" | `linked` |
 | "what states / projects does the workspace have?" | `states`, `projects` |
+| "what specs are there?", "what's in the backlog?", "what is Jane on?" | `list` — or hand to `/spec-list` |
 | "did the mirror survive the push?" | `verify <spec> --stored <file>` |
 | "link this spec to KEY-1 by hand" | `stamp <spec> --issue KEY-1` |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
@@ -74,6 +75,14 @@ pnpm exec skitterspec-linear spec-sync projects [--via api|mcp] [--json]
 - **`states` / `projects`** reach the workspace. `states` also reports the
   **transport** (`api` when a key is set, else `mcp`), which is the honest way to
   answer "how is this talking to Linear?".
+- **`list`** is the read side of the mirror: every spec issue Linear holds,
+  joined to the local spec folder that owns it. Unlike `linked`, it asks LINEAR
+  what exists rather than the repo — which is the only way to see a spec started
+  on a branch this checkout has not got. Scope is the live states by default
+  (`--all`, `--state <name>`, `--in-progress`, or `--next N` for the top of the
+  backlog in Linear's own order), and `--mine` / `--by <user>` filter by
+  assignee. **`/spec-list` is the front door** — hand over to it for anything
+  beyond a bare listing; it carries the MCP path and the offline degradation.
 
 ## 4. `verify` — check what the tracker actually stored
 
