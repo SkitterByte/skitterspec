@@ -8,7 +8,7 @@ const path = require('node:path')
 const ASSETS = path.join(__dirname, '..', 'assets')
 
 test('the Linear sync skills ship in the linear package', () => {
-  for (const name of ['spec-status', 'spec-push', 'spec-sync', 'spec-linear-setup', 'spec-claim']) {
+  for (const name of ['spec-status', 'spec-push', 'spec-sync', 'spec-linear-setup', 'spec-claim', 'spec-list']) {
     const file = path.join(ASSETS, 'skills', name, 'SKILL.md')
     assert.ok(fs.existsSync(file), `${name}/SKILL.md shipped`)
     const fm = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'))
@@ -856,4 +856,88 @@ test('/spec-claim releasing does not clear the Developer header', () => {
   // Who actioned the work outlives who is holding it — the same rule the
   // completion path relies on.
   assert.match(claimText().replace(/\s+/g, ' '), /does not clear .{0,20}Developer/i)
+})
+
+// --- /spec-list ---------------------------------------------------------------
+
+const specList = () =>
+  fs.readFileSync(path.join(ASSETS, 'skills', 'spec-list', 'SKILL.md'), 'utf8')
+
+test('/spec-list is user-invocable only, like the other read-only sync skills', () => {
+  const fm = /^---\n([\s\S]*?)\n---/.exec(specList())[1]
+  assert.match(fm, /disable-model-invocation:\s*true/, 'nobody reaches it except by typing it')
+})
+
+test('/spec-list carries the opt-in gate', () => {
+  const text = specList()
+  assert.match(text, /specs\/\.core\/linear\.config\.json/, 'names the config that gates it')
+  assert.match(text, /\/spec-linear-setup/, 'says how to enable sync when it is absent')
+})
+
+test('/spec-list defers the query to the engine on the API path', () => {
+  const text = specList()
+  assert.match(text, /spec-sync list/, 'names the verb')
+  assert.match(text, /verbatim/i, 'relays rather than re-formats')
+  // The engine already joined the local spec folders on. A skill that re-queried
+  // would be a second implementation of the listing — the thing this phase's
+  // notes exist to prevent.
+  assert.match(text, /already joined/i, 'says why it does not re-query')
+})
+
+// Both are properties of Linear's `list_issues` that the ENGINE never meets,
+// because on the API path it filters server-side with a GraphQL IssueFilter. The
+// MCP tool has neither a state-list nor a parentless filter, so a skill that
+// assumed the engine's shape would list phase sub-issues as if they were specs
+// and silently drop a whole state.
+test('/spec-list names the two ways the MCP list tool differs from the API filter', () => {
+  const text = specList()
+  assert.match(text, /one call per state/i, 'state takes one name, so the live default is two calls')
+  assert.match(text, /parentId/, 'names the field it filters on locally')
+  assert.match(text, /no "parentless" filter|has no "parentless"/i, 'says why the filter is local')
+  assert.match(text, /absent from the default response/i, 'parentId must be asked for explicitly')
+})
+
+test('/spec-list pages the MCP path rather than capping silently', () => {
+  const text = specList()
+  assert.match(text, /defaults to 50/, 'names the default limit')
+  assert.match(text, /maxes at 250/, 'and the ceiling')
+  assert.match(text, /cursor/, 'follows the cursor')
+})
+
+// Decision 10. The failure mode is not a wrong listing, it is no listing: a query
+// command that fails closed is one people stop typing.
+test('/spec-list degrades to the local listing instead of stopping', () => {
+  const text = specList()
+  assert.match(text, /spec-sync linked --json/, 'names the local fallback')
+  assert.match(text, /do not stop|never leave them with nothing/i, 'refuses to fail closed')
+  // The banner is the load-bearing half: a local bucket is what THIS BRANCH
+  // knows, which is the very thing the command exists to see past.
+  assert.match(text, /may be wrong|still reads "backlog"/i, 'the banner names the staleness')
+})
+
+// Decision 4. Every listing says what it did not show; a listing that implies a
+// completeness it never verified is this feature's failure mode.
+test('/spec-list reports what it left out, on every path', () => {
+  const text = specList()
+  assert.match(text, /showing N of M|showing \d+ of \d+/, 'the count survives into the report')
+  assert.match(text, /archived/i, 'the exclusion is stated, not left to be discovered')
+})
+
+// Decision 2, as a stays-silent assertion (.claude/rules/negative-checks.md):
+// a healthy issue this repo has no local record of must still APPEAR. Absence of
+// a local file is not evidence the issue is not a spec.
+test('/spec-list keeps an unmatched issue in the listing', () => {
+  const text = specList()
+  assert.match(text, /not linked here/, 'marks it rather than dropping it')
+  assert.match(text, /teammate|unlanded|another spec's worktree/i, 'says why it is the point')
+  assert.doesNotMatch(text, /skip (any|every) issue with no local/i, 'never filters the unmatched out')
+})
+
+// Decision 6. /spec-start provisions a branch, moves a folder and commits, and
+// has dirty-tree refusals this skill does not reproduce.
+test('/spec-list is read-only and hands off rather than starting a spec', () => {
+  const text = specList()
+  assert.match(text, /read-only/i, 'states the contract')
+  assert.match(text, /\/spec-start <name>/, 'offers the handle')
+  assert.match(text, /never start it yourself/i, 'and refuses to run it')
 })

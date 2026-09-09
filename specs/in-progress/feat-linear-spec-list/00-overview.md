@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-115/list-specs-from-linear
 
 > **Type:** Feature
 > **Name:** feat-linear-spec-list (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-09)
+> **Status:** In Progress — Phase 2 (started 2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -141,7 +141,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `spec-sync list` — the engine and the live listing | ✅ | [01-engine.md](01-engine.md) |
-| 2 | `/spec-list` — the skill, MCP path and degradation | ⬜ | [02-skill.md](02-skill.md) |
+| 2 | `/spec-list` — the skill, MCP path and degradation | ✅ | [02-skill.md](02-skill.md) |
 | 3 | `--next N` and Linear's backlog order | ⬜ | [03-backlog-order.md](03-backlog-order.md) |
 | 4 | The current phase on in-progress rows | ⬜ | [04-current-phase.md](04-current-phase.md) |
 | 5 | `--mine` / `--by <user>`, and docs | ⬜ | [05-assignee-and-docs.md](05-assignee-and-docs.md) |
@@ -178,3 +178,23 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   not wait for the phase that owns the rest of the docs. Its "used by" column
   says `you`, not `/spec-list` — that skill is phase 2 and does not ship yet,
   and a second guard rejects naming a skill the repo has not got.
+- 2026-09-09 — Phase 2: Linear's MCP `list_issues` cannot express the filter the
+  API path uses, in two ways the spec had assumed away. Its `state` takes a
+  single name, not a list, so the live default is **two** calls merged and
+  de-duplicated; and it can filter *to* a `parentId` but has no parentless
+  filter, so the spec-vs-phase discriminator (decision 2) has to be applied
+  locally on the returned rows — with `parentId` explicitly requested via
+  `fields`, since it is absent from the default response. `/spec-list` documents
+  both; the engine never meets them because its GraphQL `IssueFilter` does the
+  work server-side.
+- 2026-09-09 — Phase 2: no install-manifest edit was needed. `listSkills()` in
+  `packages/common/src/init.js` discovers `assets/skills/*/SKILL.md` from the
+  bundled tree, and `build-dist.js` overlays the provider's skills wholesale, so
+  shipping the folder registers the skill. The task's real content was the
+  assets test.
+- 2026-09-09 — Phase 2: `docs/linear.html` again moved ahead of phase 5, for the
+  same reason as phase 1. The `docs-claims` guard counts the skills the
+  distribution ships and compares the figure to every "N skills installed" the
+  site quotes, so adding the skill made the page's `14` false. Updated to `15`,
+  and the `spec-sync list` row's "used by" cell now reads `/spec-list · you`
+  because that skill exists as of this phase.
