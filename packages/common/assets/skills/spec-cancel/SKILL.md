@@ -79,8 +79,22 @@ directly (the old `/spec-env-down` skill is gone — teardown is folded in here)
    main` first to free the canonical ports.
 2. `skitterspec spec-env dev down <name>` — stop its host dev servers.
 **Standing in the worktree? Leave it before you tear it down.** If this
-session's cwd is inside the spec's own worktree, `cd` to the primary checkout
-**first**, then run the teardown commands.
+session's cwd is inside the spec's own worktree, get out **first**, then run the
+teardown commands. How you leave depends on how you got in:
+
+- **`/spec-start` moved this session in** — the normal path in `worktree` mode.
+  Call **`ExitWorktree`** with `action: "keep"`. It restores the session to the
+  directory it started from *and* clears the caches still pointing at the
+  worktree, which a bare `cd` does not: after a `cd` the session stays registered
+  against the tree and asks you about it again when it ends.
+- **You opened the terminal yourself** — `cd` to the primary checkout, as always.
+  `ExitWorktree` is a no-op outside a session it moved, so trying it costs
+  nothing, but the `cd` is what relocates you.
+
+**Always `keep`, never `remove`.** `ExitWorktree` refuses to remove a worktree
+entered by path in any case, and the `spec-env down` plan below has to stay the
+single thing that deletes — a second deleter is how the teardown guards get
+bypassed.
 
 Not because git refuses — it does not. `git worktree remove` **succeeds** on the
 tree you are standing in, and that is the problem: the directory vanishes under
