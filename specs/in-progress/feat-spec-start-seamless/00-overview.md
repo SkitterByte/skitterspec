@@ -206,7 +206,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Classify a dirty tree against one spec | ✅ | [01-classify.md](01-classify.md) |
-| 2 | Both planners commit, gate and assert | ⬜ | [02-planners.md](02-planners.md) |
+| 2 | Both planners commit, gate and assert | ✅ | [02-planners.md](02-planners.md) |
 | 3 | CLI and `/spec-start` wiring | ⬜ | [03-cli-and-skill.md](03-cli-and-skill.md) |
 | 4 | Build in the worktree, housekeep first | ⬜ | [04-handoff.md](04-handoff.md) |
 
@@ -228,6 +228,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   in `~/code/ereqs` provisioned a worktree and then asked for `/spec-live` plus a
   re-run to finish the housekeeping. Renamed `feat-spec-start-autocommit` →
   `feat-spec-start-seamless`; added phase 4.
+- 2026-09-09 — Phase 2 built. Both planners share one `planSpecCommit`; the
+  on-base refusal had to move **after** the commit decision, since a spec is
+  off-base precisely because it is uncommitted.
 - 2026-09-09 — Phase 1 built. `classifyDirtyTree` went into its own
   `src/env/classify.js`; `readFrontmatterField` is now exported from
   `resolve.js`; ownership spans all four buckets because a spec mid-move is

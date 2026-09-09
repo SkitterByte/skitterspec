@@ -11,6 +11,7 @@
  * no live git/docker.
  */
 
+const { classifyDirtyTree } = require('./classify.js')
 const { portOffset } = require('./registry.js')
 const { renderEnvFile, expandOpenCommand } = require('./render.js')
 const { expandTokens } = require('./resolve.js')
@@ -71,6 +72,105 @@ function seedCommandFor(file, mode) {
   )
 }
 
+
+// Cap a path list in a message: enough to recognise, not a wall of text.
+function listPaths(paths) {
+  const shown = paths.slice(0, 5).join(', ')
+  return paths.length > 5 ? `${shown}, and ${paths.length - 5} more` : shown
+}
+
+/**
+ * Decide what an uncommitted tree means for a provisioning run: commit it, refuse
+ * it, or ignore it.
+ *
+ * `/spec-start` refuses a dirty tree so another spec's unfinished work is never
+ * moved without its author asking. But the commonest dirty tree of all is the
+ * spec you just wrote and are now starting, and refusing THAT costs a round trip
+ * through `/commit` on every start. So the question asked here is not "does this
+ * dirt look important?" — a judgement the gate rightly declines to make — but
+ * membership in an exactly-known set (see `classify.js`). One foreign path
+ * disqualifies the whole tree.
+ *
+ * WHAT WOULD FOOL THIS: `ctx.dirtyPaths` being absent. That is not "the tree is
+ * clean" — it is "nobody looked", which happens on every legacy caller and every
+ * older test. So an absent list falls back to the caller's own `ctx.clean` flag
+ * rather than being read as permission to commit.
+ *
+ * `specOnBase` is the other half, and a POSITIVE signal rather than an absence:
+ * a worktree forks from the base branch's tree, so a spec that is not in it
+ * produces a branch missing the very spec it is for. A clean tree cannot detect
+ * that — the spec may be committed, just on some other branch. `null` means the
+ * caller could not tell, and routes to carrying on, never to refusing.
+ *
+ * ctx: { dirtyPaths?, clean?, specOnBase?, specFoundOn?, base? }
+ * @returns {{blocked: boolean, reason: string|null, commands: string[]}}
+ */
+function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
+  const ok = { blocked: false, reason: null, commands: [] }
+  const c = ctx || {}
+  const base = c.base || (config && config.baseBranch) || 'main'
+
+  if (!Array.isArray(c.dirtyPaths)) {
+    // Nobody looked. Preserve the caller's existing clean-flag behaviour exactly.
+    if (c.clean === false) {
+      return {
+        blocked: true,
+        reason:
+          'the primary checkout has uncommitted changes — commit or stash them first' +
+          (carriesChanges ? ' (switching would carry them onto the new branch)' : ''),
+        commands: [],
+      }
+    }
+    return ok
+  }
+
+  const { owned, foreign } = classifyDirtyTree(spec, c.dirtyPaths, config)
+
+  if (foreign.length) {
+    return {
+      blocked: true,
+      reason:
+        `the primary checkout has uncommitted changes that are not ${spec.folder}'s — ` +
+        'commit or stash them first' +
+        (carriesChanges ? ' (switching would carry them onto the new branch)' : '') +
+        `: ${listPaths(foreign)}`,
+      commands: [],
+    }
+  }
+
+  if (owned.length) {
+    // A wholly untracked spec folder is reported by git as one bare directory
+    // entry; once any file in it is tracked, git lists the changed files instead.
+    // So the bare entry is the signal for "this spec is new". Passing `-uall`
+    // upstream would collapse that signal and only ever say `update` — cosmetic,
+    // but that is why the subject can drift.
+    const isNew = owned.includes(`specs/${spec.bucket}/${spec.folder}`)
+    const verb = isNew ? 'add' : 'update'
+    return {
+      blocked: false,
+      reason: null,
+      commands: [
+        `git add ${owned.map((p) => `"${p}"`).join(' ')}`,
+        `git commit -m "chore(spec): ${verb} ${spec.folder}"`,
+      ],
+    }
+  }
+
+  // Tree is clean. The spec must already be in the base branch's tree, or the
+  // worktree forks without it.
+  if (c.specOnBase === false) {
+    return {
+      blocked: true,
+      reason:
+        `${spec.folder} is not committed on ${base}` +
+        (c.specFoundOn ? ` — it is on ${c.specFoundOn}` : '') +
+        ' — the worktree would fork without the spec it is for',
+      commands: [],
+    }
+  }
+  return ok
+}
+
 /**
  * Plan a provisioning run.
  *
@@ -83,7 +183,7 @@ function seedCommandFor(file, mode) {
  *                     envContents, openCommand, commands, seedCommands,
  *                     setupCommands, attached }
  */
-function planUp(spec, alloc, config) {
+function planUp(spec, alloc, config, ctx) {
   const { slot, attached } = alloc
 
   // Per-spec escalation: bring Docker up only when this spec's Stack is `docker`,
@@ -143,7 +243,17 @@ function planUp(spec, alloc, config) {
     commands.push(`docker compose --project-name ${spec.projectName} up -d`)
   }
 
+  // The tree gate. A worktree forks from the base branch's tree, so an
+  // uncommitted spec would produce a branch missing the spec it is for — this is
+  // where that gets committed, or refused. Worktree mode had NO clean gate before
+  // this: `git worktree add` does not carry uncommitted changes anywhere, so the
+  // failure surfaced three steps later as a live-overlay refusal naming the wrong
+  // stage. An absent `ctx` means no caller looked, and changes nothing.
+  const gate = planSpecCommit(spec, ctx, config)
+
   return {
+    blocked: gate.blocked,
+    reason: gate.reason,
     worktreePath: spec.worktreePath,
     branch: spec.branch,
     projectName: spec.projectName,
@@ -151,9 +261,9 @@ function planUp(spec, alloc, config) {
     portOffset: offset,
     envContents,
     openCommand,
-    commands,
-    seedCommands,
-    setupCommands,
+    commands: gate.blocked ? [] : [...gate.commands, ...commands],
+    seedCommands: gate.blocked ? [] : seedCommands,
+    setupCommands: gate.blocked ? [] : setupCommands,
     attached,
   }
 }
@@ -196,12 +306,10 @@ function planCheckoutUp(spec, ctx, config) {
   if (ctx.current && ctx.current === spec.branch) {
     return { ...result, attached: true }
   }
-  if (!ctx.clean) {
-    return block(
-      'the primary checkout has uncommitted changes — commit or stash them first ' +
-        '(switching would carry them onto the new branch)',
-    )
-  }
+  // Same gate as worktree mode, but `git switch -c` genuinely CARRIES uncommitted
+  // work onto the new branch, so the refusal keeps saying so.
+  const gate = planSpecCommit(spec, ctx, config, { carriesChanges: true })
+  if (gate.blocked) return block(gate.reason)
   if (!ctx.onBase) {
     return block(
       `the primary checkout is on ${ctx.current || '(detached)'}, not ${base} — ` +
@@ -209,10 +317,11 @@ function planCheckoutUp(spec, ctx, config) {
     )
   }
 
+  result.commands.push(...gate.commands)
   result.commands.push(
     ctx.branchExists ? `git switch ${spec.branch}` : `git switch -c ${spec.branch}`,
   )
   return result
 }
 
-module.exports = { planUp, planCheckoutUp, seedCommandFor, worktreeCd }
+module.exports = { planUp, planCheckoutUp, planSpecCommit, seedCommandFor, worktreeCd }

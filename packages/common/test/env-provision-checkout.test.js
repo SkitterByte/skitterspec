@@ -150,3 +150,42 @@ test('--force tears down an unlanded branch, as it does in worktree mode', () =>
   assert.strictEqual(plan.blocked, false)
   assert.ok(plan.commands.some((c) => c.includes('branch -d ')), 'unlanded uses -d, not -D')
 })
+
+// --- the tree gate ---------------------------------------------------------
+
+const SPEC_B = { ...SPEC, bucket: 'backlog', slug: 'thing' }
+
+test('a dirty tree that is only the spec is committed, then switched to', () => {
+  const plan = planCheckoutUp(SPEC_B, ctx({ clean: false, dirtyPaths: ['specs/backlog/feat-thing'] }), {})
+  assert.strictEqual(plan.blocked, false)
+  assert.deepStrictEqual(plan.commands, [
+    'git add "specs/backlog/feat-thing"',
+    'git commit -m "chore(spec): add feat-thing"',
+    'git switch -c feat/thing',
+  ])
+})
+
+test('foreign dirt still refuses, and still says switching would carry it', () => {
+  const plan = planCheckoutUp(SPEC_B, ctx({ clean: false, dirtyPaths: ['src/app.js'] }), {})
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /carry them onto the new branch/)
+  assert.match(plan.reason, /src\/app\.js/)
+})
+
+test('a re-run on the spec\'s own branch is still never refused for dirt', () => {
+  // Mid-phase edits are legitimately uncommitted; "already attached" must stay
+  // ahead of the gate, exactly as it stayed ahead of the old clean flag.
+  const plan = planCheckoutUp(
+    SPEC_B,
+    ctx({ current: 'feat/thing', clean: false, dirtyPaths: ['src/app.js'] }),
+    {},
+  )
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.attached, true)
+})
+
+test('a clean tree whose spec is not on base refuses in checkout mode too', () => {
+  const plan = planCheckoutUp(SPEC_B, ctx({ dirtyPaths: [], specOnBase: false }), {})
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /not committed on main/)
+})

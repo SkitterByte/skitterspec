@@ -245,3 +245,82 @@ test('seedCommandFor: symlink vs copy op selection', () => {
   // unknown mode falls back to symlink
   assert.match(seedCommandFor('.env', 'weird'), /ln -s /)
 })
+
+// --- the tree gate ---------------------------------------------------------
+//
+// Worktree mode had no clean gate at all before this: `git worktree add` carries
+// nothing, so an uncommitted spec silently produced a branch missing the spec it
+// was for. These cover the three answers — commit it, refuse it, ignore it — and
+// the several ways the gate must stay quiet.
+
+// Worktree-only, so these assertions are about the gate and not about Docker.
+const S = { ...spec(), bucket: 'backlog', stack: 'worktree' }
+
+test('no ctx at all leaves the plan exactly as it was', () => {
+  // Legacy callers and every older test pass three arguments. Absent is "nobody
+  // looked", never "clean" — the plan must be unchanged, not permissive.
+  const plan = planUp(S, { slot: 0, attached: false }, config())
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.commands[0], 'git worktree add /wt/thing -b feat/thing')
+})
+
+test('a clean tree plans no commit', () => {
+  const plan = planUp(S, { slot: 0, attached: false }, config(), { dirtyPaths: [] })
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.commands[0], 'git worktree add /wt/thing -b feat/thing')
+})
+
+test("the spec's own uncommitted folder is committed before the fork", () => {
+  const plan = planUp(S, { slot: 0, attached: false }, config(), {
+    dirtyPaths: ['specs/backlog/feat-thing'],
+  })
+  assert.strictEqual(plan.blocked, false)
+  assert.deepStrictEqual(plan.commands, [
+    'git add "specs/backlog/feat-thing"',
+    'git commit -m "chore(spec): add feat-thing"',
+    'git worktree add /wt/thing -b feat/thing',
+  ])
+})
+
+test('an already-tracked spec is committed as an update, not an add', () => {
+  const plan = planUp(S, { slot: 0, attached: false }, config(), {
+    dirtyPaths: ['specs/backlog/feat-thing/00-overview.md'],
+  })
+  assert.match(plan.commands[1], /chore\(spec\): update feat-thing/)
+})
+
+test('one foreign path blocks, names itself, and plans nothing', () => {
+  const plan = planUp(S, { slot: 0, attached: false }, config(), {
+    dirtyPaths: ['specs/backlog/feat-thing/00-overview.md', 'src/app.js'],
+  })
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /src\/app\.js/)
+  assert.deepStrictEqual(plan.commands, [])
+  assert.deepStrictEqual(plan.setupCommands, [])
+})
+
+test('a clean tree whose spec is not on base blocks, naming where it is', () => {
+  const plan = planUp(S, { slot: 0, attached: false }, config(), {
+    dirtyPaths: [], specOnBase: false, specFoundOn: 'feat/other', base: 'main',
+  })
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /not committed on main/)
+  assert.match(plan.reason, /feat\/other/)
+})
+
+test('specOnBase null carries on — unknown is not a refusal', () => {
+  const plan = planUp(S, { slot: 0, attached: false }, config(), {
+    dirtyPaths: [], specOnBase: null,
+  })
+  assert.strictEqual(plan.blocked, false)
+})
+
+test('committing the spec now satisfies the on-base requirement', () => {
+  // specOnBase is false precisely BECAUSE the spec is uncommitted. The commit
+  // this plan makes is the fix, so it must not also refuse.
+  const plan = planUp(S, { slot: 0, attached: false }, config(), {
+    dirtyPaths: ['specs/backlog/feat-thing'], specOnBase: false,
+  })
+  assert.strictEqual(plan.blocked, false)
+  assert.match(plan.commands[1], /chore\(spec\): add feat-thing/)
+})
