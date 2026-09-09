@@ -27,12 +27,19 @@ The user asks in plain language; the engine takes flags. Map, then run:
 | "what specs are there", "/spec-list" | *(none — the live default)* |
 | "what's done", "everything" | `--all` |
 | "what's cancelled", a named state | `--state "<name>"` (repeatable) |
+| "what's next", "the next few in the backlog" | `--next N` |
 | "just the first few" | `--limit N` |
 | "include the archived ones" | `--archived` |
 
 The default scope is **live** — whatever `config.states` maps `backlog` and
 `in-progress` to. It is deliberately not everything: in a workspace with any
 history, Done dwarfs the rows anyone wanted.
+
+`--next N` is **backlog-only and ordered**, so it does not combine with
+`--state` or `--all`; the engine refuses that pair rather than picking a winner.
+It reproduces Linear's own Backlog order — priority first, then the manual
+drag-order — and when nothing is prioritised it says so, because that order is
+then a person's arrangement rather than a ranking.
 
 ## 2. Run the engine
 
@@ -70,6 +77,18 @@ Then, per state you are listing:
   follow `cursor` until it runs out. If you stop early, say so on its own line
   and say what you stopped at.
 - Pass `includeArchived` only when the user asked for `--archived`.
+
+**`--next` cannot be fully reproduced over MCP, and you must say so.** The tool
+returns `priority` as a field, so order by that; but `sortOrder` — Linear's
+manual drag-order — is **not among the fields it can return** at all, and its
+`orderBy` offers only `createdAt` and `updatedAt`. So within one priority you
+are printing Linear's default order, not the Backlog order. Say that on its own
+line rather than letting the rows imply an order they do not have:
+
+```
+sortOrder is unavailable over MCP — within a priority these are in Linear's
+default order, not the Backlog drag-order. Set a Linear API key for the real one.
+```
 
 Then join locally — no second Linear call:
 

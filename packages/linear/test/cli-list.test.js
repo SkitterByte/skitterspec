@@ -301,3 +301,142 @@ test('a state name that differs only in case is accepted, not accused', async ()
   assert.doesNotMatch(r.out, /unknown state/)
   assert.deepStrictEqual(linear.log.find((c) => c.op === 'listIssues').args.stateIds, ['s-progress'])
 })
+
+// --- --next N and Linear's backlog order --------------------------------------
+
+/** The identifiers in the order the listing printed them. */
+const printedOrder = (out) =>
+  out
+    .split('\n')
+    .map((l) => /^ {2}(SKS-\d+)\s/.exec(l))
+    .filter(Boolean)
+    .map((m) => m[1])
+
+const backlogIssue = (identifier, { priority = 0, sortOrder = 0 } = {}) =>
+  issue(identifier, `Spec ${identifier}`, 'Backlog', { priority, sortOrder })
+
+test('--next orders by priority, with unprioritised last rather than first', async () => {
+  const dir = fixtureRepo()
+  // Priority is an enum — 1=Urgent … 4=Low, 0=none. Sorting the raw number would
+  // put SKS-1 on top, which is the bug this ordering exists to avoid.
+  const linear = fakeLinear([
+    backlogIssue('SKS-1', { priority: 0 }),
+    backlogIssue('SKS-2', { priority: 3 }),
+    backlogIssue('SKS-3', { priority: 1 }),
+    backlogIssue('SKS-4', { priority: 2 }),
+  ])
+  const r = await run(['list', '--next', '4'], dir, { adapter: linear })
+
+  assert.deepStrictEqual(printedOrder(r.out), ['SKS-3', 'SKS-4', 'SKS-2', 'SKS-1'])
+})
+
+test('--next orders by sortOrder within one priority, lower sorting higher', async () => {
+  const dir = fixtureRepo()
+  // sortOrder is a float and lower sorts higher — the position Linear stores
+  // when a card is dragged. Negatives are ordinary; dragging to the top mints one.
+  const linear = fakeLinear([
+    backlogIssue('SKS-1', { priority: 2, sortOrder: 12.5 }),
+    backlogIssue('SKS-2', { priority: 2, sortOrder: -3 }),
+    backlogIssue('SKS-3', { priority: 2, sortOrder: 0.25 }),
+  ])
+  const r = await run(['list', '--next', '3'], dir, { adapter: linear })
+
+  assert.deepStrictEqual(printedOrder(r.out), ['SKS-2', 'SKS-3', 'SKS-1'])
+})
+
+test('--next breaks a sortOrder tie on the identifier, so a run is reproducible', async () => {
+  const dir = fixtureRepo()
+  // Two issues nobody ever dragged apart share a sortOrder. Without the
+  // tie-break the rows reorder between runs on nothing but Linear's return
+  // order, and no test could assert them.
+  const nodes = [
+    backlogIssue('SKS-10'),
+    backlogIssue('SKS-2'),
+    backlogIssue('SKS-9'),
+  ]
+  const first = await run(['list', '--next', '3'], dir, { adapter: fakeLinear(nodes) })
+  const again = await run(['list', '--next', '3'], dir, { adapter: fakeLinear(nodes.slice().reverse()) })
+
+  // Numeric-aware, so SKS-9 precedes SKS-10 rather than sorting as text.
+  assert.deepStrictEqual(printedOrder(first.out), ['SKS-2', 'SKS-9', 'SKS-10'])
+  assert.deepStrictEqual(printedOrder(again.out), printedOrder(first.out))
+})
+
+test('--next caps and says what it did not show, naming its own flag', async () => {
+  const dir = fixtureRepo()
+  const many = Array.from({ length: 23 }, (_, i) =>
+    backlogIssue(`SKS-${i + 1}`, { priority: 2, sortOrder: i }),
+  )
+  const r = await run(['list', '--next', '5'], dir, { adapter: fakeLinear(many) })
+
+  assert.match(r.out, /showing 5 of 23 in backlog/)
+  assert.match(r.out, /18 more not shown — --next 23 for all of them/)
+  assert.strictEqual(printedOrder(r.out).length, 5)
+})
+
+test('--next lists the backlog only, whatever the live default would include', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([backlogIssue('SKS-1')])
+  await run(['list', '--next', '3'], dir, { adapter: linear })
+
+  // One state id, and it is Backlog's — not the two the live default resolves.
+  const call = linear.log.find((c) => c.op === 'listIssues')
+  assert.deepStrictEqual(call.args.stateIds, ['s-backlog'])
+})
+
+test('all-unprioritised says the order is a drag-order, not a ranking', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([
+    backlogIssue('SKS-1', { sortOrder: 1 }),
+    backlogIssue('SKS-2', { sortOrder: 2 }),
+  ])
+  const r = await run(['list', '--next', '5'], dir, { adapter: linear })
+
+  assert.match(r.out, /every candidate is unprioritised/)
+  assert.match(r.out, /manual Backlog order, not a ranking/)
+})
+
+// The stays-silent half (.claude/rules/negative-checks.md rule 3): the caveat
+// must NOT appear where a priority genuinely was set, or it stops being read.
+test('stays silent: one prioritised candidate is enough to drop the caveat', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([
+    backlogIssue('SKS-1', { priority: 0 }),
+    backlogIssue('SKS-2', { priority: 4 }),
+  ])
+  const r = await run(['list', '--next', '5'], dir, { adapter: linear })
+
+  assert.doesNotMatch(r.out, /unprioritised/)
+})
+
+test('stays silent: a plain listing carries no backlog-order caveat at all', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')])
+  const r = await run(['list'], dir, { adapter: linear })
+
+  assert.doesNotMatch(r.out, /unprioritised|not a ranking/)
+})
+
+test('--next with --state or --all is refused rather than silently overridden', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([backlogIssue('SKS-1')])
+
+  for (const argv of [['list', '--next', '5', '--all'], ['list', '--next', '5', '--state', 'Done']]) {
+    const r = await run(argv, dir, { adapter: linear })
+    assert.strictEqual(r.code, 1, `${argv.join(' ')} exits non-zero`)
+    assert.match(r.out, /--next is backlog-only/)
+  }
+  // And it refused BEFORE reaching Linear — the scope was never half-applied.
+  assert.deepStrictEqual(linear.log, [])
+})
+
+test('--json names the next scope and carries the unprioritised flag', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([backlogIssue('SKS-2'), backlogIssue('SKS-1')])
+  const r = await run(['list', '--next', '5', '--json'], dir, { adapter: linear })
+  const got = JSON.parse(r.out)
+
+  assert.strictEqual(got.scope, 'next 5')
+  assert.strictEqual(got.unprioritised, true)
+  assert.deepStrictEqual(got.specs.map((s) => s.identifier), ['SKS-1', 'SKS-2'])
+})

@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-115/list-specs-from-linear
 
 > **Type:** Feature
 > **Name:** feat-linear-spec-list (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 2 (started 2026-09-09)
+> **Status:** In Progress — Phase 3 (started 2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -142,7 +142,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `spec-sync list` — the engine and the live listing | ✅ | [01-engine.md](01-engine.md) |
 | 2 | `/spec-list` — the skill, MCP path and degradation | ✅ | [02-skill.md](02-skill.md) |
-| 3 | `--next N` and Linear's backlog order | ⬜ | [03-backlog-order.md](03-backlog-order.md) |
+| 3 | `--next N` and Linear's backlog order | ✅ | [03-backlog-order.md](03-backlog-order.md) |
 | 4 | The current phase on in-progress rows | ⬜ | [04-current-phase.md](04-current-phase.md) |
 | 5 | `--mine` / `--by <user>`, and docs | ⬜ | [05-assignee-and-docs.md](05-assignee-and-docs.md) |
 
@@ -198,3 +198,20 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   site quotes, so adding the skill made the page's `14` false. Updated to `15`,
   and the `spec-sync list` row's "used by" cell now reads `/spec-list · you`
   because that skill exists as of this phase.
+- 2026-09-09 — Phase 3: `--next N` **refuses** to combine with `--state`/`--all`
+  rather than overriding them. It fixes the scope to the backlog itself, so the
+  pair has no reading in which one flag does not silently lose — and a scope the
+  user did not get is the same class of failure as a silent cap (decision 4).
+  The refusal runs before any transport work, so it does not depend on whether
+  an API key is set.
+- 2026-09-09 — Phase 3: ordering is applied to the Linear issues **before** they
+  are projected into display rows, and only under `--next`. The comparator needs
+  `priority` and `sortOrder`, which the row shape never carried; leaving the
+  plain listing unordered also keeps phase 1's `--json` contract byte-identical.
+- 2026-09-09 — Phase 3: decision 7 is not reproducible over MCP, which the spec
+  had not foreseen. Linear's `list_issues` cannot return `sortOrder` at all — it
+  is absent from the tool's `fields` enum — and its `orderBy` offers only
+  `createdAt`/`updatedAt`. The API path is therefore the only one that can print
+  the real Backlog order; `/spec-list` orders by priority on the MCP path and
+  prints a line saying the drag-order is unavailable, rather than letting the
+  rows imply an order they do not have.

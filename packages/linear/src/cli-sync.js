@@ -1887,8 +1887,48 @@ async function specSyncProjects(dir, config, flags, out) {
   return 0
 }
 
+// Linear's PRIORITY is an enum, not a magnitude: 1=Urgent, 2=High, 3=Medium,
+// 4=Low — and 0 means "nobody set one", not "lowest". Sorting on the raw number
+// would float every unprioritised issue to the top, which is exactly backwards,
+// so 0 is ranked last explicitly.
+const priorityRank = (issue) => {
+  const p = Number(issue && issue.priority)
+  return !Number.isFinite(p) || p === 0 ? Number.POSITIVE_INFINITY : p
+}
+
+const UNPRIORITISED = (issues) => issues.length > 0 && issues.every((i) => priorityRank(i) === Infinity)
+
 /**
- * `spec-sync list [--state <name> …|--all] [--limit N] [--archived] [--json]`
+ * Linear's own Backlog order, reproduced — which is the only reason to ask
+ * Linear this rather than `ls specs/backlog/`.
+ *
+ * `sortOrder` is a float and LOWER sorts higher: it is the position Linear
+ * stores when someone drags a card, never a score. Created-date is deliberately
+ * not consulted — created order is the thing this ordering exists to replace.
+ *
+ * The identifier tie-break is what makes the listing reproducible: without it
+ * two issues a person never dragged apart share a `sortOrder`, and the rows
+ * reorder between runs on nothing but the order Linear happened to return.
+ */
+function backlogOrder(a, b) {
+  const pa = priorityRank(a)
+  const pb = priorityRank(b)
+  if (pa !== pb) return pa - pb
+  const sa = Number(a && a.sortOrder)
+  const sb = Number(b && b.sortOrder)
+  const na = Number.isFinite(sa) ? sa : 0
+  const nb = Number.isFinite(sb) ? sb : 0
+  if (na !== nb) return na - nb
+  return String((a && a.identifier) || '').localeCompare(
+    String((b && b.identifier) || ''),
+    'en',
+    { numeric: true },
+  )
+}
+
+/**
+ * `spec-sync list [--state <name> …|--all] [--next N] [--limit N] [--archived]
+ * [--json]`
  * — every spec issue Linear holds, with the local spec folder that owns it.
  *
  * Linear answers what is live and who holds it; the repo answers what each
@@ -1897,6 +1937,21 @@ async function specSyncProjects(dir, config, flags, out) {
  * branch is wrong about exactly the specs you most want to see.
  */
 async function specSyncList(dir, config, flags, out) {
+  // `--next N` is the top of the BACKLOG in Linear's own order, so it fixes the
+  // scope itself. Combined with --state/--all one of them would have to lose,
+  // silently — the failure this feature exists to avoid. Refuse instead, before
+  // any transport work, so the answer does not depend on whether a key is set.
+  const next = Number.isFinite(flags.next) && flags.next > 0 ? flags.next : null
+  if (next !== null && (flags.all === true || flags.stateArgs.length)) {
+    out.write(
+      [
+        'spec-sync list: --next is backlog-only, so it cannot also take --state or --all',
+        '  use --next N for the top of the backlog, or --state/--all to pick the scope yourself.',
+      ].join('\n') + '\n',
+    )
+    return 1
+  }
+
   const key = resolveApiKey(config, flags.env || process.env)
   const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
   const teamId = (config.linear && config.linear.teamId) || null
@@ -1918,11 +1973,13 @@ async function specSyncList(dir, config, flags, out) {
   // The scope. `--all` drops the state filter; `--state` names states directly;
   // the default reads the two live buckets out of `config.states` rather than
   // restating them, so a workspace that renamed "Backlog" needs no second edit.
-  const wantedNames = flags.all === true
-    ? null
-    : flags.stateArgs.length
-      ? flags.stateArgs
-      : [config.states.backlog, config.states['in-progress']]
+  const wantedNames = next !== null
+    ? [config.states.backlog]
+    : flags.all === true
+      ? null
+      : flags.stateArgs.length
+        ? flags.stateArgs
+        : [config.states.backlog, config.states['in-progress']]
 
   let stateIds = null
   if (wantedNames) {
@@ -1973,12 +2030,18 @@ async function specSyncList(dir, config, flags, out) {
   // rather than trust that the filter was applied.
   const issues = (page.nodes || []).filter((n) => n && !(n.parent && n.parent.id))
 
+  // Ordered BEFORE projection, so the comparator reads Linear's own fields
+  // (`priority`, `sortOrder`) rather than a row shape that never carried them.
+  // Only `--next` reorders: the plain listing keeps Linear's return order, which
+  // is what every existing caller already reads.
+  const ordered = next === null ? issues : issues.slice().sort(backlogOrder)
+
   const byIdentifier = new Map(
     listSpecs(dir, config)
       .filter((s) => s.identifier)
       .map((s) => [s.identifier, s]),
   )
-  const rows = issues.map((issue) => {
+  const rows = ordered.map((issue) => {
     const local = byIdentifier.get(issue.identifier) || null
     return {
       identifier: issue.identifier || '',
@@ -1996,16 +2059,38 @@ async function specSyncList(dir, config, flags, out) {
   })
 
   const total = rows.length
-  const limit = Number.isFinite(flags.limit) && flags.limit > 0 ? flags.limit : null
+  // `--next N` IS a cap, and announces itself as one (decision 4) — the count
+  // line below reports it the same way `--limit` is reported.
+  const limit = next !== null
+    ? next
+    : Number.isFinite(flags.limit) && flags.limit > 0
+      ? flags.limit
+      : null
   const shown = limit === null ? rows : rows.slice(0, limit)
-  const scope = flags.all === true
-    ? 'all states'
-    : `${flags.stateArgs.length ? 'states' : 'live'} (${wantedNames.join(', ')})`
+  const capFlag = next !== null ? '--next' : '--limit'
+  const scope = next !== null
+    ? `next ${next}`
+    : flags.all === true
+      ? 'all states'
+      : `${flags.stateArgs.length ? 'states' : 'live'} (${wantedNames.join(', ')})`
+  // Said whenever it is true, not treated as an edge case: a workspace where
+  // nobody has set a priority is the common one, and there the order is a
+  // person's drag-order rather than a ranking. Reading it as a ranking is the
+  // mistake this line exists to prevent.
+  const unprioritised = next !== null && UNPRIORITISED(ordered)
 
   if (flags.json) {
     out.write(
       JSON.stringify(
-        { transport: 'api', scope, archived: !!flags.archived, showing: shown.length, total, specs: shown },
+        {
+          transport: 'api',
+          scope,
+          archived: !!flags.archived,
+          showing: shown.length,
+          total,
+          ...(next !== null ? { unprioritised } : {}),
+          specs: shown,
+        },
         null,
         2,
       ) + '\n',
@@ -2013,7 +2098,13 @@ async function specSyncList(dir, config, flags, out) {
     return 0
   }
 
-  const lines = [`spec-sync list: transport = api, ${scope} — showing ${shown.length} of ${total}`]
+  const lines = [
+    `spec-sync list: transport = api, ${scope} — showing ${shown.length} of ${total}` +
+      (next !== null ? ' in backlog' : ''),
+  ]
+  if (unprioritised) {
+    lines.push("  every candidate is unprioritised — this is Linear's manual Backlog order, not a ranking")
+  }
   // Say what was NOT shown, every time (decisions 4 and 5). A listing that
   // implies a completeness it never verified is this command's failure mode.
   lines.push(
@@ -2022,7 +2113,7 @@ async function specSyncList(dir, config, flags, out) {
       : '  archived issues excluded (--archived to include)',
   )
   if (limit !== null && total > shown.length) {
-    lines.push(`  ${total - shown.length} more not shown — --limit ${total} for all of them`)
+    lines.push(`  ${total - shown.length} more not shown — ${capFlag} ${total} for all of them`)
   }
   if (page.pageInfo && page.pageInfo.hasNextPage) {
     lines.push('  ! Linear reported further pages it did not return — this listing may be short')
@@ -3011,7 +3102,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, archived: false, assign: false }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, assign: false }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -3029,6 +3120,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--all') flags.all = sub === 'list' ? true : args[++i]
     else if (args[i] === '--archived') flags.archived = true
     else if (args[i] === '--limit') flags.limit = Number(args[++i])
+    else if (args[i] === '--next') flags.next = Number(args[++i])
     else if (args[i] === '--project') flags.project = args[++i]
     else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
     else if (args[i] === '--skip-state-check') flags.skipStateCheck = true
@@ -3193,7 +3285,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
-        '       skitterspec spec-sync list [--state <name> …|--all] [--limit N] [--archived] [--json]\n' +
+        '       skitterspec spec-sync list [--state <name> …|--all] [--next N] [--limit N] [--archived] [--json]\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +

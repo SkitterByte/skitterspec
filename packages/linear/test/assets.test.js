@@ -941,3 +941,19 @@ test('/spec-list is read-only and hands off rather than starting a spec', () => 
   assert.match(text, /\/spec-start <name>/, 'offers the handle')
   assert.match(text, /never start it yourself/i, 'and refuses to run it')
 })
+
+test('/spec-list maps the "next few" phrasing onto --next', () => {
+  const text = specList()
+  assert.match(text, /--next N/, 'names the flag')
+  assert.match(text, /backlog-only/i, 'says why it does not take --state or --all')
+  assert.match(text, /not a ranking|drag-order/i, 'carries the unprioritised caveat')
+})
+
+// The MCP tool cannot express this one at all: `sortOrder` is not among the
+// fields it can return and its orderBy offers only createdAt/updatedAt. Rows
+// printed without that caveat imply a Backlog order they do not have.
+test('/spec-list admits --next is not reproducible over MCP', () => {
+  const text = specList()
+  assert.match(text, /sortOrder is unavailable over MCP/, 'states the gap in words it will print')
+  assert.match(text, /orderBy/, 'names what the tool does offer instead')
+})
