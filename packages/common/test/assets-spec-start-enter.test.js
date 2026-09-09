@@ -121,3 +121,30 @@ test('env.config.md keeps the notes that were already true', () => {
   assert.match(ENV_DOC, /Empty = nothing is opened/)
   assert.match(ENV_DOC, /A non-interactive run skips it either way/)
 })
+
+/**
+ * The package README is the first description of isolation a new adopter reads.
+ * It described provisioning as ending in an opener, which is the flow this spec
+ * replaced — and nothing caught it until the completion sweep, because the
+ * spec's own Impact table named the skills and the config doc but not the README.
+ */
+
+const README = fs.readFileSync(
+  path.join(__dirname, '..', 'README.md'),
+  'utf8',
+)
+
+test('the README says the session moves into the worktree', () => {
+  assert.match(README, /moves the session you\s*\n?\s*typed into into that worktree/)
+})
+
+test('the README calls the opener a fallback, not part of every start', () => {
+  assert.match(README, /fallback opener/)
+  assert.match(README, /only when the session could \*{0,2}not\*{0,2} be moved/)
+})
+
+test('the README no longer lists the opener as what provisioning does', () => {
+  // The synopsis comment read "worktree (+ stack …) + opener", which reads as an
+  // unconditional step and is the shape this drift takes when it comes back.
+  assert.doesNotMatch(README, /Stack: worktree \+ docker\) \+ opener/)
+})

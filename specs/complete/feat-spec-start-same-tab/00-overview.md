@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-104/spec-start-lands-you-i
 
 > **Type:** Feature
 > **Name:** feat-spec-start-same-tab (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-09)
+> **Status:** Complete (2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -123,6 +123,7 @@ then run the spec-env down plan
 | Skill | update | `/spec-complete`, `/spec-cancel` — `ExitWorktree` case in the leave-first prose |
 | Rule | update | `spec-planning.md` — "one terminal session per spec" no longer true |
 | Doc | update | `env.config.md` — `open.command` documented as the fallback opener |
+| Doc | update | `packages/common/README.md` — worktree and opener bullets |
 | Config | update | `specs/.core/env.config.json` — `open.command` back to `""` (this repo only) |
 | Test | add | `assets-*.test.js` prose tests for the branch, the fallback and the exit |
 
@@ -138,6 +139,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `/spec-start` enters the worktree in-session | ✅ | [01-enter-worktree.md](01-enter-worktree.md) |
 | 2 | `open.command` becomes the fallback opener | ✅ | [02-opener-fallback.md](02-opener-fallback.md) |
 | 3 | Teardown leaves the session before removing the tree | ✅ | [03-teardown-exit.md](03-teardown-exit.md) |
+| 4 | The README describes the same-tab flow | ✅ | [04-readme-prose.md](04-readme-prose.md) |
 
 ## Open questions
 
@@ -149,15 +151,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
 | 2026-09-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-09 — Spec created. Corrects decision 13 of `feat-spec-start-seamless`,
   whose premise (the session's location is fixed) was falsified by the
   `EnterWorktree` harness tool.
+- 2026-09-09 — Phase 4 added at `/spec-complete`: `packages/common/README.md`
+  still described provisioning as ending in an opener rather than in your own
+  session. The Impact table named the skills, the rule and `env.config.md` but
+  not the package README, so nothing caught it until the completion sweep.
 - 2026-09-09 — Entry moves to **immediately after `git worktree add`**, before
   bootstrap and housekeeping (new decision 2). Found while starting this spec:
   the bootstrap step's own `cd "<worktreePath>"` already relocates the session,
   so entering afterwards fails with `is the current working directory`. Entering
   first also retires the `cd` and the `git -C <worktreePath>` prefix on the
   non-degraded path, which is simpler than what was specced.
+- 2026-09-09 — Completed; all four phases done, tests green (1465).
