@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-92/release-gating-offer-th
 
 > **Type:** Feature
 > **Name:** feat-release-gating (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-09)
+> **Status:** Complete (2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -145,10 +145,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
 | 2026-09-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-09 — Spec created from the `~/code/ereqs` handoff.
+- 2026-09-09 — Completed; all four phases done, tests green (1469/1469). The
+  `~/code/ereqs` handoff is answered: the offer is baked in, the mechanism is
+  not, and a project without the config sees byte-identical behaviour. Nothing
+  deferred.
 - 2026-09-09 — Phase 4 built: `--gating`, a fresh-init prompt, `installGating`,
   the init report line, and the README section. `update` can never activate it;
   a customized config survives a resync. Both proved by hand and by test.
