@@ -267,6 +267,7 @@ module.exports = {
   repoInfo,
   expandTokens,
   findSpecFolder,
+  readFrontmatterField,
   readStackField,
   readBaseVersionField,
 }

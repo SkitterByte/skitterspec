@@ -345,3 +345,27 @@ test('the shipped example config carries mode at its default', () => {
   const parsed = JSON.parse(fs.readFileSync(example, 'utf-8'))
   assert.strictEqual(parsed.mode, 'worktree')
 })
+
+test('spec.companionPaths defaults to none, so a spec owns only its own folder', () => {
+  const dir = tmpDir()
+  assert.deepStrictEqual(loadEnvConfig(dir).config.spec.companionPaths, [])
+  writeEnvConfig(dir, { worktree: { root: '../wt' } })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.spec.companionPaths, [])
+})
+
+test('spec.companionPaths keeps trimmed strings and drops the rest', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    spec: { companionPaths: ['  specs/.core/x/{identifier}.json  ', '', 7, null, 'a/b'] },
+  })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.spec.companionPaths, [
+    'specs/.core/x/{identifier}.json',
+    'a/b',
+  ])
+})
+
+test('a non-array spec.companionPaths is ignored, not fatal', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { spec: { companionPaths: 'specs/.core/x.json' } })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.spec.companionPaths, [])
+})

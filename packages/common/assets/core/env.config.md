@@ -153,6 +153,26 @@ no live `env.config.json` was found.
     "identifierField": ""
   },
 
+  // Paths that belong to a spec ALONGSIDE its own `specs/<bucket>/<name>/`
+  // folder. `/spec-start` uses this to tell "the spec you just wrote, not yet
+  // committed" apart from someone else's uncommitted work: if every dirty path
+  // belongs to the spec being started it is committed for you, and if a single
+  // path does not, the start is refused as before.
+  //
+  // Provider-neutral by design — the base engine must not know that any
+  // particular tracker exists — so you declare the shape here. `{slug}` and
+  // `{identifier}` expand exactly as in `branch.pattern` above, `{identifier}`
+  // via `branch.identifierField`.
+  //
+  // A pattern using {identifier} matches NOTHING when no identifier resolves
+  // (no `identifierField` set, or a spec never pushed to a tracker). That is
+  // deliberate: the file it names then belongs to some other spec, and the safe
+  // failure is a refusal you clear with /commit, not a stranger's file swept
+  // into your commit. Default: none — a spec owns only its own folder.
+  "spec": {
+    "companionPaths": []
+  },
+
   // Integration base branch — the branch specs fork from and land back onto
   // (used by the teardown "merged?" guard and, later, the integrate step).
   // Empty = auto-detect: origin/HEAD → main → master. Set it when your default

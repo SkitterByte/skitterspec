@@ -30,6 +30,9 @@
  *     open:     { command },   // optional, editor/terminal-agnostic opener
  *     registry: ".spec-env/registry.json",
  *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
+ *     spec:     { companionPaths: [ "path", ... ] },  // paths that belong to a
+ *               // spec alongside its own folder (provider-neutral; {slug} and
+ *               // {identifier} expand); empty = the spec folder only
  *     baseBranch: "",          // "" = auto-detect (origin/HEAD → main → master)
  *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed },
  *     teardown: { deleteRemoteBranch },
@@ -90,6 +93,13 @@ const DEFAULT_CONFIG = Object.freeze({
   // 00-overview.md frontmatter field a provider writes the ticket id into (empty
   // = no identifier, so patterns referencing {identifier} fall back to type/slug).
   branch: Object.freeze({ pattern: '{type}/{slug}', identifierField: '' }),
+  // Paths that belong to a spec ALONGSIDE its own `specs/<bucket>/<name>/` folder
+  // — a tracker provider's per-spec snapshot, for instance. Provider-neutral by
+  // design: the base engine must not know that any particular tracker exists, so
+  // the project declares the shape and `{slug}` / `{identifier}` expand exactly as
+  // they do in `branch.pattern` ({identifier} via `branch.identifierField`).
+  // Default: none, so a spec owns only its own folder.
+  spec: Object.freeze({ companionPaths: Object.freeze([]) }),
   // Integration base branch. Empty = auto-detect (origin/HEAD → main → master).
   baseBranch: '',
   guards: Object.freeze({ refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true }),
@@ -128,6 +138,7 @@ function defaults() {
     open: { ...DEFAULT_CONFIG.open },
     registry: DEFAULT_CONFIG.registry,
     branch: { ...DEFAULT_CONFIG.branch },
+    spec: { companionPaths: [] },
     baseBranch: DEFAULT_CONFIG.baseBranch,
     guards: { ...DEFAULT_CONFIG.guards },
     teardown: { ...DEFAULT_CONFIG.teardown },
@@ -294,6 +305,10 @@ function mergeConfig(base, parsed) {
     if (policy === 'prompt' || policy === 'never' || policy === 'always') {
       base.teardown.deleteRemoteBranch = policy
     }
+  }
+
+  if (isObject(parsed.spec) && Array.isArray(parsed.spec.companionPaths)) {
+    base.spec.companionPaths = normalizeFileList(parsed.spec.companionPaths)
   }
 
   if (isObject(parsed.live) && Array.isArray(parsed.live.migrations)) {
