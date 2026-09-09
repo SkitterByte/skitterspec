@@ -1,0 +1,12 @@
+{
+  "issue": "014f3ce201ff200e06ea5b82498de5c40fee458f",
+  "issueFields": {
+    "description": "cf58f4754cc88db5c198ed3134bc980b6950c30e",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833"
+  },
+  "subIssues": {
+    "SKS-128": "b544fe38cf6e5911ae21973c18e76e1995850176",
+    "SKS-129": "627d6bf90285ef0bc515eafab944bb2f59cbb6b5"
+  }
+}
