@@ -1,11 +1,11 @@
 {
-  "issue": "9084701688370a5f275ebc0af7687e0f87e6fa36",
+  "issue": "f9ed01bb8c406593bbc84f89712e18625ddbcf48",
   "issueFields": {
     "description": "be8b2ae1c5568545bf1ab6d03f1c9faaf650ac84",
-    "state": "5767f380fa5d574444763a1753c78be1df8d9037"
+    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1"
   },
   "subIssues": {
-    "SKS-116": "fdde560014d773d1e830045ce4a6ba1962fa127c",
+    "SKS-116": "2391f9704aa4075af3c237a6037745465c23d943",
     "SKS-117": "0e1354d5353ca8b8bf9190d12efe85f021c327d9",
     "SKS-118": "7a0e079f90620ac9cfffa53d9676c07c18424c88",
     "SKS-119": "b803df27a32eceba3373c72e0d4ea926e2e30ed9",

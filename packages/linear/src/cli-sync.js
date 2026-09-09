@@ -1888,6 +1888,164 @@ async function specSyncProjects(dir, config, flags, out) {
 }
 
 /**
+ * `spec-sync list [--state <name> …|--all] [--limit N] [--archived] [--json]`
+ * — every spec issue Linear holds, with the local spec folder that owns it.
+ *
+ * Linear answers what is live and who holds it; the repo answers what each
+ * issue is CALLED on disk, because `/spec-start` moves a spec to
+ * `specs/in-progress/` on that spec's own branch — so `ls specs/` on the base
+ * branch is wrong about exactly the specs you most want to see.
+ */
+async function specSyncList(dir, config, flags, out) {
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const teamId = (config.linear && config.linear.teamId) || null
+
+  const degrade = (reason) => {
+    if (flags.json) out.write(JSON.stringify({ transport, specs: null, reason }, null, 2) + '\n')
+    else out.write(`spec-sync list: ${reason}\n`)
+    return 0
+  }
+  if (transport === 'mcp') {
+    return degrade(
+      `transport = mcp — ${key.ok ? '--via mcp was requested' : key.error}; list issues over MCP instead`,
+    )
+  }
+  if (!key.ok) return degrade(key.error)
+
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+
+  // The scope. `--all` drops the state filter; `--state` names states directly;
+  // the default reads the two live buckets out of `config.states` rather than
+  // restating them, so a workspace that renamed "Backlog" needs no second edit.
+  const wantedNames = flags.all === true
+    ? null
+    : flags.stateArgs.length
+      ? flags.stateArgs
+      : [config.states.backlog, config.states['in-progress']]
+
+  let stateIds = null
+  if (wantedNames) {
+    let workspaceStates
+    try {
+      workspaceStates = await adapter.listIssueStates(teamId)
+    } catch (error) {
+      return degrade(`could not read the workspace's issue states (${error.message})`)
+    }
+    // A POSITIVE signal, not an absence: this is the workspace's FULL state
+    // list, freshly read, so a name missing from it is genuinely missing rather
+    // than merely outside a narrower query. Linear silently ignores an unknown
+    // state, so an unchecked name would return an empty listing that looks like
+    // "no specs" — see .claude/rules/negative-checks.md.
+    const byName = new Map(
+      workspaceStates.filter((s) => s && s.name).map((s) => [String(s.name).toLowerCase(), s]),
+    )
+    const missing = wantedNames.filter((n) => !byName.has(String(n).toLowerCase()))
+    if (missing.length) {
+      out.write(
+        [
+          `spec-sync list: unknown state ${missing.map((n) => `"${n}"`).join(', ')}`,
+          `  the workspace has: ${workspaceStates.map((s) => s.name).join(', ')}`,
+          '  fix specs/.core/linear.config.json → states, or pass --state with one of those.',
+        ].join('\n') + '\n',
+      )
+      return 1
+    }
+    stateIds = wantedNames.map((n) => byName.get(String(n).toLowerCase()).id)
+  }
+
+  let page
+  try {
+    page = await adapter.listIssues({
+      teamId,
+      stateIds,
+      parentless: true,
+      first: null,
+      includeArchived: !!flags.archived,
+    })
+  } catch (error) {
+    return degrade(`could not list issues (${error.message}); Linear is unreachable`)
+  }
+
+  // Filtered again here, not merely in the query: `parent { id }` is the
+  // structural discriminator between a spec issue and a phase sub-issue
+  // (decision 2), and it is cheap enough to assert on the data we actually got
+  // rather than trust that the filter was applied.
+  const issues = (page.nodes || []).filter((n) => n && !(n.parent && n.parent.id))
+
+  const byIdentifier = new Map(
+    listSpecs(dir, config)
+      .filter((s) => s.identifier)
+      .map((s) => [s.identifier, s]),
+  )
+  const rows = issues.map((issue) => {
+    const local = byIdentifier.get(issue.identifier) || null
+    return {
+      identifier: issue.identifier || '',
+      title: issue.title || '',
+      state: (issue.state && issue.state.name) || '',
+      // An issue with no local match is REPORTED, not dropped. A teammate's
+      // unlanded spec, or one authored inside another spec's worktree, is not
+      // on this branch at all — which is the very gap the listing exists to
+      // close, so hiding it would defeat the command.
+      spec: local ? local.spec : null,
+      bucket: local ? local.bucket : null,
+      assignee: (issue.assignee && issue.assignee.name) || null,
+      url: issue.url || null,
+    }
+  })
+
+  const total = rows.length
+  const limit = Number.isFinite(flags.limit) && flags.limit > 0 ? flags.limit : null
+  const shown = limit === null ? rows : rows.slice(0, limit)
+  const scope = flags.all === true
+    ? 'all states'
+    : `${flags.stateArgs.length ? 'states' : 'live'} (${wantedNames.join(', ')})`
+
+  if (flags.json) {
+    out.write(
+      JSON.stringify(
+        { transport: 'api', scope, archived: !!flags.archived, showing: shown.length, total, specs: shown },
+        null,
+        2,
+      ) + '\n',
+    )
+    return 0
+  }
+
+  const lines = [`spec-sync list: transport = api, ${scope} — showing ${shown.length} of ${total}`]
+  // Say what was NOT shown, every time (decisions 4 and 5). A listing that
+  // implies a completeness it never verified is this command's failure mode.
+  lines.push(
+    flags.archived
+      ? '  archived issues included'
+      : '  archived issues excluded (--archived to include)',
+  )
+  if (limit !== null && total > shown.length) {
+    lines.push(`  ${total - shown.length} more not shown — --limit ${total} for all of them`)
+  }
+  if (page.pageInfo && page.pageInfo.hasNextPage) {
+    lines.push('  ! Linear reported further pages it did not return — this listing may be short')
+  }
+  lines.push('')
+  if (!shown.length) {
+    lines.push('  no spec issues in scope')
+  } else {
+    const idW = Math.max(...shown.map((r) => r.identifier.length))
+    const stW = Math.max(...shown.map((r) => r.state.length))
+    const pad = ' '.repeat(idW + stW + 4)
+    for (const row of shown) {
+      lines.push(`  ${row.identifier.padEnd(idW)}  ${row.state.padEnd(stW)}  ${row.spec || '— (not linked here)'}`)
+      if (row.title) lines.push(`  ${pad}${row.title}`)
+    }
+    lines.push('')
+    lines.push('  start one with: /spec-start <name>')
+  }
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
+/**
  * Apply one spec's plan. Returns what happened rather than printing it, so the
  * single-spec command and the bulk loop report in their own voices while sharing
  * one implementation of the part that actually matters.
@@ -2853,7 +3011,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, statesFile: null, stages: [], assign: false }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, archived: false, assign: false }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -2865,7 +3023,12 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--mcp') flags.mcp = path.resolve(args[++i])
     else if (args[i] === '--plan') flags.plan = path.resolve(args[++i])
     else if (args[i] === '--via') flags.via = args[++i]
-    else if (args[i] === '--all') flags.all = args[++i]
+    // `apply --all <bucket>` takes a value; `list --all` is a bare boolean. Read
+    // off the subcommand rather than guessing from the next token — `list --all
+    // --json` would otherwise swallow `--json` as the bucket and silently drop it.
+    else if (args[i] === '--all') flags.all = sub === 'list' ? true : args[++i]
+    else if (args[i] === '--archived') flags.archived = true
+    else if (args[i] === '--limit') flags.limit = Number(args[++i])
     else if (args[i] === '--project') flags.project = args[++i]
     else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
     else if (args[i] === '--skip-state-check') flags.skipStateCheck = true
@@ -2903,10 +3066,15 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--bug-labels') flags.bugLabels = labelList(args[++i])
     else if (args[i] === '--hotfix-labels') flags.hotfixLabels = labelList(args[++i])
     else if (args[i] === '--state') {
-      // `--state complete=Shipped`, repeatable. Only the buckets a workspace
-      // actually renamed get written; the rest keep the defaults.
-      const [bucket, ...rest] = String(args[++i] || '').split('=')
+      // Two readings of one flag, kept apart rather than overloaded:
+      // `init-config --state complete=Shipped` is a bucket=name PAIR, while
+      // `list --state "In Progress"` is a bare Linear state NAME. Both are
+      // recorded — `stateNames` for the former, the raw value in `stateArgs`
+      // for the latter — so neither command has to infer which it was given.
+      const raw = String(args[++i] || '').trim()
+      const [bucket, ...rest] = raw.split('=')
       flags.stateNames[String(bucket).trim()] = rest.join('=').trim()
+      if (raw) flags.stateArgs.push(raw)
     } else if (args[i] === '--stage') {
       // `--stage test="On Test"`, repeatable. Order matters and is the order
       // given, so the ladder is written exactly as the operator listed it.
@@ -2985,6 +3153,8 @@ async function specSync(rest, io = {}) {
       return specSyncStatus(dir, config, positional[0], flags, out) || 0
     case 'projects':
       return (await specSyncProjects(dir, config, flags, out)) || 0
+    case 'list':
+      return (await specSyncList(dir, config, flags, out)) || 0
     case 'states':
       return (await specSyncStates(dir, config, flags, out)) || 0
     case 'whoami':
@@ -3023,6 +3193,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
+        '       skitterspec spec-sync list [--state <name> …|--all] [--limit N] [--archived] [--json]\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +

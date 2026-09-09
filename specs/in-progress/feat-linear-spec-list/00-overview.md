@@ -140,7 +140,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `spec-sync list` — the engine and the live listing | ⬜ | [01-engine.md](01-engine.md) |
+| 1 | `spec-sync list` — the engine and the live listing | ✅ | [01-engine.md](01-engine.md) |
 | 2 | `/spec-list` — the skill, MCP path and degradation | ⬜ | [02-skill.md](02-skill.md) |
 | 3 | `--next N` and Linear's backlog order | ⬜ | [03-backlog-order.md](03-backlog-order.md) |
 | 4 | The current phase on in-progress rows | ⬜ | [04-current-phase.md](04-current-phase.md) |
@@ -160,3 +160,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-09 — Spec created.
+- 2026-09-09 — Phase 1: two flag collisions surfaced that the spec had not
+  anticipated. `--state` was already taken by `init-config` as a `bucket=name`
+  pair, and `--all` by `apply --all <bucket>` as a value-taking flag — so
+  `list --all --json` would have swallowed `--json` as the bucket. Resolved
+  without changing either existing command: `--state` now also records its raw
+  value in `flags.stateArgs` alongside the parsed pair, and `--all` is read as a
+  boolean only when the subcommand is `list`.
+- 2026-09-09 — Phase 1: paging lives inside `adapter.listIssues` rather than in
+  the caller, and `first: null` means "everything". Linear's `IssueConnection`
+  exposes no `totalCount`, so a truthful `showing 5 of 23` is only possible by
+  fetching the matching set and capping for display — a caller-side page loop
+  would have had to guess the total.
+- 2026-09-09 — Phase 1: `docs/linear.html` gained its `spec-sync list` row now
+  rather than in phase 5. The repo's `docs-claims` guard requires every
+  dispatched verb to be documented on the engine's page, so the docs task could
+  not wait for the phase that owns the rest of the docs. Its "used by" column
+  says `you`, not `/spec-list` — that skill is phase 2 and does not ship yet,
+  and a second guard rejects naming a skill the repo has not got.

@@ -29,6 +29,10 @@ const ENDPOINT = 'https://api.linear.app/graphql'
 const MAX_RETRIES = 5
 const MAX_BACKOFF_MS = 60_000
 
+// Linear's hard per-page ceiling on a connection. `listIssues` pages against
+// this rather than trusting a caller's `first` to be under it.
+const PAGE_SIZE = 250
+
 const { storePath, readStore, resolveTeamKey } = require('./credentials.js')
 
 /**
@@ -97,8 +101,15 @@ function resolveApiKey(config, env = process.env, deps = {}) {
 // Fields we read back on every write. `identifier` and `url` are what the skill
 // stamps into the spec; `description` is what `spec-sync verify` compares.
 // `assignee` rides along so `spec-sync status` can report assignment drift from
-// the same read-back the state drift already uses — one read, not two.
-const ISSUE_FIELDS = 'id identifier url title description state { id name } assignee { id name }'
+// the same read-back the state drift already uses — one read, not two; it is
+// also the "who holds this" column of the listing.
+// `priority`, `sortOrder` and `parent` are here for `listIssues`: one query has
+// to answer every column the listing prints (Linear's own backlog order) and
+// the discriminator it filters on (a phase sub-issue carries `parent`, a spec
+// issue does not). Requesting them on the read/create/update paths too costs
+// nothing and keeps one field list.
+const ISSUE_FIELDS =
+  'id identifier url title description priority sortOrder state { id name } assignee { id name } parent { id }'
 
 // What we read back about a person. `name` is the handle Linear shows on an
 // issue; `displayName` is the short @-handle; `active` distinguishes a current
@@ -284,6 +295,47 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
         // loops on a value rather than on the presence of a key.
         nextCursor: page.hasNextPage ? page.endCursor || null : null,
       }
+    },
+    // The listing's one read. Paging is done HERE rather than by the caller so
+    // `first` means what it says — Linear caps a page at 250, and a caller that
+    // asked for 400 and silently got 250 is exactly the "no silent caps" failure
+    // this feature exists to avoid. `first: null` means "everything", which is
+    // what lets the listing report a truthful `showing 5 of 23` instead of a
+    // total it only assumed. The returned `pageInfo` is the LAST page's, so
+    // `hasNextPage` still tells a capped caller that more exist.
+    //
+    // API-only, like `listIssueStates` — see the operation-contract test.
+    async listIssues({ teamId, stateIds, assigneeId, parentless, first = null, after = null, includeArchived = false } = {}) {
+      const filter = {}
+      if (teamId) filter.team = { id: { eq: teamId } }
+      if (stateIds && stateIds.length) filter.state = { id: { in: stateIds } }
+      if (assigneeId) filter.assignee = { id: { eq: assigneeId } }
+      // Linear's IssueFilter spells "has no parent" as a null check on the
+      // relation; there is no `isOrphan`-style boolean.
+      if (parentless) filter.parent = { null: true }
+
+      const query = `query($filter: IssueFilter, $first: Int, $after: String, $includeArchived: Boolean) {
+        issues(filter: $filter, first: $first, after: $after, includeArchived: $includeArchived) {
+          nodes { ${ISSUE_FIELDS} }
+          pageInfo { hasNextPage endCursor }
+        }
+      }`
+
+      const nodes = []
+      let cursor = after
+      let pageInfo = { hasNextPage: false, endCursor: null }
+      for (;;) {
+        const want = first === null ? PAGE_SIZE : Math.min(PAGE_SIZE, first - nodes.length)
+        if (want <= 0) break
+        const data = await call(query, { filter, first: want, after: cursor, includeArchived: !!includeArchived })
+        const conn = (data && data.issues) || {}
+        for (const node of conn.nodes || []) nodes.push(node)
+        pageInfo = conn.pageInfo || { hasNextPage: false, endCursor: null }
+        if (!pageInfo.hasNextPage) break
+        cursor = pageInfo.endCursor
+        if (first !== null && nodes.length >= first) break
+      }
+      return { nodes, pageInfo }
     },
     // The team's CURRENT key, which is what `retarget` compares stamped
     // identifiers against. Read from Linear rather than `config.linear.teamKey`
