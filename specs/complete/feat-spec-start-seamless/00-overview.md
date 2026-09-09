@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-97/spec-start-commits-the-
 
 > **Type:** Feature
 > **Name:** feat-spec-start-seamless (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — all phases built (2026-09-09)
+> **Status:** Complete (2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -220,6 +220,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
 | 2026-09-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -228,6 +229,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   in `~/code/ereqs` provisioned a worktree and then asked for `/spec-live` plus a
   re-run to finish the housekeeping. Renamed `feat-spec-start-autocommit` →
   `feat-spec-start-seamless`; added phase 4.
+- 2026-09-09 — Completed; all four phases done, tests green (1435/1435).
+  Documentation swept at completion: a v17→v18 migration entry superseding the
+  one-workbench rule, the live overlay scoped to testing, and `/spec-next`'s
+  description corrected. Nothing deferred.
 - 2026-09-09 — Phase 4 built. The live hand-off is gone; worktree mode's gate
   relaxed to a clean tree only, and six asset tests that guarded the old
   two-invocation flow were rewritten to guard against its return.
