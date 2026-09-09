@@ -44,6 +44,7 @@ const {
   stateSuggestions,
   lintPhases,
   writeFrontmatter,
+  deleteFrontmatter,
   stampSubIssueId,
   listPhaseFiles,
   compareStored,
@@ -454,6 +455,77 @@ function specSyncStamp(dir, config, specArg, flags, out) {
   }
   lines.push('  next: skitterspec spec-sync record <spec>')
   out.write(lines.join('\n') + '\n')
+  return 0
+}
+
+/**
+ * `spec-sync assign <spec> [--to <id> [--name <n>]] [--release] [--json]`
+ *
+ * Record — or release — who owns a spec, by stamping `linear_assignee_id` /
+ * `linear_assignee_name` into the overview frontmatter. The counterpart to
+ * `spec-sync stamp`, which does the same job for issue ids.
+ *
+ * **It writes the repo and nothing else.** Pushing is the caller's next step,
+ * deliberately: the repo is the source of truth, so ownership changes here and
+ * the mirror catches up like any other edit. Splitting it that way also means a
+ * failed push leaves the claim recorded rather than lost.
+ *
+ * **Stamping is explicit, and never inferred by a push.** Only this verb (and
+ * the skills that call it) writes the field. A push that resolved identity for
+ * itself would quietly re-assign a spec to whoever happened to run it — which is
+ * how a teammate pushing someone else's branch would steal their work.
+ */
+function specSyncAssign(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
+  const rel = path.relative(dir, snapshotDir)
+
+  const problems = []
+  if (flags.release && flags.to) problems.push('--release and --to are opposites — pass one')
+  if (!flags.release && !flags.to) problems.push('nothing to do — pass --to <user-id> or --release')
+  // An unlinked spec has no issue to assign. Refusing beats stamping a field
+  // that would sit in the file doing nothing until someone noticed.
+  if (!identifier) problems.push(`${rel} is not linked to Linear — /spec-push it first`)
+
+  if (problems.length) {
+    out.write(
+      ['spec-sync assign: refusing to write — nothing was changed', ...problems.map((p) => `  ${p}`)].join('\n') + '\n',
+    )
+    return 1
+  }
+
+  if (flags.release) {
+    const removed = deleteFrontmatter(snapshotDir, config, ['linear_assignee_id', 'linear_assignee_name'])
+    if (flags.json) {
+      out.write(JSON.stringify({ spec: rel, issue: identifier, released: removed.length > 0 }, null, 2) + '\n')
+      return 0
+    }
+    out.write(
+      (removed.length
+        ? `spec-sync assign: ${rel} released (${identifier})\n`
+        : `spec-sync assign: ${rel} records no assignee — nothing to release\n`) +
+        '  next: push it, so Linear is unassigned too\n',
+    )
+    return 0
+  }
+
+  writeFrontmatter(snapshotDir, config, {
+    linear_assignee_id: flags.to,
+    // Display only — the projection never sends it. It exists so a reader (and
+    // `/spec-claim`) can name the person without a Linear round trip.
+    linear_assignee_name: flags.name || null,
+  })
+  if (flags.json) {
+    out.write(
+      JSON.stringify({ spec: rel, issue: identifier, id: flags.to, name: flags.name || null }, null, 2) + '\n',
+    )
+    return 0
+  }
+  const who = flags.name ? `${flags.name} (${flags.to})` : flags.to
+  out.write(`spec-sync assign: ${rel} assigned to ${who} (${identifier})\n  next: push it, so Linear agrees\n`)
   return 0
 }
 
@@ -2787,6 +2859,8 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--set') flags.set = String(args[++i] || '').trim()
     else if (args[i] === '--name') flags.name = String(args[++i] || '').trim()
     else if (args[i] === '--unset') flags.unset = true
+    else if (args[i] === '--to') flags.to = String(args[++i] || '').trim()
+    else if (args[i] === '--release') flags.release = true
     else if (args[i] === '--limit') flags.limit = Number(args[++i]) || 0
     else if (args[i] === '--cursor') flags.cursor = String(args[++i] || '').trim()
     else if (args[i] === '--command') flags.command = String(args[++i] || '').trim()
@@ -2891,6 +2965,8 @@ async function specSync(rest, io = {}) {
       return (await specSyncStates(dir, config, flags, out)) || 0
     case 'whoami':
       return (await specSyncWhoami(dir, config, flags, out)) || 0
+    case 'assign':
+      return specSyncAssign(dir, config, positional[0], flags, out)
     case 'users':
       return (await specSyncUsers(dir, config, positional[0], flags, out)) || 0
     case 'released':
@@ -2919,6 +2995,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync projects [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync whoami [--set <id> [--name N]] [--unset] [--json]\n' +
         '       skitterspec spec-sync users [<name-or-email>] [--limit N] [--cursor C] [--json]\n' +
+        '       skitterspec spec-sync assign <spec> --to <id> [--name N] | --release [--json]\n' +
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +

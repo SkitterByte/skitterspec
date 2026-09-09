@@ -154,6 +154,9 @@ in `checkout` mode the branch is already here.
   already (`mkdir -p specs/in-progress` first). Use `git mv` to keep history.
 - Set the **Status** header: `> **Status:** In Progress — Phase 1 (started <YYYY-MM-DD>)`.
 - Set **Developer** if it is still `—` (`git config user.name`).
+
+<!-- seam:spec-tracker-assign -->
+
 - Append a **State log** row: `| <YYYY-MM-DD> | In Progress | in-progress | <git user.name> |`.
 - **Commit it, and push the branch.** One commit, the spec's own — it records the
   in-progress state for everyone and fires the tracker's automation. Do this
@@ -216,11 +219,20 @@ from here.
 There is no `--here`: `/spec-start` **is** here. It puts the branch in the
 checkout you are in, which is what the old opt-out was reaching for.
 
-## Why there is no tracker seam here
+## Why this skill links nothing, but does record an owner
 
-This skill creates no spec and mints no issue, so it has nothing to link — the
-intake and picker steps belong to `/spec`, `/spec-bug` and `/spec-hotfix`. The
-state change it *does* make (the spec moving to `in-progress`) is mirrored by
-the refresh `/spec-next` runs the moment it starts, which pushes the issue state
-and the phase states together. Adding a push here would send the same thing
-twice, one commit apart.
+This skill creates no spec and mints no issue, so it has **nothing to link** —
+the intake and picker steps belong to `/spec`, `/spec-bug` and `/spec-hotfix`.
+Nor does it push: the state change it makes (the spec moving to `in-progress`)
+is mirrored by the refresh `/spec-next` runs the moment it starts, which sends
+the issue state and the phase states together. A push here would send the same
+thing twice, one commit apart.
+
+The **assignment** seam in step 4 is the exception, and it is not a push. This is
+the one moment in the lifecycle where "who is building this" is actually decided
+— the branch is being provisioned for someone, and that someone is at the
+keyboard. It stamps the spec file and stops there, so it costs no tracker call and
+rides out on the refresh like every other field. Deferring it to `/spec-next`
+would be worse than untidy: in `worktree` mode the two can be separated by hours,
+and a spec in flight with nobody named on it is exactly the gap assignment exists
+to close.

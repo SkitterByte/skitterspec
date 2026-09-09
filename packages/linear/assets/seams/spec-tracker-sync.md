@@ -28,6 +28,12 @@ Linear API key is set (see `apply.transport` in `linear.config.md`).
   Do not roll anything back, and do not stop to ask.
 - **Say what happened** in the skill's report: mirror updated, skipped as
   unlinked, or failed with the reason.
+- **There is no unassign step, and that is not an omission.** With `assignee` in
+  `sync.fieldOwnership`, the projection derives it from the spec's lifecycle
+  bucket — so moving the folder to `complete`/`cancelled` is *itself* what
+  releases the issue, and the push above carries it like any other field. The
+  `linear_assignee_id` stamp and the `> **Developer:**` header both stay put:
+  they record who actioned the work, which outlives who is holding it.
 
 ### Why it sits here
 

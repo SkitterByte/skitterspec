@@ -11,14 +11,14 @@ teammate in one command, with the repo and Linear agreeing afterwards.
 
 ## Tasks
 
-- [ ] Add `spec-sync assign <spec> [--to <id> --name <n>] [--release] [--json]` to
-      `cli-sync.js`: stamps or clears `linear_assignee_id` /
-      `linear_assignee_name` in the overview frontmatter, mirroring how
-      `spec-sync stamp` writes ids. It writes the repo only — pushing is the
-      skill's next step, not this verb's.
-- [ ] Refuse cleanly rather than guessing: an unknown spec name, a spec with no
-      `linear_identifier`, or `--to` without a resolvable id each exit non-zero
-      with a one-line reason and write nothing.
+> `spec-sync assign` moved to phase 3 — the seams there call it, and a seam
+> pointing at a command that does not exist is not independently shippable.
+> This phase is the `/spec-claim` skill on top of that verb.
+
+- [ ] Add `/spec-claim` to the `spec-sync assign` row in `docs/linear.html`
+      ("Used by" currently reads `/spec-start · you`). `scripts/docs-claims.test.js`
+      refuses a page naming a skill that does not ship, which is why the row could
+      not name it in phase 3.
 - [ ] Add the `/spec-claim` skill at
       `packages/linear/assets/skills/spec-claim/SKILL.md`, with
       `disable-model-invocation` (user-only, like `/spec-push` and

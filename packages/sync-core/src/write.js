@@ -77,6 +77,43 @@ function writeFrontmatter(snapshotDir, config, patch) {
   return Object.keys(clean)
 }
 
+/**
+ * Remove keys from `00-overview.md` frontmatter. Returns the keys actually
+ * removed (absent ones are a clean no-op, not an error).
+ *
+ * A separate function because `writeFrontmatter` SKIPS nullish values by
+ * design — that is what lets a caller pass a sparse patch without clearing the
+ * fields it left out, and it means "remove this key" is inexpressible there. A
+ * released assignment has to actually leave the file: setting it empty would
+ * leave a spec claiming to be assigned to nobody in particular, and the
+ * projection reads presence, not emptiness.
+ */
+function deleteFrontmatter(snapshotDir, config, keys) {
+  const overviewFile = (config && config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const file = path.join(snapshotDir, overviewFile)
+  const raw = fs.readFileSync(file, 'utf-8')
+  const { fmLines, body, had } = splitFrontmatter(raw)
+  if (!had) return []
+
+  const drop = new Set(keys)
+  const removed = []
+  const kept = fmLines.filter((line) => {
+    const kv = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line)
+    if (kv && drop.has(kv[1])) {
+      removed.push(kv[1])
+      return false
+    }
+    return true
+  })
+  if (!removed.length) return []
+
+  // An emptied block is dropped entirely rather than left as `---\n---`, which
+  // some markdown renderers show as a horizontal rule.
+  const next = kept.length ? `---\n${kept.join('\n')}\n---\n${body}` : body
+  fs.writeFileSync(file, next, 'utf-8')
+  return removed
+}
+
 // Phase files in a snapshot dir (01-*.md …), execution order.
 function listPhaseFiles(snapshotDir) {
   try {
@@ -142,6 +179,7 @@ function stampIssueId(snapshotDir, text, id) {
 
 module.exports = {
   writeFrontmatter,
+  deleteFrontmatter,
   splitFrontmatter,
   serialize,
   listPhaseFiles,

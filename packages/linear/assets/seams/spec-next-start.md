@@ -28,6 +28,17 @@ packages/common/test/assets.test.js.
     them. Skip it and a started spec stays mirrored as a phase-less issue.
 - **Never mint the spec issue.** An unlinked spec is skipped, not created —
   `/spec-push` is how someone opts in.
+- **Backfill a missing assignee silently; never ask.** Only when
+  `sync.fieldOwnership` includes `assignee`. If the spec records nobody and
+  `skitterspec spec-sync whoami --json` answers, stamp it with
+  `skitterspec spec-sync assign <spec> --to <id> --name "<name>"` and let the
+  push above carry it. If identity is unknown, skip it in silence.
+  **Do not prompt**: an assignment question in the middle of a build is an
+  interruption with no deadline, and `/spec-claim` answers it whenever the
+  operator likes.
+- **A spec assigned to someone else is left alone.** Say so once
+  (`assigned to <name> — /spec-claim to take it`) and change nothing. Picking up
+  a colleague's spec is a decision, not a side effect of running the next phase.
 - **Never fatal.** If the push fails — offline, no key, a Linear error — say so
   and **carry on with the build**. The repo is correct regardless; the mirror is
   disposable and the next push repairs it.

@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-109/assign-the-linear-issu
 
 > **Type:** Feature
 > **Name:** feat-linear-assignment (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 2 (started 2026-09-09)
+> **Status:** In Progress — Phase 3 (started 2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Resolve and cache "who am I in Linear" | ✅ | [01-identity.md](01-identity.md) |
 | 2 | Push the assignee as a projection field | ✅ | [02-projection.md](02-projection.md) |
-| 3 | Stamp the assignee from the lifecycle skills | ⬜ | [03-lifecycle-seams.md](03-lifecycle-seams.md) |
+| 3 | Stamp the assignee from the lifecycle skills | ✅ | [03-lifecycle-seams.md](03-lifecycle-seams.md) |
 | 4 | `/spec-claim` — take, release, hand over | ⬜ | [04-spec-claim.md](04-spec-claim.md) |
 | 5 | Setup, doctor and docs | ⬜ | [05-setup-and-docs.md](05-setup-and-docs.md) |
 
@@ -185,6 +185,19 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   path. Null is the payload for that field — it is how Linear unassigns — so the
   stripper every other field goes through would have silently dropped exactly the
   clear `/spec-complete` depends on, with a successful-looking push to show for it.
+- 2026-09-09 — Phase 3: `spec-sync assign` moved here from phase 4. The seams
+  call it, and a seam pointing at a command that does not exist is not an
+  independently shippable phase. Phase 4 is now the `/spec-claim` skill alone.
+- 2026-09-09 — Phase 3: releasing needed a new `deleteFrontmatter`.
+  `writeFrontmatter` skips nullish values by design — that is what lets callers
+  send sparse patches — so "remove this key" is inexpressible there. Blanking the
+  field instead would leave a spec assigned to nobody in particular, and the
+  projection reads presence, not emptiness. Same shape as the `withoutNull` trap
+  in phase 2: a null-skipping helper cannot say "delete".
+- 2026-09-09 — Phase 3: the existing assets test asserting `/spec-start` carries
+  NO seam marker encoded the old design and now names the four *pushing* seams it
+  excludes instead. Banning the marker outright would fail the moment any
+  non-pushing seam arrived, which is exactly what happened.
 - 2026-09-09 — Phase 2: the `status` assignee line is keyed on the PLAN, not on
   whether the two sides differ. Three ways to differ, one of them drift: a spec
   recording nobody will not overwrite Linear, and an already-pushed assignee

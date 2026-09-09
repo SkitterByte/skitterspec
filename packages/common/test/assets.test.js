@@ -671,12 +671,21 @@ test('/spec-start has no --here, because it is here', () => {
   assert.match(text, /There is no `--here`/, 'says so explicitly for anyone migrating')
 })
 
-test('/spec-start carries no tracker seam, and says why', () => {
-  // It creates no spec and mints no issue; /spec-next's refresh covers the one
-  // state change it makes. An unexplained absence would read as an oversight.
+test('/spec-start carries no PUSHING tracker seam, and says why', () => {
+  // It creates no spec and mints no issue, and /spec-next's refresh covers the
+  // one state change it makes — so none of the link/sync/progress seams belong
+  // here, and an unexplained absence would read as an oversight.
+  //
+  // `spec-tracker-assign` is the deliberate exception and is asserted separately:
+  // it stamps the spec FILE and pushes nothing, so it does not duplicate that
+  // refresh. This check names the seams it excludes rather than banning the
+  // marker outright, which is what let the old version of it fail the moment a
+  // non-pushing seam arrived.
   const text = skillText('spec-start')
-  assert.doesNotMatch(text, /<!-- seam:/, 'no seam markers')
-  assert.match(text, /Why there is no tracker seam here/, 'the absence is documented')
+  for (const seam of ['spec-tracker-link', 'spec-tracker-sync', 'spec-tracker-progress', 'spec-tracker-intake']) {
+    assert.doesNotMatch(text, new RegExp(`<!-- seam:${seam} -->`), `${seam} does not belong here`)
+  }
+  assert.match(text, /Why this skill links nothing/, 'the absence is documented')
 })
 
 // --- what became of the opener, and of the mode branch -----------------------
@@ -778,4 +787,52 @@ test('/spec-hotfix keeps the move, and says why it differs', () => {
   assert.match(flat, /mv specs\/in-progress\/hotfix-/, 'the move survives')
   assert.match(flat, /checked out at the tag/i, 'names the reason')
   assert.match(flat, /differs from `\/spec-bug`/i, 'points at the sibling it differs from')
+})
+
+// --- the assignment seam -----------------------------------------------------
+//
+// It STAMPS THE SPEC FILE rather than pushing, which makes its placement a
+// correctness question and not a stylistic one: land it after the commit and the
+// stamp sits uncommitted, which is what makes `spec-env integrate` refuse to land
+// the branch later. Anchored on the skills' real words so a reworded step fails
+// here loudly rather than matching nothing.
+
+test('/spec-start assigns beside Developer, and before the commit', () => {
+  const text = skillText('spec-start')
+  const developer = text.indexOf('Set **Developer**')
+  const seam = text.indexOf('<!-- seam:spec-tracker-assign -->')
+  const commit = text.indexOf('**Commit it, and push the branch.**')
+
+  assert.ok(developer !== -1, 'the Developer step is recognisable')
+  assert.ok(seam !== -1, 'the assign seam is present')
+  assert.ok(developer < seam, 'identity is settled where the developer is')
+  assert.ok(seam < commit, 'the stamp must be swept up by the spec commit')
+})
+
+test('the test-first skills assign only after the issue exists', () => {
+  // An assign needs a `linear_identifier`, and the link seam is what stamps one.
+  for (const skill of ['spec-bug', 'spec-hotfix']) {
+    const text = skillText(skill)
+    const link = text.indexOf('<!-- seam:spec-tracker-link -->')
+    const assign = text.indexOf('<!-- seam:spec-tracker-assign -->')
+    assert.ok(assign !== -1, `${skill} carries the assign seam`)
+    assert.ok(link !== -1 && link < assign, `${skill} links before it assigns`)
+  }
+})
+
+test('/spec-start explains the seam it used to say it had no business having', () => {
+  // The old section flatly said there was no tracker seam here. Assert the
+  // REPLACEMENT, not merely the absence — a deleted heading would pass anything.
+  const flat = skillText('spec-start').replace(/\s+/g, ' ')
+  assert.doesNotMatch(flat, /Why there is no tracker seam here/i, 'the stale claim is gone')
+  assert.match(flat, /nothing to link/i, 'the still-true half survives')
+  assert.match(flat, /is not a push/i, 'and says why an assignment seam is different')
+})
+
+test('/spec-start stays provider-neutral despite carrying the assign seam', () => {
+  // Composition is what keeps the base tracker-free: the SOURCE holds a marker
+  // and no tracker vocabulary, so the base distribution fills it with nothing.
+  const text = skillText('spec-start')
+  assert.match(text, /<!-- seam:spec-tracker-assign -->/, 'the source carries the marker')
+  assert.doesNotMatch(text, /linear/i, 'spec-start must not name a specific tracker')
 })

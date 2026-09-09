@@ -151,6 +151,8 @@ fix narrative and decisions — keep them separate.
 
 <!-- seam:spec-tracker-link -->
 
+<!-- seam:spec-tracker-assign -->
+
 <!-- seam:spec-project-picker -->
 
 ### Release gating (only when configured)

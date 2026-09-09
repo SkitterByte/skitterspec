@@ -17,7 +17,7 @@ const { normalizeLocal, lintPhases, readSnapshot, parseFrontmatter, remoteWorkfl
 const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify } = require('./src/compare.js')
 const { readBase, writeBase } = require('./src/base.js')
 const { push, recordPush, projectionOf } = require('./src/push.js')
-const { writeFrontmatter, stampSubIssueId, stampIssueId, findPhaseFileByTitle, listPhaseFiles } = require('./src/write.js')
+const { writeFrontmatter, deleteFrontmatter, stampSubIssueId, stampIssueId, findPhaseFileByTitle, listPhaseFiles } = require('./src/write.js')
 const { sanitizeSpecMarkdown } = require('./src/sanitise.js')
 const { detectLegacyMirror } = require('./src/legacy.js')
 const { compareStored } = require('./src/verify.js')
@@ -47,6 +47,7 @@ module.exports = {
   readBase,
   writeBase,
   writeFrontmatter,
+  deleteFrontmatter,
   stampSubIssueId,
   stampIssueId,
   findPhaseFileByTitle,

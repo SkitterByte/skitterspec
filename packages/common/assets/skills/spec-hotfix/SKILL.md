@@ -177,6 +177,8 @@ narrative and decisions).
 
 <!-- seam:spec-tracker-link -->
 
+<!-- seam:spec-tracker-assign -->
+
 <!-- seam:spec-project-picker -->
 
 ### Release gating (only when configured)
