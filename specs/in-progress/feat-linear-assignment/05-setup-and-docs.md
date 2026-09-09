@@ -33,6 +33,9 @@ documented where someone configuring Linear sync will actually read it.
       paragraph already is.
 - [ ] Update `packages/linear/assets/core/linear.config.json.example` and the
       repo's own `specs/.core/linear.config.json` if adopting the feature here.
+- [ ] Refresh the skill-count comment in `scripts/skill-budget.test.js` — it says
+      "13 skills stay affordable" and the Linear distribution now ships 15. The
+      budget itself is a deliberate decision; only the count is stale.
 - [ ] Add a `Release-Note:` to the user-facing commits for this spec — the
       benefit is "your Linear issue now shows who is building it, and hands itself
       back when the spec completes".

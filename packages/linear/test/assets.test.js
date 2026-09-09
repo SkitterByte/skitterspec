@@ -8,7 +8,7 @@ const path = require('node:path')
 const ASSETS = path.join(__dirname, '..', 'assets')
 
 test('the Linear sync skills ship in the linear package', () => {
-  for (const name of ['spec-status', 'spec-push', 'spec-sync', 'spec-linear-setup']) {
+  for (const name of ['spec-status', 'spec-push', 'spec-sync', 'spec-linear-setup', 'spec-claim']) {
     const file = path.join(ASSETS, 'skills', name, 'SKILL.md')
     assert.ok(fs.existsSync(file), `${name}/SKILL.md shipped`)
     const fm = /^---\n([\s\S]*?)\n---/.exec(fs.readFileSync(file, 'utf8'))
@@ -770,4 +770,57 @@ test('the CI wiring guide ships, and points at commands that exist', () => {
   // The env var it tells people to set must be the one the loader reads.
   const { DEFAULT_KEY_ENV } = require('../src/config.js')
   assert.match(text, new RegExp(DEFAULT_KEY_ENV))
+})
+
+// --- /spec-claim -------------------------------------------------------------
+
+const claimText = () => fs.readFileSync(path.join(ASSETS, 'skills', 'spec-claim', 'SKILL.md'), 'utf8')
+
+test('/spec-claim is user-only, like the other Linear skills', () => {
+  // Nobody reaches it except by typing it, and an ownership transfer is a
+  // decision — a skill the model could invoke might reassign a spec as a side
+  // effect of some other request.
+  assert.match(claimText(), /^disable-model-invocation:\s*true$/m)
+})
+
+test('/spec-claim states its opt-in, including the fieldOwnership half', () => {
+  // The config alone is not enough: without `assignee` in fieldOwnership the
+  // stamp would sit in the file doing nothing, which is the confusing outcome.
+  const flat = claimText().replace(/\s+/g, ' ')
+  assert.match(flat, /linear\.config\.json/)
+  assert.match(flat, /sync\.fieldOwnership/, 'the second condition is named too')
+})
+
+test('/spec-claim confirms before taking a spec from someone else', () => {
+  const flat = claimText().replace(/\s+/g, ' ')
+  assert.match(flat, /already records someone else, confirm/i)
+})
+
+test('/spec-claim resolves --to through a search, never a typed id', () => {
+  // This is the one path where the repo writes into another person's inbox, so
+  // a mistyped id would assign a stranger with nothing downstream to catch it.
+  const flat = claimText().replace(/\s+/g, ' ')
+  assert.match(flat, /never a typed id/i)
+  assert.match(flat, /spec-sync users/, 'it names the search command')
+  assert.match(flat, /do not fall back to the raw argument as an id/i)
+})
+
+test('/spec-claim keeps the claim when the push fails', () => {
+  // The stamp is the durable half; rolling it back on a mirror failure would
+  // throw away the only part that was actually correct.
+  const flat = claimText().replace(/\s+/g, ' ')
+  assert.match(flat, /the claim still stands/i)
+  assert.match(flat, /Do not roll the stamp back/i)
+})
+
+test('/spec-claim records ownership in the Changelog, not the State log', () => {
+  const flat = claimText().replace(/\s+/g, ' ')
+  assert.match(flat, /Changelog/)
+  assert.match(flat, /not\*?\*? in the State log|and \*\*not\*\* in the State log/i)
+})
+
+test('/spec-claim releasing does not clear the Developer header', () => {
+  // Who actioned the work outlives who is holding it — the same rule the
+  // completion path relies on.
+  assert.match(claimText().replace(/\s+/g, ' '), /does not clear .{0,20}Developer/i)
 })

@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-113"
 ---
 
-# Phase 4 — `/spec-claim` — take, release, hand over ⬜
+# Phase 4 — `/spec-claim` — take, release, hand over ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a spec's ownership can be taken, handed back, or given to a named
 teammate in one command, with the repo and Linear agreeing afterwards.
@@ -15,18 +15,18 @@ teammate in one command, with the repo and Linear agreeing afterwards.
 > pointing at a command that does not exist is not independently shippable.
 > This phase is the `/spec-claim` skill on top of that verb.
 
-- [ ] Add `/spec-claim` to the `spec-sync assign` row in `docs/linear.html`
+- [x] Add `/spec-claim` to the `spec-sync assign` row in `docs/linear.html`
       ("Used by" currently reads `/spec-start · you`). `scripts/docs-claims.test.js`
       refuses a page naming a skill that does not ship, which is why the row could
       not name it in phase 3.
-- [ ] Add the `/spec-claim` skill at
+- [x] Add the `/spec-claim` skill at
       `packages/linear/assets/skills/spec-claim/SKILL.md`, with
       `disable-model-invocation` (user-only, like `/spec-push` and
       `/spec-status`). Keep the description under the 500-char budget enforced by
       `scripts/skill-budget.test.js`, and make sure it carries the trigger
       phrasings ("claim this spec", "take ownership", "hand this back") and not
       engine mechanics.
-- [ ] Skill body — three modes on `/spec-claim [<spec>]`, defaulting to the spec
+- [x] Skill body — three modes on `/spec-claim [<spec>]`, defaulting to the spec
       in flight for this session:
       - **take** — resolve identity (phase 1), stamp, then `/spec-push`.
         Taking a spec already assigned to someone else **confirms first**, naming
@@ -37,12 +37,12 @@ teammate in one command, with the repo and Linear agreeing afterwards.
       - **`--to <user>`** — resolve the target through `spec-sync users` /
         `list_users` and confirm the match before stamping; never accept a
         hand-typed id as a match. Sets `Developer:` to that person's display name.
-- [ ] Every mode adds a dated **Changelog** entry to `00-overview.md` — ownership
+- [x] Every mode adds a dated **Changelog** entry to `00-overview.md` — ownership
       changes are course-corrections, not state transitions, so they belong there
       and not in the State log.
-- [ ] Degrade, never block: if the push fails the stamp still stands in the repo,
+- [x] Degrade, never block: if the push fails the stamp still stands in the repo,
       and the skill says so — the mirror is disposable and the next push repairs it.
-- [ ] Add tests: `assign` stamps, clears, and refuses each bad input; the skill
+- [x] Add tests: `assign` stamps, clears, and refuses each bad input; the skill
       file exists, is user-only, and stays inside the description budget; a claim
       on an unlinked spec is refused rather than silently local. Run `npm test`.
 

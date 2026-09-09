@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-109/assign-the-linear-issu
 
 > **Type:** Feature
 > **Name:** feat-linear-assignment (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 3 (started 2026-09-09)
+> **Status:** In Progress — Phase 4 (started 2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -151,7 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Resolve and cache "who am I in Linear" | ✅ | [01-identity.md](01-identity.md) |
 | 2 | Push the assignee as a projection field | ✅ | [02-projection.md](02-projection.md) |
 | 3 | Stamp the assignee from the lifecycle skills | ✅ | [03-lifecycle-seams.md](03-lifecycle-seams.md) |
-| 4 | `/spec-claim` — take, release, hand over | ⬜ | [04-spec-claim.md](04-spec-claim.md) |
+| 4 | `/spec-claim` — take, release, hand over | ✅ | [04-spec-claim.md](04-spec-claim.md) |
 | 5 | Setup, doctor and docs | ⬜ | [05-setup-and-docs.md](05-setup-and-docs.md) |
 
 ## Open questions
@@ -198,6 +198,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   NO seam marker encoded the old design and now names the four *pushing* seams it
   excludes instead. Banning the marker outright would fail the moment any
   non-pushing seam arrived, which is exactly what happened.
+- 2026-09-09 — Phase 4: adding a 15th skill tripped the docs guard that counts
+  installed skills against what the page claims (`docs/linear.html` said 14).
+  Worth knowing for phase 5: the per-session description budget in
+  `scripts/skill-budget.test.js` is sized for the skill count, and its comment
+  still says 13.
 - 2026-09-09 — Phase 2: the `status` assignee line is keyed on the PLAN, not on
   whether the two sides differ. Three ways to differ, one of them drift: a spec
   recording nobody will not overwrite Linear, and an already-pushed assignee

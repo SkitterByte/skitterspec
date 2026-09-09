@@ -699,7 +699,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
       <div class="term">
 <div class="l"><span class="prompt">$</span> <span class="cmd">skitterspec spec-sync doctor</span></div>
 <div class="l">skitterspec doctor:</div>
-<div class="l">  scaffold   <span class="ok">ok</span>       specs/ + 14 skills installed</div>
+<div class="l">  scaffold   <span class="ok">ok</span>       specs/ + 15 skills installed</div>
 <div class="l">  isolation  <span class="ok">ok</span>       env.config.json — worktree per spec</div>
 <div class="l">  tracker    <span class="ok">ok</span>       linear.config.json — team e07c2b54… (SKS)</div>
 <div class="l">  key        <span class="warn">missing</span>  no key for SKS</div>
@@ -721,7 +721,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
       </div>
       <div class="term">
 <div class="l"><span class="prompt">$</span> <span class="cmd">skitterspec spec-sync doctor --check-remote</span></div>
-<div class="l">  scaffold   <span class="ok">ok</span>       specs/ + 14 skills installed</div>
+<div class="l">  scaffold   <span class="ok">ok</span>       specs/ + 15 skills installed</div>
 <div class="l">  isolation  <span class="ok">ok</span>       env.config.json — worktree per spec</div>
 <div class="l">  tracker    <span class="ok">ok</span>       linear.config.json — team e07c2b54… (SKS)</div>
 <div class="l">  key        <span class="ok">ok</span>       …sCU8 from the environment (LINEAR_API_KEY)</div>
@@ -824,7 +824,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
           <tr><td class="cmd">spec-sync verify &lt;spec&gt;</td><td>Read back what Linear stored and compare it to what was sent.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync stamp &lt;spec&gt;</td><td>Write issue ids into a spec's frontmatter. The MCP path's last step — or a manual link.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync record &lt;spec&gt;</td><td>Record the base snapshot that later drift is measured against.</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync assign &lt;spec&gt;</td><td>Record who owns a spec, or <span class="mono">--release</span> it. Writes the repo; the push that follows tells Linear.</td><td class="folder">/spec-start · you</td></tr>
+          <tr><td class="cmd">spec-sync assign &lt;spec&gt;</td><td>Record who owns a spec, or <span class="mono">--release</span> it. Writes the repo; the push that follows tells Linear.</td><td class="folder">/spec-claim · /spec-start</td></tr>
           <tr><td class="cmd">spec-sync normalize &lt;spec&gt;</td><td>Normalise a spec's markdown the way the mirror will store it.</td><td class="folder">internal</td></tr>
           <tr><td class="cmd">spec-sync states</td><td>The workspace's issue workflow-state names — used to validate your config.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync projects</td><td>The team's projects, for the picker that runs when a spec issue is minted.</td><td class="folder">/spec · you</td></tr>
