@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-120"
 ---
 
-# Phase 5 — `--mine` / `--by <user>`, and docs ⬜
+# Phase 5 — `--mine` / `--by <user>`, and docs ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the listing filters by assignee on both transports, reusing the identity
 `feat-linear-assignment` resolves, and the feature is documented.
@@ -16,29 +16,36 @@ linear_issue_id: "SKS-120"
 
 ## Tasks
 
-- [ ] Add `--mine`: resolve the caller through `spec-sync whoami` and pass the id
+- [x] Add `--mine`: resolve the caller through `spec-sync whoami` and pass the id
       as `assigneeId`. On the MCP path use Linear's `assignee: "me"` directly — no
       identity needed there.
-- [ ] Add `--by <user>`: resolve the named person through `spec-sync users`
+- [x] Add `--by <user>`: resolve the named person through `spec-sync users`
       (name/email search), never a hand-typed id. An ambiguous match asks; an
       unmatched one says so and lists nothing rather than falling back to the
       whole team.
-- [ ] Route unresolved identity to inaction, matching decision 4 of the assignment
+- [x] Route unresolved identity to inaction, matching decision 4 of the assignment
       spec: `--mine` with no resolvable identity prints one line explaining that
       and exits 0 — it never prompts inside a listing and never silently drops the
       filter (which would show the whole team's work under a `--mine` heading).
-- [ ] Combine cleanly with the existing scope flags, so
+- [x] Combine cleanly with the existing scope flags, so
       `--in-progress --by "Jane Dev"` and `--next 5 --mine` both read naturally.
-- [ ] Teach `/spec-list` the phrasings — "assigned to me", "what am I working on",
+      (`--in-progress` did not exist and was added here. The scope flags are
+      alternatives, so any two of them are now refused rather than one winning
+      silently — the same rule `--next` already had, generalised.)
+- [x] Teach `/spec-list` the phrasings — "assigned to me", "what am I working on",
       "what is Jane on" — and which of them need identity.
-- [ ] Document the verb and the skill in `assets/core/linear.config.md` and
+- [x] Document the verb and the skill in `assets/core/linear.config.md` and
       `assets/core/SETUP.md`, and add `/spec-list` to the skill table in the root
-      `CLAUDE.md` and `packages/common/assets/rules/spec-planning.md`.
-- [ ] Extend `test/cli-list.test.js`: `--mine` with a cached identity; `--mine`
+      `CLAUDE.md` and `packages/common/assets/rules/spec-planning.md`. (The root
+      `CLAUDE.md` has no skill table — it defers to `spec-planning.md`, so there
+      was nothing to add. `spec-planning.md` ships in the tracker-free base, so
+      it describes the listing generically and names neither Linear nor
+      `/spec-list`; the compose guard rejects brand text there.)
+- [x] Extend `test/cli-list.test.js`: `--mine` with a cached identity; `--mine`
       with identity unresolved printing the skip line and **not** listing the
       team; `--by` resolving one user; `--by` unmatched listing nothing; and the
       MCP path using `assignee: "me"` without touching `whoami`.
-- [ ] Run `pnpm test` in `packages/linear` and at the repo root — green before the
+- [x] Run `pnpm test` in `packages/linear` and at the repo root — green before the
       phase is done.
 
 ## Notes

@@ -28,12 +28,21 @@ The user asks in plain language; the engine takes flags. Map, then run:
 | "what's done", "everything" | `--all` |
 | "what's cancelled", a named state | `--state "<name>"` (repeatable) |
 | "what's next", "the next few in the backlog" | `--next N` |
+| "what am I on", "assigned to me" | `--mine` |
+| "what is Jane on", "Jane's specs" | `--by "Jane"` |
+| "what's in flight", "what's being worked on" | `--in-progress` |
 | "just the first few" | `--limit N` |
 | "include the archived ones" | `--archived` |
 
 The default scope is **live** — whatever `config.states` maps `backlog` and
 `in-progress` to. It is deliberately not everything: in a workspace with any
 history, Done dwarfs the rows anyone wanted.
+
+`--mine` and `--by` filter by assignee and stack with any one scope flag —
+`--next 5 --mine` and `--in-progress --by "Jane"` both read naturally. The scope
+flags themselves (`--state`, `--all`, `--next`, `--in-progress`) are
+**alternatives**, and the engine refuses any two of them rather than letting one
+win silently.
 
 `--next N` is **backlog-only and ordered**, so it does not combine with
 `--state` or `--all`; the engine refuses that pair rather than picking a winner.
@@ -54,6 +63,15 @@ skitterspec spec-sync list [--state <name> …|--all] [--limit N] [--archived] [
 - **`transport = mcp`** → the engine made no call. Go to step 3.
 - Anything else it prints on one `spec-sync list:` line is a **degradation**, not
   a crash — go to step 4.
+
+**These two failures are not the same, and the engine says so.**
+Relay the difference rather than flattening it. `--mine` when nobody can say
+who you are (a shared or bot key, an offline machine) is an ordinary state: it
+prints one line, lists nothing and exits 0. `--by "someone"` that matches no
+user, or matches several, is a wrong argument: it lists the candidates or says
+there are none, and exits non-zero. Neither ever falls back to the whole team —
+a heading promising one person's work over everyone's is the failure both are
+written to avoid.
 
 ## 3. The MCP path
 
@@ -77,6 +95,11 @@ Then, per state you are listing:
   follow `cursor` until it runs out. If you stop early, say so on its own line
   and say what you stopped at.
 - Pass `includeArchived` only when the user asked for `--archived`.
+- **Assignee needs no identity lookup here.** The tool takes `assignee` as a
+  user id, name, email **or the literal `"me"`** — so `--mine` is
+  `assignee: "me"` and `--by "Jane"` is `assignee: "Jane"`. Do **not** call
+  `spec-sync whoami` on this path; it exists for the API path, which needs an
+  id. If the name matches nobody, say so and list nothing.
 
 **`--next` cannot be fully reproduced over MCP, and you must say so.** The tool
 returns `priority` as a field, so order by that; but `sortOrder` — Linear's

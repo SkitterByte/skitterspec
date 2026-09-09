@@ -180,6 +180,17 @@ shows it, `--set` overrides it when the key is shared or a bot's, and
 Ownership moves with **`/spec-claim`** — take it, `--release` it, or `--to` a
 teammate.
 
+**Reading it back** is **`/spec-list`** (engine: `spec-sync list`), the one
+command that asks Linear what exists instead of the repo. It lists parentless
+issues — a phase sub-issue carries a parent, a spec issue does not — joined to
+the local spec folder that owns each one, so every row carries the name you
+paste into `/spec-start`. Scope is the live states by default
+(`--state`/`--all`/`--in-progress` to change it, `--next N` for the top of the
+backlog in Linear's own order), and `--mine`/`--by <user>` filter by assignee,
+reusing the identity above rather than a second copy of it. It writes nothing,
+and it says what it did not show — the count, the archived exclusion, and any
+cap — rather than implying a completeness it never checked.
+
 ## The deployment ladder (`release.stages`)
 
 A spec's lifecycle stops at `complete`. Where a ticket goes **after** that —

@@ -968,3 +968,28 @@ test('/spec-list mirrors the current-phase column on the MCP path', () => {
   assert.match(text, /inline/, 'an inline-mode spec is skipped rather than reported as phase-less')
   assert.match(text, /Do \*\*not\*\* make this call for backlog/, 'the lookup stays off other rows')
 })
+
+test('/spec-list maps the assignee phrasings onto --mine and --by', () => {
+  const text = specList()
+  assert.match(text, /--mine/, 'names the flag for your own work')
+  assert.match(text, /--by "Jane"/, 'and the one for a teammate')
+  assert.match(text, /alternatives/i, 'says the scope flags do not stack')
+})
+
+// The two failures are different in kind, and the engine's exit codes say so.
+// A skill that flattened them would report a typo'd name as an environment
+// problem, or an unidentifiable key as the user's mistake.
+test('/spec-list keeps the two assignee failures apart', () => {
+  const text = specList()
+  assert.match(text, /ordinary state/i, 'unresolvable identity is not a fault')
+  assert.match(text, /wrong argument/i, 'an unmatched name is')
+  assert.match(text, /never falls back to the whole team|Neither ever falls back/i, 'and neither widens')
+})
+
+// Identity is resolved for the API path only: over MCP the tool takes "me"
+// directly, so calling whoami there is a lookup that buys nothing.
+test('/spec-list uses assignee "me" over MCP rather than resolving identity', () => {
+  const text = specList()
+  assert.match(text, /assignee: "me"/, 'names the literal the tool accepts')
+  assert.match(text, /Do \*\*not\*\* call\s+`spec-sync whoami` on this path/, 'and rules out the lookup')
+})

@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-115/list-specs-from-linear
 
 > **Type:** Feature
 > **Name:** feat-linear-spec-list (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 4 (started 2026-09-09)
+> **Status:** In Progress — Phase 5 (started 2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -144,7 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | `/spec-list` — the skill, MCP path and degradation | ✅ | [02-skill.md](02-skill.md) |
 | 3 | `--next N` and Linear's backlog order | ✅ | [03-backlog-order.md](03-backlog-order.md) |
 | 4 | The current phase on in-progress rows | ✅ | [04-current-phase.md](04-current-phase.md) |
-| 5 | `--mine` / `--by <user>`, and docs | ⬜ | [05-assignee-and-docs.md](05-assignee-and-docs.md) |
+| 5 | `--mine` / `--by <user>`, and docs | ✅ | [05-assignee-and-docs.md](05-assignee-and-docs.md) |
 
 ## Open questions
 
@@ -235,3 +235,22 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   phase. The overview's example output shows it and the title of the spec
   promises it, but no phase's tasks had claimed it — `--mine`/`--by` in phase 5
   are filters, not display. It costs nothing: the field was already fetched.
+- 2026-09-09 — Phase 5 was thought blocked on SKS-109 and was not. `spec-sync
+  whoami`/`users` were absent from THIS BRANCH, which forked before
+  `feat-linear-assignment` landed; they have been on `main` since. Reading that
+  absence as "the verb does not exist" is the exact mistake
+  `.claude/rules/negative-checks.md` opens with — the lookup was narrower than
+  assumed. Rebasing onto main resolved it. Three textual conflicts (both sides
+  added adapter methods, flag keys and skill tests) plus one semantic conflict
+  git could not see - both branches added a skill, so the docs' "N skills
+  installed" count moved without either edit conflicting.
+- 2026-09-09 — Phase 5: the two assignee failures exit differently, on purpose.
+  `--mine` with no resolvable identity exits **0** — a shared or bot key, or an
+  offline machine, is an ordinary state, and `resolveIdentity` never prompts or
+  writes. `--by` that matches nobody, or several, exits **1** — the argument is
+  wrong and only the caller can fix it, which is the shape an unknown `--state`
+  already had. Neither ever falls back to the whole team.
+- 2026-09-09 — Phase 5: `--in-progress` was added; the phase's own example used
+  it as if it existed. Adding it turned `--next`'s bespoke refusal into a general
+  rule: the four scope flags are alternatives, and any two of them are refused
+  before a transport is even chosen.

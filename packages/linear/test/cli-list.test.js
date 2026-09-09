@@ -433,7 +433,7 @@ test('--next with --state or --all is refused rather than silently overridden', 
   for (const argv of [['list', '--next', '5', '--all'], ['list', '--next', '5', '--state', 'Done']]) {
     const r = await run(argv, dir, { adapter: linear })
     assert.strictEqual(r.code, 1, `${argv.join(' ')} exits non-zero`)
-    assert.match(r.out, /--next is backlog-only/)
+    assert.match(r.out, /each pick the scope, so they cannot be combined/)
   }
   // And it refused BEFORE reaching Linear — the scope was never half-applied.
   assert.deepStrictEqual(linear.log, [])
@@ -611,4 +611,160 @@ test('the assignee is printed on the row, since who holds it is the question', a
   const r = await run(['list'], dir, { adapter: linear })
 
   assert.match(r.out, /Jane Dev · 2\/5 — Wire the toggle/)
+})
+
+// --- --mine / --by, and the scope guard ---------------------------------------
+
+/**
+ * Every identity path reads the user-level credentials store, which lives under
+ * `XDG_CONFIG_HOME` or the real `$HOME`. Point it at a temp dir per test, or
+ * `--mine` resolves against whoever happens to be logged in on this machine and
+ * the suite passes or fails by accident.
+ */
+const isolatedEnv = (dir, extra = {}) => ({
+  LINEAR_API_KEY: 'lin_api_test',
+  XDG_CONFIG_HOME: path.join(dir, 'xdg'),
+  ...extra,
+})
+
+const JANE = { id: 'u-jane', name: 'Jane Dev', email: 'jane@acme.com', active: true }
+
+/** A fake that can also answer "who am I" and "who is X". */
+function fakeLinearWithUsers(nodes, { viewer = null, users = [], ...rest } = {}) {
+  const linear = fakeLinear(nodes, rest)
+  linear.readViewer = async () => {
+    linear.log.push({ op: 'readViewer' })
+    if (!viewer) throw new Error('no viewer for this key')
+    return viewer
+  }
+  linear.searchUsers = async (query, opts) => {
+    linear.log.push({ op: 'searchUsers', query, opts })
+    return { users, nextCursor: null }
+  }
+  return linear
+}
+
+test('--mine filters by the resolved viewer and names them in the heading', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Mine', 'In Progress', { assignee: JANE })], {
+    viewer: JANE,
+  })
+  const r = await run(['list', '--mine'], dir, { adapter: linear, env: isolatedEnv(dir) })
+
+  assert.strictEqual(linear.log.find((c) => c.op === 'listIssues').args.assigneeId, 'u-jane')
+  assert.match(r.out, /assigned to Jane Dev/)
+})
+
+// The accusation-shaped bug: showing everyone's work under a heading that
+// promises only yours is worse than showing nothing. See the phase notes and
+// .claude/rules/negative-checks.md.
+test('--mine with no resolvable identity lists NOTHING and drops no filter', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Somebody else', 'In Progress')], { viewer: null })
+  const r = await run(['list', '--mine'], dir, { adapter: linear, env: isolatedEnv(dir) })
+
+  assert.strictEqual(r.code, 0, 'an unknown identity is an ordinary state, not a fault')
+  assert.match(r.out, /--mine needs to know who you are/)
+  assert.match(r.out, /whoami --set/, 'says how to fix it')
+  // The whole point: no rows, and no unfiltered query behind them.
+  assert.doesNotMatch(r.out, /SKS-1/)
+  assert.strictEqual(linear.log.filter((c) => c.op === 'listIssues').length, 0)
+})
+
+test('--by resolves the person through Linear and filters on their id', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Hers', 'In Progress', { assignee: JANE })], {
+    users: [JANE],
+  })
+  const r = await run(['list', '--by', 'jane'], dir, { adapter: linear, env: isolatedEnv(dir) })
+
+  assert.strictEqual(linear.log.find((c) => c.op === 'listIssues').args.assigneeId, 'u-jane')
+  assert.match(r.out, /assigned to Jane Dev/)
+  // Never the viewer: --by is about someone else.
+  assert.strictEqual(linear.log.filter((c) => c.op === 'readViewer').length, 0)
+})
+
+test('--by with no match says so and lists nothing, never the whole team', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Somebody', 'In Progress')], { users: [] })
+  const r = await run(['list', '--by', 'nobody'], dir, { adapter: linear, env: isolatedEnv(dir) })
+
+  assert.strictEqual(r.code, 1, 'a filter that did not resolve is a fixable input error')
+  assert.match(r.out, /no Linear user matches "nobody"/)
+  assert.doesNotMatch(r.out, /SKS-1/)
+  assert.strictEqual(linear.log.filter((c) => c.op === 'listIssues').length, 0)
+})
+
+test('--by that is ambiguous lists the candidates rather than picking one', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Theirs', 'In Progress')], {
+    users: [JANE, { id: 'u-jan', name: 'Jan Other', email: 'jan@acme.com' }],
+  })
+  const r = await run(['list', '--by', 'jan'], dir, { adapter: linear, env: isolatedEnv(dir) })
+
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /2 users match "jan"/)
+  assert.match(r.out, /jane@acme\.com/, 'shows the emails that disambiguate')
+  assert.match(r.out, /jan@acme\.com/)
+  assert.strictEqual(linear.log.filter((c) => c.op === 'listIssues').length, 0)
+})
+
+test('--mine and --by together are refused rather than one winning', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinearWithUsers([], { viewer: JANE, users: [JANE] })
+  const r = await run(['list', '--mine', '--by', 'jane'], dir, { adapter: linear, env: isolatedEnv(dir) })
+
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /both filter by assignee/)
+  assert.deepStrictEqual(linear.log, [], 'refused before any Linear call')
+})
+
+test('--in-progress scopes to the in-progress state alone', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([issue('SKS-1', 'Live', 'In Progress')])
+  const r = await run(['list', '--in-progress'], dir, { adapter: linear })
+
+  assert.deepStrictEqual(linear.log.find((c) => c.op === 'listIssues').args.stateIds, ['s-progress'])
+  assert.match(r.out, /in progress \(In Progress\)/)
+})
+
+test('the scope flags are alternatives, and every pair of them is refused', async () => {
+  const dir = fixtureRepo()
+  const pairs = [
+    ['--next', '5', '--all'],
+    ['--next', '5', '--in-progress'],
+    ['--all', '--in-progress'],
+    ['--in-progress', '--state', 'Done'],
+  ]
+  for (const extra of pairs) {
+    const linear = fakeLinear([issue('SKS-1', 'x', 'Backlog')])
+    const r = await run(['list', ...extra], dir, { adapter: linear })
+    assert.strictEqual(r.code, 1, `${extra.join(' ')} is refused`)
+    assert.match(r.out, /each pick the scope/)
+    assert.deepStrictEqual(linear.log, [], `${extra.join(' ')} refused before any Linear call`)
+  }
+})
+
+// Stays-silent: a plain listing must not acquire an assignee heading, or the
+// filter's absence stops being visible.
+test('stays silent: an unfiltered listing names no assignee', async () => {
+  const dir = fixtureRepo()
+  const r = await run(['list'], dir, { adapter: fakeLinear([issue('SKS-1', 'Any', 'Backlog')]) })
+
+  assert.doesNotMatch(r.out, /assigned to/)
+})
+
+test('--json carries who it filtered to, and null when it did not', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Hers', 'In Progress', { assignee: JANE })], {
+    users: [JANE],
+  })
+  const filtered = await run(['list', '--by', 'jane', '--json'], dir, {
+    adapter: linear,
+    env: isolatedEnv(dir),
+  })
+  assert.deepStrictEqual(JSON.parse(filtered.out).assignedTo, { id: 'u-jane', name: 'Jane Dev' })
+
+  const plain = await run(['list', '--json'], dir, { adapter: fakeLinear([issue('SKS-1', 'x', 'Backlog')]) })
+  assert.strictEqual(JSON.parse(plain.out).assignedTo, null)
 })

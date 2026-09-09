@@ -203,9 +203,13 @@ Two ways to get there:
 | `/spec-status` | — | Read-only drift report: what would push (create/update), and whether Linear's workflow-state drifted from the spec. Writes nothing. |
 | `/spec-push`   | repo → Linear | Computes a create/update plan vs the last-pushed snapshot and applies it (issue description/state, phase sub-issues), stamping new ids back into the spec. |
 | `/spec-claim`  | repo → Linear | Take a spec over, `--release` it, or hand it `--to` a teammate. Records the owner in the spec, then pushes. Needs assignment enabled (below). |
+| `/spec-list`   | Linear → you | Read-only listing of every spec Linear holds — id, title, state, who holds it and the local spec name to start it by. Filters by state, backlog order, or assignee. Writes nothing. |
 
 Typical loop: edit the spec in-repo → `/spec-status` (what's pending) →
 `/spec-push` (send it up). There is no pull — Linear is a generated mirror.
+`/spec-list` is the read side of that: it asks Linear what exists rather than
+the repo, which is the only way to see a spec someone started on a branch you
+have not got.
 
 ### What gets pushed
 

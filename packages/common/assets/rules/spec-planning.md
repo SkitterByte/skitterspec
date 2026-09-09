@@ -111,6 +111,16 @@ against a committed last-pushed snapshot and applies it) and `/spec-status`
 workflow-state drifted), backed by a `spec-sync` CLI. There is no content pull —
 the tracker is never read back or merged.
 
+A provider may also ship a **read-only listing** of what the tracker holds. That
+is not a pull: nothing is merged back and no spec file is written. It exists
+because the folder buckets are only the truth *on the branch you are standing
+on* — `/spec-start` moves a spec to
+`specs/in-progress/` on that spec's own branch, so on the base branch an
+in-flight spec still reads `backlog` and a teammate's unlanded spec is not on
+disk at all. The tracker knows both, and each row carries the spec's folder name
+so `/spec-start <name>` is a copy-paste away. See the provider's own docs for
+what it calls the command.
+
 A provider may also mirror **who is building a spec**, as one more field the repo
 owns. Where it does, `/spec-start` records the developer and the tracker's ticket
 is assigned to them, the assignment is released when the spec completes, and

@@ -1982,11 +1982,35 @@ async function specSyncList(dir, config, flags, out) {
   // silently — the failure this feature exists to avoid. Refuse instead, before
   // any transport work, so the answer does not depend on whether a key is set.
   const next = Number.isFinite(flags.next) && flags.next > 0 ? flags.next : null
-  if (next !== null && (flags.all === true || flags.stateArgs.length)) {
+
+  // Exactly one scope selector. Each of these FIXES the set of states, so any
+  // two of them means one wins silently — and a scope the user did not get is
+  // the same failure as a cap they were not told about (decision 4). Checked
+  // before any transport work, so the answer never depends on whether a key is
+  // set. `--state` is repeatable and counts once: several names are one scope.
+  const scopeFlags = [
+    next !== null && '--next',
+    flags.all === true && '--all',
+    flags.stateArgs.length > 0 && '--state',
+    flags.inProgress === true && '--in-progress',
+  ].filter(Boolean)
+  if (scopeFlags.length > 1) {
     out.write(
       [
-        'spec-sync list: --next is backlog-only, so it cannot also take --state or --all',
-        '  use --next N for the top of the backlog, or --state/--all to pick the scope yourself.',
+        `spec-sync list: ${scopeFlags.join(' and ')} each pick the scope, so they cannot be combined`,
+        '  use one of them — they are alternatives, not filters that stack.',
+      ].join('\n') + '\n',
+    )
+    return 1
+  }
+
+  // `--mine` and `--by` are the same question asked two ways. Combining them
+  // has no reading, and picking one would answer a question nobody asked.
+  if (flags.mine && flags.by) {
+    out.write(
+      [
+        'spec-sync list: --mine and --by both filter by assignee, so they cannot be combined',
+        '  use --mine for your own, or --by <user> for someone else.',
       ].join('\n') + '\n',
     )
     return 1
@@ -2015,11 +2039,13 @@ async function specSyncList(dir, config, flags, out) {
   // restating them, so a workspace that renamed "Backlog" needs no second edit.
   const wantedNames = next !== null
     ? [config.states.backlog]
-    : flags.all === true
-      ? null
-      : flags.stateArgs.length
-        ? flags.stateArgs
-        : [config.states.backlog, config.states['in-progress']]
+    : flags.inProgress === true
+      ? [config.states['in-progress']]
+      : flags.all === true
+        ? null
+        : flags.stateArgs.length
+          ? flags.stateArgs
+          : [config.states.backlog, config.states['in-progress']]
 
   let stateIds = null
   if (wantedNames) {
@@ -2051,11 +2077,71 @@ async function specSyncList(dir, config, flags, out) {
     stateIds = wantedNames.map((n) => byName.get(String(n).toLowerCase()).id)
   }
 
+  // --- who holds it (decision 9) --------------------------------------------
+  //
+  // Both filters reuse `feat-linear-assignment`'s identity rather than keeping a
+  // second copy: `--mine` through `resolveIdentity`, `--by` through the same
+  // user search `spec-sync users` runs.
+  let assignee = null
+  if (flags.mine) {
+    const who = await resolveIdentity(config, flags.env || process.env, { adapter })
+    if (!who.ok) {
+      // Exit 0, list NOTHING, and never prompt. An unresolvable identity is an
+      // ordinary state — a shared or bot key, an offline machine, a repo
+      // mid-setup — not a fault. The one thing that must not happen is dropping
+      // the filter and printing the whole team's work under a `--mine` heading.
+      const line = `spec-sync list: --mine needs to know who you are, and it does not (${who.reason})`
+      if (flags.json) {
+        out.write(JSON.stringify({ transport: 'api', scope: null, specs: null, reason: line }, null, 2) + '\n')
+      } else {
+        out.write(
+          [line, '  run `spec-sync whoami --set <id>` to say so, or use --by <user>.'].join('\n') + '\n',
+        )
+      }
+      return 0
+    }
+    assignee = { id: who.id, name: who.name }
+  } else if (flags.by) {
+    // Resolved through Linear, never a hand-typed id — a wrong uuid filters to
+    // nothing and looks exactly like "that person has no specs".
+    let found
+    try {
+      found = await adapter.searchUsers(String(flags.by), { limit: 50 })
+    } catch (error) {
+      return degrade(`could not search users (${error.message}); Linear is unreachable`)
+    }
+    const users = (found && found.users) || []
+    // Unlike --mine above, these two exit NON-ZERO: the argument is wrong and
+    // only the caller can fix it, which is the same shape as an unknown --state.
+    // Never fall back to the whole team — the heading would promise one person.
+    if (!users.length) {
+      out.write(
+        [
+          `spec-sync list: no Linear user matches ${JSON.stringify(String(flags.by))}`,
+          '  `spec-sync users <term>` lists who the workspace has.',
+        ].join('\n') + '\n',
+      )
+      return 1
+    }
+    if (users.length > 1) {
+      const lines = [`spec-sync list: ${users.length} users match ${JSON.stringify(String(flags.by))}`]
+      for (const u of users.slice(0, 10)) {
+        lines.push(`  ${displayNameOf(u) || '(unnamed)'}${u.email ? `  ${u.email}` : ''}`)
+      }
+      if (users.length > 10) lines.push(`  … and ${users.length - 10} more`)
+      lines.push('  narrow it — an email address matches exactly one person.')
+      out.write(lines.join('\n') + '\n')
+      return 1
+    }
+    assignee = { id: users[0].id, name: displayNameOf(users[0]) }
+  }
+
   let page
   try {
     page = await adapter.listIssues({
       teamId,
       stateIds,
+      assigneeId: assignee ? assignee.id : null,
       parentless: true,
       first: null,
       includeArchived: !!flags.archived,
@@ -2115,11 +2201,18 @@ async function specSyncList(dir, config, flags, out) {
       : null
   const shown = limit === null ? rows : rows.slice(0, limit)
   const capFlag = next !== null ? '--next' : '--limit'
-  const scope = next !== null
-    ? `next ${next}`
-    : flags.all === true
-      ? 'all states'
-      : `${flags.stateArgs.length ? 'states' : 'live'} (${wantedNames.join(', ')})`
+  // The heading has to name the filter as well as the states: `showing 2 of 2`
+  // under a bare "live" heading reads as the whole team's work when it is one
+  // person's.
+  const held = assignee ? `, assigned to ${assignee.name || assignee.id}` : ''
+  const scope =
+    (next !== null
+      ? `next ${next}`
+      : flags.inProgress === true
+        ? `in progress (${wantedNames.join(', ')})`
+        : flags.all === true
+          ? 'all states'
+          : `${flags.stateArgs.length ? 'states' : 'live'} (${wantedNames.join(', ')})`) + held
   // Said whenever it is true, not treated as an edge case: a workspace where
   // nobody has set a priority is the common one, and there the order is a
   // person's drag-order rather than a ranking. Reading it as a ranking is the
@@ -2178,6 +2271,7 @@ async function specSyncList(dir, config, flags, out) {
           showing: shown.length,
           total,
           ...(next !== null ? { unprioritised } : {}),
+          assignedTo: assignee,
           specs: shown,
         },
         null,
@@ -3205,7 +3299,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, assign: false }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, assign: false, mine: false, by: null, inProgress: false }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -3224,6 +3318,9 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--archived') flags.archived = true
     else if (args[i] === '--limit') flags.limit = Number(args[++i])
     else if (args[i] === '--next') flags.next = Number(args[++i])
+    else if (args[i] === '--mine') flags.mine = true
+    else if (args[i] === '--by') flags.by = args[++i]
+    else if (args[i] === '--in-progress') flags.inProgress = true
     else if (args[i] === '--project') flags.project = args[++i]
     else if (args[i] === '--workspace-states') flags.workspaceStates = path.resolve(args[++i])
     else if (args[i] === '--skip-state-check') flags.skipStateCheck = true
@@ -3388,7 +3485,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
-        '       skitterspec spec-sync list [--state <name> …|--all] [--next N] [--limit N] [--archived] [--json]\n' +
+        '       skitterspec spec-sync list [--state <name> …|--all|--in-progress] [--next N] [--mine|--by <user>] [--limit N] [--archived] [--json]\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +
