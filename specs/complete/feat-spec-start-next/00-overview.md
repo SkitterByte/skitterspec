@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-86/spec-start-spec-next-th
 
 > **Type:** Feature
 > **Name:** feat-spec-start-next (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — all five phases done, ready for /spec-complete
+> **Status:** Complete (2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -118,6 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-08 | Ready | backlog | Reuben Greaves |
 | 2026-09-08 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -198,3 +199,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   before tearing down, not to anchor the command; both skills now say so, name
   the real failure, and explicitly correct the refuses-intuition so nobody
   reaches for `--force`.
+- 2026-09-09 — Completed; all five phases done, 1400 tests green. `/spec-go` is
+  retired in favour of `/spec-start` + `/spec-next`, one checkout holds one spec
+  in flight, and the tab/remote-control machinery the earlier revision planned
+  was never built — the one-workbench model removed the need for it.
