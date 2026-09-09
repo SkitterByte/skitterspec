@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-127"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-127/route-every-user-facing-spec-sync-verb-and-guard-that-it-stays-routed"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Route every user-facing spec-sync verb, and guard that it stays routed
 
 > **Type:** Feature
 > **Name:** feat-spec-sync-routing-guard (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-09)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
 > **Area:** packages/linear/assets/skills/spec-sync/SKILL.md, scripts/docs-claims.test.js
 > **Stack:** worktree
@@ -97,6 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
+| 2026-09-09 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
