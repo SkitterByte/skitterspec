@@ -173,13 +173,39 @@ a state from the `list_issue_statuses` names you already have:
   automation closes them and a problem otherwise — `spec-sync doctor` warns about
   it either way, so say which it is.
 
+## 7b. Should a spec's issue be assigned to whoever is building it? (optional)
+
+Ask it plainly, in one line: with this on, `/spec-start` records the developer
+and their Linear issue is assigned to them, released again when the spec
+completes. Off, nothing about assignment happens at all.
+
+**Offer once and take "no" for an answer.** It is off by default deliberately —
+a team whose PM owns assignment in Linear does not want the repo writing that
+field, and the cost of guessing wrong is somebody else's triage being
+overwritten.
+
+If they want it, pass **`--assign`** in step 8. Then settle who *they* are, so
+`/spec-start` never has to stop and ask:
+
+```
+skitterspec spec-sync whoami
+```
+
+It answers straight from the API key. If it reports `transport = mcp`, read `me`
+with the user tool and cache the answer
+(`spec-sync whoami --set <id> --name "<name>"`); if it reports unknown — a shared
+or bot key — look the person up with `spec-sync users <name-or-email>` and cache
+their id the same way. **Never write a user id into `linear.config.json`**: that
+file is committed, so it would assign every teammate's specs to whoever ran
+setup.
+
 ## 8. Write it
 
 ```
 skitterspec spec-sync init-config \
   --team-id <uuid> [--team-key KEY] [--project-id <uuid>] \
   [--intake-label <name>] [--bug-labels a,b] [--hotfix-labels a,b] \
-  [--state <bucket>=<name> …] \
+  [--state <bucket>=<name> …] [--assign] \
   --states <statesfile> [--force] [--json]
 ```
 

@@ -202,6 +202,7 @@ Two ways to get there:
 |---------|-----------|--------------|
 | `/spec-status` | — | Read-only drift report: what would push (create/update), and whether Linear's workflow-state drifted from the spec. Writes nothing. |
 | `/spec-push`   | repo → Linear | Computes a create/update plan vs the last-pushed snapshot and applies it (issue description/state, phase sub-issues), stamping new ids back into the spec. |
+| `/spec-claim`  | repo → Linear | Take a spec over, `--release` it, or hand it `--to` a teammate. Records the owner in the spec, then pushes. Needs assignment enabled (below). |
 
 Typical loop: edit the spec in-repo → `/spec-status` (what's pending) →
 `/spec-push` (send it up). There is no pull — Linear is a generated mirror.
@@ -228,6 +229,19 @@ creates each object, so later pushes update instead of recreate. Set
 Sections listed in `sync.localOnlySections` (default: **State log**, **Changelog**,
 **Open questions**) are stripped from the pushed description — they never leave
 the repo.
+
+### Assignment (opt-in)
+
+Add `"assignee": "push"` to `sync.fieldOwnership` and the spec issue is assigned
+to whoever is building it: `/spec-start` records them, and the issue is released
+automatically when the spec completes. Left out, nothing about it happens at all
+— see **Assignment** in `linear.config.md` for the full rules.
+
+You do not configure *who you are*: it comes from your own API key. Check it
+with `skitterspec spec-sync whoami` (`--set` overrides it if the key is shared or
+a bot's), and `skitterspec spec-sync users <name-or-email>` looks somebody up.
+`skitterspec spec-sync doctor` reports the resolved identity, and stays quiet
+about it in a project that has not opted in.
 
 ## 7. What to commit
 

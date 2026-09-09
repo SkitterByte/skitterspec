@@ -35,8 +35,8 @@ test('a fully configured project is ok, with every layer reported', () => {
   assert.strictEqual(r.ok, true)
   assert.deepEqual(
     r.checks.map((c) => c.id),
-    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'remote', 'ladder', 'mcp'],
-    'all four layers, plus project, remote and the cross-transport row',
+    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'identity', 'remote', 'ladder', 'mcp'],
+    'all four layers, plus project, identity, remote and the cross-transport row',
   )
   for (const c of r.checks) assert.ok(STATES.includes(c.state), `${c.id} has a known state`)
 })
@@ -229,11 +229,15 @@ test('every branch of the matrix yields a known state', () => {
     { project: { configured: 'p1' }, remote: { checked: true, ok: true, teamKey: 'SKS', project: { resolved: false } } },
     { project: { configured: 'p1' }, remote: { checked: true, ok: true, teamKey: 'SKS', project: { resolved: true, name: 'X', belongsToTeam: false } } },
     { project: { configured: 'p1' }, remote: { checked: true, ok: true, teamKey: 'SKS', project: { resolved: true, name: 'X', belongsToTeam: true } } },
+    { identity: { owned: false } },
+    { identity: { owned: true } },
+    { identity: { owned: true, ok: true, id: 'u1', name: 'Jane Dev', source: 'store' } },
+    { identity: { owned: true, ok: true, id: 'u1', source: 'viewer' } },
     {},
   ]
   for (const v of variants) {
     const r = withState(v)
-    assert.strictEqual(r.checks.length, 8, `${JSON.stringify(v)} still reports every layer`)
+    assert.strictEqual(r.checks.length, 9, `${JSON.stringify(v)} still reports every layer`)
     for (const c of r.checks) {
       assert.ok(STATES.includes(c.state), `${c.id} → ${c.state} for ${JSON.stringify(v)}`)
       assert.ok(typeof c.detail === 'string' && c.detail, `${c.id} explains itself`)
@@ -246,7 +250,7 @@ test('runChecks tolerates being handed nothing at all', () => {
   // A caller that failed to gather state must get a report saying so, not a
   // crash — this is the command a skill runs to find out what is wrong.
   const r = runChecks()
-  assert.strictEqual(r.checks.length, 8)
+  assert.strictEqual(r.checks.length, 9)
   assert.strictEqual(find(r, 'scaffold').state, 'missing')
   assert.strictEqual(r.ok, true, 'nothing configured is nothing broken')
 })
@@ -440,4 +444,47 @@ test('ladder: one usable name is enough to start accusing a rung that is absent'
     workspaceStates: [{ id: '1', name: 'Done', type: 'completed' }],
   })
   assert.strictEqual(c.state, 'broken')
+})
+
+// --- identity ----------------------------------------------------------------
+
+const identity = (over) => find(withState({ identity: over }), 'identity')
+
+test('identity: a resolved user is reported with where it came from', () => {
+  const c = identity({ owned: true, ok: true, id: 'u1', name: 'Jane Dev', source: 'store' })
+  assert.strictEqual(c.state, 'ok')
+  assert.match(c.detail, /Jane Dev/)
+  assert.match(c.detail, /credentials store/)
+})
+
+test('identity: an unresolved user is missing, with the command that fixes it', () => {
+  const c = identity({ owned: true, error: 'no identity cached yet' })
+  assert.strictEqual(c.state, 'missing')
+  assert.match(c.fix, /spec-sync whoami/)
+})
+
+// --- identity stays silent ---------------------------------------------------
+//
+// `.claude/rules/negative-checks.md`: the rows above prove it can report; these
+// prove it does not accuse a project that is perfectly healthy without it.
+
+test('identity: a project that never opted in is skipped, not missing', () => {
+  const c = identity({ owned: false })
+  assert.strictEqual(c.state, 'skipped', 'assignment is opt-in — not using it is not a fault')
+  assert.match(c.detail, /fieldOwnership/, 'and it says what would enable it')
+})
+
+test('identity: no tracker at all is skipped', () => {
+  const c = find(runChecks({ tracker: { present: false } }), 'identity')
+  assert.strictEqual(c.state, 'skipped')
+})
+
+test('identity never fails the run, however it lands', () => {
+  // Being unable to name you is never evidence the install is broken: the
+  // lifecycle skills skip assignment and carry on regardless.
+  for (const over of [{ owned: false }, { owned: true }, { owned: true, ok: true, id: 'u1' }]) {
+    const r = withState({ identity: over })
+    assert.notStrictEqual(find(r, 'identity').state, 'broken')
+    assert.strictEqual(r.ok, true)
+  }
 })

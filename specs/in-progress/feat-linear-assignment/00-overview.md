@@ -1,13 +1,15 @@
 ---
 linear_identifier: "SKS-109"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-109/assign-the-linear-issue-to-the-developer-working-the-spec"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Assign the Linear issue to the developer working the spec
 
 > **Type:** Feature
 > **Name:** feat-linear-assignment (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 4 (started 2026-09-09)
+> **Status:** In Progress — Phase 5 (started 2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -152,7 +154,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Push the assignee as a projection field | ✅ | [02-projection.md](02-projection.md) |
 | 3 | Stamp the assignee from the lifecycle skills | ✅ | [03-lifecycle-seams.md](03-lifecycle-seams.md) |
 | 4 | `/spec-claim` — take, release, hand over | ✅ | [04-spec-claim.md](04-spec-claim.md) |
-| 5 | Setup, doctor and docs | ⬜ | [05-setup-and-docs.md](05-setup-and-docs.md) |
+| 5 | Setup, doctor and docs | ✅ | [05-setup-and-docs.md](05-setup-and-docs.md) |
 
 ## Open questions
 
@@ -203,6 +205,23 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   Worth knowing for phase 5: the per-session description budget in
   `scripts/skill-budget.test.js` is sized for the skill count, and its comment
   still says 13.
+- 2026-09-09 — Phase 5: this repo adopted the feature
+  (`sync.fieldOwnership.assignee: "push"`), and `init-config` gained `--assign`
+  so the setup interview writes it rather than the model hand-editing JSON. It
+  writes **only** the `assignee` key: `fieldOwnership` merges per key, so
+  restating the other three would freeze today's defaults into the file.
+- 2026-09-09 — Phase 5: the shipped `linear.config.json.example` was deliberately
+  NOT updated. It is strict JSON with nowhere to put a caveat, and it is copied
+  verbatim into new projects — the key there would opt everyone in by default.
+- 2026-09-09 — Phase 5: doctor's identity row reads the CACHE only, with no
+  network call, because doctor is offline until `--check-remote`. A key that
+  could derive an identity but has not been asked yet reports "not cached" with
+  `whoami` as the fix, rather than as a fault.
+- 2026-09-09 — **Open, for review:** decision 12 says `Developer:` should prefer
+  the Linear display name. On this workspace the Linear account is "Skitter Byte"
+  while `git config user.name` is "Reuben Greaves" — the same person, but the git
+  name is the more human of the two. The header on this spec was left as the git
+  name. Worth deciding whether the preference should be the other way round.
 - 2026-09-09 — Phase 2: the `status` assignee line is keyed on the PLAN, not on
   whether the two sides differ. Three ways to differ, one of them drift: a spec
   recording nobody will not overwrite Linear, and an already-pushed assignee

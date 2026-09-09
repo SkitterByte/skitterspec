@@ -60,6 +60,7 @@ function runChecks(state = {}) {
     trackerCheck(state.tracker),
     projectCheck(state.project, state.tracker, state.remote),
     keyCheck(state.key, state.tracker),
+    identityCheck(state.identity, state.tracker),
     remoteCheck(state.remote),
     ladderCheck(state.ladder, state.tracker),
     mcpCheck(state.mcp, state.tracker, state.project, state.remote),
@@ -253,6 +254,40 @@ function keyCheck(s = {}, tracker = {}) {
   }
   // Masked fingerprint and source only — never the value.
   return row('key', 'key', 'ok', `${s.fingerprint || 'set'} from ${s.source || 'unknown'}`)
+}
+
+/**
+ * Who this machine is in Linear — the fact assignment rests on.
+ *
+ * WHAT WOULD MAKE THIS CHECK ACCUSE THE INNOCENT, and why it does not:
+ *
+ *   - **A project that never opted in.** Assignment is opt-in through
+ *     `sync.fieldOwnership.assignee`; without it nothing reads an identity, so
+ *     reporting one as missing would tell a healthy project to fix something it
+ *     deliberately does not use. That is `skipped`, and it is the common case.
+ *   - **An identity that is merely underivable.** No key, offline, a shared
+ *     credential — all ordinary, all `missing` rather than `broken`, because the
+ *     lifecycle skills skip assignment and carry on. Nothing here fails a run.
+ *
+ * So the only states it can produce are `skipped`, `missing` and `ok`. There is
+ * deliberately no `broken`: being unable to name you is never evidence that
+ * something is wrong with the install.
+ */
+function identityCheck(s = {}, tracker = {}) {
+  if (!tracker.present) return row('identity', 'identity', 'skipped', 'no tracker configured')
+  if (!s.owned) {
+    return row('identity', 'identity', 'skipped', 'assignment not enabled (sync.fieldOwnership.assignee)')
+  }
+  if (!s.ok) {
+    return row(
+      'identity',
+      'identity',
+      'missing',
+      s.error || 'no Linear identity for this workspace',
+      'skitterspec spec-sync whoami',
+    )
+  }
+  return row('identity', 'identity', 'ok', `${s.name || s.id} from ${s.source === 'store' ? 'the credentials store' : 'the API key'}`)
 }
 
 function remoteCheck(s = {}) {

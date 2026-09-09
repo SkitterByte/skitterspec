@@ -133,6 +133,53 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
 }
 ```
 
+## Assignment (`sync.fieldOwnership.assignee`)
+
+Off by default. Add one key and the spec issue is assigned to whoever is
+building it:
+
+```jsonc
+"fieldOwnership": {
+  "description": "push",
+  "subIssues": "push",
+  "workflowState": "push",
+  "assignee": "push"          // <- the whole opt-in
+}
+```
+
+It is deliberately **not** a config key of its own. `fieldOwnership` is already
+the documented extension point — "any key you add joins the pushed projection" —
+and assignment is exactly one more field the repo owns.
+
+- **Absent = inert.** No writes, no prompts, no drift line, and no assignee hash
+  in any snapshot. A project that never opts in cannot tell the feature exists,
+  which is why it is missing from `linear.config.json.example`: that file is
+  copied verbatim into new projects, and shipping the key there would opt
+  everyone in by default.
+- **The bucket decides.** The spec's `linear_assignee_id` is pushed while the
+  spec is live (`backlog`, `in-progress`) and cleared once it reaches `complete`
+  or `cancelled` — so finishing a spec hands the issue back with no unassign
+  step for anyone to remember. The stamp stays in the file, and so does
+  `> **Developer:**`: they record who *actioned* the work, which outlives who is
+  holding it.
+- **Unset means don't touch.** A spec that records nobody sends no assignee at
+  all, so an issue a PM assigned in Linear is never overwritten. Only an assignee
+  the repo itself pushed is ever cleared — and a snapshot written before you
+  opted in counts as "never pushed", not as "was nobody".
+- **Only the spec issue.** Phase sub-issues are never assigned: one person builds
+  a spec, and N assigned sub-issues is N notifications for one piece of work.
+  They stay independently assignable in Linear.
+
+**Who you are** is not configured here, and cannot be — this file is committed,
+so a user id in it would follow the repo to every teammate who clones it. It is
+derived from your own API key (`viewer`) and cached per machine in
+`~/.config/skitterspec/credentials.json` beside the key. `spec-sync whoami`
+shows it, `--set` overrides it when the key is shared or a bot's, and
+`spec-sync users` looks somebody up by name or email.
+
+Ownership moves with **`/spec-claim`** — take it, `--release` it, or `--to` a
+teammate.
+
 ## The deployment ladder (`release.stages`)
 
 A spec's lifecycle stops at `complete`. Where a ticket goes **after** that —

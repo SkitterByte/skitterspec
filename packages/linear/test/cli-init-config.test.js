@@ -275,3 +275,36 @@ test('a ladder the workspace covers is written', async () => {
   assert.deepStrictEqual(written(dir).release.stages, [{ key: 'prod', state: 'Done' }])
   assert.deepStrictEqual(loadLinearConfig(dir).config.release.stages, [{ key: 'prod', state: 'Done' }])
 })
+
+// --- assignment opt-in -------------------------------------------------------
+
+test('--assign opts the repo into assignment, and the loader agrees', async () => {
+  const dir = repo()
+  const r = await run(dir, ['--team-id', 'T1', '--assign'])
+  assert.strictEqual(r.code, 0, r.text)
+  assert.strictEqual(loadLinearConfig(dir).config.sync.fieldOwnership.assignee, 'push')
+})
+
+test('--assign writes ONLY the assignee key, not the whole ownership map', async () => {
+  // `fieldOwnership` merges per key onto the defaults, so restating the other
+  // three would freeze today's values into the file and opt this repo out of any
+  // later change to them — exactly what "only the keys that differ" avoids.
+  const dir = repo()
+  await run(dir, ['--team-id', 'T1', '--assign'])
+  assert.deepStrictEqual(written(dir).sync, { fieldOwnership: { assignee: 'push' } })
+  // …and the defaults still arrive through the loader.
+  const { config } = loadLinearConfig(dir)
+  assert.strictEqual(config.sync.fieldOwnership.description, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.subIssues, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
+  assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base', 'unrelated sync defaults survive')
+})
+
+test('without --assign the config says nothing about assignment', async () => {
+  // The opt-out has to be invisible: a project that declined must not carry a
+  // key recording that it declined.
+  const dir = repo()
+  await run(dir, ['--team-id', 'T1'])
+  assert.ok(!fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8').includes('assignee'))
+  assert.strictEqual('assignee' in loadLinearConfig(dir).config.sync.fieldOwnership, false)
+})

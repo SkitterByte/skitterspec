@@ -111,6 +111,14 @@ against a committed last-pushed snapshot and applies it) and `/spec-status`
 workflow-state drifted), backed by a `spec-sync` CLI. There is no content pull —
 the tracker is never read back or merged.
 
+A provider may also mirror **who is building a spec**, as one more field the repo
+owns. Where it does, `/spec-start` records the developer and the tracker's ticket
+is assigned to them, the assignment is released when the spec completes, and
+`/spec-claim` moves ownership mid-flight — take it, hand it back, or hand it to a
+teammate. Like everything else here it is opt-in and one-way: the spec file is
+the record, and the ticket is the mirror. See the provider's own docs for how to
+turn it on.
+
 **Every skill that moves a spec through the lifecycle carries a seam**, so the
 mirror keeps up without anyone remembering to push: `/spec`, `/spec-bug` and
 `/spec-hotfix` link the spec they create; `/spec-next` refreshes it as work starts;

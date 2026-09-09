@@ -32,7 +32,7 @@ const ROOT = path.join(__dirname, '..')
 const SKILL_TREES = ['packages/common/assets/skills', 'packages/linear/assets/skills']
 
 // Chosen, not measured: long enough for an outcome plus the trigger phrases,
-// short enough that 13 skills stay affordable in every session. Raising it is a
+// short enough that 15 skills stay affordable in every session. Raising it is a
 // real decision about per-session cost — make it deliberately, here.
 const MAX_DESCRIPTION = 500
 

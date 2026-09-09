@@ -12,5 +12,10 @@
   },
   "auth": {
     "keyEnv": "SKITTERSPEC_LINEAR_API_KEY"
+  },
+  "sync": {
+    "fieldOwnership": {
+      "assignee": "push"
+    }
   }
 }
