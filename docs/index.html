@@ -913,6 +913,15 @@ npx @skitterbyte/skitterspec <span class="p">init</span>
         <div class="code">npx @skitterbyte/skitterspec init <span class="p">--isolation</span></div>
         <p>Teardown is folded into <span class="mono">/spec-complete</span> and <span class="mono">/spec-cancel</span>, so finishing a spec reclaims its worktree.</p>
       </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">5</span> Optional: did we decide about a flag?</h3>
+        <p>A spec can reach <span class="mono">/spec-complete</span> having never been asked whether it ships behind a feature flag — and &ldquo;nobody asked&rdquo; looks exactly like &ldquo;we decided not to&rdquo;. Turn on release gating and every spec records the answer on its own header.</p>
+        <div class="code">npx @skitterbyte/skitterspec init <span class="p">--gating</span></div>
+        <div class="code"><span class="dim">&gt; **Gating:**</span> search-ranking-v2
+<span class="dim">&gt; **Gating:**</span> none: additive, nothing to revert</div>
+        <p>A flag name, or a reason for not using one — the reason is the point, because a missing line is an oversight and a reason is a decision. Skitterspec never reads your flag system; it asks the question and cites <em>your</em> documentation. <span class="mono">gating check</span> lists specs with no answer and always exits 0, so it never blocks your work.</p>
+      </div>
     </div>
 
     <div class="cta-row reveal">
