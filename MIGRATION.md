@@ -36,6 +36,14 @@ branch nobody asked for.
    provider distribution must rename its fragment file to match, or the build
    fails on an orphaned seam.
 
+## `@skitterbyte/skitterspec-linear` v10 → v11 (`/spec-go` splits in two)
+
+The same change as `@skitterbyte/skitterspec` v16 → v17 above — this
+distribution composes the same lifecycle skills, so `/spec-go` is removed here
+too and replaced by `/spec-start` + `/spec-next`. Read that entry; nothing here
+is Linear-specific. (Backfilled: the base entry was written when the change
+landed and this one was missed.)
+
 ## `@skitterbyte/skitterspec-linear` v9 → v10 (`push` validates your issue states)
 
 **`spec-sync push` now refuses to run until the configured `states` names have
