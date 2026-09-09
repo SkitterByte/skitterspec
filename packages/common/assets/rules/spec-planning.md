@@ -119,6 +119,21 @@ With no provider installed the seams are empty and every skill behaves as a plai
 filesystem workflow. See the provider package's own docs for its config and field
 reference.
 
+**Release gating (opt-in, config-gated).** With
+`specs/.core/gating.config.json` present, every spec `/spec`, `/spec-bug` and
+`/spec-hotfix` write carries a `> **Gating:**` header recording one decision:
+does this ship behind a feature flag, or land live? The value is a **flag name**,
+or **`none: <one-line reason>`** — and the reason half is the load-bearing part,
+because `none: additive, nothing to revert` is a decision a reviewer can argue
+with while a bare `none` is a shrug and a missing line is an oversight.
+
+Skitterspec bakes in **the offer, never the mechanism**: it asks, cites the
+project's own doc (`guidance` in that config), and records the answer. It never
+reads your flag code. `skitterspec gating check` reports specs with no decision
+and **always exits 0** — it reads only `backlog/` and `in-progress/`, so specs
+finished before you adopted gating are out of range by construction. With the
+config absent nothing appears at all: no question, no header, no check.
+
 ## Project conventions (fill this in)
 
 The spec skills tell you to run "your project's typecheck and test commands" and
@@ -161,6 +176,10 @@ Every spec header carries:
   to `git config user.name`).
 - `> **Developer:**` — who implements it (`—` until `/spec-start` starts work, then
   set to `git config user.name`; `/spec-bug` sets it immediately).
+- `> **Gating:**` — the release-gating decision,
+  **only when `specs/.core/gating.config.json` exists**: a flag name, or
+  `none: <one-line reason>`. Absent entirely in a project that has not adopted
+  gating.
 
 Every spec also has a **State log** table — the audit trail of folder/status
 transitions. Each lifecycle skill appends exactly one row when it changes state:

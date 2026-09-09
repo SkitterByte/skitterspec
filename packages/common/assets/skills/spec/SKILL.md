@@ -49,7 +49,17 @@ not write the spec until this is resolved.
      `worktree + docker` only when it must. This sets the `> **Stack:**` header
      that `/spec-start` acts on (it can be escalated later). Skip when isolation
      isn't enabled — leave the default `worktree`.
-  10. **Open questions** — anything still undecided.
+  10. **Release gating** *(only when `specs/.core/gating.config.json` exists)* —
+      should this ship behind a feature flag, or land live?
+      **Offer, don't impose**: the user decides and you raise it, so a spec
+      never reaches
+      `/spec-complete` with the question unasked. Cite the project's own
+      `guidance` path from that config when it names one — skitterspec knows
+      nothing about how this project does flags, and must not guess. Record the
+      answer **either way**: a flag name, or `none: <one-line reason>`. "No" is a
+      decision and belongs in the header; silence is not. Skip entirely when the
+      config is absent — that project does not use flags.
+  11. **Open questions** — anything still undecided.
 
 Stop grilling when there are no unresolved branches that would change the spec.
 Briefly play back the agreed understanding before writing.
@@ -108,6 +118,9 @@ the codebase, link rather than duplicate):
 > **Area:** <comma-separated files/modules this touches>
 > **Stack:** <worktree — or "worktree + docker" if it touches the DB/stateful
 > services; only acted on when isolation is enabled — see Phase A item 9>
+> **Gating:** <flag name — or "none: <one-line reason>". Only when release gating
+> is configured; omit the line entirely otherwise. An empty value or a bare
+> "none" is not a valid outcome — see Phase A item 10>
 
 ## Problem
 
@@ -233,6 +246,15 @@ says so. Mention the operator can escalate the Stack later (edit the header, or
 run `skitterspec spec-env up <name>` to add Docker to an existing worktree). If
 `env.config.json` is absent, isolation is off — leave the default `worktree` and
 finish as above.
+
+## Phase D2 — record the gating decision (only if configured)
+
+**Only when `specs/.core/gating.config.json` exists.** Make sure the
+`> **Gating:**` header carries the Phase A item 10 answer — a flag name, or
+`none: <reason>` using the config's `default` wording if it sets one. Nothing is
+provisioned or enforced by this: the header exists so the decision is
+**on the record and reviewable**, and `skitterspec gating check` reports a spec that has
+none. It never blocks. If the config is absent, do not write the line at all.
 
 ## Phase E — link to a ticketing provider (only if one is installed)
 

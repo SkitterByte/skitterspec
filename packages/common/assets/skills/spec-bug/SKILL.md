@@ -110,6 +110,8 @@ because work is already underway. Keep it lean:
 > **Developer:** <git user.name — you, since you're fixing it now>
 > **Raised:** <YYYY-MM-DD (today)>
 > **Area:** <files/modules>
+> **Gating:** <flag name — or "none: <one-line reason>". Only when release gating
+> is configured; omit the line entirely otherwise>
 
 ## Symptom
 
@@ -162,6 +164,19 @@ fix narrative and decisions — keep them separate.
 <!-- seam:spec-tracker-link -->
 
 <!-- seam:spec-project-picker -->
+
+### Release gating (only when configured)
+
+**Only when `specs/.core/gating.config.json` exists.** Before writing the spec,
+ask: should this fix ship behind a feature flag, or land live?
+**Offer, don't impose** — cite the project's own `guidance` path when the config
+names one, and
+record the answer either way, as a flag name or `none: <one-line reason>`.
+
+A bug fix ships in the next release exactly like a feature, so it gets the same
+question rather than an assumption. A risky rewrite of a broken path is precisely
+where a kill-switch earns its keep; a one-line null check is precisely where
+`none:` is the honest answer. Skip entirely when the config is absent.
 
 ## 5. Drive to GREEN
 

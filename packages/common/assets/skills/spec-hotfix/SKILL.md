@@ -116,6 +116,8 @@ is usually a single-pass fix, so the `## Fix` block can live directly in
 > **Base version:** <tag prod is running, e.g. v33.16.4>
 > **Raised:** <YYYY-MM-DD (today)>
 > **Area:** <files/modules>
+> **Gating:** <pre-filled "none: hotfix — restoring released behaviour"; only
+> when release gating is configured, and overridable — see below>
 
 ## Symptom
 
@@ -173,6 +175,21 @@ narrative and decisions).
 <!-- seam:spec-tracker-link -->
 
 <!-- seam:spec-project-picker -->
+
+### Release gating (only when configured)
+
+**Only when `specs/.core/gating.config.json` exists.** A hotfix is the one spec
+type that does **not** ask the question cold: it writes
+`none: hotfix — restoring released behaviour` and asks only for confirmation.
+
+The default differs on purpose. A hotfix restores behaviour a release already
+had, under time pressure, and the fix is captured by a deploy tag rather than
+riding the next release — so a flag has nothing to gate and nothing to roll back
+to. Making someone answer a design question mid-incident buys nothing.
+
+It is a **default, not a rule**: say what you are writing and let the user
+override it. If they name a flag, record that instead. Skip entirely when the
+config is absent.
 
 ## 6. Drive to GREEN
 

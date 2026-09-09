@@ -3,8 +3,9 @@
 Opt-in config for **release gating**: whether each spec records a decision about
 shipping behind a feature flag.
 
-The problem it solves is not "we forgot to use a flag" — it is that **nobody can
-tell whether the question was asked**. A spec can go from `/spec` through
+The problem it solves is not "we forgot to use a flag" — it is that
+**nobody can tell whether the question was asked**. A spec can go from `/spec`
+through
 implementation to `/spec-complete` with no flag and no mention of one, and that
 is indistinguishable from "we considered it and decided against". Prose guidance
 in a project rule has already been shown not to close that gap; a required header
