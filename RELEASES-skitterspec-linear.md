@@ -5,6 +5,27 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 12.0.0 — 9 Sep 2026
+
+**Highlights:** Starting a spec is one command again. In worktree mode /spec-start provisions the spec, promotes it and opens a session in its worktree — no /spec-live in the middle and no second run to finish the job — and your main checkout stays free for other work.
+
+### Env
+- **New** — The worktree opener now only runs when Claude could not move your session into the spec's worktree itself, so a normal start no longer opens a window you did not ask for.
+- **New** — Starting a spec you just wrote no longer stops to make you commit it first. /spec-start commits the spec itself, along with its tracker snapshot, and still refuses to touch anything else you have left uncommitted.
+
+### Gating
+- **New** — You can now turn on release gating when you install skitterspec — npx @skitterbyte/skitterspec init --gating, or answer the setup prompt. Upgrading an existing project never switches it on by itself, and a config you have edited survives a resync.
+- **New** — With release gating on, /spec-review, /spec-start and /spec-complete now tell you when a spec has no flag decision recorded, so the question cannot quietly go unanswered. They only ever report it — none of them will refuse to start, review or complete your work.
+- **New** — Turn on release gating and /spec, /spec-bug and /spec-hotfix now ask whether the change should ship behind a feature flag, recording the answer on the spec — a flag name, or a one-line reason for not using one. Skitterspec never touches your flag system; it asks the question and points at your own documentation. Projects that do not configure it see no change at all.
+
+### Skills
+- **Action required** — Starting a spec is one command again. In worktree mode /spec-start provisions the spec, promotes it and opens a session in its worktree — no /spec-live in the middle and no second run to finish the job — and your main checkout stays free for other work.
+- **New** — Completing or cancelling a spec from inside its own worktree now returns your session to the main checkout first, instead of leaving it in a directory that no longer exists.
+- **New** — Starting a spec no longer opens a second terminal — the session you type /spec-start into becomes the spec's worktree, so you carry straight on with /spec-next in the same tab.
+
+### Sync
+- **Fixed** — A phase file that loses its Linear id — to a hand edit, a bad merge, or a tool that rewrites the file — no longer gets a second sub-issue created for it. The push says which phase lost its stamp and which issue it belonged to, so you can put it back.
+
 ## 11.0.0 — 9 Sep 2026
 
 **Highlights:** /spec-go is replaced by /spec-start (begin a spec on your checkout) and /spec-next (build the next phase). One checkout holds one spec in flight, so starting a second refuses instead of moving your unfinished work. See MIGRATION.md.
