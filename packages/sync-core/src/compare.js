@@ -60,10 +60,16 @@ function specIssueHash(p) {
 // dragged the issue back. Diffing them apart is what lets a push touch the
 // description without re-asserting a state someone else now owns.
 function specIssueFieldHashes(p) {
-  return {
+  const hashes = {
     description: hashField(p.description ?? null),
     state: hashField(p.status ?? null),
   }
+  // ONLY WHEN THE FIELD IS IN PLAY. A repo that has not opted `assignee` into
+  // `sync.fieldOwnership` must not accumulate assignee hashes in its snapshots —
+  // "the feature is inert" has to include the files it writes, or opting in later
+  // would find a history of hashes it never agreed to.
+  if (p.assignee !== undefined) hashes.assignee = hashField(p.assignee ?? null)
+  return hashes
 }
 // A phase SUB-ISSUE: its name, goal and state (all repo-owned).
 const subIssueHash = (s) => hashField({ name: s.name ?? null, goal: s.goal ?? null, state: s.state ?? null })
@@ -159,19 +165,59 @@ function planChanges(projection, snapshot) {
 function issueChanges(projection, snapshot) {
   const p = projection || {}
   const snap = snapshot || {}
-  const both = () => ({ description: p.description ?? null, state: p.status ?? null })
+  const both = () => {
+    const out = { description: p.description ?? null, state: p.status ?? null }
+    // ASSERT, NEVER CLEAR, on this path. There are no split hashes here, so
+    // whether an assignee was ever pushed is unknown — and the harmless reading
+    // of "unknown" is to send one we have and stay silent about one we don't.
+    if (p.assignee != null) out.assignee = p.assignee
+    return out
+  }
 
   const fields = snap.issueFields
   if (fields === null || typeof fields !== 'object' || Array.isArray(fields)) {
     // No split hashes recorded: an old snapshot, or no snapshot at all (a
     // create, which needs both fields anyway).
-    return snap.issue === specIssueHash(p) ? null : both()
+    if (snap.issue !== specIssueHash(p)) return both()
+    // Description and state are unchanged — but the COMBINED HASH SAYS NOTHING
+    // ABOUT THE ASSIGNEE, which was never one of its inputs. Absence of evidence
+    // again, and the two directions are not equally safe: asserting an assignee
+    // the repo actually recorded costs one redundant write, while staying quiet
+    // would strand it until some unrelated prose edit happened to push. Clearing
+    // is still never guessed at. The push rewrites the snapshot in the split
+    // shape, so a spec passes through here exactly once.
+    return p.assignee != null ? { assignee: p.assignee } : null
   }
 
   const want = specIssueFieldHashes(p)
   const changed = {}
   if (fields.description !== want.description) changed.description = p.description ?? null
   if (fields.state !== want.state) changed.state = p.status ?? null
+
+  // ASSIGNEE — AN ABSENT SNAPSHOT KEY MEANS "NEVER PUSHED", NOT "WAS NULL".
+  //
+  // What would fool this check: every spec linked before assignee existed has a
+  // snapshot with no `assignee` key, and so does every spec in a repo that never
+  // opted the field in. Read that absence as `null` and the first push after
+  // upgrade computes null → null → "unchanged"… except where a PM had assigned
+  // the issue in Linear, which the repo would then silently clear. The bill for
+  // getting this wrong is somebody else's triage, workspace-wide, in one command.
+  //
+  // So absence is routed to the harmless branch: assert an assignee we actually
+  // have, and never send a clear at something we never set.
+  // (`.claude/rules/negative-checks.md` — prefer a positive signal to an absence,
+  // and bias the unknown case toward inaction.)
+  if (want.assignee !== undefined) {
+    if (fields.assignee === undefined) {
+      if (p.assignee != null) changed.assignee = p.assignee
+    } else if (fields.assignee !== want.assignee) {
+      // A recorded hash IS a positive signal that the repo pushed this field
+      // before, so a change to null here is a retraction of our own assignment
+      // rather than a guess at someone else's.
+      changed.assignee = p.assignee ?? null
+    }
+  }
+
   return Object.keys(changed).length ? changed : null
 }
 

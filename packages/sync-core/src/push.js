@@ -26,7 +26,7 @@ const { detectLegacyMirror } = require('./legacy.js')
 // config.states at apply time.
 function projectionOf(snapshotDir, config) {
   const local = normalizeLocal(snapshotDir, config)
-  return {
+  const projection = {
     description: local.description ?? null,
     status: local.workflowState ?? null,
     subIssues: Array.isArray(local.subIssues) ? local.subIssues : [],
@@ -40,6 +40,16 @@ function projectionOf(snapshotDir, config) {
     // per-bucket map, which mode applied is no longer readable off the config.
     phaseMode: phaseModeFor(local.workflowState, config),
   }
+  // ASSIGNEE IS SET ONLY WHEN THE FIELD IS IN PLAY, and the distinction between
+  // `undefined` and `null` is load-bearing all the way down: `undefined` means
+  // the repo never opted in, so no hash is recorded and no op is ever emitted;
+  // `null` means opted in with nobody assigned, which CAN legitimately clear a
+  // previously-pushed assignee. Defaulting the key to null here would collapse
+  // the two and make an un-opted-in repo start clearing assignees on its next
+  // push. `normalizeLocal` omits the key entirely when `sync.fieldOwnership`
+  // does not list it.
+  if ('assignee' in local) projection.assignee = local.assignee ?? null
+  return projection
 }
 
 function push({ dir, snapshotDir, identifier, config }) {

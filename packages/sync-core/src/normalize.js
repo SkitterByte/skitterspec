@@ -675,6 +675,30 @@ function bucketFromPath(snapshotDir) {
 // the states in which phases are not yet worth minting as sub-issues.
 const UNSTARTED_BUCKETS = ['backlog', 'cancelled']
 
+// Buckets where a spec is FINISHED, and so has nobody working on it.
+const TERMINAL_BUCKETS = ['complete', 'cancelled']
+
+/**
+ * The Linear user this spec is assigned to, AS PROJECTED — which is not simply
+ * what the frontmatter records.
+ *
+ * The BUCKET decides, not the stamp's presence. A spec that is live (`backlog`,
+ * `in-progress`) projects whoever the repo recorded; a finished one projects
+ * `null`, so completing a spec hands the issue back with no unassign step for
+ * anyone to remember. The stamp itself is deliberately left in the spec file:
+ * `> **Developer:**` and the frontmatter are the durable record of who actioned
+ * the work, and that outlives the assignment.
+ *
+ * `null` here does NOT mean "clear it in Linear" on its own — see
+ * `issueChanges`, where an assignee that was never pushed is left alone rather
+ * than retracted. That is what stops this wiping a PM's triage.
+ */
+function assigneeFor(workflowState, frontmatter) {
+  if (TERMINAL_BUCKETS.includes(String(workflowState))) return null
+  const id = frontmatter && frontmatter.linear_assignee_id
+  return typeof id === 'string' && id.trim() ? id.trim() : null
+}
+
 // The mode a bucket gets when a per-bucket `mapping.phases` map omits it. Adding
 // a bucket to the map is therefore an EXCEPTION for that bucket, not a switch
 // that silently suppresses phases everywhere the map is silent. Matches the
@@ -798,6 +822,11 @@ function normalizeLocal(snapshotDir, config) {
       state: p.state,
     })),
     workflowState,
+    // Who is building this. `toFieldSet` drops it unless the repo listed
+    // `assignee` in `sync.fieldOwnership`, so the opt-in costs no extra check
+    // here — an un-opted-in repo simply has no such key on its projection, and
+    // every downstream reader treats that as "the field is not in play".
+    assignee: assigneeFor(workflowState, frontmatter),
   }
   return toFieldSet(extracted, config)
 }
@@ -1039,6 +1068,7 @@ module.exports = {
   stateSuggestions,
   configuredStateNames,
   normalizeLocal,
+  assigneeFor,
   phaseProjection,
   phaseModeFor,
   phasesWithheld,

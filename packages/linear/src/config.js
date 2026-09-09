@@ -164,6 +164,14 @@ const DEFAULT_CONFIG = Object.freeze({
     // labels, cycles and comments are Linear-native triage — deliberately NOT in
     // the set, so the PM's triage is never touched. The `push` marker is retained
     // for shape; any key you add joins the pushed projection.
+    //
+    // `assignee` is the one field that OPTS IN this way rather than shipping on:
+    // add `"assignee": "push"` and the issue is assigned to whoever is building
+    // the spec, and released when it completes. Left out (the default) the whole
+    // feature is inert — nothing is written, no hash is recorded in a snapshot,
+    // and `status` prints no assignee line. It is deliberately not a new config
+    // key: this map is already the documented extension point, and assignment is
+    // exactly "one more field the repo owns".
     fieldOwnership: Object.freeze({
       description: 'push',
       subIssues: 'push',

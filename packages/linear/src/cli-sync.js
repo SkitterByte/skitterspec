@@ -524,10 +524,52 @@ function specSyncStatus(dir, config, specArg, flags, out) {
     } else {
       lines.push('  drift: none — Linear workflow-state matches the spec')
     }
+    lines.push(...assigneeLines(remote, projection, plan))
   }
 
   out.write(lines.join('\n') + '\n')
   return 0
+}
+
+/**
+ * The assignee half of the drift report — nothing at all unless the repo opted
+ * `assignee` into `sync.fieldOwnership` (`projection.assignee` is then
+ * `undefined`, and a project that opted out must see no trace of the feature).
+ *
+ * The line says what will ACTUALLY happen, which is not the same as whether the
+ * two sides differ. A spec with no recorded assignee never overwrites Linear's,
+ * so printing "repo wins on next push" against a PM's assignment would be both
+ * an accusation and a lie — the same trap the `stage` branch above documents.
+ * The plan is the only honest witness to that, so it is what gets asked.
+ */
+function assigneeLines(remote, projection, plan) {
+  if (!projection || projection.assignee === undefined) return []
+  const remoteUser = remote && remote.assignee ? remote.assignee : null
+  const remoteName = remoteUser ? remoteUser.name || remoteUser.id : null
+  const local = projection.assignee || null
+  const willPush = !!(plan && plan.issue && 'assignee' in plan.issue)
+
+  if (!remoteUser && !local) return ['  assignee: none — the spec records nobody, and neither does Linear']
+  if (remoteUser && local && remoteUser.id === local) return [`  assignee: ${remoteName} — matches the spec`]
+
+  // The two sides differ. WHICH LINE IS HONEST depends on the plan, not on the
+  // disagreement — there are three ways to differ and only one is drift.
+  if (willPush) {
+    const to = local || 'nobody'
+    return [`  drift: Linear assignee is ${remoteName || 'nobody'} but the spec records ${to} (repo wins on next push)`]
+  }
+  if (!local) {
+    // Decision 6, reported: the spec never recorded anyone, so nothing is sent
+    // and this assignment is safe where it is.
+    return [`  assignee: Linear has ${remoteName}; the spec records nobody and will not overwrite it`]
+  }
+  // Recorded, already pushed, and changed in Linear since. The snapshot says we
+  // are in sync, so nothing re-asserts it — and claiming "repo wins" here would
+  // promise a correction that will never come.
+  return [
+    `  assignee: Linear shows ${remoteName || 'nobody'} but the spec records ${local} — ` +
+      'already pushed, so it will not be re-sent',
+  ]
 }
 
 /**
@@ -1787,6 +1829,9 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
       projectId: project || (config.linear && config.linear.projectId) || null,
       description: plan.issue && plan.issue.description,
       stateId: stateId(plan.issue && plan.issue.state),
+      // Assert only. An issue being minted has no assignee to retract, so
+      // `withoutNull` dropping a null here is exactly right.
+      assigneeId: (plan.issue && plan.issue.assignee) || null,
     }))
     if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
     parentId = created.id
@@ -1800,10 +1845,18 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
     parentId = existing.id
     result.issue = { id: existing.id, identifier: existing.identifier, url: existing.url }
     if (plan.issue) {
-      await adapter.updateIssue(existing.id, withoutNull({
+      const updates = withoutNull({
         description: plan.issue.description,
         stateId: stateId(plan.issue.state),
-      }))
+      })
+      // APPLIED AFTER `withoutNull`, and that ordering is the whole point: null
+      // is MEANINGFUL for this field — it is how Linear unassigns an issue — so
+      // passing it through the stripper would drop exactly the clear that
+      // finishing a spec depends on, and the mirror would keep a finished spec
+      // assigned forever. The plan only carries the key when there is something
+      // to say, so `in` is the test, not truthiness.
+      if ('assignee' in plan.issue) updates.assigneeId = plan.issue.assignee ?? null
+      await adapter.updateIssue(existing.id, updates)
       lines.push(`  issue updated: ${identifier}`)
     }
   }

@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-109/assign-the-linear-issu
 
 > **Type:** Feature
 > **Name:** feat-linear-assignment (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-09)
+> **Status:** In Progress — Phase 2 (started 2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Resolve and cache "who am I in Linear" | ✅ | [01-identity.md](01-identity.md) |
-| 2 | Push the assignee as a projection field | ⬜ | [02-projection.md](02-projection.md) |
+| 2 | Push the assignee as a projection field | ✅ | [02-projection.md](02-projection.md) |
 | 3 | Stamp the assignee from the lifecycle skills | ⬜ | [03-lifecycle-seams.md](03-lifecycle-seams.md) |
 | 4 | `/spec-claim` — take, release, hand over | ⬜ | [04-spec-claim.md](04-spec-claim.md) |
 | 5 | Setup, doctor and docs | ⬜ | [05-setup-and-docs.md](05-setup-and-docs.md) |
@@ -176,3 +176,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-09 — Phase 1: identity caching lives in the `whoami` CLI, not in
   `resolveIdentity`. A resolver that wrote to disk as a side effect of being
   asked a question would cache a bot's identity the first time CI ran.
+- 2026-09-09 — Phase 2: a second absence trap surfaced beyond decision 9. The
+  legacy COMBINED-hash snapshot never had assignee as an input, so an assignment
+  could never land while description and state sat still — it would have waited
+  for an unrelated prose edit. That branch now asserts a recorded assignee (one
+  redundant write at worst) while still never guessing at a clear.
+- 2026-09-09 — Phase 2: `assigneeId` is applied AFTER `withoutNull` in the apply
+  path. Null is the payload for that field — it is how Linear unassigns — so the
+  stripper every other field goes through would have silently dropped exactly the
+  clear `/spec-complete` depends on, with a successful-looking push to show for it.
+- 2026-09-09 — Phase 2: the `status` assignee line is keyed on the PLAN, not on
+  whether the two sides differ. Three ways to differ, one of them drift: a spec
+  recording nobody will not overwrite Linear, and an already-pushed assignee
+  changed in Linear will not be re-sent. Saying "repo wins on next push" in
+  either case would be an accusation and a promise the engine would not keep.

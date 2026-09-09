@@ -96,7 +96,9 @@ function resolveApiKey(config, env = process.env, deps = {}) {
 
 // Fields we read back on every write. `identifier` and `url` are what the skill
 // stamps into the spec; `description` is what `spec-sync verify` compares.
-const ISSUE_FIELDS = 'id identifier url title description state { id name }'
+// `assignee` rides along so `spec-sync status` can report assignment drift from
+// the same read-back the state drift already uses — one read, not two.
+const ISSUE_FIELDS = 'id identifier url title description state { id name } assignee { id name }'
 
 // What we read back about a person. `name` is the handle Linear shows on an
 // issue; `displayName` is the short @-handle; `active` distinguishes a current
