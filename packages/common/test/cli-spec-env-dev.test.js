@@ -11,7 +11,7 @@ const BIN = path.join(__dirname, '..', 'bin', 'skitterspec.js')
 
 // A live-git integration test for `spec-env dev up|down`, driven through the real
 // binary from a real cwd. It pins the regression that made the browser-testing
-// path unreachable: /spec-go git-mv's the spec into specs/in-progress/ ON THE
+// path unreachable: /spec-start git-mv's the spec into specs/in-progress/ ON THE
 // SPEC'S BRANCH, so the spec exists only in its worktree — and `dev` resolved
 // specs against the primary checkout alone, so it threw "spec not found under
 // specs/**" for exactly the specs it exists to serve. Every spec-env subcommand
@@ -43,7 +43,7 @@ function cli(cwd, ...args) {
 const IDLE = 'node -e "setInterval(function(){},1000)"'
 
 // Primary checkout on `main` plus a worktree on the spec's branch, with the spec
-// folder present ONLY on that branch: the post-/spec-go state.
+// folder present ONLY on that branch: the post-/spec-start state.
 function scaffoldBranchOnlySpec() {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-dev-')))
   git(dir, 'init', '-q')
@@ -76,7 +76,7 @@ function scaffoldBranchOnlySpec() {
   const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, 'x')
   git(dir, 'worktree', 'add', '-q', '-b', 'feat/x', worktree)
 
-  // …and /spec-go moves it to in-progress on the BRANCH, in the worktree, while
+  // …and /spec-start moves it to in-progress on the BRANCH, in the worktree, while
   // main drops its backlog copy. The spec now exists nowhere in the primary
   // checkout's working tree.
   fs.mkdirSync(path.join(worktree, 'specs', 'in-progress'), { recursive: true })

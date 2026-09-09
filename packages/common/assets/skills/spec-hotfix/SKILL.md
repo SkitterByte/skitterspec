@@ -109,7 +109,7 @@ is usually a single-pass fix, so the `## Fix` block can live directly in
 # Hotfix: <short title>
 
 > **Type:** Hotfix
-> **Name:** hotfix-<kebab-name> (the spec folder name — the handle you paste into `/spec-go`)
+> **Name:** hotfix-<kebab-name> (the spec folder name — the handle you paste into `/spec-start`)
 > **Status:** In Progress — fixing (red test added)
 > **Author:** <git user.name — who reported/captured it>
 > **Developer:** <git user.name — you, since you're fixing it now>
@@ -185,7 +185,7 @@ narrative and decisions).
 
 **Then refresh the mirror (only if a provider is installed).** The Fix tasks are
 ticked, so the repo is now the truth about this fix — and this skill can take a
-bug all the way to green without `/spec-go` ever running. Without a provider this
+bug all the way to green without `/spec-next` ever running. Without a provider this
 is a no-op.
 
 <!-- seam:spec-tracker-progress -->

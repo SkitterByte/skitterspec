@@ -57,13 +57,14 @@ test('the user-only skills carry disable-model-invocation', () => {
 })
 
 // The inverse guard: the skills that DO carry judgment must stay reachable by
-// the model, or /spec-go could no longer hand off to /spec-push and the mirror
+// the model, or /spec-next could no longer hand off to /spec-push and the mirror
 // would silently stop tracking progress.
 test('stays silent: the judgment skills are still model-invocable', () => {
   const modelInvocable = [
     ['common', 'spec'],
     ['common', 'spec-bug'],
-    ['common', 'spec-go'],
+    ['common', 'spec-start'],
+    ['common', 'spec-next'],
     ['common', 'spec-complete'],
     ['common', 'spec-cancel'],
     ['common', 'spec-review'],

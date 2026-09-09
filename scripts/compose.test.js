@@ -110,11 +110,11 @@ test('superset build: both seams carry the Linear fragment', () => {
   assert.match(spec, /Create the Issue/i, 'link step present')
   assert.doesNotMatch(spec, /Seam fragment for/, 'fragment header text not injected')
 
-  const specGo = fs.readFileSync(path.join(out, 'skills', 'spec-go', 'SKILL.md'), 'utf8')
-  assert.doesNotMatch(specGo, /seam:/, 'spec-go seam filled')
-  assert.doesNotMatch(specGo, /<!--|-->/, 'fragment doc comment stripped, no marker residue')
-  assert.match(specGo, /\/spec-push/, 'spec-go-start fragment injected (one-way: refresh via /spec-push)')
-  assert.doesNotMatch(specGo, /\/spec-pull/, 'no /spec-pull anywhere — one-way')
+  const specNext = fs.readFileSync(path.join(out, 'skills', 'spec-next', 'SKILL.md'), 'utf8')
+  assert.doesNotMatch(specNext, /seam:/, 'spec-next seam filled')
+  assert.doesNotMatch(specNext, /<!--|-->/, 'fragment doc comment stripped, no marker residue')
+  assert.match(specNext, /\/spec-push/, 'spec-next-start fragment injected (one-way: refresh via /spec-push)')
+  assert.doesNotMatch(specNext, /\/spec-pull/, 'no /spec-pull anywhere — one-way')
 })
 
 // --- Guard: the seam contract between common and the provider ----------------

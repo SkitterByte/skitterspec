@@ -1,5 +1,5 @@
 <!--
-Seam fragment for the "spec-go-start" seam in the shared /spec-go skill, injected
+Seam fragment for the "spec-next-start" seam in the shared /spec-next skill, injected
 where the skill has just marked the phase in progress. The build injects this
 body (comment stripped) when composing the skitterspec-linear distribution; the
 base distribution leaves the seam empty.
@@ -32,7 +32,7 @@ packages/common/test/assets.test.js.
   and **carry on with the build**. The repo is correct regardless; the mirror is
   disposable and the next push repairs it.
 - **Expect a dirty `specs/.core/` afterwards.** The push writes a base snapshot
-  and stamps any new ids, and `/spec-go` does not commit. The next `/commit`
+  and stamps any new ids, and `/spec-next` does not commit. The next `/commit`
   sweeps it up with the phase's own work.
 - Linear's GitHub branch/PR automation may drive status transitions off the
   branch/PR you pushed in step 2; that's expected and the repo still wins on the

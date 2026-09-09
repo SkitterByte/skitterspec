@@ -11,7 +11,8 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
-| `/spec-go` | Provision the env, bring dev servers up, implement the next phase | `In Progress` | `specs/in-progress/` |
+| `/spec-start` | Put a spec in flight on this checkout, then build phase 1 | `In Progress` | `specs/in-progress/` |
+| `/spec-next` | Build the next phase of the spec in flight (re-run per phase) | `In Progress` (unchanged) | (unchanged) |
 | `/spec-to-main` | Land the branch on the base (rebase + ff) **without** finishing — for running the work in CI / a shared env mid-spec; repeatable | `In Progress` (unchanged) | (unchanged) |
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |
@@ -29,7 +30,7 @@ it.
 real judgment (green tests before a land; an MCP fetch and a team-key check; ten
 subcommands) — but they are marked user-only too, since nobody reaches them
 except by typing them. Everything else in the table above stays model-invocable,
-which is what lets `/spec-go` hand off to `/spec-push` as work progresses.
+which is what lets `/spec-next` hand off to `/spec-push` as work progresses.
 
 Status flow: `Ready → In Progress → Complete` (or `Cancelled` from any state).
 `/spec` grills to a **Ready** spec directly — there is no separate grooming
@@ -44,7 +45,7 @@ mid-spec (so the work can run in CI / a shared test env) while the spec stays
 **Two workspace modes.** `specs/.core/env.config.json` → `mode` decides where a
 spec's branch is built. **`worktree`** (the default) gives each spec its own
 checkout — several specs at once and `main` left free, at the cost of one
-terminal session per spec, which `/spec-go` opens for you. **`checkout`** builds
+terminal session per spec, which `/spec-start` sets up for you. **`checkout`** builds
 the branch in the primary checkout instead: one spec at a time, but no second
 session and no hand-off, so the terminal you are already in follows the work.
 Pick it for how you work rather than for what the project contains — a repo with
@@ -54,12 +55,12 @@ work that lives elsewhere, which is the gap that mode removes.
 
 **Per-spec isolation (opt-in to adopt, then the default policy).** When a project
 adopts isolation (`skitterspec init --isolation`, or `specs/.core/env.config.json`
-present), `/spec-go` gives **every** in-progress spec its own git worktree
+present), `/spec-start` gives **every** in-progress spec its own git worktree
 automatically — several specs run side by side without stashing or clashing, and
 `main` stays free. Docker is a **per-spec escalation**: `/spec` records
 `> **Stack:** worktree` (default) or `worktree + docker` when the spec touches the
-DB / stateful services, and `/spec-go` brings up a namespaced stack only for the
-latter. `/spec-go` also starts the project's host **dev servers** (`env.config`
+DB / stateful services, and `/spec-start` brings up a namespaced stack only for the
+latter. `/spec-start` also starts the project's host **dev servers** (`env.config`
 → `dev`) on the spec's ports; **`/spec-connect <name>`** then exposes that spec on
 your canonical `localhost` ports so you can test it at the normal URL
 (`/spec-connect main` hands them back). All housekeeping (the backlog→in-progress
@@ -110,7 +111,7 @@ the tracker is never read back or merged.
 
 **Every skill that moves a spec through the lifecycle carries a seam**, so the
 mirror keeps up without anyone remembering to push: `/spec`, `/spec-bug` and
-`/spec-hotfix` link the spec they create; `/spec-go` refreshes it as work starts;
+`/spec-hotfix` link the spec they create; `/spec-next` refreshes it as work starts;
 `/spec-complete`, `/spec-cancel` and `/spec-review` refresh it after they change
 it. `/spec-to-main` and `/spec-live` carry none — they change no status.
 With no provider installed the seams are empty and every skill behaves as a plain
@@ -153,11 +154,11 @@ status.
 Every spec header carries:
 
 - `> **Name:**` — the spec's folder name (`feat-`/`bug-`/`hotfix-<kebab-name>`).
-  It's the handle you pass to `/spec-go` and the other lifecycle skills, surfaced
+  It's the handle you pass to `/spec-start` and the other lifecycle skills, surfaced
   in the header so it's copy-pasteable without digging for the folder name.
 - `> **Author:**` — who created the spec (set at `/spec` / `/spec-bug`, defaults
   to `git config user.name`).
-- `> **Developer:**` — who implements it (`—` until `/spec-go` starts work, then
+- `> **Developer:**` — who implements it (`—` until `/spec-start` starts work, then
   set to `git config user.name`; `/spec-bug` sets it immediately).
 
 Every spec also has a **State log** table — the audit trail of folder/status
@@ -193,7 +194,7 @@ When asked for a plan, implementation strategy, or feature breakdown:
 
 ```
 specs/backlog/       Ready (or Draft) specs (/spec)
-specs/in-progress/   under active implementation (/spec-go, /spec-bug)
+specs/in-progress/   under active implementation (/spec-start, /spec-bug)
 specs/complete/      finished (/spec-complete)
 specs/cancelled/     abandoned, with a reason on the header (/spec-cancel)
 specs/.core/         project rules — ALWAYS APPLY, never moved

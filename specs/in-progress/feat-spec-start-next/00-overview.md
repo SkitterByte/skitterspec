@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-86/spec-start-spec-next-th
 
 > **Type:** Feature
 > **Name:** feat-spec-start-next (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 4 (started 2026-09-08)
+> **Status:** In Progress — Phase 5 (started 2026-09-08)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -105,7 +105,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Extract /spec-next | ✅ | [01-spec-next.md](01-spec-next.md) |
 | 2 | Build /spec-start | ✅ | [02-spec-start.md](02-spec-start.md) |
 | 3 | Engine glue | ✅ | [03-engine-glue.md](03-engine-glue.md) |
-| 4 | Retire /spec-go | ⬜ | [04-retire-spec-go.md](04-retire-spec-go.md) |
+| 4 | Retire /spec-go | ✅ | [04-retire-spec-go.md](04-retire-spec-go.md) |
 | 5 | Complete from a worktree session | ⬜ | [05-complete-from-worktree.md](05-complete-from-worktree.md) |
 
 ## Open questions
@@ -177,3 +177,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (verified end to end), and `pnpm exec skitterspec` was found to run the built
   dist rather than live source — noted in the phase file so the next engine
   change is verified against the right binary.
+- 2026-09-08 — Phase 4: the sweep was **52 files**, not the 24 the spec
+  estimated — the estimate omitted tests, the docs site, both dist READMEs and
+  the `.claude` dogfood symlink (which was left dangling by the skill deletion
+  and caught by the link guard). Re-grepping rather than trusting the count is
+  what made it finishable.
+- 2026-09-08 — Phase 4: 29 tests failed on the deletion and each was retargeted
+  rather than deleted, except the four opener/window tests — the behaviour they
+  guarded no longer exists (worktree mode's hand-off is a branch swap, not a
+  window), so keeping them would have asserted something no skill does. The
+  comment above their replacement records what went and why.
+- 2026-09-08 — Phase 4: two of my own test regexes failed on **line wrapping**
+  again, the same mistake as the earlier spec. Both now normalise whitespace
+  before matching; where prose happens to wrap is not a fact worth failing a
+  build over.

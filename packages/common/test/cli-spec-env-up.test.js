@@ -179,7 +179,7 @@ test('spec-env up leaves a malformed settings.local.json untouched, warns in the
 //
 // Reported against 8.0.5. Three layers independently said "fine" for work none of
 // them did: `up` printed "(provisioned)" while creating nothing, the bundled
-// /spec-go skill told the agent the CLI had added the worktree, and the emitted
+// /spec-start skill told the agent the CLI had added the worktree, and the emitted
 // seed commands printed "exists — skipped" when run from the main checkout. An
 // agent that believed them did the spec move, the commit and the push on `main` —
 // the exact outcome per-spec isolation exists to prevent.

@@ -56,15 +56,16 @@ test('every shipped skill has valid frontmatter with a matching name', () => {
 const skillText = (name) =>
   fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 
-// NOTE: the Linear link step (/spec) and pull-first step (/spec-go) are, as of the
+// NOTE: the Linear link step (/spec) and pull-first step (/spec-next) are, as of the
 // ticketing extraction, provider content — their coverage lives in the linear
-// package's assets test (against the seam fragments). The shared /spec + /spec-go
+// package's assets test (against the seam fragments). The shared /spec + /spec-next
 // still carry the passages verbatim until Phase 3 replaces them with seam markers.
 
-test('/spec-go documents trusting the worktree root via /add-dir', () => {
-  // Provisioning folded into /spec-go in 3.0.0 (the /spec-env skill was removed),
-  // so /spec-go now carries the worktree-trust guidance.
-  for (const name of ['spec-go']) {
+test('/spec-start documents trusting the worktree root via /add-dir', () => {
+  // Provisioning lives in /spec-start, so the worktree-trust guidance does too.
+  // It still matters in the one-workbench model: a spec the live overlay refuses
+  // is PARKED, and its housekeeping reaches into the worktree with `git -C`.
+  for (const name of ['spec-start']) {
     const text = skillText(name)
     assert.match(text, /\/add-dir/, `${name} instructs running /add-dir`)
     assert.match(
@@ -80,29 +81,23 @@ test('/spec-go documents trusting the worktree root via /add-dir', () => {
 // uncommitted-changes/diff panel — from the shell's cwd, not from ours. Reaching
 // into the worktree with absolute paths therefore runs a whole spec with the diff
 // panel describing a clean `main`, silently: nothing is broken, so nothing warns.
-// /spec-go used to offer that as a co-equal option; it now hands off and stops.
-test('/spec-go hands off to a session rooted in the worktree, and stops', () => {
-  const text = skillText('spec-go')
-  assert.match(text, /hand off to a session rooted there, and stop/i, 'names the hand-off')
-  assert.match(text, /end your turn/i, 'tells the agent to stop rather than carry on')
-  assert.match(text, /shell stays in the main\s+checkout/i, 'explains WHY — the shell is left behind')
+// Under the one-workbench model the hand-off is a BRANCH SWAP the operator must
+// authorise (`/spec-live`, a user-only command), not a window someone opens for
+// them — but it is still a hard stop, and for the same reason: this session
+// cannot perform it, so carrying on regardless would build somewhere wrong.
+test('/spec-start stops at the branch swap it cannot perform itself', () => {
+  const flat = skillText('spec-start').replace(/\s+/g, ' ')
+  assert.match(flat, /`\/spec-live <name>`/, 'names the user-only command')
+  assert.match(flat, /end your turn/i, 'stops rather than carrying on')
+  assert.match(flat, /user-only command, so you cannot run it/i, 'explains why it must stop')
 })
 
-// The stop must not become a loop: the re-run arrives INSIDE the worktree, and an
-// agent that hands off again from there would never build anything.
-test('/spec-go does not hand off twice once it is in the worktree', () => {
-  const text = skillText('spec-go')
-  assert.match(text, /Already there\?/, 'carries the already-in-the-worktree guard')
-  assert.match(text, /Never hand off twice/i, 'says so explicitly')
-})
-
-// An escape hatch has to exist (a one-line phase, a spec reviewed another way),
-// but it is opt-in and it states its cost — otherwise it silently becomes the
-// default again the first time the hand-off is inconvenient.
-test('/spec-go keeps --here as a costed opt-out', () => {
-  const text = skillText('spec-go')
-  assert.match(text, /`--here`/, 'names the flag')
-  assert.match(text, /diff view will track the main checkout/i, 'makes the agent state the cost')
+// The stop must not become a loop: the re-run arrives with the branch already
+// here, and a skill that asked for the swap again would never build anything.
+test('/spec-start does not ask for the swap twice', () => {
+  const text = skillText('spec-start')
+  assert.match(text, /Already here\?/, 'carries the already-swapped guard')
+  assert.match(text, /carry straight on/i, 'continues rather than re-asking')
 })
 
 // Skills whose 00-overview.md template carries the scannable `## Impact` map.
@@ -152,11 +147,11 @@ test('negative-checks rule states all four points', () => {
 // The phase-file H1 emoji is the ONE load-bearing status signal (a provider maps
 // it to the phase's tracker state; an absent emoji reads as not-started). Every
 // skill that authors or edits phase files must say so — /spec ships it in the
-// template, /spec-go flips it, and /spec-review creates phase files whenever it
+// template, /spec-next flips it, and /spec-review creates phase files whenever it
 // migrates a legacy spec into the folder + phase-file form. It shipped without
 // the convention once, and three migrated specs mirrored their complete phases
 // as backlog; this guard is why that can't silently recur.
-const PHASE_HEADING_SKILLS = ['spec-go', 'spec-review']
+const PHASE_HEADING_SKILLS = ['spec-next', 'spec-review']
 
 test('skills that author or edit phase files state the H1 status convention', () => {
   for (const name of PHASE_HEADING_SKILLS) {
@@ -318,7 +313,7 @@ for (const [skill, greenStep, reportStep] of [
 
   // The link seam fires BEFORE the fix, so nothing it sends can carry the ticks
   // the fix produces. These two skills can take a bug from report to green
-  // without /spec-go ever running, so with no second seam a fully-fixed bug is
+  // without /spec-next ever running, so with no second seam a fully-fixed bug is
   // mirrored as an issue whose tasks are all still open, indefinitely.
   test(`${skill} refreshes the mirror after it ticks the Fix tasks`, () => {
     const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
@@ -346,16 +341,16 @@ test('spec-review refreshes the mirror after it rewrites the spec', () => {
   assert.ok(seam < text.indexOf('## 5. Report'), 'and before the report')
 })
 
-// /spec-go changes state TWICE — once when the phase starts, once when it
+// /spec-next changes state TWICE — once when the phase starts, once when it
 // finishes — and both writes live in steps 4 and 5, after the step-3b seam that
 // used to be its only tracker step. A push that fires before the `🔄` flip
 // mirrors the state the phase is LEAVING, which is how phase sub-issues sat in
 // Backlog for a whole build and all jumped to Done at /spec-complete.
-test('/spec-go syncs at phase start, after the 🔄 flip', () => {
-  const text = skillText('spec-go')
+test('/spec-next syncs at phase start, after the 🔄 flip', () => {
+  const text = skillText('spec-next')
   const started = text.indexOf('flip the matching row in the overview phase index to `🔄`')
-  const seam = text.indexOf('<!-- seam:spec-go-start -->')
-  const record = text.indexOf('## 5. Record progress')
+  const seam = text.indexOf('<!-- seam:spec-next-start -->')
+  const record = text.indexOf('## 4. Record progress')
 
   assert.ok(started !== -1, 'the phase-start write is recognisable')
   assert.ok(seam !== -1, 'the start seam is present')
@@ -363,11 +358,11 @@ test('/spec-go syncs at phase start, after the 🔄 flip', () => {
   assert.ok(seam < record, 'and must not wait until the phase is finished')
 })
 
-test('/spec-go refreshes the mirror after it records the phase', () => {
-  const text = skillText('spec-go')
+test('/spec-next refreshes the mirror after it records the phase', () => {
+  const text = skillText('spec-next')
   const done = text.indexOf('flip the matching phase-index row to `✅`')
   const seam = text.indexOf('<!-- seam:spec-tracker-progress -->')
-  const report = text.indexOf('## 6. Report')
+  const report = text.indexOf('## 5. Report')
 
   assert.ok(done !== -1, 'the phase-done write is recognisable')
   assert.ok(seam !== -1, 'the progress seam is present')
@@ -375,8 +370,8 @@ test('/spec-go refreshes the mirror after it records the phase', () => {
   assert.ok(seam < report, 'and the report must be able to state the outcome')
 })
 
-test('spec-go stays provider-neutral in its own source', () => {
-  assert.doesNotMatch(skillText('spec-go'), /linear/i, 'spec-go must not name a specific tracker')
+test('spec-next stays provider-neutral in its own source', () => {
+  assert.doesNotMatch(skillText('spec-next'), /linear/i, 'spec-next must not name a specific tracker')
 })
 
 test('the creating and reviewing skills stay provider-neutral in their source', () => {
@@ -387,7 +382,7 @@ test('the creating and reviewing skills stay provider-neutral in their source', 
 })
 
 // Each lifecycle skill's LAST tracker seam, paired with the last spec-progress
-// write it has to follow. Presence alone is not enough: /spec-go carried a seam
+// write it has to follow. Presence alone is not enough: /spec-next carried a seam
 // for months while both its phase writes happened after it, so every phase
 // sub-issue sat in Backlog for a whole build and jumped to Done at the end. The
 // anchors are the skills' real words, so a reworded step fails loudly here
@@ -396,7 +391,7 @@ const SEAM_PLACEMENT = {
   spec: ['spec-tracker-link', '> **Status:** Ready — not started'],
   'spec-bug': ['spec-tracker-progress', 'Tick the Fix tasks'],
   'spec-hotfix': ['spec-tracker-progress', 'Tick the Fix tasks'],
-  'spec-go': ['spec-tracker-progress', 'flip the matching phase-index row to `✅`'],
+  'spec-next': ['spec-tracker-progress', 'flip the matching phase-index row to `✅`'],
   'spec-complete': ['spec-tracker-sync', 'specs/complete/<name>'],
   'spec-cancel': ['spec-tracker-sync', 'specs/cancelled/<name>'],
   'spec-review': ['spec-tracker-sync', '## 4. Update the spec'],
@@ -421,7 +416,7 @@ function seamPlacementProblem(skill, text, seam, lastWrite) {
   if (at === -1) return `${skill}: no ${marker}`
   // An anchor that has drifted out of the asset yields -1, which would compare
   // as "the seam comes after it" and pass while checking nothing. That vacuous
-  // pass is how the /spec-go defect shipped, so a missing anchor is a failure.
+  // pass is how the /spec-next defect shipped, so a missing anchor is a failure.
   if (wrote === -1) return `${skill}: anchor ${JSON.stringify(lastWrite)} not found`
   if (at < wrote) return `${skill}: ${marker} precedes the write it mirrors`
   return null
@@ -564,94 +559,9 @@ test('the cadence guard stays silent on ordering dependent decisions', () => {
   assert.match(spec, /decisions one at a time/, 'the live sentence this must not accuse is still there')
 })
 
-// --- The hand-off runs the opener -------------------------------------------
-//
-// `spec-env up` emits an expanded `open.command`, and /spec-go used to PRINT it
-// for the operator to copy. That made every new spec cost a manual step whose
-// only content was a path the engine had already computed — and `env.config.md`
-// had described the key as one that gets run since it was introduced, so the
-// skill was the half that disagreed with the documented contract.
-//
-// The stop itself is unchanged and still guarded below: opening a window does
-// not move THIS session, so the hand-off must still end the turn.
-test('/spec-go runs the configured opener at the hand-off', () => {
-  const text = skillText('spec-go')
-  assert.match(text, /\*\*Run\*\* the opener/i, 'the opener is run, not printed')
-  assert.match(text, /open\.command/, 'names the config key it depends on')
-})
-
-test('/spec-go still stops after opening — the window is not the hand-off', () => {
-  // Regression pin: running the opener must not read as "the hand-off happened".
-  // The new session is a DIFFERENT session; this one still has to end its turn,
-  // or it would carry on building in the checkout it was told to leave.
-  const text = skillText('spec-go')
-  assert.match(text, /end your turn/i, 'still ends the turn')
-  assert.match(text, /re-run `\/spec-go`/i, 'still asks for the re-run')
-  assert.match(text, /Never hand off twice/i, 'still guards the double hand-off')
-})
-
-test('/spec-go degrades when there is no opener to run', () => {
-  // `open.command` defaults to empty, so the no-opener path is the DEFAULT one,
-  // not an edge case. It must still say what to do rather than silently doing
-  // nothing and stopping.
-  const text = skillText('spec-go')
-  assert.match(text, /With no opener configured/i, 'covers the empty-command case')
-  assert.match(text, /open a\s+terminal tab there themselves/i, 'falls back to the manual instruction')
-})
-
-test('/spec-go does not open a window in a non-interactive run', () => {
-  const text = skillText('spec-go')
-  assert.match(text, /non-interactive/i, 'names the non-interactive case')
-  assert.match(text, /nobody is sitting at/i, 'says why it is skipped')
-})
-
-// --- /spec-go branches on the workspace mode ---------------------------------
-//
-// Checkout mode's entire value is that the hand-off does not happen, so the
-// skill has to say that explicitly. An agent that read the mode but still handed
-// off would produce the worst of both: a branch in the primary checkout AND a
-// stop telling the operator to go somewhere that does not exist.
-test('/spec-go reads the mode and describes both paths', () => {
-  const text = skillText('spec-go')
-  assert.match(text, /Read `mode` from `specs\/\.core\/env\.config\.json`/, 'reads the key')
-  assert.match(text, /`checkout`/, 'names the checkout path')
-  assert.match(text, /`worktree`.{0,20}\(default\)/s, 'names worktree as the default')
-})
-
-test('/spec-go skips the hand-off in checkout mode', () => {
-  const text = skillText('spec-go')
-  const checkout = text.slice(text.indexOf('- **`checkout`**'), text.indexOf('- **`worktree`**'))
-  assert.ok(checkout.length > 200, 'found the checkout branch of the instructions')
-  assert.match(checkout, /no hand-off/i, 'says the hand-off does not happen')
-  assert.match(checkout, /carry straight on/i, 'says to continue in this session')
-})
-
-test('/spec-go still hands off in worktree mode — the default is unchanged', () => {
-  // A pin, not new coverage. The whole point of defaulting to `worktree` is that
-  // an installed repo behaves exactly as before, hand-off included.
-  const text = skillText('spec-go')
-  assert.match(text, /hand off to a session rooted there, and stop/i)
-  assert.match(text, /In `worktree` mode/, 'scopes the worktree bullets to that mode')
-})
-
-test('/spec-go relays the checkout refusals instead of working around them', () => {
-  // The refusals exist to protect uncommitted work and another spec's branch.
-  // An agent that "helpfully" stashed or switched would defeat both.
-  const text = skillText('spec-go')
-  // Whitespace-normalised: where the prose happens to wrap is a formatting
-  // artefact, and a guard that fails on a re-wrap trains people to ignore it.
-  const flat = text
-    .slice(text.indexOf('- **`checkout`**'), text.indexOf('- **`worktree`**'))
-    .replace(/\s+/g, ' ')
-  assert.match(flat, /dirty tree/i, 'names the dirty-tree refusal')
-  assert.match(flat, /another\*\* spec's branch/i, 'names the other-branch refusal')
-  assert.match(flat, /one spec at a time/i, 'gives the reason')
-  assert.match(flat, /do not switch away/i, 'forbids working around it')
-})
-
 // --- /spec-next: the building half, gated on a spec being in flight ----------
 //
-// `/spec-go` conflated provisioning with building, which is why the worktree
+// `/spec-next` conflated provisioning with building, which is why the worktree
 // hand-off needed a second invocation of the same command. `/spec-next` is the
 // building half alone — the command you re-run per phase, and the one a session
 // in a parked worktree runs directly.
@@ -753,4 +663,44 @@ test('/spec-start carries no tracker seam, and says why', () => {
   const text = skillText('spec-start')
   assert.doesNotMatch(text, /<!-- seam:/, 'no seam markers')
   assert.match(text, /Why there is no tracker seam here/, 'the absence is documented')
+})
+
+// --- what became of the opener, and of the mode branch -----------------------
+//
+// Both used to be /spec-next's, and the one-workbench model moved them:
+//
+//  * The OPENER no longer runs at a hand-off, because worktree mode's hand-off
+//    is now a branch swap into THIS checkout (`/spec-live`), not a window
+//    someone opens for you. It survives on one path only — a spec the live
+//    overlay refuses stays parked in its worktree and is worked on from a
+//    session there. The three old tests about window lifecycle (stops after
+//    opening, degrades when none is configured, never opens headlessly) were
+//    deleted with the behaviour they guarded, rather than left asserting
+//    something no skill does.
+//
+//  * The MODE BRANCH moved to /spec-start, which owns provisioning.
+
+test('/spec-start runs the opener only for a parked spec', () => {
+  const flat = skillText('spec-start').replace(/\s+/g, ' ')
+  assert.match(flat, /run `open\.command` if configured/i, 'the parked path opens a session')
+  assert.match(flat, /parks\s*\*{0,2}\s*instead/i, 'and it is the parked path, not the normal one')
+})
+
+test('/spec-start reads the mode and describes both paths', () => {
+  const text = skillText('spec-start')
+  assert.match(text, /Read `mode` from `specs\/\.core\/env\.config\.json`/, 'reads the key')
+  assert.match(text, /### `worktree` mode/, 'names the worktree path')
+  assert.match(text, /### `checkout` mode/, 'names the checkout path')
+})
+
+test('/spec-start needs no branch swap in checkout mode', () => {
+  // The checkout IS the workbench there, so the one stop worktree mode still
+  // has does not exist: one command starts the spec and builds phase 1.
+  const text = skillText('spec-start')
+  const checkout = text
+    .slice(text.indexOf('### `checkout` mode'), text.indexOf('## 4.'))
+    .replace(/\s+/g, ' ')
+  assert.ok(checkout.length > 100, 'found the checkout section')
+  assert.match(checkout, /no live step/i, 'says the swap is unnecessary')
+  assert.match(checkout, /already the workbench/i, 'explains why')
 })

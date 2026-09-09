@@ -25,7 +25,7 @@ Before marking complete, confirm the work is actually finished:
   originally-failing test named in the spec now passes — that test is the proof
   the fix works.
 - If genuinely incomplete work remains, **stop and tell the user** rather than
-  forcing completion. Offer to finish it (`/spec-go`) or to complete with the
+  forcing completion. Offer to finish it (`/spec-next`) or to complete with the
   remaining items explicitly listed as deferred.
 - **Check for pre-existing uncommitted changes — before you touch anything.**
   Run `git status`. Anything already uncommitted is the *user's* work (a
@@ -77,7 +77,7 @@ Confirm the move, the commit, the final test result, and list anything deferred.
 (a worktree in `worktree` mode, or its branch in the checkout in `checkout`
 mode — `spec-env integrate` and `down` pick the right plan from `mode`, so the
 commands you run differ but these steps do not)
-(it was provisioned by `/spec-go` or `/spec-hotfix`). Otherwise skip this entirely
+(it was provisioned by `/spec-start` or `/spec-hotfix`). Otherwise skip this entirely
 — a non-isolated spec has nothing to land, and `/spec-complete` behaves exactly as
 before. When it applies, offer to land the finished branch so the work reaches its
 destination in one flow. **How it lands depends on the spec type:**
@@ -128,7 +128,7 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
    work is actually landable and **aborts loudly** rather than finalize a spec
    having landed nothing. Two cases, both leaving the live session intact:
    - *stranded commits* — commits sit on the worktree's **detached HEAD** (e.g. a
-     pre-fix `/spec-go` committed there instead of on the branch). It prints the
+     pre-fix `/spec-next` committed there instead of on the branch). It prints the
      count, the sha, and a `git -C <worktree> branch <tmp> <sha>` recovery hint —
      recover those commits onto the branch, then re-run.
    - *no worktree* — the spec is live but its worktree is gone. Re-isolate it with
@@ -181,7 +181,7 @@ worktree and branch are being kept, and go straight to sub-step 4. Mention
    rather than reaching for `--force`.
 
    **If the plan prints a `remote branch — confirm with the user first:`
-   section, ask before running it.** `/spec-go` pushed this branch when it
+   section, ask before running it.** `/spec-start` pushed this branch when it
    provisioned, so the remote copy outlives teardown unless someone deletes it.
    The planner only ever offers this for a branch that has **landed**, so say so
    plainly when you ask — the commits are on the base branch (or captured by the

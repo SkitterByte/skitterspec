@@ -188,7 +188,7 @@ function planTake(spec, config, ctx) {
   }
   // 3. Need a worktree holding the branch to detach and hand over.
   if (!c.worktreeExists) {
-    return block(`${spec.folder} has no worktree — run \`/spec-go ${spec.folder}\` first`)
+    return block(`${spec.folder} has no worktree — run \`/spec-start ${spec.folder}\` first`)
   }
   // 3b. The WORKTREE's own tree, not the primary checkout's. Check 2 above reads
   //     the checkout we switch INTO; the rebase runs in the worktree, and git

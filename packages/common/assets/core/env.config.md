@@ -2,12 +2,12 @@
 
 Opt-in config for per-spec isolation (git worktree + optional namespaced Docker
 stack + host dev servers + a front-door proxy + an optional opener per
-in-progress spec). Provisioning is folded into `/spec-go`, teardown into
+in-progress spec). Provisioning is folded into `/spec-start`, teardown into
 `/spec-complete` · `/spec-cancel`, and traffic diversion is `/spec-connect`; the
 `skitterspec spec-env <up|down|prune|dev|connect|integrate>` CLI is the engine
 beneath them.
 
-**Once this file is present, isolation is the default policy:** `/spec-go` gives
+**Once this file is present, isolation is the default policy:** `/spec-start` gives
 **every** in-progress spec its own git worktree automatically. Docker is a **per-
 spec escalation** — a spec brings up a stack only when its `> **Stack:**` header
 is `worktree + docker` (set at `/spec` when it touches the DB / stateful
@@ -32,7 +32,7 @@ no live `env.config.json` was found.
   //
   //   "worktree"  (default) — every spec gets its own git worktree. Several
   //               specs run side by side and `main` stays free, at the cost of
-  //               one terminal session per spec (`/spec-go` opens it for you).
+  //               one terminal session per spec (`/spec-start` sets it up for you).
   //   "checkout"  — the branch is built in the primary checkout instead. One
   //               spec at a time, but no second session and no hand-off: the
   //               terminal you are already in follows the work.
@@ -124,7 +124,7 @@ no live `env.config.json` was found.
     "host": "127.0.0.1"     // bind host for the canonical ports
   },
 
-  // Optional, editor/terminal-agnostic opener. `/spec-go` RUNS it when it hands
+  // Optional, editor/terminal-agnostic opener. `/spec-start` RUNS it when it hands
   // you into a new worktree — after provisioning and bootstrap, so the session
   // opens onto a tree that is ready to work in. The template is expanded with
   // {worktreePath}, {slug}, {branch}, {projectName}, {portOffset}.
@@ -168,7 +168,7 @@ no live `env.config.json` was found.
     "refuseTeardownIfUnpushed": true
   },
 
-  // What teardown cleans up beyond this machine. `/spec-go` pushes the spec
+  // What teardown cleans up beyond this machine. `/spec-start` pushes the spec
   // branch when it provisions, so without this a completed spec leaves a merged
   // branch on the remote forever. `deleteRemoteBranch`:
   //   "prompt"  (default) — plan `git push <remote> --delete <branch>` in its own

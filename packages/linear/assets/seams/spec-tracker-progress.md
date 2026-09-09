@@ -1,7 +1,7 @@
 <!--
 Seam fragment for the "spec-tracker-progress" seam, injected wherever a shared
 skill has just recorded progress WITHIN a spec — ticked tasks, flipped a phase to
-✅ — rather than moving it between lifecycle buckets: /spec-go, /spec-bug,
+✅ — rather than moving it between lifecycle buckets: /spec-next, /spec-bug,
 /spec-hotfix. The build injects this body (comment stripped) when composing the
 skitterspec-linear distribution; the base distribution leaves the seam empty.
 

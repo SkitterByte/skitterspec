@@ -15,7 +15,7 @@ as you add commits.
 Use it when a later phase can only be done *after* the current work is on `main` —
 e.g. it needs to run in CI, a deploy pipeline, or a shared test environment that
 builds from `main`. Land what you have, run that step, then come back and finish
-the remaining phases with `/spec-go` and eventually `/spec-complete`.
+the remaining phases with `/spec-next` and eventually `/spec-complete`.
 
 It reuses the **same engine** as `/spec-complete`'s landing (`spec-env integrate`
 — rebase + fast-forward), so it produces identical linear history. Because a
@@ -26,7 +26,7 @@ repeatable**: new commits put the branch ahead of base again, and you can run
 ## 0. Preconditions — when this applies
 
 - **Isolation must be on** (`specs/.core/env.config.json` exists **and** the spec
-  was provisioned by `/spec-go` — a worktree, or its branch in the checkout under
+  was provisioned by `/spec-start` — a worktree, or its branch in the checkout under
   `mode: checkout`). If isolation is absent, there is nothing to land — the spec
   is authored directly on `main` already. Say so and stop. `spec-env integrate`
   reads `mode` and emits the matching plan; in checkout mode it rebases in place,
@@ -96,7 +96,7 @@ and continue — the branch has no commits base doesn't already have.
 - Report: the base branch, the fast-forward result, and the green base test. It
   **never pushes** — mention the user can `git push` the base branch themselves to
   trigger CI / the shared env.
-- Point the way forward: `/spec-go` to continue the remaining phases (you'll keep
+- Point the way forward: `/spec-next` to continue the remaining phases (you'll keep
   committing on the same branch and can `/spec-to-main` again), and `/spec-complete`
   when every phase is genuinely done — it will land the final commits, finalise,
   and tear down.

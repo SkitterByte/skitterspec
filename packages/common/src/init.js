@@ -423,7 +423,7 @@ function installCore(dir, opts) {
 }
 
 // Activate opt-in per-spec isolation: write specs/.core/env.config.json from the
-// example asset so /spec-go provisions a worktree for every in-progress spec.
+// example asset so /spec-start provisions a worktree for every in-progress spec.
 // Only called when the operator opts in, and never on `update` (adopting isolation
 // is a deliberate choice, not something a re-sync flips on). Idempotent: writeFile
 // never clobbers an existing env.config.json without --force.
@@ -679,7 +679,7 @@ function printReport(dir, mode, { diff = false } = {}) {
   const isolationOn = fs.existsSync(path.join(dir, 'specs', '.core', 'env.config.json'))
   const isolationNote = isolationOn
     ? 'Per-spec isolation is ON: every in-progress spec gets its own git worktree' +
-      ' at /spec-go (Docker is a per-spec escalation — set > **Stack:** in the spec).\n'
+      ' at /spec-start (Docker is a per-spec escalation — set > **Stack:** in the spec).\n'
     : 'Per-spec isolation is opt-in: re-run with --isolation (or copy' +
       ' specs/.core/env.config.json.example → env.config.json) to enable it.\n'
   // A provider superset ships its own `spec-<provider>-setup` skill; the base
@@ -702,7 +702,7 @@ function printReport(dir, mode, { diff = false } = {}) {
         ' (it discovers your workspace and writes the config), or see' +
         ' specs/.core/SETUP.md.\n'
   process.stdout.write(
-    '\nDone. Skills resolve as /spec, /spec-go, /spec-complete, /spec-cancel,' +
+    '\nDone. Skills resolve as /spec, /spec-start, /spec-next, /spec-complete,' +
       ' /spec-bug, /spec-review, /spec-init, /spec-connect.\n' +
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
       " project's stack, then run /spec.\n" +

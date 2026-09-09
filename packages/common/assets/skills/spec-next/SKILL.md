@@ -61,7 +61,7 @@ just changed state, so refresh the mirror before the build starts — that is wh
 makes the phase show as in progress *while* it is being built rather than only
 once it is over. Without a provider this is a no-op and nothing below changes.
 
-<!-- seam:spec-go-start -->
+<!-- seam:spec-next-start -->
 
 Then build it, following the project rules in `.claude/rules/*.md` and `CLAUDE.md`:
 

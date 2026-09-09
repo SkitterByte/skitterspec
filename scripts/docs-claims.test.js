@@ -379,7 +379,7 @@ test('stays silent: a documented verb and a reasoned allowlist entry both pass',
 // skill — never the mere appearance of the string. MIGRATION.md files are
 // additionally outside SURFACES, which is why their retired-skill table rows
 // (`| /spec-ready | Folded into /spec |`) are never scanned.
-const RETIRED_SKILLS = ['spec-ready', 'spec-env', 'spec-env-down']
+const RETIRED_SKILLS = ['spec-ready', 'spec-env', 'spec-env-down', 'spec-go']
 
 // A markdown table row that presents the skill as an available one: it is the
 // row's FIRST cell, optionally slash-prefixed and/or code-quoted.

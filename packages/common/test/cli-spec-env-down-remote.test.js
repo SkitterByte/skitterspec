@@ -55,7 +55,7 @@ function scaffold({ remoteName = 'origin', push = true, merge = true, config = {
   fs.writeFileSync(path.join(worktree, 'work.txt'), 'work\n')
   git(worktree, 'add', '-A')
   git(worktree, 'commit', '-q', '-m', 'phase 1')
-  // /spec-go pushes the branch at provision time.
+  // /spec-start pushes the branch at provision time.
   if (push) git(worktree, 'push', '-q', '-u', remoteName, 'feat/thing')
   // /spec-complete lands it before teardown.
   if (merge) git(dir, 'merge', '-q', '--ff-only', 'feat/thing')
@@ -154,7 +154,7 @@ test('"never" prints nothing about the remote', async () => {
 })
 
 test('a branch pushed WITHOUT -u is still found, via the remote list', async () => {
-  // /spec-go says "push the branch" without prescribing the command, so upstream
+  // /spec-start says "push the branch" without prescribing the command, so upstream
   // may never be configured. The fallback must still see the ref.
   const { dir, worktree } = scaffold({ push: false })
   git(worktree, 'push', '-q', 'origin', 'feat/thing')

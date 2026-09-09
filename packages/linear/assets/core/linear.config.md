@@ -1,7 +1,7 @@
 # `linear.config.json` — Linear one-way sync config
 
 Opt-in config for the Linear sync (`/spec-status`, `/spec-push`, and the
-Linear-aware paths of `/spec` and `/spec-go`). Sync is **one-way**: the repo is
+Linear-aware paths of `/spec` and `/spec-start`). Sync is **one-way**: the repo is
 the source of truth and the Linear **issue** is a **generated mirror**. A spec is
 a Linear issue and each phase a sub-issue; a phase's tasks ride along inside
 that sub-issue's description as a read-only checklist. Content is
@@ -11,7 +11,7 @@ is a read-only drift report. The `sync.fieldOwnership` map now just selects the
 projection field set (every field is repo-owned and pushed).
 
 **Every Linear step is gated on this file.** While `specs/.core/linear.config.json`
-is absent the feature is simply unused — `/spec`, `/spec-go`, and the CLI's
+is absent the feature is simply unused — `/spec`, `/spec-start`, and the CLI's
 `spec-sync` subcommands behave exactly as they do today (local-only). Adopt it by
 copying `linear.config.json.example` → `linear.config.json` here and filling in
 your team ID (and an optional grouping project).
@@ -365,7 +365,7 @@ default for anyone who never sets one.
   `save_issue` calls to mirror, N being its phase count.
 - `"deferred"` — only once the work starts. A spec sitting in `specs/backlog/`
   mirrors as **the issue alone**; its sub-issues are created by the push that
-  follows `/spec-go`.
+  follows `/spec-start`.
 - `"inline"` — never. Each phase becomes a **section of the spec issue's own
   description**, with its full task list, and the `## Phases` index stays as the
   table of contents. One issue per spec, however many phases it has.

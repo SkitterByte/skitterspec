@@ -77,6 +77,10 @@ not try to judge whether the changes look important.
    `/spec-next` from a session there. Relay the engine's refusal reason as it
    printed it; those guards protect a shared dev instance and are not yours to
    weaken.
+   **Trust the worktree first.** `spec-env up` wrote the printed `trusted:` root
+   into `.claude/settings.local.json`, but that file will not hot-reload in this
+   session — run `/add-dir <trusted root>` before editing into the worktree, or
+   the first write prompts.
 
 ### `checkout` mode
 

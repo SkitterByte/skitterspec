@@ -84,7 +84,7 @@ it happens differs (`/spec` writes the spec in Phase B, `/spec-bug` in its step 
 
 - **Stamp `linear_identifier` and `linear_url`** in `00-overview.md` frontmatter
   from the adopted issue. That is the whole link: every later skill
-  (`/spec-push`, `/spec-status`, `/spec-go`) keys off it being present.
+  (`/spec-push`, `/spec-status`, `/spec-start`) keys off it being present.
 - **Do not run the project picker** and never send `project`. The issue was filed
   somewhere deliberately — where it lives is Linear's business, and adoption is
   not a mint.

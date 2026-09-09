@@ -2,7 +2,7 @@
 
 /**
  * Config loader for the one-way Linear sync feature (`/spec-status`, `/spec-push`
- * and the Linear-aware paths of `/spec` and `/spec-go`).
+ * and the Linear-aware paths of `/spec` and `/spec-next`).
  *
  * Reads `specs/.core/linear.config.json` from the project root and normalises it
  * over frozen defaults. The feature is strictly opt-in: when the file is absent

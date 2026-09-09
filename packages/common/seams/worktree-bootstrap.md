@@ -3,7 +3,7 @@ Injected into the worktree-provisioning step of /spec-bug and /spec-hotfix.
 Both carried these two bullets byte-identically apart from one backtick, which
 is exactly the drift that comes of maintaining the same words twice.
 
-NOT shared with /spec-go, deliberately: its provisioning section hands off to a
+NOT shared with /spec-start, deliberately: its provisioning section hands off to a
 new session rather than acting on the worktree, so its wording genuinely differs
 and merging them would flatten a real distinction.
 -->

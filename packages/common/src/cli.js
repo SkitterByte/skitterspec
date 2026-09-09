@@ -305,7 +305,7 @@ function specEnvUp(dir, config, specArg) {
 
   // Trust the shared worktree root so edits into the freshly-provisioned worktree
   // don't prompt. One absolute entry (the root) covers every spec; self-heals on
-  // every provision for teammates who only cloned and ran /spec-go.
+  // every provision for teammates who only cloned and ran /spec-start.
   const worktreeRootAbs = path.dirname(spec.worktreePath)
   const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs)
 
@@ -487,7 +487,7 @@ function compactTimestamp() {
 // when the spec was never provisioned / already torn down. Deliberately does NOT
 // touch the trusted worktree root in .claude/settings.local.json — that entry is
 // the shared parent of every spec's worktree and harmless when empty; removing it
-// would just re-prompt on the next /spec-go (see spec: isolation-trusts-worktree-dir).
+// would just re-prompt on the next /spec-start (see spec: isolation-trusts-worktree-dir).
 function specEnvDown(dir, config, specArg, flags) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
@@ -657,7 +657,7 @@ function liveWorktreePaths(dir) {
  *     bucket disappears the moment it empties.
  *
  * Three outcomes, never two: resolved → that spec; several candidates and no cwd
- * hint → throw, listing them; none → throw, pointing at /spec-go. *Cannot tell*
+ * hint → throw, listing them; none → throw, pointing at /spec-start. *Cannot tell*
  * never becomes a guess.
  *
  * BLIND SPOT: a spec taken live with `/spec-live` has had its branch moved into
@@ -694,7 +694,7 @@ function soleProvisionedSpec(dir, config, cwd = process.cwd()) {
   if (provisioned.length === 0) {
     throw new Error(
       'no spec given, and no spec has a worktree — name one explicitly, or run ' +
-        '/spec-go to provision it.',
+        '/spec-start to provision it.',
     )
   }
   throw new Error(
@@ -922,7 +922,7 @@ function specEnvIntegrate(dir, config, specArg) {
     const liveWtGit = gitReader(spec.worktreePath)
     if (liveWtGit(['symbolic-ref', '--short', 'HEAD']) === null) {
       // Detached worktree HEAD: any commits ahead of the branch ref (e.g. made by a
-      // non-live-aware /spec-go) would be abandoned by the re-isolate `switch` below.
+      // a build that committed in the worktree) would be abandoned by the re-isolate `switch` below.
       const stranded = liveWtGit(['rev-list', '--count', `${spec.branch}..HEAD`])
       const head = liveWtGit(['rev-parse', '--short', 'HEAD'])
       if (stranded !== null && Number(stranded) > 0) {
@@ -1560,7 +1560,7 @@ async function specEnvLiveAbort(dir, config) {
 function specEnvLiveStatus(dir, config, specArg) {
   const { onBase, branch, baseBranch } = assertPrimaryOnMain(config, gitReader(dir))
 
-  // Per-spec query (`live status <spec>`): a clear yes/no verdict the /spec-go
+  // Per-spec query (`live status <spec>`): a clear yes/no verdict /spec-start and
   // skill branches on to decide whether to skip worktree provisioning and work in
   // the primary checkout. The stable `live:      yes|no` line is the machine seam.
   if (specArg) {

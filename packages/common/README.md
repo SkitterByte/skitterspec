@@ -18,7 +18,8 @@ project rules.
 | `/spec` | (Feature) Grill to a shared understanding, then write a groomed spec | `Ready` (or `Draft`) | `specs/backlog/` |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
-| `/spec-go` | Provision the env, bring dev servers up, implement the next phase | `In Progress` | `specs/in-progress/` |
+| `/spec-start` | Put a spec in flight on this checkout, then build phase 1 | `In Progress` | `specs/in-progress/` |
+| `/spec-next` | Build the next phase of the spec in flight (re-run per phase) | `In Progress` (unchanged) | (unchanged) |
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason; tear down | `Cancelled` | `specs/cancelled/` |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag | `In Progress` | `specs/in-progress/` |
@@ -104,7 +105,7 @@ feature is simply unused.
 
 Once adopted it's the **default policy**, not a per-spec chore:
 
-- **Worktree — automatic for every in-progress spec.** `/spec-go` gives each spec
+- **Worktree — automatic for every in-progress spec.** `/spec-start` gives each spec
   its own sibling git worktree on its own branch, so you never stash or rebuild to
   switch specs and `main` stays free for hotfixes. All housekeeping (the
   backlog→in-progress move, header edits, the code) happens on that branch and
@@ -158,7 +159,7 @@ The **repo is the source of truth**; Linear is a **generated mirror**. Sync is
 **one-way**: content is pushed up and never read back or merged. It's **opt-in** —
 everything below is inert until `specs/.core/linear.config.json` exists (copy
 `linear.config.json.example` and fill in your team id; every field is documented
-in `specs/.core/linear.config.md`). Without it, `/spec`, `/spec-go`, and the CLI
+in `specs/.core/linear.config.md`). Without it, `/spec`, `/spec-start`, and the CLI
 behave exactly as before.
 
 **Mapping** (config-driven): a spec → a Linear **issue** (the spec body as its
@@ -199,7 +200,7 @@ there's nothing to reconcile.
 
 **Last-pushed snapshots** (`sync.baseDir`, default `specs/.core/linear-base/`) are
 **committed** content hashes of the last push — each worktree carries its own, so
-push knows what changed without reading Linear back. There is no pull: `/spec-go`
+push knows what changed without reading Linear back. There is no pull: `/spec-next`
 on a linked spec just builds (the repo is already canonical).
 
 ## After install — tailor it

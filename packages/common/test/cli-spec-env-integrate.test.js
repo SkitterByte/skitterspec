@@ -148,7 +148,7 @@ test('integrate aborts on stranded detached-HEAD commits without ending the live
   const { dir, worktree } = scaffoldRepoWithWorktree()
   try {
     await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir]) // primary → feat/x, worktree detached
-    // Simulate a non-live-aware /spec-go committing into the detached worktree —
+    // Simulate a a build that committed in the worktree committing into the detached worktree —
     // the commit lands on the detached HEAD, never advancing the branch ref.
     fs.writeFileSync(path.join(worktree, 'stray.txt'), 'stray\n')
     git(worktree, 'add', '-A')

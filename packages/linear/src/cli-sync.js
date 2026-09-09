@@ -252,7 +252,7 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
 function deferredLines(n) {
   return [
     `  ${n} phase(s) deferred — mapping.phases is "deferred" and this spec has not started`,
-    '     they are created on the push that follows /spec-go',
+    '     they are created on the push that follows /spec-start',
   ]
 }
 
@@ -1327,7 +1327,7 @@ async function specSyncStage(dir, config, stageKey, rangeArg, flags, out) {
  * beats no ref for looking correct). An explicit override cannot be blinded, and
  * needs no answer for mixed staging.
  *
- * The branch→spec direction is the INVERSE of what `/spec-go` provisions with,
+ * The branch→spec direction is the INVERSE of what `/spec-start` provisions with,
  * so it is computed by running `branchFor` over each spec and matching, rather
  * than by re-deriving the pattern here. A second implementation of the naming
  * rule would drift from the one that created the branch.

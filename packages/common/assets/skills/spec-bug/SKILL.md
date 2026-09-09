@@ -37,7 +37,7 @@ place), skip this whole section and fix on the current branch — same as when
 isolation is off. Warn that the fix will land wherever you currently are (usually
 `main`); reserve it for a trivial one-liner or an explicit request.
 
-A bug fix changes real source, so — exactly like `/spec-go` — it belongs on the
+A bug fix changes real source, so — exactly like `/spec-start` — it belongs on the
 bug's **own branch**, never directly on `main`. Provision the worktree **now**,
 before the failing test, so the test, the fix, and the spec all land together and
 arrive as one reviewable PR.
@@ -104,7 +104,7 @@ because work is already underway. Keep it lean:
 # Bug: <short title>
 
 > **Type:** Bug
-> **Name:** bug-<kebab-name> (the spec folder name — the handle you paste into `/spec-go`)
+> **Name:** bug-<kebab-name> (the spec folder name — the handle you paste into `/spec-start`)
 > **Status:** In Progress — fixing (red test added)
 > **Author:** <git user.name — who reported/captured it>
 > **Developer:** <git user.name — you, since you're fixing it now>
@@ -173,12 +173,12 @@ fix narrative and decisions — keep them separate.
 
 If the root cause is large/uncertain and can't be fixed in one pass: keep the red
 test, split the fix into phase files (`01-<slug>.md` …) with a phase index in
-`00-overview.md`, and leave the spec in `in-progress` for `/spec-go` to continue.
+`00-overview.md`, and leave the spec in `in-progress` for `/spec-next` to continue.
 Say so explicitly — don't fake green.
 
 **Then refresh the mirror (only if a provider is installed).** The Fix tasks are
 ticked, so the repo is now the truth about this fix — and this skill can take a
-bug all the way to green without `/spec-go` ever running. Without a provider this
+bug all the way to green without `/spec-next` ever running. Without a provider this
 is a no-op.
 
 <!-- seam:spec-tracker-progress -->

@@ -42,7 +42,7 @@ does — you never create the issue by hand:
    `spec-sync record`. That path is fully supported — it is what anyone without
    an API key uses.
 5. **Echo the branch name** from `branch.pattern` so the user knows what
-   `/spec-go` will fork.
+   `/spec-start` will fork.
 
 **If Linear can't be reached**, say so in one line and leave the spec written and
 local — it is still a perfectly good spec, and `/spec-push` links it later. Do

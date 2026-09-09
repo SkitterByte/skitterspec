@@ -307,7 +307,7 @@ test('registers the env verbs as commands, not skills, and not the retired ones'
   assert.ok(!SKILLS.includes('spec-connect'), 'spec-connect is no longer a skill')
   assert.ok(!SKILLS.includes('spec-live'), 'spec-live is no longer a skill')
   // spec-env / spec-env-down / spec-ready were removed in 3.0.0 — provisioning
-  // folds into /spec-go, teardown into /spec-complete·/spec-cancel, grooming
+  // folds into /spec-start, teardown into /spec-complete·/spec-cancel, grooming
   // into /spec. The `spec-env` CLI engine stays; only the skills are gone.
   assert.ok(!SKILLS.includes('spec-env'), 'spec-env skill removed')
   assert.ok(!SKILLS.includes('spec-env-down'), 'spec-env-down skill removed')

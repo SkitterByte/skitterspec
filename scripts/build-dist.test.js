@@ -93,7 +93,7 @@ test('base build is tracker-free, self-contained, and installs the base skill se
   assert.strictEqual(init.status, 0, `base init failed: ${init.stderr}`)
 
   const installed = listSkills(proj)
-  assert.ok(installed.includes('spec') && installed.includes('spec-go'), 'base skills installed')
+  assert.ok(installed.includes('spec') && installed.includes('spec-start'), 'base skills installed')
   assert.ok(installed.includes('spec-hotfix'), 'base ships /spec-hotfix')
   assert.ok(installed.includes('spec-to-main'), 'base ships /spec-to-main')
   for (const s of ['spec-pull', 'spec-push', 'spec-status']) {
@@ -126,7 +126,7 @@ test('superset build fills the seams, ships sync, and runs the engine self-conta
   assert.strictEqual(init.status, 0, `superset init failed: ${init.stderr}`)
 
   const installed = listSkills(proj)
-  for (const s of ['spec', 'spec-go', 'spec-hotfix', 'spec-to-main', 'spec-push', 'spec-status']) {
+  for (const s of ['spec', 'spec-next', 'spec-hotfix', 'spec-to-main', 'spec-push', 'spec-status']) {
     assert.ok(installed.includes(s), `superset install includes ${s}`)
   }
   assert.ok(!installed.includes('spec-pull'), 'one-way: no /spec-pull')

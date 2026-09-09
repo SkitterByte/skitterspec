@@ -8,7 +8,7 @@ description: Re-validate an existing spec against the current codebase — detec
 Specs rot: the code moves on while a spec sits in the backlog or pauses
 mid-build. This skill re-validates a spec against the **current** code and
 rewrites the stale parts so it's safe to act on. It plans only — it does not
-implement anything (that's `/spec-go`).
+implement anything (that's `/spec-next`).
 
 ## 1. Identify the target spec
 
@@ -87,5 +87,5 @@ resolve it by reading the code, do that instead of asking.
 ## 5. Report
 
 Summarise the drift found, what you changed, any questions still open, and
-whether the spec is now safe to `/spec-go` (or should drop back to `Draft` until
+whether the spec is now safe to `/spec-start` (or should drop back to `Draft` until
 the open questions are resolved). Do **not** `git commit` unless the user asks.

@@ -185,7 +185,7 @@ test('several worktrees refuse and list every candidate', async () => {
   }
 })
 
-test('no worktree at all refuses and points at /spec-go', async () => {
+test('no worktree at all refuses and points at /spec-start', async () => {
   const dir = scaffold()
   try {
     addSpec(dir, 'feat-alpha')
@@ -193,7 +193,7 @@ test('no worktree at all refuses and points at /spec-go', async () => {
       () => runQuiet(['spec-env', 'resolve', '--dir', dir]),
       (err) => {
         assert.match(err.message, /no spec has a worktree/, 'names the real cause')
-        assert.match(err.message, /spec-go/, 'points at the fix')
+        assert.match(err.message, /spec-start/, 'points at the fix')
         return true
       },
     )

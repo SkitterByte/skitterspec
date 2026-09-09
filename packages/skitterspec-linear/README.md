@@ -72,7 +72,7 @@ them. Your `specs/` content and live `.core` config are never touched.
 
 ## What the superset adds
 
-On top of the base skills (`/spec`, `/spec-go`, isolation, …):
+On top of the base skills (`/spec`, `/spec-start`, `/spec-next`, isolation, …):
 
 - **`/spec-status`** — read-only drift report: what the next push would create /
   update, any workflow-state drift, and any phase whose status signals disagree
@@ -108,7 +108,7 @@ On top of the base skills (`/spec`, `/spec-go`, isolation, …):
 Linear steps filled in, so the mirror keeps up without anyone remembering to
 push: `/spec`, `/spec-bug` and `/spec-hotfix` link the spec they create (asking
 which **Project** it belongs to, and minting a sub-issue per phase);
-`/spec-go` refreshes it as work starts; `/spec-complete`, `/spec-cancel` and
+`/spec-next` refreshes it as work starts; `/spec-complete`, `/spec-cancel` and
 `/spec-review` refresh it after they change it. All three creating skills can
 also start **from** an existing issue — `/spec SKI-123`,
 `/spec-hotfix v33.16.4 SKI-123`, or `--from-issue` to browse the ones your web
@@ -155,7 +155,7 @@ whole repo *or* one per lifecycle bucket:
   so agents can be assigned one each.
 - `"deferred"` — unlinked phases wait until the work starts. A spec sitting in
   `specs/backlog/` mirrors as **the issue alone**, keeping its phase list in the
-  description; the sub-issues arrive with the push that follows `/spec-go`. Worth
+  description; the sub-issues arrive with the push that follows `/spec-start`. Worth
   it when adopting sync on a backlog of dozens of specs, where the default
   front-loads hundreds of calls for work nobody has started.
 - `"inline"` — phases become **sections of the spec issue's own description**,

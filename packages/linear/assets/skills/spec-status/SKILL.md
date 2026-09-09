@@ -77,4 +77,4 @@ given spec got is stated. Under **`inline`** the phases live in the spec issue's
 description rather than as sub-issues, so "0 to create" is the expected shape
 rather than a sign the phase files failed to parse; under **`deferred`** the
 `N phase(s) deferred` line above it says how many are still waiting on
-`/spec-go`. Relay both lines as printed.
+`/spec-next`. Relay both lines as printed.

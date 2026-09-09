@@ -94,7 +94,7 @@ const DEFAULT_CONFIG = Object.freeze({
   baseBranch: '',
   guards: Object.freeze({ refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true }),
   // Teardown cleanup beyond this machine. `deleteRemoteBranch` decides what
-  // `spec-env down` does about the branch `/spec-go` pushed: "prompt" (default)
+  // `spec-env down` does about the branch `/spec-start` pushed: "prompt" (default)
   // plans the delete in its own confirm-first section for the skill to ask about,
   // "never" omits it, "always" folds it into the run-blind command list. Only ever
   // planned for a LANDED branch — see teardown.js.

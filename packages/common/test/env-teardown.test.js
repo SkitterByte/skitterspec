@@ -53,7 +53,7 @@ test('a branch merged into base tears down without --force, and force-deletes', 
   // unpushed but already landed on base → nothing to lose, guard passes.
   //
   // `-D`, not `-d`: this is the exact shape /spec-complete leaves behind, and
-  // `-d` refuses it. /spec-go pushed the branch at provision time and the phase
+  // `-d` refuses it. /spec-start pushed the branch at provision time and the phase
   // commits after it were landed rather than pushed, so `origin/feat/thing` is
   // behind — and `-d` declines a branch ahead of its upstream even when every
   // commit of it is already on `main`.
@@ -216,7 +216,7 @@ test('a spec with no branch → no branch-delete command', () => {
 
 // --- the remote branch ------------------------------------------------------
 //
-// `/spec-go` pushes the branch at provision time, so without this a completed
+// `/spec-start` pushes the branch at provision time, so without this a completed
 // spec leaves a merged branch on the remote forever. The delete is planned into
 // `remoteCommands`, NEVER `commands`: a caller running `plan.commands` blind must
 // not reach a shared remote.

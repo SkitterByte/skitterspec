@@ -90,7 +90,7 @@ issue-state NAME via `config.states` at apply time.
 
 A **`phasesDeferred`** field means `mapping.phases` is `"deferred"` and this spec
 has not started, so its phases are deliberately absent from the plan — the issue
-pushes alone and the sub-issues are minted by the push that follows `/spec-go`.
+pushes alone and the sub-issues are minted by the push that follows `/spec-start`.
 Relay the count; it is not a sign the phase files failed to parse. Nothing else
 about applying the plan changes.
 

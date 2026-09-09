@@ -105,7 +105,7 @@ function planDown(spec, config, flags, ctx) {
   // different question from ours: it also declines a branch that is ahead of its
   // upstream ref, reporting `not yet merged to refs/remotes/origin/<branch>,
   // even though it is merged to HEAD`. That fires on the ordinary spec flow —
-  // `/spec-go` pushes the branch when it provisions, and the phase commits after
+  // `/spec-start` pushes the branch when it provisions, and the phase commits after
   // it are landed locally rather than pushed — so teardown meets a branch whose
   // every commit is on `main` and `-d` refuses it. `merged` (HEAD is an ancestor
   // of base) already establishes what we actually care about, and establishes it
@@ -122,7 +122,7 @@ function planDown(spec, config, flags, ctx) {
 
   // --- delete the branch on the remote (planned, never run here) ---
   //
-  // `/spec-go` pushes the branch at provision time, so a completed spec otherwise
+  // `/spec-start` pushes the branch at provision time, so a completed spec otherwise
   // leaves a merged branch on the remote forever. Cleaning that up is the goal;
   // doing it safely is the constraint.
   //

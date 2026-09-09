@@ -168,7 +168,7 @@ field:
 
 Everything else (state names, field ownership) has sensible defaults — see
 `linear.config.md` to customise. The moment this file exists, the Linear steps in
-`/spec` and `/spec-go` and the three sync skills switch on.
+`/spec` and `/spec-start` and the three sync skills switch on.
 
 > Editing by hand skips the state-name check described above. If you go this
 > route and your workspace renamed any state, `/spec-push` catches it at your

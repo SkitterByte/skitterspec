@@ -106,7 +106,7 @@ test('skills are links, so an edited asset is live', () => {
 // It went unnoticed because the primary checkout had a STALE pnpm shim left over
 // from an install months earlier, when the dependency graph was different. pnpm
 // does not prune those, so the command worked here and nowhere else — including in
-// every freshly provisioned worktree, which is exactly where /spec-go tells you to
+// every freshly provisioned worktree, which is exactly where /spec-start tells you to
 // go and work. The bug surfaced the first time anyone ran /spec-live from one.
 test('every binary the .claude commands invoke is declared by a dependency', () => {
   const dir = path.join(CLAUDE, 'commands')

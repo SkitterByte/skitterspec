@@ -1,5 +1,41 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v16 → v17 (`/spec-go` splits in two)
+
+### Breaking change
+
+**`/spec-go` is removed.** It did two jobs — set an environment up, and build a
+phase — and the seam between them is where the worktree hand-off hurt: you ran
+the same command twice, once to provision and once, from another session, to
+build. They are now two commands with one job each:
+
+| Removed | Use instead |
+|---------|-------------|
+| `/spec-go <name>` (first run — start a spec) | **`/spec-start <name>`** — puts the spec in flight on this checkout, moves it to `in-progress`, then builds phase 1. |
+| `/spec-go` (later runs — build the next phase) | **`/spec-next`** — builds the next phase of whichever spec is in flight. Re-run it per phase. |
+| `/spec-go --here` | **Nothing — `/spec-start` *is* here.** It puts the branch in the checkout you are in, which is what the flag was reaching for. |
+
+**One checkout holds one spec in flight.** `/spec-start` refuses while another
+spec holds your checkout, naming it and the three ways to free the workbench
+(`/spec-complete`, `/spec-cancel`, or `/spec-live main` to park it). It will not
+stash, commit or switch on your behalf — moving unfinished work is a decision,
+not a side effect.
+
+**`/spec-next` refuses when nothing is in flight** rather than guessing a spec
+from the conversation. It writes real code; a wrong guess produces commits on a
+branch nobody asked for.
+
+### What to do
+
+1. **Upgrade** — `npx @skitterbyte/skitterspec update` removes the retired
+   `/spec-go` skill and installs the two replacements. A `/spec-go` you edited
+   yourself is kept with a warning rather than deleted; remove it by hand.
+2. **Retrain the muscle memory** — `/spec-start <name>` to begin, `/spec-next` to
+   carry on, unchanged `/spec-complete` to finish.
+3. **Providers**: the `spec-go-start` seam is now **`spec-next-start`**. A
+   provider distribution must rename its fragment file to match, or the build
+   fails on an orphaned seam.
+
 ## `@skitterbyte/skitterspec-linear` v9 → v10 (`push` validates your issue states)
 
 **`spec-sync push` now refuses to run until the configured `states` names have

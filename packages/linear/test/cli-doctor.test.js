@@ -35,7 +35,7 @@ function scaffoldedRepo() {
   // a scaffolded repo has it — and unlike an empty bucket, git keeps it.
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(path.join(dir, 'specs', '.core', '.skitterspec-manifest.json'), '{}', 'utf-8')
-  for (const s of ['spec', 'spec-go', 'spec-complete']) {
+  for (const s of ['spec', 'spec-start', 'spec-complete']) {
     fs.mkdirSync(path.join(dir, '.claude', 'skills', s), { recursive: true })
     fs.writeFileSync(path.join(dir, '.claude', 'skills', s, 'SKILL.md'), `---\nname: ${s}\n---\n`, 'utf-8')
   }

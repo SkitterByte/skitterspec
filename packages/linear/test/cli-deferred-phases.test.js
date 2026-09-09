@@ -57,7 +57,7 @@ test('push reports the deferral instead of silently omitting the sub-issues', as
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /2 phase\(s\) deferred/, 'says how many and why')
   assert.match(r.out, /has not started/)
-  assert.match(r.out, /\/spec-go/, 'says when they arrive')
+  assert.match(r.out, /\/spec-start/, 'says when they arrive')
   assert.match(r.out, /issue: description\/state/, 'the spec issue still pushes')
   assert.ok(!/sub-issues create/.test(r.out), 'and no sub-issue is planned')
 })

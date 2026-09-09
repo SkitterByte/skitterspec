@@ -6,10 +6,10 @@ description: Create a new spec-driven-development spec. Grills the user to a cle
 # /spec — author a new spec
 
 Produce ONE concise spec in `specs/backlog/`. Do not start coding — this skill
-plans only. Implementation happens later via `/spec-go`.
+plans only. Implementation happens later via `/spec-start`.
 
 Lifecycle (the governing skills) — status in parentheses:
-`/spec` (writes **Ready** when fully groomed, else Draft; backlog) → `/spec-go`
+`/spec` (writes **Ready** when fully groomed, else Draft; backlog) → `/spec-start`
 (In Progress, in-progress; implement phase 1) → `/spec-complete` (Complete) /
 `/spec-cancel` (Cancelled). See `.claude/rules/spec-planning.md`. (There is no
 separate grooming command — `/spec` grills to a Ready spec directly.)
@@ -47,7 +47,7 @@ not write the spec until this is resolved.
      this spec touch the DB / stateful services (so its worktree needs a Docker
      stack), or is a plain worktree enough? Default `worktree`; escalate to
      `worktree + docker` only when it must. This sets the `> **Stack:**` header
-     that `/spec-go` acts on (it can be escalated later). Skip when isolation
+     that `/spec-start` acts on (it can be escalated later). Skip when isolation
      isn't enabled — leave the default `worktree`.
   10. **Open questions** — anything still undecided.
 
@@ -100,7 +100,7 @@ the codebase, link rather than duplicate):
 # <Feature title>
 
 > **Type:** Feature
-> **Name:** feat-<kebab-name> (the spec folder name — the handle you paste into `/spec-go`)
+> **Name:** feat-<kebab-name> (the spec folder name — the handle you paste into `/spec-start`)
 > **Status:** Ready — not started
 > **Author:** <git user.name — `git config user.name`>
 > **Developer:** —
@@ -188,7 +188,7 @@ Keep the `00-overview.md` phase index and the phase files in sync: the index row
 is the one-line summary + status; the phase file is the detail.
 
 The **State log** is the audit trail of folder/status transitions — every
-lifecycle skill (`/spec-go`, `/spec-complete`, `/spec-cancel`) appends one row
+lifecycle skill (`/spec-start`, `/spec-complete`, `/spec-cancel`) appends one row
 when it moves the spec. The **Changelog** is for decisions and course-corrections
 only — keep the two separate.
 
@@ -220,14 +220,14 @@ Rules for the spec body:
 After writing, tell the user the path and that it's **`Ready`** in `backlog`
 (grilling in Phase A resolved the open questions). If you deliberately left open
 questions unresolved, write `Draft` instead and say what still needs deciding.
-Either way, the next step is `/spec-go` to start building.
+Either way, the next step is `/spec-start` to start building.
 
 ## Phase D — record the isolation stack (only if configured)
 
 **Only when `specs/.core/env.config.json` exists** (per-spec isolation is
 enabled), make sure the `> **Stack:**` header reflects the Phase A item 9
 decision — `worktree` (default) or `worktree + docker` when it touches the DB /
-stateful services. Nothing to provision now: `/spec-go` gives every in-progress
+stateful services. Nothing to provision now: `/spec-start` gives every in-progress
 spec its own worktree automatically, and brings up Docker only when the Stack
 says so. Mention the operator can escalate the Stack later (edit the header, or
 run `skitterspec spec-env up <name>` to add Docker to an existing worktree). If
