@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-97/spec-start-commits-the-
 
 > **Type:** Feature
 > **Name:** feat-spec-start-seamless (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-09)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
 > **Area:** packages/common/src/env/{provision.js,resolve.js,config.js}, packages/common/src/cli.js, packages/common/assets/skills/spec-start/SKILL.md, packages/common/assets/core/env.config.*, packages/common/test
 > **Stack:** worktree
@@ -210,6 +210,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
+| 2026-09-09 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
