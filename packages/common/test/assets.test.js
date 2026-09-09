@@ -704,3 +704,43 @@ test('/spec-start needs no branch swap in checkout mode', () => {
   assert.match(checkout, /no live step/i, 'says the swap is unnecessary')
   assert.match(checkout, /already the workbench/i, 'explains why')
 })
+
+// --- tearing down the tree you are standing in -------------------------------
+//
+// Measured, not assumed: `git worktree remove` does NOT refuse the worktree the
+// shell is inside. It SUCCEEDS, the directory vanishes underneath, `pwd` keeps
+// reporting the dead path, and every command after it fails with
+// `fatal: Unable to read current working directory`. So the teardown looks fine
+// and everything following it breaks — the report, the prune, any verification.
+//
+// That makes relocate-FIRST the only safe ordering, and the ordering is the
+// thing worth pinning: a future edit that moves the relocation after the
+// teardown restores the bug while leaving both sentences present.
+const TEARDOWN_SKILLS = ['spec-complete', 'spec-cancel']
+
+test('teardown tells you to leave the worktree before removing it', () => {
+  for (const name of TEARDOWN_SKILLS) {
+    const flat = skillText(name).replace(/\s+/g, ' ')
+    assert.match(flat, /Leave it before you tear it down/i, `${name} names the rule`)
+    assert.match(flat, /Unable to read current working directory/i, `${name} names the real failure`)
+  }
+})
+
+test('teardown does not claim git refuses — it says the opposite', () => {
+  // The wrong reason would send the next reader hunting a refusal that never
+  // comes, and invite "just force it" as the fix.
+  for (const name of TEARDOWN_SKILLS) {
+    const flat = skillText(name).replace(/\s+/g, ' ')
+    assert.match(flat, /Not because git refuses — it does not/i, `${name} corrects the intuition`)
+  }
+})
+
+test('the relocation is ordered before the teardown command, in both skills', () => {
+  for (const name of TEARDOWN_SKILLS) {
+    const text = skillText(name)
+    const relocate = text.indexOf('Leave it before you tear it down')
+    const teardown = text.indexOf('spec-env down <name>', relocate)
+    assert.ok(relocate !== -1, `${name} carries the rule`)
+    assert.ok(teardown > relocate, `${name} relocates BEFORE the removal`)
+  }
+})

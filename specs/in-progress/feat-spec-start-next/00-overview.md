@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-86/spec-start-spec-next-th
 
 > **Type:** Feature
 > **Name:** feat-spec-start-next (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 5 (started 2026-09-08)
+> **Status:** In Progress — all five phases done, ready for /spec-complete
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-08
@@ -106,7 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Build /spec-start | ✅ | [02-spec-start.md](02-spec-start.md) |
 | 3 | Engine glue | ✅ | [03-engine-glue.md](03-engine-glue.md) |
 | 4 | Retire /spec-go | ✅ | [04-retire-spec-go.md](04-retire-spec-go.md) |
-| 5 | Complete from a worktree session | ⬜ | [05-complete-from-worktree.md](05-complete-from-worktree.md) |
+| 5 | Complete from a worktree session | ✅ | [05-complete-from-worktree.md](05-complete-from-worktree.md) |
 
 ## Open questions
 
@@ -191,3 +191,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   again, the same mistake as the earlier spec. Both now normalise whitespace
   before matching; where prose happens to wrap is not a fact worth failing a
   build over.
+- 2026-09-09 — Phase 5: **the premise was wrong and measuring caught it.** git
+  does not refuse to remove the worktree you are standing in — it succeeds, and
+  the session is then stranded on a deleted cwd where every later command dies
+  with `fatal: Unable to read current working directory`. The fix is to relocate
+  before tearing down, not to anchor the command; both skills now say so, name
+  the real failure, and explicitly correct the refuses-intuition so nobody
+  reaches for `--force`.

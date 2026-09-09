@@ -171,6 +171,18 @@ worktree and branch are being kept, and go straight to sub-step 4. Mention
    canonical ports go back to the primary checkout.
 2. **Stop its host dev servers:** `skitterspec spec-env dev down <name>` (a
    no-op when none are running / configured).
+**Standing in the worktree? Leave it before you tear it down.** If this
+session's cwd is inside the spec's own worktree, `cd` to the primary checkout
+**first**, then run the teardown commands.
+
+Not because git refuses — it does not. `git worktree remove` **succeeds** on the
+tree you are standing in, and that is the problem: the directory vanishes under
+the shell, `pwd` keeps reporting the path that no longer exists, and every
+command after it dies with `fatal: Unable to read current working directory`.
+The teardown looks fine and everything following it breaks — the report, the
+prune, any check you meant to run. Relocating first costs nothing and is the
+only ordering that survives.
+
 3. **Remove worktree + stack + slot:** run `skitterspec spec-env down <name>`
    and execute the commands it prints, in order. After a landing — merged into
    base for a **feature/bug**, captured by the deploy tag for a **hotfix** —
@@ -200,6 +212,12 @@ worktree and branch are being kept, and go straight to sub-step 4. Mention
    Non-fatal: if prune can't run (Docker down) or the user declines, report it and
    finish completing anyway — never block the spec on it. Skip when Docker isn't
    in use (the command self-reports "no orphaned volumes").
+
+**Report from where you now are.** After a teardown you relocated for, the
+worktree path in the report is a directory that no longer exists and the landed
+work is on the base branch in the primary checkout — say both, so nobody goes
+looking for a tree that is gone. A session that was a worktree tab has finished
+its job at that point; its shell is the operator's own to close.
 
 **Say what you reclaimed.** With no confirmation step the user never saw this
 coming, so the final report must name the worktree path removed and the branch

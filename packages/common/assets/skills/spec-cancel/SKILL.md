@@ -78,6 +78,18 @@ directly (the old `/spec-env-down` skill is gone — teardown is folded in here)
 1. If `.spec-env/connected` names this spec, run `skitterspec spec-env connect
    main` first to free the canonical ports.
 2. `skitterspec spec-env dev down <name>` — stop its host dev servers.
+**Standing in the worktree? Leave it before you tear it down.** If this
+session's cwd is inside the spec's own worktree, `cd` to the primary checkout
+**first**, then run the teardown commands.
+
+Not because git refuses — it does not. `git worktree remove` **succeeds** on the
+tree you are standing in, and that is the problem: the directory vanishes under
+the shell, `pwd` keeps reporting the path that no longer exists, and every
+command after it dies with `fatal: Unable to read current working directory`.
+The teardown looks fine and everything following it breaks — the report, the
+prune, any check you meant to run. Relocating first costs nothing and is the
+only ordering that survives.
+
 3. `skitterspec spec-env down <name>` — then execute the printed commands to
    remove the worktree/stack and free the slot. It respects the teardown guards
    (won't destroy a dirty/unpushed worktree without `--force`).
