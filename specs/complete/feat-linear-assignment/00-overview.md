@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-linear-assignment (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 5 (started 2026-09-09)
+> **Status:** Complete (2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -166,10 +166,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
 | 2026-09-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-09 — Spec created.
+- 2026-09-09 — Completed; all five phases done, 1614 tests green. Both directions
+  were verified against the live Linear API rather than fakes alone: assigning on
+  a live spec, and the clear that `/spec-complete` depends on. Nothing deferred.
+  One item left open for review, recorded below: whether `Developer:` should
+  really prefer the Linear display name over `git config user.name`.
 - 2026-09-09 — Phase 1: the `docs/linear.html` command-table rows for `whoami`
   and `users` landed here rather than in phase 5. `scripts/docs-claims.test.js`
   asserts every dispatched verb is documented, so a phase adding a verb cannot
