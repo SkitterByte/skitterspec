@@ -755,3 +755,25 @@ test('the relocation is ordered before the teardown command, in both skills', ()
     assert.ok(teardown > relocate, `${name} relocates BEFORE the removal`)
   }
 })
+
+// --- the stub move: gone for /spec-bug, required for /spec-hotfix ------------
+//
+// These two look inconsistent and are not, so the difference is asserted rather
+// than left to be "tidied". A bug's worktree forks from `main`, so committing the
+// stub puts it there; a hotfix's forks from a release TAG, which a commit on
+// `main` never reaches. Deleting the move from the hotfix would provision a
+// worktree with no spec in it.
+
+test('/spec-bug no longer moves its stub — the gate commits it', () => {
+  const flat = skillText('spec-bug').replace(/\s+/g, ' ')
+  assert.doesNotMatch(flat, /mv specs\/in-progress\/bug-/, 'no manual move')
+  assert.doesNotMatch(flat, /mkdir -p <worktreePath>/, 'no bucket-creation hazard left')
+  assert.match(flat, /commits the stub first/i, 'says what replaced it')
+})
+
+test('/spec-hotfix keeps the move, and says why it differs', () => {
+  const flat = skillText('spec-hotfix').replace(/\s+/g, ' ')
+  assert.match(flat, /mv specs\/in-progress\/hotfix-/, 'the move survives')
+  assert.match(flat, /checked out at the tag/i, 'names the reason')
+  assert.match(flat, /differs from `\/spec-bug`/i, 'points at the sibling it differs from')
+})

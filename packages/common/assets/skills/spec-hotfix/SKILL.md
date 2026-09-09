@@ -63,9 +63,12 @@ that header — must exist **before** `spec-env up`:
   -b hotfix/<slug> <tag>` command (the branch forks from **the tag**, not
   `main`), the worktree path, the opener, and any `in the worktree, run:`
   bootstrap steps.
-- Run the printed `git worktree add`. **The worktree is checked out at the tag,
-  so your uncommitted stub doesn't travel with it** — move it across so `main`
-  stays pristine. **Create the destination bucket first:**
+- Run the printed `git worktree add`, then **move the stub across yourself.**
+  This is where a hotfix differs from `/spec-bug`, which no longer needs the move:
+  that skill's worktree forks from `main`, so committing the stub puts it there,
+  while **this worktree is checked out at the tag** — a commit on `main` is not in
+  it and never will be. The move is not redundant here; keep it.
+  **Create the destination bucket first:**
 
   ```
   mkdir -p <worktreePath>/specs/in-progress

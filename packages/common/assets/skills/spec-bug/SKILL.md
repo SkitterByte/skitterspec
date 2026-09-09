@@ -51,24 +51,12 @@ provision from — you'll flesh it out in §4:
 - Run `skitterspec spec-env up bug-<name>` (the `spec-env` CLI engine). It prints
   the `git worktree add … -b bug/<name>` command (a branch forked from `main`),
   the worktree path, the opener, and any `in the worktree, run:` bootstrap steps.
-- Run the printed `git worktree add`. **The worktree forks from `main`'s last
-  commit, so your uncommitted stub doesn't travel with it** — move it across so
-  `main` is left pristine. **Create the destination bucket first:**
-
-  ```
-  mkdir -p <worktreePath>/specs/in-progress
-  mv specs/in-progress/bug-<name> <worktreePath>/specs/in-progress/
-  ```
-
-  The `mkdir -p` is not belt-and-braces. Git does not store empty directories,
-  so `specs/in-progress/` is **absent** from a fresh worktree whenever that
-  bucket happens to be empty on `main` — the common case, since it empties every
-  time the last in-progress spec completes. `mv` into a missing destination
-  renames your spec folder **to** `specs/in-progress`, silently: the spec's files
-  end up one level too high, `00-overview.md` sits where the bucket should be,
-  and every later step still appears to work until something cannot find the
-  spec. Confirm the result before carrying on — you want
-  `<worktreePath>/specs/in-progress/bug-<name>/00-overview.md`.
+- Run the printed commands in order. The plan **commits the stub first** — the
+  worktree forks from `main`'s last commit, so the stub has to be in it — and
+  then adds the worktree. Nothing to move afterwards: the spec is already there.
+  The commit is planned, not silent; it appears in the printed plan above the
+  `git worktree add`, and `spec-env up` refuses outright if anything *other* than
+  this spec is uncommitted.
 <!-- seam:worktree-bootstrap -->
 - **Do everything below in the worktree**, on the branch — the red test, the fix,
   and the rest of the spec. Act on the worktree with absolute paths /
