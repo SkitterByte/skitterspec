@@ -242,6 +242,7 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
     if (p.subIssues.update.length) lines.push(`  sub-issues update: ${p.subIssues.update.map((s) => s.id).join(', ')}`)
     lines.push('  (run with --json for the full plan the skill applies)')
   }
+  lines.push(...unstampedLines(p))
   out.write(lines.join('\n') + '\n')
   return 0
 }
@@ -249,6 +250,24 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
 // `mapping.phases: 'deferred'` is holding phases back. Said plainly wherever a
 // plan or a status report is printed, because the alternative reading of a spec
 // with no sub-issues is that its phase files failed to parse.
+// Phases whose stamp is missing while the snapshot still remembers an id nobody
+// claims. Reported OUTSIDE the empty-plan branch on purpose: a plan carrying
+// nothing but these is "empty" for applying, and saying `up to date` about it
+// would hide the one thing the operator has to act on.
+function unstampedLines(plan) {
+  const u = (plan && plan.unstamped) || []
+  if (!u.length) return []
+  const lines = [
+    `  unstamped: ${u.length} phase(s) have no linear_issue_id, and ${
+      u[0].candidates.length
+    } sub-issue(s) from the last push are unclaimed —`,
+    '    not creating, since a lost stamp and a new phase look identical from here.',
+  ]
+  for (const item of u) lines.push(`    ${item.ref} — could be: ${item.candidates.join(', ')}`)
+  lines.push('    re-stamp the phase file (linear_issue_id) and push again.')
+  return lines
+}
+
 function deferredLines(n) {
   return [
     `  ${n} phase(s) deferred — mapping.phases is "deferred" and this spec has not started`,
@@ -483,6 +502,7 @@ function specSyncStatus(dir, config, specArg, flags, out) {
     const u = plan.subIssues.update.length
     lines.push(`  push: pending — ${n} to create, ${u} to update${plan.issue ? ', issue changed' : ''}`)
   }
+  lines.push(...unstampedLines(plan))
 
   if (flags.remote && fs.existsSync(flags.remote)) {
     const remote = JSON.parse(fs.readFileSync(flags.remote, 'utf-8'))

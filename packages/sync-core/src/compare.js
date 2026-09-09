@@ -94,7 +94,9 @@ function snapshotOf(projection) {
 /**
  * Diff the local projection against the last-pushed snapshot.
  * @returns {{ issue?: object, subIssues: {create,update} }}
- *   create items carry a `ref` (local handle) and no id; update items carry both
+ *   `unstamped` (when present) lists phases whose stamp is missing while the
+ *   snapshot still remembers an unminted-for id — ambiguous, so neither created
+ *   nor updated. create items carry a `ref` (local handle) and no id; update items carry both
  *   — the `ref` because the read-back check matches sub-issues to phases BY ref,
  *   and an update with only an id makes every one of them look unmatched.
  *   `plan.issue` (when present) is the spec issue's description + state; the push
@@ -105,16 +107,37 @@ function planChanges(projection, snapshot) {
   const snap = snapshot || {}
   const snapS = snap.subIssues || {}
 
+  // Ids the last push minted that no phase claims any more. A phase file's stamp
+  // is the only link back to its sub-issue, and it lives in frontmatter — so a
+  // whole-file rewrite, a hand edit or a bad merge drops it while the sub-issue
+  // carries on existing. This snapshot is the only memory that it was ever
+  // minted, and nothing else in the push path re-reads the tracker.
+  const claimed = new Set()
+  for (const s of p.subIssues || []) if (s.id != null) claimed.add(String(s.id))
+  const unclaimed = Object.keys(snapS).filter((id) => !claimed.has(id))
+
   const subIssues = { create: [], update: [] }
+  const unstamped = []
   for (const s of p.subIssues || []) {
     if (s.id == null) {
-      subIssues.create.push({ ref: s.ref, name: s.name, goal: s.goal, state: s.state })
+      // THREE STATES, NOT TWO. "No stamp" means "new phase" only when every id
+      // the snapshot remembers is still claimed. With an unclaimed id sitting
+      // beside an unstamped phase the two readings — a new phase, and a phase
+      // whose stamp was lost — are indistinguishable from here, so this routes to
+      // the harmless branch and mints nothing. Being wrong this way costs a
+      // re-stamp; the other way cost a duplicate sub-issue and a manual cancel.
+      if (unclaimed.length) {
+        unstamped.push({ ref: s.ref, name: s.name, candidates: unclaimed.slice() })
+      } else {
+        subIssues.create.push({ ref: s.ref, name: s.name, goal: s.goal, state: s.state })
+      }
     } else if (snapS[String(s.id)] !== subIssueHash(s)) {
       subIssues.update.push({ ref: s.ref, id: s.id, name: s.name, goal: s.goal, state: s.state })
     }
   }
 
   const plan = { subIssues }
+  if (unstamped.length) plan.unstamped = unstamped
   const issue = issueChanges(p, snap)
   if (issue) plan.issue = issue
   return plan
