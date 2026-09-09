@@ -20,12 +20,19 @@ const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
 
 // Find the spec folder under specs/<bucket>/<name>. `specArg` may be a bare
 // folder name or a path — only its basename is matched against the buckets.
-// Searches `dir` first, then any `extraDirs` in order — so a caller (e.g.
-// `spec-env integrate`) can fall back to a worktree checkout for a spec that
-// was authored on its branch and never committed to the primary checkout.
-function findSpecFolder(specArg, dir, extraDirs = []) {
+//
+// Search order is `preferDirs`, then `dir`, then `extraDirs`:
+//   - `preferDirs` is the checkout the CALLER is standing in. A spec's bucket
+//     and its `Stack:` / `Base version:` headers are properties of the branch,
+//     not of the repo — `/spec-start` moves a spec to `in-progress` on the
+//     spec's own branch, so the primary checkout keeps showing `backlog`.
+//   - `dir` is the primary checkout, and stays the fallback (and the sole
+//     source of repo identity — see `resolveSpec`).
+//   - `extraDirs` lets a caller (e.g. `spec-env integrate`) reach a spec that
+//     was authored on a branch and never committed to the primary checkout.
+function findSpecFolder(specArg, dir, extraDirs = [], preferDirs = []) {
   const name = path.basename(specArg)
-  for (const root of [dir, ...extraDirs]) {
+  for (const root of [...preferDirs, dir, ...extraDirs]) {
     for (const bucket of BUCKETS) {
       const abs = path.join(root, 'specs', bucket, name)
       if (fs.existsSync(abs) && fs.statSync(abs).isDirectory()) {
@@ -212,18 +219,28 @@ function assertPrimaryOnMain(config, git) {
  * Resolve a spec argument to its identity + isolation coordinates.
  * Throws a clear Error when the spec folder can't be found.
  *
+ * `opts.preferDirs` are checkout roots searched BEFORE `dir` — the checkout the
+ * caller is standing in, so the spec's bucket and headers come from the branch
+ * they are on rather than from the base branch's stale copy.
  * `opts.searchDirs` adds fallback checkout roots to look under (after `dir`) when
- * locating the spec folder; identity/coordinate tokens still expand against `dir`
- * (the primary checkout), so a worktree-only spec resolves to the right base.
+ * locating the spec folder.
+ *
+ * **Identity/coordinate tokens still expand against `dir`** (the primary
+ * checkout) in every case — `{repo}`, the worktree path, the docker project name
+ * and the registry are repo-level facts that must be identical from anywhere.
+ * That is `bug-spec-env-cwd-anchor`'s fix and it is deliberately untouched here;
+ * only which *file* is read moves.
  */
 function resolveSpec(specArg, dir, config, opts = {}) {
   const searchDirs = opts.searchDirs || []
-  const found = findSpecFolder(specArg, dir, searchDirs)
+  const preferDirs = opts.preferDirs || []
+  const found = findSpecFolder(specArg, dir, searchDirs, preferDirs)
   if (!found) {
     // Name the roots we looked under: the usual cause is a spec that only exists
     // on its own branch, and the message should say where we didn't find it.
     throw new Error(
-      `spec not found under specs/**: ${specArg} (searched: ${[dir, ...searchDirs].join(', ')})`,
+      `spec not found under specs/**: ${specArg} ` +
+        `(searched: ${[...preferDirs, dir, ...searchDirs].join(', ')})`,
     )
   }
 

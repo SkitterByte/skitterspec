@@ -925,7 +925,20 @@ function resolveSpecWithWorktree(dir, config, specArg) {
   const searchDirs = [...new Set([worktreeGuess, ...liveWorktreePaths(dir)])].filter(
     (p) => p !== dir,
   )
-  return resolveSpec(specArg, dir, config, { searchDirs })
+  // This spec's OWN worktree is preferred over the primary checkout, not merely a
+  // fallback to it. `/spec-start` moves a spec to `in-progress` on the spec's own
+  // branch, so the primary checkout goes on reporting `backlog` for the whole
+  // life of the spec — and the same stale file supplies `Stack:` and
+  // `Base version:`, so escalating a spec to docker by editing its header in the
+  // worktree was invisible to `spec-env up`.
+  //
+  // WHAT WOULD FOOL THIS: only this spec's own worktree is promoted, never the
+  // other entries in `searchDirs`. Those are other specs' checkouts, and letting
+  // one of them answer for this spec would swap one wrong branch's view for
+  // another's. A worktree left behind by a declined teardown can still answer
+  // with a stale bucket — that is a leftover to prune, not a lookup to distrust.
+  const preferDirs = worktreeGuess === dir ? [] : [worktreeGuess]
+  return resolveSpec(specArg, dir, config, { searchDirs, preferDirs })
 }
 
 // Every spec folder name found under specs/* across the given checkout roots.
