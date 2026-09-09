@@ -32,9 +32,13 @@ is opened there, and the live overlay is not involved at any point.
 - [ ] Re-check the wording the gate prints: the three ways out
       (`/spec-complete` · `/spec-cancel` · `/spec-live main`) are a one-workbench
       answer, and in `worktree` mode a dirty tree now has a different fix.
-- [ ] Confirm `/spec-next` resolves a spec from the worktree it is run in — it
-      already claims to ("by receipt, worktree or branch", `e94edb2`) — and add a
-      test if that path is untested, since it becomes the primary route.
+- [ ] Confirm `/spec-next` resolves a spec from the worktree it is run in, and add
+      a test if that path is untested — it becomes the primary route. Do **not**
+      teach it to target a worktree from the primary checkout: that refusal is
+      deliberate, and decision 13 accepts the hand-off instead.
+- [ ] Say plainly in the skill that in `worktree` mode `/spec-start` ends at the
+      opened session, and phase 1 is built there — only `checkout` mode carries
+      straight on. Step 6 currently promises the latter for both.
 - [ ] Confirm `/spec-live` keeps `disable-model-invocation: true` and that no
       lifecycle skill invokes it or the `spec-env live` verbs. It is a testing tool;
       this phase is what gives it back its single job.

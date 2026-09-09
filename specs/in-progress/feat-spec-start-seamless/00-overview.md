@@ -109,7 +109,16 @@ to distinguish.
 12. **Housekeeping runs in the worktree, before the hand-off.** Bucket move, header,
    State log and commit via `git -C <worktreePath>`, so no path can end with a
    provisioned worktree and a `Ready` spec.
-13. **The gate relaxes in `worktree` mode, and only there.** "Nothing else in
+13. **`/spec-next` keeps its resolution rules, so the session hand-off stands.**
+   It builds only the spec it is standing in — the live spec of this checkout, the
+   worktree its cwd is inside, or the branch in `checkout` mode — and a name
+   argument narrows a re-run rather than selecting a spec elsewhere. That refusal
+   exists to stop the wrong branch being built, and is not worth loosening. So in
+   `worktree` mode `/spec-start` ends at the opened session and phase 1 is built
+   there; only `checkout` mode flows straight on into phase 1 in the same session.
+   "One invocation" means no re-run and nothing typed in between — not that the
+   work lands in the session you started from.
+14. **The gate relaxes in `worktree` mode, and only there.** "Nothing else in
    flight" was a consequence of the one-workbench model; once specs build in their
    own worktrees, starting one while another is live or parked is exactly the
    parallelism the mode is for. The tree must still be **clean** — the commit in
@@ -219,6 +228,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   in `~/code/ereqs` provisioned a worktree and then asked for `/spec-live` plus a
   re-run to finish the housekeeping. Renamed `feat-spec-start-autocommit` →
   `feat-spec-start-seamless`; added phase 4.
+- 2026-09-09 — Started; confirmed while provisioning that `/spec-next` cannot be
+  reached from the primary checkout, so the worktree session hand-off is a stated
+  constraint rather than a gap to close (decision 13).
 - 2026-09-09 — Phase 4 reversed after review: `/spec-start` will **not** call
   `spec-env live take` at all. The overlay is a testing tool that `675bf54`
   quietly gave a second job; automating it would have entrenched the collision.
