@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-92/release-gating-offer-th
 
 > **Type:** Feature
 > **Name:** feat-release-gating (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-09)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
 > **Area:** packages/common/src/{gating.js,cli.js,init.js,prompts.js}, packages/common/assets/{core,skills,rules}, packages/common/test
 > **Stack:** worktree
@@ -144,6 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
+| 2026-09-09 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
