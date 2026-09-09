@@ -76,23 +76,63 @@ would fork from — otherwise you get a branch missing the very spec it is for.
 ### `worktree` mode
 
 1. **Provision.** Run `skitterspec spec-env up <name>` — a planner, so run the
-   `to provision, run:` commands it prints and confirm they succeeded. Then run
-   its **`then, in the worktree, run:`** steps in order (file seeding, then
-   `setup`): a fresh worktree has no dependencies and none of the repo's
-   gitignored files, so hooks, typechecks and tests fail until they are there.
-2. **The branch stays in its worktree.** That is where the spec is built — it is
-   what the mode is for, and it is why `main` stays free and several specs can run
-   at once. Do the step 4 housekeeping there with `git -C <worktreePath>`, then run
+   `to provision, run:` commands it prints and confirm they succeeded, **except**
+   the `open.command` line, which belongs to the hand-off in 3 below.
+
+2. **Enter the worktree — this session, no new window.** The spec is built in its
+   worktree; that is what the mode is for, and it is why `main` stays free and
+   several specs run at once. So put *this* session there rather than opening
+   another one: call **`EnterWorktree`** with the worktree path.
+
+   **Do it immediately after `git worktree add`, before bootstrap and before the
+   step 4 housekeeping.** Once the session is the worktree, `setup` runs in place
+   and the housekeeping is plain `git` — the `cd` and the `git -C <worktreePath>`
+   prefix both disappear. **Never `cd` into the worktree first:** `EnterWorktree`
+   refuses a path that is already the working directory
+   (`is the current working directory`), so a bootstrap `cd` does not merely make
+   the call redundant, it makes it fail.
+
+   Then run the planner's **`then, in the worktree, run:`** steps in order (file
+   seeding, then `setup`) — a fresh worktree has no dependencies and none of the
+   repo's gitignored files, so hooks, typechecks and tests fail until they are
+   there. Do the step 4 housekeeping, then say to run **`/spec-next`**, here.
+
+   **Do not move the branch into this checkout**, and do not ask the operator to.
+   Entering the worktree is the opposite of moving the branch out of it — the
+   branch never leaves. `/spec-live` is for testing a finished-enough spec on the
+   already-running dev server; it is not the way work gets started, and reaching
+   for it here is what used to split a start across two invocations.
+
+3. **When you cannot enter, hand off as before.** Two cases, and **decide from cwd
+   before calling**, not by calling and catching — an error surfaced mid-skill
+   reads as a bug, and both conditions are knowable in advance:
+
+   - **This session's cwd is already inside a worktree.** `EnterWorktree` only
+     allows a worktree→worktree switch when the target lives under
+     `.claude/worktrees/`, and a project's worktree root usually does not
+     (`../{repo}-wt` is the shipped shape). Do not "fix" this by relocating the
+     root: starting a spec from the base branch is the documented path anyway.
+   - **`EnterWorktree` is unavailable** — a harness without it. There is no CLI
+     counterpart to fall back on, so the skill degrades rather than fails.
+
+   On either, do exactly what this skill did before: bootstrap with
+   `cd "<worktreePath>"`, housekeep with `git -C <worktreePath>`, run
    `open.command` if one is configured, print the worktree path, and say to run
    **`/spec-next`** from a session in it.
-   **Do not move the branch into this checkout**, and do not ask the operator to.
-   `/spec-live` is for testing a finished-enough spec on the already-running dev
-   server; it is not the way work gets started, and reaching for it here is what
-   used to split a start across two invocations.
-   **Trust the worktree first.** `spec-env up` wrote the printed `trusted:` root
-   into `.claude/settings.local.json`, but that file will not hot-reload in this
-   session — run `/add-dir <trusted root>` before editing into the worktree, or
-   the first write prompts.
+   **Trust the worktree first** on this path: `spec-env up` wrote the printed
+   `trusted:` root into `.claude/settings.local.json`, but that file will not
+   hot-reload in this session — run `/add-dir <trusted root>` before editing into
+   the worktree, or the first write prompts. (Entering the worktree makes both
+   moot: the writes are then in-cwd.)
+
+   `EnterWorktree` is gated on being told to work in a worktree by the user or by
+   project instructions. A lifecycle skill directing it **is** project
+   instruction, so the call is in contract here.
+
+**`/spec-next` is unchanged by this.** Its rule 2 — "the worktree you are
+standing in" — is what answers once the session has actually moved; nothing about
+its resolution is loosened, and it must not be. The refusal exists so the wrong
+branch is never built.
 
 ### `checkout` mode
 
@@ -103,10 +143,11 @@ refusal and stop.
 
 ## 4. Move the spec into development
 
-**Do this before any hand-off**, so no path can end with a provisioned worktree
-and a spec still reading `Ready` in `specs/backlog/`. In `worktree` mode run it
-against the worktree with `git -C <worktreePath>`; in `checkout` mode the branch
-is already here.
+**Do this before you report anything**, so no path can end with a provisioned
+worktree and a spec still reading `Ready` in `specs/backlog/`. Having entered the
+worktree (step 3.2) this is plain `git` — you are standing in it. On the hand-off
+path (step 3.3) run it against the worktree with `git -C <worktreePath>` instead;
+in `checkout` mode the branch is already here.
 
 - `git mv "specs/backlog/<name>" "specs/in-progress/<name>"` if it isn't there
   already (`mkdir -p specs/in-progress` first). Use `git mv` to keep history.
@@ -151,9 +192,11 @@ marks phase 1 started, refreshes the mirror again, builds it with tests and
 reports. Do not stop and ask the operator to run it: the branch is here and they
 asked to start the spec.
 
-**`worktree` mode — the spec is built in its worktree**, so this invocation ends
-with it provisioned, housekept and a session opened there. Say that plainly and
-tell them to run `/spec-next` in it.
+**`worktree` mode — the spec is built in its worktree**, and step 3.2 put this
+session there, so end by saying the worktree path is now the session's and to run
+**`/spec-next`** here. On the hand-off path (step 3.3) the session did not move:
+say so plainly, print the path, and tell them to run `/spec-next` from a session
+in it.
 
 `/spec-next` resolves the spec it is *standing in* — the live spec of the
 checkout, the worktree its cwd is inside, or the branch in `checkout` mode — and

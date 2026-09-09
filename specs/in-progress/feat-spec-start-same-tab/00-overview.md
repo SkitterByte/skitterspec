@@ -37,16 +37,21 @@ their own checkouts, `main` free — is kept while the operator stays in one tab
 
 ## Decisions
 
-1. **`/spec-start` switches the session in; it does not open a window.** After
-   provisioning, bootstrap and the step-4 housekeeping, the skill calls
-   `EnterWorktree` with the worktree path. The session's cwd becomes the worktree,
-   and `/spec-next` is then run in the same tab.
-2. **`/spec-next`'s resolution rules are not touched.** Rule 2 — "the worktree you
+1. **`/spec-start` switches the session in; it does not open a window.** The
+   skill calls `EnterWorktree` with the worktree path, and `/spec-next` is then
+   run in the same tab.
+2. **It enters immediately after `git worktree add` — before bootstrap and
+   housekeeping.** Once the session is the worktree, `setup` runs in place and the
+   housekeeping is plain `git`, so the `cd` and the `git -C <worktreePath>` prefix
+   both disappear. Entering last would keep them for no gain, and `EnterWorktree`
+   **errors** (`is the current working directory`) if a bootstrap `cd` got there
+   first — so late entry is not merely redundant, it is unreachable.
+3. **`/spec-next`'s resolution rules are not touched.** Rule 2 — "the worktree you
    are standing in" — starts answering on its own once the session actually moves.
    The refusal that stopped this working was correct and stays: it exists to keep
    the wrong branch from being built, and loosening it would trade a cheap refusal
    for commits nobody asked for.
-3. **Already inside a worktree → degrade to today's hand-off.** `EnterWorktree`
+4. **Already inside a worktree → degrade to today's hand-off.** `EnterWorktree`
    only permits a worktree→worktree switch when the target is under
    `.claude/worktrees/`, and this project's root is `../{repo}-wt`. So when the
    session's cwd is already inside a worktree the skill does not attempt the
@@ -56,20 +61,20 @@ their own checkouts, `main` free — is kept while the operator stays in one tab
    product default and moves every existing worktree, to buy a case that
    `commit-trailers.md` already tells you to avoid ("author backlog specs from the
    base branch").
-4. **Attempt only when it can succeed.** The branch is chosen from cwd *before*
+5. **Attempt only when it can succeed.** The branch is chosen from cwd *before*
    calling, not by calling and catching. A tool error surfaced mid-skill reads as
    a bug to whoever is watching, and the condition is knowable in advance.
-5. **`open.command` becomes the fallback opener, and keeps its config key.** It
+6. **`open.command` becomes the fallback opener, and keeps its config key.** It
    runs only when the in-session switch did **not** happen — the tool is
    unavailable, or decision 3 applies. Rejected: deprecating the key, which breaks
    tmux/VS Code users and removes the only fallback for harnesses without the
    tool. This repo's `specs/.core/env.config.json` goes back to the shipped `""`
    default; the schema is unchanged.
-6. **The skill degrades, it never hard-depends.** `EnterWorktree` is a harness
+7. **The skill degrades, it never hard-depends.** `EnterWorktree` is a harness
    capability with no CLI counterpart, so `spec-env up` gains nothing and the
    engine is untouched. Where the tool is absent the skill behaves exactly as it
    does today.
-7. **Teardown leaves the session before removing the tree.** `/spec-complete` and
+8. **Teardown leaves the session before removing the tree.** `/spec-complete` and
    `/spec-cancel` already warn to `cd` out of a worktree before `git worktree
    remove` — but a `cd` does not unwind an `EnterWorktree` session: the session
    stays registered against a directory that no longer exists, and the user is
@@ -77,7 +82,7 @@ their own checkouts, `main` free — is kept while the operator stays in one tab
    replaced — `ExitWorktree` with `action: "keep"` when the session entered that
    way, plain `cd` when it was a terminal someone opened. `keep` never removes a
    worktree entered by path, so the teardown plan stays the one thing that deletes.
-8. **Trust prose becomes fallback-only too.** The `/add-dir <trusted root>`
+9. **Trust prose becomes fallback-only too.** The `/add-dir <trusted root>`
    instruction exists because writes into a worktree from the primary checkout
    prompt. Once the session *is* the worktree those writes are in-cwd, so the
    instruction belongs on the hand-off branch with the opener.
@@ -88,11 +93,13 @@ their own checkouts, `main` free — is kept while the operator stays in one tab
 
 ```
 /spec-start   gate (unchanged)
-            → spec-env up + bootstrap        (unchanged)
-            → housekeep via git -C           (unchanged)
+            → spec-env up, commit, git worktree add       (unchanged)
             → cwd already inside a worktree, or no EnterWorktree?
-                 yes → open.command, print path, /add-dir note, hand off  (today)
+                 yes → bootstrap via cd, housekeep via git -C,
+                       open.command, print path, hand off      (today)
                  no  → EnterWorktree(worktreePath)  ← this tab is the worktree
+                       → bootstrap in place  (no cd)
+                       → housekeep with plain git  (no git -C)
             → "run /spec-next"
 /spec-next    rule 2 answers; phase 1 builds in the same tab
 ```
@@ -128,7 +135,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-start` enters the worktree in-session | ⬜ | [01-enter-worktree.md](01-enter-worktree.md) |
+| 1 | `/spec-start` enters the worktree in-session | ✅ | [01-enter-worktree.md](01-enter-worktree.md) |
 | 2 | `open.command` becomes the fallback opener | ⬜ | [02-opener-fallback.md](02-opener-fallback.md) |
 | 3 | Teardown leaves the session before removing the tree | ⬜ | [03-teardown-exit.md](03-teardown-exit.md) |
 
@@ -148,3 +155,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-09 — Spec created. Corrects decision 13 of `feat-spec-start-seamless`,
   whose premise (the session's location is fixed) was falsified by the
   `EnterWorktree` harness tool.
+- 2026-09-09 — Entry moves to **immediately after `git worktree add`**, before
+  bootstrap and housekeeping (new decision 2). Found while starting this spec:
+  the bootstrap step's own `cd "<worktreePath>"` already relocates the session,
+  so entering afterwards fails with `is the current working directory`. Entering
+  first also retires the `cd` and the `git -C <worktreePath>` prefix on the
+  non-degraded path, which is simpler than what was specced.

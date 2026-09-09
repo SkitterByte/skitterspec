@@ -93,7 +93,7 @@ test('/spec-start never routes a start through the live overlay', () => {
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
   assert.doesNotMatch(flat, /type \*{0,2}`\/spec-live <name>`/, 'does not ask for the swap')
   assert.doesNotMatch(flat, /re-run `\/spec-start`/i, 'does not ask to be run twice')
-  assert.match(flat, /branch stays in its worktree/i, 'says where the spec is built')
+  assert.match(flat, /the branch never leaves/i, 'says where the spec is built')
 })
 
 test('/spec-start says the live overlay is for testing, not for starting', () => {
@@ -649,11 +649,13 @@ test('/spec-start builds every worktree-mode spec the same way', () => {
   assert.doesNotMatch(flat, /a spec the live overlay refuses/i, 'no refusal-only branch left')
 })
 
-test('/spec-start housekeeps before it hands off', () => {
+test('/spec-start housekeeps before it finishes', () => {
   // The ordering IS the fix: the other way round leaves a provisioned worktree
-  // whose spec still reads Ready in specs/backlog/.
+  // whose spec still reads Ready in specs/backlog/. It used to say "before any
+  // hand-off"; the hand-off is now only the degraded path, so the deadline is
+  // the end of the skill on every path, not the hand-off on one of them.
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
-  assert.match(flat, /Do this before any hand-off/i)
+  assert.match(flat, /Do this before you report anything/i)
 })
 
 test('/spec-start flows into /spec-next rather than stopping', () => {

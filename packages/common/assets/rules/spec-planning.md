@@ -44,10 +44,11 @@ mid-spec (so the work can run in CI / a shared test env) while the spec stays
 
 **Two workspace modes.** `specs/.core/env.config.json` → `mode` decides where a
 spec's branch is built. **`worktree`** (the default) gives each spec its own
-checkout — several specs at once and `main` left free, at the cost of one
-terminal session per spec, which `/spec-start` sets up for you. **`checkout`** builds
-the branch in the primary checkout instead: one spec at a time, but no second
-session and no hand-off, so the terminal you are already in follows the work.
+checkout — several specs at once and `main` left free — and `/spec-start` moves
+the session you typed into *into* that checkout, so the work carries on in the
+same terminal. **`checkout`** builds the branch in the primary checkout instead:
+one spec at a time, and nothing to move into. Neither mode costs you a second
+terminal; the difference is how many specs can be in flight at once.
 Pick it for how you work rather than for what the project contains — a repo with
 no dev servers may still want several specs in flight. In `checkout` mode
 `/spec-connect` and `/spec-live` do not apply and say so: both exist to reach
