@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-103/bug-a-lost-stamp-mints
 
 > **Type:** Bug
 > **Name:** bug-lost-stamp-duplicates (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -101,6 +101,7 @@ phase, a first push with no snapshot, a deleted phase). Red output:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -118,3 +119,5 @@ phase, a first push with no snapshot, a deleted phase). Red output:
   `spec-env up` gate contradicts by committing it. Agreed to drop the `mv` and
   its `mkdir -p` hazard; **not fixed here** — a separate change, and this commit
   belongs to one spec.
+- 2026-09-09 — Completed; fix green, full suite 1440/1440. Deferred: the
+  `/spec-bug` §2 `mv` correction, which belongs to its own change.
