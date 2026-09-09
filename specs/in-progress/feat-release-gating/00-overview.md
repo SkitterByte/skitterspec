@@ -130,7 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Config, loader and the advisory `gating check` | ⬜ | [01-config-and-check.md](01-config-and-check.md) |
+| 1 | Config, loader and the advisory `gating check` | ✅ | [01-config-and-check.md](01-config-and-check.md) |
 | 2 | Authoring skills ask and emit the header | ⬜ | [02-authoring-skills.md](02-authoring-skills.md) |
 | 3 | Lifecycle skills report a missing header | ⬜ | [03-reporting-skills.md](03-reporting-skills.md) |
 | 4 | Install/init adoption and docs | ⬜ | [04-init-adoption.md](04-init-adoption.md) |
@@ -149,3 +149,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-09 — Spec created from the `~/code/ereqs` handoff.
+- 2026-09-09 — Phase 1 built: `gating.config.json` + its field docs,
+  `src/gating.js` (loader, four-state header reader, advisory check), and
+  `skitterspec gating check`. 12 tests, 8 of them stays-silent. The excluded
+  buckets are out of range structurally, so a finished spec cannot be accused
+  by a future edit — and does not even reach the denominator.

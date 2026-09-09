@@ -95,6 +95,11 @@ Usage:
                                 hotfix land <spec>  tag + cherry-pick a hotfix (--also <tag>)
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
+  skitterspec gating <cmd>    Release-gating check (opt-in; needs
+                              specs/.core/gating.config.json). Subcommands:
+                                check [spec]      report specs with no recorded gating
+                                                  decision (--all, --json). Advisory:
+                                                  always exits 0, never blocks.
   skitterspec --help          Show this help
   skitterspec --version       Print version
 
@@ -332,6 +337,68 @@ function specCommitLines(plan, folder) {
 
 // `spec-env up` in checkout mode. Gathers the git facts, hands them to the pure
 // planner, and prints the plan or the refusal.
+
+/**
+ * `skitterspec gating check [spec] [--all] [--json]`
+ *
+ * ADVISORY BY CONSTRUCTION. It reports and exits 0 — always, including when it
+ * finds something. The point of release gating is that the decision is recorded
+ * and reviewable, not that a machine enforces it: a project that has not decided
+ * yet is not broken, and a check that stopped someone's work over a missing
+ * header would be a worse failure than the omission it names.
+ */
+function gatingCheck(dir, argv) {
+  const { opts, positional } = parse(argv)
+  const { checkGating, activeSpecs } = require('./gating.js')
+
+  let specs = null
+  if (positional.length && !opts.all) {
+    const name = path.basename(positional[0])
+    const found = activeSpecs(dir).filter((s) => s.folder === name)
+    if (!found.length) {
+      // Not an accusation: a name that matches no ACTIVE spec is usually a
+      // finished one, which gating never covers anyway.
+      process.stdout.write(`gating: no active spec named ${name} — nothing to check.\n`)
+      return
+    }
+    specs = found
+  }
+
+  const result = checkGating(dir, specs)
+
+  if (opts.json) {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+    return
+  }
+  if (!result.configured) {
+    process.stdout.write('gating: not configured — nothing to check.\n')
+    return
+  }
+  if (!result.findings.length) {
+    process.stdout.write(
+      `gating: ${result.checked} spec(s) checked — every one records a decision.\n`,
+    )
+    return
+  }
+  const lines = []
+  for (const f of result.findings) {
+    lines.push(
+      f.kind === 'missing'
+        ? `  ${f.folder} (${f.bucket}): no Gating: header`
+        : `  ${f.folder} (${f.bucket}): Gating: "${f.raw}" says nothing — a bare "none" is not a reason`,
+    )
+  }
+  lines.push('')
+  lines.push('  decide, then record it on 00-overview.md beside Stack:')
+  lines.push('    > **Gating:** <flag name — or "none: <one-line reason>">')
+  if (result.guidance) lines.push(`  see ${result.guidance}`)
+  process.stdout.write(
+    `gating: ${result.findings.length} of ${result.checked} spec(s) record no decision\n` +
+      lines.join('\n') +
+      '\n',
+  )
+}
+
 function specEnvUpCheckout(dir, config, spec) {
   const git = gitReader(dir)
   const primary = assertPrimaryOnMain(config, git)
@@ -1808,6 +1875,14 @@ async function run(argv) {
   }
 
   const [cmd, ...rest] = argv
+
+  if (cmd === 'gating') {
+    const [sub, ...gArgs] = rest
+    const gDir = process.cwd()
+    if (sub === 'check') gatingCheck(gDir, gArgs)
+    else process.stdout.write('Usage: skitterspec gating check [spec] [--all] [--json]\n')
+    return
+  }
 
   if (cmd === 'spec-env') {
     await specEnv(rest)
