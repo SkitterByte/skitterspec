@@ -37,6 +37,19 @@ checkout you are already in; one spec at a time, no hand-off). It is a question
 about how the operator works, not about what the repo contains, so ask rather
 than infer it from whether dev servers or Docker are configured.
 
+## 0b. Release gating (optional, and separate)
+
+Ask whether specs should record a **release-gating** decision — does this change
+ship behind a feature flag, or land live? Adopting it copies
+`specs/.core/gating.config.json.example` → `gating.config.json` and sets
+`guidance` to wherever this project documents its flags.
+
+It is **orthogonal to isolation**: a project can adopt either, both, or neither.
+Skitterspec never learns how the flags work — it asks the question, cites that
+path, and records the answer on each spec. Leave it off and nothing appears:
+no question, no header, no check. Off is a perfectly good answer for a project
+that does not use flags.
+
 ## 1. Folders
 
 Create any that are missing; drop a `.gitkeep` into ones that would otherwise be

@@ -73,3 +73,50 @@ test('the rules file documents the header and the check that never blocks', () =
   assert.match(flat, /always exits 0/i)
   assert.match(flat, /the offer, never the mechanism/i)
 })
+
+// --- the reporting half ------------------------------------------------------
+//
+// These three consume the check rather than writing the header. The property to
+// protect is that none of them can grow into a gate: the feature's whole promise
+// is that adopting it disturbs nothing, and a skill that refused to complete a
+// spec over a missing header would break that on day one.
+
+const REPORTING = ['spec-review', 'spec-complete', 'spec-start']
+
+test('every reporting skill actually runs the check', () => {
+  for (const name of REPORTING) {
+    assert.match(read(name), /skitterspec gating check/, `${name} invokes the check`)
+  }
+})
+
+test('every reporting skill says the check is advisory', () => {
+  for (const name of REPORTING) {
+    assert.match(
+      read(name).replace(/\s+/g, ' '),
+      /This check is advisory\..*never refuses/i,
+      `${name} states it cannot block`,
+    )
+  }
+})
+
+test('every reporting skill is gated on the config existing', () => {
+  for (const name of REPORTING) {
+    assert.match(
+      read(name).replace(/\s+/g, ' '),
+      /only when `specs\/\.core\/gating\.config\.json` exists/i,
+      `${name} names the config gate`,
+    )
+  }
+})
+
+test('/spec-complete refuses to refuse', () => {
+  // The one most likely to be "tightened" later — it is the last gate before a
+  // spec is archived, and that is exactly why it must not become one.
+  assert.match(read('spec-complete').replace(/\s+/g, ' '), /Never refuse to complete over it/i)
+})
+
+test('/spec-init offers gating as its own opt-in', () => {
+  const flat = read('spec-init').replace(/\s+/g, ' ')
+  assert.match(flat, /release-gating/i)
+  assert.match(flat, /orthogonal to isolation/i, 'not bundled with isolation')
+})

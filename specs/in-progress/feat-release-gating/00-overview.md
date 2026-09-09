@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Config, loader and the advisory `gating check` | ✅ | [01-config-and-check.md](01-config-and-check.md) |
 | 2 | Authoring skills ask and emit the header | ✅ | [02-authoring-skills.md](02-authoring-skills.md) |
-| 3 | Lifecycle skills report a missing header | ⬜ | [03-reporting-skills.md](03-reporting-skills.md) |
+| 3 | Lifecycle skills report a missing header | ✅ | [03-reporting-skills.md](03-reporting-skills.md) |
 | 4 | Install/init adoption and docs | ⬜ | [04-init-adoption.md](04-init-adoption.md) |
 
 ## Open questions
@@ -149,6 +149,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-09 — Spec created from the `~/code/ereqs` handoff.
+- 2026-09-09 — Phase 3 built: `/spec-review` treats a missing header as drift,
+  `/spec-complete` reports without ever refusing, `/spec-start` mentions it once
+  before phase 1, and `/spec-init` offers gating as its own opt-in. 5 more asset
+  tests, including one asserting `/spec-complete` refuses to refuse.
 - 2026-09-09 — Phase 2 built: `/spec`, `/spec-bug` and `/spec-hotfix` ask and
   emit the header; the rules file documents it. 7 asset tests guard the two
   properties that make it work — config-gated, and an offer rather than an

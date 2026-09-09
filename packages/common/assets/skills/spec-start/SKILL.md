@@ -121,6 +121,17 @@ is already here.
 A spec ideally arrives `Ready` from `/spec`; a `Draft` works too — sanity-check
 it is well-formed first.
 
+## 4b. Note a missing gating decision (only if configured)
+
+**Only when `specs/.core/gating.config.json` exists.** Run
+`skitterspec gating check <name>` and, if it names this spec, mention it **once**
+before phase 1 starts — the cheapest moment to decide is before any code exists.
+
+**This check is advisory.** It reports; it never refuses, and nothing below is
+conditional on it. A spec written before the project adopted gating has no header
+and is not broken — turning this into a gate would accuse the very specs the
+feature was designed not to disturb.
+
 ## 5. Bring the spec's dev servers up — confirm before heavy steps
 
 **Only when the project configures host dev servers** (`env.config.json` → a

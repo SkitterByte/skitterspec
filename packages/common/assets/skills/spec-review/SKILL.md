@@ -44,6 +44,19 @@ trust the spec's own wording — verify:
 - **Backward compatibility.** Re-confirm the planned API/schema changes are still
   additive/safe given the current code (see the project's compatibility rules).
 
+### Release gating (only when configured)
+
+**Only when `specs/.core/gating.config.json` exists.** Run
+`skitterspec gating check <spec>`. A spec it names has no recorded gating
+decision — or a bare `none` that records nothing — and that is
+**drift like any other**: the question was never asked, or its answer was lost. Grill for it in
+step 3 and write the header in step 4, exactly as you would a stale file path.
+
+**This check is advisory.** It reports; it never refuses, and nothing below is
+conditional on it. A spec written before the project adopted gating has no header
+and is not broken — turning this into a gate would accuse the very specs the
+feature was designed not to disturb.
+
 ## 3. Grill only where a decision is needed
 
 Where the drift forces a choice (the old approach no longer fits, a referenced

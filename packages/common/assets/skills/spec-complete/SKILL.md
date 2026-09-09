@@ -34,6 +34,23 @@ Before marking complete, confirm the work is actually finished:
   is its own, and step 4 commits that.
 
 
+### Release gating (only when configured)
+
+**Only when `specs/.core/gating.config.json` exists.** Run
+`skitterspec gating check <spec>` and report what it says. This is the last point
+at which the question can still be answered cheaply, which is exactly why it is
+asked here — a spec that reaches `Complete` with no decision recorded is the gap
+the feature exists to close.
+
+**Never refuse to complete over it.** Say plainly that no decision was recorded,
+offer to record one now, and finish either way. The work is done; withholding the
+status flip would punish the wrong thing.
+
+**This check is advisory.** It reports; it never refuses, and nothing below is
+conditional on it. A spec written before the project adopted gating has no header
+and is not broken — turning this into a gate would accuse the very specs the
+feature was designed not to disturb.
+
 ## 3. Update the spec
 
 - Tick all completed tasks in the phase files; flip every finished phase-file
