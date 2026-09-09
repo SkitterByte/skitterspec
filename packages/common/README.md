@@ -54,6 +54,7 @@ npx @skitterbyte/skitterspec init --yes               # accept defaults, skip th
 npx @skitterbyte/skitterspec init --force             # overwrite existing skill/rule files
 npx @skitterbyte/skitterspec init --no-claude-md      # don't touch CLAUDE.md
 npx @skitterbyte/skitterspec init --isolation         # adopt per-spec isolation (worktree per spec)
+npx @skitterbyte/skitterspec init --gating            # adopt release gating (flag decision per spec)
 npx @skitterbyte/skitterspec update                   # re-copy skills + rule, leave specs/ alone
 ```
 
@@ -94,6 +95,34 @@ specs/backlog/feat-<name>/
 phase file with its status (`⬜`/`🔄`/`✅`). **Each phase is its own file** so it's
 easy to dive into one phase without wading through the whole spec. The lifecycle
 skills keep the index and phase files in sync.
+
+## Release gating — record whether it ships behind a flag
+
+A spec can go from `/spec` through implementation to `/spec-complete` with no
+feature flag and no mention of one — and that is indistinguishable from "we
+considered it and decided against". **Adopt it once** with
+`npx @skitterbyte/skitterspec init --gating` (or copy
+`specs/.core/gating.config.json.example` → `gating.config.json`; fields are
+documented in `specs/.core/gating.config.md`). While the config is absent the
+feature is entirely unused, which is read as "this project does not use flags".
+
+Once adopted, `/spec`, `/spec-bug` and `/spec-hotfix` ask the question and record
+the answer on the spec:
+
+```
+> **Gating:** search-ranking-v2
+> **Gating:** none: additive, nothing to revert
+```
+
+A flag name, or `none: <reason>` — and the reason half is the point, because a
+bare `none` is a shrug and a missing line is an oversight.
+`skitterspec gating check` reports specs with no decision and **always exits 0**;
+`/spec-review`, `/spec-start` and `/spec-complete` surface it and carry on. It
+reads only `backlog/` and `in-progress/`, so specs finished before you adopted
+gating are out of range by construction.
+
+**It bakes in the offer, never the mechanism.** Skitterspec never reads your flag
+code; it asks, cites the doc you point it at, and records what you say.
 
 ## Per-spec isolation — worktree by default, Docker on demand
 

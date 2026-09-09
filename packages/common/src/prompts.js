@@ -11,7 +11,7 @@
  * is `'worktree'` otherwise (the value the config defaults to anyway).
  */
 
-async function promptSetup({ isolationSeed = false } = {}) {
+async function promptSetup({ isolationSeed = false, gatingSeed = false } = {}) {
   const prompts = require('prompts')
 
   let cancelled = false
@@ -48,6 +48,14 @@ async function promptSetup({ isolationSeed = false } = {}) {
         },
       ],
     },
+    {
+      // Orthogonal to isolation, so it is asked unconditionally rather than
+      // nested under it — a project can adopt either, both, or neither.
+      type: 'confirm',
+      name: 'gating',
+      message: 'Record a release-gating decision on each spec — flag, or land live?',
+      initial: gatingSeed,
+    },
   ]
 
   const ans = await prompts(questions, { onCancel })
@@ -59,6 +67,7 @@ async function promptSetup({ isolationSeed = false } = {}) {
   return {
     isolation: Boolean(ans.isolation),
     mode: ans.mode === 'checkout' ? 'checkout' : 'worktree',
+    gating: Boolean(ans.gating),
   }
 }
 

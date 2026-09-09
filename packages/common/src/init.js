@@ -444,6 +444,24 @@ function installIsolation(dir, { enabled, workspaceMode }, opts) {
   trustWorktreeRoot(dir)
 }
 
+// Activate opt-in release gating: write specs/.core/gating.config.json from the
+// example asset, so /spec and friends start asking whether a change ships behind
+// a feature flag and recording the answer.
+//
+// Only called when the operator opts in, and NEVER on `update` — for the same
+// reason as isolation: adopting a policy is a deliberate choice, not something a
+// re-sync flips on. Idempotent; copyAsset never clobbers an existing config
+// without --force, so an operator's edited `guidance` survives a re-init.
+function installGating(dir, { enabled }, opts) {
+  if (!enabled) return
+  copyAsset(
+    dir,
+    path.join('core', 'gating.config.json.example'),
+    path.join(dir, 'specs', '.core', 'gating.config.json'),
+    opts,
+  )
+}
+
 // Seed the absolute worktree root into .claude/settings.local.json (gitignored)
 // so the operator enabling isolation isn't prompted on every edit into a
 // freshly-provisioned worktree. Best-effort: an unreadable config or malformed
@@ -682,6 +700,13 @@ function printReport(dir, mode, { diff = false } = {}) {
       ' at /spec-start (Docker is a per-spec escalation — set > **Stack:** in the spec).\n'
     : 'Per-spec isolation is opt-in: re-run with --isolation (or copy' +
       ' specs/.core/env.config.json.example → env.config.json) to enable it.\n'
+  const gatingOn = fs.existsSync(path.join(dir, 'specs', '.core', 'gating.config.json'))
+  const gatingNote = gatingOn
+    ? 'Release gating is ON: /spec asks whether a change ships behind a feature' +
+      ' flag and records the answer on the spec (skitterspec gating check reports' +
+      ' any that have none).\n'
+    : 'Release gating is opt-in: re-run with --gating (or copy' +
+      ' specs/.core/gating.config.json.example → gating.config.json) to enable it.\n'
   // A provider superset ships its own `spec-<provider>-setup` skill; the base
   // ships none. Discovering it from what was actually installed keeps this file
   // tracker-free — it never has to know which tracker (if any) is in the box.
@@ -707,6 +732,7 @@ function printReport(dir, mode, { diff = false } = {}) {
       'Next: tailor .claude/rules/spec-planning.md + the CLAUDE.md section to this' +
       " project's stack, then run /spec.\n" +
       isolationNote +
+      gatingNote +
       trackerNote,
   )
 }
@@ -714,7 +740,7 @@ function printReport(dir, mode, { diff = false } = {}) {
 // `mode` here is the INSTALL mode ('init' | 'update'), long-standing and
 // unrelated to the config's own `mode` key — which arrives as `workspaceMode`
 // precisely so the two cannot be confused at a call site.
-async function init({ dir, force, claudeMd, mode, isolation, workspaceMode }) {
+async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
 
@@ -726,6 +752,7 @@ async function init({ dir, force, claudeMd, mode, isolation, workspaceMode }) {
   installCore(dir, { force })
   // Adopting isolation writes the live env.config.json — init only, never update.
   if (mode !== 'update') installIsolation(dir, { enabled: isolation, workspaceMode }, { force })
+  if (mode !== 'update') installGating(dir, { enabled: gating }, { force })
   if (claudeMd) installClaudeMd(dir, { mode })
 
   // Record what we wrote (and migrate a pre-manifest repo) so a later resync can

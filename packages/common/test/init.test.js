@@ -701,3 +701,51 @@ test('declining isolation writes no config at all, whatever the mode says', asyn
     'no isolation config written for a repo that declined it',
   )
 })
+
+// --- release gating adoption -------------------------------------------------
+//
+// Adopting a POLICY has to be deliberate. The template and its docs ship to
+// everyone (they are inert), but the live config — the thing that makes /spec
+// start asking a question — is written only when someone says so, and never by a
+// re-sync. Getting that backwards would switch a policy on under projects that
+// merely upgraded.
+
+const gatingLive = (dir) => exists(dir, 'specs/.core/gating.config.json')
+
+test('the gating template and docs scaffold on every init, inert', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  assert.ok(exists(dir, 'specs/.core/gating.config.json.example'), 'example shipped')
+  assert.ok(exists(dir, 'specs/.core/gating.config.md'), 'field docs shipped')
+  assert.ok(!gatingLive(dir), 'but the feature is not switched on')
+})
+
+test('gating is written only when the operator opts in', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', gating: true })
+  assert.ok(gatingLive(dir), 'adopted on request')
+})
+
+test('update never activates gating', async () => {
+  // The stays-silent case that matters most: upgrading must not adopt a policy.
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  await init({ dir, force: false, claudeMd: false, mode: 'update', gating: true })
+  assert.ok(!gatingLive(dir), 'an update cannot switch it on, even if asked')
+})
+
+test('a customized gating config survives re-init and resync', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', gating: true })
+  const file = path.join(dir, 'specs/.core/gating.config.json')
+  fs.writeFileSync(file, '{"guidance":"docs/flags.md"}')
+  await init({ dir, force: false, claudeMd: false, mode: 'init', gating: true })
+  resync(dir, { claudeMd: false })
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), '{"guidance":"docs/flags.md"}')
+})
+
+test('--gating and --no-gating parse', () => {
+  assert.strictEqual(parse(['--gating']).opts.gating, true)
+  assert.strictEqual(parse(['--no-gating']).opts.gating, false)
+  assert.strictEqual(parse([]).opts.gating, undefined, 'absent stays absent')
+})

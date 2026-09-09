@@ -111,6 +111,8 @@ Options (init / update):
   --diff                   (update) Show the upstream changes each customized
                            file declined, as a unified diff
   --dir <path>             Target project dir (default: positional arg or cwd)
+  --gating                 (init) Adopt release gating: each spec records whether
+                           it ships behind a feature flag
   --no-claude-md           Skip creating/patching CLAUDE.md
   --yes, -y                Accept defaults; skip the interactive setup prompts
   --isolation / --no-isolation        Enable/skip per-spec isolation (a git
@@ -145,6 +147,10 @@ function parse(argv) {
     else if (a === '--yes' || a === '-y') opts.yes = true
     else if (a === '--isolation') opts.isolation = true
     else if (a === '--no-isolation') opts.isolation = false
+    else if (a === '--gating') opts.gating = true
+    else if (a === '--no-gating') opts.gating = false
+    else if (a === '--all') opts.all = true
+    else if (a === '--json') opts.json = true
     else if (a === '--remove-release-tooling') opts.removeReleaseTooling = true
     else if (a === '--resync') opts.resync = true
     else if (a === '--reset') opts.reset = true
@@ -1932,11 +1938,13 @@ async function run(argv) {
       // interactive "yes" opts in. Only prompt for isolation on a fresh repo.
       let isolation = opts.isolation === true
       let workspaceMode = 'worktree'
+      let gating = opts.gating === true
       if (interactive && !isExistingSetup(dir)) {
         const { promptSetup } = require('./prompts.js')
-        const answers = await promptSetup({ isolationSeed: isolation })
+        const answers = await promptSetup({ isolationSeed: isolation, gatingSeed: gating })
         isolation = answers.isolation
         workspaceMode = answers.mode
+        gating = answers.gating
       }
       await init({
         dir,
@@ -1945,6 +1953,7 @@ async function run(argv) {
         mode: 'init',
         isolation,
         workspaceMode,
+        gating,
       })
       break
     }
