@@ -198,6 +198,31 @@ project's own, so ask rather than guess.
 the workspace — that report is the evidence the setup is right, so don't
 paraphrase it into "done".
 
+## 8b. Let `/spec-start` commit the snapshot with its spec
+
+**Only when `specs/.core/env.config.json` exists** (per-spec isolation is on). If
+it is absent, skip this — there is nothing to configure.
+
+`/spec-start` commits an uncommitted spec for you, but only the paths it can
+prove belong to that spec. Its own folder always does; this repo's per-spec
+Linear snapshot (`sync.baseDir`, `specs/.core/linear-base/<ID>.base.json`) does
+not, because the base engine is deliberately tracker-free and cannot know that
+path exists. Declare it once, in `env.config.json`:
+
+```json
+"spec": {
+  "companionPaths": ["specs/.core/linear-base/{identifier}.base.json"]
+}
+```
+
+`{identifier}` resolves through `branch.identifierField`, so **set that too** if
+it is still empty — `"linear_identifier"` is the field `/spec` stamps. Without
+it the pattern expands to nothing and the snapshot is treated as another spec's
+file: `/spec-start` then refuses the tree instead of committing it, which is the
+safe failure but a needless one.
+
+Leave both alone if the user has already set them.
+
 ## 9. Report and hand off
 
 **Finish by checking, not by describing.** First write down what the MCP server

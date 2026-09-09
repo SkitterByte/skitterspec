@@ -207,7 +207,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Classify a dirty tree against one spec | ✅ | [01-classify.md](01-classify.md) |
 | 2 | Both planners commit, gate and assert | ✅ | [02-planners.md](02-planners.md) |
-| 3 | CLI and `/spec-start` wiring | ⬜ | [03-cli-and-skill.md](03-cli-and-skill.md) |
+| 3 | CLI and `/spec-start` wiring | ✅ | [03-cli-and-skill.md](03-cli-and-skill.md) |
 | 4 | Build in the worktree, housekeep first | ⬜ | [04-handoff.md](04-handoff.md) |
 
 ## Open questions
@@ -228,6 +228,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   in `~/code/ereqs` provisioned a worktree and then asked for `/spec-live` plus a
   re-run to finish the housekeeping. Renamed `feat-spec-start-autocommit` →
   `feat-spec-start-seamless`; added phase 4.
+- 2026-09-09 — Phase 3 built. Running it found two parser bugs (porcelain
+  collapses untracked dirs; the git reader trims, mangling the first path) and
+  one design error: the fork point is **HEAD**, not the base branch, and a
+  hotfix forks from a tag predating its own spec — so `specOnBase` became
+  `specOnFork` and exempts hotfixes.
 - 2026-09-09 — Phase 2 built. Both planners share one `planSpecCommit`; the
   on-base refusal had to move **after** the commit decision, since a spec is
   off-base precisely because it is uncommitted.

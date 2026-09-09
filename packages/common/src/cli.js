@@ -22,6 +22,7 @@ const {
   resolveBaseBranch,
   resolvePrimaryCheckout,
   assertPrimaryOnMain,
+  currentBranch,
   repoInfo,
   expandTokens,
   splitPrefix,
@@ -233,13 +234,110 @@ function specEnvStatus(dir, config) {
 // the /spec-env skill executes (git worktree add, docker compose up, .env,
 // opener). This creates no worktree and starts no stack — the caller runs the
 // printed commands. Keep the output's verb honest about that.
+
+// git quotes a path containing unusual bytes and C-escapes it. Unquote what we
+// can; anything we cannot parse confidently is returned as-is, which makes it
+// fail the spec-folder comparison and land in `foreign` — a refusal, which is the
+// safe direction to be wrong in.
+function unquotePath(p) {
+  if (!p.startsWith('"') || !p.endsWith('"')) return p
+  try {
+    return JSON.parse(p)
+  } catch {
+    return p
+  }
+}
+
+/**
+ * Repo-relative paths of everything uncommitted. Returns null when git could not
+ * be read at all — the caller must treat that as "nobody looked", never "clean".
+ *
+ * Two prefix-free listings rather than `git status --porcelain`, deliberately.
+ * Porcelain prefixes every path with a two-character status field, and the shared
+ * git reader TRIMS its output — which eats the leading space of the first line
+ * only, so a fixed-offset parse silently returned `EADME.md` for `README.md`.
+ * These emit bare paths, so there is no offset to get wrong. `--others` also
+ * lists untracked files INDIVIDUALLY, where porcelain collapses them into their
+ * topmost untracked directory — reporting a brand-new spec as `specs/backlog/`,
+ * an ancestor attributable to no single spec, and so refusing the very tree this
+ * gate exists to accept. Both were found by running it, not by reading it.
+ */
+function dirtyPaths(git) {
+  const lists = [
+    git(['diff', '--name-only', 'HEAD']),
+    git(['ls-files', '--others', '--exclude-standard']),
+  ]
+  if (lists.every((l) => l === null)) return null
+  const out = []
+  for (const list of lists) {
+    if (!list) continue
+    for (const line of list.split('\n')) {
+      const q = line.trim()
+      if (q) out.push(unquotePath(q))
+    }
+  }
+  return out
+}
+
+// Is this spec new to git? Asked directly, so the commit subject does not depend
+// on the shape of `git status` output.
+function specIsUntracked(dir, git, spec) {
+  const rel = path.relative(dir, spec.path).split(path.sep).join('/')
+  const tracked = git(['ls-files', '--', rel])
+  return tracked === null ? null : tracked.length === 0
+}
+
+/**
+ * Is this spec present in the commit the worktree will fork from?
+ *
+ * A worktree forks from HEAD (`git worktree add -b`), so a spec absent there
+ * yields a branch missing the very spec it is for — and a clean working tree
+ * cannot detect that, because the spec may be perfectly well committed elsewhere.
+ * This asks the positive question rather than inferring it from cleanliness.
+ *
+ * A HOTFIX IS EXEMPT, and not as an edge case: it forks from a released tag
+ * (`spec.baseRef`) that by definition predates the spec describing the fix, so
+ * the spec is *supposed* to be absent there. Checking it would refuse every
+ * hotfix — an accusation aimed squarely at correct behaviour.
+ *
+ * Returns `{ onFork, foundOn }`; `onFork: null` means "cannot tell" (a hotfix, or
+ * a git that would not answer), which the planner routes to carrying on.
+ */
+function specOnForkPoint(dir, git, spec) {
+  if (spec.baseRef) return { onFork: null, foundOn: null }
+  const rel = path.relative(dir, spec.path).split(path.sep).join('/')
+  if (git(['cat-file', '-e', `HEAD:${rel}/00-overview.md`]) !== null) {
+    return { onFork: true, foundOn: null }
+  }
+  // Best-effort: name the branch that does have it, so the refusal is actionable.
+  let foundOn = null
+  const sha = git(['log', '--all', '--format=%H', '-1', '--', rel])
+  if (sha) {
+    const branches = git(['branch', '--contains', sha, '--format=%(refname:short)'])
+    if (branches) foundOn = branches.split('\n').map((b) => b.trim()).filter(Boolean)[0] || null
+  }
+  return { onFork: false, foundOn }
+}
+
+
+// Say what is about to be committed, and why it qualified. The commit is planned
+// on the operator's behalf, so it is never allowed to be a surprise: the paths are
+// listed before the commands that stage them.
+function specCommitLines(plan, folder) {
+  if (!plan.specCommit) return []
+  const out = ['', `  uncommitted, and all of it is ${folder}'s — it will be committed first:`]
+  for (const p of plan.specCommit.paths) out.push(`    ${p}`)
+  return out
+}
+
 // `spec-env up` in checkout mode. Gathers the git facts, hands them to the pure
 // planner, and prints the plan or the refusal.
 function specEnvUpCheckout(dir, config, spec) {
   const git = gitReader(dir)
   const primary = assertPrimaryOnMain(config, git)
   const base = resolveBaseBranch(config, git)
-  const status = git(['status', '--porcelain'])
+  const status = git(['status', '--porcelain', '-uall'])
+  const onFork = specOnForkPoint(dir, git, spec)
 
   const plan = planCheckoutUp(
     spec,
@@ -251,6 +349,11 @@ function specEnvUpCheckout(dir, config, spec) {
       // the harmless outcome of being wrong is a refusal the operator can act
       // on, and the harmful one is carrying their work onto a new branch.
       clean: status !== null && status.length === 0,
+      dirtyPaths: dirtyPaths(git),
+      specOnFork: onFork.onFork,
+      specFoundOn: onFork.foundOn,
+      forkRef: primary.branch || 'HEAD',
+      specUntracked: specIsUntracked(dir, git, spec),
       branchExists: git(['rev-parse', '--verify', `refs/heads/${spec.branch}`]) !== null,
       checkoutPath: dir,
     },
@@ -271,6 +374,7 @@ function specEnvUpCheckout(dir, config, spec) {
     `  branch:    ${plan.branch}`,
     '  stack:     checkout-only (no worktree, no docker, no port block)',
   ]
+  out.push(...specCommitLines(plan, spec.folder))
   if (plan.commands.length) {
     out.push('')
     out.push('  to provision, run:')
@@ -326,7 +430,24 @@ function specEnvUp(dir, config, specArg) {
     attached = fs.existsSync(spec.worktreePath)
   }
 
-  const plan = planUp(spec, { slot, attached }, config)
+  // The tree gate: the same facts the checkout planner gets. A worktree forks
+  // from base, so an uncommitted spec would produce a branch without it.
+  const upGit = gitReader(dir)
+  const upStatus = upGit(['status', '--porcelain'])
+  const upOnFork = specOnForkPoint(dir, upGit, spec)
+  const plan = planUp(spec, { slot, attached }, config, {
+    clean: upStatus !== null && upStatus.length === 0,
+    dirtyPaths: dirtyPaths(upGit),
+    specOnFork: upOnFork.onFork,
+    specFoundOn: upOnFork.foundOn,
+    forkRef: spec.baseRef || currentBranch(upGit) || 'HEAD',
+    specUntracked: specIsUntracked(dir, upGit, spec),
+  })
+
+  if (plan.blocked) {
+    process.stdout.write(`spec-env up: blocked — ${plan.reason}.\n`)
+    return
+  }
 
   const out = []
   // `up` is a planner: it prints commands for the caller to run and creates no
@@ -364,6 +485,7 @@ function specEnvUp(dir, config, specArg) {
         `(${trust.changed ? 'added to' : 'already in'} .claude/settings.local.json)`,
     )
   }
+  out.push(...specCommitLines(plan, spec.folder))
   out.push('')
   out.push('  to provision, run:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)

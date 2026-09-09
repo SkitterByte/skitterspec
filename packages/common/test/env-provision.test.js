@@ -301,16 +301,19 @@ test('one foreign path blocks, names itself, and plans nothing', () => {
 
 test('a clean tree whose spec is not on base blocks, naming where it is', () => {
   const plan = planUp(S, { slot: 0, attached: false }, config(), {
-    dirtyPaths: [], specOnBase: false, specFoundOn: 'feat/other', base: 'main',
+    dirtyPaths: [], specOnFork: false, specFoundOn: 'feat/other', forkRef: 'main',
   })
   assert.strictEqual(plan.blocked, true)
-  assert.match(plan.reason, /not committed on main/)
+  assert.match(plan.reason, /not committed in main/)
   assert.match(plan.reason, /feat\/other/)
 })
 
-test('specOnBase null carries on — unknown is not a refusal', () => {
+test('specOnFork null carries on — a hotfix forks from a tag predating its spec', () => {
+  // null is "cannot tell", and the commonest source of it is a hotfix: its tag is
+  // older than the spec describing the fix, so the spec is SUPPOSED to be absent
+  // from the fork point. Refusing here would accuse every hotfix.
   const plan = planUp(S, { slot: 0, attached: false }, config(), {
-    dirtyPaths: [], specOnBase: null,
+    dirtyPaths: [], specOnFork: null,
   })
   assert.strictEqual(plan.blocked, false)
 })
@@ -319,8 +322,19 @@ test('committing the spec now satisfies the on-base requirement', () => {
   // specOnBase is false precisely BECAUSE the spec is uncommitted. The commit
   // this plan makes is the fix, so it must not also refuse.
   const plan = planUp(S, { slot: 0, attached: false }, config(), {
-    dirtyPaths: ['specs/backlog/feat-thing'], specOnBase: false,
+    dirtyPaths: ['specs/backlog/feat-thing'], specOnFork: false,
   })
   assert.strictEqual(plan.blocked, false)
   assert.match(plan.commands[1], /chore\(spec\): add feat-thing/)
+})
+
+test('unreadable git provisions a worktree rather than accusing a healthy repo', () => {
+  // `git worktree add` carries nothing and forks from a commit regardless, so
+  // being unable to READ the tree is not a reason to refuse. Refusing here would
+  // fire on repos that did nothing wrong — the checkout-mode counterpart of this
+  // test asserts the opposite, and deliberately.
+  const plan = planUp(S, { slot: 0, attached: false }, config(), { clean: false })
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.specCommit, null)
+  assert.strictEqual(plan.commands[0], 'git worktree add /wt/thing -b feat/thing')
 })

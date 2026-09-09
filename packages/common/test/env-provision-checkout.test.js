@@ -185,7 +185,16 @@ test('a re-run on the spec\'s own branch is still never refused for dirt', () =>
 })
 
 test('a clean tree whose spec is not on base refuses in checkout mode too', () => {
-  const plan = planCheckoutUp(SPEC_B, ctx({ dirtyPaths: [], specOnBase: false }), {})
+  const plan = planCheckoutUp(SPEC_B, ctx({ dirtyPaths: [], specOnFork: false, forkRef: 'main' }), {})
   assert.strictEqual(plan.blocked, true)
-  assert.match(plan.reason, /not committed on main/)
+  assert.match(plan.reason, /not committed in main/)
+})
+
+test('unreadable git still refuses in checkout mode, where switching carries work', () => {
+  // The asymmetry with worktree mode is the risk, not an inconsistency: `git
+  // switch -c` moves uncommitted work onto the new branch, and we cannot rule
+  // that out without reading the tree.
+  const plan = planCheckoutUp(SPEC_B, ctx({ clean: false, dirtyPaths: undefined }), {})
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /uncommitted changes/)
 })

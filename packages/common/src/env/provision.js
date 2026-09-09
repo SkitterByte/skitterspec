@@ -92,33 +92,47 @@ function listPaths(paths) {
  * disqualifies the whole tree.
  *
  * WHAT WOULD FOOL THIS: `ctx.dirtyPaths` being absent. That is not "the tree is
- * clean" — it is "nobody looked", which happens on every legacy caller and every
- * older test. So an absent list falls back to the caller's own `ctx.clean` flag
- * rather than being read as permission to commit.
+ * clean" — it is "nobody looked", which happens on every legacy caller and
+ * whenever git itself could not be read. Either way it is never permission to
+ * commit: with no classification there is no owned set, so no commit is planned.
  *
- * `specOnBase` is the other half, and a POSITIVE signal rather than an absence:
- * a worktree forks from the base branch's tree, so a spec that is not in it
- * produces a branch missing the very spec it is for. A clean tree cannot detect
- * that — the spec may be committed, just on some other branch. `null` means the
- * caller could not tell, and routes to carrying on, never to refusing.
+ * Whether it also REFUSES depends on `carriesChanges`, and the asymmetry is the
+ * two modes' actual risk, not an inconsistency:
  *
- * ctx: { dirtyPaths?, clean?, specOnBase?, specFoundOn?, base? }
+ *   - checkout mode (`carriesChanges`) — `git switch -c` silently carries
+ *     uncommitted work onto the new branch. Unable to see the tree means unable
+ *     to rule that out, so it refuses, exactly as it did before this gate existed.
+ *   - worktree mode — `git worktree add` carries nothing, and forks from a commit
+ *     regardless. Refusing here would fire on a healthy repo whose git we merely
+ *     could not read, which is a cost paid by someone who did nothing wrong. So
+ *     it plans no commit and provisions as before.
+ *
+ * `specOnFork` is the other half, and a POSITIVE signal rather than an absence:
+ * the worktree forks from a specific commit, so a spec absent from it produces a
+ * branch missing the very spec it is for. A clean tree cannot detect that — the
+ * spec may be committed, just somewhere else. `null` means the caller could not
+ * tell (an unreadable git, or a hotfix, which forks from a tag predating its own
+ * spec), and routes to carrying on, never to refusing.
+ *
+ * ctx: { dirtyPaths?, clean?, specOnFork?, specFoundOn?, forkRef?, specUntracked? }
  * @returns {{blocked: boolean, reason: string|null, commands: string[]}}
  */
 function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
-  const ok = { blocked: false, reason: null, commands: [] }
+  const ok = { blocked: false, reason: null, commands: [], owned: [], verb: null }
   const c = ctx || {}
-  const base = c.base || (config && config.baseBranch) || 'main'
 
   if (!Array.isArray(c.dirtyPaths)) {
-    // Nobody looked. Preserve the caller's existing clean-flag behaviour exactly.
-    if (c.clean === false) {
+    // Nobody looked: never commit, and refuse only where switching could carry
+    // work we cannot see (see the asymmetry above).
+    if (carriesChanges && c.clean === false) {
       return {
         blocked: true,
         reason:
           'the primary checkout has uncommitted changes — commit or stash them first' +
           (carriesChanges ? ' (switching would carry them onto the new branch)' : ''),
         commands: [],
+        owned: [],
+        verb: null,
       }
     }
     return ok
@@ -139,16 +153,23 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
   }
 
   if (owned.length) {
-    // A wholly untracked spec folder is reported by git as one bare directory
-    // entry; once any file in it is tracked, git lists the changed files instead.
-    // So the bare entry is the signal for "this spec is new". Passing `-uall`
-    // upstream would collapse that signal and only ever say `update` — cosmetic,
-    // but that is why the subject can drift.
-    const isNew = owned.includes(`specs/${spec.bucket}/${spec.folder}`)
+    // `add` or `update`? Asked of git (`ctx.specUntracked`, from `git ls-files`)
+    // rather than inferred from the shape of the status output. The inference —
+    // "a bare directory entry means the folder is wholly untracked" — was wrong in
+    // the ordinary case of the FIRST spec in a bucket, where git reports the
+    // bucket as the untracked directory instead. The old inference stays as a
+    // fallback for callers that pass no fact; unknown yields `update`, which is
+    // never a false claim.
+    const isNew =
+      typeof c.specUntracked === 'boolean'
+        ? c.specUntracked
+        : owned.includes(`specs/${spec.bucket}/${spec.folder}`)
     const verb = isNew ? 'add' : 'update'
     return {
       blocked: false,
       reason: null,
+      owned,
+      verb,
       commands: [
         `git add ${owned.map((p) => `"${p}"`).join(' ')}`,
         `git commit -m "chore(spec): ${verb} ${spec.folder}"`,
@@ -158,11 +179,11 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
 
   // Tree is clean. The spec must already be in the base branch's tree, or the
   // worktree forks without it.
-  if (c.specOnBase === false) {
+  if (c.specOnFork === false) {
     return {
       blocked: true,
       reason:
-        `${spec.folder} is not committed on ${base}` +
+        `${spec.folder} is not committed in ${c.forkRef || 'the fork point'}` +
         (c.specFoundOn ? ` — it is on ${c.specFoundOn}` : '') +
         ' — the worktree would fork without the spec it is for',
       commands: [],
@@ -254,6 +275,7 @@ function planUp(spec, alloc, config, ctx) {
   return {
     blocked: gate.blocked,
     reason: gate.reason,
+    specCommit: gate.owned && gate.owned.length ? { paths: gate.owned, verb: gate.verb } : null,
     worktreePath: spec.worktreePath,
     branch: spec.branch,
     projectName: spec.projectName,
@@ -317,6 +339,9 @@ function planCheckoutUp(spec, ctx, config) {
     )
   }
 
+  if (gate.owned && gate.owned.length) {
+    result.specCommit = { paths: gate.owned, verb: gate.verb }
+  }
   result.commands.push(...gate.commands)
   result.commands.push(
     ctx.branchExists ? `git switch ${spec.branch}` : `git switch -c ${spec.branch}`,

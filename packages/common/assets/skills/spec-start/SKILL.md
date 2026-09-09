@@ -17,7 +17,8 @@ finishing it is `/spec-complete`.
 the current branch. The workbench must be:
 
 - **on the base branch** (`main`, or the configured `baseBranch`), and
-- **clean** — no uncommitted changes.
+- **clean** — no uncommitted changes, *except* the spec you are starting, which
+  `spec-env up` commits for you (see below).
 
 **If it isn't, relay what is in flight and stop.** Name the spec holding the
 checkout and the three ways out, then end your turn:
@@ -27,15 +28,30 @@ checkout and the three ways out, then end your turn:
 - **`/spec-live main`** *(worktree mode)* — park it: the branch goes back to its
   worktree and stays exactly as it is, ready to resume later.
 
-**Never get past the gate yourself.** Do not stash, do not commit on the
-operator's behalf, do not `/spec-live main` for them, do not switch branches. An
-uncommitted tree, a half-built phase and a rebase are each a decision someone
-must make deliberately — and the cost of guessing is another spec's work moved
-without its author asking. A refusal costs one command; the alternative can cost
-an afternoon.
+**Never get past the gate yourself.** Do not stash, do not commit **another
+spec's** work, do not `/spec-live main` for them, do not switch branches. A
+half-built phase and a rebase are each a decision someone must make deliberately
+— and the cost of guessing is another spec's work moved without its author
+asking. A refusal costs one command; the alternative can cost an afternoon.
 
-A dirty tree is refused *with the same words whatever the cause*: the gate does
-not try to judge whether the changes look important.
+**The one exception is the spec you are starting.** `spec-env up` classifies the
+uncommitted tree against the target spec and answers one of three ways — relay
+what it says rather than deciding for yourself:
+
+| What it found | What it does |
+|---------------|--------------|
+| clean | provisions, as always |
+| every path belongs to this spec | plans `git add` + `git commit` **first**, then the fork |
+| any path does not | refuses, naming the paths that disqualified it |
+
+That is membership in an exactly-known set — the spec's own folder plus the
+project's `spec.companionPaths` — and **not** a judgement about whether the
+changes look important. The gate still never decides that. When it plans the
+commit, the paths are printed above the commands, so run them as printed; when it
+refuses, relay the reason and stop.
+
+It also refuses a **clean** tree whose spec is not in the commit the worktree
+would fork from — otherwise you get a branch missing the very spec it is for.
 
 ## 2. Identify the spec
 
