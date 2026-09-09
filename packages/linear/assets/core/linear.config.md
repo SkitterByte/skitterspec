@@ -366,9 +366,10 @@ default for anyone who never sets one.
 - `"deferred"` — only once the work starts. A spec sitting in `specs/backlog/`
   mirrors as **the issue alone**; its sub-issues are created by the push that
   follows `/spec-start`.
-- `"inline"` — never. Each phase becomes a **section of the spec issue's own
-  description**, with its full task list, and the `## Phases` index stays as the
-  table of contents. One issue per spec, however many phases it has.
+- `"inline"` — never. Each phase becomes a
+  **section of the spec issue's own description**, with its full task list, and
+  the `## Phases` index stays as the table of contents. One issue per spec,
+  however many phases it has.
 
 ### One mode, or one per bucket
 
@@ -405,11 +406,11 @@ that made the choice worth it.
 
 ### Switching modes is non-destructive
 
-**A phase already carrying a `linear_issue_id` keeps its sub-issue in every
-mode**, and is never *also* inlined. One-way sync has no delete op, so
-withholding a live sub-issue would not remove it from Linear — it would freeze it
-there, never updated again. So changing `mapping.phases` only ever changes what
-has yet to be minted, and a spec part-way through keeps a coherent mirror.
+**A phase already carrying a `linear_issue_id` keeps its sub-issue in every mode**,
+and is never *also* inlined. One-way sync has no delete op, so withholding a
+live sub-issue would not remove it from Linear — it would freeze it there,
+never updated again. So changing `mapping.phases` only ever changes what has
+yet to be minted, and a spec part-way through keeps a coherent mirror.
 
 **Adopting on an established repo:** set `complete: "inline"` (and `"deferred"`
 or `"inline"` for `backlog`) **before** the first backfill push. Finished specs

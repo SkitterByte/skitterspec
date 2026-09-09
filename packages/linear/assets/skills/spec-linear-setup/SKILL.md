@@ -279,12 +279,12 @@ more detail if you need it. If the key is missing, tell the user to run this
 skitterspec spec-sync credentials set
 ```
 
-**Do not ask the user to paste an API key into this conversation, and do not
-offer to store one for them.** A key pasted into a chat enters the transcript,
-is sent to the model, and may be logged — moving where a key is stored is
-pointless if it travels through the conversation to get there. Your job is to
-confirm the setup is ready and name the command; the value is theirs alone. The
-key is optional: without one, pushes go over MCP.
+**Do not ask the user to paste an API key into this conversation, and do not offer to store one for them.**
+A key pasted into a chat enters the transcript, is sent to the model, and may
+be logged — moving where a key is stored is pointless if it travels through the
+conversation to get there. Your job is to confirm the setup is ready and name
+the command; the value is theirs alone. The key is optional: without one,
+pushes go over MCP.
 
 Mention what setup did **not** configure, so the defaults aren't mistaken for
 decisions: phase mapping (`mapping.phases` — sub-issue per phase by default) and

@@ -216,13 +216,14 @@ Rules for the spec body:
   phase index.
 - **Honour project conventions** when writing tasks — reference the relevant
   `.claude/rules/*.md` rather than re-explaining them.
-- **The `## Impact` table is derived from Phase A items 3 (Affected areas) & 5
-  (Data/API impact)** — a structured place to record what those already surface,
-  not new grilling. It is the scannable substitute for spelling impact out in
-  prose: name the surfaces (endpoints, schemas, DB tables, domain objects,
-  routes, business rules) instead of describing them, keep `Detail` terse, and
-  let it — not paragraphs — carry the blast radius. It complements the `Area:`
-  header (files) by naming behavioural surfaces.
+-
+  **The `## Impact` table is derived from Phase A items 3 (Affected areas) & 5 (Data/API impact)**
+  — a structured place to record what those already surface, not new grilling.
+  It is the scannable substitute for spelling impact out in prose: name the
+  surfaces (endpoints, schemas, DB tables, domain objects, routes, business
+  rules) instead of describing them, keep `Detail` terse, and let it — not
+  paragraphs — carry the blast radius. It complements the `Area:` header
+  (files) by naming behavioural surfaces.
 - **Changelog** is mandatory and lives in the spec. Every later decision or
   course-correction gets a dated one-line entry. Convert relative dates to
   absolute.

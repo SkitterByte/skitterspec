@@ -8,11 +8,11 @@ in-progress spec). Provisioning is folded into `/spec-start`, teardown into
 beneath them.
 
 **Once this file is present, isolation is the default policy:** `/spec-start` gives
-**every** in-progress spec its own git worktree automatically. Docker is a **per-
-spec escalation** — a spec brings up a stack only when its `> **Stack:**` header
-is `worktree + docker` (set at `/spec` when it touches the DB / stateful
-services). A `worktree`-only spec takes no registry slot, no port block, and no
-`.env`.
+**every** in-progress spec its own git worktree automatically. Docker is a
+**per- spec escalation** — a spec brings up a stack only when its
+`> **Stack:**` header is `worktree + docker` (set at `/spec` when it touches
+the DB / stateful services). A `worktree`-only spec takes no registry slot, no
+port block, and no `.env`.
 
 **Adopt it** with `skitterspec init --isolation` (or copy
 `env.config.json.example` → `env.config.json` here) and edit the values. While

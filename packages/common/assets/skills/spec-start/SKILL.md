@@ -31,10 +31,10 @@ turn:
 - **`/spec-complete`** — it's finished; land it and free the workbench.
 - **`/spec-cancel`** — it isn't wanted; record why and free the workbench.
 
-**Never get past the gate yourself.** Do not stash, do not commit **another
-spec's** work, do not switch branches for them. An uncommitted tree and a
-half-built phase are each a decision someone must make deliberately — and the
-cost of guessing is another spec's work moved without its author asking. A
+**Never get past the gate yourself.** Do not stash, do not commit
+**another spec's** work, do not switch branches for them. An uncommitted tree
+and a half-built phase are each a decision someone must make deliberately — and
+the cost of guessing is another spec's work moved without its author asking. A
 refusal costs one command; the alternative can cost an afternoon.
 
 **The one exception is the spec you are starting.** `spec-env up` classifies the
@@ -84,13 +84,13 @@ would fork from — otherwise you get a branch missing the very spec it is for.
    several specs run at once. So put *this* session there rather than opening
    another one: call **`EnterWorktree`** with the worktree path.
 
-   **Do it immediately after `git worktree add`, before bootstrap and before the
-   step 4 housekeeping.** Once the session is the worktree, `setup` runs in place
-   and the housekeeping is plain `git` — the `cd` and the `git -C <worktreePath>`
-   prefix both disappear. **Never `cd` into the worktree first:** `EnterWorktree`
-   refuses a path that is already the working directory
-   (`is the current working directory`), so a bootstrap `cd` does not merely make
-   the call redundant, it makes it fail.
+   **Do it immediately after `git worktree add`, before bootstrap and before the step 4 housekeeping.**
+   Once the session is the worktree, `setup` runs in place and the housekeeping
+   is plain `git` — the `cd` and the `git -C <worktreePath>` prefix both
+   disappear. **Never `cd` into the worktree first:** `EnterWorktree` refuses a
+   path that is already the working directory
+   (`is the current working directory`), so a bootstrap `cd` does not merely
+   make the call redundant, it makes it fail.
 
    Then run the planner's **`then, in the worktree, run:`** steps in order (file
    seeding, then `setup`) — a fresh worktree has no dependencies and none of the
@@ -103,9 +103,10 @@ would fork from — otherwise you get a branch missing the very spec it is for.
    already-running dev server; it is not the way work gets started, and reaching
    for it here is what used to split a start across two invocations.
 
-3. **When you cannot enter, hand off as before.** Two cases, and **decide from cwd
-   before calling**, not by calling and catching — an error surfaced mid-skill
-   reads as a bug, and both conditions are knowable in advance:
+3. **When you cannot enter, hand off as before.** Two cases, and
+   **decide from cwd before calling**, not by calling and catching — an error
+   surfaced mid-skill reads as a bug, and both conditions are knowable in
+   advance:
 
    - **This session's cwd is already inside a worktree.** `EnterWorktree` only
      allows a worktree→worktree switch when the target lives under

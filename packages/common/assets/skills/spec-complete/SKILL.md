@@ -80,9 +80,10 @@ git add specs/ && git commit -m "chore(spec): complete <name>"
 ```
 
 Step 2 established the tree was otherwise clean, so this commits exactly the
-status flip and the move — nothing of yours rides along. **This is what lets step
-6 land:** `integrate` refuses a dirty worktree, so without committing here the
-skill would block on the very edits it just made. Do not `git push`.
+status flip and the move — nothing of yours rides along.
+**This is what lets step 6 land:** `integrate` refuses a dirty worktree, so
+without committing here the skill would block on the very edits it just made.
+Do not `git push`.
 
 ## 5. Report
 
@@ -223,16 +224,16 @@ only ordering that survives.
    worktree without `--force`), so if it *does* refuse, relay that and stop
    rather than reaching for `--force`.
 
-   **If the plan prints a `remote branch — confirm with the user first:`
-   section, ask before running it.** `/spec-start` pushed this branch when it
-   provisioned, so the remote copy outlives teardown unless someone deletes it.
-   The planner only ever offers this for a branch that has **landed**, so say so
-   plainly when you ask — the commits are on the base branch (or captured by the
-   deploy tag), so deleting the remote branch loses nothing. On a yes, run the
-   printed `git push <remote> --delete <branch>`; on a no, leave it and say the
-   remote branch is still there. Never fold it into the `run these:` batch — a
-   project that wants it unattended sets `teardown.deleteRemoteBranch: "always"`
-   in `env.config.json`, and then it appears in `run these:` instead of here.
+   **If the plan prints a `remote branch — confirm with the user first:` section, ask before running it.**
+   `/spec-start` pushed this branch when it provisioned, so the remote copy
+   outlives teardown unless someone deletes it. The planner only ever offers
+   this for a branch that has **landed**, so say so plainly when you ask — the
+   commits are on the base branch (or captured by the deploy tag), so deleting
+   the remote branch loses nothing. On a yes, run the printed
+   `git push <remote> --delete <branch>`; on a no, leave it and say the remote
+   branch is still there. Never fold it into the `run these:` batch — a project
+   that wants it unattended sets `teardown.deleteRemoteBranch: "always"` in
+   `env.config.json`, and then it appears in `run these:` instead of here.
 4. **Reap orphaned test-DB volumes:** run `skitterspec spec-env prune`. It lists
    Docker volumes in the repo namespace that belong to **no live spec** (no
    worktree) — leftovers from declined/aborted teardowns, manual

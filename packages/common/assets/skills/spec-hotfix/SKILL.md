@@ -77,14 +77,14 @@ that header — must exist **before** `spec-env up`:
 
   The `mkdir -p` is not belt-and-braces. Git does not store empty directories, so
   `specs/in-progress/` is **absent** from the worktree whenever nothing was in
-  progress at that point in history — and here that point is an **old release
-  tag**, where it is absent more often than not. `mv` into a missing destination
-  renames your spec folder **to** `specs/in-progress`, silently: the spec's files
-  end up one level too high, `00-overview.md` sits where the bucket should be, and
-  every later step still appears to work until something cannot find the spec.
-  Confirm the result before carrying on — you want
-  `<worktreePath>/specs/in-progress/hotfix-<name>/00-overview.md`.
-<!-- seam:worktree-bootstrap -->
+  progress at that point in history — and here that point is an
+  **old release tag**, where it is absent more often than not. `mv` into a
+  missing destination renames your spec folder **to** `specs/in-progress`,
+  silently: the spec's files end up one level too high, `00-overview.md` sits
+  where the bucket should be, and every later step still appears to work until
+  something cannot find the spec. Confirm the result before carrying on — you
+  want `<worktreePath>/specs/in-progress/hotfix-<name>/00-overview.md`. <!--
+  seam:worktree-bootstrap -->
 - **Do everything below in the worktree**, on the `hotfix/<slug>` branch — the red
   test, the fix, and the rest of the spec. Act with absolute paths /
   `git -C <worktreePath>`, or open a fresh session rooted there. `main` changes

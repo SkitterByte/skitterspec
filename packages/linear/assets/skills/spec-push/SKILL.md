@@ -5,16 +5,15 @@ description: Push a spec up to its linked Linear issue (repo → Linear, one-way
 
 # /spec-push — send a spec up to Linear (one-way)
 
-Repo → Linear. The repo is the **source of truth**; Linear is a **generated
-mirror**. A spec is a Linear **issue**; each phase is a **sub-issue** (a child
-issue), and the phase file is mirrored into that sub-issue's description as
-written — its prose, its sections, and its tasks as a read-only checklist, never
-as issues of their own. Only the phase's h1 and `> **Status:**` line are left
-out, because both are pushed as fields of their own (the sub-issue's title and
-state). This skill
-computes what changed since the last push and applies it — it never reads Linear
-content back or merges. A person editing the mirror in Linear will see it
-overwritten on the next push.
+Repo → Linear. The repo is the **source of truth**; Linear is a
+**generated mirror**. A spec is a Linear **issue**; each phase is a
+**sub-issue** (a child issue), and the phase file is mirrored into that
+sub-issue's description as written — its prose, its sections, and its tasks as
+a read-only checklist, never as issues of their own. Only the phase's h1 and
+`> **Status:**` line are left out, because both are pushed as fields of their
+own (the sub-issue's title and state). This skill computes what changed since
+the last push and applies it — it never reads Linear content back or merges. A
+person editing the mirror in Linear will see it overwritten on the next push.
 
 **Opt-in**: only runs when `specs/.core/linear.config.json` exists. If absent,
 tell the user how to enable Linear sync and stop.
@@ -190,10 +189,10 @@ skitterspec spec-sync verify <spec> --stored <file>
 
 It compares against what the engine sent, ignoring the reformatting Linear
 legitimately applies (renumbered ordered lists, `-`→`*`, collapsed table
-separators, checkbox case, whitespace) and reporting only lost or altered **word
-characters**. Relay any divergence — it prints both sides around the first
-difference. It exits 0 either way: the repo is unaffected and still correct, so
-this is a warning, not a failure.
+separators, checkbox case, whitespace) and reporting only lost or altered
+**word characters**. Relay any divergence — it prints both sides around the
+first difference. It exits 0 either way: the repo is unaffected and still
+correct, so this is a warning, not a failure.
 
 This is **not a pull**. Nothing read here is merged, stamped, or written
 anywhere; the repo remains the only source of truth. Do it before step 5 so a

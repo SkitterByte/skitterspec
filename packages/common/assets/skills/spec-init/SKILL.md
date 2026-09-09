@@ -93,8 +93,8 @@ Ensure it exists. If missing, create it documenting:
 - the **Author** / **Developer** header fields;
 - the **State log** audit table (folder/status transitions), kept separate from
   the **Changelog** (decisions);
-- the project's concrete typecheck/test commands, and the rule that **every
-  phase ends with creating + running tests**.
+- the project's concrete typecheck/test commands, and the rule that
+  **every phase ends with creating + running tests**.
 
 Read a sibling spec skill (e.g. `spec`, `spec-next`) for the canonical shapes
 rather than inventing them. If the rule already exists, leave it unless stale.

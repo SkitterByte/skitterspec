@@ -22,9 +22,9 @@ and lifecycle stay consistent. Each sets a status on the spec header
 exercises judgment. `/spec-connect` and `/spec-live` are instead **slash commands**
 (`.claude/commands/`): each pre-executes one `skitterspec spec-env` verb and
 relays its output, so there is no judgment to apply and no model turn spent
-finding one. They are marked `disable-model-invocation`, meaning **only you can
-run them** — a skill that wants one will tell you to type it rather than invoking
-it.
+finding one. They are marked `disable-model-invocation`, meaning
+**only you can run them** — a skill that wants one will tell you to type it
+rather than invoking it.
 
 `/spec-to-main`, `/spec-status` and `/spec-sync` stay **skills** — each carries
 real judgment (green tests before a land; an MCP fetch and a team-key check; ten

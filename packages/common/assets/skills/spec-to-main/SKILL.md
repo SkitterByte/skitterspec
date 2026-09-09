@@ -8,9 +8,9 @@ disable-model-invocation: true
 
 The **intermediate** landing. `/spec-complete` also lands the branch, but then
 verifies every phase, flips the status to Complete, `git mv`s the spec to
-`complete/`, and tears the environment down. **`/spec-to-main` stops after the
-land**: the worktree stays, the spec stays `In Progress`, and you can land again
-as you add commits.
+`complete/`, and tears the environment down.
+**`/spec-to-main` stops after the land**: the worktree stays, the spec stays
+`In Progress`, and you can land again as you add commits.
 
 Use it when a later phase can only be done *after* the current work is on `main` —
 e.g. it needs to run in CI, a deploy pipeline, or a shared test environment that
@@ -19,9 +19,9 @@ the remaining phases with `/spec-next` and eventually `/spec-complete`.
 
 It reuses the **same engine** as `/spec-complete`'s landing (`spec-env integrate`
 — rebase + fast-forward), so it produces identical linear history. Because a
-fast-forward leaves `base == branch`, the operation is **idempotent and
-repeatable**: new commits put the branch ahead of base again, and you can run
-`/spec-to-main` as many times as you like.
+fast-forward leaves `base == branch`, the operation is
+**idempotent and repeatable**: new commits put the branch ahead of base again,
+and you can run `/spec-to-main` as many times as you like.
 
 ## 0. Preconditions — when this applies
 
@@ -58,10 +58,10 @@ primary checkout is dirty, or if a *different* spec holds it (release that one w
 
 ## 3. Tests must be green before landing
 
-Don't push red to `main`. Run the project's typecheck and test commands **in the
-worktree**; the suite must be **green**. For a **Bug** spec, confirm the
-originally-failing test now passes. If anything is red, stop and report — landing
-broken code onto `main` defeats the purpose.
+Don't push red to `main`. Run the project's typecheck and test commands
+**in the worktree**; the suite must be **green**. For a **Bug** spec, confirm
+the originally-failing test now passes. If anything is red, stop and report —
+landing broken code onto `main` defeats the purpose.
 
 (Note this is the *worktree* suite. The whole point of this skill is often to run
 a *further* check that only exists on `main` / in CI — that one runs **after** the
@@ -69,8 +69,8 @@ land, in step 5.)
 
 ## 4. Land — rebase + fast-forward
 
-Run `skitterspec spec-env integrate <name>` and run the printed commands **in
-order**:
+Run `skitterspec spec-env integrate <name>` and run the printed commands
+**in order**:
 
 - `git -C <worktree> rebase <base>` — replay the branch onto base.
 - `git -C <mainRepoPath> merge --ff-only <branch>` — fast-forward base.
@@ -91,8 +91,8 @@ and continue — the branch has no commits base doesn't already have.
   `- <YYYY-MM-DD> — Landed intermediate work onto <base> to <run CI / deploy to
   test env / …>; spec stays In Progress.`
 - Do **NOT**: add a State-log row (status doesn't change), flip any phase/status
-  to Complete, `git mv` the spec, or tear down the worktree/stack. **The spec
-  stays `In Progress` and the worktree stays put.**
+  to Complete, `git mv` the spec, or tear down the worktree/stack.
+  **The spec stays `In Progress` and the worktree stays put.**
 - Report: the base branch, the fast-forward result, and the green base test. It
   **never pushes** — mention the user can `git push` the base branch themselves to
   trigger CI / the shared env.

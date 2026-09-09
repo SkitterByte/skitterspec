@@ -67,12 +67,12 @@ resolve it by reading the code, do that instead of asking.
 
 ## 4. Update the spec
 
-- Rewrite stale **Decisions** / **Solution overview** and refresh the **Impact
-  map** in `00-overview.md`, and stale **tasks** in the phase files, so they
-  match the current code and the resolved questions. Add/remove tasks within a phase file; add a new phase by
-  creating a `0N-<slug>.md` file **and** a matching overview index row, or drop a
-  dead phase by removing both. Keep the index and files in sync; **preserve
-  completed `[x]` history**.
+- Rewrite stale **Decisions** / **Solution overview** and refresh the
+  **Impact map** in `00-overview.md`, and stale **tasks** in the phase files,
+  so they match the current code and the resolved questions. Add/remove tasks
+  within a phase file; add a new phase by creating a `0N-<slug>.md` file
+  **and** a matching overview index row, or drop a dead phase by removing both.
+  Keep the index and files in sync; **preserve completed `[x]` history**.
 - **A phase's status is the `⬜`/`🔄`/`✅` on its H1** — `# Phase 2 — <goal> 🔄`.
   It is mirrored in that file's `> **Status:**` line and in the matching
   `00-overview.md` phase-index row, but the **heading is the authoritative one**:

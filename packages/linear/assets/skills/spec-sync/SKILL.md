@@ -142,10 +142,10 @@ pnpm exec skitterspec-linear spec-sync released [<range>] [--json]
 ```
 
 `ref` prints the ticket for the branch you are on, so a commit can carry
-`Refs: <KEY-N>` — see `.claude/rules/commit-trailers.md`. **Off a spec branch, or
-on a spec that is not linked, it prints nothing and exits non-zero.** That is the
-correct answer, not an error to work around: do not invent a ref, and never write
-`Refs: none`.
+`Refs: <KEY-N>` — see `.claude/rules/commit-trailers.md`.
+**Off a spec branch, or on a spec that is not linked, it prints nothing and exits non-zero.**
+That is the correct answer, not an error to work around: do not invent a ref,
+and never write `Refs: none`.
 
 `released` reports the tickets in a commit range — by default since the most
 recent tag, and it always prints the range it chose so a wrong default is
@@ -170,9 +170,9 @@ the report saying which commits it set aside.
 pnpm exec skitterspec-linear spec-sync retarget [--yes]
 ```
 
-Renaming a Linear team rewrites the key in every issue identifier, and **nothing
-in the repo moves**: the frontmatter stamps, the config `teamKey`, and the
-snapshot filenames and their sub-issue keys all keep the old prefix, so
+Renaming a Linear team rewrites the key in every issue identifier, and
+**nothing in the repo moves**: the frontmatter stamps, the config `teamKey`,
+and the snapshot filenames and their sub-issue keys all keep the old prefix, so
 `/spec-push` starts failing with `no Linear issue found for SKI-7`.
 
 `retarget` detects the rename (the team id survives it; the key does not) and
