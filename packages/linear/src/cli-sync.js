@@ -71,9 +71,12 @@ const {
   storeMode,
   fingerprint,
   writeKey,
+  writeUser,
   writeKeyCommand,
   removeKey,
+  removeUser,
 } = require('./credentials.js')
+const { resolveIdentity, displayNameOf } = require('./identity.js')
 
 // Resolve a spec argument to its snapshot dir. Accepts a spec name/folder found
 // under specs/** (preferred) or a literal path to a snapshot directory.
@@ -1862,6 +1865,196 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
 }
 
 /**
+ * `spec-sync whoami [--json] [--set <id> [--name <n>]] [--unset]`
+ *
+ * Report — and cache — who the operator is in Linear, which is the fact
+ * assignment rests on. See `identity.js` for why it is derived rather than
+ * configured.
+ *
+ * **Exit code 0 even when the answer is "unknown".** This deliberately differs
+ * from `credentials status`, which exits 1 with no key: that command is a
+ * READINESS check, and a missing key means the thing you asked about cannot
+ * work. This one answers a question, and "nobody is identified here" is a valid
+ * answer — a shared key, an offline machine, a repo mid-setup. Exiting non-zero
+ * would make every caller treat an ordinary state as a fault, which is how an
+ * advisory check turns into one that accuses.
+ *
+ * A successful DERIVE is cached; a read from the cache is not re-written. The
+ * caching lives here rather than in `resolveIdentity` so that asking the
+ * question never has a side effect — see that module's header.
+ */
+async function specSyncWhoami(dir, config, flags, out) {
+  const env = flags.env || process.env
+  const file = storePath(env)
+  const teamId = (config.linear && config.linear.teamId) || ''
+  const teamKey = (config.linear && config.linear.teamKey) || ''
+  const label = teamKey ? `${teamId} (${teamKey})` : teamId
+
+  // The store is keyed by team, so without one there is nowhere to read from or
+  // write to. That IS a broken config rather than an ordinary unknown, so unlike
+  // the rest of this command it exits non-zero.
+  if (!teamId) {
+    out.write(
+      'spec-sync whoami: no linear.teamId in specs/.core/linear.config.json.\n' +
+        '  Identity is stored per team — run `spec-sync init-config` first.\n',
+    )
+    return 1
+  }
+
+  if (flags.unset) {
+    const r = removeUser(file, teamId, {})
+    if (!r.ok) {
+      out.write(`spec-sync whoami: ${r.reason}\n`)
+      return 1
+    }
+    out.write(
+      r.removed
+        ? `spec-sync whoami: forgot the identity for ${label} (the API key is untouched)\n`
+        : `spec-sync whoami: no identity stored for ${label} — nothing to forget\n`,
+    )
+    return 0
+  }
+
+  if (flags.set) {
+    const r = writeUser(file, teamId, { id: flags.set, name: flags.name }, {})
+    if (!r.ok) {
+      out.write(`spec-sync whoami: ${r.reason}\n`)
+      return 1
+    }
+    if (flags.json) {
+      out.write(
+        JSON.stringify({ id: flags.set, name: flags.name || null, source: 'set', store: r.path }, null, 2) + '\n',
+      )
+      return 0
+    }
+    const shown = flags.name ? `${flags.name} (${flags.set})` : flags.set
+    out.write(`spec-sync whoami: identity for ${label} set to ${shown} in ${r.path} (600)\n`)
+    return 0
+  }
+
+  const identity = await resolveIdentity(config, env, { adapter: flags.adapter, fetch: flags.fetch })
+
+  if (identity.ok && identity.source === 'viewer') {
+    // Cache what the network just told us, so the next `/spec-start` costs no
+    // call. A failed write is not fatal: we HAVE the answer, and re-deriving it
+    // next time is a slower success, not a wrong one.
+    const cached = writeUser(file, teamId, { id: identity.id, name: identity.name }, {})
+    if (!cached.ok) identity.cacheWarning = cached.reason
+  }
+
+  if (flags.json) {
+    out.write(
+      JSON.stringify(
+        {
+          team: label,
+          store: file,
+          ok: identity.ok,
+          id: identity.id || null,
+          name: identity.name || null,
+          source: identity.source,
+          reason: identity.ok ? null : identity.reason || null,
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+    return 0
+  }
+
+  if (!identity.ok) {
+    out.write(
+      [
+        'spec-sync whoami: unknown — no identity for this workspace',
+        `  ${identity.reason}`,
+        '  Set one by hand:',
+        '    skitterspec spec-sync whoami --set <linear-user-id> --name "<your name>"',
+        '  Find the id with: skitterspec spec-sync users <name-or-email>',
+      ].join('\n') + '\n',
+    )
+    return 0
+  }
+
+  const where = identity.source === 'store' ? `cached in ${file}` : 'derived from the API key'
+  const lines = [
+    `spec-sync whoami: ${identity.name || '(unnamed)'} <${identity.id}>`,
+    `  team:   ${label}`,
+    `  source: ${where}`,
+  ]
+  if (identity.cacheWarning) lines.push(`  note:   not cached — ${identity.cacheWarning}`)
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
+/**
+ * `spec-sync users [<query>] [--json] [--limit N] [--cursor C]`
+ *
+ * Find a person by name or email. Both halves matter: search is what makes this
+ * usable in a workspace of hundreds, and the bare listing is what answers "show
+ * me everyone" in one of five. Linear's user query does both, so this is one
+ * command rather than a `users` and a `search-users`.
+ *
+ * The engine answers on the API path and steps aside on the MCP path — the same
+ * contract `states` and `projects` follow.
+ */
+async function specSyncUsers(dir, config, query, flags, out) {
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+
+  if (transport === 'mcp') {
+    if (flags.json) {
+      out.write(
+        JSON.stringify({ transport: 'mcp', reason: key.ok ? 'requested' : key.error, users: null }, null, 2) + '\n',
+      )
+      return 0
+    }
+    out.write(
+      [
+        'spec-sync users: transport = mcp',
+        `  ${key.ok ? '--via mcp was requested' : key.error}`,
+        '  search the workspace over MCP with the user-list tool',
+      ].join('\n') + '\n',
+    )
+    return 0
+  }
+  if (!key.ok) {
+    out.write(`spec-sync users: refusing — ${key.error}\n`)
+    return 1
+  }
+
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  let page
+  try {
+    page = await adapter.searchUsers(query || '', { limit: flags.limit || 50, cursor: flags.cursor || null })
+  } catch (error) {
+    out.write(`spec-sync users: ${error.message}\n`)
+    return 1
+  }
+
+  const users = (page && page.users) || []
+  if (flags.json) {
+    out.write(
+      JSON.stringify({ transport: 'api', users, nextCursor: (page && page.nextCursor) || null }, null, 2) + '\n',
+    )
+    return 0
+  }
+  if (!users.length) {
+    out.write(`spec-sync users: no match for ${JSON.stringify(query || '')}\n`)
+    return 0
+  }
+  const lines = [`spec-sync users: ${users.length} match(es)`]
+  for (const u of users) {
+    // A deactivated user still resolves by id and can still be assigned, so the
+    // marker is the difference between a valid pick and a silently dead one.
+    const inactive = u && u.active === false ? '  [deactivated]' : ''
+    const email = u && u.email ? `  ${u.email}` : ''
+    lines.push(`  ${displayNameOf(u) || '(unnamed)'} <${u && u.id}>${email}${inactive}`)
+  }
+  if (page && page.nextCursor) lines.push(`  … more — re-run with --cursor ${page.nextCursor}`)
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
+/**
  * `spec-sync apply <spec> --plan <file> [--via api|mcp] [--project <id>]`
  * `spec-sync apply --all <bucket> [--via api|mcp] [--json]`
  *
@@ -2535,6 +2728,14 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--yes') flags.yes = true
     else if (args[i] === '--check-remote') flags.remoteCheck = true
     else if (args[i] === '--stdin') flags.stdin = true
+    // `whoami --set <id> --name <n>`. Unlike `--key`, a user id and a name are
+    // NOT secrets — they appear on every issue in Linear — so passing them as
+    // arguments is safe and there is no hidden-prompt equivalent to reach for.
+    else if (args[i] === '--set') flags.set = String(args[++i] || '').trim()
+    else if (args[i] === '--name') flags.name = String(args[++i] || '').trim()
+    else if (args[i] === '--unset') flags.unset = true
+    else if (args[i] === '--limit') flags.limit = Number(args[++i]) || 0
+    else if (args[i] === '--cursor') flags.cursor = String(args[++i] || '').trim()
     else if (args[i] === '--command') flags.command = String(args[++i] || '').trim()
     else if (args[i] === '--key') {
       // Consumed and DELIBERATELY DISCARDED. A secret in argv is visible in
@@ -2635,6 +2836,10 @@ async function specSync(rest, io = {}) {
       return (await specSyncProjects(dir, config, flags, out)) || 0
     case 'states':
       return (await specSyncStates(dir, config, flags, out)) || 0
+    case 'whoami':
+      return (await specSyncWhoami(dir, config, flags, out)) || 0
+    case 'users':
+      return (await specSyncUsers(dir, config, positional[0], flags, out)) || 0
     case 'released':
       return (await specSyncReleased(dir, config, positional[0], flags, out)) || 0
     case 'stage':
@@ -2659,6 +2864,8 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
         '       skitterspec spec-sync states [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync projects [--via api|mcp] [--json]\n' +
+        '       skitterspec spec-sync whoami [--set <id> [--name N]] [--unset] [--json]\n' +
+        '       skitterspec spec-sync users [<name-or-email>] [--limit N] [--cursor C] [--json]\n' +
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +

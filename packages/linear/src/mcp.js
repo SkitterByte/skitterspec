@@ -33,6 +33,14 @@ const MATCHERS = {
   // The team's Linear Projects, for the `/spec` + `/spec-push` project picker.
   // Plural-only for the same reason as issueList: `get_project` is a read.
   projectList: [/list_?projects?/i, /projects?_?list/i],
+  // "Who am I" — Linear's user-read tool takes the literal string `me`, which is
+  // the MCP path's equivalent of the API's `viewer`.
+  userRead: [/get_?user\b/i, /user_?get/i],
+  // The user search behind `/spec-claim --to` and the identity fallback.
+  // Singular/plural split is load-bearing here exactly as it is for issues:
+  // `\b` on userRead stops it claiming `list_users`, and userList's `list_`
+  // prefix stops it claiming `get_user`.
+  userList: [/list_?users?/i, /users?_?list/i],
 }
 
 // The minimum the push engine can't run without: read an issue back and
@@ -133,6 +141,24 @@ function makeAdapter(callTool, resolved) {
     // project-list tool just means the picker is unavailable, never a failed push.
     async listProjects(teamId) {
       return callTool(need('projectList'), teamId ? { team: teamId } : {})
+    },
+    // "Who am I". Linear's user-read tool accepts the literal `me` alongside an
+    // id, name or email — so the MCP path answers identity without a config
+    // entry, exactly as the API path does through `viewer`.
+    //
+    // Optional, like `listProjects`: a server without a user-read tool means
+    // identity has to be set by hand (`spec-sync whoami --set`), never a failed
+    // push. `REQUIRED` is deliberately unchanged.
+    async readViewer() {
+      return callTool(need('userRead'), { query: 'me' })
+    },
+    // Find a person by name or email. Linear's `list_users` takes an optional
+    // `query` and pages, so search and listing are one tool rather than two.
+    async searchUsers(query, { limit } = {}) {
+      const args = {}
+      if (query) args.query = query
+      if (limit) args.limit = limit
+      return callTool(need('userList'), args)
     },
   }
 }

@@ -342,3 +342,47 @@ test('readTeam returns the team key, which is what a rename changes', async () =
 test('readTeam is null for a team that is not there, rather than throwing', async () => {
   assert.strictEqual(await adapterWith(fakeFetch({ team: null })).readTeam('nope'), null)
 })
+
+// --- readViewer / searchUsers: who am I, and who is everyone else ------------
+
+test('readViewer asks the workspace who this key belongs to', async () => {
+  const f = fakeFetch({ viewer: { id: 'user-2', name: 'Sam Ops', email: 'sam@acme.com', active: true } })
+  const got = await adapterWith(f).readViewer()
+  assert.equal(got.id, 'user-2')
+  assert.equal(got.name, 'Sam Ops')
+  assert.match(f.calls[0].body.query, /viewer/)
+})
+
+test('readViewer is null rather than throwing when there is no viewer', async () => {
+  assert.strictEqual(await adapterWith(fakeFetch({ viewer: null })).readViewer(), null)
+})
+
+test('searchUsers filters on name OR email — one question, two spellings', async () => {
+  const f = fakeFetch({ users: { nodes: [{ id: 'u1', name: 'Jane Dev' }], pageInfo: { hasNextPage: false } } })
+  const got = await adapterWith(f).searchUsers('jane')
+  assert.deepEqual(got.users, [{ id: 'u1', name: 'Jane Dev' }])
+  assert.equal(got.nextCursor, null)
+  const filter = f.calls[0].body.variables.filter
+  assert.deepEqual(filter.or, [
+    { name: { containsIgnoreCase: 'jane' } },
+    { email: { containsIgnoreCase: 'jane' } },
+  ])
+})
+
+test('searchUsers with no term lists rather than filtering', async () => {
+  const f = fakeFetch({ users: { nodes: [], pageInfo: { hasNextPage: false } } })
+  await adapterWith(f).searchUsers('')
+  assert.deepEqual(f.calls[0].body.variables.filter, {}, 'an empty search is "show me everyone"')
+})
+
+test('searchUsers reports the next cursor so nothing is silently truncated', async () => {
+  const f = fakeFetch({ users: { nodes: [{ id: 'u1' }], pageInfo: { hasNextPage: true, endCursor: 'cur-2' } } })
+  const got = await adapterWith(f).searchUsers('a')
+  assert.equal(got.nextCursor, 'cur-2')
+})
+
+test('searchUsers caps the page size at what Linear will return', async () => {
+  const f = fakeFetch({ users: { nodes: [], pageInfo: {} } })
+  await adapterWith(f).searchUsers('a', { limit: 5000 })
+  assert.equal(f.calls[0].body.variables.first, 250)
+})

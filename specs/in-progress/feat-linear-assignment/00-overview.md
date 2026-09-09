@@ -148,7 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Resolve and cache "who am I in Linear" | ⬜ | [01-identity.md](01-identity.md) |
+| 1 | Resolve and cache "who am I in Linear" | ✅ | [01-identity.md](01-identity.md) |
 | 2 | Push the assignee as a projection field | ⬜ | [02-projection.md](02-projection.md) |
 | 3 | Stamp the assignee from the lifecycle skills | ⬜ | [03-lifecycle-seams.md](03-lifecycle-seams.md) |
 | 4 | `/spec-claim` — take, release, hand over | ⬜ | [04-spec-claim.md](04-spec-claim.md) |
@@ -168,3 +168,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-09 — Spec created.
+- 2026-09-09 — Phase 1: the `docs/linear.html` command-table rows for `whoami`
+  and `users` landed here rather than in phase 5. `scripts/docs-claims.test.js`
+  asserts every dispatched verb is documented, so a phase adding a verb cannot
+  end green without its row. Phase 5's doc tasks (config reference, SETUP,
+  spec-planning prose) are unaffected.
+- 2026-09-09 — Phase 1: identity caching lives in the `whoami` CLI, not in
+  `resolveIdentity`. A resolver that wrote to disk as a side effect of being
+  asked a question would cache a bot's identity the first time CI ran.

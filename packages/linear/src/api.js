@@ -98,6 +98,12 @@ function resolveApiKey(config, env = process.env, deps = {}) {
 // stamps into the spec; `description` is what `spec-sync verify` compares.
 const ISSUE_FIELDS = 'id identifier url title description state { id name }'
 
+// What we read back about a person. `name` is the handle Linear shows on an
+// issue; `displayName` is the short @-handle; `active` distinguishes a current
+// member from a deactivated one, which matters because a deactivated user still
+// resolves by id and can still be assigned.
+const USER_FIELDS = 'id name displayName email active'
+
 /**
  * A GraphQL caller bound to one key. Throws a clear Error on transport failure,
  * on an HTTP error, and on a GraphQL `errors` payload — an `apply` that half
@@ -233,6 +239,49 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
         : await call('query { projects { nodes { id name } } }')
       if (data && data.team) return (data.team.projects && data.team.projects.nodes) || []
       return (data && data.projects && data.projects.nodes) || []
+    },
+    // WHO THIS KEY BELONGS TO. A personal API key is issued to a person, so the
+    // workspace can answer "who am I" without anyone configuring it — which is
+    // why identity needs no repo config in the common case.
+    //
+    // The exception this cannot see: a SHARED or bot key, where the viewer is
+    // the bot and not the human at the keyboard. That is what
+    // `spec-sync whoami --set` exists to override, and why nothing treats this
+    // answer as unarguable.
+    async readViewer() {
+      const data = await call(`query { viewer { ${USER_FIELDS} } }`)
+      return (data && data.viewer) || null
+    },
+    // Find a person by name or email — the fallback when the viewer is not the
+    // right answer, and how `/spec-claim --to` resolves a teammate.
+    //
+    // Search AND paging, not a choice between them: a bare listing is the whole
+    // team (fine for five people, useless for five hundred), while search alone
+    // cannot answer "show me everyone". `query` omitted lists; `cursor` walks.
+    // `first` is capped at 250 to match what Linear will return in one page.
+    async searchUsers(query, { limit = 50, cursor = null } = {}) {
+      const term = typeof query === 'string' ? query.trim() : ''
+      // `or` over name and email: someone searching "jane" and someone pasting
+      // "jane@acme.com" are asking the same question.
+      const filter = term
+        ? { or: [{ name: { containsIgnoreCase: term } }, { email: { containsIgnoreCase: term } }] }
+        : {}
+      const data = await call(
+        `query($filter: UserFilter, $first: Int, $after: String) {
+           users(filter: $filter, first: $first, after: $after) {
+             nodes { ${USER_FIELDS} }
+             pageInfo { hasNextPage endCursor }
+           } }`,
+        { filter, first: Math.min(Math.max(1, limit), 250), after: cursor || null },
+      )
+      const users = (data && data.users) || {}
+      const page = users.pageInfo || {}
+      return {
+        users: users.nodes || [],
+        // Null rather than absent when the page is the last one, so a caller
+        // loops on a value rather than on the presence of a key.
+        nextCursor: page.hasNextPage ? page.endCursor || null : null,
+      }
     },
     // The team's CURRENT key, which is what `retarget` compares stamped
     // identifiers against. Read from Linear rather than `config.linear.teamKey`

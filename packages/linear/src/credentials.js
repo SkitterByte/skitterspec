@@ -106,6 +106,34 @@ function keyForTeam(store, teamId) {
   return typeof key === 'string' && key.trim() ? key.trim() : null
 }
 
+/**
+ * The Linear IDENTITY recorded for one team, or null.
+ *
+ * Identity lives here rather than in the repo's `linear.config.json` for the
+ * same reason the key does: that file is COMMITTED, so a user id written there
+ * would follow the repo to every teammate who clones it and assign their specs
+ * to whoever set it up. Who you are is a fact about this machine and this
+ * workspace, which is exactly what this store is keyed for.
+ *
+ * Unlike a key, an identity is NOT a secret — it is a name and a public user id,
+ * both of which appear on every issue in Linear. So it may be printed, passed as
+ * an argument, and returned in an error.
+ */
+function userForTeam(store, teamId) {
+  if (!teamId) return null
+  const teams = store && store.teams
+  const entry = teams && typeof teams === 'object' ? teams[teamId] : null
+  if (!entry || typeof entry !== 'object') return null
+  const user = entry.user
+  if (!user || typeof user !== 'object') return null
+  // The id is what the assignment is actually made with, so an entry without one
+  // is not a partial identity — it is no identity at all.
+  const id = typeof user.id === 'string' && user.id.trim() ? user.id.trim() : null
+  if (!id) return null
+  const name = typeof user.name === 'string' && user.name.trim() ? user.name.trim() : null
+  return { id, name }
+}
+
 // Last 4 characters, for reporting that a key exists without revealing it.
 function fingerprint(key) {
   if (typeof key !== 'string' || !key) return null
@@ -151,6 +179,69 @@ function writeKey(file, teamId, key, deps = {}) {
   // existing file keeps its mode — narrow it explicitly.
   chmod(file, 0o600)
   return { ok: true, path: file, created }
+}
+
+/**
+ * Record the Linear identity for one team, preserving that team's key (or
+ * `keyCommand`) and every other team's entry.
+ *
+ * Same store, same 0600 / 0700 guards, same refusal on an over-permissive file
+ * as `writeKey` — the file holds a key whether or not this particular write
+ * carries one, so relaxing the guard here would relax it for the key too.
+ *
+ * Returns `{ ok: true, path, created }` or `{ ok: false, reason }`.
+ */
+function writeUser(file, teamId, user, deps = {}) {
+  const mkdir = deps.mkdir || fs.mkdirSync
+  const write = deps.write || fs.writeFileSync
+  const chmod = deps.chmod || fs.chmodSync
+  const exists = deps.exists || fs.existsSync
+
+  if (!teamId) return { ok: false, reason: 'no team id — nothing to key the entry by' }
+  const id = user && typeof user.id === 'string' ? user.id.trim() : ''
+  if (!id) return { ok: false, reason: 'no user id — nothing stored' }
+  const name = user && typeof user.name === 'string' ? user.name.trim() : ''
+
+  const created = !exists(file)
+  let store = { version: 1, teams: {} }
+  if (!created) {
+    const current = readStore(file, deps)
+    if (!current.ok) return { ok: false, reason: current.reason, code: current.code }
+    store = current.store
+    if (!store.teams || typeof store.teams !== 'object') store.teams = {}
+    if (!store.version) store.version = 1
+  }
+
+  // Spread the existing entry, exactly as `writeKey` does: recording an identity
+  // must never cost the user the key sitting beside it.
+  store.teams[teamId] = { ...(store.teams[teamId] || {}), user: name ? { id, name } : { id } }
+
+  mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
+  write(file, JSON.stringify(store, null, 2) + '\n', { mode: 0o600 })
+  chmod(file, 0o600)
+  return { ok: true, path: file, created }
+}
+
+/**
+ * Forget the identity recorded for one team, leaving that team's KEY in place.
+ *
+ * Deliberately not `removeKey`'s shape. That one drops the whole team entry,
+ * which is right when the key is what you are revoking; here it would sign the
+ * user out of Linear entirely because they corrected their own name. A store or
+ * entry that isn't there is a clean no-op, not an error.
+ */
+function removeUser(file, teamId, deps = {}) {
+  const write = deps.write || fs.writeFileSync
+  const current = readStore(file, deps)
+  if (!current.ok) {
+    if (current.code === 'absent') return { ok: true, path: file, removed: false }
+    return { ok: false, reason: current.reason, code: current.code }
+  }
+  const entry = current.store.teams && current.store.teams[teamId]
+  if (!entry || !entry.user) return { ok: true, path: file, removed: false }
+  delete entry.user
+  write(file, JSON.stringify(current.store, null, 2) + '\n', { mode: 0o600 })
+  return { ok: true, path: file, removed: true }
 }
 
 /**
@@ -288,11 +379,14 @@ module.exports = {
   storePath,
   readStore,
   keyForTeam,
+  userForTeam,
   fingerprint,
   writeKey,
+  writeUser,
   writeKeyCommand,
   resolveTeamKey,
   removeKey,
+  removeUser,
   storeMode,
   DIR_NAME,
   FILE_NAME,

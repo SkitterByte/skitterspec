@@ -139,3 +139,54 @@ test('searchIssues rides the discovered issueList op — no new required tool', 
   // `label` would otherwise narrow the inbox to issues with a blank label.
   assert.deepStrictEqual(calls[2], { name: 'list_issues', args: {} })
 })
+
+// --- identity: who am I, and who is everyone else ----------------------------
+
+// A workspace exposing the user tools — what identity and `/spec-claim --to` need.
+const TOOLS_WITH_USERS = [...LINEAR_TOOLS, 'get_user', 'list_users']
+
+test('the singular and plural user tools do not claim each other', () => {
+  const r = discoverLinear(TOOLS_WITH_USERS)
+  assert.strictEqual(r.ok, true)
+  // First-name-wins matching is what made `get_issues?` unsafe for issueList;
+  // the same trap is why userRead anchors on `\b` and userList on `list_`.
+  assert.strictEqual(r.tools.userRead, 'get_user')
+  assert.strictEqual(r.tools.userList, 'list_users')
+})
+
+test('the user tools are optional — a server without them still pushes', () => {
+  const r = discoverLinear(LINEAR_TOOLS)
+  assert.strictEqual(r.ok, true, 'discovery still succeeds')
+  assert.strictEqual(r.tools.userRead, undefined)
+  assert.strictEqual(r.tools.userList, undefined)
+  assert.ok(!REQUIRED.includes('userRead'), 'identity must never gate a push')
+  assert.ok(!REQUIRED.includes('userList'))
+})
+
+test('readViewer asks for the literal "me" — the MCP path\'s viewer', async () => {
+  const calls = []
+  const callTool = async (name, args) => (calls.push({ name, args }), {})
+  const { tools } = discoverLinear(TOOLS_WITH_USERS)
+  await makeAdapter(callTool, tools).readViewer()
+  assert.deepStrictEqual(calls[0], { name: 'get_user', args: { query: 'me' } })
+})
+
+test('searchUsers passes the query and omits what was not asked for', async () => {
+  const calls = []
+  const callTool = async (name, args) => (calls.push({ name, args }), {})
+  const { tools } = discoverLinear(TOOLS_WITH_USERS)
+  const adapter = makeAdapter(callTool, tools)
+
+  await adapter.searchUsers('jane', { limit: 10 })
+  await adapter.searchUsers()
+
+  assert.deepStrictEqual(calls[0], { name: 'list_users', args: { query: 'jane', limit: 10 } })
+  assert.deepStrictEqual(calls[1], { name: 'list_users', args: {} })
+})
+
+test('the user ops throw a named error when the server did not expose them', async () => {
+  const { tools } = discoverLinear(LINEAR_TOOLS)
+  const adapter = makeAdapter(async () => ({}), tools)
+  await assert.rejects(() => adapter.readViewer(), /userRead/)
+  await assert.rejects(() => adapter.searchUsers('x'), /userList/)
+})
