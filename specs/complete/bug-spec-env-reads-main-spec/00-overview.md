@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-126/bug-spec-env-reads-the
 
 > **Type:** Bug
 > **Name:** bug-spec-env-reads-main-spec (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -96,7 +96,7 @@ Run: `pnpm test` in `packages/common`, or `node --test test/<file>`.
       `searchDirs`, which are other specs' checkouts.
 - [x] Failing tests now pass (GREEN); full repo suite green — **1628 pass, 0
       fail**. (This repo has no separate typecheck step.)
-- [ ] None outstanding.
+- [x] Nothing outstanding.
 
 ## Impact
 
@@ -111,6 +111,7 @@ Run: `pnpm test` in `packages/common`, or `node --test test/<file>`.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-09 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -123,3 +124,5 @@ Run: `pnpm test` in `packages/common`, or `node --test test/<file>`.
 - 2026-09-09 — Fixed: the spec's own worktree is preferred over the primary
   checkout for the spec **file** only. `bug-spec-env-cwd-anchor`'s identity
   anchor is untouched, and a test pins that it stays that way.
+- 2026-09-09 — Completed; all fix tasks done, tests green (1628 pass, 0 fail).
+  Nothing deferred.
