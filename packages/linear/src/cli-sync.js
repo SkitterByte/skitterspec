@@ -53,6 +53,7 @@ const {
   deriveRecordedKey,
   isEmptyRetarget,
   dirtyPaths,
+  phaseModeFor,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const {
@@ -1926,6 +1927,45 @@ function backlogOrder(a, b) {
   )
 }
 
+// What a row says when Linear holds an issue this branch has no spec file for.
+const UNLINKED = '— (not linked here)'
+
+/** `2/5 — Wire the toggle`, or nothing at all when no phase is in progress. */
+function phaseLabel(phase) {
+  if (!phase) return ''
+  const base = `${phase.n}/${phase.total}${phase.title ? ` — ${phase.title}` : ''}`
+  return phase.alsoInProgress > 0 ? `${base} (+${phase.alsoInProgress} more in progress)` : base
+}
+
+const sameState = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase()
+
+/**
+ * Phase order among a spec issue's children — the order `/spec-push` minted them
+ * in, which is phase-file order. That is the **identifier**, numerically, so
+ * `SKS-9` stays ahead of `SKS-10`.
+ *
+ * `sortOrder` is deliberately NOT consulted, though it is fetched for `--next`.
+ * It is the position in Linear's Backlog view, and for sub-issues it tracks
+ * nothing about the plan: this repo's own SKS-115 carries -105486, -108489,
+ * -109484, -5066, -10982 across phases 1-5, which sorts phase 4 last and would
+ * have printed a spec on phase 4 as "5/5". Nor is `backlogOrder` reused — a
+ * priority set on one phase would renumber the spec, and "phase 3 of 5" is a
+ * position in the plan, never a ranking.
+ *
+ * KNOWN BLIND SPOT: a phase inserted between two existing ones mints a HIGHER
+ * identifier than its position, so it numbers as if appended. Phase files are
+ * appended in practice, and the alternative — reading the local phase files —
+ * cannot number a spec that is not on this branch, which is the case the
+ * listing exists for.
+ */
+function phaseOrder(a, b) {
+  return String((a && a.identifier) || '').localeCompare(
+    String((b && b.identifier) || ''),
+    'en',
+    { numeric: true },
+  )
+}
+
 /**
  * `spec-sync list [--state <name> …|--all] [--next N] [--limit N] [--archived]
  * [--json]`
@@ -2041,6 +2081,10 @@ async function specSyncList(dir, config, flags, out) {
       .filter((s) => s.identifier)
       .map((s) => [s.identifier, s]),
   )
+  // Identifier → Linear uuid, for the phase lookup below. Kept beside the rows
+  // rather than on them, so the --json shape stays exactly what it prints.
+  const uuidOf = new Map(ordered.map((i) => [i.identifier, i.id]))
+
   const rows = ordered.map((issue) => {
     const local = byIdentifier.get(issue.identifier) || null
     return {
@@ -2054,6 +2098,9 @@ async function specSyncList(dir, config, flags, out) {
       spec: local ? local.spec : null,
       bucket: local ? local.bucket : null,
       assignee: (issue.assignee && issue.assignee.name) || null,
+      // Filled in below for in-progress rows only; `null` on every row that was
+      // never looked up, so the shape does not vary by state.
+      phase: null,
       url: issue.url || null,
     }
   })
@@ -2078,6 +2125,48 @@ async function specSyncList(dir, config, flags, out) {
   // person's drag-order rather than a ranking. Reading it as a ranking is the
   // mistake this line exists to prevent.
   const unprioritised = next !== null && UNPRIORITISED(ordered)
+
+  // --- the current phase, on in-progress rows only (decision 8) --------------
+  //
+  // One extra Linear call per in-progress row, and NONE for any other — a
+  // backlog listing costs exactly what it did before. Run over `shown`, not
+  // `rows`, so a capped listing does not pay for phases it will not print.
+  const inProgressState = config.states['in-progress']
+  const phaseFailures = []
+  for (const row of shown) {
+    if (!sameState(row.state, inProgressState)) continue
+    // An `inline`-mode spec keeps its phases in the issue DESCRIPTION, so there
+    // are no children to read. Asking anyway would report "no phase in progress"
+    // for a spec that is mid-build — an absence that means nothing. The bucket
+    // is the local one where we have it; where we do not, Linear's own state is
+    // in-progress by construction, which is the bucket that mode resolves for.
+    if (phaseModeFor(row.bucket || 'in-progress', config) === 'inline') continue
+
+    const uuid = uuidOf.get(row.identifier)
+    if (!uuid) continue
+    let children
+    try {
+      children = await adapter.listSubIssues(uuid)
+    } catch (error) {
+      // Bias the unknown case to inaction: a failed lookup leaves the row
+      // without a phase and says so once, rather than failing the whole
+      // listing or printing a phase it never read.
+      phaseFailures.push(row.identifier)
+      continue
+    }
+    const phases = (children || []).slice().sort(phaseOrder)
+    const live = phases.filter((c) => c && sameState(c.state && c.state.name, inProgressState))
+    if (!live.length) continue
+    row.phase = {
+      n: phases.indexOf(live[0]) + 1,
+      total: phases.length,
+      title: (live[0].title || '').trim(),
+      // More than one phase in progress is a real shape, not an error — two
+      // people can work a spec at once. Report the count rather than picking
+      // one silently.
+      alsoInProgress: live.length - 1,
+    }
+  }
 
   if (flags.json) {
     out.write(
@@ -2118,6 +2207,11 @@ async function specSyncList(dir, config, flags, out) {
   if (page.pageInfo && page.pageInfo.hasNextPage) {
     lines.push('  ! Linear reported further pages it did not return — this listing may be short')
   }
+  if (phaseFailures.length) {
+    lines.push(
+      `  ! could not read the phases of ${phaseFailures.join(', ')} — those rows show no phase`,
+    )
+  }
   lines.push('')
   if (!shown.length) {
     lines.push('  no spec issues in scope')
@@ -2125,8 +2219,17 @@ async function specSyncList(dir, config, flags, out) {
     const idW = Math.max(...shown.map((r) => r.identifier.length))
     const stW = Math.max(...shown.map((r) => r.state.length))
     const pad = ' '.repeat(idW + stW + 4)
+    const specW = Math.max(...shown.map((r) => (r.spec || UNLINKED).length))
     for (const row of shown) {
-      lines.push(`  ${row.identifier.padEnd(idW)}  ${row.state.padEnd(stW)}  ${row.spec || '— (not linked here)'}`)
+      // Who holds it, and where the work is — the two things the repo could not
+      // have told them. Appended rather than columnised further: both are empty
+      // on most rows, and padding for a column that is usually blank buys
+      // nothing but width.
+      const held = [row.assignee, phaseLabel(row.phase)].filter(Boolean).join(' · ')
+      lines.push(
+        `  ${row.identifier.padEnd(idW)}  ${row.state.padEnd(stW)}  ` +
+          (held ? `${(row.spec || UNLINKED).padEnd(specW)}  ${held}` : row.spec || UNLINKED),
+      )
       if (row.title) lines.push(`  ${pad}${row.title}`)
     }
     lines.push('')

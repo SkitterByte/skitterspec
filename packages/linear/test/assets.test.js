@@ -957,3 +957,14 @@ test('/spec-list admits --next is not reproducible over MCP', () => {
   assert.match(text, /sortOrder is unavailable over MCP/, 'states the gap in words it will print')
   assert.match(text, /orderBy/, 'names what the tool does offer instead')
 })
+
+test('/spec-list mirrors the current-phase column on the MCP path', () => {
+  const text = specList()
+  assert.match(text, /2\/5 — <title>/, 'names the shape it prints')
+  assert.match(text, /parentId.*set to that issue|set to that issue/, 'says how it fetches the children')
+  // The three shapes decision 8 enumerates, none of them guessed at.
+  assert.match(text, /No child in progress/, 'a spec between phases prints nothing extra')
+  assert.match(text, /more in progress/, 'two live phases are reported, not silently reduced')
+  assert.match(text, /inline/, 'an inline-mode spec is skipped rather than reported as phase-less')
+  assert.match(text, /Do \*\*not\*\* make this call for backlog/, 'the lookup stays off other rows')
+})

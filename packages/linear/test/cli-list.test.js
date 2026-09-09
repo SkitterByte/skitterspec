@@ -64,10 +64,17 @@ const issue = (identifier, title, stateName, extra = {}) => ({
 })
 
 /** A stand-in Linear that records every call, so "no Linear call" is assertable. */
-function fakeLinear(nodes, { hasNextPage = false } = {}) {
+function fakeLinear(nodes, { hasNextPage = false, children = {}, subIssuesThrow = false } = {}) {
   const log = []
   return {
     log,
+    // Keyed by the PARENT's uuid, so a test can give one spec phases and leave
+    // every other row without any — which is the shape decision 8 describes.
+    async listSubIssues(parentId) {
+      log.push({ op: 'listSubIssues', parentId })
+      if (subIssuesThrow) throw new Error('Linear said no')
+      return children[parentId] || []
+    },
     async listIssueStates(teamId) {
       log.push({ op: 'listIssueStates', teamId })
       return STATES
@@ -233,6 +240,8 @@ test('--json carries the rows, the scope and both counts', async () => {
     spec: 'feat-linked',
     bucket: 'in-progress',
     assignee: null,
+    // Present and null rather than absent: the shape must not vary by state.
+    phase: null,
     url: 'https://linear.app/x/issue/SKS-1',
   })
   assert.strictEqual(got.specs[1].spec, null)
@@ -439,4 +448,167 @@ test('--json names the next scope and carries the unprioritised flag', async () 
   assert.strictEqual(got.scope, 'next 5')
   assert.strictEqual(got.unprioritised, true)
   assert.deepStrictEqual(got.specs.map((s) => s.identifier), ['SKS-1', 'SKS-2'])
+})
+
+// --- the current phase, on in-progress rows only ------------------------------
+
+const sub = (identifier, title, stateName, sortOrder) =>
+  issue(identifier, title, stateName, { sortOrder, parent: { id: 'uuid-SKS-1' } })
+
+/**
+ * A spec issue in progress, with five phases of which the second is live.
+ *
+ * The `sortOrder` values are the REAL shape, taken from this repo's own SKS-115:
+ * Linear's sub-issue sortOrder is a Backlog-view position and tracks nothing
+ * about phase order — here it would sort the live phase LAST. A fixture whose
+ * sortOrder happened to agree with phase order let exactly that bug through to
+ * a live run, which is why these disagree on purpose.
+ */
+const fiveP2 = {
+  'uuid-SKS-1': [
+    sub('SKS-11', 'Phase one', 'Done', -105486),
+    // The live phase carries the sortOrder that sorts LAST, so ordering on it
+    // would print "5/5" for a spec on phase 2 — the exact miss a live run
+    // caught. Ordering on the identifier gives 2/5.
+    sub('SKS-12', 'Wire the toggle', 'In Progress', -5066),
+    sub('SKS-13', 'Phase three', 'Backlog', -109484),
+    sub('SKS-14', 'Phase four', 'Backlog', -108489),
+    sub('SKS-15', 'Phase five', 'Backlog', -10982),
+  ],
+}
+
+test('an in-progress row says which phase is live, and how many there are', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')], { children: fiveP2 })
+  const r = await run(['list'], dir, { adapter: linear })
+
+  assert.match(r.out, /2\/5 — Wire the toggle/)
+})
+
+test('the phase number follows the identifier, never Linear\'s sortOrder', async () => {
+  const dir = fixtureRepo()
+  const shuffled = { 'uuid-SKS-1': fiveP2['uuid-SKS-1'].slice().reverse() }
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')], { children: shuffled })
+  const r = await run(['list'], dir, { adapter: linear })
+
+  assert.match(r.out, /2\/5 — Wire the toggle/)
+})
+
+// A spec can sit in progress between phases — one just finished, the next has
+// not started. That is a real state, not a missing phase, so the row says
+// nothing extra rather than inventing a position.
+test('stays silent: no phase in progress prints no phase at all', async () => {
+  const dir = fixtureRepo()
+  const between = {
+    'uuid-SKS-1': [sub('SKS-11', 'Phase one', 'Done', 0), sub('SKS-12', 'Phase two', 'Backlog', 1)],
+  }
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')], { children: between })
+  const r = await run(['list'], dir, { adapter: linear })
+
+  assert.doesNotMatch(r.out, /\d+\/\d+ —/)
+  assert.match(r.out, /SKS-1/, 'the row itself is still listed')
+})
+
+test('two phases in progress reports the first and says there are more', async () => {
+  const dir = fixtureRepo()
+  const both = {
+    'uuid-SKS-1': [
+      sub('SKS-11', 'Phase one', 'In Progress', 0),
+      sub('SKS-12', 'Phase two', 'In Progress', 1),
+      sub('SKS-13', 'Phase three', 'Backlog', 2),
+    ],
+  }
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')], { children: both })
+  const r = await run(['list'], dir, { adapter: linear })
+
+  assert.match(r.out, /1\/3 — Phase one \(\+1 more in progress\)/)
+})
+
+test('a backlog-only listing makes no sub-issue call at all', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([backlogIssue('SKS-2'), backlogIssue('SKS-3')], { children: fiveP2 })
+  await run(['list', '--state', 'Backlog'], dir, { adapter: linear })
+
+  assert.strictEqual(linear.log.filter((c) => c.op === 'listSubIssues').length, 0)
+})
+
+test('the lookup runs once per in-progress row and not for the others', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear(
+    [issue('SKS-1', 'Live', 'In Progress'), backlogIssue('SKS-2'), issue('SKS-4', 'Done one', 'Done')],
+    { children: fiveP2 },
+  )
+  await run(['list', '--all'], dir, { adapter: linear })
+
+  const calls = linear.log.filter((c) => c.op === 'listSubIssues')
+  assert.deepStrictEqual(calls.map((c) => c.parentId), ['uuid-SKS-1'])
+})
+
+// `inline` mode keeps the phases in the spec issue's own description, so there
+// are no children to read. Asking anyway would report "no phase in progress"
+// for a spec that is mid-build — an absence that means nothing.
+test('an inline-mode spec skips the lookup rather than reporting no phase', async () => {
+  const dir = fixtureRepo()
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ linear: { teamId: 'T1' }, mapping: { phases: 'inline' } }),
+    'utf-8',
+  )
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')], { children: fiveP2 })
+  const r = await run(['list'], dir, { adapter: linear })
+
+  assert.strictEqual(linear.log.filter((c) => c.op === 'listSubIssues').length, 0)
+  assert.doesNotMatch(r.out, /\d+\/\d+ —/)
+})
+
+test('a per-bucket phase map is resolved, not assumed to be subissue', async () => {
+  const dir = fixtureRepo()
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ linear: { teamId: 'T1' }, mapping: { phases: { 'in-progress': 'inline' } } }),
+    'utf-8',
+  )
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')], { children: fiveP2 })
+  await run(['list'], dir, { adapter: linear })
+
+  assert.strictEqual(linear.log.filter((c) => c.op === 'listSubIssues').length, 0)
+})
+
+// Rule 4 of .claude/rules/negative-checks.md — route the unknown case to the
+// harmless branch. A failed lookup must not take the whole listing down, and
+// must not print a phase it never read.
+test('a failed phase lookup degrades the row, not the listing', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')], { subIssuesThrow: true })
+  const r = await run(['list'], dir, { adapter: linear })
+
+  assert.strictEqual(r.code, 0, 'the listing still succeeds')
+  assert.match(r.out, /SKS-1/, 'the row is still printed')
+  assert.match(r.out, /could not read the phases of SKS-1/)
+  assert.doesNotMatch(r.out, /\d+\/\d+ —/)
+})
+
+test('--json carries the phase as a structured field', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([issue('SKS-1', 'The linked one', 'In Progress')], { children: fiveP2 })
+  const r = await run(['list', '--json'], dir, { adapter: linear })
+  const got = JSON.parse(r.out)
+
+  assert.deepStrictEqual(got.specs[0].phase, {
+    n: 2,
+    total: 5,
+    title: 'Wire the toggle',
+    alsoInProgress: 0,
+  })
+})
+
+test('the assignee is printed on the row, since who holds it is the question', async () => {
+  const dir = fixtureRepo()
+  const held = issue('SKS-1', 'The linked one', 'In Progress', {
+    assignee: { id: 'u1', name: 'Jane Dev' },
+  })
+  const linear = fakeLinear([held], { children: fiveP2 })
+  const r = await run(['list'], dir, { adapter: linear })
+
+  assert.match(r.out, /Jane Dev · 2\/5 — Wire the toggle/)
 })

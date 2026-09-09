@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-115/list-specs-from-linear
 
 > **Type:** Feature
 > **Name:** feat-linear-spec-list (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 3 (started 2026-09-09)
+> **Status:** In Progress — Phase 4 (started 2026-09-09)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -143,7 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `spec-sync list` — the engine and the live listing | ✅ | [01-engine.md](01-engine.md) |
 | 2 | `/spec-list` — the skill, MCP path and degradation | ✅ | [02-skill.md](02-skill.md) |
 | 3 | `--next N` and Linear's backlog order | ✅ | [03-backlog-order.md](03-backlog-order.md) |
-| 4 | The current phase on in-progress rows | ⬜ | [04-current-phase.md](04-current-phase.md) |
+| 4 | The current phase on in-progress rows | ✅ | [04-current-phase.md](04-current-phase.md) |
 | 5 | `--mine` / `--by <user>`, and docs | ⬜ | [05-assignee-and-docs.md](05-assignee-and-docs.md) |
 
 ## Open questions
@@ -215,3 +215,23 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the real Backlog order; `/spec-list` orders by priority on the MCP path and
   prints a line saying the drag-order is unavailable, rather than letting the
   rows imply an order they do not have.
+- 2026-09-09 — Phase 4: phase order is the sub-issue **identifier**, numerically
+  — NOT `sortOrder`. The first implementation used `sortOrder` and passed every
+  unit test, then printed `5/5` for this very spec sitting on phase 4. Linear's
+  sub-issue `sortOrder` is a Backlog-view position and tracks nothing about the
+  plan (SKS-115's phases 1-5 carry -105486, -108489, -109484, -5066, -10982).
+  The fixtures now encode those real values with the live phase deliberately
+  mis-sorted, so the mistake cannot pass again. Known blind spot, named in the
+  code: a phase inserted mid-spec mints a higher identifier than its position.
+- 2026-09-09 — Phase 4: the phase file called the non-sub-issue mode `section`;
+  the config defines `subissue`, `deferred` and `inline`, and `inline` is the
+  one meant. `phaseModeFor` is now exported from `sync-core` so the listing
+  resolves the mode per bucket rather than assuming `subissue`.
+- 2026-09-09 — Phase 4: a failed sub-issue lookup was not among the three shapes
+  the phase enumerated, but it is a real one. It degrades the ROW — that row
+  shows no phase and the listing names it once — rather than failing the whole
+  command (`.claude/rules/negative-checks.md` rule 4).
+- 2026-09-09 — Phase 4: the row now prints the **assignee** as well as the
+  phase. The overview's example output shows it and the title of the spec
+  promises it, but no phase's tasks had claimed it — `--mine`/`--by` in phase 5
+  are filters, not display. It costs nothing: the field was already fetched.

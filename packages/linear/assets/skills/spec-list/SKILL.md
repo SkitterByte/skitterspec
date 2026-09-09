@@ -90,6 +90,25 @@ sortOrder is unavailable over MCP — within a priority these are in Linear's
 default order, not the Backlog drag-order. Set a Linear API key for the real one.
 ```
 
+**The current phase, on in-progress rows only.** For each row whose state is the
+in-progress one, call the list tool again with `parentId` set to that issue and
+`fields: ["title", "status"]`. Order the children by **identifier**, numerically
+— `sortOrder` is unavailable here for the same reason it is under `--next`, and
+sub-issues are minted in phase order, so the identifier carries it. Print the
+live one as `2/5 — <title>`. Three shapes, none of them guessed at:
+
+- **No child in progress** — print nothing extra. A spec sits between phases all
+  the time; that is not a missing phase.
+- **More than one** — print the lowest-numbered, then append
+  `(+N more in progress)`. Two people on one spec is real, not an error.
+- **`mapping.phases` is `inline` for this spec's bucket** — skip the call
+  entirely. Those phases live in the spec issue's own description, so there are
+  no children, and asking would report "no phase in progress" for a spec that is
+  mid-build.
+
+Do **not** make this call for backlog, done or cancelled rows — one lookup per
+in-progress row is the budget, and there are rarely many.
+
 Then join locally — no second Linear call:
 
 ```
@@ -131,6 +150,7 @@ user reads:
   was left out and how to see it.
 - **The archived line.** Excluded by default, and said so — a blind spot named
   rather than left to be discovered.
+- **The phase, on in-progress rows** — `2/5 — <title>`, after the assignee.
 - **A row with no local match stays in**, marked `— (not linked here)`. It is not
   noise: a teammate's unlanded spec, or one authored inside another spec's
   worktree, is precisely what the repo could not have told them.
