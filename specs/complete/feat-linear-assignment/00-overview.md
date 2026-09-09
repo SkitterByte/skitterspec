@@ -86,10 +86,19 @@ without editing frontmatter by hand.
     another person's Linear inbox; that is accepted deliberately, as the lead's
     distribute-work case, and it always resolves the target through a user search
     rather than a hand-typed id.
-12. **`Developer:` prefers the Linear display name when identity resolved**,
-    falling back to `git config user.name`. Otherwise a `/spec-claim` leaves the
-    visible header naming one person and the assignee naming another — and the
-    header is what a reader trusts.
+12. **`Developer:` is the git name when the person is you; the Linear display name only when naming someone else.**
+    So `/spec-start`, `/spec-bug`, `/spec-hotfix`, the `/spec-next` backfill and
+    `/spec-claim` (taking) all use `git config user.name`, and only
+    `/spec-claim --to <someone>` takes the name from Linear — there being no
+    local git name for another person. *Rejected:* preferring the Linear display name
+    everywhere. It reads as obviously right ("header and assignee should agree")
+    and is how this first shipped, but the two names are the same human and
+    often not the same string: `Author:`, every **State log** `By` row and every
+    commit already use the git name, so the tracker's name in this one field
+    leaves a spec contradicting its own audit trail. The header answers *who is building this*;
+    the `linear_assignee_id` stamp answers *which tracker account holds it*.
+    They are different questions and need not be the same string. See the
+    2026-09-09 revision in the Changelog.
 13. **`/spec-next` never asks.** It backfills a missing assignee silently and lets
     the push it already runs carry it; a spec assigned to someone else gets one
     line and no write. An assignment question in the middle of a build is an
@@ -223,11 +232,24 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   network call, because doctor is offline until `--check-remote`. A key that
   could derive an identity but has not been asked yet reports "not cached" with
   `whoami` as the fix, rather than as a fault.
-- 2026-09-09 — **Open, for review:** decision 12 says `Developer:` should prefer
-  the Linear display name. On this workspace the Linear account is "Skitter Byte"
-  while `git config user.name` is "Reuben Greaves" — the same person, but the git
-  name is the more human of the two. The header on this spec was left as the git
-  name. Worth deciding whether the preference should be the other way round.
+- 2026-09-09 — **Decision 12 revised after completion, and the code with it.**
+  As originally decided, `Developer:` preferred the Linear display name whenever
+  identity resolved. Dogfooding it here exposed the flaw: this workspace's Linear
+  account is "Skitter Byte" while `git config user.name` is "Reuben Greaves" —
+  the same person, two strings. `Author:`, all three **State log** `By` rows and
+  every commit on this spec say the git name, so the original rule would have
+  made `Developer:` the only one of five fields naming that person differently,
+  in the same file. The rule is now a split: the git name whenever the person is
+  you, the Linear name only for `/spec-claim --to`, where no local git name for
+  that person exists and the header would otherwise keep crediting whoever ran
+  the command. Three tests in `packages/linear/test/assets.test.js` pin both
+  halves, because the rejected reading ("header and assignee should always
+  agree") is the tempting one. Considered and rejected alongside it: prompting
+  for the name — it contradicts decisions 4 and 13 (never interrupt a build) and
+  asks repeatedly for an answer that never changes — and a config key, which
+  would put an individual's preference in a committed shared file, the same
+  mistake decision 1 rejected for the user id. The preference already has a home:
+  `git config user.name`.
 - 2026-09-09 — Phase 2: the `status` assignee line is keyed on the PLAN, not on
   whether the two sides differ. Three ways to differ, one of them drift: a spec
   recording nobody will not overwrite Linear, and an already-pushed assignee

@@ -43,10 +43,24 @@ is a cosmetic gap that `/spec-claim` closes later.
    skitterspec spec-sync assign <spec> --to <user-id> --name "<display name>"
    ```
 
-4. **Set `> **Developer:**` to the Linear display name**, falling back to
-   `git config user.name` when identity is unknown. The visible header and the
-   assignment then name the same person — which is what stops a later
-   `/spec-claim` leaving the header crediting whoever started the spec.
+4. **Leave `> **Developer:**` as `git config user.name`** — the step above this
+   seam already set it, and this seam must not overwrite it with the tracker's
+   display name.
+
+   Those two names are the same person and often not the same string, and the
+   git one is the one everything else in the spec already uses: `Author:`, every
+   **State log** `By` row, and every commit. Writing the tracker's name into this
+   one field would leave a spec whose own audit trail contradicts its header —
+   a worse problem than the one it would solve. Anyone wanting a different name
+   on their specs sets `git config user.name`, and it stays consistent
+   everywhere.
+
+   The header names **who is building this**; the stamp in step 3 names
+   **which tracker account it is assigned to**. They answer different questions,
+   so they need not be the same string. The one place that reasoning does not hold
+   is handing a spec to *someone else* — there is no local git name for them —
+   and that case belongs to `/spec-claim --to`, which sets the header from the
+   tracker deliberately.
 
 **Nothing is pushed here.** `assign` writes the repo only, and the refresh these
 skills already run sends it. Assignment is an ordinary field of the projection,

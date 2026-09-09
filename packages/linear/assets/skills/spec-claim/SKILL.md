@@ -40,6 +40,11 @@ no code.
    the one mistake here worth a round trip; every other path is reversible with
    a second `/spec-claim`.
 3. Stamp it: `skitterspec spec-sync assign <spec> --to <id> --name "<name>"`.
+4. Set `> **Developer:**` to **`git config user.name`** — not the Linear display
+   name. You are taking this spec yourself, so the header should name you the
+   way `Author:`, the **State log** and your commits already do. The Linear name
+   belongs to the *assignment*, which step 3 just recorded; the two answer
+   different questions.
 
 ### release
 
@@ -61,8 +66,14 @@ now".
 2. On several matches, show them and let the user pick. On none, say so and
    stop — do not fall back to the raw argument as an id.
 3. Stamp it with the resolved id and display name.
-4. Set `> **Developer:**` to that person's display name, so the visible header
-   and the assignment agree.
+4. Set `> **Developer:**` to that person's **Linear display name**.
+
+   This is the **one** place the tracker's name reaches the header, and the
+   exception is the whole reason it exists: there is no `git config user.name`
+   for somebody else's machine, so without it the header would go on crediting
+   you for work you just gave away. Everywhere else — `/spec-start`, the
+   `/spec-next` backfill, and taking a spec above — the git name wins, because
+   there the person *is* you and the rest of the spec already names you that way.
 
 ## 3. Record it in the spec
 

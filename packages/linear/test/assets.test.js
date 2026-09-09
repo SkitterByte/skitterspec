@@ -819,6 +819,39 @@ test('/spec-claim records ownership in the Changelog, not the State log', () => 
   assert.match(flat, /not\*?\*? in the State log|and \*\*not\*\* in the State log/i)
 })
 
+// --- which name reaches `Developer:` ----------------------------------------
+//
+// The rule is a SPLIT, and both halves are load-bearing:
+//
+//   git name  — whenever the person is YOU. `Author:`, every State log `By` row
+//               and every commit already use it, so taking the tracker's display
+//               name here would leave a spec contradicting its own audit trail
+//               wherever the two strings differ (which is common: a Linear
+//               account is often named for the account, not the human).
+//   tracker   — ONLY for `--to`, where no local git name for that person exists
+//               and the header would otherwise keep crediting whoever ran it.
+//
+// Asserted because the wrong half is the tempting one: "make the header and the
+// assignee always agree" reads as obviously right and is how this shipped first.
+
+test('the assign seam leaves Developer as the git name', () => {
+  const flat = seamText('spec-tracker-assign').replace(/\s+/g, ' ')
+  assert.match(flat, /Leave .{0,24}Developer.{0,24} as .{0,24}git config user\.name/i)
+  assert.match(flat, /must not overwrite it/i, 'the seam says plainly that it does not write this field')
+  assert.match(flat, /State log/, 'and says which audit trail it would otherwise contradict')
+})
+
+test('/spec-claim takes a spec under the git name, not the Linear one', () => {
+  const flat = claimText().replace(/\s+/g, ' ')
+  assert.match(flat, /git config user\.name.{0,40}not the Linear display name/i)
+})
+
+test('/spec-claim --to is the one place the tracker name reaches the header', () => {
+  const flat = claimText().replace(/\s+/g, ' ')
+  assert.match(flat, /one.{0,12} place the tracker's name reaches the header/i)
+  assert.match(flat, /no .{0,24}git config user\.name.{0,24} for somebody else/i, 'and says why it must be')
+})
+
 test('/spec-claim releasing does not clear the Developer header', () => {
   // Who actioned the work outlives who is holding it — the same rule the
   // completion path relies on.
