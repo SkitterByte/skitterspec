@@ -1,0 +1,13 @@
+{
+  "issue": "f32478292d8009ea799762c6217666da0aaaa0df",
+  "issueFields": {
+    "description": "cc810f445d1958ac496ad1f555d8d8962b25b4d1",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037"
+  },
+  "subIssues": {
+    "SKS-93": "b8a4388873932cf77279d9f55a78dd17d1efaf4e",
+    "SKS-94": "163d73b2618e9b6f1ac2420ca0db4f8d8c8c3425",
+    "SKS-95": "05d2a8194a8abd9d8e6d5a47bbf7e94210c9213a",
+    "SKS-96": "cb29e23daea58464b38bd83f5b838edea44969b4"
+  }
+}
