@@ -1,5 +1,49 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v17 → v18 (a spec is built in its own worktree)
+
+### Breaking change
+
+**`/spec-start` no longer moves the branch into your checkout.** In `worktree`
+mode it provisions the spec's worktree, does the housekeeping there, opens a
+session in it, and stops. The spec is built where it was provisioned — which is
+what worktrees are for, and why `main` stays free.
+
+This **supersedes the "one checkout holds one spec in flight" rule** described
+under v16 → v17 below. That rule was a consequence of moving the branch into the
+primary checkout; with the move gone, so is the restriction:
+
+| v17 | v18 |
+|-----|-----|
+| `/spec-start` refused while another spec held your checkout | In `worktree` mode it only requires a **clean tree**. Several specs in flight is what the mode is for. |
+| Starting a spec took two invocations, with a `/spec-live <name>` you typed in between | **One invocation.** No hand-off command, no re-run. |
+| `/spec-live main` was one of the ways out of the gate | The ways out are `/spec-complete` and `/spec-cancel`. Parking to free a workbench is a one-workbench answer, and only `checkout` mode holds one spec now. |
+
+**`/spec-live` is for testing only** — reusing your running dev server to reach a
+spec at the canonical URL. It was never meant to be how work gets started, and no
+lifecycle skill calls it.
+
+`checkout` mode is unchanged: the branch is built in the primary checkout, the
+gate still requires the workbench free, and `/spec-start` carries straight on
+into phase 1 in the same session.
+
+### What to do
+
+1. **Upgrade** — `npx @skitterbyte/skitterspec update`.
+2. **Expect a session, not a swap.** After `/spec-start` in `worktree` mode, run
+   `/spec-next` from the session it opens in the worktree. `/spec-next` builds
+   the spec it is *standing in* and refuses to build one from elsewhere.
+3. **Nothing to configure.** `spec.companionPaths` in `env.config.json` is new
+   and optional — it names paths that belong to a spec alongside its own folder
+   (a tracker's per-spec snapshot), so `/spec-start` can commit them together.
+   Empty by default; `/spec-linear-setup` sets it for you.
+
+## `@skitterbyte/skitterspec-linear` v11 → v12 (a spec is built in its own worktree)
+
+The same change as `@skitterbyte/skitterspec` v17 → v18 above — this
+distribution composes the same lifecycle skills. Read that entry; nothing here
+is Linear-specific.
+
 ## `@skitterbyte/skitterspec` v16 → v17 (`/spec-go` splits in two)
 
 ### Breaking change

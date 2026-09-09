@@ -86,7 +86,8 @@ feature at the normal URL — no second stack, no proxy. The branch checked out 
 the primary checkout **is** the lock: exactly one spec is live at a time, and
 `/spec-live main` hands the instance back (fixes you make while live commit
 straight onto the branch; `/spec-complete` is live-aware and lands them). Rule of
-thumb: **live overlay is the light default for code-only specs**; it *refuses*
+thumb: **live overlay is the light default for *testing* a code-only spec** — it
+is not how work gets started, and no lifecycle skill invokes it; it *refuses*
 stateful ones (`Stack: worktree + docker`, or a branch touching migrations) — keep
 `/spec-connect` + a Docker stack for those, and for genuinely parallel testing.
 Beneath it, `skitterspec spec-env live <take|release|abort|status>` is the engine.

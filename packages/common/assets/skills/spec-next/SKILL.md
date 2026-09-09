@@ -1,6 +1,6 @@
 ---
 name: spec-next
-description: Build the next unfinished phase of the spec currently in flight on this checkout — pre-flight, implement with tests, record progress and refresh the tracker. Refuses when no spec is in flight rather than guessing one. Use when the user says "/spec-next", "build the next phase", "continue the spec", or "carry on with this spec".
+description: Build the next unfinished phase of the spec in flight for this session — pre-flight, implement with tests, record progress and refresh the tracker. Refuses when no spec is in flight rather than guessing one, and never builds a spec it is not standing in. Use when the user says "/spec-next", "build the next phase", "continue the spec", or "carry on with this spec".
 ---
 
 # /spec-next — build the next phase of the spec in flight
