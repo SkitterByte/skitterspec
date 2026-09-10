@@ -1,7 +1,7 @@
 # `linear.config.json` — Linear one-way sync config
 
 Opt-in config for the Linear sync (`/spec-status`, `/spec-push`, and the
-Linear-aware paths of `/spec` and `/spec-go`). Sync is **one-way**: the repo is
+Linear-aware paths of `/spec` and `/spec-start`). Sync is **one-way**: the repo is
 the source of truth and the Linear **issue** is a **generated mirror**. A spec is
 a Linear issue and each phase a sub-issue; a phase's tasks ride along inside
 that sub-issue's description as a read-only checklist. Content is
@@ -11,7 +11,7 @@ is a read-only drift report. The `sync.fieldOwnership` map now just selects the
 projection field set (every field is repo-owned and pushed).
 
 **Every Linear step is gated on this file.** While `specs/.core/linear.config.json`
-is absent the feature is simply unused — `/spec`, `/spec-go`, and the CLI's
+is absent the feature is simply unused — `/spec`, `/spec-start`, and the CLI's
 `spec-sync` subcommands behave exactly as they do today (local-only). Adopt it by
 copying `linear.config.json.example` → `linear.config.json` here and filling in
 your team ID (and an optional grouping project).
@@ -132,6 +132,64 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
   }
 }
 ```
+
+## Assignment (`sync.fieldOwnership.assignee`)
+
+Off by default. Add one key and the spec issue is assigned to whoever is
+building it:
+
+```jsonc
+"fieldOwnership": {
+  "description": "push",
+  "subIssues": "push",
+  "workflowState": "push",
+  "assignee": "push"          // <- the whole opt-in
+}
+```
+
+It is deliberately **not** a config key of its own. `fieldOwnership` is already
+the documented extension point — "any key you add joins the pushed projection" —
+and assignment is exactly one more field the repo owns.
+
+- **Absent = inert.** No writes, no prompts, no drift line, and no assignee hash
+  in any snapshot. A project that never opts in cannot tell the feature exists,
+  which is why it is missing from `linear.config.json.example`: that file is
+  copied verbatim into new projects, and shipping the key there would opt
+  everyone in by default.
+- **The bucket decides.** The spec's `linear_assignee_id` is pushed while the
+  spec is live (`backlog`, `in-progress`) and cleared once it reaches `complete`
+  or `cancelled` — so finishing a spec hands the issue back with no unassign
+  step for anyone to remember. The stamp stays in the file, and so does
+  `> **Developer:**`: they record who *actioned* the work, which outlives who is
+  holding it.
+- **Unset means don't touch.** A spec that records nobody sends no assignee at
+  all, so an issue a PM assigned in Linear is never overwritten. Only an assignee
+  the repo itself pushed is ever cleared — and a snapshot written before you
+  opted in counts as "never pushed", not as "was nobody".
+- **Only the spec issue.** Phase sub-issues are never assigned: one person builds
+  a spec, and N assigned sub-issues is N notifications for one piece of work.
+  They stay independently assignable in Linear.
+
+**Who you are** is not configured here, and cannot be — this file is committed,
+so a user id in it would follow the repo to every teammate who clones it. It is
+derived from your own API key (`viewer`) and cached per machine in
+`~/.config/skitterspec/credentials.json` beside the key. `spec-sync whoami`
+shows it, `--set` overrides it when the key is shared or a bot's, and
+`spec-sync users` looks somebody up by name or email.
+
+Ownership moves with **`/spec-claim`** — take it, `--release` it, or `--to` a
+teammate.
+
+**Reading it back** is **`/spec-list`** (engine: `spec-sync list`), the one
+command that asks Linear what exists instead of the repo. It lists parentless
+issues — a phase sub-issue carries a parent, a spec issue does not — joined to
+the local spec folder that owns each one, so every row carries the name you
+paste into `/spec-start`. Scope is the live states by default
+(`--state`/`--all`/`--in-progress` to change it, `--next N` for the top of the
+backlog in Linear's own order), and `--mine`/`--by <user>` filter by assignee,
+reusing the identity above rather than a second copy of it. It writes nothing,
+and it says what it did not show — the count, the archived exclusion, and any
+cap — rather than implying a completeness it never checked.
 
 ## The deployment ladder (`release.stages`)
 
@@ -365,10 +423,11 @@ default for anyone who never sets one.
   `save_issue` calls to mirror, N being its phase count.
 - `"deferred"` — only once the work starts. A spec sitting in `specs/backlog/`
   mirrors as **the issue alone**; its sub-issues are created by the push that
-  follows `/spec-go`.
-- `"inline"` — never. Each phase becomes a **section of the spec issue's own
-  description**, with its full task list, and the `## Phases` index stays as the
-  table of contents. One issue per spec, however many phases it has.
+  follows `/spec-start`.
+- `"inline"` — never. Each phase becomes a
+  **section of the spec issue's own description**, with its full task list, and
+  the `## Phases` index stays as the table of contents. One issue per spec,
+  however many phases it has.
 
 ### One mode, or one per bucket
 
@@ -405,11 +464,11 @@ that made the choice worth it.
 
 ### Switching modes is non-destructive
 
-**A phase already carrying a `linear_issue_id` keeps its sub-issue in every
-mode**, and is never *also* inlined. One-way sync has no delete op, so
-withholding a live sub-issue would not remove it from Linear — it would freeze it
-there, never updated again. So changing `mapping.phases` only ever changes what
-has yet to be minted, and a spec part-way through keeps a coherent mirror.
+**A phase already carrying a `linear_issue_id` keeps its sub-issue in every mode**,
+and is never *also* inlined. One-way sync has no delete op, so withholding a
+live sub-issue would not remove it from Linear — it would freeze it there,
+never updated again. So changing `mapping.phases` only ever changes what has
+yet to be minted, and a spec part-way through keeps a coherent mirror.
 
 **Adopting on an established repo:** set `complete: "inline"` (and `"deferred"`
 or `"inline"` for `backlog`) **before** the first backfill push. Finished specs

@@ -2,17 +2,17 @@
 
 Opt-in config for per-spec isolation (git worktree + optional namespaced Docker
 stack + host dev servers + a front-door proxy + an optional opener per
-in-progress spec). Provisioning is folded into `/spec-go`, teardown into
+in-progress spec). Provisioning is folded into `/spec-start`, teardown into
 `/spec-complete` · `/spec-cancel`, and traffic diversion is `/spec-connect`; the
 `skitterspec spec-env <up|down|prune|dev|connect|integrate>` CLI is the engine
 beneath them.
 
-**Once this file is present, isolation is the default policy:** `/spec-go` gives
-**every** in-progress spec its own git worktree automatically. Docker is a **per-
-spec escalation** — a spec brings up a stack only when its `> **Stack:**` header
-is `worktree + docker` (set at `/spec` when it touches the DB / stateful
-services). A `worktree`-only spec takes no registry slot, no port block, and no
-`.env`.
+**Once this file is present, isolation is the default policy:** `/spec-start` gives
+**every** in-progress spec its own git worktree automatically. Docker is a
+**per- spec escalation** — a spec brings up a stack only when its
+`> **Stack:**` header is `worktree + docker` (set at `/spec` when it touches
+the DB / stateful services). A `worktree`-only spec takes no registry slot, no
+port block, and no `.env`.
 
 **Adopt it** with `skitterspec init --isolation` (or copy
 `env.config.json.example` → `env.config.json` here) and edit the values. While
@@ -28,6 +28,22 @@ no live `env.config.json` was found.
 ```jsonc
 {
   // Where sibling worktrees are created and how their dirs are named.
+  // Where a spec's branch gets built.
+  //
+  //   "worktree"  (default) — every spec gets its own git worktree. Several
+  //               specs run side by side and `main` stays free, at the cost of
+  //               one terminal session per spec (`/spec-start` sets it up for you).
+  //   "checkout"  — the branch is built in the primary checkout instead. One
+  //               spec at a time, but no second session and no hand-off: the
+  //               terminal you are already in follows the work.
+  //
+  // Pick it for how you work, not for what this repo contains — a project with
+  // no dev servers may still want several specs in flight. An unrecognised
+  // value falls back to "worktree" rather than erroring.
+  //
+  // Not to be confused with `seedFiles.mode`, which is "symlink" | "copy".
+  "mode": "worktree",
+
   "worktree": {
     "root": "../{repo}-wt",   // dir that holds all spec worktrees; sibling of
                               // the primary checkout, never nested inside it.
@@ -108,9 +124,18 @@ no live `env.config.json` was found.
     "host": "127.0.0.1"     // bind host for the canonical ports
   },
 
-  // Optional, editor/terminal-agnostic opener run after `spec-env up`. The
-  // template is expanded with {worktreePath}, {slug}, {branch}, {projectName},
-  // {portOffset}. Empty = nothing is opened (the path is just printed).
+  // Optional, editor/terminal-agnostic opener — the FALLBACK for reaching a
+  // worktree. `/spec-start` normally moves the session you typed into into the
+  // worktree, and then there is nothing to open: it runs this only when it
+  // could not switch in place (the session is already inside another worktree,
+  // or the harness cannot move it). Run after provisioning and bootstrap, so
+  // the session opens onto a tree that is ready to work in. The template is
+  // expanded with {worktreePath}, {slug}, {branch}, {projectName},
+  // {portOffset}.
+  // Empty = nothing is opened (the path is just printed), which is how you turn
+  // the auto-open off, and the right value unless you actually want a second
+  // window on the fallback path. A non-interactive run skips it either way — an
+  // opened window nobody is sitting at helps no one.
   // Examples: "code {worktreePath}", "tmux new-window -c {worktreePath}",
   // or a "warp://..." deeplink for Warp users.
   "open": {
@@ -133,6 +158,26 @@ no live `env.config.json` was found.
     "identifierField": ""
   },
 
+  // Paths that belong to a spec ALONGSIDE its own `specs/<bucket>/<name>/`
+  // folder. `/spec-start` uses this to tell "the spec you just wrote, not yet
+  // committed" apart from someone else's uncommitted work: if every dirty path
+  // belongs to the spec being started it is committed for you, and if a single
+  // path does not, the start is refused as before.
+  //
+  // Provider-neutral by design — the base engine must not know that any
+  // particular tracker exists — so you declare the shape here. `{slug}` and
+  // `{identifier}` expand exactly as in `branch.pattern` above, `{identifier}`
+  // via `branch.identifierField`.
+  //
+  // A pattern using {identifier} matches NOTHING when no identifier resolves
+  // (no `identifierField` set, or a spec never pushed to a tracker). That is
+  // deliberate: the file it names then belongs to some other spec, and the safe
+  // failure is a refusal you clear with /commit, not a stranger's file swept
+  // into your commit. Default: none — a spec owns only its own folder.
+  "spec": {
+    "companionPaths": []
+  },
+
   // Integration base branch — the branch specs fork from and land back onto
   // (used by the teardown "merged?" guard and, later, the integrate step).
   // Empty = auto-detect: origin/HEAD → main → master. Set it when your default
@@ -148,7 +193,7 @@ no live `env.config.json` was found.
     "refuseTeardownIfUnpushed": true
   },
 
-  // What teardown cleans up beyond this machine. `/spec-go` pushes the spec
+  // What teardown cleans up beyond this machine. `/spec-start` pushes the spec
   // branch when it provisions, so without this a completed spec leaves a merged
   // branch on the remote forever. `deleteRemoteBranch`:
   //   "prompt"  (default) — plan `git push <remote> --delete <branch>` in its own
