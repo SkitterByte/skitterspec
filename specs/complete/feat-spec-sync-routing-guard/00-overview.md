@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-spec-sync-routing-guard (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 2 (started 2026-09-10)
+> **Status:** Complete (2026-09-10)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -100,6 +100,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
 | 2026-09-09 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-10 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -129,3 +130,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   dispatches perfectly well: the same narrow-lookup failure
   `.claude/rules/negative-checks.md` opens with, sitting in a check written to
   prevent it. Widened to accept either form, with the blind spot named beside it.
+- 2026-09-10 — Completed; both phases done, tests green (720 in
+  packages/linear, 1699 at the repo root). Nothing deferred. The guard closed
+  five gaps, not the four the spec set out to close.
