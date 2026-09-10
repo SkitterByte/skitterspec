@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-130"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-130/keep-the-self-hosted-install-linked-and-stop-force-writing-through-a"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Keep the self-hosted install linked, and stop --force writing through a link
 
 > **Type:** Feature
 > **Name:** feat-selfhost-link-integrity (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-10)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-10
 > **Area:** scripts/claude-links.test.js, scripts/claude-relink.js, packages/common/src/init.js
 > **Stack:** worktree
@@ -101,6 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-10 | Ready | backlog | Reuben Greaves |
+| 2026-09-10 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
