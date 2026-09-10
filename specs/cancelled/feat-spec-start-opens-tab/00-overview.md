@@ -7,7 +7,8 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-121/spec-start-opens-a-tab
 
 > **Type:** Feature
 > **Name:** feat-spec-start-opens-tab (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** Cancelled (2026-09-10) — superseded: the tab flow is poor DX and
+> breaks working from mobile entirely; the shell must not have to move.
 > **Author:** Reuben Greaves
 > **Developer:** —
 > **Raised:** 2026-09-09
@@ -143,9 +144,24 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-09 | Ready | backlog | Reuben Greaves |
+| 2026-09-10 | Cancelled | cancelled | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-09 — Spec created, after drive-testing the flow on a real phase of
   `feat-linear-spec-list`: phase 1 was reviewed in the terminal's own diff panel,
   then `/commit` and `/spec-next` both ran from the opened tab.
+- 2026-09-10 — Cancelled: superseded. No phase was started and no code was
+  written — every task in all four phase files is still open. The diagnosis
+  stands (the shell's location is load-bearing, and a statusline fix does not
+  reach it); the remedy does not. A tab is unreachable from mobile, where there
+  is no terminal to open one in, so the entry mechanism cannot be one that moves
+  the shell at all. Replaced by pointing the git UI at the worktree instead —
+  `lazygit -p <worktreePath>`, which needs no tab, no Warp and no session move —
+  plus a per-worktree `commit.template` carrying the `Refs:` trailer so a commit
+  made outside Claude still obeys the repo's grammar.
+- 2026-09-10 — Salvage note: phase 1 (`spec-env promote`) is independent of the
+  opener and worth keeping. Moving the bucket move, header edits and State log
+  row into the engine pays off *more* on the hand-off path than it would have
+  under a tab, since that is exactly the `git -C <worktreePath>` / `/add-dir`
+  papercut. Re-spec it separately rather than reading it out of a cancelled spec.
