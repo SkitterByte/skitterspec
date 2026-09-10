@@ -87,7 +87,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Route the four user-facing verbs | ⬜ | [01-route-the-verbs.md](01-route-the-verbs.md) |
+| 1 | Route the four user-facing verbs | ✅ | [01-route-the-verbs.md](01-route-the-verbs.md) |
 | 2 | The guard that keeps them routed | ⬜ | [02-guard.md](02-guard.md) |
 
 ## Open questions
@@ -106,3 +106,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-09 — Spec created. Raised after `spec-sync list` shipped documented on
   the site but unrouted by the skill; four older verbs turned out to have the
   same gap.
+- 2026-09-10 — Phase 1: the four rows went in below `released` rather than
+  beside the read-only verbs at the top. The table reads roughly
+  read → write → setup, and `credentials`/`whoami`/`users` are setup-shaped;
+  putting them above `apply --all` would have pushed the one row with real blast
+  radius further down the table.
+- 2026-09-10 — Phase 1: the tests parse the routing table by slicing from its
+  header row to the first blank line, and assert the slice actually found rows.
+  That reader is what phase 2's guard will reuse, so it is worth it being strict
+  here first — a table matcher that silently finds nothing would let both phases'
+  checks pass forever.

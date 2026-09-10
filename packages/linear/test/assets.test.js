@@ -993,3 +993,67 @@ test('/spec-list uses assignee "me" over MCP rather than resolving identity', ()
   assert.match(text, /assignee: "me"/, 'names the literal the tool accepts')
   assert.match(text, /Do \*\*not\*\* call\s+`spec-sync whoami` on this path/, 'and rules out the lookup')
 })
+
+// --- /spec-sync routes every verb a human is expected to type -----------------
+
+/**
+ * The ROUTING TABLE only — the `| ask | run |` rows under "Route the ask".
+ * Deliberately not the whole file: a verb named in a code sample or an aside is
+ * not routed, and matching prose would report the very gap these tests exist to
+ * close as already fixed. `docs-claims` learned this twice.
+ */
+function routingTable() {
+  const text = specSync()
+  const start = text.indexOf('| The user asks | Run |')
+  assert.ok(start > -1, 'found the routing table — if it moved, retarget these tests')
+  const end = text.indexOf('\n\n', start)
+  return text.slice(start, end === -1 ? undefined : end)
+}
+
+test('the routing table is findable, or the checks below mean nothing', () => {
+  const rows = routingTable().split('\n').filter((l) => l.startsWith('|'))
+  // Two header rows plus the routes. A matcher that silently found nothing
+  // would let every assertion below pass forever.
+  assert.ok(rows.length > 8, `found the routes, got ${rows.length} row(s)`)
+})
+
+// Each of these is "used by: you" on docs/linear.html — a human types it, so
+// /spec-sync has to be able to reach it. All four shipped routed nowhere.
+test('every user-facing spec-sync verb is reachable from the skill', () => {
+  const table = routingTable()
+  for (const verb of ['credentials', 'whoami', 'users', 'stage', 'list', 'linked']) {
+    assert.match(table, new RegExp(`\`${verb}[ \`<]`), `the routing table reaches \`${verb}\``)
+  }
+})
+
+test('the rows say what the user would say, not just the verb name', () => {
+  const table = routingTable()
+  // A row that only repeats the verb routes nothing that was not already
+  // obvious. Each of these is the phrasing someone actually types.
+  assert.match(table, /who am I in Linear/i)
+  assert.match(table, /find Jane's user id/i)
+  assert.match(table, /am I authenticated/i)
+  assert.match(table, /what's on test/i)
+})
+
+// Decision 3: deferral is a legitimate answer and must stay expressible. A row
+// for either of these would be the "two front doors" the skill warns against.
+test('stays silent: the deferred verbs are still deferred, not routed', () => {
+  const table = routingTable()
+  assert.doesNotMatch(table, /\| `push/, 'push stays deferred to /spec-push')
+  assert.doesNotMatch(table, /\| `status/, 'status stays deferred to /spec-status')
+  assert.match(table, /\*\*defer\*\*/, 'and the table still says so')
+  // The section that does the deferring is what makes the omission deliberate
+  // rather than another gap.
+  assert.match(specSync(), /\/spec-push/, 'hands single-spec push on')
+  assert.match(specSync(), /\/spec-status/, 'hands per-spec drift on')
+})
+
+// `assign` and `record` are driven by another skill, `normalize` is internal —
+// none is a gap, and a row for any of them would misdescribe who runs it.
+test('stays silent: skill-driven and internal verbs get no row', () => {
+  const table = routingTable()
+  for (const verb of ['assign', 'record', 'normalize']) {
+    assert.doesNotMatch(table, new RegExp(`\`${verb}[ \`<]`), `\`${verb}\` is not user-routed`)
+  }
+})
