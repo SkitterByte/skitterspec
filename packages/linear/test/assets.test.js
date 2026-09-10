@@ -654,7 +654,17 @@ test('every spec-sync verb the skill routes to is a real subcommand', () => {
   assert.ok(routed.length >= 6, `found the routing table, got ${JSON.stringify(routed)}`)
   const cli = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli-sync.js'), 'utf8')
   for (const verb of routed) {
-    assert.match(cli, new RegExp(`case '${verb}':`), `/spec-sync routes to \`${verb}\`, which cli-sync must dispatch`)
+    // BOTH dispatch forms. cli-sync uses a `switch` for most verbs and an early
+    // `sub === '…'` return for the few that run before the config is loaded —
+    // `doctor` is one, because reporting a broken config cannot require a
+    // working one. Matching only `case` accused a verb that dispatches fine,
+    // which is the narrow-lookup failure .claude/rules/negative-checks.md opens
+    // with; docs-claims already reads both forms for the same reason.
+    assert.match(
+      cli,
+      new RegExp(`case '${verb}':|sub === '${verb}'`),
+      `/spec-sync routes to \`${verb}\`, which cli-sync must dispatch`,
+    )
   }
 })
 

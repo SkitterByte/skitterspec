@@ -363,6 +363,94 @@ test('stays silent: a documented verb and a reasoned allowlist entry both pass',
 
 
 // ---------------------------------------------------------------------------
+// A verb a HUMAN types must be reachable from the skill that routes them.
+//
+// The checks above prove every verb is documented on the site. They say nothing
+// about whether anyone can GET to it: `spec-sync list` shipped documented,
+// tested and completely unrouted, and `credentials`, `whoami`, `users` and
+// `stage` had been that way for longer. Each arrived with a feature that
+// documented the verb properly and never came back to the skill.
+//
+// The classification is not restated here. The site's "used by" column already
+// says who runs each verb — `you`, a skill name, or `internal` — and the check
+// above forces every dispatched verb to have a row, so there is no path to a
+// verb with no classification. A verb whose column says `you` must be in the
+// routing table; anything else is that skill's business.
+//
+// THE BLIND SPOT: this is only as good as that column. It is guarded for
+// existing, never for being RIGHT — a verb a human types that is mislabelled
+// `internal` is invisible here, and nothing else would catch it either.
+
+const ROUTED_BY = {
+  'spec-sync': 'packages/linear/assets/skills/spec-sync/SKILL.md',
+}
+
+// The routing table only — the `| ask | run |` rows. Deliberately not the whole
+// file: `credentials` appeared in a code sample while being routed nowhere, so
+// a prose match would report this exact gap as already closed. The same trap
+// the `spec-env is` comment above documents.
+function routingTable(rel) {
+  const text = fs.readFileSync(path.join(ROOT, rel), 'utf8')
+  const start = text.indexOf('| The user asks | Run |')
+  if (start === -1) return null
+  const end = text.indexOf('\n\n', start)
+  return text.slice(start, end === -1 ? undefined : end)
+}
+
+// Who the site says runs this verb, as tokens: `/spec-list · you` is both.
+const usedByOf = (rel, verb) => {
+  const row = [...readPage(rel).matchAll(
+    /<tr><td class="cmd">([^<]+)<\/td><td>[\s\S]*?<\/td><td class="folder">([^<]*)<\/td><\/tr>/g,
+  )].find((m) => m[1].replace(/&lt;/g, '<').trim().split(/\s+/)[1] === verb)
+  return row ? row[2].split('·').map((t) => t.trim()) : []
+}
+
+test('each routing table is readable, or the check below means nothing', () => {
+  for (const [name, rel] of Object.entries(ROUTED_BY)) {
+    const table = routingTable(rel)
+    assert.ok(table, `${name}: found the routing table in ${rel}`)
+    const rows = table.split('\n').filter((l) => l.startsWith('|'))
+    assert.ok(rows.length > 8, `${name}: found the routes, got ${rows.length} row(s)`)
+  }
+})
+
+test('every verb the docs say a user types is routed by its skill', () => {
+  for (const [name, rel] of Object.entries(ROUTED_BY)) {
+    const e = ENGINES[name]
+    const table = routingTable(rel)
+    for (const verb of e.verbs(fs.readFileSync(path.join(ROOT, e.source), 'utf8'))) {
+      if (!usedByOf(e.page, verb).includes('you')) continue
+      assert.match(
+        table,
+        new RegExp(`\`${verb}[ \`<|]`),
+        `${e.page} says a user runs \`${name} ${verb}\`, but ${rel} never routes it — ` +
+          'add a row to its routing table, or correct that row\'s "used by" column',
+      )
+    }
+  }
+})
+
+// stays-silent (.claude/rules/negative-checks.md rule 3): the healthy shapes.
+// Without these the check could pass by demanding everything, or nothing.
+test('stays silent: skill-driven and internal verbs are not demanded', () => {
+  const page = ENGINES['spec-sync'].page
+  // `push` is /spec-push's, `assign` is /spec-claim's, `normalize` is internal.
+  // None appears in the routing table, and none may be accused of it.
+  for (const verb of ['push', 'assign', 'normalize']) {
+    const usedBy = usedByOf(page, verb)
+    assert.ok(usedBy.length, `${verb} has a used-by cell to read`)
+    assert.ok(!usedBy.includes('you'), `${verb} is not user-run, so nothing demands a route`)
+  }
+})
+
+test('stays silent: a verb shared between a skill and a user counts as user-run', () => {
+  // `/spec-list · you` — a front-door skill does not excuse the routing table,
+  // because the user can still type the verb. Reading only the first token
+  // would have exempted `list`, the verb that started this.
+  assert.deepStrictEqual(usedByOf(ENGINES['spec-sync'].page, 'list'), ['/spec-list', 'you'])
+})
+
+// ---------------------------------------------------------------------------
 // Retired skills must not be shipped as if they were still installable.
 //
 // `spec-env`, `spec-env-down` and `spec-ready` were folded away in 3.0.0, but

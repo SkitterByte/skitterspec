@@ -42,6 +42,7 @@ In a project that installs the Linear superset the binary is
 | "what ticket am I on?", writing a commit | `ref` |
 | "what shipped in this release?" | `released` |
 | "move the shipped tickets on", "what's on test?" | `stage` — dry run unless `--apply` |
+| "is any of this wired up?", "why isn't sync working?" | `doctor` — scaffold, isolation, tracker and key in one |
 | "set my Linear key", "am I authenticated?" | `credentials <status\|set\|unset>` |
 | "who am I in Linear?", "why is it assigning the wrong person?" | `whoami` — `--set` for a shared or bot key |
 | "who's on this team?", "find Jane's user id" | `users <name-or-email>` |

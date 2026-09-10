@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-spec-sync-routing-guard (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-09)
+> **Status:** In Progress — Phase 2 (started 2026-09-10)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-09
@@ -88,7 +88,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Route the four user-facing verbs | ✅ | [01-route-the-verbs.md](01-route-the-verbs.md) |
-| 2 | The guard that keeps them routed | ⬜ | [02-guard.md](02-guard.md) |
+| 2 | The guard that keeps them routed | ✅ | [02-guard.md](02-guard.md) |
 
 ## Open questions
 
@@ -116,3 +116,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   That reader is what phase 2's guard will reuse, so it is worth it being strict
   here first — a table matcher that silently finds nothing would let both phases'
   checks pass forever.
+- 2026-09-10 — Phase 2: the guard found a **fifth** unrouted verb on its first
+  run — `doctor`. The spec named four because the hand analysis grepped only
+  `case '<verb>':`, and `doctor` dispatches as `sub === 'doctor'` (it runs
+  before the config is loaded, since reporting a broken config cannot require a
+  working one). The guard reads both forms because it reuses `docs-claims`'
+  existing matcher, which is exactly why deriving from an existing reader beat
+  writing a new one.
+- 2026-09-10 — Phase 2: routing `doctor` then tripped the *reverse* guard that
+  already existed — `every spec-sync verb the skill routes to is a real
+  subcommand` — which recognised only `case '<verb>':`. It accused a verb that
+  dispatches perfectly well: the same narrow-lookup failure
+  `.claude/rules/negative-checks.md` opens with, sitting in a check written to
+  prevent it. Widened to accept either form, with the blind spot named beside it.
