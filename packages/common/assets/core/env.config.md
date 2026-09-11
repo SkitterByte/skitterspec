@@ -1,10 +1,12 @@
 # `env.config.json` — per-spec isolation config
 
 Opt-in config for per-spec isolation (git worktree + optional namespaced Docker
-stack + host dev servers + a front-door proxy per in-progress spec). Provisioning is folded into `/spec-start`, teardown into
-`/spec-complete` · `/spec-cancel`, and traffic diversion is `/spec-connect`; the
-`skitterspec spec-env <up|down|prune|dev|connect|integrate>` CLI is the engine
-beneath them.
+stack + host dev servers + a front-door proxy per in-progress spec).
+Provisioning is folded into `/spec-start`, teardown into `/spec-complete` ·
+`/spec-cancel`, traffic diversion is `/spec-connect`, and reading a spec's diff
+is `/spec-diff`; the `skitterspec spec-env
+<up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve>` CLI is
+the engine beneath them.
 
 **Once this file is present, isolation is the default policy:** `/spec-start` gives
 **every** in-progress spec its own git worktree automatically. Docker is a

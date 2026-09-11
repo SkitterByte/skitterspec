@@ -21,7 +21,25 @@ const ROOT = path.join(__dirname, '..', '..', '..')
 const PROSE = [
   ['claude-md-section', path.join(__dirname, '..', 'assets', 'claude-md-section.md')],
   ['spec-planning', path.join(__dirname, '..', 'assets', 'rules', 'spec-planning.md')],
+  // `core/` docs are shipped prose too, and env.config.md was five verbs out of
+  // date when it was added here — the guard existed, it just was not pointed at
+  // the file. DISCOVERED rather than listed, across both packages, so a new core
+  // doc is covered the day it lands instead of the day someone remembers. `.md`
+  // only, so the `.example` configs beside them are not read as prose.
+  ...coreDocs(),
 ]
+
+function coreDocs() {
+  const out = []
+  for (const pkg of ['common', 'linear']) {
+    const dir = path.join(ROOT, 'packages', pkg, 'assets', 'core')
+    if (!fs.existsSync(dir)) continue
+    for (const f of fs.readdirSync(dir).sort()) {
+      if (f.endsWith('.md')) out.push([`${pkg}:core/${f}`, path.join(dir, f)])
+    }
+  }
+  return out
+}
 const text = (file) => fs.readFileSync(file, 'utf8')
 
 function shipped(kind) {
