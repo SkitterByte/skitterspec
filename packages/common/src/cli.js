@@ -27,6 +27,7 @@ const {
   expandTokens,
   splitPrefix,
 } = require('./env/resolve.js')
+const building = require('./env/building.js')
 const {
   readReceipt,
   writeReceipt,
@@ -1316,9 +1317,93 @@ function specEnvHotfix(dir, config, positional, flags) {
   process.stdout.write(out.join('\n') + '\n')
 }
 
+// What the primary checkout has GAINED right now, by content. `dir` is already
+// anchored on the primary checkout by the dispatcher, so this reads the tree the
+// build must not be writing into. See env/building.js for why this is two
+// content-based queries rather than one `status --porcelain`.
+function primaryPaths(dir) {
+  const git = gitReader(dir)
+  return building.mergePaths(
+    git(['diff', '--name-only', 'HEAD']),
+    git(['ls-files', '--others', '--exclude-standard']),
+  )
+}
+
+// `--record-primary`: stamp the baseline a later --assert-primary-clean reads.
+function recordPrimary(dir, config, r) {
+  const file = building.baselinePath(dir, config)
+  const baseline = building.buildBaseline({
+    spec: r.folder,
+    worktreePath: r.worktreePath,
+    primary: dir,
+    paths: primaryPaths(dir),
+  })
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(baseline, null, 2) + '\n')
+  const n = baseline.paths.length
+  process.stdout.write(
+    `spec-env resolve: baseline recorded for ${r.folder}\n` +
+      `  primary:   ${dir}\n` +
+      `  worktree:  ${r.worktreePath}\n` +
+      `  dirty now: ${n === 0 ? 'nothing' : `${n} path(s) — these will not be reported later`}\n`,
+  )
+}
+
+// `--assert-primary-clean`: did the build write into the primary checkout?
+//
+// THREE OUTCOMES, NOT TWO. It accuses only on `leaked`; `unknown` reports what
+// blinded it and exits 0, because a baseline that is missing or belongs to
+// another spec is an absence, and an absence is not evidence
+// (`.claude/rules/negative-checks.md` rules 1 and 4). The blind spots this
+// cannot see are named on `compare()` in env/building.js.
+function assertPrimaryClean(dir, config, r) {
+  const file = building.baselinePath(dir, config)
+  let baseline = null
+  try {
+    baseline = JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch {
+    baseline = null
+  }
+  const result = building.compare(baseline, primaryPaths(dir), {
+    spec: r.folder,
+    worktreePath: r.worktreePath,
+    primary: dir,
+  })
+
+  if (result.verdict === 'leaked') {
+    // States the OBSERVATION, not the attribution. All this knows is that the
+    // primary checkout gained these paths since the baseline — it cannot know
+    // who wrote them, and in practice another session writing a backlog spec
+    // into the primary looks identical to a leaked build write. Both readings
+    // get a next step, so being wrong about which one costs a re-record rather
+    // than someone deleting work that was never a leak.
+    throw new Error(
+      `${result.paths.length} path(s) appeared in the PRIMARY checkout since the baseline:\n` +
+        result.paths.map((p) => `    ${p}`).join('\n') +
+        `\n  primary:  ${dir}` +
+        `\n  worktree: ${r.worktreePath}` +
+        '\n  if this build wrote them, move them into the worktree before committing.' +
+        '\n  if something else did, re-run --record-primary and carry on.',
+    )
+  }
+  if (result.verdict === 'unknown') {
+    process.stdout.write(
+      `spec-env resolve: cannot tell — ${result.reason}.\n` +
+        '  no leak is being claimed; run --record-primary before the build to enable this check.\n',
+    )
+    return
+  }
+  process.stdout.write(
+    `spec-env resolve: primary checkout clean for ${r.folder}\n` +
+      `  nothing was written into ${dir}\n`,
+  )
+}
+
 // Print the resolved identity/coordinates for a single spec.
-function specEnvResolve(dir, config, specArg) {
+function specEnvResolve(dir, config, specArg, flags = {}) {
   const r = resolveSpecWithWorktree(dir, config, specArg)
+  if (flags.recordPrimary) return recordPrimary(dir, config, r)
+  if (flags.assertPrimaryClean) return assertPrimaryClean(dir, config, r)
   process.stdout.write(
     `spec:       ${r.folder} (${r.bucket})\n` +
       `type/slug:  ${r.type} / ${r.slug}\n` +
@@ -2045,6 +2130,8 @@ async function specEnv(rest) {
     else if (args[i] === '--out') flags.out = args[++i]
     else if (args[i] === '--review') flags.review = args[++i]
     else if (args[i] === '--json') flags.json = true
+    else if (args[i] === '--record-primary') flags.recordPrimary = true
+    else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -2087,7 +2174,7 @@ async function specEnv(rest) {
       specEnvStatus(dir, config)
       break
     case 'resolve':
-      specEnvResolve(dir, config, positional[0])
+      specEnvResolve(dir, config, positional[0], flags)
       break
     case 'review':
       specEnvReview(dir, config, positional[0], flags)
@@ -2097,7 +2184,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--json]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +

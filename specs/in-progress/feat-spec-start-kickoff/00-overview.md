@@ -142,7 +142,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-start` pushes the state change it makes | ✅ | [01-spec-start-pushes.md](01-spec-start-pushes.md) |
-| 2 | Engine: primary-checkout baseline + assertion | ⬜ | [02-primary-checkout-guard.md](02-primary-checkout-guard.md) |
+| 2 | Engine: primary-checkout baseline + assertion | ✅ | [02-primary-checkout-guard.md](02-primary-checkout-guard.md) |
 | 3 | `/spec-next` accepts an explicit worktree root | ⬜ | [03-spec-next-worktree-flag.md](03-spec-next-worktree-flag.md) |
 | 4 | `/spec-start` offers to continue into phase 1 | ⬜ | [04-spec-start-offers-phase-one.md](04-spec-start-offers-phase-one.md) |
 | 5 | Docs, compose and shipped-surface guards | ⬜ | [05-docs-and-surfaces.md](05-docs-and-surfaces.md) |
@@ -177,3 +177,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the refresh's ordering. That reason lives in the fragment (as sync's does), so
   the tracker-free distribution is not left describing a step that composes to
   nothing.
+- 2026-09-11 — Phase 2: the guard reads CONTENT, not `git status --porcelain`.
+  Two faults found by running the first version against this repo's own
+  worktree. The repo's `gitReader` trims its stdout, so porcelain's first line
+  loses its leading space and a fixed three-character slice ate the first
+  character of the first path — it accused `ackages/common/...`. And porcelain
+  reports stat-dirty entries: one was observed here as ` M` with an empty
+  `git diff`, which would have accused someone of leaking a file they never
+  changed. `git diff --name-only HEAD` plus
+  `git ls-files --others --exclude-standard` has neither failure mode.
+- 2026-09-11 — Phase 2: the checkout-mode case is tested before the baseline is
+  consulted. A baseline recorded in `checkout` mode would otherwise make the
+  guard accuse every build, since there the worktree IS the primary checkout.
+- 2026-09-11 — Phase 2: the failure message states what APPEARED, not who wrote
+  it. Caught by the guard firing on its own phase: another session wrote
+  `specs/backlog/feat-connect-planner/` into the primary checkout mid-build, and
+  the first wording told the reader their build had leaked it. Both readings now
+  get a next step — move it into the worktree, or re-record the baseline — so
+  being wrong costs a re-record rather than someone deleting a colleague's spec.
