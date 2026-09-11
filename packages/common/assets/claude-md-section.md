@@ -2,13 +2,21 @@
 
 Spec-driven development runs through the lifecycle **skills** — use them so
 structure and lifecycle stay consistent. The everyday loop is
-**`spec → start → next → commit → complete`**, with `/spec-connect` when you want to test
-the spec in a browser.
+**`spec → start → next → commit → complete`**, with **`/spec-diff`** to read what
+a phase changed and `/spec-connect` when you want to test the spec in a browser.
 
 **Skills vs commands.** The lifecycle skills are read by Claude, which exercises
 judgment. `/spec-connect` and `/spec-live` are **slash commands** instead — each
 pre-executes one `spec-env` verb and relays it, so only you can run them; a
 skill that wants one will tell you to type it.
+
+**Seeing the work.** A phase is built in its own worktree, so `git diff` in your
+terminal answers about the base branch. **`/spec-diff`** renders that worktree's
+diff as a self-contained HTML page you open locally — or publish, and read on a
+phone. The diff never passes through the model, so the page costs no context
+tokens however large it is; the optional written review is the part that costs,
+and it is offered rather than assumed. `/spec-next` writes the page at the end of
+every phase.
 
 The skill table, the spec type/folder conventions and the per-spec isolation
 model all live in **`.claude/rules/spec-planning.md`**, the canonical reference

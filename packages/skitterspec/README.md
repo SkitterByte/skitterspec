@@ -6,13 +6,14 @@ Spec-driven development for [Claude Code](https://claude.com/claude-code) — a
 ```
 /spec  →  /spec-start  →  /spec-next  →  /commit  →  /spec-complete
  plan      build it     test it live      save it     finish + land
+                          ↳ /spec-diff — read what the phase changed
 ```
 
 Ships the spec-lifecycle skills (`/spec`, `/spec-start`, `/spec-next`, `/spec-complete`,
-`/spec-cancel`, `/spec-bug`, `/spec-hotfix`, `/spec-review`, `/spec-init`) plus
-per-spec **isolation** — a git worktree per in-progress spec, Docker on demand,
-host dev servers on reserved ports, and `/spec-connect` to test a worktree at your
-normal `localhost` URL.
+`/spec-cancel`, `/spec-bug`, `/spec-hotfix`, `/spec-review`, `/spec-diff`,
+`/spec-init`) plus per-spec **isolation** — a git worktree per in-progress spec,
+Docker on demand, host dev servers on reserved ports, and `/spec-connect` to test
+a worktree at your normal `localhost` URL.
 
 ```sh
 npx @skitterbyte/skitterspec init
@@ -62,6 +63,24 @@ your canonical `localhost` ports at that spec (via a small bundled reverse proxy
 no external install), so you test at the exact URL you always use.
 `/spec-connect main` hands the ports back. Exclusive: one spec at a time. See
 `specs/.core/env.config.md` for the `dev`/`proxy` config.
+
+## Reading the diff — `/spec-diff`
+
+A phase is built in its own worktree, so `git diff` in your terminal answers
+about the base branch — and a 350-line diff read as terminal text is scrolling,
+not review. **`/spec-diff`** collects the worktree's changes with `git -C` and
+writes a self-contained HTML page: whole-file context that folds away, a file
+tree, new files included. Open it locally, or publish it and read it on a phone.
+
+The page lands in `.spec-env/reviews/<spec>.html`, which is gitignored — so
+reviewing a branch leaves no change in the branch you are reviewing. **The diff
+never passes through the model**, so it costs no context tokens however large it
+is; the optional *written* review (a short read plus `flag`/`confirm`/`good`
+notes) is the part that costs, and it is offered rather than assumed. Publishing
+is always opt-in, and one page per spec — later phases update the same link.
+
+`/spec-next` writes the page at the end of every phase. Nothing about it depends
+on where your shell is.
 
 ## Production hotfixes — `/spec-hotfix`
 
