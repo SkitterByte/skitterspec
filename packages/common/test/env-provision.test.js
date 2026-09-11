@@ -117,7 +117,6 @@ test('worktree-only still expands the opener (empty portOffset token)', () => {
     { slot: null, attached: false },
     config({ open: { command: 'code {worktreePath} # {portOffset}' } }),
   )
-  assert.strictEqual(plan.openCommand, 'code /wt/thing # ')
 })
 
 test('stack:docker emits the docker command when the master switch is on', () => {
@@ -137,19 +136,7 @@ test('stack:docker is still suppressed when the master switch is off', () => {
   assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
 })
 
-test('openCommand expands tokens when open.command is set', () => {
-  const plan = planUp(
-    spec(),
-    { slot: 2, attached: false },
-    config({ open: { command: 'code {worktreePath} # {portOffset}' } }),
-  )
-  assert.strictEqual(plan.openCommand, 'code /wt/thing # 3020')
-})
 
-test('openCommand is null when open.command is empty', () => {
-  const plan = planUp(spec(), { slot: 0, attached: false }, config())
-  assert.strictEqual(plan.openCommand, null)
-})
 
 test('port offset scales with the slot', () => {
   assert.strictEqual(planUp(spec(), { slot: 0, attached: false }, config()).portOffset, 3000)

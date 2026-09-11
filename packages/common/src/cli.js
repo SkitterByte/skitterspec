@@ -254,8 +254,8 @@ function specEnvStatus(dir, config) {
 }
 
 // Plan a provision: allocate the slot, persist the registry, and print the plan
-// the /spec-env skill executes (git worktree add, docker compose up, .env,
-// opener). This creates no worktree and starts no stack — the caller runs the
+// the /spec-env skill executes (git worktree add, docker compose up, .env).
+// This creates no worktree and starts no stack — the caller runs the
 // printed commands. Keep the output's verb honest about that.
 
 // git quotes a path containing unusual bytes and C-escapes it. Unquote what we
@@ -472,8 +472,8 @@ function specEnvUp(dir, config, specArg) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
   // Checkout mode: the branch is built in the primary checkout, so none of the
-  // worktree machinery below applies — no slot, no trust entry, no bootstrap and
-  // no opener. Handled first precisely so none of that runs by accident.
+  // worktree machinery below applies — no slot, no trust entry and no bootstrap.
+  // Handled first precisely so none of that runs by accident.
   if (config.mode === 'checkout') {
     specEnvUpCheckout(dir, config, spec)
     return
@@ -574,7 +574,6 @@ function specEnvUp(dir, config, specArg) {
   out.push('')
   out.push('  to provision, run:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
-  if (plan.openCommand) out.push(`    ${plan.openCommand}`)
   // Seed files first (setup may depend on them), then the setup commands —
   // both run in the worktree, under one heading.
   const worktreeSteps = [...plan.seedCommands, ...plan.setupCommands]

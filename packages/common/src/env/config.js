@@ -27,7 +27,6 @@
  *     dev:      [ { name, command, portVar, health?, frontPort? } ],  // host dev
  *               // servers started on the spec's port block (empty = none)
  *     proxy:    { enabled, host },  // bundled front-door proxy (spec-env connect)
- *     open:     { command },   // optional, editor/terminal-agnostic opener
  *     registry: ".spec-env/registry.json",
  *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
  *     spec:     { companionPaths: [ "path", ... ] },  // paths that belong to a
@@ -86,7 +85,6 @@ const DEFAULT_CONFIG = Object.freeze({
   // Front-door proxy (`spec-env connect`): a bundled Node reverse proxy that
   // exposes one connected spec's frontPort processes on the canonical ports.
   proxy: Object.freeze({ enabled: true, host: '127.0.0.1' }),
-  open: Object.freeze({ command: '' }),
   registry: '.spec-env/registry.json',
   // Git branch naming, provider-neutral. `pattern` expands {type}/{slug} and,
   // when a tracker provider is linked, {identifier}; `identifierField` names the
@@ -135,7 +133,6 @@ function defaults() {
     setup: [],
     dev: [],
     proxy: { ...DEFAULT_CONFIG.proxy },
-    open: { ...DEFAULT_CONFIG.open },
     registry: DEFAULT_CONFIG.registry,
     branch: { ...DEFAULT_CONFIG.branch },
     spec: { companionPaths: [] },
@@ -267,11 +264,6 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.proxy)) {
     assign(base.proxy, parsed.proxy, 'enabled', 'boolean')
     assign(base.proxy, parsed.proxy, 'host', 'string')
-  }
-
-  if (isObject(parsed.open)) {
-    // command may be intentionally empty (no auto-open)
-    assign(base.open, parsed.open, 'command', 'string?')
   }
 
   if (isObject(parsed.branch)) {

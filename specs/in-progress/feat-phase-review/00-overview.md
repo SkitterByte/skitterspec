@@ -137,7 +137,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | The viewer — context bands, file tree, both themes | ✅ | [02-viewer.md](02-viewer.md) |
 | 3 | `/spec-diff` — the written review, and publishing | ✅ | [03-spec-diff-skill.md](03-spec-diff-skill.md) |
 | 4 | Wire it into the loop, and document it | ✅ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
-| 5 | Strip the tab machinery from `/spec-start` | ⬜ | [05-strip-the-tab-machinery.md](05-strip-the-tab-machinery.md) |
+| 5 | Strip the tab machinery from `/spec-start` | ✅ | [05-strip-the-tab-machinery.md](05-strip-the-tab-machinery.md) |
 
 ## Open questions
 
@@ -151,6 +151,27 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 5 built; the spec is complete. Four notes. **(a)** The
+  opener survived its own removal in one place the task list did not name:
+  `assets/core/env.config.json.example`, the file a new adopter copies. It was
+  gone from the defaults, the merge and every doc, and the config merge copies
+  known keys only — so a stale block is silently ignored rather than rejected,
+  which is precisely why nothing would have caught it. A guard now asserts the
+  example ships no key the engine ignores, and proves it fires. **(b)** Three
+  more surfaces named the opener that the task list did not: `/spec-bug`,
+  `/spec-hotfix` and two README lines. The rewritten guard checks all six shipped
+  surfaces as a set rather than one file, since the last such miss was found by a
+  completion sweep. **(c)** `assets-spec-start-enter.test.js` was renamed to
+  `assets-spec-start-one-path.test.js` — a file called `-enter` asserting the
+  skill never enters is a trap for the next reader. **(d)** Two assertions in
+  `assets.test.js` were inverted rather than deleted: the anchor phrase they
+  matched moved, and "no window opens" is the exact claim three cancelled specs
+  kept trying to overturn, so it is worth a test that says so.
+- 2026-09-11 — Not done, and deliberately: this repo's own `.claude/` install
+  still carries the pre-phase-5 `/spec-start`. That is a resync
+  (`chore(claude): resync the self-hosted install`), not a spec change, and it
+  belongs after this lands rather than inside the branch that changes the asset.
 
 - 2026-09-11 — Phase 4 built. Three notes. **(a)** `/spec-next` gained a step 5
   between recording progress and reporting, which broke a test asserting the

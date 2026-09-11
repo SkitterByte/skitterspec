@@ -5,15 +5,15 @@
  *
  * Given a resolved spec and its allocated slot, `planUp` returns the exact
  * side-effecting commands the `/spec-env` skill runs (`git worktree add`,
- * `docker compose up`), the rendered `.env` contents, and the expanded opener —
- * but performs no side effects itself. The caller (the CLI) reads/allocates the
+ * `docker compose up`) and the rendered `.env` contents — but performs no side
+ * effects itself. The caller (the CLI) reads/allocates the
  * registry and passes the slot; this stays deterministic and unit-testable with
  * no live git/docker.
  */
 
 const { classifyDirtyTree } = require('./classify.js')
 const { portOffset } = require('./registry.js')
-const { renderEnvFile, expandOpenCommand } = require('./render.js')
+const { renderEnvFile } = require('./render.js')
 const { expandTokens } = require('./resolve.js')
 
 /**
@@ -201,7 +201,7 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
  *                       existed in the registry (re-run → attach, don't clobber).
  * @param {object} config normalised env config.
  * @returns {object} { worktreePath, branch, projectName, slot, portOffset,
- *                     envContents, openCommand, commands, seedCommands,
+ *                     envContents, commands, seedCommands,
  *                     setupCommands, attached }
  */
 function planUp(spec, alloc, config, ctx) {
@@ -228,7 +228,6 @@ function planUp(spec, alloc, config, ctx) {
     portOffset: offset === null ? '' : String(offset),
   }
 
-  const openCommand = expandOpenCommand(config.open.command, tokens)
 
   // File seeding runs *in the worktree* after `git worktree add`, before the
   // setup commands (which may depend on the seeded .env). Each entry becomes an
@@ -282,7 +281,6 @@ function planUp(spec, alloc, config, ctx) {
     slot: wantsDocker ? slot : null,
     portOffset: offset,
     envContents,
-    openCommand,
     commands: gate.blocked ? [] : [...gate.commands, ...commands],
     seedCommands: gate.blocked ? [] : seedCommands,
     setupCommands: gate.blocked ? [] : setupCommands,
@@ -306,8 +304,7 @@ function planUp(spec, alloc, config, ctx) {
  *    about someone else's unfinished spec. Being on THIS spec's branch is not a
  *    refusal — it is the re-run, and the answer is "already attached".
  *
- * There is no bootstrap and no opener: the primary checkout already has its
- * dependencies, and no new session is being opened.
+ * There is no bootstrap: the primary checkout already has its dependencies.
  */
 function planCheckoutUp(spec, ctx, config) {
   const base = ctx.base || (config && config.baseBranch) || 'main'

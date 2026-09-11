@@ -136,10 +136,11 @@ Once adopted it's the **default policy**, not a per-spec chore:
 
 - **Worktree — automatic for every in-progress spec.** `/spec-start` gives each spec
   its own sibling git worktree on its own branch, so you never stash or rebuild to
-  switch specs and `main` stays free for hotfixes. **It then moves the session you
-  typed into into that worktree**, so you carry straight on with `/spec-next` in
-  the same terminal — several specs can be in flight without costing you a window
-  each. All housekeeping (the backlog→in-progress move, header edits, the code)
+  switch specs and `main` stays free for hotfixes. **It builds the branch there and
+  prints the path** — your session stays where it is, and you run `/spec-next` from
+  a session in the worktree. Reading what a phase changed does not need a session
+  there at all: `/spec-diff` renders the worktree's diff as a page from wherever
+  you are. All housekeeping (the backlog→in-progress move, header edits, the code)
   happens on that branch and lands in one PR; `main` changes only when it merges.
 - **Docker — a per-spec escalation.** `/spec` records `> **Stack:** worktree`
   (default) or `worktree + docker` when the spec touches the DB / stateful
@@ -147,11 +148,6 @@ Once adopted it's the **default policy**, not a per-spec chore:
   `COMPOSE_PROJECT_NAME` isolates containers, networks, and **named volumes**, and
   a `PORT_OFFSET` reserves a distinct port block, so N stacks run at once with no
   clashes. A worktree-only spec takes **no** slot, port block, or `.env`.
-- an optional **fallback opener** — a single, editor/terminal-agnostic
-  `open.command` (e.g. `code {worktreePath}`, a `tmux` command, or a `warp://`
-  deeplink). It runs only when the session could **not** be moved into the
-  worktree — you were already inside another one, or the harness cannot move it.
-  Empty (the default) means nothing is opened.
 
 The machine-local slot registry and volume backups live under `/.spec-env/`
 (gitignored). `docker.enabled` in the config is the project **master switch**
@@ -162,7 +158,7 @@ The machine-local slot registry and volume backups live under `/.spec-env/`
 
 ```
 /spec-env <spec>        # worktree (+ stack iff Stack: worktree + docker)
-                        #   (idempotent; re-run attaches; opener only as fallback)
+                        #   (idempotent; re-run attaches)
 /spec-env-down <spec>   # stop stack, drop volumes (backed up first), remove worktree,
                         #   free the slot. Guards refuse a dirty/unpushed worktree
                         #   unless --force; --keep-volumes preserves data.
@@ -172,7 +168,7 @@ Your `docker-compose.yml` must reference `${PORT_OFFSET}` on each published port
 so services land in the spec's reserved block. Two adoption modes:
 
 - **Standalone** (`linkLinear: false`) — plain `{type}/{slug}` branch names; pure
-  worktree + Docker + opener. No Linear needed.
+  worktree + Docker. No Linear needed.
 - **Linear-linked** (`linkLinear: true` + `specs/.core/linear.config.json`) —
   branch names follow Linear's pattern so pushing fires Linear's GitHub
   automation.

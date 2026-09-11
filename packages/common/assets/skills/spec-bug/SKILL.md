@@ -50,7 +50,7 @@ provision from — you'll flesh it out in §4:
   `## Symptom` you established above.
 - Run `skitterspec spec-env up bug-<name>` (the `spec-env` CLI engine). It prints
   the `git worktree add … -b bug/<name>` command (a branch forked from `main`),
-  the worktree path, the opener, and any `in the worktree, run:` bootstrap steps.
+  the worktree path, and any `in the worktree, run:` bootstrap steps.
 - Run the printed commands in order. The plan **commits the stub first** — the
   worktree forks from `main`'s last commit, so the stub has to be in it — and
   then adds the worktree. Nothing to move afterwards: the spec is already there.
@@ -60,8 +60,8 @@ provision from — you'll flesh it out in §4:
 <!-- seam:worktree-bootstrap -->
 - **Do everything below in the worktree**, on the branch — the red test, the fix,
   and the rest of the spec. Act on the worktree with absolute paths /
-  `git -C <worktreePath>`, or open a fresh session rooted there (the printed
-  opener). `main` changes only when the branch merges (at `/spec-complete`).
+  `git -C <worktreePath>`, or open a session rooted at the printed path. `main`
+  changes only when the branch merges (at `/spec-complete`).
 
 ## 3. Write the failing test FIRST (RED) — mandatory
 

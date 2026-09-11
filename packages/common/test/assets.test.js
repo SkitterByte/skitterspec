@@ -93,7 +93,7 @@ test('/spec-start never routes a start through the live overlay', () => {
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
   assert.doesNotMatch(flat, /type \*{0,2}`\/spec-live <name>`/, 'does not ask for the swap')
   assert.doesNotMatch(flat, /re-run `\/spec-start`/i, 'does not ask to be run twice')
-  assert.match(flat, /the branch never leaves/i, 'says where the spec is built')
+  assert.match(flat, /builds a branch and tells you where it is/i, 'says where the spec is built')
 })
 
 test('/spec-start says the live overlay is for testing, not for starting', () => {
@@ -695,20 +695,19 @@ test('/spec-start carries no PUSHING tracker seam, and says why', () => {
 //
 // Both used to be /spec-next's, and the one-workbench model moved them:
 //
-//  * The OPENER no longer runs at a hand-off, because worktree mode's hand-off
-//    is now a branch swap into THIS checkout (`/spec-live`), not a window
-//    someone opens for you. It survives on one path only — a spec the live
-//    overlay refuses stays parked in its worktree and is worked on from a
-//    session there. The three old tests about window lifecycle (stops after
-//    opening, degrades when none is configured, never opens headlessly) were
-//    deleted with the behaviour they guarded, rather than left asserting
-//    something no skill does.
+//  * The OPENER is GONE. It existed to put a window on a worktree, which you
+//    needed only because you could not otherwise see what a phase changed —
+//    and `/spec-diff` answers that from wherever you are. The test below used
+//    to assert the skill runs it; it now asserts the skill ends by naming the
+//    path instead. Inverted rather than deleted, because "no window opens" is
+//    the claim three cancelled specs kept trying to overturn.
 //
 //  * The MODE BRANCH moved to /spec-start, which owns provisioning.
 
-test('/spec-start opens a session in the worktree it provisioned', () => {
+test('/spec-start ends by naming the worktree, not by opening anything', () => {
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
-  assert.match(flat, /run `open\.command` if one is configured/i, 'opens a session there')
+  assert.match(flat, /Print the worktree path/i, 'says where the spec is')
+  assert.doesNotMatch(flat, /open\.command/i, 'and opens nothing')
 })
 
 test('/spec-start reads the mode and describes both paths', () => {

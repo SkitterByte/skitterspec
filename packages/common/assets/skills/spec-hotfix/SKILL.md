@@ -61,8 +61,7 @@ that header — must exist **before** `spec-env up`:
   `## Symptom` you established. It starts in `in-progress` — work begins now.
 - Run `skitterspec spec-env up hotfix-<name>`. It prints a `git worktree add …
   -b hotfix/<slug> <tag>` command (the branch forks from **the tag**, not
-  `main`), the worktree path, the opener, and any `in the worktree, run:`
-  bootstrap steps.
+  `main`), the worktree path, and any `in the worktree, run:` bootstrap steps.
 - Run the printed `git worktree add`, then **move the stub across yourself.**
   This is where a hotfix differs from `/spec-bug`, which no longer needs the move:
   that skill's worktree forks from `main`, so committing the stub puts it there,

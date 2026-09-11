@@ -36,7 +36,7 @@ test('the plan carries no worktree, bootstrap or opener', () => {
   // of these ever appear, the hand-off has crept back in.
   const plan = planCheckoutUp(SPEC, ctx(), {})
   const text = JSON.stringify(plan)
-  for (const absent of ['worktree add', 'seedCommands', 'setupCommands', 'openCommand']) {
+  for (const absent of ['worktree add', 'seedCommands', 'setupCommands']) {
     assert.ok(!text.includes(absent), `checkout plan should not mention ${absent}`)
   }
 })
