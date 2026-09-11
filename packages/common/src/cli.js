@@ -49,6 +49,11 @@ const {
   reviewUrlPath,
   readReviewUrl,
   writeReviewPage,
+  reviewNotesPath,
+  readNotes,
+  writeNotes,
+  validateNotesBlob,
+  mergeNotes,
 } = require('./env/review.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
@@ -108,6 +113,7 @@ Usage:
                                 status            list provisioned specs + port blocks
                                 review <spec>     write an HTML page of the spec's diff
                                                   (--branch for the whole spec; --out, --json)
+                                                  (--notes <json> merges a review pass back)
                                 resolve <spec>    print resolved slug/type/branch/paths
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
@@ -1461,6 +1467,47 @@ function specEnvReview(dir, config, specArg, flags) {
     mode = 'branch'
   }
 
+  // The sidecar is keyed to the page's path, so resolve that first — `--out`
+  // moves both together.
+  const out = reviewOutPath(dir, spec.folder, flags.out)
+  const stored = readNotes(out, spec.folder)
+  let notes = stored.notes
+  let merged = null
+
+  if (flags.notes) {
+    // Refuse rather than write over notes we could not read: an unreadable
+    // sidecar is a whole review pass, and overwriting it is unrecoverable.
+    if (stored.corrupt) {
+      process.stdout.write(
+        `spec-env review: ${reviewNotesPath(out)} is not readable JSON — ` +
+          'move it aside and re-paste, rather than losing what it holds.\n',
+      )
+      return
+    }
+    let blob
+    try {
+      blob = JSON.parse(fs.readFileSync(path.resolve(flags.notes), 'utf8'))
+    } catch (err) {
+      process.stdout.write(`spec-env review: notes blob: not valid JSON (${err.message})\n`)
+      return
+    }
+    let parsed
+    try {
+      parsed = validateNotesBlob(blob, spec.folder)
+    } catch (err) {
+      // Nothing has been written at this point, and nothing will be.
+      process.stdout.write(`spec-env review: ${err.message}\n`)
+      return
+    }
+    notes = mergeNotes(notes, parsed, new Date().toISOString())
+    writeNotes(out, notes)
+    merged = {
+      accepted: parsed.accepted.length,
+      unaccepted: parsed.unaccepted.length,
+      comments: parsed.comments.length,
+    }
+  }
+
   const data = collectReview({
     spec,
     git,
@@ -1468,6 +1515,7 @@ function specEnvReview(dir, config, specArg, flags) {
     ref,
     base,
     now: new Date().toISOString(),
+    notes,
   })
 
   // The written review is the model's half, and it arrives as JSON so no prose
@@ -1477,7 +1525,6 @@ function specEnvReview(dir, config, specArg, flags) {
     data.review = JSON.parse(raw)
   }
 
-  const out = reviewOutPath(dir, spec.folder, flags.out)
   writeReviewPage(out, renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }))
 
   // Read, never written, and never interpreted: the engine cannot publish, and
@@ -1498,8 +1545,11 @@ function specEnvReview(dir, config, specArg, flags) {
           fileUrl: reviewFileUrl(out),
           urlFile,
           url,
+          notesFile: reviewNotesPath(out),
           reviewed: Boolean(data.review),
           totals: data.totals,
+          notes: data.notes,
+          merged,
           files: data.files.map((f) => ({
             path: f.path,
             status: f.status,
@@ -1507,6 +1557,10 @@ function specEnvReview(dir, config, specArg, flags) {
             deletions: f.deletions,
             whole: f.whole,
             noise: f.noise,
+            hash: f.hash,
+            accepted: f.accepted,
+            acceptedAt: f.acceptedAt,
+            comments: f.comments,
           })),
         },
         null,
@@ -1517,9 +1571,24 @@ function specEnvReview(dir, config, specArg, flags) {
   }
 
   const t = data.totals
+  const n = data.notes.totals
+  const hasNotes = n.accepted + n.lapsed + n.unresolved + n.resolved > 0
   process.stdout.write(
     `spec-env review: ${spec.folder} (${mode === 'branch' ? `since ${base}` : 'uncommitted'})\n` +
       `  ${t.files} file${t.files === 1 ? '' : 's'}, +${t.additions} -${t.deletions}\n` +
+      (merged
+        ? `  merged: ${merged.accepted} accept${merged.accepted === 1 ? '' : 's'}, ` +
+          `${merged.unaccepted} withdrawn, ${merged.comments} comment${merged.comments === 1 ? '' : 's'}\n`
+        : '') +
+      (hasNotes
+        ? `  notes: ${n.accepted} accepted · ${n.lapsed} lapsed · ` +
+          `${n.unresolved} open · ${n.resolved} resolved\n`
+        : '') +
+      // Said only when it is true, so a review with no sidecar reads exactly as
+      // it did before any of this existed.
+      (stored.corrupt && !flags.notes
+        ? `  notes: ${reviewNotesPath(out)} is not readable JSON — ignored, not overwritten\n`
+        : '') +
       `  page: ${out}\n` +
       `  open: ${reviewFileUrl(out)}\n` +
       (url ? `  published: ${url}\n` : '') +
@@ -2118,6 +2187,7 @@ async function specEnv(rest) {
     branch: false,
     out: null,
     review: null,
+    notes: null,
     json: false,
   }
   for (let i = 0; i < args.length; i++) {
@@ -2129,6 +2199,7 @@ async function specEnv(rest) {
     else if (args[i] === '--branch') flags.branch = true
     else if (args[i] === '--out') flags.out = args[++i]
     else if (args[i] === '--review') flags.review = args[++i]
+    else if (args[i] === '--notes') flags.notes = args[++i]
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
@@ -2184,7 +2255,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +

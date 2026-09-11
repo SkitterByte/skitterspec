@@ -173,7 +173,7 @@ function numstatFor(git, ref, file, untracked) {
  * this whole spec do"). Both resolve to a single ref diffed against the working
  * tree, so committed and uncommitted work are collected by one code path.
  */
-function collectReview({ spec, git, mode = 'working', ref, base = null, now }) {
+function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null }) {
   const files = []
   for (const f of trackedFiles(git, ref)) {
     const { patch, whole } = patchFor(git, ref, f, false)
@@ -185,6 +185,11 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now }) {
     const { additions, deletions, binary } = numstatFor(git, ref, f, true)
     files.push({ ...f, additions, deletions, binary, whole, noise: isNoise(f.path), patch })
   }
+
+  // Content hashes and the stored review state, folded on before the totals so
+  // the page and `--json` see one shape.
+  const store = notes || emptyNotes(spec.folder)
+  const { totals: noteTotals, unanchored } = applyNotes(files, store, fileHashes(git, files))
 
   const totals = files.reduce(
     (acc, f) => ({
@@ -206,8 +211,270 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now }) {
     generatedAt: now,
     totals,
     files,
+    notes: {
+      version: store.version || NOTES_VERSION,
+      updatedAt: store.updatedAt || null,
+      totals: noteTotals,
+      unanchored,
+    },
     review: null,
   }
+}
+
+
+/* ==========================================================================
+ * Notes — the review round-trip
+ *
+ * The page is read somewhere else (often a phone), so what you conclude while
+ * reading has to travel back as DATA: accepts, comments, and later the agent's
+ * resolutions. It arrives as a clipboard blob, is merged into a sidecar beside
+ * the page, and is read back at the next render.
+ *
+ * Everything here is engine-owned and versioned. The blob is UNTRUSTED input —
+ * it has been through a clipboard and a chat window — so it is validated
+ * wholesale before a byte is written.
+ * ========================================================================== */
+
+const NOTES_VERSION = 1
+
+// A file that is gone has no content to hash, and an accept still has to mean
+// something about it. A sentinel is comparable and obviously not a blob sha.
+const DELETED_HASH = '(deleted)'
+
+// `hash-object` takes every path on one command line, so chunk it rather than
+// discovering ARG_MAX on the one spec that touched 400 files.
+const HASH_BATCH = 100
+
+/**
+ * The git blob hash of each file's CURRENT working-tree content.
+ *
+ * THE IDENTITY AN ACCEPT IS KEYED TO, and deliberately not the patch. A patch
+ * is a function of the ref as much as the file: commit the phase and `HEAD`
+ * moves, so every patch changes while no file did — and every accept would
+ * lapse at the exact moment the work was finished. `--branch` does the same in
+ * reverse. Content keying survives both, because it describes the thing you
+ * actually read.
+ *
+ * A hash that cannot be computed is `null`, never a guess: it compares unequal
+ * to every recorded accept, so the cannot-tell case renders as lapsed rather
+ * than as approval (see `.claude/rules/negative-checks.md`).
+ */
+function fileHashes(git, files) {
+  const out = new Map()
+  const live = []
+  for (const f of files) {
+    if (f.status === 'deleted') out.set(f.path, DELETED_HASH)
+    else live.push(f.path)
+  }
+  for (let i = 0; i < live.length; i += HASH_BATCH) {
+    const batch = live.slice(i, i + HASH_BATCH)
+    const got = lines(git(['hash-object', '--', ...batch]))
+    if (got.length === batch.length) {
+      batch.forEach((p, n) => out.set(p, got[n]))
+      continue
+    }
+    // One unhashable path fails the whole batch, so fall back per file rather
+    // than losing every other file's hash with it.
+    for (const p of batch) out.set(p, lines(git(['hash-object', '--', p]))[0] || null)
+  }
+  return out
+}
+
+// The sidecar sits beside the page and the `.url` file, under gitignored
+// `.spec-env/` — a review leaves no trace in the branch it reviews.
+function reviewNotesPath(outPath) {
+  return outPath.replace(/\.html$/, '') + '.notes.json'
+}
+
+function emptyNotes(specFolder) {
+  return { version: NOTES_VERSION, spec: specFolder, updatedAt: null, files: {}, comments: [] }
+}
+
+/**
+ * Read the sidecar. Never throws, and reports `corrupt` rather than hiding it.
+ *
+ * A file we cannot parse is the third state: it is not "no notes". Rendering
+ * carries on without them (the page is a convenience), but a MERGE must refuse,
+ * because writing over an unreadable file is how someone's whole review pass
+ * disappears. The caller decides which of those it is.
+ */
+function readNotes(outPath, specFolder) {
+  let raw
+  try {
+    raw = fs.readFileSync(reviewNotesPath(outPath), 'utf8')
+  } catch {
+    // Absent is the ordinary state — most reviews never write one.
+    return { notes: emptyNotes(specFolder), corrupt: false, present: false }
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    return {
+      notes: {
+        version: parsed.version,
+        spec: parsed.spec || specFolder,
+        updatedAt: parsed.updatedAt || null,
+        files: parsed.files && typeof parsed.files === 'object' ? parsed.files : {},
+        comments: Array.isArray(parsed.comments) ? parsed.comments : [],
+      },
+      corrupt: false,
+      present: true,
+    }
+  } catch {
+    return { notes: emptyNotes(specFolder), corrupt: true, present: true }
+  }
+}
+
+function writeNotes(outPath, notes) {
+  const p = reviewNotesPath(outPath)
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(notes, null, 2) + '\n')
+  return p
+}
+
+/**
+ * Validate a blob from the page, wholesale.
+ *
+ * It refuses on the FIRST problem and writes nothing, because a half-merged
+ * sidecar is worse than a rejected paste: you would have to work out which
+ * half landed. Every message names the offending entry so the answer is in the
+ * refusal rather than in a second investigation.
+ *
+ * Unknown keys are IGNORED rather than rejected — an older engine meeting a
+ * newer page should drop what it does not understand, not refuse the accepts it
+ * does.
+ */
+function validateNotesBlob(blob, specFolder) {
+  const fail = (m) => {
+    throw new Error(`notes blob: ${m}`)
+  }
+  if (!blob || typeof blob !== 'object' || Array.isArray(blob)) fail('not a JSON object')
+  if (blob.version !== NOTES_VERSION) {
+    fail(`version ${JSON.stringify(blob.version)} — this engine reads version ${NOTES_VERSION}`)
+  }
+  // Pasting the wrong spec's review is the one mistake that would look entirely
+  // successful, so the blob names its spec and the engine checks it.
+  if (blob.spec && specFolder && blob.spec !== specFolder) {
+    fail(`written for ${blob.spec}, but this is ${specFolder}`)
+  }
+  const arr = (key) => {
+    const v = blob[key]
+    if (v === undefined || v === null) return []
+    if (!Array.isArray(v)) fail(`${key} must be an array`)
+    return v
+  }
+  const accepted = arr('accepted')
+  for (const a of accepted) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) fail('every accepted entry must be an object')
+    if (typeof a.path !== 'string' || !a.path) fail('an accepted entry has no path')
+    if (typeof a.hash !== 'string' || !a.hash) fail(`accepted entry ${a.path} has no hash`)
+  }
+  const unaccepted = arr('unaccepted')
+  for (const p of unaccepted) {
+    if (typeof p !== 'string' || !p) fail('every unaccepted entry must be a path')
+  }
+  const comments = arr('comments')
+  for (const c of comments) {
+    if (!c || typeof c !== 'object' || Array.isArray(c)) fail('every comment must be an object')
+    if (typeof c.id !== 'string' || !c.id) fail('a comment has no id')
+    if (typeof c.file !== 'string' || !c.file) fail(`comment ${c.id} has no file`)
+    if (typeof c.note !== 'string' || !c.note.trim()) fail(`comment ${c.id} has no note`)
+    if (c.line !== undefined && c.line !== null && !Number.isInteger(c.line)) {
+      fail(`comment ${c.id} has a non-integer line`)
+    }
+  }
+  return { accepted, unaccepted, comments }
+}
+
+/**
+ * Merge a validated blob into the stored notes. Pure.
+ *
+ * MERGE, NEVER REPLACE. The page only knows the render it was built from, so a
+ * replace would drop the agent's resolutions and let a tab left open overnight
+ * roll back everything recorded since. Anything the blob does not mention is
+ * carried through untouched — which is also why un-accepting is an EXPLICIT
+ * `unaccepted` list rather than absence from `accepted`.
+ *
+ * Comments merge by id, and the page mints ids from the render timestamp, so
+ * pasting the same blob twice is idempotent instead of doubling every note.
+ */
+function mergeNotes(existing, blob, now) {
+  const notes = {
+    version: NOTES_VERSION,
+    spec: existing.spec,
+    updatedAt: now,
+    files: { ...existing.files },
+    comments: existing.comments.slice(),
+  }
+  for (const a of blob.accepted) notes.files[a.path] = { acceptedHash: a.hash, acceptedAt: now }
+  for (const p of blob.unaccepted) delete notes.files[p]
+
+  const indexById = new Map(notes.comments.map((c, i) => [c.id, i]))
+  for (const c of blob.comments) {
+    const entry = {
+      id: c.id,
+      file: c.file,
+      line: c.line === undefined ? null : c.line,
+      lineText: c.lineText === undefined ? null : c.lineText,
+      check: c.check === undefined ? null : c.check,
+      note: c.note,
+      raisedAt: now,
+      resolved: null,
+    }
+    const at = indexById.get(c.id)
+    if (at === undefined) {
+      indexById.set(c.id, notes.comments.length)
+      notes.comments.push(entry)
+      continue
+    }
+    // A re-paste refreshes the text but keeps the history: when it was first
+    // raised, and any resolution already written against it.
+    const prev = notes.comments[at]
+    notes.comments[at] = { ...entry, raisedAt: prev.raisedAt, resolved: prev.resolved }
+  }
+  return notes
+}
+
+/**
+ * Fold the stored notes onto the collected files.
+ *
+ * `accepted` is `true` only when the recorded hash matches what is there now;
+ * a difference is `'lapsed'` and is SAID rather than silently forgotten, so a
+ * file you vouched for two phases ago cannot quietly pass as still-read.
+ */
+function applyNotes(files, notes, hashes) {
+  const byFile = new Map()
+  for (const c of notes.comments) {
+    if (!byFile.has(c.file)) byFile.set(c.file, [])
+    byFile.get(c.file).push(c)
+  }
+  const totals = { accepted: 0, lapsed: 0, unresolved: 0, resolved: 0 }
+  for (const f of files) {
+    const hash = hashes.has(f.path) ? hashes.get(f.path) : null
+    f.hash = hash === undefined ? null : hash
+    const rec = notes.files[f.path]
+    if (!rec || !rec.acceptedHash) {
+      f.accepted = false
+      f.acceptedAt = null
+    } else if (f.hash && rec.acceptedHash === f.hash) {
+      f.accepted = true
+      f.acceptedAt = rec.acceptedAt || null
+      totals.accepted++
+    } else {
+      f.accepted = 'lapsed'
+      f.acceptedAt = rec.acceptedAt || null
+      totals.lapsed++
+    }
+    f.comments = byFile.get(f.path) || []
+  }
+  for (const c of notes.comments) {
+    if (c.resolved) totals.resolved++
+    else totals.unresolved++
+  }
+  // A comment on a file that is no longer in the diff (reverted, or landed in
+  // an earlier phase) would otherwise vanish from the page along with its file.
+  const shown = new Set(files.map((f) => f.path))
+  const unanchored = notes.comments.filter((c) => !shown.has(c.file))
+  return { totals, unanchored }
 }
 
 
@@ -361,6 +628,16 @@ function writeReviewPage(outPath, html) {
 
 module.exports = {
   WHOLE_FILE_CONTEXT,
+  NOTES_VERSION,
+  DELETED_HASH,
+  fileHashes,
+  reviewNotesPath,
+  emptyNotes,
+  readNotes,
+  writeNotes,
+  validateNotesBlob,
+  mergeNotes,
+  applyNotes,
   PATCH_LIMIT_BYTES,
   REVIEW_DIR,
   rawGitReader,

@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Notes store, content hashing and the lapse rule | ⬜ | [01-notes-store.md](01-notes-store.md) |
+| 1 | Notes store, content hashing and the lapse rule | ✅ | [01-notes-store.md](01-notes-store.md) |
 | 2 | Page marks, comments, check replies, copy-out | ⬜ | [02-page-marks.md](02-page-marks.md) |
 | 3 | Resolutions round-trip | ⬜ | [03-resolutions.md](03-resolutions.md) |
 | 4 | `/spec-diff` intake and docs | ⬜ | [04-skill-and-docs.md](04-skill-and-docs.md) |
@@ -178,6 +178,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 1 built; tests green (common 649, root 1769). Three
+  additions to the design, all recorded in the phase file: the blob gained an
+  explicit `unaccepted` list (absence cannot mean withdrawal under
+  merge-never-replace); an unreadable sidecar is a third state that renders with
+  a warning and **refuses** a merge rather than overwriting a review pass; and the
+  totals key is `unresolved` rather than `open`, because the CLI source is
+  guarded against `.open` by the removed-opener spec. The headline regression —
+  an accept surviving the commit that ends the phase and the `working`→`branch`
+  switch — is covered by a test against real git.
 
 - 2026-09-11 — Spec created. Picks up the follow-on `feat-phase-review` deferred
   with "revisit with evidence": the `db` capability is now confirmed available,
