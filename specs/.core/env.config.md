@@ -1,11 +1,12 @@
 # `env.config.json` — per-spec isolation config
 
 Opt-in config for per-spec isolation (git worktree + optional namespaced Docker
-stack + host dev servers + a front-door proxy + an optional opener per
-in-progress spec). Provisioning is folded into `/spec-start`, teardown into
-`/spec-complete` · `/spec-cancel`, and traffic diversion is `/spec-connect`; the
-`skitterspec spec-env <up|down|prune|dev|connect|integrate>` CLI is the engine
-beneath them.
+stack + host dev servers + a front-door proxy per in-progress spec).
+Provisioning is folded into `/spec-start`, teardown into `/spec-complete` ·
+`/spec-cancel`, traffic diversion is `/spec-connect`, and reading a spec's diff
+is `/spec-diff`; the `skitterspec spec-env
+<up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve>` CLI is
+the engine beneath them.
 
 **Once this file is present, isolation is the default policy:** `/spec-start` gives
 **every** in-progress spec its own git worktree automatically. Docker is a
@@ -122,24 +123,6 @@ no live `env.config.json` was found.
   "proxy": {
     "enabled": true,        // false = the connect command is unavailable
     "host": "127.0.0.1"     // bind host for the canonical ports
-  },
-
-  // Optional, editor/terminal-agnostic opener — the FALLBACK for reaching a
-  // worktree. `/spec-start` normally moves the session you typed into into the
-  // worktree, and then there is nothing to open: it runs this only when it
-  // could not switch in place (the session is already inside another worktree,
-  // or the harness cannot move it). Run after provisioning and bootstrap, so
-  // the session opens onto a tree that is ready to work in. The template is
-  // expanded with {worktreePath}, {slug}, {branch}, {projectName},
-  // {portOffset}.
-  // Empty = nothing is opened (the path is just printed), which is how you turn
-  // the auto-open off, and the right value unless you actually want a second
-  // window on the fallback path. A non-interactive run skips it either way — an
-  // opened window nobody is sitting at helps no one.
-  // Examples: "code {worktreePath}", "tmux new-window -c {worktreePath}",
-  // or a "warp://..." deeplink for Warp users.
-  "open": {
-    "command": ""
   },
 
   // Machine-local slot registry (spec → slot index). Resolved against the
