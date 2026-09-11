@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-144"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-144/one-bare-form-one-meaning"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # One bare form, one meaning
 
 > **Type:** Feature
 > **Name:** feat-bare-argument-parity (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-11)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
 > **Area:** packages/common/src/cli.js, packages/common/assets/commands/spec-live.md, packages/common/assets/commands/spec-connect.md, packages/common/assets/rules/spec-planning.md, packages/common/test/cli-spec-env-zero-arg.test.js, packages/common/test/cli-spec-env-live.test.js, docs/index.html
 > **Stack:** worktree
@@ -115,6 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
+| 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
