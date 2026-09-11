@@ -273,7 +273,13 @@ const ENGINES = {
       return new Set([...block.matchAll(/^ {4}case '([a-z][a-z-]*)':/gm)].map((m) => m[1]))
     },
     page: 'docs/index.html',
-    undocumented: {},
+    undocumented: {
+      // Phase 1 of feat-phase-review ships the verb; phase 4 of the same spec
+      // writes the review loop into docs/index.html and deletes this entry. An
+      // allowlist line is the honest state in between — the alternative was a
+      // token mention on the page that phase 4 would have to rewrite anyway.
+      review: 'documented by feat-phase-review phase 4 (the review loop section)',
+    },
   },
   'spec-sync': {
     source: 'packages/linear/src/cli-sync.js',

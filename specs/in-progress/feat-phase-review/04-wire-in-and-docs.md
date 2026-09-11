@@ -33,6 +33,11 @@ publishing leaves behind.
 - [ ] Run `pnpm test` at the repo root — the docs guards live there, not in a
       package — green before the phase is done.
 
+- [ ] Delete the `review` entry from the `undocumented` allowlist in
+      `scripts/docs-claims.test.js`. Phase 1 added it with a reason pointing
+      here; documenting the verb on `docs/index.html` is what makes it stale, and
+      leaving it behind would silence the guard for a verb that IS documented.
+
 ## Notes
 
 `/spec-next` gaining a step is the part most likely to annoy someone who does not

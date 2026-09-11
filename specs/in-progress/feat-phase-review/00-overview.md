@@ -133,7 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Collect a worktree's diff, and emit a page | ⬜ | [01-collect-and-emit.md](01-collect-and-emit.md) |
+| 1 | Collect a worktree's diff, and emit a page | ✅ | [01-collect-and-emit.md](01-collect-and-emit.md) |
 | 2 | The viewer — context bands, file tree, both themes | ⬜ | [02-viewer.md](02-viewer.md) |
 | 3 | `/spec-diff` — the written review, and publishing | ⬜ | [03-spec-diff-skill.md](03-spec-diff-skill.md) |
 | 4 | Wire it into the loop, and document it | ⬜ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
@@ -151,6 +151,32 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 1 built. Five notes, none of them changing the design:
+  **(a)** the spec said to reuse `resolveSpecWithWorktree` "from resolve.js" — it
+  actually lives in `cli.js`, so the verb calls it there and `review.js` stays
+  free of spec resolution entirely, which is what made the collector testable
+  against a bare fixture. **(b)** `review.js` defines its own raw git runner
+  rather than reusing the CLI's `gitReader`, because that one **trims** its
+  output and trimming porcelain is the exact bug the phase warned about; the
+  runner also returns stdout from a non-zero exit, since `git diff --no-index`
+  exits 1 precisely when the files differ. **(c)** The page template is a
+  constant in `review.js` for now, carrying the two real placeholders
+  (`__REVIEW_DATA__`, `__REVIEW_BLOCK__`), so phase 2's move into
+  `assets/review/` is a file move rather than a redesign. **(d)** the
+  `--review <file>` flag is accepted now and embedded into the data island
+  only — the flag is part of the CLI shape the overview already published, and
+  adding it later would have changed a shipped signature; rendering it is still
+  phase 3's. **(e)**
+  `--branch` **refuses** when base and HEAD share no merge-base rather than
+  diffing against the base tip, which would report every file in the project as
+  changed.
+- 2026-09-11 — Two shipped guards fired during phase 1 and both were right.
+  `assets-prose.test.js` caught the `spec-env <…>` verb enumeration in
+  `spec-planning.md` going stale, so `review` was added there now rather than in
+  phase 4. `docs-claims.test.js` demanded the verb appear on `docs/index.html`;
+  since phase 4 owns that page, the verb is in that guard's `undocumented`
+  allowlist with a reason, and a phase 4 task now exists to delete the entry.
 
 - 2026-09-11 — Spec created from a working prototype, not from a design
   discussion. The prototype rendered a real linked worktree's **uncommitted**

@@ -38,6 +38,13 @@ const {
   planAbort,
 } = require('./env/live.js')
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
+const {
+  rawGitReader,
+  collectReview,
+  renderReviewPage,
+  reviewOutPath,
+  writeReviewPage,
+} = require('./env/review.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
@@ -94,6 +101,8 @@ Usage:
                                 integrate <spec>  plan rebase + fast-forward onto the base branch
                                 hotfix land <spec>  tag + cherry-pick a hotfix (--also <tag>)
                                 status            list provisioned specs + port blocks
+                                review <spec>     write an HTML page of the spec's diff
+                                                  (--branch for the whole spec; --out, --json)
                                 resolve <spec>    print resolved slug/type/branch/paths
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
@@ -1298,6 +1307,109 @@ function specEnvResolve(dir, config, specArg) {
   )
 }
 
+/**
+ * Write a self-contained HTML review of a spec's diff.
+ *
+ * Read entirely through `git -C <worktreePath>` — the caller's shell never moves,
+ * which is the whole point: the work being reviewed lives in a worktree, and the
+ * terminal is somewhere else (often a phone). Two shapes: the uncommitted working
+ * tree (the default — "what did this phase just do") and `--branch` (everything
+ * since the base branch — "what does this whole spec do").
+ */
+function specEnvReview(dir, config, specArg, flags) {
+  // An unknown name throws here rather than falling back to the branch: a review
+  // of the wrong spec looks exactly like a review of the right one.
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+
+  // The worktree is what we read; without it there is nothing to say. This is an
+  // absence that means something — `git worktree list` is the same source that
+  // resolved the path — so it is safe to act on.
+  if (!fs.existsSync(spec.worktreePath)) {
+    process.stdout.write(
+      `spec-env review: ${spec.folder} has no worktree at ${spec.worktreePath} — ` +
+        'run /spec-start to provision it.\n',
+    )
+    return
+  }
+
+  const git = rawGitReader(spec.worktreePath)
+  const trimmed = gitReader(spec.worktreePath)
+
+  let mode = 'working'
+  let ref = 'HEAD'
+  let base = null
+  if (flags.branch) {
+    base = resolveBaseBranch(config, trimmed)
+    const mergeBase = trimmed(['merge-base', base, 'HEAD'])
+    // Cannot tell → do nothing. A missing merge-base means the branch and the
+    // base share no history (a fresh repo, an unfetched base); diffing against
+    // the base tip anyway would report every file in the project as changed.
+    if (!mergeBase) {
+      process.stdout.write(
+        `spec-env review: no merge-base between ${base} and ${spec.branch} — ` +
+          'cannot compute the branch range (fetch the base branch?).\n',
+      )
+      return
+    }
+    ref = mergeBase
+    mode = 'branch'
+  }
+
+  const data = collectReview({
+    spec,
+    git,
+    mode,
+    ref,
+    base,
+    now: new Date().toISOString(),
+  })
+
+  // The written review is the model's half, and it arrives as JSON so no prose
+  // ever has to round-trip through markup. Absent → the page renders without it.
+  if (flags.review) {
+    const raw = fs.readFileSync(path.resolve(flags.review), 'utf8')
+    data.review = JSON.parse(raw)
+  }
+
+  const out = reviewOutPath(dir, spec.folder, flags.out)
+  writeReviewPage(out, renderReviewPage(data))
+
+  if (flags.json) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          spec: spec.folder,
+          branch: spec.branch,
+          worktree: spec.worktreePath,
+          mode,
+          base,
+          out,
+          totals: data.totals,
+          files: data.files.map((f) => ({
+            path: f.path,
+            status: f.status,
+            additions: f.additions,
+            deletions: f.deletions,
+            whole: f.whole,
+            noise: f.noise,
+          })),
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+    return
+  }
+
+  const t = data.totals
+  process.stdout.write(
+    `spec-env review: ${spec.folder} (${mode === 'branch' ? `since ${base}` : 'uncommitted'})\n` +
+      `  ${t.files} file${t.files === 1 ? '' : 's'}, +${t.additions} -${t.deletions}\n` +
+      `  page: ${out}\n` +
+      (t.files === 0 ? '  nothing to review — no changes found.\n' : ''),
+  )
+}
+
 // Start/stop a spec's host dev servers on its reserved port block. Host dev
 // servers (e.g. `pnpm dev`) need a block even on a worktree-only spec, so `up`
 // allocates a slot if the spec has none (idempotent). The planner is pure
@@ -1816,13 +1928,26 @@ async function specEnv(rest) {
   const [sub, ...args] = rest
   let dir = process.cwd()
   const positional = []
-  const flags = { keepVolumes: false, force: false, also: [], olderThanDays: null }
+  const flags = {
+    keepVolumes: false,
+    force: false,
+    also: [],
+    olderThanDays: null,
+    branch: false,
+    out: null,
+    review: null,
+    json: false,
+  }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--keep-volumes') flags.keepVolumes = true
     else if (args[i] === '--force') flags.force = true
     else if (args[i] === '--also') flags.also.push(args[++i])
     else if (args[i] === '--older-than') flags.olderThanDays = Number(args[++i])
+    else if (args[i] === '--branch') flags.branch = true
+    else if (args[i] === '--out') flags.out = args[++i]
+    else if (args[i] === '--review') flags.review = args[++i]
+    else if (args[i] === '--json') flags.json = true
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
@@ -1867,12 +1992,15 @@ async function specEnv(rest) {
     case 'resolve':
       specEnvResolve(dir, config, positional[0])
       break
+    case 'review':
+      specEnvReview(dir, config, positional[0], flags)
+      break
     case 'live':
       await specEnvLive(dir, config, positional)
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--json]\n' +
           '  [spec] is optional for up/down/dev/integrate/hotfix/resolve and live take:\n' +
           '  omit it and the sole provisioned spec is used (several -> it lists them).\n' +
           '  NOTE connect and live status keep their own meaning for a missing spec:\n' +
