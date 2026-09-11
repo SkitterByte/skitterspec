@@ -42,7 +42,10 @@ const {
   rawGitReader,
   collectReview,
   renderReviewPage,
+  renderReviewBlock,
   reviewOutPath,
+  reviewUrlPath,
+  readReviewUrl,
   writeReviewPage,
 } = require('./env/review.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
@@ -1372,7 +1375,12 @@ function specEnvReview(dir, config, specArg, flags) {
   }
 
   const out = reviewOutPath(dir, spec.folder, flags.out)
-  writeReviewPage(out, renderReviewPage(data))
+  writeReviewPage(out, renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }))
+
+  // Read, never written, and never interpreted: the engine cannot publish, and
+  // names this file only so the skill that can never has to build a path.
+  const urlFile = reviewUrlPath(out)
+  const url = readReviewUrl(out)
 
   if (flags.json) {
     process.stdout.write(
@@ -1384,6 +1392,9 @@ function specEnvReview(dir, config, specArg, flags) {
           mode,
           base,
           out,
+          urlFile,
+          url,
+          reviewed: Boolean(data.review),
           totals: data.totals,
           files: data.files.map((f) => ({
             path: f.path,
@@ -1406,6 +1417,7 @@ function specEnvReview(dir, config, specArg, flags) {
     `spec-env review: ${spec.folder} (${mode === 'branch' ? `since ${base}` : 'uncommitted'})\n` +
       `  ${t.files} file${t.files === 1 ? '' : 's'}, +${t.additions} -${t.deletions}\n` +
       `  page: ${out}\n` +
+      (url ? `  published: ${url}\n` : '') +
       (t.files === 0 ? '  nothing to review — no changes found.\n' : ''),
   )
 }

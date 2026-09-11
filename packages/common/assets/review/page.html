@@ -32,6 +32,12 @@
   --ln-fg: #9aa0ae;
   --chip-bg: #eceef2;
   --chip-fg: #46506a;
+  --flag-fg: #a3400b;
+  --flag-bg: #fdf0e6;
+  --confirm-fg: #6a4c05;
+  --confirm-bg: #fdf7e3;
+  --good-fg: #1a7f37;
+  --good-bg: #eaf8ee;
   --ln-w: 4.5ch;
 }
 :root:not([data-theme="light"]) {
@@ -55,6 +61,12 @@
     --ln-fg: #6b7183;
     --chip-bg: #23262d;
     --chip-fg: #a3aabd;
+    --flag-fg: #ffb083;
+    --flag-bg: #2e1a0d;
+    --confirm-fg: #f2d88a;
+    --confirm-bg: #2a2412;
+    --good-fg: #7ee08a;
+    --good-bg: #12261a;
   }
 }
 :root[data-theme="dark"] {
@@ -77,6 +89,12 @@
   --ln-fg: #6b7183;
   --chip-bg: #23262d;
   --chip-fg: #a3aabd;
+  --flag-fg: #ffb083;
+  --flag-bg: #2e1a0d;
+  --confirm-fg: #f2d88a;
+  --confirm-bg: #2a2412;
+  --good-fg: #7ee08a;
+  --good-bg: #12261a;
 }
 
 * { box-sizing: border-box; }
@@ -237,6 +255,39 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
   padding: .8rem 1rem;
   margin: 0 0 1rem;
 }
+.review-summary { margin: 0; }
+.checks { list-style: none; margin: .8rem 0 0; padding: 0; display: grid; gap: .4rem; }
+.check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .2rem .6rem;
+  align-items: baseline;
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  font-size: .88rem;
+}
+/* The level is a WORD, not a colour — the same reason the diff keeps its +/-
+   gutter. Colour is the second signal here, never the only one. */
+.check-level {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 700;
+  grid-row: 1 / span 2;
+}
+.check-file {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .78rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.check-note { grid-column: 2; }
+.check.flag { background: var(--flag-bg); }
+.check.flag .check-level { color: var(--flag-fg); }
+.check.confirm { background: var(--confirm-bg); }
+.check.confirm .check-level { color: var(--confirm-fg); }
+.check.good { background: var(--good-bg); }
+.check.good .check-level { color: var(--good-fg); }
 </style>
 </head>
 <body>

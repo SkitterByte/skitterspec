@@ -135,7 +135,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Collect a worktree's diff, and emit a page | ✅ | [01-collect-and-emit.md](01-collect-and-emit.md) |
 | 2 | The viewer — context bands, file tree, both themes | ✅ | [02-viewer.md](02-viewer.md) |
-| 3 | `/spec-diff` — the written review, and publishing | ⬜ | [03-spec-diff-skill.md](03-spec-diff-skill.md) |
+| 3 | `/spec-diff` — the written review, and publishing | ✅ | [03-spec-diff-skill.md](03-spec-diff-skill.md) |
 | 4 | Wire it into the loop, and document it | ⬜ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
 | 5 | Strip the tab machinery from `/spec-start` | ⬜ | [05-strip-the-tab-machinery.md](05-strip-the-tab-machinery.md) |
 
@@ -151,6 +151,26 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 3 built, and dogfooding it found a real bug in phase 1's
+  renderer. Splicing was three sequential replaces, so content spliced in was
+  rescanned by the next pass — and the page reviews its own source, which means
+  the data island legitimately **contains** every placeholder string. A review
+  note quoting `__REVIEW_DATA__` had the whole JSON blob spliced into it, and the
+  same would have happened inside any patch of `page.html`. It is now one pass
+  over a single regex, with a regression test. This is the class of bug that only
+  a page rendering its own diff would surface.
+- 2026-09-11 — Phase 3 notes. **(a)** The engine reports `urlFile` and `url` in
+  `--json`, reading a plain text file beside the page. It still cannot publish
+  and does not know what the string means — but it does now *name* that file, so
+  the skill never constructs a path. That is the only way the two halves stay in
+  step across phases. **(b)** `--page-only` is a skill argument, not an engine
+  flag: the page is what the engine makes, and declining the written review is a
+  decision about what the model spends. **(c)** Adding a skill moved three
+  shipped counts — `spec-init`'s "ten skills", and two "16 skills installed"
+  lines on `docs/linear.html`. All three are guarded, all three failed, all three
+  were right to. **(d)** `/spec-diff` is still absent from `spec-planning.md`;
+  added as a phase 4 task, since it is documentation and phase 4 owns that.
 
 - 2026-09-11 — Phase 2 built. Four notes. **(a)** "Register it with the install
   manifest" does not apply: that manifest governs files installed *into a

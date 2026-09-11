@@ -227,6 +227,7 @@ const TEMPLATE_PATH = path.join(__dirname, '..', '..', 'assets', 'review', 'page
 const DATA_PLACEHOLDER = '__REVIEW_DATA__'
 const REVIEW_PLACEHOLDER = '__REVIEW_BLOCK__'
 const TITLE_PLACEHOLDER = '__REVIEW_TITLE__'
+const PLACEHOLDER_RE = /__REVIEW_(?:TITLE|BLOCK|DATA)__/g
 
 function loadTemplate() {
   return fs.readFileSync(TEMPLATE_PATH, 'utf8')
@@ -249,13 +250,77 @@ function escapeHtml(s) {
  * whole design rests on.
  */
 function renderReviewPage(data, { template = null, reviewHtml = '' } = {}) {
-  return (template || loadTemplate())
-    .split(TITLE_PLACEHOLDER)
-    .join(escapeHtml(data.title))
-    .split(REVIEW_PLACEHOLDER)
-    .join(reviewHtml)
-    .split(DATA_PLACEHOLDER)
-    .join(escapeIsland(JSON.stringify(data)))
+  const values = {
+    [TITLE_PLACEHOLDER]: escapeHtml(data.title),
+    [REVIEW_PLACEHOLDER]: reviewHtml,
+    [DATA_PLACEHOLDER]: escapeIsland(JSON.stringify(data)),
+  }
+  // ONE pass, so nothing spliced in is ever rescanned. This is not theoretical:
+  // the page reviews its own source, so the data island legitimately CONTAINS
+  // all three placeholder strings, and sequential replaces would splice a whole
+  // JSON blob into the middle of a patch — or into a review note that happened
+  // to quote a placeholder name.
+  return (template || loadTemplate()).replace(PLACEHOLDER_RE, (m) => values[m])
+}
+
+/**
+ * Render the written review into HTML.
+ *
+ * THE ENGINE RENDERS; THE MODEL JUDGES. The review arrives as JSON — a short
+ * read plus severity-tagged checks — and this turns it into markup. The two
+ * rejected alternatives: the model emitting HTML (more tokens, and one unclosed
+ * tag breaks the page), and the engine parsing markdown (a markdown renderer to
+ * ship and maintain for one surface).
+ *
+ * Every field is escaped. The review is model-authored text arriving through a
+ * file, which is exactly the input that should never be trusted as markup.
+ */
+const CHECK_LEVELS = ['flag', 'confirm', 'good']
+
+function renderReviewBlock(review) {
+  if (!review || typeof review !== 'object') return ''
+  const parts = ['<section class="review">']
+  if (review.summary) {
+    parts.push(`<p class="review-summary">${escapeHtml(review.summary)}</p>`)
+  }
+  const checks = Array.isArray(review.checks) ? review.checks : []
+  if (checks.length) {
+    parts.push('<ul class="checks">')
+    for (const c of checks) {
+      // An unknown level is shown as `confirm` rather than dropped: losing a
+      // reviewer's note because it was tagged oddly is worse than showing it
+      // under a neutral heading.
+      const level = CHECK_LEVELS.includes(c.level) ? c.level : 'confirm'
+      const file = c.file ? `<span class="check-file">${escapeHtml(c.file)}</span>` : ''
+      parts.push(
+        `<li class="check ${level}"><span class="check-level">${level}</span>` +
+          `${file}<span class="check-note">${escapeHtml(c.note || '')}</span></li>`,
+      )
+    }
+    parts.push('</ul>')
+  }
+  parts.push('</section>')
+  return parts.join('\n')
+}
+
+/**
+ * Where a spec's published URL is remembered, and what it currently says.
+ *
+ * The engine READS this file and never writes it, and it does not know what the
+ * string means — it cannot publish, and nothing here can. It is named here so
+ * the skill that does publish never has to construct a path, which is the only
+ * way the two halves stay in step.
+ */
+function reviewUrlPath(outPath) {
+  return outPath.replace(/\.html$/, '') + '.url'
+}
+
+function readReviewUrl(outPath) {
+  try {
+    return fs.readFileSync(reviewUrlPath(outPath), 'utf8').trim() || null
+  } catch {
+    return null
+  }
 }
 
 // Default output path for a spec's page, under the gitignored `.spec-env/`.
@@ -286,6 +351,11 @@ module.exports = {
   reviewOutPath,
   writeReviewPage,
   escapeIsland,
+  escapeHtml,
+  renderReviewBlock,
+  reviewUrlPath,
+  readReviewUrl,
+  CHECK_LEVELS,
   loadTemplate,
   TEMPLATE_PATH,
   DATA_PLACEHOLDER,

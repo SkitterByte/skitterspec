@@ -22,10 +22,10 @@ clobber customised content. Finish with a summary of created vs already-present.
 > **Leave alone**. Non-interactively it only adds what's missing; `--resync` /
 > `--reset` (reset needs `--yes`) drive the stronger actions.
 
-The system is **ten skills**: `spec` (feature), `spec-bug` (bug),
+The system is **eleven skills**: `spec` (feature), `spec-bug` (bug),
 `spec-hotfix` (a bug fixed on a released tag), `spec-review`, `spec-start`,
-`spec-next`, `spec-to-main`, `spec-complete`, `spec-cancel`, and this
-`spec-init`. The lifecycle is `backlog → in-progress → complete / cancelled`,
+`spec-next`, `spec-diff` (read a spec's diff as a page), `spec-to-main`,
+`spec-complete`, `spec-cancel`, and this `spec-init`. The lifecycle is `backlog → in-progress → complete / cancelled`,
 with `.core` holding always-apply project rules.
 
 ## 0. Workspace mode (only when adopting isolation)

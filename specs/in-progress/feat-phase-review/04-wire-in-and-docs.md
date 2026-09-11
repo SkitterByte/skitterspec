@@ -33,6 +33,13 @@ publishing leaves behind.
 - [ ] Run `pnpm test` at the repo root — the docs guards live there, not in a
       package — green before the phase is done.
 
+- [ ] Name `/spec-diff` in `packages/common/assets/rules/spec-planning.md`. It
+      is deliberately **not** a row in the lifecycle skills table — it sets no
+      status and moves no folder — so introduce it the way that file already
+      introduces `/spec-connect` and `/spec-live`: a short paragraph saying what
+      it is for. Without this, the canonical reference every spec skill points at
+      never mentions the skill at all.
+
 - [ ] Delete the `review` entry from the `undocumented` allowlist in
       `scripts/docs-claims.test.js`. Phase 1 added it with a reason pointing
       here; documenting the verb on `docs/index.html` is what makes it stale, and
