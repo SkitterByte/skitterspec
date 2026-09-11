@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-phase-review (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-11)
+> **Status:** Complete (2026-09-11)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -149,8 +149,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-11 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Completed; all five phases done, tests green (root 1741, common
+  621). Nothing deferred from the spec itself. One follow-on is deliberately
+  outside it: this repo's own `.claude/` install still carries the pre-phase-5
+  `/spec-start`, and resyncing it is a separate chore commit. A second spec came
+  out of the work — `feat-bare-argument-parity` (SKS-144), on the bare-argument
+  grammar of `/spec-live` and `/spec-connect` — authored from `main` rather than
+  this branch, so it survives independently.
 
 - 2026-09-11 — Phase 5 built; the spec is complete. Four notes. **(a)** The
   opener survived its own removal in one place the task list did not name:
