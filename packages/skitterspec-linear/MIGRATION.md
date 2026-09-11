@@ -1,6 +1,6 @@
 # Migration guide
 
-## `@skitterbyte/skitterspec` v18 → v19 (starting a spec builds a branch, and stops)
+## `@skitterbyte/skitterspec` v18 → v19 (starting a spec offers phase 1)
 
 ### Breaking change
 
@@ -40,27 +40,68 @@ however large it is. The optional *written* review is the part that costs, and i
 is offered rather than assumed. `/spec-next` writes the page at the end of every
 phase. Beneath it, `skitterspec spec-env review <spec> [--branch]` is the engine.
 
+### `/spec-start` no longer just stops
+
+The work above removed the machinery that used to bridge `/spec-start` and
+`/spec-next` in `worktree` mode — first a live-take, then a session move — and
+left a hand-off in its place. That hand-off is now
+**one of two endings you are offered**, rather than the only one:
+
+```
+worktree ready: ../myrepo-wt/sort-inbox
+build phase 1 now from here, or hand off to a session in the worktree?
+```
+
+Say **yes** and it carries on into `/spec-next --worktree <path>`, a new flag
+that builds a spec the session is *not* standing in. Say **no** and you get
+exactly the behaviour described above: the path, and `/spec-next` run from a
+session in the worktree whenever suits. Neither is assumed, because provisioning
+is cheap and reversible while a phase build is neither.
+
+**This is not a loosened refusal.** A bare `/spec-next` still refuses to build a
+spec it is not standing in, exactly as before. `--worktree` is an explicit path
+you pass, and a path you pass is not a path anything guessed.
+
+**The build checks itself.** On the `--worktree` path, `/spec-next` first records
+what your primary checkout looked like, and afterwards reports anything that
+appeared in it — the signature of a relative path that missed the worktree. It
+reports rather than accuses: it cannot know who wrote a file, so it names both
+readings and deletes nothing.
+`skitterspec spec-env resolve <spec> --record-primary` and
+`--assert-primary-clean` are the engine underneath, usable on their own.
+
 ### What to do
 
 1. **Upgrade** — `npx @skitterbyte/skitterspec update`.
 2. **Delete the `open` block from `specs/.core/env.config.json`**, if you have
    one. Optional — it is ignored either way — but leaving it implies a setting
    that no longer does anything.
-3. **Expect a path, not a session.** After `/spec-start` in `worktree` mode, open
-   a session in the printed worktree and run `/spec-next` there. `/spec-next`
-   builds the spec it is *standing in* and still refuses to build one from
-   elsewhere.
-4. **Use `/spec-diff` to read the work** rather than reaching for a terminal in
+3. **Answer the question `/spec-start` now asks.** In `worktree` mode it offers
+   phase 1 before it finishes. Take the offer and it is built there and then;
+   decline and you keep the provisioned worktree and its path, to open a session
+   in and run `/spec-next` whenever you like. Both endings are fully supported —
+   prefer a fresh session when the phase is a big one.
+4. **Nothing moves your session, whichever you answer.** That property is
+   unchanged and deliberate.
+5. **Use `/spec-diff` to read the work** rather than reaching for a terminal in
    the worktree. It is gated on nothing — half a phase, a hand edit, or a
    colleague's branch are all ordinary inputs.
 
 `checkout` mode is unchanged.
 
-## `@skitterbyte/skitterspec-linear` v12 → v13 (starting a spec builds a branch, and stops)
+## `@skitterbyte/skitterspec-linear` v12 → v13 (starting a spec offers phase 1)
 
 The same change as `@skitterbyte/skitterspec` v18 → v19 above — this
-distribution composes the same lifecycle skills. Read that entry; nothing here
-is Linear-specific.
+distribution composes the same lifecycle skills. Read that entry first.
+
+**One thing here is Linear-specific.** `/spec-start` now pushes to Linear itself,
+right after it commits the spec's move to `in-progress/`. It used to push nothing
+and leave the mirror to the refresh `/spec-next` runs — immediate in `checkout`
+mode, but in `worktree` mode hours away or never. Until it came, the issue sat in
+its old workflow state with nobody assigned while the repo read `in-progress`
+with a developer on it. Expect one more Linear call per `/spec-start`, and expect
+the issue to be current the moment the spec is in flight. Nothing else changes:
+sync is still one-way, and an unlinked spec is still skipped rather than minted.
 
 ## `@skitterbyte/skitterspec` v17 → v18 (a spec is built in its own worktree)
 

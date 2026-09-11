@@ -785,7 +785,7 @@
         <tbody>
           <tr class="grp-row"><td colspan="3">Core lifecycle</td></tr>
           <tr><td class="cmd">/spec</td><td>Grill to a shared understanding, then write a groomed, phased spec.</td><td class="folder">backlog/ · Ready</td></tr>
-          <tr><td class="cmd">/spec-start</td><td>Put a spec in flight — provision its worktree, promote it, then build phase 1 there.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-start</td><td>Put a spec in flight — provision its worktree, promote it, mirror the change, then offer to build phase 1 there.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/spec-next</td><td>Build the next phase of the spec in flight, to green. Re-run per phase.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/spec-complete</td><td>Verify all phases + tests, land on base, tear down.</td><td class="folder">complete/</td></tr>
           <tr><td class="cmd">/spec-cancel</td><td>Record progress, stamp a reason, tear down.</td><td class="folder">cancelled/</td></tr>
@@ -892,7 +892,7 @@ $ skitterspec spec-env <span class="p">review</span> --branch</div>
           <tr><td class="cmd">spec-env review [spec]</td><td>Write an HTML page of a spec's diff to <span class="mono">.spec-env/reviews/</span>. <span class="mono">--branch</span> for the whole spec rather than the uncommitted work.</td><td class="folder">/spec-diff · /spec-next</td></tr>
 
           <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
-          <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on. With <span class="mono">--record-primary</span> / <span class="mono">--assert-primary-clean</span> it also brackets a build done from outside the worktree, reporting anything that reached your primary checkout instead.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-env prune</td><td>List orphaned test-DB volumes left by aborted teardowns, and the commands to remove them.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-env status</td><td>List every spec that has a worktree, with its port block if it has one.</td><td class="folder">you</td></tr>
         </tbody>

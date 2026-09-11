@@ -145,7 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Engine: primary-checkout baseline + assertion | ✅ | [02-primary-checkout-guard.md](02-primary-checkout-guard.md) |
 | 3 | `/spec-next` accepts an explicit worktree root | ✅ | [03-spec-next-worktree-flag.md](03-spec-next-worktree-flag.md) |
 | 4 | `/spec-start` offers to continue into phase 1 | ✅ | [04-spec-start-offers-phase-one.md](04-spec-start-offers-phase-one.md) |
-| 5 | Docs, compose and shipped-surface guards | ⬜ | [05-docs-and-surfaces.md](05-docs-and-surfaces.md) |
+| 5 | Docs, compose and shipped-surface guards | ✅ | [05-docs-and-surfaces.md](05-docs-and-surfaces.md) |
 
 ## Open questions
 
@@ -208,3 +208,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-11 — Phase 4: step 3 no longer tells the operator what to do next; it
   prints the path and defers to step 6. Two places describing the ending is how
   they drift apart, and step 6 is where the choice now lives.
+- 2026-09-11 — Phase 5: the migration notes went into the **pending** v18 → v19
+  and v12 → v13 entries rather than opening a new major. Both packages are still
+  at 18.0.0 / 12.0.0, so those entries describe the unreleased release this work
+  is part of. Their heading — "starting a spec builds a branch, and stops" — had
+  to change to "starting a spec offers phase 1", because this work is precisely
+  what makes the old one false.
+- 2026-09-11 — Phase 5: the Linear entry gained a Linear-specific paragraph. It
+  previously said "nothing here is Linear-specific", which stopped being true the
+  moment `/spec-start` started pushing — the push seam is provider-side, so the
+  base distribution composes it away and only this distribution gains a call.
+- 2026-09-11 — Phase 5: no `.claude/` resync was needed. This repo's install is
+  symlinks into `packages/*/assets/`, so the source edit is the install; the
+  task assumed the copy-based flow `dev-sync` uses for consumer projects.
