@@ -1,14 +1,14 @@
 {
-  "issue": "c0f7c20e813abe95fe2cd6f9ca370ddf1378a1fa",
+  "issue": "29a133279e04074c50b32b474137e4afe93a47ef",
   "issueFields": {
-    "description": "e8ced76283bbab724e2ed69a1540c3efd1ff2779",
+    "description": "c66e80530933578b0ca1c2b7dbbf5c3bb39074e6",
     "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
     "assignee": "46f9da98cdf4bd363761b569600549b081b0ae45"
   },
   "subIssues": {
     "SKS-158": "922d21fb45f251a33539503527a9c827b655b6c6",
     "SKS-159": "5122431337edb1da8c7fc0d033066a6c64c19dfc",
-    "SKS-160": "9ab7c5c245693f66af12961a5e3afa8e0fbd3395",
+    "SKS-160": "6f7945348349526756de96636609e1d5962ac211",
     "SKS-161": "d89453bef4bad2dd82ae99c7cd306e530c1323b3"
   }
 }

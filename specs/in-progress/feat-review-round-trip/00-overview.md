@@ -151,15 +151,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Notes store, content hashing and the lapse rule | ✅ | [01-notes-store.md](01-notes-store.md) |
 | 2 | Page marks, comments, check replies, copy-out | ✅ | [02-page-marks.md](02-page-marks.md) |
-| 3 | Resolutions round-trip | ⬜ | [03-resolutions.md](03-resolutions.md) |
+| 3 | Resolutions round-trip | ✅ | [03-resolutions.md](03-resolutions.md) |
 | 4 | `/spec-diff` intake and docs | ⬜ | [04-skill-and-docs.md](04-skill-and-docs.md) |
 
 ## Non-goals
 
 - **Artifact `db` round-trip.** Decision 1. Revisit only if the paste proves to
   be the friction, and as an *upgrade* to the blob, never a replacement.
-- **Gating anything on review state.** `/spec-diff` is gated on nothing and must
-  not become a gate; `/spec-complete` does not learn about unaccepted files.
+- **Gating anything on review state.** The marks are information for whoever is
+  reading — nothing counts them or refuses on them. `/spec-diff` is gated on
+  nothing and must not become a gate; `/spec-complete` does not learn about
+  unaccepted files, and a phase may end with comments still open. Should that
+  ever be wanted it is a **config key defaulting to off**, decided on purpose.
 - **Line ranges, and human-to-human threads.** Decision 6.
 - **Rejecting unknown `spec-env` options.** The parser pushes an unrecognised
   `--flag` into the positional list, so a typo'd `--note` becomes a spec name.
@@ -178,6 +181,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 3 built; tests green (common 671, root 1791). `--resolve`
+  attaches an account of what was done to each comment by id; an unknown id is
+  reported and skipped so the work that did land is never thrown away, and
+  re-resolving overwrites. Recorded a rule the phase must not break and a later
+  one must not tidy away: **the marks are information, never a gate** — nothing
+  counts them or refuses on them, and making that configurable would be a config
+  key defaulting to off.
 
 - 2026-09-11 — Phase 2 built; tests green (common 663, root 1783). The page now
   carries accept toggles, gutter-anchored and file-level comments, reply boxes on

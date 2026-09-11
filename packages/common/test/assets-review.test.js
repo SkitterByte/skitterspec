@@ -694,3 +694,20 @@ test('a page with no marks at all emits nothing and says nothing', () => {
   assert.deepStrictEqual(findAll(dom.byId.files, 'lapsed'), [], 'nothing is accused of being stale')
   assert.deepStrictEqual(findAll(dom.byId.files, 'note-row'), [])
 })
+
+test('a resolved comment is history, not an outstanding ask', () => {
+  const data = marked()
+  data.files[0].comments = [
+    { id: 'c1', file: 'src/app.js', line: 61, lineText: 'line 61 new', check: null, note: 'hash this', raisedAt: 'T', resolved: { at: 'T2', note: 'keyed on the blob sha' } },
+    { id: 'c2', file: 'src/app.js', line: null, lineText: null, check: null, note: 'still open', raisedAt: 'T', resolved: null },
+  ]
+  const dom = runPage(data)
+  // Neither counts: both were already sent. The count is what YOU have written
+  // and not yet handed over, never a tally of outstanding work.
+  assert.strictEqual(dom.byId['copy-review'].disabled, true)
+
+  // The open one is advertised on the summary; the resolved one is not.
+  const chips = findAll(dom.byId.files, 'commented')
+  assert.strictEqual(chips.length, 1)
+  assert.match(chips[0].textContent, /^1 note$/)
+})

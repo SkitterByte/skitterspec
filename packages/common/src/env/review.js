@@ -435,6 +435,57 @@ function mergeNotes(existing, blob, now) {
 }
 
 /**
+ * Validate a resolutions file — the agent's half of the round-trip.
+ *
+ * Separate from `validateNotesBlob` because the shapes and the authors differ:
+ * a blob comes from a page through a clipboard, and this comes from whatever
+ * just finished working the comments. Same rule though — refuse wholesale, and
+ * name what is wrong.
+ */
+function validateResolutions(raw) {
+  const fail = (m) => {
+    throw new Error(`resolutions: ${m}`)
+  }
+  const list = Array.isArray(raw) ? raw : raw && Array.isArray(raw.resolved) ? raw.resolved : null
+  if (!list) fail('expected an array of { id, note }')
+  for (const r of list) {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) fail('every entry must be an object')
+    if (typeof r.id !== 'string' || !r.id) fail('an entry has no id')
+    // "Resolved" with nothing said is not a resolution — the note is the half
+    // that lets the next read verify the fix instead of trusting it.
+    if (typeof r.note !== 'string' || !r.note.trim()) fail(`entry ${r.id} has no note`)
+  }
+  return list
+}
+
+/**
+ * Attach resolutions to the comments they name. Pure.
+ *
+ * An id matching nothing is REPORTED AND SKIPPED, never invented and never
+ * fatal. A resolution naming a comment that does not exist is a mistake worth
+ * surfacing — but failing the whole call would throw away the work that was
+ * genuinely done on the ids that did match.
+ *
+ * Re-resolving overwrites rather than stacking: the newest account of what was
+ * done is the one that matches the code.
+ */
+function applyResolutions(notes, resolutions, now) {
+  const byId = new Map(notes.comments.map((c) => [c.id, c]))
+  const unknown = []
+  let applied = 0
+  for (const r of resolutions) {
+    const c = byId.get(r.id)
+    if (!c) {
+      unknown.push(r.id)
+      continue
+    }
+    c.resolved = { at: now, note: r.note }
+    applied++
+  }
+  return { notes: { ...notes, updatedAt: now }, applied, unknown }
+}
+
+/**
  * Fold the stored notes onto the collected files.
  *
  * `accepted` is `true` only when the recorded hash matches what is there now;
@@ -642,7 +693,9 @@ module.exports = {
   readNotes,
   writeNotes,
   validateNotesBlob,
+  validateResolutions,
   mergeNotes,
+  applyResolutions,
   applyNotes,
   PATCH_LIMIT_BYTES,
   REVIEW_DIR,

@@ -22,6 +22,8 @@ const { run } = require('../src/cli.js')
 const {
   NOTES_VERSION,
   validateNotesBlob,
+  validateResolutions,
+  applyResolutions,
   mergeNotes,
   applyNotes,
   emptyNotes,
@@ -355,5 +357,123 @@ test('the sidecar sits beside the page, and round-trips', () => {
     assert.strictEqual(back.notes.comments.length, 1)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// --- resolutions: the agent's half of the round-trip ------------------------
+
+function seeded(ids) {
+  return mergeNotes(
+    emptyNotes('feat-alpha'),
+    validateNotesBlob(
+      { version: 1, comments: ids.map((id) => ({ id, file: 'app.js', note: 'note ' + id })) },
+      'feat-alpha',
+    ),
+    'T1',
+  )
+}
+
+test('a resolution needs an id and an account of what was done', () => {
+  assert.throws(() => validateResolutions({}), /expected an array/)
+  assert.throws(() => validateResolutions([{ note: 'x' }]), /has no id/)
+  assert.throws(() => validateResolutions([{ id: 'c1' }]), /c1 has no note/)
+  assert.throws(() => validateResolutions([{ id: 'c1', note: '  ' }]), /c1 has no note/)
+  // "Resolved" with nothing said would leave the next read trusting rather than
+  // verifying, which is the whole point of writing it back.
+  assert.deepStrictEqual(validateResolutions([{ id: 'c1', note: 'done' }]), [{ id: 'c1', note: 'done' }])
+})
+
+test('an unknown id is skipped while its siblings land', () => {
+  const out = applyResolutions(seeded(['c1', 'c2']), [
+    { id: 'c1', note: 'fixed' },
+    { id: 'ghost', note: 'fixed' },
+    { id: 'c2', note: 'also fixed' },
+  ], 'T2')
+  assert.strictEqual(out.applied, 2, 'the work that was really done is kept')
+  assert.deepStrictEqual(out.unknown, ['ghost'], 'and the mistake is surfaced, not swallowed')
+  assert.strictEqual(out.notes.comments[0].resolved.note, 'fixed')
+  assert.strictEqual(out.notes.comments[1].resolved.note, 'also fixed')
+})
+
+test('re-resolving overwrites, because the newest account is the true one', () => {
+  const once = applyResolutions(seeded(['c1']), [{ id: 'c1', note: 'first go' }], 'T2')
+  const twice = applyResolutions(once.notes, [{ id: 'c1', note: 'second go' }], 'T3')
+  assert.deepStrictEqual(twice.notes.comments[0].resolved, { at: 'T3', note: 'second go' })
+})
+
+test('resolutions survive a later merge from the page', () => {
+  const resolved = applyResolutions(seeded(['c1']), [{ id: 'c1', note: 'fixed' }], 'T2').notes
+  const merged = mergeNotes(
+    resolved,
+    validateNotesBlob({ version: 1, comments: [{ id: 'c2', file: 'app.js', note: 'new one' }] }, 'feat-alpha'),
+    'T3',
+  )
+  assert.strictEqual(merged.comments.length, 2)
+  assert.deepStrictEqual(merged.comments[0].resolved, { at: 'T2', note: 'fixed' }, 'the merge is not a replace')
+})
+
+test('resolving with nothing recorded says so, and writes no sidecar', async () => {
+  const { dir, wt } = scaffold()
+  try {
+    fs.writeFileSync(path.join(wt, 'app.js'), 'changed\n')
+    const res = path.join(dir, 'res.json')
+    fs.writeFileSync(res, JSON.stringify([{ id: 'c1', note: 'fixed' }]))
+    const out = await review(dir, '--resolve', res)
+    assert.match(out, /no notes recorded for feat-alpha — nothing to resolve/)
+    assert.strictEqual(
+      fs.existsSync(path.join(dir, '.spec-env', 'reviews', 'feat-alpha.notes.json')),
+      false,
+      'an empty store is not a reason to invent one',
+    )
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a resolved comment is reported as resolved, not as still open', async () => {
+  const { dir, wt } = scaffold()
+  try {
+    fs.writeFileSync(path.join(wt, 'app.js'), 'changed\n')
+    await review(dir, '--notes', blobFile(dir, {
+      version: 1,
+      comments: [{ id: 'c1', file: 'app.js', line: 1, note: 'rename this' }],
+    }))
+    const res = path.join(dir, 'res.json')
+    fs.writeFileSync(res, JSON.stringify([{ id: 'c1', note: 'renamed to parseRow' }]))
+
+    const out = await review(dir, '--resolve', res)
+    assert.match(out, /resolved: 1 comment/)
+    assert.match(out, /0 open · 1 resolved/)
+
+    const json = await reviewJson(dir)
+    const app = json.files.find((f) => f.path === 'app.js')
+    assert.strictEqual(app.comments[0].resolved.note, 'renamed to parseRow', 'the page can show what was done')
+    assert.strictEqual(json.notes.totals.unresolved, 0)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a malformed resolutions file changes nothing at all', async () => {
+  const { dir, wt } = scaffold()
+  try {
+    fs.writeFileSync(path.join(wt, 'app.js'), 'changed\n')
+    await review(dir, '--notes', blobFile(dir, {
+      version: 1,
+      comments: [{ id: 'c1', file: 'app.js', note: 'rename this' }],
+    }))
+    const before = fs.readFileSync(path.join(dir, '.spec-env', 'reviews', 'feat-alpha.notes.json'), 'utf8')
+
+    const res = path.join(dir, 'res.json')
+    fs.writeFileSync(res, JSON.stringify([{ id: 'c1' }]))
+    const out = await review(dir, '--resolve', res)
+    assert.match(out, /entry c1 has no note/)
+    assert.strictEqual(
+      fs.readFileSync(path.join(dir, '.spec-env', 'reviews', 'feat-alpha.notes.json'), 'utf8'),
+      before,
+      'refused wholesale — the stored notes are untouched',
+    )
+  } finally {
+    cleanup(dir)
   }
 })

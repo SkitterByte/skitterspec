@@ -53,7 +53,9 @@ const {
   readNotes,
   writeNotes,
   validateNotesBlob,
+  validateResolutions,
   mergeNotes,
+  applyResolutions,
 } = require('./env/review.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
@@ -113,7 +115,8 @@ Usage:
                                 status            list provisioned specs + port blocks
                                 review <spec>     write an HTML page of the spec's diff
                                                   (--branch for the whole spec; --out, --json)
-                                                  (--notes <json> merges a review pass back)
+                                                  (--notes <json> merges a review pass back;
+                                                   --resolve <json> records what was done)
                                 resolve <spec>    print resolved slug/type/branch/paths
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
@@ -1508,6 +1511,36 @@ function specEnvReview(dir, config, specArg, flags) {
     }
   }
 
+  let resolvedNow = null
+  if (flags.resolve) {
+    if (stored.corrupt) {
+      process.stdout.write(
+        `spec-env review: ${reviewNotesPath(out)} is not readable JSON — ` +
+          'move it aside and re-paste, rather than losing what it holds.\n',
+      )
+      return
+    }
+    // Nothing recorded means every id would be unknown. Say that once, rather
+    // than listing every id back as a mistake, and write no sidecar for it.
+    if (!stored.present && !flags.notes) {
+      process.stdout.write(
+        `spec-env review: no notes recorded for ${spec.folder} — nothing to resolve.\n`,
+      )
+      return
+    }
+    let list
+    try {
+      list = validateResolutions(JSON.parse(fs.readFileSync(path.resolve(flags.resolve), 'utf8')))
+    } catch (err) {
+      process.stdout.write(`spec-env review: ${err.message}\n`)
+      return
+    }
+    const result = applyResolutions(notes, list, new Date().toISOString())
+    notes = result.notes
+    writeNotes(out, notes)
+    resolvedNow = { applied: result.applied, unknown: result.unknown }
+  }
+
   const data = collectReview({
     spec,
     git,
@@ -1550,6 +1583,7 @@ function specEnvReview(dir, config, specArg, flags) {
           totals: data.totals,
           notes: data.notes,
           merged,
+          resolved: resolvedNow,
           files: data.files.map((f) => ({
             path: f.path,
             status: f.status,
@@ -1579,6 +1613,13 @@ function specEnvReview(dir, config, specArg, flags) {
       (merged
         ? `  merged: ${merged.accepted} accept${merged.accepted === 1 ? '' : 's'}, ` +
           `${merged.unaccepted} withdrawn, ${merged.comments} comment${merged.comments === 1 ? '' : 's'}\n`
+        : '') +
+      (resolvedNow
+        ? `  resolved: ${resolvedNow.applied} comment${resolvedNow.applied === 1 ? '' : 's'}` +
+          (resolvedNow.unknown.length
+            ? ` (skipped ${resolvedNow.unknown.length} unknown id: ${resolvedNow.unknown.join(', ')})`
+            : '') +
+          '\n'
         : '') +
       (hasNotes
         ? `  notes: ${n.accepted} accepted · ${n.lapsed} lapsed · ` +
@@ -2188,6 +2229,7 @@ async function specEnv(rest) {
     out: null,
     review: null,
     notes: null,
+    resolve: null,
     json: false,
   }
   for (let i = 0; i < args.length; i++) {
@@ -2200,6 +2242,7 @@ async function specEnv(rest) {
     else if (args[i] === '--out') flags.out = args[++i]
     else if (args[i] === '--review') flags.review = args[++i]
     else if (args[i] === '--notes') flags.notes = args[++i]
+    else if (args[i] === '--resolve') flags.resolve = args[++i]
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
@@ -2255,7 +2298,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +
