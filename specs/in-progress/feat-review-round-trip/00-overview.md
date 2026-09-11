@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Notes store, content hashing and the lapse rule | ✅ | [01-notes-store.md](01-notes-store.md) |
-| 2 | Page marks, comments, check replies, copy-out | ⬜ | [02-page-marks.md](02-page-marks.md) |
+| 2 | Page marks, comments, check replies, copy-out | ✅ | [02-page-marks.md](02-page-marks.md) |
 | 3 | Resolutions round-trip | ⬜ | [03-resolutions.md](03-resolutions.md) |
 | 4 | `/spec-diff` intake and docs | ⬜ | [04-skill-and-docs.md](04-skill-and-docs.md) |
 
@@ -178,6 +178,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 2 built; tests green (common 663, root 1783). The page now
+  carries accept toggles, gutter-anchored and file-level comments, reply boxes on
+  the written review's checks, and a Copy review button with a textarea fallback
+  (`file://` is not a secure context everywhere). Two design points worth the
+  record: the emitted blob is a **delta** — an accept already stored at the same
+  hash says nothing, and withdrawal is an explicit `unaccepted` list — and the
+  tests **drive the real page** under the existing DOM shim and feed what it
+  emits to the real validator, so the page and the engine cannot drift apart
+  without a test going red. The engine now stamps each review check with
+  `data-check`/`data-file` so an answer knows what it answers.
 
 - 2026-09-11 — Phase 1 built; tests green (common 649, root 1769). Three
   additions to the design, all recorded in the phase file: the blob gained an

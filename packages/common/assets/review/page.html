@@ -38,6 +38,9 @@
   --confirm-bg: #fdf7e3;
   --good-fg: #1a7f37;
   --good-bg: #eaf8ee;
+  --note-bg: #eef4ff;
+  --note-fg: #1b2b4d;
+  --note-line: #b9cdf2;
   --ln-w: 4.5ch;
 }
 :root:not([data-theme="light"]) {
@@ -67,6 +70,9 @@
     --confirm-bg: #2a2412;
     --good-fg: #7ee08a;
     --good-bg: #12261a;
+    --note-bg: #16202e;
+    --note-fg: #cfe0fa;
+    --note-line: #35486a;
   }
 }
 :root[data-theme="dark"] {
@@ -95,6 +101,9 @@
   --confirm-bg: #2a2412;
   --good-fg: #7ee08a;
   --good-bg: #12261a;
+  --note-bg: #16202e;
+  --note-fg: #cfe0fa;
+  --note-line: #35486a;
 }
 
 * { box-sizing: border-box; }
@@ -288,6 +297,91 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
 .check.confirm .check-level { color: var(--confirm-fg); }
 .check.good { background: var(--good-bg); }
 .check.good .check-level { color: var(--good-fg); }
+
+/* --- review marks: accepts, comments, replies ---------------------------- */
+/* Every colour below comes from a token defined on bare :root above; nothing
+   here gains its first definition inside a theme block. */
+.accept[aria-pressed="true"] {
+  background: var(--good-bg);
+  color: var(--good-fg);
+  border-color: var(--good-fg);
+}
+.chip.accepted { background: var(--good-bg); color: var(--good-fg); }
+.chip.lapsed {
+  background: var(--confirm-bg);
+  color: var(--confirm-fg);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.chip.commented { background: var(--note-bg); color: var(--note-fg); }
+
+/* The gutter is already user-select:none, so clicking it can never fight with
+   selecting the code beside it — which is why the affordance lives there. */
+td.gutter.can-note { cursor: pointer; }
+td.gutter.can-note:hover { color: var(--accent); }
+tr.has-note td.gutter { box-shadow: inset 2px 0 0 var(--note-line); }
+
+tr.note-row td {
+  background: var(--note-bg);
+  color: var(--note-fg);
+  white-space: normal;
+  padding: .45rem .75rem;
+  border-top: 1px solid var(--note-line);
+  border-bottom: 1px solid var(--note-line);
+}
+.note-meta { font-size: .72rem; color: var(--muted); display: block; margin-bottom: .15rem; }
+.note-text { overflow-wrap: anywhere; }
+.note-row.is-resolved .note-text { text-decoration: line-through; opacity: .75; }
+.note-resolution { display: block; font-size: .82rem; margin-top: .2rem; }
+.note-input {
+  width: 100%;
+  font: inherit;
+  font-size: .85rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--note-line);
+  border-radius: 8px;
+  padding: .4rem .5rem;
+  resize: vertical;
+}
+.note-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.note-actions { display: flex; gap: .4rem; margin-top: .4rem; flex-wrap: wrap; }
+
+.strip {
+  border-top: 1px solid var(--line);
+  background: var(--note-bg);
+  color: var(--note-fg);
+  padding: .5rem .75rem;
+  font-size: .85rem;
+  display: grid;
+  gap: .4rem;
+}
+.strip .note-input { font-size: .85rem; }
+
+.reply { grid-column: 2; margin-top: .35rem; }
+.reply .note-input { font-size: .85rem; }
+.reply-given {
+  grid-column: 2;
+  margin-top: .35rem;
+  font-size: .85rem;
+  border-left: 2px solid var(--note-line);
+  padding-left: .5rem;
+}
+
+.copy-out {
+  width: 100%;
+  min-height: 8rem;
+  margin-top: .6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .75rem;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: .5rem;
+}
+.copy-out[hidden] { display: none; }
+.copy-hint { font-size: .8rem; color: var(--muted); margin: .4rem 0 0; }
 </style>
 </head>
 <body>
@@ -300,7 +394,10 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
     <button id="collapse-all" type="button">Collapse context</button>
     <label class="toggle"><input type="checkbox" id="show-noise"> <span id="noise-label">Show bookkeeping</span></label>
     <button id="theme" type="button" aria-live="polite">Theme</button>
+    <button id="copy-review" type="button" aria-live="polite">Copy review</button>
   </div>
+  <p class="copy-hint" id="copy-hint" hidden></p>
+  <textarea class="copy-out" id="copy-out" readonly hidden aria-label="Review blob to copy"></textarea>
 </header>
 
 <div class="layout">
@@ -386,8 +483,87 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
   // immutable review, and expanding context is a property of this reading of it.
   var state = data.files.map(function (f) {
     var rows = parsePatch(f.patch)
-    return { file: f, rows: rows, bands: initialBands(rows), rendered: false, el: null }
+    var st = {
+      file: f,
+      rows: rows,
+      bands: initialBands(rows),
+      rendered: false,
+      el: null,
+      // What the page holds about THIS reading: whether the accept box is
+      // ticked now, and any notes written but not yet copied out.
+      accept: f.accepted === true,
+      drafts: [],
+    }
+    revealCommented(st)
+    return st
   })
+
+  // --- review marks --------------------------------------------------------
+  // A comment is useless if the line it points at is hidden, so any band that
+  // swallows a commented line is dropped before the first render. Dropping the
+  // whole band shows a little more context than strictly needed, which is the
+  // harmless direction.
+  function revealCommented(st) {
+    var lines = (st.file.comments || [])
+      .map(function (c) { return c.line })
+      .filter(function (n) { return n != null })
+    if (!lines.length) return
+    var idx = []
+    st.rows.forEach(function (row, i) {
+      if (row.n != null && lines.indexOf(row.n) !== -1) idx.push(i)
+    })
+    st.bands = st.bands.filter(function (b) {
+      return !idx.some(function (i) { return i >= b.from && i < b.to })
+    })
+  }
+
+  // Ids are minted from the render timestamp plus a counter, so they are stable
+  // for this page and unique across renders. That is what makes re-pasting the
+  // same blob merge instead of doubling every note.
+  var seq = 0
+  function mintId() {
+    seq++
+    return data.generatedAt + '-' + seq
+  }
+
+  // Best effort, both ways. Safari refuses storage on file:// by THROWING, and
+  // a review page that fails to render because it could not autosave would be a
+  // far worse bug than a lost pass.
+  var STORE_KEY = 'skitterspec-review:' + data.spec + ':' + data.generatedAt
+  function save() {
+    try {
+      var accepts = {}
+      var drafts = []
+      state.forEach(function (st) {
+        accepts[st.file.path] = st.accept
+        st.drafts.forEach(function (d) { drafts.push(d) })
+      })
+      window.localStorage.setItem(STORE_KEY, JSON.stringify({ seq: seq, accepts: accepts, drafts: drafts, replies: replies }))
+    } catch (e) { /* no storage, or a quota — the pass still works, it just is not saved */ }
+  }
+  function restore() {
+    var raw = null
+    try { raw = window.localStorage.getItem(STORE_KEY) } catch (e) { return }
+    if (!raw) return
+    var saved
+    try { saved = JSON.parse(raw) } catch (e) { return }
+    seq = saved.seq || 0
+    replies = saved.replies || {}
+    var byPath = {}
+    state.forEach(function (st) { byPath[st.file.path] = st })
+    Object.keys(saved.accepts || {}).forEach(function (path) {
+      if (byPath[path]) byPath[path].accept = Boolean(saved.accepts[path])
+    })
+    ;(saved.drafts || []).forEach(function (d) {
+      if (byPath[d.file]) byPath[d.file].drafts.push(d)
+      else orphanDrafts.push(d)
+    })
+  }
+
+  // Drafts whose file left the diff between saving and reloading, and replies to
+  // the written review keyed by check id. Both still belong in the blob.
+  var orphanDrafts = []
+  var replies = {}
 
   function el(tag, cls, text) {
     var n = document.createElement(tag)
@@ -396,12 +572,17 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
     return n
   }
 
-  function gutter(row) {
+  function gutter(row, st, index) {
     var td = el('td', 'gutter')
     var o = el('span', 'n', row.o == null ? '' : String(row.o))
     var n = el('span', 'n', row.n == null ? '' : String(row.n))
     var s = el('span', 's', row.t === 'add' ? '+' : row.t === 'del' ? '-' : ' ')
     td.appendChild(o); td.appendChild(n); td.appendChild(s)
+    if (st) {
+      td.className = 'gutter can-note'
+      td.title = 'Comment on this line'
+      td.addEventListener('click', function () { openDraft(st, index, row) })
+    }
     return td
   }
 
@@ -463,15 +644,154 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
         tr.appendChild(el('td', 'gutter', '⋯'))
         tr.appendChild(el('td', 'src', row.text))
       } else {
-        tr.appendChild(gutter(row))
+        tr.appendChild(gutter(row, st, i))
         tr.appendChild(el('td', 'src', row.text === '' ? ' ' : row.text))
       }
       body.appendChild(tr)
+      // Anything said about this line sits directly beneath it — a note you
+      // have to go and look for is a note nobody reads.
+      var here = notesAt(st, row.n)
+      if (here.length) tr.className += ' has-note'
+      here.forEach(function (c) { body.appendChild(noteRow(st, c)) })
+      if (st.draftAt === i) body.appendChild(draftRow(st, row))
       i++
     }
     table.appendChild(body)
     box.appendChild(table)
     host.appendChild(box)
+  }
+
+  // Every note about one line: what the engine stored, plus anything written on
+  // this page and not yet copied out.
+  function notesAt(st, line) {
+    if (line == null) return []
+    var out = []
+    ;(st.file.comments || []).forEach(function (c) { if (c.line === line) out.push(c) })
+    st.drafts.forEach(function (d) { if (d.line === line) out.push(d) })
+    return out
+  }
+
+  function noteRow(st, c) {
+    var tr = el('tr', 'note-row' + (c.resolved ? ' is-resolved' : ''))
+    tr.appendChild(el('td', 'gutter', '💬'))
+    var td = el('td', 'src')
+    var meta = c.line == null ? 'on this file' : 'line ' + c.line
+    if (c.check) meta += ' · answering the review'
+    if (!c.raisedAt) meta += ' · not sent yet'
+    td.appendChild(el('span', 'note-meta', meta))
+    td.appendChild(el('span', 'note-text', c.note))
+    if (c.resolved) {
+      td.appendChild(el('span', 'note-resolution', '↳ ' + (c.resolved.note || 'resolved')))
+    }
+    if (!c.raisedAt) {
+      var actions = el('div', 'note-actions')
+      var del = el('button', null, 'Remove')
+      del.type = 'button'
+      del.addEventListener('click', function () {
+        st.drafts.splice(st.drafts.indexOf(c), 1)
+        renderFile(st)
+        refresh()
+      })
+      actions.appendChild(del)
+      td.appendChild(actions)
+    }
+    tr.appendChild(td)
+    return tr
+  }
+
+  // The draft box. `row` is null for a note about the file as a whole.
+  function draftRow(st, row) {
+    var tr = el('tr', 'note-row')
+    tr.appendChild(el('td', 'gutter', '💬'))
+    var td = el('td', 'src')
+    td.appendChild(el('span', 'note-meta', row ? 'line ' + (row.n == null ? '—' : row.n) : 'on this file'))
+    td.appendChild(noteEditor(function (text) {
+      addDraft(st, text, row ? row.n : null, row ? row.text : null, null)
+      st.draftAt = null
+      renderFile(st)
+    }, function () {
+      st.draftAt = null
+      renderFile(st)
+    }))
+    tr.appendChild(td)
+    return tr
+  }
+
+  // One editor, used by the gutter, the file strip and the review replies.
+  function noteEditor(onSave, onCancel) {
+    var wrap = el('div')
+    var input = el('textarea', 'note-input')
+    input.rows = 2
+    input.placeholder = 'What should change here?'
+    var actions = el('div', 'note-actions')
+    var ok = el('button', null, 'Add note')
+    ok.type = 'button'
+    ok.addEventListener('click', function () {
+      var text = input.value.trim()
+      // An empty note would be refused by the engine, so it is refused here —
+      // where the person who wrote it is still looking at it.
+      if (!text) { input.focus(); return }
+      onSave(text)
+    })
+    actions.appendChild(ok)
+    if (onCancel) {
+      var no = el('button', null, 'Cancel')
+      no.type = 'button'
+      no.addEventListener('click', onCancel)
+      actions.appendChild(no)
+    }
+    wrap.appendChild(input)
+    wrap.appendChild(actions)
+    window.setTimeout(function () { input.focus() }, 0)
+    return wrap
+  }
+
+  function addDraft(st, note, line, lineText, check) {
+    st.drafts.push({
+      id: mintId(),
+      file: st.file.path,
+      line: line == null ? null : line,
+      lineText: lineText == null ? null : lineText,
+      check: check || null,
+      note: note,
+    })
+    refresh()
+  }
+
+  function openDraft(st, index, row) {
+    st.draftAt = st.draftAt === index ? null : index
+    renderFile(st)
+  }
+
+  // Notes about the file rather than a line, and the way in to writing one.
+  function fileStrip(st) {
+    var strip = el('div', 'strip')
+    var loose = (st.file.comments || []).concat(st.drafts).filter(function (c) { return c.line == null })
+    loose.forEach(function (c) {
+      var row = el('div', c.resolved ? 'is-resolved' : null)
+      row.appendChild(el('span', 'note-meta', (c.check ? 'answering the review' : 'on this file') + (c.raisedAt ? '' : ' · not sent yet')))
+      row.appendChild(el('span', 'note-text', c.note))
+      if (c.resolved) row.appendChild(el('span', 'note-resolution', '↳ ' + (c.resolved.note || 'resolved')))
+      strip.appendChild(row)
+    })
+    var add = el('button', null, 'Note on this file')
+    add.type = 'button'
+    add.addEventListener('click', function () {
+      add.hidden = true
+      strip.appendChild(noteEditor(function (text) {
+        addDraft(st, text, null, null, null)
+        redrawStrip(st)
+      }, function () { redrawStrip(st) }))
+    })
+    strip.appendChild(add)
+    return strip
+  }
+
+  function redrawStrip(st) {
+    if (!st.stripEl) return
+    var next = fileStrip(st)
+    st.stripEl.parentNode.replaceChild(next, st.stripEl)
+    st.stripEl = next
   }
 
   // --- file list -----------------------------------------------------------
@@ -486,12 +806,36 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
     s.appendChild(el('span', 'chip', f.status))
     if (!f.whole) s.appendChild(el('span', 'chip', 'partial context'))
     if (f.noise) s.appendChild(el('span', 'chip', 'bookkeeping'))
+    // A lapse is SAID. An accept that quietly vanished because the file moved on
+    // would leave you believing you had read code you have not.
+    if (f.accepted === 'lapsed') {
+      s.appendChild(el('span', 'chip lapsed', 'accepted earlier — changed since'))
+    }
+    var openCount = (f.comments || []).filter(function (x) { return !x.resolved }).length
+    if (openCount) s.appendChild(el('span', 'chip commented', openCount + ' note' + (openCount === 1 ? '' : 's')))
+
+    var accept = el('button', 'accept', '✓ accept')
+    accept.type = 'button'
+    accept.setAttribute('aria-pressed', String(st.accept))
+    // A summary is a toggle for the <details>; a click on a control inside it
+    // must not also open and close the file.
+    accept.addEventListener('click', function (ev) {
+      ev.preventDefault()
+      ev.stopPropagation()
+      st.accept = !st.accept
+      accept.setAttribute('aria-pressed', String(st.accept))
+      refresh()
+    })
+    s.appendChild(accept)
+
     var c = el('span', 'counts')
     c.appendChild(el('span', 'a', '+' + f.additions))
     c.appendChild(document.createTextNode(' '))
     c.appendChild(el('span', 'd', '-' + f.deletions))
     s.appendChild(c)
     d.appendChild(s)
+    st.stripEl = fileStrip(st)
+    d.appendChild(st.stripEl)
     var host = el('div')
     d.appendChild(host)
     st.el = host
@@ -594,6 +938,147 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
       if (st.rendered) renderFile(st)
     })
   })
+
+  // --- answering the written review ---------------------------------------
+  // A `confirm` exists to ask the author a question, and until now the only way
+  // to answer was to retype it in chat. The engine stamps each check with an id
+  // and the file it is about; a reply becomes an ordinary comment carrying that
+  // id, so it travels in the same blob as everything else.
+  function wireChecks() {
+    var checks = document.querySelectorAll('.check[data-check]')
+    Array.prototype.forEach.call(checks, function (li) {
+      var id = li.getAttribute('data-check')
+      // A check with no file is about the review rather than a line of code.
+      // The sentinel keeps the blob valid and lands it under "not in this diff",
+      // which is exactly where a review-wide remark belongs.
+      var file = li.getAttribute('data-file') || '(review)'
+      var given = el('div', 'reply-given')
+      var box = el('div', 'reply')
+      function draw() {
+        given.textContent = replies[id] ? '↳ ' + replies[id] : ''
+        given.hidden = !replies[id]
+        box.textContent = ''
+        var add = el('button', null, replies[id] ? 'Change answer' : 'Answer')
+        add.type = 'button'
+        add.addEventListener('click', function () {
+          box.textContent = ''
+          box.appendChild(noteEditor(function (text) {
+            replies[id] = text
+            draw()
+            refresh()
+          }, draw))
+        })
+        box.appendChild(add)
+      }
+      draw()
+      li.appendChild(given)
+      li.appendChild(box)
+      li.setAttribute('data-reply-file', file)
+    })
+  }
+
+  // --- the blob -------------------------------------------------------------
+  /**
+   * A DELTA, not a snapshot. The engine merges rather than replaces, so this
+   * says only what changed: files newly ticked, accepts withdrawn, notes
+   * written. A file already accepted with this exact content has nothing to
+   * say, and a file that was never accepted has nothing to withdraw.
+   *
+   * Withdrawal is explicit for the same reason — under a merge, absence means
+   * "not mentioned", never "remove it".
+   */
+  function buildBlob() {
+    var accepted = []
+    var unaccepted = []
+    var comments = []
+    state.forEach(function (st) {
+      var stored = st.file.accepted
+      if (st.accept) {
+        // No hash means the engine could not read the file; accepting it would
+        // record a vouch for content nobody can identify.
+        if (stored !== true && st.file.hash) accepted.push({ path: st.file.path, hash: st.file.hash })
+      } else if (stored === true || stored === 'lapsed') {
+        unaccepted.push(st.file.path)
+      }
+      st.drafts.forEach(function (d) { comments.push(d) })
+    })
+    orphanDrafts.forEach(function (d) { comments.push(d) })
+    Object.keys(replies).forEach(function (id) {
+      var li = document.querySelector('.check[data-check="' + id + '"]')
+      comments.push({
+        id: data.generatedAt + '-reply-' + id,
+        file: (li && li.getAttribute('data-reply-file')) || '(review)',
+        line: null,
+        lineText: null,
+        check: id,
+        note: replies[id],
+      })
+    })
+    return {
+      version: 1,
+      spec: data.spec,
+      generatedAt: data.generatedAt,
+      accepted: accepted,
+      unaccepted: unaccepted,
+      comments: comments,
+    }
+  }
+
+  var copyBtn = document.getElementById('copy-review')
+  var copyOut = document.getElementById('copy-out')
+  var copyHint = document.getElementById('copy-hint')
+
+  function pending() {
+    var b = buildBlob()
+    return b.accepted.length + b.unaccepted.length + b.comments.length
+  }
+
+  // Redraw the count and autosave. Called after every mark, so a phone tab
+  // switch mid-review costs nothing.
+  function refresh() {
+    var n = pending()
+    copyBtn.textContent = n ? 'Copy review (' + n + ')' : 'Copy review'
+    copyBtn.disabled = n === 0
+    copyBtn.title = n ? 'Copy your marks and notes, then paste them to Claude' : 'Nothing marked yet'
+    save()
+  }
+
+  function showFallback(json, why) {
+    copyOut.hidden = false
+    copyOut.value = json
+    copyOut.focus()
+    copyOut.select()
+    copyHint.hidden = false
+    copyHint.textContent = why
+  }
+
+  copyBtn.addEventListener('click', function () {
+    var json = JSON.stringify(buildBlob(), null, 2)
+    // `file://` is not a secure context everywhere, and the clipboard API is
+    // absent or rejects there — so the textarea is a shipping requirement, not
+    // a nicety. It is the path a local page usually takes.
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      showFallback(json, 'Copy this, then paste it to Claude.')
+      return
+    }
+    navigator.clipboard.writeText(json).then(function () {
+      copyOut.hidden = true
+      copyHint.hidden = false
+      copyHint.textContent = 'Copied — paste it to Claude to pick up this review.'
+    }, function () {
+      showFallback(json, 'Could not reach the clipboard. Copy this, then paste it to Claude.')
+    })
+  })
+
+  restore()
+  wireChecks()
+  state.forEach(function (st) {
+    var btn = st.details && st.details.querySelector('.accept')
+    if (btn) btn.setAttribute('aria-pressed', String(st.accept))
+    if (st.rendered) renderFile(st)
+    redrawStrip(st)
+  })
+  refresh()
 
   // The [data-theme] blocks are unreachable in a local file without this — a
   // browser only ever supplies prefers-color-scheme.

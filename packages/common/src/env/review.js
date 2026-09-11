@@ -553,17 +553,23 @@ function renderReviewBlock(review) {
   const checks = Array.isArray(review.checks) ? review.checks : []
   if (checks.length) {
     parts.push('<ul class="checks">')
-    for (const c of checks) {
+    checks.forEach((c, i) => {
       // An unknown level is shown as `confirm` rather than dropped: losing a
       // reviewer's note because it was tagged oddly is worse than showing it
       // under a neutral heading.
       const level = CHECK_LEVELS.includes(c.level) ? c.level : 'confirm'
       const file = c.file ? `<span class="check-file">${escapeHtml(c.file)}</span>` : ''
+      // The id is positional and therefore stable for THIS render, which is all
+      // a reply needs: it travels back in the same blob the page was built from.
+      // `data-file` is what lets an answer land on the file the check is about.
+      const id = `k${i}`
+      const fileAttr = c.file ? ` data-file="${escapeHtml(c.file)}"` : ''
       parts.push(
-        `<li class="check ${level}"><span class="check-level">${level}</span>` +
+        `<li class="check ${level}" data-check="${id}"${fileAttr}>` +
+          `<span class="check-level">${level}</span>` +
           `${file}<span class="check-note">${escapeHtml(c.note || '')}</span></li>`,
       )
-    }
+    })
     parts.push('</ul>')
   }
   parts.push('</section>')

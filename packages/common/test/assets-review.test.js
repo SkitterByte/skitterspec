@@ -108,6 +108,29 @@ function pageScript() {
   return m[1]
 }
 
+// Enough CSS selector to serve the page: `.cls`, `[attr]`, `.cls[attr="v"]`.
+// Anything richer would be a library, and the page does not ask for one.
+function selectorMatches(node, sel) {
+  const m = /^(?:\.([\w-]+))?(?:\[([\w-]+)(?:="([^"]*)")?\])?$/.exec(sel.trim())
+  if (!m) throw new Error(`shim: unsupported selector ${sel}`)
+  const [, cls, attr, value] = m
+  if (cls && !String(node.className || '').split(/\s+/).includes(cls)) return false
+  if (attr) {
+    const got = node.getAttribute ? node.getAttribute(attr) : null
+    if (got === null) return false
+    if (value !== undefined && got !== value) return false
+  }
+  return true
+}
+
+function queryAll(root, sel, out = []) {
+  for (const child of root.childNodes || []) {
+    if (child.getAttribute && selectorMatches(child, sel)) out.push(child)
+    queryAll(child, sel, out)
+  }
+  return out
+}
+
 // A DOM shim: only what the page actually touches. Anything the page starts
 // using that is not here fails loudly as a TypeError, which is the behaviour we
 // want — a silent stub would let a broken page pass.
@@ -132,8 +155,24 @@ function fakeDom(islandText) {
         ;(node.listeners[ev] = node.listeners[ev] || []).push(fn)
       },
       dispatch(ev) {
-        for (const fn of node.listeners[ev] || []) fn({ target: node })
+        const event = { target: node, preventDefault() {}, stopPropagation() {} }
+        for (const fn of node.listeners[ev] || []) fn(event)
       },
+      replaceChild(next, old) {
+        const at = node.childNodes.indexOf(old)
+        if (at === -1) return old
+        next.parent = node
+        node.childNodes[at] = next
+        return old
+      },
+      querySelector(sel) {
+        return queryAll(node, sel)[0] || null
+      },
+      querySelectorAll(sel) {
+        return queryAll(node, sel)
+      },
+      focus() {},
+      select() {},
       setAttribute(k, v) {
         node.attrs[k] = v
       },
@@ -141,6 +180,7 @@ function fakeDom(islandText) {
         return Object.prototype.hasOwnProperty.call(node.attrs, k) ? node.attrs[k] : null
       },
       scrollIntoView() {},
+      value: '',
       closest(sel) {
         const cls = sel.replace(/^\./, '')
         let n = node
@@ -151,6 +191,7 @@ function fakeDom(islandText) {
         return null
       },
     }
+    Object.defineProperty(node, 'parentNode', { get: () => node.parent })
     Object.defineProperty(node, 'textContent', {
       get() {
         return node.childNodes.map((c) => (c.nodeValue != null ? c.nodeValue : c.textContent)).join('')
@@ -176,6 +217,7 @@ function fakeDom(islandText) {
   for (const id of [
     'title', 'sub', 'files', 'tree', 'tree-wrap', 'tree-summary',
     'expand-all', 'collapse-all', 'show-noise', 'noise-label', 'theme', 'review-block',
+    'copy-review', 'copy-out', 'copy-hint',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
@@ -189,11 +231,19 @@ function fakeDom(islandText) {
   island.textContent = islandText
   byId['review-data'] = island
 
+  // One root so document-level queries can reach everything the page builds.
+  const root = make('div')
+  root.appendChild(byId['review-block'])
+  root.appendChild(byId.files)
+
   const document = {
     documentElement: make('html'),
     createElement: make,
     createTextNode: (t) => ({ nodeValue: String(t), childNodes: [] }),
     getElementById: (id) => byId[id] || null,
+    querySelector: (sel) => queryAll(root, sel)[0] || null,
+    querySelectorAll: (sel) => queryAll(root, sel),
+    _root: root,
     _register: (id, node) => { byId[id] = node },
   }
   // Elements the page mints and then looks up by id (the per-file <details>).
@@ -207,21 +257,56 @@ function fakeDom(islandText) {
     return n
   }
 
-  const window = { matchMedia: (q) => ({ matches: /min-width/.test(q) }) }
-  return { document, window, byId }
+  const store = new Map()
+  const window = {
+    matchMedia: (q) => ({ matches: /min-width/.test(q) }),
+    // Real enough to prove the autosave round-trips; `_fail` makes it throw the
+    // way Safari does on file://, which is the case the page must survive.
+    localStorage: {
+      _fail: false,
+      getItem(k) {
+        if (this._fail) throw new Error('storage disabled')
+        return store.has(k) ? store.get(k) : null
+      },
+      setItem(k, v) {
+        if (this._fail) throw new Error('storage disabled')
+        store.set(k, v)
+      },
+    },
+    setTimeout: (fn) => fn(),
+  }
+  return { document, window, byId, store }
 }
 
-function runPage(data) {
+function runPage(data, { checks = [], failStorage = false, clipboard = true } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
   const dom = fakeDom(island[1])
-  vm.runInNewContext(`(function (document, window) { ${pageScript()} })(document, window)`, {
+  if (failStorage) dom.window.localStorage._fail = true
+  // The review block is spliced in as MARKUP, which the shim cannot parse — so
+  // a test that wants checks hands them over already built.
+  for (const c of checks) {
+    const li = dom.document.createElement('li')
+    li.className = `check ${c.level || 'confirm'}`
+    li.setAttribute('data-check', c.id)
+    if (c.file) li.setAttribute('data-file', c.file)
+    dom.byId['review-block'].appendChild(li)
+  }
+  const copied = []
+  // No clipboard at all is the `file://` case on a browser that withholds it.
+  const navigator = clipboard
+    ? { clipboard: { writeText: (t) => { copied.push(t); return Promise.resolve() } } }
+    : {}
+  vm.runInNewContext(`(function (document, window, navigator) { ${pageScript()} })(document, window, navigator)`, {
     document: dom.document,
     window: dom.window,
+    navigator,
     JSON,
     encodeURIComponent,
+    Promise,
   })
+  dom.copied = copied
   return dom
 }
 
@@ -388,4 +473,224 @@ test('stays silent: a binary file says so instead of rendering an empty table', 
 test('TEMPLATE_PATH resolves inside the package that ships it', () => {
   assert.ok(fs.existsSync(TEMPLATE_PATH), TEMPLATE_PATH)
   assert.ok(TEMPLATE_PATH.endsWith(path.join('assets', 'review', 'page.html')))
+})
+
+// --- the review round-trip: marks, notes, replies, blob ---------------------
+
+const {
+  validateNotesBlob,
+  mergeNotes,
+  emptyNotes,
+} = require('../src/env/review.js')
+
+// The fixture above predates the marks, so it carries none of their fields —
+// which is itself worth keeping: it is the page rendering a spec with no notes.
+function marked(overrides = {}) {
+  const base = fixture()
+  base.notes = { version: 1, updatedAt: null, totals: { accepted: 0, lapsed: 0, unresolved: 0, resolved: 0 }, unanchored: [] }
+  base.files = base.files.map((f) => ({ ...f, hash: 'h-' + f.path, accepted: false, acceptedAt: null, comments: [] }))
+  return { ...base, ...overrides }
+}
+
+const accepts = (dom) => findAll(dom.byId.files, 'accept')
+const gutters = (dom) => findAll(dom.byId.files, 'can-note')
+
+// The editor is one shape everywhere: [textarea, [ok, cancel?]].
+function writeNote(input, text) {
+  input.value = text
+  input.parentNode.childNodes[1].childNodes[0].dispatch('click')
+}
+
+// Take the blob the page ACTUALLY emits, through the button a person presses.
+function copyBlob(dom) {
+  const before = dom.copied.length
+  dom.byId['copy-review'].dispatch('click')
+  assert.strictEqual(dom.copied.length, before + 1, 'the blob reached the clipboard')
+  return JSON.parse(dom.copied[dom.copied.length - 1])
+}
+
+// Every blob this file produces goes through the real validator. That is the
+// whole point of driving the page rather than asserting on its source: the page
+// and the engine cannot drift apart without a test here going red.
+function accepted(blob, spec = 'feat-x') {
+  return validateNotesBlob(blob, spec)
+}
+
+test('ticking accept sends the file and the hash it was read at', () => {
+  const dom = runPage(marked())
+  assert.strictEqual(dom.byId['copy-review'].disabled, true, 'nothing marked yet')
+  accepts(dom)[0].dispatch('click')
+  assert.match(dom.byId['copy-review'].textContent, /Copy review \(1\)/)
+
+  const blob = copyBlob(dom)
+  accepted(blob)
+  assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
+  assert.deepStrictEqual(blob.unaccepted, [])
+})
+
+test('an accept already recorded says nothing; withdrawing it is explicit', () => {
+  const data = marked()
+  data.files[0].accepted = true
+  const dom = runPage(data)
+
+  // Ticked on arrival, and nothing has changed — so there is nothing to send.
+  assert.strictEqual(dom.byId['copy-review'].disabled, true)
+
+  accepts(dom)[0].dispatch('click') // untick
+  const blob = copyBlob(dom)
+  accepted(blob)
+  assert.deepStrictEqual(blob.accepted, [], 'no re-send of what is already stored')
+  assert.deepStrictEqual(blob.unaccepted, ['src/app.js'], 'withdrawal cannot be expressed by absence')
+})
+
+test('a lapsed accept is shown as lapsed, and re-ticking re-sends the new hash', () => {
+  const data = marked()
+  data.files[0].accepted = 'lapsed'
+  data.files[0].acceptedAt = '2020-01-01T00:00:00.000Z'
+  const dom = runPage(data)
+
+  const chips = findAll(dom.byId.files, 'lapsed')
+  assert.strictEqual(chips.length, 1)
+  assert.match(chips[0].textContent, /accepted earlier — changed since/)
+
+  assert.strictEqual(accepts(dom)[0].getAttribute('aria-pressed'), 'false', 'a lapse is not a tick')
+  accepts(dom)[0].dispatch('click')
+  const blob = copyBlob(dom)
+  accepted(blob)
+  assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
+})
+
+test('a comment from the gutter carries the line and the line it was about', () => {
+  const dom = runPage(marked())
+  const changed = gutters(dom).find((g) => g.textContent.includes('+'))
+  changed.dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'this needs the old value kept')
+
+  const blob = copyBlob(dom)
+  accepted(blob)
+  assert.strictEqual(blob.comments.length, 1)
+  const c = blob.comments[0]
+  assert.strictEqual(c.file, 'src/app.js')
+  assert.strictEqual(c.line, 61)
+  assert.strictEqual(c.lineText, 'line 61 new', 'the text travels, so the note survives the line moving')
+  assert.match(c.id, /^2020-01-01T00:00:00\.000Z-/, 'ids are minted from the render, so a re-paste merges')
+})
+
+test('a note about the whole file carries no line', () => {
+  const dom = runPage(marked())
+  const strip = findAll(dom.byId.files, 'strip')[0]
+  strip.childNodes[strip.childNodes.length - 1].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'split this module')
+
+  const blob = copyBlob(dom)
+  accepted(blob)
+  assert.strictEqual(blob.comments[0].line, null)
+  assert.strictEqual(blob.comments[0].file, 'src/app.js')
+})
+
+test('a stored comment renders at its line, and the band hiding it is opened', () => {
+  const data = marked()
+  // Line 20 sits deep inside the collapsed run above the change.
+  data.files[0].comments = [
+    { id: 'c1', file: 'src/app.js', line: 20, lineText: ' line 20', check: null, note: 'why this order?', raisedAt: 'T', resolved: null },
+  ]
+  const dom = runPage(data)
+  const notes = findAll(dom.byId.files, 'note-row')
+  assert.strictEqual(notes.length, 1, 'it is rendered')
+  assert.match(notes[0].textContent, /line 20/)
+  assert.match(notes[0].textContent, /why this order\?/)
+  assert.doesNotMatch(notes[0].textContent, /not sent yet/, 'a stored note is already sent')
+  const rows = findAll(dom.byId.files, 'has-note')
+  assert.strictEqual(rows.length, 1, 'its line is marked')
+})
+
+test('a resolved comment is struck through and shows what was done', () => {
+  const data = marked()
+  data.files[0].comments = [
+    { id: 'c1', file: 'src/app.js', line: 61, lineText: 'line 61 new', check: null, note: 'hash this', raisedAt: 'T', resolved: { at: 'T2', note: 'keyed on the blob sha' } },
+  ]
+  const dom = runPage(data)
+  const resolved = findAll(dom.byId.files, 'is-resolved')
+  assert.strictEqual(resolved.length, 1)
+  assert.match(resolved[0].textContent, /keyed on the blob sha/)
+})
+
+test('answering a check rides back tagged with the check and its file', () => {
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'src/app.js' }] })
+  const li = dom.document.querySelector('.check[data-check="k0"]')
+  assert.ok(li, 'the reply box found the check')
+  li.querySelector('.reply').childNodes[0].dispatch('click')
+  writeNote(li.querySelector('.note-input'), 'yes — deliberate')
+
+  const blob = copyBlob(dom)
+  accepted(blob)
+  const reply = blob.comments.find((c) => c.check === 'k0')
+  assert.ok(reply, 'the answer is a comment carrying the check id')
+  assert.strictEqual(reply.file, 'src/app.js')
+  assert.strictEqual(reply.note, 'yes — deliberate')
+})
+
+test('a check with no file answers against the review itself, and still validates', () => {
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'flag' }] })
+  const li = dom.document.querySelector('.check[data-check="k0"]')
+  li.querySelector('.reply').childNodes[0].dispatch('click')
+  writeNote(li.querySelector('.note-input'), 'agreed')
+  const blob = copyBlob(dom)
+  accepted(blob)
+  assert.strictEqual(blob.comments[0].file, '(review)', 'the sentinel keeps the blob valid')
+})
+
+test('what the page emits is what the engine stores', () => {
+  const dom = runPage(marked())
+  accepts(dom)[0].dispatch('click')
+  gutters(dom).find((g) => g.textContent.includes('+')).dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'keep the old value')
+
+  const blob = copyBlob(dom)
+  const notes = mergeNotes(emptyNotes('feat-x'), accepted(blob), 'T1')
+  assert.deepStrictEqual(notes.files['src/app.js'], { acceptedHash: 'h-src/app.js', acceptedAt: 'T1' })
+  assert.strictEqual(notes.comments.length, 1)
+  assert.strictEqual(notes.comments[0].line, 61)
+})
+
+test('a draft can be removed before it is ever sent', () => {
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'never mind')
+  assert.strictEqual(copyBlob(dom).comments.length, 1, 'written')
+
+  const row = findAll(dom.byId.files, 'note-row').find((r) => /not sent yet/.test(r.textContent))
+  findAll(row, 'note-actions')[0].childNodes[0].dispatch('click')
+  assert.strictEqual(copyBlob(dom).comments.length, 0)
+})
+
+test('the pass is autosaved, and storage that throws does not break the page', () => {
+  const dom = runPage(marked())
+  accepts(dom)[0].dispatch('click')
+  const saved = JSON.parse(dom.store.get('skitterspec-review:feat-x:2020-01-01T00:00:00.000Z'))
+  assert.strictEqual(saved.accepts['src/app.js'], true, 'a tab switch mid-review costs nothing')
+
+  // Safari on file:// THROWS rather than returning null. A page that failed to
+  // render because it could not autosave would be the worse bug by far.
+  const blind = runPage(marked(), { failStorage: true })
+  assert.ok(findAll(blind.byId.files, 'file').length > 0 || blind.byId.files.childNodes.length > 0, 'still renders')
+  accepts(blind)[0].dispatch('click')
+  assert.strictEqual(copyBlob(blind).accepted.length, 1, 'and still works')
+})
+
+test('with no clipboard the blob is offered as text instead', () => {
+  const dom = runPage(marked(), { clipboard: false })
+  accepts(dom)[0].dispatch('click')
+  dom.byId['copy-review'].dispatch('click')
+  assert.strictEqual(dom.byId['copy-out'].hidden, false, 'the fallback is shown')
+  accepted(JSON.parse(dom.byId['copy-out'].value))
+  assert.match(dom.byId['copy-hint'].textContent, /paste it to Claude/)
+})
+
+test('a page with no marks at all emits nothing and says nothing', () => {
+  const dom = runPage(marked())
+  assert.strictEqual(dom.byId['copy-review'].disabled, true)
+  assert.strictEqual(dom.byId['copy-review'].textContent, 'Copy review')
+  assert.deepStrictEqual(findAll(dom.byId.files, 'lapsed'), [], 'nothing is accused of being stale')
+  assert.deepStrictEqual(findAll(dom.byId.files, 'note-row'), [])
 })
