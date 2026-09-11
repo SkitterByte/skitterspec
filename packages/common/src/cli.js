@@ -2095,12 +2095,12 @@ async function specEnv(rest) {
     default:
       process.stdout.write(
         'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--json]\n' +
-          '  [spec] is optional for up/down/dev/integrate/hotfix/resolve and live take:\n' +
-          '  omit it and the sole provisioned spec is used (several -> it lists them).\n' +
-          '  NOTE connect and live status keep their own meaning for a missing spec:\n' +
-          '  connect disconnects (= main), live status reports on the whole repo.\n' +
-          '  connect and live also take a bare spec name: `live <spec>` takes the\n' +
-          '  instance, `live main` (or your base branch) hands it back.\n',
+          '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
+          '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
+          '  A bare `live` takes that spec when the workbench is free, and prints the\n' +
+          '  status report when it cannot tell. `live status` still reports on the\n' +
+          '  whole repo. `live main` / `connect main` (or your base branch) hand the\n' +
+          '  instance and the ports back.\n',
       )
   }
 }

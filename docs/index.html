@@ -887,8 +887,8 @@ $ skitterspec spec-env <span class="p">review</span> --branch</div>
 
           <tr class="grp-row"><td colspan="3">Actions — they do the thing</td></tr>
           <tr><td class="cmd">spec-env dev up|down &lt;spec&gt;</td><td>Start or stop the spec's host dev servers on its reserved ports.</td><td class="folder">/spec-start</td></tr>
-          <tr><td class="cmd">spec-env connect &lt;spec|main&gt;</td><td>Point your canonical localhost ports at one spec's dev servers. Bare, or <span class="mono">main</span>, hands them back.</td><td class="folder">/spec-connect</td></tr>
-          <tr><td class="cmd">spec-env live take|release|abort|status</td><td>Hand the running instance to one spec by checking its branch out in the primary checkout.</td><td class="folder">/spec-live</td></tr>
+          <tr><td class="cmd">spec-env connect [spec|main]</td><td>Point your canonical localhost ports at one spec's dev servers. Bare uses the spec you're on; <span class="mono">main</span> hands them back.</td><td class="folder">/spec-connect</td></tr>
+          <tr><td class="cmd">spec-env live [spec|main|status|release|abort]</td><td>Hand the running instance to one spec by checking its branch out in the primary checkout. Bare takes the spec you're on when the workbench is free, and prints the status report when it can't tell.</td><td class="folder">/spec-live</td></tr>
           <tr><td class="cmd">spec-env review [spec]</td><td>Write an HTML page of a spec's diff to <span class="mono">.spec-env/reviews/</span>. <span class="mono">--branch</span> for the whole spec rather than the uncommitted work.</td><td class="folder">/spec-diff · /spec-next</td></tr>
 
           <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
@@ -900,7 +900,7 @@ $ skitterspec spec-env <span class="p">review</span> --branch</div>
     </div>
 
     <div class="reveal">
-      <p class="lede"><b>The spec name is optional.</b> Omit it and the engine uses the worktree you are standing in — so inside a spec's worktree, every verb above just works. From the primary checkout with several worktrees open it lists them and stops, rather than guessing.</p>
+      <p class="lede"><b>The spec name is optional, everywhere.</b> Omit it and the engine uses the worktree you are standing in — so inside a spec's worktree, every verb above just works. From the primary checkout with several worktrees open it lists them and stops, rather than guessing. <span class="mono">connect</span> and <span class="mono">live</span> used to be the two exceptions, where a missing spec meant <span class="mono">main</span>; they aren't any more, and <span class="mono">main</span> is how you hand either one back.</p>
       <div class="code"><span class="c"># from inside a spec's worktree</span>
 $ skitterspec spec-env <span class="p">resolve</span>
 spec:       feat-cli-engine-docs (backlog)

@@ -106,7 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Bare `/spec-live` takes when it can tell | ✅ | [01-bare-live.md](01-bare-live.md) |
 | 2 | Bare `/spec-connect` connects | ✅ | [02-bare-connect.md](02-bare-connect.md) |
-| 3 | Documentation, and the superseded decision | ⬜ | [03-docs-and-supersede.md](03-docs-and-supersede.md) |
+| 3 | Documentation, and the superseded decision | ✅ | [03-docs-and-supersede.md](03-docs-and-supersede.md) |
 
 ## Open questions
 
@@ -120,6 +120,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 3 built; the spec is complete. The grep sweep the phase
+  insisted on was the right call: the only surface still carrying the old
+  wording outside the listed files was the `Usage:` NOTE inside `specEnv()` in
+  `cli.js`, which spelled out both exceptions in prose nobody greps for. It now
+  states the rule without exceptions. The emphasis guard widened earlier today
+  caught a straddling bold span in the `spec-planning.md` edit, which is the
+  second time it has fired on prose written the same day.
+- 2026-09-11 — Follow-up noted, deliberately outside this spec: `spec-env review`
+  prints a bare absolute path, which no terminal linkifies. Printing a `file://`
+  URL alongside it makes the page one click away on every desktop. It is a
+  `fix(env)` commit for after this lands, not argument grammar.
 
 - 2026-09-11 — Phase 2 built. The inversion is now real in both directions:
   `specEnvConnect` resolves a missing argument through

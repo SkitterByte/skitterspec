@@ -219,3 +219,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-04 — Started. The spec was authored and linked while still untracked,
   so it was moved straight into `specs/in-progress/` on the branch rather than
   `git mv`-d out of `backlog` — it never existed in `backlog` on any commit.
+- 2026-09-11 — **Decision 8 is superseded by `feat-bare-argument-parity`** (SKS-144),
+  which makes a missing spec argument mean "the one you are standing on" for
+  `connect` and `live` too. Decision 8 was right about what it was guarding — a
+  general change quietly inverting two verbs nobody was thinking about — and the
+  load-bearing word in it is *silently*. The reversal is now the point of a spec
+  of its own, with its own release note. Nothing above is edited: this entry is
+  the pointer, and the reasoning stays as it was written.
+

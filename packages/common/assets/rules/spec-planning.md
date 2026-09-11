@@ -69,7 +69,10 @@ move, header edits, the code) happens on the spec's branch in the worktree; `mai
 changes only when it merges. Teardown is folded into `/spec-complete` ·
 `/spec-cancel`. Beneath the skills, `skitterspec spec-env
 <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve>` is the CLI
-engine (omit the spec name and it uses the worktree you are standing in). Teardown drops
+engine. **Omit the spec name anywhere and it uses the worktree you are standing in**,
+else the sole provisioned spec — with no exceptions left: a bare
+`/spec-connect` connects, and a bare `/spec-live` takes, where both once meant
+`main`. Teardown drops
 the finished spec's own test-DB volume; `spec-env prune` additionally reaps
 **orphaned** volumes left by declined/aborted teardowns, so `/spec-complete` and
 `/spec-cancel` also sweep orphans (confirm-first). A **hotfix** is the one
@@ -81,9 +84,12 @@ when `env.config.json` is absent — every skill then behaves as it does today.
 **Live overlay (`/spec-live`, a command) — the light way to test a spec.** `/spec-connect`
 runs a spec's *own* dev stack and proxies the canonical ports to it (one stack per
 spec). **Live overlay** instead reuses the one dev server you already have running:
-`/spec-live <spec>` rebases the branch onto base, frees it from its worktree, and
+`/spec-live <spec>` — or a bare `/spec-live`, which takes the spec you are
+standing on — rebases the branch onto base, frees it from its worktree, and
 checks it out **in the primary checkout**, so your running server hot-reloads the
-feature at the normal URL — no second stack, no proxy. The branch checked out in
+feature at the normal URL — no second stack, no proxy. Bare only acts when there
+is exactly one answer *and* the workbench is free; anything else prints the
+status report rather than guessing. The branch checked out in
 the primary checkout **is** the lock: exactly one spec is live at a time, and
 `/spec-live main` hands the instance back (fixes you make while live commit
 straight onto the branch; `/spec-complete` is live-aware and lands them). Rule of
