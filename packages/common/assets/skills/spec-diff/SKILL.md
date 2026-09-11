@@ -1,6 +1,6 @@
 ---
 name: spec-diff
-description: See what a spec's worktree changed — render its diff as a self-contained HTML page, optionally add a written review, and publish it only when asked so it can be read on a phone. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", or wants to read a worktree's changes away from the terminal.
+description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", wants to read a worktree's changes away from the terminal, or pastes back the JSON the review page's Copy button produced.
 ---
 
 # /spec-diff — see the phase before you commit it
@@ -31,7 +31,61 @@ If none answers and several specs have worktrees, **list them and stop**. The
 engine does this for you: run the verb with no name and it either resolves the
 sole candidate or prints the candidates.
 
-## 2. Gate it on nothing
+## 2. Were you handed a review pass? Then that is the job
+
+The page has marks on it — `✓ accept` per file, notes against a line or a whole
+file, answers to the checks a written review asked — and one **Copy review**
+button that puts them on the clipboard as JSON. When that JSON is pasted to you,
+**this is not a request to render anything**: it is a review coming back, and
+these steps replace §3–§5 below.
+
+1. **Store it through the engine.** Write the pasted JSON to a scratch file
+   verbatim — never retype it, never "tidy" it — and merge it:
+
+   ```
+   skitterspec spec-env review <spec> --notes <file>
+   ```
+
+   It validates wholesale and refuses without writing anything if the blob is
+   malformed or names a different spec. **Relay a refusal as it is written** and
+   stop; every message says which entry was wrong, so there is nothing to guess.
+
+2. **Say what you read, then stop.** Report the accepted count, then each open
+   comment as `file:line — note`, then the files you would touch. **Wait.**
+   Pasting is not a go-ahead: this skill is read-only everywhere else, a misread
+   comment costs a revert, and the operator may only have wanted it recorded.
+
+3. **On the go-ahead, work only the commented files.** Read those; do **not**
+   open the accepted ones. That is the whole saving the marks buy, and it is
+   only worth anything if it is true — so say plainly which files you did not
+   open. Make the changes, then run the project's typecheck and test commands.
+
+4. **Write back what you did**, one entry per comment you acted on:
+
+   ```json
+   [{ "id": "2026-01-01T00:00:00.000Z-1", "note": "keyed the accept on the blob sha" }]
+   ```
+
+   ```
+   skitterspec spec-env review <spec> --resolve <file>
+   ```
+
+   The note is the load-bearing half: it is what lets the next read **verify**
+   the fix rather than trust it. An id that matches nothing is reported and
+   skipped, so one bad id never costs you the rest. Then re-render (§3) so the
+   page shows each note struck through with its account.
+
+**A mark is information, never a gate.** Nothing counts the ticks or requires
+them: a phase may end with comments open, `/spec-complete` never learns about
+them, and this skill refuses nothing on their account. If a project ever wants
+otherwise that is a config key defaulting to off — not a tidy-up here.
+
+**What the intake costs.** The blob is file paths and the operator's own words,
+which you need in context to act on them — so the paste is not overhead. The
+*work* it authorises is ordinary phase-sized cost, and step 2 is where they get
+to decide whether to spend it.
+
+## 3. Gate it on nothing
 
 **This skill has no preconditions and must never grow one.** Not tests passing,
 not the phase being finished, not the spec being this session's, not a clean
@@ -40,9 +94,11 @@ edit, a colleague's branch — and a gate would refuse at exactly the moment
 someone wants to look.
 
 If a later edit is tempted to add "only when the phase is complete", the answer
-is no. The page is free to produce and changes nothing.
+is no. The page is free to produce and changes nothing. The same goes for the
+marks: a spec with unread files or open comments is an ordinary spec, and
+nothing here may start counting them.
 
-## 3. Render the page
+## 4. Render the page
 
 ```
 skitterspec spec-env review <spec>              # uncommitted work (the default)
@@ -58,7 +114,7 @@ leaves no trace in the branch under review.
 
 **On `--page-only`, stop here** and report the path.
 
-## 4. Offer the written review — say what it costs first
+## 5. Offer the written review — say what it costs first
 
 The page is free. The **written review is not**, and it costs in two separate
 ways. Quote the one that actually applies rather than a single number:
@@ -108,7 +164,7 @@ Then re-render with it spliced in — the engine renders it, you never emit HTML
 skitterspec spec-env review <spec> --review <file>
 ```
 
-## 5. Publish only when asked
+## 6. Publish only when asked
 
 **Never publish unprompted.** Publishing leaves something behind that this
 tooling cannot remove, and the page already works as a local file. Offer it;
@@ -130,8 +186,10 @@ The engine knows nothing about publishing and cannot do it. It writes a file and
 reads a URL back as an opaque string; everything about what that string means
 lives here.
 
-## 6. Report
+## 7. Report
 
 Say what changed (files, `+`/`−`), where the page is, and — if published — the
-URL. If the spec has no worktree, say that plainly and stop: a spec that has not
+URL. When the page carries a review pass, say that too: how many files are
+accepted, how many comments are open, and how many have been answered. `--json`
+reports all three under `notes.totals` — read that, never the diff. If the spec has no worktree, say that plainly and stop: a spec that has not
 been started has nothing to diff, which is an ordinary state and not an error.

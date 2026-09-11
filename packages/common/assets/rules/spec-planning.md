@@ -120,6 +120,20 @@ and it is gated on nothing: half a phase, a hand edit and a colleague's branch a
 all ordinary inputs. `/spec-next` renders the page at the end of a phase and
 offers the review; `skitterspec spec-env review <spec> [--branch]` is the engine.
 
+**The page is not read-only — it takes a review pass back.** Tick `✓ accept` per
+file as you read, write notes against a line or a whole file, answer the
+questions a written review asked, then **Copy review** and paste the JSON back.
+`/spec-diff` stores it (`--notes`), plays back what it read, and — on your
+go-ahead, never on the paste alone — works the commented files while leaving the
+accepted ones unopened. What it did comes back as a **resolution** (`--resolve`),
+so the next render shows each note struck through with a one-line account and you
+verify the fix instead of trusting it. An accept is keyed to the file's
+**content hash**, so it survives the commit that ends the phase and lapses by
+itself when that file changes again — announced as `accepted earlier — changed since`, never
+silently. All of it lives beside the page in gitignored `.spec-env/`, and
+**the marks are information, never a gate**: nothing counts them and nothing
+refuses on them.
+
 **Ticketing-provider sync (opt-in, a separate package).** The base is
 tracker-free: it knows nothing about any specific ticketing system. A
 ticketing provider is installed as its own distribution that plugs into named

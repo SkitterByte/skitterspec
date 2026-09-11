@@ -18,6 +18,15 @@ tokens however large it is; the optional written review is the part that costs,
 and it is offered rather than assumed. `/spec-next` writes the page at the end of
 every phase.
 
+**Handing the review back.** The page takes marks: tick `✓ accept` per file as
+you read, note anything against a line or a whole file, answer the questions a
+written review asked — then **Copy review** and paste the JSON into the chat.
+`/spec-diff` stores it, plays back what it read, and works the commented files on
+your go-ahead, leaving the accepted ones unopened. Its fixes come back as
+resolutions, so the next render shows each note struck through with what changed.
+An accept remembers the file's content, so it lapses by itself when that file
+changes again. The marks are information — nothing gates on them.
+
 The skill table, the spec type/folder conventions and the per-spec isolation
 model all live in **`.claude/rules/spec-planning.md`**, the canonical reference
 every spec skill points at. Tailor its per-phase test commands to this stack.

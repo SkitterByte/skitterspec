@@ -101,6 +101,42 @@ test('the check levels the skill documents are the ones the engine renders', () 
   }
 })
 
+test('it takes a pasted review pass, and reports before it edits', () => {
+  // The intake is the half that WRITES, so the rules around it are the ones a
+  // later edit would most plausibly streamline away.
+  assert.match(SKILL, /--notes <file>/, 'it names the engine call that stores the pass')
+  assert.match(SKILL, /--resolve <file>/, 'and the one that writes back what was done')
+  assert.match(SKILL, /verbatim — never retype it/, 'the blob is stored as sent')
+  assert.match(SKILL, /Wait\.\*\*|\*\*Wait\.\*\*/, 'it stops after reporting')
+  assert.match(SKILL, /Pasting is not a go-ahead/, 'and says why')
+  assert.match(SKILL, /do \*\*not\*\*\s*\n?\s*open the accepted ones/i, 'accepted files are not read')
+  assert.match(SKILL, /say plainly which files you did not\s*\n?\s*open/i, 'and it says so, so the saving is checkable')
+})
+
+test('it states that a mark is never a gate', () => {
+  // The one rule the operator asked for by name. Three cancelled specs in this
+  // line exist because someone reached for a gate; this is the same shape.
+  assert.match(SKILL, /A mark is information, never a gate/)
+  assert.match(SKILL, /config key defaulting to off/, 'and what it would take to change that')
+  assert.match(SKILL, /nothing here may start counting them/, 'the no-gate section carries it too')
+})
+
+test('the intake is priced like everything else the skill offers', () => {
+  assert.match(SKILL, /What the intake costs/)
+  assert.match(SKILL, /the paste is not overhead/)
+})
+
+test('the rule adopters read describes the round-trip, not just the page', () => {
+  const rule = fs.readFileSync(
+    path.join(__dirname, '..', 'assets', 'rules', 'spec-planning.md'),
+    'utf8',
+  )
+  assert.match(rule, /takes a review pass back/i)
+  assert.match(rule, /--notes/, 'names the store verb')
+  assert.match(rule, /--resolve/, 'and the write-back verb')
+  assert.match(rule, /the marks are information, never a gate/i)
+})
+
 test('every distribution ships the skill', () => {
   for (const pkg of ['skitterspec', 'skitterspec-linear']) {
     const dir = path.join(ROOT, 'packages', pkg, 'assets')

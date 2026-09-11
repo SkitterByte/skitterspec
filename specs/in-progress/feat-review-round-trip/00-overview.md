@@ -152,7 +152,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Notes store, content hashing and the lapse rule | ✅ | [01-notes-store.md](01-notes-store.md) |
 | 2 | Page marks, comments, check replies, copy-out | ✅ | [02-page-marks.md](02-page-marks.md) |
 | 3 | Resolutions round-trip | ✅ | [03-resolutions.md](03-resolutions.md) |
-| 4 | `/spec-diff` intake and docs | ⬜ | [04-skill-and-docs.md](04-skill-and-docs.md) |
+| 4 | `/spec-diff` intake and docs | ✅ | [04-skill-and-docs.md](04-skill-and-docs.md) |
 
 ## Non-goals
 
@@ -181,6 +181,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 4 built; tests green (common 675, root 1795). `/spec-diff`
+  gained the intake as §2 — a pasted blob is the invocation, so it sits before
+  the render — and the store/report/wait/work/resolve sequence is guarded by
+  tests that pin the report-before-editing rule, the accepted-files-not-opened
+  claim and the no-gate rule. The round-trip is now described everywhere adopters
+  read: `spec-planning.md`, the CLAUDE.md section, the README's neighbours and
+  the docs site, which gained a fourth pipeline stage.
+  **All four phases are done** — the spec is ready for `/spec-complete`.
 
 - 2026-09-11 — Phase 3 built; tests green (common 671, root 1791). `--resolve`
   attaches an account of what was done to each comment by id; an unknown id is
