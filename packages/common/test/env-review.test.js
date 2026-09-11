@@ -21,6 +21,7 @@ const {
   collectReview,
   renderReviewPage,
   reviewOutPath,
+  reviewFileUrl,
   writeReviewPage,
   parseNumstat,
   escapeIsland,
@@ -221,6 +222,30 @@ test('a spec with no changes produces an empty, still-valid page', () => {
   const html = renderReviewPage(data)
   assert.ok(html.includes('</html>'))
   assert.ok(!html.includes('__REVIEW_DATA__'))
+})
+
+test('the page is announced as a clickable file:// URL, not just a path', () => {
+  // A bare absolute path is not clickable in any terminal, so the line that
+  // announces the page could not reach it. This is the whole fix.
+  assert.strictEqual(reviewFileUrl('/tmp/reviews/feat-x.html'), 'file:///tmp/reviews/feat-x.html')
+
+  // A path can legitimately contain a space, a `#` or a `?`, and all three end
+  // the URL early if left raw — which is worse than a bare path, because it
+  // looks like a link and goes somewhere wrong.
+  assert.strictEqual(
+    reviewFileUrl('/Users/x/my code/.spec-env/reviews/feat-x.html'),
+    'file:///Users/x/my%20code/.spec-env/reviews/feat-x.html',
+  )
+  assert.strictEqual(
+    reviewFileUrl('/tmp/a#b/c?d/feat-x.html'),
+    'file:///tmp/a%23b/c%3Fd/feat-x.html',
+  )
+
+  // Separators survive: encoding the whole string would eat them.
+  assert.ok(!reviewFileUrl('/a/b/c.html').includes('%2F'))
+
+  // A relative path is resolved, so the URL is always absolute.
+  assert.ok(reviewFileUrl('reviews/feat-x.html').startsWith('file:///'))
 })
 
 test('numstat reports a binary file rather than guessing counts', () => {

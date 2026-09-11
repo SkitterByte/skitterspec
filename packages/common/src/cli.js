@@ -44,6 +44,7 @@ const {
   renderReviewPage,
   renderReviewBlock,
   reviewOutPath,
+  reviewFileUrl,
   reviewUrlPath,
   readReviewUrl,
   writeReviewPage,
@@ -1409,6 +1410,7 @@ function specEnvReview(dir, config, specArg, flags) {
           mode,
           base,
           out,
+          fileUrl: reviewFileUrl(out),
           urlFile,
           url,
           reviewed: Boolean(data.review),
@@ -1434,6 +1436,7 @@ function specEnvReview(dir, config, specArg, flags) {
     `spec-env review: ${spec.folder} (${mode === 'branch' ? `since ${base}` : 'uncommitted'})\n` +
       `  ${t.files} file${t.files === 1 ? '' : 's'}, +${t.additions} -${t.deletions}\n` +
       `  page: ${out}\n` +
+      `  open: ${reviewFileUrl(out)}\n` +
       (url ? `  published: ${url}\n` : '') +
       (t.files === 0 ? '  nothing to review — no changes found.\n' : ''),
   )

@@ -114,8 +114,12 @@ reading the diff — and that spend is the operator's call, not a default. One
 line is the whole offer:
 
 ```
-page written to <path> — /spec-diff to add a written review, or publish it
+page written — <the `open:` file:// URL it printed>
+/spec-diff to add a written review, or publish it
 ```
+
+Relay the **`open:`** line the engine prints, not the bare path: a path is not
+clickable in any terminal, and a page nobody can open is a page nobody reads.
 
 - **Never write the review unasked**, and **never publish**. Publishing leaves
   something behind that this tooling cannot remove, so it is always something

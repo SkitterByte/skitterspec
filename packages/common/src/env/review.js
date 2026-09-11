@@ -329,6 +329,29 @@ function reviewOutPath(dir, specFolder, out) {
   return path.join(dir, REVIEW_DIR, `${specFolder}.html`)
 }
 
+/**
+ * The page's path as a `file://` URL.
+ *
+ * A bare absolute path is not clickable in ANY terminal; `file://` is linkified
+ * by iTerm2, VS Code's terminal and Terminal.app, so the page is one click from
+ * the line that announces it. Printed ALONGSIDE the path, never instead of it —
+ * the path is what you pass to another command, and the URL is what you click.
+ *
+ * Deliberately not an `open` call: that assumes a GUI, a default browser and
+ * that you are sitting at the machine. The whole point of this page is that it
+ * does not care where you are.
+ */
+function reviewFileUrl(outPath) {
+  // Encode each segment, then restore the separators — a path can legitimately
+  // contain spaces, `#` or `?`, and all three break a URL left raw.
+  const encoded = path
+    .resolve(outPath)
+    .split(path.sep)
+    .map((seg) => encodeURIComponent(seg))
+    .join('/')
+  return `file://${encoded.startsWith('/') ? '' : '/'}${encoded}`
+}
+
 // Write the page, creating its directory. Returns the absolute path written.
 function writeReviewPage(outPath, html) {
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
@@ -349,6 +372,7 @@ module.exports = {
   collectReview,
   renderReviewPage,
   reviewOutPath,
+  reviewFileUrl,
   writeReviewPage,
   escapeIsland,
   escapeHtml,
