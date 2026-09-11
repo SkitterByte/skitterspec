@@ -60,9 +60,28 @@ leaves no trace in the branch under review.
 
 ## 4. Offer the written review — say what it costs first
 
-The page is free. The **written review is not**: it costs roughly
-**700 output tokens**, because you read the diff to write it. Say that, then let
-the operator decide. Do not write it unasked when the diff is large.
+The page is free. The **written review is not**, and it costs in two separate
+ways. Quote the one that actually applies rather than a single number:
+
+- **Writing it: ~700 output tokens.** The review JSON, near enough regardless of
+  how big the diff is. This is unavoidable and it is what was measured.
+- **Reading the diff: input, and it scales.** Only paid when the diff is not
+  already in front of you. A 350-line diff is easily 10–15k input tokens.
+
+**If you just built this phase, you already have the diff — do not re-read it.**
+That is the common case (`/spec-next` offers this skill the moment a phase ends)
+and the one the ~700 was measured in. Running `git diff` over code you wrote
+three tool calls ago buys nothing and is not free.
+
+**When you genuinely do not have it** — a fresh session, half a phase from
+yesterday, a colleague's branch — read *selectively*. `--json` returns the file
+list with each file's `+`/`−`, `status` and `noise` flag and **no patches**, so
+use it to choose: skip everything marked `noise: true`, and skip files the review
+will not have anything to say about. Pulling the whole diff in when three files
+matter is the avoidable half of this cost.
+
+Say what it will cost, then let the operator decide. Do not write it unasked when
+the diff is large.
 
 When asked, write JSON to a scratch file:
 

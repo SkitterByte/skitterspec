@@ -66,6 +66,21 @@ test('it names what the written review costs before offering it', () => {
   assert.match(SKILL, /--page-only/, 'and there is a way to decline it')
 })
 
+test('it keeps the two costs apart, and says when the reading one is zero', () => {
+  // The skill first quoted a single "~700 output tokens, because you read the
+  // diff to write it" — which attaches the number to the one part it does not
+  // cover. Writing the review is output and roughly constant; READING the diff
+  // is input and scales, and is zero when you just built the phase yourself.
+  // Collapsing them back into one number is the regression to prevent.
+  assert.match(SKILL, /two separate\s*\n?ways/i, 'the two costs are named as two')
+  assert.match(SKILL, /you already have the diff — do not re-read it/i)
+  assert.match(SKILL, /input, and it scales/i)
+  // And the cheap route for the case where you genuinely do not have it.
+  assert.match(SKILL, /`--json` returns the file\s*\n?list/i)
+  assert.match(SKILL, /no patches/i, 'says why --json is the cheap way to choose')
+  assert.match(SKILL, /noise: true/, 'names what to skip')
+})
+
 test('it never instructs an unprompted publish', () => {
   assert.match(SKILL, /\*\*Never publish unprompted\.\*\*/)
   assert.match(SKILL, /only when the user asks|When the user asks/i)
