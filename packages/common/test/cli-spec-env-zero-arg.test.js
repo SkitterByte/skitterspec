@@ -265,14 +265,64 @@ test('stays silent: no specs/in-progress/ directory on disk still resolves', asy
 
 // --- the meanings Decision 8 protects ---------------------------------------
 
-test('stays silent: `connect` with no spec still means main (disconnect)', async () => {
+// INVERTED, deliberately. This test used to assert that `connect` with no spec
+// still meant `main` — i.e. that the bare form DISCONNECTED. That was
+// `feat-script-only-commands` Decision 8: zero-arg resolution must never replace
+// an existing meaning, and it named this exact case as the risk ("silently
+// invert `spec-env connect` from 'hand the ports back' to 'seize them'").
+//
+// `feat-bare-argument-parity` supersedes it. That decision was right about a
+// SIDE EFFECT — it guarded a general change from quietly altering two verbs
+// nobody was thinking about. Here the alteration is the whole point, it ships
+// with its own release note, and the word doing the work in Decision 8 is
+// *silently*. The old test is not wrong; it is superseded, which is why this
+// comment exists instead of a deletion.
+test('`connect` with no spec connects the sole provisioned spec', async () => {
   const dir = scaffold()
   try {
     addSpec(dir, 'feat-alpha')
     addWorktree(dir, 'feat-alpha')
     const out = await runQuiet(['spec-env', 'connect', '--dir', dir])
-    assert.match(out, /nothing was connected|primary checkout already owns/, 'disconnected')
-    assert.doesNotMatch(out, /feat-alpha/, 'did not seize the ports for the sole spec')
+    assert.match(out, /feat-alpha/, 'resolved the sole spec rather than disconnecting')
+    assert.doesNotMatch(out, /nothing was connected/, 'did not fall back to main')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: `connect main` still hands the ports back', async () => {
+  // The disconnect form did not move — it just has to be named now.
+  const dir = scaffold()
+  try {
+    addSpec(dir, 'feat-alpha')
+    addWorktree(dir, 'feat-alpha')
+    const out = await runQuiet(['spec-env', 'connect', 'main', '--dir', dir])
+    assert.match(out, /nothing was connected|primary checkout already owns|disconnected/)
+    assert.doesNotMatch(out, /feat-alpha/, 'did not seize the ports')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('`connect` with several worktrees refuses and names them', async () => {
+  // No read-only report to degrade to, so this REFUSES rather than falling back
+  // — a fallback to `main` would reinstate the inversion above at exactly the
+  // moment the user is least sure what is connected.
+  const dir = scaffold()
+  try {
+    addSpec(dir, 'feat-alpha')
+    addWorktree(dir, 'feat-alpha')
+    addSpec(dir, 'feat-beta')
+    addWorktree(dir, 'feat-beta')
+    await assert.rejects(
+      () => runQuiet(['spec-env', 'connect', '--dir', dir]),
+      (err) => {
+        assert.match(err.message, /2 specs have worktrees/)
+        assert.match(err.message, /feat-alpha/)
+        assert.match(err.message, /feat-beta/)
+        return true
+      },
+    )
   } finally {
     cleanup(dir)
   }
@@ -283,6 +333,51 @@ test('stays silent: `connect` with no spec still means main (disconnect)', async
 // a different question from a missing verb: `live status` was asked for a
 // report, and the repo-wide one is the answer. `feat-bare-argument-parity`
 // changed only the bare form.
+test('`connect` with no spec resolves the worktree you are standing in', async () => {
+  // The strongest signal, and the one that carries this feature in practice:
+  // several worktrees is the normal shape, so "the only one" rarely resolves.
+  const dir = scaffold()
+  const cwd = process.cwd()
+  try {
+    addSpec(dir, 'feat-alpha')
+    const wt = addWorktree(dir, 'feat-alpha')
+    addSpec(dir, 'feat-beta')
+    addWorktree(dir, 'feat-beta')
+    process.chdir(wt)
+    const out = await runQuiet(['spec-env', 'connect', '--dir', dir])
+    assert.match(out, /feat-alpha/, 'named by cwd, not by the ambiguous set')
+    assert.doesNotMatch(out, /feat-beta/)
+  } finally {
+    process.chdir(cwd)
+    cleanup(dir)
+  }
+})
+
+test('stays silent: `connect <base>` disconnects where the base is not main', async () => {
+  // The same courtesy `live` extends: the configured base branch is a disconnect
+  // word, and the literal `main` keeps working in either repo.
+  const dir = scaffold()
+  try {
+    fs.writeFileSync(
+      path.join(dir, 'specs', '.core', 'env.config.json'),
+      JSON.stringify({ baseBranch: 'trunk', docker: { enabled: false } }, null, 2),
+    )
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-q', '-m', 'rename base')
+    git(dir, 'branch', '-M', 'trunk')
+    addSpec(dir, 'feat-alpha')
+    addWorktree(dir, 'feat-alpha')
+
+    for (const word of ['trunk', 'main']) {
+      const out = await runQuiet(['spec-env', 'connect', word, '--dir', dir])
+      assert.match(out, /nothing was connected|primary checkout already owns|disconnected/, word)
+      assert.doesNotMatch(out, /feat-alpha/, `${word} did not seize the ports`)
+    }
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('stays silent: `live status` with no spec still reports on the whole repo', async () => {
   const dir = scaffold()
   try {

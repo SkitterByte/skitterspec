@@ -1538,9 +1538,20 @@ async function specEnvConnect(dir, config, specArg) {
   const routesFile = `${sdir}/proxy.json`
   const connectedFile = `${sdir}/connected`
   const proxyProc = proxyProcFor(config, abs(routesFile))
-  const target = specArg || 'main'
 
-  if (target === 'main') {
+  // DISCONNECT IS NAMED, NOT ASSUMED. A missing spec used to mean `main` — so
+  // the bare form handed the ports BACK, the one verb in the family whose
+  // zero-arg behaviour was the opposite of acting on your spec. It now resolves
+  // like every other verb: the worktree you are standing in, else the sole
+  // provisioned spec, else a refusal that names the candidates.
+  //
+  // This reverses `feat-script-only-commands` Decision 8, deliberately and as
+  // the whole point of the change rather than as a side effect of one — see
+  // `feat-bare-argument-parity`. The literal `main` is honoured even where the
+  // base branch is called something else, matching `live main`, so the muscle
+  // memory works in either repo.
+  const base = resolveBaseBranch(config, gitReader(dir))
+  if (specArg === 'main' || specArg === base) {
     const res = await stopProcess(proxyProc, { rootDir: dir })
     for (const f of [connectedFile, routesFile]) {
       try {
@@ -1557,7 +1568,11 @@ async function specEnvConnect(dir, config, specArg) {
     return
   }
 
-  const spec = resolveSpecWithWorktree(dir, config, target)
+  // Ambiguity REFUSES here rather than degrading. `live` can fall back to its
+  // status report; `connect` has no read-only answer to fall back to, and a
+  // fallback to `main` would reinstate the very inversion above — disconnecting
+  // you at the moment you are least sure what is connected.
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
   const registry = readRegistry(dir, config)
   if (!Object.prototype.hasOwnProperty.call(registry.slots, spec.folder)) {
     process.stdout.write(

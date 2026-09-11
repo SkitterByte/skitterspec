@@ -105,7 +105,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Bare `/spec-live` takes when it can tell | ✅ | [01-bare-live.md](01-bare-live.md) |
-| 2 | Bare `/spec-connect` connects | ⬜ | [02-bare-connect.md](02-bare-connect.md) |
+| 2 | Bare `/spec-connect` connects | ✅ | [02-bare-connect.md](02-bare-connect.md) |
 | 3 | Documentation, and the superseded decision | ⬜ | [03-docs-and-supersede.md](03-docs-and-supersede.md) |
 
 ## Open questions
@@ -120,6 +120,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 2 built. The inversion is now real in both directions:
+  `specEnvConnect` resolves a missing argument through
+  `resolveSpecWithWorktree` like every other verb, and the disconnect form is
+  `main` or the configured base — named, never assumed. Ambiguity refuses with
+  the candidate list rather than degrading, since `connect` has no read-only
+  answer to degrade to. The superseded Decision 8 is quoted in the test that
+  inverted, so the next reader finds the reversal rather than concluding the old
+  assertion was a mistake.
 
 - 2026-09-11 — Phase 1 built. One structural decision the spec did not call:
   telling "several worktrees" from "no worktrees" required distinguishing two
