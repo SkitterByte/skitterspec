@@ -144,7 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `/spec-start` pushes the state change it makes | ✅ | [01-spec-start-pushes.md](01-spec-start-pushes.md) |
 | 2 | Engine: primary-checkout baseline + assertion | ✅ | [02-primary-checkout-guard.md](02-primary-checkout-guard.md) |
 | 3 | `/spec-next` accepts an explicit worktree root | ✅ | [03-spec-next-worktree-flag.md](03-spec-next-worktree-flag.md) |
-| 4 | `/spec-start` offers to continue into phase 1 | ⬜ | [04-spec-start-offers-phase-one.md](04-spec-start-offers-phase-one.md) |
+| 4 | `/spec-start` offers to continue into phase 1 | ✅ | [04-spec-start-offers-phase-one.md](04-spec-start-offers-phase-one.md) |
 | 5 | Docs, compose and shipped-surface guards | ⬜ | [05-docs-and-surfaces.md](05-docs-and-surfaces.md) |
 
 ## Open questions
@@ -205,3 +205,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   its test with it. The phase note treated editing that test as a sign of
   overreach; it was not — rules 1-3 are byte-identical, and what was stale was a
   sentence in `/spec-start` about `/spec-next`, not the refusal.
+- 2026-09-11 — Phase 4: step 3 no longer tells the operator what to do next; it
+  prints the path and defers to step 6. Two places describing the ending is how
+  they drift apart, and step 6 is where the choice now lives.

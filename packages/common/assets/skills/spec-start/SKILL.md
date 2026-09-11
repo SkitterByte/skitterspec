@@ -100,8 +100,8 @@ would fork from — otherwise you get a branch missing the very spec it is for.
 4. **Housekeep with `git -C <worktreePath>`** — step 4 below, against the
    worktree.
 
-5. **Print the worktree path**, and say to run **`/spec-next`** from a session in
-   it.
+5. **Print the worktree path.** What happens next is step 6 — it is offered
+   there, not decided here.
 
 **The session does not move, and nothing opens a window.** Starting a spec builds
 a branch and tells you where it is; that is the whole job. Reading what a phase
@@ -182,16 +182,34 @@ marks phase 1 started, refreshes the mirror again, builds it with tests and
 reports. Do not stop and ask the operator to run it: the branch is here and they
 asked to start the spec.
 
-**`worktree` mode — the spec is built in its worktree**, and this session did not
-move there. Print the path and tell them to run **`/spec-next`** from a session
-in it. Say it plainly and once; there is no second path to disambiguate from.
+**`worktree` mode — offer it, then do what they say.** The branch is provisioned
+and this session is still in the primary checkout, so there are two honest
+endings. Put both, in one short question, and recommend the first:
 
-`/spec-next` resolves the spec it is *standing in* — the live spec of the
-checkout, the worktree its cwd is inside, or the branch in `checkout` mode — and
-a name argument narrows a re-run rather than selecting a spec elsewhere. That
-refusal is deliberate: building the wrong spec's phase writes commits on a branch
-nobody asked for. **Do not work around it**, and do not offer to build the phase
-from here.
+```
+worktree ready: <worktreePath>
+build phase 1 now from here, or hand off to a session in the worktree?
+```
+
+- **Build it here** — carry on into **`/spec-next --worktree <worktreePath>`**.
+  It records a baseline first, builds into that path, and checks afterwards that
+  nothing reached the primary checkout.
+- **Hand off** — print the path and say to run **`/spec-next`** from a session in
+  it. Nothing else changes: this is the ending `/spec-start` has always had, and
+  a worktree with a provisioned branch is a perfectly good place to leave things.
+
+**Ask rather than deciding for them, and mean it.** Provisioning is cheap and
+reversible; a phase build is neither, and one yes should not cover both. A large
+phase is often better started in a session of its own with a whole context budget
+to spend, and only the operator knows which this is. On **`--plan`** this step
+does not run at all — nothing was provisioned to build in.
+
+`/spec-next` still resolves the spec it is *standing in*, and a bare
+`/spec-next` typed from this session would refuse — correctly. `--worktree` is
+not a way around that refusal; it is the explicit alternative to it, because a
+path you pass is not a path anything guessed. Never reach for a bare name
+argument instead, and never build the phase inline here: the flag is what puts
+the writes in the right tree and lets the check prove it.
 
 ## Opt-outs
 
