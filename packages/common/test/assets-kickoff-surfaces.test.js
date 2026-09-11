@@ -84,10 +84,25 @@ test('the Linear v13 entry no longer claims nothing is Linear-specific', () => {
 
 // COMPOSITION. The base distribution must stay tracker-free: the source carries
 // a marker, and only the provider build fills it.
+//
+// Composed IN MEMORY from the source, not read out of `packages/skitterspec*/`.
+// Those directories are gitignored build output, so reading them makes the test
+// depend on whether anyone has run a build in this checkout — it passes on a
+// developer's machine and fails on a fresh clone or in CI, which is the worst
+// way for a test to be wrong. `composeText` is the same function the build uses.
 test('the composed distributions carry the right halves of the start seam', () => {
-  const base = read(path.join(ROOT, 'packages', 'skitterspec', 'assets', 'skills', 'spec-start', 'SKILL.md'))
-  const linear = read(path.join(ROOT, 'packages', 'skitterspec-linear', 'assets', 'skills', 'spec-start', 'SKILL.md'))
+  const { composeText, loadFragments, mergeFragments } = require(path.join(ROOT, 'scripts', 'compose.js'))
+  const source = read(path.join(ASSETS, 'skills', 'spec-start', 'SKILL.md'))
+  const commonSeams = loadFragments(path.join(ASSETS, 'seams'))
+  const linearSeams = mergeFragments(
+    commonSeams,
+    loadFragments(path.join(ROOT, 'packages', 'linear', 'assets', 'seams')),
+  )
 
+  const base = composeText(source, commonSeams)
+  const linear = composeText(source, linearSeams)
+
+  assert.match(source, /<!-- seam:spec-tracker-start -->/, 'the source carries the marker')
   assert.doesNotMatch(base, /<!-- seam:spec-tracker-start -->/, 'no marker survives a build')
   assert.doesNotMatch(linear, /<!-- seam:spec-tracker-start -->/, 'no marker survives a build')
   assert.doesNotMatch(base, /linear/i, 'the base distribution names no tracker')
