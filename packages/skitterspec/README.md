@@ -73,8 +73,7 @@ writes a self-contained HTML page: whole-file context that folds away, a file
 tree, new files included. Open it locally, or publish it and read it on a phone.
 
 The page lands in `.spec-env/reviews/<spec>.html`, which is gitignored — so
-reviewing a branch leaves no change in the branch you are reviewing. **The diff
-never passes through the model**, so it costs no context tokens however large it
+reviewing a branch leaves no change in the branch you are reviewing. **The diff never passes through the model**, so it costs no context tokens however large it
 is; the optional *written* review (a short read plus `flag`/`confirm`/`good`
 notes) is the part that costs, and it is offered rather than assumed. Publishing
 is always opt-in, and one page per spec — later phases update the same link.

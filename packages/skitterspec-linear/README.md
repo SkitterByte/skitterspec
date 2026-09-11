@@ -1,7 +1,6 @@
 # @skitterbyte/skitterspec-linear
 
-Spec-driven development for [Claude Code](https://claude.com/claude-code), **with
-one-way Linear sync**. A strict **superset** of
+Spec-driven development for [Claude Code](https://claude.com/claude-code), **with one-way Linear sync**. A strict **superset** of
 [`@skitterbyte/skitterspec`](https://www.npmjs.com/package/@skitterbyte/skitterspec):
 everything in the base filesystem workflow, plus one-way sync from a spec up to
 its linked Linear issue — the repo is canonical, Linear is a generated mirror.

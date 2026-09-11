@@ -126,8 +126,7 @@ code; it asks, cites the doc you point it at, and records what you say.
 
 ## Per-spec isolation — worktree by default, Docker on demand
 
-Work several specs in parallel without them stepping on each other. **Adopt it
-once** with `npx @skitterbyte/skitterspec init --isolation` (or copy
+Work several specs in parallel without them stepping on each other. **Adopt it once** with `npx @skitterbyte/skitterspec init --isolation` (or copy
 `specs/.core/env.config.json.example` → `specs/.core/env.config.json`; every field
 is documented in `specs/.core/env.config.md`). While the config is absent the
 feature is simply unused.
@@ -136,8 +135,7 @@ Once adopted it's the **default policy**, not a per-spec chore:
 
 - **Worktree — automatic for every in-progress spec.** `/spec-start` gives each spec
   its own sibling git worktree on its own branch, so you never stash or rebuild to
-  switch specs and `main` stays free for hotfixes. **It builds the branch there and
-  prints the path** — your session stays where it is, and you run `/spec-next` from
+  switch specs and `main` stays free for hotfixes. **It builds the branch there and prints the path** — your session stays where it is, and you run `/spec-next` from
   a session in the worktree. Reading what a phase changed does not need a session
   there at all: `/spec-diff` renders the worktree's diff as a page from wherever
   you are. All housekeeping (the backlog→in-progress move, header edits, the code)

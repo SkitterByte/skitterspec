@@ -29,6 +29,31 @@ const ROOT = path.join(__dirname, '..', '..', '..')
 // never be fixed there.
 const TREES = ['packages/common/assets', 'packages/linear/assets']
 
+// Committed markdown OUTSIDE the asset trees that ships or is read anyway: the
+// migration guide (copied into both tarballs), the repo and package READMEs.
+//
+// These are listed rather than walked because the packages/skitterspec* trees
+// around them ARE composed output — a walk would drag in the gitignored copies
+// TREES deliberately excludes. A README in those directories is committed and
+// fixable; everything beside it is not.
+//
+// They were unguarded until the guide picked up nine straddling spans across
+// five files, two of them written the same day the rule was being enforced
+// three directories away. The rule was never assets-only; the guard was.
+function looseProse() {
+  return [
+    'MIGRATION.md',
+    'README.md',
+    'RELEASING.md',
+    'packages/common/README.md',
+    'packages/linear/README.md',
+    'packages/skitterspec/README.md',
+    'packages/skitterspec-linear/README.md',
+  ]
+    .map((rel) => path.join(ROOT, rel))
+    .filter((p) => fs.existsSync(p))
+}
+
 function proseFiles() {
   const out = []
   const walk = (dir) => {
@@ -42,7 +67,7 @@ function proseFiles() {
     const dir = path.join(ROOT, t)
     if (fs.existsSync(dir)) walk(dir)
   }
-  return out
+  return [...out, ...looseProse()]
 }
 
 // A line with an odd number of `**` opens or closes a span that the next line
@@ -60,6 +85,28 @@ function offendingLines(file) {
   })
   return out
 }
+
+test('the loose-prose list points at files that exist', () => {
+  // A list of paths is only a guard while the paths resolve. A rename would
+  // silently shrink the checked set to nothing and the suite would still pass,
+  // which is the failure mode a filter on existsSync invites.
+  const found = looseProse()
+  assert.ok(found.length >= 4, `expected the root prose files, got ${found.length}`)
+  assert.ok(
+    found.some((p) => p.endsWith('MIGRATION.md')),
+    'the migration guide is checked — it ships in both tarballs',
+  )
+})
+
+test('stays silent: a bold span that stays on its line passes', () => {
+  // Proves the line-parity heuristic is not simply firing on every `**`.
+  const tmp = path.join(require('node:os').tmpdir(), 'skitterspec-emphasis-ok.md')
+  fs.writeFileSync(tmp, ['**one line**', 'plain text', '`specs/**` in backticks', '**a** and **b**'].join('\n'))
+  assert.deepStrictEqual(offendingLines(tmp), [])
+  fs.writeFileSync(tmp, ['**this one', 'straddles**'].join('\n'))
+  assert.deepStrictEqual(offendingLines(tmp), [1, 2], 'and it does fire when a span straddles')
+  fs.rmSync(tmp, { force: true })
+})
 
 test('no bold span crosses a hard line break in shipped prose', () => {
   const bad = []

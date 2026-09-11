@@ -75,8 +75,7 @@ testing.
 
 ## Releasing
 
-Releases go through `scripts/release.js`, one package at a time — **never
-version the root package directly** (a `preversion` guard blocks it). See
+Releases go through `scripts/release.js`, one package at a time — **never version the root package directly** (a `preversion` guard blocks it). See
 **[RELEASING.md](RELEASING.md)** for the full flow: the `name@version` tag
 scheme, plan-by-default → `--publish`, prerequisites, and the first-release
 handoff.

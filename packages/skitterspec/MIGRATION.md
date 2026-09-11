@@ -1,5 +1,67 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v18 → v19 (starting a spec builds a branch, and stops)
+
+### Breaking change
+
+**The `open.command` config key is gone.** It was the editor/terminal-agnostic
+opener — `code {worktreePath}`, a `tmux` command, a `warp://` deeplink — that
+`/spec-start` ran when it could not move your session into the worktree.
+
+**Leaving it in `env.config.json` is harmless and silent** — which is the part
+to watch. The config merge copies known keys only, so a leftover `open` block is
+ignored rather than rejected: nothing errors, and your editor simply stops
+opening. If you set it deliberately, that absence is the only signal you get.
+
+**`/spec-start` no longer moves your session into the worktree either.** It
+provisions the worktree, does the housekeeping there, prints the path, and stops.
+This **supersedes the "opens a session in it" half of v17 → v18 below** — the
+branch still never leaves its worktree, but nothing tries to relocate your shell
+to reach it.
+
+| v18 | v19 |
+|-----|-----|
+| Three paths through `/spec-start`: enter the session, or fall back two ways | **One path.** Provision, bootstrap, print the path. |
+| Reaching the work meant getting a shell or a window into the worktree | **`/spec-diff`** renders the worktree's diff as a page you read anywhere |
+| `open.command` opened an editor on the fallback path | Removed. Nothing opens anything. |
+
+### What replaced it
+
+**`/spec-diff`** — a new skill, and the reason the opener had nothing left to do.
+A phase is built in its own worktree, so `git diff` in your terminal answers
+about the base branch. `/spec-diff` collects that worktree's changes with
+`git -C` and writes a self-contained HTML page: whole-file context that folds
+away, a file tree, untracked files included. Open it locally, or publish it and
+read it on a phone.
+
+The page lands in `.spec-env/reviews/<spec>.html` (gitignored), and
+**the diff never passes through the model** — so it costs no context tokens
+however large it is. The optional *written* review is the part that costs, and it
+is offered rather than assumed. `/spec-next` writes the page at the end of every
+phase. Beneath it, `skitterspec spec-env review <spec> [--branch]` is the engine.
+
+### What to do
+
+1. **Upgrade** — `npx @skitterbyte/skitterspec update`.
+2. **Delete the `open` block from `specs/.core/env.config.json`**, if you have
+   one. Optional — it is ignored either way — but leaving it implies a setting
+   that no longer does anything.
+3. **Expect a path, not a session.** After `/spec-start` in `worktree` mode, open
+   a session in the printed worktree and run `/spec-next` there. `/spec-next`
+   builds the spec it is *standing in* and still refuses to build one from
+   elsewhere.
+4. **Use `/spec-diff` to read the work** rather than reaching for a terminal in
+   the worktree. It is gated on nothing — half a phase, a hand edit, or a
+   colleague's branch are all ordinary inputs.
+
+`checkout` mode is unchanged.
+
+## `@skitterbyte/skitterspec-linear` v12 → v13 (starting a spec builds a branch, and stops)
+
+The same change as `@skitterbyte/skitterspec` v18 → v19 above — this
+distribution composes the same lifecycle skills. Read that entry; nothing here
+is Linear-specific.
+
 ## `@skitterbyte/skitterspec` v17 → v18 (a spec is built in its own worktree)
 
 ### Breaking change
@@ -90,8 +152,7 @@ landed and this one was missed.)
 
 ## `@skitterbyte/skitterspec-linear` v9 → v10 (`push` validates your issue states)
 
-**`spec-sync push` now refuses to run until the configured `states` names have
-been checked against your Linear workspace.** The check itself is not new — it
+**`spec-sync push` now refuses to run until the configured `states` names have been checked against your Linear workspace.** The check itself is not new — it
 already existed on `spec-sync status --workspace-states` — but it was advisory,
 and skipping it sent a state name Linear **silently ignores**: the description
 lands, the issue never moves, and nothing errors. The base
@@ -105,8 +166,7 @@ lands, the issue never moves, and nothing errors. The base
 | A configured state absent from the workspace | pushed, silently no-op | **exits 1**, naming the workspace's real states |
 
 `/spec-push` handles this for you — it fetches the workspace's issue
-workflow-state names over MCP and passes them on. **Nothing changes if you drive
-sync through the skill.** Only a direct CLI caller needs updating.
+workflow-state names over MCP and passes them on. **Nothing changes if you drive sync through the skill.** Only a direct CLI caller needs updating.
 
 ### What to do
 
@@ -156,8 +216,7 @@ sync through the skill.** Only a direct CLI caller needs updating.
 **v9 remaps the Linear mirror.** A spec is now a Linear **issue** (not a Project),
 each phase a **sub-issue** (not a Milestone), and **tasks are no longer synced**
 (they stay in the repo phase files). This collapses a large spec from ~1 project +
-N milestones + dozens of task-issues down to **one issue + one sub-issue per
-phase**. The base `@skitterbyte/skitterspec` is unaffected (still v15).
+N milestones + dozens of task-issues down to **one issue + one sub-issue per phase**. The base `@skitterbyte/skitterspec` is unaffected (still v15).
 
 ### Breaking changes
 
@@ -274,10 +333,7 @@ both as optional — `/spec-review` adds them if you want them.
 
 ## `@skitterbyte/skitterspec` v2 → v3 (slimmer surface + local traffic diversion)
 
-**v3 shrinks the everyday command surface to five verbs — `spec → go → connect →
-commit → complete` — by folding provisioning, teardown, and grooming into the
-lifecycle skills, and adds `/spec-connect` for testing a worktree at your normal
-`localhost` URL.** (`@skitterbyte/skitterspec-linear` moves to v2.0.0 in lockstep.)
+**v3 shrinks the everyday command surface to five verbs — `spec → go → connect → commit → complete` — by folding provisioning, teardown, and grooming into the lifecycle skills, and adds `/spec-connect` for testing a worktree at your normal `localhost` URL.** (`@skitterbyte/skitterspec-linear` moves to v2.0.0 in lockstep.)
 
 ### Removed skills (breaking) → where they went
 

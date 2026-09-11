@@ -152,8 +152,7 @@ landed and this one was missed.)
 
 ## `@skitterbyte/skitterspec-linear` v9 → v10 (`push` validates your issue states)
 
-**`spec-sync push` now refuses to run until the configured `states` names have
-been checked against your Linear workspace.** The check itself is not new — it
+**`spec-sync push` now refuses to run until the configured `states` names have been checked against your Linear workspace.** The check itself is not new — it
 already existed on `spec-sync status --workspace-states` — but it was advisory,
 and skipping it sent a state name Linear **silently ignores**: the description
 lands, the issue never moves, and nothing errors. The base
@@ -167,8 +166,7 @@ lands, the issue never moves, and nothing errors. The base
 | A configured state absent from the workspace | pushed, silently no-op | **exits 1**, naming the workspace's real states |
 
 `/spec-push` handles this for you — it fetches the workspace's issue
-workflow-state names over MCP and passes them on. **Nothing changes if you drive
-sync through the skill.** Only a direct CLI caller needs updating.
+workflow-state names over MCP and passes them on. **Nothing changes if you drive sync through the skill.** Only a direct CLI caller needs updating.
 
 ### What to do
 
@@ -218,8 +216,7 @@ sync through the skill.** Only a direct CLI caller needs updating.
 **v9 remaps the Linear mirror.** A spec is now a Linear **issue** (not a Project),
 each phase a **sub-issue** (not a Milestone), and **tasks are no longer synced**
 (they stay in the repo phase files). This collapses a large spec from ~1 project +
-N milestones + dozens of task-issues down to **one issue + one sub-issue per
-phase**. The base `@skitterbyte/skitterspec` is unaffected (still v15).
+N milestones + dozens of task-issues down to **one issue + one sub-issue per phase**. The base `@skitterbyte/skitterspec` is unaffected (still v15).
 
 ### Breaking changes
 
@@ -336,10 +333,7 @@ both as optional — `/spec-review` adds them if you want them.
 
 ## `@skitterbyte/skitterspec` v2 → v3 (slimmer surface + local traffic diversion)
 
-**v3 shrinks the everyday command surface to five verbs — `spec → go → connect →
-commit → complete` — by folding provisioning, teardown, and grooming into the
-lifecycle skills, and adds `/spec-connect` for testing a worktree at your normal
-`localhost` URL.** (`@skitterbyte/skitterspec-linear` moves to v2.0.0 in lockstep.)
+**v3 shrinks the everyday command surface to five verbs — `spec → go → connect → commit → complete` — by folding provisioning, teardown, and grooming into the lifecycle skills, and adds `/spec-connect` for testing a worktree at your normal `localhost` URL.** (`@skitterbyte/skitterspec-linear` moves to v2.0.0 in lockstep.)
 
 ### Removed skills (breaking) → where they went
 
