@@ -113,10 +113,12 @@ editor to be somewhere in particular.
 `/spec-live` is for testing a finished-enough spec on the already-running dev
 server; it is not how work gets started.
 
-**`/spec-next` is unchanged by this.** Its rule 2 — "the worktree you are
-standing in" — is what answers from a session in the worktree; nothing about its
-resolution is loosened, and it must not be. The refusal exists so the wrong
-branch is never built.
+**`/spec-next`'s refusal is unchanged by this.** Its rule 2 — "the worktree you
+are standing in" — is what answers from a session in the worktree, and nothing
+about rules 1 to 3 is loosened; it must stay that way, because the refusal exists
+so the wrong branch is never built. What `/spec-next` gained is an explicit
+`--worktree <path>`, which answers before those rules and cannot be reached by
+guessing — a bare `/spec-next` still refuses exactly as it did.
 
 ### `checkout` mode
 

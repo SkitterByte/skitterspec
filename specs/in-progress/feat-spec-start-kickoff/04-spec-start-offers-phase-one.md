@@ -15,8 +15,9 @@ phase 1 from here — and a "no" leaves exactly today's outcome.
       `packages/common/assets/skills/spec-start/SKILL.md`: after the push, offer
       the two paths — build phase 1 now, or hand off to a session in the
       worktree — recommending the build.
-- [ ] On yes: run `spec-env resolve <spec> --record-primary`, then continue into
-      `/spec-next --worktree <worktreePath>`.
+- [ ] On yes: continue into `/spec-next --worktree <worktreePath>`. It records
+      the baseline itself — phase 3 put both halves of the guard in the skill
+      that does the writing, so there is nothing to record here.
 - [ ] On no: print today's message verbatim — the path, and to run `/spec-next`
       from a session in it. Nothing else changes on this branch.
 - [ ] Keep `--plan` stopping before the offer, and keep `--no-worktree`

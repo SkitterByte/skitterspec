@@ -112,11 +112,15 @@ test('the skill points at /spec-diff as what replaced needing a shell there', ()
   assert.match(SKILL, /`\/spec-diff`/)
 })
 
-test('/spec-next resolution is still declared unchanged', () => {
+test('/spec-next rules 1-3 are still declared unchanged', () => {
   // Loosening rule 2 is the tempting "fix" when a start lands somewhere else.
-  // It was the wrong lever when the session moved and it still is.
-  assert.match(SKILL, /`\/spec-next` is unchanged by this/)
-  assert.match(SKILL, /nothing about its\s*\n?resolution is loosened/i)
+  // It was the wrong lever when the session moved and it still is — so the claim
+  // is narrowed to the REFUSAL rather than dropped. An explicit --worktree path
+  // is not a loosening of it: the refusal guards against guessing, and a path
+  // someone typed is not a guess.
+  assert.match(SKILL, /`\/spec-next`'s refusal is unchanged by this/)
+  assert.match(SKILL, /nothing\s*\n?about rules 1 to 3 is loosened/i)
+  assert.match(SKILL, /cannot be reached by\s*\n?guessing/i)
 })
 
 test('the rules file describes building a branch, not moving a session', () => {

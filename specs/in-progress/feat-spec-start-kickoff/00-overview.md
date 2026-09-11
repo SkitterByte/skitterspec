@@ -143,7 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `/spec-start` pushes the state change it makes | ✅ | [01-spec-start-pushes.md](01-spec-start-pushes.md) |
 | 2 | Engine: primary-checkout baseline + assertion | ✅ | [02-primary-checkout-guard.md](02-primary-checkout-guard.md) |
-| 3 | `/spec-next` accepts an explicit worktree root | ⬜ | [03-spec-next-worktree-flag.md](03-spec-next-worktree-flag.md) |
+| 3 | `/spec-next` accepts an explicit worktree root | ✅ | [03-spec-next-worktree-flag.md](03-spec-next-worktree-flag.md) |
 | 4 | `/spec-start` offers to continue into phase 1 | ⬜ | [04-spec-start-offers-phase-one.md](04-spec-start-offers-phase-one.md) |
 | 5 | Docs, compose and shipped-surface guards | ⬜ | [05-docs-and-surfaces.md](05-docs-and-surfaces.md) |
 
@@ -195,3 +195,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the first wording told the reader their build had leaked it. Both readings now
   get a next step — move it into the worktree, or re-record the baseline — so
   being wrong costs a re-record rather than someone deleting a colleague's spec.
+- 2026-09-11 — Phase 3: `/spec-next` records the baseline itself on the
+  `--worktree` path, rather than `/spec-start` recording it before handing over.
+  Both halves of the guard now live in the skill that does the risky writing, so
+  it works when a person types the flag themselves and not only when
+  `/spec-start` sets it up. Phase 4's task list is amended to match.
+- 2026-09-11 — Phase 3: `/spec-start`'s claim that "nothing about its
+  resolution is loosened" is narrowed to rules 1 to 3 rather than dropped, and
+  its test with it. The phase note treated editing that test as a sign of
+  overreach; it was not — rules 1-3 are byte-identical, and what was stale was a
+  sentence in `/spec-start` about `/spec-next`, not the refusal.

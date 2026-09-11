@@ -1,6 +1,6 @@
 ---
 name: spec-next
-description: Build the next unfinished phase of the spec in flight for this session — pre-flight, implement with tests, record progress and refresh the tracker. Refuses when no spec is in flight rather than guessing one, and never builds a spec it is not standing in. Use when the user says "/spec-next", "build the next phase", "continue the spec", or "carry on with this spec".
+description: Build the next unfinished phase of the spec in flight for this session — pre-flight, implement with tests, record progress and refresh the tracker. Refuses when no spec is in flight rather than guessing one, and builds one elsewhere only when handed its worktree path. Use when the user says "/spec-next", "build the next phase", "continue the spec", or "carry on with this spec".
 ---
 
 # /spec-next — build the next phase of the spec in flight
@@ -13,7 +13,24 @@ flight — provisioning, moving it to `in-progress`, getting its branch here —
 
 ## 1. Identify the spec in flight
 
-Resolve **in this order**, and stop at the first that answers:
+**`--worktree <path>` answers before anything else.** When the invocation names a
+worktree, that is the spec to build and that is where it is built — cwd is not
+consulted. It is how `/spec-start` carries on into phase 1 without moving your
+session, and you can type it yourself.
+
+**This is not a loosening of the refusal below.** That refusal exists against
+*guessing* which spec to build, and a path someone typed is not a guess. A bare
+`/spec-next` still refuses exactly as it does today.
+
+**Validate the path before writing a line into it.** Run
+`skitterspec spec-env resolve --dir <path>` and check the `worktree:` line it
+prints is that same path. If it is not — or the command reports that isolation is
+not enabled — refuse and stop, naming what you were given. A path that is not a
+provisioned worktree must never become a place to write code.
+**Read the output, not the exit status** — that command exits 0 even when it
+cannot resolve anything.
+
+Otherwise resolve **in this order**, and stop at the first that answers:
 
 1. **The live spec of this checkout** — run
    `skitterspec spec-env live status` and read its `live:` line. `live: yes`
@@ -63,6 +80,19 @@ once it is over. Without a provider this is a no-op and nothing below changes.
 
 <!-- seam:spec-next-start -->
 
+**On the `--worktree` path, record the baseline before you write anything:**
+
+```
+skitterspec spec-env resolve <spec> --record-primary
+```
+
+Then build as below, with one discipline on top.
+**The session is not standing in the worktree**, so every write takes an
+absolute path under it and every command
+is prefixed `cd "<worktreePath>" &&` — typecheck and tests included. A single
+relative path lands the work in the primary checkout, on the base branch, and
+nothing about it looks wrong at the time. Step 4b is what catches it.
+
 Then build it, following the project rules in `.claude/rules/*.md` and `CLAUDE.md`:
 
 - Work task by task through the phase file. Make focused edits that match
@@ -90,6 +120,27 @@ in the repo now; leaving the tracker to catch up at `/spec-complete` is what mak
 a mirror lag a whole spec behind. Without a provider this is a no-op.
 
 <!-- seam:spec-tracker-progress -->
+
+## 4b. On the `--worktree` path, prove nothing leaked
+
+**Only when this run was given `--worktree`.** Standing in the worktree, this
+step does not apply and there is nothing to check.
+
+The phase is built and its progress recorded — all of it written into a tree this
+session is not standing in. Before reporting any of it as done:
+
+```
+skitterspec spec-env resolve <spec> --assert-primary-clean
+```
+
+- **Exit 0, "primary checkout clean"** — carry on.
+- **Non-zero** — stop and relay the engine's message unchanged. It names the
+  paths and both readings: this build wrote them and they belong in the worktree,
+  or something else did and the baseline wants re-recording.
+  **Do not guess which, and do not delete anything.**
+  A path that appeared is not proof of who put it there.
+- **"cannot tell"** — no baseline, or one from another spec. It exits 0 and
+  claims nothing; say so in one line and carry on. An absence is not evidence.
 
 ## 5. Render the page — then offer the review, never write it
 
