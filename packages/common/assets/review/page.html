@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__REVIEW_TITLE__</title>
+<style>
+/*
+ * THE COMPLETE LIGHT PALETTE LIVES HERE, on bare :root — every token this page
+ * uses is declared in this block and nowhere else gains a first definition. The
+ * two blocks below only REDEFINE. A colour whose sole definition sits inside a
+ * media query or a [data-theme] block is the classic unreadable-in-one-theme
+ * bug, and a test asserts against it.
+ */
+:root {
+  --bg: #ffffff;
+  --fg: #1b1b1f;
+  --muted: #5c6070;
+  --line: #e1e3e8;
+  --panel: #f6f7f9;
+  --panel-2: #eceef2;
+  --accent: #0b5fd0;
+  --focus: #0b5fd0;
+  --add-bg: #e8fbee;
+  --add-fg: #04441c;
+  --add-mark: #1a7f37;
+  --del-bg: #fdecea;
+  --del-fg: #4c0a12;
+  --del-mark: #b8262f;
+  --band-bg: #f0f3f8;
+  --band-fg: #46506a;
+  --ln-fg: #9aa0ae;
+  --chip-bg: #eceef2;
+  --chip-fg: #46506a;
+  --ln-w: 4.5ch;
+}
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --bg: #121316;
+    --fg: #e4e6ea;
+    --muted: #969bab;
+    --line: #2a2c34;
+    --panel: #1a1c21;
+    --panel-2: #23262d;
+    --accent: #7fb0ff;
+    --focus: #7fb0ff;
+    --add-bg: #0e2a18;
+    --add-fg: #b7f0c4;
+    --add-mark: #4ac26b;
+    --del-bg: #2e1215;
+    --del-fg: #ffc9c4;
+    --del-mark: #f2685f;
+    --band-bg: #1e2128;
+    --band-fg: #a3aabd;
+    --ln-fg: #6b7183;
+    --chip-bg: #23262d;
+    --chip-fg: #a3aabd;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121316;
+  --fg: #e4e6ea;
+  --muted: #969bab;
+  --line: #2a2c34;
+  --panel: #1a1c21;
+  --panel-2: #23262d;
+  --accent: #7fb0ff;
+  --focus: #7fb0ff;
+  --add-bg: #0e2a18;
+  --add-fg: #b7f0c4;
+  --add-mark: #4ac26b;
+  --del-bg: #2e1215;
+  --del-fg: #ffc9c4;
+  --del-mark: #f2685f;
+  --band-bg: #1e2128;
+  --band-fg: #a3aabd;
+  --ln-fg: #6b7183;
+  --chip-bg: #23262d;
+  --chip-fg: #a3aabd;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  /* Explicit, from a token: a transparent body borrows the host's ground. */
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.wrap { max-width: 1400px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
+
+header { margin-bottom: 1rem; }
+h1 { font-size: 1.3rem; margin: 0 0 .3rem; overflow-wrap: anywhere; }
+.sub { color: var(--muted); font-size: .85rem; margin: 0; overflow-wrap: anywhere; }
+.sub .sep { opacity: .5; padding: 0 .35rem; }
+.a { color: var(--add-mark); }
+.d { color: var(--del-mark); }
+
+.controls { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .9rem 0 0; }
+
+button, .toggle {
+  font: inherit;
+  font-size: .8rem;
+  color: var(--chip-fg);
+  background: var(--chip-bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: .28rem .7rem;
+  cursor: pointer;
+}
+button:hover, .toggle:hover { border-color: var(--accent); color: var(--accent); }
+/* Every control gets a VISIBLE focus ring — keyboard review is review too. */
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+.toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.toggle { display: inline-flex; align-items: center; gap: .4rem; user-select: none; }
+.toggle input { accent-color: var(--accent); margin: 0; }
+
+.layout { display: grid; grid-template-columns: 1fr; gap: 1rem; align-items: start; }
+@media (min-width: 60rem) {
+  .layout { grid-template-columns: 17rem minmax(0, 1fr); }
+  .tree-wrap { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
+}
+/* min-width:0 is what stops a wide table forcing the PAGE to scroll sideways. */
+.main { min-width: 0; }
+
+.tree-wrap {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.tree-wrap > summary {
+  cursor: pointer;
+  padding: .55rem .75rem;
+  font-size: .85rem;
+  font-weight: 600;
+}
+.tree { padding: 0 .6rem .7rem; font-size: .82rem; }
+.tree ul { list-style: none; margin: 0; padding-left: .8rem; }
+.tree > ul { padding-left: 0; }
+.tree .dir { color: var(--muted); display: block; padding: .1rem 0; }
+.tree-file {
+  display: flex;
+  gap: .4rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  padding: .15rem .3rem;
+  color: inherit;
+  font-size: .82rem;
+}
+.tree-file:hover { background: var(--panel-2); color: inherit; }
+.tree-file .nm { overflow-wrap: anywhere; }
+.tree-file .ct { margin-left: auto; white-space: nowrap; font-family: ui-monospace, monospace; font-size: .75rem; }
+.tree-file.is-noise .nm { color: var(--muted); }
+
+.file {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 0 0 .9rem;
+  overflow: hidden;
+  background: var(--bg);
+}
+.file > summary {
+  cursor: pointer;
+  padding: .55rem .7rem;
+  background: var(--panel);
+  display: flex;
+  gap: .55rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.file[hidden] { display: none; }
+.path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; overflow-wrap: anywhere; }
+.chip {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--chip-fg);
+  background: var(--chip-bg);
+  border-radius: 999px;
+  padding: .1rem .45rem;
+}
+.counts { margin-left: auto; font-size: .78rem; font-family: ui-monospace, monospace; white-space: nowrap; }
+
+/* The ONLY horizontally scrolling box on the page. */
+.code { overflow-x: auto; border-top: 1px solid var(--line); }
+table.diff { border-collapse: collapse; width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; }
+table.diff td { padding: 0; vertical-align: top; }
+
+/* One sticky gutter cell rather than three: no left-offset arithmetic to get
+   wrong, and user-select:none means copying the code does not drag line
+   numbers along with it. */
+td.gutter {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  user-select: none;
+  white-space: pre;
+  color: var(--ln-fg);
+  padding: 0 .4rem;
+  text-align: right;
+}
+td.gutter .n { display: inline-block; min-width: var(--ln-w); }
+td.gutter .s { display: inline-block; min-width: 1.2ch; text-align: center; font-weight: 700; }
+td.src { white-space: pre; padding: 0 .75rem; }
+
+tr.add td.src { background: var(--add-bg); color: var(--add-fg); }
+tr.add td.gutter .s { color: var(--add-mark); }
+tr.del td.src { background: var(--del-bg); color: var(--del-fg); }
+tr.del td.gutter .s { color: var(--del-mark); }
+tr.meta td.src { color: var(--muted); font-style: italic; }
+
+tr.band td { background: var(--band-bg); color: var(--band-fg); }
+tr.band td.src { padding: .2rem .75rem; white-space: normal; }
+tr.band .n-hidden { margin-right: .6rem; }
+tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
+
+.note { color: var(--muted); padding: .6rem .75rem; font-size: .85rem; }
+.empty { color: var(--muted); }
+#review-block:empty { display: none; }
+.review {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: .8rem 1rem;
+  margin: 0 0 1rem;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1 id="title"></h1>
+  <p class="sub" id="sub"></p>
+  <div class="controls">
+    <button id="expand-all" type="button">Show all context</button>
+    <button id="collapse-all" type="button">Collapse context</button>
+    <label class="toggle"><input type="checkbox" id="show-noise"> <span id="noise-label">Show bookkeeping</span></label>
+    <button id="theme" type="button" aria-live="polite">Theme</button>
+  </div>
+</header>
+
+<div class="layout">
+  <details class="tree-wrap" id="tree-wrap" open>
+    <summary id="tree-summary">Files</summary>
+    <nav class="tree" id="tree"></nav>
+  </details>
+  <main class="main">
+    <div id="review-block">__REVIEW_BLOCK__</div>
+    <div id="files"></div>
+  </main>
+</div>
+</div>
+
+<script type="application/json" id="review-data">__REVIEW_DATA__</script>
+<script>
+(function () {
+  'use strict'
+
+  var data = JSON.parse(document.getElementById('review-data').textContent)
+
+  // Lines kept either side of a change, and how much one "expand" step reveals.
+  var CONTEXT = 4
+  var STEP = 20
+
+  // --- patch parsing -------------------------------------------------------
+  // Rows carry their own line numbers so the gutter needs no second pass. Hunk
+  // headers are emitted ONLY when there is more than one hunk: with whole-file
+  // context there is exactly one, and a "@@ -1,400 +1,402 @@" banner above a
+  // whole file says nothing a reader wants.
+  function parsePatch(patch) {
+    var raw = patch.split('\n')
+    var hunks = 0
+    var i
+    for (i = 0; i < raw.length; i++) if (raw[i].slice(0, 2) === '@@') hunks++
+
+    var rows = []
+    var oldNo = 0
+    var newNo = 0
+    var started = false
+    for (i = 0; i < raw.length; i++) {
+      var line = raw[i]
+      if (line.slice(0, 2) === '@@') {
+        var m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line)
+        if (m) { oldNo = +m[1]; newNo = +m[2] }
+        started = true
+        if (hunks > 1) rows.push({ t: 'hunk', text: line })
+        continue
+      }
+      if (!started) continue
+      var c = line.charAt(0)
+      if (c === '+') rows.push({ t: 'add', text: line.slice(1), n: newNo++ })
+      else if (c === '-') rows.push({ t: 'del', text: line.slice(1), o: oldNo++ })
+      else if (c === '\\') rows.push({ t: 'meta', text: line.slice(2) })
+      else rows.push({ t: 'ctx', text: line.slice(1), o: oldNo++, n: newNo++ })
+    }
+    return rows
+  }
+
+  // Which stretches of unchanged context start out hidden. A run touching the
+  // top or bottom of the file collapses all the way to the edge — there is no
+  // change on that side to need context for.
+  function initialBands(rows) {
+    var bands = []
+    var i = 0
+    while (i < rows.length) {
+      if (rows[i].t !== 'ctx') { i++; continue }
+      var j = i
+      while (j < rows.length && rows[j].t === 'ctx') j++
+      var atStart = i === 0
+      var atEnd = j === rows.length
+      var from = atStart ? i : i + CONTEXT
+      var to = atEnd ? j : j - CONTEXT
+      // A band hiding one or two lines is worse than just showing them.
+      if (to - from >= 3) bands.push({ from: from, to: to })
+      i = j
+    }
+    return bands
+  }
+
+  // --- per-file page state -------------------------------------------------
+  // Band state lives HERE, never in the emitted data: the page is a view of an
+  // immutable review, and expanding context is a property of this reading of it.
+  var state = data.files.map(function (f) {
+    var rows = parsePatch(f.patch)
+    return { file: f, rows: rows, bands: initialBands(rows), rendered: false, el: null }
+  })
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag)
+    if (cls) n.className = cls
+    if (text != null) n.textContent = text
+    return n
+  }
+
+  function gutter(row) {
+    var td = el('td', 'gutter')
+    var o = el('span', 'n', row.o == null ? '' : String(row.o))
+    var n = el('span', 'n', row.n == null ? '' : String(row.n))
+    var s = el('span', 's', row.t === 'add' ? '+' : row.t === 'del' ? '-' : ' ')
+    td.appendChild(o); td.appendChild(n); td.appendChild(s)
+    return td
+  }
+
+  function bandRow(st, band, idx) {
+    var tr = el('tr', 'band')
+    tr.appendChild(el('td', 'gutter', '⋯'))
+    var td = el('td', 'src')
+    var hidden = band.to - band.from
+    td.appendChild(el('span', 'n-hidden', hidden + ' unchanged line' + (hidden === 1 ? '' : 's')))
+    var step = el('button', null, '±' + STEP)
+    step.type = 'button'
+    step.setAttribute('aria-label', 'Expand ' + STEP + ' lines either side')
+    step.addEventListener('click', function () {
+      band.from += STEP
+      band.to -= STEP
+      if (band.to - band.from < 3) st.bands.splice(st.bands.indexOf(band), 1)
+      renderFile(st)
+    })
+    var all = el('button', null, 'Show all')
+    all.type = 'button'
+    all.addEventListener('click', function () {
+      st.bands.splice(st.bands.indexOf(band), 1)
+      renderFile(st)
+    })
+    td.appendChild(step)
+    td.appendChild(all)
+    tr.appendChild(td)
+    return tr
+  }
+
+  // Re-render the whole file on every expand. The alternative — pre-rendering
+  // thousands of hidden rows and unhiding them — is what makes a whole-file
+  // diff page take seconds to open.
+  function renderFile(st) {
+    var host = st.el
+    if (!host) return
+    host.textContent = ''
+    if (!st.rows.length) {
+      host.appendChild(el('p', 'note', st.file.binary ? 'Binary file — not shown.' : 'No textual change.'))
+      return
+    }
+    var box = el('div', 'code')
+    var table = el('table', 'diff')
+    var body = document.createElement('tbody')
+    var bands = st.bands.slice().sort(function (a, b) { return a.from - b.from })
+    var b = 0
+    var i = 0
+    while (i < st.rows.length) {
+      if (b < bands.length && i === bands[b].from) {
+        body.appendChild(bandRow(st, bands[b], b))
+        i = bands[b].to
+        b++
+        continue
+      }
+      var row = st.rows[i]
+      var tr = el('tr', row.t)
+      if (row.t === 'hunk') {
+        tr.className = 'band'
+        tr.appendChild(el('td', 'gutter', '⋯'))
+        tr.appendChild(el('td', 'src', row.text))
+      } else {
+        tr.appendChild(gutter(row))
+        tr.appendChild(el('td', 'src', row.text === '' ? ' ' : row.text))
+      }
+      body.appendChild(tr)
+      i++
+    }
+    table.appendChild(body)
+    box.appendChild(table)
+    host.appendChild(box)
+  }
+
+  // --- file list -----------------------------------------------------------
+  var filesHost = document.getElementById('files')
+
+  state.forEach(function (st) {
+    var f = st.file
+    var d = el('details', 'file')
+    d.id = 'f-' + encodeURIComponent(f.path)
+    var s = el('summary')
+    s.appendChild(el('span', 'path', f.path))
+    s.appendChild(el('span', 'chip', f.status))
+    if (!f.whole) s.appendChild(el('span', 'chip', 'partial context'))
+    if (f.noise) s.appendChild(el('span', 'chip', 'bookkeeping'))
+    var c = el('span', 'counts')
+    c.appendChild(el('span', 'a', '+' + f.additions))
+    c.appendChild(document.createTextNode(' '))
+    c.appendChild(el('span', 'd', '-' + f.deletions))
+    s.appendChild(c)
+    d.appendChild(s)
+    var host = el('div')
+    d.appendChild(host)
+    st.el = host
+
+    // Render on first open, so a review of 200 files costs one file's work.
+    d.addEventListener('toggle', function () {
+      if (d.open && !st.rendered) { st.rendered = true; renderFile(st) }
+    })
+    if (!f.noise) { d.open = true; st.rendered = true; renderFile(st) }
+    filesHost.appendChild(d)
+    st.details = d
+  })
+
+  if (!state.length) {
+    filesHost.appendChild(el('p', 'empty', 'Nothing to review — no changes found.'))
+  }
+
+  // --- noise filter --------------------------------------------------------
+  var noiseBox = document.getElementById('show-noise')
+  var noiseCount = state.filter(function (s) { return s.file.noise }).length
+  document.getElementById('noise-label').textContent = 'Show bookkeeping (' + noiseCount + ')'
+  if (!noiseCount) noiseBox.closest('.toggle').hidden = true
+
+  function applyNoise() {
+    state.forEach(function (st) {
+      if (st.file.noise) st.details.hidden = !noiseBox.checked
+    })
+  }
+  noiseBox.addEventListener('change', applyNoise)
+  applyNoise()
+
+  // --- file tree -----------------------------------------------------------
+  // Built from the paths, and it lists EVERY file including the ones the noise
+  // filter is hiding — a tree with an unreachable entry is worse than no tree.
+  function buildTree(files) {
+    var root = { dirs: {}, files: [] }
+    files.forEach(function (f) {
+      var parts = f.path.split('/')
+      var node = root
+      for (var i = 0; i < parts.length - 1; i++) {
+        if (!node.dirs[parts[i]]) node.dirs[parts[i]] = { dirs: {}, files: [] }
+        node = node.dirs[parts[i]]
+      }
+      node.files.push({ name: parts[parts.length - 1], file: f })
+    })
+    return root
+  }
+
+  function reveal(f) {
+    if (f.noise && !noiseBox.checked) { noiseBox.checked = true; applyNoise() }
+    var d = document.getElementById('f-' + encodeURIComponent(f.path))
+    if (!d) return
+    d.open = true
+    d.scrollIntoView({ block: 'start' })
+  }
+
+  function renderTree(node) {
+    var ul = el('ul')
+    Object.keys(node.dirs).sort().forEach(function (name) {
+      var li = el('li')
+      li.appendChild(el('span', 'dir', name + '/'))
+      li.appendChild(renderTree(node.dirs[name]))
+      ul.appendChild(li)
+    })
+    node.files.sort(function (a, b) { return a.name.localeCompare(b.name) }).forEach(function (entry) {
+      var li = el('li')
+      var b = el('button', 'tree-file' + (entry.file.noise ? ' is-noise' : ''))
+      b.type = 'button'
+      b.appendChild(el('span', 'nm', entry.name))
+      var ct = el('span', 'ct')
+      ct.appendChild(el('span', 'a', '+' + entry.file.additions))
+      ct.appendChild(document.createTextNode(' '))
+      ct.appendChild(el('span', 'd', '-' + entry.file.deletions))
+      b.appendChild(ct)
+      b.addEventListener('click', function () { reveal(entry.file) })
+      li.appendChild(b)
+      ul.appendChild(li)
+    })
+    return ul
+  }
+
+  var tree = document.getElementById('tree')
+  tree.appendChild(renderTree(buildTree(data.files)))
+  document.getElementById('tree-summary').textContent =
+    'Files (' + data.files.length + ')'
+  if (window.matchMedia && !window.matchMedia('(min-width: 60rem)').matches) {
+    document.getElementById('tree-wrap').open = false
+  }
+
+  // --- page-level controls -------------------------------------------------
+  document.getElementById('expand-all').addEventListener('click', function () {
+    state.forEach(function (st) {
+      st.bands = []
+      if (st.rendered) renderFile(st)
+    })
+  })
+  document.getElementById('collapse-all').addEventListener('click', function () {
+    state.forEach(function (st) {
+      st.bands = initialBands(st.rows)
+      if (st.rendered) renderFile(st)
+    })
+  })
+
+  // The [data-theme] blocks are unreachable in a local file without this — a
+  // browser only ever supplies prefers-color-scheme.
+  var themeBtn = document.getElementById('theme')
+  themeBtn.addEventListener('click', function () {
+    var root = document.documentElement
+    var now = root.getAttribute('data-theme')
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    var next = now === 'dark' ? 'light' : now === 'light' ? 'dark' : dark ? 'light' : 'dark'
+    root.setAttribute('data-theme', next)
+    themeBtn.textContent = next === 'dark' ? 'Theme: dark' : 'Theme: light'
+  })
+
+  // --- header --------------------------------------------------------------
+  document.getElementById('title').textContent = data.title
+  var t = data.totals
+  var sub = document.getElementById('sub')
+  function part(text, cls) { sub.appendChild(el('span', cls, text)) }
+  function sep() { sub.appendChild(el('span', 'sep', '·')) }
+  part(data.branch)
+  sep()
+  part(data.mode === 'branch' ? 'everything since ' + data.base : 'uncommitted work')
+  sep()
+  part(t.files + ' file' + (t.files === 1 ? '' : 's'))
+  sep()
+  part('+' + t.additions, 'a')
+  part(' ')
+  part('-' + t.deletions, 'd')
+  sep()
+  part(data.generatedAt)
+})()
+</script>
+</body>
+</html>

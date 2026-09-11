@@ -212,127 +212,25 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now }) {
 
 
 /**
- * The page template.
+ * The page template — a SHIPPED ASSET, not generated markup.
  *
- * It lives here as a constant for now; phase 2 moves it into
- * `packages/common/assets/review/` as a shipped asset and replaces the viewer
- * wholesale. The two placeholders are the seam that move depends on, so they are
- * already the real ones: the engine SPLICES data and prose into a template, it
- * never generates markup from the data.
+ * `assets/` is in every distribution's `files`, and the build copies non-`.md`
+ * assets across verbatim, so this resolves identically from the source package
+ * (`packages/common/src/env` → `packages/common/assets`) and from a built
+ * distribution (`src/env` → `<pkg>/assets`).
+ *
+ * The engine SPLICES into it and never authors markup: the model's prose arrives
+ * as JSON and the diff arrives as text, so neither has to survive a round-trip
+ * through generated HTML.
  */
+const TEMPLATE_PATH = path.join(__dirname, '..', '..', 'assets', 'review', 'page.html')
 const DATA_PLACEHOLDER = '__REVIEW_DATA__'
 const REVIEW_PLACEHOLDER = '__REVIEW_BLOCK__'
+const TITLE_PLACEHOLDER = '__REVIEW_TITLE__'
 
-const TEMPLATE = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>__REVIEW_TITLE__</title>
-<style>
-:root {
-  --bg: #ffffff; --fg: #1b1b1f; --muted: #5c5f6b; --line: #e3e4e8;
-  --panel: #f7f7f9; --add-bg: #e6ffec; --add-fg: #0a5722;
-  --del-bg: #ffebe9; --del-fg: #82071e; --meta: #6b6f7b;
+function loadTemplate() {
+  return fs.readFileSync(TEMPLATE_PATH, 'utf8')
 }
-:root:not([data-theme="light"]) {
-  @media (prefers-color-scheme: dark) {
-    --bg: #16171a; --fg: #e6e7ea; --muted: #9a9eab; --line: #2c2e35;
-    --panel: #1d1f24; --add-bg: #12261a; --add-fg: #7ee08a;
-    --del-bg: #2b1416; --del-fg: #ff9a92; --meta: #9a9eab;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #16171a; --fg: #e6e7ea; --muted: #9a9eab; --line: #2c2e35;
-  --panel: #1d1f24; --add-bg: #12261a; --add-fg: #7ee08a;
-  --del-bg: #2b1416; --del-fg: #ff9a92; --meta: #9a9eab;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--fg);
-  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
-h1 { font-size: 1.35rem; margin: 0 0 .25rem; }
-.meta { color: var(--meta); font-size: .85rem; margin: 0 0 1.25rem; }
-.file { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 1rem; overflow: hidden; }
-.file > summary {
-  cursor: pointer; padding: .6rem .75rem; background: var(--panel);
-  display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap;
-}
-.file > summary:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
-.path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; word-break: break-all; }
-.tag { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.counts { margin-left: auto; font-size: .8rem; font-family: ui-monospace, monospace; }
-.counts .a { color: var(--add-fg); }
-.counts .d { color: var(--del-fg); }
-.patch { overflow-x: auto; }
-.patch pre { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; }
-.patch .l { display: block; padding: 0 .75rem; white-space: pre; }
-.patch .add { background: var(--add-bg); color: var(--add-fg); }
-.patch .del { background: var(--del-bg); color: var(--del-fg); }
-.patch .hunk { color: var(--muted); }
-.empty { color: var(--muted); }
-</style>
-</head>
-<body>
-<main>
-<h1 id="title"></h1>
-<p class="meta" id="meta"></p>
-__REVIEW_BLOCK__
-<div id="files"></div>
-</main>
-<script type="application/json" id="review-data">__REVIEW_DATA__</script>
-<script>
-(function () {
-  var data = JSON.parse(document.getElementById('review-data').textContent)
-  document.getElementById('title').textContent = data.title
-  var t = data.totals
-  document.getElementById('meta').textContent =
-    data.branch + ' · ' + (data.mode === 'branch' ? 'since ' + data.base : 'uncommitted') +
-    ' · ' + t.files + ' file' + (t.files === 1 ? '' : 's') +
-    ' +' + t.additions + ' -' + t.deletions + ' · ' + data.generatedAt
-  var host = document.getElementById('files')
-  if (!data.files.length) {
-    host.innerHTML = '<p class="empty">Nothing to review — no changes found.</p>'
-    return
-  }
-  data.files.forEach(function (f) {
-    var d = document.createElement('details')
-    d.className = 'file'
-    if (!f.noise) d.open = true
-    var s = document.createElement('summary')
-    var p = document.createElement('span')
-    p.className = 'path'
-    p.textContent = f.path
-    var tag = document.createElement('span')
-    tag.className = 'tag'
-    tag.textContent = f.status + (f.whole ? '' : ' · truncated context') + (f.noise ? ' · noise' : '')
-    var c = document.createElement('span')
-    c.className = 'counts'
-    c.innerHTML = '<span class="a">+' + f.additions + '</span> <span class="d">-' + f.deletions + '</span>'
-    s.appendChild(p); s.appendChild(tag); s.appendChild(c)
-    d.appendChild(s)
-    var wrap = document.createElement('div')
-    wrap.className = 'patch'
-    var pre = document.createElement('pre')
-    f.patch.split('\\n').forEach(function (line) {
-      var span = document.createElement('span')
-      span.className = 'l' + (line[0] === '+' && line.slice(0, 3) !== '+++' ? ' add'
-        : line[0] === '-' && line.slice(0, 3) !== '---' ? ' del'
-        : line.slice(0, 2) === '@@' ? ' hunk' : '')
-      span.textContent = line
-      pre.appendChild(span)
-    })
-    wrap.appendChild(pre)
-    d.appendChild(wrap)
-    host.appendChild(d)
-  })
-})()
-</script>
-</body>
-</html>
-`
 
 // Escape the one sequence that could end the data island early. A patch
 // containing `</script>` is not hypothetical — this feature reviews its own
@@ -350,9 +248,9 @@ function escapeHtml(s) {
  * The data goes in as JSON, never as generated markup — that is the property the
  * whole design rests on.
  */
-function renderReviewPage(data, { template = TEMPLATE, reviewHtml = '' } = {}) {
-  return template
-    .split('__REVIEW_TITLE__')
+function renderReviewPage(data, { template = null, reviewHtml = '' } = {}) {
+  return (template || loadTemplate())
+    .split(TITLE_PLACEHOLDER)
     .join(escapeHtml(data.title))
     .split(REVIEW_PLACEHOLDER)
     .join(reviewHtml)
@@ -388,7 +286,9 @@ module.exports = {
   reviewOutPath,
   writeReviewPage,
   escapeIsland,
+  loadTemplate,
+  TEMPLATE_PATH,
   DATA_PLACEHOLDER,
   REVIEW_PLACEHOLDER,
-  TEMPLATE,
+  TITLE_PLACEHOLDER,
 }

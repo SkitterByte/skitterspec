@@ -134,7 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Collect a worktree's diff, and emit a page | ✅ | [01-collect-and-emit.md](01-collect-and-emit.md) |
-| 2 | The viewer — context bands, file tree, both themes | ⬜ | [02-viewer.md](02-viewer.md) |
+| 2 | The viewer — context bands, file tree, both themes | ✅ | [02-viewer.md](02-viewer.md) |
 | 3 | `/spec-diff` — the written review, and publishing | ⬜ | [03-spec-diff-skill.md](03-spec-diff-skill.md) |
 | 4 | Wire it into the loop, and document it | ⬜ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
 | 5 | Strip the tab machinery from `/spec-start` | ⬜ | [05-strip-the-tab-machinery.md](05-strip-the-tab-machinery.md) |
@@ -151,6 +151,29 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 2 built. Four notes. **(a)** "Register it with the install
+  manifest" does not apply: that manifest governs files installed *into a
+  consumer repo* (`.claude/`, `specs/.core/`), and the template is a runtime
+  asset the engine reads from its own package. Shipping it correctly means
+  `assets/` being in each distribution's `files` (it already is) and the build
+  copying non-`.md` assets verbatim (it already does) — so the guard is a test
+  asserting every distribution carries an intact copy, not a manifest entry.
+  **(b)** No Google Fonts link, though the phase allowed one. Decision 7 says the
+  page works offline, and a font request is the one thing that would have
+  contradicted it; the page now loads nothing at all from the network, and a test
+  pins that. **(c)** The gutter is ONE sticky cell holding both line numbers and
+  the +/− sign, rather than three sticky cells. It removes the left-offset
+  arithmetic entirely, and `user-select: none` on it means copying a diff does
+  not drag line numbers along. **(d)** Files render lazily on first open, so a
+  review of 200 files costs one file's work rather than all of them.
+- 2026-09-11 — The viewer is tested by RUNNING it, against an ~80-line DOM shim
+  written into `assets-review.test.js`. Text assertions alone would have left the
+  band, tree and filter logic — the substance of the phase — entirely uncovered,
+  and adding a DOM library would have been a bigger change to a repo with two
+  devDependencies than the page it tests. The shim stubs only what the page
+  touches, so anything new the page reaches for fails loudly rather than passing
+  against a silent stub.
 
 - 2026-09-11 — Phase 1 built. Five notes, none of them changing the design:
   **(a)** the spec said to reuse `resolveSpecWithWorktree` "from resolve.js" — it
