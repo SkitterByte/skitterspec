@@ -104,7 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Bare `/spec-live` takes when it can tell | ⬜ | [01-bare-live.md](01-bare-live.md) |
+| 1 | Bare `/spec-live` takes when it can tell | ✅ | [01-bare-live.md](01-bare-live.md) |
 | 2 | Bare `/spec-connect` connects | ⬜ | [02-bare-connect.md](02-bare-connect.md) |
 | 3 | Documentation, and the superseded decision | ⬜ | [03-docs-and-supersede.md](03-docs-and-supersede.md) |
 
@@ -120,6 +120,19 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 1 built. One structural decision the spec did not call:
+  telling "several worktrees" from "no worktrees" required distinguishing two
+  states that `soleProvisionedSpec` only expressed as Error messages, and
+  pattern-matching those would have promoted prose nobody thought was
+  load-bearing into API. It is now `provisionedSpecChoice`, returning
+  `{ folder }` / `{ candidates }` / `{}` as data, with `soleProvisionedSpec` a
+  thin wrapper that throws the same two errors — so every other subcommand's
+  behaviour and messages are unchanged, and the zero-arg suite proves it.
+- 2026-09-11 — The old stays-silent guard asserting a bare `live` is read-only
+  was **inverted, not deleted**, and carries a comment naming this spec. Its
+  other half — that the alias arm does not swallow the explicit verb forms — is
+  untouched and still the reason the test exists.
 
 - 2026-09-11 — Spec created. Raised from the observation that taking the current
   spec needed the word `take`; grilling widened it, because `connect` turned out

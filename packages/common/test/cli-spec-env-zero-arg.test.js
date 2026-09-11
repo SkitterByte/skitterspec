@@ -278,6 +278,11 @@ test('stays silent: `connect` with no spec still means main (disconnect)', async
   }
 })
 
+// `live status` keeps its zero-arg meaning, and that is NOT an oversight now
+// that its sibling above has inverted. A missing spec after an explicit verb is
+// a different question from a missing verb: `live status` was asked for a
+// report, and the repo-wide one is the answer. `feat-bare-argument-parity`
+// changed only the bare form.
 test('stays silent: `live status` with no spec still reports on the whole repo', async () => {
   const dir = scaffold()
   try {

@@ -873,7 +873,19 @@ function liveWorktreePaths(dir) {
  * git keeps listing it as prunable. That over-reports rather than under-reports,
  * so the failure is an ambiguity error, never a wrong spec.
  */
-function soleProvisionedSpec(dir, config, cwd = process.cwd()) {
+/**
+ * The same resolution as `soleProvisionedSpec`, returned as DATA rather than
+ * thrown: `{ folder }` when exactly one answer, `{ candidates }` when several,
+ * `{}` when none has a worktree.
+ *
+ * It exists because `liveGrammar` has to tell "several worktrees" from "no
+ * worktrees" and act differently on each, and the only other way to do that is
+ * to pattern-match the wording of an Error — which makes a message nobody
+ * thought was load-bearing into API. One implementation, two presentations:
+ * `soleProvisionedSpec` below is a thin wrapper that turns the two empty-handed
+ * cases into the exact errors every other subcommand already relies on.
+ */
+function provisionedSpecChoice(dir, config, cwd = process.cwd()) {
   const worktreePaths = liveWorktreePaths(dir)
   const provisioned = allSpecs(dir, config, worktreePaths)
     .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath) }))
@@ -893,20 +905,26 @@ function soleProvisionedSpec(dir, config, cwd = process.cwd()) {
   const inside = provisioned
     .filter((s) => here === s.wt || here.startsWith(s.wt + path.sep))
     .sort((a, b) => b.wt.length - a.wt.length)[0]
-  if (inside) return inside.folder
+  if (inside) return { folder: inside.folder }
 
   // 2. Otherwise only an unambiguous set answers.
-  if (provisioned.length === 1) return provisioned[0].folder
-  if (provisioned.length === 0) {
+  if (provisioned.length === 1) return { folder: provisioned[0].folder }
+  return { candidates: provisioned.map((s) => s.folder) }
+}
+
+function soleProvisionedSpec(dir, config, cwd = process.cwd()) {
+  const { folder, candidates } = provisionedSpecChoice(dir, config, cwd)
+  if (folder) return folder
+  if (!candidates.length) {
     throw new Error(
       'no spec given, and no spec has a worktree — name one explicitly, or run ' +
         '/spec-start to provision it.',
     )
   }
   throw new Error(
-    `no spec given, and ${provisioned.length} specs have worktrees — name the one ` +
+    `no spec given, and ${candidates.length} specs have worktrees — name the one ` +
       `you mean, or run this from inside one:\n` +
-      provisioned.map((s, i) => `  ${i + 1}. ${s.folder}`).join('\n'),
+      candidates.map((f, i) => `  ${i + 1}. ${f}`).join('\n'),
   )
 }
 
@@ -1627,9 +1645,13 @@ async function specEnvLive(dir, config, positional) {
     )
     return
   }
-  const { action, specArg } = liveGrammar(dir, config, positional)
+  const { action, specArg, note } = liveGrammar(dir, config, positional)
   switch (action) {
     case 'status':
+      // Only the bare form sets a note, and only for the one ambiguity the
+      // report cannot describe. It prints ABOVE the report, not instead of it:
+      // you asked a question and should still get the answer.
+      if (note) process.stdout.write(note)
       specEnvLiveStatus(dir, config, specArg)
       break
     case 'take':
@@ -1666,12 +1688,58 @@ const LIVE_VERBS = new Set(['status', 'take', 'release', 'abort'])
 // matching `connect main`, so the muscle memory works in either repo.
 function liveGrammar(dir, config, positional) {
   const [first, second] = positional
-  if (!first) return { action: 'status', specArg: undefined }
+  if (!first) return bareLive(dir, config)
   if (LIVE_VERBS.has(first)) return { action: first, specArg: second }
   if (first === 'main' || first === resolveBaseBranch(config, gitReader(dir))) {
     return { action: 'release', specArg: undefined }
   }
   return { action: 'take', specArg: first }
+}
+
+/**
+ * `/spec-live` with nothing after it: take the spec you are on, when there is
+ * exactly one answer and the workbench is free — otherwise print the status
+ * report.
+ *
+ * TWO POSITIVE SIGNALS, both required, and neither is an absence: a spec must
+ * RESOLVE (not "no error"), and the primary checkout must be demonstrably on
+ * base with no receipt (not "no evidence it is busy"). Every other state —
+ * several worktrees, none, a spec already live, a hand-switched branch — is
+ * *cannot tell*, and cannot-tell prints the report. That is the whole safety
+ * argument for letting a bare command switch a branch at all: the one case it
+ * acts on is the case with a single possible meaning.
+ *
+ * It decides WHICH VERB, never whether the verb is allowed. `specEnvLiveTake`
+ * keeps every refusal it already had — dirty tree, hotfix, stateful spec,
+ * migrations, a held instance — through `planTake`. Re-checking any of them here
+ * would be a second copy free to drift from the first.
+ */
+function bareLive(dir, config) {
+  const choice = provisionedSpecChoice(dir, config)
+  if (!choice.folder) {
+    // Several worktrees is the only cannot-tell the status report does not
+    // explain — it reports on the repo, not on what you might have meant. With
+    // none provisioned the report's own `in-flight:` line already says it.
+    const note = choice.candidates.length
+      ? `spec-env live: ${choice.candidates.length} specs have worktrees — name the one you mean:\n` +
+        choice.candidates.map((f, i) => `  ${i + 1}. ${f}`).join('\n') +
+        '\n'
+      : undefined
+    return { action: 'status', specArg: undefined, note }
+  }
+
+  // The workbench must be FREE, not merely un-refused. When it is not, the
+  // report names the branch, the in-flight spec and the receipt — so it already
+  // says why nothing was taken, and a note here would only repeat it.
+  const primary = assertPrimaryOnMain(config, gitReader(dir))
+  const receipt = readReceipt(dir, config)
+  if (!primary.onBase || (receipt && receipt.spec)) {
+    return { action: 'status', specArg: undefined }
+  }
+
+  // Resolved here rather than passed as `undefined`, so the verb acts on the
+  // spec this function actually decided about.
+  return { action: 'take', specArg: choice.folder }
 }
 
 // Take the running instance: rebase the spec's branch onto base, free it from its

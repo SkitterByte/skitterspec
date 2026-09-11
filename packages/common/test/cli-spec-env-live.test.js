@@ -264,21 +264,124 @@ test('live main means release', async () => {
   }
 })
 
-// STAYS-SILENT: the alias arm must not swallow the verbs it sits beside. A bare
-// `live` is still a read-only status report — the form most people type first,
-// and the one where guessing `take` would branch-switch the repo under them.
+// STAYS-SILENT: the alias arm must not swallow the verbs it sits beside.
+//
+// This test used to assert the opposite of its first case — that a bare `live`
+// is a read-only status report. `feat-bare-argument-parity` changed that
+// deliberately: every other spec-env verb reads a missing spec as "the one you
+// are standing on", and `live` was one of two exceptions. The verb forms below
+// are untouched by that, and this is what proves it.
 test('the alias arm leaves the verb forms alone', async () => {
   const { dir } = scaffoldRepoWithSpecWorktree()
   try {
-    const bare = await runQuiet(['spec-env', 'live', '--dir', dir])
-    assert.match(bare, /primary:\s+main\s+\(on base — free\)/)
-    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
-
     const explicit = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
     assert.match(explicit, /feat-x is live on the primary checkout/)
 
     const query = await runQuiet(['spec-env', 'live', 'status', 'feat-x', '--dir', dir])
     assert.match(query, /live:\s+yes — feat-x holds the primary checkout/)
+
+    // And the explicit report still reports rather than acting.
+    const report = await runQuiet(['spec-env', 'live', 'status', '--dir', dir])
+    assert.match(report, /receipt:/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// --- the bare form -----------------------------------------------------------
+//
+// One rule: take when there is exactly one answer AND the workbench is free;
+// print the report otherwise. The four tests after the first are the
+// cannot-tell cases, and every one of them must produce the REPORT — not a
+// refusal, and above all not a branch switch.
+
+test('bare live takes the sole provisioned spec', async () => {
+  const { dir, worktree } = scaffoldRepoWithSpecWorktree()
+  try {
+    const out = await runQuiet(['spec-env', 'live', '--dir', dir])
+    assert.match(out, /feat-x is live on the primary checkout/)
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
+    assert.strictEqual(git(worktree, 'rev-parse', '--abbrev-ref', 'HEAD'), 'HEAD')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('bare live takes the spec whose worktree you are standing in', async () => {
+  const { dir, worktree } = scaffoldRepoWithSpecWorktree()
+  const cwd = process.cwd()
+  try {
+    // `--dir` still anchors on the primary checkout; cwd is what names the spec.
+    process.chdir(worktree)
+    const out = await runQuiet(['spec-env', 'live', '--dir', dir])
+    assert.match(out, /feat-x is live on the primary checkout/)
+  } finally {
+    process.chdir(cwd)
+    cleanup(dir)
+  }
+})
+
+test('stays silent: several worktrees fall back to the report, and name them', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    // A second provisioned spec makes the bare form ambiguous.
+    const specDir = path.join(dir, 'specs', 'in-progress', 'feat-y')
+    fs.mkdirSync(specDir, { recursive: true })
+    fs.writeFileSync(path.join(specDir, '00-overview.md'), '# Y\n\n> **Stack:** worktree\n')
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-q', '-m', 'second spec')
+    git(dir, 'worktree', 'add', '-q', '-b', 'feat/y', path.resolve(dir, `../${path.basename(dir)}-wt`, 'y'))
+
+    const out = await runQuiet(['spec-env', 'live', '--dir', dir])
+    // The ambiguity is the one cannot-tell the report cannot describe, so it is
+    // named ABOVE the report — and the report still prints.
+    assert.match(out, /2 specs have worktrees/)
+    assert.match(out, /feat-x/)
+    assert.match(out, /feat-y/)
+    assert.match(out, /primary:\s+main/, 'the report still ran')
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main', 'nothing was taken')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: no provisioned spec falls back to the report, quietly', async () => {
+  const dir = scaffoldRepo()
+  try {
+    const out = await runQuiet(['spec-env', 'live', '--dir', dir])
+    assert.match(out, /in-flight:\s+none — the workbench is free/)
+    // No extra line: the report's own in-flight row already says this.
+    assert.doesNotMatch(out, /specs have worktrees/)
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: a spec already holding the instance falls back to the report', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    // Now the workbench is busy — and busy with THIS spec. The honest answer to
+    // a bare command is the report that says so, not a refusal to take.
+    const out = await runQuiet(['spec-env', 'live', '--dir', dir])
+    assert.match(out, /in-flight:\s+feat-x/)
+    assert.doesNotMatch(out, /blocked/)
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x', 'unchanged')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: a hand-switched primary checkout falls back to the report', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    // Off base with NO receipt — the state `spec-env live status` calls
+    // "unknown". Taking from here would move work nobody recorded.
+    git(dir, 'checkout', '-q', '-b', 'scratch')
+    const out = await runQuiet(['spec-env', 'live', '--dir', dir])
+    assert.match(out, /in-flight:\s+unknown/)
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'scratch', 'unchanged')
   } finally {
     cleanup(dir)
   }
