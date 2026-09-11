@@ -141,7 +141,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-start` pushes the state change it makes | ⬜ | [01-spec-start-pushes.md](01-spec-start-pushes.md) |
+| 1 | `/spec-start` pushes the state change it makes | ✅ | [01-spec-start-pushes.md](01-spec-start-pushes.md) |
 | 2 | Engine: primary-checkout baseline + assertion | ⬜ | [02-primary-checkout-guard.md](02-primary-checkout-guard.md) |
 | 3 | `/spec-next` accepts an explicit worktree root | ⬜ | [03-spec-next-worktree-flag.md](03-spec-next-worktree-flag.md) |
 | 4 | `/spec-start` offers to continue into phase 1 | ⬜ | [04-spec-start-offers-phase-one.md](04-spec-start-offers-phase-one.md) |
@@ -163,3 +163,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-11 — Spec created.
+- 2026-09-11 — Phase 1: the push is placed **before** step 4's commit, not
+  after. The phase task had it backwards. `spec-tracker-sync` already records
+  why — the push stamps ids and writes a snapshot under `specs/.core/`, and the
+  `git add` that follows is what sweeps them up; push after it and those files
+  are left uncommitted, which makes `spec-env integrate` refuse to land the
+  branch. In worktree mode it would also hand the operator a dirty worktree.
+- 2026-09-11 — Phase 1: the push got its own fragment, `spec-tracker-start`,
+  rather than reusing `spec-tracker-sync`. Sync argues there is no unassign step
+  because the bucket entered releases the issue; the bucket entered here takes
+  the assignment, so reuse would have composed backwards prose into the skill.
+- 2026-09-11 — Phase 1: the commit bullet in the shared skill no longer narrates
+  the refresh's ordering. That reason lives in the fragment (as sync's does), so
+  the tracker-free distribution is not left describing a step that composes to
+  nothing.

@@ -295,6 +295,55 @@ test('the sync fragment points at the cheap transport rather than assuming it', 
   assert.match(text, /apply\.transport|API key/, 'says why an automatic push is affordable')
 })
 
+// --- the spec-start fragment --------------------------------------------------
+
+// /spec-start was for a long time the one lifecycle skill that changed state
+// without mirroring it, on the reasoning that /spec-next's refresh would follow.
+// This fragment is what closes that, so the rules that make it safe to run
+// unprompted have to be stated in it — an agent reading only this text must not
+// have to infer them.
+test('the start fragment states the rules that make it safe unprompted', () => {
+  const text = seamText('spec-tracker-start')
+  assert.match(text, /without asking/, 'it pushes rather than offering')
+  assert.match(text, /linear_identifier/, 'gated on the spec being linked')
+  assert.match(text, /Never mint/, 'an unlinked spec is skipped, not created')
+  assert.match(text, /Never fatal/, 'a failed push does not block provisioning')
+  assert.match(text, /finish the operation anyway/i, 'and says so explicitly')
+})
+
+test('the start fragment explains why its position matters', () => {
+  // The placement is asserted in packages/common; this asserts the REASON travels
+  // with the fragment, so anyone moving a marker meets the constraint first.
+  const text = seamText('spec-tracker-start')
+  assert.match(text, /after the `git mv` and before the commit/i)
+  assert.match(text, /folder bucket/, 'why after the move')
+  assert.match(text, /integrate/, 'why before the commit')
+})
+
+test('the start fragment points at the cheap transport rather than assuming it', () => {
+  const text = seamText('spec-tracker-start')
+  assert.match(text, /apply\.transport|API key/, 'says why an automatic push is affordable')
+})
+
+// The superseded reasoning is recorded, not silently dropped: it was correct for
+// `checkout` mode, and someone who only ever runs that mode will otherwise read
+// this push as a duplicate and delete it again.
+test('the start fragment says why it is not the refresh /spec-next runs', () => {
+  const text = seamText('spec-tracker-start')
+  assert.match(text, /checkout/, 'names the mode the old reasoning held in')
+  assert.match(text, /worktree/, 'and the mode it fails in')
+  assert.match(text, /assign/i, 'this push carries the assignee')
+})
+
+// STAYS SILENT: this fragment must NOT inherit sync's unassign passage. That
+// prose argues the bucket a spec enters RELEASES the issue, which is true of
+// complete/cancelled and exactly backwards for in-progress. Copying sync as a
+// starting point and forgetting to cut it is the likely way this regresses.
+test('the start fragment does not carry the unassign reasoning', () => {
+  const text = seamText('spec-tracker-start')
+  assert.doesNotMatch(text, /no unassign step/i, 'that belongs to complete/cancel, not start')
+})
+
 // --- intake, now shared by three skills --------------------------------------
 
 // One fragment for /spec, /spec-bug and /spec-hotfix — forking a hotfix copy

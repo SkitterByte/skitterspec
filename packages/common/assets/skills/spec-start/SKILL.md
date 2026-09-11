@@ -140,10 +140,12 @@ branch is already here.
 <!-- seam:spec-tracker-assign -->
 
 - Append a **State log** row: `| <YYYY-MM-DD> | In Progress | in-progress | <git user.name> |`.
+
+<!-- seam:spec-tracker-start -->
+
 - **Commit it, and push the branch.** One commit, the spec's own — it records the
-  in-progress state for everyone and fires the tracker's automation. Do this
-  *before* the tracker refresh below, so the snapshot that refresh writes is
-  swept up by the phase's own commit rather than left dirty.
+  in-progress state for everyone and fires the tracker's automation. Everything
+  above is swept up by it, so the worktree is clean when you hand it over.
 
 A spec ideally arrives `Ready` from `/spec`; a `Draft` works too — sanity-check
 it is well-formed first.
@@ -200,20 +202,25 @@ There is no `--here`. It existed to ask for the branch in the checkout you are
 standing in — and in `checkout` mode that is already what happens, while in
 `worktree` mode `--no-worktree` is the way to say it.
 
-## Why this skill links nothing, but does record an owner
+## Why this skill links nothing, but does mirror what it changes
 
 This skill creates no spec and mints no issue, so it has **nothing to link** —
 the intake and picker steps belong to `/spec`, `/spec-bug` and `/spec-hotfix`.
-Nor does it push: the state change it makes (the spec moving to `in-progress`)
-is mirrored by the refresh `/spec-next` runs the moment it starts, which sends
-the issue state and the phase states together. A push here would send the same
-thing twice, one commit apart.
 
-The **assignment** seam in step 4 is the exception, and it is not a push. This is
-the one moment in the lifecycle where "who is building this" is actually decided
-— the branch is being provisioned for someone, and that someone is at the
-keyboard. It stamps the spec file and stops there, so it costs no tracker call and
-rides out on the refresh like every other field. Deferring it to `/spec-next`
-would be worse than untidy: in `worktree` mode the two can be separated by hours,
-and a spec in flight with nobody named on it is exactly the gap assignment exists
-to close.
+It does push, though, and that is step 4's seam. The state change it makes — the
+spec moving to `in-progress` with a developer stamped on it — is mirrored by the
+skill that makes it, exactly as `/spec-complete`, `/spec-cancel` and
+`/spec-review` mirror theirs. It was once reasoned that the refresh `/spec-next`
+runs would cover it, so a push here would send the same thing twice one commit
+apart. That only ever held in `checkout` mode, where `/spec-next` follows
+immediately; in `worktree` mode it can be hours away or never come, and the
+issue sits in its old state with nobody assigned meanwhile.
+
+The **assignment** seam just above it is still not a push, and does not need to
+be. This is the one moment in the lifecycle where "who is building this" is
+actually decided — the branch is being provisioned for someone, and that someone
+is at the keyboard. It stamps the spec file and stops there, so it costs no
+tracker call and rides out on the push below like every other field. Deferring
+the stamp to `/spec-next` would be worse than untidy: in `worktree` mode the two
+can be separated by hours, and a spec in flight with nobody named on it is
+exactly the gap assignment exists to close.

@@ -674,21 +674,50 @@ test('/spec-start has no --here, because it is here', () => {
   assert.match(text, /There is no `--here`/, 'says so explicitly for anyone migrating')
 })
 
-test('/spec-start carries no PUSHING tracker seam, and says why', () => {
-  // It creates no spec and mints no issue, and /spec-next's refresh covers the
-  // one state change it makes — so none of the link/sync/progress seams belong
-  // here, and an unexplained absence would read as an oversight.
+test('/spec-start mirrors its own state change, via its own seam and no other', () => {
+  // It creates no spec and mints no issue, so link/intake do not belong. sync and
+  // progress are the WRONG pushing fragments rather than merely redundant ones:
+  // sync argues at length that there is no unassign step, because the bucket a
+  // spec moves into is what releases the issue — and the bucket entered here is
+  // the one that TAKES the assignment. Injecting it would ship backwards prose.
   //
-  // `spec-tracker-assign` is the deliberate exception and is asserted separately:
-  // it stamps the spec FILE and pushes nothing, so it does not duplicate that
-  // refresh. This check names the seams it excludes rather than banning the
+  // `spec-tracker-assign` stays the non-pushing seam beside it, asserted
+  // separately. This check names the seams it excludes rather than banning the
   // marker outright, which is what let the old version of it fail the moment a
   // non-pushing seam arrived.
   const text = skillText('spec-start')
   for (const seam of ['spec-tracker-link', 'spec-tracker-sync', 'spec-tracker-progress', 'spec-tracker-intake']) {
     assert.doesNotMatch(text, new RegExp(`<!-- seam:${seam} -->`), `${seam} does not belong here`)
   }
-  assert.match(text, /Why this skill links nothing/, 'the absence is documented')
+  assert.match(text, /<!-- seam:spec-tracker-start -->/, 'it mirrors the state change it makes')
+  assert.match(text, /Why this skill links nothing/, 'and the reasoning is documented')
+})
+
+// The start seam's position is load-bearing for the same two reasons the sync
+// seam's is, plus one of its own: /spec-start's commit is the LAST thing that
+// runs in worktree mode, so a push after it strands the snapshot uncommitted in
+// a worktree the operator is about to be handed.
+test('/spec-start syncs the tracker after the move and before the commit', () => {
+  const text = skillText('spec-start')
+  const seam = text.indexOf('<!-- seam:spec-tracker-start -->')
+  const move = text.indexOf('git mv "specs/backlog/<name>"')
+  const commit = text.indexOf('**Commit it, and push the branch.**')
+
+  assert.ok(seam !== -1, 'the seam is present')
+  assert.ok(move !== -1 && commit !== -1, 'the move and commit steps are recognisable')
+  assert.ok(move < seam, 'the push must see the spec in its new bucket')
+  assert.ok(seam < commit, 'the commit must sweep up what the push writes')
+})
+
+// STAYS SILENT: the tracker-free distribution must not be left narrating a
+// refresh that composes to nothing. The commit bullet carries the ordering
+// REASON in neither build — that lives in the fragment, where the sync seam
+// already keeps its own.
+test('the commit step does not narrate a tracker refresh the base build lacks', () => {
+  const text = skillText('spec-start')
+  const bullet = text.slice(text.indexOf('**Commit it, and push the branch.**'))
+  const para = bullet.slice(0, bullet.indexOf('\n\n'))
+  assert.doesNotMatch(para, /refresh/i, 'the ordering reason belongs to the fragment')
 })
 
 // --- what became of the opener, and of the mode branch -----------------------
@@ -822,13 +851,17 @@ test('the test-first skills assign only after the issue exists', () => {
   }
 })
 
-test('/spec-start explains the seam it used to say it had no business having', () => {
-  // The old section flatly said there was no tracker seam here. Assert the
-  // REPLACEMENT, not merely the absence — a deleted heading would pass anything.
+test('/spec-start explains the seams it carries, the pushing one and the not', () => {
+  // This section has now been wrong twice: it first said there was no tracker
+  // seam here at all, then that the one seam it had never pushed. Assert the
+  // REPLACEMENT, not merely the absence — a deleted heading would pass anything,
+  // and both stale claims are worth naming so neither comes back.
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
-  assert.doesNotMatch(flat, /Why there is no tracker seam here/i, 'the stale claim is gone')
+  assert.doesNotMatch(flat, /Why there is no tracker seam here/i, 'the oldest claim is gone')
+  assert.doesNotMatch(flat, /Nor does it push/i, 'and so is the no-push claim')
   assert.match(flat, /nothing to link/i, 'the still-true half survives')
-  assert.match(flat, /is not a push/i, 'and says why an assignment seam is different')
+  assert.match(flat, /It does push/i, 'it mirrors the state change it makes')
+  assert.match(flat, /not a push/i, 'and says why the assignment seam is still different')
 })
 
 test('/spec-start stays provider-neutral despite carrying the assign seam', () => {
