@@ -93,6 +93,23 @@ stateful ones (`Stack: worktree + docker`, or a branch touching migrations) — 
 `/spec-connect` + a Docker stack for those, and for genuinely parallel testing.
 Beneath it, `skitterspec spec-env live <take|release|abort|status>` is the engine.
 
+**Reading a spec's diff (`/spec-diff`) — seeing the work, not running it.**
+`/spec-connect` and `/spec-live` both exist to reach a *running app*.
+**`/spec-diff`** answers the other question: what did this actually change? A
+phase is built in its own worktree, so `git diff` in your terminal answers about
+the base branch — and a 350-line diff read as terminal text is scrolling, not
+review. The engine collects the worktree's changes with `git -C` and writes a
+self-contained HTML page (`.spec-env/reviews/<spec>.html`, gitignored) with
+whole-file context that folds away, a file tree, and new files included. You open
+it locally, or publish it and read it on a phone.
+**The diff never passes through the model**, so the page is free to produce
+however large it is; the *written*
+review — a short read plus `flag`/`confirm`/`good` notes — is the part that costs
+tokens, and it is offered rather than assumed. It is a **skill**, model-invocable,
+and it is gated on nothing: half a phase, a hand edit and a colleague's branch are
+all ordinary inputs. `/spec-next` renders the page at the end of a phase and
+offers the review; `skitterspec spec-env review <spec> [--branch]` is the engine.
+
 **Ticketing-provider sync (opt-in, a separate package).** The base is
 tracker-free: it knows nothing about any specific ticketing system. A
 ticketing provider is installed as its own distribution that plugs into named

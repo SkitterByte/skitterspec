@@ -136,7 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Collect a worktree's diff, and emit a page | ✅ | [01-collect-and-emit.md](01-collect-and-emit.md) |
 | 2 | The viewer — context bands, file tree, both themes | ✅ | [02-viewer.md](02-viewer.md) |
 | 3 | `/spec-diff` — the written review, and publishing | ✅ | [03-spec-diff-skill.md](03-spec-diff-skill.md) |
-| 4 | Wire it into the loop, and document it | ⬜ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
+| 4 | Wire it into the loop, and document it | ✅ | [04-wire-in-and-docs.md](04-wire-in-and-docs.md) |
 | 5 | Strip the tab machinery from `/spec-start` | ⬜ | [05-strip-the-tab-machinery.md](05-strip-the-tab-machinery.md) |
 
 ## Open questions
@@ -151,6 +151,20 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Phase 4 built. Three notes. **(a)** `/spec-next` gained a step 5
+  between recording progress and reporting, which broke a test asserting the
+  tracker seam comes before `## 5. Report` — by number. Fixed the test to match
+  the heading by **name**, since the assertion was always about seam order and
+  never about numbering. **(b)** The docs guard forbidding off-origin requests
+  matched `href` everywhere, so an ordinary outbound `<a>` link counted as a
+  fetch. Its own comment says "anything the BROWSER would request", which an
+  anchor is not, so it now matches `src=` on any element and `href=` on a
+  `<link>` — with a stays-silent test proving a plain link passes and a remote
+  script still fails. Without that, "link the cancelled specs' reasoning" would
+  have been satisfied by deleting the link. **(c)** The `review` entry is gone
+  from the `undocumented` allowlist, and the guard now passes on the real
+  signal — the verb is on the page.
 
 - 2026-09-11 — Phase 3 built, and dogfooding it found a real bug in phase 1's
   renderer. Splicing was three sequential replaces, so content spliced in was

@@ -364,7 +364,10 @@ test('/spec-next refreshes the mirror after it records the phase', () => {
   const text = skillText('spec-next')
   const done = text.indexOf('flip the matching phase-index row to `✅`')
   const seam = text.indexOf('<!-- seam:spec-tracker-progress -->')
-  const report = text.indexOf('## 5. Report')
+  // Matched by NAME, not by number: /spec-next gained a step between recording
+  // progress and reporting, and a hardcoded "## 5. Report" turned that into a
+  // failure about section numbering rather than about seam order.
+  const report = text.search(/^## \d+\. Report$/m)
 
   assert.ok(done !== -1, 'the phase-done write is recognisable')
   assert.ok(seam !== -1, 'the progress seam is present')

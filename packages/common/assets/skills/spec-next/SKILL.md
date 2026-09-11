@@ -91,7 +91,41 @@ a mirror lag a whole spec behind. Without a provider this is a no-op.
 
 <!-- seam:spec-tracker-progress -->
 
-## 5. Report
+## 5. Render the page — then offer the review, never write it
+
+**Only when the project has per-spec isolation** (`specs/.core/env.config.json`
+present). Without it there is no worktree to read and this step does not exist.
+
+The phase is built, its tests are green, and nothing is committed yet. That is
+the moment the page is about, so render it now — **after** the tests pass and
+**before** the commit:
+
+```
+skitterspec spec-env review <spec>
+```
+
+**This is free.** It is the engine reading git and splicing text into a template;
+the diff never passes through you, so a 266KB patch costs nothing. Report the
+path it prints and move on.
+
+**Then offer `/spec-diff`, in one line. Do not run it.** The written review is
+the part that costs — roughly **700 output tokens**, because writing it means
+reading the diff — and that spend is the operator's call, not a default. One
+line is the whole offer:
+
+```
+page written to <path> — /spec-diff to add a written review, or publish it
+```
+
+- **Never write the review unasked**, and **never publish**. Publishing leaves
+  something behind that this tooling cannot remove, so it is always something
+  someone asks for.
+- **Never fatal.** A failed render — no worktree, a git error — is one line and
+  the phase is still done. The page is a convenience; the repo is the record.
+- If the project has no isolation config, skip the whole step in silence rather
+  than explaining an absence.
+
+## 6. Report
 
 Summarise what was implemented, the test result (quote failures if any), and
 which phase is next. Do **not** `git commit` unless the user asks — finish,

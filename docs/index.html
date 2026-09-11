@@ -488,6 +488,7 @@
       <a href="#loop">The loop</a>
       <a href="#scenario">Walkthrough</a>
       <a href="#surfaces">Two surfaces</a>
+      <a href="#review">See the phase</a>
       <a href="#linear">Add Linear</a>
       <a href="linear.html">Linear setup</a>
       <a href="#reference">Reference</a>
@@ -584,6 +585,7 @@
       <span class="chip"><b>/spec-bug</b> · red→green from a repro</span>
       <span class="chip"><b>/spec-hotfix</b> · fix a released tag</span>
       <span class="chip"><b>/spec-review</b> · refresh a stale spec</span>
+      <span class="chip"><b>/spec-diff</b> · read the diff as a page</span>
       <span class="chip"><b>/spec-live</b> · test on your running server</span>
       <span class="chip"><b>/spec-connect</b> · proxy a spec to localhost</span>
       <span class="chip"><b>/spec-to-main</b> · land mid-spec for CI</span>
@@ -797,6 +799,7 @@
           <tr class="grp-row"><td colspan="3">Run &amp; test locally</td></tr>
           <tr><td class="cmd">/spec-live</td><td>Check the branch out in your primary checkout — reuse the running server. A <b>command</b>: it runs the verb directly, so you type it yourself.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/spec-connect</td><td>Proxy canonical localhost ports to a spec's own dev stack. A <b>command</b>, like <span class="mono">/spec-live</span>.</td><td class="folder">—</td></tr>
+          <tr><td class="cmd">/spec-diff</td><td>Render the spec's diff as a self-contained page you can read anywhere — then, if you ask, write a review onto it and publish it. Gated on nothing.</td><td class="folder">— unchanged</td></tr>
           <tr><td class="cmd">/spec-to-main</td><td>Rebase + fast-forward onto base mid-spec, for CI / shared envs.</td><td class="folder">in-progress/</td></tr>
 
           <tr class="grp-row"><td colspan="3">Linear sync — the superset only</td></tr>
@@ -806,6 +809,58 @@
           <tr><td class="cmd">/spec-sync</td><td>The repo-wide operations: what is linked, workspace states and projects, read-back checks, bulk mirroring.</td><td class="folder">— read-only by default</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SEE THE PHASE ============ -->
+<section id="review">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">See the phase</div>
+      <h2>The work happens in a worktree. You shouldn't have to go there to read it.</h2>
+      <p class="lede">A phase is built on its own branch in its own checkout, so <span class="mono" style="font-size:.9em">git diff</span> in your terminal answers about the base branch — and a 350-line diff read as terminal text is scrolling, not review. <span class="mono" style="font-size:.9em">/spec-diff</span> renders it as a page instead: whole-file context that folds away, a file tree, new files included. You open it locally, or publish it and read it on your phone.</p>
+    </div>
+
+    <div class="pipeline reveal">
+      <div class="stage">
+        <span class="num">01 · BUILD</span>
+        <h3><span class="cmdname">/spec-next</span></h3>
+        <p>Builds the phase to green, then writes the page and tells you where it is. That happens <em>after</em> the tests pass and <em>before</em> the commit — the moment the page is about.</p>
+        <div class="foot">free · no tokens</div>
+        <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stage">
+        <span class="num">02 · LOOK</span>
+        <h3><span class="cmdname">/spec-diff</span></h3>
+        <p>Re-renders for whatever is in front of you — half a phase, a hand edit, someone else's branch. Ask for the written review and Claude reads the diff and adds it to the page: a short summary plus <b>flag</b>, <b>confirm</b> and <b>good</b> notes against the files they're about.</p>
+        <div class="foot">page free · review ~700 tokens</div>
+        <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stage">
+        <span class="num">03 · COMMIT</span>
+        <h3><span class="cmdname">/commit</span></h3>
+        <p>Unchanged. You've read the phase, so the commit message is written from something you actually looked at rather than from memory of what you asked for.</p>
+        <div class="foot">specs/in-progress/</div>
+      </div>
+    </div>
+
+    <div class="reveal">
+      <p class="lede"><b>What costs, and what doesn't.</b> The diff never passes through the model: git writes the patches and the engine splices them into the page as text. A 266KB patch costs <b>zero</b> context tokens, and a 289KB page costs the same to publish as a 5KB one. The only part that costs is the <em>written</em> review — roughly 700 output tokens, because writing it means reading the diff — so it's offered, never assumed.</p>
+      <p class="lede"><b>The page is local by default.</b> It lands in <span class="mono" style="font-size:.9em">.spec-env/reviews/&lt;spec&gt;.html</span>, which is gitignored — reviewing a branch leaves no change in the branch you're reviewing. On a desktop that's the whole feature; nothing is sent anywhere.</p>
+      <p class="lede"><b>Publishing is opt-in, and one page per spec.</b> Ask, and the page becomes a private link you can open on a phone. Every later phase updates <em>that</em> page under a version label rather than adding another entry — so a spec is one link, not eight. It's never automatic, for one blunt reason: publishing leaves something behind that this tooling cannot remove.</p>
+      <p class="lede"><b>This is what replaced reaching for a tab.</b> Three specs tried to solve it from the other end — one opened a viewer tab, one moved the shell into one, one reached for a better terminal program — and all three were cancelled, with their reasoning intact in <span class="mono" style="font-size:.9em">specs/cancelled/</span> (<a href="https://github.com/SkitterByte/skitterspec/tree/main/specs/cancelled/feat-spec-diff">feat-spec-diff</a>, <a href="https://github.com/SkitterByte/skitterspec/tree/main/specs/cancelled/feat-spec-start-opens-tab">feat-spec-start-opens-tab</a>, <a href="https://github.com/SkitterByte/skitterspec/tree/main/specs/cancelled/feat-lazygit-commits">feat-lazygit-commits</a>). The common assumption was that a terminal program must show the diff — which forces a tab, which is unreachable from a phone. Nothing about this page depends on where your shell is: the engine reads the worktree with <span class="mono" style="font-size:.9em">git -C</span> and never changes directory.</p>
+    </div>
+
+    <div class="reveal">
+      <div class="code"><span class="c"># the uncommitted work — what this phase just did</span>
+$ skitterspec spec-env <span class="p">review</span>
+spec-env review: feat-phase-review (uncommitted)
+  9 files, +839 -24
+  page: /repo/.spec-env/reviews/feat-phase-review.html
+
+<span class="c"># or everything since the base branch — the whole spec</span>
+$ skitterspec spec-env <span class="p">review</span> --branch</div>
     </div>
   </div>
 </section>
@@ -834,6 +889,7 @@
           <tr><td class="cmd">spec-env dev up|down &lt;spec&gt;</td><td>Start or stop the spec's host dev servers on its reserved ports.</td><td class="folder">/spec-start</td></tr>
           <tr><td class="cmd">spec-env connect &lt;spec|main&gt;</td><td>Point your canonical localhost ports at one spec's dev servers. Bare, or <span class="mono">main</span>, hands them back.</td><td class="folder">/spec-connect</td></tr>
           <tr><td class="cmd">spec-env live take|release|abort|status</td><td>Hand the running instance to one spec by checking its branch out in the primary checkout.</td><td class="folder">/spec-live</td></tr>
+          <tr><td class="cmd">spec-env review [spec]</td><td>Write an HTML page of a spec's diff to <span class="mono">.spec-env/reviews/</span>. <span class="mono">--branch</span> for the whole spec rather than the uncommitted work.</td><td class="folder">/spec-diff · /spec-next</td></tr>
 
           <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on.</td><td class="folder">you</td></tr>

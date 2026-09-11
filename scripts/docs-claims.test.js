@@ -117,15 +117,41 @@ test('every cross-page link resolves to a real file and a real anchor', () => {
   }
 })
 
+// What the browser FETCHES, not every absolute URL on the page. `src=` on any
+// element, and `href=` on a <link>, are requests. An <a href> is not — it is a
+// destination the reader may choose, and the page loads the same with or without
+// the network. The earlier form matched `href` everywhere and so forbade
+// ordinary outbound links too, which is broader than the rule it was written for
+// and would have been "fixed" by deleting a useful link rather than by inlining
+// anything.
+const FETCHES = [
+  /\ssrc="(https?:\/\/[^"]+)"/g,
+  /<link\b[^>]*\shref="(https?:\/\/[^"]+)"/g,
+]
+
 test('each page is self-contained — no off-origin request', () => {
   // og:image is an absolute URL by necessity (scrapers need a real raster), but
   // it is metadata, not something the page fetches. Anything the BROWSER would
   // request must be local or inline: the site has no build step and no CDN.
   for (const rel of PAGES) {
-    for (const m of readPage(rel).matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)) {
-      assert.fail(`${rel} would fetch ${m[1]} — inline it or vendor it instead`)
+    const html = readPage(rel)
+    for (const re of FETCHES) {
+      for (const m of html.matchAll(re)) {
+        assert.fail(`${rel} would fetch ${m[1]} — inline it or vendor it instead`)
+      }
     }
   }
+})
+
+test('stays silent: an outbound link is not a fetch, but a remote asset still is', () => {
+  const link = '<p>see <a href="https://example.test/x">x</a></p>'
+  const asset = '<script src="https://cdn.example.test/x.js"></script>'
+  const stylesheet = '<link rel="stylesheet" href="https://cdn.example.test/x.css">'
+  const hits = (html) => FETCHES.flatMap((re) => [...html.matchAll(re)].map((m) => m[1]))
+
+  assert.deepStrictEqual(hits(link), [], 'a plain link is allowed')
+  assert.deepStrictEqual(hits(asset), ['https://cdn.example.test/x.js'], 'a remote script is not')
+  assert.deepStrictEqual(hits(stylesheet), ['https://cdn.example.test/x.css'], 'nor a remote stylesheet')
 })
 
 test('each page carries its own canonical og:url', () => {
@@ -273,13 +299,7 @@ const ENGINES = {
       return new Set([...block.matchAll(/^ {4}case '([a-z][a-z-]*)':/gm)].map((m) => m[1]))
     },
     page: 'docs/index.html',
-    undocumented: {
-      // Phase 1 of feat-phase-review ships the verb; phase 4 of the same spec
-      // writes the review loop into docs/index.html and deletes this entry. An
-      // allowlist line is the honest state in between — the alternative was a
-      // token mention on the page that phase 4 would have to rewrite anyway.
-      review: 'documented by feat-phase-review phase 4 (the review loop section)',
-    },
+    undocumented: {},
   },
   'spec-sync': {
     source: 'packages/linear/src/cli-sync.js',
