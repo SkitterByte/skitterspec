@@ -277,7 +277,19 @@ test('stays silent: no specs/in-progress/ directory on disk still resolves', asy
 // with its own release note, and the word doing the work in Decision 8 is
 // *silently*. The old test is not wrong; it is superseded, which is why this
 // comment exists instead of a deletion.
-test('`connect` with no spec connects the sole provisioned spec', async () => {
+// NAMED FOR WHAT IT ASSERTS. This checks RESOLUTION — that a missing spec
+// reaches `resolveSpecWithWorktree` and produces `feat-alpha` — not that
+// anything connected. `specEnvConnect` returns early on the registry-slot check
+// (`has no reserved ports yet`) long before it plans routes or starts the proxy,
+// and this fixture has `docker.enabled: false` and no `dev` block, so no slot is
+// ever allocated and that early return is always where it stops.
+//
+// BLIND SPOT, recorded rather than papered over: nothing in this repo exercises
+// the rest of `specEnvConnect` — planDev, renderRoutes, startProcess, the
+// `connected` file. The only other coverage is one `doesNotMatch(/spec not
+// found/)` in cli-spec-env-dev.test.js. A test called "connects …" would have
+// hidden that gap behind a reassuring name.
+test('`connect` with no spec resolves the sole provisioned spec', async () => {
   const dir = scaffold()
   try {
     addSpec(dir, 'feat-alpha')
