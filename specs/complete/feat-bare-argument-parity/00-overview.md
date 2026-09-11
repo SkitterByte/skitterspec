@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-bare-argument-parity (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-11)
+> **Status:** Complete (2026-09-11)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -118,8 +118,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-11 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Completed; all three phases done, tests green (root 1753, common
+  633). Nothing deferred from the spec. One follow-up sits outside it and is
+  recorded above: `spec-env review` prints a bare absolute path that no terminal
+  linkifies, and a `file://` URL beside it would make the page one click away —
+  a `fix(env)` commit for after this lands.
 
 - 2026-09-11 — Phase 3 built; the spec is complete. The grep sweep the phase
   insisted on was the right call: the only surface still carrying the old
