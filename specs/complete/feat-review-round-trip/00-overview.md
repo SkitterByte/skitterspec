@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-review-round-trip (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-11)
+> **Status:** Complete (2026-09-11)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -179,8 +179,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-11 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-11 — Completed; all four phases done, tests green (common 675, root
+  1795). Nothing deferred. One follow-on came straight out of using it: the page
+  should carry a **verdict** — approve, request changes, or discuss — with
+  approve handing off to the project's commit skill. That is deliberately a
+  separate spec (`feat-review-verdict`), because it gates an action on review
+  state — which this spec lists as a non-goal. That non-goal named the only way it
+  should ever arrive — a decision taken on purpose — and this is that, so the
+  successor cites the rule rather than quietly overriding it. It is a **verdict**
+  gate (a person chooses, once, per review) and never a **counting** gate
+  (a refusal derived from how many boxes are ticked); that distinction is what
+  keeps the rule intact.
 
 - 2026-09-11 — Phase 4 built; tests green (common 675, root 1795). `/spec-diff`
   gained the intake as §2 — a pasted blob is the invocation, so it sits before
