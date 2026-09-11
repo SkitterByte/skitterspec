@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-spec-start-kickoff (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-11)
+> **Status:** Complete (2026-09-11)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -159,6 +159,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
 | 2026-09-11 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-11 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -221,3 +222,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-11 — Phase 5: no `.claude/` resync was needed. This repo's install is
   symlinks into `packages/*/assets/`, so the source edit is the install; the
   task assumed the copy-based flow `dev-sync` uses for consumer projects.
+- 2026-09-11 — Completed; all phases done, tests green (1,815 passing).
+  **Deferred:** the open question about `/spec-bug` and `/spec-hotfix`. Both
+  carry the same push gap and the same worktree hand-off this spec closed for
+  `/spec-start`, and both were touched by `33c6479` for the same reason. Left for
+  a follow-up spec once this shape has been used in anger, exactly as scoped on
+  day one — not discovered late.
