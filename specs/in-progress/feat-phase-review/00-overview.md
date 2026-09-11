@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-138"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-138/see-the-phase-before-you-commit-it"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # See the phase before you commit it
 
 > **Type:** Feature
 > **Name:** feat-phase-review (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-11)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
 > **Area:** packages/common/src/cli.js, packages/common/src/env/review.js (new), packages/common/assets/review/ (new), packages/common/assets/skills/spec-diff/ (new), packages/common/assets/skills/spec-next/SKILL.md, packages/common/assets/core/env.config.md, packages/common/test, docs/index.html
 > **Stack:** worktree
@@ -146,6 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
+| 2026-09-11 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
