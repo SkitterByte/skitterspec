@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-176/bug-the-fork-point-che
 
 > **Type:** Bug
 > **Name:** bug-fork-check-worktree-path (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -93,8 +93,15 @@ Run: `node --test packages/common/test/cli-spec-env-up.test.js`
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-12 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-12 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-12 — Completed; fix green, nothing deferred (common 733, root 1858).
+  Both named tests pass. Worth keeping in mind for the next check of this shape:
+  the bad lookup produced a false accusation **and** silently emptied the hint
+  meant to make it actionable — one wrong path, two wrong answers, and only the
+  loud half was noticed.
 
 - 2026-09-12 — Bug reproduced; failing test added (red), then fixed. The second
   test is the load-bearing one: it pins that the guard still refuses a spec
