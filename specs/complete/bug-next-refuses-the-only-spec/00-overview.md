@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-next-refuses-the-only-spec (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -133,6 +133,7 @@ did not ask it.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-12 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-12 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -146,6 +147,8 @@ did not ask it.
   does exactly"*, which the durability clause splits. Intent preserved and
   extended — it now also asserts the ending holds "from this session or a fresh
   one".
+- 2026-09-12 — Completed; all phases done, tests green (2015/0). Nothing
+  deferred.
 - 2026-09-12 — While reproducing, this session's own shell had drifted into
   another spec's worktree from an earlier `cd`, and a relative `mkdir` put the
   stub there. Caught before any commit and moved. Noted because it is the same
