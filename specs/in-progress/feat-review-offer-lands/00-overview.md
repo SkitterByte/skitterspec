@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine: a clean tree falls back to the branch, announced | ✅ | [01-clean-tree-fallback.md](01-clean-tree-fallback.md) |
-| 2 | `/spec-next`: the offer goes last and asks | ⬜ | [02-offer-goes-last.md](02-offer-goes-last.md) |
+| 2 | `/spec-next`: the offer goes last and asks | ✅ | [02-offer-goes-last.md](02-offer-goes-last.md) |
 | 3 | `/spec-bug` and `/spec-hotfix` render too, pinned by a test | ⬜ | [03-bug-and-hotfix-render.md](03-bug-and-hotfix-render.md) |
 
 ## Open questions
@@ -159,3 +159,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   resolve from, so on a repo with several worktrees it refuses with "name the one
   you mean" instead of confirming the path. Added as a task to phase 2, which
   already edits that file.
+- 2026-09-12 — Phase 2: offer-shape tests landed in a new
+  `assets-offer-last.test.js` rather than `assets-review.test.js`, which guards
+  the page template and not skill prose. The `--dir` fix went into
+  `assets-spec-next-worktree.test.js`, whose existing test had been *pinning*
+  the broken command.
+- 2026-09-12 — Phase 2 confirmed the `/spec-diff` publish gap first seen when
+  the operator could not open a `file://` link on a phone: the engine writes a
+  complete HTML document and the artifact host wraps page *content*, so
+  publishing needs an unwrap step that `/spec-diff` §6 does not mention. Step 5
+  now points at §6 for it; making publishing one step is its own spec.

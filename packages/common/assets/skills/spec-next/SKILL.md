@@ -22,13 +22,25 @@ session, and you can type it yourself.
 *guessing* which spec to build, and a path someone typed is not a guess. A bare
 `/spec-next` still refuses exactly as it does today.
 
-**Validate the path before writing a line into it.** Run
-`skitterspec spec-env resolve --dir <path>` and check the `worktree:` line it
-prints is that same path. If it is not — or the command reports that isolation is
-not enabled — refuse and stop, naming what you were given. A path that is not a
-provisioned worktree must never become a place to write code.
-**Read the output, not the exit status** — that command exits 0 even when it
+**Validate the path before writing a line into it.** Run the resolver *from* the
+path, so the answer comes from where you are about to write:
+
+```
+cd "<path>" && skitterspec spec-env resolve
+```
+
+Check the `worktree:` line it prints is that same path. If it is not — or the
+command reports that isolation is not enabled — refuse and stop, naming what you
+were given. A path that is not a provisioned worktree must never become a place
+to write code.
+**Read the output, not the exit status** — it exits 0 even when it
 cannot resolve anything.
+
+**Not `--dir <path>`.** That flag sets the **repo root**, not the worktree to
+resolve from, so it answers a different question: on a repo with two or more
+worktrees it refuses with *"no spec given, and N specs have worktrees"* and
+validates nothing at all. The `cd` form is what makes the path itself the
+evidence.
 
 Otherwise resolve **in this order**, and stop at the first that answers:
 
@@ -159,22 +171,43 @@ skitterspec spec-env review <spec>
 the diff never passes through you, so a 266KB patch costs nothing. Report the
 path it prints and move on.
 
-**Then offer `/spec-diff`, in one line. Do not run it.** The written review is
-the part that costs — roughly **700 output tokens**, because writing it means
-reading the diff — and that spend is the operator's call, not a default. One
-line is the whole offer:
+**Then offer `/spec-diff`. Do not run it.** The written review is the part that
+costs — roughly **700 output tokens**, because writing it means reading the diff
+— and that spend is the operator's call, not a default.
+
+**Write it as prose ending in a question, and put it LAST** — after the
+`Next: phase N` line of step 6, as the final thing in the report:
 
 ```
-page written — <the `open:` file:// URL it printed>
-/spec-diff to add a written review, or publish it
+Page is rendered: <the `open:` file:// URL it printed> — <N> files, +<a> −<d>.
+
+Want a written review of it before you commit?
 ```
+
+**A fenced block of engine output is not an offer.** It was one once, and the
+result was an offer that fired on every phase and was never once taken: two
+quoted lines in the tail of a long report, under the test counts, with the
+report then closing on *"commit this first"*. Nothing in it was addressed to
+anyone, and the last instruction the reader got was to move on — so they did.
+Ask them something, and ask it where the message ends.
+
+**Never bury it and never reorder it back.** The offer is last because being
+last is the whole fix; a later edit that tucks it under the test results, or
+ahead of the next-phase line, undoes this phase and should be read as a
+regression rather than tidying.
+
+**Non-blocking, deliberately.** Do not end your turn waiting on the answer.
+Phases get chained — `/commit && /spec-next` typed as one line — and a question
+that stops the run taxes every phase to fix a problem that being last already
+fixes.
 
 Relay the **`open:`** line the engine prints, not the bare path: a path is not
 clickable in any terminal, and a page nobody can open is a page nobody reads.
 
 - **Never write the review unasked**, and **never publish**. Publishing leaves
   something behind that this tooling cannot remove, so it is always something
-  someone asks for.
+  someone asks for. A `file://` link is no use on a phone, and saying so **is**
+  the ask — publishing is the answer to it, and `/spec-diff` §6 owns how.
 - **Never fatal.** A failed render — no worktree, a git error — is one line and
   the phase is still done. The page is a convenience; the repo is the record.
 - If the project has no isolation config, skip the whole step in silence rather
@@ -185,3 +218,9 @@ clickable in any terminal, and a page nobody can open is a page nobody reads.
 Summarise what was implemented, the test result (quote failures if any), and
 which phase is next. Do **not** `git commit` unless the user asks — finish,
 verify, and wait.
+
+**Then step 5's offer, and nothing after it.** The order is fixed: what was
+built, the test result, `Next: phase N`, then the page and the question. Step 5
+renders before the commit and this step is where its offer lands, so the two
+must not disagree about the position — the offer is the last thing on screen or
+it is not an offer.

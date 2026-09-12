@@ -42,8 +42,21 @@ test('rules 1-3 and the in-context refusal are intact', () => {
 })
 
 test('a path that is not a provisioned worktree is refused, not built in', () => {
-  assert.match(NEXT, /spec-env resolve --dir <path>/)
-  assert.match(NEXT, /must never become a place to write code/i)
+  assert.match(NEXT, /cd "<path>" && skitterspec spec-env resolve/)
+  assert.match(NEXT, /must never become a place\s+to write code/i)
+})
+
+// This test previously asserted `spec-env resolve --dir <path>`, and so pinned a
+// command that cannot validate anything: `--dir` sets the REPO ROOT, and on a
+// repo with two or more worktrees the resolver refuses with "no spec given, and
+// N specs have worktrees". The step read as validated for as long as the test
+// agreed with it, which is the failure mode a prose test invites — so this one
+// asserts the flag is named as NOT the answer, rather than only asserting the
+// right command is present somewhere in the file.
+test('the flag that cannot validate a path is named as not the answer', () => {
+  assert.match(NEXT, /\*\*Not `--dir <path>`\.\*\*/)
+  assert.match(NEXT, /sets the \*\*repo root\*\*/)
+  assert.match(NEXT, /no spec given, and N specs have worktrees/)
 })
 
 // The engine reports "isolation not enabled" and exits 0, so a skill checking
