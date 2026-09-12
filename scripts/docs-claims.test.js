@@ -312,7 +312,13 @@ const ENGINES = {
         ...[...src.matchAll(/sub === '([a-z][a-z-]*)'/g)].map((m) => m[1]),
       ]),
     page: 'docs/linear.html',
-    undocumented: {},
+    undocumented: {
+      // RETIRED NAME, dispatched on purpose so `spec-sync push` says it is now
+      // `spec-sync plan` instead of falling through to generic usage. It must
+      // NOT appear in the command table — documenting a retired name advertises
+      // it as available, which is the opposite of retiring it.
+      push: 'retired in v13; dispatched only to point at `spec-sync plan`',
+    },
   },
 }
 
@@ -460,9 +466,10 @@ test('every verb the docs say a user types is routed by its skill', () => {
 // Without these the check could pass by demanding everything, or nothing.
 test('stays silent: skill-driven and internal verbs are not demanded', () => {
   const page = ENGINES['spec-sync'].page
-  // `push` is /spec-push's, `assign` is /spec-claim's, `normalize` is internal.
+  // `plan` is /spec-push's, `assign` is /spec-claim's, `normalize` is internal.
   // None appears in the routing table, and none may be accused of it.
-  for (const verb of ['push', 'assign', 'normalize']) {
+  // (`plan` was named `push` before v13 — the verb, not the example, changed.)
+  for (const verb of ['plan', 'assign', 'normalize']) {
     const usedBy = usedByOf(page, verb)
     assert.ok(usedBy.length, `${verb} has a used-by cell to read`)
     assert.ok(!usedBy.includes('you'), `${verb} is not user-run, so nothing demands a route`)

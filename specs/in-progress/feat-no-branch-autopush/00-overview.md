@@ -142,7 +142,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `/spec-cancel` handles the unpushed refusal | ✅ | [01-cancel-unpushed-path.md](01-cancel-unpushed-path.md) |
 | 2 | `/spec-start` stops pushing the branch | ✅ | [02-stop-pushing.md](02-stop-pushing.md) |
-| 3 | Rename `spec-sync push` to `spec-sync plan` | ⬜ | [03-rename-push-to-plan.md](03-rename-push-to-plan.md) |
+| 3 | Rename `spec-sync push` to `spec-sync plan` | ✅ | [03-rename-push-to-plan.md](03-rename-push-to-plan.md) |
 | 4 | Docs, migration and shipped-surface guards | ⬜ | [04-docs-and-surfaces.md](04-docs-and-surfaces.md) |
 
 ## Open questions
@@ -177,3 +177,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   test comment) plus two ordering tests anchored on the removed literal. The
   `-D`-over-`-d` comment gained an explicit do-not-simplify note: its stated
   reason was the provision-time push, and the flag is still right without it.
+- 2026-09-12 — Phase 3 done. `docs/linear.html`'s command row moved here from
+  phase 4: `docs-claims.test.js` demands every dispatched verb appear on that
+  page, so the rename cannot land green without it. The retired `push` case is
+  dispatched and therefore also demanded — allowlisted with a reason rather than
+  documented, since a docs row would advertise a retired name as available.

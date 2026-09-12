@@ -23,7 +23,7 @@ const path = require('node:path')
 const { specSync } = require('../src/cli-sync.js')
 
 // Every subcommand that takes a <spec> and resolves it through resolveOrExit.
-const SPEC_COMMANDS = ['normalize', 'record', 'status', 'push', 'verify', 'stamp']
+const SPEC_COMMANDS = ['normalize', 'record', 'status', 'plan', 'verify', 'stamp']
 
 function scaffold() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-exit-'))

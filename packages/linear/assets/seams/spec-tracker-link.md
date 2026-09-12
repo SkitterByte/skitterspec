@@ -26,7 +26,7 @@ does — you never create the issue by hand:
 2. **Pick the Project** — run the picker in **Picking the Linear Project** below.
    Keep the chosen id for step 4.
 3. **Get the plan.**
-   `skitterspec spec-sync push <spec> --workspace-states <file> --json > plan.json`
+   `skitterspec spec-sync plan <spec> --workspace-states <file> --json > plan.json`
    — the spec is unlinked, so this plan is all-creates: the issue and one
    sub-issue per phase.
 4. **Apply it.**

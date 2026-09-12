@@ -184,7 +184,7 @@ test('it reports lost text when the tracker stored something different', async (
 test('it records the snapshot, so the next push is empty', async () => {
   const dir = fixtureRepo()
   await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, { adapter: fakeLinear() })
-  const r = await run(['push', 'feat-applied', '--skip-state-check'], dir)
+  const r = await run(['plan', 'feat-applied', '--skip-state-check'], dir)
   assert.match(r.out, /up to date|nothing to push|no changes/i)
 })
 
@@ -263,7 +263,7 @@ test('it refuses without --plan rather than doing nothing quietly', async () => 
   const r = await run(['apply', 'feat-applied'], dir, { adapter: fakeLinear() })
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /--plan/)
-  assert.match(r.out, /spec-sync push/, 'says how to get one')
+  assert.match(r.out, /spec-sync plan/, 'says how to get one')
 })
 
 test('an unreadable plan file fails clearly', async () => {
@@ -557,7 +557,7 @@ async function pushedOnceThenEdited(dir, linear) {
   await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, { adapter: linear })
   const file = path.join(dir, 'specs/in-progress/feat-applied/01-engine.md')
   fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').replace('**Goal:** go.', '**Goal:** go faster.'), 'utf-8')
-  const r = await run(['push', 'feat-applied', '--json', '--skip-state-check'], dir)
+  const r = await run(['plan', 'feat-applied', '--json', '--skip-state-check'], dir)
   return JSON.parse(r.out)
 }
 

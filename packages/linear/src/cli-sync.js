@@ -9,7 +9,7 @@
  * provider-neutral engine (`@skitterbyte/skitterspec-sync-core`):
  *
  *   spec-sync normalize <spec>   print the local projection (JSON)
- *   spec-sync push <spec>        print the create/update PLAN the skill applies
+ *   spec-sync plan <spec>        print the create/update PLAN the skill applies
  *                                (requires --workspace-states; see stateCheckFailure)
  *   spec-sync stamp <spec>       write returned ids back into the spec files
  *   spec-sync record <spec>      write the last-pushed snapshot (after apply)
@@ -219,7 +219,7 @@ function specSyncNormalize(dir, config, specArg, out, err) {
   out.write(JSON.stringify(projectionOf(snapshotDir, config), null, 2) + '\n')
 }
 
-// `spec-sync push <spec> [--json]` — print the create/update PLAN diffed against
+// `spec-sync plan <spec> [--json]` — print the create/update PLAN diffed against
 // the last-pushed snapshot. Machine-readable by default; the /spec-push skill
 // applies it over MCP then calls `record`.
 function specSyncPush(dir, config, specArg, flags, out, err) {
@@ -238,7 +238,7 @@ function specSyncPush(dir, config, specArg, flags, out, err) {
     return 0
   }
   const p = r.plan
-  const lines = [`spec-sync push: ${identifier}`, ...warningLines(snapshotDir, config)]
+  const lines = [`spec-sync plan: ${identifier}`, ...warningLines(snapshotDir, config)]
   if (p.legacy) lines.push(...legacyLines(p.legacy))
   if (p.phasesDeferred) lines.push(...deferredLines(p.phasesDeferred))
   lines.push(...phaseModeLines(p.phaseMode, r.projection.status))
@@ -340,7 +340,7 @@ function stateCheckFailure(config, flags) {
   if (flags.skipStateCheck) return null
   if (!flags.workspaceStates) {
     return [
-      'spec-sync push: refusing — the configured issue states have not been validated',
+      'spec-sync plan: refusing — the configured issue states have not been validated',
       '  pass --workspace-states <file> (a JSON array of the workspace\'s issue',
       '  workflow-state names, which /spec-push fetches over MCP), or',
       '  --skip-state-check to push anyway.',
@@ -349,20 +349,20 @@ function stateCheckFailure(config, flags) {
     ]
   }
   if (!fs.existsSync(flags.workspaceStates)) {
-    return [`spec-sync push: refusing — no such --workspace-states file: ${flags.workspaceStates}`]
+    return [`spec-sync plan: refusing — no such --workspace-states file: ${flags.workspaceStates}`]
   }
   let names
   try {
     names = JSON.parse(fs.readFileSync(flags.workspaceStates, 'utf-8'))
   } catch (error) {
-    return [`spec-sync push: refusing — --workspace-states is not valid JSON: ${error.message}`]
+    return [`spec-sync plan: refusing — --workspace-states is not valid JSON: ${error.message}`]
   }
   const list = Array.isArray(names) ? names : []
   const missing = validateStates(config, list)
   if (missing.length) {
     // Say what IS available, and what to use instead. "Done is not a state" sends
     // you to the Linear UI to go and look; naming the replacement does not.
-    const lines = ['spec-sync push: refusing — configured state name(s) not in the workspace', '']
+    const lines = ['spec-sync plan: refusing — configured state name(s) not in the workspace', '']
     for (const { label, configured, suggestion } of stateSuggestions(config, list)) {
       lines.push(`  ${label}: "${configured}" is not an issue state in this workspace`)
       if (suggestion) lines.push(`    use "${suggestion}" instead`)
@@ -2687,7 +2687,7 @@ async function specSyncApply(dir, config, specArg, flags, out) {
     if (!flags.plan) {
       out.write(
         'spec-sync apply: refusing to run without --plan <file>.\n' +
-          '  Get one with: skitterspec spec-sync push <spec> --json > plan.json\n' +
+          '  Get one with: skitterspec spec-sync plan <spec> --json > plan.json\n' +
           '  Or apply a whole bucket at once with --all <bucket>.\n',
       )
       return 1
@@ -3435,8 +3435,20 @@ async function specSync(rest, io = {}) {
   switch (sub) {
     case 'normalize':
       return specSyncNormalize(dir, config, positional[0], out, err) || 0
-    case 'push':
+    case 'plan':
       return specSyncPush(dir, config, positional[0], flags, out, err) || 0
+    // RETIRED NAME, deliberately recognised rather than left to fall through to
+    // the usage block. `push` named the one subcommand that writes nothing — it
+    // computes a plan with no network access, while `apply` does the writing —
+    // and it collided with both the /spec-push skill and `git push`. A silent
+    // alias would keep the old name alive forever; a generic "unknown
+    // subcommand" would throw away the one hint that makes the break cheap.
+    case 'push':
+      err.write(
+        'spec-sync push was renamed to spec-sync plan.\n' +
+          'It computes the create/update plan and writes nothing; `spec-sync apply` applies it.\n',
+      )
+      return 1
     case 'stamp':
       return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
@@ -3475,7 +3487,7 @@ async function specSync(rest, io = {}) {
     default:
       out.write('Usage: skitterspec spec-sync <normalize|record|status> <spec> [--json] [--remote file] [--workspace-states file]\n' +
         '       skitterspec spec-sync credentials <status|set|unset> [--stdin] [--json]\n' +
-        '       skitterspec spec-sync push <spec> --workspace-states <file> [--json] [--skip-state-check]\n' +
+        '       skitterspec spec-sync plan <spec> --workspace-states <file> [--json] [--skip-state-check]\n' +
         '       skitterspec spec-sync stamp <spec> --issue KEY-1 [--url URL] [--sub <ref>=KEY-2 …]\n' +
         '       skitterspec spec-sync states [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync projects [--via api|mcp] [--json]\n' +

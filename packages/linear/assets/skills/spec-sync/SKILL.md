@@ -134,7 +134,7 @@ not the same risk:
 
 A repo adopting Linear reports "N to create" for every unlinked spec, so an
 unconsidered `--all` can mint dozens of sub-issues. Get the counts first — run
-`linked` to see what is unlinked, or `spec-sync push <spec>` per spec for exact
+`linked` to see what is unlinked, or `spec-sync plan <spec>` per spec for exact
 numbers — then show the user something like:
 
 ```

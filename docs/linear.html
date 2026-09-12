@@ -818,7 +818,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
         </thead>
         <tbody>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
-          <tr><td class="cmd">spec-sync push &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing. (Named <code>push</code> before v13.)</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync apply &lt;spec&gt;</td><td>Apply a plan, stamp the returned ids into the spec, and record the snapshot.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync status &lt;spec&gt;</td><td>Drift report — what would push, and whether Linear's workflow-state moved.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync verify &lt;spec&gt;</td><td>Read back what Linear stored and compare it to what was sent.</td><td class="folder">/spec-push · you</td></tr>

@@ -67,7 +67,7 @@ get past a failing check.
 ## 3. Get the plan from the engine
 
 ```
-skitterspec spec-sync push <spec> --workspace-states <file> --json
+skitterspec spec-sync plan <spec> --workspace-states <file> --json
 ```
 
 The engine prints a JSON **plan** (no network, no remote read):

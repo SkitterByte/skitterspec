@@ -57,7 +57,7 @@ test('the spec-tracker-link seam fragment carries the Linear link step', () => {
 test('linking goes through the engine, not by hand', () => {
   const text = seamText('spec-tracker-link')
   assert.match(text, /spec-sync states/, 'asks the engine for the transport first')
-  assert.match(text, /spec-sync push .*--json/, 'gets a plan')
+  assert.match(text, /spec-sync plan .*--json/, 'gets a plan')
   assert.match(text, /spec-sync apply .*--plan/, 'and applies it')
   assert.doesNotMatch(text, /Discover the Linear MCP tools at runtime/, 'no hand-rolled MCP discovery')
   assert.doesNotMatch(text, /no hand-edited\s*\n?\s*frontmatter/i, 'stamping is not re-explained; apply does it')

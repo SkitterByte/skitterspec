@@ -20,9 +20,9 @@ Fresh installs can skip this section. **`MIGRATION.md` ships with the package** 
 read the entry for the version you are coming from before upgrading a repo with a
 live mirror.
 
-**From 9.x — `push` now validates your issue states.** `spec-sync push` refuses
-to run until the configured `states` names have been checked against the
-workspace. `/spec-push` does that for you, so nothing changes if you drive sync
+**From 9.x — the plan verb validates your issue states.** `spec-sync plan`
+(named `spec-sync push` before v13) refuses to run until the configured `states`
+names have been checked against the workspace. `/spec-push` does that for you, so nothing changes if you drive sync
 through the skill; a script calling the CLI directly must pass
 `--workspace-states <file>` (or `--skip-state-check`). See `MIGRATION.md`
 → "v9 → v10".

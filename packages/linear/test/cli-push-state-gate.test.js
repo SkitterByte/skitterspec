@@ -63,7 +63,7 @@ const GOOD = ['Backlog', 'In Progress', 'Done', 'Canceled', 'Triage']
 
 test('push refuses when the states were never validated', async () => {
   const dir = fixtureRepo()
-  const r = await run(['push', 'feat-gated'], dir)
+  const r = await run(['plan', 'feat-gated'], dir)
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /refusing/)
   assert.match(r.out, /--workspace-states/, 'says how to satisfy it')
@@ -75,7 +75,7 @@ test('push refuses on a state name the workspace does not have', async () => {
   const dir = fixtureRepo()
   // The 8.x value: project status "Completed", which is not an ISSUE state.
   const file = statesFile(dir, ['Backlog', 'In Progress', 'Completed', 'Canceled'])
-  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  const r = await run(['plan', 'feat-gated', '--workspace-states', file], dir)
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /states\.complete: "Done" is not an issue state/, 'names the offender and its key')
 })
@@ -86,7 +86,7 @@ test('the refusal says what IS available, and what to use instead', async () => 
   // The exact 8→9 trap: the workspace calls it "Completed", the v9 default is
   // "Done". No string-distance measure gets you from one to the other.
   const file = statesFile(dir, ['Backlog', 'In Progress', 'Completed', 'Canceled'])
-  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  const r = await run(['plan', 'feat-gated', '--workspace-states', file], dir)
 
   assert.match(r.out, /use "Completed" instead/, 'suggests the replacement by bucket')
   assert.match(r.out, /available: Backlog, In Progress, Completed, Canceled/, 'lists the real states')
@@ -96,7 +96,7 @@ test('the refusal says what IS available, and what to use instead', async () => 
 test('with no sensible match it still lists what exists', async () => {
   const dir = fixtureRepo()
   const file = statesFile(dir, ['Icebox', 'Cooking', 'Shipped it', 'Nope'])
-  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  const r = await run(['plan', 'feat-gated', '--workspace-states', file], dir)
 
   assert.strictEqual(r.code, 1)
   assert.ok(!/use "/.test(r.out), 'no invented suggestion')
@@ -105,27 +105,27 @@ test('with no sensible match it still lists what exists', async () => {
 
 test('push proceeds once the states check passes', async () => {
   const dir = fixtureRepo()
-  const r = await run(['push', 'feat-gated', '--workspace-states', statesFile(dir, GOOD)], dir)
+  const r = await run(['plan', 'feat-gated', '--workspace-states', statesFile(dir, GOOD)], dir)
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /sub-issues create: Engine/)
 })
 
 test('--skip-state-check is the deliberate way past it', async () => {
   const dir = fixtureRepo()
-  const r = await run(['push', 'feat-gated', '--skip-state-check'], dir)
+  const r = await run(['plan', 'feat-gated', '--skip-state-check'], dir)
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /sub-issues create: Engine/)
 })
 
 test('a missing or malformed states file refuses rather than passing', async () => {
   const dir = fixtureRepo()
-  const absent = await run(['push', 'feat-gated', '--workspace-states', path.join(dir, 'nope.json')], dir)
+  const absent = await run(['plan', 'feat-gated', '--workspace-states', path.join(dir, 'nope.json')], dir)
   assert.strictEqual(absent.code, 1)
   assert.match(absent.out, /no such --workspace-states file/)
 
   const bad = path.join(dir, 'bad.json')
   fs.writeFileSync(bad, '{ not json', 'utf-8')
-  const malformed = await run(['push', 'feat-gated', '--workspace-states', bad], dir)
+  const malformed = await run(['plan', 'feat-gated', '--workspace-states', bad], dir)
   assert.strictEqual(malformed.code, 1)
   assert.match(malformed.out, /not valid JSON/)
 })
@@ -135,7 +135,7 @@ test('a missing or malformed states file refuses rather than passing', async () 
 test('the refusal reaches the shell as a non-zero exit', () => {
   const dir = fixtureRepo()
   const bin = path.join(__dirname, '..', 'bin', 'skitterspec-linear.js')
-  const r = spawnSync(process.execPath, [bin, 'spec-sync', 'push', 'feat-gated'], { cwd: dir, encoding: 'utf-8' })
+  const r = spawnSync(process.execPath, [bin, 'spec-sync', 'plan', 'feat-gated'], { cwd: dir, encoding: 'utf-8' })
   assert.strictEqual(r.status, 1, `exited ${r.status}:\n${r.stdout}${r.stderr}`)
   assert.match(r.stdout, /refusing/)
 })
@@ -160,7 +160,7 @@ test('push refuses on a deployment-stage name the workspace does not have', asyn
     { key: 'prod', state: 'Done' },
   ])
   const file = statesFile(dir, GOOD)
-  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  const r = await run(['plan', 'feat-gated', '--workspace-states', file], dir)
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /release\.stages\[test\]: "On Test" is not an issue state/, 'names the rung by key')
   assert.ok(!/states\.complete/.test(r.out), 'the bucket map is fine and is not accused')
@@ -174,7 +174,7 @@ test('push proceeds when every rung is a real workspace state', async () => {
     { key: 'prod', state: 'Done' },
   ])
   const file = statesFile(dir, GOOD)
-  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  const r = await run(['plan', 'feat-gated', '--workspace-states', file], dir)
   assert.strictEqual(r.code, 0)
   assert.ok(!/refusing/.test(r.out), 'no refusal')
 })
@@ -182,7 +182,7 @@ test('push proceeds when every rung is a real workspace state', async () => {
 test('push with no ladder declared is unaffected by the check', async () => {
   const dir = fixtureRepo()
   const file = statesFile(dir, GOOD)
-  const r = await run(['push', 'feat-gated', '--workspace-states', file], dir)
+  const r = await run(['plan', 'feat-gated', '--workspace-states', file], dir)
   assert.strictEqual(r.code, 0)
   assert.ok(!/release\.stages/.test(r.out), 'says nothing about a ladder that does not exist')
 })

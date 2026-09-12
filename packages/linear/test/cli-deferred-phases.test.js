@@ -53,7 +53,7 @@ function run(argv, cwd, isTTY = true) {
 
 test('push reports the deferral instead of silently omitting the sub-issues', async () => {
   const dir = fixtureRepo('deferred')
-  const r = await run(['push', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
+  const r = await run(['plan', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /2 phase\(s\) deferred/, 'says how many and why')
   assert.match(r.out, /has not started/)
@@ -64,7 +64,7 @@ test('push reports the deferral instead of silently omitting the sub-issues', as
 
 test('the default mode says nothing about deferral and plans every phase', async () => {
   const dir = fixtureRepo('subissue')
-  const r = await run(['push', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
+  const r = await run(['plan', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
   assert.strictEqual(r.code, 0)
   assert.ok(!/phase\(s\) deferred/.test(r.out), 'no line for a mode that defers nothing')
   assert.match(r.out, /sub-issues create: Engine, Cli/)
@@ -72,7 +72,7 @@ test('the default mode says nothing about deferral and plans every phase', async
 
 test('--json carries phasesDeferred on the plan, not in a stderr warning', async () => {
   const dir = fixtureRepo('deferred')
-  const r = await run(['push', 'feat-phased', '--workspace-states', statesFile(dir), '--json'], dir, false)
+  const r = await run(['plan', 'feat-phased', '--workspace-states', statesFile(dir), '--json'], dir, false)
   const plan = JSON.parse(r.out)
   assert.strictEqual(plan.phasesDeferred, 2)
   assert.deepStrictEqual(plan.subIssues.create, [])
@@ -88,7 +88,7 @@ test('status agrees with push about the deferral', async () => {
 
 test('a started spec defers nothing and plans both phases', async () => {
   const dir = fixtureRepo('deferred', 'in-progress')
-  const r = await run(['push', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
+  const r = await run(['plan', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
   assert.ok(!/phase\(s\) deferred/.test(r.out), 'the deferral is over')
   assert.match(r.out, /sub-issues create: Engine, Cli/)
 })

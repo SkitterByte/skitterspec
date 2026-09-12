@@ -54,7 +54,7 @@ function run(argv, cwd, isTTY = true) {
 
 test('push names the inline mode, so no sub-issues reads as deliberate', async () => {
   const dir = fixtureRepo('inline')
-  const r = await run(['push', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
+  const r = await run(['plan', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /phases: inline/)
   assert.match(r.out, /section of this issue's description/, 'says where the phases went')
@@ -71,7 +71,7 @@ test('status names it too — the read-only report answers the same question', a
 
 test('the default mode says nothing — the sub-issue lines explain themselves', async () => {
   const dir = fixtureRepo('subissue')
-  const r = await run(['push', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
+  const r = await run(['plan', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
   assert.ok(!/phases: /.test(r.out), 'no line for the mode that needs no explaining')
   assert.match(r.out, /sub-issues create: Engine, Cli/)
 })
@@ -82,19 +82,19 @@ test('a per-bucket map reports the bucket it resolved through', async () => {
   const map = { backlog: 'subissue', complete: 'inline' }
 
   const finished = fixtureRepo(map, 'complete')
-  const done = await run(['push', 'feat-phased', '--workspace-states', statesFile(finished)], finished)
+  const done = await run(['plan', 'feat-phased', '--workspace-states', statesFile(finished)], finished)
   assert.match(done.out, /phases: inline/)
   assert.match(done.out, /"complete"/, 'names the bucket that decided it')
 
   const live = fixtureRepo(map, 'backlog')
-  const r = await run(['push', 'feat-phased', '--workspace-states', statesFile(live)], live)
+  const r = await run(['plan', 'feat-phased', '--workspace-states', statesFile(live)], live)
   assert.ok(!/phases: /.test(r.out), 'the same config, the other bucket, the default mode')
   assert.match(r.out, /sub-issues create: Engine, Cli/)
 })
 
 test('the JSON plan carries the mode, because --json sends warnings to stderr', async () => {
   const dir = fixtureRepo('inline')
-  const r = await run(['push', 'feat-phased', '--json', '--workspace-states', statesFile(dir)], dir)
+  const r = await run(['plan', 'feat-phased', '--json', '--workspace-states', statesFile(dir)], dir)
   const plan = JSON.parse(r.out)
   assert.strictEqual(plan.phaseMode, 'inline')
 })
@@ -102,13 +102,13 @@ test('the JSON plan carries the mode, because --json sends warnings to stderr', 
 test('the plan always carries a mode — an absent field must not mean subissue', async () => {
   // The skill relaying this should read one field, not learn a default.
   const dir = fixtureRepo('subissue')
-  const r = await run(['push', 'feat-phased', '--json', '--workspace-states', statesFile(dir)], dir)
+  const r = await run(['plan', 'feat-phased', '--json', '--workspace-states', statesFile(dir)], dir)
   assert.strictEqual(JSON.parse(r.out).phaseMode, 'subissue')
 })
 
 test('deferred still gets its count, and now names the mode as well', async () => {
   const dir = fixtureRepo('deferred', 'backlog')
-  const r = await run(['push', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
+  const r = await run(['plan', 'feat-phased', '--workspace-states', statesFile(dir)], dir)
   assert.match(r.out, /2 phase\(s\) deferred/, 'the existing line is unchanged')
   assert.match(r.out, /phases: deferred/)
   assert.match(r.out, /held back until the spec leaves backlog\/cancelled/)
