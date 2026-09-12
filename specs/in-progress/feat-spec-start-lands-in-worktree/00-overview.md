@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-start` lands the session in the worktree | ⬜ | [01-land-in-worktree.md](01-land-in-worktree.md) |
+| 1 | `/spec-start` lands the session in the worktree | ✅ | [01-land-in-worktree.md](01-land-in-worktree.md) |
 | 2 | Collapse the teardown exit to a `cd` | ⬜ | [02-teardown-exit.md](02-teardown-exit.md) |
 | 3 | Sweep the shipped surfaces and the migration note | ⬜ | [03-surfaces-and-migration.md](03-surfaces-and-migration.md) |
 
@@ -166,6 +166,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-12 — Phase 1: the `/spec-diff` mention went with the paragraph that
+  justified not moving the session, so `assets-spec-start-one-path.test.js`'s
+  "points at /spec-diff" assertion had nothing left to pin — replaced with one
+  that the move is *verified* (decision 5) rather than assumed. Three further
+  tests outside the phase's list pinned the same prose and moved with it:
+  `assets.test.js` × 2 and `assets-kickoff-surfaces.test.js`'s composition test.
+  The `/spec-next` refusal paragraph also had a trailing clause that decision 1
+  makes false ("a bare `/spec-next` still refuses exactly as it did") — narrowed
+  to sessions that are neither a worktree nor a live checkout, keeping the three
+  assertions that guard rules 1–3.
 - 2026-09-12 — Spec created, from a `/spec-start` → `/spec-next` handoff that
   refused in ordinary use. Traced to SKS-143 phase 5 deleting SKS-104's enter
   half as tab-machinery collateral, leaving its exit half in place.

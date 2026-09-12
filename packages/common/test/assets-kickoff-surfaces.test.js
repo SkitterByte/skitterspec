@@ -110,7 +110,7 @@ test('the composed distributions carry the right halves of the start seam', () =
 
   // Both builds carry the offer — it is provider-neutral.
   for (const [name, text] of [['base', base], ['linear', linear]]) {
-    assert.match(text, /build phase 1 now from here, or hand off/i, `${name} carries the offer`)
-    assert.match(text, /`\/spec-next --worktree <worktreePath>`/, `${name} carries the flag`)
+    assert.match(text, /build phase 1 now\?/i, `${name} carries the offer`)
+    assert.match(text, /`--worktree <path>` is still there/, `${name} keeps the flag as the exception`)
   }
 })

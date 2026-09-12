@@ -86,8 +86,11 @@ would fork from — otherwise you get a branch missing the very spec it is for.
    or the first write prompts. This is not tab machinery: worktrees live outside
    the checkout, and the trust entry is what stops the prompt.
 
-3. **Bootstrap it**, with a `cd` in the command itself — one call, no session
-   move:
+3. **Bootstrap it, and move into it.** The `cd` is in the command itself, and it
+   **moves this session** — that is what it is for, not a side effect of it. The
+   Bash working directory persists between calls, so from here on this session is
+   standing in the worktree, which is what lets a bare `/spec-next` resolve the
+   spec on its own:
 
    ```
    cd "<worktreePath>" && <the planner's "then, in the worktree, run:" steps>
@@ -97,28 +100,54 @@ would fork from — otherwise you get a branch missing the very spec it is for.
    none of the repo's gitignored files, so hooks, typechecks and tests fail until
    both have happened.
 
+   **Then confirm the move landed — never assume it.** Ask for a positive signal
+   rather than reading silence as success (`.claude/rules/negative-checks.md`
+   rule 1): run `skitterspec spec-env resolve` with **no argument** and read the
+   `spec:` line it prints.
+
+   ```
+   skitterspec spec-env resolve        # must name this spec
+   ```
+
+   Three states, not two. It names this spec → carry on. It names something else,
+   or resolves nothing → **the `cd` did not take**. Say so plainly and fall back
+   to the stop-here ending in step 6, printing the path so the operator can open
+   a session there themselves; do not build a phase from a session whose location
+   you could not confirm. A failed `cd` leaves you in the primary checkout on the
+   base branch, where a phase's worth of code looks entirely normal at the time.
+
 4. **Housekeep with `git -C <worktreePath>`** — step 4 below, against the
    worktree.
+
+   **Keep the `-C` prefix**, even though the session is inside the worktree now
+   and a bare `git` would usually do the same thing. It is immune to the one
+   failure this sequence can have — a `cd` that silently did not take — where a
+   bare `git` would instead write the spec's move into the primary checkout on
+   the base branch. It costs nothing and removes a whole failure mode, so do not
+   tidy it away.
 
 5. **Print the worktree path.** What happens next is step 6 — it is offered
    there, not decided here.
 
-**The session does not move, and nothing opens a window.** Starting a spec builds
-a branch and tells you where it is; that is the whole job. Reading what a phase
-changed is **`/spec-diff`**, which renders the worktree's diff as a page from
-wherever you already are — so no part of this skill needs a shell, a tab or an
-editor to be somewhere in particular.
+**The session moves into the worktree, and nothing opens a window.** Those are
+two different claims and both are load-bearing. The move is real, and the `cd` in
+step 3 is its whole mechanism — no tool call, because an approval prompt is
+unusable on a phone and leaves the session stuck. Nothing is *spawned*: no new
+terminal, no tab, no editor sent anywhere, because that machinery had nothing
+left to do and was removed deliberately.
 
 **Do not move the branch into this checkout**, and do not ask the operator to.
 `/spec-live` is for testing a finished-enough spec on the already-running dev
 server; it is not how work gets started.
 
 **`/spec-next`'s refusal is unchanged by this.** Its rule 2 — "the worktree you
-are standing in" — is what answers from a session in the worktree, and nothing
-about rules 1 to 3 is loosened; it must stay that way, because the refusal exists
-so the wrong branch is never built. What `/spec-next` gained is an explicit
-`--worktree <path>`, which answers before those rules and cannot be reached by
-guessing — a bare `/spec-next` still refuses exactly as it did.
+are standing in" — is what answers afterwards, and step 3 is what puts the session
+there; nothing about rules 1 to 3 is loosened, and it must stay that way, because
+the refusal exists so the wrong branch is never built. What changed is where the
+session stands, not how weakly the rules read: a bare `/spec-next` typed from
+somewhere that is neither a worktree nor a live checkout still refuses exactly as
+it did. `--worktree <path>` survives untouched beside it — it answers before those
+rules and cannot be reached by guessing.
 
 ### `checkout` mode
 
@@ -204,21 +233,27 @@ marks phase 1 started, refreshes the mirror again, builds it with tests and
 reports. Do not stop and ask the operator to run it: the branch is here and they
 asked to start the spec.
 
-**`worktree` mode — offer it, then do what they say.** The branch is provisioned
-and this session is still in the primary checkout, so there are two honest
-endings. Put both, in one short question, and recommend the first:
+**`worktree` mode — offer it, then do what they say.** Step 3 left this session
+standing in the worktree, so both endings happen right here and neither needs a
+second session opened anywhere. Put the question in one short block and recommend
+the first:
 
 ```
-worktree ready: <worktreePath>
-build phase 1 now from here, or hand off to a session in the worktree?
+worktree ready — this session is now in it:
+  <worktreePath>
+
+build phase 1 now?
+  yes -> carries on into /spec-next
+  no  -> you are already there; type /spec-next whenever you like
 ```
 
-- **Build it here** — carry on into **`/spec-next --worktree <worktreePath>`**.
-  It records a baseline first, builds into that path, and checks afterwards that
-  nothing reached the primary checkout.
-- **Hand off** — print the path and say to run **`/spec-next`** from a session in
-  it. Nothing else changes: this is the ending `/spec-start` has always had, and
-  a worktree with a provisioned branch is a perfectly good place to leave things.
+- **Build it here** — carry on into a bare **`/spec-next`**. Bare is right: the
+  session is in the worktree, so its rule 2 resolves this spec with nothing
+  passed and nothing guessed.
+- **Stop here** — the operator is left standing in the worktree on a provisioned
+  branch, which is a perfectly good place to leave things. Nothing has to be
+  reopened or handed anywhere, and `/spec-next` typed an hour later does exactly
+  what it would have done now.
 
 **Ask rather than deciding for them, and mean it.** Provisioning is cheap and
 reversible; a phase build is neither, and one yes should not cover both. A large
@@ -226,12 +261,13 @@ phase is often better started in a session of its own with a whole context budge
 to spend, and only the operator knows which this is. On **`--plan`** this step
 does not run at all — nothing was provisioned to build in.
 
-`/spec-next` still resolves the spec it is *standing in*, and a bare
-`/spec-next` typed from this session would refuse — correctly. `--worktree` is
-not a way around that refusal; it is the explicit alternative to it, because a
-path you pass is not a path anything guessed. Never reach for a bare name
-argument instead, and never build the phase inline here: the flag is what puts
-the writes in the right tree and lets the check prove it.
+**`--worktree <path>` is still there, and is still not a way around the refusal.**
+It builds a spec the session is *not* standing in, which after step 3 is the
+exception rather than the normal path. Reach for it in exactly two cases: the
+confirm in step 3 reported the `cd` did not take, or you deliberately mean to
+build some other spec's phase from here. A path someone typed is not a path
+anything guessed, which is why it was never a loosening of the refusal and still
+is not.
 
 ## Opt-outs
 

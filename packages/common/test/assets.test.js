@@ -89,11 +89,16 @@ test('/spec-start documents trusting the worktree root via /add-dir', () => {
 // provisioned it. The swap used to route through `/spec-live`, a user-only
 // command, which split every start across two invocations with the housekeeping
 // stranded in between.
+//
+// The session does follow the spec into its worktree now, and that is not a
+// swap: nothing is checked out anywhere, and the primary checkout is left on the
+// base branch exactly as it was.
 test('/spec-start never routes a start through the live overlay', () => {
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
   assert.doesNotMatch(flat, /type \*{0,2}`\/spec-live <name>`/, 'does not ask for the swap')
   assert.doesNotMatch(flat, /re-run `\/spec-start`/i, 'does not ask to be run twice')
-  assert.match(flat, /builds a branch and tells you where it is/i, 'says where the spec is built')
+  assert.match(flat, /The session moves into the worktree/i, 'says where the spec is built')
+  assert.match(flat, /Do not move the branch into this checkout/i, 'and that nothing is swapped')
 })
 
 test('/spec-start says the live overlay is for testing, not for starting', () => {
@@ -644,11 +649,12 @@ test('/spec-start never works around its own gate', () => {
 
 test('/spec-start builds every worktree-mode spec the same way', () => {
   // What used to be the parked path — housekeep in the worktree, open a session,
-  // build there — is now the only path. A hotfix and a stateful spec stopped
-  // being special cases here the moment nothing tried to take the checkout.
+  // build there — is now the only path, and the session no longer has to be
+  // opened by hand. A hotfix and a stateful spec stopped being special cases here
+  // the moment nothing tried to take the checkout.
   const flat = skillText('spec-start').replace(/\s+/g, ' ')
   assert.match(flat, /git -C <worktreePath>/, 'housekeeping is anchored to the worktree')
-  assert.match(flat, /run \*{0,2}`\/spec-next`\*{0,2} from a session in it/i, 'names the way to build it')
+  assert.match(flat, /carry on into a bare \*{0,2}`\/spec-next`\*{0,2}/i, 'names the way to build it')
   assert.doesNotMatch(flat, /a spec the live overlay refuses/i, 'no refusal-only branch left')
 })
 
