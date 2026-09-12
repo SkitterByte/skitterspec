@@ -217,6 +217,33 @@ no live `env.config.json` was found.
     "bump": "patch",
     "cherryPickMain": true,
     "targets": []
+  },
+
+  // Reading a spec's diff (`spec-env review`, `/spec-diff`).
+  //
+  // `reader` decides only how the page's LOCATION IS WORDED — never whether
+  // anything is served, published or refused. Three values:
+  //   "local"  — you are at the machine holding the page; a file:// URL opens.
+  //   "remote" — you are not; it does not, so the server is offered instead.
+  //   "detect" — work it out (the default).
+  // An explicit "local"/"remote" is BELIEVED WITHOUT SNIFFING: you know where
+  // you are reading, and no signal outranks being told. Detection is only the
+  // default, and it has three outcomes rather than two — local, remote, and
+  // unknown. Unknown behaves exactly as the tool did before any of this existed
+  // (the file:// URL, no warning), because a wrong "local" prints a dead link
+  // and a wrong "remote" warns at someone whose link works fine. An
+  // unrecognised value falls through to "detect", so a typo cannot become a
+  // confident answer. Default: detect.
+  //
+  // `servePort` is the default port for `spec-env review serve`, which renders
+  // every spec's diff per request on one local server. `--port` overrides it per
+  // run. The server binds 127.0.0.1 unless `--host 0.0.0.0` is passed, which
+  // mints an unguessable path token and prints the LAN URL including it —
+  // anyone holding that URL can read every spec's diff while it runs.
+  // Default: 7777.
+  "review": {
+    "reader": "detect",
+    "servePort": 7777
   }
 }
 ```

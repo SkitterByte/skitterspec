@@ -78,3 +78,63 @@ test('the skills that land branches do not gain the step', () => {
     assert.doesNotMatch(text, /Want a written review of it before you commit\?/, name)
   }
 })
+
+// --- the reader decides the wording, and only the engine decides the reader --
+
+for (const name of RENDERS) {
+  const text = skillText(name)
+
+  test(`/${name} follows the engine's reader: line, with all three states`, () => {
+    assert.match(text, /Follow the `reader:` line the engine printed/)
+    assert.match(text, /absent\*\* \(`unknown`\)/)
+    assert.match(text, /\*\*`local`\*\*/)
+    assert.match(text, /\*\*`remote`\*\*/)
+    assert.match(text, /spec-env review serve --host 0\.0\.0\.0/)
+  })
+
+  // Unknown is what a healthy local machine reports. Warning there would be an
+  // accusation against the common case (`.claude/rules/negative-checks.md`).
+  test(`/${name} does not warn on an unknown reader`, () => {
+    assert.match(text, /Do not warn/)
+    assert.match(text, /unknown is the ordinary state of a local machine/)
+  })
+
+  test(`/${name} says the reader chooses wording, never action`, () => {
+    assert.match(text, /\*\*wording, never action\*\*/)
+    assert.match(text, /does not\s*\n?\s*authorise publishing/)
+  })
+}
+
+// THE regression guard for this phase. Detection lives in the engine precisely
+// so it is testable, and the way that gets undone is a well-meaning edit
+// teaching a skill to check the environment itself — which no test could then
+// reach, and which would drift from the engine's ranking the first time either
+// changed.
+test('no skill sniffs the environment for the reader', () => {
+  const ASSETS_SKILLS = path.join(__dirname, '..', 'assets', 'skills')
+  for (const name of fs.readdirSync(ASSETS_SKILLS)) {
+    const file = path.join(ASSETS_SKILLS, name, 'SKILL.md')
+    if (!fs.existsSync(file)) continue
+    const text = fs.readFileSync(file, 'utf8')
+    // Naming them as forbidden is the point, so only USE is a failure: a line
+    // that says "never read SSH_CONNECTION" must stay legal.
+    for (const line of text.split('\n')) {
+      if (/\b(SSH_CONNECTION|SSH_TTY|CLAUDE_CODE_[A-Z_]+)\b/.test(line)) {
+        assert.match(
+          line,
+          /\b(not|never|Never)\b/,
+          `${name}: mentions an env var outside a prohibition — ${line.trim()}`,
+        )
+      }
+    }
+  }
+})
+
+test('the config keys are documented where an adopter reads them', () => {
+  const doc = fs.readFileSync(path.join(__dirname, '..', 'assets', 'core', 'env.config.md'), 'utf8')
+  assert.match(doc, /"reader": "detect"/)
+  assert.match(doc, /"servePort"/)
+  assert.match(doc, /BELIEVED WITHOUT SNIFFING/)
+  assert.match(doc, /unguessable path token/)
+})
+

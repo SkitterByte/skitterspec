@@ -250,6 +250,22 @@ path is not clickable in any terminal.
   something behind that this tooling cannot remove, so it is always an ask. A
   `file://` link is no use on a phone, and saying so **is** the ask —
   `/spec-diff` §6 owns how.
+**Follow the `reader:` line the engine printed — do not sniff for it.** It
+answers where the person reading this is sitting, and the offer changes with it:
+
+- **absent** (`unknown`) — the `file://` URL, exactly as always. **Do not warn:**
+  unknown is the ordinary state of a local machine, and a warning there is an
+  accusation against a healthy session.
+- **`local`** — the `file://` URL.
+- **`remote`** — say the link will not open where they are, then name the two
+  that will: `skitterspec spec-env review serve --host 0.0.0.0`, or publishing.
+
+**Never read an environment variable to decide this** — not `SSH_CONNECTION`,
+not `CLAUDE_CODE_*`, not a tty check. The engine did it, reports it on that line
+and in `--json`, and a second implementation here could not be tested and would
+drift. And it chooses **wording, never action**: a `remote` reader does not
+authorise publishing.
+
 - **Never fatal.** A failed render — no worktree, a git error — is one line, and
   the fix is still done. The page is a convenience; the repo is the record.
 

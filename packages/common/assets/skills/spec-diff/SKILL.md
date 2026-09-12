@@ -98,12 +98,25 @@ is no. The page is free to produce and changes nothing. The same goes for the
 marks: a spec with unread files or open comments is an ordinary spec, and
 nothing here may start counting them.
 
-## 4. Render the page
+## 4. Render the page — or serve it
 
 ```
 skitterspec spec-env review <spec>              # uncommitted work (the default)
 skitterspec spec-env review <spec> --branch     # everything since the base branch
+skitterspec spec-env review serve               # every spec, on localhost
 ```
+
+**A file when the reader is at this machine; `serve` when they are not.**
+Both are free and neither publishes
+anything; the difference is only whether a `file://` URL can open where the
+person reading it is sitting. The engine tells you which case you are in — see
+the `reader:` line in §4a — so this is not a judgement you have to make.
+
+`serve` renders **per request**, so nothing it shows can be stale, and it lists
+every spec with a worktree rather than one. `--host 0.0.0.0` binds beyond
+loopback and prints a URL a phone on the same network can open, guarded by an
+unguessable path token. Bare, it binds loopback only. It is a process:
+`--status` says whether one is up, `--stop` takes it down.
 
 Default to the working tree — "what did this phase just do". Use `--branch` when
 the question is about the whole spec.
@@ -124,6 +137,30 @@ page is written to `.spec-env/reviews/<spec>.html`, which is gitignored — it
 leaves no trace in the branch under review.
 
 **On `--page-only`, stop here** and report the path.
+
+## 4a. Read the `reader:` line — never sniff for it yourself
+
+`spec-env review` reports where it believes the reader is, and
+**that is the only place this question is answered.** Three states:
+
+| `reader:` | What to offer |
+|-----------|---------------|
+| absent (`unknown`) | the `file://` URL, exactly as always. **Do not warn** — unknown is the ordinary state of a local machine |
+| `local` | the `file://` URL |
+| `remote` | say the link will not open where they are, and name the two that will: `serve`, or publishing |
+
+**Never read an environment variable to decide this.** Not `SSH_CONNECTION`, not
+`CLAUDE_CODE_*`, not a tty check — the engine already did it, reports the answer
+on that line and in `--json`, and a second implementation here could not be
+tested and would drift from the first. The ranking and the traps
+(`CLAUDE_CODE_ENTRYPOINT` describes the *process*, not the reader; stdin is never
+a tty under Claude Code) live in `review.js` beside the code, which is where they
+belong.
+
+**It decides wording, never action.** A `remote` reader does not authorise
+publishing — publishing is an ask, in every case, always. `review.reader` in
+`env.config.json` (`local` · `remote` · `detect`) lets the operator settle it
+outright, and an explicit value is believed without sniffing.
 
 ## 5. Offer the written review — say what it costs first
 

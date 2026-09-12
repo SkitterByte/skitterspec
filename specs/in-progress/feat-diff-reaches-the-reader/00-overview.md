@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | `--publish-copy`, so publishing needs no hand transform | ✅ | [02-publish-copy.md](02-publish-copy.md) |
 | 3 | Reader detection — three states, reported not acted on | ✅ | [03-reader-detection.md](03-reader-detection.md) |
 | 4 | Account for what publishing leaves behind | ✅ | [04-account-for-the-page.md](04-account-for-the-page.md) |
-| 5 | Point the skills at the right answer | ⬜ | [05-skills-follow-the-reader.md](05-skills-follow-the-reader.md) |
+| 5 | Point the skills at the right answer | ✅ | [05-skills-follow-the-reader.md](05-skills-follow-the-reader.md) |
 
 ## Open questions
 
@@ -179,3 +179,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   function in `resolve.js`. The rejected alternative — snapshotting the spec list
   into the settings file — would have hidden any spec provisioned after the
   server started.
+- 2026-09-12 — Phase 5: the assert-no-sniffing guard scans every shipped
+  SKILL.md line by line and permits a mention only on a line that also says
+  not/never. A blanket ban on the strings would have made the prohibition itself
+  unwritable — the failure mode that kills this kind of test.
