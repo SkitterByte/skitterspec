@@ -37,7 +37,18 @@ const SURFACES = [
   ['README.md', README],
   ['skills/spec-bug/SKILL.md', read('skills', 'spec-bug', 'SKILL.md')],
   ['skills/spec-hotfix/SKILL.md', read('skills', 'spec-hotfix', 'SKILL.md')],
+  // The teardown pair joined the set when the session started moving again:
+  // they are the only surfaces that tell you how to get back OUT, so they are
+  // where a tool call would be reintroduced.
+  ['skills/spec-complete/SKILL.md', read('skills', 'spec-complete', 'SKILL.md')],
+  ['skills/spec-cancel/SKILL.md', read('skills', 'spec-cancel', 'SKILL.md')],
 ]
+
+// MIGRATION.md is deliberately NOT in that set, and this is the note that stops
+// someone adding it. It has to NAME `open.command` — the whole point of the
+// entry is telling upgraders to delete that key — so the opener guard would fire
+// on the one surface where the words are correct. Its own guard is in
+// `assets-kickoff-surfaces.test.js`, narrowed to the tool rather than the key.
 
 // This guard OUTLIVED the reason it was written. It once proved the dead tab
 // machinery was gone; now that `/spec-start` moves the session again, it is what
@@ -153,14 +164,18 @@ test('/spec-next rules 1-3 are still declared unchanged', () => {
   assert.match(SKILL, /cannot be reached by\s*\n?guessing/i)
 })
 
-test('the rules file describes building a branch, not moving a session', () => {
+test('the rules file describes the move as a cd, not as machinery', () => {
+  // The session moves again, so "never moves" is no longer the thing to pin.
+  // What still has to be pinned is the MECHANISM — one `cd`, nothing spawned.
   assert.doesNotMatch(PLANNING, /moves\s*\n?the session you typed into/)
-  assert.match(PLANNING, /tells you the path/)
+  assert.match(PLANNING, /moves your session into it/)
+  assert.match(PLANNING, /plain `cd`/)
 })
 
 test('the README describes the same one path', () => {
   assert.doesNotMatch(README, /moves the session you\s*\n?\s*typed into/)
-  assert.match(README, /prints the path/)
+  assert.match(README, /moves your session into it/)
+  assert.match(README, /nothing prompts and no window opens/)
   assert.match(README, /\/spec-diff/)
 })
 

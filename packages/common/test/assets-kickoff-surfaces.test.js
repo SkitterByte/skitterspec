@@ -22,22 +22,32 @@ const README = read(path.join(__dirname, '..', 'README.md'))
 const MIGRATION = read(path.join(ROOT, 'MIGRATION.md'))
 const DOCS = read(path.join(ROOT, 'docs', 'index.html'))
 
-test('the rules file describes a start that asks, not one that only hands off', () => {
-  assert.match(PLANNING, /build phase 1 now, or hand\s*\n?off\?/i)
-  assert.match(PLANNING, /--worktree <path>/)
-  assert.match(PLANNING, /Your session never moves either way/i)
+test('the rules file describes a start that asks, and moves you', () => {
+  assert.match(PLANNING, /build phase 1 now\?/i)
+  assert.match(PLANNING, /\*\*moves your session into it\*\*/i)
+  assert.match(PLANNING, /plain `cd`/)
 })
 
-test('the rules file keeps the hand-off as a real answer', () => {
+test('the rules file keeps declining as a real answer', () => {
   // Documenting only the new path is how the other one quietly stops working.
-  assert.match(PLANNING, /say no and you get the\s*\n?path/i)
-  assert.match(PLANNING, /from a session in the worktree/)
+  // The decline costs nothing now — you are already where the work is — and
+  // saying so is what stops it reading as the discouraged answer.
+  assert.match(PLANNING, /say no and\s*\n?you are already standing in the worktree/i)
+  assert.match(PLANNING, /typed later does the\s*\n?same thing/i)
+})
+
+test('the rules file says the primary checkout is left alone', () => {
+  // The move is the change an upgrader worries about, and this is the sentence
+  // that answers the worry: your session followed the spec, your checkout did
+  // not. Without it "moves your session" reads as a branch swap.
+  assert.match(PLANNING, /The primary checkout stays on the base branch/)
+  assert.match(PLANNING, /nothing was checked out anywhere/)
 })
 
 test('the README describes the same two endings', () => {
   assert.match(README, /It then offers phase 1/)
-  assert.match(README, /`\/spec-next --worktree <path>`/)
-  assert.match(README, /say no and you run/i)
+  assert.match(README, /moves your session into it\*\* — a plain `cd`/)
+  assert.match(README, /say no and you are already there/i)
 })
 
 test('the docs site row for /spec-start says it offers rather than does', () => {
@@ -55,6 +65,28 @@ test('the migration headings no longer say a start stops', () => {
   assert.doesNotMatch(MIGRATION, /starting a spec builds a branch, and stops/)
   assert.match(MIGRATION, /v18 → v19 \(starting a spec offers phase 1\)/)
   assert.match(MIGRATION, /v12 → v13 \(starting a spec offers phase 1\)/)
+})
+
+test('the migration entry warns that the shell moves', () => {
+  // The one change that alters what an upgrader's NEXT command does. A release
+  // note that only mentions the offer would let someone find out by running a
+  // script in a directory they did not expect to be in.
+  assert.match(MIGRATION, /Your shell will not be where it was/)
+  assert.match(MIGRATION, /Expect your shell to move/)
+  assert.match(MIGRATION, /nothing prompts you\s*\n?for approval/i)
+  assert.match(MIGRATION, /primary checkout\s*\n?is untouched/i)
+  // The guard `assets-spec-start-one-path.test.js` cannot make: that file's
+  // SURFACES set checks for `open.command` too, and this entry has to name that
+  // key to tell people to delete it. Narrow it to the tool, which must never
+  // appear here — a migration guide naming it reads as advice to call it.
+  assert.doesNotMatch(MIGRATION, /EnterWorktree/)
+})
+
+test('the migration entry says how to get back out again', () => {
+  // Teardown deletes the directory the upgrader is now standing in, and git does
+  // not refuse — so this has to be in the entry, not only in the skills.
+  assert.match(MIGRATION, /Leaving is a `cd` too/)
+  assert.match(MIGRATION, /Unable to read current working directory/)
 })
 
 test('the migration entry states the refusal is not loosened', () => {

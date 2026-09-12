@@ -32,11 +32,12 @@ no live `env.config.json` was found.
   // Where a spec's branch gets built.
   //
   //   "worktree"  (default) — every spec gets its own git worktree. Several
-  //               specs run side by side and `main` stays free, at the cost of
-  //               one terminal session per spec (`/spec-start` sets it up for you).
+  //               specs run side by side and `main` stays free. `/spec-start`
+  //               moves your session into the spec's worktree with a `cd`, so
+  //               the terminal you are already in follows the work.
   //   "checkout"  — the branch is built in the primary checkout instead. One
-  //               spec at a time, but no second session and no hand-off: the
-  //               terminal you are already in follows the work.
+  //               spec at a time, and nowhere else to stand: the work comes to
+  //               your terminal rather than your terminal going to it.
   //
   // Pick it for how you work, not for what this repo contains — a project with
   // no dev servers may still want several specs in flight. An unrecognised

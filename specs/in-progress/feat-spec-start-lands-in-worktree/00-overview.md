@@ -151,7 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `/spec-start` lands the session in the worktree | ✅ | [01-land-in-worktree.md](01-land-in-worktree.md) |
 | 2 | Collapse the teardown exit to a `cd` | ✅ | [02-teardown-exit.md](02-teardown-exit.md) |
-| 3 | Sweep the shipped surfaces and the migration note | ⬜ | [03-surfaces-and-migration.md](03-surfaces-and-migration.md) |
+| 3 | Sweep the shipped surfaces and the migration note | ✅ | [03-surfaces-and-migration.md](03-surfaces-and-migration.md) |
 
 ## Open questions
 
@@ -166,6 +166,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-12 — Phase 3: `MIGRATION.md` was kept **out** of the one-path test's
+  `SURFACES` set. That set guards `open.command` as well as `EnterWorktree`, and
+  the migration entry has to name `open.command` to tell upgraders to delete it —
+  adding it would have fired an accusing check on the one surface where the words
+  are correct (`negative-checks.md`). It gets a narrowed `EnterWorktree`-only
+  guard in `assets-kickoff-surfaces.test.js` instead, with the reasoning recorded
+  in both files. `env.config.md`'s mode contrast ("no second session and no
+  hand-off") was stale rather than absent and was rewritten; `docs/index.html`
+  needed no edit.
 - 2026-09-12 — Phase 2: the collapsed block keeps the `spec-env down`
   single-deleter argument as its own paragraph rather than dropping it with the
   `keep`/`remove` prose it sat beside — decision 8 says the reasoning survives

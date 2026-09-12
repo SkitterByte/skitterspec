@@ -136,14 +136,14 @@ Once adopted it's the **default policy**, not a per-spec chore:
 - **Worktree — automatic for every in-progress spec.** `/spec-start` gives each spec
   its own sibling git worktree on its own branch, so you never stash or rebuild to
   switch specs and `main` stays free for hotfixes.
-  **It builds the branch there and prints the path** — your session never moves.
-  It then offers phase 1: say yes and it carries on into
-  `/spec-next --worktree <path>`, which writes into that worktree and checks
-  afterwards that nothing reached your primary checkout; say no and you run
-  `/spec-next` from a session in the worktree whenever suits. Reading what a phase changed does not need a session
-  there at all: `/spec-diff` renders the worktree's diff as a page from wherever
-  you are. All housekeeping (the backlog→in-progress move, header edits, the code)
-  happens on that branch and lands in one PR; `main` changes only when it merges.
+  **It builds the branch there and moves your session into it** — a plain `cd`, so
+  nothing prompts and no window opens. It then offers phase 1: say yes and it
+  carries on into a bare `/spec-next`; say no and you are already there, so
+  `/spec-next` typed later does the same thing. Reading what a phase changed does
+  not need a session there at all: `/spec-diff` renders the worktree's diff as a
+  page from wherever you are. All housekeeping (the backlog→in-progress move,
+  header edits, the code) happens on that branch and lands in one PR; `main`
+  changes only when it merges.
 - **Docker — a per-spec escalation.** `/spec` records `> **Stack:** worktree`
   (default) or `worktree + docker` when the spec touches the DB / stateful
   services. Only an escalated spec gets a **namespaced stack** — a per-spec

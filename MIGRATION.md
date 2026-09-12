@@ -69,29 +69,49 @@ however large it is. The optional *written* review is the part that costs, and i
 is offered rather than assumed. `/spec-next` writes the page at the end of every
 phase. Beneath it, `skitterspec spec-env review <spec> [--branch]` is the engine.
 
-### `/spec-start` no longer just stops
+### `/spec-start` lands you in the worktree, and offers phase 1
 
-The work above removed the machinery that used to bridge `/spec-start` and
-`/spec-next` in `worktree` mode — first a live-take, then a session move — and
-left a hand-off in its place. That hand-off is now
-**one of two endings you are offered**, rather than the only one:
+Two changes to the same moment. In `worktree` mode `/spec-start` used to
+provision the branch, print the path and leave your session where it was; opening
+a session in the worktree was then yours to do. It now
+**moves your session into the worktree** as part of bootstrapping it, and asks
+whether to build phase 1:
 
 ```
-worktree ready: ../myrepo-wt/sort-inbox
-build phase 1 now from here, or hand off to a session in the worktree?
+worktree ready — this session is now in it:
+  ../myrepo-wt/sort-inbox
+
+build phase 1 now?
+  yes -> carries on into /spec-next
+  no  -> you are already there; type /spec-next whenever you like
 ```
 
-Say **yes** and it carries on into `/spec-next --worktree <path>`, a new flag
-that builds a spec the session is *not* standing in. Say **no** and you get
-exactly the behaviour described above: the path, and `/spec-next` run from a
-session in the worktree whenever suits. Neither is assumed, because provisioning
-is cheap and reversible while a phase build is neither.
+**Your shell will not be where it was.** A session that was on `main` in the
+primary checkout is standing in the spec's worktree afterwards, on the spec's
+branch — so the next command you type runs there. That is the point of it, and it
+is still a real change to plan for. The move is a plain `cd`: nothing prompts you
+for approval, nothing opens a new terminal or window, and your primary checkout
+is untouched and still on the base branch.
+
+**`/spec-next` needs no argument now.** Say **yes** and `/spec-start` carries on
+into a bare `/spec-next`; say **no** and typing `/spec-next` an hour later does
+the same thing, because you are already standing in the right place. Neither is
+assumed, because provisioning is cheap and reversible while a phase build is
+neither.
 
 **This is not a loosened refusal.** A bare `/spec-next` still refuses to build a
-spec it is not standing in, exactly as before. `--worktree` is an explicit path
-you pass, and a path you pass is not a path anything guessed.
+spec it is not standing in, exactly as before — what changed is where you are
+standing, not how weakly the rule reads. `--worktree <path>` survives beside it as
+the explicit way to build a spec you are *not* in, and a path you pass is still
+not a path anything guessed.
 
-**The build checks itself.** On the `--worktree` path, `/spec-next` first records
+**Leaving is a `cd` too.** `/spec-complete` and `/spec-cancel` delete the
+worktree, which is now the directory you are standing in, so both tell you to `cd`
+to the primary checkout first. `git worktree remove` **succeeds** on the tree you
+occupy rather than refusing — the teardown looks fine and every command after it
+dies with `Unable to read current working directory`.
+
+**The `--worktree` build checks itself.** On that path, `/spec-next` first records
 what your primary checkout looked like, and afterwards reports anything that
 appeared in it — the signature of a relative path that missed the worktree. It
 reports rather than accuses: it cannot know who wrote a file, so it names both
@@ -107,11 +127,14 @@ readings and deletes nothing.
    that no longer does anything.
 3. **Answer the question `/spec-start` now asks.** In `worktree` mode it offers
    phase 1 before it finishes. Take the offer and it is built there and then;
-   decline and you keep the provisioned worktree and its path, to open a session
-   in and run `/spec-next` whenever you like. Both endings are fully supported —
-   prefer a fresh session when the phase is a big one.
-4. **Nothing moves your session, whichever you answer.** That property is
-   unchanged and deliberate.
+   decline and you are left standing in the provisioned worktree, free to type
+   `/spec-next` whenever you like. Both endings are fully supported — decline when
+   the phase is a big one and you would rather spend a fresh context on it.
+4. **Expect your shell to move, whichever you answer.** Anything you had queued
+   for the primary checkout — a `git` command, a script, a relative path — now
+   runs in the worktree instead. `cd` back when you want the base branch, and note
+   that `/spec-complete` and `/spec-cancel` require exactly that before they tear
+   the worktree down.
 5. **Use `/spec-diff` to read the work** rather than reaching for a terminal in
    the worktree. It is gated on nothing — half a phase, a hand edit, or a
    colleague's branch are all ordinary inputs.
