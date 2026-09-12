@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-review-offer-lands (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-12)
+> **Status:** Complete (2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -145,6 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-12 | Ready | backlog | Reuben Greaves |
 | 2026-09-12 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-12 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -175,3 +176,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   skill's prose describes what the tool does. Beyond a wrong label, a base tag
   that is not an ancestor of the base branch widened the range to include
   commits the hotfix never touched.
+- 2026-09-12 — Completed; all three phases done, tests green (1897 pass).
+  Nothing deferred. Two follow-ups surfaced and deliberately left out of scope:
+  publishing the page still needs an unwrap step (`/spec-diff` §6 documents
+  recording the URL but assumes the page is publishable as written), and
+  `/spec-complete` still renders nothing — decision 6 kept reviewing a whole
+  spec out of this spec.
