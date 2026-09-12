@@ -235,8 +235,8 @@ only ordering that survives.
    don't force it.
 
    **If the plan prints a `remote branch — confirm with the user first:` section, ask before running it.**
-   `/spec-start` pushed this branch when it provisioned, so the remote copy
-   outlives teardown unless someone deletes it. The planner only ever offers
+   Nothing published this branch for you, so a remote copy exists only because
+   you pushed it by hand — and it outlives teardown unless someone deletes it. The planner only ever offers
    this for a branch that has **landed**, so say so plainly when you ask — the
    commits are on the base branch (or captured by the deploy tag), so deleting
    the remote branch loses nothing. On a yes, run the printed

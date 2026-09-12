@@ -145,9 +145,31 @@ branch is already here.
 
 <!-- seam:spec-tracker-start -->
 
-- **Commit it, and push the branch.** One commit, the spec's own — it records the
-  in-progress state for everyone and fires the tracker's automation. Everything
-  above is swept up by it, so the worktree is clean when you hand it over.
+- **Commit it.** One commit, the spec's own — it records the in-progress state on
+  the branch, and sweeps up everything above so the worktree is clean when you
+  hand it over.
+
+**Publishing that branch is yours to do, and nothing here does it for you.**
+Whenever you want the work somewhere other than this machine:
+
+```
+git -C <worktreePath> push -u origin <branch>
+```
+
+Print it if it is useful; never run it. This skill once pushed here, justified as
+recording the state "for everyone" and firing the tracker's automation — and
+neither half survives reading. The automation needs `{identifier}` in
+`branch.pattern` (see `env.config.md`) to put an issue id in the branch name, and
+the shipped default carries none, so the tracker has nothing to match. Nor was it
+an invariant: `/spec-bug` provisions a worktree the same way and has never
+pushed, and `/spec-hotfix` forbids it outright. This was the odd one out.
+
+**It also kept a guard from ever firing.** `refuseTeardownIfUnpushed` blocks
+teardown on commits that are unpushed and unlanded — which described no branch at
+all while this skill published every one of them at provisioning. It can fire now,
+and the place it does is `/spec-cancel`, where the work really is about to be
+destroyed: that skill relays the refusal and offers both ways out. Nothing to do
+here beyond knowing it is no longer dead code.
 
 A spec ideally arrives `Ready` from `/spec`; a `Draft` works too — sanity-check
 it is well-formed first.

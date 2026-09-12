@@ -141,7 +141,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-cancel` handles the unpushed refusal | ✅ | [01-cancel-unpushed-path.md](01-cancel-unpushed-path.md) |
-| 2 | `/spec-start` stops pushing the branch | ⬜ | [02-stop-pushing.md](02-stop-pushing.md) |
+| 2 | `/spec-start` stops pushing the branch | ✅ | [02-stop-pushing.md](02-stop-pushing.md) |
 | 3 | Rename `spec-sync push` to `spec-sync plan` | ⬜ | [03-rename-push-to-plan.md](03-rename-push-to-plan.md) |
 | 4 | Docs, migration and shipped-surface guards | ⬜ | [04-docs-and-surfaces.md](04-docs-and-surfaces.md) |
 
@@ -172,3 +172,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   true and `planDown` skips the check — so the finding was written into
   `/spec-complete` step 3 and pinned with a stays-silent test, rather than left
   implied.
+- 2026-09-12 — Phase 2 done. Scope grew by four claims the change falsified
+  (`/spec-complete`'s remote-delete prose, two `env/teardown.js` comments, one
+  test comment) plus two ordering tests anchored on the removed literal. The
+  `-D`-over-`-d` comment gained an explicit do-not-simplify note: its stated
+  reason was the provision-time push, and the flag is still right without it.

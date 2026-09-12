@@ -105,9 +105,15 @@ function planDown(spec, config, flags, ctx) {
   // different question from ours: it also declines a branch that is ahead of its
   // upstream ref, reporting `not yet merged to refs/remotes/origin/<branch>,
   // even though it is merged to HEAD`. That fires on the ordinary spec flow —
-  // `/spec-start` pushes the branch when it provisions, and the phase commits after
-  // it are landed locally rather than pushed — so teardown meets a branch whose
-  // every commit is on `main` and `-d` refuses it. `merged` (HEAD is an ancestor
+  // it fires on any branch with an upstream ref whose later commits were landed
+  // locally rather than pushed — the shape you get the moment someone publishes a
+  // spec branch by hand, which is the only way one reaches a remote now. Teardown
+  // then meets a branch whose every commit is on `main` and `-d` refuses it.
+  //
+  // DO NOT "simplify" this back to `-d` on the grounds that nothing pushes at
+  // provisioning any more. That removed the COMMON case, not the case: one
+  // hand-published branch is enough, and `merged` already establishes what we
+  // care about more strongly than `-d` checks. `merged` (HEAD is an ancestor
   // of base) already establishes what we actually care about, and establishes it
   // more strongly than `-d` checks.
   //
@@ -122,9 +128,10 @@ function planDown(spec, config, flags, ctx) {
 
   // --- delete the branch on the remote (planned, never run here) ---
   //
-  // `/spec-start` pushes the branch at provision time, so a completed spec otherwise
-  // leaves a merged branch on the remote forever. Cleaning that up is the goal;
-  // doing it safely is the constraint.
+  // A hand-published spec branch otherwise leaves a merged branch on the remote
+  // forever. Cleaning that up is the goal; doing it safely is the constraint.
+  // Nothing publishes at provision time any more, so this plans a delete only for
+  // a branch the user pushed themselves — which is exactly when they want it.
   //
   // Gated on `landed` because until the branch is merged (or captured by a tag)
   // the remote copy is the ONLY backup of the work — that is the whole reason

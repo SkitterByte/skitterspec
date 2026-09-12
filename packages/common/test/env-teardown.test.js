@@ -216,7 +216,7 @@ test('a spec with no branch → no branch-delete command', () => {
 
 // --- the remote branch ------------------------------------------------------
 //
-// `/spec-start` pushes the branch at provision time, so without this a completed
+// A hand-published spec branch outlives teardown, so without this a completed
 // spec leaves a merged branch on the remote forever. The delete is planned into
 // `remoteCommands`, NEVER `commands`: a caller running `plan.commands` blind must
 // not reach a shared remote.

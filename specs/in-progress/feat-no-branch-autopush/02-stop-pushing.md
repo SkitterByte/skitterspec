@@ -2,29 +2,43 @@
 linear_issue_id: "SKS-164"
 ---
 
-# Phase 2 — `/spec-start` stops pushing the branch ⬜
+# Phase 2 — `/spec-start` stops pushing the branch ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** provisioning a spec creates a branch and a worktree locally and
 publishes nothing; the commit stays, the push goes.
 
 ## Tasks
 
-- [ ] In `packages/common/assets/skills/spec-start/SKILL.md` step 4, change
+- [x] In `packages/common/assets/skills/spec-start/SKILL.md` step 4, change
       "Commit it, and push the branch" to commit only, and drop the "records the
       in-progress state for everyone and fires the tracker's automation" clause —
       the automation half is false unless `branch.pattern` carries
       `{identifier}` (see `env.config.md`).
-- [ ] Say whose job publishing is, and give the command, so the removal reads as
+- [x] Say whose job publishing is, and give the command, so the removal reads as
       a decision rather than an omission.
-- [ ] Note that the teardown guard is now reachable at `/spec-cancel`, and point
+- [x] Note that the teardown guard is now reachable at `/spec-cancel`, and point
       at phase 1's path rather than re-explaining it.
-- [ ] Confirm no other lifecycle skill pushes a branch — `/spec-bug` never did
+- [x] Confirm no other lifecycle skill pushes a branch — `/spec-bug` never did
       and `/spec-hotfix` forbids it, so this makes the three consistent.
-- [ ] Add/extend tests covering this phase; run the project's typecheck and
+- [x] Add/extend tests covering this phase; run the project's typecheck and
       test commands (see `.claude/rules/spec-planning.md`) — green before the
       phase is done.
+
+**Added during the phase** — four shipped claims this change falsifies, found by
+grepping for them rather than by a test:
+
+- [x] `/spec-complete` step 3 said "`/spec-start` pushed this branch when it
+      provisioned" to explain the remote-delete prompt. Now says a remote copy
+      exists only because you pushed it by hand — which is decision 5's reasoning
+      for keeping that prompt.
+- [x] `env/teardown.js` cited the provision-time push twice: once justifying
+      `-D` over `-d`, once gating the remote delete. Both rewritten.
+- [x] `env-teardown.test.js`'s comment cited it a third time.
+- [x] Re-anchor the two ordering tests in `assets.test.js` that located the
+      commit step by the literal `**Commit it, and push the branch.**`. The
+      ordering they assert is unchanged — only the anchor moved.
 
 ## Notes
 
@@ -44,3 +58,10 @@ prose, which is why it is small — and why the guard tests matter more than usu
 The test is also what stops the rule eroding later. "Just push it after phase 1,
 as a backup" is the reasonable-sounding change that reintroduces this, and a
 guard that names the invariant is the only thing that will be in the way.
+
+**Why the `-D` comment got a "do not simplify" warning.** Its argument for `-D`
+was that `-d` refuses a branch ahead of its upstream, which fired on every spec
+because provisioning had pushed one. Removing the push removes the *common* case
+and not the case: one hand-published branch produces the same shape. Left as it
+was, the comment reads as dead reasoning and invites a revert to `-d` that would
+start refusing real teardowns.

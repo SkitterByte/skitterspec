@@ -695,13 +695,13 @@ test('/spec-start mirrors its own state change, via its own seam and no other', 
 
 // The start seam's position is load-bearing for the same two reasons the sync
 // seam's is, plus one of its own: /spec-start's commit is the LAST thing that
-// runs in worktree mode, so a push after it strands the snapshot uncommitted in
-// a worktree the operator is about to be handed.
+// runs in worktree mode, so anything written after it strands the snapshot
+// uncommitted in a worktree the operator is about to be handed.
 test('/spec-start syncs the tracker after the move and before the commit', () => {
   const text = skillText('spec-start')
   const seam = text.indexOf('<!-- seam:spec-tracker-start -->')
   const move = text.indexOf('git mv "specs/backlog/<name>"')
-  const commit = text.indexOf('**Commit it, and push the branch.**')
+  const commit = text.indexOf('**Commit it.**')
 
   assert.ok(seam !== -1, 'the seam is present')
   assert.ok(move !== -1 && commit !== -1, 'the move and commit steps are recognisable')
@@ -832,7 +832,7 @@ test('/spec-start assigns beside Developer, and before the commit', () => {
   const text = skillText('spec-start')
   const developer = text.indexOf('Set **Developer**')
   const seam = text.indexOf('<!-- seam:spec-tracker-assign -->')
-  const commit = text.indexOf('**Commit it, and push the branch.**')
+  const commit = text.indexOf('**Commit it.**')
 
   assert.ok(developer !== -1, 'the Developer step is recognisable')
   assert.ok(seam !== -1, 'the assign seam is present')
