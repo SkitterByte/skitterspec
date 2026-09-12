@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-selfhost-link-integrity (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-10)
+> **Status:** Complete (2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-10
@@ -104,9 +104,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-10 | Ready | backlog | Reuben Greaves |
 | 2026-09-10 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-12 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-12 — Completed; all three phases done, root suite green (1948) and
+  `packages/linear` green (731). Nothing deferred. Two things the work established
+  that the spec had assumed: the skill **directories** are the symlinks (links point
+  at the composed distribution, so there is no seam problem), and the premise was
+  re-verified live rather than taken on trust — `/spec-list` and `/spec-claim` are
+  linked again, and the guard was proven by breaking a real link twice.
 - 2026-09-12 — Phase 3 built. `writeFile` refuses a live symlink under `--force`
   and reports it in a `refused` bucket of its own, separate from `unchanged`. The
   dangling-symlink repair beside it is untouched. `lastReport()` was added to the
