@@ -166,6 +166,58 @@ function numstatFor(git, ref, file, untracked) {
 }
 
 /**
+ * Where is the person reading this?
+ *
+ * `local` — at the machine that holds the page, so a `file://` URL opens.
+ * `remote` — somewhere else, so it does not.
+ * `unknown` — CANNOT TELL, and that is a real answer rather than a soft `local`.
+ *
+ * **This decides wording and nothing else.** Nothing in the engine serves,
+ * publishes or refuses on the strength of it, because being wrong has to stay
+ * cheap in both directions: a wrong `local` prints a dead link (the bug this
+ * exists to fix), and a wrong `remote` acted upon would publish something the
+ * tooling cannot remove, unprompted. `unknown` is therefore wired to exactly the
+ * behaviour that existed before any of this.
+ *
+ * `env` is passed in, never read from `process` here, so a test states the world
+ * it is testing instead of inheriting the machine the suite happens to run on.
+ *
+ * WHAT WOULD FOOL THIS: the bridge variable is an undocumented harness internal
+ * and may be renamed or dropped, so its ABSENCE proves nothing — which is the
+ * whole reason `unknown` exists and the default is not `local`.
+ */
+function detectReader(env = {}) {
+  // SSH first: a standard convention, and the strongest available signal. If the
+  // shell arrived over the network, the page's path is on a machine the reader
+  // is not looking at.
+  if (env.SSH_CONNECTION || env.SSH_TTY) return { reader: 'remote', why: 'ssh' }
+
+  // The operator is driving this session from somewhere else — the case that
+  // produced the original dead link, read on a phone.
+  if (env.CLAUDE_CODE_BRIDGE_SESSION_ID) return { reader: 'remote', why: 'bridge session' }
+
+  // CLAUDE_CODE_ENTRYPOINT IS DELIBERATELY NOT CONSULTED. It describes the
+  // PROCESS, not the reader, and reports `cli` for a bridged session — it said
+  // exactly that for the session this was written from, where the reader was on
+  // a phone. Using it would produce a confident, wrong `local`.
+  //
+  // A TTY CHECK IS ALSO USELESS, and is named so nobody reaches for it: stdin is
+  // never a tty under Claude Code, so it discriminates nothing at all.
+  return { reader: 'unknown', why: null }
+}
+
+/**
+ * The reader, config first. An explicit `local`/`remote` is BELIEVED without
+ * sniffing: the operator knows where they are reading, and no signal outranks
+ * being told.
+ */
+function resolveReader(config, env = {}) {
+  const setting = (config && config.review && config.review.reader) || 'detect'
+  if (setting === 'local' || setting === 'remote') return { reader: setting, why: 'configured' }
+  return detectReader(env)
+}
+
+/**
  * Collect everything the page needs.
  *
  * `mode` is `'working'` (uncommitted work vs HEAD — the default, "what did this
@@ -784,6 +836,8 @@ module.exports = {
   readReviewUrl,
   fragmentTemplate,
   renderReviewFragment,
+  detectReader,
+  resolveReader,
   CHECK_LEVELS,
   loadTemplate,
   TEMPLATE_PATH,

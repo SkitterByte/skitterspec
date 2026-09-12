@@ -54,6 +54,7 @@ const {
   reviewPublishPath,
   readReviewUrl,
   renderReviewFragment,
+  resolveReader,
   writeReviewPage,
   reviewNotesPath,
   readNotes,
@@ -1602,6 +1603,9 @@ function specEnvReview(dir, config, specArg, flags) {
   const urlFile = reviewUrlPath(out)
   const url = readReviewUrl(out)
 
+  // Resolved before the --json early return, so both outputs agree.
+  const reader = resolveReader(config, process.env)
+
   if (flags.json) {
     process.stdout.write(
       JSON.stringify(
@@ -1614,6 +1618,8 @@ function specEnvReview(dir, config, specArg, flags) {
           fellBack,
           out,
           publishCopy,
+          reader: reader.reader,
+          readerWhy: reader.why,
           fileUrl: reviewFileUrl(out),
           urlFile,
           url,
@@ -1671,8 +1677,21 @@ function specEnvReview(dir, config, specArg, flags) {
       (stored.corrupt && !flags.notes
         ? `  notes: ${reviewNotesPath(out)} is not readable JSON — ignored, not overwritten\n`
         : '') +
+      // Said only when there is something to say. `unknown` is the ordinary
+      // state on a local machine, and announcing it would be noise about a
+      // healthy session.
+      (reader.reader === 'unknown'
+        ? ''
+        : `  reader: ${reader.reader}${reader.why ? ` (${reader.why})` : ''}\n`) +
       `  page: ${out}\n` +
-      `  open: ${reviewFileUrl(out)}\n` +
+      // The path is still the truth about where the page IS — it just will not
+      // open there, so it is marked rather than suppressed.
+      `  open: ${reviewFileUrl(out)}${
+        reader.reader === 'remote' ? '   (will not open where you are reading)' : ''
+      }\n` +
+      (reader.reader === 'remote'
+        ? '  serve: skitterspec spec-env review serve --host 0.0.0.0\n'
+        : '') +
       // Named on its own line so the skill never has to build the path itself.
       (publishCopy ? `  publish: ${publishCopy}\n` : '') +
       (url ? `  published: ${url}\n` : '') +
