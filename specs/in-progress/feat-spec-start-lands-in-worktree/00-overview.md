@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-start` lands the session in the worktree | ✅ | [01-land-in-worktree.md](01-land-in-worktree.md) |
-| 2 | Collapse the teardown exit to a `cd` | ⬜ | [02-teardown-exit.md](02-teardown-exit.md) |
+| 2 | Collapse the teardown exit to a `cd` | ✅ | [02-teardown-exit.md](02-teardown-exit.md) |
 | 3 | Sweep the shipped surfaces and the migration note | ⬜ | [03-surfaces-and-migration.md](03-surfaces-and-migration.md) |
 
 ## Open questions
@@ -166,6 +166,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-12 — Phase 2: the collapsed block keeps the `spec-env down`
+  single-deleter argument as its own paragraph rather than dropping it with the
+  `keep`/`remove` prose it sat beside — decision 8 says the reasoning survives
+  the mechanism, and that argument was never about which tool relocates the
+  session. Both skills' blocks re-verified byte-identical after the edit.
 - 2026-09-12 — Phase 1: the `/spec-diff` mention went with the paragraph that
   justified not moving the session, so `assets-spec-start-one-path.test.js`'s
   "points at /spec-diff" assertion had nothing left to pin — replaced with one

@@ -10,6 +10,12 @@
  *
  * Both skills carry the same block, and it has to stay the same in both — a fix
  * applied to one is the shape this drift takes.
+ *
+ * The block used to fork on HOW you got in, because `/spec-start` moved the
+ * session with `ExitWorktree` and that tool had its own way out. The move is a
+ * plain `cd` now, so both ways in leave the same way and the fork collapsed —
+ * along with the `action: "keep"` constraint, which only ever existed to bound
+ * that call.
  */
 
 const { test } = require('node:test')
@@ -25,27 +31,35 @@ const read = (name) =>
   )
 
 for (const name of SKILLS) {
-  test(`/${name} names ExitWorktree for a session /spec-start moved`, () => {
+  test(`/${name} says to cd out, and says it once`, () => {
+    // One instruction, not a fork: a `cd`-moved session and a hand-opened
+    // terminal want the identical action, so offering two is offering a choice
+    // that does not exist.
     const s = read(name)
-    assert.match(s, /ExitWorktree/)
-    assert.match(s, /`\/spec-start` moved this session in/)
+    assert.match(s, /cd <primary checkout>/)
+    assert.match(s, /That is the whole mechanism/)
+    assert.doesNotMatch(s, /You opened the terminal yourself/, 'the fork is gone')
+    assert.doesNotMatch(s, /`\/spec-start` moved this session in/, 'the fork is gone')
   })
 
-  test(`/${name} specifies keep, and says why never remove`, () => {
-    // `remove` here would be a second deleter racing `spec-env down`, whose
-    // guards are the only thing protecting a dirty or unpushed worktree.
+  test(`/${name} names no tool for leaving — the mobile constraint`, () => {
+    // Guarded, not merely done. `ExitWorktree` prompts for approval, and that
+    // prompt is unusable on a phone; it is also a no-op for a session it did not
+    // move, which after phase 1 is every session. Both halves say: do not
+    // reintroduce it.
     const s = read(name)
-    assert.match(s, /action: "keep"/)
-    assert.match(s, /Always `keep`, never `remove`/)
+    assert.doesNotMatch(s, /ExitWorktree/)
+    assert.doesNotMatch(s, /action: "keep"/)
+    assert.match(s, /There is no tool to call here/)
+  })
+
+  test(`/${name} keeps spec-env down as the only deleter`, () => {
+    // This argument OUTLIVED ExitWorktree. It was never about which tool
+    // relocates the session — it is about not having a second thing that
+    // deletes, racing the guards that protect a dirty or unpushed worktree.
+    const s = read(name)
     assert.match(s, /single thing that deletes/)
-  })
-
-  test(`/${name} still tells a hand-opened terminal to cd out`, () => {
-    // The degrade path from phase 1 still exists, so a session that was never
-    // moved must keep its own way out — ExitWorktree does nothing for it.
-    const s = read(name)
-    assert.match(s, /You opened the terminal yourself/)
-    assert.match(s, /`cd` to the primary checkout/)
+    assert.match(s, /a second one is how the teardown guards get\s*\n?bypassed/)
   })
 
   test(`/${name} keeps the reason the ordering matters`, () => {

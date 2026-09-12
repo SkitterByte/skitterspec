@@ -2,38 +2,38 @@
 linear_issue_id: "SKS-179"
 ---
 
-# Phase 2 — Collapse the teardown exit to a `cd` ⬜
+# Phase 2 — Collapse the teardown exit to a `cd` ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the two teardown skills tell a session standing in the worktree how to
 actually get out of it, in one branch, with no tool that prompts.
 
 ## Tasks
 
-- [ ] In `packages/common/assets/skills/spec-complete/SKILL.md` and
+- [x] In `packages/common/assets/skills/spec-complete/SKILL.md` and
       `packages/common/assets/skills/spec-cancel/SKILL.md`, delete the
       **`/spec-start` moved this session in** branch and its `ExitWorktree`
       instruction, along with the `action: "keep"` paragraph and the
       "Always `keep`, never `remove`" paragraph that only existed to constrain
       that call.
-- [ ] Collapse what remains to the single instruction both branches now want:
+- [x] Collapse what remains to the single instruction both branches now want:
       `cd` to the primary checkout before running the teardown commands.
-- [ ] **Keep the reasoning paragraphs verbatim** — "Not because git refuses — it
+- [x] **Keep the reasoning paragraphs verbatim** — "Not because git refuses — it
       does not", the `Unable to read current working directory` consequence, and
       "the only ordering that survives". They are why the step exists and they
       are unchanged by the mechanism.
-- [ ] Keep `spec-env down` as the single thing that deletes a worktree. That
+- [x] Keep `spec-env down` as the single thing that deletes a worktree. That
       argument survives the loss of `ExitWorktree`: it was about not having a
       second deleter racing the teardown guards, not about which tool relocates
       the session.
-- [ ] Rewrite `packages/common/test/assets-teardown-exit.test.js`: drop the three
+- [x] Rewrite `packages/common/test/assets-teardown-exit.test.js`: drop the three
       assertions pinning `ExitWorktree`, `action: "keep"` and the two-branch
       shape; add one pinning the `cd`; keep the reasoning assertions and keep the
       final test that the block is **identical in both skills**.
-- [ ] Add an assertion that neither skill names `ExitWorktree` any more, so the
+- [x] Add an assertion that neither skill names `ExitWorktree` any more, so the
       removal is guarded rather than merely done.
-- [ ] Add/extend tests covering this phase; run the project's typecheck and
+- [x] Add/extend tests covering this phase; run the project's typecheck and
       test commands (see `.claude/rules/spec-planning.md`) — green before the
       phase is done.
 
