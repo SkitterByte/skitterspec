@@ -4,6 +4,35 @@
 
 ### Breaking change
 
+**`/spec-start` no longer pushes the spec's branch.** It provisions the worktree
+and commits the spec's move to `in-progress/` exactly as before, and then stops.
+Publishing is yours to do, whenever you want the work somewhere other than your
+machine:
+
+```
+git -C <worktreePath> push -u origin <branch>
+```
+
+Two things change for you, and neither is in your config:
+
+- **Spec branches stop appearing on the remote.** Nothing is lost — the branch
+  and its commits are in the worktree — but a branch you have not pushed is on
+  one machine only, and that is now the default rather than something the
+  tooling quietly undid.
+- **Cancelling a spec with unpublished work now refuses.** `/spec-cancel` has
+  always respected `guards.refuseTeardownIfUnpushed`, but the guard could never
+  fire while provisioning published every branch. It fires now, at the one moment
+  it was written for: the work really is about to be destroyed, and the worktree
+  is the only copy. `/spec-cancel` names both ways out — publish the branch and
+  re-run, or `spec-env down <name> --force` accepting the loss. Nothing was
+  removed from your config and nothing needs adding to it.
+
+The justification for the old behaviour does not survive reading, which is why
+it went rather than becoming a setting: it claimed to fire the tracker's branch
+automation, and that needs `{identifier}` in `branch.pattern`, which the shipped
+default does not carry. `/spec-bug` never pushed and `/spec-hotfix` forbids it,
+so this also makes the three consistent.
+
 **The `open.command` config key is gone.** It was the editor/terminal-agnostic
 opener — `code {worktreePath}`, a `tmux` command, a `warp://` deeplink — that
 `/spec-start` ran when it could not move your session into the worktree.
@@ -93,6 +122,30 @@ readings and deletes nothing.
 
 The same change as `@skitterbyte/skitterspec` v18 → v19 above — this
 distribution composes the same lifecycle skills. Read that entry first.
+
+### Breaking change
+
+**`spec-sync push` is now `spec-sync plan`.** The verb computes a create/update
+plan and performs no network I/O; `spec-sync apply` is what writes to Linear.
+Calling it `push` put three unrelated things behind one word — this verb, the
+`/spec-push` skill, and `git push` — and it was the one that pushes nothing.
+
+```
+skitterspec spec-sync plan <spec> --workspace-states <file> --json > plan.json
+skitterspec spec-sync apply <spec> --plan plan.json
+```
+
+The old name is **not** aliased. It is recognised and exits 1 naming its
+replacement, so a script that calls it fails loudly with the fix in the message
+rather than drifting on a name that will be removed later.
+
+**Your `linear.config.json` needs no change.** The `"push"` values under
+`sync.fieldOwnership` — `assignee: "push"`, `description: "push"`,
+`workflowState: "push"` — are a different vocabulary: they name a direction of
+ownership, not a subcommand. They are untouched and still mean what they meant.
+Do not search-and-replace `push` in your config.
+
+### What else is here
 
 **One thing here is Linear-specific.** `/spec-start` now pushes to Linear itself,
 right after it commits the spec's move to `in-progress/`. It used to push nothing

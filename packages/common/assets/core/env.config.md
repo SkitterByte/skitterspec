@@ -176,9 +176,10 @@ no live `env.config.json` was found.
     "refuseTeardownIfUnpushed": true
   },
 
-  // What teardown cleans up beyond this machine. `/spec-start` pushes the spec
-  // branch when it provisions, so without this a completed spec leaves a merged
-  // branch on the remote forever. `deleteRemoteBranch`:
+  // What teardown cleans up beyond this machine. Nothing publishes a spec
+  // branch for you, so a remote copy exists only because you pushed it by hand —
+  // and without this a completed spec leaves that merged branch on the remote
+  // forever. `deleteRemoteBranch`:
   //   "prompt"  (default) — plan `git push <remote> --delete <branch>` in its own
   //             "confirm with the user first" section; /spec-complete and
   //             /spec-cancel ask before running it.

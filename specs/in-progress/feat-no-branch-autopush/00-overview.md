@@ -143,7 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `/spec-cancel` handles the unpushed refusal | ✅ | [01-cancel-unpushed-path.md](01-cancel-unpushed-path.md) |
 | 2 | `/spec-start` stops pushing the branch | ✅ | [02-stop-pushing.md](02-stop-pushing.md) |
 | 3 | Rename `spec-sync push` to `spec-sync plan` | ✅ | [03-rename-push-to-plan.md](03-rename-push-to-plan.md) |
-| 4 | Docs, migration and shipped-surface guards | ⬜ | [04-docs-and-surfaces.md](04-docs-and-surfaces.md) |
+| 4 | Docs, migration and shipped-surface guards | ✅ | [04-docs-and-surfaces.md](04-docs-and-surfaces.md) |
 
 ## Open questions
 
@@ -182,3 +182,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   page, so the rename cannot land green without it. The retired `push` case is
   dispatched and therefore also demanded — allowlisted with a reason rather than
   documented, since a docs row would advertise a retired name as available.
+- 2026-09-12 — Phase 4 done, and with it all four phases. `spec-planning.md` and
+  `docs/index.html` turned out to need no edit — checked and recorded rather than
+  ticked blind. The cross-surface claim guard added here caught two more places
+  (`env.config.md`, `src/env/config.js`) still explaining the remote-delete
+  prompt in terms of a branch `/spec-start` had pushed, which the phase 2 grep
+  had missed.
