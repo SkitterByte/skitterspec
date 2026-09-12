@@ -1465,8 +1465,22 @@ function specEnvReview(dir, config, specArg, flags) {
   let mode = 'working'
   let ref = 'HEAD'
   let base = null
+
+  // WHICH BASE THE BRANCH VIEW MEASURES FROM. A hotfix forks its worktree from a
+  // release tag rather than the base branch, so the range that answers "what
+  // does this spec change" starts at that tag — `spec.baseRef`, read from the
+  // `> **Base version:**` header, and null for every other spec type.
+  //
+  // Measuring a hotfix from the base branch is wrong in two ways at once: the
+  // header says `since main`, which is not where the work started, and when the
+  // tag is not an ancestor of the base branch (a release line that never merged
+  // back) the range widens to include commits the hotfix never touched.
+  //
+  // Lazy, so the common working-tree path pays nothing for it.
+  const reviewBase = () => spec.baseRef || resolveBaseBranch(config, trimmed)
+
   if (flags.branch) {
-    base = resolveBaseBranch(config, trimmed)
+    base = reviewBase()
     const mergeBase = trimmed(['merge-base', base, 'HEAD'])
     // Cannot tell → do nothing. A missing merge-base means the branch and the
     // base share no history (a fresh repo, an unfetched base); diffing against
@@ -1572,7 +1586,7 @@ function specEnvReview(dir, config, specArg, flags) {
   // empty view, so no information is lost by it.
   let fellBack = false
   if (!flags.branch && data.totals.files === 0) {
-    const fallbackBase = resolveBaseBranch(config, trimmed)
+    const fallbackBase = reviewBase()
     const mergeBase = trimmed(['merge-base', fallbackBase, 'HEAD'])
     // Cannot tell -> do nothing, exactly as the `--branch` path refuses. No
     // merge-base means base and HEAD share no history, and diffing against the

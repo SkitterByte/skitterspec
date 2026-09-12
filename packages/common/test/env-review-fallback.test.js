@@ -200,3 +200,92 @@ test('no merge-base means cannot tell, so the fallback does nothing', async () =
     cleanup(dir)
   }
 })
+
+// --- a hotfix measures from its base tag ------------------------------------
+
+// A hotfix forks its worktree from a release tag, so the base branch is the
+// wrong ruler. `spec.baseRef` (the `> **Base version:**` header) was already
+// resolved and simply unused here.
+function hotfixScaffold() {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hotfix-')))
+  git(dir, 'init', '-q')
+  git(dir, 'config', 'user.email', 'test@example.com')
+  git(dir, 'config', 'user.name', 'Test')
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+  )
+  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
+  fs.writeFileSync(path.join(dir, 'app.js'), 'one\n')
+  const specDir = path.join(dir, 'specs', 'in-progress', 'hotfix-alpha')
+  fs.mkdirSync(specDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(specDir, '00-overview.md'),
+    '# H\n\n> **Type:** Hotfix\n> **Stack:** worktree\n> **Base version:** v1.0.1\n',
+  )
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'A')
+  git(dir, 'branch', '-M', 'main')
+  const a = git(dir, 'rev-parse', 'HEAD')
+
+  // A release line that diverges at A and never merges back, tagged v1.0.1.
+  git(dir, 'checkout', '-q', '-b', 'release', a)
+  fs.writeFileSync(path.join(dir, 'release-only.js'), 'shipped\n')
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'R (a prior hotfix, never merged to main)')
+  git(dir, 'tag', 'v1.0.1')
+
+  // main advances independently of the release line.
+  git(dir, 'checkout', '-q', 'main')
+  fs.writeFileSync(path.join(dir, 'main-only.js'), 'later\n')
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'M')
+
+  // The hotfix forks from the TAG, not from main.
+  const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'alpha')
+  git(dir, 'worktree', 'add', '-q', '-b', 'hotfix/alpha', wt, 'v1.0.1')
+  fs.writeFileSync(path.join(wt, 'app.js'), 'one\nfixed\n')
+  git(wt, 'add', '-A')
+  git(wt, 'commit', '-q', '-m', 'the hotfix')
+  return { dir, wt }
+}
+
+const hotfixReview = (dir, ...extra) =>
+  runQuiet(['spec-env', 'review', 'hotfix-alpha', '--dir', dir, ...extra])
+
+test('a hotfix reports its base tag, not the base branch', async () => {
+  const { dir } = hotfixScaffold()
+  try {
+    const out = await hotfixReview(dir)
+    assert.match(out, /since v1\.0\.1/, 'the header names the tag the work forked from')
+    assert.doesNotMatch(out, /since main/)
+    const data = JSON.parse(await hotfixReview(dir, '--json'))
+    assert.strictEqual(data.base, 'v1.0.1')
+    assert.strictEqual(data.fellBack, true, 'the tree is clean, so this is the fallback')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('measuring a hotfix from the base branch would widen the range', async () => {
+  const { dir, wt } = hotfixScaffold()
+  try {
+    const paths = JSON.parse(await hotfixReview(dir, '--json')).files.map((f) => f.path)
+    assert.deepStrictEqual(paths, ['app.js'], 'only the hotfix\'s own change')
+
+    // And the counterfactual, computed rather than asserted: the tag is NOT an
+    // ancestor of main here, so merge-base(main, HEAD) sits back at the fork
+    // point and the range swallows a release commit the hotfix never touched.
+    // This is the case where the wrong ruler is not merely mislabelled.
+    const forkPoint = git(dir, 'merge-base', 'main', 'hotfix/alpha')
+    const fromMain = git(wt, 'diff', '--name-only', forkPoint).split('\n').filter(Boolean)
+    assert.ok(
+      fromMain.includes('release-only.js'),
+      `the base branch would have shown ${JSON.stringify(fromMain)}`,
+    )
+    assert.ok(!paths.includes('release-only.js'))
+  } finally {
+    cleanup(dir)
+  }
+})

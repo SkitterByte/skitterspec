@@ -211,6 +211,53 @@ is a no-op.
 
 <!-- seam:spec-tracker-progress -->
 
+## 6b. Render the page — then offer the review, never write it
+
+**Only when the project has per-spec isolation** (`specs/.core/env.config.json`
+present). Without it there is no worktree to read and this step does not exist —
+skip it in silence rather than explaining an absence.
+
+The fix is green and nothing is committed yet. That is the moment the page is
+about, so render it now — **after** the tests pass and **before** the commit:
+
+```
+skitterspec spec-env review <spec>
+```
+
+**This is free.** The engine reads git and splices the patches into a template;
+the diff never passes through you, so a 266KB patch costs nothing.
+
+**Then offer `/spec-diff`. Do not run it.** The written review is the part that
+costs — roughly **700 output tokens**, because writing it means reading the diff
+— and that spend is the operator's call, not a default.
+
+**Write it as prose ending in a question, and put it LAST** — after the report of
+step 7, as the final thing on screen:
+
+```
+Page is rendered: <the `open:` file:// URL it printed> — <N> files, +<a> −<d>.
+
+Want a written review of it before you commit?
+```
+
+**A fenced block of engine output is not an offer.** Two quoted lines under the
+test counts are addressed to nobody, and a report that then closes on what to do
+next tells the reader to move on — so they do. Ask them something, and ask it
+where the message ends. Relay the **`open:`** line rather than the bare path: a
+path is not clickable in any terminal.
+
+- **Never write the review unasked**, and **never publish**. Publishing leaves
+  something behind that this tooling cannot remove, so it is always an ask. A
+  `file://` link is no use on a phone, and saying so **is** the ask —
+  `/spec-diff` §6 owns how.
+- **Never fatal.** A failed render — no worktree, a git error — is one line, and
+  the fix is still done. The page is a convenience; the repo is the record.
+
+**The range is measured from the base tag, not from `main`.** A hotfix forks its
+worktree from its `> **Base version:**` tag, and the engine reads that header, so
+the header line says `since <tag>` — do not relay it as `since main`, and do not
+reach for a branch view expecting the base branch.
+
 ## 7. Report
 
 Summarise: the base tag, root cause, the failing→passing test, the fix, and the

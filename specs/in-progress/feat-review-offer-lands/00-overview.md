@@ -133,7 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Engine: a clean tree falls back to the branch, announced | ✅ | [01-clean-tree-fallback.md](01-clean-tree-fallback.md) |
 | 2 | `/spec-next`: the offer goes last and asks | ✅ | [02-offer-goes-last.md](02-offer-goes-last.md) |
-| 3 | `/spec-bug` and `/spec-hotfix` render too, pinned by a test | ⬜ | [03-bug-and-hotfix-render.md](03-bug-and-hotfix-render.md) |
+| 3 | `/spec-bug` and `/spec-hotfix` render too, pinned by a test | ✅ | [03-bug-and-hotfix-render.md](03-bug-and-hotfix-render.md) |
 
 ## Open questions
 
@@ -169,3 +169,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   complete HTML document and the artifact host wraps page *content*, so
   publishing needs an unwrap step that `/spec-diff` §6 does not mention. Step 5
   now points at §6 for it; making publishing one step is its own spec.
+- 2026-09-12 — Phase 3 found the hotfix half of its own plan untrue: the review
+  path ignored `spec.baseRef` and measured a hotfix from `main`. Fixed in the
+  engine (one `reviewBase()` helper shared by `--branch` and the fallback) so the
+  skill's prose describes what the tool does. Beyond a wrong label, a base tag
+  that is not an ancestor of the base branch widened the range to include
+  commits the hotfix never touched.
