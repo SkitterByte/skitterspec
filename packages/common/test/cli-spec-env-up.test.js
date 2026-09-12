@@ -219,3 +219,95 @@ test('a re-run of spec-env up does not drift into claiming the worktree exists',
   assert.doesNotMatch(out, /attached/, 'does not report attaching a worktree that is absent')
   assert.match(out, /git worktree add \S+ -b /, 'still emits the fresh-branch form')
 })
+
+// --- re-attaching a spec that is already in flight ---------------------------
+
+/**
+ * The real shape of an in-flight spec, which no other fixture here builds: the
+ * spec is committed on `main` in `specs/backlog/`, and its worktree has moved it
+ * to `specs/in-progress/` on the branch. Both are true at once — that is the
+ * whole point of the per-branch model — and `spec-env up` resolves the spec from
+ * the WORKTREE, so its path lies outside the primary checkout.
+ */
+function scaffoldInFlight(slug = 'y') {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-inflight-')))
+  git(dir, 'init', '-q')
+  git(dir, 'config', 'user.email', 'test@example.com')
+  git(dir, 'config', 'user.name', 'Test')
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+  )
+  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
+  const folder = `feat-${slug}`
+  const backlog = path.join(dir, 'specs', 'backlog', folder)
+  fs.mkdirSync(backlog, { recursive: true })
+  fs.writeFileSync(path.join(backlog, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'init')
+  git(dir, 'branch', '-M', 'main')
+
+  const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, slug)
+  git(dir, 'worktree', 'add', '-q', '-b', `feat/${slug}`, worktree)
+  // /spec-start's housekeeping: the bucket move happens ON THE BRANCH.
+  fs.mkdirSync(path.join(worktree, 'specs', 'in-progress'), { recursive: true })
+  git(worktree, 'mv', `specs/backlog/${folder}`, `specs/in-progress/${folder}`)
+  git(worktree, 'commit', '-q', '-m', 'start')
+  return { dir, folder, worktree }
+}
+
+test('re-attaching an in-flight spec does not accuse the repo of losing it', async () => {
+  const { dir, folder } = scaffoldInFlight()
+  try {
+    const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+    // The bug: the spec resolves from the worktree, so the fork-point check was
+    // handed `../<repo>-wt/<slug>/specs/in-progress/<folder>` — a path outside
+    // the repo that no git lookup can ever find. It concluded "not committed".
+    assert.doesNotMatch(
+      out,
+      /is not committed in/,
+      'the spec IS committed on main, in specs/backlog — this refusal is false',
+    )
+    assert.match(out, /worktree exists; will attach/, 're-attach is a documented path')
+  } finally {
+    cleanupGit(dir)
+  }
+})
+
+test('a spec genuinely absent from the fork point is still refused', () => {
+  // The stays-silent check's opposite number: the guard must keep firing on the
+  // case it was written for, or the fix above would have removed it rather than
+  // corrected it. That case is a spec authored ON THE BRANCH and never committed
+  // to base — so the worktree really would fork from a commit without it.
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-branchonly-')))
+  try {
+    git(dir, 'init', '-q')
+    git(dir, 'config', 'user.email', 'test@example.com')
+    git(dir, 'config', 'user.name', 'Test')
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, 'specs', '.core', 'env.config.json'),
+      JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+    )
+    fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-q', '-m', 'init')
+    git(dir, 'branch', '-M', 'main')
+
+    const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, 'q')
+    git(dir, 'worktree', 'add', '-q', '-b', 'feat/q', worktree)
+    const onBranch = path.join(worktree, 'specs', 'in-progress', 'feat-q')
+    fs.mkdirSync(onBranch, { recursive: true })
+    fs.writeFileSync(path.join(onBranch, '00-overview.md'), '# Q\n\n> **Stack:** worktree\n')
+    git(worktree, 'add', '-A')
+    git(worktree, 'commit', '-q', '-m', 'spec on the branch only')
+
+    return runQuiet(['spec-env', 'up', 'feat-q', '--dir', dir]).then((out) => {
+      assert.match(out, /is not committed in/, 'the real case still refuses')
+      assert.match(out, /it is on feat\/q/, 'and names the branch that does have it')
+    })
+  } finally {
+    cleanupGit(dir)
+  }
+})

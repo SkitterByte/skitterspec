@@ -26,6 +26,7 @@ const {
   repoInfo,
   expandTokens,
   splitPrefix,
+  BUCKETS,
 } = require('./env/resolve.js')
 const building = require('./env/building.js')
 const {
@@ -339,13 +340,24 @@ function specIsUntracked(dir, git, spec) {
  */
 function specOnForkPoint(dir, git, spec) {
   if (spec.baseRef) return { onFork: null, foundOn: null }
-  const rel = path.relative(dir, spec.path).split(path.sep).join('/')
-  if (git(['cat-file', '-e', `HEAD:${rel}/00-overview.md`]) !== null) {
-    return { onFork: true, foundOn: null }
+  // Ask about EVERY bucket, by folder name — never about `spec.path`.
+  //
+  // A spec's folder is its identity; which bucket holds it is a property of the
+  // ref you are asking about, and the two legitimately disagree: `/spec-start`
+  // moves a spec to `in-progress` on its own branch while the base still shows
+  // `backlog`. Worse, resolution PREFERS the worktree, so `spec.path` routinely
+  // points outside this repo entirely (`../<repo>-wt/<slug>/specs/...`) — a path
+  // no `cat-file` or `log` can ever match, which turned every in-flight spec
+  // into "not committed" and silently emptied the `it is on <branch>` hint too.
+  const rels = BUCKETS.map((bucket) => `specs/${bucket}/${spec.folder}`)
+  for (const rel of rels) {
+    if (git(['cat-file', '-e', `HEAD:${rel}/00-overview.md`]) !== null) {
+      return { onFork: true, foundOn: null }
+    }
   }
   // Best-effort: name the branch that does have it, so the refusal is actionable.
   let foundOn = null
-  const sha = git(['log', '--all', '--format=%H', '-1', '--', rel])
+  const sha = git(['log', '--all', '--format=%H', '-1', '--', ...rels])
   if (sha) {
     const branches = git(['branch', '--contains', sha, '--format=%(refname:short)'])
     if (branches) foundOn = branches.split('\n').map((b) => b.trim()).filter(Boolean)[0] || null
