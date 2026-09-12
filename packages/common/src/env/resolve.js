@@ -272,9 +272,70 @@ function resolveSpec(specArg, dir, config, opts = {}) {
   }
 }
 
+/**
+ * Every worktree git knows about, as absolute paths — the primary checkout
+ * included, since `git worktree list` reports it as one.
+ *
+ * `git` is an injected reader, as everywhere else in this file: the caller owns
+ * the child-process boundary, which is what keeps this module testable without
+ * one.
+ */
+function liveWorktreePaths(git) {
+  const out = git(['worktree', 'list', '--porcelain'])
+  const paths = new Set()
+  if (out == null) return paths
+  for (const line of out.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      paths.add(path.resolve(line.slice('worktree '.length).trim()))
+    }
+  }
+  return paths
+}
+
+// An in-progress spec lives on its *worktree branch*, not the primary checkout,
+// so we must scan the worktrees too — otherwise a live spec's DB looks orphaned.
+function collectSpecFolders(roots) {
+  const folders = new Set()
+  for (const root of roots) {
+    for (const bucket of BUCKETS) {
+      let entries
+      try {
+        entries = fs.readdirSync(path.join(root, 'specs', bucket), { withFileTypes: true })
+      } catch {
+        continue
+      }
+      for (const entry of entries) if (entry.isDirectory()) folders.add(entry.name)
+    }
+  }
+  return folders
+}
+
+/**
+ * Resolve every spec folder (found in the primary checkout OR any worktree) to
+ * `{ folder, slug, worktreePath }`. `searchDirs` lets `resolveSpec` locate a
+ * spec that was authored on its branch and never committed to the primary
+ * checkout.
+ */
+function allSpecs(dir, config, worktreePaths) {
+  const searchDirs = [...worktreePaths]
+  const specs = []
+  for (const folder of collectSpecFolders([dir, ...searchDirs])) {
+    try {
+      const spec = resolveSpec(folder, dir, config, { searchDirs })
+      specs.push({ folder: spec.folder, slug: spec.slug, worktreePath: spec.worktreePath })
+    } catch {
+      // Unresolvable folder (not a real spec) — skip.
+    }
+  }
+  return specs
+}
+
 module.exports = {
   BUCKETS,
   resolveSpec,
+  liveWorktreePaths,
+  collectSpecFolders,
+  allSpecs,
   resolveBaseBranch,
   resolvePrimaryCheckout,
   currentBranch,

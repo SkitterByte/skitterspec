@@ -20,6 +20,9 @@ const {
 const {
   resolveSpec,
   resolveBaseBranch,
+  liveWorktreePaths,
+  collectSpecFolders,
+  allSpecs,
   resolvePrimaryCheckout,
   assertPrimaryOnMain,
   currentBranch,
@@ -64,8 +67,9 @@ const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune
 const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
 const { planHotfixLand } = require('./env/hotfix.js')
 const { planDev } = require('./env/dev.js')
-const { startProcess, stopProcess, waitHealthy } = require('./env/supervise.js')
+const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
 const { renderRoutes, portsInUse, waitListening } = require('./env/proxy.js')
+const { mintToken, servableSpecs } = require('./env/serve.js')
 
 const pkg = require('../package.json')
 
@@ -239,7 +243,7 @@ async function cleanupReleaseTooling(dir, opts) {
  * the harmless direction for a read-only report.
  */
 function specEnvStatus(dir, config) {
-  const worktreePaths = liveWorktreePaths(dir)
+  const worktreePaths = liveWorktreePaths(gitReader(dir))
   const provisioned = allSpecs(dir, config, worktreePaths)
     .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath) }))
     // The primary checkout is itself in `git worktree list`; a spec is
@@ -850,17 +854,6 @@ function volumeCreatedAt(names) {
 }
 
 // Absolute paths of every checkout git knows about (primary + all worktrees).
-function liveWorktreePaths(dir) {
-  const out = gitReader(dir)(['worktree', 'list', '--porcelain'])
-  const paths = new Set()
-  if (out == null) return paths
-  for (const line of out.split('\n')) {
-    if (line.startsWith('worktree ')) {
-      paths.add(path.resolve(line.slice('worktree '.length).trim()))
-    }
-  }
-  return paths
-}
 
 /**
  * The spec to act on when the caller named none.
@@ -909,7 +902,7 @@ function liveWorktreePaths(dir) {
  * cases into the exact errors every other subcommand already relies on.
  */
 function provisionedSpecChoice(dir, config, cwd = process.cwd()) {
-  const worktreePaths = liveWorktreePaths(dir)
+  const worktreePaths = liveWorktreePaths(gitReader(dir))
   const provisioned = allSpecs(dir, config, worktreePaths)
     .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath) }))
     // The primary checkout is itself in `git worktree list`; a spec is
@@ -974,7 +967,7 @@ function resolveSpecWithWorktree(dir, config, specArg) {
     expandTokens(config.worktree.root, wtTokens),
     expandTokens(config.worktree.folderPattern, wtTokens),
   )
-  const searchDirs = [...new Set([worktreeGuess, ...liveWorktreePaths(dir)])].filter(
+  const searchDirs = [...new Set([worktreeGuess, ...liveWorktreePaths(gitReader(dir))])].filter(
     (p) => p !== dir,
   )
   // This spec's OWN worktree is preferred over the primary checkout, not merely a
@@ -994,40 +987,10 @@ function resolveSpecWithWorktree(dir, config, specArg) {
 }
 
 // Every spec folder name found under specs/* across the given checkout roots.
-// An in-progress spec lives on its *worktree branch*, not the primary checkout,
-// so we must scan the worktrees too — otherwise a live spec's DB looks orphaned.
-function collectSpecFolders(roots) {
-  const folders = new Set()
-  for (const root of roots) {
-    for (const bucket of ['backlog', 'in-progress', 'complete', 'cancelled']) {
-      let entries
-      try {
-        entries = fs.readdirSync(path.join(root, 'specs', bucket), { withFileTypes: true })
-      } catch {
-        continue
-      }
-      for (const entry of entries) if (entry.isDirectory()) folders.add(entry.name)
-    }
-  }
-  return folders
-}
 
 // Resolve every spec folder (found in the primary checkout OR any worktree) to
 // { folder, slug, worktreePath }. `searchDirs` lets resolveSpec locate a spec
 // that was authored on its branch and never committed to the primary checkout.
-function allSpecs(dir, config, worktreePaths) {
-  const searchDirs = [...worktreePaths]
-  const specs = []
-  for (const folder of collectSpecFolders([dir, ...searchDirs])) {
-    try {
-      const spec = resolveSpec(folder, dir, config, { searchDirs })
-      specs.push({ folder: spec.folder, slug: spec.slug, worktreePath: spec.worktreePath })
-    } catch {
-      // Unresolvable folder (not a real spec) — skip.
-    }
-  }
-  return specs
-}
 
 // Prune: reconcile namespace volumes against specs that still have a worktree and
 // print the `docker volume rm` commands for the orphans. Liveness keys off the
@@ -1047,7 +1010,7 @@ function specEnvPrune(dir, config, flags) {
     return
   }
 
-  const worktrees = liveWorktreePaths(dir)
+  const worktrees = liveWorktreePaths(gitReader(dir))
   const specs = allSpecs(dir, config, worktrees)
   const liveSlugs = liveSlugsForSpecs(specs, worktrees)
 
@@ -1781,6 +1744,130 @@ function proxyProcFor(config, routesFileAbs) {
   }
 }
 
+// The supervised review-server process descriptor. Same shape as the proxy's:
+// a tiny detached node process reading its settings from a file, so a restart is
+// a rewrite of that file rather than an argv change.
+function serveProcFor(config, settingsFileAbs) {
+  const sdir = stateDirLabel(config)
+  return {
+    name: 'review-serve',
+    command: `node ${path.join(__dirname, 'env', 'serve.js')} ${settingsFileAbs}`,
+    env: {},
+    logFile: `${sdir}/logs/review-serve.log`,
+    pidFile: `${sdir}/pids/review-serve.pid`,
+  }
+}
+
+// Every non-loopback IPv4 address of this machine, for printing a URL a phone on
+// the same network can actually open. Printed, never guessed at: the operator
+// picks from what is listed.
+function lanAddresses() {
+  const nets = require('node:os').networkInterfaces()
+  const out = []
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) out.push(net.address)
+    }
+  }
+  return out
+}
+
+/**
+ * `spec-env review serve` — stand up the local diff server.
+ *
+ * Three actions on one verb: start (the default), `--stop`, `--status`. The
+ * pidfile is the single source of truth for all three, so `--status` cannot
+ * claim a server that died and `--stop` cannot kill something it did not start.
+ */
+async function specEnvReviewServe(dir, config, flags) {
+  const sdir = stateDirLabel(config)
+  const abs = (rel) => path.resolve(dir, rel)
+  const settingsFile = `${sdir}/review-serve.json`
+  const proc = serveProcFor(config, abs(settingsFile))
+
+  // A POSITIVE SIGNAL, not an absence: a pidfile on disk proves nothing (a
+  // crashed process leaves one behind), so `isAlive` is what decides. Three
+  // states — running, not running, and a stale file, which reads as not running
+  // and is overwritten rather than reported as an error.
+  const pid = readPid(abs(proc.pidFile))
+  const running = pid && isAlive(pid) ? pid : null
+
+  if (flags.status) {
+    if (!running) {
+      process.stdout.write('spec-env review serve: not running.\n')
+      return
+    }
+    let settings = {}
+    try {
+      settings = JSON.parse(fs.readFileSync(abs(settingsFile), 'utf-8'))
+    } catch {}
+    process.stdout.write(
+      `spec-env review serve: running (pid ${running})\n` +
+        (settings.port ? `  local: ${serveUrl('127.0.0.1', settings)}\n` : ''),
+    )
+    return
+  }
+
+  if (flags.stop) {
+    if (!running) {
+      process.stdout.write('spec-env review serve: not running — nothing to stop.\n')
+      return
+    }
+    await stopProcess(proc, { rootDir: dir })
+    process.stdout.write(`spec-env review serve: stopped (pid ${running}).\n`)
+    return
+  }
+
+  const port = Number(flags.port || config.review.servePort)
+  const host = flags.host || '127.0.0.1'
+  const loopback = host === '127.0.0.1' || host === 'localhost'
+  // The token is the ONLY guard on a non-loopback bind, so it is minted with the
+  // bind rather than offered as an option to forget.
+  const token = loopback ? null : mintToken()
+
+  if (running) await stopProcess(proc, { rootDir: dir })
+
+  const busy = await portsInUse([port], loopback ? host : '127.0.0.1')
+  if (busy.length) {
+    process.stdout.write(
+      `spec-env review serve: port ${port} is already in use — ` +
+        'pass --port, or --stop if this is an older server.\n',
+    )
+    return
+  }
+
+  fs.mkdirSync(path.dirname(abs(settingsFile)), { recursive: true })
+  fs.writeFileSync(abs(settingsFile), JSON.stringify({ dir, port, host, token }, null, 2) + '\n')
+  const res = startProcess(proc, { cwd: dir, rootDir: dir })
+  const up = await waitListening([port], { host: loopback ? host : '127.0.0.1' })
+
+  if (!up) {
+    process.stdout.write(
+      `spec-env review serve: started (pid ${res.pid}) but port ${port} never came up — ` +
+        `see ${proc.logFile}\n`,
+    )
+    return
+  }
+
+  const specs = servableSpecs(dir, config, gitReader(dir))
+  process.stdout.write(
+    `spec-env review serve: serving ${specs.length} spec${specs.length === 1 ? '' : 's'} ` +
+      `(pid ${res.pid})\n` +
+      `  local: ${serveUrl('127.0.0.1', { port, token })}\n` +
+      (loopback
+        ? ''
+        : lanAddresses()
+            .map((a) => `  lan:   ${serveUrl(a, { port, token })}\n`)
+            .join('') +
+          '  anyone with the lan URL can read every spec\'s diff while this runs.\n') +
+      '  stop:  skitterspec spec-env review serve --stop\n',
+  )
+}
+
+function serveUrl(hostname, { port, token }) {
+  return `http://${hostname}:${port}/${token ? token + '/' : ''}`
+}
+
 // Connect the canonical origin to ONE spec (exclusive model): (re)start the
 // bundled proxy pointing at that spec's warm dev servers. `connect main` stops
 // the proxy so the primary checkout owns the canonical ports again.
@@ -2303,6 +2390,11 @@ async function specEnv(rest) {
     else if (args[i] === '--also') flags.also.push(args[++i])
     else if (args[i] === '--older-than') flags.olderThanDays = Number(args[++i])
     else if (args[i] === '--branch') flags.branch = true
+    else if (args[i] === '--stop') flags.stop = true
+    else if (args[i] === '--status') flags.status = true
+    else if (args[i] === '--port') flags.port = args[++i]
+    else if (args[i] === '--host') flags.host = args[++i]
+    else if (args[i] === '--publish-copy') flags.publishCopy = true
     else if (args[i] === '--out') flags.out = args[++i]
     else if (args[i] === '--review') flags.review = args[++i]
     else if (args[i] === '--notes') flags.notes = args[++i]
@@ -2355,6 +2447,13 @@ async function specEnv(rest) {
       specEnvResolve(dir, config, positional[0], flags)
       break
     case 'review':
+      // `serve` is the one review sub-action rather than a verb of its own: it
+      // answers the same question ("show me this diff") from the same engine,
+      // and a sibling verb would have to re-derive every bit of that.
+      if (positional[0] === 'serve') {
+        await specEnvReviewServe(dir, config, flags)
+        break
+      }
       specEnvReview(dir, config, positional[0], flags)
       break
     case 'live':
@@ -2363,6 +2462,7 @@ async function specEnv(rest) {
     default:
       process.stdout.write(
         'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +

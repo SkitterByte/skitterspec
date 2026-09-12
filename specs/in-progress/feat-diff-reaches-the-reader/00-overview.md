@@ -145,7 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Serve the page, rendered per request | ⬜ | [01-serve-the-page.md](01-serve-the-page.md) |
+| 1 | Serve the page, rendered per request | ✅ | [01-serve-the-page.md](01-serve-the-page.md) |
 | 2 | `--publish-copy`, so publishing needs no hand transform | ⬜ | [02-publish-copy.md](02-publish-copy.md) |
 | 3 | Reader detection — three states, reported not acted on | ⬜ | [03-reader-detection.md](03-reader-detection.md) |
 | 4 | Account for what publishing leaves behind | ⬜ | [04-account-for-the-page.md](04-account-for-the-page.md) |
@@ -172,3 +172,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-12 — Binding (decision 3) is the implementer's call, not the
   operator's: recommended and not rebutted, so recorded as a decision to
   overturn rather than an agreed one.
+- 2026-09-12 — Phase 1 moved `liveWorktreePaths`, `collectSpecFolders` and
+  `allSpecs` from `cli.js` to `resolve.js`. Not in the plan, but unavoidable:
+  `serve.js` resolves specs per request and importing `cli.js` from `env/` is a
+  cycle. `liveWorktreePaths` now takes an injected git reader like every other
+  function in `resolve.js`. The rejected alternative — snapshotting the spec list
+  into the settings file — would have hidden any spec provisioned after the
+  server started.

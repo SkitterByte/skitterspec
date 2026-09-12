@@ -109,6 +109,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // "never" omits it, "always" folds it into the run-blind command list. Only ever
   // planned for a LANDED branch — see teardown.js.
   teardown: Object.freeze({ deleteRemoteBranch: 'prompt' }),
+
+  // `reader` decides only how a diff's location is WORDED — never whether
+  // anything is served or published. `detect` sniffs; `local`/`remote` are the
+  // operator's own answer and are believed without sniffing, because they know
+  // where they are reading and no signal can outrank that.
+  review: Object.freeze({ reader: 'detect', servePort: 7777 }),
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
@@ -141,6 +147,7 @@ function defaults() {
     baseBranch: DEFAULT_CONFIG.baseBranch,
     guards: { ...DEFAULT_CONFIG.guards },
     teardown: { ...DEFAULT_CONFIG.teardown },
+    review: { ...DEFAULT_CONFIG.review },
     live: { migrations: [] },
     hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
@@ -299,6 +306,18 @@ function mergeConfig(base, parsed) {
     if (policy === 'prompt' || policy === 'never' || policy === 'always') {
       base.teardown.deleteRemoteBranch = policy
     }
+  }
+
+  // An unrecognised reader falls through to `detect`, which is the state that
+  // claims least: it can answer "unknown", and unknown is wired to today's
+  // behaviour. A typo must never become a confident `local`, because a confident
+  // `local` is exactly the dead `file://` link this key exists to prevent.
+  if (isObject(parsed.review)) {
+    const reader = parsed.review.reader
+    if (reader === 'local' || reader === 'remote' || reader === 'detect') {
+      base.review.reader = reader
+    }
+    assign(base.review, parsed.review, 'servePort', 'number')
   }
 
   if (isObject(parsed.spec) && Array.isArray(parsed.spec.companionPaths)) {
