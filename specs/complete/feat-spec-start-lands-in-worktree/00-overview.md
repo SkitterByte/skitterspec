@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-spec-start-lands-in-worktree (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-12)
+> **Status:** Complete (2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -163,9 +163,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-12 | Ready | backlog | Reuben Greaves |
 | 2026-09-12 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-12 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-12 — Completed; all three phases done, tests green (1891 passed).
+  Nothing deferred. The premise held end to end: this spec was itself built from a
+  session standing in its own worktree, so a bare `/spec-next` resolved it at every
+  phase — the behaviour phase 1 documents, exercised while documenting it.
 - 2026-09-12 — Phase 3: `MIGRATION.md` was kept **out** of the one-path test's
   `SURFACES` set. That set guards `open.command` as well as `EnterWorktree`, and
   the migration entry has to name `open.command` to tell upgraders to delete it —
