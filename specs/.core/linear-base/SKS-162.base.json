@@ -1,9 +1,9 @@
 {
-  "issue": "cff1866f512acfd7d27d6d4c23c31eed57ae493d",
+  "issue": "568d019536ae0eb849313b5339b3f02c60aed6a5",
   "issueFields": {
     "description": "fa6c385c2d932d23dba2c3a6be8d69aff0329be1",
-    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
-    "assignee": "46f9da98cdf4bd363761b569600549b081b0ae45"
+    "state": "fa32c7d6527007678c2c15959b3841700962f662",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833"
   },
   "subIssues": {
     "SKS-163": "eb1753a591a37ea9416d9383bc9fa02b905ef63a",

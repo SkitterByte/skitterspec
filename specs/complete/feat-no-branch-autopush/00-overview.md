@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-no-branch-autopush (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-12)
+> **Status:** Complete (2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -158,6 +158,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
 | 2026-09-12 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-12 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -188,3 +189,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (`env.config.md`, `src/env/config.js`) still explaining the remote-delete
   prompt in terms of a branch `/spec-start` had pushed, which the phase 2 grep
   had missed.
+- 2026-09-12 — Completed; all four phases done, tests green (1883). Nothing
+  deferred. Scope grew twice beyond the plan, both recorded in the phase files:
+  six shipped surfaces still claimed provisioning published the branch (four
+  found by grep in phase 2, two by the new guard in phase 4), and phase 3 pulled
+  `docs/linear.html` forward because `docs-claims.test.js` will not go green on a
+  renamed verb the docs do not carry.
