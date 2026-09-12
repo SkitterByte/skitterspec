@@ -189,9 +189,20 @@ When the user asks:
 - **On the first publish**, write the returned URL to the path `--json` reports
   as `urlFile` — one line, no formatting. That file is how every later phase
   finds the same page. Never construct the path yourself.
+- **Say, once, that it is theirs now.** When you report a URL, say in the same
+  breath that skitterspec cannot remove the page and that `/artifacts` (or the
+  gallery at `claude.ai/code/artifacts`) is where it goes. This is the moment the
+  decision is being made, so it is the moment worth saying it — `spec-env down`
+  repeats it at teardown, by which point the page has outlived the spec.
 - **Degrade in one line.** If the harness cannot publish — no capability, an
   error — say so, report the local file path, and carry on. That is a working
   outcome, not a failure.
+- **Reach for `--publish-copy`, never a hand transform.** The engine writes the
+  page as a complete HTML document and an artifact host wraps page *content*, so
+  publishing the page as-written nests two documents. `spec-env review <spec>
+  --publish-copy` emits the body-only copy and names its path on a `publish:`
+  line. Do not split the document yourself: a rendered page contains the diff,
+  and a diff of this project contains `<!doctype html>` as ordinary patch text.
 
 The engine knows nothing about publishing and cannot do it. It writes a file and
 reads a URL back as an opaque string; everything about what that string means

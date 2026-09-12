@@ -751,6 +751,33 @@ function reviewUrlPath(outPath) {
   return outPath.replace(/\.html$/, '') + '.url'
 }
 
+/**
+ * What teardown says about a published page. PURE — url in, lines out.
+ *
+ * A published page is the ONE thing teardown cannot reclaim. The worktree goes,
+ * the branch goes, the tracker assignment is released — and the page stays up,
+ * because nothing in this tooling can delete it and nothing should pretend to.
+ * So it is named, with where it can be removed, and that is the whole feature.
+ *
+ * Returns `[]` when the spec was never published, which is most specs. An
+ * absence explained is noise: a teardown that mentions publishing to everyone
+ * who never published is worse than one that says nothing.
+ *
+ * **Deliberately not a command, and never part of `run these:`.** There is no
+ * command to run — removal is a person opening `/artifacts`. Folding it into the
+ * batch would imply skitterspec could do it.
+ */
+function publishedPageNotice(url) {
+  if (!url) return []
+  return [
+    '',
+    '  published page survives this teardown — skitterspec cannot remove it:',
+    `    ${url}`,
+    '  delete it yourself: /artifacts in the terminal (o opens, c copies), or',
+    '  the gallery at claude.ai/code/artifacts.',
+  ]
+}
+
 // The publish-ready copy, beside the page it came from. Same stem, so the three
 // sidecars (`.notes.json`, `.url`, `.publish.html`) all read as one spec's set.
 function reviewPublishPath(outPath) {
@@ -834,6 +861,7 @@ module.exports = {
   reviewUrlPath,
   reviewPublishPath,
   readReviewUrl,
+  publishedPageNotice,
   fragmentTemplate,
   renderReviewFragment,
   detectReader,

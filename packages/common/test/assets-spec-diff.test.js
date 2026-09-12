@@ -305,3 +305,22 @@ test('an unknown spec name refuses rather than falling back to the branch', asyn
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// --- what a publish leaves behind, and how it is produced -----------------
+
+// The engine writes a complete document and an artifact host wraps page
+// content, so the skill has to name the flag. Doing it by hand is what this
+// asserts against: three hand publishes in one day, and the first one cut at a
+// `<!doctype html>` that was patch text.
+test('publishing is told to use --publish-copy, not a hand transform', () => {
+  assert.match(SKILL, /--publish-copy/)
+  assert.match(SKILL, /Do not split the document yourself/)
+  assert.match(SKILL, /ordinary patch text/)
+})
+
+test('reporting a URL comes with where the page is deleted', () => {
+  assert.match(SKILL, /skitterspec cannot remove the page/)
+  assert.match(SKILL, /`\/artifacts`/)
+  assert.match(SKILL, /`spec-env down`\s*\n?\s*repeats it at teardown/)
+})
+

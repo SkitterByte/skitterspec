@@ -148,7 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Serve the page, rendered per request | ✅ | [01-serve-the-page.md](01-serve-the-page.md) |
 | 2 | `--publish-copy`, so publishing needs no hand transform | ✅ | [02-publish-copy.md](02-publish-copy.md) |
 | 3 | Reader detection — three states, reported not acted on | ✅ | [03-reader-detection.md](03-reader-detection.md) |
-| 4 | Account for what publishing leaves behind | ⬜ | [04-account-for-the-page.md](04-account-for-the-page.md) |
+| 4 | Account for what publishing leaves behind | ✅ | [04-account-for-the-page.md](04-account-for-the-page.md) |
 | 5 | Point the skills at the right answer | ⬜ | [05-skills-follow-the-reader.md](05-skills-follow-the-reader.md) |
 
 ## Open questions

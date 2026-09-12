@@ -53,6 +53,7 @@ const {
   reviewUrlPath,
   reviewPublishPath,
   readReviewUrl,
+  publishedPageNotice,
   renderReviewFragment,
   resolveReader,
   writeReviewPage,
@@ -758,6 +759,9 @@ function specEnvDown(dir, config, specArg, flags) {
                   '  mode:      checkout (no worktree, no slot, no volumes)',
                   `  branch:    ${dplan.branch}`, '', '  run these:']
     for (const cmd of dplan.commands) dout.push(`    ${cmd}`)
+    // Checkout mode has no worktree, but a published page outlives it just the
+    // same — the two modes must not disagree about what is left behind.
+    dout.push(...publishedPageNotice(readReviewUrl(reviewOutPath(dir, spec.folder))))
     process.stdout.write(dout.join('\n') + '\n')
     return
   }
@@ -806,6 +810,9 @@ function specEnvDown(dir, config, specArg, flags) {
     out.push('  remote branch — confirm with the user first:')
     for (const cmd of plan.remoteCommands) out.push(`    ${cmd}`)
   }
+  // The one survivor. Read through `readReviewUrl` rather than by building the
+  // path, and reported after the commands because it is not one of them.
+  out.push(...publishedPageNotice(readReviewUrl(reviewOutPath(dir, spec.folder))))
   process.stdout.write(out.join('\n') + '\n')
 }
 
