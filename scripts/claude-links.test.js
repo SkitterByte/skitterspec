@@ -15,36 +15,19 @@ const assert = require('node:assert')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
-const { DISTS } = require('./build-dist.js')
+const {
+  shippedSkills,
+  shippedRules,
+  linkTargetFor,
+} = require('./claude-relink.js')
 
 const ROOT = path.join(__dirname, '..')
 const CLAUDE = path.join(ROOT, '.claude')
 
-// Packages whose `assets/` is COMPOSED BUILD OUTPUT, and gitignored with it.
-// Scanning them for "what this repo ships" would make the expected set depend on
-// whether the reader has run a build — green on a developer's machine and empty
-// on a fresh clone, which is the worst way for a guard to be wrong.
-const BUILT = new Set(Object.keys(DISTS))
-
-// What this repo SHIPS, read from the source packages. Derived rather than
-// listed (decision 2 of feat-selfhost-link-integrity): a skill added tomorrow is
-// in scope the moment its asset exists, and the fault being fixed here is
-// precisely a NEWLY shipped skill landing as a copy.
-function shipped(kind, entry) {
-  const found = new Map()
-  for (const pkg of fs.readdirSync(path.join(ROOT, 'packages'))) {
-    if (BUILT.has(pkg)) continue
-    const dir = path.join(ROOT, 'packages', pkg, 'assets', kind)
-    if (!fs.existsSync(dir)) continue
-    for (const name of fs.readdirSync(dir)) {
-      if (entry(path.join(dir, name), name)) found.set(name, pkg)
-    }
-  }
-  return found
-}
-
-const shippedSkills = () => shipped('skills', (p) => fs.existsSync(path.join(p, 'SKILL.md')))
-const shippedRules = () => shipped('rules', (_p, name) => name.endsWith('.md'))
+// The expected set and the target convention come from `claude-relink.js` — the
+// command that FIXES what this file reports. Sharing them is deliberate: defined
+// twice, the guard and the fixer drift, and the failure mode is a repo that still
+// fails the check it was just told to run the fixer for.
 
 // The check, as a function of (names, install dir) rather than inline — so the
 // fires/stays-silent cases at the bottom can feed it a fixture instead of
@@ -71,28 +54,21 @@ function copiesWhereLinksBelong(names, installDir) {
   return bad
 }
 
-// The repair, named in the failure message rather than left to the reader. The
-// target convention is read off a sibling that IS linked, so this keeps naming
-// the right path when the layout moves.
+// The repair, named in the failure message rather than left to the reader.
 //
-// It VERIFIES the target before suggesting it, and the first version did not —
-// which is how it earned this comment. `readdirSync` returns `commit` first, whose
-// link goes to `node_modules/@skitterbyte/skittership`, so breaking `spec-list`
-// produced a confident `ln -s` into a package that has no `spec-list`: following
-// the hint would have replaced a copy with a DANGLING link, trading a frozen skill
-// for an unloadable one. A repair you have not checked is worse than none, so when
-// no sibling's directory actually contains this name the generic message is
-// returned instead of a guess.
+// The target is resolved by `linkTargetFor`, which VERIFIES it — and that matters
+// because the first version of this hint did not. `readdirSync` is alphabetical,
+// so the first link under `.claude/skills` is `commit`, pointing into
+// `node_modules/@skitterbyte/skittership` — a package with no other skill. The
+// hint therefore named a target that does not exist, and following it would have
+// replaced a frozen skill with a DANGLING one: strictly worse than the fault
+// being reported. When nothing verifies, say the shape rather than invent a
+// command.
 function repairHint(installDir, name) {
   const rel = path.relative(ROOT, path.join(installDir, name))
-  for (const sibling of fs.readdirSync(installDir)) {
-    const p = path.join(installDir, sibling)
-    if (sibling === name || !fs.lstatSync(p).isSymbolicLink()) continue
-    const target = path.join(path.dirname(fs.readlinkSync(p)), name)
-    if (!fs.existsSync(path.resolve(installDir, target))) continue
-    return `rm "${rel}" && ln -s "${target}" "${rel}"`
-  }
-  return `${rel} must be a symlink into the shipped asset`
+  const target = linkTargetFor(installDir, name)
+  if (!target) return `${rel} must be a symlink into the shipped asset`
+  return `pnpm relink   (or: rm "${rel}" && ln -s "${target}" "${rel}")`
 }
 
 // Every symlink under `.claude/`, with the target it names. Uses lstat so the

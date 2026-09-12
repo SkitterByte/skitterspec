@@ -91,7 +91,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Catch a copy where a link belongs | ✅ | [01-guard.md](01-guard.md) |
-| 2 | One command to relink | ⬜ | [02-relink.md](02-relink.md) |
+| 2 | One command to relink | ✅ | [02-relink.md](02-relink.md) |
 | 3 | `--force` must not write through a link | ⬜ | [03-force-refuses.md](03-force-refuses.md) |
 
 ## Open questions
@@ -107,6 +107,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-12 — Phase 2 built. `scripts/claude-relink.js` + `pnpm relink`, with
+  the discovery shared into `claude-links.test.js` so guard and fixer cannot
+  disagree. Verified against the real `.claude/` three ways and restored each
+  time: a healthy tree is a no-op, a byte-identical copy relinks to a resolving
+  link, and an edited copy is refused with the edit intact and a non-zero exit.
+  While rewiring the guard I clobbered three pre-existing tests (`dogfood-linked`,
+  the dangling-target check, and the commands check) with an over-wide splice and
+  restored them from `HEAD` — worth noting because the suite was briefly green
+  with 7 tests where it should have had 10, which is exactly the silent-shrink
+  failure the non-empty preconditions in this file exist to catch.
 - 2026-09-12 — Phase 1 built. The branch was 66 commits behind `main` and was
   rebased onto it first; stale build output in the worktree made
   `.claude/skills/spec-diff` a dangling link (`/spec-diff` shipped after this
