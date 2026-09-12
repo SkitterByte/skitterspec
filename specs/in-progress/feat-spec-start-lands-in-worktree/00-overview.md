@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-177"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-177/spec-start-lands-you-in-the-worktree"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # /spec-start lands you in the worktree
 
 > **Type:** Feature
 > **Name:** feat-spec-start-lands-in-worktree (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-12)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
 > **Area:** packages/common/assets/skills/{spec-start,spec-complete,spec-cancel}/SKILL.md, packages/common/assets/rules/spec-planning.md, packages/common/README.md, packages/common/assets/core/env.config.md, packages/common/test/assets-spec-start-one-path.test.js, packages/common/test/assets-spec-start-offer.test.js, packages/common/test/assets-teardown-exit.test.js, MIGRATION.md
 > **Stack:** worktree
@@ -160,6 +162,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-12 | Ready | backlog | Reuben Greaves |
+| 2026-09-12 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
