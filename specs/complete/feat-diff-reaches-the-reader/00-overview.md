@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-diff-reaches-the-reader (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-12)
+> **Status:** Complete (2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -161,6 +161,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-12 | Ready | backlog | Reuben Greaves |
 | 2026-09-12 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-12 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -183,3 +184,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   SKILL.md line by line and permits a mention only on a line that also says
   not/never. A blanket ban on the strings would have made the prohibition itself
   unwritable — the failure mode that kills this kind of test.
+- 2026-09-12 — Completed; all five phases done, tests green (1987 pass).
+  Nothing deferred. Decision 3 (loopback default, `--host 0.0.0.0` minting a path
+  token) shipped as the implementer's call and stands unchallenged — it is the
+  one decision here worth revisiting deliberately rather than by default.
