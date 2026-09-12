@@ -149,6 +149,14 @@ somewhere that is neither a worktree nor a live checkout still refuses exactly a
 it did. `--worktree <path>` survives untouched beside it — it answers before those
 rules and cannot be reached by guessing.
 
+**And the `cd` is a convenience, not the only thing holding this together.**
+`/spec-next`'s **rule 4** asks the engine for the sole provisioned spec, so a
+bare `/spec-next` resolves this spec from anywhere in the repo — after a
+`/clear`, from a new tab, tomorrow morning. That is what makes step 6's
+stop-here ending an honest offer rather than a promise only this session can
+keep. Do not delete rule 4 as redundant with the `cd`: the `cd` is session state,
+and rule 4 is what is left once it is gone.
+
 ### `checkout` mode
 
 Run `skitterspec spec-env up <name>` and the single `git switch` it prints.
@@ -252,8 +260,8 @@ build phase 1 now?
   passed and nothing guessed.
 - **Stop here** — the operator is left standing in the worktree on a provisioned
   branch, which is a perfectly good place to leave things. Nothing has to be
-  reopened or handed anywhere, and `/spec-next` typed an hour later does exactly
-  what it would have done now.
+  reopened or handed anywhere, and `/spec-next` typed an hour later — from this
+  session or a fresh one — does exactly what it would have done now.
 
 **Ask rather than deciding for them, and mean it.** Provisioning is cheap and
 reversible; a phase build is neither, and one yes should not cover both. A large

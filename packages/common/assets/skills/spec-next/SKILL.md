@@ -53,14 +53,59 @@ Otherwise resolve **in this order**, and stop at the first that answers:
    opened in one is its own workbench.
 3. **The current branch, in `checkout` mode** — no worktrees exist, so the
    branch the checkout is on names the spec.
+4. **The only spec provisioned in this repo** — ask the engine, with no spec
+   named, from wherever you happen to be standing:
+
+   ```
+   skitterspec spec-env resolve
+   ```
+
+   Take its `spec:` line **only when it names exactly one spec**.
+
+   This is the **durable** rung, and that is the whole reason it exists. Rungs 1
+   to 3 all read *session* state, and session state does not survive a `/clear`,
+   a new terminal tab, or coming back tomorrow — while the provisioned worktree
+   they are each a proxy for is **on disk** and survives all three. `/spec-start`
+   does leave the session standing in the worktree and that `cd` is real; what it
+   is not is durable. Without this rung, a repo holding exactly one answer sends
+   the operator away to re-supply something it already knew.
+
+   It is also the resolution every other bare command in this workflow already
+   uses — the worktree you are standing in, else the sole provisioned spec — so
+   this rung is what stops `/spec-next` being a silent exception to a rule
+   `.claude/rules/spec-planning.md` states has none left.
+
+   **Say which spec you resolved and how**, before writing a line of it:
+   *"not standing in a worktree — `<spec>` is the only spec provisioned"*. Rungs
+   1 to 3 are self-evident to whoever typed the command; this one is not, and
+   the operator cannot see from where they sit what you picked.
+
+   **Several worktrees stay a refusal.** The engine names them and resolves
+   nothing — exactly the ambiguity the refusal below exists for. Relay its list
+   unchanged and stop; never pick from it.
+
+   WHAT WOULD FOOL THIS: a worktree left behind by a declined teardown is still
+   a worktree, so a finished spec can go on counting as provisioned. That widens
+   the candidate set, so the failure it produces is an extra candidate — an
+   ambiguity the engine refuses on — and never a wrong spec built. It cannot
+   manufacture an *absence*, which is why the absence below is still worth
+   refusing on.
 
 **If none answers, refuse and stop:**
 `no spec in flight — run /spec-start <name> to start one`.
+
+That now answers a real absence — no worktree anywhere, the engine included —
+rather than a session that merely lost track of where it was standing.
 
 **Never fall back to the spec "in context".** A spec discussed in conversation
 is not a spec in flight, and this skill writes real code: building the wrong
 spec's phase produces commits on a branch nobody asked for. The refusal is
 cheap; the mistake is not.
+
+**Rung 4 is not that fallback wearing a hat.** A provisioned worktree is a
+record that someone ran `/spec-start`: it is on disk, the engine reads it, and it
+either names one spec or refuses. A spec named in conversation is a guess about
+intent with nothing underneath it, and no number of them ever resolves to one.
 
 A **name argument** is accepted, but it must *match* the spec in flight — it
 narrows a re-run, it does not select a different spec. A mismatch refuses,

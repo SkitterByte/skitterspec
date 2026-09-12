@@ -41,7 +41,11 @@ test('the decline is a real ending, described in full', () => {
   // The decline used to cost the operator a session move. It costs nothing now,
   // and saying so is what stops it reading as the discouraged answer.
   assert.match(STEP6, /Nothing has to be\s*\n?\s*reopened/i)
-  assert.match(STEP6, /an hour later does exactly/i)
+  // The clause widened rather than went: the decline is durable across sessions
+  // now, not merely across an hour of this one, because /spec-next rule 4
+  // resolves the sole provisioned spec from anywhere.
+  assert.match(STEP6, /an hour later[\s\S]{0,60}?does exactly/i)
+  assert.match(STEP6, /from this\s*\n?\s*session or a fresh one/i)
 })
 
 test('it says why the build gets its own yes', () => {
