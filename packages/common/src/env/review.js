@@ -576,6 +576,57 @@ function escapeHtml(s) {
  * The data goes in as JSON, never as generated markup — that is the property the
  * whole design rests on.
  */
+/**
+ * The fragment form of the template: what an artifact host can accept.
+ *
+ * A published page is wrapped in the host's own `<!doctype>`/`<head>`/`<body>`
+ * skeleton, so handing it a complete document nests two of them. The fragment
+ * carries the `<title>` (hosts read it for the tab name), every `<style>` and
+ * `<script>` block out of `<head>`, then the body contents — and no wrapper.
+ *
+ * IT SPLITS THE TEMPLATE, NEVER THE RENDERED PAGE, and that is the whole
+ * correctness argument. The template contains exactly one of each boundary tag
+ * and nothing but placeholders where content goes. A rendered page contains the
+ * diff, and this feature reviews its own source — so `<!doctype html>`,
+ * `<html>` and `<body>` appear inside it as ordinary patch text. A regex over
+ * the rendered page finds those and cuts in the wrong place; the first hand
+ * publish of `feat-review-offer-lands` hit exactly that, with four
+ * wrapper-looking tags in the output that were all patch content.
+ */
+function fragmentTemplate(template = null) {
+  const t = template || loadTemplate()
+
+  const headStart = t.indexOf('<head>')
+  const headEnd = t.indexOf('</head>')
+  const bodyOpen = t.indexOf('<body')
+  const bodyStart = t.indexOf('>', bodyOpen) + 1
+  const bodyEnd = t.lastIndexOf('</body>')
+  if (headStart < 0 || headEnd < 0 || bodyOpen < 0 || bodyEnd < 0) {
+    throw new Error('review template has no <head>/<body> to split — cannot build a fragment')
+  }
+
+  const head = t.slice(headStart, headEnd)
+  const title = /<title>[\s\S]*?<\/title>/.exec(head)
+  const carried = head.match(/<(style|script)\b[\s\S]*?<\/\1>/g) || []
+
+  return [title ? title[0] : '', ...carried, t.slice(bodyStart, bodyEnd).trim()]
+    .filter(Boolean)
+    .join('\n')
+}
+
+/**
+ * The same data, spliced into the fragment instead of the whole document. One
+ * pass over the placeholders, for the same reason `renderReviewPage` uses one.
+ */
+function renderReviewFragment(data, { template = null, reviewHtml = '' } = {}) {
+  const values = {
+    [TITLE_PLACEHOLDER]: escapeHtml(data.title),
+    [REVIEW_PLACEHOLDER]: reviewHtml,
+    [DATA_PLACEHOLDER]: escapeIsland(JSON.stringify(data)),
+  }
+  return fragmentTemplate(template).replace(PLACEHOLDER_RE, (m) => values[m])
+}
+
 function renderReviewPage(data, { template = null, reviewHtml = '' } = {}) {
   const values = {
     [TITLE_PLACEHOLDER]: escapeHtml(data.title),
@@ -646,6 +697,12 @@ function renderReviewBlock(review) {
  */
 function reviewUrlPath(outPath) {
   return outPath.replace(/\.html$/, '') + '.url'
+}
+
+// The publish-ready copy, beside the page it came from. Same stem, so the three
+// sidecars (`.notes.json`, `.url`, `.publish.html`) all read as one spec's set.
+function reviewPublishPath(outPath) {
+  return outPath.replace(/\.html$/, '') + '.publish.html'
 }
 
 function readReviewUrl(outPath) {
@@ -723,7 +780,10 @@ module.exports = {
   escapeHtml,
   renderReviewBlock,
   reviewUrlPath,
+  reviewPublishPath,
   readReviewUrl,
+  fragmentTemplate,
+  renderReviewFragment,
   CHECK_LEVELS,
   loadTemplate,
   TEMPLATE_PATH,

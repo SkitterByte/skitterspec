@@ -51,7 +51,9 @@ const {
   reviewOutPath,
   reviewFileUrl,
   reviewUrlPath,
+  reviewPublishPath,
   readReviewUrl,
+  renderReviewFragment,
   writeReviewPage,
   reviewNotesPath,
   readNotes,
@@ -1584,6 +1586,17 @@ function specEnvReview(dir, config, specArg, flags) {
 
   writeReviewPage(out, renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }))
 
+  // The publish-ready copy, ONLY when asked. An ordinary render must not pay for
+  // a second copy of the whole diff on disk for a path most renders never take.
+  let publishCopy = null
+  if (flags.publishCopy) {
+    publishCopy = reviewPublishPath(out)
+    writeReviewPage(
+      publishCopy,
+      renderReviewFragment(data, { reviewHtml: renderReviewBlock(data.review) }),
+    )
+  }
+
   // Read, never written, and never interpreted: the engine cannot publish, and
   // names this file only so the skill that can never has to build a path.
   const urlFile = reviewUrlPath(out)
@@ -1600,6 +1613,7 @@ function specEnvReview(dir, config, specArg, flags) {
           base,
           fellBack,
           out,
+          publishCopy,
           fileUrl: reviewFileUrl(out),
           urlFile,
           url,
@@ -1659,6 +1673,8 @@ function specEnvReview(dir, config, specArg, flags) {
         : '') +
       `  page: ${out}\n` +
       `  open: ${reviewFileUrl(out)}\n` +
+      // Named on its own line so the skill never has to build the path itself.
+      (publishCopy ? `  publish: ${publishCopy}\n` : '') +
       (url ? `  published: ${url}\n` : '') +
       (t.files === 0 ? '  nothing to review — no changes found.\n' : ''),
   )
