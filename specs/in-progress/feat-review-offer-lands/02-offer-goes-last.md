@@ -28,6 +28,17 @@ last thing on screen rather than quoted output buried mid-report.
       after the next-phase line.
 - [ ] **Stays-silent test:** a project with no `env.config.json` still produces
       no offer, no page and no explanation of the absence.
+- [ ] **Discovered in phase 1** — fix step 1's validation command. It says to run
+      `skitterspec spec-env resolve --dir <path>` and check the `worktree:` line,
+      but `--dir` sets the **repo root** (`packages/common/src/cli.js:2248`), not
+      the worktree to resolve from: on a repo with two or more worktrees it
+      refuses with *"no spec given, and N specs have worktrees"* and validates
+      nothing. Replace it with a form that works — `cd "<path>" && skitterspec
+      spec-env resolve`, which resolves the spec from where it is standing and
+      prints the `worktree:` line to compare.
+- [ ] Add a test pinning that the step's command is one that can actually
+      validate a path, so the prose cannot drift back to a flag that does
+      something else.
 - [ ] Run the project's test command — green before the phase is done.
 
 ## Notes

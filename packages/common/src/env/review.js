@@ -172,8 +172,12 @@ function numstatFor(git, ref, file, untracked) {
  * phase just do") or `'branch'` (everything since the base branch — "what does
  * this whole spec do"). Both resolve to a single ref diffed against the working
  * tree, so committed and uncommitted work are collected by one code path.
+ *
+ * `fellBack` records that `branch` was reached because the working tree was
+ * clean, not because the caller asked for it — see the fallback in
+ * `specEnvReview` (`cli.js`).
  */
-function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null }) {
+function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, fellBack = false }) {
   const files = []
   for (const f of trackedFiles(git, ref)) {
     const { patch, whole } = patchFor(git, ref, f, false)
@@ -208,6 +212,11 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     mode,
     base,
     ref,
+    // True only when `branch` was reached by the clean-tree fallback rather
+    // than by `--branch`. The page says so, because "everything since main" and
+    // "everything since main, because there was nothing uncommitted" are
+    // different answers to "what am I looking at".
+    fellBack,
     generatedAt: now,
     totals,
     files,

@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine: a clean tree falls back to the branch, announced | ⬜ | [01-clean-tree-fallback.md](01-clean-tree-fallback.md) |
+| 1 | Engine: a clean tree falls back to the branch, announced | ✅ | [01-clean-tree-fallback.md](01-clean-tree-fallback.md) |
 | 2 | `/spec-next`: the offer goes last and asks | ⬜ | [02-offer-goes-last.md](02-offer-goes-last.md) |
 | 3 | `/spec-bug` and `/spec-hotfix` render too, pinned by a test | ⬜ | [03-bug-and-hotfix-render.md](03-bug-and-hotfix-render.md) |
 
@@ -149,3 +149,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-12 — Spec created.
+- 2026-09-12 — Phase 1: fallback tests landed in a new
+  `env-review-fallback.test.js` rather than `env-review.test.js`. The named file
+  unit-tests `collectReview`; the fallback is a CLI-level decision about which
+  mode to collect in, and the CLI harness lives beside the notes tests.
+- 2026-09-12 — Phase 1 surfaced an unrelated defect in `/spec-next` step 1: its
+  validation command `spec-env resolve --dir <path>` cannot do what the step
+  says. `--dir` sets the **repo root** (`cli.js:2248`), not the worktree to
+  resolve from, so on a repo with several worktrees it refuses with "name the one
+  you mean" instead of confirming the path. Added as a task to phase 2, which
+  already edits that file.

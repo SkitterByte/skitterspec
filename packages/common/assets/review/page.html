@@ -1100,7 +1100,9 @@ tr.note-row td {
   function sep() { sub.appendChild(el('span', 'sep', '·')) }
   part(data.branch)
   sep()
-  part(data.mode === 'branch' ? 'everything since ' + data.base : 'uncommitted work')
+  part(data.mode === 'branch'
+    ? 'everything since ' + data.base + (data.fellBack ? ' (working tree clean)' : '')
+    : 'uncommitted work')
   sep()
   part(t.files + ' file' + (t.files === 1 ? '' : 's'))
   sep()

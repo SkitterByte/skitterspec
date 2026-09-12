@@ -106,7 +106,18 @@ skitterspec spec-env review <spec> --branch     # everything since the base bran
 ```
 
 Default to the working tree — "what did this phase just do". Use `--branch` when
-the question is about the whole spec, or when the phase is already committed.
+the question is about the whole spec.
+
+**You do not have to reach for `--branch` after a commit.** A clean working tree
+is the state a phase *ends* in, so the engine falls back to the branch range by
+itself and says which it is showing — `(working tree clean — since main)` in the
+header line, and `(working tree clean)` on the page. Report that wording as it
+came rather than calling it the working tree.
+
+The fallback fires on exactly one state — no `--branch`, and nothing uncommitted
+to show. An explicit `--branch` always means what it says, a tree with real
+changes is never swapped out from under you, and a branch with no work at all
+still reports `nothing to review` exactly as before.
 
 Add `--json` to get the file list, totals and the page path back as data. The
 page is written to `.spec-env/reviews/<spec>.html`, which is gitignored — it

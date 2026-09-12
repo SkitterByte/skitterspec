@@ -1553,15 +1553,50 @@ function specEnvReview(dir, config, specArg, flags) {
     resolvedNow = { applied: result.applied, unknown: result.unknown }
   }
 
-  const data = collectReview({
-    spec,
-    git,
-    mode,
-    ref,
-    base,
-    now: new Date().toISOString(),
-    notes,
-  })
+  const now = new Date().toISOString()
+  let data = collectReview({ spec, git, mode, ref, base, now, notes })
+
+  // A CLEAN WORKING TREE IS NOT "NOTHING TO REVIEW". It is the state a phase
+  // ends in: the page is rendered before the commit, the commit happens
+  // immediately after, and from then on the working view is empty for the rest
+  // of the spec's life. Falling back to the branch range is what keeps the page
+  // answering after that commit.
+  //
+  // What could fool this: a *fresh* branch is clean too, and its branch range is
+  // empty as well. That costs nothing, because the fallback is kept only when it
+  // actually found something — so a spec with no work at all prints exactly what
+  // it printed before any of this existed.
+  //
+  // An explicit `--branch` is never re-interpreted, and a non-empty working tree
+  // is never swapped out from under the reader. The swap only ever replaces an
+  // empty view, so no information is lost by it.
+  let fellBack = false
+  if (!flags.branch && data.totals.files === 0) {
+    const fallbackBase = resolveBaseBranch(config, trimmed)
+    const mergeBase = trimmed(['merge-base', fallbackBase, 'HEAD'])
+    // Cannot tell -> do nothing, exactly as the `--branch` path refuses. No
+    // merge-base means base and HEAD share no history, and diffing against the
+    // base tip would report every file in the project as changed.
+    if (mergeBase) {
+      const wider = collectReview({
+        spec,
+        git,
+        mode: 'branch',
+        ref: mergeBase,
+        base: fallbackBase,
+        now,
+        notes,
+        fellBack: true,
+      })
+      if (wider.totals.files > 0) {
+        data = wider
+        mode = 'branch'
+        base = fallbackBase
+        ref = mergeBase
+        fellBack = true
+      }
+    }
+  }
 
   // The written review is the model's half, and it arrives as JSON so no prose
   // ever has to round-trip through markup. Absent → the page renders without it.
@@ -1586,6 +1621,7 @@ function specEnvReview(dir, config, specArg, flags) {
           worktree: spec.worktreePath,
           mode,
           base,
+          fellBack,
           out,
           fileUrl: reviewFileUrl(out),
           urlFile,
@@ -1620,7 +1656,9 @@ function specEnvReview(dir, config, specArg, flags) {
   const n = data.notes.totals
   const hasNotes = n.accepted + n.lapsed + n.unresolved + n.resolved > 0
   process.stdout.write(
-    `spec-env review: ${spec.folder} (${mode === 'branch' ? `since ${base}` : 'uncommitted'})\n` +
+    `spec-env review: ${spec.folder} (${
+      fellBack ? `working tree clean — since ${base}` : mode === 'branch' ? `since ${base}` : 'uncommitted'
+    })\n` +
       `  ${t.files} file${t.files === 1 ? '' : 's'}, +${t.additions} -${t.deletions}\n` +
       (merged
         ? `  merged: ${merged.accepted} accept${merged.accepted === 1 ? '' : 's'}, ` +
