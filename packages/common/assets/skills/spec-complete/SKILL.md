@@ -224,6 +224,16 @@ only ordering that survives.
    worktree without `--force`), so if it *does* refuse, relay that and stop
    rather than reaching for `--force`.
 
+   **The unpushed half of that guard cannot fire here, by construction.**
+   Step 6 landed the branch, so `merged` is true and `planDown` skips the check
+   entirely (`env/teardown.js`) — completing a spec never meets it, however the
+   branch was or was not published. `/spec-cancel` is where it does fire, because
+   a cancelled spec is unlanded and its worktree really is the only copy; the
+   publish-or-`--force` path therefore lives in that skill and this one needs no
+   equivalent. A refusal reaching this step is about a **dirty tree** instead,
+   which means something wrote into the worktree after the landing — read it,
+   don't force it.
+
    **If the plan prints a `remote branch — confirm with the user first:` section, ask before running it.**
    `/spec-start` pushed this branch when it provisioned, so the remote copy
    outlives teardown unless someone deletes it. The planner only ever offers

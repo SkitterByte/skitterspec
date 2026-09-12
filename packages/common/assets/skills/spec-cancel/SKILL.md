@@ -108,6 +108,32 @@ only ordering that survives.
    remove the worktree/stack and free the slot. It respects the teardown guards
    (won't destroy a dirty/unpushed worktree without `--force`).
 
+   **When it refuses over unpushed commits, relay both ways out.**
+   A cancelled spec is normally unlanded, so this is the one moment in the
+   lifecycle where that guard genuinely fires — and it fires about real loss.
+   The worktree is the only copy of this work: the branch is on no remote and
+   not merged into the base branch, so removing it ends it. Say that plainly,
+   relay the engine's reason, and give both endings:
+
+   ```
+   publish it first — keeps the work reachable, then re-run /spec-cancel:
+     git -C <worktreePath> push -u origin <branch>
+
+   or accept the loss (the worktree and its commits go):
+     skitterspec spec-env down <name> --force
+   ```
+
+   **Print the push; never run it.** Publishing abandoned work to a shared
+   remote is the same unasked-for act this workflow took out of `/spec-start`,
+   and it is no more wanted here — someone may well want this branch to exist
+   nowhere but their own machine. Offer the command and wait for an answer.
+
+   **Never reach for `--force` yourself either.** The engine's own message names
+   only that half, which is the whole reason this step exists: meeting a wall
+   labelled *--force to tear down anyway* at the exact moment a backup is still
+   cheap is how work gets thrown away. Both options, then stop — the choice is
+   a decision about someone's work, and it is theirs.
+
    If the plan prints a `remote branch — confirm with the user first:` section,
    **ask before running that line** — it is a `git push <remote> --delete`, and
    the branch is merged, so it loses nothing. Usually there is nothing to ask:

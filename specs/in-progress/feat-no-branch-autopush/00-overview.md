@@ -140,7 +140,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-cancel` handles the unpushed refusal | ⬜ | [01-cancel-unpushed-path.md](01-cancel-unpushed-path.md) |
+| 1 | `/spec-cancel` handles the unpushed refusal | ✅ | [01-cancel-unpushed-path.md](01-cancel-unpushed-path.md) |
 | 2 | `/spec-start` stops pushing the branch | ⬜ | [02-stop-pushing.md](02-stop-pushing.md) |
 | 3 | Rename `spec-sync push` to `spec-sync plan` | ⬜ | [03-rename-push-to-plan.md](03-rename-push-to-plan.md) |
 | 4 | Docs, migration and shipped-surface guards | ⬜ | [04-docs-and-surfaces.md](04-docs-and-surfaces.md) |
@@ -167,3 +167,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   open question about pushing after the first phase commits is closed as
   rejected, and decision 1 now carries the invariant the phase 2 guard test
   asserts.
+- 2026-09-12 — Phase 1 done. The `/spec-complete` check (task 4) confirmed the
+  unpushed guard is unreachable there — step 6 lands the branch, so `merged` is
+  true and `planDown` skips the check — so the finding was written into
+  `/spec-complete` step 3 and pinned with a stays-silent test, rather than left
+  implied.
