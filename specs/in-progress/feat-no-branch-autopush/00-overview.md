@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-162"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-162/publishing-a-branch-is-the-users-call"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Publishing a branch is the user's call
 
 > **Type:** Feature
 > **Name:** feat-no-branch-autopush (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-12)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
 > **Area:** packages/common/assets/skills/spec-start/SKILL.md, packages/common/assets/skills/spec-cancel/SKILL.md, packages/linear/src/cli-sync.js, packages/linear/assets/skills/spec-push/SKILL.md, packages/linear/assets/skills/spec-sync/SKILL.md, packages/linear/assets/seams/spec-tracker-link.md, packages/linear/assets/core/SETUP.md, packages/common/assets/rules/spec-planning.md, docs/linear.html, MIGRATION.md
 > **Stack:** worktree
@@ -155,6 +157,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
+| 2026-09-12 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
