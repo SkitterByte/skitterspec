@@ -153,7 +153,7 @@ function assertComposedAssets() {
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
 
-const report = { created: [], updated: [], skipped: [], removed: [], customized: [], healed: [], warnings: [] }
+const report = { created: [], updated: [], skipped: [], refused: [], removed: [], customized: [], healed: [], warnings: [] }
 
 function resetReport() {
   for (const k of Object.keys(report)) report[k].length = 0
@@ -292,6 +292,25 @@ function writeFile(dir, target, content, { force }) {
   }
   if (link && link.isSymbolicLink() && !fs.existsSync(target)) {
     fs.unlinkSync(target)
+  }
+  // A LIVE symlink is the opposite case, and `--force` is what makes it
+  // dangerous: `writeFileSync` follows the link, so forcing would write composed
+  // content — seam markers resolved, provider text spliced in — straight through
+  // it and into whatever it points at. In a checkout that dogfoods its own
+  // assets that is `packages/*/assets`, i.e. the SOURCE the link exists to keep
+  // live. Refuse: the staleness `--force` was reached for is a smaller problem
+  // than corrupting the file it would overwrite.
+  //
+  // WHAT WOULD MAKE THIS LIE: a HARD link. It has no distinguishing lstat — it
+  // simply is the file — so it takes the same corrupting path and nothing here
+  // can see it. Out of scope deliberately, and said out loud rather than left to
+  // be discovered; nothing in this project's install creates one.
+  //
+  // It cannot fire in an ordinary consumer install, because nothing there is
+  // linked — `skitterspec update` writes copies by design.
+  if (force && link && link.isSymbolicLink() && fs.existsSync(target)) {
+    report.refused.push(rel(dir, target))
+    return
   }
   if (fs.existsSync(target)) {
     if (!force) {
@@ -681,6 +700,15 @@ function printReport(dir, mode, { diff = false } = {}) {
   )
   line('manifest repaired', report.healed)
   line('unchanged', report.skipped)
+  if (report.refused.length) {
+    process.stdout.write('\nrefused (a symlink — writing would overwrite what it points at):\n')
+    for (const it of report.refused) process.stdout.write(`  ${it}\n`)
+    process.stdout.write(
+      '  These are links into the shipped assets. --force would follow them and\n' +
+        '  write composed content into the source. Unlink one to take the copy\n' +
+        '  (rm <path>, then re-run), or leave it linked and edit the asset.\n',
+    )
+  }
   if (report.warnings.length) {
     process.stdout.write('\nwarnings:\n')
     for (const w of report.warnings) process.stdout.write(`  ! ${w}\n`)
@@ -764,6 +792,10 @@ async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gati
 
 module.exports = {
   init,
+  // A snapshot of the last run's report, for tests that need to assert on what a
+  // run DECIDED rather than only on what it left on disk. Copied, so a caller
+  // cannot mutate the live report between phases of a run.
+  lastReport: () => JSON.parse(JSON.stringify(report)),
   SKILLS,
   COMMANDS,
   RULES,

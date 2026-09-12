@@ -92,7 +92,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Catch a copy where a link belongs | ✅ | [01-guard.md](01-guard.md) |
 | 2 | One command to relink | ✅ | [02-relink.md](02-relink.md) |
-| 3 | `--force` must not write through a link | ⬜ | [03-force-refuses.md](03-force-refuses.md) |
+| 3 | `--force` must not write through a link | ✅ | [03-force-refuses.md](03-force-refuses.md) |
 
 ## Open questions
 
@@ -107,6 +107,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-12 — Phase 3 built. `writeFile` refuses a live symlink under `--force`
+  and reports it in a `refused` bucket of its own, separate from `unchanged`. The
+  dangling-symlink repair beside it is untouched. `lastReport()` was added to the
+  exports so a test can assert what a run DECIDED, not only what it left on disk.
+  The shipped `--force` help text was deliberately left alone: the refusal cannot
+  fire in a consumer install, so the caveat belongs in the refusal message rather
+  than in help every consumer reads.
 - 2026-09-12 — Phase 2 built. `scripts/claude-relink.js` + `pnpm relink`, with
   the discovery shared into `claude-links.test.js` so guard and fixer cannot
   disagree. Verified against the real `.claude/` three ways and restored each
