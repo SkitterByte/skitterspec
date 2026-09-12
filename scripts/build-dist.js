@@ -222,6 +222,11 @@ function buildAll() {
 }
 
 module.exports = {
+  // Exported so a test can tell a SOURCE package from composed build output
+  // without hardcoding names that drift. `packages/<name>/assets/` for each of
+  // these is gitignored, so anything scanning `packages/*/assets` has to skip
+  // them or its result depends on whether the reader has run a build.
+  DISTS,
   copyMigrationGuide,
   WORKSPACE_REQUIRE_RE,
   rewriteRequires,

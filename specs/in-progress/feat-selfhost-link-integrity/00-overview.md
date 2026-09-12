@@ -90,7 +90,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Catch a copy where a link belongs | ⬜ | [01-guard.md](01-guard.md) |
+| 1 | Catch a copy where a link belongs | ✅ | [01-guard.md](01-guard.md) |
 | 2 | One command to relink | ⬜ | [02-relink.md](02-relink.md) |
 | 3 | `--force` must not write through a link | ⬜ | [03-force-refuses.md](03-force-refuses.md) |
 
@@ -107,6 +107,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-12 — Phase 1 built. The branch was 66 commits behind `main` and was
+  rebased onto it first; stale build output in the worktree made
+  `.claude/skills/spec-diff` a dangling link (`/spec-diff` shipped after this
+  worktree was provisioned), fixed by `build-dist.js all` and not a code fault.
+  The guard replaced the previous `skills are links` test rather than sitting
+  beside it: that one read its expected set from the INSTALL, so a skill that
+  shipped and was never linked was absent from the very list it checked. One
+  deviation from the task list — the repair hint the message prints is now
+  verified before it is printed, after its first version emitted a command that
+  would have created a dangling link.
 - 2026-09-10 — Spec created after `skitterspec update` installed `/spec-list` and
   `/spec-claim` as copies into a symlinked `.claude/`, freezing them. Found by
   hand; the existing link guard was green throughout.
