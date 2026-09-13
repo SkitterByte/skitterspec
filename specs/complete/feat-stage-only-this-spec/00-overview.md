@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-stage-only-this-spec (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-13)
+> **Status:** Complete (2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -145,6 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-13 | Ready | backlog | Reuben Greaves |
 | 2026-09-13 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-13 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -194,3 +195,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-13 — Phase 3: verified end-to-end in a scratch repo — with a second
   spec's file already staged in the shared index, the planned commit took only
   the target spec's path and left the other staged and uncommitted.
+- 2026-09-13 — Completed; all three phases done, tests green (2117).
