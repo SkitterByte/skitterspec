@@ -71,6 +71,46 @@ would fork from — otherwise you get a branch missing the very spec it is for.
   probably still exists, so this is a re-attach: say so rather than reporting a
   fresh start, and skip the housekeeping that is already done.
 
+## 2b. Bring the review server up — from here, before anything else
+
+**Only when the project has per-spec isolation** (`specs/.core/env.config.json`
+present). Without it there is no review server and this step does not exist —
+skip it in silence rather than explaining an absence.
+
+```
+skitterspec spec-env review serve --host 0.0.0.0
+```
+
+**Here is the point.** Right now this session is standing in the
+**primary checkout**, and in a moment step 3 `cd`s into a worktree and stays
+there. A
+daemon started after that `cd` is started *by the worktree's copy of the code* —
+and when `/spec-complete` removes that worktree, the daemon keeps answering on
+its port and fails on every page it is asked for, for every spec. The engine
+defends against that now, but the cheapest fix is to never create the situation:
+start it while you are still somewhere that outlives the spec.
+
+It is also what lets **several specs be reviewed at once**. Reviews all render
+into the primary checkout's `.spec-env/reviews/`, so one server serves every
+provisioned spec — including specs another agent is building in another
+worktree. Starting it here means that one server belongs to the checkout none of
+them can delete.
+
+**Say nothing when it is already up.** The usual outcome is adoption — a server
+is running and this changes nothing — and a line per `/spec-start` about a
+daemon nobody asked about is the narration `.claude/rules/spec-reports.md`
+forbids. Speak only if it could not start.
+
+**Never fatal, never a gate.** A busy port, no network address, a refused
+spawn — say it in one line and **carry on**; provisioning is not conditional on
+it, and the page falls back to its `file://` URL exactly as it does today.
+
+**`--host 0.0.0.0` is the deliberate half.** It binds the server to this
+machine's network addresses so the page opens on a phone, and the engine mints a
+token with that bind as its only guard. On a machine you would rather not expose,
+drop the flag — the server is then reachable from this machine alone and the
+render says so. On **`--plan`** this step does not run at all.
+
 ## 3. Build its branch
 
 ### `worktree` mode
