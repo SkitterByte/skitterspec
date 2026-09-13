@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Expose the owned set as `spec-env stage` | ⬜ | [01-stage-verb.md](01-stage-verb.md) |
+| 1 | Expose the owned set as `spec-env stage` | ✅ | [01-stage-verb.md](01-stage-verb.md) |
 | 2 | Pathspec-limit every spec commit | ⬜ | [02-pathspec-commits.md](02-pathspec-commits.md) |
 | 3 | Stop refusing foreign dirt in worktree mode | ⬜ | [03-loosen-the-gate.md](03-loosen-the-gate.md) |
 
@@ -152,3 +152,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-13 — Follow-up recorded: `/commit` in `@skitterbyte/skittership` has
   the same directory-staging instruction and is out of this repo's reach; raise
   it there.
+- 2026-09-13 — Phase 1: read the tree with the existing `dirtyPaths()` helper
+  rather than `git status --porcelain` as the phase file said. Porcelain was
+  tried and rejected in this codebase for two reasons already recorded above it:
+  the shared git reader trims its output, so a fixed-offset parse eats the first
+  path's leading character, and porcelain collapses untracked files into their
+  topmost directory — reporting a brand-new spec as `specs/backlog/`, an
+  ancestor belonging to no single spec.
+- 2026-09-13 — Phase 1: `--json` gained a `tree` field, and `owned`/`foreign` are
+  `null` (never `[]`) when git cannot be read. An empty owned set is something a
+  caller stages happily; a null is something it trips over.
+- 2026-09-13 — Phase 1: the verb reads **the tree the caller is standing in**,
+  not the primary checkout. Every other `spec-env` subcommand re-anchors on the
+  primary so worktree paths resolve identically; this one must not, because
+  `/spec-complete` and `/spec-cancel` run inside the worktree and are asking
+  about that tree. The tree read is printed rather than assumed.
+- 2026-09-13 — Phase 1: `scripts/docs-claims.test.js` requires every dispatched
+  verb to appear in `docs/index.html`, which the phase file had not anticipated.
+  Documented there too.

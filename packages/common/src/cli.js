@@ -67,6 +67,7 @@ const {
   applyResolutions,
 } = require('./env/review.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
+const { classifyDirtyTree } = require('./env/classify.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
@@ -1469,6 +1470,98 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
 }
 
 /**
+ * `skitterspec spec-env stage [<spec>] [--json]`
+ *
+ * Which uncommitted paths belong to this spec, and which belong to someone else?
+ *
+ * `classifyDirtyTree` has answered that since the `/spec-start` gate was written,
+ * but only `spec-env up` could reach it — so every skill that commits a spec
+ * hand-wrote `git add specs/` instead, staging a DIRECTORY. With more than one
+ * session writing into `specs/` at once that sweeps a colleague's in-progress
+ * spec into this spec's commit, under this spec's ticket trailer. This verb is
+ * how a skill asks instead of guessing.
+ *
+ * IT ACCUSES NOBODY. `foreign` is not a complaint and not a refusal — it is the
+ * list of paths to leave alone. Nothing here exits non-zero and nothing here
+ * writes.
+ *
+ * `owned` IS THE SPEC'S DOCUMENTS, NEVER ITS CODE. A phase's own implementation
+ * lands in `foreign` — correctly, and this is the point: the commits this verb
+ * exists to bound are the lifecycle ones (`chore(spec): complete <name>`), which
+ * carry a status flip and a folder move and nothing else. A caller that staged
+ * `owned` expecting a phase's work would commit the spec file alone and think it
+ * had committed the feature.
+ *
+ * WHICH TREE IT READS: the one the caller is standing in, resolved from the
+ * invocation cwd rather than from `dir` (which every subcommand re-anchors on
+ * the primary checkout so worktree paths and the registry resolve identically).
+ * That distinction is the whole point here: `/spec-complete` and `/spec-cancel`
+ * run INSIDE the spec's worktree and must be told about that tree, while
+ * `/spec-start` runs in the primary checkout and must be told about that one.
+ * Re-anchoring would silently answer about the wrong checkout, so the tree read
+ * is printed rather than assumed.
+ */
+function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+
+  // The git root CONTAINING the caller, not the primary checkout. `git ls-files`
+  // is scoped to its cwd, so reading from a subdirectory would list only that
+  // subdirectory's untracked files and report the rest of the spec as absent.
+  const git = gitReader(invokedFrom)
+  const tree = git(['rev-parse', '--show-toplevel']) || invokedFrom
+  const paths = dirtyPaths(gitReader(tree))
+
+  // Three states, not two (`.claude/rules/negative-checks.md` rule 4). A null
+  // here is "nobody could look", never "clean" — so it must not become an empty
+  // owned set, which a caller would stage happily and commit as nothing.
+  if (paths === null) {
+    if (flags.json) {
+      process.stdout.write(
+        JSON.stringify({
+          spec: spec.folder,
+          tree,
+          owned: null,
+          foreign: null,
+          error: 'git could not be read',
+        }) + '\n',
+      )
+      return
+    }
+    process.stdout.write(
+      `spec-env stage: ${spec.folder} — git could not be read at ${tree}, so nothing was classified.\n` +
+        '  This is not "clean": stage nothing on the strength of it.\n',
+    )
+    return
+  }
+
+  const { owned, foreign } = classifyDirtyTree(spec, paths, config)
+
+  if (flags.json) {
+    process.stdout.write(JSON.stringify({ spec: spec.folder, tree, owned, foreign }) + '\n')
+    return
+  }
+
+  const out = [
+    `spec-env stage: ${spec.folder} — ${owned.length} owned, ${foreign.length} foreign`,
+    `  tree:  ${tree}`,
+  ]
+  // An empty list is omitted rather than printed under its heading: a heading
+  // with nothing beneath it reads as a finding.
+  if (owned.length) {
+    out.push('', `  owned (${spec.folder}'s — safe to commit):`)
+    for (const p of owned) out.push(`    ${p}`)
+  }
+  if (foreign.length) {
+    out.push('', '  foreign (not this spec\'s — leave them alone):')
+    for (const p of foreign) out.push(`    ${p}`)
+  }
+  if (!owned.length && !foreign.length) {
+    out.push('', '  nothing uncommitted.')
+  }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
+/**
  * Write a self-contained HTML review of a spec's diff.
  *
  * Read entirely through `git -C <worktreePath>` — the caller's shell never moves,
@@ -2774,6 +2867,10 @@ async function specEnv(rest) {
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
+  // Where the caller actually is, kept before the re-anchor below. Only `stage`
+  // wants it: every other subcommand asks about the repo, while that one asks
+  // about the tree in front of you, and the two differ inside a worktree.
+  const invokedFrom = dir
   // Anchor on the primary checkout so every subcommand resolves {repo}, worktree
   // paths, and the registry identically whether run from main or a worktree.
   dir = resolvePrimaryCheckout(dir, gitReader(dir))
@@ -2815,6 +2912,9 @@ async function specEnv(rest) {
     case 'resolve':
       specEnvResolve(dir, config, positional[0], flags)
       break
+    case 'stage':
+      specEnvStage(dir, config, positional[0], flags, invokedFrom)
+      break
     case 'review':
       // `serve` is the one review sub-action rather than a verb of its own: it
       // answers the same question ("show me this diff") from the same engine,
@@ -2830,7 +2930,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +

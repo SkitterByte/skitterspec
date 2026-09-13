@@ -25,6 +25,9 @@ including a path another session has already staged in the shared index.
 - [ ] Add `--` to the commands `planSpecCommit` emits in
       `packages/common/src/env/provision.js`, so the planned spec commit is
       pathspec-limited too.
+- [ ] Update the `spec-env stage` row in `docs/index.html`: its "who calls it"
+      column reads `you` because phase 1 left nothing calling it. Once the
+      skills do, name them.
 - [ ] State *why* in the skill prose, once: two sessions in the primary checkout
       share one `.git/index`, so `git add` alone does not bound a commit.
 - [ ] Tests: a `planSpecCommit` unit test asserting the emitted commit command

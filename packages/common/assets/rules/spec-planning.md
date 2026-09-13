@@ -72,7 +72,7 @@ your canonical `localhost` ports so you can test it at the normal URL
 move, header edits, the code) happens on the spec's branch in the worktree; `main`
 changes only when it merges. Teardown is folded into `/spec-complete` ·
 `/spec-cancel`. Beneath the skills, `skitterspec spec-env
-<up|down|prune|dev|connect|integrate|hotfix|live|review|status|resolve>` is the CLI
+<up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve>` is the CLI
 engine. **Omit the spec name anywhere and it uses the worktree you are standing in**,
 else the sole provisioned spec — with no exceptions left: a bare
 `/spec-connect` connects, and a bare `/spec-live` takes, where both once meant
@@ -102,6 +102,21 @@ is not how work gets started, and no lifecycle skill invokes it; it *refuses*
 stateful ones (`Stack: worktree + docker`, or a branch touching migrations) — keep
 `/spec-connect` + a Docker stack for those, and for genuinely parallel testing.
 Beneath it, `skitterspec spec-env live <take|release|abort|status>` is the engine.
+
+**Staging one spec and not another (`spec-env stage`).** Several specs are
+authored at once — that is what the worktree mode is for — and they all land in
+the same `specs/` folder until they are committed. A `git add specs/` there
+stages a *directory*, sweeping whatever another session happens to have written
+into this spec's commit, under this spec's ticket trailer.
+`skitterspec spec-env stage [<spec>] [--json]` is how a skill asks instead of
+guessing: it splits the uncommitted tree into the paths that are this spec's —
+its folder in **any** bucket, so a tree mid-`git mv` is handled, plus each
+`spec.companionPaths` entry the project declares — and the paths that are not.
+It reads **the tree you are standing in**, which is the worktree inside one and
+the primary checkout outside, and prints which. The `owned` half is the spec's
+**documents**, never its code: a phase's own implementation is `foreign`, because
+the commits this bounds are the lifecycle ones. Nothing here refuses, writes, or
+exits non-zero — `foreign` is a list of paths to leave alone, not an accusation.
 
 **Reading a spec's diff (`/spec-diff`) — seeing the work, not running it.**
 `/spec-connect` and `/spec-live` both exist to reach a *running app*.
