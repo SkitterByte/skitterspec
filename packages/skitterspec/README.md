@@ -81,6 +81,37 @@ is always opt-in, and one page per spec — later phases update the same link.
 `/spec-next` writes the page at the end of every phase. Nothing about it depends
 on where your shell is.
 
+## One ending, every skill — `.claude/rules/spec-reports.md`
+
+Every skill finishes with the same block, and says nothing while it runs beyond
+a question it cannot answer itself or a failure at the moment it happens:
+
+✅ **Phase 2 built** — `feat-orders`, 2 of 4
+
+| | |
+|---|---|
+| **Branch** | `spec/feat-orders` · 3 commits, clean |
+| **Built** | POST /orders handler, orders schema |
+| **Tests** | 128 passed · npm test |
+| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review before you commit? |
+| **Follow-ups** | none |
+| **Next** | `/spec-next` → phase 3 (Auth) |
+
+Four verdicts, and the last two are different facts about your repo: `✅` done ·
+`⚠️` done with caveats · `❌` failed part-way, so there is a mess to clear ·
+`⏸` refused before acting, so nothing changed.
+**A refusal emits the block too**, so "nothing happened" is a reported outcome
+rather than an absent one.
+
+Fields come from a fixed vocabulary in a fixed order, and a skill emits only the
+ones it declares — `Next` is last because it is the only row you act on. (A `Tracker` row leads the
+table once a ticketing provider is installed; the base has none, so it never
+appears.)
+`Follow-ups` is always there: a recorded `none` is a decision where a missing
+line is an oversight. The block covers **that run only** — what else is in
+flight is a different question, and answering it here leaves you unable to tell
+what followed from the run you just watched.
+
 ## Production hotfixes — `/spec-hotfix`
 
 When prod is on a tagged release, a fix must be built on **that** version, not

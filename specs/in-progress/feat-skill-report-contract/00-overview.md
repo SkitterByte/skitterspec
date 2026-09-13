@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-skill-report-contract (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 4 (started 2026-09-12)
+> **Status:** In Progress — all phases done (started 2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -186,7 +186,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Write the contract rule and bring it under the prose guard | ✅ | [01-contract-rule.md](01-contract-rule.md) |
 | 2 | Retrofit the 11 lifecycle skills, enforced by test | ✅ | [02-common-skills.md](02-common-skills.md) |
 | 3 | Re-render the block as a table, then the 6 Linear skills | ✅ | [03-linear-skills.md](03-linear-skills.md) |
-| 4 | Update the outward-facing surfaces | ⬜ | [04-docs.md](04-docs.md) |
+| 4 | Update the outward-facing surfaces | ✅ | [04-docs.md](04-docs.md) |
 
 ## Open questions
 
@@ -279,3 +279,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   without an ending. `build-dist.test.js` gained the untested overlay direction:
   a **common** rule surviving into the provider superset, which had no symptom
   because the provider-rule assertion beside it would still have passed.
+- 2026-09-13 — Phase 4: the block is described on `spec-planning.md`,
+  `claude-md-section.md`, the two distribution READMEs, `packages/common`'s and
+  `docs/index.html` — each showing one worked block rather than describing one.
+  The root `README.md` was left alone: it is the monorepo's developer README
+  (distributions, build, releasing) and describes no skill behaviour, so a
+  product section there would be the only one of its kind.
+- 2026-09-13 — Phase 4: `docs-claims.test.js` gained a retired-shape guard —
+  no surface may describe the block as an aligned key-value list — paired with
+  a positive signal, since a surface that dropped the example entirely would
+  otherwise pass by absence. Its skill-name guard also had to learn the `.md`
+  lookahead `assets-prose.test.js` already had: pointing readers at
+  `.claude/rules/spec-reports.md` was read as naming a skill that does not ship.

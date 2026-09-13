@@ -56,6 +56,50 @@ test('no shipped surface still claims tasks are not synced', () => {
   assert.deepStrictEqual(hits, [], `retired task-sync claim still shipped:\n${hits.join('\n')}`)
 })
 
+// The report block was an aligned key-value list inside a fenced block before it
+// was a table, and the reason it changed is not a matter of taste: a fence
+// renders as the same grey box as a code sample, and the first person to receive
+// one read it as code and missed the row telling them what to do next. A surface
+// that still shows the old form would teach that shape to every new reader.
+//
+// This checks the SURFACES that actually describe the block — a page mentioning
+// `spec-reports.md` in passing is not claiming anything about its shape — and it
+// asserts a POSITIVE signal beside the retired phrases: a surface that describes
+// the block must show a `Follow-ups` row, so the guard fails if the example is
+// dropped rather than passing on an absence.
+const DESCRIBES_BLOCK = [
+  'README.md',
+  'packages/skitterspec/README.md',
+  'packages/skitterspec-linear/README.md',
+  'packages/common/README.md',
+  'docs/index.html',
+]
+
+const RETIRED_BLOCK_SHAPE = [
+  /aligned key-value list/i,
+  /values start(ing)? at column/i,
+  /a list, never a table/i,
+]
+
+test('no surface still describes the report block as a fenced list', () => {
+  const hits = []
+  let described = 0
+  for (const rel of DESCRIBES_BLOCK) {
+    const abs = path.join(ROOT, rel)
+    if (!fs.existsSync(abs)) continue
+    const text = fs.readFileSync(abs, 'utf8')
+    if (!/spec-reports\.md|One ending/i.test(text)) continue
+    described += 1
+    // Positive signal: it shows the table, rather than merely not showing the list.
+    assert.match(text, /Follow-ups/, `${rel} describes the block but shows no Follow-ups row`)
+    for (const re of RETIRED_BLOCK_SHAPE) {
+      if (re.test(text)) hits.push(`${rel}: ${re}`)
+    }
+  }
+  assert.ok(described > 2, `no surface describes the block — guard is vacuous (${described})`)
+  assert.deepStrictEqual(hits, [], `retired report-block shape still shipped:\n${hits.join('\n')}`)
+})
+
 test('the guard would actually fire on the phrasing it retires', () => {
   // A guard that matches nothing is worse than no guard — it reads as coverage.
   const samples = [
@@ -210,8 +254,12 @@ test('every skill named on the site is a skill that ships', () => {
   assert.ok(shipped.size > 10, `found the skills and commands, got ${shipped.size}`)
 
   for (const rel of PAGES) {
-    // `/spec-…` anywhere in the prose is an instruction to run it.
-    for (const m of textOf(rel).matchAll(/\/(?:spec)(-[a-z-]+)?(?=[\s.,)]|$)/gm)) {
+    // `/spec-…` anywhere in the prose is an instruction to run it — EXCEPT when
+    // it is part of a file path. `.claude/rules/spec-reports.md` is a rule the
+    // site now points readers at, and reading it as an invocation accused the
+    // page of naming a skill that does not ship. `assets-prose.test.js` learned
+    // the same lesson first; the `.md` lookahead is the same fix.
+    for (const m of textOf(rel).matchAll(/\/(?:spec)(-[a-z-]+)?(?!\.md)(?=[\s.,)<]|$)/gm)) {
       const name = m[0].slice(1)
       assert.ok(shipped.has(name), `${rel} names /${name}, which ships as neither a skill nor a command`)
     }

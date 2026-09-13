@@ -134,6 +134,35 @@ silently. All of it lives beside the page in gitignored `.spec-env/`, and
 **the marks are information, never a gate**: nothing counts them and nothing
 refuses on them.
 
+**One ending, every skill (`.claude/rules/spec-reports.md`).** Every skill in
+the table above finishes with the same block — a verdict, then a table of only
+the fields that skill declares — and says nothing while it runs beyond a
+question it cannot answer itself or a failure at the moment it happens. The
+shape is defined once in that rule; each skill's `## Report` section names only
+its verdicts and its fields.
+
+✅ **Phase 2 built** — `feat-orders`, 2 of 4
+
+| | |
+|---|---|
+| **Tracker** | [ABC-88](https://example.invalid/ABC-88) · `feat-orders` · phase 2 moved |
+| **Branch** | `spec/feat-orders` · 3 commits, clean |
+| **Built** | POST /orders handler, orders schema |
+| **Tests** | 128 passed · npm test |
+| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review before you commit? |
+| **Follow-ups** | none |
+| **Next** | `/spec-next` → phase 3 (Auth) |
+
+Four verdicts, and the last two are different facts about the repo: `✅` done ·
+`⚠️` done with caveats · `❌` failed part-way, so there is a mess to clear ·
+`⏸` refused before acting, so nothing changed.
+**A refusal emits the block too** — "nothing happened" is a reported outcome
+rather than an absent one.
+`Follow-ups` is always present, because a recorded `none` is a decision where a
+missing line is an oversight. And the block covers **that run only**: what else
+is in flight is another question, and volunteering it here leaves the reader
+unable to tell what followed from the run they just watched.
+
 **Ticketing-provider sync (opt-in, a separate package).** The base is
 tracker-free: it knows nothing about any specific ticketing system. A
 ticketing provider is installed as its own distribution that plugs into named

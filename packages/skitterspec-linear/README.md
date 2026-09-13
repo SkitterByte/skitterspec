@@ -113,6 +113,37 @@ also start **from** an existing issue — `/spec SKI-123`,
 `/spec-hotfix v33.16.4 SKI-123`, or `--from-issue` to browse the ones your web
 app filed. There is no pull — the repo is already canonical.
 
+## One ending, every skill — `.claude/rules/spec-reports.md`
+
+Every skill finishes with the same block, and says nothing while it runs beyond
+a question it cannot answer itself or a failure at the moment it happens:
+
+✅ **Phase 2 built** — `feat-orders`, 2 of 4
+
+| | |
+|---|---|
+| **Tracker** | [SKS-88](https://linear.app/…/SKS-88) · `feat-orders` · phase 2 moved |
+| **Branch** | `spec/feat-orders` · 3 commits, clean |
+| **Built** | POST /orders handler, orders schema |
+| **Tests** | 128 passed · npm test |
+| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review before you commit? |
+| **Follow-ups** | none |
+| **Next** | `/spec-next` → phase 3 (Auth) |
+
+Four verdicts, and the last two are different facts about your repo: `✅` done ·
+`⚠️` done with caveats · `❌` failed part-way, so there is a mess to clear ·
+`⏸` refused before acting, so nothing changed.
+**A refusal emits the block too**, so "nothing happened" is a reported outcome
+rather than an absent one.
+
+Fields come from a fixed vocabulary in a fixed order, and a skill emits only the
+ones it declares — `Tracker` first because the id is how you address the work
+outside the repo, `Next` last because it is the only row you act on.
+`Follow-ups` is always there: a recorded `none` is a decision where a missing
+line is an oversight. The block covers **that run only** — what else is in
+flight is a different question, and answering it here leaves you unable to tell
+what followed from the run you just watched.
+
 ## Opt-in
 
 Linear sync is inert until `specs/.core/linear.config.json` exists — copy the

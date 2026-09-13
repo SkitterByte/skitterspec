@@ -446,6 +446,17 @@
   tbody td.folder { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-faint); white-space: nowrap; }
   .grp-row td { background: var(--card-2); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; padding: 9px 20px; }
 
+  /* ---------- Report block ---------- */
+  .rpt { border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); background: var(--card); overflow: hidden; }
+  .rpt-verdict { padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--card-2); font-size: 0.95rem; color: var(--ink); }
+  .rpt-verdict .state { font-size: 1.05rem; margin-right: 6px; }
+  .rpt-verdict b { color: var(--ink); font-weight: 650; }
+  .rpt-verdict .dim { color: var(--ink-faint); }
+  .rpt table { min-width: 0; }
+  .rpt tbody td.k { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--accent); white-space: nowrap; width: 1%; }
+  .rpt tbody td.v { font-size: 0.88rem; }
+  .rpt .mono { font-family: var(--font-mono); font-size: 0.85em; }
+
   /* ---------- Quickstart ---------- */
   .quick { background: var(--paper); }
   .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -490,6 +501,7 @@
       <a href="#scenario">Walkthrough</a>
       <a href="#surfaces">Two surfaces</a>
       <a href="#review">See the phase</a>
+      <a href="#report">Every ending</a>
       <a href="#linear">Add Linear</a>
       <a href="linear.html">Linear setup</a>
       <a href="#reference">Reference</a>
@@ -546,6 +558,36 @@
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ============ THE REPORT ============ -->
+<section id="report">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Every ending</div>
+      <h2>You should be able to tell what happened without reading a paragraph about it.</h2>
+      <p class="lede">Every skill finishes with the same block, and says nothing while it runs beyond a question it can't answer itself or a failure at the moment it happens. The fields come from a fixed vocabulary in a fixed order, and a skill emits only the ones it declares — so two runs of the same skill are scannable against each other, and you learn where to look once.</p>
+    </div>
+
+    <div class="rpt reveal">
+      <div class="rpt-verdict"><span class="state">✅</span> <b>Phase 2 built</b> <span class="dim">— <span class="mono">feat-orders</span>, 2 of 4</span></div>
+      <table>
+        <tbody>
+          <tr><td class="k">Tracker</td><td class="v"><span class="mono">SKS-88</span> · <span class="mono">feat-orders</span> · phase 2 moved</td></tr>
+          <tr><td class="k">Branch</td><td class="v"><span class="mono">spec/feat-orders</span> · 3 commits, clean</td></tr>
+          <tr><td class="k">Built</td><td class="v">POST /orders handler, orders schema</td></tr>
+          <tr><td class="k">Tests</td><td class="v">128 passed · <span class="mono">npm test</span></td></tr>
+          <tr><td class="k">Review</td><td class="v">7 files, +212 −18 · open the page — want a written review before you commit?</td></tr>
+          <tr><td class="k">Follow-ups</td><td class="v">none</td></tr>
+          <tr><td class="k">Next</td><td class="v"><span class="mono">/spec-next</span> → phase 3 (Auth)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="cmp-note reveal"><b>Four verdicts</b>, and the last two are different facts about your repo: <b>✅</b> done · <b>⚠️</b> done with caveats · <b>❌</b> failed part-way, so there is a mess to clear · <b>⏸</b> refused before acting, so nothing changed. Looking for wreckage that isn't there costs as much as walking past wreckage that is. <b>A refusal emits the block too</b> — "nothing happened" is a reported outcome rather than an absent one.</p>
+
+    <p class="cmp-note reveal"><b>Tracker</b> leads because the id is how you address this work outside the repo; <b>Next</b> closes because it is the only row you act on. <b>Follow-ups</b> is always there, since a recorded <span class="mono">none</span> is a decision where a missing line is an oversight. And the block covers <b>that run only</b> — what else is in flight is a different question, and answering it here leaves you unable to tell what followed from the run you just watched. The shape is defined once, in <span class="mono">.claude/rules/spec-reports.md</span>, and each skill's own <span class="mono">## Report</span> names only its verdicts and its fields.</p>
   </div>
 </section>
 
