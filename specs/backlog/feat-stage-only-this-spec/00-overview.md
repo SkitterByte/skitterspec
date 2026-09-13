@@ -1,0 +1,151 @@
+---
+linear_identifier: "SKS-210"
+linear_url: "https://linear.app/skitterbyte/issue/SKS-210/stage-only-this-specs-paths-and-stop-refusing-over-other-specs"
+---
+
+# Stage only this spec's paths, and stop refusing over other specs'
+
+> **Type:** Feature
+> **Name:** feat-stage-only-this-spec (the spec folder name — the handle you paste into `/spec-start`)
+> **Status:** Ready — not started
+> **Author:** Reuben Greaves
+> **Developer:** —
+> **Raised:** 2026-09-13
+> **Area:** packages/common/src/env/classify.js, packages/common/src/env/provision.js, packages/common/src/cli.js, packages/common/assets/skills/{spec-complete,spec-cancel,spec-start}/SKILL.md, packages/common/assets/rules/spec-reports.md, packages/linear/assets/seams/spec-tracker-sync.md
+> **Stack:** worktree
+
+## Problem
+
+Several `/spec` sessions run against this repo at once, and the lifecycle skills
+are not written for that. Two failures follow from it.
+
+**Commits sweep up another session's work.** `/spec-complete` and `/spec-cancel`
+instruct `git add specs/ && git commit -m "…"` — staging a *directory*. On
+2026-09-13 that put one session's in-progress `bug-review-server-unreachable`
+spec into another session's commit, trailered with the wrong ticket. Naming the
+paths is necessary but not sufficient: two sessions in the primary checkout
+share one `.git/index`, so a bare `git commit` takes whatever the other session
+has already staged, however carefully this one staged its own.
+
+**`/spec-start` then refuses over dirt it cannot be harmed by.** `spec-env up`
+classifies the uncommitted tree and refuses when any path is not the target
+spec's. In `worktree` mode that refusal has no mechanism behind it —
+`git worktree add` carries nothing and forks from a commit regardless — so the
+commonest concurrent case (author spec B while spec A is uncommitted, then start
+B) is blocked for no gain.
+
+The two are one problem: the repo already computes "the paths belonging to this
+spec" and nothing outside `spec-env up` can reach it.
+
+## Decisions
+
+1. **Expose the owned set as `skitterspec spec-env stage [<spec>] [--json]`.**
+   `classifyDirtyTree` already answers this — the spec's folder across *all*
+   buckets (so a tree mid-`git mv` is handled) plus `spec.companionPaths`, which
+   in this repo resolves the Linear snapshot. It has one caller and no CLI
+   surface. A dedicated verb, not a fold into `spec-env status`: the skills need
+   a machine-readable path list, and `status` is a wide human report.
+2. **The verb prints paths, not commands.** Rejected emitting a ready-made
+   `git add … && git commit …` like `up`/`integrate` do, because each skill's
+   message differs and a ticketing provider appends a `Refs:` trailer — coupling
+   the verb to that makes it own something it cannot know.
+3. **Every spec commit is pathspec-limited:**
+   `git add -- <owned> && git commit -m "…" -- <owned>`. The `add` is what makes
+   an untracked new spec folder known to the index; the `-- <paths>` on the
+   *commit* is what makes the other session's staged entries stay staged rather
+   than ride along. Verified: a `git commit -- mine/f.md` with `other/f.md`
+   already in the index commits one file and leaves the other staged, untouched.
+4. **In `worktree` mode, foreign dirt never blocks.** Report it, commit only the
+   owned set, provision. Rejected the narrower "ignore other specs' folders but
+   still refuse a dirty `packages/`" — nothing is carried either way, so that
+   line fixes half the false positives and buys no safety. Rejected a
+   confirm-prompt: a round trip on every start is the cost this removes.
+5. **`checkout` mode is unchanged.** `git switch -c` genuinely carries
+   uncommitted work onto the new branch, so the refusal there is still earning
+   its keep. This is the asymmetry `provision.js` already documents for the
+   unreadable-git case, extended to the case where git *was* readable.
+6. **Proceeding with foreign dirt is `✅`, with an `Untouched` row** — not `⚠️`.
+   Nothing went wrong; the dirt was never the run's business. Reserving `⚠️` for
+   things needing attention is what keeps it meaning anything.
+7. **Ordering is load-bearing.** Phase 2 (pathspec commits) must land before
+   phase 3 (loosening the gate): the loosened gate is only safe once no commit
+   this workflow issues can reach a path it does not own.
+8. **Scope is skitterspec's own lifecycle skills.** `/commit` ships from
+   `@skitterbyte/skittership` — a different product — so it is a follow-up to
+   raise there, not work here. Rejected shipping a rule asset about concurrent
+   staging: the fix belongs in the commands, not in prose asking humans to
+   remember.
+
+## Solution overview
+
+`classifyDirtyTree` stays exactly as it is — it is already correct, and this
+spec is about who can call it and what they do with the answer.
+
+- **A verb.** `spec-env stage [<spec>] [--json]` resolves the spec the same way
+  every other verb does (bare = the worktree you are standing in, else the sole
+  provisioned spec), reads `git status --porcelain`, and prints the split:
+
+  ```
+  spec-env stage: feat-foo — 3 owned, 2 foreign
+
+    owned (this spec's — safe to commit):
+      specs/in-progress/feat-foo/00-overview.md
+      specs/backlog/feat-foo
+      specs/.core/linear-base/SKS-88.base.json
+
+    foreign (someone else's — left alone):
+      specs/backlog/feat-bar/00-overview.md
+      packages/common/src/cli.js
+  ```
+
+  `--json` emits `{"spec":"feat-foo","owned":[…],"foreign":[…]}`.
+
+- **Pathspec commits.** The staging blocks in `spec-complete`, `spec-cancel` and
+  the `spec-tracker-sync` seam stop saying `git add specs/` and start asking the
+  verb for the paths, then committing with them as a pathspec. The commands
+  `planSpecCommit` emits gain the same `--` limiter.
+
+- **A gate that matches the mechanism.** `planSpecCommit` keeps refusing foreign
+  dirt when `carriesChanges` is set (checkout mode) and stops refusing otherwise,
+  returning the foreign paths so the planner and the CLI can report them.
+  `/spec-start` reports them in an `Untouched` row.
+
+## Impact
+
+| Surface | Change | Detail |
+|---------|--------|--------|
+| CLI command | add | `spec-env stage [<spec>] [--json]` |
+| CLI command | update | `spec-env up` usage line + worktree-mode output gains `untouched` |
+| Domain object | update | `planSpecCommit` → returns `foreign`; blocks only when `carriesChanges` |
+| Domain object | update | `planUp` → surfaces `foreign` instead of blocking on it |
+| Skill/rule | update | `spec-complete`, `spec-cancel`, `spec-start` staging + Fields |
+| Skill/rule | update | `spec-reports.md` field vocabulary gains `Untouched` |
+| Skill/rule | update | `spec-tracker-sync` seam (Linear) staging rationale |
+
+## Phases
+
+Each phase lives in its own file in this folder. Status: ⬜ not started ·
+🔄 in progress · ✅ done.
+
+| # | Phase | Status | File |
+|---|-------|--------|------|
+| 1 | Expose the owned set as `spec-env stage` | ⬜ | [01-stage-verb.md](01-stage-verb.md) |
+| 2 | Pathspec-limit every spec commit | ⬜ | [02-pathspec-commits.md](02-pathspec-commits.md) |
+| 3 | Stop refusing foreign dirt in worktree mode | ⬜ | [03-loosen-the-gate.md](03-loosen-the-gate.md) |
+
+## Open questions
+
+- [ ] None.
+
+## State log
+
+| Date | Status | Folder | By |
+|------|--------|--------|----|
+| 2026-09-13 | Ready | backlog | Reuben Greaves |
+
+## Changelog
+
+- 2026-09-13 — Spec created.
+- 2026-09-13 — Follow-up recorded: `/commit` in `@skitterbyte/skittership` has
+  the same directory-staging instruction and is out of this repo's reach; raise
+  it there.
