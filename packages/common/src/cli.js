@@ -1622,15 +1622,15 @@ async function specEnvReview(dir, config, specArg, flags) {
   if (reader.reader === 'remote' && config.review.serveOnRemote) {
     const up = await ensureReviewServer(dir, config, { host: '0.0.0.0' })
     if (!up.error) {
-      // PROVISIONAL: the first non-internal IPv4 address, which is interface
-      // order and not preference order. On a machine with Parallels, Docker or
-      // a VPN adapter this can name an address the reader's phone cannot route
-      // to — reintroducing the dead link this whole change removes. Ranking is
-      // phase 2 of bug-remote-reader-gets-a-dead-link.
-      const addr = lanAddresses()[0]
-      if (addr) {
+      // Best candidate first (see `rankLanAddresses`), with the rest kept: the
+      // ranking reads interface names and can be wrong, so the alternates are
+      // offered rather than thrown away. No address at all means nothing to
+      // offer, and the `file://` fallback below is the honest answer.
+      const addrs = lanAddresses()
+      if (addrs.length) {
         served = {
-          url: `${serveUrl(addr, up)}${encodeURIComponent(spec.folder)}`,
+          url: `${serveUrl(addrs[0], up)}${encodeURIComponent(spec.folder)}`,
+          alternates: addrs.slice(1).map((a) => `${serveUrl(a, up)}${encodeURIComponent(spec.folder)}`),
           port: up.port,
           token: up.token,
           started: up.started,
@@ -1724,6 +1724,11 @@ async function specEnvReview(dir, config, specArg, flags) {
       // before, dead link and all: that is the floor, never made worse.
       (served
         ? `  open: ${served.url}\n` +
+          // Said only when there is a runner-up. One address is not a choice,
+          // and an `also:` line naming nothing reads as a warning.
+          (served.alternates.length
+            ? served.alternates.map((u) => `  also: ${u}\n`).join('')
+            : '') +
           (served.started
             ? '  serving: every provisioned spec, to anyone with this URL on your network.\n' +
               '  stop:  skitterspec spec-env review serve --stop\n'
@@ -1835,18 +1840,57 @@ function serveProcFor(config, settingsFileAbs) {
   }
 }
 
-// Every non-loopback IPv4 address of this machine, for printing a URL a phone on
-// the same network can actually open. Printed, never guessed at: the operator
-// picks from what is listed.
-function lanAddresses() {
-  const nets = require('node:os').networkInterfaces()
+// Interface names that mean "a network the reader's phone is not on". On the
+// machine this was written for, `bridge100`/`bridge101` are Parallels and `en0`
+// is the wifi the phone shares — so the real address is neither first nor last
+// in `networkInterfaces()` order, and order alone is a coin toss.
+//
+// WHAT WOULD FOOL THIS: it reads interface NAMES, so a VPN on a renamed adapter,
+// an unusual driver, or a platform that names things differently all rank wrong.
+// That is exactly why the runners-up are printed rather than discarded — a bad
+// guess costs a glance, not a dead end.
+const VIRTUAL_IFACE = /^(bridge|vmnet|vnic|vboxnet|docker|utun|tap|tun|veth|ppp|awdl|llw)/i
+const PHYSICAL_IFACE = /^(en|eth|wl)\d/i
+
+// Within a tier, the range a phone most plausibly shares. Only ever a
+// tie-break: a corporate LAN is legitimately 10/8, so this must never outrank
+// the interface name.
+function rangeRank(address) {
+  if (/^192\.168\./.test(address)) return 0
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(address)) return 1
+  if (/^10\./.test(address)) return 2
+  return 3
+}
+
+/**
+ * Order this machine's non-loopback IPv4 addresses, best candidate first.
+ *
+ * PURE — takes the interface map as an argument rather than reading
+ * `os.networkInterfaces()`, so a test states the machine it describes instead of
+ * depending on the one it runs on. Same discipline as `detectReader` and its
+ * environment, and for the same reason.
+ */
+function rankLanAddresses(nets) {
   const out = []
-  for (const name of Object.keys(nets)) {
+  for (const name of Object.keys(nets || {})) {
     for (const net of nets[name] || []) {
-      if (net.family === 'IPv4' && !net.internal) out.push(net.address)
+      if (net.family !== 'IPv4' || net.internal) continue
+      const tier = PHYSICAL_IFACE.test(name) ? 0 : VIRTUAL_IFACE.test(name) ? 2 : 1
+      out.push({ address: net.address, iface: name, tier })
     }
   }
+  // Stable sort, so an unrankable set keeps discovery order rather than
+  // shuffling between runs.
   return out
+    .map((e, i) => ({ ...e, i }))
+    .sort((a, b) => a.tier - b.tier || rangeRank(a.address) - rangeRank(b.address) || a.i - b.i)
+    .map(({ address, iface }) => ({ address, iface }))
+}
+
+// Every non-loopback IPv4 address of this machine, best candidate first, for
+// printing a URL a phone on the same network can actually open.
+function lanAddresses(nets = require('node:os').networkInterfaces()) {
+  return rankLanAddresses(nets).map((e) => e.address)
 }
 
 /**
@@ -2709,4 +2753,4 @@ async function run(argv) {
   }
 }
 
-module.exports = { run, parse, HELP, unknownCommand }
+module.exports = { run, parse, HELP, unknownCommand, rankLanAddresses }

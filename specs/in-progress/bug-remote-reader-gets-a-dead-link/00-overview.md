@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-remote-reader-gets-a-dead-link (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — phase 1 green, phases 2-4 open
+> **Status:** In Progress — phases 1-2 green, phases 3-4 open
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -142,7 +142,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Serve on a remote reader | ✅ | [01-serve-on-remote.md](01-serve-on-remote.md) |
-| 2 | Offer a LAN address that routes | ⬜ | [02-which-lan-address.md](02-which-lan-address.md) |
+| 2 | Offer a LAN address that routes | ✅ | [02-which-lan-address.md](02-which-lan-address.md) |
 | 3 | Account for a server nobody started | ⬜ | [03-account-for-the-server.md](03-account-for-the-server.md) |
 | 4 | Point the skills at the working line | ⬜ | [04-skills-relay-the-link.md](04-skills-relay-the-link.md) |
 
@@ -169,6 +169,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   0 fail. Verified against the real worktree, not only the fixtures: the engine
   printed `open: http://192.168.0.241:7777/…/bug-remote-reader-gets-a-dead-link`
   and adopted the server already running rather than minting a second token.
+- 2026-09-13 — Phase 2 green. Ranking reads interface NAMES (`en0` physical,
+  `bridge100`/`bridge101` Parallels), with the private-range check kept strictly
+  as a tie-break — a corporate LAN is legitimately 10/8, so range must never
+  outrank the adapter. The runners-up are printed on `also:` rather than
+  discarded, because a name heuristic will eventually be wrong and a bad guess
+  should cost a glance.
 - 2026-09-13 — Making `specEnvReview` async broke four test files that captured
   its stdout in-process, which is how the suite learned that `node --test` runs
   each file as a child emitting TAP on the same stream. Recorded in phase 1's

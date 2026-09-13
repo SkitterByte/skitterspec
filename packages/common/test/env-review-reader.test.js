@@ -371,3 +371,28 @@ test('a port already in use falls back to the file link, and does not fail', asy
     cleanup(dir)
   }
 })
+
+// Machine-independent on purpose: which addresses exist is the ranking's
+// business (env-review-lan-address.test.js states its own machines). What is
+// asserted here is that whatever came out is CONSISTENT — the alternates point
+// at the same spec through the same token, and none of them repeats the one
+// already offered on `open:`.
+test('the alternates are real alternatives to the offered link', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    const out = review(dir)
+    const open = out.match(/^ {2}open: (\S+)$/m)
+    assert.ok(open, 'a link was offered')
+    const also = [...out.matchAll(/^ {2}also: (\S+)$/gm)].map((m) => m[1])
+    const served = JSON.parse(review(dir, '--json')).served
+    assert.strictEqual(also.length, served.alternates.length, 'text and --json agree')
+    for (const url of also) {
+      assert.match(url, /\/feat-alpha$/, 'every alternate reaches the same spec')
+      assert.ok(url.includes(served.token), 'and carries the same token')
+      assert.notStrictEqual(url, open[1], 'an alternate that repeats the offer is not one')
+    }
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
