@@ -62,6 +62,12 @@ test('init scaffolds skills, rule, folders', async () => {
   // surface, and the loop would pass just as happily if assets/rules/ lost it.
   assert.ok(RULES.includes('negative-checks.md'), 'negative-checks rule registered')
   assert.ok(exists(dir, '.claude', 'rules', 'negative-checks.md'), 'negative-checks rule installed')
+  // The report contract is pointed at by every skill's `## Report`, so a project
+  // that installs the skills without it gets 17 references to a file it does not
+  // have. `listRules()` discovers `assets/rules/*.md`, so no code change carried
+  // it here — which is exactly why it is asserted rather than assumed.
+  assert.ok(RULES.includes('spec-reports.md'), 'spec-reports rule registered')
+  assert.ok(exists(dir, '.claude', 'rules', 'spec-reports.md'), 'spec-reports rule installed')
   for (const f of ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']) {
     assert.ok(fs.existsSync(path.join(dir, 'specs', f)), `folder ${f}`)
   }

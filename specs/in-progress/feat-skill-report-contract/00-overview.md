@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-skill-report-contract (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-12)
+> **Status:** In Progress — Phase 2 (started 2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -146,7 +146,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Write the contract rule and bring it under the prose guard | ⬜ | [01-contract-rule.md](01-contract-rule.md) |
+| 1 | Write the contract rule and bring it under the prose guard | ✅ | [01-contract-rule.md](01-contract-rule.md) |
 | 2 | Retrofit the 11 lifecycle skills, enforced by test | ⬜ | [02-common-skills.md](02-common-skills.md) |
 | 3 | Retrofit the 6 Linear skills, extend the guard to all 17 | ⬜ | [03-linear-skills.md](03-linear-skills.md) |
 | 4 | Update the outward-facing surfaces | ⬜ | [04-docs.md](04-docs.md) |
@@ -165,3 +165,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-12 — Spec created.
+- 2026-09-13 — Phase 1: the prose guard's hand-written `spec-planning` entry
+  became discovery of `assets/rules/*.md` across both packages, so
+  `negative-checks.md` and the provider's `commit-trailers.md` came under it too
+  — both had shipped unguarded. Discovery is itself an absence that can go
+  quiet, so a vacuity test names one file per discovered kind.
+- 2026-09-13 — Phase 1: the rule's worked examples say `npm test` and name no
+  tracker. `assets.test.js` forbids `pnpm` in shipped prose and
+  `compose.test.js` forbids Linear brand text in the base build — the examples
+  are shipped into other people's repos, so neither this repo's toolchain nor a
+  provider's name belongs in them.

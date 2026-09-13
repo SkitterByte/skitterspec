@@ -20,22 +20,25 @@ const ROOT = path.join(__dirname, '..', '..', '..')
 // says the same things at more length — was found stale the moment it was added.
 const PROSE = [
   ['claude-md-section', path.join(__dirname, '..', 'assets', 'claude-md-section.md')],
-  ['spec-planning', path.join(__dirname, '..', 'assets', 'rules', 'spec-planning.md')],
   // `core/` docs are shipped prose too, and env.config.md was five verbs out of
   // date when it was added here — the guard existed, it just was not pointed at
-  // the file. DISCOVERED rather than listed, across both packages, so a new core
-  // doc is covered the day it lands instead of the day someone remembers. `.md`
-  // only, so the `.example` configs beside them are not read as prose.
-  ...coreDocs(),
+  // the file. `rules/` is the same story one directory over: `spec-planning.md`
+  // was named here by hand, so `negative-checks.md` and the provider's
+  // `commit-trailers.md` shipped unguarded and `spec-reports.md` would have too.
+  // DISCOVERED rather than listed, across both packages, so a new doc of either
+  // kind is covered the day it lands instead of the day someone remembers. `.md`
+  // only, so the `.example` configs beside the core docs are not read as prose.
+  ...shippedDocs('core'),
+  ...shippedDocs('rules'),
 ]
 
-function coreDocs() {
+function shippedDocs(kind) {
   const out = []
   for (const pkg of ['common', 'linear']) {
-    const dir = path.join(ROOT, 'packages', pkg, 'assets', 'core')
+    const dir = path.join(ROOT, 'packages', pkg, 'assets', kind)
     if (!fs.existsSync(dir)) continue
     for (const f of fs.readdirSync(dir).sort()) {
-      if (f.endsWith('.md')) out.push([`${pkg}:core/${f}`, path.join(dir, f)])
+      if (f.endsWith('.md')) out.push([`${pkg}:${kind}/${f}`, path.join(dir, f)])
     }
   }
   return out
@@ -58,6 +61,19 @@ function shipped(kind) {
 test('the catalogue is readable, or the guards below mean nothing', () => {
   assert.ok(shipped('skills').size > 5, 'found the skills')
   assert.ok(shipped('commands').size > 0, 'found the commands')
+})
+
+// DISCOVERY IS THE BLIND SPOT here. A glob that matches nothing — a renamed
+// directory, a tree moved under the package — disables every guard below
+// without failing any of them: the loops simply run zero times and pass. So
+// assert the corpus is POPULATED, and name one file per discovered kind so a
+// directory that quietly empties is a failure rather than a silent all-clear.
+test('the prose corpus was actually discovered', () => {
+  const names = PROSE.map(([n]) => n)
+  assert.ok(names.includes('common:rules/spec-planning.md'), `rules discovered: ${names}`)
+  assert.ok(names.includes('common:rules/spec-reports.md'), `the report contract is guarded: ${names}`)
+  assert.ok(names.includes('linear:rules/commit-trailers.md'), `provider rules discovered: ${names}`)
+  assert.ok(names.some((n) => n.startsWith('common:core/')), `core docs discovered: ${names}`)
 })
 
 test('every /spec-… these assets name is a skill or command that ships', () => {
