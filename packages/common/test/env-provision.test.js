@@ -263,8 +263,8 @@ test("the spec's own uncommitted folder is committed before the fork", () => {
   })
   assert.strictEqual(plan.blocked, false)
   assert.deepStrictEqual(plan.commands, [
-    'git add "specs/backlog/feat-thing"',
-    'git commit -m "chore(spec): add feat-thing"',
+    'git add -- "specs/backlog/feat-thing"',
+    'git commit -m "chore(spec): add feat-thing" -- "specs/backlog/feat-thing"',
     'git worktree add /wt/thing -b feat/thing',
   ])
 })

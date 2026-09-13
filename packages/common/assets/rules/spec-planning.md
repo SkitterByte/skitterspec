@@ -118,6 +118,15 @@ the primary checkout outside, and prints which. The `owned` half is the spec's
 the commits this bounds are the lifecycle ones. Nothing here refuses, writes, or
 exits non-zero — `foreign` is a list of paths to leave alone, not an accusation.
 
+**Naming the paths is necessary and not sufficient**, which is why every spec
+commit is also pathspec-limited: `git add -- <paths>` **and**
+`git commit -m "…" -- <paths>`. A checkout has one `.git/index` and every session
+standing in it shares that index, so a bare `git commit` takes whatever another
+session has already staged no matter how carefully this one staged its own. The
+`add` is still needed — `git commit` cannot take a path git has never seen, which
+is every brand-new spec folder — but it is the `--` on the **commit** that bounds
+what lands. The two failures are different and the fix needs both halves.
+
 **Reading a spec's diff (`/spec-diff`) — seeing the work, not running it.**
 `/spec-connect` and `/spec-live` both exist to reach a *running app*.
 **`/spec-diff`** answers the other question: what did this actually change? A

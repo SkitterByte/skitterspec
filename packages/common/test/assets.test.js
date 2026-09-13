@@ -240,15 +240,20 @@ test('/spec-to-main keeps the no-auto-commit rule — it edits nothing itself', 
 // the tracker is set to the state the spec is leaving. After the commit, the ids
 // and snapshot the push writes are left uncommitted, and `spec-env integrate`
 // refuses to land a dirty worktree. Only the gap between them is correct.
-for (const [skill, moveMarker] of [
-  ['spec-complete', 'specs/complete/<name>'],
-  ['spec-cancel', 'specs/cancelled/<name>'],
+// The commit is located by its MESSAGE rather than by how it stages, because how
+// it stages is a thing that changes: this marker was `git add specs/ && git
+// commit` until that instruction was replaced with a pathspec-limited pair, and
+// the test then failed for a reason that had nothing to do with the seam it
+// guards. The subject line is the stable half.
+for (const [skill, moveMarker, commitMarker] of [
+  ['spec-complete', 'specs/complete/<name>', 'git commit -m "chore(spec): complete'],
+  ['spec-cancel', 'specs/cancelled/<name>', 'git commit -m "chore(spec): cancel'],
 ]) {
   test(`${skill} syncs the tracker after the move and before the commit`, () => {
     const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
     const seam = text.indexOf('<!-- seam:spec-tracker-sync -->')
     const move = text.indexOf(moveMarker)
-    const commit = text.indexOf('git add specs/ && git commit')
+    const commit = text.indexOf(commitMarker)
 
     assert.ok(seam !== -1, 'the seam is present')
     assert.ok(move !== -1 && commit !== -1, 'the move and commit steps are recognisable')

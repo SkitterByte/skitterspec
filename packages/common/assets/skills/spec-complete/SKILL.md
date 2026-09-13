@@ -78,14 +78,24 @@ specs — `git log`/the per-spec State log give the completion order.
 <!-- seam:spec-tracker-sync -->
 
 Then **commit the completion edits** — steps 3–4 are this skill's own output, so
-it finishes its own work rather than handing you a dirty tree:
+it finishes its own work rather than handing you a dirty tree. Ask the engine
+which paths are this spec's, then stage and commit **exactly those**:
 
 ```
-git add specs/ && git commit -m "chore(spec): complete <name>"
+skitterspec spec-env stage <name>     # lists them; --json to consume
+git add -- <the owned paths>
+git commit -m "chore(spec): complete <name>" -- <the owned paths>
 ```
 
-Step 2 established the tree was otherwise clean, so this commits exactly the
-status flip and the move — nothing of yours rides along.
+**Never `git add specs/`.** That stages a *directory*, so a spec another
+session is part-way through writing lands in this commit under this spec's
+ticket. The `--` on the **commit** is the other half: a checkout has one
+`.git/index`, shared by every session standing in it, so a bare `git commit`
+takes whatever else is staged there however carefully you staged your own.
+`.claude/rules/spec-planning.md` carries the full account.
+
+So this commits exactly the status flip and the move, and nothing of yours — or
+of anyone else's — rides along.
 **This is what lets step 6 land:** `integrate` refuses a dirty worktree, so
 without committing here the skill would block on the very edits it just made.
 Do not `git push`.

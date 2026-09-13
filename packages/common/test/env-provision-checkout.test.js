@@ -159,8 +159,8 @@ test('a dirty tree that is only the spec is committed, then switched to', () => 
   const plan = planCheckoutUp(SPEC_B, ctx({ clean: false, dirtyPaths: ['specs/backlog/feat-thing'] }), {})
   assert.strictEqual(plan.blocked, false)
   assert.deepStrictEqual(plan.commands, [
-    'git add "specs/backlog/feat-thing"',
-    'git commit -m "chore(spec): add feat-thing"',
+    'git add -- "specs/backlog/feat-thing"',
+    'git commit -m "chore(spec): add feat-thing" -- "specs/backlog/feat-thing"',
     'git switch -c feat/thing',
   ])
 })

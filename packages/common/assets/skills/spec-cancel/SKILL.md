@@ -59,11 +59,21 @@ move the whole folder).
 <!-- seam:spec-tracker-sync -->
 
 Then **commit the cancellation edits** — this skill wrote them, so it commits
-them:
+them. Ask the engine which paths are this spec's, then stage and commit
+**exactly those**:
 
 ```
-git add specs/ && git commit -m "chore(spec): cancel <name>"
+skitterspec spec-env stage <name>     # lists them; --json to consume
+git add -- <the owned paths>
+git commit -m "chore(spec): cancel <name>" -- <the owned paths>
 ```
+
+**Never `git add specs/`.** That stages a *directory*, so a spec another
+session is part-way through writing lands in this commit under this spec's
+ticket. The `--` on the **commit** is the other half: a checkout has one
+`.git/index`, shared by every session standing in it, so a bare `git commit`
+takes whatever else is staged there however carefully you staged your own.
+`.claude/rules/spec-planning.md` carries the full account.
 
 **This matters more here than anywhere else.** Teardown (step 7) refuses a dirty
 worktree and offers `--force` as the way through — and forcing would destroy the

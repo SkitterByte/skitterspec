@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Expose the owned set as `spec-env stage` | ✅ | [01-stage-verb.md](01-stage-verb.md) |
-| 2 | Pathspec-limit every spec commit | ⬜ | [02-pathspec-commits.md](02-pathspec-commits.md) |
+| 2 | Pathspec-limit every spec commit | ✅ | [02-pathspec-commits.md](02-pathspec-commits.md) |
 | 3 | Stop refusing foreign dirt in worktree mode | ⬜ | [03-loosen-the-gate.md](03-loosen-the-gate.md) |
 
 ## Open questions
@@ -170,3 +170,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-13 — Phase 1: `scripts/docs-claims.test.js` requires every dispatched
   verb to appear in `docs/index.html`, which the phase file had not anticipated.
   Documented there too.
+- 2026-09-13 — Phase 2: the "state why once" task resolved to the full account
+  living once in `spec-planning.md`, with a short pointer in each skill, rather
+  than the same paragraph twice.
+- 2026-09-13 — Phase 2: the assets guard reads **fenced commands only**. Both
+  skills now say "Never `git add specs/`" in prose, and a test banning the string
+  outright would fail on the sentence that prevents the regression — the version
+  of the check that gets deleted rather than fixed.
+- 2026-09-13 — Phase 2: `assets.test.js` located the commit step by the literal
+  `git add specs/ && git commit` when asserting the tracker seam sits between the
+  move and the commit. Re-anchored on the commit's subject line, which is the
+  half that does not change when staging does.

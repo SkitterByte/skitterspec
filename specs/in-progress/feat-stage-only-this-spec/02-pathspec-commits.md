@@ -2,41 +2,45 @@
 linear_issue_id: "SKS-212"
 ---
 
-# Phase 2 — Pathspec-limit every spec commit ⬜
+# Phase 2 — Pathspec-limit every spec commit ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** no commit this workflow issues can reach a path it does not own —
 including a path another session has already staged in the shared index.
 
 ## Tasks
 
-- [ ] Replace the staging block in
+- [x] Replace the staging block in
       `packages/common/assets/skills/spec-complete/SKILL.md` (currently
       `git add specs/ && git commit -m "chore(spec): complete <name>"`) with the
       `spec-env stage` call plus
       `git add -- <owned> && git commit -m "…" -- <owned>`.
-- [ ] Same for `packages/common/assets/skills/spec-cancel/SKILL.md`.
-- [ ] Update `packages/linear/assets/seams/spec-tracker-sync.md`: the paragraph
+- [x] Same for `packages/common/assets/skills/spec-cancel/SKILL.md`.
+- [x] Update `packages/linear/assets/seams/spec-tracker-sync.md`: the paragraph
       justifying the broad `git add specs/` (it sweeps up the
       `specs/.core/linear-base/<ID>.base.json` snapshot) is now wrong — the
       snapshot is a declared `companionPaths` entry, so `stage` returns it by
       name. Say that instead.
-- [ ] Add `--` to the commands `planSpecCommit` emits in
+- [x] Add `--` to the commands `planSpecCommit` emits in
       `packages/common/src/env/provision.js`, so the planned spec commit is
       pathspec-limited too.
-- [ ] Update the `spec-env stage` row in `docs/index.html`: its "who calls it"
+- [x] Update the `spec-env stage` row in `docs/index.html`: its "who calls it"
       column reads `you` because phase 1 left nothing calling it. Once the
       skills do, name them.
-- [ ] State *why* in the skill prose, once: two sessions in the primary checkout
-      share one `.git/index`, so `git add` alone does not bound a commit.
-- [ ] Tests: a `planSpecCommit` unit test asserting the emitted commit command
+- [x] State *why* in the skill prose, once: two sessions in the primary checkout
+      share one `.git/index`, so `git add` alone does not bound a commit. Each
+      skill carries a short version; the full account lives once in
+      `.claude/rules/spec-planning.md`, which both point at.
+- [x] Tests: a `planSpecCommit` unit test asserting the emitted commit command
       carries the `--` limiter and the same paths as the `add`.
-- [ ] An assets test asserting no lifecycle skill or seam stages a bare
-      directory — grep the asset trees for `git add specs/` and
-      `git add -A`/`git add .` and fail on a hit. This is the check that stops
-      the instruction coming back.
-- [ ] Run the project's typecheck and test commands — green before the phase is
+- [x] An assets test asserting no lifecycle skill or seam stages a bare
+      directory. It reads **fenced commands only**, not the whole file: both
+      skills now name the anti-pattern in prose, and a blanket string ban would
+      fail on the very sentence that keeps it from returning. Paired with a
+      positive test feeding the detector the historical line, so it is visibly
+      able to fire.
+- [x] Run the project's typecheck and test commands — green before the phase is
       done.
 
 ## Notes

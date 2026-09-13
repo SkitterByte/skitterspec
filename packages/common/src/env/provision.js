@@ -165,14 +165,22 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
         ? c.specUntracked
         : owned.includes(`specs/${spec.bucket}/${spec.folder}`)
     const verb = isNew ? 'add' : 'update'
+    // BOTH HALVES ARE PATHSPEC-LIMITED, and they answer different failures.
+    // `add` is what makes a path git has never seen committable at all — every
+    // brand-new spec folder is untracked. The `--` on the COMMIT is what bounds
+    // what lands: a checkout has one `.git/index` and every session standing in
+    // it shares that index, so a bare `git commit` takes whatever another
+    // session has already staged, however exactly this one named its own paths.
+    // Dropping the `--` would leave the naming above as decoration.
+    const paths = owned.map((p) => `"${p}"`).join(' ')
     return {
       blocked: false,
       reason: null,
       owned,
       verb,
       commands: [
-        `git add ${owned.map((p) => `"${p}"`).join(' ')}`,
-        `git commit -m "chore(spec): ${verb} ${spec.folder}"`,
+        `git add -- ${paths}`,
+        `git commit -m "chore(spec): ${verb} ${spec.folder}" -- ${paths}`,
       ],
     }
   }

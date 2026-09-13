@@ -44,6 +44,12 @@ In `/spec-complete` and `/spec-cancel` this step is deliberately pinned
   its folder bucket. Push while the folder is still in `in-progress/` and the
   issue is set to the state the spec is *leaving*.
 - **Before the commit**, because the push stamps ids into the spec and writes a
-  snapshot under `specs/.core/`. The `git add specs/` that follows sweeps both up
-  with the status change; push after it instead and those files are left
+  snapshot under `specs/.core/`. Push after the commit instead and both are left
   uncommitted, which makes `spec-env integrate` refuse to land the branch.
+
+The snapshot is reached **by name**, not by breadth. It is a declared
+`spec.companionPaths` entry (`specs/.core/linear-base/{identifier}.base.json`),
+so `spec-env stage` returns it among this spec's owned paths and the commit below
+names it. This is why the commit no longer stages `specs/` wholesale: the one
+file outside the spec's folder that had to be swept up is addressable, so the
+breadth bought nothing and cost another session's work.
