@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-contract-reaches-the-run (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — all phases done (started 2026-09-13)
+> **Status:** Complete (2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -134,6 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-13 | Ready | backlog | Reuben Greaves |
 | 2026-09-13 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-13 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -174,3 +175,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   here instead (the flag parses, and `update` reaches `checkSync` before
   `resync`). The first version of that assertion matched the word "resync" in
   the branch's own comment rather than the call.
+- 2026-09-13 — Completed; all three phases done, 2072 tests green. Nothing
+  deferred. The spec existed because the contract it follows up on shipped and
+  was ignored by the very next run — so the test for it is the next run after
+  this one, not the suite.
