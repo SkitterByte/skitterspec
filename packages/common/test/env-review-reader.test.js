@@ -305,10 +305,16 @@ test('a remote reader is given a link that opens where they are', async () => {
 test('a second review adopts the running server rather than restarting it', async () => {
   const { dir } = scaffold('remote', { servePort: await freePort() })
   try {
+    const firstText = review(dir)
+    const secondText = review(dir)
+    // The exposure warning is said ONCE, where the server is stood up. Repeating
+    // it on every phase is how a real warning becomes wallpaper.
+    assert.match(firstText, /anyone with this URL on your network/)
+    assert.doesNotMatch(secondText, /anyone with this URL on your network/)
     const first = JSON.parse(review(dir, '--json')).served
     const second = JSON.parse(review(dir, '--json')).served
     assert.ok(first && second, 'both calls served')
-    assert.strictEqual(first.started, true, 'the first call stood it up')
+    assert.strictEqual(first.started, false, 'by now it is adopted, not started')
     assert.strictEqual(second.started, false, 'the second adopted it')
     assert.strictEqual(second.port, first.port)
     // The token is the load-bearing part: a restart mints a new one and kills a

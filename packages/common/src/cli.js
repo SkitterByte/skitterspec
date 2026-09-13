@@ -54,6 +54,7 @@ const {
   reviewPublishPath,
   readReviewUrl,
   publishedPageNotice,
+  reviewServerNotice,
   renderReviewFragment,
   resolveReader,
   writeReviewPage,
@@ -725,6 +726,31 @@ function compactTimestamp() {
 // touch the trusted worktree root in .claude/settings.local.json — that entry is
 // the shared parent of every spec's worktree and harmless when empty; removing it
 // would just re-prompt on the next /spec-start (see spec: isolation-trusts-worktree-dir).
+/**
+ * Gather the facts `reviewServerNotice` needs, and ask it what to say.
+ *
+ * `othersServed` counts the specs the server would still have work for once
+ * this one is gone. Evaluated BEFORE the teardown commands run — the worktree
+ * is still on disk at this point — so the spec being torn down is excluded by
+ * name rather than by waiting for it to disappear.
+ */
+function reviewServerNoticeFor(dir, config, folder) {
+  const sdir = stateDirLabel(config)
+  const proc = serveProcFor(config, path.resolve(dir, `${sdir}/review-serve.json`))
+  const pid = readPid(path.resolve(dir, proc.pidFile))
+  let othersServed = 0
+  try {
+    othersServed = servableSpecs(dir, config, gitReader(dir)).filter(
+      (sp) => sp.folder !== folder,
+    ).length
+  } catch {
+    // Cannot tell how many are left — so say nothing rather than tell someone
+    // to stop a server other specs may still need (negative-checks rule 4).
+    return []
+  }
+  return reviewServerNotice({ running: Boolean(pid && isAlive(pid)), othersServed })
+}
+
 function specEnvDown(dir, config, specArg, flags) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
@@ -762,6 +788,7 @@ function specEnvDown(dir, config, specArg, flags) {
     // Checkout mode has no worktree, but a published page outlives it just the
     // same — the two modes must not disagree about what is left behind.
     dout.push(...publishedPageNotice(readReviewUrl(reviewOutPath(dir, spec.folder))))
+    dout.push(...reviewServerNoticeFor(dir, config, spec.folder))
     process.stdout.write(dout.join('\n') + '\n')
     return
   }
@@ -813,6 +840,7 @@ function specEnvDown(dir, config, specArg, flags) {
   // The one survivor. Read through `readReviewUrl` rather than by building the
   // path, and reported after the commands because it is not one of them.
   out.push(...publishedPageNotice(readReviewUrl(reviewOutPath(dir, spec.folder))))
+  out.push(...reviewServerNoticeFor(dir, config, spec.folder))
   process.stdout.write(out.join('\n') + '\n')
 }
 
@@ -1008,7 +1036,37 @@ function resolveSpecWithWorktree(dir, config, specArg) {
 // this correctly reaps those and frees their stale slots. Destructive removal is
 // executed by the caller (skill) after confirmation — the CLI only plans + writes
 // the registry, mirroring `spec-env down`.
+/**
+ * Delete a review-server pidfile whose process is gone.
+ *
+ * A LIVE pid is left strictly alone: `isAlive` is the positive signal, and the
+ * file merely existing proves nothing — a crashed server leaves one behind,
+ * which is the whole case this reaps. Being wrong in the other direction would
+ * mean deleting the record of a server that is still listening, so the unknown
+ * case (unreadable file, failed unlink) does nothing at all.
+ */
+function reapStaleServePid(dir, config) {
+  const proc = serveProcFor(config, path.resolve(dir, `${stateDirLabel(config)}/review-serve.json`))
+  const file = path.resolve(dir, proc.pidFile)
+  const pid = readPid(file)
+  if (!pid || isAlive(pid)) return null
+  try {
+    fs.rmSync(file, { force: true })
+  } catch {
+    return null
+  }
+  return pid
+}
+
 function specEnvPrune(dir, config, flags) {
+  // Before the docker section, deliberately: a stale pidfile is not docker's
+  // business, and every branch below can return early.
+  const reapedPid = reapStaleServePid(dir, config)
+  if (reapedPid) {
+    process.stdout.write(
+      `spec-env prune: reaped a stale review-server pidfile (pid ${reapedPid} is gone).\n`,
+    )
+  }
   const { repoSlug } = repoInfo(dir)
 
   const vols = listRepoVolumes(repoSlug)

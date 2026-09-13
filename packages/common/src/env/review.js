@@ -778,6 +778,28 @@ function publishedPageNotice(url) {
   ]
 }
 
+/**
+ * What to say about a review server at teardown. PURE — takes the facts as
+ * arguments so a test states the world it describes.
+ *
+ * The server the operator never started is the one nobody remembers to stop:
+ * `spec-env review` stands it up on a remote reader, and one path token unlocks
+ * every provisioned spec's diff for as long as it runs. So teardown names it —
+ * but only when there is genuinely nothing left for it to serve.
+ *
+ * `running` must come from a POSITIVE signal (`isAlive`), never from a pidfile
+ * existing: a crashed process leaves one behind, and telling someone to stop a
+ * server that is already gone is an accusation against a healthy teardown.
+ */
+function reviewServerNotice({ running, othersServed }) {
+  if (!running || othersServed > 0) return []
+  return [
+    '',
+    '  review server — this was the last spec it served:',
+    '    skitterspec spec-env review serve --stop',
+  ]
+}
+
 // The publish-ready copy, beside the page it came from. Same stem, so the three
 // sidecars (`.notes.json`, `.url`, `.publish.html`) all read as one spec's set.
 function reviewPublishPath(outPath) {
@@ -862,6 +884,7 @@ module.exports = {
   reviewPublishPath,
   readReviewUrl,
   publishedPageNotice,
+  reviewServerNotice,
   fragmentTemplate,
   renderReviewFragment,
   detectReader,
