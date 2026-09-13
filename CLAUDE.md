@@ -30,6 +30,13 @@ resolutions, so the next render shows each note struck through with what changed
 An accept remembers the file's content, so it lapses by itself when that file
 changes again. The marks are information — nothing gates on them.
 
+**One ending.** Every spec skill finishes with the same block — a verdict
+(`✅` · `⚠️` · `❌` · `⏸`), then a table of the fields that skill declares,
+ending on the one thing to do next. A refusal emits it too, so "nothing
+happened" is reported rather than absent, and `Follow-ups` is always there
+because a recorded `none` is a decision. Skills stay quiet while they run. The
+shape lives in **`.claude/rules/spec-reports.md`**.
+
 The skill table, the spec type/folder conventions and the per-spec isolation
 model all live in **`.claude/rules/spec-planning.md`**, the canonical reference
 every spec skill points at. Tailor its per-phase test commands to this stack.
