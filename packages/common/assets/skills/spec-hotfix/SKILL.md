@@ -257,14 +257,23 @@ answers where the person reading this is sitting, and the offer changes with it:
   unknown is the ordinary state of a local machine, and a warning there is an
   accusation against a healthy session.
 - **`local`** — the `file://` URL.
-- **`remote`** — say the link will not open where they are, then name the two
-  that will: `skitterspec spec-env review serve --host 0.0.0.0`, or publishing.
+- **`remote`** — the engine has already stood its local server up and put a URL
+  the reader can open on `open:`. So there is **nothing special to say**: relay
+  that line like any other. Any `also:` lines under it are the other addresses
+  this machine has, offered because the best-guess one can be wrong — pass them
+  on rather than editing them out.
 
 **Never read an environment variable to decide this** — not `SSH_CONNECTION`,
 not `CLAUDE_CODE_*`, not a tty check. The engine did it, reports it on that line
 and in `--json`, and a second implementation here could not be tested and would
-drift. And it chooses **wording, never action**: a `remote` reader does not
-authorise publishing.
+drift.
+
+**Serving is the engine's to do; publishing is never.** A `remote` reader
+authorises a local server — one process, ended by one flag, leaving nothing
+behind — and authorises nothing else. Publishing leaves a page this tooling
+cannot remove, so it stays an ask in every case, always. If the engine could not
+serve (a busy port, a machine with no network address) it falls back to the
+`file://` URL with its marker, and that is when publishing is worth naming.
 
 - **Never fatal.** A failed render — no worktree, a git error — is one line, and
   the fix is still done. The page is a convenience; the repo is the record.

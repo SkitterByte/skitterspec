@@ -89,7 +89,17 @@ for (const name of RENDERS) {
     assert.match(text, /absent\*\* \(`unknown`\)/)
     assert.match(text, /\*\*`local`\*\*/)
     assert.match(text, /\*\*`remote`\*\*/)
-    assert.match(text, /spec-env review serve --host 0\.0\.0\.0/)
+  })
+
+  // The engine serves on a remote reader and puts an openable URL on `open:`,
+  // so naming the serve command as the ANSWER is the old dead-link behaviour
+  // coming back. Mentioning it as an opt-out consequence is still fine, which
+  // is why this looks at the `remote` bullet rather than the whole file.
+  test(`/${name} does not send a remote reader off to start the server`, () => {
+    const bullet = text.match(/- \*\*`remote`\*\*[\s\S]*?(?=\n\n)/)
+    assert.ok(bullet, 'the remote bullet is there to check')
+    assert.doesNotMatch(bullet[0], /spec-env review serve --host/)
+    assert.match(bullet[0], /relay\s+that line|as\s+printed/)
   })
 
   // Unknown is what a healthy local machine reports. Warning there would be an
@@ -99,9 +109,19 @@ for (const name of RENDERS) {
     assert.match(text, /unknown is the ordinary state of a local machine/)
   })
 
-  test(`/${name} says the reader chooses wording, never action`, () => {
-    assert.match(text, /\*\*wording, never action\*\*/)
-    assert.match(text, /does not\s*\n?\s*authorise publishing/)
+  // The rule that replaced "wording, never action". Serving and publishing were
+  // once one prohibition, and lumping them together is what left a remote reader
+  // holding a dead link — a local server is ended by one flag, while a published
+  // page is one this tooling cannot remove. The publishing half must stay
+  // absolute; only the serving half moved.
+  test(`/${name} authorises serving on a detection, and never publishing`, () => {
+    assert.match(text, /never publish/i)
+    assert.match(text, /cannot remove/)
+    assert.doesNotMatch(
+      text,
+      /\*\*wording, never action\*\*/,
+      'the old rule forbade serving too — it is what this spec overturned',
+    )
   })
 }
 

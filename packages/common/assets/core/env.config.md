@@ -221,10 +221,12 @@ no live `env.config.json` was found.
 
   // Reading a spec's diff (`spec-env review`, `/spec-diff`).
   //
-  // `reader` decides only how the page's LOCATION IS WORDED — never whether
-  // anything is served, published or refused. Three values:
+  // `reader` decides how the page's LOCATION IS WORDED, and — through
+  // `serveOnRemote` below — whether the engine stands its local server up so a
+  // remote reader gets a link that opens. It never decides to PUBLISH. Three
+  // values:
   //   "local"  — you are at the machine holding the page; a file:// URL opens.
-  //   "remote" — you are not; it does not, so the server is offered instead.
+  //   "remote" — you are not; it does not, so the page is served instead.
   //   "detect" — work it out (the default).
   // An explicit "local"/"remote" is BELIEVED WITHOUT SNIFFING: you know where
   // you are reading, and no signal outranks being told. Detection is only the
@@ -241,9 +243,22 @@ no live `env.config.json` was found.
   // mints an unguessable path token and prints the LAN URL including it —
   // anyone holding that URL can read every spec's diff while it runs.
   // Default: 7777.
+  //
+  // `serveOnRemote` is whether a "remote" reader may have that server started
+  // FOR them. On (the default) the engine brings it up, binds 0.0.0.0, and puts
+  // the served URL on the `open:` line — best-guess network address first, the
+  // rest listed under it, because the guess reads interface names and a VPN or
+  // an unusual adapter will fool it. Off, you get the file:// URL with its
+  // "will not open where you are reading" marker and the command to type.
+  // Either way NOTHING IS PUBLISHED on a detection: a server is one process
+  // ended by one flag, while a published page is one this tooling cannot
+  // remove, so that half stays an explicit ask. Teardown names a server that
+  // served the last spec, and `spec-env prune` reaps a pidfile whose process is
+  // gone. Default: true.
   "review": {
     "reader": "detect",
-    "servePort": 7777
+    "servePort": 7777,
+    "serveOnRemote": true
   }
 }
 ```

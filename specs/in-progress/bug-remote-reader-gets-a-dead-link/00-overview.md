@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-remote-reader-gets-a-dead-link (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — phases 1-3 green, phase 4 open
+> **Status:** In Progress — all four phases green, ready to complete
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -144,7 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Serve on a remote reader | ✅ | [01-serve-on-remote.md](01-serve-on-remote.md) |
 | 2 | Offer a LAN address that routes | ✅ | [02-which-lan-address.md](02-which-lan-address.md) |
 | 3 | Account for a server nobody started | ✅ | [03-account-for-the-server.md](03-account-for-the-server.md) |
-| 4 | Point the skills at the working line | ⬜ | [04-skills-relay-the-link.md](04-skills-relay-the-link.md) |
+| 4 | Point the skills at the working line | ✅ | [04-skills-relay-the-link.md](04-skills-relay-the-link.md) |
 
 ## Open questions
 
@@ -180,6 +180,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   making it an executor for this one case would have made it two different
   commands depending on what happened to be running. Recorded in the phase's
   Outcome along with what to do if that proves too weak.
+- 2026-09-13 — Phase 4 green. Two tests had to change rather than pass: one
+  asserted the literal phrase `**wording, never action**`, which *was* the
+  overturned decision, and one rejected a bold span crossing a line break in the
+  rewritten `/spec-diff` prose. The first now fails if the old phrase returns.
 - 2026-09-13 — Making `specEnvReview` async broke four test files that captured
   its stdout in-process, which is how the suite learned that `node --test` runs
   each file as a child emitting TAP on the same stream. Recorded in phase 1's

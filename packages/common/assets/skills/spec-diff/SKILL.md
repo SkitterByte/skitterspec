@@ -106,11 +106,15 @@ skitterspec spec-env review <spec> --branch     # everything since the base bran
 skitterspec spec-env review serve               # every spec, on localhost
 ```
 
-**A file when the reader is at this machine; `serve` when they are not.**
-Both are free and neither publishes
-anything; the difference is only whether a `file://` URL can open where the
-person reading it is sitting. The engine tells you which case you are in — see
-the `reader:` line in §4a — so this is not a judgement you have to make.
+**The engine handles the switch.** A file when the reader is at this machine, a
+served URL when they are not: on a `remote` reader it stands its own server up
+and puts a URL the reader can open on the `open:` line. Both are free and neither
+publishes anything. You are not choosing between them; you are relaying whichever
+one the engine printed.
+
+The operator who does not want a LAN listener started for them sets
+`review.serveOnRemote: false` in `env.config.json`, and the `file://` link with
+its *will not open where you are reading* marker comes back.
 
 `serve` renders **per request**, so nothing it shows can be stale, and it lists
 every spec with a worktree rather than one. `--host 0.0.0.0` binds beyond
@@ -147,7 +151,7 @@ leaves no trace in the branch under review.
 |-----------|---------------|
 | absent (`unknown`) | the `file://` URL, exactly as always. **Do not warn** — unknown is the ordinary state of a local machine |
 | `local` | the `file://` URL |
-| `remote` | say the link will not open where they are, and name the two that will: `serve`, or publishing |
+| `remote` | the `open:` line as printed — the engine already served it. Pass on any `also:` lines too |
 
 **Never read an environment variable to decide this.** Not `SSH_CONNECTION`, not
 `CLAUDE_CODE_*`, not a tty check — the engine already did it, reports the answer
@@ -157,10 +161,22 @@ tested and would drift from the first. The ranking and the traps
 a tty under Claude Code) live in `review.js` beside the code, which is where they
 belong.
 
-**It decides wording, never action.** A `remote` reader does not authorise
-publishing — publishing is an ask, in every case, always. `review.reader` in
-`env.config.json` (`local` · `remote` · `detect`) lets the operator settle it
-outright, and an explicit value is believed without sniffing.
+**It authorises serving, never publishing.** A `remote` reader authorises a
+local server — one process, ended by one flag, leaving nothing behind — and
+nothing more. Publishing leaves a page this tooling cannot remove, so it is an
+ask, in every case, always. The two were once one rule, and lumping them together
+is what left a remote reader holding a dead link: see
+`specs/complete/bug-remote-reader-gets-a-dead-link/`.
+
+When serving fails — a busy port, or a machine with no network address — the
+engine falls back to the `file://` URL with its marker and nothing breaks. That
+is the one case where naming publishing is worth doing, because it is the only
+answer left.
+
+`review.reader` in `env.config.json` (`local` · `remote` · `detect`) lets the
+operator settle where they are reading, and an explicit value is believed without
+sniffing. `review.serveOnRemote` (default `true`) settles whether the engine may
+act on it.
 
 ## 5. Offer the written review — say what it costs first
 

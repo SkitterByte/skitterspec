@@ -246,8 +246,16 @@ test('the reader is reported as data too, so a skill never sniffs', async () => 
   }
 })
 
-// Detection may choose wording. It may never choose an action.
-test('nothing is published or served on a detection', async () => {
+// Detection may authorise SERVING — a local process, ended by one flag, leaving
+// nothing behind. It may never authorise PUBLISHING, which leaves a page this
+// tooling cannot remove.
+//
+// This test was once called `nothing is published or served on a detection` and
+// only ever checked the publishing half, so the serving prohibition it claimed
+// to hold lived in its name. That gap is the bug this spec fixed; the name now
+// describes what is actually asserted, and the serving half is asserted for
+// real — as behaviour that MUST happen — a few tests below.
+test('nothing is published on a detection, however remote the reader', async () => {
   const { dir } = scaffold('remote')
   try {
     await review(dir)
