@@ -67,7 +67,31 @@ needs `--force`. Do not `git push`.
 
 ## 6. Report
 
-Confirm the cancellation, the reason recorded, the new location, and the commit.
+**The block is emitted when the run ends, not where this section sits.** The
+sections below run after it, so their outcome belongs in the block — write it
+once, at the end, with what actually happened.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — stamped, moved to `cancelled`, committed, torn down.
+- `⚠️` — cancelled, with something worth knowing: teardown declined, a tracker
+  refresh that failed, unpushed commits the operator chose to let go.
+- `❌` — it acted and stopped part-way. Say what is where.
+- `⏸` — no reason given, or no such spec. Nothing changed.
+
+**Fields:** `Spec` · `Worktree` · `Tracker` · `Next` · `Follow-ups`
+
+**The reason goes in the verdict clause** — `✅ /spec-cancel · feat-foo ·
+superseded by feat-bar`. It is the one thing anyone reading this later wants,
+and a cancellation is an ordinary successful run, so it must not be mistaken for
+a `Why`: that field is for a run that did not do what it set out to.
+
+`Worktree` says what was reclaimed, or that teardown was declined and the
+worktree still stands — on a cancelled spec that worktree may hold the only copy
+of the work, so an unreclaimed one is worth a line rather than a silence.
 
 ## 7. Tear down the environment (opt-in, only if configured)
 

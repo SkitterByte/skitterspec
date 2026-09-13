@@ -231,8 +231,8 @@ the diff never passes through you, so a 266KB patch costs nothing.
 costs — roughly **700 output tokens**, because writing it means reading the diff
 — and that spend is the operator's call, not a default.
 
-**Write it as prose ending in a question, and put it LAST** — after the report of
-step 7, as the final thing on screen:
+**Write it as prose ending in a question, and put it LAST** — after the report
+block of step 7, as the final thing on screen:
 
 ```
 Page is rendered: <the `open:` file:// URL it printed> — <N> files, +<a> −<d>.
@@ -285,16 +285,33 @@ reach for a branch view expecting the base branch.
 
 ## 7. Report
 
-Summarise: the base tag, root cause, the failing→passing test, the fix, and the
-full test result. The spec stays in `in-progress`.
+Do **not** `git push` or `git tag`-and-push unless the user asks — deploying to
+prod is theirs to trigger. The spec stays in `in-progress`.
 
 - **`/spec-live` is refused for a hotfix** — its branch is built on an old tag, so
   hot-reloading it onto the running dev server could break the shared instance.
   To test it, the user runs `/spec-connect` (its own isolated stack).
-- Suggest **`/spec-complete`** to land it: it patch-bumps the base tag, tags the
-  hotfix branch **locally** (you push it to deploy), and cherry-picks the fix onto
-  `main`. Add `--also <tag>` at completion to also patch other release lines
-  (test/demo on their own versions).
+- `Next` points at **`/spec-complete`** to land it: it patch-bumps the base tag,
+  tags the hotfix branch **locally** (you push it to deploy), and cherry-picks the
+  fix onto `main`. Add `--also <tag>` at completion to also patch other release
+  lines (test/demo on their own versions).
 
-Do **not** `git push` or `git tag`-and-push unless the user asks — deploying to
-prod is theirs to trigger.
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — red→green on the base tag, fix in, suite passing.
+- `⚠️` — green, with something worth knowing.
+- `❌` — still red, or a later test broke. Quote the failure.
+- `⏸` — no reproduction on that tag, or the tag could not be established.
+
+**Fields:** `Cause` · `Built` · `Tests` · `Spec` · `Branch` · `Diff` · `Next` ·
+`Follow-ups`
+
+**The base tag goes in the verdict clause** — `✅ /spec-hotfix · hotfix-foo ·
+green on v2.3.1`. Which released version this was fixed against is the first
+thing anyone needs, and it is not a field: the clause is where the run says
+where it got to.
+
+Step 6b's offer follows the block, and nothing follows the offer.

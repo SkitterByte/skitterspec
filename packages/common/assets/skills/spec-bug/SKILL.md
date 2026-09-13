@@ -208,8 +208,8 @@ the diff never passes through you, so a 266KB patch costs nothing.
 costs — roughly **700 output tokens**, because writing it means reading the diff
 — and that spend is the operator's call, not a default.
 
-**Write it as prose ending in a question, and put it LAST** — after the report of
-step 6, as the final thing on screen:
+**Write it as prose ending in a question, and put it LAST** — after the report
+block of step 6, as the final thing on screen:
 
 ```
 Page is rendered: <the `open:` file:// URL it printed> — <N> files, +<a> −<d>.
@@ -257,8 +257,28 @@ serve (a busy port, a machine with no network address) it falls back to the
 
 ## 6. Report
 
-Summarise: root cause, the failing→passing test, the fix, and the full test
-result. The spec stays in `in-progress`; suggest `/spec-complete` to verify and
-archive it (**when isolated**, the fix lives on the bug's branch, and
-`/spec-complete` merges it back to `main`). Do **not** `git commit` unless the
-user asks.
+Do **not** `git commit` unless the user asks. The spec stays in `in-progress`;
+`Next` points at `/spec-complete` to verify and archive it (**when isolated**,
+the fix lives on the bug's branch, and `/spec-complete` merges it back to
+`main`).
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — red→green, the fix is in and the suite passes.
+- `⚠️` — green, with something worth knowing (a narrowed repro, a mirror that
+  did not refresh).
+- `❌` — the test is still red, or a later test broke. Quote the failure.
+- `⏸` — the bug could not be reproduced, so nothing was written. Say what was
+  tried; an unreproduced bug is a finding, not a failed run.
+
+**Fields:** `Cause` · `Built` · `Tests` · `Spec` · `Branch` · `Diff` · `Next` ·
+`Follow-ups`
+
+`Cause` is the root cause in one clause and `Built` is the fix — the
+failing→passing test belongs in `Tests`, named, so the evidence is a test name
+rather than an adjective.
+
+Step 5b's offer follows the block, and nothing follows the offer.

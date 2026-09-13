@@ -93,10 +93,27 @@ and continue — the branch has no commits base doesn't already have.
 - Do **NOT**: add a State-log row (status doesn't change), flip any phase/status
   to Complete, `git mv` the spec, or tear down the worktree/stack.
   **The spec stays `In Progress` and the worktree stays put.**
-- Report: the base branch, the fast-forward result, and the green base test. It
-  **never pushes** — mention the user can `git push` the base branch themselves to
+- It **never pushes** — say the user can `git push` the base branch themselves to
   trigger CI / the shared env.
-- Point the way forward: `/spec-next` to continue the remaining phases (you'll keep
-  committing on the same branch and can `/spec-to-main` again), and `/spec-complete`
-  when every phase is genuinely done — it will land the final commits, finalise,
-  and tear down.
+- `Next` points the way forward: `/spec-next` to continue the remaining phases
+  (you'll keep committing on the same branch and can `/spec-to-main` again), and
+  `/spec-complete` when every phase is genuinely done — it will land the final
+  commits, finalise, and tear down.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — the branch is on the base and the base is green.
+- `⚠️` — landed, with something worth knowing.
+- `❌` — the rebase conflicted, or the base went red after the fast-forward.
+  Quote it; the repo is mid-something and that is what the reader needs.
+- `⏸` — a dirty worktree, red tests, or no spec to land. Nothing moved.
+
+**Fields:** `Tests` · `Branch` · `Landed` · `Next` · `Follow-ups`
+
+**No `Spec` field, deliberately.** This skill changes no status and moves no
+folder, and a `Spec` line here would read as though it had. The spec stays
+`In Progress` and the worktree stays standing — if that needs saying, the
+verdict clause says it.

@@ -231,10 +231,10 @@ Rules for the spec body:
 
 ## Phase C — finish up
 
-After writing, tell the user the path and that it's **`Ready`** in `backlog`
-(grilling in Phase A resolved the open questions). If you deliberately left open
-questions unresolved, write `Draft` instead and say what still needs deciding.
-Either way, the next step is `/spec-start` to start building.
+Decide the status: **`Ready`** in `backlog` when grilling in Phase A resolved the
+open questions, `Draft` when you deliberately left some unresolved. Either way
+the next step is `/spec-start`. The Report section below is where all of that
+reaches the user — do not narrate it here as well.
 
 ## Phase D — record the isolation stack (only if configured)
 
@@ -270,3 +270,26 @@ below (nothing to do here without one).
 <!-- seam:spec-tracker-link -->
 
 <!-- seam:spec-project-picker -->
+
+## Report
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — a `Ready` spec is written to `specs/backlog/<name>/`.
+- `⚠️` — written as `Draft`; open questions were deliberately left. Name them.
+- `⏸` — grilling did not reach a shared understanding, so nothing was written.
+  That is the skill working: a spec written over an unresolved requirement is
+  the outcome Phase A exists to prevent.
+
+**Fields:** `Built` · `Spec` · `Tracker` · `Next` · `Follow-ups`
+
+`Built` is the spec's path and phase count; `Spec` is its status and bucket;
+`Next` is `/spec-start <name>`, with the name spelled the way it must be typed.
+`Tracker` appears only when a provider is installed and linked it.
+
+**`Follow-ups` is almost always `none` here.** This skill's whole job is to
+capture work, so anything it surfaced belongs in the spec it just wrote rather
+than in a follow-up line beneath it.

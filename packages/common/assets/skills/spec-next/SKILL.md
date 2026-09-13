@@ -221,7 +221,7 @@ costs — roughly **700 output tokens**, because writing it means reading the di
 — and that spend is the operator's call, not a default.
 
 **Write it as prose ending in a question, and put it LAST** — after the
-`Next: phase N` line of step 6, as the final thing in the report:
+report block of step 6, as the final thing on screen:
 
 ```
 Page is rendered: <the `open:` file:// URL it printed> — <N> files, +<a> −<d>.
@@ -237,9 +237,8 @@ anyone, and the last instruction the reader got was to move on — so they did.
 Ask them something, and ask it where the message ends.
 
 **Never bury it and never reorder it back.** The offer is last because being
-last is the whole fix; a later edit that tucks it under the test results, or
-ahead of the next-phase line, undoes this phase and should be read as a
-regression rather than tidying.
+last is the whole fix; a later edit that tucks it inside the block, or ahead of
+it, undoes this phase and should be read as a regression rather than tidying.
 
 **Non-blocking, deliberately.** Do not end your turn waiting on the answer.
 Phases get chained — `/commit && /spec-next` typed as one line — and a question
@@ -285,12 +284,25 @@ serve (a busy port, a machine with no network address) it falls back to the
 
 ## 6. Report
 
-Summarise what was implemented, the test result (quote failures if any), and
-which phase is next. Do **not** `git commit` unless the user asks — finish,
-verify, and wait.
+Do **not** `git commit` unless the user asks — finish, verify, and wait.
 
-**Then step 5's offer, and nothing after it.** The order is fixed: what was
-built, the test result, `Next: phase N`, then the page and the question. Step 5
-renders before the commit and this step is where its offer lands, so the two
-must not disagree about the position — the offer is the last thing on screen or
-it is not an offer.
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — the phase is built and its tests are green.
+- `⚠️` — built and green, with something worth knowing (a mirror that did not
+  refresh, a deviation from the plan).
+- `❌` — the phase's tests are red, or it stopped part-way. Quote the failure.
+- `⏸` — no spec in flight, or the name given does not match the one that is.
+
+**Fields:** `Built` · `Tests` · `Branch` · `Diff` · `Next` · `Follow-ups`
+
+`Next` names the phase, as `/spec-next → phase 3 (Auth)`, so the block says
+which phase is next without a line of prose for it.
+
+**Then step 5's offer, and nothing after it.** The order is fixed: the block,
+then the page and the question. Step 5 renders before the commit and this step
+is where its offer lands, so the two must not disagree about the position — the
+offer is the last thing on screen or it is not an offer.

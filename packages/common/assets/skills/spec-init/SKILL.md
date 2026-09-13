@@ -109,7 +109,28 @@ the section exists, refresh only stale folder/skill names — don't rewrite it.
 
 ## 6. Report
 
-Summarise per area — folders, `.gitignore` lines, tooling-ignore negations,
-skills (present/missing), rule file, CLAUDE.md section — as created / updated /
-already-present, plus the `git check-ignore` result for `.core`. Do **not**
-`git commit` unless the user asks.
+Do **not** `git commit` unless the user asks.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — every area is in place.
+- `⚠️` — bootstrapped, with something worth knowing: a skill that could not be
+  installed, a CLAUDE.md that was left alone, a `.core` that is still ignored.
+- `❌` — it wrote some areas and failed on another. Name which, so the re-run is
+  informed; this skill is idempotent and re-running it is the fix.
+- `⏸` — not a git repo, or nothing it could safely write into.
+
+**Fields:** `Built` · `Next` · `Follow-ups`
+
+**`Built` is per area, one line each** — folders, `.gitignore` lines,
+tooling-ignore negations, skills (present/missing), rule files, CLAUDE.md
+section — as created / updated / already-present, plus the `git check-ignore`
+result for `.core`. This is the one skill whose `Built` is a list rather than a
+clause, because "what is now true of this project" is the entire answer it
+exists to give.
+
+**There is no spec to name**, so the verdict line drops that segment:
+`✅ /spec-init · every area in place`.

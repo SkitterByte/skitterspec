@@ -263,8 +263,26 @@ lives here.
 
 ## 7. Report
 
-Say what changed (files, `+`/`−`), where the page is, and — if published — the
-URL. When the page carries a review pass, say that too: how many files are
-accepted, how many comments are open, and how many have been answered. `--json`
-reports all three under `notes.totals` — read that, never the diff. If the spec has no worktree, say that plainly and stop: a spec that has not
-been started has nothing to diff, which is an ordinary state and not an error.
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — the page is rendered, and any review pass handed back was stored and
+  acted on.
+- `⚠️` — rendered, with something worth knowing: accepts that lapsed because the
+  file changed, comments left unworked because the operator did not say go.
+- `❌` — a render or a fix failed part-way. Quote it.
+- `⏸` — the spec has no worktree. Say that plainly: a spec that has not been
+  started has nothing to diff, which is an ordinary state and not an error.
+
+**Fields:** `Built` · `Diff` · `Next` · `Follow-ups`
+
+`Diff` carries the files and `+`/`−`, the page's `open:` line, and the published
+URL when there is one. Where the page holds a review pass, it also carries the
+three totals — files accepted, comments open, comments answered. `--json`
+reports those under `notes.totals`; read that, never the diff.
+
+`Built` appears only when this run actually changed code — the commented files
+it worked on your go-ahead. A render on its own built nothing, and an empty
+`Built` line claiming otherwise is worse than no field.

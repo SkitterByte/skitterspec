@@ -55,6 +55,11 @@ value that needs more indents its continuation to the same column.
 A skill emits only the fields it declares, in this order, skipping the rest.
 `Follow-ups` is the exception: always present, always last.
 
+`Tracker` is the other conditional one: a skill may declare it and still never
+emit it, because no ticketing provider is installed. That is an absence with
+nothing behind it — say nothing rather than reporting that there was nothing to
+report.
+
 | Field | Carries |
 |-------|---------|
 | `Why` | **Non-`✅` only.** What stopped it, in one clause. |
@@ -63,8 +68,8 @@ A skill emits only the fields it declares, in this order, skipping the rest.
 | `Tests` | The result and the command that produced it. |
 | `Spec` | The spec document's own state: status, bucket, phase. |
 | `Branch` | Branch name, commit count, clean or dirty. |
-| `Worktree` | A worktree provisioned, entered, or torn down. |
 | `Landed` | A fast-forward, a tag, a cherry-pick. |
+| `Worktree` | A worktree provisioned, entered, or torn down. |
 | `Tracker` | What the mirror now says, or why it was skipped. |
 | `Diff` | The review page, as a path or a URL. |
 | `Next` | The command to type next. |

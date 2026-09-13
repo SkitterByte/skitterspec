@@ -87,7 +87,32 @@ Do not `git push`.
 
 ## 5. Report
 
-Confirm the move, the commit, the final test result, and list anything deferred.
+**The block is emitted when the run ends, not where this section sits.** The
+sections below run after it, so their outcome belongs in the block — write it
+once, at the end, with what actually happened.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — every phase done, tests green, landed, torn down.
+- `⚠️` — finished, with something worth knowing: teardown declined, a tracker
+  refresh that failed, a hotfix tag still waiting to be pushed.
+- `❌` — it acted and stopped part-way — a conflicted rebase, a failed
+  cherry-pick, a red base after landing. Say what state the repo is in and quote
+  the failure; there is a mess to clear and the reader needs to know where.
+- `⏸` — phases are unfinished, tests are red, or the tree is dirty. Nothing
+  moved.
+
+**Fields:** `Tests` · `Spec` · `Landed` · `Worktree` · `Tracker` · `Next` ·
+`Follow-ups`
+
+`Landed` says how, because the two ways differ: a fast-forward names the base
+and the commit, a hotfix names the deploy tag and the `main` cherry-pick — and
+a deploy tag that has not been pushed is a `⚠️`, not a `✅`. `Worktree` says
+what was reclaimed, including any orphaned volumes swept, or that teardown was
+declined and the worktree still stands.
 
 ## 6. Land the branch (opt-in, only if isolated)
 

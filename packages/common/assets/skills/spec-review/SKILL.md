@@ -99,6 +99,24 @@ resolve it by reading the code, do that instead of asking.
 
 ## 5. Report
 
-Summarise the drift found, what you changed, any questions still open, and
-whether the spec is now safe to `/spec-start` (or should drop back to `Draft` until
-the open questions are resolved). Do **not** `git commit` unless the user asks.
+Do **not** `git commit` unless the user asks.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — checked against the code and brought up to date; safe to `/spec-start`.
+- `⚠️` — updated, but dropped back to `Draft`: questions are open that only the
+  operator can answer. Name them.
+- `⏸` — no such spec, or nothing to review. Nothing changed.
+
+**Fields:** `Built` · `Spec` · `Tracker` · `Next` · `Follow-ups`
+
+`Built` is the drift found and what you changed about it — a renamed file, an
+API that moved, a task the code already does. `Spec` carries the status the
+review leaves it in, which is the answer to "can I start this?".
+
+**Drift found and not fixed is a `Follow-up`, not a silence.** A spec this skill
+declared reviewed is one nobody will re-read; something it noticed and left
+undone has to leave the session in writing or it did not happen.

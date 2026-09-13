@@ -30,9 +30,14 @@ test('the offer is prose ending in a question, not a block of engine output', ()
   assert.match(NEXT, /Write it as prose ending in a question/)
 })
 
+// The anchor moved when the report became the block from
+// `.claude/rules/spec-reports.md`: there is no longer a `Next: phase N` LINE to
+// sit after, there is a block, and `Next` is a field inside it. The invariant is
+// unchanged — the offer comes after the whole report — so the guard follows the
+// anchor rather than being dropped for having gone stale.
 test('the position is stated, and stated as the point of it', () => {
   assert.match(NEXT, /put it LAST/)
-  assert.match(NEXT, /after the\s*\n?`Next: phase N` line/)
+  assert.match(NEXT, /after the\s*\n?report block of step 6/)
   assert.match(NEXT, /being\s*\n?last is the whole fix/)
 })
 
@@ -42,7 +47,18 @@ test('the position is stated, and stated as the point of it', () => {
 test('step 6 agrees about what comes last', () => {
   const six = NEXT.slice(NEXT.indexOf('## 6. Report'))
   assert.match(six, /Then step 5's offer, and nothing after it/)
-  assert.match(six, /what was\s*\n?built, the test result, `Next: phase N`, then the page and the question/)
+  assert.match(six, /the block,\s*\n?then the page and the question/)
+})
+
+// Two rules about what comes last is exactly the failure the block could
+// reintroduce: the contract says the report ends on `Follow-ups`, and this skill
+// says the offer ends the message. They are compatible only if the skill states
+// the offer follows the block — so it must, in words, in both places.
+test('the block and the offer do not both claim to be last', () => {
+  assert.match(NEXT, /report block of step 6, as the final thing on screen/)
+  const six = NEXT.slice(NEXT.indexOf('## 6. Report'))
+  assert.match(six, /Then step 5's offer, and nothing after it/)
+  assert.match(six, /the\s*\n?offer is the last thing on screen/)
 })
 
 test('a later edit that reorders it back is named a regression', () => {

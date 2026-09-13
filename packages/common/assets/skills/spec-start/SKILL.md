@@ -277,6 +277,35 @@ build some other spec's phase from here. A path someone typed is not a path
 anything guessed, which is why it was never a loosening of the refusal and still
 is not.
 
+## 7. Report
+
+**When step 6 carried on into `/spec-next`, emit no block here.** That skill ends
+with its own, and its `Branch` and `Spec` fields already carry everything this
+one would say. Two blocks for one run is the noise the contract exists to
+remove — this section is for the run that stops at step 6.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — the branch is provisioned, the spec is `in-progress`, the session is
+  standing in the worktree.
+- `⚠️` — provisioned, with something worth knowing (dev servers that did not
+  come up, a mirror that did not refresh, a missing gating decision).
+- `❌` — provisioning failed part-way and left something behind. Say what, and
+  where.
+- `⏸` — the gate refused: a dirty tree, someone else's unfinished work, a spec
+  already in flight. Nothing changed.
+
+**Fields:** `Spec` · `Branch` · `Worktree` · `Tracker` · `Next` · `Follow-ups`
+
+`Worktree` carries the path, because the session is now standing in it and the
+operator's next command depends on knowing that. `Next` is `/spec-next`.
+
+On **`--plan`** nothing was provisioned, so the verdict is `⏸` and `Built`
+carries the plan rather than a claim about the repo.
+
 ## Opt-outs
 
 - **`--plan`** — print the provisioning and dev-server plan, change nothing.
