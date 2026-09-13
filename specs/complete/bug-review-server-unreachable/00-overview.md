@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-review-server-unreachable (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — all phases fixed, ready to complete
+> **Status:** Complete (2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -105,9 +105,12 @@ an assertion. Phases 2 and 3 carry their own tests.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-13 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-13 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-13 — Completed; all phases done, tests green (2078). The three
+  proving tests — ownership, bind and the `/spec-start` seam — pass at 22.
 - 2026-09-13 — Fixed (phase 3): `/spec-start` gains step 2b, which brings the
   review server up from the primary checkout before provisioning — the one
   moment the session is guaranteed to be somewhere that outlives the spec. The
