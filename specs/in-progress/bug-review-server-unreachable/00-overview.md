@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-review-server-unreachable (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — phase 1 fixed, phases 2-3 to go
+> **Status:** In Progress — phases 1-2 fixed, phase 3 to go
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -97,7 +97,7 @@ an assertion. Phases 2 and 3 carry their own tests.
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The daemon is owned by the primary checkout | ✅ | [01-primary-owned-daemon.md](01-primary-owned-daemon.md) |
-| 2 | The bind and the URLs never disagree | ⬜ | [02-bind-matches-urls.md](02-bind-matches-urls.md) |
+| 2 | The bind and the URLs never disagree | ✅ | [02-bind-matches-urls.md](02-bind-matches-urls.md) |
 | 3 | `/spec-start` brings it up first | ⬜ | [03-spec-start-seam.md](03-spec-start-seam.md) |
 
 ## State log
@@ -108,6 +108,13 @@ an assertion. Phases 2 and 3 carry their own tests.
 
 ## Changelog
 
+- 2026-09-13 — Fixed (phase 2): the printed URLs are derived from the bind the
+  server actually has, and a loopback server prints its `127.0.0.1` URL plus the
+  command that widens it rather than a LAN address that refuses; `--restart`
+  keeps the running host unless `--host` says otherwise. Verified live: a bare
+  `--restart` now keeps `*:7777`, and a deliberately narrowed server prints
+  `local only:` instead of a LAN URL. Also moved `serveProcFor`'s doc comment
+  back onto it — phase 1's insert had orphaned it.
 - 2026-09-13 — Fixed (phase 1): the daemon's script is resolved against the
   primary checkout and recorded in `review-serve.json`, and a running server
   whose script has been deleted is replaced rather than adopted; test green.

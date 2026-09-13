@@ -1680,19 +1680,12 @@ async function specEnvReview(dir, config, specArg, flags) {
   if (reader.reader === 'remote' && config.review.serveOnRemote) {
     const up = await ensureReviewServer(dir, config, { host: '0.0.0.0' })
     if (!up.error) {
-      // Best candidate first (see `rankLanAddresses`), with the rest kept: the
-      // ranking reads interface names and can be wrong, so the alternates are
-      // offered rather than thrown away. No address at all means nothing to
-      // offer, and the `file://` fallback below is the honest answer.
-      const addrs = lanAddresses()
-      if (addrs.length) {
-        served = {
-          url: `${serveUrl(addrs[0], up)}${encodeURIComponent(spec.folder)}`,
-          alternates: addrs.slice(1).map((a) => `${serveUrl(a, up)}${encodeURIComponent(spec.folder)}`),
-          port: up.port,
-          token: up.token,
-          started: up.started,
-        }
+      // The URLs come from the bind the server HAS, not the one asked for just
+      // above — adoption can hand back a loopback server whatever was
+      // requested. See `reviewServedUrls`.
+      const urls = reviewServedUrls(up, lanAddresses(), spec.folder)
+      if (urls) {
+        served = { ...urls, port: up.port, token: up.token, started: up.started }
       }
     }
   }
@@ -1787,7 +1780,14 @@ async function specEnvReview(dir, config, specArg, flags) {
           (served.alternates.length
             ? served.alternates.map((u) => `  also: ${u}\n`).join('')
             : '') +
-          (served.started
+          // A loopback server is reachable from this machine and nowhere else.
+          // Said here rather than left to be discovered by a phone that cannot
+          // open the URL — and it names the command instead of describing it.
+          (served.loopback
+            ? '  local only: this server is bound to 127.0.0.1 — not reachable from your phone.\n' +
+              `  widen: ${served.widen}\n`
+            : '') +
+          (served.started && !served.loopback
             ? '  serving: every provisioned spec, to anyone with this URL on your network.\n' +
               '  stop:  skitterspec spec-env review serve --stop\n'
             : '')
@@ -1884,9 +1884,6 @@ function proxyProcFor(config, routesFileAbs) {
   }
 }
 
-// The supervised review-server process descriptor. Same shape as the proxy's:
-// a tiny detached node process reading its settings from a file, so a restart is
-// a rewrite of that file rather than an argv change.
 // Where a checkout keeps its copy of the daemon, relative to its root: this
 // monorepo developing itself, and a project that installed the package. Naming
 // the distribution here is a path, not provider machinery — `init.js` and
@@ -1941,6 +1938,9 @@ function serverScriptOk(settings) {
   return fs.existsSync(script)
 }
 
+// The supervised review-server process descriptor. Same shape as the proxy's:
+// a tiny detached node process reading its settings from a file, so a restart is
+// a rewrite of that file rather than an argv change.
 function serveProcFor(config, settingsFileAbs, { root = null } = {}) {
   const sdir = stateDirLabel(config)
   return {
@@ -2131,8 +2131,15 @@ async function specEnvReviewServe(dir, config, flags) {
     return
   }
 
+  // Read what the running server is bound to BEFORE replacing it, so a restart
+  // without `--host` keeps that bind instead of silently narrowing to loopback.
+  let currentSettings = null
+  try {
+    currentSettings = running ? JSON.parse(fs.readFileSync(abs(settingsFile), 'utf-8')) : null
+  } catch {}
+
   const started = await ensureReviewServer(dir, config, {
-    host: flags.host || '127.0.0.1',
+    host: restartHost(flags.host, currentSettings),
     port: flags.port,
     restart: true,
   })
@@ -2168,6 +2175,59 @@ async function specEnvReviewServe(dir, config, flags) {
           '  anyone with the lan URL can read every spec\'s diff while this runs.\n') +
       '  stop:  skitterspec spec-env review serve --stop\n',
   )
+}
+
+/**
+ * The URLs to print for a served page — derived from the bind the server
+ * ACTUALLY has, never from the one the caller asked for.
+ *
+ * `specEnvReview` requests `0.0.0.0` on a remote reader, but
+ * `ensureReviewServer` adopts a server that is already running rather than
+ * restarting it — deliberately, since a restart mints a fresh token and kills
+ * the URL already open on someone's phone. So the server in hand may be
+ * loopback-bound whatever was asked for, and printing `lanAddresses()` anyway
+ * produced a URL that could not be opened, with nothing saying why.
+ *
+ * Loopback does not go widened silently. Restarting to satisfy the printout
+ * would break the open URL to fix a description, so it prints the address that
+ * works and names the command that widens it.
+ */
+function reviewServedUrls(up, addrs, folder) {
+  const page = (host) => `${serveUrl(host, up)}${encodeURIComponent(folder)}`
+  if (up.loopback) {
+    return {
+      url: page('127.0.0.1'),
+      // No runners-up: every other address on this machine is one the server
+      // is not listening on.
+      alternates: [],
+      loopback: true,
+      widen: 'skitterspec spec-env review serve --host 0.0.0.0',
+    }
+  }
+  // Best candidate first, with the rest kept: the ranking reads interface names
+  // and can be wrong, so the alternates are offered rather than thrown away. No
+  // address at all means nothing to offer, and the `file://` fallback is the
+  // honest answer.
+  if (!addrs.length) return null
+  return { url: page(addrs[0]), alternates: addrs.slice(1).map(page), loopback: false, widen: null }
+}
+
+/**
+ * The host a `--restart` should bind to.
+ *
+ * An explicit `--host` wins. Otherwise KEEP WHAT THE RUNNING SERVER HAD: a
+ * restart defaulting back to `127.0.0.1` narrowed the bind silently, which is
+ * how a `--host 0.0.0.0` server became unreachable without anyone touching a
+ * flag.
+ *
+ * WHAT WOULD FOOL THIS: nothing running, or a settings file with no `host`.
+ * Both read as loopback — the narrow branch — because widening a bind by
+ * inference is the one direction that must never happen by accident
+ * (`.claude/rules/negative-checks.md` rule 4).
+ */
+function restartHost(flagHost, settings) {
+  if (flagHost) return flagHost
+  return (settings && settings.host) || '127.0.0.1'
 }
 
 function serveUrl(hostname, { port, token }) {
@@ -2877,4 +2937,15 @@ async function run(argv) {
   }
 }
 
-module.exports = { run, parse, HELP, unknownCommand, rankLanAddresses, serveProcFor, serverScriptOk, daemonScript }
+module.exports = {
+  run,
+  parse,
+  HELP,
+  unknownCommand,
+  rankLanAddresses,
+  serveProcFor,
+  serverScriptOk,
+  daemonScript,
+  reviewServedUrls,
+  restartHost,
+}
