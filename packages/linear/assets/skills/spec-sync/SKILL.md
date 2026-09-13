@@ -6,6 +6,11 @@ disable-model-invocation: true
 
 # /spec-sync — the repo-wide Linear sync operations
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 `/spec-push` and `/spec-status` cover **one spec**. This skill covers everything
 **repo-wide**, and is the answer to a bare "run spec-sync" — which is not itself
 a command.

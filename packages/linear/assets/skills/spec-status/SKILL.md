@@ -6,6 +6,11 @@ disable-model-invocation: true
 
 # /spec-status — one-way sync drift report
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 Read-only. Reports two things and writes nothing:
 
 1. **Pending push** — has the spec changed since the last push (is there an issue

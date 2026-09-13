@@ -6,6 +6,11 @@ disable-model-invocation: true
 
 # /spec-list — every spec Linear holds
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 Read-only. It answers a question and writes nothing — no branch, no folder move,
 no Linear write.
 

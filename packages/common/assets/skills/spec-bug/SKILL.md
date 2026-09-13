@@ -5,6 +5,11 @@ description: Investigate a bug, capture it as a Bug-type spec, and drive it red�
 
 # /spec-bug — investigate a bug, prove it with a failing test, fix it
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 This is the **bug** counterpart to `/spec` (which is for **features**, plan-only).
 Unlike `/spec`, this skill is hands-on and test-first: it reproduces the bug as a
 **failing test (RED)**, captures a lean Bug spec, then works the test to **GREEN**.

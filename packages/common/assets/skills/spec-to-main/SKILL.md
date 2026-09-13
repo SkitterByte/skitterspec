@@ -6,6 +6,11 @@ disable-model-invocation: true
 
 # /spec-to-main — land the branch on main, keep the spec open
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 The **intermediate** landing. `/spec-complete` also lands the branch, but then
 verifies every phase, flips the status to Complete, `git mv`s the spec to
 `complete/`, and tears the environment down.

@@ -5,6 +5,11 @@ description: Re-validate an existing spec against the current codebase — detec
 
 # /spec-review — bring a spec back in sync with the codebase
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 Specs rot: the code moves on while a spec sits in the backlog or pauses
 mid-build. This skill re-validates a spec against the **current** code and
 rewrites the stale parts so it's safe to act on. It plans only — it does not

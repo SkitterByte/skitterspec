@@ -5,6 +5,11 @@ description: Bootstrap the spec-driven-development workflow in the current proje
 
 # /spec-init — set up the spec-driven-development workflow
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 Bootstrap (or repair) everything this project needs to run the spec lifecycle.
 **Idempotent:** detect what already exists, create only what's missing, and never
 clobber customised content. Finish with a summary of created vs already-present.

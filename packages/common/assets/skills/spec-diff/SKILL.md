@@ -5,6 +5,11 @@ description: See what a spec's worktree changed — render its diff as a page yo
 
 # /spec-diff — see the phase before you commit it
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 A phase is built in its own worktree, and the terminal is somewhere else — so
 `git diff` answers about the wrong branch and a 350-line diff read as terminal
 text is scrolling, not review. This renders the diff as a page instead: the

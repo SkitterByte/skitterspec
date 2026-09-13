@@ -6,6 +6,11 @@ disable-model-invocation: true
 
 # /spec-claim — take a spec, hand it back, or hand it over
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 Ownership lives in the repo: the spec's frontmatter records who is building it,
 and the push that follows tells Linear. This skill is how that record changes
 after `/spec-start` has set it — a hand-off mid-flight, a spec picked up from

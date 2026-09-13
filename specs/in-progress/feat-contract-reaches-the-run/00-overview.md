@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-contract-reaches-the-run (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-13)
+> **Status:** In Progress — Phase 2 (started 2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -120,7 +120,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The banner, on all 17 skills | ⬜ | [01-banner.md](01-banner.md) |
+| 1 | The banner, on all 17 skills | ✅ | [01-banner.md](01-banner.md) |
 | 2 | Unfence the two prompts, state and guard the rule | ⬜ | [02-fences.md](02-fences.md) |
 | 3 | Report a drifted CLAUDE.md section | ⬜ | [03-claude-md-drift.md](03-claude-md-drift.md) |
 
@@ -139,3 +139,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-09-13 — Spec created, from follow-ups surfaced by
   `feat-skill-report-contract`'s first post-landing run.
+- 2026-09-13 — Phase 1: the banner guard reads its reference text **from a
+  skill** rather than from a literal in the test. A copy in the test would be a
+  second source of truth, and the first wording change would leave the two
+  disagreeing with no way to tell which is right — so the assertion is that all
+  17 agree with each other, plus that the reference itself is readable.
+- 2026-09-13 — Phase 1: `/spec-start` step 6 still prescribes a fenced block for
+  its "build phase 1 now?" prompt, and this spec's own start deliberately
+  ignored it — reproducing the bug in the message that starts the work to fix it
+  would have been absurd. Phase 2 removes the instruction.

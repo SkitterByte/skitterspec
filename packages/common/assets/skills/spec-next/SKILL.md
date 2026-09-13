@@ -5,6 +5,11 @@ description: Build the next unfinished phase of the spec in flight for this sess
 
 # /spec-next — build the next phase of the spec in flight
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 It assumes the workbench is already set up: a spec is **in flight** on this
 checkout, and this skill implements its next unfinished phase. Putting a spec in
 flight — provisioning, moving it to `in-progress`, getting its branch here — is

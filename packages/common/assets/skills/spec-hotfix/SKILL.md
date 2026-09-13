@@ -5,6 +5,11 @@ description: Fix a production bug on the exact released version — fork a workt
 
 # /spec-hotfix — fix a released version, tag it, cherry-pick back to main
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 This is the **hotfix** counterpart to `/spec-bug`. Same test-first discipline
 (reproduce as a **failing test (RED)**, then drive to **GREEN**), but the base is
 a **release tag**, not `main`: prod is running a tagged version, so the fix must

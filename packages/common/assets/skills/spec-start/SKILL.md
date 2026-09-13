@@ -5,6 +5,11 @@ description: Put a spec in flight — provision its branch, move it to in-progre
 
 # /spec-start — put a spec in flight
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 One checkout, one spec in flight. This skill is how a spec gets there:
 provision, move it to `in-progress`, refresh the tracker, then hand straight on
 to `/spec-next` for phase 1. Continuing a spec afterwards is `/spec-next`;

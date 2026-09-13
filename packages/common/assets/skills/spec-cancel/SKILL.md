@@ -5,6 +5,11 @@ description: Cancel a spec — capture the reason, record final progress, stamp 
 
 # /spec-cancel — record, stamp a reason, archive a spec
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 ## 1. Identify the target spec
 
 - Use the name/path argument if given, else the spec **in context**. If unclear,

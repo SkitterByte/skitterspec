@@ -5,6 +5,11 @@ description: Push a spec up to its linked Linear issue (repo → Linear, one-way
 
 # /spec-push — send a spec up to Linear (one-way)
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 Repo → Linear. The repo is the **source of truth**; Linear is a
 **generated mirror**. A spec is a Linear **issue**; each phase is a
 **sub-issue** (a child issue), and the phase file is mirrored into that

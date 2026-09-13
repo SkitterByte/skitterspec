@@ -5,6 +5,11 @@ description: Create a new spec-driven-development spec. Grills the user to a cle
 
 # /spec — author a new spec
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 Produce ONE concise spec in `specs/backlog/`. Do not start coding — this skill
 plans only. Implementation happens later via `/spec-start`.
 

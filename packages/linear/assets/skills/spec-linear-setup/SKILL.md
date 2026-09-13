@@ -5,6 +5,11 @@ description: Configure Linear sync for this repo by interview rather than by han
 
 # /spec-linear-setup — configure Linear sync by interview
 
+> Stay silent while this runs — speak only to ask something you cannot answer
+> yourself, or to report a failure at the moment it happens. Read
+> `.claude/rules/spec-reports.md` before reporting; it defines the block this
+> skill ends with.
+
 Writes `specs/.core/linear.config.json`, the file that switches one-way Linear
 sync on for this repo. You **discover and interview**; the engine
 (`spec-sync init-config`) **validates and writes**. Keep that split: composing the

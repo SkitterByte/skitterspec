@@ -121,6 +121,97 @@ test('the rule is readable, or every guard below is vacuous', () => {
   assert.strictEqual(entries().length, 17, 'all 17 skills are covered')
 })
 
+// --- the banner ------------------------------------------------------------
+//
+// The contract shipped and the very next run ignored all of it. Nothing was
+// stale: the skills carried the pointer and the rule was current. The pointer
+// was simply in the LAST section, phrased as "End with the block defined in …",
+// so a model reading top-to-bottom narrated its way through every step the
+// silence rule would have prevented and met the rule only after the damage.
+//
+// So these assert POSITION, not presence. A banner that drifts below the first
+// working section is the bug returning with a passing test beside it.
+
+// The blockquote under each h1. Read from a skill rather than written here: a
+// literal in the test is a second source of truth, and the first wording change
+// would leave the two disagreeing with no way to tell which is right.
+function bannerOf(text) {
+  const h1 = text.search(/^# /m)
+  if (h1 === -1) return null
+  const after = text.slice(text.indexOf('\n', h1) + 1)
+  const m = after.match(/^\s*((?:^>.*\n?)+)/m)
+  return m ? m[1].trim() : null
+}
+
+const REFERENCE = bannerOf(skillText('common', 'spec-next'))
+
+test('the reference banner is readable, or the guards below are vacuous', () => {
+  assert.ok(REFERENCE, 'found a banner to compare the others against')
+  assert.match(REFERENCE, /Stay silent while this runs/)
+  assert.match(REFERENCE, /`\.claude\/rules\/spec-reports\.md`/)
+})
+
+test('every skill carries the banner, before its first section', () => {
+  for (const [label, pkg, name] of entries()) {
+    const text = skillText(pkg, name)
+    const banner = bannerOf(text)
+    assert.ok(banner, `${label} has a banner under its h1`)
+    // POSITION is the point: it must precede the first `## ` heading, because a
+    // banner read after the first working step is read too late to act on.
+    const firstSection = text.search(/^## /m)
+    assert.ok(firstSection > -1, `${label} has at least one section`)
+    assert.ok(
+      text.indexOf(banner) < firstSection,
+      `${label} states the banner after its first section — too late to act on`,
+    )
+  }
+})
+
+test('the banner is identical across every skill', () => {
+  for (const [label, pkg, name] of entries()) {
+    assert.strictEqual(
+      bannerOf(skillText(pkg, name)),
+      REFERENCE,
+      `${label}'s banner has drifted from the others`,
+    )
+  }
+})
+
+// --- stays silent -----------------------------------------------------------
+//
+// `.claude/rules/negative-checks.md` rule 3. A position check written too
+// tightly turns ordinary formatting into a failure, so these feed it healthy
+// shapes and assert it says nothing: frontmatter above the h1 (every skill has
+// it), and prose between the banner and the first section (most skills have
+// that too, and it is not a fault).
+test('ordinary formatting around the banner is not flagged', () => {
+  const shaped = [
+    '---',
+    'name: example',
+    '---',
+    '',
+    '# /example — a skill',
+    '',
+    '> Stay silent while this runs.',
+    '> Read `.claude/rules/spec-reports.md` before reporting.',
+    '',
+    'Some prose introducing the skill, which many of them have.',
+    '',
+    '## 1. First step',
+  ].join('\n')
+
+  const banner = bannerOf(shaped)
+  assert.match(banner, /Stay silent/)
+  assert.ok(shaped.indexOf(banner) < shaped.search(/^## /m), 'prose after it is fine')
+})
+
+test('a banner pushed below the first section is caught', () => {
+  const bad = ['# /example — a skill', '', '## 1. First step', '', '> Stay silent while this runs.'].join('\n')
+  const banner = bannerOf(bad)
+  assert.ok(banner, 'the banner is still found')
+  assert.ok(bad.indexOf(banner) > bad.search(/^## /m), 'and its position is what fails')
+})
+
 test('every lifecycle skill points at the contract rule', () => {
   for (const [label, pkg, name] of entries()) {
     assert.match(
