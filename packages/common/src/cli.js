@@ -1416,7 +1416,7 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
  * tree (the default — "what did this phase just do") and `--branch` (everything
  * since the base branch — "what does this whole spec do").
  */
-function specEnvReview(dir, config, specArg, flags) {
+async function specEnvReview(dir, config, specArg, flags) {
   // An unknown name throws here rather than falling back to the branch: a review
   // of the wrong spec looks exactly like a review of the right one.
   const spec = resolveSpecWithWorktree(dir, config, specArg)
@@ -1613,6 +1613,32 @@ function specEnvReview(dir, config, specArg, flags) {
   // Resolved before the --json early return, so both outputs agree.
   const reader = resolveReader(config, process.env)
 
+  // A remote reader cannot open a path on this machine — that is the whole of
+  // what detection established. Serving is how the engine answers it: a local
+  // process, ended by one flag, leaving nothing behind. PUBLISHING is still
+  // never automatic here; it leaves a page this tooling cannot remove, so it
+  // stays an explicit ask no detection can stand in for.
+  let served = null
+  if (reader.reader === 'remote' && config.review.serveOnRemote) {
+    const up = await ensureReviewServer(dir, config, { host: '0.0.0.0' })
+    if (!up.error) {
+      // PROVISIONAL: the first non-internal IPv4 address, which is interface
+      // order and not preference order. On a machine with Parallels, Docker or
+      // a VPN adapter this can name an address the reader's phone cannot route
+      // to — reintroducing the dead link this whole change removes. Ranking is
+      // phase 2 of bug-remote-reader-gets-a-dead-link.
+      const addr = lanAddresses()[0]
+      if (addr) {
+        served = {
+          url: `${serveUrl(addr, up)}${encodeURIComponent(spec.folder)}`,
+          port: up.port,
+          token: up.token,
+          started: up.started,
+        }
+      }
+    }
+  }
+
   if (flags.json) {
     process.stdout.write(
       JSON.stringify(
@@ -1627,6 +1653,7 @@ function specEnvReview(dir, config, specArg, flags) {
           publishCopy,
           reader: reader.reader,
           readerWhy: reader.why,
+          served,
           fileUrl: reviewFileUrl(out),
           urlFile,
           url,
@@ -1691,14 +1718,22 @@ function specEnvReview(dir, config, specArg, flags) {
         ? ''
         : `  reader: ${reader.reader}${reader.why ? ` (${reader.why})` : ''}\n`) +
       `  page: ${out}\n` +
-      // The path is still the truth about where the page IS — it just will not
-      // open there, so it is marked rather than suppressed.
-      `  open: ${reviewFileUrl(out)}${
-        reader.reader === 'remote' ? '   (will not open where you are reading)' : ''
-      }\n` +
-      (reader.reader === 'remote'
-        ? '  serve: skitterspec spec-env review serve --host 0.0.0.0\n'
-        : '') +
+      // Served: the `open:` line is a URL the reader can actually use, and
+      // `page:` above still says where the file is. Not served — including every
+      // way serving can fail — falls back to exactly the output this printed
+      // before, dead link and all: that is the floor, never made worse.
+      (served
+        ? `  open: ${served.url}\n` +
+          (served.started
+            ? '  serving: every provisioned spec, to anyone with this URL on your network.\n' +
+              '  stop:  skitterspec spec-env review serve --stop\n'
+            : '')
+        : `  open: ${reviewFileUrl(out)}${
+            reader.reader === 'remote' ? '   (will not open where you are reading)' : ''
+          }\n` +
+          (reader.reader === 'remote'
+            ? '  serve: skitterspec spec-env review serve --host 0.0.0.0\n'
+            : '')) +
       // Named on its own line so the skill never has to build the path itself.
       (publishCopy ? `  publish: ${publishCopy}\n` : '') +
       (url ? `  published: ${url}\n` : '') +
@@ -1815,6 +1850,74 @@ function lanAddresses() {
 }
 
 /**
+ * Bring the review server up, or adopt the one already running.
+ *
+ * Shared by `serve` (which prints its own report) and by `review` on a remote
+ * reader (which needs a URL, not a report). Only the STARTING is shared — how
+ * each one talks about the result is its own business — so the two can never
+ * drift on how a server comes up.
+ *
+ * Reuse is deliberate and load-bearing: restarting mints a fresh token, which
+ * would silently kill a URL the operator already has open on their phone. Only
+ * an explicit `serve` invocation (`restart`) is allowed to do that.
+ *
+ * Returns `{ port, token, loopback, pid, started }`, or `{ error }` — never
+ * throws, because every caller's fallback is to carry on without a server.
+ */
+async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, restart = false } = {}) {
+  const sdir = stateDirLabel(config)
+  const abs = (rel) => path.resolve(dir, rel)
+  const settingsFile = `${sdir}/review-serve.json`
+  const proc = serveProcFor(config, abs(settingsFile))
+
+  // A POSITIVE SIGNAL, not an absence: a pidfile on disk proves nothing (a
+  // crashed process leaves one behind), so `isAlive` is what decides.
+  const pid = readPid(abs(proc.pidFile))
+  const running = pid && isAlive(pid) ? pid : null
+
+  if (running && !restart) {
+    try {
+      const settings = JSON.parse(fs.readFileSync(abs(settingsFile), 'utf-8'))
+      if (settings.port) {
+        const lb = settings.host === '127.0.0.1' || settings.host === 'localhost'
+        return {
+          port: settings.port,
+          token: settings.token || null,
+          loopback: lb,
+          pid: running,
+          started: false,
+        }
+      }
+    } catch {}
+    // Running, but its settings are unreadable — we cannot address it, and
+    // killing a server we cannot describe is worse than declining to use it.
+    return { error: 'unreadable', pid: running }
+  }
+
+  const usePort = Number(port || config.review.servePort)
+  const loopback = host === '127.0.0.1' || host === 'localhost'
+  // The token is the ONLY guard on a non-loopback bind, so it is minted with the
+  // bind rather than offered as an option to forget.
+  const token = loopback ? null : mintToken()
+
+  if (running) await stopProcess(proc, { rootDir: dir })
+
+  const busy = await portsInUse([usePort], loopback ? host : '127.0.0.1')
+  if (busy.length) return { error: 'busy', port: usePort }
+
+  fs.mkdirSync(path.dirname(abs(settingsFile)), { recursive: true })
+  fs.writeFileSync(
+    abs(settingsFile),
+    JSON.stringify({ dir, port: usePort, host, token }, null, 2) + '\n',
+  )
+  const res = startProcess(proc, { cwd: dir, rootDir: dir })
+  const up = await waitListening([usePort], { host: loopback ? host : '127.0.0.1' })
+  if (!up) return { error: 'silent', port: usePort, pid: res.pid }
+
+  return { port: usePort, token, loopback, pid: res.pid, started: true }
+}
+
+/**
  * `spec-env review serve` — stand up the local diff server.
  *
  * Three actions on one verb: start (the default), `--stop`, `--status`. The
@@ -1860,36 +1963,29 @@ async function specEnvReviewServe(dir, config, flags) {
     return
   }
 
-  const port = Number(flags.port || config.review.servePort)
-  const host = flags.host || '127.0.0.1'
-  const loopback = host === '127.0.0.1' || host === 'localhost'
-  // The token is the ONLY guard on a non-loopback bind, so it is minted with the
-  // bind rather than offered as an option to forget.
-  const token = loopback ? null : mintToken()
+  const started = await ensureReviewServer(dir, config, {
+    host: flags.host || '127.0.0.1',
+    port: flags.port,
+    restart: true,
+  })
 
-  if (running) await stopProcess(proc, { rootDir: dir })
-
-  const busy = await portsInUse([port], loopback ? host : '127.0.0.1')
-  if (busy.length) {
+  if (started.error === 'busy') {
     process.stdout.write(
-      `spec-env review serve: port ${port} is already in use — ` +
+      `spec-env review serve: port ${started.port} is already in use — ` +
         'pass --port, or --stop if this is an older server.\n',
     )
     return
   }
-
-  fs.mkdirSync(path.dirname(abs(settingsFile)), { recursive: true })
-  fs.writeFileSync(abs(settingsFile), JSON.stringify({ dir, port, host, token }, null, 2) + '\n')
-  const res = startProcess(proc, { cwd: dir, rootDir: dir })
-  const up = await waitListening([port], { host: loopback ? host : '127.0.0.1' })
-
-  if (!up) {
+  if (started.error === 'silent') {
     process.stdout.write(
-      `spec-env review serve: started (pid ${res.pid}) but port ${port} never came up — ` +
+      `spec-env review serve: started (pid ${started.pid}) but port ${started.port} never came up — ` +
         `see ${proc.logFile}\n`,
     )
     return
   }
+
+  const { port, token, loopback } = started
+  const res = { pid: started.pid }
 
   const specs = servableSpecs(dir, config, gitReader(dir))
   process.stdout.write(
@@ -2496,7 +2592,7 @@ async function specEnv(rest) {
         await specEnvReviewServe(dir, config, flags)
         break
       }
-      specEnvReview(dir, config, positional[0], flags)
+      await specEnvReview(dir, config, positional[0], flags)
       break
     case 'live':
       await specEnvLive(dir, config, positional)

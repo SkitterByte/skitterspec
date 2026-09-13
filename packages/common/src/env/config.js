@@ -110,11 +110,14 @@ const DEFAULT_CONFIG = Object.freeze({
   // planned for a LANDED branch — see teardown.js.
   teardown: Object.freeze({ deleteRemoteBranch: 'prompt' }),
 
-  // `reader` decides only how a diff's location is WORDED — never whether
-  // anything is served or published. `detect` sniffs; `local`/`remote` are the
-  // operator's own answer and are believed without sniffing, because they know
-  // where they are reading and no signal can outrank that.
-  review: Object.freeze({ reader: 'detect', servePort: 7777 }),
+  // `reader` decides how a diff's location is worded, and — via
+  // `serveOnRemote` — whether the engine stands the local server up so a remote
+  // reader gets a link that opens. It never decides to PUBLISH: publishing
+  // leaves a page this tooling cannot remove, so it stays an explicit ask.
+  // `detect` sniffs; `local`/`remote` are the operator's own answer and are
+  // believed without sniffing, because they know where they are reading and no
+  // signal can outrank that.
+  review: Object.freeze({ reader: 'detect', servePort: 7777, serveOnRemote: true }),
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
@@ -318,6 +321,10 @@ function mergeConfig(base, parsed) {
       base.review.reader = reader
     }
     assign(base.review, parsed.review, 'servePort', 'number')
+    // Opting OUT is the only thing this key can do — a non-boolean leaves the
+    // default in place rather than being read as a refusal, so a typo cannot
+    // quietly restore the dead `file://` link on a remote reader.
+    assign(base.review, parsed.review, 'serveOnRemote', 'boolean')
   }
 
   if (isObject(parsed.spec) && Array.isArray(parsed.spec.companionPaths)) {

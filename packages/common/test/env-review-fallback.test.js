@@ -39,7 +39,15 @@ function scaffold() {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+    // `reader: local` is STATED, not inherited. These tests are about notes,
+    // publish copies and fallback — not about where the operator is sitting —
+    // and left to `detect` they resolve to `remote` whenever the suite runs
+    // from a bridged or ssh session, which stands a real server up mid-test.
+    JSON.stringify(
+      { baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local' } },
+      null,
+      2,
+    ),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   fs.writeFileSync(path.join(dir, 'app.js'), 'one\ntwo\nthree\n')
@@ -214,7 +222,15 @@ function hotfixScaffold() {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+    // `reader: local` is STATED, not inherited. These tests are about notes,
+    // publish copies and fallback — not about where the operator is sitting —
+    // and left to `detect` they resolve to `remote` whenever the suite runs
+    // from a bridged or ssh session, which stands a real server up mid-test.
+    JSON.stringify(
+      { baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local' } },
+      null,
+      2,
+    ),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   fs.writeFileSync(path.join(dir, 'app.js'), 'one\n')

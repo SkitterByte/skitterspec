@@ -111,7 +111,7 @@ test('an unrecognised reader falls through to detect, not to local', () => {
 
 // --- what the engine prints ------------------------------------------------
 
-function scaffold(reader) {
+function scaffold(reader, extraReview = {}) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rdr-')))
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   g('init', '-q')
@@ -120,7 +120,7 @@ function scaffold(reader) {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ baseBranch: 'main', docker: { enabled: false }, review: { reader } }),
+    JSON.stringify({ baseBranch: 'main', docker: { enabled: false }, review: { reader, ...extraReview } }),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   fs.writeFileSync(path.join(dir, 'app.js'), 'one\n')
@@ -144,23 +144,49 @@ function cleanup(dir) {
   fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
 }
 
-async function review(dir, ...extra) {
-  const orig = process.stdout.write
-  let out = ''
-  process.stdout.write = (c) => {
-    out += c
-    return true
-  }
-  try {
-    await run(['spec-env', 'review', 'feat-alpha', '--dir', dir, ...extra])
-  } finally {
-    process.stdout.write = orig
-  }
-  return out
+/**
+ * Run the CLI in a CHILD PROCESS and return its stdout.
+ *
+ * Not `process.stdout.write` patching, which is what this used to do. Under
+ * `node --test` the file IS a child emitting TAP on stdout, so capturing that
+ * stream swallows the runner's own protocol — invisible while `review` returned
+ * within a tick, fatal now that it awaits a server coming up and the runner
+ * emits TAP for other tests inside that window. A separate process has a
+ * separate stdout, so there is nothing to share and nothing to sniff.
+ */
+function review(dir, ...extra) {
+  const script =
+    `const { run } = require(${JSON.stringify(path.resolve(__dirname, '../src/cli.js'))});` +
+    'run(process.argv.slice(1)).then(() => {}, (e) => { console.error(e); process.exit(1) })'
+  // The child inherits this process's environment, and THIS suite is routinely
+  // run from a bridged or ssh session — the very signals under test. Scrubbed
+  // here so every test states the world it is testing, exactly as `detectReader`
+  // takes its environment as an argument rather than reading `process.env`.
+  const env = { ...process.env }
+  delete env.SSH_CONNECTION
+  delete env.SSH_TTY
+  delete env.CLAUDE_CODE_BRIDGE_SESSION_ID
+  return execFileSync('node', ['-e', script, 'spec-env', 'review', 'feat-alpha', '--dir', dir, ...extra], {
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+    env,
+  })
 }
 
-test('a remote reader is told the link will not open, and what will', async () => {
-  const { dir } = scaffold('remote')
+function stopServe(dir) {
+  const script =
+    `const { run } = require(${JSON.stringify(path.resolve(__dirname, '../src/cli.js'))});` +
+    'run(process.argv.slice(1)).then(() => {}, () => {})'
+  try {
+    execFileSync('node', ['-e', script, 'spec-env', 'review', 'serve', '--stop', '--dir', dir], {
+      encoding: 'utf-8',
+      stdio: 'ignore',
+    })
+  } catch {}
+}
+
+test('serveOnRemote off returns the marked link and the command to type', async () => {
+  const { dir } = scaffold('remote', { serveOnRemote: false })
   try {
     const out = await review(dir)
     assert.match(out, /reader: remote \(configured\)/)
@@ -231,6 +257,117 @@ test('nothing is published or served on a detection', async () => {
     assert.ok(!written.some((f) => f.endsWith('.url')), 'a remote reader did not publish anything')
     assert.ok(!written.some((f) => f.endsWith('.publish.html')), 'nor write a publish copy')
   } finally {
+    cleanup(dir)
+  }
+})
+
+// --- the offer a remote reader can actually take ---------------------------
+
+/**
+ * A free port, taken by binding and releasing.
+ *
+ * Async because `address()` answers null until the `listening` event — reading
+ * it synchronously throws AND leaves the socket open, which hangs the whole
+ * test runner rather than failing one test.
+ */
+function freePort() {
+  const net = require('node:net')
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer()
+    srv.once('error', reject)
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address()
+      srv.close(() => resolve(port))
+    })
+  })
+}
+
+// THE BUG. Detection was never the broken half — this line was. A `file://`
+// URL handed to a reader the engine has just identified as remote is the exact
+// dead link the whole feature was built to stop printing.
+test('a remote reader is given a link that opens where they are', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    const out = await review(dir)
+    assert.match(out, /reader: remote \(configured\)/)
+    assert.match(
+      out,
+      /open: http:\/\/[^\s]+\/feat-alpha/,
+      'the offered link must be one the reader can open, not a path on this machine',
+    )
+    assert.doesNotMatch(out, /open: file:\/\//, 'a dead link is not an offer')
+  } finally {
+    await stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('a second review adopts the running server rather than restarting it', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    const first = JSON.parse(review(dir, '--json')).served
+    const second = JSON.parse(review(dir, '--json')).served
+    assert.ok(first && second, 'both calls served')
+    assert.strictEqual(first.started, true, 'the first call stood it up')
+    assert.strictEqual(second.started, false, 'the second adopted it')
+    assert.strictEqual(second.port, first.port)
+    // The token is the load-bearing part: a restart mints a new one and kills a
+    // URL the operator may already have open on their phone.
+    assert.strictEqual(second.token, first.token, 'the URL already handed out still works')
+    assert.strictEqual(second.url, first.url)
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+// STAYS SILENT (`.claude/rules/negative-checks.md` rule 3). The expensive
+// mistake is a LAN listener standing up on the laptop of every developer who
+// never asked for one, so the absence of a pidfile is asserted, not assumed.
+test('a local reader starts no server at all', async () => {
+  const { dir } = scaffold('local', { servePort: await freePort() })
+  try {
+    const out = review(dir)
+    assert.match(out, /open: file:\/\//)
+    assert.ok(
+      !fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')),
+      'nothing was started for a reader who is sitting right here',
+    )
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('an unknown reader starts no server either', async () => {
+  const { dir } = scaffold('detect', { servePort: await freePort() })
+  try {
+    const out = review(dir)
+    assert.doesNotMatch(out, /open: http:\/\//)
+    assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')))
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+// Rule 4: route the case we cannot act on to the harmless branch. A busy port
+// is not evidence of anything wrong with this repo, so it must not read as an
+// error — it falls back to the link that was always printed.
+test('a port already in use falls back to the file link, and does not fail', async () => {
+  const port = await freePort()
+  const net = require('node:net')
+  const blocker = net.createServer()
+  await new Promise((r) => blocker.listen(port, '127.0.0.1', r))
+  const { dir } = scaffold('remote', { servePort: port })
+  try {
+    const out = review(dir)
+    assert.match(out, /open: file:\/\//, 'the floor is the old link, never an error')
+    assert.doesNotMatch(out, /open: http:\/\//)
+    assert.strictEqual(JSON.parse(review(dir, '--json')).served, null)
+  } finally {
+    await new Promise((r) => blocker.close(r))
+    stopServe(dir)
     cleanup(dir)
   }
 })
