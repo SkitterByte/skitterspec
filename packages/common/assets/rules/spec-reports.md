@@ -62,6 +62,13 @@ them would only be able to say "field", which no one needs told.
 closing line, not a next step, not the offer. Everything the reader must act on
 is a row, which is what earns the block its position.
 
+**Never fence a message to the reader.** A fenced block is for a command to
+run, code, or engine output quoted verbatim — things the reader copies or
+compares. A question, an offer, a hand-off is prose. The same mechanism that
+made the old report unreadable applies to anything else in a grey box: it is
+read as an artefact to skim rather than as something addressed to someone, so a
+question inside one goes unanswered and an instruction inside one goes unread.
+
 **It reports this run and nothing else.** Not what else is in flight, not the
 other worktrees, not the backlog, not the state of the repo at large. A reader
 finishing one piece of work cannot tell whether a line about some other spec is

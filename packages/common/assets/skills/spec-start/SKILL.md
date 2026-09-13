@@ -288,17 +288,15 @@ asked to start the spec.
 
 **`worktree` mode — offer it, then do what they say.** Step 3 left this session
 standing in the worktree, so both endings happen right here and neither needs a
-second session opened anywhere. Put the question in one short block and recommend
-the first:
+second session opened anywhere. In prose: say the worktree is ready and name its
+path, then ask **"build phase 1 now?"** — recommending that they do, and naming
+both endings so the decline is a real answer rather than a formality.
 
-```
-worktree ready — this session is now in it:
-  <worktreePath>
-
-build phase 1 now?
-  yes -> carries on into /spec-next
-  no  -> you are already there; type /spec-next whenever you like
-```
+**Never fence that question.** A grey box is read as an artefact to skim rather
+than as something someone is being asked, which is the whole reason
+`.claude/rules/spec-reports.md` bans fencing a message to the reader. This step
+prescribed a fenced block for a long time and an operator read straight past it,
+which is the evidence, not a preference.
 
 - **Build it here** — carry on into a bare **`/spec-next`**. Bare is right: the
   session is in the worktree, so its rule 2 resolves this spec with nothing

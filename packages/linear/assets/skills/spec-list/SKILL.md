@@ -183,11 +183,9 @@ user reads:
   noise: a teammate's unlanded spec, or one authored inside another spec's
   worktree, is precisely what the repo could not have told them.
 
-Finish with the hand-off, because every row carries the folder name for it:
-
-```
-start one with: /spec-start <name>
-```
+Finish with the hand-off, because every row carries the folder name for it —
+as a sentence, not a fenced block: say that `/spec-start <name>` starts any of
+them, with the name copied from a row.
 
 **Never start it yourself.** `/spec-start` provisions a branch, moves a folder
 and commits, and it has dirty-tree refusals this skill does not reproduce.
