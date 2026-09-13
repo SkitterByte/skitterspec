@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-contract-reaches-the-run (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 3 (started 2026-09-13)
+> **Status:** In Progress — all phases done (started 2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -122,7 +122,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The banner, on all 17 skills | ✅ | [01-banner.md](01-banner.md) |
 | 2 | Unfence the two prompts, state and guard the rule | ✅ | [02-fences.md](02-fences.md) |
-| 3 | Report a drifted CLAUDE.md section | ⬜ | [03-claude-md-drift.md](03-claude-md-drift.md) |
+| 3 | Report a drifted CLAUDE.md section | ✅ | [03-claude-md-drift.md](03-claude-md-drift.md) |
 
 ## Open questions
 
@@ -160,3 +160,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `assets-spec-start-offer.test.js` and the composed-seam check. The fix keeps
   **"build phase 1 now?"** in the skill as prose; the box was the problem, not
   the words.
+- 2026-09-13 — Phase 3: `checkSync` mirrors `resyncManagedFile`'s decision
+  rather than re-deriving it, so the three managed-file verdicts it prints
+  (`missing` · `your edit — kept` · `out of date`) cannot drift from what
+  `update` would actually do.
+- 2026-09-13 — Phase 3: the CLAUDE.md row says `update` **would replace** the
+  section, not that it is stale. An earlier wording offered "or keep yours",
+  which was wrong — `installClaudeMd` replaces the block unconditionally on
+  update, so the only way to keep an edit is not to run it.
+- 2026-09-13 — Phase 3: the end-to-end CLI test was dropped, deliberately. This
+  package's own bin refuses to run from uncomposed assets by design, so a
+  subprocess run belongs at the built-distribution level; the wiring is pinned
+  here instead (the flag parses, and `update` reaches `checkSync` before
+  `resync`). The first version of that assertion matched the word "resync" in
+  the branch's own comment rather than the call.

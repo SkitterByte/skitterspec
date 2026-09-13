@@ -3,7 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const { execFileSync } = require('child_process')
-const { init, resync, reset, isExistingSetup } = require('./init.js')
+const { init, resync, reset, checkSync, isExistingSetup } = require('./init.js')
 const {
   detectReleaseTooling,
   removeReleaseTooling,
@@ -110,7 +110,8 @@ Usage:
                               — non-interactively it just adds anything missing.
   skitterspec update [dir]    Resync managed files to the latest, keeping your
                               edits (--force to overwrite). Leaves specs/ + live
-                              .core config alone.
+                              .core config alone. --check reports what it would
+                              change and writes nothing.
   skitterspec spec-env <cmd>  Per-spec isolation engine (opt-in; needs
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         print the plan to provision a worktree +
@@ -171,6 +172,7 @@ function parse(argv) {
     resync: false,
     reset: false,
     diff: false,
+    check: false,
   }
   const positional = []
   for (let i = 0; i < argv.length; i++) {
@@ -188,6 +190,7 @@ function parse(argv) {
     else if (a === '--resync') opts.resync = true
     else if (a === '--reset') opts.reset = true
     else if (a === '--diff') opts.diff = true
+    else if (a === '--check') opts.check = true
     else if (a === '--dir') opts.dir = argv[++i]
     else if (a.startsWith('--')) throw new Error(`unknown option: ${a}`)
     else positional.push(a)
@@ -2929,6 +2932,11 @@ async function run(argv) {
     case 'update':
       // `update` is a resync — refresh managed files, keep customized ones
       // (--force to overwrite). Leaves specs/ and live .core config alone.
+      // `--check` reports what it WOULD change and writes nothing.
+      if (opts.check) {
+        checkSync(dir, { claudeMd: opts.claudeMd })
+        break
+      }
       resync(dir, { claudeMd: opts.claudeMd, force: opts.force, diff: opts.diff })
       await cleanupReleaseTooling(dir, opts)
       break

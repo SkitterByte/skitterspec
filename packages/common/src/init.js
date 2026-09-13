@@ -518,6 +518,67 @@ function trustWorktreeRoot(dir) {
   }
 }
 
+// Is the CLAUDE.md section this project has installed the one we ship?
+//
+// THREE answers, not two. `differs` deliberately does NOT mean "stale": the
+// block is a COPY, so a difference is either an out-of-date copy or the user's
+// own edit, and from here those read identically. Rule 4 of
+// `.claude/rules/negative-checks.md` — route the unknown case to the harmless
+// branch, which here means reporting a difference and naming the fix rather
+// than accusing them of being behind.
+//
+// WHAT WOULD FOOL THIS: absent markers mean the section was never installed, OR
+// that someone stripped it deliberately (`stripClaudeMdSection` exists and is
+// reachable from `reset`). Neither is a fault, so both answer `not installed`
+// and neither is reported as a problem.
+function claudeMdSectionState(dir) {
+  const target = path.join(dir, 'CLAUDE.md')
+  if (!fs.existsSync(target)) return 'not installed'
+  const existing = fs.readFileSync(target, 'utf8')
+  if (!existing.includes(SPEC_MARKER_START) || !existing.includes(SPEC_MARKER_END)) {
+    return 'not installed'
+  }
+  const shipped = fs.readFileSync(path.join(ASSETS, 'claude-md-section.md'), 'utf8').trim()
+  const start = existing.indexOf(SPEC_MARKER_START) + SPEC_MARKER_START.length
+  const installed = existing.slice(start, existing.indexOf(SPEC_MARKER_END)).trim()
+  return installed === shipped ? 'fresh' : 'differs'
+}
+
+// `update --check`: say what `update` would change, write nothing, exit 0.
+// It reports; `update` without the flag stays the only thing that touches a
+// file. This exists because the section is a copy and a copy goes quietly out
+// of date — this repo's own was a whole spec behind the template it ships,
+// through a spec about that template, with every test green.
+function checkSync(dir, { claudeMd = true, log = console.log } = {}) {
+  if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
+  const manifest = readManifest(dir)
+  const rows = []
+  // Mirror `resyncManagedFile`'s decision exactly rather than re-deriving it:
+  // missing → it would create; customized → it would KEEP yours and say so;
+  // pristine → it would write only when the shipped content actually differs.
+  for (const { relPath, abs, bundled } of managedTargets(dir)) {
+    const state = managedState(dir, relPath, manifest, bundled)
+    if (state === 'missing') rows.push([relPath, 'missing — would be created'])
+    else if (state === 'customized') rows.push([relPath, 'your edit — kept (--force overwrites)'])
+    else if (fs.readFileSync(abs, 'utf8') !== bundled) rows.push([relPath, 'out of date — would be updated'])
+  }
+  const section = claudeMd ? claudeMdSectionState(dir) : 'fresh'
+  // A healthy area says NOTHING. A report that lists what is already fine is a
+  // report people learn to skim, and then the one line that mattered is missed.
+  if (section === 'differs') {
+    rows.push([
+      'CLAUDE.md (spec workflow section)',
+      'differs from the shipped one — `update` would replace it (it is a copy, so this is either your edit or an out-of-date one)',
+    ])
+  }
+  if (!rows.length) log('skitterspec update --check: everything is up to date.')
+  else {
+    log('skitterspec update --check: `skitterspec update` would:')
+    for (const [name, why] of rows) log(`  ${name} — ${why}`)
+  }
+  return { rows, section }
+}
+
 function installClaudeMd(dir, { mode }) {
   const section = fs.readFileSync(path.join(ASSETS, 'claude-md-section.md'), 'utf8').trim()
   const block = `${SPEC_MARKER_START}\n${section}\n${SPEC_MARKER_END}\n`
@@ -806,6 +867,8 @@ module.exports = {
   writeManifest,
   managedTargets,
   managedState,
+  claudeMdSectionState,
+  checkSync,
   isExistingSetup,
   resync,
   reset,
