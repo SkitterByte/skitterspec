@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-skill-report-contract (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — all phases done (started 2026-09-12)
+> **Status:** Complete (2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -198,6 +198,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-12 | Ready | backlog | Reuben Greaves |
 | 2026-09-12 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-13 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -291,3 +292,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   otherwise pass by absence. Its skill-name guard also had to learn the `.md`
   lookahead `assets-prose.test.js` already had: pointing readers at
   `.claude/rules/spec-reports.md` was read as naming a skill that does not ship.
+- 2026-09-13 — Completed; all four phases done, 2020 tests green. Nothing
+  deferred. The contract shipped in a shape the spec did not originally
+  describe: written as a fenced aligned list, read in anger, and rebuilt as a
+  table mid-spec — the Decisions above carry both the original reasoning and
+  what overturned it.
