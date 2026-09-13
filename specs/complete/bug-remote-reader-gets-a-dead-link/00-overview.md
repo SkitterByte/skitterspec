@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-remote-reader-gets-a-dead-link (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — all four phases green, ready to complete
+> **Status:** Complete (2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -155,6 +155,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-13 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-13 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -188,3 +189,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   its stdout in-process, which is how the suite learned that `node --test` runs
   each file as a child emitting TAP on the same stream. Recorded in phase 1's
   Outcome. No production behaviour was changed to accommodate it.
+- 2026-09-13 — Completed; all four phases done, tests green (2041 pass). The
+  proof test — `a remote reader is given a link that opens where they are` —
+  passes, and the behaviour was verified against the real worktree as well as
+  the fixtures at every phase. Nothing deferred.
+- 2026-09-13 — Worth carrying forward: the decision this spec overturned was
+  **tested by its own wording**, not by its behaviour. `nothing is published or
+  served on a detection` never checked serving, and
+  `**wording, never action**` was asserted as a literal string in four skills. A
+  rule that exists only as a phrase the tests grep for will outlive the reasoning
+  that justified it, because nothing ever fails when the reasoning stops holding.
