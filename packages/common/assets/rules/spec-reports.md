@@ -26,54 +26,86 @@ Everything else waits.
 
 ## The block
 
-A verdict line, a blank line, then an aligned key-value list:
+A verdict sentence, a blank line, then a two-column table:
 
-```
-✅ /spec-next · feat-foo · phase 2/4
+✅ **Phase 2 built** — `feat-foo`, 2 of 4
 
-Built       POST /orders handler, orders schema
-Tests       128 passed · npm test
-Branch      spec/feat-foo · 3 commits, clean
-Diff        .spec-env/reviews/feat-foo.html
-Next        /spec-next → phase 3 (Auth)
-Follow-ups  none
-```
+| | |
+|---|---|
+| **Tracker** | [ABC-88](https://example.invalid/ABC-88) · `feat-foo` · phase 2 moved |
+| **Branch** | `spec/feat-foo` · 3 commits, clean |
+| **Built** | POST /orders handler, orders schema |
+| **Tests** | 128 passed · npm test |
+| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review before you commit? |
+| **Follow-ups** | none |
+| **Next** | `/spec-next` → phase 3 (Auth) |
 
-**A list, never a table.** These get read on a phone, where a two-column
-markdown table reflows into noise and a label column does not.
+**A table, and never a fenced block.** An aligned label column is only
+achievable inside a fence, because markdown collapses runs of spaces outside
+one — so alignment and being recognised as a report are mutually exclusive, and
+the report wins. A fence renders as the same grey box as a code sample, and a
+reader who has been shown code all session reads one more box as code: the first
+person to receive one of these did not register it as output at all, and missed
+the `Next` row inside it. That is the exact scanning failure this contract exists
+to fix, so producing it in the contract's own format is not a cosmetic mistake.
 
-**The verdict line** is `<state> /<skill> · <spec> · <one clause>`. The clause
-says where the run got to — a phase, a folder move, a landing, a refusal. A run
-with no spec to name drops that segment rather than inventing one.
+**The verdict sentence** is `<state> **<one clause>** — <spec>, <where it got
+to>`. The clause says what happened; the tail says to what, and how far. Name
+the skill in the clause when the run's identity is not obvious from the
+conversation — a refusal, or a skill invoked by another. A run with no spec to
+name drops that segment rather than inventing one.
 
-**Labels** come from the vocabulary below, left-aligned, values starting at
-column 13 — two spaces past `Follow-ups`, the longest of them. One line each; a
-value that needs more indents its continuation to the same column.
+**The header row is empty.** The labels are the left column, and a header over
+them would only be able to say "field", which no one needs told.
+
+**The block is the last thing in the message.** Nothing follows it — not a
+closing line, not a next step, not the offer. Everything the reader must act on
+is a row, which is what earns the block its position.
+
+**It reports this run and nothing else.** Not what else is in flight, not the
+other worktrees, not the backlog, not the state of the repo at large. A reader
+finishing one piece of work cannot tell whether a line about some other spec is
+a consequence of what just happened or an unrelated aside, and has to stop and
+work it out — which is the cost this block exists to remove. If they want the
+wider picture there is a skill that answers it; volunteering it here muddies the
+one thing they asked about.
+
+`Next` is the single next action **for this work**, not a menu of what else
+could be done.
 
 ## Field vocabulary, in this order
 
 A skill emits only the fields it declares, in this order, skipping the rest.
-`Follow-ups` is the exception: always present, always last.
+`Follow-ups` is the exception: always present, second to last.
 
-`Tracker` is the other conditional one: a skill may declare it and still never
-emit it, because no ticketing provider is installed. That is an absence with
-nothing behind it — say nothing rather than reporting that there was nothing to
-report.
+`Tracker` is the conditional one: a skill may declare it and still never emit
+it, because no ticketing provider is installed. That is an absence with nothing
+behind it — say nothing rather than reporting that there was nothing to report.
 
 | Field | Carries |
 |-------|---------|
+| `Tracker` | **First.** The ticket id, linked where the spec has a url, the spec's folder name beside it, and what changed there. |
 | `Why` | **Non-`✅` only.** What stopped it, in one clause. |
+| `Branch` | Branch name, commit count, clean or dirty. |
+| `Spec` | The spec document's own state: status, bucket, phase. |
 | `Cause` | The root cause, for work that diagnosed one. |
 | `Built` | What the run produced — the code, the edits, the spec written. |
 | `Tests` | The result and the command that produced it. |
-| `Spec` | The spec document's own state: status, bucket, phase. |
-| `Branch` | Branch name, commit count, clean or dirty. |
 | `Landed` | A fast-forward, a tag, a cherry-pick. |
 | `Worktree` | A worktree provisioned, entered, or torn down. |
-| `Tracker` | What the mirror now says, or why it was skipped. |
-| `Diff` | The review page, as a path or a URL. |
-| `Next` | The command to type next. |
+| `Review` | The rendered diff page: files, `+`/`−`, the link — and the offer of a written review, in the same row. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
+| `Next` | **Last.** The single next action for this work. |
+
+The order runs identity → context → what happened → where it went → what to do.
+**`Tracker` is first** because the id is what addresses this work outside the
+repo, and **`Next` is last** because it is the only row the reader acts on: the
+closing row should be the one that moves the work on.
+
+**`Review` is one row, not two.** The page and the offer to read it are the same
+subject, and splitting them made the reader resolve a distinction before acting
+on either. The offer does not need the final row once it has a label column to
+be found by.
 
 ## The four verdicts
 
@@ -96,26 +128,28 @@ silence.
 
 ## Where the block may grow
 
-One place only. A non-`✅` verdict adds `Why`, and quotes the output that
-justifies it — the failing assertion, the conflict, the engine's refusal —
-below the list, verbatim and unparaphrased:
+One place only. A non-`✅` verdict adds a `Why` row, and quotes the output that
+justifies it — the failing assertion, the conflict, the engine's refusal — in a
+fenced block **above** the table, where a fence means what a fence should mean:
 
 ```
-❌ /spec-next · feat-foo · phase 2 tests red
-
-Why         3 assertions fail in orders.test.js; nothing committed.
-Built       POST /orders handler, orders schema
-Tests       125 passed, 3 failed · npm test
-Branch      spec/feat-foo · 2 commits, dirty
-Next        fix the failures, then /spec-next to finish phase 2
-Follow-ups  none
-
-  ✖ rejects a negative quantity
-    expected 422, got 500
+✖ rejects a negative quantity
+  expected 422, got 500
 ```
 
-Everywhere else the block stays the size it is. Prose above it, prose below it,
-an extra field of your own invention — all three are the shape drifting back to
+❌ **Phase 2 stopped — tests red** — `feat-foo`, 2 of 4
+
+| | |
+|---|---|
+| **Why** | 3 assertions fail in `orders.test.js`; nothing committed |
+| **Branch** | `spec/feat-foo` · 2 commits, dirty |
+| **Built** | POST /orders handler, orders schema |
+| **Tests** | 125 passed, 3 failed · npm test |
+| **Follow-ups** | none |
+| **Next** | fix the failures, then `/spec-next` to finish phase 2 |
+
+Everywhere else the block stays the size it is. Prose after it, an extra row of
+your own invention, a second block — all three are the shape drifting back to
 what this replaced.
 
 ## Follow-ups
@@ -133,7 +167,7 @@ take the offer, write one dated line into the spec's Changelog before you
 finish, so it outlives the session:
 
 ```
-- 2026-09-13 — Follow-up surfaced: connect's port picker assumes a free
+- 2026-01-09 — Follow-up surfaced: connect's port picker assumes a free
   canonical port; not in scope here.
 ```
 
@@ -145,47 +179,41 @@ cancelled. So the offer names the primary checkout as the place to write it.
 
 ## Worked examples
 
-One per verdict, short enough to read whole.
-
-**`✅` — a phase built.**
-
-```
-✅ /spec-complete · feat-foo · landed and torn down
-
-Spec        Complete · specs/complete/feat-foo
-Tests       131 passed · npm test
-Landed      main fast-forwarded to 4a1c9e2
-Worktree    removed · ../repo-wt/foo
-Tracker     ABC-88 → Done
-Next        /spec-list to pick the next one
-Follow-ups  none
-```
-
 **`⚠️` — it finished, with something worth knowing.**
 
-```
-⚠️ /spec-next · feat-foo · phase 3/4, mirror not updated
+⚠️ **Phase 3 built; tracker not updated** — `feat-foo`, 3 of 4
 
-Built       Auth middleware, session table
-Tests       140 passed · npm test
-Branch      spec/feat-foo · 4 commits, clean
-Tracker     push failed — tracker unreachable (ENOTFOUND); repo is correct
-Next        /spec-next → phase 4 (Docs)
-Follow-ups  Session expiry is read from two places; phase 4 leans on one
-```
-
-**`❌` — it acted and stopped part-way.** See the block above, which is the
-example: `Why` first, the fields it got to, and the failing output quoted
-beneath.
+| | |
+|---|---|
+| **Branch** | `spec/feat-foo` · 4 commits, clean |
+| **Built** | Auth middleware, session table |
+| **Tests** | 140 passed · npm test |
+| **Follow-ups** | Session expiry is read from two places; phase 4 leans on one |
+| **Next** | `/spec-next` → phase 4 (Docs) |
 
 **`⏸` — refused, nothing changed.**
 
-```
-⏸ /spec-next · no spec in flight
+⏸ **`/spec-next` refused — no spec in flight**
 
-Why         Not standing in a worktree, and 2 specs are provisioned.
-Next        /spec-start <name>, or cd into one of:
-              ../repo-wt/feat-connect-planner
-              ../repo-wt/feat-review-verdict
-Follow-ups  none
-```
+| | |
+|---|---|
+| **Why** | Not standing in a worktree, and 2 specs are provisioned |
+| **Follow-ups** | none |
+| **Next** | `/spec-start <name>`, or `cd` into `../repo-wt/feat-orders` or `../repo-wt/feat-auth` |
+
+**`✅` — a spec finished and landed.**
+
+✅ **Landed and torn down** — `feat-foo`, complete
+
+| | |
+|---|---|
+| **Tracker** | [ABC-88](https://example.invalid/ABC-88) · `feat-foo` · moved to its done state |
+| **Spec** | Complete · `specs/complete/feat-foo` |
+| **Tests** | 131 passed · npm test |
+| **Landed** | base fast-forwarded to 4a1c9e2 |
+| **Worktree** | removed · `../repo-wt/feat-foo` |
+| **Follow-ups** | none |
+| **Next** | pick the next spec from `specs/backlog/` |
+
+The `❌` example is in **Where the block may grow** above, since the failing
+output it quotes is the thing that example exists to show.

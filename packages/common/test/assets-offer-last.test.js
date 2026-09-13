@@ -10,10 +10,18 @@
  * reader got was to move on.
  *
  * So these tests are about SHAPE and POSITION rather than presence — presence
- * was never the problem. The offer is prose, it ends in a question, and it is
- * the last thing in the report. Every one of them is a regression guard: each
- * asserts something a well-meaning later edit would undo while thinking it was
- * tidying up.
+ * was never the problem. Every one of them is a regression guard: each asserts
+ * something a well-meaning later edit would undo while thinking it was tidying
+ * up.
+ *
+ * THE ANCHOR HAS MOVED ONCE, and that is worth reading before moving it again.
+ * The offer used to be prose AFTER the report; it is now the `Review` row
+ * INSIDE it, because the report became a table and nothing follows a table. The
+ * invariant did not change — the offer is findable, it is addressed to someone,
+ * and the link and the question are not separated. If a future change finds
+ * itself WEAKENING those three rather than re-pointing them, that is the signal
+ * the invariant has stopped being real, and the honest move is to delete the
+ * guard rather than keep loosening its regexes.
  */
 
 const { test } = require('node:test')
@@ -25,51 +33,72 @@ const ASSETS = path.join(__dirname, '..', 'assets')
 const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 const NEXT = skillText('spec-next')
 
-test('the offer is prose ending in a question, not a block of engine output', () => {
-  assert.match(NEXT, /Want a written review of it before you commit\?/)
-  assert.match(NEXT, /Write it as prose ending in a question/)
+test('the offer ends in a question, not a block of engine output', () => {
+  assert.match(NEXT, /want a written review before you commit\?/)
+  assert.match(NEXT, /It ends in a question, addressed to someone/)
+  // The shape it must not go back to.
+  assert.doesNotMatch(NEXT, /```\nPage is rendered:/)
 })
 
-// The anchor moved when the report became the block from
-// `.claude/rules/spec-reports.md`: there is no longer a `Next: phase N` LINE to
-// sit after, there is a block, and `Next` is a field inside it. The invariant is
-// unchanged — the offer comes after the whole report — so the guard follows the
-// anchor rather than being dropped for having gone stale.
 test('the position is stated, and stated as the point of it', () => {
-  assert.match(NEXT, /put it LAST/)
-  assert.match(NEXT, /after the\s*\n?report block of step 6/)
-  assert.match(NEXT, /being\s*\n?last is the whole fix/)
+  assert.match(NEXT, /The offer is the `Review` row of step 6's block/)
+  assert.match(NEXT, /It sits above `Follow-ups` and `Next`/)
+  assert.match(NEXT, /Never bury it and never split it/)
+})
+
+// The page and the question are ONE row. Splitting them was tried and rejected:
+// two adjacent rows about the same page make the reader resolve a distinction
+// before acting on either.
+test('the link and the question stay in the same row', () => {
+  assert.match(NEXT, /the counts, the page link\s*\n?and a question, in one row/)
+  assert.match(NEXT, /separates the link from the question/)
 })
 
 // The two steps have to agree, because step 5 writes the offer and step 6 writes
 // the report it is the end of. They disagreed before: step 5 said "one line",
 // step 6 said the report ends on which phase is next.
-test('step 6 agrees about what comes last', () => {
+// Step 5 writes the offer and step 6 writes the block it lives in, so the two
+// have to name the same place. They disagreed before, when one said "one line"
+// and the other said the report ends on which phase is next.
+test('step 6 agrees about where the offer goes', () => {
   const six = NEXT.slice(NEXT.indexOf('## 6. Report'))
-  assert.match(six, /Then step 5's offer, and nothing after it/)
-  assert.match(six, /the block,\s*\n?then the page and the question/)
+  assert.match(six, /Step 5's offer is the `Review` row/)
+  assert.match(six, /not a paragraph after the block/)
+  assert.match(six, /the two must not disagree about where\s*\n?it goes/)
 })
 
-// Two rules about what comes last is exactly the failure the block could
-// reintroduce: the contract says the report ends on `Follow-ups`, and this skill
-// says the offer ends the message. They are compatible only if the skill states
-// the offer follows the block — so it must, in words, in both places.
-test('the block and the offer do not both claim to be last', () => {
-  assert.match(NEXT, /report block of step 6, as the final thing on screen/)
+// The contract says nothing follows the block. If the offer were also "the last
+// thing on screen" as a paragraph, those two rules would be in direct conflict —
+// which is exactly what folding it into a row resolved.
+test('nothing is left claiming to follow the block', () => {
   const six = NEXT.slice(NEXT.indexOf('## 6. Report'))
-  assert.match(six, /Then step 5's offer, and nothing after it/)
-  assert.match(six, /the\s*\n?offer is the last thing on screen/)
+  assert.doesNotMatch(six, /and nothing after it/)
+  assert.doesNotMatch(NEXT, /as the final thing on screen/)
 })
 
 test('a later edit that reorders it back is named a regression', () => {
-  assert.match(NEXT, /Never bury it and never reorder it back/)
-  assert.match(NEXT, /read as a\s*\n?regression rather than tidying/)
+  assert.match(NEXT, /Never bury it and never split it/)
+  assert.match(NEXT, /read as a regression rather than tidying/)
 })
 
 test('the offer does not block the run', () => {
   assert.match(NEXT, /Non-blocking, deliberately/)
   assert.match(NEXT, /Do not end your turn waiting on the answer/)
   assert.match(NEXT, /`\/commit && \/spec-next` typed as one line/)
+})
+
+// The contract's own scope rule, guarded where it was actually broken: a report
+// that volunteers what else is in flight leaves the reader unable to tell what
+// followed from the run they just watched.
+test('the contract confines the block to the run that produced it', () => {
+  const rule = fs.readFileSync(
+    path.join(ASSETS, 'rules', 'spec-reports.md'),
+    'utf8',
+  )
+  assert.match(rule, /It reports this run and nothing else/)
+  assert.match(rule, /`Next` is the single next action \*\*for this work\*\*/)
+  const complete = skillText('spec-complete')
+  assert.match(complete, /Report this spec and no other/)
 })
 
 test('the clickable URL is still what gets relayed, not the bare path', () => {

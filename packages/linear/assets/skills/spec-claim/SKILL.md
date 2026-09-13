@@ -92,4 +92,18 @@ stamp back — that would throw away the one durable half of the change.
 
 ## 5. Report
 
-One or two lines: who owns it now, and whether Linear agrees yet.
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — the spec records the new owner and Linear agrees.
+- `⚠️` — the spec records it; Linear does not yet. The spec file is the record
+  and the ticket is the mirror, so this is a lag rather than a conflict — say
+  which way round it is.
+- `⏸` — nothing to claim, or no provider configured.
+
+**Fields:** `Tracker` · `Follow-ups` · `Next`
+
+`Tracker` is who owns it now and whether Linear agrees yet — the whole answer,
+in one row.

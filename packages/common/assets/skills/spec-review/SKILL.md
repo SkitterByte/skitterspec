@@ -111,7 +111,7 @@ the shape; this section carries only what is specific here.
   operator can answer. Name them.
 - `⏸` — no such spec, or nothing to review. Nothing changed.
 
-**Fields:** `Built` · `Spec` · `Tracker` · `Next` · `Follow-ups`
+**Fields:** `Tracker` · `Spec` · `Built` · `Follow-ups` · `Next`
 
 `Built` is the drift found and what you changed about it — a renamed file, an
 API that moved, a task the code already does. `Spec` carries the status the

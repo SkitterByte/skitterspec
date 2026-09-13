@@ -284,7 +284,7 @@ the shape; this section carries only what is specific here.
   That is the skill working: a spec written over an unresolved requirement is
   the outcome Phase A exists to prevent.
 
-**Fields:** `Built` · `Spec` · `Tracker` · `Next` · `Follow-ups`
+**Fields:** `Tracker` · `Spec` · `Built` · `Follow-ups` · `Next`
 
 `Built` is the spec's path and phase count; `Spec` is its status and bucket;
 `Next` is `/spec-start <name>`, with the name spelled the way it must be typed.

@@ -298,7 +298,7 @@ the shape; this section carries only what is specific here.
 - `⏸` — the gate refused: a dirty tree, someone else's unfinished work, a spec
   already in flight. Nothing changed.
 
-**Fields:** `Spec` · `Branch` · `Worktree` · `Tracker` · `Next` · `Follow-ups`
+**Fields:** `Tracker` · `Branch` · `Spec` · `Worktree` · `Follow-ups` · `Next`
 
 `Worktree` carries the path, because the session is now standing in it and the
 operator's next command depends on knowing that. `Next` is `/spec-next`.

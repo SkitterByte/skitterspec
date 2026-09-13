@@ -386,6 +386,16 @@ test('a provider rule reaches the superset and is installed by init', () => {
 
   const installed = fs.readdirSync(path.join(proj, '.claude', 'rules'))
   assert.ok(installed.includes('commit-trailers.md'), `init must install it, got ${installed}`)
+
+  // THE OTHER DIRECTION, and the one with no symptom. The provider's rules are
+  // OVERLAID onto the common tree; if that ever became a replace, every base
+  // rule would vanish from the superset and nothing here would have failed —
+  // the provider rule above would still be present. `spec-reports.md` is named
+  // rather than covered by a count because all 17 skills point at it, so losing
+  // it turns every skill into a reference to a file the project does not have.
+  assert.ok(rules.includes('spec-reports.md'), `superset must keep the common rules, got ${rules}`)
+  assert.ok(rules.includes('spec-planning.md'), `superset must keep the common rules, got ${rules}`)
+  assert.ok(installed.includes('spec-reports.md'), `init must install it, got ${installed}`)
 })
 
 test('the tracker-free base ships no provider rule', () => {

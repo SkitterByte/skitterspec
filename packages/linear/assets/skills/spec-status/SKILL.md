@@ -67,8 +67,25 @@ a hand edit misses some (it has, twice).
 
 ## 4. Report
 
-Relay the engine's output verbatim. Suggest `/spec-push` if a push is pending.
-Never write to either side.
+Relay the engine's output **verbatim, above the block** — it is the answer, and
+the block is the verdict on it. Never write to either side.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — in sync; nothing would push.
+- `⚠️` — drift: N objects would push, or Linear's workflow state was moved by
+  hand. Neither is an error — the repo wins on the next push — but both are the
+  reason someone ran this.
+- `⏸` — no config, or the spec is not linked. Nothing to compare.
+
+**Fields:** `Tracker` · `Follow-ups` · `Next`
+
+`Tracker` is the drift in one line — what would push, and whether the tracker's
+state diverged. `Next` is `/spec-push` when a push is pending, and nothing to do
+when it is not.
 
 A **`phases: <mode>`** line names the phase mode that resolved for this spec's
 lifecycle bucket, and appears only when it is not the default `subissue`.

@@ -276,12 +276,12 @@ the shape; this section carries only what is specific here.
 - `⏸` — the spec has no worktree. Say that plainly: a spec that has not been
   started has nothing to diff, which is an ordinary state and not an error.
 
-**Fields:** `Built` · `Diff` · `Next` · `Follow-ups`
+**Fields:** `Built` · `Review` · `Follow-ups` · `Next`
 
-`Diff` carries the files and `+`/`−`, the page's `open:` line, and the published
-URL when there is one. Where the page holds a review pass, it also carries the
-three totals — files accepted, comments open, comments answered. `--json`
-reports those under `notes.totals`; read that, never the diff.
+`Review` carries the files and `+`/`−`, the page's `open:` line, and the
+published URL when there is one. Where the page holds a review pass, it also
+carries the three totals — files accepted, comments open, comments answered.
+`--json` reports those under `notes.totals`; read that, never the diff.
 
 `Built` appears only when this run actually changed code — the commented files
 it worked on your go-ahead. A render on its own built nothing, and an empty

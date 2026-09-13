@@ -208,20 +208,27 @@ the diff never passes through you, so a 266KB patch costs nothing.
 costs — roughly **700 output tokens**, because writing it means reading the diff
 — and that spend is the operator's call, not a default.
 
-**Write it as prose ending in a question, and put it LAST** — after the report
-block of step 6, as the final thing on screen:
+**The offer is the `Review` row of step 6's block** — the counts, the page link
+and a question, in one row:
 
-```
-Page is rendered: <the `open:` file:// URL it printed> — <N> files, +<a> −<d>.
+| **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) — want a written review before you commit? |
 
-Want a written review of it before you commit?
-```
+**It ends in a question, addressed to someone.** It was once a fenced block of
+engine output, and it fired on every phase and was never once taken: two quoted
+lines under the test counts, addressed to nobody, with the report then closing
+on *"commit this first"* — the last instruction the reader got was to move on,
+so they did. A row in a labelled table is findable; a question in it is
+answerable. Both halves are load-bearing.
 
-**A fenced block of engine output is not an offer.** Two quoted lines under the
-test counts are addressed to nobody, and a report that then closes on what to do
-next tells the reader to move on — so they do. Ask them something, and ask it
-where the message ends. Relay the **`open:`** line rather than the bare path: a
-path is not clickable in any terminal.
+**Never bury it and never split it.** It sits above `Follow-ups` and `Next`, and
+the page and the question stay in the same row: two adjacent rows about one page
+make the reader resolve a distinction before acting on either. A later edit that
+moves it out of the block, or separates the link from the question, undoes this
+and should be read as a regression rather than tidying.
+
+
+Relay the **`open:`** line rather than the bare path: a path is not clickable in
+any terminal, and a page nobody can open is a page nobody reads.
 
 - **Never write the review unasked**, and **never publish**. Publishing leaves
   something behind that this tooling cannot remove, so it is always an ask. A
@@ -274,11 +281,12 @@ the shape; this section carries only what is specific here.
 - `⏸` — the bug could not be reproduced, so nothing was written. Say what was
   tried; an unreproduced bug is a finding, not a failed run.
 
-**Fields:** `Cause` · `Built` · `Tests` · `Spec` · `Branch` · `Diff` · `Next` ·
-`Follow-ups`
+**Fields:** `Tracker` · `Branch` · `Spec` · `Cause` · `Built` · `Tests` ·
+`Review` · `Follow-ups` · `Next`
 
 `Cause` is the root cause in one clause and `Built` is the fix — the
 failing→passing test belongs in `Tests`, named, so the evidence is a test name
 rather than an adjective.
 
-Step 5b's offer follows the block, and nothing follows the offer.
+Step 5b's offer is the `Review` row, not a paragraph after the block — the
+counts, the link and the question in one row. Nothing follows the block.

@@ -187,3 +187,29 @@ start one with: /spec-start <name>
 **Never start it yourself.** `/spec-start` provisions a branch, moves a folder
 and commits, and it has dirty-tree refusals this skill does not reproduce.
 Offering the name is the whole job.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**The listing goes above the block, unflattened.** It is rows of other people's
+work; the block is the verdict on this run of the query. Do not fold the listing
+into fields, and do not repeat it there.
+
+**Verdicts**
+
+- `✅` — the listing is Linear's, joined to the local folder names.
+- `⚠️` — listed, with a caveat that changes how the rows read: a paging cap you
+  stopped at, or `sortOrder` unavailable over MCP so `--next` is not really
+  Backlog order.
+- `⏸` — `--mine` with no identity available. It lists nothing and that is an
+  ordinary state, not a failure.
+- `❌` — the query was wrong: `--by` matching nobody or several, or two scope
+  flags together.
+
+**Fields:** `Follow-ups` · `Next`
+
+**No `Tracker` row.** This skill names many specs and owns none, so an id row
+would have to pick one. The counts — `showing N of M` — and the archived
+exclusion belong to the listing above, where the engine already prints them.
+
+`Next` is the hand-off: `/spec-start <name>`, with a name copied from a row.

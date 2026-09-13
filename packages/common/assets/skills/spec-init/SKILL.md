@@ -123,7 +123,7 @@ the shape; this section carries only what is specific here.
   informed; this skill is idempotent and re-running it is the fix.
 - `⏸` — not a git repo, or nothing it could safely write into.
 
-**Fields:** `Built` · `Next` · `Follow-ups`
+**Fields:** `Built` · `Follow-ups` · `Next`
 
 **`Built` is per area, one line each** — folders, `.gitignore` lines,
 tooling-ignore negations, skills (present/missing), rule files, CLAUDE.md

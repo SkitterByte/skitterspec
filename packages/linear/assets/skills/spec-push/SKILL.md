@@ -230,13 +230,32 @@ branch so the mirror-link rides in the PR.
 
 ## 6. Report
 
-Summarise what was created/updated in Linear (the spec issue and its
-sub-issues), **say which transport was used**, and confirm the snapshot was
-recorded. There is no pull — Linear is a generated mirror.
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
 
-Saying the transport matters: on the API path you never saw the descriptions, so
-"pushed 12 sub-issues" is the engine's report, not your observation. If it warned
-that Linear stored different text, relay that — the repo is still correct, and a
-re-push overwrites the mirror.
+**Verdicts**
+
+- `✅` — the mirror matches the repo and the snapshot is recorded.
+- `⚠️` — pushed, with something worth knowing: Linear stored different text, a
+  project picker that could not be offered, `phasesDeferred` phases not yet
+  minted.
+- `❌` — it wrote some objects and failed on another. Name what exists in Linear
+  now; `apply` stamps each id as it goes, so the re-run is an update, never a
+  duplicate.
+- `⏸` — no config, no `linear_identifier`, an unvalidated state list, or a
+  pre-9.0 mirror. Nothing was written.
+
+**Fields:** `Tracker` · `Follow-ups` · `Next`
+
+`Tracker` carries what was created and updated — the spec issue and its
+sub-issues — **the transport that did it**, and that the snapshot was recorded.
+
+**Say the transport, every time.** On the API path you never saw the
+descriptions, so "pushed 12 sub-issues" is the engine's report rather than your
+observation, and that distinction is the difference between a fact and a
+paraphrase. If it warned that Linear stored different text, relay it: the repo
+is still correct and a re-push overwrites the mirror.
+
+There is no pull — Linear is a generated mirror.
 
 <!-- seam:spec-project-picker -->

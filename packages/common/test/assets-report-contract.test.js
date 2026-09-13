@@ -36,6 +36,25 @@ const SKILLS = {
     'spec-diff',
     'spec-init',
   ],
+  // Phase 3. A provider's skills end the same way as the base's — one shape
+  // everywhere beats a rule about which kind of skill gets which ending.
+  linear: ['spec-push', 'spec-status', 'spec-list', 'spec-claim', 'spec-sync', 'spec-linear-setup'],
+}
+
+// Every skill that ships, from either package. Compared against SKILLS below so
+// a skill added tomorrow cannot quietly ship without an ending — the list above
+// is what this test drives from, and a list is exactly the thing that goes
+// stale silently.
+function shippedSkills() {
+  const out = []
+  for (const pkg of ['common', 'linear']) {
+    const dir = path.join(ROOT, 'packages', pkg, 'assets', 'skills')
+    if (!fs.existsSync(dir)) continue
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md'))) out.push(`${pkg}:${e.name}`)
+    }
+  }
+  return out.sort()
 }
 
 const skillText = (pkg, name) =>
@@ -82,11 +101,24 @@ function declaredVerdicts(text) {
   return [...run.matchAll(/^- `([^`]+)`/gm)].map((m) => m[1])
 }
 
+// The list above is hand-maintained, and a hand-maintained list of what ships is
+// the failure mode `assets-prose.test.js` was written about. It cannot be
+// replaced by discovery here — a skill's ABSENCE from the contract is the thing
+// being tested — so instead the two are compared, and a mismatch names the skill.
+test('every shipped skill is in the contract list', () => {
+  const listed = entries().map(([label]) => label).sort()
+  assert.deepStrictEqual(
+    shippedSkills(),
+    listed,
+    'a skill ships without a report ending, or the list names one that does not ship',
+  )
+})
+
 test('the rule is readable, or every guard below is vacuous', () => {
   assert.ok(VOCABULARY.includes('Follow-ups'), `vocabulary: ${VOCABULARY}`)
   assert.ok(VOCABULARY.includes('Why'), `vocabulary: ${VOCABULARY}`)
   assert.strictEqual(VERDICTS.length, 4, `verdicts: ${VERDICTS}`)
-  assert.ok(entries().length > 10, 'the skill list is populated')
+  assert.strictEqual(entries().length, 17, 'all 17 skills are covered')
 })
 
 test('every lifecycle skill points at the contract rule', () => {
@@ -119,11 +151,27 @@ test('every lifecycle skill declares its fields, in the rule’s order', () => {
 // The point of the field: a recorded `none` is a decision, a missing line is an
 // oversight. A skill that may omit it has opted out of the only part of the
 // block that is not conditional.
-test('every lifecycle skill declares Follow-ups, and declares it last', () => {
+test('every lifecycle skill declares Follow-ups, and ends on Next', () => {
   for (const [label, pkg, name] of entries()) {
     const fields = declaredFields(skillText(pkg, name))
-    assert.strictEqual(fields[fields.length - 1], 'Follow-ups', `${label} ends its fields on Follow-ups`)
+    assert.ok(fields.includes('Follow-ups'), `${label} declares Follow-ups`)
+    // `Next` is last where it is declared. A skill with nothing to hand on to
+    // legitimately has no `Next`, and then `Follow-ups` is the final row — so
+    // this asserts the position of `Next`, not that every skill must have one.
+    if (fields.includes('Next')) {
+      assert.strictEqual(fields[fields.length - 1], 'Next', `${label} ends its fields on Next`)
+    } else {
+      assert.strictEqual(fields[fields.length - 1], 'Follow-ups', `${label} ends on Follow-ups`)
+    }
   }
+})
+
+// The closing row is the one the reader acts on, so a skill that hands on to
+// something must say so in the row the eye stops at.
+test('a skill with no Next legitimately ends on Follow-ups', () => {
+  const fields = declaredFields('**Fields:** `Built` · `Follow-ups`')
+  assert.strictEqual(fields[fields.length - 1], 'Follow-ups')
+  assert.ok(!fields.includes('Next'))
 })
 
 test('every declared verdict is one of the four', () => {

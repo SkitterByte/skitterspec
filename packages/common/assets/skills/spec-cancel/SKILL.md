@@ -82,7 +82,7 @@ the shape; this section carries only what is specific here.
 - `❌` — it acted and stopped part-way. Say what is where.
 - `⏸` — no reason given, or no such spec. Nothing changed.
 
-**Fields:** `Spec` · `Worktree` · `Tracker` · `Next` · `Follow-ups`
+**Fields:** `Tracker` · `Spec` · `Worktree` · `Follow-ups` · `Next`
 
 **The reason goes in the verdict clause** — `✅ /spec-cancel · feat-foo ·
 superseded by feat-bar`. It is the one thing anyone reading this later wants,

@@ -220,30 +220,27 @@ path it prints and move on.
 costs — roughly **700 output tokens**, because writing it means reading the diff
 — and that spend is the operator's call, not a default.
 
-**Write it as prose ending in a question, and put it LAST** — after the
-report block of step 6, as the final thing on screen:
+**The offer is the `Review` row of step 6's block** — the counts, the page link
+and a question, in one row:
 
-```
-Page is rendered: <the `open:` file:// URL it printed> — <N> files, +<a> −<d>.
+| **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) — want a written review before you commit? |
 
-Want a written review of it before you commit?
-```
+**It ends in a question, addressed to someone.** It was once a fenced block of
+engine output, and it fired on every phase and was never once taken: two quoted
+lines under the test counts, addressed to nobody, with the report then closing
+on *"commit this first"* — the last instruction the reader got was to move on,
+so they did. A row in a labelled table is findable; a question in it is
+answerable. Both halves are load-bearing.
 
-**A fenced block of engine output is not an offer.** It was one once, and the
-result was an offer that fired on every phase and was never once taken: two
-quoted lines in the tail of a long report, under the test counts, with the
-report then closing on *"commit this first"*. Nothing in it was addressed to
-anyone, and the last instruction the reader got was to move on — so they did.
-Ask them something, and ask it where the message ends.
-
-**Never bury it and never reorder it back.** The offer is last because being
-last is the whole fix; a later edit that tucks it inside the block, or ahead of
-it, undoes this phase and should be read as a regression rather than tidying.
+**Never bury it and never split it.** It sits above `Follow-ups` and `Next`, and
+the page and the question stay in the same row: two adjacent rows about one page
+make the reader resolve a distinction before acting on either. A later edit that
+moves it out of the block, or separates the link from the question, undoes this
+and should be read as a regression rather than tidying.
 
 **Non-blocking, deliberately.** Do not end your turn waiting on the answer.
 Phases get chained — `/commit && /spec-next` typed as one line — and a question
-that stops the run taxes every phase to fix a problem that being last already
-fixes.
+that stops the run taxes every phase to fix a problem the row already fixes.
 
 Relay the **`open:`** line the engine prints, not the bare path: a path is not
 clickable in any terminal, and a page nobody can open is a page nobody reads.
@@ -297,12 +294,14 @@ the shape; this section carries only what is specific here.
 - `❌` — the phase's tests are red, or it stopped part-way. Quote the failure.
 - `⏸` — no spec in flight, or the name given does not match the one that is.
 
-**Fields:** `Built` · `Tests` · `Branch` · `Diff` · `Next` · `Follow-ups`
+**Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Review` ·
+`Follow-ups` · `Next`
 
 `Next` names the phase, as `/spec-next → phase 3 (Auth)`, so the block says
 which phase is next without a line of prose for it.
 
-**Then step 5's offer, and nothing after it.** The order is fixed: the block,
-then the page and the question. Step 5 renders before the commit and this step
-is where its offer lands, so the two must not disagree about the position — the
-offer is the last thing on screen or it is not an offer.
+**Step 5's offer is the `Review` row.** It is not a paragraph after the block,
+because nothing is after the block: the counts, the page link and the question
+go in one row, above `Follow-ups` and `Next`. Step 5 renders before the commit
+and this step is where its offer lands, so the two must not disagree about where
+it goes.

@@ -315,3 +315,26 @@ pushes go over MCP.
 Mention what setup did **not** configure, so the defaults aren't mistaken for
 decisions: phase mapping (`mapping.phases` — sub-issue per phase by default) and
 field ownership. Point at `linear.config.md` for those.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**The `doctor` table goes above the block, verbatim.** It is a check rather than
+a summary, and every row that needs attention names its own fix — paraphrasing
+it into fields would lose exactly that.
+
+**Verdicts**
+
+- `✅` — every layer `doctor` checked is configured and working.
+- `⚠️` — configured, with a `missing` row: an opt-in nobody took, which is fine.
+  Report it; do not treat it as a failure.
+- `❌` — a `broken` row: configured but wrong. On a broken `mcp` row **stop** —
+  which side is correct is the user's to say.
+- `⏸` — an existing config was reviewed and left alone, or the workspace could
+  not be discovered. Nothing was written.
+
+**Fields:** `Built` · `Follow-ups` · `Next`
+
+`Built` is the config written or reviewed, plus what was deliberately left
+unset. **The key is never a field** — `doctor`'s `key` row already reports
+whether one is set, masked, and the value is the user's alone.

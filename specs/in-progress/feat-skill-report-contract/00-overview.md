@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-skill-report-contract (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 3 (started 2026-09-12)
+> **Status:** In Progress — Phase 4 (started 2026-09-12)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-12
@@ -185,7 +185,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Write the contract rule and bring it under the prose guard | ✅ | [01-contract-rule.md](01-contract-rule.md) |
 | 2 | Retrofit the 11 lifecycle skills, enforced by test | ✅ | [02-common-skills.md](02-common-skills.md) |
-| 3 | Retrofit the 6 Linear skills, extend the guard to all 17 | ⬜ | [03-linear-skills.md](03-linear-skills.md) |
+| 3 | Re-render the block as a table, then the 6 Linear skills | ✅ | [03-linear-skills.md](03-linear-skills.md) |
 | 4 | Update the outward-facing surfaces | ⬜ | [04-docs.md](04-docs.md) |
 
 ## Open questions
@@ -264,3 +264,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   one line that has to be scannable at a glance the longest one in the block.
 - 2026-09-13 — The `Tracker` row carries the spec name beside the id
   (decision 14), so the first row is the full identity of the work.
+- 2026-09-13 — Phase 3: the block must report **this run and nothing else** — no
+  other specs, no backlog, no repo-wide status. A completion that surveys what
+  is left leaves the reader unable to tell what followed from the run they just
+  watched, which is the cost the block exists to remove. Stated in the rule and
+  again in `/spec-complete`, where it actually happened, and guarded.
+- 2026-03-13 — Phase 3: `assets-offer-last.test.js` was re-pointed rather than
+  relaxed, and now carries a note saying what must not be weakened if the anchor
+  moves a third time — findable, addressed to someone, link and question in one
+  row. If a future change loosens those instead of re-pointing them, the honest
+  move is to delete the guard.
+- 2026-09-13 — Phase 3: the contract test now compares its skill list against
+  what actually ships and fails on a mismatch, so a new skill cannot arrive
+  without an ending. `build-dist.test.js` gained the untested overlay direction:
+  a **common** rule surviving into the provider superset, which had no symptom
+  because the provider-rule assertion beside it would still have passed.

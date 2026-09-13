@@ -209,6 +209,23 @@ so and asks you to confirm the key rather than guessing.
 
 ## 9. Report
 
-Relay the engine's output. Name the subcommand you ran, in full, so the user can
-re-run it themselves. For anything that wrote, say what changed in Linear and
-that the repo is unchanged — it is the source of truth either way.
+Relay the engine's output **above the block**, and name the subcommand you ran
+**in full**, so the user can re-run it themselves.
+
+End with the block defined in `.claude/rules/spec-reports.md`. That file carries
+the shape; this section carries only what is specific here.
+
+**Verdicts**
+
+- `✅` — the subcommand did what it says.
+- `⚠️` — it ran, with something worth knowing — a partial result, a warning it
+  printed, a degradation it fell back to.
+- `❌` — it wrote some objects and failed on another. Say what exists now.
+- `⏸` — it refused: no config, an unvalidated state list, a bad argument.
+  Nothing was written.
+
+**Fields:** `Tracker` · `Follow-ups` · `Next`
+
+`Tracker` says what changed in Linear **and that the repo is unchanged** — it is
+the source of truth either way, and a report that omits the second half reads as
+though a sync had edited the repo.

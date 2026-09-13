@@ -111,7 +111,7 @@ the shape; this section carries only what is specific here.
   Quote it; the repo is mid-something and that is what the reader needs.
 - `⏸` — a dirty worktree, red tests, or no spec to land. Nothing moved.
 
-**Fields:** `Tests` · `Branch` · `Landed` · `Next` · `Follow-ups`
+**Fields:** `Branch` · `Tests` · `Landed` · `Follow-ups` · `Next`
 
 **No `Spec` field, deliberately.** This skill changes no status and moves no
 folder, and a `Spec` line here would read as though it had. The spec stays

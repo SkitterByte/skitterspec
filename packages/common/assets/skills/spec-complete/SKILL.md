@@ -105,8 +105,15 @@ the shape; this section carries only what is specific here.
 - `⏸` — phases are unfinished, tests are red, or the tree is dirty. Nothing
   moved.
 
-**Fields:** `Tests` · `Spec` · `Landed` · `Worktree` · `Tracker` · `Next` ·
-`Follow-ups`
+**Fields:** `Tracker` · `Spec` · `Tests` · `Landed` · `Worktree` ·
+`Follow-ups` · `Next`
+
+**Report this spec and no other.** A completion is the moment it is most
+tempting to survey what is left — what else is in flight, what is in the
+backlog, which worktrees are still standing — and it is the moment it helps
+least: the reader has just finished something and cannot tell whether a line
+about another spec followed from it. `Next` is one action for this spec, and
+`/spec-list` is where the wider picture lives if they want it.
 
 `Landed` says how, because the two ways differ: a fast-forward names the base
 and the commit, a hotfix names the deploy tag and the `main` cherry-pick — and

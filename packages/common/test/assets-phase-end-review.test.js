@@ -35,10 +35,16 @@ for (const name of RENDERS) {
     assert.match(text, /\*\*after\*\* the tests pass and\s*\n?\*\*before\*\* the commit/)
   })
 
-  test(`/${name} offers the review as a question, last`, () => {
-    assert.match(text, /Want a written review of it before you commit\?/)
-    assert.match(text, /put it LAST/)
-    assert.match(text, /A fenced block of engine output is not an offer/)
+  // The offer is the block's `Review` row now, not prose after it — see
+  // `assets-offer-last.test.js` for why the anchor moved and what must not be
+  // weakened when it moves again. All three skills carry the same wording, so
+  // this asserts it across all three rather than in one.
+  test(`/${name} offers the review as a question, in the Review row`, () => {
+    assert.match(text, /want a written review before you commit\?/)
+    assert.match(text, /The offer is the `Review` row/)
+    assert.match(text, /It ends in a question, addressed to someone/)
+    // The shape it must not go back to.
+    assert.doesNotMatch(text, /```\nPage is rendered:/)
   })
 
   test(`/${name} never writes the review unasked and never publishes`, () => {
