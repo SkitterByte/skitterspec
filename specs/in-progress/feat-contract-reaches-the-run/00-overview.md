@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-202"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-202/the-report-contract-reaches-the-run-it-governs"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # The report contract reaches the run it governs
 
 > **Type:** Feature
 > **Name:** feat-contract-reaches-the-run (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-13)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
 > **Area:** packages/common/assets/skills, packages/linear/assets/skills, packages/common/assets/rules/spec-reports.md, packages/common/src/init.js, packages/common/src/cli.js, packages/common/test
 > **Stack:** worktree
@@ -131,6 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-13 | Ready | backlog | Reuben Greaves |
+| 2026-09-13 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
