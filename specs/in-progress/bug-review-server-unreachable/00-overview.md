@@ -1,8 +1,15 @@
+---
+linear_identifier: "SKS-206"
+linear_url: "https://linear.app/skitterbyte/issue/SKS-206/bug-the-review-page-cannot-be-opened"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
+---
+
 # Bug: the review page cannot be opened
 
 > **Type:** Bug
 > **Name:** bug-review-server-unreachable (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** In Progress — phase 1 fixed, phases 2-3 to go
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-13
@@ -59,7 +66,21 @@ So the two halves disagree and neither says so.
 
 ## Failing test (red)
 
-To be written per phase — see the phase files.
+`packages/common/test/cli-review-serve-ownership.test.js` —
+`node --test test/cli-review-serve-ownership.test.js` in `packages/common`.
+
+It asks `serveProcFor` for the daemon's command while standing in a worktree,
+and the command it gets back names that worktree:
+
+```
+✖ the daemon is launched from the primary checkout, not from whoever started it
+  AssertionError: the command should name the primary checkout's copy, got:
+    node /Users/reubengreaves/code/skitterspec-wt/review-server-unreachable/
+    packages/common/src/env/serve.js …/.spec-env/review-serve.json
+```
+
+That path is inside a worktree `/spec-complete` will delete — the bug, stated as
+an assertion. Phases 2 and 3 carry their own tests.
 
 ## Impact
 
@@ -75,7 +96,7 @@ To be written per phase — see the phase files.
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The daemon is owned by the primary checkout | ⬜ | [01-primary-owned-daemon.md](01-primary-owned-daemon.md) |
+| 1 | The daemon is owned by the primary checkout | ✅ | [01-primary-owned-daemon.md](01-primary-owned-daemon.md) |
 | 2 | The bind and the URLs never disagree | ⬜ | [02-bind-matches-urls.md](02-bind-matches-urls.md) |
 | 3 | `/spec-start` brings it up first | ⬜ | [03-spec-start-seam.md](03-spec-start-seam.md) |
 
@@ -87,6 +108,12 @@ To be written per phase — see the phase files.
 
 ## Changelog
 
+- 2026-09-13 — Fixed (phase 1): the daemon's script is resolved against the
+  primary checkout and recorded in `review-serve.json`, and a running server
+  whose script has been deleted is replaced rather than adopted; test green.
+  Verified against the original failure — from inside a worktree the daemon now
+  resolves to the primary checkout's copy, and the dead
+  `skill-report-contract` script is correctly judged non-adoptable.
 - 2026-09-13 — Both failures reproduced while reviewing `feat-review-verdict`
   phase 1. Captured as one spec because they share a symptom and a surface, and
   phased because the fixes are independent.

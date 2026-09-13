@@ -736,7 +736,7 @@ function compactTimestamp() {
  */
 function reviewServerNoticeFor(dir, config, folder) {
   const sdir = stateDirLabel(config)
-  const proc = serveProcFor(config, path.resolve(dir, `${sdir}/review-serve.json`))
+  const proc = serveProcFor(config, path.resolve(dir, `${sdir}/review-serve.json`), { root: dir })
   const pid = readPid(path.resolve(dir, proc.pidFile))
   let othersServed = 0
   try {
@@ -1046,7 +1046,7 @@ function resolveSpecWithWorktree(dir, config, specArg) {
  * case (unreadable file, failed unlink) does nothing at all.
  */
 function reapStaleServePid(dir, config) {
-  const proc = serveProcFor(config, path.resolve(dir, `${stateDirLabel(config)}/review-serve.json`))
+  const proc = serveProcFor(config, path.resolve(dir, `${stateDirLabel(config)}/review-serve.json`), { root: dir })
   const file = path.resolve(dir, proc.pidFile)
   const pid = readPid(file)
   if (!pid || isAlive(pid)) return null
@@ -1887,11 +1887,66 @@ function proxyProcFor(config, routesFileAbs) {
 // The supervised review-server process descriptor. Same shape as the proxy's:
 // a tiny detached node process reading its settings from a file, so a restart is
 // a rewrite of that file rather than an argv change.
-function serveProcFor(config, settingsFileAbs) {
+// Where a checkout keeps its copy of the daemon, relative to its root: this
+// monorepo developing itself, and a project that installed the package. Naming
+// the distribution here is a path, not provider machinery — `init.js` and
+// `PROVIDER_COMMANDS` above already know package names by name.
+const DAEMON_LOCATIONS = [
+  path.join('node_modules', '@skitterbyte', 'skitterspec', 'src', 'env', 'serve.js'),
+  path.join('packages', 'common', 'src', 'env', 'serve.js'),
+]
+
+/**
+ * The `serve.js` the daemon should actually execute.
+ *
+ * NOT `__dirname` — that is the module directory of whichever copy of the CLI
+ * is running, and running one from a worktree pinned the daemon to that
+ * worktree's tree (its `review.js` then resolves the page template into the
+ * worktree's `assets/`). Teardown removed the worktree, the daemon carried on
+ * answering on its port, and every render failed with ENOENT for every spec.
+ *
+ * `root` is the primary checkout, which every spec-env command has already
+ * resolved. A copy found there outlives every worktree, which is the whole
+ * point. Three states, and the third is the common one — a global install or
+ * `npx` has no copy under the checkout at all — so it falls back to the running
+ * module rather than refusing to serve. Being wrong there costs exactly what
+ * happens today; refusing would cost a feature.
+ */
+function daemonScript(root) {
+  if (root) {
+    for (const rel of DAEMON_LOCATIONS) {
+      const candidate = path.join(root, rel)
+      if (fs.existsSync(candidate)) return candidate
+    }
+  }
+  return path.join(__dirname, 'env', 'serve.js')
+}
+
+/**
+ * Is a running server's recorded script still on disk?
+ *
+ * A POSITIVE SIGNAL, and the one adoption was missing: a live pid and a
+ * readable settings file were treated as proof the server works, and neither
+ * can see that the code the process is executing has been deleted.
+ *
+ * WHAT WOULD FOOL THIS: a settings file written before `script` was recorded
+ * has no key to check. That absence is not evidence — it describes every
+ * healthy server started by an older build — so it adopts as before. The
+ * destructive reading would kill a working server over a key it never had
+ * (`.claude/rules/negative-checks.md` rule 4).
+ */
+function serverScriptOk(settings) {
+  const script = settings && settings.script
+  if (!script) return true
+  return fs.existsSync(script)
+}
+
+function serveProcFor(config, settingsFileAbs, { root = null } = {}) {
   const sdir = stateDirLabel(config)
   return {
     name: 'review-serve',
-    command: `node ${path.join(__dirname, 'env', 'serve.js')} ${settingsFileAbs}`,
+    command: `node ${daemonScript(root)} ${settingsFileAbs}`,
+    script: daemonScript(root),
     env: {},
     logFile: `${sdir}/logs/review-serve.log`,
     pidFile: `${sdir}/pids/review-serve.pid`,
@@ -1970,17 +2025,21 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   const sdir = stateDirLabel(config)
   const abs = (rel) => path.resolve(dir, rel)
   const settingsFile = `${sdir}/review-serve.json`
-  const proc = serveProcFor(config, abs(settingsFile))
+  const proc = serveProcFor(config, abs(settingsFile), { root: dir })
 
   // A POSITIVE SIGNAL, not an absence: a pidfile on disk proves nothing (a
   // crashed process leaves one behind), so `isAlive` is what decides.
   const pid = readPid(abs(proc.pidFile))
   const running = pid && isAlive(pid) ? pid : null
 
+  let replaced = false
   if (running && !restart) {
+    let settings = null
     try {
-      const settings = JSON.parse(fs.readFileSync(abs(settingsFile), 'utf-8'))
-      if (settings.port) {
+      settings = JSON.parse(fs.readFileSync(abs(settingsFile), 'utf-8'))
+    } catch {}
+    if (settings && settings.port) {
+      if (serverScriptOk(settings)) {
         const lb = settings.host === '127.0.0.1' || settings.host === 'localhost'
         return {
           port: settings.port,
@@ -1990,10 +2049,15 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
           started: false,
         }
       }
-    } catch {}
-    // Running, but its settings are unreadable — we cannot address it, and
-    // killing a server we cannot describe is worse than declining to use it.
-    return { error: 'unreadable', pid: running }
+      // Alive, addressable, and executing code that has been deleted — the
+      // worktree it was started from is gone. It answers on the port and fails
+      // on every page, so adopting it is worse than replacing it.
+      replaced = true
+    } else {
+      // Running, but its settings are unreadable — we cannot address it, and
+      // killing a server we cannot describe is worse than declining to use it.
+      return { error: 'unreadable', pid: running }
+    }
   }
 
   const usePort = Number(port || config.review.servePort)
@@ -2010,13 +2074,15 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   fs.mkdirSync(path.dirname(abs(settingsFile)), { recursive: true })
   fs.writeFileSync(
     abs(settingsFile),
-    JSON.stringify({ dir, port: usePort, host, token }, null, 2) + '\n',
+    // `script` is recorded so adoption has something to check. Without it the
+    // only evidence a server is healthy is that its process exists.
+    JSON.stringify({ dir, port: usePort, host, token, script: proc.script }, null, 2) + '\n',
   )
   const res = startProcess(proc, { cwd: dir, rootDir: dir })
   const up = await waitListening([usePort], { host: loopback ? host : '127.0.0.1' })
   if (!up) return { error: 'silent', port: usePort, pid: res.pid }
 
-  return { port: usePort, token, loopback, pid: res.pid, started: true }
+  return { port: usePort, token, loopback, pid: res.pid, started: true, replaced }
 }
 
 /**
@@ -2030,7 +2096,7 @@ async function specEnvReviewServe(dir, config, flags) {
   const sdir = stateDirLabel(config)
   const abs = (rel) => path.resolve(dir, rel)
   const settingsFile = `${sdir}/review-serve.json`
-  const proc = serveProcFor(config, abs(settingsFile))
+  const proc = serveProcFor(config, abs(settingsFile), { root: dir })
 
   // A POSITIVE SIGNAL, not an absence: a pidfile on disk proves nothing (a
   // crashed process leaves one behind), so `isAlive` is what decides. Three
@@ -2811,4 +2877,4 @@ async function run(argv) {
   }
 }
 
-module.exports = { run, parse, HELP, unknownCommand, rankLanAddresses }
+module.exports = { run, parse, HELP, unknownCommand, rankLanAddresses, serveProcFor, serverScriptOk, daemonScript }
