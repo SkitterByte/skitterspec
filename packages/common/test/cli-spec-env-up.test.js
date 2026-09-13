@@ -311,3 +311,96 @@ test('a spec genuinely absent from the fork point is still refused', () => {
     cleanupGit(dir)
   }
 })
+
+// --- foreign dirt no longer refuses a worktree -------------------------------
+
+/**
+ * THE INVARIANT: in `worktree` mode, uncommitted work that is not this spec's
+ * does not stop it being started.
+ *
+ * This refused until the spec that changed it, and the refusal fired on the
+ * commonest tree this workflow produces — author spec B while spec A is still
+ * uncommitted, then start B. Nothing was being protected: `git worktree add`
+ * carries nothing, and the only write to the checkout is a pathspec-limited
+ * commit of this spec's own paths. Checkout mode still refuses, and must: see
+ * env-provision-checkout.test.js, where `git switch -c` really does carry it.
+ *
+ * A real git repo, because the planner's answer comes from a real tree read —
+ * a scaffold without one yields "nobody looked", which is a different path.
+ */
+function scaffoldDirty() {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-dirty-')))
+  git(dir, 'init', '-q')
+  git(dir, 'config', 'user.email', 'test@example.com')
+  git(dir, 'config', 'user.name', 'Test')
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+  )
+  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
+  for (const folder of ['feat-alpha', 'feat-beta']) {
+    const spec = path.join(dir, 'specs', 'backlog', folder)
+    fs.mkdirSync(spec, { recursive: true })
+    fs.writeFileSync(
+      path.join(spec, '00-overview.md'),
+      '# X\n\n> **Type:** Feature\n> **Stack:** worktree\n',
+    )
+  }
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'init')
+  git(dir, 'branch', '-M', 'main')
+  return dir
+}
+
+const touch = (dir, rel, body = 'wip\n') => fs.appendFileSync(path.join(dir, rel), body)
+
+test('worktree mode provisions beside another spec’s uncommitted work', async () => {
+  const dir = scaffoldDirty()
+  try {
+    touch(dir, 'specs/backlog/feat-alpha/00-overview.md', 'mine\n')
+    touch(dir, 'specs/backlog/feat-beta/00-overview.md')
+    fs.writeFileSync(path.join(dir, 'scratch.js'), 'wip\n')
+
+    const out = await runQuiet(['spec-env', 'up', 'feat-alpha', '--dir', dir])
+
+    assert.doesNotMatch(out, /blocked/, `it refused: ${out}`)
+    assert.match(out, /git worktree add/, 'it plans the fork')
+    assert.match(out, /left untouched \(2\)/, 'and reports what it left alone')
+    assert.match(out, /scratch\.js/)
+    assert.match(out, /feat-beta/)
+
+    const commit = out.split('\n').find((l) => l.includes('git commit'))
+    assert.ok(commit, `a commit was planned: ${out}`)
+    assert.ok(!commit.includes('scratch.js'), `the commit stays bounded: ${commit}`)
+    assert.ok(!commit.includes('feat-beta'), `the commit stays bounded: ${commit}`)
+  } finally {
+    cleanupGit(dir)
+  }
+})
+
+// STAYS-SILENT: the ordinary tree must not grow a report about nothing.
+test('a tree that is only this spec’s says nothing about untouched paths', async () => {
+  const dir = scaffoldDirty()
+  try {
+    touch(dir, 'specs/backlog/feat-alpha/00-overview.md', 'mine\n')
+
+    const out = await runQuiet(['spec-env', 'up', 'feat-alpha', '--dir', dir])
+    assert.doesNotMatch(out, /untouched/i, `volunteered a report about nothing: ${out}`)
+    assert.match(out, /all of it is feat-alpha's/, 'and still claims the whole tree')
+  } finally {
+    cleanupGit(dir)
+  }
+})
+
+// STAYS-SILENT: a clean tree is the commonest state of all.
+test('a clean tree reports nothing untouched and provisions', async () => {
+  const dir = scaffoldDirty()
+  try {
+    const out = await runQuiet(['spec-env', 'up', 'feat-alpha', '--dir', dir])
+    assert.doesNotMatch(out, /untouched/i, `volunteered a report about nothing: ${out}`)
+    assert.doesNotMatch(out, /blocked/, `refused a clean tree: ${out}`)
+  } finally {
+    cleanupGit(dir)
+  }
+})

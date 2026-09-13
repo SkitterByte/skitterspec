@@ -100,6 +100,7 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Tests` | The result and the command that produced it. |
 | `Landed` | A fast-forward, a tag, a cherry-pick. |
 | `Worktree` | A worktree provisioned, entered, or torn down. |
+| `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |
 | `Review` | The rendered diff page: files, `+`/`−`, the link — and the offer of a written review, in the same row. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
 | `Next` | **Last.** The single next action for this work. |
@@ -108,6 +109,15 @@ The order runs identity → context → what happened → where it went → what
 **`Tracker` is first** because the id is what addresses this work outside the
 repo, and **`Next` is last** because it is the only row the reader acts on: the
 closing row should be the one that moves the work on.
+
+**`Untouched` is a fact, not a caveat.** A run that provisions beside another
+spec's uncommitted work has done nothing wrong and nothing partial — it left
+alone something that was never its business — so it stays `✅` with a row, and
+does not become `⚠️`. Several specs in flight at once is what the worktree mode
+is *for*; spending the "something is worth knowing" verdict on the normal case
+is how that verdict stops meaning anything. It is still reported rather than
+silent, because "I provisioned, and your four files are still sitting there" is
+a different sentence from "I provisioned".
 
 **`Review` is one row, not two.** The page and the offer to read it are the same
 subject, and splitting them made the reader resolve a distinction before acting

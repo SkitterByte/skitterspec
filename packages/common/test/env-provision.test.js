@@ -276,14 +276,51 @@ test('an already-tracked spec is committed as an update, not an add', () => {
   assert.match(plan.commands[1], /chore\(spec\): update feat-thing/)
 })
 
-test('one foreign path blocks, names itself, and plans nothing', () => {
+// This USED to refuse, and the refusal was the reason the spec that changed it
+// existed: `git worktree add` carries nothing, so another spec's uncommitted work
+// cannot reach the new branch, and the only write to the primary checkout is a
+// pathspec-limited commit of this spec's own paths. Refusing fired on the
+// commonest tree this workflow produces — author spec B while A is uncommitted,
+// then start B — and prevented nothing. Checkout mode still refuses; see
+// env-provision-checkout.test.js, where `git switch -c` really does carry it.
+test('foreign dirt does not block a worktree, and is reported instead', () => {
   const plan = planUp(S, { slot: 0, attached: false }, config(), {
     dirtyPaths: ['specs/backlog/feat-thing/00-overview.md', 'src/app.js'],
   })
-  assert.strictEqual(plan.blocked, true)
-  assert.match(plan.reason, /src\/app\.js/)
-  assert.deepStrictEqual(plan.commands, [])
-  assert.deepStrictEqual(plan.setupCommands, [])
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.reason, null)
+  assert.deepStrictEqual(plan.untouched, ['src/app.js'], 'the foreign path is reported')
+  assert.deepStrictEqual(
+    plan.specCommit.paths,
+    ['specs/backlog/feat-thing/00-overview.md'],
+    'and the commit still names only this spec’s own',
+  )
+  assert.ok(
+    plan.commands.some((c) => c.startsWith('git worktree add')),
+    'it provisions',
+  )
+  assert.ok(
+    !plan.commands.some((c) => c.includes('src/app.js')),
+    'no command touches the foreign path',
+  )
+})
+
+// Nothing of this spec's is uncommitted, but somebody else's is. There is no
+// commit to plan and still something to report.
+test('foreign dirt alone is reported, with no commit planned', () => {
+  const plan = planUp(S, { slot: 0, attached: false }, config(), {
+    dirtyPaths: ['src/app.js'],
+  })
+  assert.strictEqual(plan.blocked, false)
+  assert.deepStrictEqual(plan.untouched, ['src/app.js'])
+  assert.strictEqual(plan.specCommit, null)
+})
+
+// STAYS-SILENT: the healthy tree must not grow a report about nothing.
+test('a clean tree reports nothing untouched', () => {
+  const plan = planUp(S, { slot: 0, attached: false }, config(), { dirtyPaths: [] })
+  assert.strictEqual(plan.blocked, false)
+  assert.deepStrictEqual(plan.untouched, [])
 })
 
 test('a clean tree whose spec is not on base blocks, naming where it is', () => {

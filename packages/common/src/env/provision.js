@@ -114,11 +114,20 @@ function listPaths(paths) {
  * tell (an unreadable git, or a hotfix, which forks from a tag predating its own
  * spec), and routes to carrying on, never to refusing.
  *
+ * FOREIGN DIRT IS THE SAME ASYMMETRY, for the same reason. Another spec's
+ * uncommitted work refuses in checkout mode, where `git switch -c` would carry
+ * it onto the new branch, and does not in worktree mode, where nothing carries
+ * anywhere. Refusing there fired on the commonest tree this workflow produces —
+ * author spec B while spec A is still uncommitted, then start B — and prevented
+ * nothing, since the only write to the primary checkout is a pathspec-limited
+ * commit of this spec's own paths. It is reported instead, on `foreign`.
+ *
  * ctx: { dirtyPaths?, clean?, specOnFork?, specFoundOn?, forkRef?, specUntracked? }
- * @returns {{blocked: boolean, reason: string|null, commands: string[]}}
+ * @returns {{blocked: boolean, reason: string|null, commands: string[],
+ *            owned: string[], foreign: string[]}}
  */
 function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
-  const ok = { blocked: false, reason: null, commands: [], owned: [], verb: null }
+  const ok = { blocked: false, reason: null, commands: [], owned: [], verb: null, foreign: [] }
   const c = ctx || {}
 
   if (!Array.isArray(c.dirtyPaths)) {
@@ -140,15 +149,30 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
 
   const { owned, foreign } = classifyDirtyTree(spec, c.dirtyPaths, config)
 
-  if (foreign.length) {
+  // FOREIGN DIRT REFUSES ONLY WHERE IT CAN REACH THE BRANCH, which is checkout
+  // mode and nowhere else. `git switch -c` carries the working tree onto the new
+  // branch, silently, so there it is someone else's work being moved without
+  // them asking. `git worktree add` carries nothing and forks from a commit, so
+  // in worktree mode the same tree is simply none of this run's business.
+  //
+  // WHAT WOULD MAKE THIS UNSAFE AGAIN: an unbounded commit. The only thing this
+  // run does to the primary checkout is the spec commit below, and it is safe to
+  // leave a colleague's files sitting beside it only because that commit is
+  // pathspec-limited on BOTH halves (`git add --`, `git commit … --`) and so
+  // cannot reach a path it does not own — not even one another session has
+  // already staged into the shared index. Drop the `--` and this stops being a
+  // false guard and starts being a missing one.
+  if (foreign.length && carriesChanges) {
     return {
       blocked: true,
       reason:
         `the primary checkout has uncommitted changes that are not ${spec.folder}'s — ` +
-        'commit or stash them first' +
-        (carriesChanges ? ' (switching would carry them onto the new branch)' : '') +
+        'commit or stash them first (switching would carry them onto the new branch)' +
         `: ${listPaths(foreign)}`,
       commands: [],
+      owned: [],
+      verb: null,
+      foreign,
     }
   }
 
@@ -178,6 +202,7 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
       reason: null,
       owned,
       verb,
+      foreign,
       commands: [
         `git add -- ${paths}`,
         `git commit -m "chore(spec): ${verb} ${spec.folder}" -- ${paths}`,
@@ -187,6 +212,11 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
 
   // Tree is clean. The spec must already be in the base branch's tree, or the
   // worktree forks without it.
+  // Nothing of this spec's is uncommitted, but somebody else's may be — say so
+  // rather than returning the bare `ok`, or the caller has no way to report what
+  // it left alone.
+  if (foreign.length && c.specOnFork !== false) return { ...ok, foreign }
+
   if (c.specOnFork === false) {
     return {
       blocked: true,
@@ -283,6 +313,10 @@ function planUp(spec, alloc, config, ctx) {
     blocked: gate.blocked,
     reason: gate.reason,
     specCommit: gate.owned && gate.owned.length ? { paths: gate.owned, verb: gate.verb } : null,
+    // What this run deliberately did not touch. Carried out rather than dropped
+    // because "provisioned, and left four of your files alone" is a different
+    // report from "provisioned", and the caller cannot reconstruct it.
+    untouched: gate.foreign || [],
     worktreePath: spec.worktreePath,
     branch: spec.branch,
     projectName: spec.projectName,

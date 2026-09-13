@@ -384,8 +384,25 @@ function specOnForkPoint(dir, git, spec) {
 // listed before the commands that stage them.
 function specCommitLines(plan, folder) {
   if (!plan.specCommit) return []
-  const out = ['', `  uncommitted, and all of it is ${folder}'s — it will be committed first:`]
+  // "all of it" is a claim about the whole tree, and it stops being true the
+  // moment somebody else's work is sitting there too.
+  const head = (plan.untouched || []).length
+    ? `uncommitted, and this much of it is ${folder}'s — it will be committed first:`
+    : `uncommitted, and all of it is ${folder}'s — it will be committed first:`
+  const out = ['', `  ${head}`]
   for (const p of plan.specCommit.paths) out.push(`    ${p}`)
+  return out
+}
+
+// What the run is deliberately leaving alone. Printed rather than swallowed,
+// because provisioning beside somebody else's uncommitted work is a fact the
+// operator should be told — and never printed as a warning, because it is not
+// one: a worktree carries nothing, and the spec commit above names its own paths.
+function untouchedLines(plan) {
+  const untouched = plan.untouched || []
+  if (!untouched.length) return []
+  const out = ['', `  not this spec's — left untouched (${untouched.length}):`]
+  for (const p of untouched) out.push(`    ${p}`)
   return out
 }
 
@@ -607,6 +624,7 @@ function specEnvUp(dir, config, specArg) {
     )
   }
   out.push(...specCommitLines(plan, spec.folder))
+  out.push(...untouchedLines(plan))
   out.push('')
   out.push('  to provision, run:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)

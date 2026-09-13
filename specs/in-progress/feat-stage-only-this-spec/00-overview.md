@@ -133,7 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Expose the owned set as `spec-env stage` | ✅ | [01-stage-verb.md](01-stage-verb.md) |
 | 2 | Pathspec-limit every spec commit | ✅ | [02-pathspec-commits.md](02-pathspec-commits.md) |
-| 3 | Stop refusing foreign dirt in worktree mode | ⬜ | [03-loosen-the-gate.md](03-loosen-the-gate.md) |
+| 3 | Stop refusing foreign dirt in worktree mode | ✅ | [03-loosen-the-gate.md](03-loosen-the-gate.md) |
 
 ## Open questions
 
@@ -181,3 +181,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `git add specs/ && git commit` when asserting the tracker seam sits between the
   move and the commit. Re-anchored on the commit's subject line, which is the
   half that does not change when staging does.
+- 2026-09-13 — Phase 3: the planner surfaces the foreign paths as `untouched`,
+  and `specCommitLines` stops claiming "all of it is <spec>'s" when some of the
+  tree is not — that sentence was a claim about the whole tree and would have
+  become false in exactly the case this phase introduces.
+- 2026-09-13 — Phase 3: three existing assets tests asserted the old gate prose.
+  Two failed only on a cosmetic rename of the heading sentence, which was
+  reverted rather than churning them; the third asserted the uniform refusal and
+  was rewritten to the new invariant — reports in worktree mode, refuses in
+  checkout — with the reason for the asymmetry asserted alongside, so prose that
+  drops either half fails.
+- 2026-09-13 — Phase 3: verified end-to-end in a scratch repo — with a second
+  spec's file already staged in the shared index, the planned commit took only
+  the target spec's path and left the other staged and uncommitted.

@@ -29,10 +29,29 @@ test('the gate no longer claims one refusal whatever the cause', () => {
   assert.doesNotMatch(SKILL, /same words whatever the cause/)
 })
 
-test('the gate names all three engine outcomes', () => {
-  for (const outcome of [/clean/, /belongs to this spec/, /any path does not/]) {
+test('the gate names every engine outcome, in both modes', () => {
+  for (const outcome of [/clean/, /every path is this spec's/, /some path is not/]) {
     assert.match(SKILL, outcome)
   }
+  // Both modes appear as columns, because the last outcome differs between them.
+  assert.match(SKILL, /\|\s*`worktree`\s*\|\s*`checkout`\s*\|/)
+})
+
+/**
+ * THE CLAIM THAT WOULD BE WRONG, NOT MERELY STALE. The engine stopped refusing
+ * foreign dirt in worktree mode; a skill still promising that refusal has the
+ * model relay one the engine did not make, and send someone off to commit work
+ * that was never in the way.
+ *
+ * The pair is the point: prose that dropped the checkout half would invite the
+ * opposite mistake, where `git switch -c` really does carry the tree.
+ */
+test('the gate reports foreign dirt in worktree mode and refuses it in checkout', () => {
+  const flat = SKILL.replace(/\s+/g, ' ')
+  assert.match(flat, /reports the rest/i, 'worktree mode reports rather than refuses')
+  assert.match(flat, /refuses, naming them/i, 'checkout mode still refuses')
+  assert.match(flat, /git worktree add`? carries nothing/i, 'and says why the two differ')
+  assert.match(flat, /keep the verdict `?✅/i, 'reporting it is not a caveat')
 })
 
 test('the gate says the commit is membership, not a judgement about importance', () => {

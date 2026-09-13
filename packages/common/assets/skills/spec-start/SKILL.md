@@ -15,17 +15,20 @@ provision, move it to `in-progress`, refresh the tracker, then hand straight on
 to `/spec-next` for phase 1. Continuing a spec afterwards is `/spec-next`;
 finishing it is `/spec-complete`.
 
-## 1. The gate — refuse unless the workbench is free
+## 1. The gate — what each mode demands of the tree
 
 **Check this first, before resolving anything or touching a file.** What the
 gate demands depends on the mode, because the two modes hold work in different
 places — read `mode` from `specs/.core/env.config.json` (default `worktree`).
 
-**`worktree` mode — the tree must be clean, and that is all.** The spec is built
-in its own worktree, so another spec being in flight is not a conflict; it is the
-parallelism the mode exists for. The only requirement is that this checkout has
-no uncommitted work — *except* the spec you are starting, which `spec-env up`
-commits for you (see below). Nothing is switched here and nothing is parked.
+**`worktree` mode — there is no tree gate.** The spec is built in its own
+worktree, so neither another spec being in flight nor its uncommitted files are a
+conflict; both are the parallelism the mode exists for. `git worktree add`
+carries nothing and forks from a commit, and the one thing this run writes into
+the checkout — the spec's own commit, which `spec-env up` plans for you — names
+its paths on both the `add` and the `commit`, so it cannot reach a file that is
+not this spec's. Work belonging to someone else is **reported and left alone**,
+never a refusal. Nothing is switched here and nothing is parked.
 
 **`checkout` mode — the workbench must be free**: on the base branch (`main`, or
 the configured `baseBranch`) and clean, since the branch is built right here and
@@ -42,21 +45,30 @@ and a half-built phase are each a decision someone must make deliberately — an
 the cost of guessing is another spec's work moved without its author asking. A
 refusal costs one command; the alternative can cost an afternoon.
 
-**The one exception is the spec you are starting.** `spec-env up` classifies the
-uncommitted tree against the target spec and answers one of three ways — relay
-what it says rather than deciding for yourself:
+**What `spec-env up` does with the tree**, in both modes — relay what it says
+rather than deciding for yourself:
 
-| What it found | What it does |
-|---------------|--------------|
-| clean | provisions, as always |
-| every path belongs to this spec | plans `git add` + `git commit` **first**, then the fork |
-| any path does not | refuses, naming the paths that disqualified it |
+| What it found | `worktree` | `checkout` |
+|---------------|-------------|-------------|
+| clean | provisions | provisions |
+| every path is this spec's | commits those paths **first**, then forks | same, then switches |
+| some path is not | commits this spec's, provisions, **reports the rest** | refuses, naming them |
 
 That is membership in an exactly-known set — the spec's own folder plus the
 project's `spec.companionPaths` — and **not** a judgement about whether the
-changes look important. The gate still never decides that. When it plans the
-commit, the paths are printed above the commands, so run them as printed; when it
-refuses, relay the reason and stop.
+changes look important. It never decides that.
+
+**The last row is the only real difference, and it is mechanical.**
+`git switch -c` carries the working tree onto the new branch, so in
+`checkout` mode a colleague's files really would be moved without them asking.
+`git worktree add` carries nothing, so in `worktree` mode the same files are
+simply not this run's business — and refusing over them fired on the commonest
+tree this workflow produces: a second spec authored while the first is still
+uncommitted. When it reports them, say how many and whose in the `Untouched` row
+and **keep the verdict `✅`** — nothing went wrong.
+
+When it plans the commit, the paths are printed above the commands, so run them
+as printed; when it refuses, relay the reason and stop.
 
 It also refuses a **clean** tree whose spec is not in the commit the worktree
 would fork from — otherwise you get a branch missing the very spec it is for.
@@ -338,13 +350,20 @@ the shape; this section carries only what is specific here.
   come up, a mirror that did not refresh, a missing gating decision).
 - `❌` — provisioning failed part-way and left something behind. Say what, and
   where.
-- `⏸` — the gate refused: a dirty tree, someone else's unfinished work, a spec
-  already in flight. Nothing changed.
+- `⏸` — the gate refused: in `checkout` mode a dirty tree or someone else's
+  unfinished work, in either mode a spec whose own files are not in the commit
+  the worktree would fork from. Nothing changed. Another spec's uncommitted work
+  is **not** on this list in `worktree` mode — it is an `Untouched` row on a
+  `✅`.
 
-**Fields:** `Tracker` · `Branch` · `Spec` · `Worktree` · `Follow-ups` · `Next`
+**Fields:** `Tracker` · `Branch` · `Spec` · `Worktree` · `Untouched` · `Follow-ups` · `Next`
 
 `Worktree` carries the path, because the session is now standing in it and the
 operator's next command depends on knowing that. `Next` is `/spec-next`.
+
+`Untouched` appears only when `spec-env up` reported uncommitted work that was
+not this spec's — say how much and whose, and **keep the verdict `✅`**. Nothing
+went wrong: a worktree carries nothing, so that work was never in play.
 
 On **`--plan`** nothing was provisioned, so the verdict is `⏸` and `Built`
 carries the plan rather than a claim about the repo.
