@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-230"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-230/spec-reviewed-pick-up-the-review-you-just-approved"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # /spec-reviewed — pick up the review you just approved
 
 > **Type:** Feature
 > **Name:** feat-spec-reviewed (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-14)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
 > **Area:** packages/common/assets/skills/spec-reviewed, packages/common/assets/skills/spec-init, packages/common/assets/rules/spec-planning.md, packages/common/assets/claude-md-section.md, packages/common/test, docs/index.html
 > **Stack:** worktree
@@ -123,6 +125,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
+| 2026-09-14 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
