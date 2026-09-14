@@ -146,14 +146,39 @@ offers the review; `skitterspec spec-env review <spec> [--branch]` is the engine
 
 **The page is not read-only — it takes a review pass back.** Tick `✓ accept` per
 file as you read, write notes against a line or a whole file, answer the
-questions a written review asked, then **end it in a decision** and paste the
-JSON back. Three buttons, each copying the pass with its own verdict set:
+questions a written review asked, then **end it in a decision** and hand it
+back. Three buttons, each carrying its own verdict:
 **`✓ Approve`** (commit it), **`↺ Request changes`** (work them now),
 **`… Discuss first`** (report and talk). `/spec-diff` stores it (`--notes`),
 plays back what it read, and routes on the verdict — `changes` **is** the
 go-ahead, so it works the commented files immediately, while `discuss`, a
 refused approval and a pass carrying no verdict at all report and wait, which
-is what a bare paste has always done. Accepted files stay unopened either way. What it did comes back as a **resolution** (`--resolve`),
+is what a bare paste has always done. Accepted files stay unopened either way.
+
+**Two ways back, and both are ordinary.** A **served** page POSTs the pass to
+its own URL; the engine holds it in a gitignored `.pending.json` beside the
+notes sidecar and answers with a **six-digit code**. Read the code out and
+`/spec-diff` claims it (`--claim`), merging exactly the pass that code names.
+A `file://` page has no server to talk to — the File System Access API is
+Chrome-only and absent on iOS Safari — so it copies to the clipboard and you
+paste, exactly as before. The clipboard path is **not legacy**: it is the whole
+story for a local reader.
+
+The code is **not a secret** — it is printed on the page. What it does is prove
+a person was sitting there, and say *which* pass when more than one is waiting.
+So the write path the server gains reaches a **holding area** and nothing else:
+a stranger on your network can queue a pass nobody will claim, and the review
+itself is only ever written by a claim. A code that matches nothing refuses,
+**names nothing**, and never falls back to "the only one" — that fallback is
+precisely what would let an unread pass through. Claiming **consumes**: a code
+works once. A second pass from the same page render supersedes the first, so
+the code on screen is always the pass on screen; passes from different renders
+stand alongside each other.
+
+**And a claimed pass never enters the model's context.** The engine holds it,
+merges it, and reports the counts — six digits is what reaches Claude, where a
+pasted blob costs context in proportion to how much you wrote. That is the same
+rule the diff already follows, applied to the one place it used to break. What it did comes back as a **resolution** (`--resolve`),
 so the next render shows each note struck through with a one-line account and you
 verify the fix instead of trusting it. An accept is keyed to the file's
 **content hash**, so it survives the commit that ends the phase and lapses by

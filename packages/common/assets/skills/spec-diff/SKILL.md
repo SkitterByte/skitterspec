@@ -1,6 +1,6 @@
 ---
 name: spec-diff
-description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", wants to read a worktree's changes away from the terminal, or pastes back the JSON the review page produced — approve, request changes or discuss.
+description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", wants to read a worktree's changes away from the terminal, or hands back what the review page produced — a six-digit claim code, or the pasted JSON.
 ---
 
 # /spec-diff — see the phase before you commit it
@@ -40,21 +40,42 @@ sole candidate or prints the candidates.
 
 The page has marks on it — `✓ accept` per file, notes against a line or a whole
 file, answers to the checks a written review asked — and it
-**ends in a decision**: `✓ Approve`, `↺ Request changes` or `… Discuss first`,
-each copying the pass to the clipboard as JSON with its verdict already set. When that
-JSON is pasted to you, **this is not a request to render anything**: it is a
-review coming back, and these steps replace §3–§5 below.
+**ends in a decision**: `✓ Approve`, `↺ Request changes` or `… Discuss first`.
+A review comes back to you one of two ways, and **both are ordinary**:
 
-1. **Store it through the engine.** Write the pasted JSON to a scratch file
+- **A six-digit code** — `418207`, on its own. A *served* page hands its pass
+  straight to the engine, which holds it until someone reads the code out. This
+  is the usual way on a phone.
+- **A pasted JSON blob** — a `file://` page has no server to talk to, so it
+  copies. Not legacy: it is the whole story for a local reader.
+
+Either way, **this is not a request to render anything**: it is a review coming
+back, and these steps replace §3–§5 below.
+
+1. **Take it in through the engine**, whichever way it arrived.
+
+   **A code** — claim it. Nothing else is needed; the pass is already on disk:
+
+   ```
+   skitterspec spec-env review <spec> --claim <code>
+   ```
+
+   **A pasted blob** — write the JSON to a scratch file
    verbatim — never retype it, never "tidy" it — and merge it:
 
    ```
    skitterspec spec-env review <spec> --notes <file>
    ```
 
-   It validates wholesale and refuses without writing anything if the blob is
-   malformed or names a different spec. **Relay a refusal as it is written** and
-   stop; every message says which entry was wrong, so there is nothing to guess.
+   Both validate wholesale and write nothing if the blob is malformed or names a
+   different spec; a claim additionally refuses a code that matches nothing, and
+   **names nothing when it does** — listing the waiting codes would hand a
+   guesser the answer. **Relay a refusal as it is written** and stop; every
+   message says which entry was wrong, so there is nothing to guess.
+
+   **A claim is a delivery mechanism, not a second kind of review.** Everything
+   below reads the same merged pass and the same verdict; nothing may behave
+   differently because of how it arrived.
 
 2. **Read the verdict the engine judged.** The pass says what it CONCLUDED, and
    the engine prints it — `approved`, `changes requested`, `discuss first`, or
@@ -203,15 +224,28 @@ failed commit there is no outcome to record — say what failed instead.
 
 **Nothing is pushed.** The commit is local, exactly as `/commit` leaves it.
 
+**Passes waiting are information too.** A render reports `2 passes waiting —
+claim one with its code` when the holding area is not empty. It is a fact about
+the page, not a prompt: nothing counts them, nothing refuses over them, and a
+pass nobody claims simply sits there. Say it if the operator would want to know
+they have one outstanding; never treat it as a task.
+
 **A mark is information, never a gate.** Nothing counts the ticks or requires
 them: a phase may end with comments open, `/spec-complete` never learns about
 them, and this skill refuses nothing on their account. If a project ever wants
 otherwise that is a config key defaulting to off — not a tidy-up here.
 
-**What the intake costs.** The blob is file paths and the operator's own words,
-which you need in context to act on them — so the paste is not overhead. The
-*work* it authorises is ordinary phase-sized cost, and step 2 is where they get
-to decide whether to spend it.
+**What the intake costs, and why a code costs less.** A pasted blob is file
+paths and the operator's own words, which you need in context to act on them —
+so the paste is not overhead. But it does scale with the review: a marked-up
+60-file pass is kilobytes of context before any work starts.
+
+**A claimed pass never enters the context at all.** The engine holds it, merges
+it and reports the counts; six digits is what reaches you. That is the same rule
+the diff already follows — git writes it, the engine splices it, you never read
+it — and the paste was the one place it broke. The *work* either authorises is
+ordinary phase-sized cost, and step 3 is where the operator decides whether to
+spend it.
 
 ## 3. Gate it on nothing
 

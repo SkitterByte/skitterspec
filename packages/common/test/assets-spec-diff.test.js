@@ -106,7 +106,9 @@ test('it takes a pasted review pass, and reports before it edits', () => {
   // later edit would most plausibly streamline away.
   assert.match(SKILL, /--notes <file>/, 'it names the engine call that stores the pass')
   assert.match(SKILL, /--resolve <file>/, 'and the one that writes back what was done')
-  assert.match(SKILL, /verbatim — never retype it/, 'the blob is stored as sent')
+  // Phrasing-tolerant: what is pinned is that the blob is stored AS SENT, not
+  // the punctuation between the two halves of saying so.
+  assert.match(SKILL, /verbatim[^.]*never retype it/, 'the blob is stored as sent')
   // AMENDED, not dropped: it stops after reporting unless the pass already said
   // what to do. A bare paste is still ambiguous and still waits — that half is
   // pinned in "the wait rule is amended" below.
@@ -481,4 +483,54 @@ test('the no-gate rule survives the verdict intact', () => {
   const { judgeVerdict, emptyNotes } = require('../src/env/review.js')
   const noTicks = judgeVerdict('approve', emptyNotes('feat-x'))
   assert.strictEqual(noTicks.honoured, true, 'nothing ticked, and still approvable')
+})
+
+// --- the claim path (feat-review-post-back phase 4) -------------------------
+
+test('a review comes back two ways, and neither is the legacy one', () => {
+  assert.match(SKILL, /--claim <code>/, 'it names the engine call that claims')
+  assert.match(SKILL, /--notes <file>/, 'and the one that merges a paste')
+  assert.match(SKILL, /six-digit code/i)
+  // The clipboard path is the whole story on `file://`, where there is no
+  // server to talk to — so it must not be described as superseded.
+  assert.match(SKILL, /Not legacy/i)
+  assert.match(SKILL, /\*\*both are ordinary\*\*/i)
+})
+
+test('a claim is a delivery mechanism, not a second kind of review', () => {
+  // If the two paths ever diverge in what they MEAN, the code has stopped being
+  // a way of getting the pass across and become a second kind of review.
+  assert.match(SKILL, /\*\*A claim is a delivery mechanism, not a second kind of review\.\*\*/)
+  assert.match(SKILL, /nothing may behave\s*\n?\s*differently because of how it arrived/i)
+})
+
+test('a wrong code refuses without naming what is waiting', () => {
+  // Listing the pending codes would hand a guesser the answer the refusal was
+  // withholding — the one thing the code exists to prevent.
+  assert.match(SKILL, /names nothing when it does/i)
+  assert.match(SKILL, /listing the waiting codes would hand a\s*\n?\s*guesser the answer/i)
+})
+
+test('the skill prices the claim against the paste', () => {
+  // The saving is the point, and an unpriced one is not a choice — the same
+  // rule the written review is offered under.
+  assert.match(SKILL, /\*\*A claimed pass never enters the context at all\.\*\*/)
+  assert.match(SKILL, /it does scale with the review/i)
+})
+
+test('passes waiting are information, never a task', () => {
+  assert.match(SKILL, /\*\*Passes waiting are information too\.\*\*/)
+  assert.match(SKILL, /never treat it as a task/i)
+  // And the no-gate rule it sits beside is untouched, which is the point: this
+  // spec added a delivery mechanism, not a thing that counts.
+  assert.match(SKILL, /A mark is information, never a gate/)
+  assert.match(SKILL, /nothing here may start counting them/)
+})
+
+test('the engine offers what the prose promises', () => {
+  // The positive half: prose can only describe a flag that exists. Both arms of
+  // the round-trip are real engine calls.
+  const help = fs.readFileSync(path.join(ROOT, 'packages', 'common', 'src', 'cli.js'), 'utf8')
+  assert.match(help, /\[--claim <code>\]/, 'the usage line offers it')
+  assert.match(help, /args\[i\] === '--claim'/, 'and the parser takes it')
 })

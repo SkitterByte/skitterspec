@@ -118,7 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | The pending store and the claim | ✅ | [01-pending-store.md](01-pending-store.md) |
 | 2 | The server accepts a POST | ✅ | [02-post-endpoint.md](02-post-endpoint.md) |
 | 3 | The page sends, and falls back | ✅ | [03-page-sends.md](03-page-sends.md) |
-| 4 | The skill claims, and the docs | ⬜ | [04-claim-and-docs.md](04-claim-and-docs.md) |
+| 4 | The skill claims, and the docs | ✅ | [04-claim-and-docs.md](04-claim-and-docs.md) |
 
 ## Non-goals
 
@@ -147,6 +147,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 4: the claim path is documented **beside** the paste rather
+  than ahead of it. The phase said "ahead of", and that reads as a ranking the
+  design does not have: a `file://` page cannot post and never will, so the
+  clipboard is not a slower way of doing the same thing — it is the only way for
+  a local reader. Both are presented as ordinary, with the code named as what
+  happens on a served page.
+- 2026-09-14 — Phase 4: the no-gate guards passed untouched again, which is the
+  check worth having. This spec added a delivery mechanism, and a delivery
+  mechanism must not become a thing that counts — `passes waiting` is reported
+  the way marks are, and nothing refuses over it.
 - 2026-09-14 — Phase 3: an unreachable server falls back to the clipboard,
   which is **not** the "try the POST and fall back on failure" the phase
   forbids. That rule is about choosing the PATH: a page must decide from what it
