@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-241/the-page-hands-you-the
 
 > **Type:** Feature
 > **Name:** feat-page-hands-you-the-command (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-14)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -111,8 +111,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-14 — Completed; both phases done, tests green (2322).
 
 - 2026-09-14 — Phase 2: the shim needed the three new ids registering by hand.
   It reads each element's *initial hidden state* off the template so it cannot
