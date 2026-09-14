@@ -64,7 +64,7 @@ test('a second pass from the same render supersedes the first', () => {
   // Press Approve, change your mind, press Request changes: the code on the
   // screen must be the pass on the screen, and there must be ONE pass waiting.
   let store = emptyPending('feat-alpha')
-  const first = addPending(store, { blob: blobOf({ verdict: 'approve' }), at: 'T1', render: 'R1' })
+  const first = addPending(store, { blob: blobOf({ verdict: 'commit' }), at: 'T1', render: 'R1' })
   const second = addPending(first.pending, { blob: blobOf({ verdict: 'changes' }), at: 'T2', render: 'R1' })
   assert.strictEqual(second.pending.passes.length, 1)
   assert.strictEqual(second.pending.passes[0].blob.verdict, 'changes')
@@ -83,11 +83,11 @@ test('passes from different renders stand alongside each other', () => {
 // --- claiming: consumes, and never falls back -------------------------------
 
 test('a claim returns exactly the pass it names, and spends it', () => {
-  const a = addPending(emptyPending('feat-alpha'), { blob: blobOf({ verdict: 'approve' }), at: 'T1', render: 'R1' })
+  const a = addPending(emptyPending('feat-alpha'), { blob: blobOf({ verdict: 'commit' }), at: 'T1', render: 'R1' })
   const b = addPending(a.pending, { blob: blobOf({ verdict: 'discuss' }), at: 'T2', render: 'R2' })
 
   const got = claimPending(b.pending, a.code)
-  assert.strictEqual(got.pass.blob.verdict, 'approve', 'the one named, not the newest')
+  assert.strictEqual(got.pass.blob.verdict, 'commit', 'the one named, not the newest')
   assert.strictEqual(got.count, 1, 'the other is untouched')
 
   // Consumed: the same code cannot bring it back.
@@ -225,7 +225,7 @@ test('a claimed pass merges exactly as a pasted one does', async () => {
   const { dir } = scaffold()
   try {
     await review(dir) // render once, so the page and its paths exist
-    const code = hold(dir, blobOf({ verdict: 'approve', accepted: [{ path: 'app.js', hash: 'h1' }] }))
+    const code = hold(dir, blobOf({ verdict: 'commit', accepted: [{ path: 'app.js', hash: 'h1' }] }))
 
     const json = await reviewJson(dir, '--claim', code)
     assert.strictEqual(json.claimed.code, code)
@@ -233,7 +233,7 @@ test('a claimed pass merges exactly as a pasted one does', async () => {
     // A CLAIM IS A DELIVERY MECHANISM. The verdict is read exactly as it would
     // be from a paste — nothing downstream may behave differently by how the
     // pass arrived.
-    assert.strictEqual(json.verdict.effective, 'approve')
+    assert.strictEqual(json.verdict.effective, 'commit')
     assert.strictEqual(json.verdict.honoured, true)
 
     const notes = readNotes(outPath(dir), 'feat-alpha').notes
@@ -337,10 +337,10 @@ const { describePending, pendingAge } = require('../src/env/review.js')
 
 test('a description carries the code, the verdict and when it arrived', () => {
   const a = addPending(emptyPending('feat-alpha'), {
-    blob: blobOf({ verdict: 'approve' }), at: '2026-01-01T10:00:00.000Z', render: 'R1',
+    blob: blobOf({ verdict: 'commit' }), at: '2026-01-01T10:00:00.000Z', render: 'R1',
   })
   const got = describePending(a.pending)
-  assert.deepStrictEqual(got, [{ code: a.code, verdict: 'approve', at: '2026-01-01T10:00:00.000Z' }])
+  assert.deepStrictEqual(got, [{ code: a.code, verdict: 'commit', at: '2026-01-01T10:00:00.000Z' }])
 })
 
 // THE BLOB IS NOT HERE, deliberately. A decision about a waiting pass needs its
@@ -394,15 +394,15 @@ test('the render names each waiting pass rather than counting them', async () =>
   const { dir } = scaffold()
   try {
     await review(dir)
-    const code = hold(dir, blobOf({ verdict: 'approve' }))
+    const code = hold(dir, blobOf({ verdict: 'commit' }))
     const said = await review(dir)
     assert.match(said, /pending: 1 waiting/)
-    assert.match(said, new RegExp(`${code} · approve · `), 'the code is on the line')
+    assert.match(said, new RegExp(`${code} · commit · `), 'the code is on the line')
 
     const json = await reviewJson(dir)
     assert.strictEqual(json.pending.length, 1)
     assert.strictEqual(json.pending[0].code, code)
-    assert.strictEqual(json.pending[0].verdict, 'approve')
+    assert.strictEqual(json.pending[0].verdict, 'commit')
     assert.ok(!('blob' in json.pending[0]))
   } finally {
     cleanup(dir)
@@ -416,7 +416,7 @@ test('--drop removes exactly the pass named, and merges nothing', async () => {
   try {
     await review(dir)
     const mine = hold(dir, blobOf({ accepted: [{ path: 'app.js', hash: 'h1' }] }), { render: 'R1' })
-    const theirs = hold(dir, blobOf({ verdict: 'approve' }), { render: 'R2' })
+    const theirs = hold(dir, blobOf({ verdict: 'commit' }), { render: 'R2' })
 
     const said = await review(dir, '--drop', theirs)
     assert.match(said, new RegExp(`dropped: ${theirs}`))

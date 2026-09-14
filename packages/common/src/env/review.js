@@ -326,19 +326,44 @@ const ENGINE_VERSION = (() => {
 const NOTES_VERSION = 1
 
 /**
- * The three verdicts a review pass can carry, and what an absent one means.
+ * The four verdicts a review pass can carry, and what an absent one means.
  *
  * A VERDICT IS CHOSEN BY A PERSON, ONCE, PER REVIEW — it is not derived from
  * how many boxes are ticked. That distinction is the whole point: counting
  * marks stays forbidden (see `applyNotes`, which still gates nothing), and this
  * is the deliberate, single place a review gets to say what it concluded.
  *
+ * THE VERDICT NAMES THE ACTION. It was `approve` once, and an approval that
+ * only recorded itself is the one thing on a review page that does not describe
+ * what happens — a review is the guard in front of an action, so the word is
+ * the action: `commit`, `commit-continue`, `changes`, `discuss`.
+ *
  * `discuss` is the default because it is the behaviour that existed before any
- * verdict did: report the notes and wait. So a blob from an older page, or one
- * a reader sent without choosing, keeps doing exactly what it always did.
+ * verdict did. So a blob from an older page, or one a reader sent without
+ * choosing, keeps doing exactly what it always did.
  */
-const VERDICTS = ['approve', 'changes', 'discuss']
+const VERDICTS = ['commit', 'commit-continue', 'changes', 'discuss']
 const DEFAULT_VERDICT = 'discuss'
+
+// The verdicts that COMMIT, and are therefore blocked by an open comment. One
+// list, so a fourth verdict cannot become a way around the single refusal this
+// engine makes — adding a committing verdict means adding it here, and the
+// block follows for free.
+const COMMITTING = ['commit', 'commit-continue']
+
+/**
+ * What an older sidecar's `approve` means now. Pure.
+ *
+ * TOLERANCE, NOT MIGRATION. These files are gitignored, so there is no fleet to
+ * migrate and no script anyone would remember to run — the rename is absorbed
+ * at the point of reading, where it cannot be skipped. Anything else is passed
+ * through untouched, including a value this engine does not know: `readVerdict`
+ * answers what a stored word means, and refusing an unknown one is
+ * `validateNotesBlob`'s job, not this function's.
+ */
+function readVerdict(stored) {
+  return stored === 'approve' ? 'commit' : stored
+}
 
 // A file that is gone has no content to hash, and an accept still has to mean
 // something about it. A sentinel is comparable and obviously not a blob sha.
@@ -422,7 +447,13 @@ function readNotes(outPath, specFolder) {
         // a review that never reached one, must not gain an empty `decisions`
         // key just by being read — the round-trip has to be byte-stable for
         // everyone who is not using this.
-        ...(Array.isArray(parsed.decisions) ? { decisions: parsed.decisions } : {}),
+        //
+        // A logged `approve` is read as `commit` HERE, at the read, rather than
+        // by a migration nobody would run: these files are gitignored, so the
+        // rename has to be absorbed where it cannot be skipped.
+        ...(Array.isArray(parsed.decisions)
+          ? { decisions: parsed.decisions.map((d) => ({ ...d, verdict: readVerdict(d.verdict) })) }
+          : {}),
       },
       corrupt: false,
       present: true,
@@ -563,7 +594,14 @@ function addPending(pending, { blob, at, render }, mint = mintPendingCode) {
  */
 function describePending(pending) {
   return (pending.passes || [])
-    .map((p) => ({ code: p.code, verdict: (p.blob && p.blob.verdict) || null, at: p.at || null }))
+    .map((p) => ({
+      code: p.code,
+      // Read through the rename too: a pass POSTed by an older page says
+      // `approve`, and the operator must be offered the word that describes
+      // what claiming it would do.
+      verdict: readVerdict((p.blob && p.blob.verdict) || null) || null,
+      at: p.at || null,
+    }))
     .sort((a, b) => String(a.at).localeCompare(String(b.at)) || a.code.localeCompare(b.code))
 }
 
@@ -670,10 +708,14 @@ function validateNotesBlob(blob, specFolder) {
   // thing from wrong, and only absent is allowed through.
   let verdict = null
   if (blob.verdict !== undefined && blob.verdict !== null) {
-    if (typeof blob.verdict !== 'string' || !VERDICTS.includes(blob.verdict)) {
+    // Read through the rename BEFORE checking: a page that has not been
+    // reloaded still sends `approve`, and refusing it would turn a stale tab
+    // into a rejected review rather than a committed one.
+    const named = typeof blob.verdict === 'string' ? readVerdict(blob.verdict) : blob.verdict
+    if (typeof named !== 'string' || !VERDICTS.includes(named)) {
       fail(`verdict ${JSON.stringify(blob.verdict)} is not one of ${VERDICTS.join(', ')}`)
     }
-    verdict = blob.verdict
+    verdict = named
   }
   return { accepted, unaccepted, comments, verdict }
 }
@@ -702,11 +744,11 @@ function validateNotesBlob(blob, specFolder) {
  * failure we can afford.
  */
 function judgeVerdict(verdict, notes) {
-  const sent = verdict || null
+  const sent = readVerdict(verdict) || null
   const asked = sent || DEFAULT_VERDICT
   const open = (notes.comments || []).filter((c) => !c.resolved)
   const openFiles = [...new Set(open.map((c) => c.file))]
-  if (asked !== 'approve' || open.length === 0) {
+  if (!COMMITTING.includes(asked) || open.length === 0) {
     return { sent, effective: asked, honoured: true, reason: null, openCount: open.length, openFiles }
   }
   return {
@@ -1171,6 +1213,8 @@ module.exports = {
   WHOLE_FILE_CONTEXT,
   NOTES_VERSION,
   VERDICTS,
+  COMMITTING,
+  readVerdict,
   DEFAULT_VERDICT,
   DELETED_HASH,
   fileHashes,

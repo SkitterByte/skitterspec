@@ -226,7 +226,7 @@ test('a received pass lands in the holding area and claims back out', async () =
       accepted: [{ path: 'app.js', hash: 'h1' }],
       unaccepted: [],
       comments: [],
-      verdict: 'approve',
+      verdict: 'commit',
     })
     assert.match(got.code, /^\d{6}$/)
 
@@ -237,7 +237,7 @@ test('a received pass lands in the holding area and claims back out', async () =
     assert.ok(!fs.existsSync(out.replace(/\.html$/, '') + '.notes.json'), 'no sidecar was written')
 
     const claimed = claimPending(held, got.code)
-    assert.strictEqual(claimed.pass.blob.verdict, 'approve')
+    assert.strictEqual(claimed.pass.blob.verdict, 'commit')
   } finally {
     drop(dir)
   }

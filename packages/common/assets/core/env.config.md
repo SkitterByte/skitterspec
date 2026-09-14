@@ -256,20 +256,24 @@ no live `env.config.json` was found.
   // served the last spec, and `spec-env prune` reaps a pidfile whose process is
   // gone. Default: true.
   //
-  // `commitWith` names the skill an APPROVED review hands off to. A review page
-  // ends in a verdict — approve, request changes, discuss — and an approval's
-  // whole point is that the commit follows from it rather than costing a
-  // separate decision. Skitterspec never commits through a skill it vendored:
-  // `/commit` ships with skittership, a different package, and a copy living
-  // here would fork it. Three shapes:
+  // `commitWith` names the skill a COMMITTING verdict hands off to. A review
+  // page ends in a verdict — commit, commit & continue, request changes,
+  // discuss — and the point of the first two is that the commit follows from
+  // the reading rather than costing a separate decision. Skitterspec never
+  // commits through a skill it vendored: `/commit` ships with skittership, a
+  // different package, and a copy living here would fork it. Two shapes:
   //   "/commit"  — the default; hand off to skittership's commit skill.
   //   "<name>"   — any other skill your project installs.
-  //   "none"     — record the verdict and commit nothing.
-  // With the named skill unavailable, the approve branch commits directly —
+  // With the named skill unavailable, the committing branch commits directly —
   // stage, typecheck, test, conventional message — and SAYS it took that path,
   // because a commit made under rules nobody configured must not read as one
-  // made under /commit. An empty string is not "none": disabling the hand-off
-  // is a decision and is spelled out. Default: "/commit".
+  // made under /commit.
+  //
+  // THERE IS NO OFF SWITCH. `"none"` existed and was removed: it produced a
+  // verdict that records itself and does nothing, which is the one thing a
+  // review page must not offer — a review is the guard in front of an action.
+  // Recording an approval for SOMEONE ELSE to act on is a separate mechanism,
+  // not a value of this key. Default: "/commit".
   "review": {
     "reader": "detect",
     "servePort": 7777,

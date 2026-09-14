@@ -589,6 +589,6 @@ test('the engine offers what the rule needs, so the prose is not asking for fict
   })
   const [first] = describePending(held.pending)
   assert.strictEqual(first.code, held.code, 'the render can name a code')
-  assert.strictEqual(first.verdict, 'approve')
+  assert.strictEqual(first.verdict, 'commit', 'described as the action it will take')
   assert.ok(!('blob' in first), 'without carrying the pass itself')
 })

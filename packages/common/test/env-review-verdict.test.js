@@ -133,10 +133,10 @@ test('each of the three verdicts validates, and an absent one is null', () => {
 test('an unknown verdict is refused by name rather than read as discuss', () => {
   // The failure this forbids: a typo'd verdict dropped like any other unknown
   // key, silently behaving as `discuss` — a review that quietly did nothing.
-  for (const bad of ['aprove', 'APPROVE', '', 'reject', 3, true, ['approve']]) {
+  for (const bad of ['aprove', 'APPROVE', '', 'reject', 3, true, ['commit']]) {
     assert.throws(
       () => parse({ verdict: bad }),
-      /verdict .* is not one of approve, changes, discuss/,
+      /verdict .* is not one of commit, commit-continue, changes, discuss/,
       `should refuse ${JSON.stringify(bad)}`,
     )
   }
@@ -159,18 +159,18 @@ test('an absent verdict behaves as discuss, without the blob being rewritten', (
   assert.strictEqual(judged.sent, null, 'the default is applied at use, not written back')
 })
 
-test('approve is refused while a comment is open, and names the count and the files', () => {
+test('a committing verdict is refused while a comment is open, and names the count and the files', () => {
   const notes = notesWith([
     { id: 'c1', file: 'app.js', note: 'this' },
     { id: 'c2', file: 'app.js', note: 'and this' },
     { id: 'c3', file: 'lib.js', note: 'that' },
   ])
-  const judged = judgeVerdict('approve', notes)
+  const judged = judgeVerdict('commit', notes)
   assert.strictEqual(judged.honoured, false)
   assert.strictEqual(judged.openCount, 3)
   assert.deepStrictEqual(judged.openFiles, ['app.js', 'lib.js'], 'each file once, in the order met')
   assert.match(judged.reason, /3 comments are unresolved \(app\.js, lib\.js\)/)
-  assert.strictEqual(judged.sent, 'approve', 'what was asked for is still reported')
+  assert.strictEqual(judged.sent, 'commit', 'what was asked for is still reported')
   assert.strictEqual(
     judged.effective,
     'discuss',
@@ -180,7 +180,7 @@ test('approve is refused while a comment is open, and names the count and the fi
 
 test('a resolved comment stops blocking, so answering the notes is what unblocks approve', () => {
   const notes = notesWith([{ id: 'c1', file: 'app.js', note: 'this' }], [{ id: 'c1', note: 'fixed' }])
-  const judged = judgeVerdict('approve', notes)
+  const judged = judgeVerdict('commit', notes)
   assert.strictEqual(judged.honoured, true)
   assert.strictEqual(judged.openCount, 0)
 })
@@ -196,7 +196,7 @@ test('approve with only unaccepted files is ALLOWED — ticks are never counted'
     [true, false, false],
     'two of three files were never ticked',
   )
-  assert.strictEqual(judgeVerdict('approve', notes).honoured, true, 'and the approval stands anyway')
+  assert.strictEqual(judgeVerdict('commit', notes).honoured, true, 'and the approval stands anyway')
 })
 
 test('changes and discuss are never refused, however many notes are open', () => {
@@ -212,10 +212,10 @@ test('the outcome log appends rather than replaces', () => {
   let notes = emptyNotes('feat-alpha')
   assert.ok(!('decisions' in notes), 'empty notes carry no log')
   notes = appendDecision(notes, { verdict: 'changes', at: 'T1' })
-  notes = appendDecision(notes, { verdict: 'approve', at: 'T2', note: 'commit abc1234' })
+  notes = appendDecision(notes, { verdict: 'commit', at: 'T2', note: 'commit abc1234' })
   assert.deepStrictEqual(notes.decisions, [
     { verdict: 'changes', at: 'T1', note: null },
-    { verdict: 'approve', at: 'T2', note: 'commit abc1234' },
+    { verdict: 'commit', at: 'T2', note: 'commit abc1234' },
   ])
   assert.strictEqual(notes.updatedAt, 'T2')
 })
@@ -250,19 +250,19 @@ test('a sidecar written without a log gains no `decisions` key just by being rea
 
 // --- end to end, through the CLI -------------------------------------------
 
-test('a refused approval still lands every comment it arrived with', async () => {
+test('a refused commit still lands every comment it arrived with', async () => {
   const { dir } = scaffold()
   try {
     const out = await review(
       dir,
       '--notes',
       blobFile(dir, {
-        verdict: 'approve',
+        verdict: 'commit',
         accepted: [{ path: 'lib.js', hash: 'whatever' }],
         comments: [{ id: 'c1', file: 'app.js', line: 2, note: 'rename this' }],
       }),
     )
-    assert.match(out, /approve refused — 1 comment is unresolved \(app\.js\)/)
+    assert.match(out, /commit refused — 1 comment is unresolved \(app\.js\)/)
     assert.match(out, /merged: 1 accept, 0 withdrawn, 1 comment/, 'the merge happened anyway')
 
     const notes = notesOf(dir)
@@ -271,11 +271,11 @@ test('a refused approval still lands every comment it arrived with', async () =>
 
     // And it is genuinely a re-paste away: answer the note, approve again.
     await review(dir, '--resolve', resolutionsFile(dir, [{ id: 'c1', note: 'renamed' }]))
-    const second = await review(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
-    assert.match(second, /· approved/)
+    const second = await review(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
+    assert.match(second, /· committing with/)
     assert.deepStrictEqual(
       notesOf(dir).decisions.map((d) => d.verdict),
-      ['approve'],
+      ['commit'],
       'only the honoured verdict reached the log',
     )
   } finally {
@@ -289,10 +289,10 @@ test('--json carries the verdict as sent, whether it was honoured, and why not',
     const refused = await reviewJson(
       dir,
       '--notes',
-      blobFile(dir, { verdict: 'approve', comments: [{ id: 'c1', file: 'app.js', note: 'no' }] }),
+      blobFile(dir, { verdict: 'commit', comments: [{ id: 'c1', file: 'app.js', note: 'no' }] }),
     )
     assert.deepStrictEqual(refused.verdict, {
-      sent: 'approve',
+      sent: 'commit',
       effective: 'discuss',
       honoured: false,
       reason: '1 comment is unresolved (app.js)',
@@ -316,11 +316,11 @@ test('a note raised and answered in the same run does not block the approval', a
     const out = await review(
       dir,
       '--notes',
-      blobFile(dir, { verdict: 'approve', comments: [{ id: 'c1', file: 'app.js', note: 'x' }] }),
+      blobFile(dir, { verdict: 'commit', comments: [{ id: 'c1', file: 'app.js', note: 'x' }] }),
       '--resolve',
       resolutionsFile(dir, [{ id: 'c1', note: 'done in the same breath' }]),
     )
-    assert.match(out, /· approved/, 'judged after the resolutions land, not before')
+    assert.match(out, /· committing with/, 'judged after the resolutions land, not before')
   } finally {
     cleanup(dir)
   }
@@ -329,8 +329,8 @@ test('a note raised and answered in the same run does not block the approval', a
 test('a verdict with nothing else to report still says itself', async () => {
   const { dir } = scaffold()
   try {
-    const out = await review(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
-    assert.match(out, /notes: 0 accepted · 0 lapsed · 0 open · 0 resolved · approved/)
+    const out = await review(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
+    assert.match(out, /notes: 0 accepted · 0 lapsed · 0 open · 0 resolved · committing with/)
   } finally {
     cleanup(dir)
   }
@@ -385,9 +385,9 @@ test('the page data carries the last decision, and only once there is one', asyn
     assert.ok(!('lastDecision' in before.notes), 'absent stays absent')
 
     await review(dir, '--notes', blobFile(dir, { verdict: 'discuss' }))
-    const approved = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    const approved = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
     // The LAST one, not the first: the page has one question to answer with it.
-    assert.strictEqual(approved.notes.lastDecision.verdict, 'approve')
+    assert.strictEqual(approved.notes.lastDecision.verdict, 'commit')
     assert.strictEqual(approved.notes.lastDecision.note, null)
     assert.ok(approved.notes.lastDecision.at, 'the log is dated')
   } finally {
@@ -403,7 +403,7 @@ test('a refused approval leaves the page showing the last HONOURED decision', as
       dir,
       '--notes',
       blobFile(dir, {
-        verdict: 'approve',
+        verdict: 'commit',
         comments: [{ id: 'c9', file: 'src/a.js', note: 'not this' }],
       }),
     )
@@ -418,16 +418,16 @@ test('a refused approval leaves the page showing the last HONOURED decision', as
 
 // --- the hand-off, and what the decision produced ---------------------------
 
-test('an honoured approve names the skill it hands off to', async () => {
+test('an honoured commit names the skill it hands off to', async () => {
   const { dir } = scaffold()
   try {
-    const json = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    const json = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
     assert.strictEqual(json.verdict.honoured, true)
     // The skill routes on this rather than reading the config itself: one
     // answer, from the engine that owns the key.
     assert.strictEqual(json.verdict.commitWith, '/commit', 'the default')
-    const said = await review(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
-    assert.match(said, /approved — commit with \/commit/)
+    const said = await review(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
+    assert.match(said, /committing with \/commit/)
   } finally {
     cleanup(dir)
   }
@@ -441,13 +441,13 @@ test('review.commitWith is configurable, and "none" says so', async () => {
     parsed.review.commitWith = 'none'
     fs.writeFileSync(cfg, JSON.stringify(parsed, null, 2))
 
-    const json = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    const json = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
     assert.strictEqual(json.verdict.commitWith, 'none')
     // The verdict is still honoured — "none" disables the COMMIT, not the
     // approval. The decision is recorded either way.
     assert.strictEqual(json.verdict.honoured, true)
-    assert.strictEqual(json.notes.lastDecision.verdict, 'approve')
-    const said = await review(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    assert.strictEqual(json.notes.lastDecision.verdict, 'commit')
+    const said = await review(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
     assert.doesNotMatch(said, /commit with/, 'nothing to hand off to')
   } finally {
     cleanup(dir)
@@ -472,11 +472,11 @@ test('an empty commitWith leaves the default standing', () => {
 test('--outcome writes what the decision produced onto the log', async () => {
   const { dir } = scaffold()
   try {
-    await review(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    await review(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
     const json = await reviewJson(dir, '--outcome', 'committed a1b2c3d via /commit')
     assert.strictEqual(json.outcome, 'committed a1b2c3d via /commit')
     assert.strictEqual(json.notes.lastDecision.note, 'committed a1b2c3d via /commit')
-    assert.strictEqual(json.notes.lastDecision.verdict, 'approve', 'the decision itself is untouched')
+    assert.strictEqual(json.notes.lastDecision.verdict, 'commit', 'the decision itself is untouched')
   } finally {
     cleanup(dir)
   }
@@ -498,7 +498,7 @@ test('--outcome with no decision logged writes nothing and says so', async () =>
 test('annotateLastDecision touches only the last entry', () => {
   const base = appendDecision(
     appendDecision(emptyNotes('feat-alpha'), { verdict: 'discuss', at: 'T1' }),
-    { verdict: 'approve', at: 'T2' },
+    { verdict: 'commit', at: 'T2' },
   )
   const { notes, annotated } = annotateLastDecision(base, 'committed a1b2c3d by hand')
   assert.strictEqual(annotated, true)
@@ -510,4 +510,102 @@ test('annotateLastDecision touches only the last entry', () => {
   const empty = annotateLastDecision(emptyNotes('feat-alpha'), 'nothing to hang this on')
   assert.strictEqual(empty.annotated, false)
   assert.ok(!empty.notes.decisions, 'an empty log stays empty')
+})
+
+// --- the vocabulary names the action (feat-verdict-is-the-action phase 1) ----
+//
+// `approve` became `commit`, and `commit-continue` joined it. The rename is not
+// cosmetic: an approval that only recorded itself was the one control on a
+// review page that did not describe what it does, and a review is the guard in
+// front of an action.
+
+test('the four verdicts are the actions, and an absent one still means discuss', () => {
+  assert.deepStrictEqual(VERDICTS, ['commit', 'commit-continue', 'changes', 'discuss'])
+  assert.strictEqual(DEFAULT_VERDICT, 'discuss')
+  for (const v of VERDICTS) assert.strictEqual(parse({ verdict: v }).verdict, v)
+  // Compatibility, not taste: an absent verdict has meant discuss since
+  // `feat-review-verdict`, and a pass that chose nothing must keep doing what
+  // it always did.
+  assert.strictEqual(parse({}).verdict, null)
+  assert.strictEqual(judgeVerdict(null, emptyNotes('feat-alpha')).effective, 'discuss')
+})
+
+// TOLERANCE, NOT MIGRATION. These sidecars are gitignored, so there is no fleet
+// to migrate and no script anyone would run — the rename is absorbed at every
+// read, where it cannot be skipped.
+test('a stored or sent `approve` reads as `commit` everywhere it can appear', () => {
+  const { readVerdict, describePending, addPending, emptyPending, appendDecision } = require('../src/env/review.js')
+
+  assert.strictEqual(readVerdict('approve'), 'commit')
+  // Anything else passes through untouched: deciding an unknown word is wrong
+  // is `validateNotesBlob`'s job, not this one's.
+  for (const v of ['changes', 'discuss', 'commit-continue', 'aprove', null, undefined]) {
+    assert.strictEqual(readVerdict(v), v)
+  }
+
+  // On the way in, through the validator — a page that has not been reloaded
+  // still sends the old word, and a stale tab must land a committed review
+  // rather than a rejected one.
+  assert.strictEqual(parse({ verdict: 'approve' }).verdict, 'commit')
+
+  // Out of the holding area, where the operator is offered the word.
+  const held = addPending(emptyPending('feat-alpha'), {
+    blob: { verdict: 'approve' }, at: '2026-01-01T00:00:00.000Z', render: 'R1',
+  })
+  assert.strictEqual(describePending(held.pending)[0].verdict, 'commit')
+
+  // And when judged.
+  assert.strictEqual(judgeVerdict('approve', emptyNotes('feat-alpha')).effective, 'commit')
+  assert.ok(appendDecision(emptyNotes('feat-alpha'), { verdict: 'commit', at: 'T' }).decisions.length)
+})
+
+// ONE LIST, ONE REFUSAL. A fourth verdict must not become a way around the
+// single block this engine makes — adding a committing verdict means adding it
+// to `COMMITTING`, and the block follows for free.
+test('both committing verdicts are blocked by the same open comment', () => {
+  const { COMMITTING } = require('../src/env/review.js')
+  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue'])
+
+  const notes = mergeNotes(
+    emptyNotes('feat-alpha'),
+    parse({ comments: [{ id: 'c1', file: 'app.js', note: 'this first' }] }),
+    'T',
+  )
+  for (const v of COMMITTING) {
+    const judged = judgeVerdict(v, notes)
+    assert.strictEqual(judged.honoured, false, `${v} is blocked`)
+    assert.strictEqual(judged.effective, 'discuss', `${v} routes to the harmless branch`)
+    assert.strictEqual(judged.sent, v, 'and what was asked for is still reported')
+  }
+  // The two that ask for something are never blocked by it.
+  for (const v of ['changes', 'discuss']) {
+    assert.strictEqual(judgeVerdict(v, notes).honoured, true, `${v} is not a commit`)
+  }
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). Unaccepted files still block
+// nothing — `feat-review-verdict` Decisions 1 and 3 are untouched here, and a
+// new verdict must not become an excuse to revisit them.
+test('stays silent: unaccepted files block neither committing verdict', () => {
+  const { COMMITTING } = require('../src/env/review.js')
+  // A pass that ticked nothing at all, which is the ordinary 60-file review.
+  const notes = mergeNotes(emptyNotes('feat-alpha'), parse({}), 'T')
+  for (const v of COMMITTING) {
+    const judged = judgeVerdict(v, notes)
+    assert.strictEqual(judged.honoured, true, `${v} needs no ticks`)
+    assert.strictEqual(judged.openCount, 0)
+  }
+})
+
+test('commit-continue says what it will do after committing', async () => {
+  const { dir } = scaffold()
+  try {
+    const said = await review(dir, '--notes', blobFile(dir, { verdict: 'commit-continue' }))
+    assert.match(said, /committing with \/commit, then the next phase/)
+    const json = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'commit-continue' }))
+    assert.strictEqual(json.verdict.effective, 'commit-continue')
+    assert.strictEqual(json.verdict.honoured, true)
+  } finally {
+    cleanup(dir)
+  }
 })

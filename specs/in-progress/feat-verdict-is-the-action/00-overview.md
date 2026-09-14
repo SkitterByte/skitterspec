@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The vocabulary in the engine | ⬜ | [01-vocabulary.md](01-vocabulary.md) |
+| 1 | The vocabulary in the engine | ✅ | [01-vocabulary.md](01-vocabulary.md) |
 | 2 | The page's four buttons | ⬜ | [02-four-buttons.md](02-four-buttons.md) |
 | 3 | Routing, and the words | ⬜ | [03-routing-and-words.md](03-routing-and-words.md) |
 
@@ -133,6 +133,22 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 1: the tolerance turned out to be needed at **four** reads,
+  not one. The plan named the stored outcome log; in fact `approve` can arrive
+  from a page that has not been reloaded (so `validateNotesBlob` reads through
+  it **before** checking, or a stale tab would land a rejected review instead of
+  a committed one), out of the holding area when a waiting pass is described,
+  and at `judgeVerdict`. One `readVerdict` at each, rather than a migration
+  nobody would run against gitignored files.
+- 2026-09-14 — Phase 1: the block is keyed off a **`COMMITTING` list**, not a
+  second `if`. A fourth verdict is exactly how a page gains a way around the one
+  refusal this engine makes; adding a committing verdict now means adding it to
+  that list, and the block follows for free.
+- 2026-09-14 — Phase 1: **sixteen existing tests went red on the rename**, which
+  is the point of confining this phase to the engine. Each was a real assertion
+  about the old vocabulary rather than noise — including one on the page suite
+  that now pins the gap deliberately: the page still sends `approve` until phase
+  2 relabels it, and the engine reads it as `commit`.
 - 2026-09-14 — Spec created, from the operator's argument that a review is the
   guard before an action and so the verdict should name the action. That killed
   an objection of mine in passing: I had defended `commitWith: "none"` as a

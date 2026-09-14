@@ -749,12 +749,20 @@ test('a resolved comment is history, not an outstanding ask', () => {
 // Every verdict the page emits goes through the REAL validator, so the three
 // buttons and the engine's accepted vocabulary cannot drift apart in silence.
 
-test('each button sends its own verdict, and the engine accepts all three', () => {
-  for (const verdict of ['approve', 'changes', 'discuss']) {
+test('each button sends its own verdict, and the engine accepts each', () => {
+  // The PAGE still says `approve` — phase 2 relabels it — and the ENGINE now
+  // answers `commit`. That gap is the rename's tolerance working: a page that
+  // has not been reloaded still sends the old word, and a stale tab must land a
+  // committed review rather than a rejected one.
+  for (const [pressed, engineReads] of [
+    ['approve', 'commit'],
+    ['changes', 'changes'],
+    ['discuss', 'discuss'],
+  ]) {
     const dom = runPage(marked())
-    const blob = copyBlob(dom, verdict)
-    assert.strictEqual(blob.verdict, verdict)
-    assert.strictEqual(accepted(blob).verdict, verdict, 'the engine reads back what was pressed')
+    const blob = copyBlob(dom, pressed)
+    assert.strictEqual(blob.verdict, pressed, 'the page sends what its button carries')
+    assert.strictEqual(accepted(blob).verdict, engineReads, 'and the engine reads it as the action')
   }
 })
 
@@ -762,7 +770,7 @@ test('a verdict travels with the marks it was reached on', () => {
   const dom = runPage(marked())
   accepts(dom)[0].dispatch('click')
   const blob = copyBlob(dom, 'approve')
-  assert.strictEqual(blob.verdict, 'approve')
+  assert.strictEqual(accepted(blob).verdict, 'commit', 'the engine reads the page word as the action')
   assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
   accepted(blob)
 })

@@ -1601,12 +1601,11 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
 // the word `refused` rather than burying it after the reason, because the one
 // thing the reader must take away is that the approval did not happen.
 function verdictSaid(v) {
-  if (!v.honoured) return `approve refused — ${v.reason}`
-  // An honoured approve names what it hands off to, because that is the next
+  if (!v.honoured) return `commit refused — ${v.reason}`
+  // A committing verdict names what it hands off to, because that is the next
   // thing that will happen to the repo and the reader should see it coming.
-  if (v.effective === 'approve') {
-    return v.commitWith && v.commitWith !== 'none' ? `approved — commit with ${v.commitWith}` : 'approved'
-  }
+  if (v.effective === 'commit') return `committing with ${v.commitWith}`
+  if (v.effective === 'commit-continue') return `committing with ${v.commitWith}, then the next phase`
   if (v.effective === 'changes') return 'changes requested'
   return 'discuss first'
 }

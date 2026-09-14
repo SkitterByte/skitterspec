@@ -711,7 +711,12 @@ test('the key the approve branch hands off with is documented where adopters rea
   assert.ok('commitWith' in DEFAULT_CONFIG.review, 'the engine has the key')
   const md = fs.readFileSync(path.join(ROOT, 'packages/common/assets/core/env.config.md'), 'utf8')
   assert.match(md, /`commitWith` names the skill/, 'the config reference explains it')
-  assert.match(md, /"none"\s+— record the verdict and commit nothing/, 'and how to turn it off')
+  // THERE IS NO OFF SWITCH, and the reference has to say so rather than going
+  // quiet: `"none"` shipped, was removed, and a reader who met it once will
+  // look for it. The absence is explained where they look.
+  assert.match(md, /THERE IS NO OFF SWITCH/, 'and that there is no way to turn it off')
+  assert.match(md, /`"none"` existed and was removed/, 'naming what went, so the gap is not a mystery')
+  assert.doesNotMatch(md, /"none"\s+— record the verdict and commit nothing/, 'the old value is not still offered')
 })
 
 test('the guard would fire on a review key that does not exist', () => {

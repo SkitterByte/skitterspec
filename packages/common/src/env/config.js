@@ -117,10 +117,15 @@ const DEFAULT_CONFIG = Object.freeze({
   // `detect` sniffs; `local`/`remote` are the operator's own answer and are
   // believed without sniffing, because they know where they are reading and no
   // signal can outrank that.
-  // `commitWith` names the skill an APPROVED review hands off to. `/commit`
+  // `commitWith` names the skill a COMMITTING verdict hands off to. `/commit`
   // ships with skittership, a different package — so it may not be installed,
-  // and skitterspec must never vendor a copy of it. `"none"` records the
-  // verdict and commits nothing.
+  // and skitterspec must never vendor a copy of it.
+  //
+  // There is no off switch, and that is deliberate: `"none"` existed and was
+  // removed, because it produced the one thing a review page must not have —
+  // a verdict that records itself and does nothing. A review is the guard in
+  // front of an action; recording an approval for SOMEONE ELSE to act on is a
+  // different mechanism, not a value of this key.
   review: Object.freeze({ reader: 'detect', servePort: 7777, serveOnRemote: true, commitWith: '/commit' }),
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
@@ -329,10 +334,9 @@ function mergeConfig(base, parsed) {
     // default in place rather than being read as a refusal, so a typo cannot
     // quietly restore the dead `file://` link on a remote reader.
     assign(base.review, parsed.review, 'serveOnRemote', 'boolean')
-    // An empty string leaves `/commit` standing rather than reading as "none".
-    // Disabling the hand-off is a decision, and a decision is spelled out — the
-    // one value that stops a commit happening should not be reachable by
-    // deleting some text and leaving the quotes.
+    // An empty string leaves `/commit` standing, like every other string key
+    // here. There is nothing it could mean instead: the hand-off has no off
+    // switch, so a blank value is a typo rather than an instruction.
     assign(base.review, parsed.review, 'commitWith', 'string')
   }
 
