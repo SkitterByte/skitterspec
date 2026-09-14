@@ -117,7 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The verdict in the engine | ⬜ | [01-verdict-engine.md](01-verdict-engine.md) |
+| 1 | The verdict in the engine | ✅ | [01-verdict-engine.md](01-verdict-engine.md) |
 | 2 | The page's verdict bar | ⬜ | [02-verdict-bar.md](02-verdict-bar.md) |
 | 3 | Approve hands off and commits | ⬜ | [03-commit-handoff.md](03-commit-handoff.md) |
 | 4 | Changes, discuss, and the docs | ⬜ | [04-routing-and-docs.md](04-routing-and-docs.md) |
@@ -147,6 +147,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-13 — Phase 1: the outcome log records **honoured** verdicts only. A
+  refused approval did not happen, so logging it would leave a trail of
+  decisions the repo never took; the refusal is reported instead, and the
+  comments still land. Also: the open-comment count is reported as `openCount`
+  rather than `open` — a dotted `.open` is the removed opener's spelling, and
+  `assets-spec-start-one-path` guards the engine against it returning.
 - 2026-09-11 — Spec created, straight out of using `feat-review-round-trip`. It
   is a separate spec rather than a fifth phase there because it does the thing
   that spec lists as a non-goal — gating an action on review state — and the

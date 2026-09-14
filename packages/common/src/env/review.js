@@ -298,6 +298,21 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
 
 const NOTES_VERSION = 1
 
+/**
+ * The three verdicts a review pass can carry, and what an absent one means.
+ *
+ * A VERDICT IS CHOSEN BY A PERSON, ONCE, PER REVIEW — it is not derived from
+ * how many boxes are ticked. That distinction is the whole point: counting
+ * marks stays forbidden (see `applyNotes`, which still gates nothing), and this
+ * is the deliberate, single place a review gets to say what it concluded.
+ *
+ * `discuss` is the default because it is the behaviour that existed before any
+ * verdict did: report the notes and wait. So a blob from an older page, or one
+ * a reader sent without choosing, keeps doing exactly what it always did.
+ */
+const VERDICTS = ['approve', 'changes', 'discuss']
+const DEFAULT_VERDICT = 'discuss'
+
 // A file that is gone has no content to hash, and an accept still has to mean
 // something about it. A sentinel is comparable and obviously not a blob sha.
 const DELETED_HASH = '(deleted)'
@@ -376,6 +391,11 @@ function readNotes(outPath, specFolder) {
         updatedAt: parsed.updatedAt || null,
         files: parsed.files && typeof parsed.files === 'object' ? parsed.files : {},
         comments: Array.isArray(parsed.comments) ? parsed.comments : [],
+        // Absent stays absent. A sidecar written before verdicts existed, or by
+        // a review that never reached one, must not gain an empty `decisions`
+        // key just by being read — the round-trip has to be byte-stable for
+        // everyone who is not using this.
+        ...(Array.isArray(parsed.decisions) ? { decisions: parsed.decisions } : {}),
       },
       corrupt: false,
       present: true,
@@ -443,7 +463,77 @@ function validateNotesBlob(blob, specFolder) {
       fail(`comment ${c.id} has a non-integer line`)
     }
   }
-  return { accepted, unaccepted, comments }
+  // A KNOWN KEY WITH AN UNKNOWN VALUE IS REFUSED BY NAME, which is not the
+  // unknown-key rule above wearing a hat. Dropping `verdict: "aprove"` the way
+  // we drop a key we have never heard of would read as `discuss` — a review
+  // that silently did nothing, reported as if it had. Absent is a different
+  // thing from wrong, and only absent is allowed through.
+  let verdict = null
+  if (blob.verdict !== undefined && blob.verdict !== null) {
+    if (typeof blob.verdict !== 'string' || !VERDICTS.includes(blob.verdict)) {
+      fail(`verdict ${JSON.stringify(blob.verdict)} is not one of ${VERDICTS.join(', ')}`)
+    }
+    verdict = blob.verdict
+  }
+  return { accepted, unaccepted, comments, verdict }
+}
+
+/**
+ * Decide what a verdict actually does, given the notes it arrives with. Pure.
+ *
+ * THE ONE ACCUSING CHECK HERE: an approval is refused while any comment is
+ * unresolved. It reads a PRESENCE — an open comment, sitting in the sidecar —
+ * rather than an absence, so there is no lookup that could have been too narrow
+ * to see the thing (`.claude/rules/negative-checks.md` rule 1). The comments
+ * counted are whatever is in `notes` at the moment of the call, which is after
+ * the blob has been merged and after any `--resolve` has landed, so a note
+ * raised and answered in the same run does not block.
+ *
+ * WHAT WOULD FOOL THIS: nothing about the count, but the intent behind it is
+ * narrow. UNACCEPTED FILES ARE NOT COUNTED AND MUST NEVER BE. A comment is a
+ * request you made; an unticked file is merely something you said nothing
+ * about, and requiring every file ticked would be the counting gate this whole
+ * feature was designed not to become.
+ *
+ * A refused approval routes to `discuss` — report and stop — rather than
+ * staying `approve` with a flag beside it. Three states, and the one we cannot
+ * honour goes to the harmless branch (rule 4): a caller that reads `effective`
+ * and ignores `honoured` then talks instead of committing, which is the
+ * failure we can afford.
+ */
+function judgeVerdict(verdict, notes) {
+  const sent = verdict || null
+  const asked = sent || DEFAULT_VERDICT
+  const open = (notes.comments || []).filter((c) => !c.resolved)
+  const openFiles = [...new Set(open.map((c) => c.file))]
+  if (asked !== 'approve' || open.length === 0) {
+    return { sent, effective: asked, honoured: true, reason: null, openCount: open.length, openFiles }
+  }
+  return {
+    sent,
+    effective: DEFAULT_VERDICT,
+    honoured: false,
+    reason:
+      `${open.length} comment${open.length === 1 ? ' is' : 's are'} unresolved ` +
+      `(${openFiles.join(', ')})`,
+    openCount: open.length,
+    openFiles,
+  }
+}
+
+/**
+ * Append one line to the outcome log. Pure.
+ *
+ * HISTORY, NOT STATE. Nothing reads `decisions` to decide anything — a verdict
+ * is consumed by the thing it asked for (a commit, or the work) and is never
+ * stored as a pending instruction, so an approval cannot go stale and later
+ * commit something nobody read. What is kept is the account of what was
+ * decided, when, and eventually what it produced.
+ */
+function appendDecision(notes, { verdict, at, note = null }) {
+  const decisions = Array.isArray(notes.decisions) ? notes.decisions.slice() : []
+  decisions.push({ verdict, at, note: note === undefined ? null : note })
+  return { ...notes, updatedAt: at, decisions }
 }
 
 /**
@@ -466,6 +556,9 @@ function mergeNotes(existing, blob, now) {
     files: { ...existing.files },
     comments: existing.comments.slice(),
   }
+  // The log is history and the merge rebuilds the object from scratch, so it
+  // has to be carried across explicitly or every paste would erase it.
+  if (Array.isArray(existing.decisions)) notes.decisions = existing.decisions.slice()
   for (const a of blob.accepted) notes.files[a.path] = { acceptedHash: a.hash, acceptedAt: now }
   for (const p of blob.unaccepted) delete notes.files[p]
 
@@ -853,6 +946,8 @@ function writeReviewPage(outPath, html) {
 module.exports = {
   WHOLE_FILE_CONTEXT,
   NOTES_VERSION,
+  VERDICTS,
+  DEFAULT_VERDICT,
   DELETED_HASH,
   fileHashes,
   reviewNotesPath,
@@ -861,6 +956,8 @@ module.exports = {
   writeNotes,
   validateNotesBlob,
   validateResolutions,
+  judgeVerdict,
+  appendDecision,
   mergeNotes,
   applyResolutions,
   applyNotes,

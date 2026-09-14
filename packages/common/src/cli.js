@@ -62,6 +62,8 @@ const {
   readNotes,
   writeNotes,
   validateNotesBlob,
+  judgeVerdict,
+  appendDecision,
   validateResolutions,
   mergeNotes,
   applyResolutions,
@@ -1588,6 +1590,16 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
  * tree (the default — "what did this phase just do") and `--branch` (everything
  * since the base branch — "what does this whole spec do").
  */
+// How a judged verdict reads on the `notes:` line. The refused case leads with
+// the word `refused` rather than burying it after the reason, because the one
+// thing the reader must take away is that the approval did not happen.
+function verdictSaid(v) {
+  if (!v.honoured) return `approve refused — ${v.reason}`
+  if (v.effective === 'approve') return 'approved'
+  if (v.effective === 'changes') return 'changes requested'
+  return 'discuss first'
+}
+
 async function specEnvReview(dir, config, specArg, flags) {
   // An unknown name throws here rather than falling back to the branch: a review
   // of the wrong spec looks exactly like a review of the right one.
@@ -1647,6 +1659,7 @@ async function specEnvReview(dir, config, specArg, flags) {
   const stored = readNotes(out, spec.folder)
   let notes = stored.notes
   let merged = null
+  let sentVerdict = null
 
   if (flags.notes) {
     // Refuse rather than write over notes we could not read: an unreadable
@@ -1673,8 +1686,13 @@ async function specEnvReview(dir, config, specArg, flags) {
       process.stdout.write(`spec-env review: ${err.message}\n`)
       return
     }
+    // MERGED BEFORE THE VERDICT IS JUDGED, and written either way. The notes
+    // are good work even when the verdict that came with them is one we cannot
+    // honour; dropping them would punish the mistake twice, and the reader
+    // would have to re-read the diff to write them again.
     notes = mergeNotes(notes, parsed, new Date().toISOString())
     writeNotes(out, notes)
+    sentVerdict = parsed.verdict
     merged = {
       accepted: parsed.accepted.length,
       unaccepted: parsed.unaccepted.length,
@@ -1710,6 +1728,35 @@ async function specEnvReview(dir, config, specArg, flags) {
     notes = result.notes
     writeNotes(out, notes)
     resolvedNow = { applied: result.applied, unknown: result.unknown }
+  }
+
+  // AFTER the merge and AFTER any resolutions, so the count the approval is
+  // judged against is the one that is true now. A note raised and answered in
+  // the same invocation is not an open note.
+  //
+  // Said nothing about when no verdict was sent: a blob without one behaves as
+  // it always did, and gains no key in either output.
+  let verdictReport = null
+  if (sentVerdict) {
+    const judged = judgeVerdict(sentVerdict, notes)
+    if (judged.honoured) {
+      // The log is appended only for a verdict that was ACTED ON. A refused
+      // approval did not happen, and recording it as history would leave a
+      // trail of decisions the repo never took.
+      notes = appendDecision(notes, { verdict: judged.effective, at: new Date().toISOString() })
+      writeNotes(out, notes)
+    }
+    verdictReport = {
+      sent: judged.sent,
+      effective: judged.effective,
+      honoured: judged.honoured,
+      reason: judged.reason,
+      // `openCount` rather than the bare word: a dotted property of that name
+      // is what the removed opener used, and `assets-spec-start-one-path`
+      // guards the engine against it coming back under any spelling.
+      openCount: judged.openCount,
+      openFiles: judged.openFiles,
+    }
   }
 
   const now = new Date().toISOString()
@@ -1828,6 +1875,7 @@ async function specEnvReview(dir, config, specArg, flags) {
           notes: data.notes,
           merged,
           resolved: resolvedNow,
+          ...(verdictReport ? { verdict: verdictReport } : {}),
           files: data.files.map((f) => ({
             path: f.path,
             status: f.status,
@@ -1867,9 +1915,14 @@ async function specEnvReview(dir, config, specArg, flags) {
             : '') +
           '\n'
         : '') +
-      (hasNotes
+      // The verdict is said ONCE, on the line that already carries the review
+      // state. An approve of a clean read has no counts to print, so the line
+      // appears for a verdict too — but never for a blob that carried none.
+      (hasNotes || verdictReport
         ? `  notes: ${n.accepted} accepted · ${n.lapsed} lapsed · ` +
-          `${n.unresolved} open · ${n.resolved} resolved\n`
+          `${n.unresolved} open · ${n.resolved} resolved` +
+          (verdictReport ? ` · ${verdictSaid(verdictReport)}` : '') +
+          '\n'
         : '') +
       // Said only when it is true, so a review with no sidecar reads exactly as
       // it did before any of this existed.
