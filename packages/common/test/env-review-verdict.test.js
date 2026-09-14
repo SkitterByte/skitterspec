@@ -371,3 +371,45 @@ test('a render with no blob at all is untouched by any of this', async () => {
     cleanup(dir)
   }
 })
+
+// --- the log reaches the page ----------------------------------------------
+
+test('the page data carries the last decision, and only once there is one', async () => {
+  const { dir } = scaffold()
+  try {
+    const before = await reviewJson(dir, '--notes', blobFile(dir, { accepted: [] }))
+    // A pass that reached no verdict adds no key. The page renders exactly as
+    // it did before any of this existed, for everyone who is not using it.
+    assert.ok(!('lastDecision' in before.notes), 'absent stays absent')
+
+    await review(dir, '--notes', blobFile(dir, { verdict: 'discuss' }))
+    const approved = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    // The LAST one, not the first: the page has one question to answer with it.
+    assert.strictEqual(approved.notes.lastDecision.verdict, 'approve')
+    assert.strictEqual(approved.notes.lastDecision.note, null)
+    assert.ok(approved.notes.lastDecision.at, 'the log is dated')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a refused approval leaves the page showing the last HONOURED decision', async () => {
+  const { dir } = scaffold()
+  try {
+    await review(dir, '--notes', blobFile(dir, { verdict: 'discuss' }))
+    const refused = await reviewJson(
+      dir,
+      '--notes',
+      blobFile(dir, {
+        verdict: 'approve',
+        comments: [{ id: 'c9', file: 'src/a.js', note: 'not this' }],
+      }),
+    )
+    assert.strictEqual(refused.verdict.honoured, false)
+    // The refused approval did not happen, so the page must not show it as the
+    // last thing decided — that would be a trail of decisions never taken.
+    assert.strictEqual(refused.notes.lastDecision.verdict, 'discuss')
+  } finally {
+    cleanup(dir)
+  }
+})

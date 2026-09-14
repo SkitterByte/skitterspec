@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-review-verdict (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-13)
+> **Status:** In Progress — Phase 2 (started 2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -118,7 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The verdict in the engine | ✅ | [01-verdict-engine.md](01-verdict-engine.md) |
-| 2 | The page's verdict bar | ⬜ | [02-verdict-bar.md](02-verdict-bar.md) |
+| 2 | The page's verdict bar | ✅ | [02-verdict-bar.md](02-verdict-bar.md) |
 | 3 | Approve hands off and commits | ⬜ | [03-commit-handoff.md](03-commit-handoff.md) |
 | 4 | Changes, discuss, and the docs | ⬜ | [04-routing-and-docs.md](04-routing-and-docs.md) |
 
@@ -147,6 +147,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 2: `Request changes` and `Discuss first` are **never**
+  disabled. Only Approve is blocked, and only by an open note — disabling
+  `changes` when nothing is written yet would be a second refusal the spec
+  never asked for, and a note you want acted on is never the wrong thing to
+  send. Also: the page's open-note count is stored-unresolved **plus every
+  comment this pass carries**, which is exactly what `judgeVerdict` counts, so
+  the button is a preview of the engine's refusal rather than a second opinion
+  about it. The test shim now reads initial `hidden` state off the template
+  rather than a hand-written id list, so a control that ships hidden cannot
+  read as revealed.
 - 2026-09-13 — Phase 1: the outcome log records **honoured** verdicts only. A
   refused approval did not happen, so logging it would leave a trail of
   decisions the repo never took; the refusal is reported instead, and the

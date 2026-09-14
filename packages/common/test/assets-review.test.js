@@ -217,11 +217,21 @@ function fakeDom(islandText) {
   for (const id of [
     'title', 'sub', 'files', 'tree', 'tree-wrap', 'tree-summary',
     'expand-all', 'collapse-all', 'show-noise', 'noise-label', 'theme', 'review-block',
-    'copy-review', 'copy-out', 'copy-hint',
+    'verdict', 'verdict-approve', 'verdict-changes', 'verdict-discuss',
+    'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
   }
+  // The shim cannot parse markup, so an element that SHIPS hidden would start
+  // out visible here and a test could not tell "the page revealed it" from
+  // "the shim never hid it". Read the initial state off the template itself
+  // rather than listing ids by hand, so it cannot drift from what ships.
+  for (const tag of TEMPLATE.match(/<[^>]*\bid="[^"]+"[^>]*>/g) || []) {
+    const id = /\bid="([^"]+)"/.exec(tag)[1]
+    if (byId[id] && /\shidden(\s|>|=)/.test(tag)) byId[id].hidden = true
+  }
+
   // The noise checkbox must sit inside a `.toggle` for closest() to find it.
   const toggleLabel = make('label')
   toggleLabel.className = 'toggle'
@@ -502,12 +512,17 @@ function writeNote(input, text) {
 }
 
 // Take the blob the page ACTUALLY emits, through the button a person presses.
-function copyBlob(dom) {
+// There is no verdict-less control any more — every pass leaves the page having
+// said something — so the marks-only tests below press the one that means
+// "report it and stop", which is what they were always asking for.
+function copyBlob(dom, verdict = 'discuss') {
   const before = dom.copied.length
-  dom.byId['copy-review'].dispatch('click')
+  dom.byId['verdict-' + verdict].dispatch('click')
   assert.strictEqual(dom.copied.length, before + 1, 'the blob reached the clipboard')
   return JSON.parse(dom.copied[dom.copied.length - 1])
 }
+
+const countSays = (dom) => dom.byId['verdict-count'].textContent
 
 // Every blob this file produces goes through the real validator. That is the
 // whole point of driving the page rather than asserting on its source: the page
@@ -518,9 +533,9 @@ function accepted(blob, spec = 'feat-x') {
 
 test('ticking accept sends the file and the hash it was read at', () => {
   const dom = runPage(marked())
-  assert.strictEqual(dom.byId['copy-review'].disabled, true, 'nothing marked yet')
+  assert.match(countSays(dom), /Nothing marked/, 'nothing marked yet')
   accepts(dom)[0].dispatch('click')
-  assert.match(dom.byId['copy-review'].textContent, /Copy review \(1\)/)
+  assert.strictEqual(countSays(dom), '1 mark to send')
 
   const blob = copyBlob(dom)
   accepted(blob)
@@ -534,7 +549,7 @@ test('an accept already recorded says nothing; withdrawing it is explicit', () =
   const dom = runPage(data)
 
   // Ticked on arrival, and nothing has changed — so there is nothing to send.
-  assert.strictEqual(dom.byId['copy-review'].disabled, true)
+  assert.match(countSays(dom), /Nothing marked/)
 
   accepts(dom)[0].dispatch('click') // untick
   const blob = copyBlob(dom)
@@ -681,7 +696,7 @@ test('the pass is autosaved, and storage that throws does not break the page', (
 test('with no clipboard the blob is offered as text instead', () => {
   const dom = runPage(marked(), { clipboard: false })
   accepts(dom)[0].dispatch('click')
-  dom.byId['copy-review'].dispatch('click')
+  dom.byId['verdict-discuss'].dispatch('click')
   assert.strictEqual(dom.byId['copy-out'].hidden, false, 'the fallback is shown')
   accepted(JSON.parse(dom.byId['copy-out'].value))
   assert.match(dom.byId['copy-hint'].textContent, /paste it to Claude/)
@@ -689,8 +704,9 @@ test('with no clipboard the blob is offered as text instead', () => {
 
 test('a page with no marks at all emits nothing and says nothing', () => {
   const dom = runPage(marked())
-  assert.strictEqual(dom.byId['copy-review'].disabled, true)
-  assert.strictEqual(dom.byId['copy-review'].textContent, 'Copy review')
+  assert.match(countSays(dom), /Nothing marked/)
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, false, 'a clean read is approvable')
+  assert.strictEqual(dom.byId['verdict-log'].hidden, true, 'no verdict has been reached here')
   assert.deepStrictEqual(findAll(dom.byId.files, 'lapsed'), [], 'nothing is accused of being stale')
   assert.deepStrictEqual(findAll(dom.byId.files, 'note-row'), [])
 })
@@ -704,10 +720,115 @@ test('a resolved comment is history, not an outstanding ask', () => {
   const dom = runPage(data)
   // Neither counts: both were already sent. The count is what YOU have written
   // and not yet handed over, never a tally of outstanding work.
-  assert.strictEqual(dom.byId['copy-review'].disabled, true)
+  assert.match(countSays(dom), /Nothing marked/)
 
   // The open one is advertised on the summary; the resolved one is not.
   const chips = findAll(dom.byId.files, 'commented')
   assert.strictEqual(chips.length, 1)
   assert.match(chips[0].textContent, /^1 note$/)
+})
+
+// --- the verdict bar --------------------------------------------------------
+
+// Every verdict the page emits goes through the REAL validator, so the three
+// buttons and the engine's accepted vocabulary cannot drift apart in silence.
+
+test('each button sends its own verdict, and the engine accepts all three', () => {
+  for (const verdict of ['approve', 'changes', 'discuss']) {
+    const dom = runPage(marked())
+    const blob = copyBlob(dom, verdict)
+    assert.strictEqual(blob.verdict, verdict)
+    assert.strictEqual(accepted(blob).verdict, verdict, 'the engine reads back what was pressed')
+  }
+})
+
+test('a verdict travels with the marks it was reached on', () => {
+  const dom = runPage(marked())
+  accepts(dom)[0].dispatch('click')
+  const blob = copyBlob(dom, 'approve')
+  assert.strictEqual(blob.verdict, 'approve')
+  assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
+  accepted(blob)
+})
+
+test('approve is blocked while a note is open, and says so on the button', () => {
+  const dom = runPage(marked())
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, false)
+
+  gutters(dom).find((g) => g.textContent.includes('+')).dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'keep the old value')
+
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, true)
+  // The reason is IN THE LABEL. A dimmed button with the reason in a tooltip is
+  // unreachable on the phone this page is read on.
+  assert.match(dom.byId['verdict-approve'].textContent, /1 open note/)
+  assert.strictEqual(dom.byId['verdict-changes'].disabled, false, 'changes is the point of a note')
+  assert.strictEqual(dom.byId['verdict-discuss'].disabled, false)
+})
+
+test('a blocked approve emits nothing at all', () => {
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'this one first')
+
+  const before = dom.copied.length
+  dom.byId['verdict-approve'].dispatch('click')
+  assert.strictEqual(dom.copied.length, before, 'the block is a fact, not a style')
+  assert.strictEqual(dom.byId['copy-out'].hidden, true, 'and no fallback textarea either')
+})
+
+test('removing the last note re-enables approve, live', () => {
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'never mind')
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, true)
+
+  const row = findAll(dom.byId.files, 'note-row').find((r) => /not sent yet/.test(r.textContent))
+  findAll(row, 'note-actions')[0].childNodes[0].dispatch('click')
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, false, 'the bar describes the pass as it stands')
+  assert.strictEqual(dom.byId['verdict-approve'].textContent, '✓ Approve')
+})
+
+test('a stored comment the agent has not answered blocks approve too', () => {
+  const data = marked()
+  data.files[0].comments = [
+    { id: 'c1', file: 'src/app.js', line: null, lineText: null, check: null, note: 'still open', raisedAt: 'T', resolved: null },
+  ]
+  data.notes.totals.unresolved = 1
+  const dom = runPage(data)
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, true)
+  assert.match(dom.byId['verdict-approve'].textContent, /1 open note/)
+})
+
+test('a comment the agent resolved does not block approve', () => {
+  const data = marked()
+  data.files[0].comments = [
+    { id: 'c1', file: 'src/app.js', line: null, lineText: null, check: null, note: 'done', raisedAt: 'T', resolved: { at: 'T2', note: 'fixed' } },
+  ]
+  data.notes.totals.resolved = 1
+  const dom = runPage(data)
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, false)
+})
+
+// STAYS SILENT: the healthy-but-unusual input for the one accusing control on
+// this page. A 60-file phase read straight through and approved without ticking
+// a thing is an ordinary review, not an incomplete one — Decision 3.
+test('unaccepted files never block approve, however many there are', () => {
+  const data = marked()
+  data.notes.totals.unresolved = 0
+  const dom = runPage(data)
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, false, 'ticking is not a gate')
+  const blob = copyBlob(dom, 'approve')
+  assert.deepStrictEqual(blob.accepted, [], 'and nothing had to be ticked to send it')
+  accepted(blob)
+})
+
+test('the last decision is shown as history beneath the bar', () => {
+  const data = marked()
+  data.notes.lastDecision = { verdict: 'approve', at: '2026-09-14T10:00:00.000Z', note: 'committed a1b2c3d' }
+  const dom = runPage(data)
+  assert.strictEqual(dom.byId['verdict-log'].hidden, false)
+  assert.match(dom.byId['verdict-log'].textContent, /approved earlier/)
+  assert.match(dom.byId['verdict-log'].textContent, /2026-09-14/)
+  assert.match(dom.byId['verdict-log'].textContent, /committed a1b2c3d/)
 })

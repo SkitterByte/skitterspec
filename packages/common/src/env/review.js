@@ -247,6 +247,12 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   const store = notes || emptyNotes(spec.folder)
   const { totals: noteTotals, unanchored } = applyNotes(files, store, fileHashes(git, files))
 
+  // The last honoured verdict, for the page to show as history. Only the last:
+  // the log is an audit trail and the page has one question to answer with it —
+  // why does this look untouched? — which the most recent entry answers.
+  const decisions = Array.isArray(store.decisions) ? store.decisions : []
+  const lastDecision = decisions.length ? decisions[decisions.length - 1] : null
+
   const totals = files.reduce(
     (acc, f) => ({
       files: acc.files + 1,
@@ -277,6 +283,10 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
       updatedAt: store.updatedAt || null,
       totals: noteTotals,
       unanchored,
+      // Absent stays absent, for the same reason `readNotes` leaves it off: a
+      // review that has never reached a verdict must render byte-identically to
+      // how it did before any of this existed.
+      ...(lastDecision ? { lastDecision } : {}),
     },
     review: null,
   }

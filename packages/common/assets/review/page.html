@@ -368,6 +368,32 @@ tr.note-row td {
   padding-left: .5rem;
 }
 
+/* --- the verdict bar ----------------------------------------------------- */
+/* Every colour here is an existing token: approve borrows the `good` pair and
+   changes the `flag` pair, so the bar needs no palette of its own. */
+.verdict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+  margin: .9rem 0 0;
+  padding: .6rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.verdict-title { font-size: .8rem; color: var(--muted); }
+.verdict-count { font-size: .8rem; color: var(--muted); }
+.v-approve { color: var(--good-fg); background: var(--good-bg); }
+.v-changes { color: var(--flag-fg); background: var(--flag-bg); }
+/* A blocked control is dashed as well as dimmed, so the block survives a
+   greyscale screen — and the reason rides in the label, never in a tooltip
+   nobody hovers on a phone. */
+button:disabled { color: var(--muted); background: var(--panel-2); border-style: dashed; cursor: not-allowed; }
+button:disabled:hover { color: var(--muted); border-color: var(--line); }
+.verdict-log { font-size: .8rem; color: var(--muted); margin: .45rem 0 0; }
+.verdict-log[hidden] { display: none; }
+
 .copy-out {
   width: 100%;
   min-height: 8rem;
@@ -394,8 +420,15 @@ tr.note-row td {
     <button id="collapse-all" type="button">Collapse context</button>
     <label class="toggle"><input type="checkbox" id="show-noise"> <span id="noise-label">Show bookkeeping</span></label>
     <button id="theme" type="button" aria-live="polite">Theme</button>
-    <button id="copy-review" type="button" aria-live="polite">Copy review</button>
   </div>
+  <div class="verdict" id="verdict">
+    <span class="verdict-title">Your verdict</span>
+    <button id="verdict-approve" class="v-approve" type="button" aria-live="polite">✓ Approve</button>
+    <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
+    <button id="verdict-discuss" type="button">… Discuss first</button>
+    <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
+  </div>
+  <p class="verdict-log" id="verdict-log" hidden></p>
   <p class="copy-hint" id="copy-hint" hidden></p>
   <textarea class="copy-out" id="copy-out" readonly hidden aria-label="Review blob to copy"></textarea>
 </header>
@@ -987,7 +1020,7 @@ tr.note-row td {
    * Withdrawal is explicit for the same reason — under a merge, absence means
    * "not mentioned", never "remove it".
    */
-  function buildBlob() {
+  function buildBlob(verdict) {
     var accepted = []
     var unaccepted = []
     var comments = []
@@ -1014,7 +1047,7 @@ tr.note-row td {
         note: replies[id],
       })
     })
-    return {
+    var blob = {
       version: 1,
       spec: data.spec,
       generatedAt: data.generatedAt,
@@ -1022,9 +1055,19 @@ tr.note-row td {
       unaccepted: unaccepted,
       comments: comments,
     }
+    // Absent unless a verdict was actually chosen. The engine reads an absent
+    // one as `discuss`, and a blob that never claimed one should keep saying so.
+    if (verdict) blob.verdict = verdict
+    return blob
   }
 
-  var copyBtn = document.getElementById('copy-review')
+  var verdictBtns = {
+    approve: document.getElementById('verdict-approve'),
+    changes: document.getElementById('verdict-changes'),
+    discuss: document.getElementById('verdict-discuss'),
+  }
+  var verdictCount = document.getElementById('verdict-count')
+  var verdictLog = document.getElementById('verdict-log')
   var copyOut = document.getElementById('copy-out')
   var copyHint = document.getElementById('copy-hint')
 
@@ -1033,14 +1076,58 @@ tr.note-row td {
     return b.accepted.length + b.unaccepted.length + b.comments.length
   }
 
-  // Redraw the count and autosave. Called after every mark, so a phone tab
-  // switch mid-review costs nothing.
+  /**
+   * How many notes would still be open once this pass lands — the exact number
+   * the engine's `judgeVerdict` will count, which is what makes the disabled
+   * button a preview of the refusal rather than a second opinion about it.
+   *
+   * Stored comments the agent has not answered, PLUS every comment this pass is
+   * about to send (a note you just wrote is open by definition).
+   *
+   * UNACCEPTED FILES ARE NOT COUNTED AND MUST NEVER BE. A comment is a request
+   * you made; an unticked file is merely something you said nothing about, and
+   * counting those would be the tally this whole feature is designed not to be.
+   */
+  function openNotes() {
+    var stored = (data.notes && data.notes.totals && data.notes.totals.unresolved) || 0
+    return stored + buildBlob().comments.length
+  }
+
+  // Redraw the bar and autosave. Called after every mark, so the block lifts
+  // the moment the last note goes and a phone tab switch mid-review costs
+  // nothing.
   function refresh() {
     var n = pending()
-    copyBtn.textContent = n ? 'Copy review (' + n + ')' : 'Copy review'
-    copyBtn.disabled = n === 0
-    copyBtn.title = n ? 'Copy your marks and notes, then paste them to Claude' : 'Nothing marked yet'
+    var open = openNotes()
+    verdictCount.textContent = n
+      ? n + (n === 1 ? ' mark to send' : ' marks to send')
+      : 'Nothing marked — Approve still sends a clean read'
+    // The reason goes ON the control. A button that is merely dimmed reads as a
+    // broken page, and a title attribute is unreachable on a touch screen.
+    verdictBtns.approve.disabled = open > 0
+    verdictBtns.approve.textContent = open
+      ? '✓ Approve — ' + open + (open === 1 ? ' open note' : ' open notes')
+      : '✓ Approve'
+    verdictBtns.approve.title = open
+      ? 'Resolve or remove your notes first — you asked for something, so it cannot also be fine'
+      : 'Send this as approved: commit it'
+    // Said rather than left unset: Approve is the ONLY control this page ever
+    // blocks, and the other two are always available on purpose — a note you
+    // want acted on, and a conversation, are never the wrong thing to send.
+    verdictBtns.changes.disabled = false
+    verdictBtns.discuss.disabled = false
     save()
+  }
+
+  // The last honoured verdict, as history. It is why the page can look
+  // untouched after an approval: the verdict was consumed, not stored.
+  function drawLog() {
+    var last = data.notes && data.notes.lastDecision
+    if (!last) return
+    var said = last.verdict === 'approve' ? 'approved' : last.verdict === 'changes' ? 'changes requested' : 'discussed'
+    var when = String(last.at || '').slice(0, 10)
+    verdictLog.hidden = false
+    verdictLog.textContent = said + ' earlier' + (when ? ' · ' + when : '') + (last.note ? ' · ' + last.note : '')
   }
 
   function showFallback(json, why) {
@@ -1052,8 +1139,10 @@ tr.note-row td {
     copyHint.textContent = why
   }
 
-  copyBtn.addEventListener('click', function () {
-    var json = JSON.stringify(buildBlob(), null, 2)
+  // One action per decision: the verdict button IS the copy button, so the blob
+  // can never carry a verdict other than the one just pressed.
+  function send(verdict) {
+    var json = JSON.stringify(buildBlob(verdict), null, 2)
     // `file://` is not a secure context everywhere, and the clipboard API is
     // absent or rejects there — so the textarea is a shipping requirement, not
     // a nicety. It is the path a local page usually takes.
@@ -1068,9 +1157,19 @@ tr.note-row td {
     }, function () {
       showFallback(json, 'Could not reach the clipboard. Copy this, then paste it to Claude.')
     })
+  }
+
+  Object.keys(verdictBtns).forEach(function (verdict) {
+    verdictBtns[verdict].addEventListener('click', function () {
+      // A disabled button does not fire in a browser; the guard is for every
+      // other caller, and it keeps the block a fact rather than a style.
+      if (verdictBtns[verdict].disabled) return
+      send(verdict)
+    })
   })
 
   restore()
+  drawLog()
   wireChecks()
   state.forEach(function (st) {
     var btn = st.details && st.details.querySelector('.accept')
