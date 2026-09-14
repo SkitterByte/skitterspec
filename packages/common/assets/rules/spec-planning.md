@@ -1,6 +1,6 @@
 # Spec Planning
 
-Spec-driven development is driven by nine lifecycle skills (plus the
+Spec-driven development is driven by ten lifecycle skills (plus the
 `/spec-connect` and `/spec-live` **commands** when isolation is on) — use them rather than hand-rolling specs so the structure
 and lifecycle stay consistent. Each sets a status on the spec header
 (`> **Status:** …`):
@@ -13,6 +13,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-start` | Put a spec in flight — provision its branch, then build phase 1 | `In Progress` | `specs/in-progress/` |
 | `/spec-next` | Build the next phase of the spec this session is in (re-run per phase) | `In Progress` (unchanged) | (unchanged) |
+| `/spec-reviewed` | Pick up a review approved on the page — offered by its code, claimed on your word | (unchanged) | (unchanged) |
 | `/spec-to-main` | Land the branch on the base (rebase + ff) **without** finishing — for running the work in CI / a shared env mid-spec; repeatable | `In Progress` (unchanged) | (unchanged) |
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |
@@ -25,6 +26,14 @@ relays its output, so there is no judgment to apply and no model turn spent
 finding one. They are marked `disable-model-invocation`, meaning
 **only you can run them** — a skill that wants one will tell you to type it
 rather than invoking it.
+
+`/spec-reviewed` is a **skill** and **user-only**, and there the marking is not
+convenience — it is the enforcement of `/spec-diff` step 0's rule that a waiting
+review pass is never claimed unasked. A pass can be POSTed by anything that
+reaches the page; what it cannot reach is the conversation. Because the model
+cannot invoke this skill, a pass is only ever picked up because a person typed
+the command, and typing it **is** the human signal. Prose alone did not hold
+that line once already.
 
 `/spec-to-main`, `/spec-status` and `/spec-sync` stay **skills** — each carries
 real judgment (green tests before a land; an MCP fetch and a team-key check; ten

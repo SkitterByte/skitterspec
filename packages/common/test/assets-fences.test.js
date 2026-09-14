@@ -63,6 +63,9 @@ const ALLOWED = {
     ['"spec": {', 'a config fragment the user pastes'],
   ],
   'linear/spec-sync': [['apply --all backlog would:', 'a sample of the plan the engine prints']],
+  'common/spec-reviewed': [
+    ['pending:', "a sample of the render's pending block, which the skill reads a code out of"],
+  ],
 }
 
 function classify(label, block) {

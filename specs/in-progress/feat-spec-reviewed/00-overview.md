@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The command, bare | ⬜ | [01-the-command.md](01-the-command.md) |
+| 1 | The command, bare | ✅ | [01-the-command.md](01-the-command.md) |
 | 2 | Targeting, and the relocation guard | ⬜ | [02-targeting.md](02-targeting.md) |
 
 ## Non-goals
@@ -129,6 +129,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 1: **four existing guards caught the new skill**, which is
+  the corpus working rather than friction — a bold span across a line break, a
+  fenced block read as a message to the reader, the report-contract roster, and
+  a `17 skills installed` line quoted on the docs site. The fence one was a real
+  judgement: the block is engine output, which the rule permits, so it went in
+  `assets-fences.test.js`'s allowlist **with its reason** rather than being
+  un-fenced to dodge the check.
 - 2026-09-14 — Spec created. The shape is the operator's: a command of its own
   rather than a check inside `/spec-next`, so a follow-up phase before committing
   stays possible. The user-only marking turned out to be load-bearing rather
