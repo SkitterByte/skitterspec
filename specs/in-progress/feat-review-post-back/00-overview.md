@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-217"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-217/the-page-posts-its-pass-back-claimed-by-a-code"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # The page posts its pass back, claimed by a code
 
 > **Type:** Feature
 > **Name:** feat-review-post-back (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-14)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
 > **Area:** packages/common/src/env/serve.js, packages/common/src/env/review.js, packages/common/src/cli.js, packages/common/assets/review/page.html, packages/common/assets/skills/spec-diff, packages/common/assets/core/env.config.md, packages/common/test
 > **Stack:** worktree
@@ -141,6 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
+| 2026-09-14 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
