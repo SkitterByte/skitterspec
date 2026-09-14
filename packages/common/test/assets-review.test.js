@@ -1067,3 +1067,82 @@ test('the sent message names /spec-reviewed', async () => {
   assert.match(hint, /418207/, 'the code is still shown')
   assert.doesNotMatch(hint, /tell Claude it is waiting/, 'the old arrangement is gone')
 })
+
+// --- the button reasons from the phases (feat-page-knows-the-phase) ---------
+//
+// The operator opened the four-button bar on a COMPLETED spec — nought files,
+// "Nothing to review" — and was offered a continue with nothing to continue
+// into. One question answers it and the last-phase case together.
+
+const phased = (over) => marked({ phases: over })
+
+test('commit & continue is disabled, with its reason, when no phase is left', () => {
+  const dom = runPage(phased({ total: 3, done: 3, hasNextPhase: false }))
+  const cont = dom.byId['verdict-commit-continue']
+  assert.strictEqual(cont.disabled, true)
+  assert.match(cont.textContent, /no phase left/, 'the reason is on the control')
+  assert.match(cont.title, /nothing left to build/i)
+  // `✓ Commit` is untouched: a clean read still commits, and a finished spec is
+  // still a legitimate thing to read.
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false)
+  assert.strictEqual(dom.byId['verdict-commit'].textContent, '✓ Commit')
+})
+
+test('a spec with a phase left is offered the continue', () => {
+  const dom = runPage(phased({ total: 3, done: 1, hasNextPhase: true }))
+  assert.strictEqual(dom.byId['verdict-commit-continue'].disabled, false)
+  assert.strictEqual(dom.byId['verdict-commit-continue'].textContent, '✓ Commit & Continue')
+})
+
+// CANNOT TELL IS NOT A NO (`negative-checks.md` rules 1 and 4). A spec whose
+// phases the engine could not read — a legacy layout, inline phases — must keep
+// the button it has always had.
+test('stays silent: no phases key leaves both buttons exactly as they were', () => {
+  const dom = runPage(marked())
+  assert.ok(!('phases' in marked()), 'the fixture carries none')
+  assert.strictEqual(dom.byId['verdict-commit-continue'].disabled, false)
+  assert.strictEqual(dom.byId['verdict-commit-continue'].textContent, '✓ Commit & Continue')
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false)
+})
+
+// TWO REASONS, ONE LABEL. The open note is the one the reader can act on, so it
+// wins — a "no phase left" in its place would send them to fix the wrong thing.
+test('an open note outranks no-phase-left on the label', () => {
+  const dom = runPage(phased({ total: 2, done: 2, hasNextPhase: false }))
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'this first')
+
+  const cont = dom.byId['verdict-commit-continue']
+  assert.strictEqual(cont.disabled, true)
+  assert.match(cont.textContent, /1 open note/, 'the actionable reason wins')
+  assert.doesNotMatch(cont.textContent, /no phase left/)
+  // And commit is blocked by the note too, as it always was.
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, true)
+  assert.match(dom.byId['verdict-commit'].textContent, /1 open note/)
+})
+
+test('removing the note restores the no-phase reason, not the plain label', () => {
+  const dom = runPage(phased({ total: 2, done: 2, hasNextPhase: false }))
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'never mind')
+  const row = findAll(dom.byId.files, 'note-row').find((r) => /not sent yet/.test(r.textContent))
+  findAll(row, 'note-actions')[0].childNodes[0].dispatch('click')
+
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false, 'commit comes back')
+  assert.strictEqual(dom.byId['verdict-commit-continue'].disabled, true, 'continue does not')
+  assert.match(dom.byId['verdict-commit-continue'].textContent, /no phase left/)
+})
+
+test('a disabled continue emits nothing', () => {
+  const dom = runPage(phased({ total: 1, done: 1, hasNextPhase: false }))
+  const before = dom.copied.length
+  dom.byId['verdict-commit-continue'].dispatch('click')
+  assert.strictEqual(dom.copied.length, before, 'the block is a fact, not a style')
+})
+
+test('the page asks the filesystem nothing — it reasons from what it was given', () => {
+  // A static artefact spliced once. A page that read the filesystem would not be
+  // one, and could not be opened from a phone at all.
+  assert.match(TEMPLATE, /data\.phases\.hasNextPhase === false/)
+  assert.match(TEMPLATE, /Boolean\(data\.phases\)/, 'absence is checked before the value')
+})

@@ -1137,15 +1137,27 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     // would be a way around the single refusal this page makes.
     var blocked = open > 0
     var why = open + (open === 1 ? ' open note' : ' open notes')
+    // Is there a phase left for `/spec-next` to build? The engine answers, and
+    // its ABSENCE is a third state, not a no: a spec whose phases it could not
+    // read — a legacy layout, an inline-phase overview — leaves the button
+    // exactly as it was. Removing an offer that might work is worse than
+    // leaving one that might not.
+    var noPhaseLeft = Boolean(data.phases) && data.phases.hasNextPhase === false
     COMMITTERS.forEach(function (key) {
       var btn = verdictBtns[key]
+      // AN OPEN NOTE WINS. Two reasons can be true at once and the label has
+      // room for one — the open note is the one the reader can act on, so a
+      // "no phase left" in its place would send them to fix the wrong thing.
+      var stop = blocked ? why : key === 'commit-continue' && noPhaseLeft ? 'no phase left' : null
       // The reason goes ON the control. A button that is merely dimmed reads as
       // a broken page, and a title attribute is unreachable on a touch screen.
-      btn.disabled = blocked
-      btn.textContent = blocked ? LABELS[key] + ' — ' + why : LABELS[key]
+      btn.disabled = Boolean(stop)
+      btn.textContent = stop ? LABELS[key] + ' — ' + stop : LABELS[key]
       btn.title = blocked
         ? 'Resolve or remove your notes first — you asked for something, so it cannot also be fine'
-        : TITLES[key]
+        : key === 'commit-continue' && noPhaseLeft
+          ? 'Every phase of this spec is done — there is nothing left to build'
+          : TITLES[key]
     })
     // Said rather than left unset: the committing pair is the ONLY thing this
     // page ever blocks, and the other two are always available on purpose — a

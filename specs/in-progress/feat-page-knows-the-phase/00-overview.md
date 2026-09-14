@@ -91,7 +91,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The engine reads the phase index | ✅ | [01-read-the-phases.md](01-read-the-phases.md) |
-| 2 | The button reasons from it | ⬜ | [02-the-button-reasons.md](02-the-button-reasons.md) |
+| 2 | The button reasons from it | ✅ | [02-the-button-reasons.md](02-the-button-reasons.md) |
 
 ## Non-goals
 
@@ -115,6 +115,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 2: the precedence is expressed as **one `stop` value** the
+  two buttons share, rather than two conditions each deciding for itself. Two
+  reasons can be true at once and the label has room for one, so the ordering has
+  to live in a single place — and `commit` can only ever be stopped by a note,
+  while `commit-continue` can be stopped by either.
 - 2026-09-14 — Phase 1: the question is **"is there any phase not done?"**, not
   "is there one after this one" as the overview put it. `/spec-next` builds the
   **first unfinished** phase, so a spec sitting half-way through its *last* phase
