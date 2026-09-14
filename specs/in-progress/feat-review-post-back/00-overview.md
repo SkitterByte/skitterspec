@@ -115,7 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The pending store and the claim | ⬜ | [01-pending-store.md](01-pending-store.md) |
+| 1 | The pending store and the claim | ✅ | [01-pending-store.md](01-pending-store.md) |
 | 2 | The server accepts a POST | ⬜ | [02-post-endpoint.md](02-post-endpoint.md) |
 | 3 | The page sends, and falls back | ⬜ | [03-page-sends.md](03-page-sends.md) |
 | 4 | The skill claims, and the docs | ⬜ | [04-claim-and-docs.md](04-claim-and-docs.md) |
@@ -147,6 +147,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 1: the blob is validated **on the way out as well as on
+  the way in**. Decision 2 has a POST validate before it stores, but a pass has
+  then been through a socket and sat on disk, so it is untrusted input twice
+  over — and phase 2's endpoint does not exist yet, which means nothing would
+  have validated a hand-written store at all. `--claim` runs the real
+  `validateNotesBlob` and refuses without merging.
+- 2026-09-14 — Phase 1: `feat-review-serve-version` left a deliberate tripwire —
+  a test asserting the pending-store constraint was merely written down, which
+  failed the moment a pending store appeared. It fired on this phase's first
+  full run and has been replaced with the real thing: a pass is held, the
+  restart's only on-disk effect is applied, and the pass still claims
+  afterwards. That is the cross-spec constraint discharged rather than restated.
 - 2026-09-14 — Spec created, out of using `feat-review-verdict` on a phone. The
   prompt was "is the paste just the best we can do" — and for a served page it is
   not, because the server that renders it is already running and already

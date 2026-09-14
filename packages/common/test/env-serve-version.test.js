@@ -232,26 +232,103 @@ test('a failed restart reports both facts, not just the failure', () => {
   assert.match(src, /return \{ error: 'silent', port: usePort, pid: res\.pid, replaced, engineWas \}/)
 })
 
-// THE CONSTRAINT THAT LINKS THIS SPEC TO `feat-review-post-back`. That spec
-// gives the server a holding area for review passes; if it lived in server
-// memory, this feature would become a new way to lose work. It is not built
-// yet, so this asserts the constraint is RECORDED rather than pretending to
-// test it — and the assertion starts failing the day the holding area appears,
-// which is when it should be replaced with a real round-trip.
-test('a restart must not lose a pending pass — recorded until there is one', () => {
-  const engine = fs.readFileSync(path.join(__dirname, '..', 'src', 'env', 'review.js'), 'utf8')
-  const pendingExists = /pending\.json|writePending|claimPending/.test(engine)
-  if (pendingExists) {
-    assert.fail('the pending store has landed — replace this with a real across-restart test')
+// THE CONSTRAINT THAT LINKS THIS SPEC TO `feat-review-post-back`, now real.
+//
+// That spec gives the server a holding area for review passes. If it lived in
+// server memory, the automatic restart above would be a new way to lose work —
+// you send a pass, the next render replaces the server, and the pass is gone.
+// It is on disk, in a file of its own beside the page, and the restart touches
+// only `review-serve.json`. This proves the pass survives, and claims it after.
+//
+// It replaced a placeholder that asserted the constraint was merely WRITTEN
+// DOWN, and failed the moment the store appeared — which is how it came to be
+// replaced rather than forgotten.
+test('a pending pass survives a restart and is still claimable after it', async () => {
+  const { run } = require('../src/cli.js')
+  const {
+    emptyPending,
+    addPending,
+    writePending,
+    readPending,
+    readNotes,
+  } = require('../src/env/review.js')
+
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-survive-')))
+  const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
+  try {
+    g('init', '-q')
+    g('config', 'user.email', 'test@example.com')
+    g('config', 'user.name', 'Test')
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, 'specs', '.core', 'env.config.json'),
+      JSON.stringify({ baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local' } }),
+    )
+    fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
+    fs.writeFileSync(path.join(dir, 'app.js'), 'one\n')
+    const sd = path.join(dir, 'specs', 'in-progress', 'feat-alpha')
+    fs.mkdirSync(sd, { recursive: true })
+    fs.writeFileSync(path.join(sd, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
+    g('add', '-A')
+    g('commit', '-q', '-m', 'init')
+    g('branch', '-M', 'main')
+    const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'alpha')
+    g('worktree', 'add', '-q', '-b', 'feat/alpha', wt)
+    fs.writeFileSync(path.join(wt, 'app.js'), 'one\nTWO\n')
+
+    const quiet = async (argv) => {
+      const orig = process.stdout.write
+      let out = ''
+      process.stdout.write = (c) => ((out += c), true)
+      try {
+        await run(argv)
+      } finally {
+        process.stdout.write = orig
+      }
+      return out
+    }
+    await quiet(['spec-env', 'review', 'feat-alpha', '--dir', dir])
+
+    const out = path.join(dir, '.spec-env', 'reviews', 'feat-alpha.html')
+    const added = addPending(readPending(out, 'feat-alpha').pending, {
+      blob: { version: 1, spec: 'feat-alpha', accepted: [{ path: 'app.js', hash: 'h1' }], unaccepted: [], comments: [] },
+      at: '2020-01-01T00:00:00.000Z',
+      render: 'R1',
+    })
+    writePending(out, added.pending)
+
+    // The restart's ONLY on-disk effect: the serve settings are rewritten. The
+    // holding area is a different file and is not in that path at all.
+    const settings = path.join(dir, '.spec-env', 'review-serve.json')
+    fs.mkdirSync(path.dirname(settings), { recursive: true })
+    fs.writeFileSync(settings, JSON.stringify({ dir, port: 7777, host: '0.0.0.0', token: 't', engine: '1.0.0' }))
+    fs.writeFileSync(settings, JSON.stringify({ dir, port: 7777, host: '0.0.0.0', token: 't', engine: '2.0.0' }))
+
+    assert.strictEqual(readPending(out, 'feat-alpha').pending.passes.length, 1, 'the pass is still there')
+
+    // And it still claims — the whole point, since `--claim` needs no server.
+    await quiet(['spec-env', 'review', 'feat-alpha', '--dir', dir, '--claim', added.code])
+    assert.strictEqual(
+      readNotes(out, 'feat-alpha').notes.files['app.js'].acceptedHash,
+      'h1',
+      'the pass reached the review after the restart',
+    )
+  } finally {
+    try {
+      execFileSync('git', ['-C', dir, 'worktree', 'prune'], { stdio: 'ignore' })
+    } catch {}
+    fs.rmSync(dir, { recursive: true, force: true })
+    fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
   }
-  const spec = path.join(__dirname, '..', '..', '..', 'specs')
-  const found = []
-  for (const bucket of ['backlog', 'in-progress', 'complete']) {
-    const d = path.join(spec, bucket, 'feat-review-serve-version')
-    if (fs.existsSync(d)) found.push(fs.readFileSync(path.join(d, '00-overview.md'), 'utf8'))
-  }
-  assert.ok(found.length, 'the spec is on disk in some bucket')
-  assert.match(found[0], /must not lose a pending pass/i, 'the constraint is written down')
+})
+
+test('the holding area and the serve settings are separate files', () => {
+  // The structural reason the test above passes, asserted so a later change
+  // that folded pending state into the serve settings would be caught.
+  const { reviewPendingPath } = require('../src/env/review.js')
+  const pending = reviewPendingPath('/repo/.spec-env/reviews/feat-x.html')
+  assert.match(pending, /reviews\/feat-x\.pending\.json$/)
+  assert.ok(!pending.includes('review-serve.json'), 'not the file a restart rewrites')
 })
 
 // --- two specs in parallel must not fight over the one server ---------------

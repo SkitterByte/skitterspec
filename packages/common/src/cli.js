@@ -65,6 +65,10 @@ const {
   judgeVerdict,
   appendDecision,
   annotateLastDecision,
+  readPending,
+  writePending,
+  claimPending,
+  reviewPendingPath,
   validateResolutions,
   mergeNotes,
   applyResolutions,
@@ -1665,6 +1669,59 @@ async function specEnvReview(dir, config, specArg, flags) {
   let notes = stored.notes
   let merged = null
   let sentVerdict = null
+  let claimed = null
+
+  // A CLAIM IS A DELIVERY MECHANISM, not a second kind of review. It lifts a
+  // pass out of the holding area and hands it to exactly the same merge a
+  // pasted blob goes through, so nothing downstream can tell — or behave
+  // differently — by how the pass arrived.
+  if (flags.claim) {
+    const heldRead = readPending(out, spec.folder)
+    if (heldRead.corrupt) {
+      // Same rule as the notes sidecar: a file we cannot parse is not "nothing
+      // pending", and claiming against it must refuse rather than find nothing.
+      process.stdout.write(
+        `spec-env review: ${reviewPendingPath(out)} is not readable JSON — ` +
+          'move it aside rather than losing the passes it holds.\n',
+      )
+      return
+    }
+    const result = claimPending(heldRead.pending, String(flags.claim).trim())
+    if (!result.pass) {
+      // NO FALLBACK, EVER. Not "the only one", not "the most recent" — either
+      // would let a pass nobody read out reach the review, which is the whole
+      // thing the code exists to prevent. And it names nothing: listing the
+      // pending codes would hand a guesser the answer.
+      process.stdout.write(
+        `spec-env review: no pending pass with that code` +
+          `${result.count ? ` (${result.count} waiting)` : ''}\n`,
+      )
+      return
+    }
+    // Validated on the way in as well as on the way out. The blob has been
+    // through a socket and sat on disk, so it is untrusted input twice over.
+    let parsed
+    try {
+      parsed = validateNotesBlob(result.pass.blob, spec.folder)
+    } catch (err) {
+      process.stdout.write(`spec-env review: ${err.message}\n`)
+      return
+    }
+    notes = mergeNotes(notes, parsed, new Date().toISOString())
+    writeNotes(out, notes)
+    // Spent by the claim, so the same code cannot be claimed twice.
+    writePending(out, result.pending)
+    sentVerdict = parsed.verdict
+    claimed = {
+      code: result.pass.code,
+      at: result.pass.at || null,
+      remaining: result.count,
+      accepted: parsed.accepted.length,
+      unaccepted: parsed.unaccepted.length,
+      comments: parsed.comments.length,
+    }
+    merged = { accepted: claimed.accepted, unaccepted: claimed.unaccepted, comments: claimed.comments }
+  }
 
   if (flags.notes) {
     // Refuse rather than write over notes we could not read: an unreadable
@@ -1783,6 +1840,11 @@ async function specEnvReview(dir, config, specArg, flags) {
       process.stdout.write('spec-env review: no decision to record an outcome against — ignored\n')
     }
   }
+
+  // Information, never a prompt. Nothing counts these to decide anything and
+  // nothing refuses over them — the same rule the marks have lived under since
+  // `feat-review-round-trip`.
+  const waiting = readPending(out, spec.folder).pending.passes.length
 
   const now = new Date().toISOString()
   let data = collectReview({ spec, git, mode, ref, base, now, notes })
@@ -1916,6 +1978,8 @@ async function specEnvReview(dir, config, specArg, flags) {
           resolved: resolvedNow,
           ...(verdictReport ? { verdict: verdictReport } : {}),
           ...(outcomeSaid ? { outcome: outcomeSaid } : {}),
+          ...(claimed ? { claimed } : {}),
+          ...(waiting ? { pending: waiting } : {}),
           files: data.files.map((f) => ({
             path: f.path,
             status: f.status,
@@ -1963,6 +2027,13 @@ async function specEnvReview(dir, config, specArg, flags) {
           `${n.unresolved} open · ${n.resolved} resolved` +
           (verdictReport ? ` · ${verdictSaid(verdictReport)}` : '') +
           '\n'
+        : '') +
+      (claimed
+        ? `  claimed: ${claimed.code} — ${claimed.accepted} accept${claimed.accepted === 1 ? '' : 's'}, ` +
+          `${claimed.unaccepted} withdrawn, ${claimed.comments} comment${claimed.comments === 1 ? '' : 's'}\n`
+        : '') +
+      (waiting
+        ? `  pending: ${waiting} pass${waiting === 1 ? '' : 'es'} waiting — claim one with its code\n`
         : '') +
       (outcomeSaid ? `  outcome: ${outcomeSaid}\n` : '') +
       // Said only when it is true, so a review with no sidecar reads exactly as
@@ -3019,6 +3090,7 @@ async function specEnv(rest) {
     notes: null,
     resolve: null,
     outcome: null,
+    claim: null,
     json: false,
   }
   for (let i = 0; i < args.length; i++) {
@@ -3038,6 +3110,7 @@ async function specEnv(rest) {
     else if (args[i] === '--notes') flags.notes = args[++i]
     else if (args[i] === '--resolve') flags.resolve = args[++i]
     else if (args[i] === '--outcome') flags.outcome = args[++i]
+    else if (args[i] === '--claim') flags.claim = args[++i]
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
@@ -3107,7 +3180,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--json] [--record-primary] [--assert-primary-clean]\n' +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +

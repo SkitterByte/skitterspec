@@ -17,6 +17,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const crypto = require('node:crypto')
 const { execFileSync } = require('node:child_process')
 
 // `-U` large enough that a file's patch IS the file. Reviewing a changed line
@@ -436,6 +437,136 @@ function writeNotes(outPath, notes) {
   fs.mkdirSync(path.dirname(p), { recursive: true })
   fs.writeFileSync(p, JSON.stringify(notes, null, 2) + '\n')
   return p
+}
+
+/* ==========================================================================
+ * Pending passes — a review that arrived over the wire
+ *
+ * A page that is SERVED can hand its pass straight back rather than going
+ * through a clipboard and a chat window. That is a write path reachable by
+ * anyone who can reach the page, so what it writes is deliberately not the
+ * sidecar: a POST lands here, in a HOLDING AREA, and nothing reaches the
+ * review until a person reads its code out. The code is what makes a stranger's
+ * pass inert and says WHICH pass when several are in flight.
+ *
+ * On disk rather than in the server's memory, and that is a constraint from
+ * `feat-review-serve-version` rather than a preference: that feature restarts a
+ * stale server automatically, and a restart that dropped the pass you just sent
+ * would be a new way to lose work. It also means `--claim` needs no running
+ * server at all.
+ * ========================================================================== */
+
+const PENDING_VERSION = 1
+
+// Beside the page and the notes sidecar, under gitignored `.spec-env/`.
+function reviewPendingPath(outPath) {
+  return outPath.replace(/\.html$/, '') + '.pending.json'
+}
+
+function emptyPending(specFolder) {
+  return { version: PENDING_VERSION, spec: specFolder, passes: [] }
+}
+
+/**
+ * Read the holding area. Never throws; reports `corrupt` rather than hiding it.
+ *
+ * Same three states as `readNotes`, for the same reason: a file we cannot parse
+ * is not "no pending passes", and claiming against it must refuse rather than
+ * silently find nothing.
+ */
+function readPending(outPath, specFolder) {
+  let raw
+  try {
+    raw = fs.readFileSync(reviewPendingPath(outPath), 'utf8')
+  } catch {
+    return { pending: emptyPending(specFolder), corrupt: false, present: false }
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    return {
+      pending: {
+        version: parsed.version || PENDING_VERSION,
+        spec: parsed.spec || specFolder,
+        passes: Array.isArray(parsed.passes) ? parsed.passes : [],
+      },
+      corrupt: false,
+      present: true,
+    }
+  } catch {
+    return { pending: emptyPending(specFolder), corrupt: true, present: true }
+  }
+}
+
+function writePending(outPath, pending) {
+  const p = reviewPendingPath(outPath)
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(pending, null, 2) + '\n')
+  return p
+}
+
+const PENDING_CODE_LENGTH = 6
+
+/**
+ * A code for one pending pass. Unique among those currently pending.
+ *
+ * NOT A SECRET, and it does not need to be: it is printed on the page by
+ * design, and what it authorises is a person reading it out. What it must not
+ * do is COLLIDE — two pending passes sharing a code is how the wrong one gets
+ * applied — so it is drawn against the set rather than drawn and hoped for.
+ *
+ * WHAT WOULD FOOL THIS: nothing about uniqueness, but note it is drawn from the
+ * passes it is GIVEN. A caller that mints against a stale read could still
+ * collide, which is why the mint and the write happen together in `addPending`.
+ */
+function mintPendingCode(pending, random = () => crypto.randomInt(0, 10 ** PENDING_CODE_LENGTH)) {
+  const taken = new Set((pending.passes || []).map((p) => p.code))
+  // Bounded rather than `while (true)`: with a million codes and a handful
+  // pending this cannot realistically spin, and a bound means a bug here fails
+  // loudly instead of hanging the server.
+  for (let i = 0; i < 1000; i++) {
+    const code = String(random()).padStart(PENDING_CODE_LENGTH, '0')
+    if (!taken.has(code)) return code
+  }
+  throw new Error('could not mint a unique pending code')
+}
+
+/**
+ * Add a pass to the holding area, returning the new store and its code. Pure.
+ *
+ * SUPERSEDES WITHIN A RENDER. A second pass sent from the same page render
+ * replaces the first unclaimed one from that render, so the code on the screen
+ * is always the pass on the screen — press Approve, change your mind, press
+ * Request changes, and there is one pass waiting, not two. Passes from a
+ * DIFFERENT render stand alongside it: those are two people, or two sittings,
+ * and neither supersedes the other.
+ */
+function addPending(pending, { blob, at, render }, mint = mintPendingCode) {
+  const kept = (pending.passes || []).filter((p) => p.render !== render)
+  const next = { ...pending, passes: kept }
+  const code = mint(next)
+  next.passes = [...kept, { code, at, render, blob }]
+  return { pending: next, code }
+}
+
+/**
+ * Take a pass out of the holding area by its code. Pure.
+ *
+ * THE ONE REFUSAL HERE, and it never falls back. A code that matches nothing
+ * returns no pass — not "the only one", not "the most recent". Both of those
+ * are the same mistake: they would let a pass nobody read out reach the review,
+ * which is the entire thing the code exists to prevent
+ * (`.claude/rules/negative-checks.md` rule 4 — the unknown case does nothing).
+ *
+ * Claiming CONSUMES: the entry is gone from the returned store, so the same
+ * code cannot be claimed twice and an old code cannot resurrect an old pass.
+ */
+function claimPending(pending, code) {
+  const passes = pending.passes || []
+  const at = passes.findIndex((p) => p.code === code)
+  if (at === -1) return { pass: null, pending, count: passes.length }
+  const pass = passes[at]
+  const rest = passes.slice(0, at).concat(passes.slice(at + 1))
+  return { pass, pending: { ...pending, passes: rest }, count: rest.length }
 }
 
 /**
@@ -1009,6 +1140,14 @@ module.exports = {
   judgeVerdict,
   appendDecision,
   annotateLastDecision,
+  reviewPendingPath,
+  emptyPending,
+  readPending,
+  writePending,
+  mintPendingCode,
+  addPending,
+  claimPending,
+  PENDING_CODE_LENGTH,
   mergeNotes,
   applyResolutions,
   applyNotes,
