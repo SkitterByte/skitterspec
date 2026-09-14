@@ -210,17 +210,27 @@ refuses on them.
 **The verdict is chosen, never derived.** A verdict is one person's conclusion,
 sent once per pass; a counting gate is a refusal computed from how many boxes
 are ticked, and it stays forbidden. The one refusal here is not a count of
-ticks: `approve` is unavailable while any **comment** is unresolved, because you
-asked for something and it therefore cannot also be fine. Files you never ticked
-block nothing — an unticked file is something you said nothing about, and
-requiring every one of them would be the tally this design exists to avoid. An
-honoured approval hands off to the project's own commit skill
-(`review.commitWith` in `env.config.json`, `/commit` by default, `none` to
-record the verdict and commit nothing) — skitterspec never vendors one, because
-`/commit` belongs to skittership. A verdict is **consumed**, not stored: the
-approval is spent by the commit and the changes by the work, so an approval
-cannot go stale and later commit something nobody read. What survives is a
-one-line outcome log, shown on the next render as history.
+ticks: **committing** is unavailable while any **comment** is unresolved,
+because you asked for something and it therefore cannot also be fine. Files you
+never ticked block nothing — an unticked file is something you said nothing
+about, and requiring every one of them would be the tally this design exists to
+avoid.
+
+**The verdict names the action**, and that is why it is `commit` rather than
+`approve`: a review is the guard in front of an action, and an approval that
+only recorded itself was the one control on the page that did not describe what
+it does. Both committing verdicts hand off to the project's own commit skill
+(`review.commitWith` in `env.config.json`, `/commit` by default) — skitterspec
+never vendors one, because `/commit` belongs to skittership.
+**There is no off switch**: `"none"` existed and was removed, since it produced
+exactly the record-and-do-nothing verdict this design is against.
+`Commit & Continue` then runs `/spec-next` and **stops there** — it never
+completes, lands or tears anything down.
+
+A verdict is **consumed**, not stored: a commit verdict is spent by the commit
+and a changes one by the work, so neither can go stale and later act on
+something nobody read. What survives is a one-line outcome log, shown on the
+next render as history.
 
 **One ending, every skill (`.claude/rules/spec-reports.md`).** Every skill in
 the table above finishes with the same block — a verdict, then a table of only

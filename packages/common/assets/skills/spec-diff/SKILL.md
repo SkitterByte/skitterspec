@@ -73,7 +73,7 @@ back, and these steps replace §3–§5 below.
 
    ```
    pending: 1 waiting
-     792969 · approve · 1 min ago
+     792969 · commit · 1 min ago
    ```
 
    **Offer it, naming the code**, and wait: *"an approval is waiting, code
@@ -84,7 +84,7 @@ back, and these steps replace §3–§5 below.
    read identically otherwise).
 
    **Two or more waiting is a refusal to guess.** Name them all and ask which.
-   Never take the newest, the oldest, or the only `approve` — that is exactly
+   Never take the newest, the oldest, or the only `commit` — that is exactly
    the case where someone else's pass is sitting beside the operator's, and it
    is the only case where reading six digits out is worth anyone's time.
 
@@ -123,10 +123,11 @@ back, and these steps replace §3–§5 below.
    differently because of how it arrived.
 
 2. **Read the verdict the engine judged.** The pass says what it CONCLUDED, and
-   the engine prints it — `approved`, `changes requested`, `discuss first`, or
-   `approve refused — <reason>`. It is judged, not taken on trust: an approval
-   arriving with an open comment is refused and routed to discuss, because you
-   asked for something and it therefore cannot also be fine.
+   the engine prints it — `committing with <skill>`, `committing with <skill>,
+   then the next phase`, `changes requested`, `discuss first`, or
+   `commit refused — <reason>`. It is judged, not taken on trust: a committing
+   verdict arriving with an open comment is refused and routed to discuss,
+   because you asked for something and it therefore cannot also be fine.
    **Never re-judge it yourself, and never count anything** — read the engine's
    answer and route on it.
 
@@ -134,23 +135,32 @@ back, and these steps replace §3–§5 below.
 
    | Verdict | What it means | Where to go |
    |---------|---------------|-------------|
-   | `approve` (honoured) | this is fine, land it | §2a — commit it |
+   | `commit` (honoured) | this is fine, commit it | §2a — commit, then stop |
+   | `commit-continue` (honoured) | this is fine, keep going | §2a — commit, then `/spec-next` |
    | `changes` | do these, now | step 4 — **skip the wait**, this is the go-ahead |
-   | `discuss` | report it and talk | step 3 — report, then wait |
+   | `discuss` | I have a question | step 3 — report, then **ask what's up** |
 
-   **A refused approval and a pass with no verdict both mean `discuss`.**
+   **A refused commit and a pass with no verdict both mean `discuss`.**
    Neither is a special case: the engine routes the refusal there itself, and an
    absent verdict has always meant "report it and wait" — which is why that is
    what it still means.
 
-3. **Say what you read, then stop.** Report the accepted count, then each open
-   comment as `file:line — note`, then the files you would touch.
+3. **Say what you read, then ask what's up.** Report the accepted count, then
+   each open comment as `file:line — note`, then the files you would touch.
    **Wait — unless the verdict already said otherwise.** Pasting on its own is
    not a go-ahead: this skill is read-only everywhere else, a misread comment
    costs a revert, and the operator may only have wanted it recorded. A `changes`
    verdict **is** that go-ahead, given deliberately on the page, so asking again
    is asking someone to decide twice. The reasoning is unchanged; what changed is
    that the page can now answer it in advance.
+
+   **`discuss` means "ask me what's up"** — an opening move, not a stopping
+   place. A reader who pressed it has a question, and a summary that ends in
+   silence leaves them to ask it themselves. Report what you read and then
+   **open the conversation**: name what you would do next and ask whether that
+   is what they wanted. The same wording has to work for a pass that chose
+   nothing at all, since an absent verdict means this too — so ask about the
+   review, never about the button.
 
 4. **On the go-ahead, work only the commented files.** Read those; do **not**
    open the accepted ones. That is the whole saving the marks buy, and it is
@@ -219,20 +229,21 @@ back, and these steps replace §3–§5 below.
    false accusation.
 
 **Never commit on a `changes` pass.** It authorises the work, not a commit —
-`approve` is the only verdict that reaches §2a. The fixes sit in the worktree
+only `commit` and `commit-continue` reach §2a. The fixes sit in the worktree
 where the operator can read them on the next render, which is the whole point of
 sending them back rather than approving.
 
-## 2a. An approved pass commits — through the project's own skill
+## 2a. A committing pass commits — through the project's own skill
 
-Only on an **honoured** `approve`. A refused one did not happen.
+Only on an **honoured** `commit` or `commit-continue`. A refused one did not
+happen.
 
 The engine names the skill to use on the verdict's `commitWith` — the
 `review.commitWith` config key, `/commit` by default. Do not read the config
-yourself; one answer, from the engine that owns it.
+yourself; one answer, from the engine that owns it. **There is no off switch:**
+`"none"` existed and was removed, because a verdict that records itself and does
+nothing is the one thing a review page must not offer.
 
-- **`none`** — record the verdict and commit **nothing**. Say so: the approval
-  is on the record and the commit is the operator's to make.
 - **A skill you have** — invoke it, and say which one. **Never vendor it.**
   `/commit` ships with **skittership**, a different package: it stages the
   task's files, runs the project's checks, and writes the release-note footers
@@ -268,6 +279,30 @@ re-renders the page, where it reads as history beneath the verdict bar. On a
 failed commit there is no outcome to record — say what failed instead.
 
 **Nothing is pushed.** The commit is local, exactly as `/commit` leaves it.
+
+### `commit-continue` — then the next phase, and no further
+
+On `commit-continue`, once the commit is in, carry on into **`/spec-next`**.
+That is the whole of the chaining, and both halves of that sentence matter:
+
+- **A failed commit is the end of the chain.** If typecheck or the tests fail
+  there is no commit, and therefore no continue — report where it broke and
+  stop. The continue is downstream of the commit, not beside it.
+- **Never `/spec-complete`.** When there is no unfinished phase left, say the
+  spec has none and stop. Completing
+  **lands the branch and tears the worktree down**, and that must not fall out
+  of a button labelled *continue* — the
+  distance between "build the next phase" and "delete the worktree" is one skill
+  name, and a person pressing a button on a phone cannot see which one you
+  picked.
+
+**This overturns a recorded Non-goal, and cites it rather than contradicting it.**
+`feat-review-verdict` ruled chaining out: *"'Commit what I just read' and
+'go build the next thing unattended' are different sizes of decision, and the
+second stays a keystroke."* That conflated two meanings of unattended — nobody
+choosing, and nobody watching. A distinctly-labelled fourth button is chosen,
+deliberately, by the person who just read the diff. The ban was right about an
+*automatic* chain and caught a chosen one by accident.
 
 **Passes waiting are information — and worth raising.** A render lists them
 when the holding area is not empty: code, verdict, age, one per line. Nothing
@@ -496,7 +531,7 @@ carries the three totals — files accepted, comments open, comments answered.
 it worked on your go-ahead. A render on its own built nothing, and an empty
 `Built` line claiming otherwise is worse than no field.
 
-`Tests` and a commit appear only on the approve branch (§2a).
+`Tests` and a commit appear only on a committing verdict (§2a).
 **Say which path made the commit** — the configured skill by name, or by hand —
 in the same row as the sha. A reader cannot tell a `/commit` from a hand-rolled one after the
 fact, so the run that made it is the only place that distinction can be

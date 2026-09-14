@@ -736,3 +736,17 @@ test('stays silent: a filename ending in review is not a config key', () => {
   const found = [...line.matchAll(/(?<![\w/-])review\.([a-zA-Z][a-zA-Z0-9]*)\b/g)]
   assert.deepStrictEqual(found, [], 'a path segment is not a key')
 })
+
+test('no shipped surface still offers commitWith "none"', () => {
+  // It shipped, and it produced a verdict that records itself and does nothing —
+  // the one thing a review page must not offer. A surface still listing it as a
+  // value is a reader configuring something that no longer exists.
+  const hits = []
+  for (const rel of [...SURFACES, 'packages/common/assets/core/env.config.md', 'CLAUDE.md']) {
+    const abs = path.join(ROOT, rel)
+    if (!fs.existsSync(abs)) continue
+    const text = fs.readFileSync(abs, 'utf8')
+    if (/commitWith[\s\S]{0,400}?"none"\s*—\s*record/.test(text)) hits.push(rel)
+  }
+  assert.deepStrictEqual(hits, [], `still offers "none" as a commitWith value:\n${hits.join('\n')}`)
+})

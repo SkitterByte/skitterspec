@@ -388,15 +388,18 @@ test('one tree is inert, and the no-gate rule is untouched', () => {
 
 // --- the approve branch (phase 3) -------------------------------------------
 
-test('an approved pass hands off to the configured skill, never a vendored one', () => {
-  assert.match(SKILL, /## 2a\. An approved pass commits/)
+test('a committing pass hands off to the configured skill, never a vendored one', () => {
+  assert.match(SKILL, /## 2a\. A committing pass commits/)
   assert.match(SKILL, /commitWith/, 'it names the key the engine answers with')
   assert.match(SKILL, /Do not read the config\s*\n?\s*yourself/i, 'one answer, from the engine')
   // Decision 4. `/commit` is skittership's, and a copy living here would be a
   // fork of someone else's skill that drifts in silence.
   assert.match(SKILL, /\*\*Never vendor it\.\*\*/)
   assert.match(SKILL, /skittership/, 'and says whose skill it is')
-  assert.match(SKILL, /`none`.*commit \*\*nothing\*\*|commit \*\*nothing\*\*/s, '"none" records only')
+  // THERE IS NO OFF SWITCH: `"none"` produced a verdict that records itself and
+  // does nothing, which is the one thing a review page must not offer.
+  assert.match(SKILL, /\*\*There is no off switch:\*\*/)
+  assert.match(SKILL, /`"none"` existed and was removed/)
 })
 
 test('availability is read off the skill list, never a file path', () => {
@@ -441,18 +444,19 @@ test('the engine answers with the configured skill, so the prose has something t
 // --- routing all three verdicts (phase 4) -----------------------------------
 
 test('each verdict routes, and the table says where', () => {
-  assert.match(SKILL, /\| `approve` \(honoured\) \| this is fine, land it \| §2a/)
+  assert.match(SKILL, /\| `commit` \(honoured\) \| this is fine, commit it \| §2a — commit, then stop \|/)
+  assert.match(SKILL, /\| `commit-continue` \(honoured\) \|.*\| §2a — commit, then `\/spec-next` \|/)
   assert.match(SKILL, /\| `changes` \|.*\| step 4 — \*\*skip the wait\*\*/)
-  assert.match(SKILL, /\| `discuss` \|.*\| step 3 — report, then wait/)
+  assert.match(SKILL, /\| `discuss` \| I have a question \| step 3 — report, then \*\*ask what's up\*\* \|/)
   // A `changes` pass authorises the WORK, never a commit — only approve reaches
   // the commit branch, which is what keeps the two decisions different sizes.
   assert.match(SKILL, /\*\*Never commit on a `changes` pass\.\*\*/)
 })
 
-test('a refused approval and no verdict at all both mean discuss', () => {
+test('a refused commit and no verdict at all both mean discuss', () => {
   // The default is the behaviour that existed before verdicts did, which is why
   // it is the default: a pass from an older page keeps doing what it always did.
-  assert.match(SKILL, /\*\*A refused approval and a pass with no verdict both mean `discuss`\.\*\*/)
+  assert.match(SKILL, /\*\*A refused commit and a pass with no verdict both mean `discuss`\.\*\*/)
   assert.match(SKILL, /an\s*\n?\s*absent verdict has always meant "report it and wait"/i)
 })
 
@@ -571,7 +575,7 @@ test('the offer names the code, and never merely describes the pass', () => {
 
 test('two waiting is a refusal to guess, not a preference', () => {
   assert.match(SKILL, /\*\*Two or more waiting is a refusal to guess\.\*\*/)
-  assert.match(SKILL, /Never take the newest, the oldest, or the only `approve`/)
+  assert.match(SKILL, /Never take the newest, the oldest, or the only `commit`/)
 })
 
 test('a disowned pass can be dropped, and why that matters', () => {
@@ -591,4 +595,48 @@ test('the engine offers what the rule needs, so the prose is not asking for fict
   assert.strictEqual(first.code, held.code, 'the render can name a code')
   assert.strictEqual(first.verdict, 'commit', 'described as the action it will take')
   assert.ok(!('blob' in first), 'without carrying the pass itself')
+})
+
+// --- the verdict names the action (feat-verdict-is-the-action phase 3) -------
+
+// THE ONE THAT MATTERS. `continue` is the only place a button on a phone could
+// reach a destructive action, and the distance between "build the next phase"
+// and "land the branch and delete the worktree" is one skill name.
+test('continue builds the next phase and never completes', () => {
+  assert.match(SKILL, /### `commit-continue` — then the next phase, and no further/)
+  assert.match(SKILL, /\*\*Never `\/spec-complete`\.\*\*/)
+  assert.match(SKILL, /\*\*lands the branch and tears the worktree down\*\*/)
+  assert.match(SKILL, /a person pressing a button on a phone cannot see which one you\s*\n?\s*picked/i)
+  // And when there is no phase left it says so rather than reaching further.
+  assert.match(SKILL, /say the\s*\n?\s*spec has none and stop/i)
+})
+
+test('a failed commit ends the chain rather than continuing past it', () => {
+  assert.match(SKILL, /\*\*A failed commit is the end of the chain\.\*\*/)
+  assert.match(SKILL, /The continue is downstream of the commit, not beside it/)
+})
+
+// The Non-goal is cited, not quietly reversed. A reader meeting the chaining
+// later should find the argument it overturned.
+test('the overturned Non-goal is quoted where a reader will meet it', () => {
+  assert.match(SKILL, /\*\*This overturns a recorded Non-goal, and cites it rather than contradicting it\.\*\*/)
+  assert.match(SKILL, /go build the next thing unattended/, 'the original wording')
+  assert.match(SKILL, /conflated two meanings of unattended/i, 'and why it was wrong')
+})
+
+test('discuss opens a conversation rather than ending one', () => {
+  assert.match(SKILL, /\*\*`discuss` means "ask me what's up"\*\*/)
+  assert.match(SKILL, /a summary that ends in\s*\n?\s*silence leaves them to ask it themselves/i)
+  // It is also what an absent verdict means, so the wording must not assume a
+  // button was pressed at all.
+  assert.match(SKILL, /ask about the\s*\n?\s*review, never about the button/i)
+})
+
+test('the engine speaks the words the prose routes on', () => {
+  // The positive half: prose can only route on verdicts that exist.
+  const { VERDICTS, COMMITTING } = require('../src/env/review.js')
+  assert.deepStrictEqual(VERDICTS, ['commit', 'commit-continue', 'changes', 'discuss'])
+  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue'])
+  const { DEFAULT_CONFIG } = require('../src/env/config.js')
+  assert.strictEqual(DEFAULT_CONFIG.review.commitWith, '/commit')
 })

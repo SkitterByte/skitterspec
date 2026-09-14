@@ -107,7 +107,7 @@ Its `pending:` block lists each waiting pass — code, verdict, age:
 
 ```
 pending: 1 waiting
-  792969 · approve · 1 min ago
+  792969 · commit · 1 min ago
 ```
 
 **Never open `.spec-env/reviews/<spec>.pending.json`.** The render carries
@@ -125,11 +125,11 @@ on their clipboard waiting to be pasted, and finish.
 **Name the code.** It is the only part the operator can check against their
 screen; a stranger's approval and their own read identically otherwise.
 
-*"An approval is waiting, code 792969, sent a minute ago — does that match your
-phone?"*
+*"A commit verdict is waiting, code 792969, sent a minute ago — does that match
+your phone?"*
 
 **Two or more waiting is a refusal to guess.** Name them all, with verdicts and
-ages, and ask which. Never take the newest, the oldest, or the only `approve` —
+ages, and ask which. Never take the newest, the oldest, or the only `commit` —
 that is the case where someone else's pass is sitting beside theirs, and it is
 the only case where reading six digits out is worth anyone's time.
 
@@ -150,8 +150,13 @@ skitterspec spec-env review <spec> --claim <code>
 
 Then **route on the verdict exactly as `/spec-diff` §2 does** — its steps 2, 2a
 and 4 own that routing, including the commit hand-off through
-`review.commitWith`. Follow it; do not restate it here, because two copies of a
-routing rule is how the two come to disagree.
+`review.commitWith` and what `commit-continue` does after it. Follow it; do not
+restate it here, because two copies of a routing rule is how the two come to
+disagree.
+
+That includes the one rule worth knowing before you invoke anything:
+`commit-continue` runs `/spec-next` and **stops there**. It never completes,
+lands or tears anything down.
 
 A claim is a **delivery mechanism, not a second kind of review**: a pass that
 arrived this way means exactly what the same pass pasted into the chat would

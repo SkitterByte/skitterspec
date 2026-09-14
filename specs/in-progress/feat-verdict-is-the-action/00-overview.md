@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The vocabulary in the engine | ✅ | [01-vocabulary.md](01-vocabulary.md) |
 | 2 | The page's four buttons | ✅ | [02-four-buttons.md](02-four-buttons.md) |
-| 3 | Routing, and the words | ⬜ | [03-routing-and-words.md](03-routing-and-words.md) |
+| 3 | Routing, and the words | ✅ | [03-routing-and-words.md](03-routing-and-words.md) |
 
 ## Non-goals
 
@@ -133,6 +133,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 3: `/spec-reviewed` **had landed**, so the routing was
+  pointed at `/spec-diff` §2a from there rather than written twice — with one
+  sentence carried across deliberately, that `commit-continue` stops at
+  `/spec-next`. A pointer is right for the routing; the thing a reader must know
+  *before* invoking anything is worth saying where they are.
+- 2026-09-14 — Phase 3: `discuss` was reworded from "report and wait" to
+  **"ask me what's up"**, and the wording has to work for a pass that chose
+  nothing — an absent verdict means this too. So it asks about the **review**,
+  never about the button, which is the sentence a later edit would most easily
+  lose.
 - 2026-09-14 — Phase 2: the page names its committing pair **once**, as
   `COMMITTERS`, mirroring the engine's `COMMITTING` — and a test asserts the old
   per-button form is *gone* rather than merely unused. Two committing controls

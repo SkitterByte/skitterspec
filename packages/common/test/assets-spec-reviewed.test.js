@@ -49,7 +49,7 @@ test('it offers by naming the code, and refuses to guess between two', () => {
   assert.match(SKILL, /\*\*Name the code\.\*\*/)
   assert.match(SKILL, /only part the operator can check against their\s*\n?\s*screen/i)
   assert.match(SKILL, /\*\*Two or more waiting is a refusal to guess\.\*\*/)
-  assert.match(SKILL, /Never take the newest, the oldest, or the only `approve`/)
+  assert.match(SKILL, /Never take the newest, the oldest, or the only `commit`/)
 })
 
 // It must POINT at the routing rather than restate it. Two copies of a routing
@@ -57,7 +57,7 @@ test('it offers by naming the code, and refuses to guess between two', () => {
 // the same verdicts for the same reasons.
 test('it points at /spec-diff for the routing rather than copying it', () => {
   assert.match(SKILL, /exactly as `\/spec-diff` §2 does/)
-  assert.match(SKILL, /do not restate it here/i)
+  assert.match(SKILL, /do not\s*\n?\s*restate it here/i)
   assert.match(SKILL, /two copies of a\s*\n?\s*routing rule/i)
   // A copy would name the verdicts and what each does; this must not.
   assert.doesNotMatch(SKILL, /`changes` is the go-ahead/i, 'the routing is not duplicated')

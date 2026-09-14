@@ -25,8 +25,9 @@ every phase.
 you read, note anything against a line or a whole file, answer the questions a
 written review asked — then **end it in a decision**. Three buttons, each
 carrying its own verdict:
-`✓ Approve` commits it, `↺ Request changes` sends it straight back to be
-worked, `… Discuss first` reports and stops. A **served** page hands the pass to
+`✓ Commit` commits it, `✓ Commit & Continue` commits and builds the next phase,
+`↺ Request changes` sends it straight back to be worked, `… Discuss first` asks
+you what's up. A **served** page hands the pass to
 the engine, which **holds** it and shows a six-digit code. Tell Claude a pass is
 waiting; it reads the code off its own render and offers it back, and you check
 that against your phone before it claims. **Nothing pushes** — a device that
