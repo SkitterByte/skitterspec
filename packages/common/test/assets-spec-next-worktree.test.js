@@ -81,7 +81,7 @@ test('the baseline is recorded before anything is written', () => {
 
 test('the leak check runs after progress is recorded and before the report', () => {
   const progress = NEXT.indexOf('## 4. Record progress')
-  const check = NEXT.indexOf('## 4b. On the `--worktree` path, prove nothing leaked')
+  const check = NEXT.indexOf('## 4b. Prove nothing leaked into the primary checkout')
   const report = NEXT.indexOf('## 6. Report')
   assert.ok(check !== -1, 'the step exists')
   assert.ok(progress < check, 'recording progress writes files too, so it is inside the window')
@@ -104,9 +104,15 @@ test('a cannot-tell verdict is carried on from, not treated as a failure', () =>
   assert.match(step, /An absence is not evidence/i)
 })
 
+// The test name was always the intended condition; the assertion underneath it
+// pinned the wrong one. Gating on the FLAG left rung 4 — a bare `/spec-next`
+// resolving the sole provisioned spec from the primary checkout — building into
+// a second tree with no discipline and no check, because the flag cannot see it.
 test('the step is inert when standing in the worktree', () => {
   const step = NEXT.slice(NEXT.indexOf('## 4b.'), NEXT.indexOf('## 5.'))
-  assert.match(step, /Only when this run was given `--worktree`/)
+  assert.match(step, /Only when the resolved worktree is not this session's cwd/)
+  assert.match(step, /no second tree to have written into/i)
+  assert.doesNotMatch(step, /Only when this run was given/)
 })
 
 test('the description no longer promises what the flag undoes', () => {
@@ -115,5 +121,56 @@ test('the description no longer promises what the flag undoes', () => {
   // worse than a vague one: it is what the router reads.
   const front = NEXT.slice(0, NEXT.indexOf('---', 4))
   assert.doesNotMatch(front, /never builds a spec it is not standing in/)
-  assert.match(front, /only when handed its worktree path/)
+  // Nor may it promise the flag is the only way elsewhere — rung 4 made that
+  // false the day it landed, and the description is what the router reads.
+  assert.doesNotMatch(front, /only when handed its worktree path/)
+  assert.match(front, /builds wherever that spec resolves/)
+})
+
+// ---------------------------------------------------------------------------
+// The discipline follows the worktree, not the flag.
+//
+// `--worktree` is one way to build into a tree you are not standing in; §1's
+// rung 4 is another, and it arrived later. Conditioning §3 and §4b on the flag
+// meant a bare `/spec-next` typed from the primary checkout got neither the
+// `cd` discipline nor the leak check — the one route where being wrong writes a
+// phase onto the base branch and looks entirely normal at the time.
+
+const SECTION_3 = NEXT.slice(NEXT.indexOf('## 3. Implement the phase'), NEXT.indexOf('## 4. Record progress'))
+const SECTION_4B = NEXT.slice(NEXT.indexOf('## 4b.'), NEXT.indexOf('## 5.'))
+
+test('the discipline is conditioned on the two trees, not on the invocation', () => {
+  assert.match(SECTION_3, /compare the worktree against where you are standing/i)
+  assert.match(SECTION_3, /however the spec was resolved/i)
+  assert.match(SECTION_3, /rung 4/)
+  // The old gating, in both halves. Either one left behind re-opens the gap.
+  assert.doesNotMatch(SECTION_3, /On the `--worktree` path, record the baseline/)
+  assert.doesNotMatch(SECTION_4B, /Only when this run was given `--worktree`/)
+})
+
+test('the comparison is told how to make itself', () => {
+  // "Compare the worktree with cwd" is not actionable on its own: two spellings
+  // of one tree must not read as two, or the guard fires on the healthy case.
+  assert.match(SECTION_3, /`worktree:` line/)
+  assert.match(SECTION_3, /resolving both paths first/i)
+  assert.match(SECTION_3, /symlinked or\s*\n?trailing-slash/i)
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). The common tree is one tree: the
+// session is standing in the worktree after `/spec-start`, and in `checkout`
+// mode there is no second tree at all. Both must cost nothing and claim nothing.
+// The engine agrees — `compare()` returns `unknown` when the worktree IS the
+// primary checkout (`env-building.test.js`) — and the skill must not contradict it.
+test('one tree leaves both the discipline and the check inert', () => {
+  assert.match(SECTION_3, /the rest of this step is inert/i)
+  assert.match(SECTION_4B, /this step does not\s*\n?apply and there is nothing to check/i)
+})
+
+// `negative-checks.md` rule 2 — name what would fool the check, beside it.
+test('the check names the tree it cannot see', () => {
+  assert.match(SECTION_4B, /WHAT WOULD FOOL THIS CHECK/)
+  assert.match(SECTION_4B, /primary checkout/)
+  assert.match(SECTION_4B, /another\*? spec's worktree/i)
+  // Biased the safe way: the gap costs a missed leak, never a wrong accusation.
+  assert.match(SECTION_4B, /never a false accusation/i)
 })

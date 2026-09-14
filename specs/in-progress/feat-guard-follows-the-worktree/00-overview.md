@@ -117,7 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-next` — the discipline follows the worktree | ⬜ | [01-next-discipline.md](01-next-discipline.md) |
+| 1 | `/spec-next` — the discipline follows the worktree | ✅ | [01-next-discipline.md](01-next-discipline.md) |
 | 2 | `/spec-diff` — the same discipline where it writes | ⬜ | [02-diff-discipline.md](02-diff-discipline.md) |
 
 ## Non-goals
@@ -145,6 +145,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 1: the new tests went into the existing
+  `assets-spec-next-worktree.test.js` rather than a file of their own — it is
+  already the file about building a spec you are not standing in, and the three
+  assertions being changed live in it, so splitting would have put the old
+  contract and its replacement in two places.
 - 2026-09-14 — Spec created, out of a bare `/spec-next` being considered from
   `main` while `feat-review-verdict` was the sole provisioned spec. Rung 4 would
   have resolved it correctly and then built it with neither the `cd` discipline

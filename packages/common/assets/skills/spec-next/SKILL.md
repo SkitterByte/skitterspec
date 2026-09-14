@@ -1,6 +1,6 @@
 ---
 name: spec-next
-description: Build the next unfinished phase of the spec in flight for this session — pre-flight, implement with tests, record progress and refresh the tracker. Refuses when no spec is in flight rather than guessing one, and builds one elsewhere only when handed its worktree path. Use when the user says "/spec-next", "build the next phase", "continue the spec", or "carry on with this spec".
+description: Build the next unfinished phase of the spec in flight for this session — pre-flight, implement with tests, record progress and refresh the tracker. Refuses when no spec is in flight rather than guessing one, and builds wherever that spec resolves rather than wherever the session happens to stand. Use when the user says "/spec-next", "build the next phase", "continue the spec", or "carry on with this spec".
 ---
 
 # /spec-next — build the next phase of the spec in flight
@@ -142,7 +142,21 @@ once it is over. Without a provider this is a no-op and nothing below changes.
 
 <!-- seam:spec-next-start -->
 
-**On the `--worktree` path, record the baseline before you write anything:**
+**Before building, compare the worktree against where you are standing.** Take
+the `worktree:` line from `skitterspec spec-env resolve <spec>` and compare it
+with this session's cwd, resolving both paths first so a symlinked or
+trailing-slash spelling of one tree does not read as two.
+
+Same tree — the ordinary case, since `/spec-start` leaves the session standing
+in it — and the rest of this step is inert.
+**Different trees, and the discipline below applies however the spec was resolved.**
+`--worktree <path>` is one way to get here and §1's rung 4 is another: a bare
+`/spec-next` typed from the primary checkout resolves the sole provisioned spec
+and builds it somewhere this session is not. What makes the discipline necessary
+is the two trees, so that is what it is conditioned on — not the shape of the
+invocation, which cannot see rung 4 at all.
+
+Record the baseline before you write anything:
 
 ```
 skitterspec spec-env resolve <spec> --record-primary
@@ -183,10 +197,18 @@ a mirror lag a whole spec behind. Without a provider this is a no-op.
 
 <!-- seam:spec-tracker-progress -->
 
-## 4b. On the `--worktree` path, prove nothing leaked
+## 4b. Prove nothing leaked into the primary checkout
 
-**Only when this run was given `--worktree`.** Standing in the worktree, this
-step does not apply and there is nothing to check.
+**Only when the resolved worktree is not this session's cwd** — the same
+comparison step 3 made, and it holds however the spec was resolved. Standing in
+the worktree there is no second tree to have written into, so this step does not
+apply and there is nothing to check.
+
+WHAT WOULD FOOL THIS CHECK: it watches the **primary checkout** and nothing
+else, so a build run from inside *another* spec's worktree would leak there
+unseen. That is left unhandled deliberately rather than overlooked — reaching it
+takes an explicit `--worktree` typed from a second worktree — and the cost of the
+gap is a missed leak, never a false accusation.
 
 The phase is built and its progress recorded — all of it written into a tree this
 session is not standing in. Before reporting any of it as done:
