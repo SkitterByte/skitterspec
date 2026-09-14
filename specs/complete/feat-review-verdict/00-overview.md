@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-review-verdict (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — all phases built (started 2026-09-13)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -144,9 +144,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-11 | Ready | backlog | Reuben Greaves |
 | 2026-09-13 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; all four phases done, tests green (2104). Two
+  follow-ups surfaced by using the page and are **not** deferred work from this
+  spec: the review server pins the engine it started with and never says so
+  (which is why the verdict bar appeared missing), and a served page could POST
+  its pass back instead of being pasted — the latter changes what the serve
+  token authorises, so it is a spec rather than a tweak.
 - 2026-09-14 — The verdict bar moved from the header to **after the diff**,
   found by the first person to use it: you read a 350-line page downward, and
   the control asking for your conclusion was off-screen above you. A conclusion
