@@ -382,6 +382,7 @@ tr.note-row td {
   border-radius: 10px;
   background: var(--panel);
 }
+.verdict-end { margin: 1.2rem 0 0; }
 .verdict-title { font-size: .8rem; color: var(--muted); }
 .verdict-count { font-size: .8rem; color: var(--muted); }
 .v-approve { color: var(--good-fg); background: var(--good-bg); }
@@ -421,16 +422,6 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     <label class="toggle"><input type="checkbox" id="show-noise"> <span id="noise-label">Show bookkeeping</span></label>
     <button id="theme" type="button" aria-live="polite">Theme</button>
   </div>
-  <div class="verdict" id="verdict">
-    <span class="verdict-title">Your verdict</span>
-    <button id="verdict-approve" class="v-approve" type="button" aria-live="polite">✓ Approve</button>
-    <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
-    <button id="verdict-discuss" type="button">… Discuss first</button>
-    <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
-  </div>
-  <p class="verdict-log" id="verdict-log" hidden></p>
-  <p class="copy-hint" id="copy-hint" hidden></p>
-  <textarea class="copy-out" id="copy-out" readonly hidden aria-label="Review blob to copy"></textarea>
 </header>
 
 <div class="layout">
@@ -441,6 +432,24 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   <main class="main">
     <div id="review-block">__REVIEW_BLOCK__</div>
     <div id="files"></div>
+    <!-- THE VERDICT SITS AT THE END, where reading finishes. It began in the
+         header and the first person to use it could not find it: you read a
+         350-line diff downward, and the control asking for your conclusion was
+         off-screen above you. A conclusion belongs after the thing it is about.
+         Not sticky, deliberately — a permanent bar costs vertical space on the
+         phone this page is read on, on a page whose whole job is showing code. -->
+    <footer class="verdict-end">
+      <div class="verdict" id="verdict">
+        <span class="verdict-title">Your verdict</span>
+        <button id="verdict-approve" class="v-approve" type="button" aria-live="polite">✓ Approve</button>
+        <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
+        <button id="verdict-discuss" type="button">… Discuss first</button>
+        <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
+      </div>
+      <p class="verdict-log" id="verdict-log" hidden></p>
+      <p class="copy-hint" id="copy-hint" hidden></p>
+      <textarea class="copy-out" id="copy-out" readonly hidden aria-label="Review blob to copy"></textarea>
+    </footer>
   </main>
 </div>
 </div>

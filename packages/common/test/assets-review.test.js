@@ -832,3 +832,18 @@ test('the last decision is shown as history beneath the bar', () => {
   assert.match(dom.byId['verdict-log'].textContent, /2026-09-14/)
   assert.match(dom.byId['verdict-log'].textContent, /committed a1b2c3d/)
 })
+
+test('the verdict bar sits after the diff, not above it', () => {
+  // POSITIONAL, on the template text. The bar began in the header and the first
+  // person to use it could not find it: you read the diff downward and the
+  // control asking for your conclusion was off-screen above you. A later edit
+  // that tidies it back into the header re-creates exactly that, so the order
+  // is pinned rather than left to prose.
+  const files = TEMPLATE.indexOf('<div id="files">')
+  const bar = TEMPLATE.indexOf('id="verdict-approve"')
+  assert.ok(files > -1 && bar > -1, 'both are present')
+  assert.ok(bar > files, 'the verdict comes after the thing it is a verdict on')
+  // And the whole pass travels with it — the fallback textarea a `file://`
+  // reader depends on must not be left behind in the header.
+  assert.ok(TEMPLATE.indexOf('id="copy-out"') > files, 'the clipboard fallback moved too')
+})
