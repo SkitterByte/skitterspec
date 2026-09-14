@@ -86,7 +86,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The skill takes a code | ⬜ | [01-skill-takes-a-code.md](01-skill-takes-a-code.md) |
+| 1 | The skill takes a code | ✅ | [01-skill-takes-a-code.md](01-skill-takes-a-code.md) |
 | 2 | The page offers the command | ⬜ | [02-page-offers-it.md](02-page-offers-it.md) |
 
 ## Non-goals
@@ -113,6 +113,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-14 — Phase 1: the shape test found a **pre-existing** overlap the code
+  shape does not have — `bug-12345` is a legal spec name that also matches the
+  tracker-id shape. Out of scope here and left as it was; recorded rather than
+  quietly asserted away.
+- 2026-09-14 — Phase 1: the "must not restore the echo" sentence was split in
+  two, because the bold span crossed a hard line break and
+  `.claude/rules/spec-planning.md` forbids that. The guard caught it.
 
 - 2026-09-14 — Spec created, from the operator's suggestion that the page offer
   to copy the command. Grilling turned up the constraint that shapes it:

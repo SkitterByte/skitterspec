@@ -163,3 +163,71 @@ test('a run that moves the session says where it moved to', () => {
   assert.match(SKILL, /`Worktree` appears only when this run \*\*moved the session\*\*/)
   assert.match(SKILL, /A run that stayed put omits it/)
 })
+
+// ── Phase 1 of feat-page-hands-you-the-command ────────────────────────────────
+// A pasted code is the whole interaction, so the skill has to understand one
+// before the page is allowed to offer it.
+
+test('a six-digit code is a third argument shape, and the three cannot collide', () => {
+  assert.match(SKILL, /\*\*Three argument shapes, and they cannot collide\.\*\*/)
+  assert.match(SKILL, /\^\\d\{6\}\$/, 'the code shape is pinned, so nothing else can match it')
+  // The discriminators are stated, not left to be inferred from examples.
+  assert.match(SKILL, /a \*\*tracker id\*\* carries a letter and a hyphen/i)
+  assert.match(SKILL, /the parse needs no flag/i)
+
+  // Not just asserted in prose — the discriminator the skill names is applied to
+  // one argument of each shape, so a later edit that loosens it fails here.
+  const isCode = (a) => /^\d{6}$/.test(a)
+  const isId = (a) => !isCode(a) && /^[A-Za-z]+-\d+$/.test(a)
+  const routeOf = (a) => (isCode(a) ? 'code' : isId(a) ? 'id' : 'name')
+  assert.equal(routeOf('608223'), 'code')
+  assert.equal(routeOf('SKS-227'), 'id')
+  assert.equal(routeOf('feat-page-hands-you-the-command'), 'name')
+  // The near-misses, since those are what a loosened shape would swallow.
+  assert.equal(routeOf('60822'), 'name', 'five digits is not a code')
+  assert.equal(routeOf('6082233'), 'name', 'seven digits is not a code')
+  // `bug-12345` is a legal spec name that also matches the tracker-id shape.
+  // That overlap is NOT this phase's to fix — it predates the code, and the id
+  // seam already answers by asking the provider whether the identifier exists.
+  // What matters here is that the CODE sits outside both, which it does.
+  assert.equal(routeOf('bug-12345'), 'id', 'documented overlap: name vs id, not code')
+  assert.notEqual(routeOf('bug-12345'), 'code')
+})
+
+test('a code says which pass, and the spec still resolves bare', () => {
+  // The failure this forbids: treating six digits as if they named a spec.
+  assert.match(SKILL, /It says\s*\n?\s*\*\*which pass\*\*, not which spec/i)
+  assert.match(SKILL, /resolve the spec exactly as a bare\s*\n?\s*invocation does/i)
+})
+
+test('a pasted code skips the echo, and the skill says why it is safe to', () => {
+  assert.match(SKILL, /\*\*Skip this whole step when the operator pasted a code\.\*\*/)
+  assert.match(SKILL, /a pasted code came off that screen already/i)
+  // Without the reason on record, a later edit reads the skip as a shortcut and
+  // restores the round-trip "for safety" — which is the whole point of Phase 1.
+  assert.match(SKILL, /\*\*That is not a weakening of the guard\.\*\*/)
+  assert.match(SKILL, /A later edit must not restore the\s*\n?\s*echo as one/i)
+  assert.match(SKILL, /this skill cannot be\s*\n?\s*invoked by the model — a person types it/i)
+})
+
+test('a wrong code refuses without naming what is waiting', () => {
+  assert.match(SKILL, /\*\*A code that matches nothing refuses, and names nothing\.\*\*/)
+  assert.match(SKILL, /never\s*\n?\s*fall back to "the only one"/i)
+  assert.match(SKILL, /whichever door the code came through, the paste included/i)
+})
+
+// STAYS SILENT (`.claude/rules/negative-checks.md` rule 3). The paste is an
+// addition; a bare invocation must behave exactly as it did before it existed.
+test('the verify-by-echo path survives for a bare invocation', () => {
+  assert.match(SKILL, /\*\*Name the code\.\*\*/, 'step 3 still asks')
+  assert.match(SKILL, /does that match\s*\n?\s*your phone\?/i)
+  assert.match(SKILL, /\*\*Two or more waiting is a refusal to guess\.\*\*/)
+  // And the bare resolution itself is untouched.
+  assert.match(SKILL, /the worktree you are\s*\n?\s*standing in, else the sole provisioned spec/i)
+})
+
+test('the description tells a reader both ways in', () => {
+  const fm = /^---\n([\s\S]*?)\n---\n/.exec(SKILL)
+  assert.match(fm[1], /608223/, 'the pasted form is discoverable from the description')
+  assert.match(fm[1], /run it bare/i)
+})

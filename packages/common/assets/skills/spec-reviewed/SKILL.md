@@ -1,6 +1,6 @@
 ---
 name: spec-reviewed
-description: Pick up the review you approved on the page — read what is waiting, name its code back to you, and on your word claim it and act on its verdict. Use when the user says "/spec-reviewed", "I approved it", "I've reviewed it", "pick up my review", "I pressed approve", or otherwise says they have finished reviewing a rendered diff.
+description: Pick up the review you approved on the page — paste the six-digit code off it ("/spec-reviewed 608223") to claim that pass outright, or run it bare and have the waiting code named back to you before it is claimed. Use when the user says "/spec-reviewed", "I approved it", "I've reviewed it", "pick up my review", "I pressed approve", or otherwise says they have finished reviewing a rendered diff.
 disable-model-invocation: true
 ---
 
@@ -44,6 +44,16 @@ skitterspec spec-env resolve
 Several provisioned and none resolved is a refusal — relay its list and stop,
 never pick from it. See `.claude/rules/spec-planning.md`; do not restate the
 rule here.
+
+**Three argument shapes, and they cannot collide.** A **six-digit code**
+matches `^\d{6}$`; a **tracker id** carries a letter and a hyphen; a
+**spec name** is neither. So the parse needs no flag, and nothing has to be
+guessed at from context.
+
+A **six-digit code** is a pass the operator read off their own page. It says
+**which pass**, not which spec — so resolve the spec exactly as a bare
+invocation does, above, and claim the code *there*. Then go to step 4; step 3
+does not apply, and it says why.
 
 A **name** targets that spec instead. A **tracker id** does too, but only
 through a **provider seam**: the base knows nothing about tracker ids, so
@@ -122,6 +132,20 @@ on their clipboard waiting to be pasted, and finish.
 
 ## 3. Offer it — name the code, and wait
 
+**Skip this whole step when the operator pasted a code.** There is nothing left
+to verify: the echo exists because the *agent* proposes a code and the operator
+checks it against their screen, and a pasted code came off that screen already.
+Asking "is 608223 yours?" about six digits they just typed is a round-trip that
+confirms nothing — go straight to step 4, and say what was claimed rather than
+what you are about to claim.
+
+**That is not a weakening of the guard.** A later edit must not restore the
+echo as one. What keeps a stranger's pass out is that this skill cannot be
+invoked by the model — a person types it. A pasted code is that same person
+typing, with the pass named. The verification the echo performs is
+*this code, not the other one*; when the operator supplies the code there is no
+other one in play.
+
 **Name the code.** It is the only part the operator can check against their
 screen; a stranger's approval and their own read identically otherwise.
 
@@ -157,6 +181,16 @@ disagree.
 That includes the one rule worth knowing before you invoke anything:
 `commit-continue` runs `/spec-next` and **stops there**. It never completes,
 lands or tears anything down.
+
+**A code that matches nothing refuses, and names nothing.** The engine answers
+that way and you relay it unchanged: do not list what *is* waiting, and never
+fall back to "the only one". Both would hand a guesser the answer, and the
+second is exactly the fallback that would let an unread pass through. A mistyped
+digit is the ordinary cause — say the code matched nothing and let the operator
+look again.
+
+That holds whichever door the code came through, the paste included. A wrong
+code is a wrong code.
 
 A claim is a **delivery mechanism, not a second kind of review**: a pass that
 arrived this way means exactly what the same pass pasted into the chat would
