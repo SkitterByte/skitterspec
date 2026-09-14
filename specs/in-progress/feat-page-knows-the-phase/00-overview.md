@@ -90,7 +90,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The engine reads the phase index | ⬜ | [01-read-the-phases.md](01-read-the-phases.md) |
+| 1 | The engine reads the phase index | ✅ | [01-read-the-phases.md](01-read-the-phases.md) |
 | 2 | The button reasons from it | ⬜ | [02-the-button-reasons.md](02-the-button-reasons.md) |
 
 ## Non-goals
@@ -115,6 +115,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 1: the question is **"is there any phase not done?"**, not
+  "is there one after this one" as the overview put it. `/spec-next` builds the
+  **first unfinished** phase, so a spec sitting half-way through its *last* phase
+  still has one to build — and "after this one" would have disabled a button that
+  works. `done < total` is the whole rule, and it answers the last-phase case and
+  the completed-spec case identically, which was the point.
+- 2026-09-14 — Phase 1: the reader does **not** reuse `findSpecFolder`. That
+  searches several roots with preference rules, and there is exactly one tree
+  worth looking in — the spec's own worktree. Looking anywhere else would answer
+  about a branch that is not the one being reviewed.
 - 2026-09-14 — Spec created, from the operator opening the new four-button bar
   on a completed spec and being offered a continue with nothing to continue
   into. Their instinct was to hide the button; Decision 3 disables it with its

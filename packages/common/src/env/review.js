@@ -18,6 +18,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
+const { readPhases } = require('./resolve.js')
 const { execFileSync } = require('node:child_process')
 
 // `-U` large enough that a file's patch IS the file. Reviewing a changed line
@@ -254,6 +255,11 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   const decisions = Array.isArray(store.decisions) ? store.decisions : []
   const lastDecision = decisions.length ? decisions[decisions.length - 1] : null
 
+  // Every bucket, because a page is rendered for specs in `in-progress/` and for
+  // finished ones in `complete/` — and the finished one is the case this exists
+  // for. `null` when it cannot tell, and the page leaves its button alone.
+  const phases = spec.worktreePath ? findPhasesIn(spec.worktreePath, spec.folder) : null
+
   const totals = files.reduce(
     (acc, f) => ({
       files: acc.files + 1,
@@ -277,6 +283,14 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     // different answers to "what am I looking at".
     fellBack,
     generatedAt: now,
+    // Is there a phase left for `/spec-next` to build? The page needs it to
+    // know whether offering `Commit & Continue` means anything — and it is read
+    // from the SPEC'S OWN WORKTREE, where its phase statuses are current. On the
+    // base branch an in-flight spec still reads as it did before it started.
+    //
+    // Absent stays absent: a spec whose phases cannot be read adds no key, so
+    // the page renders byte-identically to how it did before any of this.
+    ...(phases ? { phases } : {}),
     // WHICH ENGINE DREW THIS PAGE. The render is always current — the git reads
     // happen per request — so a page rendered by a stale process looks entirely
     // right: the counts move, `generatedAt` moves, the diff is correct. Only the
@@ -315,6 +329,22 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
 
 // Read once, from this package — it is this file that draws the page, so its
 // own version is the honest answer to "what rendered this".
+/**
+ * Find a spec's folder under any bucket of one checkout, and read its phases.
+ *
+ * Kept here rather than reaching for `findSpecFolder`, which searches several
+ * roots and carries preference rules this does not want: there is exactly one
+ * tree to look in — the spec's own worktree — and looking anywhere else would
+ * answer about a branch that is not the one being reviewed.
+ */
+function findPhasesIn(worktreePath, folder) {
+  for (const bucket of ['in-progress', 'backlog', 'complete', 'cancelled']) {
+    const dir = path.join(worktreePath, 'specs', bucket, folder)
+    if (fs.existsSync(dir)) return readPhases(dir)
+  }
+  return null
+}
+
 const ENGINE_VERSION = (() => {
   try {
     return require('../../package.json').version || null

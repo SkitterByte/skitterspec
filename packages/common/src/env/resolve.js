@@ -43,6 +43,68 @@ function findSpecFolder(specArg, dir, extraDirs = [], preferDirs = []) {
   return null
 }
 
+/**
+ * A spec's phases, as the review page needs them. Never throws.
+ *
+ * WHAT IT ANSWERS: is there a phase left for `/spec-next` to build? That is the
+ * question a `Commit & Continue` button needs, and it is simply `done < total` —
+ * `/spec-next` acts on the FIRST UNFINISHED phase, so a spec sitting mid-way
+ * through its last phase still has one to build, while a spec whose phases are
+ * all done has none whether it was finished a minute ago or a month ago.
+ *
+ * THREE OUTCOMES. `null` means cannot tell — a legacy bare `<name>.md`, an
+ * overview carrying its phases inline, a folder this cannot see. The caller
+ * must route that to leaving things as they are: an absence is not evidence
+ * that a spec has no phases (`.claude/rules/negative-checks.md` rules 1 and 4).
+ *
+ * WHAT WOULD FOOL THIS: a spec whose phase files exist but whose statuses were
+ * never updated reads as unfinished, so the button stays offered — the harmless
+ * direction. The opposite error, reading a live spec as finished, would take a
+ * file claiming Done that is not, which is a lie in the repo rather than a gap
+ * in this reader.
+ */
+function readPhases(specDir, { overviewFile = '00-overview.md' } = {}) {
+  let entries
+  try {
+    entries = fs.readdirSync(specDir, { withFileTypes: true })
+  } catch {
+    return null
+  }
+  const files = entries
+    .filter((e) => e.isFile() && /^\d\d-.+\.md$/.test(e.name) && e.name !== overviewFile)
+    .map((e) => e.name)
+    .sort()
+  // No phase files is not "no phases" — it is a legacy layout whose phases live
+  // inline in the overview, and this reader cannot see them.
+  if (!files.length) return null
+
+  let done = 0
+  for (const name of files) {
+    let text
+    try {
+      text = fs.readFileSync(path.join(specDir, name), 'utf8')
+    } catch {
+      return null
+    }
+    if (phaseIsDone(text)) done++
+  }
+  return { total: files.length, done, hasNextPhase: done < files.length }
+}
+
+/**
+ * Is one phase file finished? Pure.
+ *
+ * THE STATUS LINE WINS over the heading's emoji. Both are written by the
+ * lifecycle skills and both are kept in step, but a hand edit that fixes one
+ * and forgets the other far more often leaves a stale emoji than stale prose —
+ * and the emoji is the half a reader's eye skips.
+ */
+function phaseIsDone(text) {
+  const status = /^>.*\*\*Status:\*\*\s*(.+)$/m.exec(text)
+  if (status) return /^done\b/i.test(status[1].trim())
+  return /^#\s.*✅\s*$/m.test(text)
+}
+
 // Split a `feat-`/`bug-`/`hotfix-` prefix. Unknown prefix → type defaults to
 // `feat` and the whole folder name is the slug.
 function splitPrefix(folder) {
@@ -345,6 +407,8 @@ module.exports = {
   repoInfo,
   expandTokens,
   findSpecFolder,
+  readPhases,
+  phaseIsDone,
   readFrontmatterField,
   readStackField,
   readBaseVersionField,
