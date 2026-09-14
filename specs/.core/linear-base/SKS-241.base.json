@@ -1,0 +1,12 @@
+{
+  "issue": "169e1480e47473650052e69ea4e9690fe5e01287",
+  "issueFields": {
+    "description": "17f65e12d64a67f17ade32f7cb96a90ec3b266f4",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833"
+  },
+  "subIssues": {
+    "SKS-242": "dcbb3a0fbb45e791543e2fc19cfdb355fd2e759f",
+    "SKS-243": "13ba452d8aee39d3ceffb179210b124fc2ca46bd"
+  }
+}
