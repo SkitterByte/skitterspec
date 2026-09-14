@@ -117,7 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The pending store and the claim | ✅ | [01-pending-store.md](01-pending-store.md) |
 | 2 | The server accepts a POST | ✅ | [02-post-endpoint.md](02-post-endpoint.md) |
-| 3 | The page sends, and falls back | ⬜ | [03-page-sends.md](03-page-sends.md) |
+| 3 | The page sends, and falls back | ✅ | [03-page-sends.md](03-page-sends.md) |
 | 4 | The skill claims, and the docs | ⬜ | [04-claim-and-docs.md](04-claim-and-docs.md) |
 
 ## Non-goals
@@ -147,6 +147,19 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 3: an unreachable server falls back to the clipboard,
+  which is **not** the "try the POST and fall back on failure" the phase
+  forbids. That rule is about choosing the PATH: a page must decide from what it
+  is, because a failed POST and an absent one look identical to the reader. Once
+  a served page has committed to posting, a network that disappears underneath
+  it is a different question, and losing the pass rather than offering it as
+  text would be the worse answer.
+- 2026-09-14 — Phase 3: verified by unit tests over a real socket rather than
+  against the running server. The daemon here is the **built** package in the
+  primary checkout, which has no POST handler until this lands and is rebuilt —
+  the same dev-loop lag `feat-review-serve-version` recorded. The endpoint tests
+  start the real `createReviewServer` and make real HTTP requests, so the
+  coverage is genuine; only the end-to-end smoke against the live daemon waits.
 - 2026-09-14 — Phase 2: the render key comes from the blob's own `generatedAt`
   rather than a field of its own. The page already mints that per render and
   already sends it, so a second key would be a second thing to keep in step for

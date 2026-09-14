@@ -288,7 +288,7 @@ function fakeDom(islandText) {
   return { document, window, byId, store }
 }
 
-function runPage(data, { checks = [], failStorage = false, clipboard = true } = {}) {
+function runPage(data, { checks = [], failStorage = false, clipboard = true, protocol = 'file:', fetchWith = null } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
@@ -308,15 +308,31 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true } = 
   const navigator = clipboard
     ? { clipboard: { writeText: (t) => { copied.push(t); return Promise.resolve() } } }
     : {}
-  vm.runInNewContext(`(function (document, window, navigator) { ${pageScript()} })(document, window, navigator)`, {
-    document: dom.document,
-    window: dom.window,
-    navigator,
-    JSON,
-    encodeURIComponent,
-    Promise,
-  })
+  // The page decides how to send from what it IS — `file:` copies, anything
+  // else posts — so the shim has to carry a protocol and a path.
+  const location = { protocol, pathname: '/tok/feat-x' }
+  const posted = []
+  const fetch = (url, opts) => {
+    posted.push({ url, ...opts })
+    return fetchWith
+      ? fetchWith(url, opts)
+      : Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{"code":"418207"}') })
+  }
+  vm.runInNewContext(
+    `(function (document, window, navigator, location, fetch) { ${pageScript()} })(document, window, navigator, location, fetch)`,
+    {
+      document: dom.document,
+      window: dom.window,
+      navigator,
+      location,
+      fetch,
+      JSON,
+      encodeURIComponent,
+      Promise,
+    },
+  )
   dom.copied = copied
+  dom.posted = posted
   return dom
 }
 
@@ -846,4 +862,106 @@ test('the verdict bar sits after the diff, not above it', () => {
   // And the whole pass travels with it — the fallback textarea a `file://`
   // reader depends on must not be left behind in the header.
   assert.ok(TEMPLATE.indexOf('id="copy-out"') > files, 'the clipboard fallback moved too')
+})
+
+// --- sending, and falling back ----------------------------------------------
+//
+// Driven through the real page against the REAL validator, as every other
+// round-trip test here is: the page and the engine cannot drift apart without
+// one of these going red.
+
+const pressed = (dom, verdict = 'discuss') => dom.byId['verdict-' + verdict].dispatch('click')
+
+// The posting path answers on a promise, so anything it sets is written after
+// the click returns. `setImmediate` runs once the microtask queue has drained,
+// which is the shortest honest wait — a fixed delay would be a guess.
+const settled = () => new Promise((r) => setImmediate(r))
+
+test('a served page posts the pass to its own URL', () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  accepts(dom)[0].dispatch('click')
+  pressed(dom, 'approve')
+
+  assert.strictEqual(dom.posted.length, 1, 'it went over the wire')
+  assert.strictEqual(dom.copied.length, 0, 'and not to the clipboard')
+  const sent = dom.posted[0]
+  assert.strictEqual(sent.url, '/tok/feat-x', "the page's own path, so there is no second address")
+  assert.strictEqual(sent.method, 'POST')
+  // The REAL validator, on the body the page actually sent.
+  const blob = JSON.parse(sent.body)
+  accepted(blob)
+  assert.strictEqual(blob.verdict, 'approve')
+  assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
+})
+
+test('the claim code is shown where the verdict was pressed', async () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  pressed(dom, 'discuss')
+  await settled()
+  assert.match(dom.byId['copy-hint'].textContent, /Sent · claim it with 418207/)
+})
+
+test('a refused pass is shown, not swallowed', async () => {
+  // A pass the server rejected must never read as sent — the engine's message
+  // names the entry that was wrong, so it is relayed rather than summarised.
+  const dom = runPage(marked(), {
+    protocol: 'http:',
+    fetchWith: () =>
+      Promise.resolve({
+        ok: false,
+        status: 422,
+        text: () => Promise.resolve('verdict "aprove" is not one of approve, changes, discuss'),
+      }),
+  })
+  pressed(dom, 'approve')
+  await settled()
+  assert.match(dom.byId['copy-hint'].textContent, /Not sent/)
+  assert.match(dom.byId['copy-hint'].textContent, /verdict "aprove" is not one of/)
+})
+
+test('an unreachable server falls back to the clipboard rather than losing the pass', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: () => Promise.reject(new Error('gone')) })
+  pressed(dom, 'discuss')
+  await settled()
+  assert.strictEqual(dom.byId['copy-out'].hidden, false, 'the blob is recoverable')
+  assert.match(dom.byId['copy-hint'].textContent, /Could not reach the server/)
+  accepted(JSON.parse(dom.byId['copy-out'].value))
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). A `file://` page has no server to
+// talk to and never will, so it must behave exactly as it did before any of
+// this existed — the clipboard path is not deprecated, it is the whole story
+// for a local reader.
+test('stays silent: a file:// page still copies, and never reaches for fetch', () => {
+  const dom = runPage(marked())
+  accepts(dom)[0].dispatch('click')
+  pressed(dom, 'changes')
+  assert.strictEqual(dom.posted.length, 0, 'no request was attempted')
+  assert.strictEqual(dom.copied.length, 1, 'it went to the clipboard as always')
+  const blob = JSON.parse(dom.copied[0])
+  accepted(blob)
+  assert.strictEqual(blob.verdict, 'changes')
+})
+
+test('the marks stay put after sending — a pass is not spent until it is claimed', () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  accepts(dom)[0].dispatch('click')
+  assert.strictEqual(countSays(dom), '1 mark to send')
+  pressed(dom, 'discuss')
+  // Clearing here would be the page lying about state it does not own: the
+  // engine holds the pass, and only a claim spends it.
+  assert.strictEqual(countSays(dom), '1 mark to send')
+  assert.strictEqual(accepts(dom)[0].getAttribute('aria-pressed'), 'true')
+})
+
+test('the decision is not re-judged on the way out', () => {
+  // Approve is blocked while a note is open, and that block is the page's only
+  // refusal. It must hold on the posting path exactly as it does on the copying
+  // one — nothing may become sendable merely by being sent differently.
+  const dom = runPage(marked(), { protocol: 'http:' })
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'this first')
+  assert.strictEqual(dom.byId['verdict-approve'].disabled, true)
+  pressed(dom, 'approve')
+  assert.strictEqual(dom.posted.length, 0, 'the block is a fact on every path')
 })
