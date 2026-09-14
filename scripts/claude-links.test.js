@@ -306,3 +306,98 @@ test('every binary the .claude commands invoke is declared by a dependency', () 
       `if a stale shim survives:\n  ${missing.join('\n  ')}\n  provided: ${[...provided].join(', ')}`,
   )
 })
+
+// ---------------------------------------------------------------------------
+// A skill this repo SHIPS but never installed is invisible to both halves of
+// this pair, and that is how `/spec-reviewed` landed on `main` and then did
+// nothing when it was typed. Twice.
+//
+// `planRelink` classifies it `absent` — "shipped but not installed here. An
+// ordinary state, not a fault" — which is true of a CONSUMER, where not every
+// distribution installs every skill. It is not true here: the dogfood convention
+// is that every shipped skill is linked, and the one that was not could not be
+// invoked at all. The rule that makes the check safe is what made it blind.
+//
+// The tell is whether a target can be resolved. A skill the distribution
+// composes has one, and its absence from `.claude/` is a gap. A skill it does
+// not compose has none, and its absence is the ordinary state the comment
+// describes — so that half of rule 4 survives intact.
+
+const { planRelink: planRelinkForAbsent } = require('./claude-relink.js')
+
+function fixture() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'relink-absent-'))
+  const dist = path.join(tmp, 'packages', 'dist', 'assets', 'skills')
+  const install = path.join(tmp, '.claude', 'skills')
+  fs.mkdirSync(dist, { recursive: true })
+  fs.mkdirSync(install, { recursive: true })
+  // Two composed skills; one is linked, and the sibling is what the convention
+  // is learned from.
+  for (const n of ['already-linked', 'never-linked']) {
+    fs.mkdirSync(path.join(dist, n))
+    fs.writeFileSync(path.join(dist, n, 'SKILL.md'), `# ${n}\n`)
+  }
+  fs.symlinkSync('../../packages/dist/assets/skills/already-linked', path.join(install, 'already-linked'))
+  return { tmp, install }
+}
+
+test('a shipped skill that was never installed is actionable, not skipped', () => {
+  const { tmp, install } = fixture()
+  try {
+    const plan = planRelinkForAbsent(['already-linked', 'never-linked'], install)
+    const byName = Object.fromEntries(plan.map((p) => [p.name, p]))
+    assert.strictEqual(byName['already-linked'].state, 'linked', 'the healthy one is untouched')
+    // RED until fixed: today this is `absent`, and `absent` is skipped in
+    // silence — so the operator types a command that does not exist.
+    assert.strictEqual(byName['never-linked'].state, 'link', 'a composed skill with no link is a gap')
+    assert.match(byName['never-linked'].target, /never-linked$/, 'and it names where to point')
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). The half of the original reasoning
+// that was right: a skill this distribution does not compose has no target, so
+// its absence from `.claude/` is the ordinary state and not a fault.
+test('stays silent: a skill with no resolvable target stays absent', () => {
+  const { tmp, install } = fixture()
+  try {
+    const plan = planRelinkForAbsent(['not-composed-at-all'], install)
+    assert.strictEqual(plan[0].state, 'absent', 'nothing to point at is not a gap')
+    assert.ok(!plan[0].target, 'and nothing is guessed')
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+// THE GUARD THAT WAS MISSING. Everything above validates the links that EXIST —
+// none dangle, none are copies, commands are not links. Nothing asserted that a
+// shipped skill has one at all, so a skill could land on `main` and simply never
+// be installed, with this suite green throughout. That is what happened.
+test('every skill this repo ships is linked into .claude', () => {
+  const { shippedSkills, planRelink } = require('./claude-relink.js')
+  const missing = planRelink(shippedSkills().keys(), path.join(CLAUDE, 'skills'))
+    .filter((i) => i.state === 'link')
+    .map((i) => i.name)
+  assert.deepStrictEqual(
+    missing,
+    [],
+    `shipped but never linked — run \`pnpm relink\`:\n  ${missing.join('\n  ')}`,
+  )
+})
+
+// STAYS SILENT on the shape that is not a fault: a rule or skill this repo
+// ships that the distribution does not compose has nothing to point at, and its
+// absence from `.claude/` is ordinary. Proven against a fixture rather than the
+// live repo, where every shipped skill happens to be composed.
+test('stays silent: nothing to point at is not a missing link', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'relink-uncomposed-'))
+  try {
+    const install = path.join(tmp, '.claude', 'skills')
+    fs.mkdirSync(install, { recursive: true })
+    const plan = require('./claude-relink.js').planRelink(['nowhere'], install)
+    assert.deepStrictEqual(plan, [{ name: 'nowhere', state: 'absent' }])
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})

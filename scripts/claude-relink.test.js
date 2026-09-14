@@ -97,13 +97,39 @@ test('an edited copy is refused and reported, never replaced', () => {
 // Shipped but not installed here — an ordinary state, since a distribution need
 // not install every skill. Accusing it is the mistake negative-checks.md rule 4
 // exists to prevent, and it would fire on every partial install.
-test('a shipped entry that is not installed is skipped, not created', () => {
+// THIS TEST ONCE ASSERTED THE OPPOSITE, and the change is the bug it documents.
+// It read "shipped but not installed" as the ordinary state — true of a
+// consumer, where not every distribution installs every skill, and false here,
+// where the dogfood convention is that everything shipped is linked. Under the
+// old reading `/spec-reviewed` landed on `main`, was never installed, could not
+// be invoked, and `pnpm relink` said "nothing to do".
+//
+// The boundary moved to where the evidence is: a RESOLVABLE TARGET. The fixture
+// writes an asset for every name it seeds, so `elsewhere` has something to point
+// at — which makes its absence a gap rather than a choice.
+test('a shipped entry with a target but no link is created', () => {
   const f = fixture({ good: 'link', elsewhere: 'absent' })
   try {
     const plan = planRelink(f.names, f.install)
-    assert.strictEqual(state(plan, 'elsewhere'), 'absent')
+    assert.strictEqual(state(plan, 'elsewhere'), 'link')
+    assert.deepStrictEqual(applyRelink(plan, f.install), ['elsewhere'])
+    assert.ok(fs.lstatSync(path.join(f.install, 'elsewhere')).isSymbolicLink())
+  } finally {
+    cleanup(f)
+  }
+})
+
+// And the half of the original reasoning that survives: with nothing to point
+// at, absence is the ordinary state and is still skipped in silence
+// (`.claude/rules/negative-checks.md` rule 4). The name is not seeded, so no
+// asset exists for it and no target can resolve.
+test('a shipped entry with no target at all is skipped, not created', () => {
+  const f = fixture({ good: 'link' })
+  try {
+    const plan = planRelink(['good', 'not-composed'], f.install)
+    assert.strictEqual(state(plan, 'not-composed'), 'absent')
     assert.deepStrictEqual(applyRelink(plan, f.install), [])
-    assert.ok(!fs.existsSync(path.join(f.install, 'elsewhere')))
+    assert.ok(!fs.existsSync(path.join(f.install, 'not-composed')))
   } finally {
     cleanup(f)
   }

@@ -101,9 +101,18 @@ function sameTree(a, b) {
 // one of them is actionable — the rest are reported, never acted on.
 //
 //   linked     already a symlink; nothing to do
-//   absent     shipped but not installed here. An ordinary state, not a fault:
-//              not every distribution installs every skill. Skipped, per
-//              `.claude/rules/negative-checks.md` rule 4.
+//   link       shipped, composed by the distribution, and NOT INSTALLED AT ALL.
+//              This was `absent` once, on the reasoning that not every
+//              distribution installs every skill — true of a consumer, and not
+//              of this repo, where the dogfood convention is that everything
+//              shipped is linked. `/spec-reviewed` landed on `main` and could
+//              not be invoked, while this said "nothing to do" and the guard
+//              agreed. The tell is a RESOLVABLE TARGET: something to point at
+//              means the link is missing; nothing to point at means the skill
+//              is genuinely not part of this install.
+//   absent     shipped but with no target to point at — not composed by the
+//              distribution that `.claude/` links into. The ordinary state, and
+//              still skipped, per `.claude/rules/negative-checks.md` rule 4.
 //   relink     a real file whose content MATCHES its target — safe to replace
 //   edited     a real file whose content DIFFERS — somebody's work. Refused.
 //   no-target  no sibling link to learn the convention from, so the target
@@ -116,7 +125,12 @@ function planRelink(names, installDir) {
     try {
       st = fs.lstatSync(p)
     } catch {
-      out.push({ name, state: 'absent' })
+      // Nothing installed under this name. Whether that is a gap or the
+      // ordinary state turns on whether there is anything to point at, and
+      // `linkTargetFor` verifies its candidate before returning it — so a
+      // target here is evidence rather than a guess.
+      const target = linkTargetFor(installDir, name)
+      out.push(target ? { name, target, state: 'link' } : { name, state: 'absent' })
       continue
     }
     if (st.isSymbolicLink()) {
@@ -134,12 +148,18 @@ function planRelink(names, installDir) {
   return out
 }
 
-// Replace the copies that are safe to replace. Returns what it did, so the CLI
-// reports rather than the function printing.
+// The two actionable states, and they end the same way: a symlink where one
+// belongs. `relink` replaces a stale copy, `link` creates one that was never
+// installed — and `rmSync` with `force` is already a no-op on a path that is not
+// there, so the difference is in the classification rather than here.
+//
+// Returns what it did, so the CLI reports rather than the function printing.
+const ACTIONABLE = new Set(['relink', 'link'])
+
 function applyRelink(plan, installDir) {
   const done = []
   for (const item of plan) {
-    if (item.state !== 'relink') continue
+    if (!ACTIONABLE.has(item.state)) continue
     const p = path.join(installDir, item.name)
     fs.rmSync(p, { recursive: true, force: true })
     fs.symlinkSync(item.target, p)
@@ -165,11 +185,13 @@ function run({ dryRun = false, root = ROOT, log = console.log } = {}) {
   let refused = 0
   for (const lane of lanes(root)) {
     const plan = planRelink(lane.names().keys(), lane.dir)
-    const todo = plan.filter((i) => i.state === 'relink')
+    const todo = plan.filter((i) => ACTIONABLE.has(i.state))
     const bad = plan.filter((i) => i.state === 'edited' || i.state === 'no-target')
 
     if (todo.length) {
-      log(`\n${lane.label}: ${dryRun ? 'would relink' : 'relinking'} ${todo.length}`)
+      // "linking" covers both actionable states honestly: one replaces a stale
+      // copy and one creates what was never there, and both end as a symlink.
+      log(`\n${lane.label}: ${dryRun ? 'would link' : 'linking'} ${todo.length}`)
       for (const i of todo) log(`  ${i.name} -> ${i.target}`)
       if (!dryRun) applyRelink(todo, lane.dir)
       relinked += todo.length
@@ -198,6 +220,7 @@ module.exports = {
   linkTargetFor,
   sameTree,
   planRelink,
+  ACTIONABLE,
   applyRelink,
   lanes,
   run,
