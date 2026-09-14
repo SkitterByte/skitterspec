@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-page-says-the-old-way (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -77,9 +77,13 @@ Run: `pnpm exec node --test packages/common/test/assets-review.test.js`
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; fix in, tests green (2287). The served page only shows
+  the new wording once this lands and `pnpm build` refreshes the dist — the same
+  one-build lag every page change here has.
 - 2026-09-14 — Fixed: the hint names `/spec-reviewed`; test green (2287).
 - 2026-09-14 — The guard asserts the **old phrasing is absent**, not only that
   the new one is present. This line has now been wrong twice in one day, each
