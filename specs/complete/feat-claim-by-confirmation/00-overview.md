@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-claim-by-confirmation (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-14)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -129,9 +129,24 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; both phases done, tests green (2255). Both of this
+  spec's own commits were made by **approving the page** and confirming the code
+  in the session, which is the loop working on itself.
+- 2026-09-14 — **The spec does not go far enough, and the operator found it by
+  using it.** Pressing Approve and returning to a silent terminal happened twice:
+  nothing pushes (Non-goal 1, still right), so the offer only arrives when
+  something renders. Their read — *"if it's NEVER going to push back, we'd be
+  better having /spec-next just reach out and grab the results"* — is correct,
+  and safe for a reason this spec under-used: **a command the operator types is
+  itself the human signal**, and a device on the network cannot type one. The
+  confirmation must stay ("exactly one waiting, take it" is unsafe precisely
+  when they sent nothing and the only pass is someone else's), but it should
+  cost a word on a command they were already running rather than a narration.
+  Carried out as its own spec rather than bolted on here.
 - 2026-09-14 — Phase 2: the rule is **step 0**, ahead of taking the pass in at
   all, rather than a caveat attached to the claim. A rule that appears beside
   the command it restricts is read once the reader has already decided to run
