@@ -118,7 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-next` — the discipline follows the worktree | ✅ | [01-next-discipline.md](01-next-discipline.md) |
-| 2 | `/spec-diff` — the same discipline where it writes | ⬜ | [02-diff-discipline.md](02-diff-discipline.md) |
+| 2 | `/spec-diff` — the same discipline where it writes | ✅ | [02-diff-discipline.md](02-diff-discipline.md) |
 
 ## Non-goals
 
@@ -145,6 +145,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 2: the leak check became a numbered step 5 of §2 rather
+  than a sentence inside step 3. Step 4 (`--resolve`) writes between the edits
+  and the re-render, so a check folded into step 3 would have run before the
+  window it is meant to close.
 - 2026-09-14 — Phase 1: the new tests went into the existing
   `assets-spec-next-worktree.test.js` rather than a file of their own — it is
   already the file about building a spec you are not standing in, and the three

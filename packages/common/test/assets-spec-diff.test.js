@@ -324,3 +324,59 @@ test('reporting a URL comes with where the page is deleted', () => {
   assert.match(SKILL, /`spec-env down`\s*\n?\s*repeats it at teardown/)
 })
 
+
+// ---------------------------------------------------------------------------
+// The one step here that WRITES — §2.3, working the commented files on the
+// go-ahead — can write into a tree this session is not standing in, because
+// §1's first rule resolves by name. It had no discipline and no leak guard at
+// all, which made it the wider exposure of the two skills that edit code in a
+// resolved worktree.
+
+const ACT = SKILL.slice(SKILL.indexOf('3. **On the go-ahead'), SKILL.indexOf('## 3. Gate it on nothing'))
+
+test('the writing step compares the worktree against where you stand', () => {
+  assert.match(ACT, /compare the worktree against where you are standing/i)
+  assert.match(ACT, /`worktree:` line/)
+  assert.match(ACT, /resolving both\s*\n?\s*paths first/i)
+  // Named as ordinary, not exceptional: a reader who thinks this is an edge
+  // case skips the comparison on the path it is actually for.
+  assert.match(ACT, /the ordinary case, not an\s*\n?\s*edge one/i)
+})
+
+test('the baseline precedes the edits and the check precedes the re-render', () => {
+  const record = ACT.indexOf('--record-primary')
+  const resolve = ACT.indexOf('--resolve <file>')
+  const assertClean = ACT.indexOf('--assert-primary-clean')
+  const rerender = ACT.indexOf('Then re-render')
+  assert.ok(record !== -1 && assertClean !== -1, 'both engine calls are present')
+  assert.ok(record < resolve, 'a baseline taken after the edits records the leak as normal')
+  assert.ok(rerender < assertClean, 'nothing is reported fixed before it is known to be in the right tree')
+})
+
+// Copied across from `/spec-next` §4b, and the reason travels with it: the guard
+// sees paths appear and cannot see who wrote them.
+test('the leak step forbids guessing and deleting here too', () => {
+  assert.match(ACT, /Do not guess which, and do not delete anything/i)
+  assert.match(ACT, /not proof of who put it there/i)
+  assert.match(ACT, /cannot tell/i)
+  assert.match(ACT, /An absence is not evidence/i)
+})
+
+test('the check names the tree it cannot see', () => {
+  assert.match(ACT, /WHAT WOULD FOOL THIS CHECK/)
+  assert.match(ACT, /never a\s*\n?\s*false accusation/i)
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). Standing in the spec's own
+// worktree — every bare invocation, and every `/spec-next` hand-off — must cost
+// nothing. And the no-gate rule this skill exists beside must survive the
+// addition: a write discipline says HOW to write, never WHETHER to run. That
+// second assertion is green on both sides by design, which is what makes it the
+// guard rather than the repro.
+test('one tree is inert, and the no-gate rule is untouched', () => {
+  assert.match(ACT, /Same tree, and everything below is inert/i)
+  assert.match(ACT, /write discipline, not a precondition/i)
+  assert.match(ACT, /never \*whether\* it runs/i)
+  assert.match(SKILL, /This skill has no preconditions and must never grow one/)
+  assert.match(SKILL, /A mark is information, never a gate/)
+})

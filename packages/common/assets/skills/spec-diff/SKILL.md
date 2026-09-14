@@ -65,6 +65,30 @@ these steps replace §3–§5 below.
    only worth anything if it is true — so say plainly which files you did not
    open. Make the changes, then run the project's typecheck and test commands.
 
+   **First, compare the worktree against where you are standing.** This is the
+   one step here that writes, and §1's first rule resolves by **name** — so
+   editing a tree this session is not standing in is the ordinary case, not an
+   edge one. Take the `worktree:` line from
+   `skitterspec spec-env resolve <spec>` and compare it with cwd, resolving both
+   paths first so a symlinked or trailing-slash spelling of one tree does not
+   read as two. Same tree, and everything below is inert.
+
+   **Different trees, and the discipline applies.** Record the baseline before
+   the first edit:
+
+   ```
+   skitterspec spec-env resolve <spec> --record-primary
+   ```
+
+   Then every write takes an absolute path under the worktree and every command
+   is prefixed `cd "<worktreePath>" &&` — typecheck and tests included. A single
+   relative path lands the fix in the primary checkout, on the base branch, and
+   nothing about it looks wrong at the time.
+
+   **This is a write discipline, not a precondition.** It changes *how* this
+   step writes, never *whether* it runs — §3 below still holds in full, and a
+   later edit reading this as a gate would undo the rule it exists beside.
+
 4. **Write back what you did**, one entry per comment you acted on:
 
    ```json
@@ -79,6 +103,28 @@ these steps replace §3–§5 below.
    the fix rather than trust it. An id that matches nothing is reported and
    skipped, so one bad id never costs you the rest. Then re-render (§3) so the
    page shows each note struck through with its account.
+
+5. **Before the re-render, prove nothing leaked** — only when step 3 found two
+   trees. Nothing should be reported fixed before it is known to be fixed in the
+   right one:
+
+   ```
+   skitterspec spec-env resolve <spec> --assert-primary-clean
+   ```
+
+   - **Exit 0, "primary checkout clean"** — carry on.
+   - **Non-zero** — stop and relay the engine's message unchanged. It names the
+     paths and both readings: this run wrote them and they belong in the
+     worktree, or something else did and the baseline wants re-recording.
+     **Do not guess which, and do not delete anything.** A path that appeared is
+     not proof of who put it there.
+   - **"cannot tell"** — no baseline, or one from another spec. It exits 0 and
+     claims nothing; say so in one line and carry on. An absence is not evidence.
+
+   WHAT WOULD FOOL THIS CHECK: it watches the **primary checkout** and nothing
+   else, so a fix written into *another* spec's worktree would leak there unseen.
+   Left unhandled deliberately — the cost of the gap is a missed leak, never a
+   false accusation.
 
 **A mark is information, never a gate.** Nothing counts the ticks or requires
 them: a phase may end with comments open, `/spec-complete` never learns about
