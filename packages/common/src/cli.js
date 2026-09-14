@@ -78,7 +78,7 @@ const { planHotfixLand } = require('./env/hotfix.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
 const { renderRoutes, portsInUse, waitListening } = require('./env/proxy.js')
-const { mintToken, servableSpecs } = require('./env/serve.js')
+const { mintToken, servableSpecs, engineVersionFor, staleServer } = require('./env/serve.js')
 
 const pkg = require('../package.json')
 
@@ -2235,12 +2235,19 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
     if (settings && settings.port) {
       if (serverScriptOk(settings)) {
         const lb = settings.host === '127.0.0.1' || settings.host === 'localhost'
+        const now = engineVersionFor(proc.script)
         return {
           port: settings.port,
           token: settings.token || null,
           loopback: lb,
           pid: running,
           started: false,
+          // Reported, not acted on. An adopted server running an older engine
+          // still serves — its pages are merely drawn by yesterday's renderer —
+          // so the caller decides what to do, and `unknown` says nothing at all.
+          engine: staleServer(settings.engine, now),
+          engineWas: settings.engine || null,
+          engineIs: now,
         }
       }
       // Alive, addressable, and executing code that has been deleted — the
@@ -2269,8 +2276,16 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   fs.writeFileSync(
     abs(settingsFile),
     // `script` is recorded so adoption has something to check. Without it the
-    // only evidence a server is healthy is that its process exists.
-    JSON.stringify({ dir, port: usePort, host, token, script: proc.script }, null, 2) + '\n',
+    // only evidence a server is healthy is that its process exists. `engine` is
+    // the second half of the same idea: the script can still be on disk and be a
+    // DIFFERENT VERSION of itself, which is invisible to every other check here
+    // — the process is alive, the file exists, and every page it renders is
+    // drawn by code that was replaced underneath it.
+    JSON.stringify(
+      { dir, port: usePort, host, token, script: proc.script, engine: engineVersionFor(proc.script) },
+      null,
+      2,
+    ) + '\n',
   )
   const res = startProcess(proc, { cwd: dir, rootDir: dir })
   const up = await waitListening([usePort], { host: loopback ? host : '127.0.0.1' })
@@ -2308,9 +2323,17 @@ async function specEnvReviewServe(dir, config, flags) {
     try {
       settings = JSON.parse(fs.readFileSync(abs(settingsFile), 'utf-8'))
     } catch {}
+    // Three states, and only one of them is worth a line. `current` is the
+    // ordinary answer and needs no comment; `unknown` is a server from before
+    // this was recorded, which is healthy and must not be accused of anything.
+    const verdict = staleServer(settings.engine, engineVersionFor(proc.script))
     process.stdout.write(
       `spec-env review serve: running (pid ${running})\n` +
-        (settings.port ? `  local: ${serveUrl('127.0.0.1', settings)}\n` : ''),
+        (settings.port ? `  local: ${serveUrl('127.0.0.1', settings)}\n` : '') +
+        (settings.engine ? `  engine: ${settings.engine}\n` : '') +
+        (verdict === 'stale'
+          ? `  the engine moved under it — this one is ${engineVersionFor(proc.script)}\n`
+          : ''),
     )
     return
   }

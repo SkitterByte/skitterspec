@@ -276,6 +276,12 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     // different answers to "what am I looking at".
     fellBack,
     generatedAt: now,
+    // WHICH ENGINE DREW THIS PAGE. The render is always current — the git reads
+    // happen per request — so a page rendered by a stale process looks entirely
+    // right: the counts move, `generatedAt` moves, the diff is correct. Only the
+    // renderer is old, and nothing on the page said so. This is the line that
+    // makes the question answerable by reading the artefact.
+    engine: ENGINE_VERSION,
     totals,
     files,
     notes: {
@@ -305,6 +311,16 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
  * it has been through a clipboard and a chat window — so it is validated
  * wholesale before a byte is written.
  * ========================================================================== */
+
+// Read once, from this package — it is this file that draws the page, so its
+// own version is the honest answer to "what rendered this".
+const ENGINE_VERSION = (() => {
+  try {
+    return require('../../package.json').version || null
+  } catch {
+    return null
+  }
+})()
 
 const NOTES_VERSION = 1
 

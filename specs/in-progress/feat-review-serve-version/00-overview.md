@@ -98,7 +98,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Record and compare the engine | ⬜ | [01-record-and-compare.md](01-record-and-compare.md) |
+| 1 | Record and compare the engine | ✅ | [01-record-and-compare.md](01-record-and-compare.md) |
 | 2 | Restart it, and say so | ⬜ | [02-restart-and-say.md](02-restart-and-say.md) |
 
 ## Non-goals
@@ -126,6 +126,20 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 1: the comparison is **the daemon script's own package
+  version, across time** — not the CLI's version against the daemon's. Decision
+  3 said "recorded against running" without noticing that those can be two
+  different packages: `daemonScript` resolves out of
+  `node_modules/@skitterbyte/skitterspec` while a superset distribution exposes
+  the `skitterspec` binary from its own package, so CLI-vs-daemon reports a
+  mismatch that is never true and never clears — which, wired to phase 2's
+  restart, is a server replaced on every single render. `engineVersionFor`
+  resolves from the script for exactly this reason, and a test pins the
+  two-package tree.
+- 2026-09-14 — Phase 1: the footer line reports **review.js's own** version
+  rather than the daemon's, and deliberately — that file is what draws the page,
+  so it is the honest answer to "what rendered this". The two questions differ
+  and each has its own correct answer.
 - 2026-09-14 — Spec created, from the incident during `feat-review-verdict`: a
   server started before phase 2 served a pre-phase-2 page for the rest of the
   session, and the operator reported the feature as missing. Written as a

@@ -313,8 +313,66 @@ function startReviewServer(server, { port, host = '127.0.0.1' }) {
   })
 }
 
+/**
+ * The version of the package that OWNS a script — walk up to the nearest
+ * `package.json` from the script's own directory.
+ *
+ * WHY NOT just report the running CLI's version: the CLI and the daemon are
+ * routinely DIFFERENT PACKAGES. A superset distribution exposes the
+ * `skitterspec` binary from its own package while `daemonScript` resolves the
+ * daemon out of `node_modules/@skitterbyte/skitterspec`, so comparing one
+ * against the other reports a mismatch that is never true and never goes away —
+ * which, wired to a restart, is a server replaced on every single render.
+ * Resolving from the script means both halves of the comparison are the same
+ * question asked at two different times.
+ *
+ * Returns `null` rather than throwing or guessing. An unreadable package, an
+ * absent one, a `version` that is not a string: each is a state where the
+ * lookup could not see, and `staleServer` routes all of them to `unknown`.
+ */
+function engineVersionFor(scriptPath) {
+  if (!scriptPath) return null
+  let dir = path.dirname(path.resolve(scriptPath))
+  // Bounded: stop at the filesystem root rather than trusting a break.
+  for (let i = 0; i < 40; i++) {
+    const candidate = path.join(dir, 'package.json')
+    try {
+      const parsed = JSON.parse(fs.readFileSync(candidate, 'utf-8'))
+      if (typeof parsed.version === 'string' && parsed.version) return parsed.version
+      return null
+    } catch {}
+    const up = path.dirname(dir)
+    if (up === dir) return null
+    dir = up
+  }
+  return null
+}
+
+/**
+ * Is the running server executing the engine this one would start? Pure.
+ *
+ * THREE STATES, NOT TWO (`.claude/rules/negative-checks.md` rule 4). The third
+ * is what this whole feature turns on: a server that recorded no version — every
+ * server started before this shipped — is not stale, it is UNANSWERABLE, and the
+ * caller must route it to inaction. Reading a missing record as "different, so
+ * stale" would restart every healthy server on the first render after upgrading,
+ * which is the accusation this check exists to avoid making.
+ *
+ * WHAT WOULD BLIND THIS: `recorded` is absent on a pre-feature server, and
+ * `running` is null whenever `engineVersionFor` could not read a package at all
+ * (a bundled build, an odd install layout). Both are answered `unknown`, and
+ * neither is evidence of anything.
+ */
+function staleServer(recorded, running) {
+  if (typeof recorded !== 'string' || !recorded) return 'unknown'
+  if (typeof running !== 'string' || !running) return 'unknown'
+  return recorded === running ? 'current' : 'stale'
+}
+
 module.exports = {
   mintToken,
+  engineVersionFor,
+  staleServer,
   specSummary,
   routeFor,
   renderIndex,
