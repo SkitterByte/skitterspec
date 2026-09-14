@@ -323,3 +323,81 @@ test('a minimal but correct report section is not flagged', () => {
 test('Follow-ups alone satisfies the field requirement', () => {
   assert.ok(declaredFields('**Fields:** `Follow-ups`').length > 0)
 })
+
+// ---------------------------------------------------------------------------
+// A skill that deliberately leaves the tree DIRTY must not hand the reader a
+// `Next` that the dirty tree refuses.
+//
+// The two halves live two sections apart in the same file, which is why this
+// went unnoticed: `/spec-next` §6 says "Do **not** `git commit` unless the user
+// asks — finish, verify, and wait", and its Report section then documents the
+// last row as `/spec-next → phase 3 (Auth)`. Type that and §2 of the same skill
+// refuses, because the phase you just built is still uncommitted. The reader is
+// sent to a refusal by the contract's own worked example.
+
+const LEAVES_DIRTY = /Do \*\*not\*\* `git commit` unless the user asks/
+
+// The skills whose `Next` is PRESCRIBED rather than left to the run. A skill
+// that only lists `Next` among its fields is not making a claim about what goes
+// in it, so there is nothing here to be wrong.
+const PRESCRIBES_NEXT = [
+  ['common', 'spec-next'],
+  ['common', 'spec-bug'],
+]
+
+// The sentence each skill's Report section uses to prescribe the row.
+//
+// Anchored to a LINE START, because `Next` also appears mid-line in every
+// skill's `**Fields:**` list — and that list makes no claim about what the row
+// says, so matching it would test the wrong sentence and stay red after the
+// prescription was fixed.
+function nextGuidance(text) {
+  // Find the line-anchored mention, then slice to the blank line with indexOf.
+  // NOT a lazy regex ending in `$` under the `m` flag — `$` is then end of LINE,
+  // so it stops at the first newline and reads one line of a paragraph that is
+  // usually several. That bug made this check pass over a fixed prescription.
+  const at = /^`Next`/m.exec(text)
+  if (!at) return ''
+  const rest = text.slice(at.index)
+  const end = rest.indexOf('\n\n')
+  return end === -1 ? rest : rest.slice(0, end)
+}
+
+test('a skill that leaves the tree dirty tells you to commit before the next step', () => {
+  const offenders = []
+  for (const [pkg, name] of PRESCRIBES_NEXT) {
+    const text = skillText(pkg, name)
+    // Only skills that actually leave work uncommitted are held to this.
+    if (!LEAVES_DIRTY.test(text)) continue
+    const guidance = nextGuidance(text)
+    if (!/\/commit/.test(guidance)) offenders.push(`${pkg}:${name} — ${guidance.split('\n')[0]}`)
+  }
+  assert.deepStrictEqual(
+    offenders,
+    [],
+    `a skill leaves the tree dirty and its Next omits the commit:\n${offenders.join('\n')}`,
+  )
+})
+
+test('the rule itself says a dirty tree changes what Next may say', () => {
+  // The skills are instances; this is the cause. `Next` was defined as "the
+  // single next action for this work" with nothing tying it to the state the
+  // skill just left the tree in, so two skills independently wrote a Next that
+  // could not be run. Fixing only the instances leaves the next one free to
+  // repeat it.
+  const rule = fs.readFileSync(RULE, 'utf8')
+  assert.match(rule, /runnable from the state the run actually leaves behind/i)
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). A skill that commits its own work
+// is not making this mistake, and must not be dragged into the check by having
+// the word `Next` in it.
+test('stays silent: a skill that commits its own work needs no commit in Next', () => {
+  const clean = '`Next` is `/spec-start <name>`, with the name spelled the way it must be typed.'
+  assert.ok(!LEAVES_DIRTY.test(clean), 'this skill leaves nothing uncommitted')
+  // `/spec-complete` and `/spec-start` both commit what they write, and neither
+  // should ever be required to say `/commit` first.
+  for (const name of ['spec-complete', 'spec-start']) {
+    assert.ok(!LEAVES_DIRTY.test(skillText('common', name)), `${name} commits its own work`)
+  }
+})

@@ -80,6 +80,21 @@ one thing they asked about.
 `Next` is the single next action **for this work**, not a menu of what else
 could be done.
 
+**And it must be runnable from the state the run actually leaves behind.** Most
+of these skills deliberately do not commit — they finish, verify, and wait — so
+the tree they hand back is dirty, and several of the commands they would name
+next refuse on a dirty tree. A `Next` that omits the commit therefore sends the
+reader to a refusal: `/spec-next` leaves a phase uncommitted and its own §2
+refuses on exactly that, and `/spec-bug` leaves a fix uncommitted where
+`/spec-complete` refuses the same way. Where the skill does not commit, the row
+says `/commit, then <the thing>`.
+
+This is not a style rule. `Next` is the one row a reader is meant to act on, and
+it closes the block because the closing row should be the one that moves the
+work on. A row that cannot be run spends the trust the position was designed to
+earn — and the two skills that got it wrong got it wrong independently, which is
+what makes it a missing constraint rather than two slips.
+
 ## Field vocabulary, in this order
 
 A skill emits only the fields it declares, in this order, skipping the rest.
@@ -103,7 +118,7 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |
 | `Review` | The rendered diff page: files, `+`/`−`, the link — and the offer of a written review, in the same row. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
-| `Next` | **Last.** The single next action for this work. |
+| `Next` | **Last.** The single next action for this work — runnable from the state the run leaves behind. |
 
 The order runs identity → context → what happened → where it went → what to do.
 **`Tracker` is first** because the id is what addresses this work outside the

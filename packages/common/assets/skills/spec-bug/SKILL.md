@@ -270,9 +270,12 @@ serve (a busy port, a machine with no network address) it falls back to the
 ## 6. Report
 
 Do **not** `git commit` unless the user asks. The spec stays in `in-progress`;
-`Next` points at `/spec-complete` to verify and archive it (**when isolated**,
-the fix lives on the bug's branch, and `/spec-complete` merges it back to
-`main`).
+`Next` names the commit and then `/spec-complete`, as
+`/commit, then /spec-complete` — this skill leaves the fix uncommitted, and
+`/spec-complete` §2 refuses on pre-existing uncommitted changes, so naming only
+the second half sends the reader into a refusal. `/spec-complete` then verifies
+and archives it (**when isolated**, the fix lives on the bug's branch, and it
+merges that back to `main`).
 
 End with the block defined in `.claude/rules/spec-reports.md`. That file carries
 the shape; this section carries only what is specific here.

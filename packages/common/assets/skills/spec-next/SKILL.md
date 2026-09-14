@@ -324,8 +324,15 @@ the shape; this section carries only what is specific here.
 **Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Review` ·
 `Follow-ups` · `Next`
 
-`Next` names the phase, as `/spec-next → phase 3 (Auth)`, so the block says
-which phase is next without a line of prose for it.
+`Next` names the commit and then the phase, as
+`/commit, then /spec-next → phase 3 (Auth)`, so the block says what to do and
+which phase is next without a line of prose for either.
+
+**The commit is not optional politeness.** Step 6 above deliberately leaves the
+phase uncommitted, and §2 of this very skill refuses to build the next phase on
+top of an uncommitted one — so a `Next` that names only `/spec-next` sends the
+reader straight into that refusal. The two halves are four hundred lines apart,
+which is exactly how they drifted.
 
 **Step 5's offer is the `Review` row.** It is not a paragraph after the block,
 because nothing is after the block: the counts, the page link and the question
