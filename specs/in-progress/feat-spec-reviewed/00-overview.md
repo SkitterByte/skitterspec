@@ -104,7 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The command, bare | ✅ | [01-the-command.md](01-the-command.md) |
-| 2 | Targeting, and the relocation guard | ⬜ | [02-targeting.md](02-targeting.md) |
+| 2 | Targeting, and the relocation guard | ✅ | [02-targeting.md](02-targeting.md) |
 
 ## Non-goals
 
@@ -129,6 +129,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 2: the report gained a `Worktree` field, and the contract
+  guard caught it **declared in the wrong place** — beside `Branch`, where it
+  reads as context, rather than after `Built`/`Tests` where `spec-reports.md`
+  puts it. The rule's order runs identity → context → what happened → where it
+  went → what to do, and a session that moved is *where it went*.
+- 2026-09-14 — Phase 2: the guard is ordered **before** the claim, and a test
+  asserts the file order rather than trusting the prose. Declining the move
+  after claiming would leave a spent code and an unacted pass, which is the
+  split the guard exists to prevent wearing a different hat.
 - 2026-09-14 — Phase 1: **four existing guards caught the new skill**, which is
   the corpus working rather than friction — a bold span across a line break, a
   fenced block read as a message to the reader, the report-contract roster, and

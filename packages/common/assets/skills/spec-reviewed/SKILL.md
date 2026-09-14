@@ -45,8 +45,57 @@ Several provisioned and none resolved is a refusal — relay its list and stop,
 never pick from it. See `.claude/rules/spec-planning.md`; do not restate the
 rule here.
 
-A **name** or a **tracker id** targets a different spec — that is phase 2 of
-`feat-spec-reviewed`, and until it lands a bare invocation is the whole command.
+A **name** targets that spec instead. A **tracker id** does too, but only
+through a **provider seam**: the base knows nothing about tracker ids, so
+resolve one by asking whichever provider is installed for its listing —
+
+```
+skitterspec spec-sync linked --json
+```
+
+— which answers `[{ spec, bucket, identifier }]`, and match on `identifier`.
+**With no provider installed an id resolves to nothing**, and that is the right
+answer rather than a guess: a `SKS-227`-shaped string is not evidence that a
+tracker exists. Say the id matched no spec and stop.
+
+## 1a. Targeting another spec? Get into its worktree first
+
+**Only when the resolved spec's worktree is not where this session stands.**
+Compare the `worktree:` line from `skitterspec spec-env resolve <spec>` against
+cwd, resolving both paths first so a symlinked or trailing-slash spelling of one
+tree does not read as two. **Same tree — say nothing and carry on.** That is the
+ordinary case, and a line about it is narration.
+
+**Different trees, and it matters for what comes after, not for the claim.**
+Claiming is harmless from anywhere: the sidecar lives in the primary checkout.
+But an honoured `commit` verdict **commits**, and `changes` **edits files**, and
+both must land in *that spec's* worktree — done from here they would land in
+this one, on the wrong branch, looking entirely normal at the time.
+
+So **ask, then move**:
+
+*"`feat-orders` lives in `../repo-wt/orders`, and picking its review up means
+committing there — move this session over to carry on?"*
+
+- **On a yes**, move with a plain `cd "<worktreePath>"`. That is the whole
+  mechanism, exactly as `/spec-start` does it — not a tool call, because an
+  approval prompt is unusable on a phone.
+  Then **confirm the move landed** rather than assuming it
+  (`.claude/rules/negative-checks.md` rule 1): run `skitterspec spec-env resolve`
+  with no argument and check its `spec:` line names the target. If it does not,
+  stop — do not claim a pass you are about to act on from a tree you could not
+  confirm.
+- **On a no, stop without claiming.** A pass claimed here and acted on there is
+  exactly the split this guard exists to prevent, and claiming first would spend
+  the code for nothing.
+
+**A target with no worktree is a refusal.** There is nowhere for a commit to
+land. Name it, suggest `/spec-start <name>`, and stop.
+
+**Why not simply refuse unless you are on the base branch?** Because that bans a
+legitimate case — standing in one spec, picking up another's review — while
+*still* leaving the work to be done in a tree you are not in. The relocation is
+needed either way, so the relocation is the guard.
 
 ## 2. Read what is waiting
 
@@ -119,10 +168,16 @@ the shape; this section carries only what is specific here.
 - `⚠️` — claimed and acted on, with something worth knowing.
 - `❌` — it acted and stopped part-way; the commit failed, or the work did.
   Quote it.
-- `⏸` — nothing was waiting, or the operator said the waiting pass was not
-  theirs. Nothing changed, and neither is a failure.
+- `⏸` — nothing was waiting, the operator said the waiting pass was not theirs,
+  they declined the move to another spec's worktree, or the target has no
+  worktree at all. Nothing changed, and none of those is a failure.
 
-**Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Follow-ups` · `Next`
+**Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Worktree` ·
+`Follow-ups` · `Next`
+
+`Worktree` appears only when this run **moved the session** — the path it moved
+to, because the operator's next command depends on knowing where they now are.
+A run that stayed put omits it.
 
 `Built` is what the verdict produced — the commit, or the commented files
 worked. A run that claimed nothing built nothing and omits it.

@@ -100,3 +100,66 @@ test('stays silent: the skill installs by discovery, with no list to register in
     'the folder is the installation',
   )
 })
+
+// --- targeting, and the relocation guard (phase 2) --------------------------
+//
+// The claim is harmless from anywhere — the sidecar lives in the primary
+// checkout. What is not harmless is what follows: a `commit` verdict commits and
+// `changes` edits files, and done from the wrong tree both land on the wrong
+// branch while looking entirely normal at the time.
+
+test('a tracker id is a provider seam, never a guess', () => {
+  assert.match(SKILL, /spec-sync linked --json/, 'it asks the provider')
+  assert.match(SKILL, /\{ spec, bucket, identifier \}/, 'and matches on identifier')
+  // A `SKS-227`-shaped string is not evidence that a tracker exists.
+  assert.match(SKILL, /\*\*With no provider installed an id resolves to nothing\*\*/)
+  assert.match(SKILL, /is not evidence that a\s*\n?\s*tracker exists/i)
+})
+
+test('a different worktree is asked about and moved to, not acted on remotely', () => {
+  assert.match(SKILL, /## 1a\. Targeting another spec\? Get into its worktree first/)
+  assert.match(SKILL, /\*\*Same tree — say nothing and carry on\.\*\*/, 'the ordinary case is silent')
+  assert.match(SKILL, /\*\*ask, then move\*\*/)
+  // A plain `cd`, for the reason /spec-start gives: an approval prompt is
+  // unusable on a phone.
+  assert.match(SKILL, /plain `cd "<worktreePath>"`/)
+  assert.match(SKILL, /unusable on a phone/)
+})
+
+// A "no" must not leave a spent code and an unacted pass. That split is the
+// exact thing the guard exists to prevent, so declining has to happen BEFORE
+// the claim, not after it.
+test('declining the move claims nothing', () => {
+  assert.match(SKILL, /\*\*On a no, stop without claiming\.\*\*/)
+  assert.match(SKILL, /claiming first would spend\s*\n?\s*the code for nothing/i)
+  const guard = SKILL.indexOf('## 1a.')
+  const claim = SKILL.indexOf('--claim <code>')
+  assert.ok(guard !== -1 && claim !== -1 && guard < claim, 'the guard precedes the claim')
+})
+
+test('the move is confirmed rather than assumed', () => {
+  // `.claude/rules/negative-checks.md` rule 1 — ask for a positive signal. A cd
+  // that silently did not take leaves the next command acting on this tree.
+  assert.match(SKILL, /confirm the move landed\*\* rather than assuming it/i)
+  assert.match(SKILL, /negative-checks\.md` rule 1/, 'it cites the rule it is applying')
+  assert.match(SKILL, /do not claim a pass you are about to act on from a tree you could not\s*\n?\s*confirm/i)
+})
+
+test('a target with no worktree refuses, and the refusal is reported', () => {
+  assert.match(SKILL, /\*\*A target with no worktree is a refusal\.\*\*/)
+  assert.match(SKILL, /nowhere for a commit to\s*\n?\s*land/i)
+  // ⏸ covers every "nothing changed" ending, so a reader can tell them from ❌.
+  assert.match(SKILL, /they declined the move to another spec's worktree, or the target has no\s*\n?\s*worktree at all/)
+})
+
+test('the rejected alternative is recorded, not silently dropped', () => {
+  // "Only from the base branch" was the other candidate and is worse: it bans a
+  // legitimate case while still leaving the work to be done elsewhere.
+  assert.match(SKILL, /\*\*Why not simply refuse unless you are on the base branch\?\*\*/)
+  assert.match(SKILL, /the relocation is\s*\n?\s*needed either way/i)
+})
+
+test('a run that moves the session says where it moved to', () => {
+  assert.match(SKILL, /`Worktree` appears only when this run \*\*moved the session\*\*/)
+  assert.match(SKILL, /A run that stayed put omits it/)
+})
