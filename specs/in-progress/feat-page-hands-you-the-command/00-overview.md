@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-241/the-page-hands-you-the
 
 > **Type:** Feature
 > **Name:** feat-page-hands-you-the-command (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-14)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
 > **Area:** packages/common/assets/review/page.html, packages/common/assets/skills/spec-reviewed, packages/common/src/env/review.js, packages/common/test
 > **Stack:** worktree
@@ -110,6 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
+| 2026-09-14 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
