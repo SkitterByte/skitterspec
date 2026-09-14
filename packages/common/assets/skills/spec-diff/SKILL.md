@@ -52,9 +52,54 @@ A review comes back to you one of two ways, and **both are ordinary**:
 Either way, **this is not a request to render anything**: it is a review coming
 back, and these steps replace §3–§5 below.
 
+0. **Never claim a pass you were not asked to claim.**
+
+   This is the whole security property and there is no second one. A device that
+   reaches the page can POST all day; what it cannot reach is
+   **this conversation**. So a pass it queues sits in the holding area forever —
+   unless
+   you go and fetch it, at which point the rogue pass lands in the operator's
+   review and nothing anywhere noticed.
+
+   **Do not read the code out of `.spec-env/reviews/<spec>.pending.json`.** The
+   store is a file you can open, so nothing stops you; that is precisely why the
+   rule has to be stated rather than assumed. It has already happened once — an
+   agent found a waiting approval, read its code off disk, claimed it, and
+   reported the round-trip working. The operator had pressed the button, so the
+   outcome was harmless and the reasoning was wrong.
+
+   The render tells you everything a decision needs, so there is nothing to go
+   looking for:
+
+   ```
+   pending: 1 waiting
+     792969 · approve · 1 min ago
+   ```
+
+   **Offer it, naming the code**, and wait: *"an approval is waiting, code
+   792969, sent a minute ago — does that match your phone?"* The digits travel
+   **to** the operator, not from them — they verify rather than transcribe, and
+   the code is the only part they can check, so
+   **name it rather than describing the pass** (a stranger's approval and theirs
+   read identically otherwise).
+
+   **Two or more waiting is a refusal to guess.** Name them all and ask which.
+   Never take the newest, the oldest, or the only `approve` — that is exactly
+   the case where someone else's pass is sitting beside the operator's, and it
+   is the only case where reading six digits out is worth anyone's time.
+
+   **On "that isn't mine"**, leave it and offer to drop it:
+
+   ```
+   skitterspec spec-env review <spec> --drop <code>
+   ```
+
+   A pass that stays is reported on every render until the operator stops
+   reading the line — which is how the real one gets missed.
+
 1. **Take it in through the engine**, whichever way it arrived.
 
-   **A code** — claim it. Nothing else is needed; the pass is already on disk:
+   **A code** — claim it, once the operator has confirmed it is theirs (step 0):
 
    ```
    skitterspec spec-env review <spec> --claim <code>
@@ -224,11 +269,13 @@ failed commit there is no outcome to record — say what failed instead.
 
 **Nothing is pushed.** The commit is local, exactly as `/commit` leaves it.
 
-**Passes waiting are information too.** A render reports `2 passes waiting —
-claim one with its code` when the holding area is not empty. It is a fact about
-the page, not a prompt: nothing counts them, nothing refuses over them, and a
-pass nobody claims simply sits there. Say it if the operator would want to know
-they have one outstanding; never treat it as a task.
+**Passes waiting are information — and worth raising.** A render lists them
+when the holding area is not empty: code, verdict, age, one per line. Nothing
+counts them and nothing refuses over them; a pass nobody claims simply sits
+there. But **say so** — an operator who pressed a button on their phone and hears
+nothing has no way to tell a pass that never arrived from one waiting to be
+confirmed, and both look like silence. Raising it is step 0's offer; never
+treating it as a task is the rule that survives.
 
 **A mark is information, never a gate.** Nothing counts the ticks or requires
 them: a phase may end with comments open, `/spec-complete` never learns about

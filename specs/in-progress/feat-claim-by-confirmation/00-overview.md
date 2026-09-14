@@ -104,7 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The engine describes what is waiting | ✅ | [01-describe-waiting.md](01-describe-waiting.md) |
-| 2 | The rule, and the words around it | ⬜ | [02-rule-and-words.md](02-rule-and-words.md) |
+| 2 | The rule, and the words around it | ✅ | [02-rule-and-words.md](02-rule-and-words.md) |
 
 ## Non-goals
 
@@ -132,6 +132,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 2: the rule is **step 0**, ahead of taking the pass in at
+  all, rather than a caveat attached to the claim. A rule that appears beside
+  the command it restricts is read once the reader has already decided to run
+  it; this one has to be read before.
+- 2026-09-14 — Phase 2: the passes-waiting paragraph gained a duty it did not
+  have — **say so**. It was written as pure information ("say it if the operator
+  would want to know"), and the operator who pressed Approve and heard nothing
+  had no way to tell a pass that never arrived from one waiting to be confirmed.
+  Both look like silence. Raising it is the offer; not treating it as a task is
+  the part that survives.
 - 2026-09-14 — Phase 1: `pendingAge` treats a **future** timestamp as
   `unknown age` rather than computing a negative one. A pass claiming to have
   arrived later than now is either a clock skew or a lie, and "in 3 minutes"

@@ -519,8 +519,11 @@ test('the skill prices the claim against the paste', () => {
 })
 
 test('passes waiting are information, never a task', () => {
-  assert.match(SKILL, /\*\*Passes waiting are information too\.\*\*/)
-  assert.match(SKILL, /never treat it as a task/i)
+  assert.match(SKILL, /\*\*Passes waiting are information — and worth raising\.\*\*/)
+  assert.match(SKILL, /never\s*\n?\s*treating it as a task is the rule that survives/i)
+  // Raised, though: an operator who pressed a button and hears nothing cannot
+  // tell a pass that never arrived from one waiting to be confirmed.
+  assert.match(SKILL, /both look like silence/i)
   // And the no-gate rule it sits beside is untouched, which is the point: this
   // spec added a delivery mechanism, not a thing that counts.
   assert.match(SKILL, /A mark is information, never a gate/)
@@ -533,4 +536,59 @@ test('the engine offers what the prose promises', () => {
   const help = fs.readFileSync(path.join(ROOT, 'packages', 'common', 'src', 'cli.js'), 'utf8')
   assert.match(help, /\[--claim <code>\]/, 'the usage line offers it')
   assert.match(help, /args\[i\] === '--claim'/, 'and the parser takes it')
+})
+
+// --- never claim unasked (feat-claim-by-confirmation phase 2) ---------------
+//
+// The rule is enforced by prose and by these, and that is honest rather than
+// weak: the holding area is a file any agent with the repo can read, so nothing
+// can stop a determined one. What stops a careless one is being told — and the
+// one time it was not told, it read a code off disk and claimed the operator's
+// approval while reporting the round-trip working.
+
+test('the skill forbids claiming a pass it was not asked to claim', () => {
+  assert.match(SKILL, /\*\*Never claim a pass you were not asked to claim\.\*\*/)
+  // The security property, stated as the narrow thing it actually is.
+  assert.match(SKILL, /what it cannot reach is\s*\n?\s*\*\*this conversation\*\*/i)
+})
+
+// THE BYPASS IS NAMED. Prose that says "wait to be asked" without naming the
+// file does not prevent reading the file — the agent is not being disobedient,
+// it is solving the problem in front of it.
+test('the skill names the read-it-off-disk bypass specifically', () => {
+  assert.match(SKILL, /pending\.json/, 'the file is named')
+  assert.match(SKILL, /Do not read the code out of/i)
+  assert.match(SKILL, /It has already happened once/i, 'and says it is not hypothetical')
+})
+
+test('the offer names the code, and never merely describes the pass', () => {
+  assert.match(SKILL, /\*\*Offer it, naming the code\*\*/)
+  assert.match(SKILL, /verify rather than transcribe/i)
+  // The code is the only part the operator can check against their phone —
+  // a stranger's approval and their own read identically otherwise.
+  assert.match(SKILL, /\*\*name it rather than describing the pass\*\*/)
+})
+
+test('two waiting is a refusal to guess, not a preference', () => {
+  assert.match(SKILL, /\*\*Two or more waiting is a refusal to guess\.\*\*/)
+  assert.match(SKILL, /Never take the newest, the oldest, or the only `approve`/)
+})
+
+test('a disowned pass can be dropped, and why that matters', () => {
+  assert.match(SKILL, /--drop <code>/)
+  assert.match(SKILL, /how the real one gets missed/i)
+})
+
+test('the engine offers what the rule needs, so the prose is not asking for fiction', () => {
+  // The positive half: step 0 tells the agent to read the code off the render.
+  // If the render did not carry it, the rule would be unfollowable and the file
+  // would be right there.
+  const { describePending, emptyPending, addPending } = require('../src/env/review.js')
+  const held = addPending(emptyPending('feat-x'), {
+    blob: { verdict: 'approve' }, at: '2026-01-01T00:00:00.000Z', render: 'R1',
+  })
+  const [first] = describePending(held.pending)
+  assert.strictEqual(first.code, held.code, 'the render can name a code')
+  assert.strictEqual(first.verdict, 'approve')
+  assert.ok(!('blob' in first), 'without carrying the pass itself')
 })

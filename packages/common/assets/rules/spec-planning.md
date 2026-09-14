@@ -164,16 +164,27 @@ Chrome-only and absent on iOS Safari — so it copies to the clipboard and you
 paste, exactly as before. The clipboard path is **not legacy**: it is the whole
 story for a local reader.
 
-The code is **not a secret** — it is printed on the page. What it does is prove
-a person was sitting there, and say *which* pass when more than one is waiting.
-So the write path the server gains reaches a **holding area** and nothing else:
-a stranger on your network can queue a pass nobody will claim, and the review
-itself is only ever written by a claim. A code that matches nothing refuses,
-**names nothing**, and never falls back to "the only one" — that fallback is
-precisely what would let an unread pass through. Claiming **consumes**: a code
-works once. A second pass from the same page render supersedes the first, so
-the code on screen is always the pass on screen; passes from different renders
-stand alongside each other.
+The code is **not a secret** — it is printed on the page, and it cannot be a
+gate against Claude either, because the store is a file Claude can read. What
+actually holds is narrower and stronger:
+**a device that reaches your page cannot reach your conversation.**
+So a pass it queues sits in the holding area
+forever, and the rule that keeps it there is that
+**Claude never claims a pass it was not asked to** — stated in `/spec-diff` step
+0, because nothing enforces it.
+
+What the code *does* is let you tell yours apart. A render lists what is
+waiting — code, verdict, age — so Claude names the code back to you and you
+check it against your phone: **verification, not transcription**. Two waiting is
+a refusal to guess, which is the one case where a stranger's pass sits beside
+yours. A pass you disown is `--drop <code>`; left there it is reported on every
+render until you stop reading the line.
+
+A code that matches nothing refuses, **names nothing**, and never falls back to
+"the only one" — that fallback is precisely what would let an unread pass
+through. Claiming **consumes**: a code works once. A second pass from the same
+page render supersedes the first, so the code on screen is always the pass on
+screen; passes from different renders stand alongside each other.
 
 **And a claimed pass never enters the model's context.** The engine holds it,
 merges it, and reports the counts — six digits is what reaches Claude, where a

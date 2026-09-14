@@ -23,17 +23,19 @@ you read, note anything against a line or a whole file, answer the questions a
 written review asked — then **end it in a decision**. Three buttons, each
 carrying its own verdict:
 `✓ Approve` commits it, `↺ Request changes` sends it straight back to be
-worked, `… Discuss first` reports and stops. A **served** page hands the pass
-straight to the engine and shows a six-digit code — read that out and
-`/spec-diff` claims it, so the pass never passes through the model at all. A
-`file://` page copies it instead, and you paste it as before. Approve is
-unavailable while a note is open — you asked for something, so it cannot also
-be fine — and it hands off to your own commit skill (`review.commitWith`,
-`/commit` by default) rather than a copy living here. Fixes come back as
-resolutions, so the next render shows each note struck through with what
-changed. An accept remembers the file's content, so it lapses by itself when
-that file changes again. The marks are information — nothing gates on them; the
-verdict is the one thing you choose, once.
+worked, `… Discuss first` reports and stops. A **served** page hands the pass to
+the engine, which **holds** it and shows a six-digit code. Tell Claude a pass is
+waiting; it reads the code off its own render and offers it back, and you check
+that against your phone before it claims. **Nothing pushes** — a device that
+reaches your page cannot reach this conversation, which is what keeps a stray
+approval out of your review. A `file://` page has no server to talk to, so it
+copies and you paste, as before. Approve is unavailable while a note is open —
+you asked for something, so it cannot also be fine — and it hands off to your
+own commit skill (`review.commitWith`, `/commit` by default) rather than a copy
+living here. Fixes come back as resolutions, so the next render shows each note
+struck through with what changed. An accept remembers the file's content, so it
+lapses by itself when that file changes again. The marks are information —
+nothing gates on them; the verdict is the one thing you choose, once.
 
 **One ending.** Every spec skill finishes with the same block — a verdict
 (`✅` · `⚠️` · `❌` · `⏸`), then a table of the fields that skill declares,

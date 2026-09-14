@@ -898,7 +898,12 @@ test('the claim code is shown where the verdict was pressed', async () => {
   const dom = runPage(marked(), { protocol: 'http:' })
   pressed(dom, 'discuss')
   await settled()
-  assert.match(dom.byId['copy-hint'].textContent, /Sent · claim it with 418207/)
+  // The code is shown to be CHECKED, not transcribed — Claude reads it off its
+  // own render and offers it back. Copy that instructed a transcription made
+  // the operator think they had to do something they did not.
+  assert.match(dom.byId['copy-hint'].textContent, /Sent/)
+  assert.match(dom.byId['copy-hint'].textContent, /418207/, 'the code is there to check')
+  assert.doesNotMatch(dom.byId['copy-hint'].textContent, /claim it with/, 'it asks for no transcription')
 })
 
 test('a refused pass is shown, not swallowed', async () => {
