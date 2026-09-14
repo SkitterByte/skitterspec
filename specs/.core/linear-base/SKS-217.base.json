@@ -1,0 +1,14 @@
+{
+  "issue": "c4888b8d5222330b1aeedffcb21f02715d964276",
+  "issueFields": {
+    "description": "2108501c2aba02fc82254df08ab36b37f336e48a",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833"
+  },
+  "subIssues": {
+    "SKS-218": "11968ec21b2af1baed351a90833ca13ac5644e4b",
+    "SKS-219": "e0156fb4e4ce6c0dd8fcc11cbfabffbcc25574cf",
+    "SKS-220": "0e24906c6c3de4285e416686ea575bb848bffdbb",
+    "SKS-221": "31dae05e30dd7d91b01f514efbbfe08fc0cea6d7"
+  }
+}
