@@ -385,7 +385,7 @@ tr.note-row td {
 .verdict-end { margin: 1.2rem 0 0; }
 .verdict-title { font-size: .8rem; color: var(--muted); }
 .verdict-count { font-size: .8rem; color: var(--muted); }
-.v-approve { color: var(--good-fg); background: var(--good-bg); }
+.v-commit { color: var(--good-fg); background: var(--good-bg); }
 .v-changes { color: var(--flag-fg); background: var(--flag-bg); }
 /* A blocked control is dashed as well as dimmed, so the block survives a
    greyscale screen — and the reason rides in the label, never in a tooltip
@@ -447,7 +447,8 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     <footer class="verdict-end">
       <div class="verdict" id="verdict">
         <span class="verdict-title">Your verdict</span>
-        <button id="verdict-approve" class="v-approve" type="button" aria-live="polite">✓ Approve</button>
+        <button id="verdict-commit" class="v-commit" type="button" aria-live="polite">✓ Commit</button>
+        <button id="verdict-commit-continue" class="v-commit" type="button" aria-live="polite">✓ Commit &amp; Continue</button>
         <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
         <button id="verdict-discuss" type="button">… Discuss first</button>
         <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
@@ -1078,10 +1079,23 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   }
 
   var verdictBtns = {
-    approve: document.getElementById('verdict-approve'),
+    commit: document.getElementById('verdict-commit'),
+    'commit-continue': document.getElementById('verdict-commit-continue'),
     changes: document.getElementById('verdict-changes'),
     discuss: document.getElementById('verdict-discuss'),
   }
+  // The committing pair, named once. A fifth verdict that commits is added
+  // here, and the shared block below follows for free — the same reason the
+  // engine keeps a `COMMITTING` list rather than a second condition.
+  var COMMITTERS = ['commit', 'commit-continue']
+  var LABELS = { commit: '✓ Commit', 'commit-continue': '✓ Commit & Continue' }
+  var TITLES = {
+    commit: 'Commit what you just read, and stop there',
+    // Says what it will NOT do: a reader must not press this expecting the
+    // spec to be finished and landed.
+    'commit-continue': 'Commit what you just read, then build the next phase — nothing is landed',
+  }
+
   var verdictCount = document.getElementById('verdict-count')
   var verdictLog = document.getElementById('verdict-log')
   var copyOut = document.getElementById('copy-out')
@@ -1117,19 +1131,25 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     var open = openNotes()
     verdictCount.textContent = n
       ? n + (n === 1 ? ' mark to send' : ' marks to send')
-      : 'Nothing marked — Approve still sends a clean read'
-    // The reason goes ON the control. A button that is merely dimmed reads as a
-    // broken page, and a title attribute is unreachable on a touch screen.
-    verdictBtns.approve.disabled = open > 0
-    verdictBtns.approve.textContent = open
-      ? '✓ Approve — ' + open + (open === 1 ? ' open note' : ' open notes')
-      : '✓ Approve'
-    verdictBtns.approve.title = open
-      ? 'Resolve or remove your notes first — you asked for something, so it cannot also be fine'
-      : 'Send this as approved: commit it'
-    // Said rather than left unset: Approve is the ONLY control this page ever
-    // blocks, and the other two are always available on purpose — a note you
-    // want acted on, and a conversation, are never the wrong thing to send.
+      : 'Nothing marked — a clean read still commits'
+    // ONE COUNT, BOTH BUTTONS. Two committing controls blocked by two separate
+    // reads is how a page ends up with one disabled and the other not — which
+    // would be a way around the single refusal this page makes.
+    var blocked = open > 0
+    var why = open + (open === 1 ? ' open note' : ' open notes')
+    COMMITTERS.forEach(function (key) {
+      var btn = verdictBtns[key]
+      // The reason goes ON the control. A button that is merely dimmed reads as
+      // a broken page, and a title attribute is unreachable on a touch screen.
+      btn.disabled = blocked
+      btn.textContent = blocked ? LABELS[key] + ' — ' + why : LABELS[key]
+      btn.title = blocked
+        ? 'Resolve or remove your notes first — you asked for something, so it cannot also be fine'
+        : TITLES[key]
+    })
+    // Said rather than left unset: the committing pair is the ONLY thing this
+    // page ever blocks, and the other two are always available on purpose — a
+    // note you want acted on, and a question, are never the wrong thing to send.
     verdictBtns.changes.disabled = false
     verdictBtns.discuss.disabled = false
     save()

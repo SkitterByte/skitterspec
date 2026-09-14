@@ -217,7 +217,7 @@ function fakeDom(islandText) {
   for (const id of [
     'title', 'sub', 'files', 'tree', 'tree-wrap', 'tree-summary',
     'expand-all', 'collapse-all', 'show-noise', 'noise-label', 'theme', 'review-block',
-    'verdict', 'verdict-approve', 'verdict-changes', 'verdict-discuss',
+    'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-changes', 'verdict-discuss',
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
   ]) {
     byId[id] = make('div')
@@ -721,7 +721,7 @@ test('with no clipboard the blob is offered as text instead', () => {
 test('a page with no marks at all emits nothing and says nothing', () => {
   const dom = runPage(marked())
   assert.match(countSays(dom), /Nothing marked/)
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, false, 'a clean read is approvable')
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false, 'a clean read is committable')
   assert.strictEqual(dom.byId['verdict-log'].hidden, true, 'no verdict has been reached here')
   assert.deepStrictEqual(findAll(dom.byId.files, 'lapsed'), [], 'nothing is accused of being stale')
   assert.deepStrictEqual(findAll(dom.byId.files, 'note-row'), [])
@@ -750,99 +750,95 @@ test('a resolved comment is history, not an outstanding ask', () => {
 // buttons and the engine's accepted vocabulary cannot drift apart in silence.
 
 test('each button sends its own verdict, and the engine accepts each', () => {
-  // The PAGE still says `approve` — phase 2 relabels it — and the ENGINE now
-  // answers `commit`. That gap is the rename's tolerance working: a page that
-  // has not been reloaded still sends the old word, and a stale tab must land a
-  // committed review rather than a rejected one.
-  for (const [pressed, engineReads] of [
-    ['approve', 'commit'],
-    ['changes', 'changes'],
-    ['discuss', 'discuss'],
-  ]) {
+  // The page and the engine now speak the same words — phase 2 closed the gap
+  // phase 1 opened deliberately. The tolerance for an older page's `approve`
+  // lives in `env-review-verdict.test.js`, where it belongs: it is about a
+  // stale tab, not about what this page sends.
+  for (const verdict of ['commit', 'commit-continue', 'changes', 'discuss']) {
     const dom = runPage(marked())
-    const blob = copyBlob(dom, pressed)
-    assert.strictEqual(blob.verdict, pressed, 'the page sends what its button carries')
-    assert.strictEqual(accepted(blob).verdict, engineReads, 'and the engine reads it as the action')
+    const blob = copyBlob(dom, verdict)
+    assert.strictEqual(blob.verdict, verdict, 'the page sends what its button carries')
+    assert.strictEqual(accepted(blob).verdict, verdict, 'and the engine reads it back unchanged')
   }
 })
 
 test('a verdict travels with the marks it was reached on', () => {
   const dom = runPage(marked())
   accepts(dom)[0].dispatch('click')
-  const blob = copyBlob(dom, 'approve')
+  const blob = copyBlob(dom, 'commit')
   assert.strictEqual(accepted(blob).verdict, 'commit', 'the engine reads the page word as the action')
   assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
   accepted(blob)
 })
 
-test('approve is blocked while a note is open, and says so on the button', () => {
+test('committing is blocked while a note is open, and says so on both buttons', () => {
   const dom = runPage(marked())
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, false)
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false)
 
   gutters(dom).find((g) => g.textContent.includes('+')).dispatch('click')
   writeNote(findAll(dom.byId.files, 'note-input')[0], 'keep the old value')
 
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, true)
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, true)
   // The reason is IN THE LABEL. A dimmed button with the reason in a tooltip is
   // unreachable on the phone this page is read on.
-  assert.match(dom.byId['verdict-approve'].textContent, /1 open note/)
+  assert.match(dom.byId['verdict-commit'].textContent, /1 open note/)
   assert.strictEqual(dom.byId['verdict-changes'].disabled, false, 'changes is the point of a note')
   assert.strictEqual(dom.byId['verdict-discuss'].disabled, false)
 })
 
-test('a blocked approve emits nothing at all', () => {
+test('a blocked commit emits nothing at all', () => {
   const dom = runPage(marked())
   gutters(dom)[0].dispatch('click')
   writeNote(findAll(dom.byId.files, 'note-input')[0], 'this one first')
 
   const before = dom.copied.length
-  dom.byId['verdict-approve'].dispatch('click')
+  dom.byId['verdict-commit'].dispatch('click')
   assert.strictEqual(dom.copied.length, before, 'the block is a fact, not a style')
   assert.strictEqual(dom.byId['copy-out'].hidden, true, 'and no fallback textarea either')
 })
 
-test('removing the last note re-enables approve, live', () => {
+test('removing the last note re-enables committing, live', () => {
   const dom = runPage(marked())
   gutters(dom)[0].dispatch('click')
   writeNote(findAll(dom.byId.files, 'note-input')[0], 'never mind')
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, true)
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, true)
 
   const row = findAll(dom.byId.files, 'note-row').find((r) => /not sent yet/.test(r.textContent))
   findAll(row, 'note-actions')[0].childNodes[0].dispatch('click')
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, false, 'the bar describes the pass as it stands')
-  assert.strictEqual(dom.byId['verdict-approve'].textContent, '✓ Approve')
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false, 'the bar describes the pass as it stands')
+  assert.strictEqual(dom.byId['verdict-commit'].textContent, '✓ Commit')
 })
 
-test('a stored comment the agent has not answered blocks approve too', () => {
+test('a stored comment the agent has not answered blocks committing too', () => {
   const data = marked()
   data.files[0].comments = [
     { id: 'c1', file: 'src/app.js', line: null, lineText: null, check: null, note: 'still open', raisedAt: 'T', resolved: null },
   ]
   data.notes.totals.unresolved = 1
   const dom = runPage(data)
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, true)
-  assert.match(dom.byId['verdict-approve'].textContent, /1 open note/)
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, true)
+  assert.match(dom.byId['verdict-commit'].textContent, /1 open note/)
 })
 
-test('a comment the agent resolved does not block approve', () => {
+test('a comment the agent resolved does not block committing', () => {
   const data = marked()
   data.files[0].comments = [
     { id: 'c1', file: 'src/app.js', line: null, lineText: null, check: null, note: 'done', raisedAt: 'T', resolved: { at: 'T2', note: 'fixed' } },
   ]
   data.notes.totals.resolved = 1
   const dom = runPage(data)
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, false)
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false)
 })
 
 // STAYS SILENT: the healthy-but-unusual input for the one accusing control on
 // this page. A 60-file phase read straight through and approved without ticking
 // a thing is an ordinary review, not an incomplete one — Decision 3.
-test('unaccepted files never block approve, however many there are', () => {
+test('unaccepted files never block committing, however many there are', () => {
   const data = marked()
   data.notes.totals.unresolved = 0
   const dom = runPage(data)
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, false, 'ticking is not a gate')
-  const blob = copyBlob(dom, 'approve')
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false, 'ticking is not a gate')
+  const blob = copyBlob(dom, 'commit')
   assert.deepStrictEqual(blob.accepted, [], 'and nothing had to be ticked to send it')
   accepted(blob)
 })
@@ -864,7 +860,7 @@ test('the verdict bar sits after the diff, not above it', () => {
   // that tidies it back into the header re-creates exactly that, so the order
   // is pinned rather than left to prose.
   const files = TEMPLATE.indexOf('<div id="files">')
-  const bar = TEMPLATE.indexOf('id="verdict-approve"')
+  const bar = TEMPLATE.indexOf('id="verdict-commit"')
   assert.ok(files > -1 && bar > -1, 'both are present')
   assert.ok(bar > files, 'the verdict comes after the thing it is a verdict on')
   // And the whole pass travels with it — the fallback textarea a `file://`
@@ -888,7 +884,7 @@ const settled = () => new Promise((r) => setImmediate(r))
 test('a served page posts the pass to its own URL', () => {
   const dom = runPage(marked(), { protocol: 'http:' })
   accepts(dom)[0].dispatch('click')
-  pressed(dom, 'approve')
+  pressed(dom, 'commit')
 
   assert.strictEqual(dom.posted.length, 1, 'it went over the wire')
   assert.strictEqual(dom.copied.length, 0, 'and not to the clipboard')
@@ -898,7 +894,7 @@ test('a served page posts the pass to its own URL', () => {
   // The REAL validator, on the body the page actually sent.
   const blob = JSON.parse(sent.body)
   accepted(blob)
-  assert.strictEqual(blob.verdict, 'approve')
+  assert.strictEqual(blob.verdict, 'commit')
   assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
 })
 
@@ -926,7 +922,7 @@ test('a refused pass is shown, not swallowed', async () => {
         text: () => Promise.resolve('verdict "aprove" is not one of approve, changes, discuss'),
       }),
   })
-  pressed(dom, 'approve')
+  pressed(dom, 'commit')
   await settled()
   assert.match(dom.byId['copy-hint'].textContent, /Not sent/)
   assert.match(dom.byId['copy-hint'].textContent, /verdict "aprove" is not one of/)
@@ -974,7 +970,82 @@ test('the decision is not re-judged on the way out', () => {
   const dom = runPage(marked(), { protocol: 'http:' })
   gutters(dom)[0].dispatch('click')
   writeNote(findAll(dom.byId.files, 'note-input')[0], 'this first')
-  assert.strictEqual(dom.byId['verdict-approve'].disabled, true)
-  pressed(dom, 'approve')
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, true)
+  pressed(dom, 'commit')
   assert.strictEqual(dom.posted.length, 0, 'the block is a fact on every path')
+})
+
+// --- the four buttons (feat-verdict-is-the-action phase 2) -------------------
+
+test('the page offers four verdicts, labelled for what they do', () => {
+  assert.match(TEMPLATE, /id="verdict-commit"[^>]*>✓ Commit</)
+  assert.match(TEMPLATE, /id="verdict-commit-continue"[^>]*>✓ Commit &amp; Continue</)
+  assert.match(TEMPLATE, /id="verdict-changes"/)
+  assert.match(TEMPLATE, /id="verdict-discuss"/)
+})
+
+// THE PAIRING IS THE POINT. Two committing controls blocked by two separate
+// reads is how a page ends up with one disabled and the other not — which would
+// be a way around the single refusal this page makes.
+test('both committing buttons block and unblock together, off one count', () => {
+  const dom = runPage(marked())
+  const commit = () => dom.byId['verdict-commit']
+  const cont = () => dom.byId['verdict-commit-continue']
+  assert.strictEqual(commit().disabled, false)
+  assert.strictEqual(cont().disabled, false)
+
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'this first')
+  assert.strictEqual(commit().disabled, true, 'commit is blocked')
+  assert.strictEqual(cont().disabled, true, 'and so is commit & continue')
+  // The reason is on BOTH labels, not just the first.
+  assert.match(commit().textContent, /1 open note/)
+  assert.match(cont().textContent, /1 open note/)
+
+  const row = findAll(dom.byId.files, 'note-row').find((r) => /not sent yet/.test(r.textContent))
+  findAll(row, 'note-actions')[0].childNodes[0].dispatch('click')
+  assert.strictEqual(commit().disabled, false, 'both come back')
+  assert.strictEqual(cont().disabled, false)
+  assert.strictEqual(commit().textContent, '✓ Commit')
+  assert.strictEqual(cont().textContent, '✓ Commit & Continue')
+})
+
+test('a blocked commit-continue emits nothing either', () => {
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'this first')
+  const before = dom.copied.length
+  dom.byId['verdict-commit-continue'].dispatch('click')
+  assert.strictEqual(dom.copied.length, before, 'the block is a fact on both, not just on commit')
+})
+
+test('continue says what it will not do', () => {
+  // A reader must not press it expecting the spec to be finished and landed —
+  // `/spec-next` builds the next phase and stops there.
+  assert.match(TEMPLATE, /then build the next phase — nothing is landed/)
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). The two that ask for something
+// are never blocked, and nothing about ticking files blocks anything — Decisions
+// 1 and 3 of `feat-review-verdict` are untouched by a fourth button.
+test('stays silent: changes, discuss and unticked files block nothing', () => {
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'a note')
+  assert.strictEqual(dom.byId['verdict-changes'].disabled, false)
+  assert.strictEqual(dom.byId['verdict-discuss'].disabled, false)
+
+  const clean = runPage(marked())
+  for (const id of ['verdict-commit', 'verdict-commit-continue']) {
+    assert.strictEqual(clean.byId[id].disabled, false, `${id} needs no ticks`)
+  }
+})
+
+test('the committing pair is named once, so a fifth verdict cannot slip the block', () => {
+  // The same reason the engine keeps a COMMITTING list rather than a second
+  // condition: adding a committing verdict means adding it to one place.
+  assert.match(TEMPLATE, /var COMMITTERS = \['commit', 'commit-continue'\]/)
+  assert.match(TEMPLATE, /COMMITTERS\.forEach/)
+  // And the old per-button form is gone, not merely unused.
+  assert.doesNotMatch(TEMPLATE, /verdictBtns\.approve/)
 })

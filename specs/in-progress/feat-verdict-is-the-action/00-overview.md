@@ -108,7 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The vocabulary in the engine | ✅ | [01-vocabulary.md](01-vocabulary.md) |
-| 2 | The page's four buttons | ⬜ | [02-four-buttons.md](02-four-buttons.md) |
+| 2 | The page's four buttons | ✅ | [02-four-buttons.md](02-four-buttons.md) |
 | 3 | Routing, and the words | ⬜ | [03-routing-and-words.md](03-routing-and-words.md) |
 
 ## Non-goals
@@ -133,6 +133,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 2: the page names its committing pair **once**, as
+  `COMMITTERS`, mirroring the engine's `COMMITTING` — and a test asserts the old
+  per-button form is *gone* rather than merely unused. Two committing controls
+  read separately is precisely how a page ends up with one disabled and the
+  other not, which would be a way around the single refusal it makes.
+- 2026-09-14 — Phase 2: the gap phase 1 opened deliberately is now closed, so
+  the page-suite test that pinned it moved back to asserting page and engine
+  agree. The tolerance for an older page's `approve` stays tested in
+  `env-review-verdict.test.js`, where it belongs — it is about a stale tab, not
+  about what this page sends.
 - 2026-09-14 — Phase 1: the tolerance turned out to be needed at **four** reads,
   not one. The plan named the stored outcome log; in fact `approve` can arrive
   from a page that has not been reloaded (so `validateNotesBlob` reads through
