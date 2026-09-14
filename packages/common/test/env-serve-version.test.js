@@ -228,8 +228,15 @@ test('a failed restart reports both facts, not just the failure', () => {
   assert.match(src, /its pages are drawn by that engine/)
   // The stale context rides out on the error paths, or the message above has
   // nothing to name.
-  assert.match(src, /return \{ error: 'busy', port: usePort, replaced, engineWas \}/)
-  assert.match(src, /return \{ error: 'silent', port: usePort, pid: res\.pid, replaced, engineWas \}/)
+  // Pinned as a PROPERTY, not a spelling: every early return from the start
+  // path carries `replaced` and `engineWas`, or the message above has nothing
+  // to name. An earlier version matched the two lines verbatim and went red
+  // when one of them legitimately grew a second failure mode.
+  const starts = [...src.matchAll(/return \{[^}]*error: (?:'[a-z]+'|up \? [^}]*?)[^}]*\}/g)].map((m) => m[0])
+  const withContext = starts.filter((r) => /replaced/.test(r) && /engineWas/.test(r))
+  assert.ok(withContext.length >= 2, `start-path returns carry the stale context: ${starts.join(' | ')}`)
+  assert.match(src, /error: 'busy'[^}]*replaced, engineWas/)
+  assert.match(src, /error: up \? 'died' : 'silent'/, 'a died-on-start is distinct from a silent one')
 })
 
 // THE CONSTRAINT THAT LINKS THIS SPEC TO `feat-review-post-back`, now real.

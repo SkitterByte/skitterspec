@@ -137,6 +137,13 @@ function scaffold(reader, extraReview = {}) {
 }
 
 function cleanup(dir) {
+  // STOP THE SERVER FIRST, in cleanup rather than per test. A serving test that
+  // forgets leaves a real daemon running on the real machine, pointing at a temp
+  // dir this function is about to delete — and it outlives the suite, squats the
+  // port, and breaks every later render. That happened: a daemon leaked here
+  // held 7777 for hours while `spec-env review` reported success on every call.
+  // Making it structural is the point; remembering per test is what failed.
+  stopServe(dir)
   try {
     execFileSync('git', ['-C', dir, 'worktree', 'prune'], { stdio: 'ignore' })
   } catch {}
@@ -236,7 +243,9 @@ test('an unknown reader is not announced and not warned about', async () => {
 })
 
 test('the reader is reported as data too, so a skill never sniffs', async () => {
-  const { dir } = scaffold('remote')
+  // A FREE PORT, not the configured default. A serving test that takes 7777
+  // binds the real machine's real port for as long as it runs.
+  const { dir } = scaffold('remote', { servePort: await freePort() })
   try {
     const data = JSON.parse(await review(dir, '--json'))
     assert.strictEqual(data.reader, 'remote')
@@ -256,7 +265,7 @@ test('the reader is reported as data too, so a skill never sniffs', async () => 
 // describes what is actually asserted, and the serving half is asserted for
 // real — as behaviour that MUST happen — a few tests below.
 test('nothing is published on a detection, however remote the reader', async () => {
-  const { dir } = scaffold('remote')
+  const { dir } = scaffold('remote', { servePort: await freePort() })
   try {
     await review(dir)
     const reviews = path.join(dir, '.spec-env', 'reviews')

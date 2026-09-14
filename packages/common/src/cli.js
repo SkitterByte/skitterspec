@@ -2382,7 +2382,20 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
 
   if (running) await stopProcess(proc, { rootDir: dir })
 
-  const busy = await portsInUse([usePort], loopback ? host : '127.0.0.1')
+  // ASK ABOUT BOTH ADDRESSES, because a loopback bind and a wildcard bind
+  // COEXIST under BSD semantics and neither probe sees the other:
+  //
+  //   - probing 127.0.0.1 for a 0.0.0.0 bind succeeds while a wildcard squatter
+  //     holds the port — the substitution that let a leaked daemon sit on 7777
+  //     while every render claimed to have started a server
+  //   - probing 0.0.0.0 alone succeeds while something holds 127.0.0.1, which
+  //     would leave a server answering on the LAN and not on `localhost` — the
+  //     `local:` URL this CLI prints would be dead
+  //
+  // A port either half-taken is not usable, so both are asked and either
+  // refuses. Deduped, so a loopback bind asks once.
+  const probes = [...new Set([host, '127.0.0.1'])]
+  const busy = (await Promise.all(probes.map((h) => portsInUse([usePort], h)))).flat()
   if (busy.length) return { error: 'busy', port: usePort, replaced, engineWas }
 
   fs.mkdirSync(path.dirname(abs(settingsFile)), { recursive: true })
@@ -2402,10 +2415,17 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   )
   const res = startProcess(proc, { cwd: dir, rootDir: dir })
   const up = await waitListening([usePort], { host: loopback ? host : '127.0.0.1' })
-  // The stale context rides out on the failure too. A caller that only learns
-  // "could not start" cannot say WHY it was trying, and "your server is running
-  // an old engine and I could not replace it" is two facts the reader needs.
-  if (!up) return { error: 'silent', port: usePort, pid: res.pid, replaced, engineWas }
+  // A PORT ANSWERING IS NOT PROOF THAT OUR PROCESS IS ANSWERING IT. `waitListening`
+  // connects, and anything already bound satisfies a connect — so on its own it
+  // reports success for a daemon that died on EADDRINUSE seconds earlier. The
+  // process we spawned still being alive is the specific evidence; the port
+  // answering is merely consistent with it.
+  if (!up || !isAlive(res.pid)) {
+    // The stale context rides out on the failure too. A caller that only learns
+    // "could not start" cannot say WHY it was trying, and "your server is running
+    // an old engine and I could not replace it" is two facts the reader needs.
+    return { error: up ? 'died' : 'silent', port: usePort, pid: res.pid, replaced, engineWas }
+  }
 
   return {
     port: usePort,
