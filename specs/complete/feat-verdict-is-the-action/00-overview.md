@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-verdict-is-the-action (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-14)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -130,9 +130,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; three phases done, tests green (2286). **Not yet
+  exercised end to end**: the served page is drawn by the built dist, so the
+  four buttons only appear once this lands and `pnpm build` runs. And
+  `Commit & Continue` needs a spec with an unfinished phase to continue into —
+  this one has none, so pressing it here would test the stop rather than the
+  continue.
 - 2026-09-14 — Phase 3: `/spec-reviewed` **had landed**, so the routing was
   pointed at `/spec-diff` §2a from there rather than written twice — with one
   sentence carried across deliberately, that `commit-continue` stops at
