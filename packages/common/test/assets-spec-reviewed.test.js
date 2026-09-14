@@ -45,11 +45,26 @@ test('it reads the code off the render, never out of the store', () => {
   assert.match(SKILL, /spec-env review <spec>/, 'it names the command that answers instead')
 })
 
-test('it offers by naming the code, and refuses to guess between two', () => {
-  assert.match(SKILL, /\*\*Name the code\.\*\*/)
-  assert.match(SKILL, /only part the operator can check against their\s*\n?\s*screen/i)
+// One pass waiting is acted on, not read out. The echo was a verification step
+// for a channel that no longer exists — the page pushed and the agent went
+// looking, so it had to prove WHICH pass it had. Now nothing acts unless a
+// person types the command, which the model cannot do.
+test('one waiting pass is claimed outright, with the reason on record', () => {
+  assert.match(SKILL, /\*\*Claim it and go to step 4\.\*\*/)
+  assert.match(SKILL, /Do not read the code out, and do not ask whether\s*\n?\s*it is theirs/i)
+  assert.match(SKILL, /\*\*The code was never an authorisation\.\*\*/)
+  assert.match(SKILL, /A later edit must not restore it as\s*\n?\s*one/i)
+  // The property that actually holds, stated where a later reader will find it.
+  assert.match(SKILL, /can\s*\n?\s*reach your page and cannot reach this conversation/i)
+})
+
+test('two waiting is the one case that asks, and it asks rather than picking', () => {
   assert.match(SKILL, /\*\*Two or more waiting is a refusal to guess\.\*\*/)
   assert.match(SKILL, /Never take the newest, the oldest, or the only `commit`/)
+  // Disambiguation is the code's whole remaining job — named, so it is not
+  // mistaken for a gate again.
+  assert.match(SKILL, /\*\*telling two passes apart\*\*/)
+  assert.match(SKILL, /disambiguation, not a gate/i)
 })
 
 // It must POINT at the routing rather than restate it. Two copies of a routing
@@ -200,14 +215,10 @@ test('a code says which pass, and the spec still resolves bare', () => {
   assert.match(SKILL, /resolve the spec exactly as a bare\s*\n?\s*invocation does/i)
 })
 
-test('a pasted code skips the echo, and the skill says why it is safe to', () => {
-  assert.match(SKILL, /\*\*Skip this whole step when the operator pasted a code\.\*\*/)
-  assert.match(SKILL, /a pasted code came off that screen already/i)
-  // Without the reason on record, a later edit reads the skip as a shortcut and
-  // restores the round-trip "for safety" — which is the whole point of Phase 1.
-  assert.match(SKILL, /\*\*That is not a weakening of the guard\.\*\*/)
-  assert.match(SKILL, /A later edit must not restore the\s*\n?\s*echo as one/i)
-  assert.match(SKILL, /this skill cannot be\s*\n?\s*invoked by the model — a person types it/i)
+test('a pasted code names the pass, so even the two-waiting question is skipped', () => {
+  assert.match(SKILL, /\*\*A pasted code skips even that\.\*\*/)
+  assert.match(SKILL, /names the pass\s*\n?\s*outright/i)
+  assert.match(SKILL, /a named\s*\n?\s*pass has nothing to disambiguate/i)
 })
 
 test('a wrong code refuses without naming what is waiting', () => {
@@ -216,14 +227,20 @@ test('a wrong code refuses without naming what is waiting', () => {
   assert.match(SKILL, /whichever door the code came through, the paste included/i)
 })
 
-// STAYS SILENT (`.claude/rules/negative-checks.md` rule 3). The paste is an
-// addition; a bare invocation must behave exactly as it did before it existed.
-test('the verify-by-echo path survives for a bare invocation', () => {
-  assert.match(SKILL, /\*\*Name the code\.\*\*/, 'step 3 still asks')
-  assert.match(SKILL, /does that match\s*\n?\s*your phone\?/i)
-  assert.match(SKILL, /\*\*Two or more waiting is a refusal to guess\.\*\*/)
-  // And the bare resolution itself is untouched.
+// STAYS SILENT (`.claude/rules/negative-checks.md` rule 3). Dropping the echo
+// changed WHEN the skill asks, and must not have changed how it finds the spec.
+test('bare resolution is untouched by any of this', () => {
   assert.match(SKILL, /the worktree you are\s*\n?\s*standing in, else the sole provisioned spec/i)
+  assert.match(SKILL, /Several provisioned and none resolved is a refusal/)
+  assert.match(SKILL, /\*\*Nothing waiting is an ordinary answer\.\*\*/)
+})
+
+// The echo is GONE, not relocated. Its phrasings are what a later edit would
+// reach for if it restored the round-trip, so name them.
+test('the confirm-my-code round-trip is not lurking anywhere', () => {
+  assert.doesNotMatch(SKILL, /does that match\s*\n?\s*your phone\?/i)
+  assert.doesNotMatch(SKILL, /\*\*Name the code\.\*\*/)
+  assert.doesNotMatch(SKILL, /On their word/i)
 })
 
 test('the description tells a reader both ways in', () => {

@@ -182,11 +182,13 @@ forever, and the rule that keeps it there is that
 **Claude never claims a pass it was not asked to** — stated in `/spec-diff` step
 0, because nothing enforces it.
 
-What the code *does* is let you tell yours apart. A render lists what is
-waiting — code, verdict, age — so Claude names the code back to you and you
-check it against your phone: **verification, not transcription**. Two waiting is
-a refusal to guess, which is the one case where a stranger's pass sits beside
-yours. A pass you disown is `--drop <code>`; left there it is reported on every
+What the code *does* is let you **tell two passes apart** — it is an address,
+never a password. One waiting pass is claimed and acted on the moment you type
+`/spec-reviewed`, with nothing read back: the round-trip verified *which* pass
+in a design where the page pushed and the agent went looking, and that design is
+gone. Two waiting is a refusal to guess — the one case where a stranger's pass
+sits beside yours, and the one case where six digits are worth anyone's time.
+Pasting the code (`/spec-reviewed 324199`) skips even that. A pass you disown is `--drop <code>`; left there it is reported on every
 render until you stop reading the line.
 
 A code that matches nothing refuses, **names nothing**, and never falls back to

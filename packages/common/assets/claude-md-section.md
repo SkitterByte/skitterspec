@@ -25,11 +25,12 @@ carrying its own verdict:
 `✓ Commit` commits it, `✓ Commit & Continue` commits and builds the next phase,
 `↺ Request changes` sends it straight back to be worked, `… Discuss first` asks
 you what's up. A **served** page hands the pass to
-the engine, which **holds** it and shows a six-digit code. Tell Claude a pass is
-waiting; it reads the code off its own render and offers it back, and you check
-that against your phone before it claims. **Nothing pushes** — a device that
-reaches your page cannot reach this conversation, which is what keeps a stray
-approval out of your review. A `file://` page has no server to talk to, so it
+the engine, which **holds** it and shows a six-digit code. Type `/spec-reviewed`
+and the waiting pass is picked up and acted on; paste the code after it
+(`/spec-reviewed 324199`) to name one exactly, which matters only when two are
+waiting. **Nothing pushes** — a device that reaches your page cannot reach this
+conversation, which is what keeps a stray approval out of your review, and is
+why the code is an address rather than a password. A `file://` page has no server to talk to, so it
 copies and you paste, as before. Approve is unavailable while a note is open —
 you asked for something, so it cannot also be fine — and it hands off to your
 own commit skill (`review.commitWith`, `/commit` by default) rather than a copy

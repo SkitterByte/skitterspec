@@ -1,6 +1,6 @@
 ---
 name: spec-reviewed
-description: Pick up the review you approved on the page — paste the six-digit code off it ("/spec-reviewed 608223") to claim that pass outright, or run it bare and have the waiting code named back to you before it is claimed. Use when the user says "/spec-reviewed", "I approved it", "I've reviewed it", "pick up my review", "I pressed approve", or otherwise says they have finished reviewing a rendered diff.
+description: Pick up the review you approved on the page — run it bare to pick up the single waiting pass, paste the six-digit code off the page ("/spec-reviewed 608223") to name one exactly, and be asked which only when two are waiting. Use when the user says "/spec-reviewed", "I approved it", "I've reviewed it", "pick up my review", "I pressed approve", or otherwise says they have finished reviewing a rendered diff.
 disable-model-invocation: true
 ---
 
@@ -52,8 +52,8 @@ guessed at from context.
 
 A **six-digit code** is a pass the operator read off their own page. It says
 **which pass**, not which spec — so resolve the spec exactly as a bare
-invocation does, above, and claim the code *there*. Then go to step 4; step 3
-does not apply, and it says why.
+invocation does, above, and claim the code *there*. Then go to step 4 — a named
+pass has nothing to disambiguate.
 
 A **name** targets that spec instead. A **tracker id** does too, but only
 through a **provider seam**: the base knows nothing about tracker ids, so
@@ -130,32 +130,34 @@ other specs, and do not treat an empty holding area as a problem — a `file://`
 page copies to the clipboard instead of sending, so mention that the pass may be
 on their clipboard waiting to be pasted, and finish.
 
-## 3. Offer it — name the code, and wait
+## 3. One pass waiting? Act on it
 
-**Skip this whole step when the operator pasted a code.** There is nothing left
-to verify: the echo exists because the *agent* proposes a code and the operator
-checks it against their screen, and a pasted code came off that screen already.
-Asking "is 608223 yours?" about six digits they just typed is a round-trip that
-confirms nothing — go straight to step 4, and say what was claimed rather than
-what you are about to claim.
+**Claim it and go to step 4.** Do not read the code out, and do not ask whether
+it is theirs. The operator typed this command, which is the whole signal — and
+this skill is the one place in the workflow where that signal cannot be
+manufactured, because the model cannot invoke it.
 
-**That is not a weakening of the guard.** A later edit must not restore the
-echo as one. What keeps a stranger's pass out is that this skill cannot be
-invoked by the model — a person types it. A pasted code is that same person
-typing, with the pass named. The verification the echo performs is
-*this code, not the other one*; when the operator supplies the code there is no
-other one in play.
+**The code was never an authorisation.** A later edit must not restore it as
+one. It earned its keep when the *page* pushed: the agent went looking, found
+a pass, and had to prove which one it had. That channel is gone. What stops a
+stranger's approval reaching your repo is that a device on your network can
+reach your page and cannot reach this conversation — the confirmation step
+added nothing to that, and cost a round-trip on every review.
 
-**Name the code.** It is the only part the operator can check against their
-screen; a stranger's approval and their own read identically otherwise.
+So the code has exactly one job left: **telling two passes apart**. That is
+disambiguation, not a gate.
 
-*"A commit verdict is waiting, code 792969, sent a minute ago — does that match
-your phone?"*
+**Two or more waiting is a refusal to guess.** Name them all — code, verdict,
+age — and ask which. Never take the newest, the oldest, or the only `commit`:
+this is the one case where a stranger's pass really is sitting beside theirs,
+and the six digits are the only thing that separates them.
 
-**Two or more waiting is a refusal to guess.** Name them all, with verdicts and
-ages, and ask which. Never take the newest, the oldest, or the only `commit` —
-that is the case where someone else's pass is sitting beside theirs, and it is
-the only case where reading six digits out is worth anyone's time.
+*"Two are waiting — 792969 (commit, 1 min ago) and 324199 (commit-continue,
+just now). Which is yours?"*
+
+**A pasted code skips even that.** `/spec-reviewed 324199` names the pass
+outright, so there is nothing to disambiguate and nothing to ask — claim it and
+act.
 
 **On "that isn't mine"**, leave it and offer to drop it:
 
@@ -166,7 +168,7 @@ skitterspec spec-env review <spec> --drop <code>
 A pass that stays is reported on every render until the operator stops reading
 the line — which is how the real one gets missed.
 
-## 4. On their word, claim it and act
+## 4. Claim it and act
 
 ```
 skitterspec spec-env review <spec> --claim <code>

@@ -114,6 +114,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — **Premise overturned mid-spec.** The six-digit code was designed
+  as a verification: the page pushed, the agent went looking, so it had to prove
+  *which* pass it had found. `/spec-reviewed` being user-only removed that
+  channel — the agent now acts only because a person typed the command, and a
+  LAN device cannot type. So the echo-and-confirm was a round-trip that
+  confirmed nothing, and it is gone. The code's one remaining job is **telling
+  two passes apart**: an address, not a password. One waiting pass is claimed and
+  acted on outright; two is a refusal to guess; a pasted code skips even that.
+  Phase 1's own prose was rewritten on the new premise, and `CLAUDE.md`,
+  `claude-md-section.md` and `spec-planning.md` with it.
+- 2026-09-14 — `/spec-diff` step 0 keeps the old rule deliberately. That skill
+  **is** model-invocable, so "never claim a pass you were not asked to" still
+  guards a real path there. The change is specific to the user-only skill, and
+  the two must not be collapsed.
+
 - 2026-09-14 — Phase 1: the shape test found a **pre-existing** overlap the code
   shape does not have — `bug-12345` is a legal spec name that also matches the
   tracker-id shape. Out of scope here and left as it was; recorded rather than
