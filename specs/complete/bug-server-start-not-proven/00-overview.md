@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-server-start-not-proven (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -95,9 +95,11 @@ Run: `pnpm exec node --test packages/common/test/env-serve-start-proof.test.js`
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; fix in, tests green (2241).
 - 2026-09-14 — Fixed: probe both addresses, prove the start by our own process,
   and stop servers in the suite's cleanup; tests green (2241).
 - 2026-09-14 — The first fix was **wrong and the existing suite caught it**.
