@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-page-knows-the-phase (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-14)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -112,9 +112,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; both phases done, tests green (2303).
 - 2026-09-14 — Phase 2: the precedence is expressed as **one `stop` value** the
   two buttons share, rather than two conditions each deciding for itself. Two
   reasons can be true at once and the label has room for one, so the ordering has
