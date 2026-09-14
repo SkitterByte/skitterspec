@@ -1,0 +1,12 @@
+{
+  "issue": "85d4326e968655b8e726647aaaeb78d10f339e7a",
+  "issueFields": {
+    "description": "f69b0f74da16a6a55f03939e59726082d3450347",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833"
+  },
+  "subIssues": {
+    "SKS-215": "ee792ff408a3171a3e61daeee410c17713aa646c",
+    "SKS-216": "8756f59024a738c3048d9aca173ba0decf32b165"
+  }
+}
