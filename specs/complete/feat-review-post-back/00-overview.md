@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-review-post-back (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-14)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -144,9 +144,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; all four phases done, tests green (2234). The one
+  thing not verified end to end is a POST against the **running** daemon: it is
+  the built package in the primary checkout, which gains the handler only once
+  this lands and is rebuilt. The endpoint tests drive the real server over a
+  real socket, so the gap is the dev loop rather than the coverage.
 - 2026-09-14 — Phase 4: the claim path is documented **beside** the paste rather
   than ahead of it. The phase said "ahead of", and that reads as a ranking the
   design does not have: a `file://` page cannot post and never will, so the
