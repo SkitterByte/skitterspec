@@ -1201,13 +1201,15 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
         }
         var code = ''
         try { code = JSON.parse(text).code } catch (e) {}
-        // NOT "claim it with 418207", which instructs a transcription nobody
-        // needs to make: Claude reads the code off its own render and offers it
-        // back. The code is here to be CHECKED — it is the one part of a
-        // waiting pass that tells yours apart from anyone else's.
+        // NAME THE COMMAND. Not "claim it with 418207", which instructs a
+        // transcription nobody needs to make, and not "tell Claude it is
+        // waiting", which describes the arrangement `/spec-reviewed` replaced —
+        // narrating that a pass exists and hoping the agent looks. The code
+        // stays, as the thing to CHECK: it is the one part of a waiting pass
+        // that tells yours apart from anyone else's.
         copyHint.textContent = code
-          ? 'Sent — tell Claude it is waiting. It should say code ' + code
-          : 'Sent.'
+          ? 'Sent — run /spec-reviewed to pick it up. It should say code ' + code
+          : 'Sent — run /spec-reviewed to pick it up.'
       })
     }, function () {
       // The server was there when the page was served and is not now. Falling

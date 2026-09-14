@@ -1049,3 +1049,21 @@ test('the committing pair is named once, so a fifth verdict cannot slip the bloc
   // And the old per-button form is gone, not merely unused.
   assert.doesNotMatch(TEMPLATE, /verdictBtns\.approve/)
 })
+
+// --- the page names the command, not the arrangement it replaced ------------
+//
+// `/spec-reviewed` shipped and the page went on describing the interim
+// arrangement it replaced: narrate that a pass exists and hope the agent looks.
+// Copy that names no command is copy that makes the operator invent one.
+
+test('the sent message names /spec-reviewed', async () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  pressed(dom, 'commit')
+  await settled()
+  const hint = dom.byId['copy-hint'].textContent
+  assert.match(hint, /\/spec-reviewed/, 'it names the command to type')
+  // The code stays — checking it is how you tell your pass from anyone else's —
+  // but as a thing to CHECK, never as the instruction.
+  assert.match(hint, /418207/, 'the code is still shown')
+  assert.doesNotMatch(hint, /tell Claude it is waiting/, 'the old arrangement is gone')
+})
