@@ -35,6 +35,11 @@ const {
   collectReview,
   renderReviewPage,
   renderReviewBlock,
+  reviewOutPath,
+  validateNotesBlob,
+  readPending,
+  writePending,
+  addPending,
 } = require('./review.js')
 
 /**
@@ -176,6 +181,49 @@ function servableSpecs(dir, config, git) {
  * `mode`/`ref` follow the same rules the CLI applies, including the clean-tree
  * fallback: a committed phase shows the branch range rather than an empty page.
  */
+/**
+ * Take a review pass for one spec and put it in the holding area. Returns the
+ * code that claims it, or an error to relay verbatim.
+ *
+ * IT WRITES ONE FILE, and it is not the review. Everything a POST can reach is
+ * the pending store; the sidecar the review actually reads is only ever written
+ * by a claim, which needs a person to read six digits off the screen. That is
+ * the whole containment, and it is why this endpoint can be open to the network
+ * at all.
+ *
+ * The `render` field keys superseding: a second pass from the same page render
+ * replaces the first unclaimed one, so the code on the screen is always the
+ * pass on the screen. It comes from the blob's own `generatedAt`, which the
+ * page mints per render — absent, the pass simply never supersedes anything,
+ * which is the harmless direction.
+ */
+function receivePass(dir, config, spec, blob) {
+  if (!spec || !fs.existsSync(spec.worktreePath)) return null
+  let parsed
+  try {
+    parsed = validateNotesBlob(blob, spec.folder)
+  } catch (err) {
+    // The engine's own message, relayed rather than paraphrased — it names the
+    // entry that was wrong, so there is nothing for the reader to guess.
+    return { error: err.message }
+  }
+  const out = reviewOutPath(dir, spec.folder, null)
+  const read = readPending(out, spec.folder)
+  if (read.corrupt) {
+    // Refuse rather than write over passes we could not read. Same rule the
+    // notes sidecar follows, for the same reason: what is in there is someone's
+    // work and overwriting it is unrecoverable.
+    return { error: 'the pending store is not readable JSON — move it aside' }
+  }
+  const added = addPending(read.pending, {
+    blob,
+    at: new Date().toISOString(),
+    render: blob && blob.generatedAt ? String(blob.generatedAt) : null,
+  })
+  writePending(out, added.pending)
+  return { code: added.code, accepted: parsed.accepted.length, comments: parsed.comments.length }
+}
+
 function renderSpecPage(dir, config, spec, { branch = false } = {}) {
   if (!spec || !fs.existsSync(spec.worktreePath)) return null
 
@@ -282,7 +330,41 @@ function specSummary(spec) {
  * injected so this can be driven in a test without a git fixture, and so the
  * module never has to reach back into the CLI.
  */
-function createReviewServer({ resolveEntries, render, token = null }) {
+// A review pass is JSON written by a person, not a payload. Ten megabytes is
+// far past any real review and far short of anything that could hurt — the cap
+// exists so a body is REFUSED BEFORE IT IS PARSED, not so a number is tuned.
+const MAX_PASS_BYTES = 1_000_000
+
+/**
+ * Read a request body, refusing anything over the cap without buffering it all.
+ *
+ * The check is per-chunk rather than on the finished body: a cap applied after
+ * the fact has already done the thing it was meant to prevent.
+ */
+function readBody(req, limit = MAX_PASS_BYTES) {
+  return new Promise((resolve) => {
+    let size = 0
+    const chunks = []
+    let done = false
+    const finish = (value) => {
+      if (done) return
+      done = true
+      resolve(value)
+    }
+    req.on('data', (c) => {
+      size += c.length
+      if (size > limit) {
+        req.destroy()
+        return finish({ error: 'too large' })
+      }
+      chunks.push(c)
+    })
+    req.on('end', () => finish({ body: Buffer.concat(chunks).toString('utf8') }))
+    req.on('error', () => finish({ error: 'read failed' }))
+  })
+}
+
+function createReviewServer({ resolveEntries, render, receive = null, token = null }) {
   return http.createServer((req, res) => {
     const send = (code, body, type = 'text/html; charset=utf-8') => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' })
@@ -291,6 +373,33 @@ function createReviewServer({ resolveEntries, render, token = null }) {
 
     const route = routeFor(req.url, { token })
     if (route.kind === 'notfound') return send(404, 'not found', 'text/plain; charset=utf-8')
+
+    // THE ONE WRITE PATH, and it writes to a holding area rather than to the
+    // review. What a stranger on the network can do with it is queue a pass
+    // that nobody will claim; the code is what decides whether it ever counts.
+    if (req.method === 'POST') {
+      // A write to the index is not a write to a spec, and answering it any
+      // differently from a GET would make this route an enumeration oracle.
+      if (route.kind !== 'spec' || !receive) {
+        return send(404, 'not found', 'text/plain; charset=utf-8')
+      }
+      readBody(req).then((read) => {
+        if (read.error) return send(413, read.error, 'text/plain; charset=utf-8')
+        let parsed
+        try {
+          parsed = JSON.parse(read.body)
+        } catch {
+          return send(400, 'not JSON', 'text/plain; charset=utf-8')
+        }
+        // The engine's own validator, and its own message. A pass arriving here
+        // is exactly as untrusted as one arriving through a clipboard.
+        const out = receive(route.spec, parsed)
+        if (!out) return send(404, 'not found', 'text/plain; charset=utf-8')
+        if (out.error) return send(422, out.error, 'text/plain; charset=utf-8')
+        return send(200, JSON.stringify({ code: out.code }), 'application/json; charset=utf-8')
+      })
+      return
+    }
 
     try {
       if (route.kind === 'index') return send(200, renderIndex(resolveEntries(), { token }))
@@ -371,6 +480,8 @@ function staleServer(recorded, running) {
 
 module.exports = {
   mintToken,
+  readBody,
+  MAX_PASS_BYTES,
   engineVersionFor,
   staleServer,
   specSummary,
@@ -378,6 +489,7 @@ module.exports = {
   renderIndex,
   servableSpecs,
   renderSpecPage,
+  receivePass,
   createReviewServer,
   startReviewServer,
 }
@@ -421,6 +533,7 @@ if (require.main === module) {
   const server = createReviewServer({
     resolveEntries,
     render: (folder, opts) => renderSpecPage(dir, config, resolveOne(folder), opts),
+    receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
     token,
   })
   startReviewServer(server, { port, host }).then(

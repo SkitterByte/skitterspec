@@ -116,7 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The pending store and the claim | ✅ | [01-pending-store.md](01-pending-store.md) |
-| 2 | The server accepts a POST | ⬜ | [02-post-endpoint.md](02-post-endpoint.md) |
+| 2 | The server accepts a POST | ✅ | [02-post-endpoint.md](02-post-endpoint.md) |
 | 3 | The page sends, and falls back | ⬜ | [03-page-sends.md](03-page-sends.md) |
 | 4 | The skill claims, and the docs | ⬜ | [04-claim-and-docs.md](04-claim-and-docs.md) |
 
@@ -147,6 +147,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 2: the render key comes from the blob's own `generatedAt`
+  rather than a field of its own. The page already mints that per render and
+  already sends it, so a second key would be a second thing to keep in step for
+  no gain. A blob without one never supersedes anything, which is the harmless
+  direction: an extra pass waiting, never a pass silently replaced.
+- 2026-09-14 — Phase 2: the body cap is enforced **per chunk**, not on the
+  finished body. A cap applied after the fact has already done the thing it was
+  meant to prevent.
 - 2026-09-14 — Phase 1: the blob is validated **on the way out as well as on
   the way in**. Decision 2 has a POST validate before it stores, but a pass has
   then been through a socket and sat on disk, so it is untrusted input twice
