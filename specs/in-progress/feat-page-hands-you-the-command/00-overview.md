@@ -87,7 +87,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The skill takes a code | ✅ | [01-skill-takes-a-code.md](01-skill-takes-a-code.md) |
-| 2 | The page offers the command | ⬜ | [02-page-offers-it.md](02-page-offers-it.md) |
+| 2 | The page offers the command | ✅ | [02-page-offers-it.md](02-page-offers-it.md) |
 
 ## Non-goals
 
@@ -113,6 +113,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-14 — Phase 2: the shim needed the three new ids registering by hand.
+  It reads each element's *initial hidden state* off the template so it cannot
+  drift, but the id list itself is still hand-maintained — a gap that costs a
+  confusing `null` rather than a wrong pass, so it is noted, not widened here.
+- 2026-09-14 — Phase 2: the **hint keeps the sentence and the field carries the
+  command**, rather than the hint carrying both. The command has to be copyable,
+  and text inside a paragraph is not — so the split is what the feature needs,
+  not a layout preference. The test asserts both halves so neither can vanish.
 
 - 2026-09-14 — **Premise overturned mid-spec.** The six-digit code was designed
   as a verification: the page pushed, the agent went looking, so it had to prove

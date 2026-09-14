@@ -219,6 +219,7 @@ function fakeDom(islandText) {
     'expand-all', 'collapse-all', 'show-noise', 'noise-label', 'theme', 'review-block',
     'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-changes', 'verdict-discuss',
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
+    'sent-cmd', 'sent-cmd-text', 'sent-cmd-copy',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
@@ -898,16 +899,88 @@ test('a served page posts the pass to its own URL', () => {
   assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
 })
 
-test('the claim code is shown where the verdict was pressed', async () => {
+test('the command is handed over where the verdict was pressed', async () => {
   const dom = runPage(marked(), { protocol: 'http:' })
   pressed(dom, 'discuss')
   await settled()
-  // The code is shown to be CHECKED, not transcribed — Claude reads it off its
-  // own render and offers it back. Copy that instructed a transcription made
-  // the operator think they had to do something they did not.
+  // The code used to be read out for CHECKING, back when the agent went looking
+  // for a pass and had to prove which one it had. It is handed over as the whole
+  // command now — the reader's next action, not a number to compare.
   assert.match(dom.byId['copy-hint'].textContent, /Sent/)
-  assert.match(dom.byId['copy-hint'].textContent, /418207/, 'the code is there to check')
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false, 'the command is offered')
+  assert.strictEqual(dom.byId['sent-cmd-text'].value, '/spec-reviewed 418207')
   assert.doesNotMatch(dom.byId['copy-hint'].textContent, /claim it with/, 'it asks for no transcription')
+})
+
+// ── Phase 2 of feat-page-hands-you-the-command ───────────────────────────────
+
+test('with a clipboard, Copy is offered and puts the command on it verbatim', async () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  pressed(dom, 'commit')
+  await settled()
+  const btn = dom.byId['sent-cmd-copy']
+  assert.strictEqual(btn.hidden, false, 'the button exists where it can work')
+  btn.dispatch('click')
+  await settled()
+  assert.deepStrictEqual(dom.copied, ['/spec-reviewed 418207'], 'verbatim, code included')
+  assert.match(btn.textContent, /Copied/)
+})
+
+// The ordinary case on a LAN-served page: `navigator.clipboard` is
+// secure-context-only and `http://<lan-ip>:7777` is not a secure context.
+test('with no clipboard the command is shown and selected, and says so', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', clipboard: false })
+  pressed(dom, 'commit')
+  await settled()
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
+  assert.strictEqual(dom.byId['sent-cmd-text'].value, '/spec-reviewed 418207')
+  // A reader who sees nothing happen cannot tell a page that did the work from
+  // one that did nothing, so the selection is announced rather than silent.
+  assert.match(dom.byId['copy-hint'].textContent, /selected/i)
+})
+
+// NEVER A BUTTON THAT CANNOT COPY. Decided from the capability, not from trying
+// and failing — a control that does nothing on tap reads as a broken page.
+test('no Copy control appears when the clipboard API is absent', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', clipboard: false })
+  pressed(dom, 'commit')
+  await settled()
+  assert.strictEqual(dom.byId['sent-cmd-copy'].hidden, true)
+})
+
+// A server that answered without a code cannot have its pass addressed, so the
+// page does not invent an address for it.
+test('no code means no command, and the bare instruction instead', async () => {
+  const dom = runPage(marked(), {
+    protocol: 'http:',
+    fetchWith: () => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') }),
+  })
+  pressed(dom, 'commit')
+  await settled()
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, true)
+  assert.match(dom.byId['copy-hint'].textContent, /run \/spec-reviewed to pick it up/)
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3), twice over: a page that sent
+// nothing shows no command, and the `file://` path never had a code to offer.
+test('stays silent: nothing sent shows no command, and file:// is untouched', () => {
+  const fresh = runPage(marked(), { protocol: 'http:' })
+  assert.strictEqual(fresh.byId['sent-cmd'].hidden, true, 'nothing offered before a verdict')
+
+  const local = runPage(marked())
+  pressed(local, 'commit')
+  assert.strictEqual(local.byId['sent-cmd'].hidden, true, 'no command on a file:// page')
+  assert.strictEqual(local.copied.length, 1, 'it copied the blob, exactly as before')
+})
+
+test('a refused pass offers no command to run', async () => {
+  const dom = runPage(marked(), {
+    protocol: 'http:',
+    fetchWith: () => Promise.resolve({ ok: false, status: 422, text: () => Promise.resolve('nope') }),
+  })
+  pressed(dom, 'commit')
+  await settled()
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, true, 'nothing was held, so nothing to claim')
 })
 
 test('a refused pass is shown, not swallowed', async () => {
@@ -1061,10 +1134,12 @@ test('the sent message names /spec-reviewed', async () => {
   pressed(dom, 'commit')
   await settled()
   const hint = dom.byId['copy-hint'].textContent
-  assert.match(hint, /\/spec-reviewed/, 'it names the command to type')
-  // The code stays — checking it is how you tell your pass from anyone else's —
-  // but as a thing to CHECK, never as the instruction.
-  assert.match(hint, /418207/, 'the code is still shown')
+  const cmd = dom.byId['sent-cmd-text'].value
+  // The command moved OUT of the hint and into a field the reader can copy —
+  // the hint introduces it. Both halves are asserted so neither can vanish.
+  assert.match(cmd, /\/spec-reviewed/, 'it names the command to type')
+  assert.match(cmd, /418207/, 'carrying the code, so the pass is addressed')
+  assert.match(hint, /Run this/, 'and the hint points at it')
   assert.doesNotMatch(hint, /tell Claude it is waiting/, 'the old arrangement is gone')
 })
 
