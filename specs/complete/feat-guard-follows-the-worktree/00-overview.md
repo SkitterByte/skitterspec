@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-guard-follows-the-worktree (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-14)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -142,9 +142,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; all phases done, tests green (2126 passed).
 - 2026-09-14 — Phase 2: the leak check became a numbered step 5 of §2 rather
   than a sentence inside step 3. Step 4 (`--resolve`) writes between the edits
   and the re-render, so a check folded into step 3 would have run before the
