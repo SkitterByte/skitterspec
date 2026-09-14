@@ -27,6 +27,7 @@ const {
   applyResolutions,
   judgeVerdict,
   appendDecision,
+  annotateLastDecision,
   mergeNotes,
   applyNotes,
   emptyNotes,
@@ -297,6 +298,7 @@ test('--json carries the verdict as sent, whether it was honoured, and why not',
       reason: '1 comment is unresolved (app.js)',
       openCount: 1,
       openFiles: ['app.js'],
+      commitWith: '/commit',
     })
 
     const asked = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'changes' }))
@@ -412,4 +414,100 @@ test('a refused approval leaves the page showing the last HONOURED decision', as
   } finally {
     cleanup(dir)
   }
+})
+
+// --- the hand-off, and what the decision produced ---------------------------
+
+test('an honoured approve names the skill it hands off to', async () => {
+  const { dir } = scaffold()
+  try {
+    const json = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    assert.strictEqual(json.verdict.honoured, true)
+    // The skill routes on this rather than reading the config itself: one
+    // answer, from the engine that owns the key.
+    assert.strictEqual(json.verdict.commitWith, '/commit', 'the default')
+    const said = await review(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    assert.match(said, /approved — commit with \/commit/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('review.commitWith is configurable, and "none" says so', async () => {
+  const { dir } = scaffold()
+  try {
+    const cfg = path.join(dir, 'specs', '.core', 'env.config.json')
+    const parsed = JSON.parse(fs.readFileSync(cfg, 'utf8'))
+    parsed.review.commitWith = 'none'
+    fs.writeFileSync(cfg, JSON.stringify(parsed, null, 2))
+
+    const json = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    assert.strictEqual(json.verdict.commitWith, 'none')
+    // The verdict is still honoured — "none" disables the COMMIT, not the
+    // approval. The decision is recorded either way.
+    assert.strictEqual(json.verdict.honoured, true)
+    assert.strictEqual(json.notes.lastDecision.verdict, 'approve')
+    const said = await review(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    assert.doesNotMatch(said, /commit with/, 'nothing to hand off to')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('an empty commitWith leaves the default standing', () => {
+  // Disabling the hand-off is a decision and is spelled "none". Deleting the
+  // text between the quotes must not silently stop commits happening.
+  const { loadEnvConfig, DEFAULT_CONFIG } = require('../src/env/config.js')
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-commitwith-')))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({ review: { commitWith: '   ' } }),
+  )
+  const { config } = loadEnvConfig(dir)
+  assert.strictEqual(config.review.commitWith, DEFAULT_CONFIG.review.commitWith)
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('--outcome writes what the decision produced onto the log', async () => {
+  const { dir } = scaffold()
+  try {
+    await review(dir, '--notes', blobFile(dir, { verdict: 'approve' }))
+    const json = await reviewJson(dir, '--outcome', 'committed a1b2c3d via /commit')
+    assert.strictEqual(json.outcome, 'committed a1b2c3d via /commit')
+    assert.strictEqual(json.notes.lastDecision.note, 'committed a1b2c3d via /commit')
+    assert.strictEqual(json.notes.lastDecision.verdict, 'approve', 'the decision itself is untouched')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// STAYS SILENT: an outcome with no decision behind it is a record of something
+// nobody chose, so it is reported and dropped rather than inventing an entry.
+test('--outcome with no decision logged writes nothing and says so', async () => {
+  const { dir } = scaffold()
+  try {
+    const said = await review(dir, '--outcome', 'committed a1b2c3d')
+    assert.match(said, /no decision to record an outcome against/)
+    assert.ok(!fs.existsSync(notesPath(dir)) || !notesOf(dir).decisions, 'no log was invented')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('annotateLastDecision touches only the last entry', () => {
+  const base = appendDecision(
+    appendDecision(emptyNotes('feat-alpha'), { verdict: 'discuss', at: 'T1' }),
+    { verdict: 'approve', at: 'T2' },
+  )
+  const { notes, annotated } = annotateLastDecision(base, 'committed a1b2c3d by hand')
+  assert.strictEqual(annotated, true)
+  assert.deepStrictEqual(notes.decisions[0], { verdict: 'discuss', at: 'T1', note: null })
+  assert.strictEqual(notes.decisions[1].note, 'committed a1b2c3d by hand')
+  // Pure: the input is not mutated.
+  assert.strictEqual(base.decisions[1].note, null)
+
+  const empty = annotateLastDecision(emptyNotes('feat-alpha'), 'nothing to hang this on')
+  assert.strictEqual(empty.annotated, false)
+  assert.ok(!empty.notes.decisions, 'an empty log stays empty')
 })

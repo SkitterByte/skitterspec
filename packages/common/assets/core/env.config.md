@@ -255,10 +255,26 @@ no live `env.config.json` was found.
   // remove, so that half stays an explicit ask. Teardown names a server that
   // served the last spec, and `spec-env prune` reaps a pidfile whose process is
   // gone. Default: true.
+  //
+  // `commitWith` names the skill an APPROVED review hands off to. A review page
+  // ends in a verdict — approve, request changes, discuss — and an approval's
+  // whole point is that the commit follows from it rather than costing a
+  // separate decision. Skitterspec never commits through a skill it vendored:
+  // `/commit` ships with skittership, a different package, and a copy living
+  // here would fork it. Three shapes:
+  //   "/commit"  — the default; hand off to skittership's commit skill.
+  //   "<name>"   — any other skill your project installs.
+  //   "none"     — record the verdict and commit nothing.
+  // With the named skill unavailable, the approve branch commits directly —
+  // stage, typecheck, test, conventional message — and SAYS it took that path,
+  // because a commit made under rules nobody configured must not read as one
+  // made under /commit. An empty string is not "none": disabling the hand-off
+  // is a decision and is spelled out. Default: "/commit".
   "review": {
     "reader": "detect",
     "servePort": 7777,
-    "serveOnRemote": true
+    "serveOnRemote": true,
+    "commitWith": "/commit"
   }
 }
 ```

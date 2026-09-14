@@ -547,6 +547,30 @@ function appendDecision(notes, { verdict, at, note = null }) {
 }
 
 /**
+ * Write what a decision PRODUCED onto the last entry in the log. Pure.
+ *
+ * The verdict is logged when it is honoured, which is before the thing it asked
+ * for has happened — so the sha, and which path produced it, can only be added
+ * afterwards. That is this function.
+ *
+ * WHAT WOULD FOOL THIS: it annotates the LAST entry, whatever that is. If a
+ * second verdict is logged between the approval and its commit, the outcome
+ * lands on the wrong one. Reaching that takes two review passes interleaved
+ * against one sidecar, and the cost is a misfiled line in a history nothing
+ * reads to decide anything — so it is accepted rather than guarded, and named
+ * here so a later reader does not have to rediscover it.
+ *
+ * An empty log is left exactly as it was: there is no decision to describe, and
+ * inventing one would put an outcome in the record with no decision behind it.
+ */
+function annotateLastDecision(notes, note) {
+  const decisions = Array.isArray(notes.decisions) ? notes.decisions.slice() : []
+  if (!decisions.length) return { notes, annotated: false }
+  decisions[decisions.length - 1] = { ...decisions[decisions.length - 1], note }
+  return { notes: { ...notes, decisions }, annotated: true }
+}
+
+/**
  * Merge a validated blob into the stored notes. Pure.
  *
  * MERGE, NEVER REPLACE. The page only knows the render it was built from, so a
@@ -968,6 +992,7 @@ module.exports = {
   validateResolutions,
   judgeVerdict,
   appendDecision,
+  annotateLastDecision,
   mergeNotes,
   applyResolutions,
   applyNotes,

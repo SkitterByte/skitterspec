@@ -55,12 +55,24 @@ these steps replace §3–§5 below.
    malformed or names a different spec. **Relay a refusal as it is written** and
    stop; every message says which entry was wrong, so there is nothing to guess.
 
-2. **Say what you read, then stop.** Report the accepted count, then each open
+2. **Read the verdict the engine judged.** The pass says what it CONCLUDED, and
+   the engine prints it — `approved`, `changes requested`, `discuss first`, or
+   `approve refused — <reason>`. It is judged, not taken on trust: an approval
+   arriving with an open comment is refused and routed to discuss, because you
+   asked for something and it therefore cannot also be fine.
+   **Never re-judge it yourself, and never count anything** — read the engine's
+   answer and route on it.
+
+   An **honoured `approve`** is a go-ahead, and §2a is the job. Every other
+   answer — including a refused approval and a pass carrying no verdict at all —
+   falls through to step 3 below.
+
+3. **Say what you read, then stop.** Report the accepted count, then each open
    comment as `file:line — note`, then the files you would touch. **Wait.**
    Pasting is not a go-ahead: this skill is read-only everywhere else, a misread
    comment costs a revert, and the operator may only have wanted it recorded.
 
-3. **On the go-ahead, work only the commented files.** Read those; do **not**
+4. **On the go-ahead, work only the commented files.** Read those; do **not**
    open the accepted ones. That is the whole saving the marks buy, and it is
    only worth anything if it is true — so say plainly which files you did not
    open. Make the changes, then run the project's typecheck and test commands.
@@ -89,7 +101,7 @@ these steps replace §3–§5 below.
    step writes, never *whether* it runs — §3 below still holds in full, and a
    later edit reading this as a gate would undo the rule it exists beside.
 
-4. **Write back what you did**, one entry per comment you acted on:
+5. **Write back what you did**, one entry per comment you acted on:
 
    ```json
    [{ "id": "2026-01-01T00:00:00.000Z-1", "note": "keyed the accept on the blob sha" }]
@@ -104,7 +116,7 @@ these steps replace §3–§5 below.
    skipped, so one bad id never costs you the rest. Then re-render (§3) so the
    page shows each note struck through with its account.
 
-5. **Before the re-render, prove nothing leaked** — only when step 3 found two
+6. **Before the re-render, prove nothing leaked** — only when step 4 found two
    trees. Nothing should be reported fixed before it is known to be fixed in the
    right one:
 
@@ -125,6 +137,57 @@ these steps replace §3–§5 below.
    else, so a fix written into *another* spec's worktree would leak there unseen.
    Left unhandled deliberately — the cost of the gap is a missed leak, never a
    false accusation.
+
+**Never commit on a `changes` pass.** It authorises the work, not a commit —
+`approve` is the only verdict that reaches §2a. The fixes sit in the worktree
+where the operator can read them on the next render, which is the whole point of
+sending them back rather than approving.
+
+## 2a. An approved pass commits — through the project's own skill
+
+Only on an **honoured** `approve`. A refused one did not happen.
+
+The engine names the skill to use on the verdict's `commitWith` — the
+`review.commitWith` config key, `/commit` by default. Do not read the config
+yourself; one answer, from the engine that owns it.
+
+- **`none`** — record the verdict and commit **nothing**. Say so: the approval
+  is on the record and the commit is the operator's to make.
+- **A skill you have** — invoke it, and say which one. **Never vendor it.**
+  `/commit` ships with **skittership**, a different package: it stages the
+  task's files, runs the project's checks, and writes the release-note footers
+  this repo's changelog is built from. A copy of it living here would be a fork
+  of someone else's skill that drifts silently.
+- **A skill you do not have** — commit it yourself: stage only the files this
+  work touched, run the project's typecheck and test commands, and write a
+  conventional commit. **Say that you did, every time.** A commit made under
+  rules nobody configured must never be reported as one made under `/commit`.
+
+**Decide availability from the skill list you already have**, never by testing
+for a file. A skill can legitimately live in several places, so `.claude/skills/
+commit/SKILL.md` missing is an absence that proves nothing
+(`.claude/rules/negative-checks.md` rule 1) — and being wrong about it means
+committing by hand while reporting a hand-off. You are told which skills you
+have; that list is the answer.
+
+**Let the commit's own failure be the answer.** If typecheck or the tests fail,
+there is no commit — report the failure and stop. Do not fix the tests to get
+the commit through, and do not commit around them.
+**An approval judges the change; it never promises that it builds**, and the two
+must not be conflated by a skill acting on someone's behalf.
+
+**Then record what it produced**, so the page shows the outcome rather than the
+intent:
+
+```
+skitterspec spec-env review <spec> --outcome "committed <sha> via <skill|by hand>"
+```
+
+That writes the outcome onto the decision the engine already logged and
+re-renders the page, where it reads as history beneath the verdict bar. On a
+failed commit there is no outcome to record — say what failed instead.
+
+**Nothing is pushed.** The commit is local, exactly as `/commit` leaves it.
 
 **A mark is information, never a gate.** Nothing counts the ticks or requires
 them: a phase may end with comments open, `/spec-complete` never learns about
@@ -327,7 +390,7 @@ the shape; this section carries only what is specific here.
 - `⏸` — the spec has no worktree. Say that plainly: a spec that has not been
   started has nothing to diff, which is an ordinary state and not an error.
 
-**Fields:** `Built` · `Review` · `Follow-ups` · `Next`
+**Fields:** `Built` · `Tests` · `Review` · `Follow-ups` · `Next`
 
 `Review` carries the files and `+`/`−`, the page's `open:` line, and the
 published URL when there is one. Where the page holds a review pass, it also
@@ -337,3 +400,9 @@ carries the three totals — files accepted, comments open, comments answered.
 `Built` appears only when this run actually changed code — the commented files
 it worked on your go-ahead. A render on its own built nothing, and an empty
 `Built` line claiming otherwise is worse than no field.
+
+`Tests` and a commit appear only on the approve branch (§2a).
+**Say which path made the commit** — the configured skill by name, or by hand —
+in the same row as the sha. A reader cannot tell a `/commit` from a hand-rolled one after the
+fact, so the run that made it is the only place that distinction can be
+recorded.

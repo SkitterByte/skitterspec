@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-review-verdict (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 2 (started 2026-09-13)
+> **Status:** In Progress — Phase 3 (started 2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -119,7 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The verdict in the engine | ✅ | [01-verdict-engine.md](01-verdict-engine.md) |
 | 2 | The page's verdict bar | ✅ | [02-verdict-bar.md](02-verdict-bar.md) |
-| 3 | Approve hands off and commits | ⬜ | [03-commit-handoff.md](03-commit-handoff.md) |
+| 3 | Approve hands off and commits | ✅ | [03-commit-handoff.md](03-commit-handoff.md) |
 | 4 | Changes, discuss, and the docs | ⬜ | [04-routing-and-docs.md](04-routing-and-docs.md) |
 
 ## Non-goals
@@ -147,6 +147,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 3: the outcome (`committed <sha> via <skill|by hand>`) is
+  written by a **second** engine call, `--outcome`, not by the one that logged
+  the verdict — the sha does not exist until after the commit, and a decision
+  recorded with its outcome already filled in would be a promise rather than a
+  record. It annotates the last log entry and does nothing at all when there is
+  none. Also: the example-key guard now walks **one level deep**, because a
+  stale key inside a live block (`review.publish`) is the same silent-drop trap
+  as the `open` block that prompted it, and the top-level check could not see
+  it.
 - 2026-09-14 — Phase 2: `Request changes` and `Discuss first` are **never**
   disabled. Only Approve is blocked, and only by an open note — disabling
   `changes` when nothing is written yet would be a second refusal the spec

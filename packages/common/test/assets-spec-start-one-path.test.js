@@ -91,13 +91,37 @@ test('the shipped config example carries no key the merge would ignore', () => {
   const example = JSON.parse(
     fs.readFileSync(path.join(__dirname, '..', 'assets', 'core', 'env.config.json.example'), 'utf8'),
   )
-  const unknown = Object.keys(example).filter((k) => !(k in DEFAULT_CONFIG))
+  // NESTED, not just top-level. `open` was a whole block, but a stale key inside
+  // a live block — `review.publish`, say — is the same trap one level down and
+  // the top-level check cannot see it: `review` is known, so the block passes
+  // while the key inside it is dropped by the same silent merge.
+  const unknown = []
+  for (const [k, v] of Object.entries(example)) {
+    if (!(k in DEFAULT_CONFIG)) { unknown.push(k); continue }
+    const defaults = DEFAULT_CONFIG[k]
+    // Only where the default is an object to compare against. An array default
+    // (`dev`, `setup`) has no key set, and a scalar has none either — there is
+    // nothing to be unknown about, so there is nothing to accuse.
+    if (!isPlainObject(v) || !isPlainObject(defaults)) continue
+    for (const sub of Object.keys(v)) if (!(sub in defaults)) unknown.push(`${k}.${sub}`)
+  }
   assert.deepStrictEqual(unknown, [], `example ships key(s) the engine ignores: ${unknown.join(', ')}`)
 
-  // And prove it can fire: the check is only worth having if a stale key trips it.
-  const stale = { ...example, open: { command: '' } }
-  assert.deepStrictEqual(Object.keys(stale).filter((k) => !(k in DEFAULT_CONFIG)), ['open'])
+  // And prove it can fire, at both depths: the check is only worth having if a
+  // stale key trips it.
+  const stale = { ...example, open: { command: '' }, review: { ...example.review, publish: true } }
+  const found = []
+  for (const [k, v] of Object.entries(stale)) {
+    if (!(k in DEFAULT_CONFIG)) { found.push(k); continue }
+    if (!isPlainObject(v) || !isPlainObject(DEFAULT_CONFIG[k])) continue
+    for (const sub of Object.keys(v)) if (!(sub in DEFAULT_CONFIG[k])) found.push(`${k}.${sub}`)
+  }
+  assert.deepStrictEqual(found.sort(), ['open', 'review.publish'])
 })
+
+function isPlainObject(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v)
+}
 
 test('worktree mode declares exactly one path', () => {
   assert.match(SKILL, /\*\*One path\./)

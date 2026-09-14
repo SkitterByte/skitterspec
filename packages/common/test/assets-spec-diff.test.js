@@ -326,13 +326,13 @@ test('reporting a URL comes with where the page is deleted', () => {
 
 
 // ---------------------------------------------------------------------------
-// The one step here that WRITES — §2.3, working the commented files on the
+// The one step here that WRITES — §2.4, working the commented files on the
 // go-ahead — can write into a tree this session is not standing in, because
 // §1's first rule resolves by name. It had no discipline and no leak guard at
 // all, which made it the wider exposure of the two skills that edit code in a
 // resolved worktree.
 
-const ACT = SKILL.slice(SKILL.indexOf('3. **On the go-ahead'), SKILL.indexOf('## 3. Gate it on nothing'))
+const ACT = SKILL.slice(SKILL.indexOf('4. **On the go-ahead'), SKILL.indexOf('## 2a. An approved pass'))
 
 test('the writing step compares the worktree against where you stand', () => {
   assert.match(ACT, /compare the worktree against where you are standing/i)
@@ -379,4 +379,56 @@ test('one tree is inert, and the no-gate rule is untouched', () => {
   assert.match(ACT, /never \*whether\* it runs/i)
   assert.match(SKILL, /This skill has no preconditions and must never grow one/)
   assert.match(SKILL, /A mark is information, never a gate/)
+})
+
+// --- the approve branch (phase 3) -------------------------------------------
+
+test('an approved pass hands off to the configured skill, never a vendored one', () => {
+  assert.match(SKILL, /## 2a\. An approved pass commits/)
+  assert.match(SKILL, /commitWith/, 'it names the key the engine answers with')
+  assert.match(SKILL, /Do not read the config\s*\n?\s*yourself/i, 'one answer, from the engine')
+  // Decision 4. `/commit` is skittership's, and a copy living here would be a
+  // fork of someone else's skill that drifts in silence.
+  assert.match(SKILL, /\*\*Never vendor it\.\*\*/)
+  assert.match(SKILL, /skittership/, 'and says whose skill it is')
+  assert.match(SKILL, /`none`.*commit \*\*nothing\*\*|commit \*\*nothing\*\*/s, '"none" records only')
+})
+
+test('availability is read off the skill list, never a file path', () => {
+  // `.claude/rules/negative-checks.md` rule 1: a skill can live in several
+  // places, so a missing file proves nothing — and being wrong here means
+  // committing by hand while reporting a hand-off.
+  assert.match(SKILL, /Decide availability from the skill list/i)
+  assert.match(SKILL, /never by testing\s*\n?\s*for a file/i)
+  assert.match(SKILL, /negative-checks\.md/, 'it cites the rule so an edit meets it')
+})
+
+test('the fallback commits honestly, and says which path it took', () => {
+  assert.match(SKILL, /commit it yourself/i)
+  assert.match(SKILL, /\*\*Say that you did, every time\.\*\*/)
+  assert.match(SKILL, /rules nobody configured must never be reported as one\s*\n?\s*made under `\/commit`/i)
+  // The report is the only place the distinction can be recorded, so the field
+  // list has to carry it too.
+  assert.match(SKILL, /\*\*Say which path made the commit\*\*/i)
+})
+
+test('a red suite stops the commit, and is never worked around', () => {
+  assert.match(SKILL, /Let the commit's own failure be the answer/)
+  assert.match(SKILL, /Do not fix the tests to get\s*\n?\s*the commit through/i)
+  // The sentence the whole branch rests on: approving a change is not a claim
+  // that it builds.
+  assert.match(SKILL, /\*\*An approval judges the change; it never promises that it builds\*\*/i)
+})
+
+test('the outcome is recorded after the commit, not before', () => {
+  assert.match(SKILL, /--outcome "committed <sha> via <skill\|by hand>"/)
+  assert.match(SKILL, /On a\s*\n?\s*failed commit there is no outcome to record/i)
+  assert.match(SKILL, /Nothing is pushed/, 'the commit is local, like /commit leaves it')
+})
+
+test('the engine answers with the configured skill, so the prose has something to read', () => {
+  // The positive half of the assertions above: prose can only route on a field
+  // that exists. `review.commitWith` is the default the skill names.
+  const { DEFAULT_CONFIG } = require('../src/env/config.js')
+  assert.strictEqual(DEFAULT_CONFIG.review.commitWith, '/commit')
 })

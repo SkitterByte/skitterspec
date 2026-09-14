@@ -117,7 +117,11 @@ const DEFAULT_CONFIG = Object.freeze({
   // `detect` sniffs; `local`/`remote` are the operator's own answer and are
   // believed without sniffing, because they know where they are reading and no
   // signal can outrank that.
-  review: Object.freeze({ reader: 'detect', servePort: 7777, serveOnRemote: true }),
+  // `commitWith` names the skill an APPROVED review hands off to. `/commit`
+  // ships with skittership, a different package — so it may not be installed,
+  // and skitterspec must never vendor a copy of it. `"none"` records the
+  // verdict and commits nothing.
+  review: Object.freeze({ reader: 'detect', servePort: 7777, serveOnRemote: true, commitWith: '/commit' }),
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
@@ -325,6 +329,11 @@ function mergeConfig(base, parsed) {
     // default in place rather than being read as a refusal, so a typo cannot
     // quietly restore the dead `file://` link on a remote reader.
     assign(base.review, parsed.review, 'serveOnRemote', 'boolean')
+    // An empty string leaves `/commit` standing rather than reading as "none".
+    // Disabling the hand-off is a decision, and a decision is spelled out — the
+    // one value that stops a commit happening should not be reachable by
+    // deleting some text and leaving the quotes.
+    assign(base.review, parsed.review, 'commitWith', 'string')
   }
 
   if (isObject(parsed.spec) && Array.isArray(parsed.spec.companionPaths)) {

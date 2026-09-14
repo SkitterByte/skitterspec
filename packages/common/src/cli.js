@@ -64,6 +64,7 @@ const {
   validateNotesBlob,
   judgeVerdict,
   appendDecision,
+  annotateLastDecision,
   validateResolutions,
   mergeNotes,
   applyResolutions,
@@ -1595,7 +1596,11 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
 // thing the reader must take away is that the approval did not happen.
 function verdictSaid(v) {
   if (!v.honoured) return `approve refused — ${v.reason}`
-  if (v.effective === 'approve') return 'approved'
+  // An honoured approve names what it hands off to, because that is the next
+  // thing that will happen to the repo and the reader should see it coming.
+  if (v.effective === 'approve') {
+    return v.commitWith && v.commitWith !== 'none' ? `approved — commit with ${v.commitWith}` : 'approved'
+  }
   if (v.effective === 'changes') return 'changes requested'
   return 'discuss first'
 }
@@ -1756,6 +1761,26 @@ async function specEnvReview(dir, config, specArg, flags) {
       // guards the engine against it coming back under any spelling.
       openCount: judged.openCount,
       openFiles: judged.openFiles,
+      // Named here so the skill that routes on the verdict does not have to
+      // read the config itself — one answer, from the engine that owns it.
+      commitWith: config.review.commitWith,
+    }
+  }
+
+  // What the last decision PRODUCED — written after the thing it asked for has
+  // happened, which is why it is a separate invocation rather than part of the
+  // verdict above. Nothing reads it back; it is history for the page to show.
+  let outcomeSaid = null
+  if (flags.outcome) {
+    const result = annotateLastDecision(notes, flags.outcome)
+    if (result.annotated) {
+      notes = result.notes
+      writeNotes(out, notes)
+      outcomeSaid = flags.outcome
+    } else {
+      // Says so rather than inventing a decision to hang it on. An outcome with
+      // no decision behind it is a record of something nobody chose.
+      process.stdout.write('spec-env review: no decision to record an outcome against — ignored\n')
     }
   }
 
@@ -1876,6 +1901,7 @@ async function specEnvReview(dir, config, specArg, flags) {
           merged,
           resolved: resolvedNow,
           ...(verdictReport ? { verdict: verdictReport } : {}),
+          ...(outcomeSaid ? { outcome: outcomeSaid } : {}),
           files: data.files.map((f) => ({
             path: f.path,
             status: f.status,
@@ -1924,6 +1950,7 @@ async function specEnvReview(dir, config, specArg, flags) {
           (verdictReport ? ` · ${verdictSaid(verdictReport)}` : '') +
           '\n'
         : '') +
+      (outcomeSaid ? `  outcome: ${outcomeSaid}\n` : '') +
       // Said only when it is true, so a review with no sidecar reads exactly as
       // it did before any of this existed.
       (stored.corrupt && !flags.notes
@@ -2914,6 +2941,7 @@ async function specEnv(rest) {
     review: null,
     notes: null,
     resolve: null,
+    outcome: null,
     json: false,
   }
   for (let i = 0; i < args.length; i++) {
@@ -2932,6 +2960,7 @@ async function specEnv(rest) {
     else if (args[i] === '--review') flags.review = args[++i]
     else if (args[i] === '--notes') flags.notes = args[++i]
     else if (args[i] === '--resolve') flags.resolve = args[++i]
+    else if (args[i] === '--outcome') flags.outcome = args[++i]
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
@@ -3001,7 +3030,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--json] [--record-primary] [--assert-primary-clean]\n' +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
