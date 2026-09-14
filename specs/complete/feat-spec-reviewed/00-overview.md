@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-spec-reviewed (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-14)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -126,9 +126,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; both phases done, tests green (2269). The command it
+  ships is not exercised by this run — nothing has been approved on a page since
+  it was written, and it cannot be invoked to try it. The first real use will be
+  the operator typing it.
 - 2026-09-14 — Phase 2: the report gained a `Worktree` field, and the contract
   guard caught it **declared in the wrong place** — beside `Branch`, where it
   reads as context, rather than after `Built`/`Tests` where `spec-reports.md`
