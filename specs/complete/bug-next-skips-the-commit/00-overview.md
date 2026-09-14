@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-next-skips-the-commit (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-14)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -92,9 +92,11 @@ AssertionError: a skill leaves the tree dirty and its Next omits the commit:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-14 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-14 — Completed; fix in, tests green (2177).
 - 2026-09-14 — Fixed: the rule now constrains `Next` to be runnable from the
   state the run leaves behind, and both skills name the commit; test green. The
   guard's first draft had a bug of its own worth recording — a lazy regex ending
