@@ -1863,8 +1863,21 @@ async function specEnvReview(dir, config, specArg, flags) {
   // never automatic here; it leaves a page this tooling cannot remove, so it
   // stays an explicit ask no detection can stand in for.
   let served = null
+  // What to say about the server, if anything. `current` and `unknown` say
+  // nothing at all: the ordinary render must read exactly as it did before any
+  // of this existed.
+  let serverSaid = null
   if (reader.reader === 'remote' && config.review.serveOnRemote) {
     const up = await ensureReviewServer(dir, config, { host: '0.0.0.0' })
+    if (up.replaced === 'engine') {
+      serverSaid = up.error
+        ? // BOTH facts. A reader told only "could not start" cannot see why it
+          // was trying, and "it is running an old engine and I could not replace
+          // it" is the pair that explains the page they are about to open.
+          `the server was running engine ${up.engineWas} and could not be replaced (${up.error}) — ` +
+          `its pages are drawn by that engine`
+        : `the server was running engine ${up.engineWas}; restarted on ${up.engineIs}`
+    }
     if (!up.error) {
       // The URLs come from the bind the server HAS, not the one asked for just
       // above — adoption can hand back a loopback server whatever was
@@ -1891,6 +1904,7 @@ async function specEnvReview(dir, config, specArg, flags) {
           reader: reader.reader,
           readerWhy: reader.why,
           served,
+          ...(serverSaid ? { server: serverSaid } : {}),
           fileUrl: reviewFileUrl(out),
           urlFile,
           url,
@@ -1984,10 +1998,15 @@ async function specEnvReview(dir, config, specArg, flags) {
           (served.started && !served.loopback
             ? '  serving: every provisioned spec, to anyone with this URL on your network.\n' +
               '  stop:  skitterspec spec-env review serve --stop\n'
-            : '')
+            : '') +
+          // One line, and only when something was actually done on the reader's
+          // behalf. An action nobody asked for is reported, not hidden — the
+          // same rule teardown follows.
+          (serverSaid ? `  ${serverSaid}\n` : '')
         : `  open: ${reviewFileUrl(out)}${
             reader.reader === 'remote' ? '   (will not open where you are reading)' : ''
           }\n` +
+          (serverSaid ? `  ${serverSaid}\n` : '') +
           (reader.reader === 'remote'
             ? '  serve: skitterspec spec-env review serve --host 0.0.0.0\n'
             : '')) +
@@ -2227,6 +2246,11 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   const running = pid && isAlive(pid) ? pid : null
 
   let replaced = false
+  // What the replaced server was running, and the URL it was answering on.
+  // Both survive into the result so the caller can say what happened, and the
+  // token survives into the NEW server so the operator's link keeps working.
+  let engineWas = null
+  let reuseToken = null
   if (running && !restart) {
     let settings = null
     try {
@@ -2234,26 +2258,42 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
     } catch {}
     if (settings && settings.port) {
       if (serverScriptOk(settings)) {
-        const lb = settings.host === '127.0.0.1' || settings.host === 'localhost'
         const now = engineVersionFor(proc.script)
-        return {
-          port: settings.port,
-          token: settings.token || null,
-          loopback: lb,
-          pid: running,
-          started: false,
-          // Reported, not acted on. An adopted server running an older engine
-          // still serves — its pages are merely drawn by yesterday's renderer —
-          // so the caller decides what to do, and `unknown` says nothing at all.
-          engine: staleServer(settings.engine, now),
-          engineWas: settings.engine || null,
-          engineIs: now,
+        const verdict = staleServer(settings.engine, now)
+        if (verdict !== 'stale') {
+          const lb = settings.host === '127.0.0.1' || settings.host === 'localhost'
+          return {
+            port: settings.port,
+            token: settings.token || null,
+            loopback: lb,
+            pid: running,
+            started: false,
+            // `current` needs no comment and `unknown` claims nothing — a server
+            // from before the version was recorded is healthy, not suspect.
+            engine: verdict,
+            engineWas: settings.engine || null,
+            engineIs: now,
+          }
         }
+        // STALE: alive, addressable, its script still on disk — and drawing
+        // every page with an engine that has been replaced underneath it. This
+        // is invisible to every other check here, because each render IS
+        // current: the counts move, the timestamp moves, the diff is right.
+        // Only the renderer is old. Replace it rather than serve yesterday's
+        // output under today's timestamp.
+        replaced = 'engine'
+        engineWas = settings.engine || null
+        // KEEP THE URL. The operator is usually holding the old link on a phone,
+        // and a token minted here would kill it silently — the very thing the
+        // adoption path exists to avoid. Reused only when the bind is unchanged;
+        // a loopback restart has no token to carry and needs none.
+        reuseToken = settings.token || null
+      } else {
+        // Alive, addressable, and executing code that has been deleted — the
+        // worktree it was started from is gone. It answers on the port and fails
+        // on every page, so adopting it is worse than replacing it.
+        replaced = 'script'
       }
-      // Alive, addressable, and executing code that has been deleted — the
-      // worktree it was started from is gone. It answers on the port and fails
-      // on every page, so adopting it is worse than replacing it.
-      replaced = true
     } else {
       // Running, but its settings are unreadable — we cannot address it, and
       // killing a server we cannot describe is worse than declining to use it.
@@ -2264,13 +2304,15 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   const usePort = Number(port || config.review.servePort)
   const loopback = host === '127.0.0.1' || host === 'localhost'
   // The token is the ONLY guard on a non-loopback bind, so it is minted with the
-  // bind rather than offered as an option to forget.
-  const token = loopback ? null : mintToken()
+  // bind rather than offered as an option to forget — except when replacing a
+  // server on the same bind, where carrying the old one keeps a link that is
+  // already open on someone's phone alive.
+  const token = loopback ? null : reuseToken || mintToken()
 
   if (running) await stopProcess(proc, { rootDir: dir })
 
   const busy = await portsInUse([usePort], loopback ? host : '127.0.0.1')
-  if (busy.length) return { error: 'busy', port: usePort }
+  if (busy.length) return { error: 'busy', port: usePort, replaced, engineWas }
 
   fs.mkdirSync(path.dirname(abs(settingsFile)), { recursive: true })
   fs.writeFileSync(
@@ -2289,9 +2331,21 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   )
   const res = startProcess(proc, { cwd: dir, rootDir: dir })
   const up = await waitListening([usePort], { host: loopback ? host : '127.0.0.1' })
-  if (!up) return { error: 'silent', port: usePort, pid: res.pid }
+  // The stale context rides out on the failure too. A caller that only learns
+  // "could not start" cannot say WHY it was trying, and "your server is running
+  // an old engine and I could not replace it" is two facts the reader needs.
+  if (!up) return { error: 'silent', port: usePort, pid: res.pid, replaced, engineWas }
 
-  return { port: usePort, token, loopback, pid: res.pid, started: true, replaced }
+  return {
+    port: usePort,
+    token,
+    loopback,
+    pid: res.pid,
+    started: true,
+    replaced,
+    engineWas,
+    engineIs: engineVersionFor(proc.script),
+  }
 }
 
 /**

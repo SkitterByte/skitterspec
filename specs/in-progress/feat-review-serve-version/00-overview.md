@@ -99,7 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Record and compare the engine | ✅ | [01-record-and-compare.md](01-record-and-compare.md) |
-| 2 | Restart it, and say so | ⬜ | [02-restart-and-say.md](02-restart-and-say.md) |
+| 2 | Restart it, and say so | ✅ | [02-restart-and-say.md](02-restart-and-say.md) |
 
 ## Non-goals
 
@@ -126,6 +126,37 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 2: guarded the parallel case, raised by the operator and
+  genuinely missing from the tests. Two specs in flight share **one** server, so
+  "do two sessions each decide the other's server is stale and restart it on
+  every render?" is the obvious worry. They cannot: the version compared is a
+  property of the **primary checkout's** daemon package, and `dir` is anchored
+  there before anything resolves, so standing in a different worktree on a
+  different branch cannot change the answer. Both sessions reach the same
+  verdict, the first to act stamps it, and the second reads `current`. Three
+  tests pin it — including the anchoring line itself, because resolving the
+  daemon from cwd is precisely the "improvement" that would introduce the
+  flapping.
+- 2026-09-14 — Phase 2: **"falls back to serving from the old process" is not
+  achievable and was dropped.** Every way a restart can fail — a busy port, a
+  refused spawn, a silent start — is only discoverable *after* the old process
+  has released the port, so by the time we know, there is nothing to fall back
+  to. The guarantee kept is the one that mattered: a failed restart never costs
+  the reader the page. The caller falls back to the `file://` URL exactly as it
+  does for any other server failure, and says **both** facts — it was stale, and
+  it could not be replaced — because "could not start" alone does not explain
+  the page they are about to open.
+- 2026-09-14 — Phase 2: verified end to end against the live server, and the
+  verification is worth recording because it nearly produced a false positive.
+  Stamping an old engine into the running server's settings made the next render
+  print `the server was running engine 0.0.0-old; restarted on 18.0.0` with the
+  token unchanged — restart and URL-reuse both confirmed. The **footer** did not
+  appear on the served page, and a grep for `rendered by skitterspec` matched
+  anyway: this spec's own prose contains that string as an example, and it was
+  being displayed in the diff. The real reason is the dev loop — the daemon runs
+  the **built** package in the primary checkout, which lags the branch until
+  `pnpm build`. For an adopter the daemon is the installed package, so a restart
+  does pick the upgrade up.
 - 2026-09-14 — Phase 1: the comparison is **the daemon script's own package
   version, across time** — not the CLI's version against the daemon's. Decision
   3 said "recorded against running" without noticing that those can be two

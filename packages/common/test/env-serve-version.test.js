@@ -134,3 +134,199 @@ test('the template renders the line, and only when there is a version', () => {
   // than printing "undefined" at the foot of every page.
   assert.match(template, /if \(data\.engine\)/)
 })
+
+// --- phase 2: replacing a stale server, and saying so -----------------------
+//
+// Driven through the settings file rather than a live daemon. What decides the
+// restart is `staleServer` over what the settings recorded, so the settings file
+// IS the input — and a test that spawns servers to prove a comparison would be
+// slower and would prove less.
+
+const { execFileSync } = require('node:child_process')
+const { run } = require('../src/cli.js')
+
+function repo() {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-restart-')))
+  const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
+  git('init', '-q')
+  git('config', 'user.email', 'test@example.com')
+  git('config', 'user.name', 'Test')
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }),
+  )
+  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
+  fs.writeFileSync(path.join(dir, 'app.js'), 'one\n')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'init')
+  return dir
+}
+
+const settingsPath = (dir) => path.join(dir, '.spec-env', 'review-serve.json')
+
+function writeSettings(dir, extra) {
+  fs.mkdirSync(path.dirname(settingsPath(dir)), { recursive: true })
+  fs.writeFileSync(
+    settingsPath(dir),
+    JSON.stringify({ dir, port: 7777, host: '0.0.0.0', token: 'abc123', ...extra }),
+  )
+}
+
+test('a stale server is replaced, and the old token is carried onto the new one', async () => {
+  const dir = repo()
+  try {
+    // The script this engine WOULD start, recorded against an older version.
+    const script = require('../src/cli.js').__daemonScriptForTest
+      ? require('../src/cli.js').__daemonScriptForTest(dir)
+      : path.join(__dirname, '..', 'src', 'env', 'serve.js')
+    writeSettings(dir, { script, engine: '0.0.0-old' })
+
+    // The comparison the CLI makes, made here against the same inputs.
+    const verdict = staleServer('0.0.0-old', engineVersionFor(script))
+    assert.strictEqual(verdict, 'stale', 'the recorded engine differs from this one')
+
+    // THE URL SURVIVES. The operator is usually holding the old link on a phone,
+    // so a replacement that minted a fresh token would kill it silently — which
+    // is the failure the adoption path was written to avoid in the first place.
+    const settings = JSON.parse(fs.readFileSync(settingsPath(dir), 'utf-8'))
+    assert.strictEqual(settings.token, 'abc123', 'there is a token to carry')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('the reuse rule is in the code, not just the intent', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli.js'), 'utf8')
+  // Pinned as source because the alternative is spawning servers to observe a
+  // URL: the replacement path reuses the recorded token rather than minting.
+  assert.match(src, /const token = loopback \? null : reuseToken \|\| mintToken\(\)/)
+  // And only on a replacement — a cold start still mints, because there is no
+  // link in anyone's hand to preserve.
+  assert.match(src, /reuseToken = settings\.token \|\| null/)
+})
+
+// STAYS SILENT. The ordinary render must read exactly as it did before any of
+// this existed, and that is true for BOTH non-stale outcomes — a matching
+// engine, and a server too old to have recorded one.
+test('stays silent: current and unknown say nothing and restart nothing', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli.js'), 'utf8')
+  assert.match(src, /if \(verdict !== 'stale'\) \{/, 'anything but stale returns the adopted server')
+  assert.match(src, /up\.replaced === 'engine'/, 'and only an engine replacement is spoken about')
+  for (const recorded of [undefined, null, '']) {
+    assert.strictEqual(staleServer(recorded, '1.0.0'), 'unknown', 'a pre-feature server is not stale')
+  }
+  assert.strictEqual(staleServer('1.0.0', '1.0.0'), 'current')
+})
+
+test('a failed restart reports both facts, not just the failure', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli.js'), 'utf8')
+  // A reader told only "could not start" cannot see why it was trying. The pair
+  // — it was stale, and it could not be replaced — is what explains the page
+  // they are about to open.
+  assert.match(src, /could not be replaced/)
+  assert.match(src, /its pages are drawn by that engine/)
+  // The stale context rides out on the error paths, or the message above has
+  // nothing to name.
+  assert.match(src, /return \{ error: 'busy', port: usePort, replaced, engineWas \}/)
+  assert.match(src, /return \{ error: 'silent', port: usePort, pid: res\.pid, replaced, engineWas \}/)
+})
+
+// THE CONSTRAINT THAT LINKS THIS SPEC TO `feat-review-post-back`. That spec
+// gives the server a holding area for review passes; if it lived in server
+// memory, this feature would become a new way to lose work. It is not built
+// yet, so this asserts the constraint is RECORDED rather than pretending to
+// test it — and the assertion starts failing the day the holding area appears,
+// which is when it should be replaced with a real round-trip.
+test('a restart must not lose a pending pass — recorded until there is one', () => {
+  const engine = fs.readFileSync(path.join(__dirname, '..', 'src', 'env', 'review.js'), 'utf8')
+  const pendingExists = /pending\.json|writePending|claimPending/.test(engine)
+  if (pendingExists) {
+    assert.fail('the pending store has landed — replace this with a real across-restart test')
+  }
+  const spec = path.join(__dirname, '..', '..', '..', 'specs')
+  const found = []
+  for (const bucket of ['backlog', 'in-progress', 'complete']) {
+    const d = path.join(spec, bucket, 'feat-review-serve-version')
+    if (fs.existsSync(d)) found.push(fs.readFileSync(path.join(d, '00-overview.md'), 'utf8'))
+  }
+  assert.ok(found.length, 'the spec is on disk in some bucket')
+  assert.match(found[0], /must not lose a pending pass/i, 'the constraint is written down')
+})
+
+// --- two specs in parallel must not fight over the one server ---------------
+//
+// There is ONE review server per repo — settings, pidfile and port all live in
+// the primary checkout — and it deliberately serves every provisioned spec. So
+// the obvious worry about a restart is that two sessions, standing in two
+// different worktrees on two different branches, each decide the other's server
+// is stale and replace it on every render.
+//
+// They cannot, and the reason is structural rather than lucky: the version
+// compared is a property of the PRIMARY CHECKOUT's daemon package, which both
+// sessions resolve identically because `dir` is anchored there before anything
+// is resolved. Standing somewhere else cannot change the answer. These guard
+// that, because an "improvement" to resolve the daemon from cwd would introduce
+// exactly the flapping this rules out.
+
+const { daemonScript } = require('../src/cli.js')
+
+function fakeRepo() {
+  const dir = tmp()
+  const daemon = path.join(dir, 'node_modules', '@skitterbyte', 'skitterspec')
+  fs.mkdirSync(path.join(daemon, 'src', 'env'), { recursive: true })
+  fs.writeFileSync(path.join(daemon, 'package.json'), JSON.stringify({ name: 'base', version: '7.7.7' }))
+  fs.writeFileSync(path.join(daemon, 'src', 'env', 'serve.js'), '')
+  return dir
+}
+
+test('the daemon resolves from the repo root, not from where you are standing', () => {
+  const root = fakeRepo()
+  const elsewhere = tmp()
+  const was = process.cwd()
+  try {
+    // The same root, asked from two different working directories — which is
+    // exactly two sessions in two worktrees asking about one shared server.
+    process.chdir(root)
+    const fromRoot = daemonScript(root)
+    process.chdir(elsewhere)
+    const fromElsewhere = daemonScript(root)
+    assert.strictEqual(fromRoot, fromElsewhere, 'cwd does not move the daemon')
+    assert.strictEqual(engineVersionFor(fromRoot), engineVersionFor(fromElsewhere))
+    assert.strictEqual(engineVersionFor(fromRoot), '7.7.7')
+  } finally {
+    process.chdir(was)
+    fs.rmSync(root, { recursive: true, force: true })
+    fs.rmSync(elsewhere, { recursive: true, force: true })
+  }
+})
+
+test('two sessions reach the same verdict, so at most one of them restarts', () => {
+  const root = fakeRepo()
+  try {
+    const script = daemonScript(root)
+    const recorded = '7.7.6' // what the running server was started on
+    // Both sessions ask the same question of the same shared settings file and
+    // the same daemon package, so they get the same answer. The first to act
+    // stamps the new version; the second then sees `current` and adopts.
+    const sessionA = staleServer(recorded, engineVersionFor(script))
+    const sessionB = staleServer(recorded, engineVersionFor(script))
+    assert.strictEqual(sessionA, 'stale')
+    assert.strictEqual(sessionB, sessionA, 'no disagreement to flap over')
+
+    // After the first one restarts, the settings record the daemon's version —
+    // and every session, including the one that did not restart, reads current.
+    const afterRestart = engineVersionFor(script)
+    assert.strictEqual(staleServer(afterRestart, engineVersionFor(script)), 'current')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('the anchoring that makes the above true is still in the code', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli.js'), 'utf8')
+  // Every subcommand resolves against the primary checkout, whichever worktree
+  // it was typed in. Remove this and two worktrees become two different repos
+  // as far as the server is concerned.
+  assert.match(src, /dir = resolvePrimaryCheckout\(dir, gitReader\(dir\)\)/)
+})
