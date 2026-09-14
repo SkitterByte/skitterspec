@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-review-verdict (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 3 (started 2026-09-13)
+> **Status:** In Progress — all phases built (started 2026-09-13)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-11
@@ -120,7 +120,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | The verdict in the engine | ✅ | [01-verdict-engine.md](01-verdict-engine.md) |
 | 2 | The page's verdict bar | ✅ | [02-verdict-bar.md](02-verdict-bar.md) |
 | 3 | Approve hands off and commits | ✅ | [03-commit-handoff.md](03-commit-handoff.md) |
-| 4 | Changes, discuss, and the docs | ⬜ | [04-routing-and-docs.md](04-routing-and-docs.md) |
+| 4 | Changes, discuss, and the docs | ✅ | [04-routing-and-docs.md](04-routing-and-docs.md) |
 
 ## Non-goals
 
@@ -147,6 +147,22 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — The verdict bar moved from the header to **after the diff**,
+  found by the first person to use it: you read a 350-line page downward, and
+  the control asking for your conclusion was off-screen above you. A conclusion
+  belongs after the thing it is about. Not made sticky instead — a permanent bar
+  costs vertical space on the phone this page is read on, on a page whose whole
+  job is showing code. The order is pinned by a positional test rather than
+  prose, because "tidy the controls back into the header" is exactly the edit
+  that would undo it.
+- 2026-09-14 — Phase 4: the no-gate guards passed **untouched**, which was the
+  test worth having — the one guard that had to change was the wait rule, and
+  it was amended rather than deleted (`Wait — unless the verdict already said
+  otherwise`), with its original reasoning kept beside it so a later edit reads
+  the amendment as a narrowing and not as permission. Also: the docs-claims
+  guard gained a positive check that every `review.<key>` a surface names is one
+  the engine merges — its first draft accused `feat-phase-review.html`, so the
+  match now requires the word to start fresh and a stays-silent test pins that.
 - 2026-09-14 — Phase 3: the outcome (`committed <sha> via <skill|by hand>`) is
   written by a **second** engine call, `--outcome`, not by the one that logged
   the verdict — the sha does not exist until after the commit, and a decision

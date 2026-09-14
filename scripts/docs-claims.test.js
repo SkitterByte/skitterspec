@@ -680,3 +680,54 @@ test('the everyday-loop diagram names steps that are real skills', () => {
   }
   assert.ok(checked > 0, 'found at least one loop diagram — otherwise this guard is vacuous')
 })
+
+// Every config key the outward surfaces name must be one the engine actually
+// merges. A key copied into the marketing page and then renamed in the engine
+// is the same failure as a retired claim: the first thing a reader meets, and
+// wrong. This is the POSITIVE form — assert what must be present, rather than
+// grepping for phrasings someone might have used.
+const { DEFAULT_CONFIG } = require('../packages/common/src/env/config.js')
+
+test('every review.<key> a shipped surface names is a key the engine merges', () => {
+  const unknown = []
+  for (const rel of [...SURFACES, 'packages/common/assets/core/env.config.md', 'CLAUDE.md']) {
+    const abs = path.join(ROOT, rel)
+    if (!fs.existsSync(abs)) continue
+    const text = fs.readFileSync(abs, 'utf8')
+    // WHAT WOULD FOOL THIS: a bare \b lets a FILENAME in — `feat-phase-review.html`
+    // ends in "review." too, and read as a config key it accuses a healthy page.
+    // The lookbehind requires the word to start fresh, so a path segment or a
+    // hyphenated name cannot masquerade as the config block.
+    for (const m of text.matchAll(/(?<![\w/-])review\.([a-zA-Z][a-zA-Z0-9]*)\b/g)) {
+      if (!(m[1] in DEFAULT_CONFIG.review)) unknown.push(`${rel}: review.${m[1]}`)
+    }
+  }
+  assert.deepStrictEqual(unknown, [], `surface names a review key the engine ignores:\n${unknown.join('\n')}`)
+})
+
+test('the key the approve branch hands off with is documented where adopters read', () => {
+  // `commitWith` is the one that WRITES TO GIT on someone's behalf, so it is the
+  // one an adopter must be able to find and turn off without reading the source.
+  assert.ok('commitWith' in DEFAULT_CONFIG.review, 'the engine has the key')
+  const md = fs.readFileSync(path.join(ROOT, 'packages/common/assets/core/env.config.md'), 'utf8')
+  assert.match(md, /`commitWith` names the skill/, 'the config reference explains it')
+  assert.match(md, /"none"\s+— record the verdict and commit nothing/, 'and how to turn it off')
+})
+
+test('the guard would fire on a review key that does not exist', () => {
+  // Prove it can accuse: a plausible-looking key the engine never merges.
+  assert.ok(!('publish' in DEFAULT_CONFIG.review))
+  const found = [...'set review.publish true'.matchAll(/(?<![\w/-])review\.([a-zA-Z][a-zA-Z0-9]*)\b/g)]
+    .map((m) => m[1])
+    .filter((k) => !(k in DEFAULT_CONFIG.review))
+  assert.deepStrictEqual(found, ['publish'])
+})
+
+// STAYS SILENT: the healthy-but-unusual input for the check above. A page that
+// quotes the engine's own output names a file ending in "-review.html", and
+// that is not a config key anybody has to defend.
+test('stays silent: a filename ending in review is not a config key', () => {
+  const line = 'page: /repo/.spec-env/reviews/feat-phase-review.html'
+  const found = [...line.matchAll(/(?<![\w/-])review\.([a-zA-Z][a-zA-Z0-9]*)\b/g)]
+  assert.deepStrictEqual(found, [], 'a path segment is not a key')
+})

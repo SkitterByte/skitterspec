@@ -1,6 +1,6 @@
 ---
 name: spec-diff
-description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", wants to read a worktree's changes away from the terminal, or pastes back the JSON the review page's Copy button produced.
+description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", wants to read a worktree's changes away from the terminal, or pastes back the JSON the review page produced — approve, request changes or discuss.
 ---
 
 # /spec-diff — see the phase before you commit it
@@ -39,10 +39,11 @@ sole candidate or prints the candidates.
 ## 2. Were you handed a review pass? Then that is the job
 
 The page has marks on it — `✓ accept` per file, notes against a line or a whole
-file, answers to the checks a written review asked — and one **Copy review**
-button that puts them on the clipboard as JSON. When that JSON is pasted to you,
-**this is not a request to render anything**: it is a review coming back, and
-these steps replace §3–§5 below.
+file, answers to the checks a written review asked — and it
+**ends in a decision**: `✓ Approve`, `↺ Request changes` or `… Discuss first`,
+each copying the pass to the clipboard as JSON with its verdict already set. When that
+JSON is pasted to you, **this is not a request to render anything**: it is a
+review coming back, and these steps replace §3–§5 below.
 
 1. **Store it through the engine.** Write the pasted JSON to a scratch file
    verbatim — never retype it, never "tidy" it — and merge it:
@@ -63,14 +64,27 @@ these steps replace §3–§5 below.
    **Never re-judge it yourself, and never count anything** — read the engine's
    answer and route on it.
 
-   An **honoured `approve`** is a go-ahead, and §2a is the job. Every other
-   answer — including a refused approval and a pass carrying no verdict at all —
-   falls through to step 3 below.
+   Three routes, and every pass takes exactly one:
+
+   | Verdict | What it means | Where to go |
+   |---------|---------------|-------------|
+   | `approve` (honoured) | this is fine, land it | §2a — commit it |
+   | `changes` | do these, now | step 4 — **skip the wait**, this is the go-ahead |
+   | `discuss` | report it and talk | step 3 — report, then wait |
+
+   **A refused approval and a pass with no verdict both mean `discuss`.**
+   Neither is a special case: the engine routes the refusal there itself, and an
+   absent verdict has always meant "report it and wait" — which is why that is
+   what it still means.
 
 3. **Say what you read, then stop.** Report the accepted count, then each open
-   comment as `file:line — note`, then the files you would touch. **Wait.**
-   Pasting is not a go-ahead: this skill is read-only everywhere else, a misread
-   comment costs a revert, and the operator may only have wanted it recorded.
+   comment as `file:line — note`, then the files you would touch.
+   **Wait — unless the verdict already said otherwise.** Pasting on its own is
+   not a go-ahead: this skill is read-only everywhere else, a misread comment
+   costs a revert, and the operator may only have wanted it recorded. A `changes`
+   verdict **is** that go-ahead, given deliberately on the page, so asking again
+   is asking someone to decide twice. The reasoning is unchanged; what changed is
+   that the page can now answer it in advance.
 
 4. **On the go-ahead, work only the commented files.** Read those; do **not**
    open the accepted ones. That is the whole saving the marks buy, and it is
@@ -113,7 +127,7 @@ these steps replace §3–§5 below.
 
    The note is the load-bearing half: it is what lets the next read **verify**
    the fix rather than trust it. An id that matches nothing is reported and
-   skipped, so one bad id never costs you the rest. Then re-render (§3) so the
+   skipped, so one bad id never costs you the rest. Then re-render (§4) so the
    page shows each note struck through with its account.
 
 6. **Before the re-render, prove nothing leaked** — only when step 4 found two

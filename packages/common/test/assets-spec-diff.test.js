@@ -107,8 +107,11 @@ test('it takes a pasted review pass, and reports before it edits', () => {
   assert.match(SKILL, /--notes <file>/, 'it names the engine call that stores the pass')
   assert.match(SKILL, /--resolve <file>/, 'and the one that writes back what was done')
   assert.match(SKILL, /verbatim — never retype it/, 'the blob is stored as sent')
-  assert.match(SKILL, /Wait\.\*\*|\*\*Wait\.\*\*/, 'it stops after reporting')
-  assert.match(SKILL, /Pasting is not a go-ahead/, 'and says why')
+  // AMENDED, not dropped: it stops after reporting unless the pass already said
+  // what to do. A bare paste is still ambiguous and still waits — that half is
+  // pinned in "the wait rule is amended" below.
+  assert.match(SKILL, /\*\*Wait — unless the verdict already said otherwise\.\*\*/, 'it stops after reporting')
+  assert.match(SKILL, /Pasting on its own is\s*\n?\s*not a go-ahead/i, 'and says why')
   assert.match(SKILL, /do \*\*not\*\*\s*\n?\s*open the accepted ones/i, 'accepted files are not read')
   assert.match(SKILL, /say plainly which files you did not\s*\n?\s*open/i, 'and it says so, so the saving is checkable')
 })
@@ -431,4 +434,51 @@ test('the engine answers with the configured skill, so the prose has something t
   // that exists. `review.commitWith` is the default the skill names.
   const { DEFAULT_CONFIG } = require('../src/env/config.js')
   assert.strictEqual(DEFAULT_CONFIG.review.commitWith, '/commit')
+})
+
+// --- routing all three verdicts (phase 4) -----------------------------------
+
+test('each verdict routes, and the table says where', () => {
+  assert.match(SKILL, /\| `approve` \(honoured\) \| this is fine, land it \| §2a/)
+  assert.match(SKILL, /\| `changes` \|.*\| step 4 — \*\*skip the wait\*\*/)
+  assert.match(SKILL, /\| `discuss` \|.*\| step 3 — report, then wait/)
+  // A `changes` pass authorises the WORK, never a commit — only approve reaches
+  // the commit branch, which is what keeps the two decisions different sizes.
+  assert.match(SKILL, /\*\*Never commit on a `changes` pass\.\*\*/)
+})
+
+test('a refused approval and no verdict at all both mean discuss', () => {
+  // The default is the behaviour that existed before verdicts did, which is why
+  // it is the default: a pass from an older page keeps doing what it always did.
+  assert.match(SKILL, /\*\*A refused approval and a pass with no verdict both mean `discuss`\.\*\*/)
+  assert.match(SKILL, /an\s*\n?\s*absent verdict has always meant "report it and wait"/i)
+})
+
+test('the wait rule is amended, not deleted — and its reasoning survives', () => {
+  // The rule was written against a genuinely ambiguous input: a bare paste says
+  // nothing about what to do next. A verdict is not ambiguous, so the amendment
+  // narrows the rule rather than contradicting it — and the WHY has to stay, or
+  // a later edit reads the amendment as permission to drop the wait entirely.
+  assert.match(SKILL, /\*\*Wait — unless the verdict already said otherwise\.\*\*/)
+  assert.match(SKILL, /Pasting on its own is\s*\n?\s*not a go-ahead/i, 'the original reasoning stays')
+  assert.match(SKILL, /a misread comment\s*\n?\s*costs a revert/i)
+  assert.match(SKILL, /asking again\s*\n?\s*is asking someone to decide twice/i, 'and why a verdict is different')
+  assert.match(SKILL, /The reasoning is unchanged/i)
+})
+
+// THE INTERESTING ONE. A verdict is a person's conclusion; a gate is a refusal
+// derived from how many boxes are ticked. If shipping the first had required
+// weakening a guard written to keep the second out, the design drifted — so
+// this asserts the no-gate rules are still there, in full, beside the verdict.
+test('the no-gate rule survives the verdict intact', () => {
+  assert.match(SKILL, /A mark is information, never a gate/)
+  assert.match(SKILL, /config key defaulting to off/)
+  assert.match(SKILL, /nothing here may start counting them/)
+  // And the verdict says so itself, at the point it is read.
+  assert.match(SKILL, /\*\*Never re-judge it yourself, and never count anything\*\*/)
+  // The one refusal is on unresolved COMMENTS — a presence — never on files
+  // left unticked. Those two are what distinguish a verdict from a tally.
+  const { judgeVerdict, emptyNotes } = require('../src/env/review.js')
+  const noTicks = judgeVerdict('approve', emptyNotes('feat-x'))
+  assert.strictEqual(noTicks.honoured, true, 'nothing ticked, and still approvable')
 })

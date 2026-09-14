@@ -146,10 +146,14 @@ offers the review; `skitterspec spec-env review <spec> [--branch]` is the engine
 
 **The page is not read-only — it takes a review pass back.** Tick `✓ accept` per
 file as you read, write notes against a line or a whole file, answer the
-questions a written review asked, then **Copy review** and paste the JSON back.
-`/spec-diff` stores it (`--notes`), plays back what it read, and — on your
-go-ahead, never on the paste alone — works the commented files while leaving the
-accepted ones unopened. What it did comes back as a **resolution** (`--resolve`),
+questions a written review asked, then **end it in a decision** and paste the
+JSON back. Three buttons, each copying the pass with its own verdict set:
+**`✓ Approve`** (commit it), **`↺ Request changes`** (work them now),
+**`… Discuss first`** (report and talk). `/spec-diff` stores it (`--notes`),
+plays back what it read, and routes on the verdict — `changes` **is** the
+go-ahead, so it works the commented files immediately, while `discuss`, a
+refused approval and a pass carrying no verdict at all report and wait, which
+is what a bare paste has always done. Accepted files stay unopened either way. What it did comes back as a **resolution** (`--resolve`),
 so the next render shows each note struck through with a one-line account and you
 verify the fix instead of trusting it. An accept is keyed to the file's
 **content hash**, so it survives the commit that ends the phase and lapses by
@@ -157,6 +161,21 @@ itself when that file changes again — announced as `accepted earlier — chang
 silently. All of it lives beside the page in gitignored `.spec-env/`, and
 **the marks are information, never a gate**: nothing counts them and nothing
 refuses on them.
+
+**The verdict is chosen, never derived.** A verdict is one person's conclusion,
+sent once per pass; a counting gate is a refusal computed from how many boxes
+are ticked, and it stays forbidden. The one refusal here is not a count of
+ticks: `approve` is unavailable while any **comment** is unresolved, because you
+asked for something and it therefore cannot also be fine. Files you never ticked
+block nothing — an unticked file is something you said nothing about, and
+requiring every one of them would be the tally this design exists to avoid. An
+honoured approval hands off to the project's own commit skill
+(`review.commitWith` in `env.config.json`, `/commit` by default, `none` to
+record the verdict and commit nothing) — skitterspec never vendors one, because
+`/commit` belongs to skittership. A verdict is **consumed**, not stored: the
+approval is spent by the commit and the changes by the work, so an approval
+cannot go stale and later commit something nobody read. What survives is a
+one-line outcome log, shown on the next render as history.
 
 **One ending, every skill (`.claude/rules/spec-reports.md`).** Every skill in
 the table above finishes with the same block — a verdict, then a table of only
