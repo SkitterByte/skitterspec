@@ -68,6 +68,8 @@ const {
   readPending,
   writePending,
   claimPending,
+  describePending,
+  pendingAge,
   reviewPendingPath,
   validateResolutions,
   mergeNotes,
@@ -1723,6 +1725,34 @@ async function specEnvReview(dir, config, specArg, flags) {
     merged = { accepted: claimed.accepted, unaccepted: claimed.unaccepted, comments: claimed.comments }
   }
 
+  // The other half of a confirmation: a pass the operator says is not theirs.
+  // Left in the store it is reported on every render until they stop reading the
+  // line — which is how the real one gets waved away too.
+  let dropped = null
+  if (flags.drop) {
+    const heldRead = readPending(out, spec.folder)
+    if (heldRead.corrupt) {
+      process.stdout.write(
+        `spec-env review: ${reviewPendingPath(out)} is not readable JSON — ` +
+          'move it aside rather than losing the passes it holds.\n',
+      )
+      return
+    }
+    // Same match and the SAME SILENCE as a claim. A drop that listed the codes
+    // it could not find would hand a guesser exactly what the claim withholds.
+    const result = claimPending(heldRead.pending, String(flags.drop).trim())
+    if (!result.pass) {
+      process.stdout.write(
+        `spec-env review: no pending pass with that code` +
+          `${result.count ? ` (${result.count} waiting)` : ''}\n`,
+      )
+      return
+    }
+    writePending(out, result.pending)
+    // Nothing is merged, and the notes sidecar is not touched.
+    dropped = { code: result.pass.code, remaining: result.count }
+  }
+
   if (flags.notes) {
     // Refuse rather than write over notes we could not read: an unreadable
     // sidecar is a whole review pass, and overwriting it is unrecoverable.
@@ -1844,7 +1874,12 @@ async function specEnvReview(dir, config, specArg, flags) {
   // Information, never a prompt. Nothing counts these to decide anything and
   // nothing refuses over them — the same rule the marks have lived under since
   // `feat-review-round-trip`.
-  const waiting = readPending(out, spec.folder).pending.passes.length
+  //
+  // DESCRIBED, not counted. The code is here so a skill can name it without
+  // opening the store: an agent that still has to read `.pending.json` to find
+  // a code will read it, and the rule against claiming unasked becomes a
+  // request rather than a discipline.
+  const waiting = describePending(readPending(out, spec.folder).pending)
 
   const now = new Date().toISOString()
   let data = collectReview({ spec, git, mode, ref, base, now, notes })
@@ -1979,7 +2014,8 @@ async function specEnvReview(dir, config, specArg, flags) {
           ...(verdictReport ? { verdict: verdictReport } : {}),
           ...(outcomeSaid ? { outcome: outcomeSaid } : {}),
           ...(claimed ? { claimed } : {}),
-          ...(waiting ? { pending: waiting } : {}),
+          ...(dropped ? { dropped } : {}),
+          ...(waiting.length ? { pending: waiting } : {}),
           files: data.files.map((f) => ({
             path: f.path,
             status: f.status,
@@ -2032,8 +2068,12 @@ async function specEnvReview(dir, config, specArg, flags) {
         ? `  claimed: ${claimed.code} — ${claimed.accepted} accept${claimed.accepted === 1 ? '' : 's'}, ` +
           `${claimed.unaccepted} withdrawn, ${claimed.comments} comment${claimed.comments === 1 ? '' : 's'}\n`
         : '') +
-      (waiting
-        ? `  pending: ${waiting} pass${waiting === 1 ? '' : 'es'} waiting — claim one with its code\n`
+      (dropped ? `  dropped: ${dropped.code} — merged nothing\n` : '') +
+      (waiting.length
+        ? `  pending: ${waiting.length} waiting\n` +
+          waiting
+            .map((p) => `    ${p.code} · ${p.verdict || 'no verdict'} · ${pendingAge(p.at, now)}\n`)
+            .join('')
         : '') +
       (outcomeSaid ? `  outcome: ${outcomeSaid}\n` : '') +
       // Said only when it is true, so a review with no sidecar reads exactly as
@@ -3111,6 +3151,7 @@ async function specEnv(rest) {
     resolve: null,
     outcome: null,
     claim: null,
+    drop: null,
     json: false,
   }
   for (let i = 0; i < args.length; i++) {
@@ -3131,6 +3172,7 @@ async function specEnv(rest) {
     else if (args[i] === '--resolve') flags.resolve = args[++i]
     else if (args[i] === '--outcome') flags.outcome = args[++i]
     else if (args[i] === '--claim') flags.claim = args[++i]
+    else if (args[i] === '--drop') flags.drop = args[++i]
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
@@ -3200,7 +3242,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--json] [--record-primary] [--assert-primary-clean]\n' +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +

@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The engine describes what is waiting | ⬜ | [01-describe-waiting.md](01-describe-waiting.md) |
+| 1 | The engine describes what is waiting | ✅ | [01-describe-waiting.md](01-describe-waiting.md) |
 | 2 | The rule, and the words around it | ⬜ | [02-rule-and-words.md](02-rule-and-words.md) |
 
 ## Non-goals
@@ -132,6 +132,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-14 — Phase 1: `pendingAge` treats a **future** timestamp as
+  `unknown age` rather than computing a negative one. A pass claiming to have
+  arrived later than now is either a clock skew or a lie, and "in 3 minutes"
+  reads as a curiosity where `unknown age` reads as a reason to look twice —
+  which is the whole job of the age field.
+- 2026-09-14 — Phase 1: the ordering breaks ties on the **code**, not just the
+  timestamp. Two passes can share an `at`, and "usually stable" is not stable:
+  the operator is asked to check a list against their phone, so the list they
+  are offered must be the list they were shown.
 - 2026-09-14 — Spec created, out of the agent claiming the operator's approval
   without being asked — an hour after shipping the feature whose stated rule was
   that it would not. The operator's framing set the requirement: stay closed

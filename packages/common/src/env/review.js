@@ -549,6 +549,49 @@ function addPending(pending, { blob, at, render }, mint = mintPendingCode) {
 }
 
 /**
+ * What is waiting, as the render should describe it. Pure.
+ *
+ * THE BLOB IS DELIBERATELY NOT HERE. A decision about a waiting pass needs its
+ * code, its verdict and its age; the notes are what a CLAIM is for. Returning
+ * them would put an unclaimed stranger's text into the context of whoever is
+ * reading the render — which is the one thing the holding area exists to defer.
+ *
+ * Oldest first, and stable: two renders in a row must name the passes in the
+ * same order, or a reader cannot trust the list they just read against the one
+ * they are about to be offered. Ties break on the code, which is unique among
+ * pending, so the order is total rather than merely usually-stable.
+ */
+function describePending(pending) {
+  return (pending.passes || [])
+    .map((p) => ({ code: p.code, verdict: (p.blob && p.blob.verdict) || null, at: p.at || null }))
+    .sort((a, b) => String(a.at).localeCompare(String(b.at)) || a.code.localeCompare(b.code))
+}
+
+/**
+ * How long ago, in words a person reads at a glance. Pure.
+ *
+ * AGE IS THE TELL. A pass sent three days ago is not a review anyone in this
+ * conversation just pressed, and that is exactly how a stranger's pass gives
+ * itself away — so it is reported beside the code rather than left in a
+ * timestamp nobody parses.
+ *
+ * Unknown stays unknown: a pass with no `at` says so rather than being rendered
+ * as "just now", which is the reading that would make it look like yours.
+ */
+function pendingAge(at, now) {
+  const then = Date.parse(at)
+  const ms = Date.parse(now) - then
+  if (!Number.isFinite(then) || !Number.isFinite(ms) || ms < 0) return 'unknown age'
+  const mins = Math.floor(ms / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  return `${days} day${days === 1 ? '' : 's'} ago`
+}
+
+/**
  * Take a pass out of the holding area by its code. Pure.
  *
  * THE ONE REFUSAL HERE, and it never falls back. A code that matches nothing
@@ -1147,6 +1190,8 @@ module.exports = {
   mintPendingCode,
   addPending,
   claimPending,
+  describePending,
+  pendingAge,
   PENDING_CODE_LENGTH,
   mergeNotes,
   applyResolutions,

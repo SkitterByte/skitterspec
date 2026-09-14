@@ -277,18 +277,18 @@ test('a wrong code writes nothing and names nothing', async () => {
   }
 })
 
-test('the render says how many are waiting, and refuses over none of them', async () => {
+test('the render lists what is waiting, and refuses over none of it', async () => {
   const { dir } = scaffold()
   try {
     await review(dir)
     hold(dir, blobOf(), { render: 'R1' })
     hold(dir, blobOf(), { render: 'R2' })
     const said = await review(dir)
-    assert.match(said, /2 passes waiting/)
+    assert.match(said, /pending: 2 waiting/)
     // Information, never a gate: the render succeeded and reported normally.
     assert.match(said, /spec-env review: feat-alpha/)
     const json = await reviewJson(dir)
-    assert.strictEqual(json.pending, 2)
+    assert.strictEqual(json.pending.length, 2)
   } finally {
     cleanup(dir)
   }
@@ -321,6 +321,143 @@ test('stays silent: no holding area at all changes no output', async () => {
     assert.ok(!('pending' in json), 'and no key in --json either')
     assert.ok(!('claimed' in json))
     assert.ok(!fs.existsSync(reviewPendingPath(outPath(dir))), 'reading writes no store')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// --- describing what is waiting ---------------------------------------------
+//
+// The render must be able to NAME a waiting pass, not merely count them. That
+// is what makes the never-claim-unasked rule a discipline rather than a request:
+// an agent that has to open `.pending.json` to find a code will open it, and
+// then the code has protected nothing.
+
+const { describePending, pendingAge } = require('../src/env/review.js')
+
+test('a description carries the code, the verdict and when it arrived', () => {
+  const a = addPending(emptyPending('feat-alpha'), {
+    blob: blobOf({ verdict: 'approve' }), at: '2026-01-01T10:00:00.000Z', render: 'R1',
+  })
+  const got = describePending(a.pending)
+  assert.deepStrictEqual(got, [{ code: a.code, verdict: 'approve', at: '2026-01-01T10:00:00.000Z' }])
+})
+
+// THE BLOB IS NOT HERE, deliberately. A decision about a waiting pass needs its
+// code, verdict and age; the notes are what a claim is for. Returning them puts
+// an unclaimed stranger's text into the reader's context, which is the one thing
+// the holding area exists to defer.
+test('a description never carries the blob', () => {
+  const a = addPending(emptyPending('feat-alpha'), {
+    blob: blobOf({ comments: [{ id: 'c1', file: 'a.js', note: 'unclaimed text' }] }),
+    at: '2026-01-01T10:00:00.000Z',
+    render: 'R1',
+  })
+  const got = describePending(a.pending)
+  assert.deepStrictEqual(Object.keys(got[0]).sort(), ['at', 'code', 'verdict'])
+  assert.ok(!JSON.stringify(got).includes('unclaimed text'))
+})
+
+test('the order is oldest first, and total rather than usually-stable', () => {
+  // Ties break on the code, which is unique among pending — so two renders name
+  // them in the same order even when two passes share a timestamp.
+  const pending = {
+    version: 1,
+    spec: 'feat-alpha',
+    passes: [
+      { code: '000300', at: '2026-01-01T12:00:00.000Z', blob: blobOf() },
+      { code: '000100', at: '2026-01-01T10:00:00.000Z', blob: blobOf() },
+      { code: '000200', at: '2026-01-01T10:00:00.000Z', blob: blobOf() },
+    ],
+  }
+  const once = describePending(pending).map((p) => p.code)
+  const twice = describePending(pending).map((p) => p.code)
+  assert.deepStrictEqual(once, ['000100', '000200', '000300'])
+  assert.deepStrictEqual(twice, once, 'stable across renders')
+})
+
+test('age reads at a glance, and unknown stays unknown', () => {
+  const now = '2026-01-01T12:00:00.000Z'
+  assert.strictEqual(pendingAge('2026-01-01T11:59:30.000Z', now), 'just now')
+  assert.strictEqual(pendingAge('2026-01-01T11:58:00.000Z', now), '2 min ago')
+  assert.strictEqual(pendingAge('2026-01-01T09:00:00.000Z', now), '3 hours ago')
+  assert.strictEqual(pendingAge('2025-12-29T12:00:00.000Z', now), '3 days ago')
+  // AGE IS THE TELL for a stranger's pass, so a missing one must not render as
+  // "just now" — that is the reading that would make it look like yours.
+  for (const bad of [null, undefined, '', 'not a date']) {
+    assert.strictEqual(pendingAge(bad, now), 'unknown age')
+  }
+  assert.strictEqual(pendingAge('2026-01-01T13:00:00.000Z', now), 'unknown age', 'the future is not an age')
+})
+
+test('the render names each waiting pass rather than counting them', async () => {
+  const { dir } = scaffold()
+  try {
+    await review(dir)
+    const code = hold(dir, blobOf({ verdict: 'approve' }))
+    const said = await review(dir)
+    assert.match(said, /pending: 1 waiting/)
+    assert.match(said, new RegExp(`${code} · approve · `), 'the code is on the line')
+
+    const json = await reviewJson(dir)
+    assert.strictEqual(json.pending.length, 1)
+    assert.strictEqual(json.pending[0].code, code)
+    assert.strictEqual(json.pending[0].verdict, 'approve')
+    assert.ok(!('blob' in json.pending[0]))
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// --- dropping one the operator says is not theirs ---------------------------
+
+test('--drop removes exactly the pass named, and merges nothing', async () => {
+  const { dir } = scaffold()
+  try {
+    await review(dir)
+    const mine = hold(dir, blobOf({ accepted: [{ path: 'app.js', hash: 'h1' }] }), { render: 'R1' })
+    const theirs = hold(dir, blobOf({ verdict: 'approve' }), { render: 'R2' })
+
+    const said = await review(dir, '--drop', theirs)
+    assert.match(said, new RegExp(`dropped: ${theirs}`))
+    assert.match(said, /merged nothing/)
+
+    const left = readPending(outPath(dir), 'feat-alpha').pending.passes
+    assert.deepStrictEqual(left.map((p) => p.code), [mine], 'only the named one went')
+    assert.deepStrictEqual(readNotes(outPath(dir), 'feat-alpha').notes.files, {}, 'nothing was merged')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// THE SAME SILENCE AS A CLAIM. A drop that listed the codes it could not find
+// would hand a guesser exactly what the claim withholds.
+test('--drop with a wrong code changes nothing and names nothing', async () => {
+  const { dir } = scaffold()
+  try {
+    await review(dir)
+    const code = hold(dir, blobOf())
+    const said = await review(dir, '--drop', '000000')
+    assert.match(said, /no pending pass with that code/)
+    assert.match(said, /1 waiting/)
+    assert.ok(!said.includes(code), 'the code itself is withheld')
+    assert.strictEqual(readPending(outPath(dir), 'feat-alpha').pending.passes.length, 1)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). A spec nobody has sent a pass for
+// renders exactly as it did before any of this existed.
+test('stays silent: no holding area means no pending line and no keys', async () => {
+  const { dir } = scaffold()
+  try {
+    const said = await review(dir)
+    assert.ok(!said.includes('pending:'))
+    assert.ok(!said.includes('dropped:'))
+    const json = await reviewJson(dir)
+    assert.ok(!('pending' in json))
+    assert.ok(!('dropped' in json))
   } finally {
     cleanup(dir)
   }
