@@ -170,4 +170,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   design: the first real release and its verification, carried into
   `feat-prove-staged-publish` because it needs the landed `main` this spec
   produces. The pipeline is built and guarded but not yet exercised.
-
+- 2026-09-15 — Decision 3's premise was overtaken after this spec completed.
+  pnpm 12 is a native binary that runs on no Node at all and declares
+  `>=18.*`, so "pnpm 11.11 requires it" no longer justifies the `>=22.13`
+  floor. The number is unchanged and still correct — 22 (Jod) is the oldest
+  line receiving fixes, and ci.yml's lowest job tests it — but the reason is
+  now recorded in `ci.yml` and `scripts/workflows.test.js` instead. Decision 3
+  is left verbatim as the record of what was decided at the time; see
+  `feat-toolchain-pnpm-12`.

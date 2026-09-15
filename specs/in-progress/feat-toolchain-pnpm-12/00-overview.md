@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Move the workspace and CI to pnpm 12.4.1, correcting the rationale it falsifies | ⬜ | [01-pnpm-12.md](01-pnpm-12.md) |
+| 1 | Move the workspace and CI to pnpm 12.4.1, correcting the rationale it falsifies | ✅ | [01-pnpm-12.md](01-pnpm-12.md) |
 | 2 | Pin the dev Node with `.nvmrc` and a guard test | ⬜ | [02-node-pin.md](02-node-pin.md) |
 
 ## Open questions
@@ -160,3 +160,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   rationale correction moved from a backlog document to two live code comments,
   and `pnpm/action-setup` with a native-binary pnpm became the upgrade's one
   genuinely untested risk.
+- 2026-09-15 — Phase 1: the lockfileVersion did not move (still `9.0`), but the
+  file gained a **second YAML document**. pnpm 12 self-pins in the lockfile —
+  `packageManagerDependencies` plus an `@pnpm/exe.*` entry per platform, +158
+  lines. Inert here (nothing parses the file), and it is what makes CI resolve
+  the right binary. Anything that ever parses it must read both documents.
+- 2026-09-15 — Phase 1: `pnpm/action-setup@v6` could only be verified by
+  simulating its mechanism locally. The action has never run, because this
+  repo's CI has never run at all — the remote has not seen a workflow file.
+  The real answer comes with `feat-prove-staged-publish`.

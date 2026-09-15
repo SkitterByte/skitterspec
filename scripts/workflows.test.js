@@ -3,11 +3,17 @@
 // Both workflows carry settings that are load-bearing rather than cosmetic, and
 // every one of them is invisible on a green run:
 //
-// 1. The matrix floor must equal `engines.node`. The floor moved to >= 22.13
-//    because pnpm 11.11 requires it AND this repo's suite cannot run without an
-//    install — a bare checkout discovers 1825 tests of 2362 and fails 41. A
-//    manifest floor nobody tests is a promise nobody is keeping, which is the
-//    state this repo was in at `>=18`.
+// 1. The matrix floor must equal `engines.node`. The floor is >= 22.13 because
+//    22 (Jod) is the oldest Node line still receiving fixes, and because this
+//    repo's suite cannot run without an install — a bare checkout discovers 1825
+//    tests of 2362 and fails 41. A manifest floor nobody tests is a promise
+//    nobody is keeping, which is the state this repo was in at `>=18`.
+//
+//    It was originally justified by pnpm 11.11 requiring >= 22.13. pnpm 12 is a
+//    native binary that runs on no Node at all and declares `>=18.*`, so that
+//    reason is gone and the two above are what hold the floor up. Do not lower
+//    it on the grounds that pnpm no longer asks for it — see
+//    feat-toolchain-pnpm-12.
 //
 // 2. No `registry-url` on `actions/setup-node`, in EITHER workflow. It writes an
 //    `.npmrc` carrying an `_authToken`; with no token that resolves empty, npm

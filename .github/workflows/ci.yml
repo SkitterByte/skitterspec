@@ -8,8 +8,13 @@
 # (`@skitterbyte/skitterspec-common/…`, `@skitterbyte/skitterspec-sync-core`),
 # which resolve only through the `node_modules/@skitterbyte/*` symlinks pnpm
 # creates — on a bare checkout the runner discovers 1825 tests instead of 2362
-# and fails 41. So there is no no-install job here, and pnpm's own Node floor
-# (>= 22.13) is therefore the repo's floor too.
+# and fails 41. So there is no no-install job here.
+#
+# The floor is >= 22.13 because 22 (Jod) is the oldest Node line still receiving
+# fixes, and because the lowest job in this matrix tests it. It is NOT pnpm's
+# requirement: pnpm 12 is a native binary that does not run on your Node at all
+# and declares `>=18.*`. pnpm 11.11 did require >= 22.13, and that was the
+# original justification — see feat-toolchain-pnpm-12.
 #
 # NOTE: `actions/setup-node` is used WITHOUT `registry-url`, here as in
 # release.yml. That option writes an `.npmrc` containing an `_authToken`, and
