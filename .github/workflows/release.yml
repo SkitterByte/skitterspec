@@ -1,0 +1,166 @@
+# Stage a release on npm by OIDC — no token anywhere.
+#
+# Pushing an annotated tag `<package>@<version>` (the scheme `scripts/release.js`
+# already cuts) stages THAT package. A human then approves it with 2FA:
+#
+#     node scripts/release.js <package> <bump> --yes
+#     git push --follow-tags
+#     npm run approve <package> <version>     # after this run goes green
+#
+# --- the four things here that each cost a failed publish -------------------
+#
+# 1. `actions/setup-node` is used WITHOUT `registry-url`. That option writes an
+#    `.npmrc` containing `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}`,
+#    which with no token resolves to an EMPTY token. npm then believes the
+#    registry is token-authenticated, never performs the OIDC exchange, and the
+#    anonymous PUT is rejected as 404 — not 403, because npm will not leak
+#    whether a package exists. Trusted publishing requires npm to find NO
+#    credentials at all. npmjs.org is the default registry, so nothing is lost.
+#
+# 2. npm is upgraded before publishing. Node 22 still bundles npm 10.x; trusted
+#    publishing needs npm >= 11.5.1 and STAGED publishing >= 11.15.0. The
+#    diagnostic step below prints the versions so the next auth failure is
+#    readable from the log alone.
+#
+# 3. `repository.url` must match the GitHub org's case — npm validates the
+#    sigstore bundle against it case-sensitively. `scripts/package-metadata.test.js`
+#    guards that, and `pnpm test` below runs it before anything is staged.
+#
+# 4. The command is `npm stage publish`, never `npm publish`. Trusted-publisher
+#    configs created after 2026-09-03 default to stage-only, and a direct publish
+#    is rejected with `403 … OIDC permission denied for this action` — the
+#    identity is accepted, the action is not.
+#
+# A run that prints `Signed provenance statement …` and THEN fails with 403/404
+# has not failed at signing. Signing is client-side; the registry validates the
+# identity afterwards, on the PUT. A good signature says nothing about whether
+# the trusted-publisher config is right.
+#
+# The trusted publisher must be configured on the npm website for EACH package,
+# with every field exact and case-sensitive: Organization `SkitterByte`,
+# Repository `skitterspec`, Workflow `release.yml` (this filename — renaming this
+# file breaks every publish), Environment blank.
+
+name: Release
+
+on:
+  push:
+    tags:
+      # Two literal prefixes, not one glob: `skitterspec@*` cannot match
+      # `skitterspec-linear@12.0.0`, so each package's tags stay its own.
+      - 'skitterspec@*'
+      - 'skitterspec-linear@*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package to stage
+        required: true
+        type: choice
+        options: [skitterspec, skitterspec-linear]
+      version:
+        description: Version it must already be at (e.g. 19.0.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Resolve which package and version this run is for, and refuse anything
+      # that is not one of the two publishable distributions.
+      #
+      # The tag is UNTRUSTED INPUT — anyone who can push a tag chooses this
+      # string — so it is read from the environment rather than interpolated
+      # into the script, and checked against an allow-list before it is ever
+      # used as a path. `packages/$pkg` with an unvalidated $pkg is a directory
+      # traversal wearing a release workflow.
+      - name: Resolve the target
+        id: target
+        env:
+          TAG: ${{ github.ref_name }}
+          INPUT_PACKAGE: ${{ inputs.package }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            pkg="$INPUT_PACKAGE"
+            version="$INPUT_VERSION"
+          else
+            pkg="${TAG%@*}"        # everything before the last @
+            version="${TAG##*@}"   # everything after it
+          fi
+          case "$pkg" in
+            skitterspec|skitterspec-linear) ;;
+            *) echo "::error::refusing unknown package '$pkg'"; exit 1 ;;
+          esac
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::'$version' is not an x.y.z version"; exit 1 ;;
+          esac
+          echo "package=$pkg" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dir=packages/$pkg" >> "$GITHUB_OUTPUT"
+          echo "Staging $pkg@$version from packages/$pkg"
+
+      # A tag that disagrees with the manifest means the version commit and the
+      # tag came apart — stop before anything reaches the registry, because the
+      # tarball would carry a version nobody tagged.
+      - name: Check the tag agrees with package.json
+        env:
+          DIR: ${{ steps.target.outputs.dir }}
+          WANT: ${{ steps.target.outputs.version }}
+        run: |
+          set -euo pipefail
+          have="$(node -p "require('./$DIR/package.json').version")"
+          if [ "$have" != "$WANT" ]; then
+            echo "::error::$DIR/package.json is $have but the release is $WANT"
+            exit 1
+          fi
+          echo "version agrees: $have"
+
+      - uses: pnpm/action-setup@v4
+
+      # NOTE: no `registry-url` — see the header. Adding it here is what makes
+      # the OIDC exchange silently not happen.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Upgrade npm and report the toolchain
+        run: |
+          set -euo pipefail
+          npm install -g npm@latest
+          echo "node $(node --version)"
+          echo "npm  $(npm --version)   (need >= 11.15.0 for staged publishing)"
+
+      - run: pnpm install --frozen-lockfile
+
+      # Neither published package has a `prepublishOnly`, so this is the only
+      # thing standing between a red suite and a staged release.
+      - run: pnpm test
+
+      # Run from the package directory so its `prepack` fires: `bin`, `src` and
+      # `assets` are gitignored and composed by build-dist.js at pack time. A
+      # publish from the repo root would ship an empty tarball.
+      #
+      # Provenance is implicit under trusted publishing — npm signs when it sees
+      # the OIDC token — so `--provenance` is not passed. If a real run shows
+      # otherwise, add it here and say so.
+      - name: Stage the release
+        working-directory: ${{ steps.target.outputs.dir }}
+        run: npm stage publish --access public
+
+      - name: How to finish it
+        env:
+          PKG: ${{ steps.target.outputs.package }}
+          VERSION: ${{ steps.target.outputs.version }}
+        run: |
+          echo "Staged, not published. Approve it with 2FA:"
+          echo "    npm run approve $PKG $VERSION"

@@ -1,7 +1,7 @@
 # Run the test suite on every push and pull request.
 #
 # The matrix floor is not a free choice: `engines.node` and the lowest version
-# here are asserted equal by `scripts/ci-workflow.test.js`, so a floor nobody
+# here are asserted equal by `scripts/workflows.test.js`, so a floor nobody
 # tests cannot quietly appear in the manifests.
 #
 # The suite needs a real install. Tests require workspace packages by NAME

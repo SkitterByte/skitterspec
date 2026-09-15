@@ -1,7 +1,7 @@
 'use strict'
 
-// Two things about the CI workflow are load-bearing rather than cosmetic, and
-// both are invisible on a green run:
+// Both workflows carry settings that are load-bearing rather than cosmetic, and
+// every one of them is invisible on a green run:
 //
 // 1. The matrix floor must equal `engines.node`. The floor moved to >= 22.13
 //    because pnpm 11.11 requires it AND this repo's suite cannot run without an
@@ -156,4 +156,86 @@ test('versions sort numerically, not lexically', () => {
   // '9' beats '22.13' under a string sort, which would pick the wrong floor.
   assert.strictEqual(lowest(['24', '22.13']), '22.13')
   assert.strictEqual(lowest(['22.13', '9']), '9')
+})
+
+// --- release.yml ------------------------------------------------------------
+//
+// Each assertion below stands for one failed publish. They are text assertions
+// rather than a YAML parse on purpose: the repo has no YAML dependency, and the
+// failures being guarded are all the presence or absence of one setting.
+
+const RELEASE = () => fs.readFileSync(path.join(WORKFLOWS, 'release.yml'), 'utf8')
+
+test('release.yml does not set registry-url', () => {
+  // The 404. npm finds an empty _authToken, decides the registry is
+  // token-authenticated, and never performs the OIDC exchange at all.
+  assert.strictEqual(setsRegistryUrl(RELEASE()), false)
+})
+
+test('release.yml requests the OIDC token', () => {
+  const yaml = withoutComments(RELEASE())
+  assert.match(yaml, /^\s*id-token:\s*write\s*$/m, 'id-token: write is what makes OIDC available')
+  assert.match(yaml, /^\s*contents:\s*read\s*$/m)
+})
+
+test('release.yml stages, and never publishes directly', () => {
+  const yaml = withoutComments(RELEASE())
+  assert.match(yaml, /npm stage publish/, 'staged publishing is the whole design')
+  // Trusted-publisher configs created after 2026-09-03 are stage-only, so a
+  // bare `npm publish` earns `403 OIDC permission denied for this action`.
+  const bare = yaml.replace(/npm stage publish/g, '')
+  assert.doesNotMatch(bare, /npm publish/, 'a bare `npm publish` would be rejected 403')
+})
+
+test('release.yml upgrades npm past the staged-publishing floor', () => {
+  // Node 22 bundles npm 10.x; staged publishing needs >= 11.15.0.
+  assert.match(withoutComments(RELEASE()), /npm install -g npm@latest/)
+})
+
+test('release.yml triggers on both packages\' tags', () => {
+  const yaml = withoutComments(RELEASE())
+  assert.match(yaml, /'skitterspec@\*'/)
+  assert.match(yaml, /'skitterspec-linear@\*'/)
+  assert.match(yaml, /workflow_dispatch:/, 'the recovery path')
+})
+
+test('release.yml packs from the package directory, so prepack fires', () => {
+  // `bin`, `src` and `assets` are gitignored and composed at pack time; a
+  // publish from the repo root ships an empty tarball.
+  assert.match(withoutComments(RELEASE()), /working-directory:/)
+})
+
+test('release.yml checks the tag against package.json', () => {
+  assert.match(RELEASE(), /Check the tag agrees with package\.json/)
+})
+
+test('release.yml never interpolates the tag into a shell command', () => {
+  // The tag is chosen by whoever pushes it. Read via env, validated against an
+  // allow-list, and only then used as a path — `packages/${{ github.ref_name }}`
+  // would be a directory traversal in a release workflow.
+  const yaml = withoutComments(RELEASE())
+  const runBlocks = yaml.split(/^\s*- /m).filter((b) => /run:\s*\|/.test(b))
+  for (const b of runBlocks) {
+    assert.doesNotMatch(b.split('run:')[1] || '', /\$\{\{\s*github\.ref_name/,
+      'github.ref_name belongs in env:, not inside a run: script')
+  }
+})
+
+test('the filename npm is configured against is the one on disk', () => {
+  // The trusted-publisher config names `release.yml` exactly. Renaming this file
+  // breaks every publish with an error that names authentication, not the file.
+  assert.ok(fs.existsSync(path.join(WORKFLOWS, 'release.yml')))
+  assert.match(RELEASE(), /Workflow `release\.yml`/, 'the header should say so too')
+})
+
+// --- and it stays silent ----------------------------------------------------
+
+test('release.yml mentioning `npm publish` in prose is not an accusation', () => {
+  // Its header explains why the command is NOT a bare publish, so the phrase is
+  // in the file while the command is not — the same shape as the registry-url
+  // comment above (`.claude/rules/negative-checks.md` rule 3).
+  const prose = '# 4. The command is `npm stage publish`, never `npm publish`.\n      - run: npm stage publish\n'
+  const yaml = withoutComments(prose)
+  const bare = yaml.replace(/npm stage publish/g, '')
+  assert.doesNotMatch(bare, /npm publish/)
 })

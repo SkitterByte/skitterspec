@@ -117,7 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Correct the publish metadata, guarded by a test | ✅ | [01-publish-metadata.md](01-publish-metadata.md) |
 | 2 | Raise the Node floor and add ci.yml | ✅ | [02-ci-and-node-floor.md](02-ci-and-node-floor.md) |
-| 3 | release.yml — OIDC staging on a tag push | ⬜ | [03-release-workflow.md](03-release-workflow.md) |
+| 3 | release.yml — OIDC staging on a tag push | ✅ | [03-release-workflow.md](03-release-workflow.md) |
 | 4 | Approve helper; CI becomes the only publisher | ⬜ | [04-approve-and-handover.md](04-approve-and-handover.md) |
 | 5 | Configure trusted publishers and prove it end-to-end | ⬜ | [05-prove-it.md](05-prove-it.md) |
 
@@ -149,3 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   commit that raises the floor, not on phase 5's version commit —
   `release-notes.js` scans the footers of commits in the tag range, so a
   note on the version commit itself would be the one place it cannot help.
+- 2026-09-15 — Phase 3: the tag is validated against an allow-list before it
+  becomes a path, and never interpolated into a `run:` script — a pushed tag is
+  attacker-chosen text, and `packages/<tag>` would be a traversal.
+
