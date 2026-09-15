@@ -111,7 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The `Continue` verdict and the button set | ✅ | [01-continue-verdict.md](01-continue-verdict.md) |
 | 2 | The report contract: offer implies wait | ✅ | [02-report-contract.md](02-report-contract.md) |
-| 3 | The skills that offer | ⬜ | [03-skills-wait.md](03-skills-wait.md) |
+| 3 | The skills that offer | ✅ | [03-skills-wait.md](03-skills-wait.md) |
 
 ## Open questions
 
@@ -142,6 +142,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the substantive work in those skills: arming and waiting. The same one-line
   example row in `spec-planning.md` was fixed for the same reason: leaving it
   would have it contradict the rule this phase writes.
+- 2026-09-15 — Phase 3: the exemption list in the new set-level guard holds
+  `/spec-reviewed` only. `/spec-start` never matches the render scan, so
+  exempting it would grant nothing while reading as coverage — a stays-silent
+  test asserts its absence instead.
+- 2026-09-15 — Phase 3: `/spec-next` renders with the committing set by passing
+  nothing, and says so. Its own render is always phase-end, so the `midrun` set
+  is `/spec-diff`'s to use; the note exists so the choice reads as declared
+  rather than defaulted.
+- 2026-09-15 — Phase 3: MIGRATION.md gained a v21 → v22 entry, per this phase's
+  Notes — arming in `/spec-bug` and `/spec-hotfix` is user-visible.
 - 2026-09-15 — Follow-up surfaced while linking this spec: `spec-sync apply`
   hit a Linear 503 part-way, printed "re-run to resume without duplicating",
   and the re-run duplicated — SKS-273 and SKS-274 are the same phase 1. The

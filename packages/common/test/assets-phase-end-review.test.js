@@ -43,13 +43,15 @@ for (const name of RENDERS) {
   // unanswerable by construction: these three shipped one, and verdicts pressed
   // in answer to it sat unread. A skill that wants the question answered waits,
   // and waiting means the banner.
-  test(`/${name} names the page in the Review row, and asks nothing there`, () => {
+  // ASKING IMPLIES WAITING. All three of these wait, so all three end in the
+  // banner. Any `Review` row they still write is for the render that did NOT
+  // wait, and it must ask nothing — a row cannot be waited on, so a question in
+  // one is unanswerable however findable it is. That row is what these three
+  // shipped, and verdicts pressed in answer to it sat unread.
+  test(`/${name} asks nothing in a Review row`, () => {
     assert.match(text, /`Review` row/)
-    const rows = [...text.matchAll(/^\|\s*\*\*Review\*\*\s*\|(.*)\|\s*$/gm)]
-    assert.ok(rows.length > 0, 'the row is written out, so this asserts something')
-    for (const m of rows) {
+    for (const m of text.matchAll(/^\|\s*\*\*Review\*\*\s*\|(.*)\|\s*$/gm)) {
       assert.ok(!m[1].includes('?'), `the row must not ask: ${m[1].trim()}`)
-      assert.match(m[1], /open the page/, 'and it still carries the link')
     }
     // The shape it must not go back to.
     assert.doesNotMatch(text, /```\nPage is rendered:/)
@@ -172,15 +174,119 @@ test('the config keys are documented where an adopter reads them', () => {
   assert.match(doc, /unguessable path token/)
 })
 
-// THE BANNER IS EARNED BY WAITING. `/spec-next` arms the gate and holds for a
-// verdict, so its offer is a banner; `/spec-bug` and `/spec-hotfix` render at
-// the end of red→green work, arm nothing and hold for nothing, so theirs stays
-// a row. Giving every render a banner is how a reader learns to scroll past
-// banners — which would cost exactly what the banner was introduced to buy.
-test('only the skill that waits carries the banner', () => {
-  assert.match(skillText('spec-next'), /## ⏸ Review ready/)
-  for (const name of ['spec-bug', 'spec-hotfix']) {
-    assert.doesNotMatch(skillText(name), /## ⏸ Review ready/, name)
-    assert.doesNotMatch(skillText(name), /spec-env review arm/, `${name} arms nothing`)
+// THE BANNER IS EARNED BY WAITING — and all three of these now earn it. The
+// banner is still not free: a render nobody is held for gets the row, or this
+// teaches the reader to scroll past banners, which costs exactly what the
+// banner was introduced to buy. What changed is that these three all ask, and
+// asking is what obliges the wait.
+//
+// ARMING IS SEPARATE FROM WAITING, and both are asserted because they are
+// different claims. Waiting is what any offer does; arming asserts an
+// obligation that outlives the turn, and belongs only to finished work — which
+// a green phase, a green bug fix and a green hotfix each are.
+test('every skill that renders at the end of its work arms and waits', () => {
+  for (const name of RENDERS) {
+    const text = skillText(name)
+    assert.match(text, /## ⏸ Review ready|`\/spec-next` §5 owns the sequence/, `${name} waits`)
+    assert.match(text, /spec-env review arm/, `${name} arms the gate`)
   }
+})
+
+// The reason arming is user-visible, said where the person changing it will
+// meet it: a commit in that worktree is refused until the verdict or the skip.
+test('the two that newly arm say what arming costs the operator', () => {
+  for (const name of ['spec-bug', 'spec-hotfix']) {
+    const text = skillText(name)
+    assert.match(text, /a `git commit` in\s*\n?this worktree is refused/i, name)
+    assert.match(text, /review skip "<reason>"/, `${name} names the exit`)
+  }
+})
+
+// --- the set-level guard ----------------------------------------------------
+
+/**
+ * THE GUARD THAT WOULD HAVE CAUGHT THE ORIGINAL GAP, and the reason it is over
+ * the SET rather than per skill.
+ *
+ * `/spec-bug` and `/spec-hotfix` each rendered a page and finished — no arm, no
+ * watch, a row asking a question nobody was listening for. Neither was a slip
+ * in one file: the contract sanctioned the shape, so a per-skill test would
+ * have been written to match whatever each skill happened to do. Discovering
+ * the set from disk is what makes a NEW skill that renders and walks away a red
+ * test on the day it is written, rather than the day someone notices.
+ *
+ * WHAT WOULD FOOL THIS: it keys on the render command appearing in the file, so
+ * a skill that renders through some other spelling is invisible to it. The
+ * failure that produces is a missed skill, never a false accusation — and the
+ * roster below is checked against disk, so a skill dropping out of the set is
+ * itself caught.
+ */
+
+// Skills that mention the render command but are not offering a review, with
+// the reason each is exempt. A name may only sit here with a reason.
+const NOT_OFFERING = {
+  // `/spec-start` is deliberately NOT here. It stands the review server up and
+  // renders nothing, so the scan never sees it — and an exemption that grants
+  // nothing is dead weight that reads as coverage. The stays-silent test below
+  // is what pins that, and it asserts the absence rather than excusing it.
+  //
+  // It IS the pickup path — it claims a pass someone already sent. Waiting for
+  // a pass while holding one is the thing it exists to end.
+  'spec-reviewed': 'claims a pass that has already arrived',
+}
+
+function rendersAPage(name) {
+  return /skitterspec spec-env review </.test(skillText(name))
+}
+
+test('every skill that renders a page waits for the verdict, or is exempt with a reason', () => {
+  const dir = path.join(ASSETS, 'skills')
+  const all = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md')))
+    .map((e) => e.name)
+    .sort()
+
+  const renders = all.filter(rendersAPage)
+  assert.ok(renders.length >= 3, `found ${renders.length} rendering skills — the scan is not working`)
+
+  const silent = []
+  for (const name of renders) {
+    if (name in NOT_OFFERING) continue
+    const text = skillText(name)
+    const waits =
+      /## ⏸ Review ready/.test(text) ||
+      /`\/spec-next` §5 owns the sequence/.test(text) ||
+      /asking implies waiting/i.test(text)
+    if (!waits) silent.push(name)
+  }
+  assert.deepStrictEqual(
+    silent,
+    [],
+    'a skill that renders a page must wait for the verdict, or be listed in NOT_OFFERING with a reason',
+  )
+})
+
+// The exemption list is checked against disk, so a name that stops shipping —
+// or stops rendering — cannot sit there forever granting nothing.
+test('every exemption is still load-bearing', () => {
+  for (const [name, why] of Object.entries(NOT_OFFERING)) {
+    assert.ok(
+      fs.existsSync(path.join(ASSETS, 'skills', name, 'SKILL.md')),
+      `${name} is exempted but no longer ships`,
+    )
+    assert.ok(rendersAPage(name), `${name} is exempted but no longer mentions the render — drop it`)
+    assert.ok(why.length > 10, `${name} needs a real reason, not a placeholder`)
+  }
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). `/spec-start` stands the review
+// server up and renders nothing. It is the healthy-but-unusual input for the
+// scan above, and accusing it would make the guard fire at a skill doing
+// exactly what it should.
+test('stays silent: /spec-start starts the server without owing a verdict', () => {
+  const text = skillText('spec-start')
+  assert.match(text, /spec-env review serve/, 'it does stand the server up')
+  assert.doesNotMatch(text, /skitterspec spec-env review </, 'and it renders no page')
+  assert.doesNotMatch(text, /## ⏸ Review ready/, 'so it has no banner and needs none')
 })

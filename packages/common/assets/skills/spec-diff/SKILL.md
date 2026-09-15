@@ -401,6 +401,31 @@ Add `--json` to get the file list, totals and the page path back as data. The
 page is written to `.spec-env/reviews/<spec>.html`, which is gitignored — it
 leaves no trace in the branch under review.
 
+**Declare the button set when the work is unfinished.** A page rendered part-way
+through a run takes `--buttons midrun`, and offers `Continue` — *I have read it,
+carry on* — in place of `Commit` and `Commit & Continue`:
+
+```
+skitterspec spec-env review <spec> --buttons midrun
+```
+
+**It is a statement about the work, never a reading of the gate.** Ask whether
+the thing you just rendered is *finished*: a phase that ended, a bug fix that is
+green, a spec about to land — committing set, which is the default, so pass
+nothing. Half a phase, a hand edit, a colleague's branch mid-flight, anything
+the operator asked to look at while it is still moving — `midrun`.
+
+**Do not derive it from whether the gate is armed.** That is tidier and wrong: a
+project running `review.required: false` never arms at all, so every one of its
+pages would lose the committing buttons and its reader could never commit from
+the page. The caller knows what it rendered; the gate only knows whether the
+project opted into gating.
+
+`Continue` is not the removed `none` verdict. `none` recorded itself and did
+nothing; `Continue` **resumes the run**, so it still names an action. What it
+cannot do is commit, or clear a gate a finished phase armed — that takes a
+committing verdict or a recorded skip.
+
 **On `--page-only`, stop here** and report the path.
 
 ## 4a. Read the `reader:` line — never sniff for it yourself
@@ -439,7 +464,7 @@ operator settle where they are reading, and an explicit value is believed withou
 sniffing. `review.serveOnRemote` (default `true`) settles whether the engine may
 act on it.
 
-## 4b. Wait for the verdict, where the harness can watch a file
+## 4b. Wait for the verdict — because asking for one means waiting for it
 
 A served page can hand its pass back the moment it is pressed. Without a wait,
 that pass lands in the holding area and stops — nothing happens until someone
@@ -448,10 +473,28 @@ acts joined only by the operator remembering.
 **This is the step that joins them**, and it is this skill's, so `/spec-next` can point here rather than
 keeping a second copy.
 
-**Wait when the page was served and the reader is going to read it now.** That
-is the phase-end case, and an operator who says they will look later. Do not
-wait on a bare `--page-only`, on a render nobody asked to be woken about, or
-when the pass has already arrived — there is nothing to wait for.
+**The rule is `.claude/rules/spec-reports.md`'s: asking implies waiting.** If
+this render asks the reader for a verdict, it waits for one. If it is not going
+to wait, it does not ask — the report names the page and its size and stops
+there. There is no third option, and in particular there is no *ask now, notice
+later*: that is the shape that stranded two passes on one spec, where the run
+said the page was **ready** rather than that it was **waiting**.
+
+**So the question is not "can I watch a file".** It is "am I asking?" — and the
+transport only decides what carries the answer back:
+
+- **A served page** posts to the local store; a file-watch sees it, and the
+  steps below are that watch.
+- **A `file://` page** has nothing to post to, so the reader pastes the pass and
+  their next message carries it. Say you are holding and **end the turn** — that
+  is the same wait, carried by the conversation. It is not a lesser one.
+- **A published page** writes to the artifact's own store, which nothing reaches
+  from here. That is the one case where the honest sentence is *press a verdict,
+  then type `/spec-reviewed`* — see the published-page paragraph below.
+
+**Do not ask, and therefore do not wait, on a render nobody is waiting behind** —
+a bare `--page-only`, a page produced alongside other work, a pass that has
+already arrived. Those get the `Review` row, no question, and nothing is owed.
 
 1. **Note the moment**, as an ISO timestamp, before you start. That instant is
    the entire scope of what may be claimed without a person naming it.
@@ -492,9 +535,15 @@ Where the page is published, say plainly that `/spec-reviewed` is what picks it
 up.
 
 **`/spec-reviewed` is not replaced by this.** It stays the way in for a pass
-that arrived when nobody was waiting, for the two-passes case, for every
-published page, and for every harness with no file-watch at all. It is user-only, and that is still the
+that arrived when nobody was waiting, for the two-passes case, and for every
+published page. It is user-only, and that is still the
 enforcement that makes a named claim a person's decision.
+
+**A harness with no file-watch is no longer on that list**, and that is the
+change. It used to be — the row and `/spec-reviewed` were "the whole story",
+which read as permission to ask without waiting. Now the turn ending is the
+wait, and every harness can end a turn; `/spec-reviewed` remains available
+there, as it is everywhere, for a pass nobody was holding for.
 
 ## 5. Offer the written review — say what it costs first
 

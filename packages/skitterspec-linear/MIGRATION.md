@@ -1,5 +1,39 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v21 → v22 (a bug fix now owes a verdict)
+
+### Behaviour change
+
+**`/spec-bug` and `/spec-hotfix` now arm the review gate**, as `/spec-next`
+already did. Both render the page at the end of red→green work, and both now
+wait for your verdict instead of finishing — so in that spec's worktree a
+`git commit` is **refused** until one of two things happens:
+
+- you send a verdict from the page (or `/spec-reviewed` picks up one already
+  waiting), or
+- you run `skitterspec spec-env review skip "<reason>"`, which records the
+  decision to move on.
+
+Nothing else changes: the gate is still only armed by work that **finished**, it
+still fails open on every cannot-tell, and `review.required: false` in
+`specs/.core/env.config.json` still turns it off for a project.
+
+**Why.** Those two skills used to render the page, ask *"want a written review
+before you commit?"* and finish with nothing watching. A verdict pressed on that
+page sat in the holding area until someone typed `/spec-reviewed` — which they
+had no reason to do, because the run had said the page was *ready* rather than
+that it was *waiting*. Two verdicts were stranded that way on one spec, and the
+second existed only because the first appeared to do nothing.
+
+### New, and not breaking
+
+**A page rendered part-way through a run offers `Continue`** — *I have read it,
+carry on* — instead of the committing buttons, via
+`spec-env review <spec> --buttons midrun`. The default is unchanged, so a caller
+that passes nothing renders exactly the page it rendered before. `Continue` can
+never clear an armed gate: that still takes a committing verdict or a recorded
+skip.
+
 ## `@skitterbyte/skitterspec` v20 → v21 (the review gate actually installs)
 
 If you upgraded to v20 and the commit gate never once fired, this is why. Two

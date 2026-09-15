@@ -269,6 +269,12 @@ skitterspec spec-env review <spec>
 the diff never passes through you, so a 266KB patch costs nothing. Report the
 path it prints and move on.
 
+**This render takes the committing button set**, which is the default — so
+`--buttons` is not passed. That is a statement about the work, not about the
+gate: the phase is finished, so `Commit` and `Commit & Continue` are the right
+verbs for it. A render part-way through a run takes `--buttons midrun` and
+offers `Continue` instead; `/spec-diff` owns that case.
+
 **Then arm the gate**, so the phase now owes a verdict:
 
 ```
@@ -313,10 +319,15 @@ else.
 
 ---
 
-**Where you are not waiting, it stays the `Review` row** — the counts, the page
-link and a question, in one row:
+**Where you are not waiting, it stays the `Review` row** — the counts and the
+page link, and **no question**:
 
 | **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) |
+
+At the end of a phase you are always waiting, so this shape belongs to the
+renders that are not this step: a mid-phase `/spec-diff`, a page produced
+alongside other work. A row cannot be waited on, so a question in one is
+unanswerable however findable it is.
 
 **Both shapes are addressed to someone, and that is the constraint.** The offer
 was once a fenced block of engine output: two quoted lines under the test
@@ -376,9 +387,15 @@ is that the page can now act, so the token has become a credential rather than
 a convenience — and `--claim-since` refusing to choose between two passes is
 what stops a race becoming a wrong commit.
 
-**Where the harness cannot watch a file, change nothing.** The `Review` row and
-`/spec-reviewed` are the whole story, exactly as before. The gate still holds
-either way: it is the engine's, not the watch's.
+**Where the harness cannot watch a file, you still wait** — the turn ending is
+the wait. Say the page is rendered and that you are holding for the pass, then end
+your turn; the reader's next message is what carries it, and `/spec-diff` picks
+it up from the paste exactly as it always has. The gate holds either way: it is
+the engine's, not the watch's.
+
+This once read *"change nothing"* — keep the row, keep the question, do not
+wait — and that exemption is the hatch a whole class of unanswerable questions
+came through. Every harness can end a turn.
 
 **It still does not break a chained run.** `/commit && /spec-next` is typed as
 one line; by the time this step is reached the chain has finished, so waiting

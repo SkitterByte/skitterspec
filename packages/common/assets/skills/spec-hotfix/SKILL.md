@@ -216,7 +216,7 @@ is a no-op.
 
 <!-- seam:spec-tracker-progress -->
 
-## 6b. Render the page — then offer the review, never write it
+## 6b. Render the page, arm the gate, then wait for the verdict
 
 **Only when the project has per-spec isolation** (`specs/.core/env.config.json`
 present). Without it there is no worktree to read and this step does not exist —
@@ -232,28 +232,33 @@ skitterspec spec-env review <spec>
 **This is free.** The engine reads git and splices the patches into a template;
 the diff never passes through you, so a 266KB patch costs nothing.
 
-**Then offer `/spec-diff`. Do not run it.** The written review is the part that
-costs — roughly **700 output tokens**, because writing it means reading the diff
-— and that spend is the operator's call, not a default.
+**Then arm the gate**, so the fix now owes a verdict:
 
-**The offer is the `Review` row of step 6's block** — the counts, the page link
-and a question, in one row:
+```
+skitterspec spec-env review arm <spec>
+```
 
-| **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) |
+**Then wait**, and `/spec-next` §5 owns the sequence — follow it there rather
+than reading a second copy here: note the moment you start waiting, watch the
+pending store, end your turn, and let `--claim-since` pick the one pass that
+arrived inside the window. The banner it describes is what this skill emits in
+place of a `Review` row, and the routing on the verdict is `/spec-diff` §2 and
+§4, as it is everywhere.
 
-**It ends in a question, addressed to someone.** It was once a fenced block of
-engine output, and it fired on every phase and was never once taken: two quoted
-lines under the test counts, addressed to nobody, with the report then closing
-on *"commit this first"* — the last instruction the reader got was to move on,
-so they did. A row in a labelled table is findable; a question in it is
-answerable. Both halves are load-bearing.
+**Why this skill arms as well as waits.** Waiting is what any offer does;
+**arming** asserts an obligation that outlives the turn, and belongs only to
+work that is finished. A hotfix is a completed unit — red→green against a
+released tag — so it qualifies, and a wait with nothing owed behind it is a
+suggestion rather than a gate.
 
-**Never bury it and never split it.** It sits above `Follow-ups` and `Next`, and
-the page and the question stay in the same row: two adjacent rows about one page
-make the reader resolve a distinction before acting on either. A later edit that
-moves it out of the block, or separates the link from the question, undoes this
-and should be read as a regression rather than tidying.
+**A hotfix is the case where reading it matters most.** This change is about to
+be tagged and shipped to production from a release line, not merged into a
+branch someone else will read first. The verdict is the only review it gets.
 
+**It is user-visible, and that is deliberate.** Once armed, a `git commit` in
+this worktree is refused until a verdict is sent or
+`skitterspec spec-env review skip "<reason>"` records the decision to move on.
+The exit is always one command, and one of them is *"I am moving on"*.
 
 Relay the **`open:`** line rather than the bare path: a path is not clickable in
 any terminal, and a page nobody can open is a page nobody reads.
@@ -321,10 +326,16 @@ the shape; this section carries only what is specific here.
 **Fields:** `Tracker` · `Branch` · `Spec` · `Cause` · `Built` · `Tests` ·
 `Review` · `Follow-ups` · `Next`
 
+**`Review` is emitted only where step 6b did not run** — a project with no
+isolation, or a render that failed. Where the run is waiting, the banner carries
+the whole subject and the row is dropped, per `.claude/rules/spec-reports.md`.
+
 **The base tag goes in the verdict clause** — `✅ /spec-hotfix · hotfix-foo ·
 green on v2.3.1`. Which released version this was fixed against is the first
 thing anyone needs, and it is not a field: the clause is where the run says
 where it got to.
 
-Step 6b's offer is the `Review` row, not a paragraph after the block — the
-counts, the link and the question in one row. Nothing follows the block.
+Step 6b ends in the **banner**, not a paragraph and not a row — the run is
+waiting on a verdict, and the banner is the shape that says so. Nothing follows
+it. Where the run is not waiting it asks nothing at all: a `Review` row carries
+the counts and the link, and no question (*asking implies waiting*).
