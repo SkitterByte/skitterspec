@@ -136,7 +136,7 @@ test('an unknown verdict is refused by name rather than read as discuss', () => 
   for (const bad of ['aprove', 'APPROVE', '', 'reject', 3, true, ['commit']]) {
     assert.throws(
       () => parse({ verdict: bad }),
-      /verdict .* is not one of commit, commit-continue, changes, discuss/,
+      /verdict .* is not one of commit, commit-continue, continue, changes, discuss/,
       `should refuse ${JSON.stringify(bad)}`,
     )
   }
@@ -519,8 +519,8 @@ test('annotateLastDecision touches only the last entry', () => {
 // review page that did not describe what it does, and a review is the guard in
 // front of an action.
 
-test('the four verdicts are the actions, and an absent one still means discuss', () => {
-  assert.deepStrictEqual(VERDICTS, ['commit', 'commit-continue', 'changes', 'discuss'])
+test('the five verdicts are the actions, and an absent one still means discuss', () => {
+  assert.deepStrictEqual(VERDICTS, ['commit', 'commit-continue', 'continue', 'changes', 'discuss'])
   assert.strictEqual(DEFAULT_VERDICT, 'discuss')
   for (const v of VERDICTS) assert.strictEqual(parse({ verdict: v }).verdict, v)
   // Compatibility, not taste: an absent verdict has meant discuss since
@@ -605,6 +605,140 @@ test('commit-continue says what it will do after committing', async () => {
     const json = await reviewJson(dir, '--notes', blobFile(dir, { verdict: 'commit-continue' }))
     assert.strictEqual(json.verdict.effective, 'commit-continue')
     assert.strictEqual(json.verdict.honoured, true)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// --- `continue`: the mid-run verdict ----------------------------------------
+
+test('continue is a verdict, and is deliberately not a committing one', () => {
+  const { VERDICTS, COMMITTING } = require('../src/env/review.js')
+  assert.ok(VERDICTS.includes('continue'), 'the engine accepts the word')
+  assert.ok(
+    !COMMITTING.includes('continue'),
+    'and it is structurally incapable of clearing a gate, rather than merely not doing so',
+  )
+})
+
+test('a continue pass is stored, claimed and replayed like any other', async () => {
+  const { dir } = scaffold()
+  try {
+    const said = await review(dir, '--notes', blobFile(dir, {
+      verdict: 'continue',
+      comments: [{ id: 'c1', file: 'app.js', note: 'worth a look later' }],
+    }))
+    assert.match(said, /read — carrying on, nothing committed/)
+
+    const json = await reviewJson(dir)
+    assert.strictEqual(json.verdict, undefined, 'a render with no pass reports no verdict')
+
+    // The marks it arrived with are stored exactly as any other pass's are.
+    const notes = notesOf(dir)
+    assert.strictEqual(notes.comments.length, 1)
+    assert.strictEqual(notes.comments[0].note, 'worth a look later')
+    // And the decision is in the log as itself, not relabelled.
+    assert.strictEqual(notes.decisions[notes.decisions.length - 1].verdict, 'continue')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('an open note does not block continue — the page must not out-refuse the engine', () => {
+  // `changes` and `discuss` are always available because a note you want acted
+  // on, and a question, are never the wrong thing to send. `continue` joins
+  // them: the single refusal this engine makes is about COMMITTING, and
+  // widening it here would make the page's disabled button a second opinion.
+  const notes = notesWith([{ id: 'c1', file: 'app.js', note: 'this first' }])
+  const judged = judgeVerdict('continue', notes)
+  assert.strictEqual(judged.honoured, true)
+  assert.strictEqual(judged.effective, 'continue')
+  assert.strictEqual(judged.openCount, 1, 'the note is still counted and reported')
+})
+
+test('a continue pressed against an armed gate leaves it armed', async () => {
+  const { dir } = scaffold()
+  try {
+    await runQuiet(['spec-env', 'review', 'arm', 'feat-alpha', '--dir', dir, '--phase', '1'])
+    const armed = JSON.parse(await runQuiet(['spec-env', 'review', 'gate', 'feat-alpha', '--dir', dir, '--json']))
+    assert.strictEqual(armed.state, 'armed', 'the gate is the thing under test — it must start armed')
+
+    const said = await review(dir, '--notes', blobFile(dir, { verdict: 'continue' }))
+    assert.doesNotMatch(said, /gate/i, 'nothing about the gate was touched')
+
+    const after = JSON.parse(await runQuiet(['spec-env', 'review', 'gate', 'feat-alpha', '--dir', dir, '--json']))
+    assert.strictEqual(
+      after.state,
+      'armed',
+      'a phase that ended still owes a committing verdict or a recorded skip',
+    )
+
+    // And the contrast, so this asserts something about `continue` rather than
+    // about a gate nothing can clear.
+    await review(dir, '--notes', blobFile(dir, { verdict: 'commit' }))
+    const cleared = JSON.parse(await runQuiet(['spec-env', 'review', 'gate', 'feat-alpha', '--dir', dir, '--json']))
+    assert.strictEqual(cleared.state, 'clear', 'a committing verdict is what clears it')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// --- the button set ---------------------------------------------------------
+
+test('the button set is declared by the render, and an unknown one is refused by name', async () => {
+  const { dir } = scaffold()
+  try {
+    const said = await review(dir, '--buttons', 'midrun')
+    assert.match(said, /2 files/, 'the page is rendered exactly as it is without the flag')
+    const json = await reviewJson(dir, '--buttons', 'midrun')
+    assert.strictEqual(json.buttons, 'midrun')
+
+    const bad = await review(dir, '--buttons', 'mid-run')
+    assert.match(bad, /--buttons "mid-run" is not one of committing, midrun/)
+    assert.match(bad, /nothing rendered/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). The payload is the only part of a
+// render that varies — the template is the same bytes for every page — so a
+// payload that gains no key is a page that renders as it rendered before any of
+// this existed. Naming the default explicitly must be the same thing as not
+// asking, or `--buttons committing` would quietly become an opt-in.
+test('stays silent: a render with no flag, and one naming the default, add no key at all', async () => {
+  const { dir } = scaffold()
+  try {
+    const bare = await reviewJson(dir)
+    assert.ok(!('buttons' in bare), 'a caller that did not ask renders what it always rendered')
+
+    const named = await reviewJson(dir, '--buttons', 'committing')
+    assert.ok(!('buttons' in named), 'asking for the default is not an opt-in')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// The rejected alternative in decision 4: deriving the set from the gate is
+// tidier and wrong, because a project that opted out never arms and would
+// therefore never be offered a committing verdict at all.
+test('the button set follows the flag and not the gate, including where the gate never arms', async () => {
+  const { dir } = scaffold()
+  try {
+    // A project that opted out of gating entirely.
+    const cfg = path.join(dir, 'specs', '.core', 'env.config.json')
+    const config = JSON.parse(fs.readFileSync(cfg, 'utf8'))
+    config.review = { ...config.review, required: false }
+    fs.writeFileSync(cfg, JSON.stringify(config, null, 2))
+
+    const gate = JSON.parse(await runQuiet(['spec-env', 'review', 'gate', 'feat-alpha', '--dir', dir, '--json']))
+    assert.notStrictEqual(gate.state, 'armed', 'this project never arms — that is the point of the case')
+
+    const committing = await reviewJson(dir)
+    assert.ok(!('buttons' in committing), 'and its pages still offer the committing set')
+
+    const midrun = await reviewJson(dir, '--buttons', 'midrun')
+    assert.strictEqual(midrun.buttons, 'midrun', 'while the flag, and only the flag, moves it')
   } finally {
     cleanup(dir)
   }

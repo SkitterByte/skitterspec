@@ -217,7 +217,8 @@ function fakeDom(islandText) {
   for (const id of [
     'title', 'sub', 'files', 'tree', 'tree-wrap', 'tree-summary',
     'expand-all', 'collapse-all', 'show-noise', 'noise-label', 'theme', 'review-block',
-    'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-changes', 'verdict-discuss',
+    'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-continue',
+    'verdict-changes', 'verdict-discuss',
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
     'sent-cmd', 'sent-cmd-text', 'sent-cmd-copy',
     'context', 'context-why', 'context-more', 'context-more-summary', 'context-rest',
@@ -1635,4 +1636,79 @@ test('a working copy says so rather than claiming a version', () => {
   const released = fixture()
   released.engine = '18.0.0'
   assert.match(runPage(released).byId['drawn-by'].textContent, /skitterspec 18\.0\.0/)
+})
+
+// --- the button set ---------------------------------------------------------
+
+// The set is DECLARED by the render, not derived from the gate — see
+// `BUTTON_SETS` in `env/review.js` for why deriving it is wrong.
+
+test('a mid-run page offers Continue instead of the committing pair', () => {
+  const dom = runPage(marked({ buttons: 'midrun' }))
+  assert.strictEqual(dom.byId['verdict-continue'].hidden, false, 'Continue is offered')
+  assert.strictEqual(dom.byId['verdict-commit'].hidden, true, '"commit" is the wrong verb for unfinished work')
+  assert.strictEqual(dom.byId['verdict-commit-continue'].hidden, true)
+  // The two that ask for something are in BOTH sets — a note you want acted on,
+  // and a question, are never the wrong thing to send at any point in a run.
+  assert.strictEqual(dom.byId['verdict-changes'].hidden, false)
+  assert.strictEqual(dom.byId['verdict-discuss'].hidden, false)
+})
+
+test('Continue sends its own verdict, and the engine accepts it', () => {
+  const dom = runPage(marked({ buttons: 'midrun' }))
+  const blob = copyBlob(dom, 'continue')
+  assert.strictEqual(blob.verdict, 'continue', 'the page sends what its button carries')
+  assert.strictEqual(accepted(blob).verdict, 'continue', 'and the engine reads it back unchanged')
+})
+
+test('Continue is never blocked by an open note, exactly as the engine is not', () => {
+  // The engine refuses only a COMMITTING verdict against an open comment, and
+  // `continue` is deliberately not one. A disabled button here would be the
+  // page holding a second opinion about a refusal the engine does not make.
+  const dom = runPage(marked({ buttons: 'midrun' }))
+  gutters(dom).find((g) => g.textContent.includes('+')).dispatch('click')
+  writeNote(findAll(dom.byId.files, 'note-input')[0], 'worth a look later')
+  assert.strictEqual(dom.byId['verdict-continue'].disabled, false)
+  assert.strictEqual(accepted(copyBlob(dom, 'continue')).verdict, 'continue')
+})
+
+test('a mid-run page says what a clean read does, and it is not committing', () => {
+  assert.strictEqual(countSays(runPage(marked({ buttons: 'midrun' }))), 'Nothing marked — a clean read still carries on')
+  assert.strictEqual(countSays(runPage(marked())), 'Nothing marked — a clean read still commits')
+})
+
+test('a verdict this render never offered cannot be reached by dispatching at it', () => {
+  // The button set is a fact, not a style — the same rule the disabled block
+  // already follows. A browser will not fire a hidden control; every other
+  // caller is what this guards.
+  const dom = runPage(marked({ buttons: 'midrun' }))
+  const before = dom.copied.length
+  dom.byId['verdict-commit'].dispatch('click')
+  assert.strictEqual(dom.copied.length, before, 'nothing was emitted')
+  assert.strictEqual(dom.byId['copy-out'].hidden, true, 'and no fallback textarea either')
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). A page that did not opt in is the
+// page it has always been: same four controls, same labels, same states — and
+// the mid-run control is not merely dimmed on it, it is absent.
+test('stays silent: a render with no button set is the committing page, unchanged', () => {
+  const dom = runPage(marked())
+  assert.strictEqual(dom.byId['verdict-commit'].hidden, false)
+  assert.strictEqual(dom.byId['verdict-commit-continue'].hidden, false)
+  assert.strictEqual(dom.byId['verdict-changes'].hidden, false)
+  assert.strictEqual(dom.byId['verdict-discuss'].hidden, false)
+  assert.strictEqual(dom.byId['verdict-continue'].hidden, true, 'and Continue is not on it at all')
+  assert.strictEqual(dom.byId['verdict-commit'].textContent, '✓ Commit')
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false)
+})
+
+// And the rejected alternative in decision 4, on the page's side of the wire: a
+// project running `review.required: false` never arms, and its pages must still
+// offer a commit.
+test('an unarmed gate does not take the committing buttons away', () => {
+  const dom = runPage(marked())
+  assert.strictEqual(dom.byId['verdict-commit'].hidden, false)
+  const armed = runPage(marked({ gate: { state: 'armed', phase: 1, armedAt: 'T' }, buttons: 'midrun' }))
+  assert.strictEqual(armed.byId['verdict-continue'].hidden, false, 'and an armed one does not force them on')
+  assert.strictEqual(armed.byId['verdict-commit'].hidden, true)
 })

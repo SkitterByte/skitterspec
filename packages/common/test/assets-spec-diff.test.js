@@ -648,8 +648,11 @@ test('discuss opens a conversation rather than ending one', () => {
 
 test('the engine speaks the words the prose routes on', () => {
   // The positive half: prose can only route on verdicts that exist.
+  //
+  // `continue` is in the vocabulary from the engine's side; the `/spec-diff`
+  // prose that routes on it lands with the skills, not here.
   const { VERDICTS, COMMITTING } = require('../src/env/review.js')
-  assert.deepStrictEqual(VERDICTS, ['commit', 'commit-continue', 'changes', 'discuss'])
+  assert.deepStrictEqual(VERDICTS, ['commit', 'commit-continue', 'continue', 'changes', 'discuss'])
   assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue'])
   const { DEFAULT_CONFIG } = require('../src/env/config.js')
   assert.strictEqual(DEFAULT_CONFIG.review.commitWith, '/commit')

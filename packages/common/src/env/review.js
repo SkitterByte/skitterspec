@@ -230,8 +230,11 @@ function resolveReader(config, env = {}) {
  * `fellBack` records that `branch` was reached because the working tree was
  * clean, not because the caller asked for it — see the fallback in
  * `specEnvReview` (`cli.js`).
+ *
+ * `buttons` is the button set the page renders — see `BUTTON_SETS`. It is the
+ * caller's declaration about the work, not a reading of the gate.
  */
-function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false }) {
+function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false, buttons = null }) {
   const files = []
   for (const f of trackedFiles(git, ref)) {
     const { patch, whole } = patchFor(git, ref, f, false)
@@ -301,6 +304,10 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     // Same rule again: a gate that was never armed and never skipped adds no
     // key at all.
     ...(gateForPage(gate) ? { gate: gateForPage(gate) } : {}),
+    // THE DEFAULT ADDS NO KEY, so a caller that did not ask for a button set —
+    // and a caller that asked for the default by name — renders the payload it
+    // rendered before this existed. Opting in is the only thing that shows.
+    ...(buttons && buttons !== DEFAULT_BUTTON_SET ? { buttons } : {}),
     // WHICH ENGINE DREW THIS PAGE. The render is always current — the git reads
     // happen per request — so a page rendered by a stale process looks entirely
     // right: the counts move, `generatedAt` moves, the diff is correct. Only the
@@ -399,15 +406,45 @@ const NOTES_VERSION = 1
  * `discuss` is the default because it is the behaviour that existed before any
  * verdict did. So a blob from an older page, or one a reader sent without
  * choosing, keeps doing exactly what it always did.
+ *
+ * `continue` is the mid-run verdict: *I have read it, carry on*. It names an
+ * action, which is what separates it from the `none` verdict that was removed —
+ * `none` recorded itself and did nothing, while this one resumes the run. What
+ * it does NOT do is commit, so it is deliberately absent from `COMMITTING`
+ * below and is therefore structurally incapable of clearing an armed gate: a
+ * phase that ended still owes a committing verdict or a recorded skip.
  */
-const VERDICTS = ['commit', 'commit-continue', 'changes', 'discuss']
+const VERDICTS = ['commit', 'commit-continue', 'continue', 'changes', 'discuss']
 const DEFAULT_VERDICT = 'discuss'
 
 // The verdicts that COMMIT, and are therefore blocked by an open comment. One
-// list, so a fourth verdict cannot become a way around the single refusal this
+// list, so a fifth verdict cannot become a way around the single refusal this
 // engine makes — adding a committing verdict means adding it here, and the
 // block follows for free.
+//
+// `continue` IS DELIBERATELY NOT HERE, and that omission is the whole of
+// decision 2: waiting is what any offer does, while arming asserts an
+// obligation that outlives the turn. A mid-run reader saying "carry on" has
+// answered the offer in front of them and nothing else, so the gate a finished
+// phase armed must survive it untouched.
 const COMMITTING = ['commit', 'commit-continue']
+
+/**
+ * Which set of buttons a rendered page shows.
+ *
+ * DECLARED BY THE CALLER, NEVER DERIVED FROM THE GATE. Deriving it — mid-run
+ * iff the gate is unarmed — is tidier and wrong: a project running
+ * `review.required: false` never arms at all, so every one of its pages would
+ * lose the committing buttons and the reader could never commit from the page.
+ * The caller knows whether the work it just rendered is finished; the gate only
+ * knows whether this project opted into gating.
+ *
+ * `committing` is the default, so a caller that says nothing keeps today's page
+ * exactly — the key is left off the payload entirely rather than written out as
+ * the default, so an unchanged caller renders an unchanged page.
+ */
+const BUTTON_SETS = ['committing', 'midrun']
+const DEFAULT_BUTTON_SET = 'committing'
 
 /**
  * What an older sidecar's `approve` means now. Pure.
@@ -1465,6 +1502,8 @@ module.exports = {
   NOTES_VERSION,
   VERDICTS,
   COMMITTING,
+  BUTTON_SETS,
+  DEFAULT_BUTTON_SET,
   readVerdict,
   DEFAULT_VERDICT,
   DELETED_HASH,

@@ -76,6 +76,8 @@ const {
   mergeNotes,
   applyResolutions,
   COMMITTING,
+  BUTTON_SETS,
+  DEFAULT_BUTTON_SET,
   reviewGatePath,
   readGate,
   writeGate,
@@ -1633,6 +1635,9 @@ function verdictSaid(v) {
   // thing that will happen to the repo and the reader should see it coming.
   if (v.effective === 'commit') return `committing with ${v.commitWith}`
   if (v.effective === 'commit-continue') return `committing with ${v.commitWith}, then the next phase`
+  // Names what it does NOT do, because the reader of a mid-run page has just
+  // pressed a green button and must not read it as a commit.
+  if (v.effective === 'continue') return 'read — carrying on, nothing committed'
   if (v.effective === 'changes') return 'changes requested'
   return 'discuss first'
 }
@@ -1827,6 +1832,20 @@ function specEnvReviewSkip(dir, config, reason, flags) {
 }
 
 async function specEnvReview(dir, config, specArg, flags) {
+  // REFUSED BY NAME, never coerced to the default. A typo'd button set silently
+  // rendering the committing page is the same failure the verdict validator
+  // refuses for the same reason: a caller asking for the mid-run page and
+  // getting the committing one would offer a reader a commit on unfinished
+  // work, and nothing would have said so.
+  if (flags.buttons !== null && !BUTTON_SETS.includes(flags.buttons)) {
+    process.stdout.write(
+      `spec-env review: --buttons ${JSON.stringify(flags.buttons)} is not one of ` +
+        `${BUTTON_SETS.join(', ')} — nothing rendered.\n`,
+    )
+    return
+  }
+  const buttons = flags.buttons || DEFAULT_BUTTON_SET
+
   // An unknown name throws here rather than falling back to the branch: a review
   // of the wrong spec looks exactly like a review of the right one.
   const spec = resolveSpecWithWorktree(dir, config, specArg)
@@ -2166,7 +2185,7 @@ async function specEnvReview(dir, config, specArg, flags) {
   const gate = gateNow.corrupt ? null : gateNow.gate
 
   const now = new Date().toISOString()
-  let data = collectReview({ spec, git, mode, ref, base, now, notes, gate })
+  let data = collectReview({ spec, git, mode, ref, base, now, notes, gate, buttons })
 
   // A CLEAN WORKING TREE IS NOT "NOTHING TO REVIEW". It is the state a phase
   // ends in: the page is rendered before the commit, the commit happens
@@ -2199,6 +2218,7 @@ async function specEnvReview(dir, config, specArg, flags) {
         now,
         notes,
         gate,
+        buttons,
         fellBack: true,
       })
       if (wider.totals.files > 0) {
@@ -2291,6 +2311,10 @@ async function specEnvReview(dir, config, specArg, flags) {
           urlFile,
           url,
           notesFile: reviewNotesPath(out),
+          // Absent stays absent, exactly as it is in the page payload: the
+          // committing set is what a caller that did not ask always got, so
+          // reporting it would make every existing consumer see a new key.
+          ...(data.buttons ? { buttons: data.buttons } : {}),
           reviewed: Boolean(data.review),
           totals: data.totals,
           notes: data.notes,
@@ -3444,6 +3468,7 @@ async function specEnv(rest) {
     outcome: null,
     claim: null,
     drop: null,
+    buttons: null,
     json: false,
   }
   for (let i = 0; i < args.length; i++) {
@@ -3458,6 +3483,7 @@ async function specEnv(rest) {
     else if (args[i] === '--port') flags.port = args[++i]
     else if (args[i] === '--host') flags.host = args[++i]
     else if (args[i] === '--publish-copy') flags.publishCopy = true
+    else if (args[i] === '--buttons') flags.buttons = args[++i]
     else if (args[i] === '--out') flags.out = args[++i]
     else if (args[i] === '--review') flags.review = args[++i]
     else if (args[i] === '--notes') flags.notes = args[++i]
@@ -3556,13 +3582,14 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n' +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +
           '  review skip "<reason>"                 move on without one, on the record\n' +
           '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +
+          '  review [spec] --buttons midrun         the page offers Continue, not a commit\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +

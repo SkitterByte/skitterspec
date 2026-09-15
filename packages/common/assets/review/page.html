@@ -386,7 +386,13 @@ tr.note-row td {
 .verdict-title { font-size: .8rem; color: var(--muted); }
 .verdict-count { font-size: .8rem; color: var(--muted); }
 .v-commit { color: var(--good-fg); background: var(--good-bg); }
+/* Continue borrows the same affirmative pair: it is the mid-run reader saying
+   carry on, and it never appears beside a commit button to be confused with. */
+.v-continue { color: var(--good-fg); background: var(--good-bg); }
 .v-changes { color: var(--flag-fg); background: var(--flag-bg); }
+/* A button the render did not ask for is GONE, not dimmed — a disabled control
+   invites a reader to work out how to enable it, and there is nothing to do. */
+.verdict button[hidden] { display: none; }
 /* A blocked control is dashed as well as dimmed, so the block survives a
    greyscale screen — and the reason rides in the label, never in a tooltip
    nobody hovers on a phone. */
@@ -570,6 +576,12 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
         <span class="verdict-title">Your verdict</span>
         <button id="verdict-commit" class="v-commit" type="button" aria-live="polite">✓ Commit</button>
         <button id="verdict-commit-continue" class="v-commit" type="button" aria-live="polite">✓ Commit &amp; Continue</button>
+        <!-- THE MID-RUN VERDICT, hidden unless the render asked for it. "Commit"
+             is the wrong verb for unfinished work, so a page rendered part-way
+             through a run offers this instead of the committing pair: I have
+             read it, carry on. It is not the removed `none` verdict — that
+             recorded itself and did nothing, while this one resumes the run. -->
+        <button id="verdict-continue" class="v-continue" type="button" hidden>→ Continue</button>
         <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
         <button id="verdict-discuss" type="button">… Discuss first</button>
         <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
@@ -1216,6 +1228,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   var verdictBtns = {
     commit: document.getElementById('verdict-commit'),
     'commit-continue': document.getElementById('verdict-commit-continue'),
+    continue: document.getElementById('verdict-continue'),
     changes: document.getElementById('verdict-changes'),
     discuss: document.getElementById('verdict-discuss'),
   }
@@ -1223,12 +1236,34 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   // here, and the shared block below follows for free — the same reason the
   // engine keeps a `COMMITTING` list rather than a second condition.
   var COMMITTERS = ['commit', 'commit-continue']
-  // ALL FOUR, because this is now the one place a verdict gets a reader-facing
+
+  /*
+   * WHICH BUTTONS THIS PAGE OFFERS, and it comes from the render rather than
+   * from the gate. Deriving it — mid-run iff nothing is armed — would take the
+   * committing buttons away from every page in a project running
+   * `review.required: false`, which never arms and whose readers must still be
+   * able to commit from the page. The engine's `BUTTON_SETS` is the same
+   * decision on the other side of the wire.
+   *
+   * ABSENT IS THE COMMITTING SET. A page rendered before any of this existed,
+   * and a caller that did not ask, both land here — so nothing about their page
+   * changes.
+   */
+  var MIDRUN = data.buttons === 'midrun'
+  var OFFERED = MIDRUN ? ['continue', 'changes', 'discuss'] : ['commit', 'commit-continue', 'changes', 'discuss']
+  Object.keys(verdictBtns).forEach(function (key) {
+    verdictBtns[key].hidden = OFFERED.indexOf(key) === -1
+  })
+
+  // EVERY VERDICT, because this is the one place a verdict gets a reader-facing
   // name: `refresh` relabels only the committing pair, but the decided panel
-  // has to name whichever verdict was actually sent.
+  // has to name whichever verdict was actually sent — including one this page
+  // never offered, since a decision restored from storage outlives the render
+  // that made it.
   var LABELS = {
     commit: '✓ Commit',
     'commit-continue': '✓ Commit & Continue',
+    continue: '→ Continue',
     changes: '↺ Request changes',
     discuss: '… Discuss first',
   }
@@ -1237,6 +1272,9 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     // Says what it will NOT do: a reader must not press this expecting the
     // spec to be finished and landed.
     'commit-continue': 'Commit what you just read, then build the next phase — nothing is landed',
+    // Says what it will NOT do, for the same reason: nothing is committed by
+    // this, so the work it resumes is still uncommitted afterwards.
+    continue: 'You have read it — carry on with the run; nothing is committed',
   }
 
   var verdictCount = document.getElementById('verdict-count')
@@ -1286,7 +1324,9 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     var open = openNotes()
     verdictCount.textContent = n
       ? n + (n === 1 ? ' mark to send' : ' marks to send')
-      : 'Nothing marked — a clean read still commits'
+      // Names the action this page actually offers. A mid-run page saying "a
+      // clean read still commits" would promise the one thing it cannot do.
+      : MIDRUN ? 'Nothing marked — a clean read still carries on' : 'Nothing marked — a clean read still commits'
     // ONE COUNT, BOTH BUTTONS. Two committing controls blocked by two separate
     // reads is how a page ends up with one disabled and the other not — which
     // would be a way around the single refusal this page makes.
@@ -1315,8 +1355,15 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
           : TITLES[key]
     })
     // Said rather than left unset: the committing pair is the ONLY thing this
-    // page ever blocks, and the other two are always available on purpose — a
-    // note you want acted on, and a question, are never the wrong thing to send.
+    // page ever blocks, and the others are always available on purpose — a note
+    // you want acted on, and a question, are never the wrong thing to send.
+    //
+    // CONTINUE IS NOT BLOCKED, and that mirrors the engine rather than softening
+    // it: `judgeVerdict` refuses a COMMITTING verdict against an open note, and
+    // `continue` is deliberately not one. A disabled button here would be a
+    // second opinion about a refusal the engine does not make, which is the one
+    // thing this bar must never be.
+    verdictBtns.continue.disabled = false
     verdictBtns.changes.disabled = false
     verdictBtns.discuss.disabled = false
     save()
@@ -1400,6 +1447,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     approve: 'committed',
     commit: 'committed',
     'commit-continue': 'committed, then carried on',
+    continue: 'read it and carried on',
     changes: 'changes requested',
     discuss: 'discussed',
     skip: 'moved on without a verdict',
@@ -1716,9 +1764,11 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
 
   Object.keys(verdictBtns).forEach(function (verdict) {
     verdictBtns[verdict].addEventListener('click', function () {
-      // A disabled button does not fire in a browser; the guard is for every
-      // other caller, and it keeps the block a fact rather than a style.
-      if (verdictBtns[verdict].disabled) return
+      // A disabled or hidden button does not fire in a browser; the guard is
+      // for every other caller, and it keeps both the block and the button set
+      // facts rather than styles — a verdict this render never offered must not
+      // be reachable by dispatching at it.
+      if (verdictBtns[verdict].disabled || verdictBtns[verdict].hidden) return
       send(verdict)
     })
   })

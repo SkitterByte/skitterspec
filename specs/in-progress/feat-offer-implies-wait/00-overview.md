@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The `Continue` verdict and the button set | ⬜ | [01-continue-verdict.md](01-continue-verdict.md) |
+| 1 | The `Continue` verdict and the button set | ✅ | [01-continue-verdict.md](01-continue-verdict.md) |
 | 2 | The report contract: offer implies wait | ⬜ | [02-report-contract.md](02-report-contract.md) |
 | 3 | The skills that offer | ⬜ | [03-skills-wait.md](03-skills-wait.md) |
 
@@ -128,6 +128,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-09-15 — Spec created, from two verdicts stranded on
   `bug-review-gate-hook-install`.
+- 2026-09-15 — Phase 1: the render flag is `--buttons <committing|midrun>`, and
+  `committing` named explicitly adds no payload key — so asking for the default
+  is byte-identical to not asking, and only opting in ever shows. The `--json`
+  report follows the same absent-stays-absent rule.
+- 2026-09-15 — Phase 1: `continue` is not blocked by an open note. The engine's
+  single refusal is about COMMITTING verdicts, and a disabled button for a
+  refusal the engine does not make would be the page holding a second opinion.
 - 2026-09-15 — Follow-up surfaced while linking this spec: `spec-sync apply`
   hit a Linear 503 part-way, printed "re-run to resume without duplicating",
   and the re-run duplicated — SKS-273 and SKS-274 are the same phase 1. The
