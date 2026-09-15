@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Move the workspace and CI to pnpm 12.4.1, correcting the rationale it falsifies | ✅ | [01-pnpm-12.md](01-pnpm-12.md) |
-| 2 | Pin the dev Node with `.nvmrc` and a guard test | ⬜ | [02-node-pin.md](02-node-pin.md) |
+| 2 | Pin the dev Node with `.nvmrc` and a guard test | ✅ | [02-node-pin.md](02-node-pin.md) |
 
 ## Open questions
 
@@ -169,3 +169,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   simulating its mechanism locally. The action has never run, because this
   repo's CI has never run at all — the remote has not seen a workflow file.
   The real answer comes with `feat-prove-staged-publish`.
+- 2026-09-15 — Phase 2: the extraction took `cmpVersion` and `lowest` as well as
+  `manifestEngines`/`floorOf`. `lowest` is built on `cmpVersion` and the new
+  check needs `cmpVersion` too, so leaving them would have split the version
+  arithmetic across two files — what the extraction existed to prevent.
+- 2026-09-15 — Phase 2: the `.nvmrc` blind spot is sharper than "tolerate odd
+  formats". A bare `22` resolves to the newest 22.x under nvm/fnm and so really
+  does satisfy `>=22.13`; compared as `22.0.0` it would read as below the floor
+  and fail a correct pin. The check therefore returns `ok`/`below`/`unknown`,
+  and a pin less precise than the floor but agreeing on every part it states is
+  `unknown`. Only `below` accuses.

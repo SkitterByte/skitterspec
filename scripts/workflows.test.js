@@ -28,6 +28,8 @@ const assert = require('node:assert')
 const fs = require('node:fs')
 const path = require('node:path')
 
+const { manifestEngines, floorOf, cmpVersion, lowest } = require('./lib/engines.js')
+
 const ROOT = path.join(__dirname, '..')
 const WORKFLOWS = path.join(ROOT, '.github', 'workflows')
 
@@ -63,41 +65,7 @@ function matrixNodeVersions(yaml) {
     .filter(Boolean)
 }
 
-/** "\>=22.13" → "22.13"; anything else → null rather than a guess. */
-function floorOf(range) {
-  const m = /^>=\s*(\d+(?:\.\d+)*)$/.exec(String(range || '').trim())
-  return m ? m[1] : null
-}
-
-function cmpVersion(a, b) {
-  const pa = a.split('.').map(Number)
-  const pb = b.split('.').map(Number)
-  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
-    const d = (pa[i] || 0) - (pb[i] || 0)
-    if (d !== 0) return d
-  }
-  return 0
-}
-
-function lowest(versions) {
-  return versions.slice().sort(cmpVersion)[0] ?? null
-}
-
 // --- the real corpus --------------------------------------------------------
-
-function manifestEngines() {
-  const out = [['package.json', readJson(path.join(ROOT, 'package.json'))]]
-  const pkgs = path.join(ROOT, 'packages')
-  for (const name of fs.readdirSync(pkgs).sort()) {
-    const f = path.join(pkgs, name, 'package.json')
-    if (fs.existsSync(f)) out.push([`packages/${name}/package.json`, readJson(f)])
-  }
-  return out.map(([rel, pkg]) => [rel, pkg.engines && pkg.engines.node])
-}
-
-function readJson(f) {
-  return JSON.parse(fs.readFileSync(f, 'utf8'))
-}
 
 test('every manifest declares the same node floor', () => {
   const engines = manifestEngines()
