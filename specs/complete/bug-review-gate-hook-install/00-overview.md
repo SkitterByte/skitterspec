@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-review-gate-hook-install
-> **Status:** In Progress — fixed (green)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -119,6 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -142,3 +143,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `report.skipped`, so the run rewrote the registration and reported
   "already registered". No unit test could see it — they assert on disk, and the
   disk was right. Fixed, and now asserted on `lastReport()`.
+- 2026-09-15 — Completed; all phases done, tests green (2520 passed).
