@@ -15,6 +15,7 @@
  *   (no flag)   plan     print the ordered plan; touch nothing (dry-run).
  *   --yes       local    bump version, commit, and tag <package>@<version>.
  *   --allow-empty        permit a release in which nothing shippable changed.
+ *   --skip-tests         cut the release without running the suite.
  *
  * It NEVER publishes. Pushing the tag is what publishes: `.github/workflows/
  * release.yml` stages that package on npm by OIDC, and a human approves it with
@@ -148,9 +149,18 @@ function tagName(name, version) {
 // Each step carries an `argv` (the executable form) alongside `cmd` (the pretty
 // display string): argv is what `execute` spawns, so an argument with spaces —
 // e.g. the commit message — stays a single token instead of being re-split.
-function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'plan' }) {
+function buildPlan({
+  name,
+  npm,
+  dirRel,
+  currentVersion,
+  nextVersion,
+  level = 'plan',
+  skipTests = false,
+}) {
   const tag = tagName(name, nextVersion)
   const needsBump = nextVersion !== currentVersion
+  const notesFile = `RELEASES-${name}.md`
   const steps = []
 
   if (needsBump) {
@@ -165,13 +175,39 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
     // Notes BEFORE the stage, so the generated file is committed with the bump.
     // A release that publishes without its notes committed is the ordering
     // failure this prevents — the version would ship and the record would not.
-    const notesFile = `RELEASES-${name}.md`
     steps.push({
       phase: 'local',
       cmd: `node scripts/release-notes.js ${name} ${nextVersion}`,
       argv: ['node', 'scripts/release-notes.js', name, nextVersion],
       desc: `write ${notesFile} from the Release-Note footers`,
     })
+  }
+
+  // THE SUITE RUNS AFTER THE VERSION IS WRITTEN, NOT BEFORE IT — deliberately.
+  //
+  // "Run the tests before you bump" is the intuitive order and it is the one
+  // that misses the failure this step exists for. A guard that reads the
+  // version being released is GREEN until the bump: `migration-guide.test.js`
+  // compares MIGRATION.md against packages/*/package.json, so a major with no
+  // migration entry passes every pre-bump run and fails the instant the bump
+  // lands. skitterspec@20.0.0 and skitterspec-linear@14.0.0 were both cut that
+  // way and had to be fixed on main afterwards.
+  //
+  // So the version on disk must BE the version being released when the suite
+  // runs. Nothing is staged or committed yet at this point, so a red suite
+  // leaves exactly two unstaged files behind — execute() names them.
+  if (!skipTests) {
+    steps.push({
+      phase: 'local',
+      kind: 'verify',
+      cmd: 'pnpm test',
+      argv: ['pnpm', 'test'],
+      desc: 'run the suite against the version being released',
+      restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [],
+    })
+  }
+
+  if (needsBump) {
     steps.push({
       phase: 'local',
       cmd: `git add ${dirRel}/package.json ${notesFile}`,
@@ -225,7 +261,18 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
     `npm run approve ${name} ${nextVersion}   # after the run stages it`,
   ]
 
-  return { name, npm, currentVersion, nextVersion, tag, needsBump, level, steps, followUp }
+  return {
+    name,
+    npm,
+    currentVersion,
+    nextVersion,
+    tag,
+    needsBump,
+    level,
+    skipTests,
+    steps,
+    followUp,
+  }
 }
 
 // --- guards (pure; fed real git output by the CLI) --------------------------
@@ -299,6 +346,9 @@ function formatPlan(plan) {
   if (!plan.needsBump) {
     lines.push(`  note:  version already ${plan.nextVersion} — tagging existing commit, no bump`)
   }
+  if (plan.skipTests) {
+    lines.push('  note:  --skip-tests — the suite will NOT run before this release is cut')
+  }
   lines.push('')
   lines.push('  steps:')
   for (const step of plan.steps) {
@@ -317,6 +367,21 @@ function sh(command, args, root) {
   if (res.status !== 0) {
     throw new Error(`command failed (${res.status}): ${command} ${args.join(' ')}`)
   }
+}
+
+// What a red suite leaves behind, said precisely. The next run refuses on a
+// dirty tree (assertCleanTree), so "fix it and re-run" is not on its own
+// actionable — the bump has to be restored first, and the paths are known.
+function verifyFailureMessage(step) {
+  const head = `${step.cmd} failed — nothing was staged, committed or tagged.`
+  if (!step.restore.length) return `${head} Fix the failures, then re-run.`
+  return (
+    `${head}\n` +
+    '  The version bump and release notes are written but unstaged, and the\n' +
+    '  next run refuses on a dirty tree. Restore them, fix the failures, then\n' +
+    '  re-run:\n' +
+    `    git checkout -- ${step.restore.join(' ')}`
+  )
 }
 
 function gitPorcelain(root) {
@@ -349,6 +414,16 @@ function execute(plan, { root = ROOT, level, allowEmpty = false }) {
     // Execute the pre-tokenized argv, never the display string — an argument
     // with spaces (the commit message) must stay a single token.
     const [command, ...args] = step.argv
+    if (step.kind === 'verify') {
+      try {
+        sh(command, args, root)
+      } catch {
+        // The suite already printed its own failures (stdio: 'inherit'); what
+        // it cannot know is what this tool wrote before running it.
+        throw new Error(verifyFailureMessage(step))
+      }
+      continue
+    }
     sh(command, args, root)
   }
 }
@@ -367,6 +442,12 @@ Levels (a bare run is a dry-run and changes nothing):
   --yes       bump + commit + tag locally
   --allow-empty  release even though no tarball input changed since the last
                  tag (a deliberate version-alignment bump)
+  --skip-tests   cut the release without running the suite (the escape hatch
+                 for a failure you have established is unrelated)
+
+The suite runs after the version is written and before anything is staged, so
+guards that read the version being released — the migration guide's, for one —
+are in scope. A red suite leaves two unstaged files and no commit or tag.
 
 Never runs 'git push', and never publishes — pushing the tag is what stages the
 release on npm (.github/workflows/release.yml), which you then approve with
@@ -380,6 +461,7 @@ function parseArgs(argv) {
     help: flags.has('--help') || flags.has('-h'),
     yes: flags.has('--yes') || flags.has('--execute'),
     allowEmpty: flags.has('--allow-empty'),
+    skipTests: flags.has('--skip-tests'),
     pkg: positional[0],
     bump: positional[1],
   }
@@ -397,7 +479,13 @@ function main(argv) {
   const resolved = resolvePackage(opts.pkg)
   const currentVersion = readVersion(resolved.pkgJsonPath)
   const nextVersion = computeNextVersion(currentVersion, opts.bump)
-  const plan = buildPlan({ ...resolved, currentVersion, nextVersion, level })
+  const plan = buildPlan({
+    ...resolved,
+    currentVersion,
+    nextVersion,
+    level,
+    skipTests: opts.skipTests,
+  })
 
   console.log(formatPlan(plan))
   console.log('')
@@ -430,6 +518,7 @@ module.exports = {
   assertCleanTree,
   assertTagAvailable,
   formatPlan,
+  verifyFailureMessage,
   parseArgs,
 }
 

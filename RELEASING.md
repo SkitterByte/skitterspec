@@ -50,7 +50,8 @@ The tool escalates by flag — **a bare run changes nothing**:
 - **(no flag) — plan.** Prints the ordered steps and exact commands, touches
   nothing. Always start here and read the plan.
 - **`--yes` — local.** Bumps the version, writes `RELEASES-<package>.md`,
-  commits, and tags `name@version`. It never pushes and **never publishes**.
+  **runs the suite**, commits, and tags `name@version`. It never pushes and
+  **never publishes**.
 
 **Pushing the tag is what releases.** `.github/workflows/release.yml` triggers on
 `<package>@*`, checks the tag agrees with the manifest, runs the suite, and then
@@ -189,6 +190,40 @@ release would look substantive.
 Pass `--allow-empty` for a deliberate version-alignment bump. Doing so records
 the intent in the invocation rather than leaving it to be reverse-engineered
 later.
+
+## The suite runs against the bumped version
+
+`--yes` runs `pnpm test` as a step of the plan, and **where** it runs is the
+whole point: after the version is written and the notes generated, before
+anything is staged.
+
+"Run the tests before you bump" is the intuitive order and it is the one that
+misses this. A guard that reads the version being released is green until the
+bump — `scripts/migration-guide.test.js` compares `MIGRATION.md` against each
+distribution's `package.json`, so a major with no migration entry passes every
+pre-bump run and fails the instant the bump lands. `skitterspec@20.0.0` and
+`skitterspec-linear@14.0.0` were both cut that way and fixed on `main`
+afterwards.
+
+CI runs the suite too, but only once the tag is pushed — by then the tag exists
+and the commit is on the branch. This step is what stops the tag being cut at
+all.
+
+A red suite leaves **no commit and no tag**, and exactly two unstaged files. The
+next run refuses on a dirty tree, so the failure names them:
+
+```
+pnpm test failed — nothing was staged, committed or tagged.
+  The version bump and release notes are written but unstaged, and the
+  next run refuses on a dirty tree. Restore them, fix the failures, then
+  re-run:
+    git checkout -- packages/skitterspec/package.json RELEASES-skitterspec.md
+```
+
+Pass **`--skip-tests`** to cut a release anyway. It is the same bargain as
+`--allow-empty`: allowed, and on the record in the invocation and in the printed
+plan, rather than a silent omission. Use it for a failure you have *established*
+is unrelated — which is a thing you establish by reading it, not by assuming it.
 
 ## Push tags yourself
 

@@ -23,6 +23,7 @@ const {
   assertCleanTree,
   assertTagAvailable,
   formatPlan,
+  verifyFailureMessage,
   parseArgs,
 } = require('./release.js')
 
@@ -121,6 +122,7 @@ test('buildPlan for a bump emits ordered local steps, and never publishes or pus
   assert.deepStrictEqual(cmds, [
     'set packages/skitterspec/package.json version → 2.0.1',
     'node scripts/release-notes.js skitterspec 2.0.1',
+    'pnpm test',
     'git add packages/skitterspec/package.json RELEASES-skitterspec.md',
     'git commit -m "chore(release): skitterspec@2.0.1"',
     'git tag -a skitterspec@2.0.1 -m "skitterspec 2.0.1"',
@@ -174,7 +176,102 @@ test('buildPlan for an equal version skips bump/commit and just tags', () => {
   })
   assert.strictEqual(plan.needsBump, false)
   const cmds = plan.steps.map((s) => s.cmd)
-  assert.deepStrictEqual(cmds, ['git tag -a skitterspec@2.0.0 -m "skitterspec 2.0.0"'])
+  assert.deepStrictEqual(cmds, ['pnpm test', 'git tag -a skitterspec@2.0.0 -m "skitterspec 2.0.0"'])
+})
+
+// --- the suite step ---------------------------------------------------------
+
+const plan201 = (extra = {}) =>
+  buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '2.0.0',
+    nextVersion: '2.0.1',
+    level: 'local',
+    ...extra,
+  })
+
+/**
+ * The ordering IS the feature, and the intuitive order is the broken one.
+ *
+ * "Run the tests before you bump" leaves every guard that reads the version
+ * being released out of scope: migration-guide.test.js compares MIGRATION.md
+ * against each dist's package.json, so a major with no migration entry is green
+ * on every pre-bump run and red the instant the bump lands. skitterspec@20.0.0
+ * and skitterspec-linear@14.0.0 were both cut that way.
+ *
+ * So this pins both sides: after the version is on disk, before anything is
+ * staged. A future refactor that "tidies" the suite up to the front of the plan
+ * fails here rather than at the next major.
+ */
+test('the suite runs after the version is written and before anything is staged', () => {
+  const steps = plan201().steps
+  const at = (pred) => steps.findIndex(pred)
+
+  const write = at((s) => s.kind === 'write-version')
+  const notes = at((s) => /release-notes\.js/.test(s.cmd))
+  const verify = at((s) => s.kind === 'verify')
+  const stage = at((s) => /^git add /.test(s.cmd))
+  const commit = at((s) => /^git commit /.test(s.cmd))
+  const tag = at((s) => /^git tag /.test(s.cmd))
+
+  assert.ok(verify > write, 'the suite runs with the new version on disk')
+  assert.ok(verify > notes, 'the suite sees the generated release notes')
+  assert.ok(verify < stage, 'nothing is staged before the suite has passed')
+  assert.ok(verify < commit && verify < tag, 'no commit or tag precedes the suite')
+})
+
+test('the suite still runs when there is no bump to make', () => {
+  // A version-alignment run cuts a tag, and a tag is the release trigger. The
+  // absence of a bump is not a reason to ship unverified.
+  const plan = buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '2.0.0',
+    nextVersion: '2.0.0',
+    level: 'local',
+  })
+  const verify = plan.steps.find((s) => s.kind === 'verify')
+  assert.ok(verify, 'a no-bump plan still verifies')
+  assert.deepStrictEqual(verify.restore, [], 'nothing was written, so nothing to restore')
+})
+
+test('--skip-tests drops the suite step and moves nothing else', () => {
+  const withTests = plan201().steps.map((s) => s.cmd)
+  const skipped = plan201({ skipTests: true })
+
+  assert.ok(!skipped.steps.some((s) => s.kind === 'verify'), 'no suite step')
+  assert.deepStrictEqual(
+    skipped.steps.map((s) => s.cmd),
+    withTests.filter((c) => c !== 'pnpm test'),
+    'the remaining steps keep their order',
+  )
+  // The escape hatch is on the record in the printed plan, like --allow-empty.
+  assert.match(formatPlan(skipped), /--skip-tests/)
+  assert.ok(!/--skip-tests/.test(formatPlan(plan201())), 'silent when not skipped')
+})
+
+/**
+ * A red suite is an accusation with a side effect: this tool has already
+ * written two files. Telling someone to "fix it and re-run" is not actionable
+ * on its own, because the next run refuses on a dirty tree — so the message
+ * names the paths.
+ *
+ * The stays-silent half is the second assertion: where nothing was written,
+ * it must not hand out a `git checkout --` with no paths after it.
+ */
+test('a failed suite names exactly what it wrote, and invents nothing', () => {
+  const afterBump = plan201().steps.find((s) => s.kind === 'verify')
+  const msg = verifyFailureMessage(afterBump)
+  assert.match(msg, /nothing was staged, committed or tagged/)
+  assert.match(msg, /git checkout -- packages\/skitterspec\/package\.json RELEASES-skitterspec\.md/)
+
+  const noBump = { cmd: 'pnpm test', restore: [] }
+  const quiet = verifyFailureMessage(noBump)
+  assert.ok(!/git checkout/.test(quiet), 'no restore command when nothing was written')
+  assert.match(quiet, /Fix the failures, then re-run/)
 })
 
 // --- guards -----------------------------------------------------------------
@@ -213,6 +310,7 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
     help: false,
     yes: false,
     allowEmpty: false,
+    skipTests: false,
     pkg: 'skitterspec',
     bump: 'patch',
   })
@@ -222,6 +320,8 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
   assert.strictEqual(yes.yes, true)
   const empty = parseArgs(['n', 'n', 'skitterspec', 'patch', '--yes', '--allow-empty'])
   assert.strictEqual(empty.allowEmpty, true)
+  const skip = parseArgs(['n', 'n', 'skitterspec', 'patch', '--yes', '--skip-tests'])
+  assert.strictEqual(skip.skipTests, true)
 })
 
 // PACKAGES is the small, closed registry the rest keys off.
