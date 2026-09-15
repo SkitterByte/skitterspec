@@ -221,7 +221,7 @@ function fakeDom(islandText) {
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
     'sent-cmd', 'sent-cmd-text', 'sent-cmd-copy',
     'context', 'context-why', 'context-more', 'context-more-summary', 'context-rest',
-    'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle',
+    'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle', 'drawn-by',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
@@ -1621,4 +1621,18 @@ test('anything the page hides has a [hidden] override where it needs one', () =>
     [],
     `these classes set a display and would ignore [hidden]:\n  .${offenders.join('\n  .')}`,
   )
+})
+
+// The provenance line exists so a page drawn by a stale renderer can be caught
+// by reading the artefact. A working copy carries `0.0.0` — the unpublished
+// source package's version — and printing that verbatim answers the question
+// with a version that has never existed.
+test('a working copy says so rather than claiming a version', () => {
+  const dev = fixture()
+  dev.engine = '0.0.0'
+  assert.match(runPage(dev).byId['drawn-by'].textContent, /skitterspec \(unreleased build\)/)
+
+  const released = fixture()
+  released.engine = '18.0.0'
+  assert.match(runPage(released).byId['drawn-by'].textContent, /skitterspec 18\.0\.0/)
 })

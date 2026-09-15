@@ -1727,7 +1727,14 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   // read its own version says nothing rather than claiming "unknown" — an
   // absence here is about the lookup, not about the page.
   if (data.engine) {
-    document.getElementById('drawn-by').textContent = 'rendered by skitterspec ' + data.engine
+    // `0.0.0` is what the unpublished source package carries, so a page drawn
+    // from a working copy would otherwise claim a version that has never been
+    // released. This line exists to answer "which engine drew this" — and a
+    // string that LOOKS like a version and is not one answers it wrongly, which
+    // is worse than not answering. The field itself is untouched: the serve
+    // daemon compares it to spot a stale renderer, and it must stay a version.
+    document.getElementById('drawn-by').textContent =
+      'rendered by skitterspec ' + (data.engine === '0.0.0' ? '(unreleased build)' : data.engine)
   }
 
   restore()
