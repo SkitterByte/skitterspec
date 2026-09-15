@@ -86,8 +86,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Push `main` and prove CI runs | ⬜ | [01-first-ci-run.md](01-first-ci-run.md) |
-| 2 | Release and verify `skitterspec` 19.0.0 | ⬜ | [02-release-base.md](02-release-base.md) |
+| 1 | Push `main` and prove CI runs | ✅ | [01-first-ci-run.md](01-first-ci-run.md) |
+| 2 | Release and verify `skitterspec` 19.0.0 | 🔄 | [02-release-base.md](02-release-base.md) |
 | 3 | Release and verify `skitterspec-linear` 13.0.0 | ⬜ | [03-release-provider.md](03-release-provider.md) |
 
 ## Open questions
@@ -104,3 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-15 — Spec created, carved out of `feat-staged-publish-pipeline` phase 5.
+- 2026-09-15 — Phase 1: took three runs. The first two were red on two
+  separate platform bugs that only a Linux runner could expose — both fixed and
+  landed as their own specs. This is the value the phase was written for.
+

@@ -2,16 +2,16 @@
 linear_issue_id: "SKS-259"
 ---
 
-# Phase 2 — Release and verify `skitterspec` 19.0.0 ⬜
+# Phase 2 — Release and verify `skitterspec` 19.0.0 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** `@skitterbyte/skitterspec@19.0.0` is live on the registry, published by
 CI, carrying a provenance attestation that names the commit it was built from.
 
 ## Tasks
 
-- [ ] **Operator step — tell Reuben, do not attempt it.** Configure a trusted
+- [x] **Operator step — tell Reuben, do not attempt it.** Configure a trusted
       publisher for `@skitterbyte/skitterspec` on the npm registry's website:
       Settings → Trusted Publisher → GitHub Actions. Every field is exact and
       case-sensitive — Organization `SkitterByte`, Repository `skitterspec` (the
