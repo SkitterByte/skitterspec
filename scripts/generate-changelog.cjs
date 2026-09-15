@@ -22,6 +22,8 @@ const {
   getTagDate,
   indexOfOlderSection,
   parseCommit,
+  countCommitsSince,
+  tagExists,
 } = require('./lib/git-commits.cjs')
 const { loadConfig } = require('./lib/config.cjs')
 
@@ -181,7 +183,8 @@ function updateChangelog(newVersion, options = {}) {
   const changelogPath = join(process.cwd(), file)
   let changelogContent = readChangelog(changelogPath)
 
-  const commitLines = getCommitsSinceLastTag(newVersion)
+  let range = 'unknown range'
+  const commitLines = getCommitsSinceLastTag(newVersion, { onRange: (r) => (range = r) })
   const commits = commitLines.map(parseCommit).filter((commit) => commit !== null)
 
   if (commits.length === 0) {
@@ -190,13 +193,48 @@ function updateChangelog(newVersion, options = {}) {
   }
 
   const categories = categorizeCommits(commits)
-  const date = new Date().toISOString().split('T')[0]
+  // Date the section by its TAG when the version is already tagged, not by
+  // today. Re-running a generator over a released version was silently
+  // re-stamping a shipped release with the current date. getTagDate falls back
+  // to today when the tag does not exist, which is the `npm version` path —
+  // the version being released has no tag yet, so that stays unchanged.
+  const date = getTagDate(`v${newVersion}`)
   const newSection = generateChangelogSection(newVersion, date, categories).trimEnd() + '\n'
 
+  const before = changelogContent
   changelogContent = upsertSection(changelogContent, newSection, newVersion)
 
+  if (changelogContent === before) {
+    // Do not claim an update that did not happen. Running this between releases
+    // regenerates the already-correct section for the tagged version, writes the
+    // same bytes, and used to report "✅ Updated" — while silently covering none
+    // of the commits made since. Both facts belong in the output.
+    reportNoChange(file, newVersion, range)
+    return
+  }
+
   writeFileSync(changelogPath, changelogContent, 'utf-8')
-  console.log(`✅ Updated ${file} with version ${newVersion}`)
+  console.log(`✅ Updated ${file} with version ${newVersion} (${range})`)
+}
+
+/**
+ * Say that nothing changed, and — when the version is already tagged — how much
+ * work is deliberately excluded, so "no diff" cannot read as "nothing pending".
+ */
+function reportNoChange(file, version, range) {
+  const tag = `v${version}`
+  if (tagExists(tag)) {
+    const pending = countCommitsSince(tag)
+    console.log(`${tag} is already tagged — ${file} unchanged.`)
+    if (pending > 0) {
+      console.log(
+        `${pending} commit(s) since that tag are not included; ` +
+          `bump the version to release them.`,
+      )
+    }
+    return
+  }
+  console.log(`${file} already up to date with version ${version} (${range})`)
 }
 
 function retroFillChangelog(count, options = {}) {

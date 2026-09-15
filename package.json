@@ -11,7 +11,7 @@
     "node": ">=22.13"
   },
   "devDependencies": {
-    "@skitterbyte/skittership": "^2.0.2",
+    "@skitterbyte/skittership": "^2.0.5",
     "@skitterbyte/skitterspec-provider-linear": "workspace:*"
   },
   "scripts": {

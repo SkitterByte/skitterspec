@@ -18,7 +18,13 @@
 
 const { execSync } = require('node:child_process')
 
-function getCommitsSinceLastTag(currentVersion) {
+function getCommitsSinceLastTag(currentVersion, { onRange } = {}) {
+  // The range is reported through a callback rather than a new return shape:
+  // a wrong range and a right range both printed the same success line, which
+  // is how an inverted index lived in a released package across versions.
+  const report = (range) => {
+    if (typeof onRange === 'function') onRange(range)
+  }
   try {
     // Fetch tags to ensure they're available (important in CI)
     try {
@@ -47,6 +53,7 @@ function getCommitsSinceLastTag(currentVersion) {
         stdio: 'pipe',
       }).trim()
 
+      report('all history — no tags')
       return reconstructCommits(output)
     }
 
@@ -72,18 +79,33 @@ function getCommitsSinceLastTag(currentVersion) {
     }
 
     if (currentTag && allTags.includes(currentTag)) {
-      // HEAD is at a tag - find the previous tag
+      // HEAD is at a tag - find the next OLDER tag.
+      //
+      // allTags is NEWEST-first (`--sort=-version:refname`), so the older
+      // neighbour is at +1. This read -1, which is the NEWER tag, and broke
+      // two ways at once: `git log newer..older` is a backwards range that
+      // returns nothing, and the newest tag (index 0) failed the `> 0` guard
+      // and fell through to "first tag", returning all history.
+      //
+      // `npm version` never reaches this branch — the version being released
+      // has no tag yet, so it takes the else below — which is why it survived.
+      // The documented manual path (`npm run changelog` between releases) is
+      // what it broke, silently and with exit 0.
       const currentIndex = allTags.indexOf(currentTag)
-      if (currentIndex > 0) {
-        // There is a previous tag
-        previousTag = allTags[currentIndex - 1]
+      if (currentIndex + 1 < allTags.length) {
+        previousTag = allTags[currentIndex + 1]
       } else {
-        // This is the first tag, get all commits
-        const output = execSync('git log --pretty=format:"%h%x00%s%x00%b%x00" --no-merges', {
-          encoding: 'utf-8',
-          stdio: 'pipe',
-        }).trim()
+        // This is the OLDEST tag: everything up to and including it. Bound by
+        // the tag, NOT bare `git log` — when currentTag came from the version
+        // fallback, HEAD is past the tag, and an unbounded log folds work done
+        // AFTER the release into the released section. That is the same defect
+        // as the inverted walk, surviving in the single-tag case.
+        const output = execSync(
+          `git log ${currentTag} --pretty=format:"%h%x00%s%x00%b%x00" --no-merges`,
+          { encoding: 'utf-8', stdio: 'pipe' },
+        ).trim()
 
+        report(`all history through ${currentTag} — no earlier tag`)
         return reconstructCommits(output)
       }
     } else {
@@ -98,12 +120,14 @@ function getCommitsSinceLastTag(currentVersion) {
         stdio: 'pipe',
       }).trim()
 
+      report('all history — no earlier tag')
       return reconstructCommits(output)
     }
 
     // When HEAD is at a tag, use the tag explicitly instead of HEAD
     // This ensures we get commits up to and including the tag commit
     const rangeEnd = currentTag || 'HEAD'
+    report(`${previousTag}..${rangeEnd}`)
 
     // Get commits since previous tag (inclusive of rangeEnd)
     // Use null character as delimiter to handle multi-line bodies
@@ -142,6 +166,9 @@ function getCommitsSinceLastTag(currentVersion) {
         stdio: 'pipe',
       }).trim()
 
+      // Worth naming loudly: this is the whole history because git ERRORED,
+      // not because the range said so.
+      report('all history — git failed, fell back')
       return reconstructCommits(output)
     } catch {
       console.error('Failed to get git commits:', error)
@@ -242,6 +269,35 @@ function getCommitsBetween(fromTag, toTag) {
   return reconstructCommits(output)
 }
 
+/** Does this tag exist? Used to tell "already released" from "being released". */
+function tagExists(tag) {
+  try {
+    execSync(`git rev-parse --verify --quiet ${tag}^{commit}`, { stdio: 'pipe' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Commits after `tag` up to HEAD — the work a release would cover NEXT.
+ *
+ * Reported when a generator declines to include them, so "nothing changed" does
+ * not read as "there is nothing pending". Returns 0 rather than throwing on a
+ * tag that is not there; the caller has already established it exists.
+ */
+function countCommitsSince(tag) {
+  try {
+    const out = execSync(`git rev-list --count --no-merges ${tag}..HEAD`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }).trim()
+    return Number.parseInt(out, 10) || 0
+  } catch {
+    return 0
+  }
+}
+
 function getTagDate(tag) {
   try {
     return execSync(`git log -1 --format=%cs ${tag}`, { encoding: 'utf-8', stdio: 'pipe' }).trim()
@@ -288,6 +344,8 @@ function indexOfOlderSection(content, version, headingRegex) {
 
 module.exports = {
   compareVersions,
+  countCommitsSince,
+  tagExists,
   indexOfOlderSection,
   getCommitsSinceLastTag,
   reconstructCommits,

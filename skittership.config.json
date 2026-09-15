@@ -13,5 +13,5 @@
       "commit": "Commit"
     }
   },
-  "versionHook": true
+  "versionHook": false
 }

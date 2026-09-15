@@ -1,0 +1,12 @@
+{
+  "installedVersion": "2.0.5",
+  "files": {
+    ".claude/rules/commit-messages.md": "sha256-b5250a21a74b4195fb259d009dc45a83031460f1042026074761757f9f3a679e",
+    ".claude/skills/commit/SKILL.md": "sha256-bca6221144145870a474787132bc2de44c4d2c8e1888d7369ba9d0ce9d61453d",
+    "scripts/check-release-index.cjs": "sha256-2cd641ddf72db899217605cd27f22bfaca27691785c46b358d7f8cab3d447e6a",
+    "scripts/generate-changelog.cjs": "sha256-b1363d6b6f5aa320641b8963e0f1fe9bec222fc0c196e1979cdcb2323e494b6b",
+    "scripts/generate-releases.cjs": "sha256-957419e188fa1fa44c7e30026cb46557cd343c0346144e1f32cd1af8e359a15e",
+    "scripts/lib/config.cjs": "sha256-ba80ea991432ccb0a36d75ac82ba9ab2761ca667529019a89dfb2a80fb3639cc",
+    "scripts/lib/git-commits.cjs": "sha256-c0ed5fc9e0fbf24e037ce9c04e196c0be42dd4826110d89ae4b62544980f5be2"
+  }
+}

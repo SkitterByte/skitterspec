@@ -167,8 +167,8 @@ importers:
   .:
     devDependencies:
       '@skitterbyte/skittership':
-        specifier: ^2.0.2
-        version: 2.0.2
+        specifier: ^2.0.5
+        version: 2.0.5
       '@skitterbyte/skitterspec-provider-linear':
         specifier: workspace:*
         version: link:packages/linear
@@ -204,8 +204,8 @@ importers:
 
 packages:
 
-  '@skitterbyte/skittership@2.0.2':
-    resolution: {integrity: sha512-sKD37W1/t7A8rs3fNjP4tlJuJdsCrYG6Jtn+ARdQksNUVdL0nWBvhrz1iXxyFT27ESloZdXuexPpn+TY54Rpuw==}
+  '@skitterbyte/skittership@2.0.5':
+    resolution: {integrity: sha512-shoDl2NMUla4F33cO1L0f8aTFYIa/gZ6ZkScBSBMz0Cur3RpXIpi760RSCDoLfF23BY9fPfXroiISHdykNrnVA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -222,7 +222,7 @@ packages:
 
 snapshots:
 
-  '@skitterbyte/skittership@2.0.2':
+  '@skitterbyte/skittership@2.0.5':
     dependencies:
       prompts: 2.4.2
 

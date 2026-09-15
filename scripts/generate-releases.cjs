@@ -38,6 +38,8 @@ const {
   getTagDate,
   indexOfOlderSection,
   parseCommit,
+  countCommitsSince,
+  tagExists,
 } = require('./lib/git-commits.cjs')
 const { loadConfig } = require('./lib/config.cjs')
 
@@ -262,7 +264,11 @@ function updateReleases(newVersion, options = {}) {
   const header = defaultReleasesHeader(productName, changelogFile)
   let content = readReleases(releasesPath, header)
 
-  const notes = notesFor(getCommitsSinceLastTag(newVersion), scopeAreas)
+  let range = 'unknown range'
+  const notes = notesFor(
+    getCommitsSinceLastTag(newVersion, { onRange: (r) => (range = r) }),
+    scopeAreas,
+  )
   if (notes.length === 0) {
     console.log(`No Release-Note footers found since last tag — skipping ${file} update`)
     // Ensure the artifact exists so a version hook's downstream steps have a
@@ -271,12 +277,38 @@ function updateReleases(newVersion, options = {}) {
     return
   }
 
-  const date = new Date().toISOString().split('T')[0]
+  // Date the section by its TAG when the version is already tagged, not by
+  // today. Re-running a generator over a released version was silently
+  // re-stamping a shipped release with the current date. getTagDate falls back
+  // to today when the tag does not exist, which is the `npm version` path —
+  // the version being released has no tag yet, so that stays unchanged.
+  const date = getTagDate(`v${newVersion}`)
   const section = renderReleasesSection(newVersion, date, notes)
+  const before = content
   content = upsertReleasesSection(content, section, newVersion)
 
+  if (content === before) {
+    // Do not claim an update that did not happen — and when the version is
+    // already tagged, say how much work is deliberately excluded, so "no diff"
+    // cannot read as "nothing pending".
+    const tag = `v${newVersion}`
+    if (tagExists(tag)) {
+      const pending = countCommitsSince(tag)
+      console.log(`${tag} is already tagged — ${file} unchanged.`)
+      if (pending > 0) {
+        console.log(
+          `${pending} commit(s) since that tag are not included; ` +
+            `bump the version to release them.`,
+        )
+      }
+    } else {
+      console.log(`${file} already up to date with version ${newVersion} (${range})`)
+    }
+    return
+  }
+
   writeFileSync(releasesPath, content, 'utf-8')
-  console.log(`✅ Updated ${file} with version ${newVersion} (${notes.length} note(s))`)
+  console.log(`✅ Updated ${file} with version ${newVersion} (${notes.length} note(s), ${range})`)
 }
 
 function retroFillReleases(count, options = {}) {
