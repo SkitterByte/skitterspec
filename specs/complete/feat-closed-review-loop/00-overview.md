@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-261/closed-review-loop-rev
 
 > **Type:** Feature
 > **Name:** feat-closed-review-loop
-> **Status:** In Progress — Phase 1 (started 2026-09-15)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -137,8 +137,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-15 | Ready | backlog | Reuben Greaves |
 | 2026-09-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-15 — Completed; all five phases done, tests green (2490 passed).
+  Two follow-ups recorded below and deliberately left for their own specs.
 
 - 2026-09-15 — Spec created.
 - 2026-09-15 — Phase 1: the skip log lives in the gate record's own `log`, not
