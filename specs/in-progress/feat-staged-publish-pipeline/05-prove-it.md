@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-253"
 ---
 
-# Phase 5 — Configure trusted publishers and prove it end-to-end ⬜
+# Phase 5 — Configure trusted publishers and prove it end-to-end 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** both packages are released through the pipeline for real, and the
 published versions are confirmed on the registry with provenance naming the
@@ -12,6 +12,12 @@ expected commit.
 
 ## Tasks
 
+- [ ] **Push `main` first — discovered, not planned.** Local `main` is **158
+      commits ahead of `origin/main`** (last pushed 2026-09-11), and
+      `release.yml` exists only on this branch. GitHub therefore has no workflow
+      to run and no commit to tag: every step below is inert until this branch
+      lands on `main` and `main` is pushed. Land it with `/spec-complete` (or
+      `/spec-to-main` to release before finishing the spec), then `git push`.
 - [ ] **Operator step — tell Reuben to do this, do not attempt it.** On the
       npm website, for **each** of `@skitterbyte/skitterspec` and
       `@skitterbyte/skitterspec-linear`: Settings → Trusted Publisher → GitHub

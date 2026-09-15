@@ -119,7 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Raise the Node floor and add ci.yml | ✅ | [02-ci-and-node-floor.md](02-ci-and-node-floor.md) |
 | 3 | release.yml — OIDC staging on a tag push | ✅ | [03-release-workflow.md](03-release-workflow.md) |
 | 4 | Approve helper; CI becomes the only publisher | ✅ | [04-approve-and-handover.md](04-approve-and-handover.md) |
-| 5 | Configure trusted publishers and prove it end-to-end | ⬜ | [05-prove-it.md](05-prove-it.md) |
+| 5 | Configure trusted publishers and prove it end-to-end | 🔄 | [05-prove-it.md](05-prove-it.md) |
 
 ## Open questions
 
@@ -156,4 +156,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   its opposite — the tag is now asserted to be the LAST step, because it is the
   trigger. The reasoning for the reversal is recorded in the test itself, not
   just deleted with the old assertion.
+- 2026-09-15 — Phase 5: found that `origin/main` is 158 commits behind and
+  has no `.github/` at all, so the pipeline cannot be proven until the branch
+  lands and `main` is pushed. The spec assumed a tag push was the first
+  outward-facing act; landing the branch is.
 
