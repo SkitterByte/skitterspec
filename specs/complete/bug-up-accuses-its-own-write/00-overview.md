@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-up-accuses-its-own-write (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -101,6 +101,7 @@ three pre-existing tests red on the author's machine too — the harness fix
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -109,3 +110,4 @@ three pre-existing tests red on the author's machine too — the harness fix
 - 2026-09-15 — The harness inherited `~/.config/git/ignore`, which is why this
   was invisible until CI existed. Fixtures now set `core.excludesFile` so they
   decide their own ignore rules.
+- 2026-09-15 — Completed; fix in, tests green (2393).
