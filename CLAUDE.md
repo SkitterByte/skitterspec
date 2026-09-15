@@ -70,8 +70,11 @@ you point it at. Without that config, none of this appears.
 This project uses **skittership** for commits, changelog, and user-facing release
 notes. See `.claude/rules/commit-messages.md` for the full commit grammar.
 
-- **Commit with `/commit`** — stages task-related files, runs typecheck + the
-  relevant tests, then writes a Conventional Commit (`type(scope): subject`).
+- **Commit with `/commit`** — stages each file by name (`git add -- <path>`,
+  never a directory), runs typecheck + the relevant tests, then writes a
+  Conventional Commit (`type(scope): subject`) and commits it with that same
+  pathspec. Concurrent sessions share one `.git/index`, so the pathspec is what
+  bounds the commit.
 - **`Release-Note:` footer** — add it to any user-visible commit (a plain-English,
   benefit-framed sentence). `Release-Note!:` promotes the note into the release
   Highlights; `Release-Area:` overrides the scope→area mapping; `Release-Note:

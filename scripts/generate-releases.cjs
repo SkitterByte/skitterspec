@@ -36,6 +36,7 @@ const {
   getCommitsBetween,
   getCommitsSinceLastTag,
   getTagDate,
+  indexOfOlderSection,
   parseCommit,
 } = require('./lib/git-commits.cjs')
 const { loadConfig } = require('./lib/config.cjs')
@@ -197,15 +198,27 @@ function upsertReleasesSection(content, newSection, version) {
     return content.replace(existingRegex, `${leading}${newSection.trimEnd()}\n`)
   }
 
-  // Insert above the newest existing version section (versions start with a digit).
-  const firstVersionIdx = content.search(/\n## \d/)
-  if (firstVersionIdx >= 0) {
-    const before = content.slice(0, firstVersionIdx).replace(/\s+$/, '')
-    const after = content.slice(firstVersionIdx + 1)
+  // Insert above the first section OLDER than this one, so sections stay in
+  // descending version order regardless of the order they are written in.
+  // Retro-fill walks oldest-first, so "insert above whatever is currently
+  // first" would leave the oldest release on top.
+  const olderIdx = indexOfOlderSection(content, version, /\n## (\d[\d.]*)\s/)
+  if (olderIdx >= 0) {
+    const before = content.slice(0, olderIdx).replace(/\s+$/, '')
+    const after = content.slice(olderIdx + 1)
     return `${before}\n\n${newSection}\n${after}`
   }
 
   return `${content.replace(/\s+$/, '')}\n\n${newSection}`
+}
+
+/** Remove a version's section entirely, if present. */
+function removeReleasesSection(content, version) {
+  const regex = new RegExp(
+    `(^|\\n)## ${escapeRegex(version)} [^\\n]*\\n[\\s\\S]*?(?=\\n## \\d|\\n---|$)`,
+  )
+  if (!regex.test(content)) return { content, removed: false }
+  return { content: content.replace(regex, '').replace(/\n{3,}/g, '\n\n'), removed: true }
 }
 
 function readReleases(path, header) {
@@ -289,7 +302,17 @@ function retroFillReleases(count, options = {}) {
     const notes = notesFor(getCommitsBetween(previousTag, tag), scopeAreas)
 
     if (notes.length === 0) {
-      console.log(`⚠️  ${tag}: no Release-Note footers — skipping`)
+      // No notes for this tag. Skipping would leave behind any section written
+      // by an earlier run whose commit range was wrong (e.g. before the tag
+      // existed), so drop it and let the file tell the truth.
+      const pruned = removeReleasesSection(content, version)
+      if (pruned.removed) {
+        content = pruned.content
+        updated += 1
+        console.log(`🧹 ${tag}: no Release-Note footers — removed stale section`)
+      } else {
+        console.log(`⚠️  ${tag}: no Release-Note footers — skipping`)
+      }
       continue
     }
 
@@ -330,10 +353,17 @@ function main(argv) {
   const retroIdx = args.indexOf('--retro')
 
   if (retroIdx >= 0) {
-    const count = Number.parseInt(args[retroIdx + 1] ?? '', 10)
-    if (!Number.isFinite(count) || count <= 0) {
-      console.error('Usage: generate-releases.cjs --retro <count>')
-      process.exit(1)
+    // `--retro` with no count backfills every version tag. The npm helper the
+    // installer wires (`releases:retro`) passes no count, so requiring one
+    // made that script impossible to run.
+    const countArg = args[retroIdx + 1]
+    let count = Number.POSITIVE_INFINITY
+    if (countArg !== undefined && !countArg.startsWith('-')) {
+      count = Number.parseInt(countArg, 10)
+      if (!Number.isFinite(count) || count <= 0) {
+        console.error('Usage: generate-releases.cjs --retro [count]   (default: all version tags)')
+        process.exit(1)
+      }
     }
     retroFillReleases(count, options)
   } else {
@@ -351,6 +381,7 @@ module.exports = {
   defaultReleasesHeader,
   updateReleases,
   retroFillReleases,
+  removeReleasesSection,
   BUCKET_ORDER,
 }
 
