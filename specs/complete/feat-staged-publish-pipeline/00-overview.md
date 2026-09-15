@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-staged-publish-pipeline (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-15)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -131,6 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-15 | Ready | backlog | Reuben Greaves |
 | 2026-09-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -165,4 +166,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   so it cannot happen inside it. The real release moves to
   `feat-prove-staged-publish`, and this phase records the operator steps,
   the exact trusted-publisher values and the npm baseline to measure against.
+- 2026-09-15 — Completed; all phases done, tests green (2392). Deferred by
+  design: the first real release and its verification, carried into
+  `feat-prove-staged-publish` because it needs the landed `main` this spec
+  produces. The pipeline is built and guarded but not yet exercised.
 
