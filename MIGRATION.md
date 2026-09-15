@@ -4,6 +4,31 @@
 
 ### Breaking change
 
+**skitterspec now requires Node 22.13 or newer.** `engines.node` was `>=18`, and
+that floor was a claim nobody was testing: the test suite cannot run without an
+install, and pnpm 11.11 — the package manager this repo pins — itself requires
+22.13. A floor CI cannot exercise is a promise rather than a guarantee, so it was
+raised to the version the toolchain actually needs.
+
+On Node 18 or 20, `npm install` now warns — or fails, under `engine-strict`.
+Upgrade Node, or stay on v18 of skitterspec. Nothing in your config changes
+either way.
+
+### Releases now carry provenance
+
+Every release from v19 onwards is built and signed by GitHub Actions through npm
+Trusted Publishing, so no publish token exists anywhere to be leaked. Each
+published version carries a signed attestation you can verify back to the commit
+it was built from:
+
+```
+npm view @skitterbyte/skitterspec@19.0.0 dist.attestations
+```
+
+Nothing to do — it is a property of the package you receive.
+
+### Breaking change
+
 **`/spec-start` no longer pushes the spec's branch.** It provisions the worktree
 and commits the spec's move to `in-progress/` exactly as before, and then stops.
 Publishing is yours to do, whenever you want the work somewhere other than your
