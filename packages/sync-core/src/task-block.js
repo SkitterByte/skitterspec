@@ -2,8 +2,8 @@
 
 // Task bullets in a phase file are hand-wrapped prose, not single lines:
 //
-//   - [x] Add `DbProcessEventOutbox` to `prisma/schema.prisma`, modelled on
-//         `DbNotificationOutbox`: status, attempts, `nextAttemptAt`, …
+//   - [x] Add the retry column to the outbox table, modelled on the existing
+//         queue: status, attempts, `nextAttemptAt`, …
 //
 // A Linear issue title is single-line, so the two representations differ by
 // wrapping alone. This module is the one place that converts between them:

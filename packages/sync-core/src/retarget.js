@@ -36,7 +36,7 @@ const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
 // An issue identifier: team key, dash, number. Matched CASE-INSENSITIVELY
 // because `linear_url` carries the identifier lowercased in its path
 // (`…/issue/reu-188/retire-…`). Matching only uppercase left 29 of 33 real URLs
-// in ~/code/ereqs pointing at the old key — the same ones the hand-repair
+// in a live repo pointing at the old key — the same ones the hand-repair
 // missed. A rewrite only happens when the key matches `oldKey`, so an unrelated
 // token like `utf-8` is never in scope.
 const IDENTIFIER_RE = /\b([A-Za-z][A-Za-z0-9]*)-(\d+)\b/g

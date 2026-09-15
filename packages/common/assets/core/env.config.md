@@ -74,8 +74,9 @@ no live `env.config.json` was found.
   // `spec-env up`, right after `git worktree add` and BEFORE `setup` runs — so a
   // fresh linked worktree (which starts with none of the repo's gitignored files)
   // has the .env / local secret overrides / local config that setup steps and
-  // git hooks depend on. Without this a step like `prisma generate` hard-fails in
-  // the new worktree because .env (its datasource URL) isn't there.
+  // git hooks depend on. Without this any setup step that reads .env — a schema
+  // or client generator, a codegen pass — hard-fails in the new worktree
+  // because the file it expects isn't there.
   //   mode   "symlink" (default) points the worktree file at the main file, so it
   //          stays in sync; "copy" makes an independent copy.
   //   files  repo-relative paths to seed. A source absent in main is a printed
