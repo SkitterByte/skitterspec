@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-toolchain-pnpm-12 (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-15)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -149,6 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-15 | Ready | backlog | Reuben Greaves |
 | 2026-09-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -179,3 +180,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and fail a correct pin. The check therefore returns `ok`/`below`/`unknown`,
   and a pin less precise than the floor but agreeing on every part it states is
   `unknown`. Only `below` accuses.
+- 2026-09-15 — Completed; both phases done, tests green (2401). Deferred by
+  design: the Open question on pnpm 12's batch `pnpm stage approve`, which
+  cannot be settled until `feat-prove-staged-publish` has published once. Also
+  carried there: `pnpm/action-setup@v6` against pnpm 12 is verified only by
+  simulating its mechanism, because this repo's CI has never run at all.
