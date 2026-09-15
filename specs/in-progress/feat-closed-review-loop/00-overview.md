@@ -145,6 +145,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the notes `decisions` log. The page maps unrecognised verdicts to
   "discussed", so a `skip` logged there would render as a lie; showing the gate
   log on the page moved to phase 2.
+- 2026-09-15 — Phase 5: the wait was promised for a transport it cannot see.
+  The watch reads the engine's local pending store; the published page writes
+  to the artifact store, which nothing pushes from. Offering both links under
+  "I'm holding here" meant three verdicts were pressed and none noticed. The
+  contract and both skills now require the published link to say that
+  `/spec-reviewed` is what picks it up.
 - 2026-09-15 — Phase 5: hiding an element in JavaScript did nothing where its
   class set a `display`, because that beats `[hidden]`. `.sent-cmd` was the
   visible failure; a stylesheet-reading guard found `.reviewable` too. The DOM

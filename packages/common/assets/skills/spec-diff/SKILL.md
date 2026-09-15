@@ -482,9 +482,18 @@ the stranger's pass the old rule was written about, and two arrivals refuse
 rather than pick. What is left of the old rule is unchanged and still absolute —
 outside this window, a pass is claimed because a person named it.
 
+**The wait covers the SERVED page and nothing else.** It watches the engine's
+local store, which is where a served page POSTs. A **published** page writes to
+the artifact's own store instead, and no watch of any kind reaches that — so a
+verdict pressed there is invisible until someone asks for it. Never start a
+wait and then hand over a published link under it: that reads as a promise to
+notice, and it was made three times in a row while three verdicts sat unread.
+Where the page is published, say plainly that `/spec-reviewed` is what picks it
+up.
+
 **`/spec-reviewed` is not replaced by this.** It stays the way in for a pass
-that arrived when nobody was waiting, for the two-passes case, and for every
-harness with no file-watch at all. It is user-only, and that is still the
+that arrived when nobody was waiting, for the two-passes case, for every
+published page, and for every harness with no file-watch at all. It is user-only, and that is still the
 enforcement that makes a named claim a person's decision.
 
 ## 5. Offer the written review — say what it costs first

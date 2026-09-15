@@ -171,3 +171,27 @@ test('the offer is not turned into a gate on anything', () => {
   assert.doesNotMatch(step5, /must be reviewed/i)
   assert.doesNotMatch(step5, /\brequire[sd]?\b.*review/i)
 })
+
+// A WAIT THAT CANNOT SEE THE TRANSPORT IS A FALSE PROMISE. The file-watch
+// reaches the engine's local store, which is where a SERVED page posts. A
+// published page writes to the artifact's own store, which no watch reaches —
+// and the banner was handed out with both links under one line claiming to be
+// holding. Three verdicts were pressed on the published page and sat unread.
+test('the banner only promises a wait the transport can deliver', () => {
+  assert.match(NEXT, /\*\*The wait covers the served page only\*\*/)
+  assert.match(NEXT, /nothing pushes from\s*\n?the artifact store/i)
+  assert.match(NEXT, /press a verdict, then type `\/spec-reviewed`/)
+
+  const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
+  assert.match(rule, /\*\*Only promise a wait the transport can deliver\.\*\*/)
+  assert.match(rule, /I cannot see it until you do/)
+})
+
+test('/spec-diff says which store the wait actually watches', () => {
+  const diff = skillText('spec-diff')
+  assert.match(diff, /\*\*The wait covers the SERVED page and nothing else\.\*\*/)
+  assert.match(diff, /no watch of any kind reaches that/i)
+  // And the fallback is named as covering the published case, not just the
+  // no-watch case.
+  assert.match(diff, /for every\s*\n?published page/i)
+})

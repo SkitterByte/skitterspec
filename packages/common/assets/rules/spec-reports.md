@@ -97,6 +97,20 @@ A rule, a heading naming the state and the size, the link in bold, one line
 saying the run is stopped, and the two exits. Nothing else, and never a
 paragraph explaining it.
 
+**Only promise a wait the transport can deliver.** A page the engine SERVES
+hands its pass to the local store, which a file-watch sees — that is the one
+case where *"I'm holding here"* is true. A **published** page writes to the
+artifact's own store, and nothing pushes from there into the conversation, so a
+verdict pressed on it is invisible until someone asks for it. Its banner says
+so instead:
+
+**[Open the page](https://…)** · press a verdict, then type `/spec-reviewed` — I cannot see it until you do.
+
+Offering both links under a line that claims to be holding is the failure this
+exists to prevent: it was done, a verdict was pressed on the published page
+three times, and each one sat unread while the run reported that it was
+waiting.
+
 **This is not the old failure returning**, and the difference is the whole
 justification. The offer used to be two quoted lines in the tail of a long
 report, addressed to nobody, under a closing line that told the reader to move

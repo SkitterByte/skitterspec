@@ -297,6 +297,12 @@ so one subject lives in one place:
 
 `/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
 
+**The wait covers the served page only**, so a banner that also offers a
+**published** link must not claim to be holding for it — nothing pushes from
+the artifact store into this conversation. Offer the published link with what
+is true of it: *press a verdict, then type `/spec-reviewed`*. The alternative
+was done, and three verdicts sat unread under a line that said I was waiting.
+
 ---
 
 **Where you are not waiting, it stays the `Review` row** — the counts, the page
