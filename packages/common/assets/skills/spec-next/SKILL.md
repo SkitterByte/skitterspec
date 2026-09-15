@@ -321,8 +321,47 @@ the shape; this section carries only what is specific here.
 - `❌` — the phase's tests are red, or it stopped part-way. Quote the failure.
 - `⏸` — no spec in flight, or the name given does not match the one that is.
 
-**Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Review` ·
+**Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Snags` · `Review` ·
 `Follow-ups` · `Next`
+
+## 6a. End in a picker
+
+The block says what happened; this is what to do about it. Offer the same four
+endings the review page carries, so a review finishes the same way wherever the
+reader is standing — the page, a pasted code, or here.
+
+| Option | Does |
+|--------|------|
+| `Reviewed` | Claims the waiting pass and routes on its verdict |
+| `Commit` | Runs the project's commit skill, and stops |
+| `Commit & Continue` | Commits, then `/spec-next` — and **stops there** |
+| `Discuss` | Asks what is up; changes nothing |
+
+**`Reviewed` only when a pass is actually waiting.** The render's `pending:`
+block already says. Offering a pickup with nothing to pick up is the empty
+gesture this exists against — the other three stand on their own.
+
+**Do not restate the routing.** `/spec-diff` §2, §2a and §4 own it, including
+the commit hand-off through `review.commitWith` and what `commit-continue` does
+after. Two copies of a routing rule is how the two come to disagree.
+
+**It does not break a chained run.** `/commit && /spec-next` is typed as one
+line and the picker appears at the **end**, by which point the chain has already
+finished. The cost that was feared here — a question stopping a run mid-way — is
+not a cost this placement has.
+
+**Nothing may claim a pass without a pick.** `/spec-reviewed` is user-only by
+*harness enforcement*, because prose alone once failed to stop an agent claiming
+a pass nobody asked it to. A pick keeps the **property** that makes that safe —
+a person in the conversation chose, and a device that reaches the page cannot —
+while routing around the **mechanism**, since the claim runs downstream of the
+pick. That trade is deliberate and it has exactly one condition: a run that
+shows no picker claims nothing, and a picker nobody answered claims nothing.
+
+WHAT WOULD FOOL THIS: a picker shown reflexively at the end of every run trains
+the reader to dismiss it, and a dismissed picker is indistinguishable from a
+considered decline. So offer it where there is a real choice, and let the `Next`
+row carry the rest.
 
 `Next` names the commit and then the phase, as
 `/commit, then /spec-next → phase 3 (Auth)`, so the block says what to do and

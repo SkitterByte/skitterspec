@@ -62,6 +62,23 @@ them would only be able to say "field", which no one needs told.
 closing line, not a next step, not the offer. Everything the reader must act on
 is a row, which is what earns the block its position.
 
+**And that is a rule about the destination, not only the prohibition.** It was
+stated plainly and broken repeatedly, by runs that had something worth saying
+and nowhere in the block to say it — so the paragraph went after the table,
+where it buried the rows it was meant to sit beside. A missing destination reads
+as a rule that does not fit the work, and a rule that does not fit gets ignored.
+So: **if it is worth telling the reader, it is a row.**
+**If it is not a row, it is not worth telling them.**
+`Snags` is the row most of that content belongs in.
+
+**One control may follow the block: a picker.** Where the run ends in a choice
+the reader must make, the options may be offered after the table. That is not
+an exception squeezed into the rule — the ban exists because *prose* after the
+block competes with it for the reader's attention and loses them the rows. A
+picker does not compete: it is the `Next` row made actionable, in the place the
+reader's eye already finishes. Prose after the block stays banned, and adding a
+sentence alongside the picker is the same violation wearing a control's clothes.
+
 **Never fence a message to the reader.** A fenced block is for a command to
 run, code, or engine output quoted verbatim — things the reader copies or
 compares. A question, an offer, a hand-off is prose. The same mechanism that
@@ -113,6 +130,7 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Cause` | The root cause, for work that diagnosed one. |
 | `Built` | What the run produced — the code, the edits, the spec written. |
 | `Tests` | The result and the command that produced it. |
+| `Snags` | What this run hit and handled — one short paragraph. A wrong turn, a guard that fired, a check of yours that turned out to be a false negative. Not a caveat on the outcome (`⚠️` and `Why` carry those) and not future work (`Follow-ups` carries that): this is what happened on the way. |
 | `Landed` | A fast-forward, a tag, a cherry-pick. |
 | `Worktree` | A worktree provisioned, entered, or torn down. |
 | `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |

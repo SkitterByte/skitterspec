@@ -14,6 +14,22 @@ disable-model-invocation: true
 You read the diff somewhere else, pressed a verdict, and the engine is holding
 the pass. This is how it gets picked up.
 
+## What this is for, now that the picker exists
+
+`/spec-next` and `/spec-diff` both end in a picker carrying these same endings,
+so the usual way to pick a review up is to choose one there. This command is
+what covers the case that picker cannot.
+
+**A picker is consumed when the turn ends.** Nobody scrolls back and answers one
+an hour later. So a review read over lunch, a session cleared, a fresh terminal
+tomorrow morning — in every one of those the control is gone and the pass is
+still waiting, and this is the way in. That is a narrower job than it once had,
+and not an absent one.
+
+**It is also the only claim path the harness itself enforces** — see below.
+Deleting this skill as redundant with the picker would leave no path that has
+the mechanism at all, only paths that have the property.
+
 ## Why this is user-only, and why that is the whole point
 
 `disable-model-invocation: true` is not ergonomics here — it is the enforcement
@@ -196,7 +212,8 @@ code is a wrong code.
 
 A claim is a **delivery mechanism, not a second kind of review**: a pass that
 arrived this way means exactly what the same pass pasted into the chat would
-mean.
+mean — or picked from `/spec-next`'s picker, which is the same conclusion
+reached by a third route.
 
 ## 5. Report
 

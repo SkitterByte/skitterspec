@@ -520,7 +520,33 @@ the shape; this section carries only what is specific here.
 - `⏸` — the spec has no worktree. Say that plainly: a spec that has not been
   started has nothing to diff, which is an ordinary state and not an error.
 
-**Fields:** `Built` · `Tests` · `Review` · `Follow-ups` · `Next`
+**Fields:** `Built` · `Tests` · `Snags` · `Review` · `Follow-ups` · `Next`
+
+## 7a. End in a picker
+
+Offer the same four endings `/spec-next` §6a defines — `Reviewed` · `Commit` ·
+`Commit & Continue` · `Discuss` — under the same conditions, including
+`Reviewed` only when a pass is waiting, and the rule that nothing claims a pass
+without a pick. That section owns the wording; do not restate it.
+
+**This is where changing your mind is handled, and that is why it belongs here.**
+`/spec-diff` renders the page, so it is the command someone runs when they look
+again — often at a review they have already voted on. A pass they sent is still
+sitting **unclaimed**, so a pick made here **supersedes** it:
+
+- act on the pick,
+- drop the waiting pass (`--drop <code>`),
+- and say both happened, naming the verdict that was dropped.
+
+**Never carry both.** A stored verdict alongside a fresh one is two standing
+conclusions about one review, and whichever a later run picked up would be a
+coin toss. One ending, most recently chosen — the same rule that makes a verdict
+consumed rather than stored.
+
+**Say what was dropped rather than dropping it quietly.** Someone who pressed
+`Commit` on their phone and then picks `Discuss` here has changed their mind on
+purpose; someone who forgot they had voted has not, and only the report tells
+them apart.
 
 `Review` carries the files and `+`/`−`, the page's `open:` line, and the
 published URL when there is one. Where the page holds a review pass, it also

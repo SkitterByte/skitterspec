@@ -143,7 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The page opens with why | ✅ | [01-page-opens-with-why.md](01-page-opens-with-why.md) |
-| 2 | The report ends in a choice | ⬜ | [02-report-ends-in-a-choice.md](02-report-ends-in-a-choice.md) |
+| 2 | The report ends in a choice | ✅ | [02-report-ends-in-a-choice.md](02-report-ends-in-a-choice.md) |
 
 ## Non-goals
 
@@ -163,12 +163,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] **Does the picker fire when no pass is waiting?** Decision 8 puts it where
-      the run already stops, and `/spec-next`'s review offer deliberately does
-      not. So a phase built with nothing waiting may end with no picker at all —
-      correct by Decision 8, and possibly the common case. Phase 2 decides
-      whether `Commit` / `Commit & Continue` alone are worth stopping for, or
-      whether the picker is strictly the "a pass is waiting" ending.
+- [x] **Does the picker fire when no pass is waiting?** **Yes — three of the four
+      options do.** Decision 8's chaining worry was overstated: the picker
+      appears at the **end** of a run, by which point `/commit && /spec-next` has
+      already finished, so it interrupts nothing. Only `Reviewed` is conditional,
+      because it is the one option with nothing to act on when no pass is held.
 
 ## State log
 
@@ -178,6 +177,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-15 — **Open question answered, and Decision 8 was partly wrong.** The
+  fear was that a picker taxes every phase because `/commit && /spec-next` is
+  typed as one line — but the picker lands at the *end* of the run, after the
+  chain has already completed. It blocks nothing it was feared to block. So
+  `Commit`, `Commit & Continue` and `Discuss` are offered whenever a phase ends;
+  only `Reviewed` is conditional on a pass actually waiting.
 
 - 2026-09-15 — **`Snags` row added to phase 2.** "Nothing follows the block" was
   stated and broken repeatedly, which makes it a missing *destination* rather
