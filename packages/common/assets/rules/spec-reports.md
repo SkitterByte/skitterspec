@@ -106,10 +106,13 @@ so instead:
 
 **[Open the page](https://…)** · press a verdict, then type `/spec-reviewed` — I cannot see it until you do.
 
-Offering both links under a line that claims to be holding is the failure this
-exists to prevent: it was done, a verdict was pressed on the published page
-three times, and each one sat unread while the run reported that it was
-waiting.
+**Exactly one link, never two.** The banner offers the page the reader can
+actually use, and the engine has already decided which that is — a served URL
+when it could serve, a published one only when it could not. Handing over both
+asks the reader to know which door the run is standing behind, and they cannot:
+it was done, and a verdict was pressed on the published page three times while
+each one sat unread under a line claiming the run was waiting. Two links is not
+a convenience with a caveat; it is the caveat existing at all.
 
 **This is not the old failure returning**, and the difference is the whole
 justification. The offer used to be two quoted lines in the tail of a long

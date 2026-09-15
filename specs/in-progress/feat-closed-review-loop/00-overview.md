@@ -145,6 +145,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the notes `decisions` log. The page maps unrecognised verdicts to
   "discussed", so a `skip` logged there would render as a lie; showing the gate
   log on the page moved to phase 2.
+- 2026-09-15 — Phase 5: the banner offers exactly one link. Caveating the
+  published link was the wrong fix for the previous entry — the caveat existing
+  at all is the bug, because the reader cannot tell which door the run is
+  standing behind. The engine's `reader:` line already decides, so the skill
+  relays that page and publishes only where it could not serve.
 - 2026-09-15 — Phase 5: the wait was promised for a transport it cannot see.
   The watch reads the engine's local pending store; the published page writes
   to the artifact store, which nothing pushes from. Offering both links under

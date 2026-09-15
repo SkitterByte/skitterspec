@@ -178,13 +178,29 @@ test('the offer is not turned into a gate on anything', () => {
 // and the banner was handed out with both links under one line claiming to be
 // holding. Three verdicts were pressed on the published page and sat unread.
 test('the banner only promises a wait the transport can deliver', () => {
-  assert.match(NEXT, /\*\*The wait covers the served page only\*\*/)
   assert.match(NEXT, /nothing pushes from\s*\n?the artifact store/i)
   assert.match(NEXT, /press a verdict, then type `\/spec-reviewed`/)
 
   const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
   assert.match(rule, /\*\*Only promise a wait the transport can deliver\.\*\*/)
   assert.match(rule, /I cannot see it until you do/)
+})
+
+// ONE LINK. Two doors and no way to tell which the run is standing behind is
+// the whole failure, not a convenience with a caveat — the caveat existing is
+// the bug. The engine's `reader:` line has already picked which page the reader
+// can use, so the skill relays that one and publishes only when it could not
+// serve at all.
+test('exactly one link is offered, and publishing is the unreachable case', () => {
+  assert.match(NEXT, /\*\*One link, and the engine has already chosen it\.\*\*/)
+  assert.match(NEXT, /\*\*Never offer both\.\*\*/)
+  assert.match(NEXT, /for the reader the server cannot reach, and for nobody\s*\n?else/i)
+  // The pre-existing rule it leans on, sharpened rather than duplicated.
+  assert.match(NEXT, /is not a\s*\n?reason to publish as well/i)
+
+  const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
+  assert.match(rule, /\*\*Exactly one link, never two\.\*\*/)
+  assert.match(rule, /it is the caveat existing at all/)
 })
 
 test('/spec-diff says which store the wait actually watches', () => {

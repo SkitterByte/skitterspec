@@ -297,11 +297,19 @@ so one subject lives in one place:
 
 `/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
 
-**The wait covers the served page only**, so a banner that also offers a
-**published** link must not claim to be holding for it — nothing pushes from
-the artifact store into this conversation. Offer the published link with what
-is true of it: *press a verdict, then type `/spec-reviewed`*. The alternative
-was done, and three verdicts sat unread under a line that said I was waiting.
+**One link, and the engine has already chosen it.** Where it served, the
+banner carries the served URL and the wait is real. Where it could not serve —
+a busy port, a machine with no network address — that is the case publishing
+exists for, and then the banner carries the published URL with what is true of
+it: *press a verdict, then type `/spec-reviewed`*, because nothing pushes from
+the artifact store into this conversation.
+
+**Never offer both.** Publishing while the server is reachable adds a second
+door the reader cannot tell apart from the first, and the wait only stands
+behind one of them — that was done, and three verdicts were pressed on the
+published page while each sat unread under a line saying I was holding. The
+published page is for the reader the server cannot reach, and for nobody
+else.
 
 ---
 
@@ -398,7 +406,8 @@ drift.
 
 **Serving is the engine's to do; publishing is never.** A `remote` reader
 authorises a local server — one process, ended by one flag, leaving nothing
-behind — and authorises nothing else. Publishing leaves a page this tooling
+behind — and authorises nothing else. A reader the server CAN reach is not a
+reason to publish as well: the page they can already open is the page to name. Publishing leaves a page this tooling
 cannot remove, so it stays an ask in every case, always. If the engine could not
 serve (a busy port, a machine with no network address) it falls back to the
 `file://` URL with its marker, and that is when publishing is worth naming.
