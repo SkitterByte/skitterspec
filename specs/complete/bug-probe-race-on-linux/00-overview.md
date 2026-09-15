@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-probe-race-on-linux (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -117,6 +117,7 @@ Both platforms, against the shipped helper (`node:24-alpine` for Linux):
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -125,3 +126,4 @@ Both platforms, against the shipped helper (`node:24-alpine` for Linux):
 - 2026-09-15 — Second platform bug found by the same CI run as
   `bug-up-accuses-its-own-write`. Both were invisible because the suite had only
   ever run on macOS; a Linux job would have caught both long before CI existed.
+- 2026-09-15 — Completed; fix in, tests green (2396).
