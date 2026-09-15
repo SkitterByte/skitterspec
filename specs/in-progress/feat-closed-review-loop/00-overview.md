@@ -7,9 +7,9 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-261/closed-review-loop-rev
 
 > **Type:** Feature
 > **Name:** feat-closed-review-loop
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-15)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
 > **Area:** packages/common/src/env/review.js, packages/common/src/env/serve.js, packages/common/src/cli.js, packages/common/src/init.js, packages/common/assets/skills/{spec-next,spec-diff,spec-reviewed,spec-init}, packages/common/assets/rules/spec-planning.md
 > **Stack:** worktree
@@ -127,6 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-15 | Ready | backlog | Reuben Greaves |
+| 2026-09-15 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
