@@ -145,6 +145,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the notes `decisions` log. The page maps unrecognised verdicts to
   "discussed", so a `skip` logged there would render as a lie; showing the gate
   log on the page moved to phase 2.
+- 2026-09-15 — Phase 5: the copy control is now conditional on there being a
+  code. Carrying the hand-off onto the decided panel was right, but rendering a
+  bare `/spec-reviewed` as an input plus a Copy button dressed a word you type
+  into the terminal you are already in as an artefact to transport — and left
+  the ending looking unfinished. It is a clause in the panel now.
 - 2026-09-15 — Phase 5: `Snags` renamed to `Notes` in the report contract and
   every skill that declares it.
 - 2026-09-15 — Phase 5 added after using the loop for real. Three things the

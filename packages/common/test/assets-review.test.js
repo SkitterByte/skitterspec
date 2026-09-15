@@ -1553,3 +1553,41 @@ test('a refused pass does not end the review either', () => {
     assert.match(dom.byId['copy-hint'].textContent, /Not sent/)
   })
 })
+
+// --- the ending says it ONCE ------------------------------------------------
+//
+// The decided page said the same thing four times: the panel, the verdict bar,
+// the history line and a command box with a Copy button. The panel is the
+// ending; the rest either earns its place or goes.
+
+test('a code keeps its box, because six digits are worth copying', async () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  dom.byId['verdict-commit'].dispatch('click')
+  await settle()
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
+  assert.strictEqual(dom.byId['sent-cmd-text'].value, '/spec-reviewed 418207')
+})
+
+test('a bare command is a sentence, not a copyable artefact', async () => {
+  // The store transport has no code to hand back, and `/spec-reviewed` is a
+  // word you type into the terminal you are already in. A Copy button for it
+  // makes a finished page look unfinished.
+  const claude = fakeClaude()
+  const dom = runPage(marked(), { protocol: 'https:', claudeUse: claude.use })
+  dom.byId['verdict-commit'].dispatch('click')
+  await settle()
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, true, 'no command box')
+  assert.strictEqual(dom.byId['copy-hint'].hidden, true, 'and no hint above it')
+  // The instruction is not lost — it is a clause in the panel, where the rest
+  // of the ending already is.
+  assert.match(dom.byId['decided-note'].textContent, /run \/spec-reviewed where it is/)
+})
+
+test('the history line goes quiet once the panel says the same thing', async () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  dom.byId['verdict-commit'].dispatch('click')
+  await settle()
+  assert.strictEqual(dom.byId['verdict-log'].hidden, true)
+  // And the panel is still the one that speaks.
+  assert.match(dom.byId['decided-what'].textContent, /You chose/)
+})

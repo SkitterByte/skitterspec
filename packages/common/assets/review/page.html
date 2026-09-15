@@ -1340,14 +1340,28 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
       btn.title = 'Already sent — ' + said
     })
     verdictCount.textContent = 'Sent — ' + said
-    // THE HAND-OFF SURVIVES THE ENDING. A served pass is picked up by a command
-    // the reader still has to run, so ending the review must not take it off
-    // the screen — and on a re-open it is restored, because the tab that had it
-    // is often not the tab they come back in.
-    if (decided.cmd) {
+    // ONE STATEMENT, NOT FOUR. The panel, the bar, the history line and the
+    // command box all said the same thing at once. The log line is the panel's
+    // sentence again in smaller type, so it goes.
+    verdictLog.hidden = true
+
+    // THE HAND-OFF SURVIVES THE ENDING — but only where there is something
+    // worth carrying. A code is six digits to transcribe, and the box and its
+    // Copy button exist for exactly that. A bare `/spec-reviewed` is a word the
+    // reader is about to type into the terminal they are already sitting in;
+    // dressing it as a copyable artefact makes the ending look unfinished.
+    if (decided.cmd && /\s/.test(decided.cmd)) {
       copyHint.hidden = false
       copyHint.textContent = 'Sent. Run this where Claude is:'
       showCommand(decided.cmd)
+      return
+    }
+    copyHint.hidden = true
+    sentCmd.hidden = true
+    copyOut.hidden = true
+    if (decided.cmd) {
+      decidedNote.textContent +=
+        ' If Claude was not already waiting, run ' + decided.cmd + ' where it is.'
     }
   }
 
