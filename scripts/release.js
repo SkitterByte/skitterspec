@@ -9,13 +9,17 @@
  *   @skitterbyte/skitterspec-linear  (packages/skitterspec-linear)
  *
  * Usage:
- *   node scripts/release.js <package> <patch|minor|major|x.y.z> [--yes] [--publish]
+ *   node scripts/release.js <package> <patch|minor|major|x.y.z> [--yes]
  *
  * Escalating levels — a bare run changes nothing:
  *   (no flag)   plan     print the ordered plan; touch nothing (dry-run).
  *   --yes       local    bump version, commit, and tag <package>@<version>.
- *   --publish   publish  local steps + `pnpm publish` (prepack builds the dist).
  *   --allow-empty        permit a release in which nothing shippable changed.
+ *
+ * It NEVER publishes. Pushing the tag is what publishes: `.github/workflows/
+ * release.yml` stages that package on npm by OIDC, and a human approves it with
+ * 2FA (`npm run approve <package> <version>`). CI is the only publisher, so
+ * every release carries provenance and no token lives on a laptop.
  *
  * It NEVER runs `git push` — it prints the push commands for the operator, per
  * "I prep, you publish". Tag scheme is `<package>@<version>` (e.g.
@@ -139,8 +143,8 @@ function tagName(name, version) {
 }
 
 // Build the structured release plan — the single source of truth for both the
-// printed output and the test assertions. Steps carry a `phase`: 'local' steps
-// always run when executing; 'publish' steps run only at the publish level.
+// printed output and the test assertions. Every step is `phase: 'local'` — the
+// publish is CI's, triggered by the tag this plan cuts.
 // Each step carries an `argv` (the executable form) alongside `cmd` (the pretty
 // display string): argv is what `execute` spawns, so an argument with spaces —
 // e.g. the commit message — stays a single token instead of being re-split.
@@ -182,22 +186,21 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
     })
   }
 
-  // Publish BEFORE tagging. `sh` throws on a non-zero exit, so a failed publish
-  // aborts the run — and if the tag were cut first it would survive that abort,
-  // asserting a release npm does not have (skitterspec@16.3.1, tagged and
-  // committed, never published, silently superseded by 16.3.2). Tagging last
-  // inverts the failure: a publish that succeeds and then fails to tag leaves a
-  // real published version to be tagged by hand, which is recoverable and
-  // visible. A tag pointing at nothing is neither.
+  // NOTHING IS PUBLISHED HERE, and the tag is now the LAST step in a different
+  // sense than it used to be: it is the trigger.
   //
-  // The tag stays `phase: 'local'` so `--yes` without `--publish` — the "I prep,
-  // you publish" half — still tags exactly as before.
-  steps.push({
-    phase: 'publish',
-    cmd: `pnpm publish --filter ${npm} --access public --no-git-checks`,
-    argv: ['pnpm', 'publish', '--filter', npm, '--access', 'public', '--no-git-checks'],
-    desc: 'build (prepack) + publish to npm',
-  })
+  // This tool once published before tagging, because a tag cut first survives a
+  // failed publish and then asserts a release npm does not have —
+  // skitterspec@16.3.1 was tagged and committed, never published, and silently
+  // superseded by 16.3.2. That reasoning was right while publishing was a single
+  // irreversible step.
+  //
+  // Staging changes it. Pushing the tag stages the package on npm; nothing is
+  // consumed there until a human approves with 2FA. So a tag whose staging
+  // failed costs a deleted tag and a re-push, not a burnt version — and in
+  // exchange, CI is the only publisher, which is what makes provenance a
+  // property of every release rather than of the ones that happened to go
+  // through it.
   // ANNOTATED, deliberately. `git tag <name>` alone makes a lightweight tag — a
   // bare ref with no tag object — and `git push --follow-tags`, which is how a
   // tag normally travels with its branch, sends annotated tags and nothing else.
@@ -213,8 +216,14 @@ function buildPlan({ name, npm, dirRel, currentVersion, nextVersion, level = 'pl
     desc: `tag ${tag}`,
   })
 
-  // Never executed — printed for the operator to run when ready.
-  const followUp = [`git push`, `git push origin ${tag}`]
+  // Never executed — printed for the operator to run when ready. Pushing the
+  // tag is what starts the release: release.yml stages it on npm, and the
+  // approve step finishes it with 2FA.
+  const followUp = [
+    `git push`,
+    `git push origin ${tag}`,
+    `npm run approve ${name} ${nextVersion}   # after the run stages it`,
+  ]
 
   return { name, npm, currentVersion, nextVersion, tag, needsBump, level, steps, followUp }
 }
@@ -293,11 +302,10 @@ function formatPlan(plan) {
   lines.push('')
   lines.push('  steps:')
   for (const step of plan.steps) {
-    const mark = step.phase === 'publish' ? '[publish]' : '[local]  '
-    lines.push(`    ${mark} ${step.cmd}`)
+    lines.push(`    ${step.cmd}`)
   }
   lines.push('')
-  lines.push('  then push yourself (never run by this tool):')
+  lines.push('  then, yourself (never run by this tool):')
   for (const cmd of plan.followUp) lines.push(`    ${cmd}`)
   return lines.join('\n')
 }
@@ -320,8 +328,8 @@ function listTags(root) {
   return out.split('\n').map((t) => t.trim()).filter(Boolean)
 }
 
-// Run the plan's steps up to `level`, after the guards pass. 'local' runs local
-// steps; 'publish' also runs the publish step. Never pushes.
+// Run the plan's steps after the guards pass. Every step is local now — the
+// publish belongs to CI — so there is no level to filter on. Never pushes.
 function execute(plan, { root = ROOT, level, allowEmpty = false }) {
   assertCleanTree(gitPorcelain(root))
   const tags = listTags(root)
@@ -334,7 +342,6 @@ function execute(plan, { root = ROOT, level, allowEmpty = false }) {
   })
 
   for (const step of plan.steps) {
-    if (step.phase === 'publish' && level !== 'publish') continue
     if (step.kind === 'write-version') {
       writeVersion(path.join(root, step.file), step.version)
       continue
@@ -351,18 +358,19 @@ function execute(plan, { root = ROOT, level, allowEmpty = false }) {
 const HELP = `release — cut a per-package release for the skitterspec monorepo
 
 Usage:
-  node scripts/release.js <package> <patch|minor|major|x.y.z> [--yes] [--publish]
+  node scripts/release.js <package> <patch|minor|major|x.y.z> [--yes]
 
 Packages: ${Object.keys(PACKAGES).join(', ')}
 
 Levels (a bare run is a dry-run and changes nothing):
   (no flag)   print the plan only
   --yes       bump + commit + tag locally
-  --publish   local steps + pnpm publish (prepack builds); implies --yes
   --allow-empty  release even though no tarball input changed since the last
                  tag (a deliberate version-alignment bump)
 
-Never runs 'git push' — prints the push commands for you.`
+Never runs 'git push', and never publishes — pushing the tag is what stages the
+release on npm (.github/workflows/release.yml), which you then approve with
+'npm run approve <package> <version>'.`
 
 function parseArgs(argv) {
   const args = argv.slice(2)
@@ -370,7 +378,6 @@ function parseArgs(argv) {
   const positional = args.filter((a) => !a.startsWith('--'))
   return {
     help: flags.has('--help') || flags.has('-h'),
-    publish: flags.has('--publish'),
     yes: flags.has('--yes') || flags.has('--execute'),
     allowEmpty: flags.has('--allow-empty'),
     pkg: positional[0],
@@ -385,7 +392,7 @@ function main(argv) {
     process.exit(opts.help ? 0 : 1)
   }
 
-  const level = opts.publish ? 'publish' : opts.yes ? 'local' : 'plan'
+  const level = opts.yes ? 'local' : 'plan'
 
   const resolved = resolvePackage(opts.pkg)
   const currentVersion = readVersion(resolved.pkgJsonPath)
@@ -396,7 +403,7 @@ function main(argv) {
   console.log('')
 
   if (level === 'plan') {
-    console.log('dry-run — nothing changed. Re-run with --yes (local) or --publish (npm).')
+    console.log('dry-run — nothing changed. Re-run with --yes to bump, commit and tag.')
     return
   }
 

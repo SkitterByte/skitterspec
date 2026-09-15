@@ -15,46 +15,80 @@ package directly — it bumps the private root package (it once misfired
 package's version by editing its `package.json` in place (pnpm has no
 workspace-scoped `version` verb), then commits and tags.
 
-## Prerequisites (before `--publish`)
+## Prerequisites
 
-Planning and the local `--yes` steps need nothing special. Before you publish:
+Planning and the local `--yes` steps need nothing special — no npm login, no
+token. Publishing is CI's, and it authenticates by OIDC.
 
-- **Logged in to the npm registry** — `pnpm whoami` should print your username.
-  If not, `pnpm login` (auth is shared with npm via `~/.npmrc`; the registry is
-  still npmjs.org).
-- **Publish rights to the `@skitterbyte` scope** — your account must be a member
-  of the org/scope with publish access, or the publish is rejected.
-- **2FA / OTP** — if your account enforces two-factor auth at publish time,
-  pnpm will prompt for a one-time code (or pass `--otp=<code>`); the release tool
-  runs `pnpm publish` interactively so the prompt reaches you.
+Two things are set up once, and one is needed each time you approve:
+
+- **A trusted publisher per package**, configured on the npm website under
+  Settings → Trusted Publisher → GitHub Actions. Every field is exact and
+  **case-sensitive**: Organization `SkitterByte`, Repository `skitterspec`
+  (the bare name), Workflow `release.yml` (the filename — renaming that file
+  breaks every publish), Environment **blank**. A lowercase org here produces
+  `ENEEDAUTH`.
+- **`repository.url` matching the org's case** in every manifest. npm validates
+  the sigstore provenance bundle against it case-sensitively, and a mismatch
+  fails the publish at the very last step with
+  `422 … Failed to validate repository information`.
+  `scripts/package-metadata.test.js` guards it.
+- **An authenticated, 2FA-capable session to approve** — `npm login`, and npm
+  >= 11.15.0 locally (`npm stage` does not exist before that). An `E401` from
+  `npm stage list` means you are not logged in, not that the release failed.
 
 ## The flow
 
 ```
-node scripts/release.js <package> <patch|minor|major|x.y.z> [--yes] [--publish]
+node scripts/release.js <package> <patch|minor|major|x.y.z> [--yes]
+git push && git push origin <package>@<version>
+npm run approve <package> <version>
 ```
 
 The tool escalates by flag — **a bare run changes nothing**:
 
 - **(no flag) — plan.** Prints the ordered steps and exact commands, touches
   nothing. Always start here and read the plan.
-- **`--yes` — local.** Bumps the version, commits, and tags `name@version`.
-- **`--publish` — publish.** Local steps + `pnpm publish --filter <pkg>` (implies
-  `--yes`; `--no-git-checks` since the tool runs its own guards). The package's
-  `prepack` runs `build-dist.js` to assemble the self-contained tree.
+- **`--yes` — local.** Bumps the version, writes `RELEASES-<package>.md`,
+  commits, and tags `name@version`. It never pushes and **never publishes**.
 
-**The tag is cut last, after the publish succeeds.** A failed publish therefore
-leaves no tag, so the tag list only ever claims releases that reached npm. The
-inverse failure — a publish that succeeds and then fails to tag — is the
-deliberate trade: you are left with a real published version to tag by hand,
-which is visible and recoverable, whereas a tag pointing at a version npm does
-not have is discovered by a consumer hitting `ETARGET`. (That is not theoretical:
-`skitterspec@16.3.1` was tagged, committed and never published, and was found
-from outside.) Under `--yes` alone the tag still runs — it is the last local step
-either way.
+**Pushing the tag is what releases.** `.github/workflows/release.yml` triggers on
+`<package>@*`, checks the tag agrees with the manifest, runs the suite, and then
+`npm stage publish` — staging the build on npm without any token, by OIDC. The
+package's `prepack` runs `build-dist.js` to assemble the self-contained tree, so
+the workflow packs from the package directory.
 
-It **never runs `git push`**. When it's done it prints the push commands for you
-to run when ready — see below.
+**Staged is not published.** A staged build waits for a human to approve it with
+2FA:
+
+```
+npm run approve skitterspec 19.0.0
+npm run approve skitterspec --reject     # discard it instead
+```
+
+`npm stage approve` takes a **stage-id** (a UUID), never a package spec — only
+`npm stage list` accepts a spec — so the helper resolves the version to an id
+through the listing first. Pass a stage-id directly if you have one.
+
+**Why the tag now comes before the publish.** This tool used to publish first and
+tag afterwards, so a failed publish could not leave a tag asserting a release npm
+did not have — `skitterspec@16.3.1` was tagged, committed, never published, and
+found from outside. Staging inverts that trade: nothing is consumed on npm until
+an approval, so a tag whose staging failed costs a `git tag -d` and a re-push
+rather than a burnt version. In exchange **CI is the only publisher**, which is
+what makes provenance a property of every release rather than of the ones that
+happened to go through it. There is no `--publish` flag any more.
+
+**Recovery.** If a tag is already pushed and the run needs repeating, use the
+workflow's `workflow_dispatch` trigger with the package and version — no second
+tag needed.
+
+**Don't trust a green workflow.** Staging is not publishing. After approving:
+
+```
+npm view @skitterbyte/skitterspec dist-tags
+npm view @skitterbyte/skitterspec@19.0.0 dist.attestations
+```
 
 ## Tag scheme
 
@@ -137,16 +171,21 @@ or push all tags at once with `git push --tags`.
 
 ## Published so far
 
-Both distributions are live on npm: `@skitterbyte/skitterspec@6.0.0` and
-`@skitterbyte/skitterspec-linear@2.0.0`, each tagged `name@version` (confirm the
-latest anytime with `git tag | sort -V`). A later release just picks the next
-version and follows the flow above — verify the plan first, then publish:
+Both distributions are live on npm, each tagged `name@version` (confirm the
+latest anytime with `git tag | sort -V`). A later release picks the next version
+and follows the flow above — verify the plan first, then tag, push and approve:
 
 ```
-node scripts/release.js skitterspec major --publish         # 6.0.0 → 7.0.0
-node scripts/release.js skitterspec-linear major --publish  # 2.0.0 → 3.0.0
+node scripts/release.js skitterspec major --yes             # plan says 18 → 19
+node scripts/release.js skitterspec-linear major --yes      # plan says 12 → 13
 git push --tags
+npm run approve skitterspec 19.0.0
+npm run approve skitterspec-linear 13.0.0
 ```
+
+Neither version is hardcoded here on purpose — the plan prints the real current
+version, and a number written into prose goes stale the next time anyone
+releases.
 
 Every release so far has been a **major** bump — use `patch`/`minor` (or an
 explicit `x.y.z`) if a given release is smaller. There are no wrapper scripts:
@@ -155,6 +194,9 @@ there's no pinned version to keep in sync.
 
 ## Not covered here
 
-Automated **CHANGELOG / release-note generation** is deferred to a later spec —
-the single-package-era root scripts that did this have been removed. For now the
-release process is versioning, tagging, and publishing only.
+Automated **CHANGELOG generation**. Per-package user-facing release notes ARE
+generated — `scripts/release-notes.js` writes `RELEASES-<package>.md` from the
+`Release-Note:` footers of the commits in the tag range, and `release.js` runs it
+as a local step so the notes are committed in the tree the tag points at. A
+`Release-Note:` on the version commit itself would be the one place the generator
+cannot see it.

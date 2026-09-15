@@ -93,3 +93,10 @@ notes. See `.claude/rules/commit-messages.md` for the full commit grammar.
 > generator walks one tag series where this repo has two. Release notes are
 > written per package by `scripts/release-notes.js`, which `release.js` runs as
 > part of a release — see [RELEASING.md](./RELEASING.md).
+>
+> **Nothing publishes from a laptop.** `release.js` bumps, commits and tags, and
+> stops there — there is no `--publish`. Pushing the tag `<package>@<version>` is
+> what releases: `.github/workflows/release.yml` stages that package on npm by
+> OIDC with no token anywhere, and `npm run approve <package> <version>` finishes
+> it with 2FA. CI being the only publisher is what makes every release carry a
+> provenance attestation.

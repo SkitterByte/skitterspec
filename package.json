@@ -22,6 +22,7 @@
     "dev:sync": "node scripts/dev-sync.js",
     "dev:unlink": "node scripts/dev-unlink.js",
     "release": "node scripts/release.js",
+    "approve": "node scripts/approve-release.cjs",
     "preversion": "node scripts/no-root-version.js"
   },
   "repository": {
