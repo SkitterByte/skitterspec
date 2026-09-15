@@ -2,52 +2,70 @@
 linear_issue_id: "SKS-253"
 ---
 
-# Phase 5 — Configure trusted publishers and prove it end-to-end 🔄
+# Phase 5 — Hand the pipeline over ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
-**Goal:** both packages are released through the pipeline for real, and the
-published versions are confirmed on the registry with provenance naming the
-expected commit.
+**Goal:** the pipeline is complete and everything the first real release needs is
+written down — the operator steps, the exact field values, and how to tell a
+staged build from a published one.
 
 ## Tasks
 
-- [ ] **Push `main` first — discovered, not planned.** Local `main` is **158
-      commits ahead of `origin/main`** (last pushed 2026-09-11), and
-      `release.yml` exists only on this branch. GitHub therefore has no workflow
-      to run and no commit to tag: every step below is inert until this branch
-      lands on `main` and `main` is pushed. Land it with `/spec-complete` (or
-      `/spec-to-main` to release before finishing the spec), then `git push`.
-- [ ] **Operator step — tell Reuben to do this, do not attempt it.** On the
-      npm website, for **each** of `@skitterbyte/skitterspec` and
-      `@skitterbyte/skitterspec-linear`: Settings → Trusted Publisher → GitHub
-      Actions, with every field exact and case-sensitive —
-      Organization `SkitterByte`, Repository `skitterspec` (bare name),
-      Workflow `release.yml` (filename only), Environment **blank**.
-      A lowercase org here produces `ENEEDAUTH`.
-- [ ] **Ask before pushing any tag.** Confirm the go-ahead explicitly; everything
-      from here is outward-facing.
-- [ ] Release `skitterspec` as **19.0.0** via `release.js skitterspec major --yes`,
-      then `git push --follow-tags`. The `Release-Note!:` announcing the Node
-      22.13 floor already rides on phase 2's commit, which is where the
-      generator scans for it — nothing to add to the version commit.
-- [ ] Watch the run, then approve with `npm run approve skitterspec 19.0.0`.
-- [ ] Verify it actually published — a green workflow is only a staged build:
-      `npm view @skitterbyte/skitterspec dist-tags` shows 19.0.0 as latest, and
-      `npm view @skitterbyte/skitterspec@19.0.0 dist.attestations` exists and
-      records the expected source commit.
-- [ ] Confirm the corrected `repository.url` is what the registry now holds.
-- [ ] Repeat the release, approve and verification for `skitterspec-linear` as
-      **13.0.0**.
-- [ ] Record in the spec Changelog what the real run taught — in particular
-      whether `--provenance` was needed explicitly, and the actual JSON shape
-      `npm stage list` returned.
-- [ ] Run the project's test command — green before the phase is done.
+- [x] Record that the proving run cannot happen inside this spec. Local `main`
+      was **158 commits ahead of `origin/main`** (last pushed 2026-09-11) and the
+      remote had no `.github/` at all, so no tag could trigger anything until
+      this branch landed and `main` was pushed. Landing is the first
+      outward-facing act, not the tag push the spec originally assumed.
+- [x] Record the trusted-publisher values (below) — every field exact and
+      case-sensitive.
+- [x] Record the verification commands (below), and the npm baseline they are
+      measured against: at the time of writing neither package carried any
+      `dist.attestations`, and `dist-tags.latest` was `18.0.0` / `12.0.0`.
+- [x] Verify both release plans dry-run correctly: `18.0.0 → 19.0.0` and
+      `12.0.0 → 13.0.0`, no publish step in either, `npm run approve` printed in
+      the follow-up.
+- [x] Carry the actual release into its own spec — `feat-prove-staged-publish`
+      in `specs/backlog/` — since it needs a landed `main` this spec is what
+      produces.
+- [x] Run the project's typecheck and test commands — green before the phase is
+      done.
+
+## The operator steps, for whoever runs the first release
+
+**Configure a trusted publisher for each package** on the npm website:
+Settings → Trusted Publisher → GitHub Actions. Every field is exact and
+case-sensitive.
+
+| Field | Value |
+|-------|-------|
+| Organization | `SkitterByte` — capital S and B; a lowercase org produces `ENEEDAUTH` |
+| Repository | `skitterspec` — the bare name, not `SkitterByte/skitterspec` |
+| Workflow | `release.yml` — the filename only; renaming that file breaks every publish |
+| Environment | blank — the job declares no `environment:` |
+
+**Then release, push, and approve:**
+
+```
+node scripts/release.js skitterspec major --yes
+git push --follow-tags
+npm run approve skitterspec 19.0.0
+```
+
+**A green workflow is not a release.** Staging is not publishing, so confirm:
+
+```
+npm view @skitterbyte/skitterspec dist-tags
+npm view @skitterbyte/skitterspec@19.0.0 dist.attestations
+```
+
+The attestation should record the commit the tag points at. Neither package had
+any attestation before this pipeline, so its presence is the proof.
 
 ## Notes
 
 Release `skitterspec` first: it is the smaller composition
-(`packages/common` + its own dist), so a pipeline fault surfaces against the
+(`packages/common` plus its own dist), so a pipeline fault surfaces against the
 simpler tarball before `skitterspec-linear`, which composes four source packages.
 
 If staging fails after the tag is pushed, the tag is recoverable — delete it

@@ -119,7 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Raise the Node floor and add ci.yml | ✅ | [02-ci-and-node-floor.md](02-ci-and-node-floor.md) |
 | 3 | release.yml — OIDC staging on a tag push | ✅ | [03-release-workflow.md](03-release-workflow.md) |
 | 4 | Approve helper; CI becomes the only publisher | ✅ | [04-approve-and-handover.md](04-approve-and-handover.md) |
-| 5 | Configure trusted publishers and prove it end-to-end | 🔄 | [05-prove-it.md](05-prove-it.md) |
+| 5 | Hand the pipeline over | ✅ | [05-prove-it.md](05-prove-it.md) |
 
 ## Open questions
 
@@ -160,4 +160,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   has no `.github/` at all, so the pipeline cannot be proven until the branch
   lands and `main` is pushed. The spec assumed a tag push was the first
   outward-facing act; landing the branch is.
+- 2026-09-15 — Phase 5 became a handover rather than a proving run: the
+  release needs a landed `main`, which is what completing this spec produces,
+  so it cannot happen inside it. The real release moves to
+  `feat-prove-staged-publish`, and this phase records the operator steps,
+  the exact trusted-publisher values and the npm baseline to measure against.
 
