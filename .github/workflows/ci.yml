@@ -1,0 +1,50 @@
+# Run the test suite on every push and pull request.
+#
+# The matrix floor is not a free choice: `engines.node` and the lowest version
+# here are asserted equal by `scripts/ci-workflow.test.js`, so a floor nobody
+# tests cannot quietly appear in the manifests.
+#
+# The suite needs a real install. Tests require workspace packages by NAME
+# (`@skitterbyte/skitterspec-common/…`, `@skitterbyte/skitterspec-sync-core`),
+# which resolve only through the `node_modules/@skitterbyte/*` symlinks pnpm
+# creates — on a bare checkout the runner discovers 1825 tests instead of 2362
+# and fails 41. So there is no no-install job here, and pnpm's own Node floor
+# (>= 22.13) is therefore the repo's floor too.
+#
+# NOTE: `actions/setup-node` is used WITHOUT `registry-url`, here as in
+# release.yml. That option writes an `.npmrc` containing an `_authToken`, and
+# release.yml's OIDC exchange only happens when npm finds no credentials at all.
+# Keeping both workflows identical on this point is what stops it being copied
+# across later.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.13', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      # No version pinned: action-setup reads `packageManager` from the root
+      # package.json, so the lockfile and CI can never disagree about pnpm.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test

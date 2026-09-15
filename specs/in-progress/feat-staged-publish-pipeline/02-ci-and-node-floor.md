@@ -2,26 +2,26 @@
 linear_issue_id: "SKS-250"
 ---
 
-# Phase 2 — Raise the Node floor and add ci.yml ⬜
+# Phase 2 — Raise the Node floor and add ci.yml ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the suite runs on every push and PR, on the Node versions the packages
 actually claim to support.
 
 ## Tasks
 
-- [ ] Raise `engines.node` to `>=22.13` in all five packages — the floor pnpm
+- [x] Raise `engines.node` to `>=22.13` in all five packages — the floor pnpm
       11.11 imposes, and the one CI can genuinely test.
-- [ ] Add `.github/workflows/ci.yml`: trigger on `push` and `pull_request`;
+- [x] Add `.github/workflows/ci.yml`: trigger on `push` and `pull_request`;
       matrix Node `22.13` and `24`; `pnpm/action-setup` honouring
       `packageManager`; `pnpm install --frozen-lockfile`; `pnpm test`.
-- [ ] Do **not** pass `registry-url` to `actions/setup-node` here either — keep
+- [x] Do **not** pass `registry-url` to `actions/setup-node` here either — keep
       the two workflows consistent so the option never gets copied into
       `release.yml` later.
-- [ ] Add a test asserting the ci.yml matrix's lowest Node equals the
+- [x] Add a test asserting the ci.yml matrix's lowest Node equals the
       `engines.node` floor, so the two cannot drift apart silently.
-- [ ] Run the project's test command — green before the phase is done.
+- [x] Run the project's test command — green before the phase is done.
 
 ## Notes
 
@@ -36,3 +36,7 @@ floor raise.
 
 The version bump that ships this breaking change happens in phase 5, via
 `release.js` — this phase only changes the declared floor.
+
+**Answered while building:** the floor was raised on the root manifest too, not
+just the five packages — it declares `engines.node` like any other, and the
+guard asserts all six agree rather than checking the packages alone.

@@ -23,7 +23,7 @@
     "@skitterbyte/skitterspec-sync-core": "workspace:*"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13"
   },
   "repository": {
     "type": "git",
