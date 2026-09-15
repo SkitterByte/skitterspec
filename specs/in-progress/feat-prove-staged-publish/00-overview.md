@@ -88,7 +88,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Push `main` and prove CI runs | ✅ | [01-first-ci-run.md](01-first-ci-run.md) |
 | 2 | Release and verify `skitterspec` 19.0.0 | ✅ | [02-release-base.md](02-release-base.md) |
-| 3 | Release and verify `skitterspec-linear` 13.0.0 | 🔄 | [03-release-provider.md](03-release-provider.md) |
+| 3 | Release and verify `skitterspec-linear` 13.0.0 | ✅ | [03-release-provider.md](03-release-provider.md) |
 
 ## Open questions
 
@@ -110,4 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-15 — Phase 2: `@skitterbyte/skitterspec@19.0.0` published by CI on
   Trusted Publishing, with provenance naming commit 489353f. First release from
   this repo that carries an attestation at all.
+- 2026-09-15 — Phase 3: `@skitterbyte/skitterspec-linear@13.0.0` published by
+  CI with provenance naming commit 8e55fc8. Both distributions now ship signed,
+  from CI, with no token anywhere. The pipeline is proven end to end.
 
