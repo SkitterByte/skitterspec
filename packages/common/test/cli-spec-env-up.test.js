@@ -15,6 +15,26 @@ function git(cwd, ...args) {
     .trim()
 }
 
+/**
+ * Cut a fixture repo off from the developer's personal git ignore rules.
+ *
+ * WHAT THIS EXISTS TO STOP: git reads `~/.config/git/ignore` as its global
+ * excludes file with **no `core.excludesFile` setting required**, so whatever a
+ * developer happens to have listed there silently changes what `git status`
+ * reports inside a fixture. This author's line 1 is
+ * a recursive glob for `.claude/settings.local.json` — the exact file that
+ * `spec-env up` writes — so three tests below passed on the laptop and failed
+ * on the first CI runner that ever built this repo.
+ *
+ * A fixture must decide its own ignore rules. `core.excludesFile` set in the
+ * repo's own config overrides the default path, and because it is repo-local it
+ * also covers the git calls `cli.js` makes internally against the same repo —
+ * without touching `process.env`, which would leak across tests.
+ */
+function isolateIgnores(dir) {
+  git(dir, 'config', 'core.excludesFile', '/dev/null')
+}
+
 // A real git checkout on `main` with an isolated spec and a worktree on its
 // branch — enough to drive `live take` (which branch-switches the primary), so
 // we can prove `spec-env up` refuses while the spec is live.
@@ -23,6 +43,7 @@ function scaffoldGitWithWorktree(slug = 'x') {
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
+  isolateIgnores(dir)
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
@@ -234,6 +255,7 @@ function scaffoldInFlight(slug = 'y') {
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
+  isolateIgnores(dir)
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
@@ -285,6 +307,7 @@ test('a spec genuinely absent from the fork point is still refused', () => {
     git(dir, 'init', '-q')
     git(dir, 'config', 'user.email', 'test@example.com')
     git(dir, 'config', 'user.name', 'Test')
+  isolateIgnores(dir)
     fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
     fs.writeFileSync(
       path.join(dir, 'specs', '.core', 'env.config.json'),
@@ -333,6 +356,7 @@ function scaffoldDirty() {
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
+  isolateIgnores(dir)
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
@@ -374,6 +398,36 @@ test('worktree mode provisions beside another spec’s uncommitted work', async 
     assert.ok(commit, `a commit was planned: ${out}`)
     assert.ok(!commit.includes('scratch.js'), `the commit stays bounded: ${commit}`)
     assert.ok(!commit.includes('feat-beta'), `the commit stays bounded: ${commit}`)
+  } finally {
+    cleanupGit(dir)
+  }
+})
+
+// A tool must not accuse its own output. `up` writes the trusted worktree root
+// into .claude/settings.local.json, and then reports the tree — so unless the
+// tree is read BEFORE that write, the file it just created comes back as work
+// belonging to somebody else, on a clean checkout, with nothing wrong.
+//
+// This is stated separately from the stays-silent tests below because it is a
+// different claim: those say "a tidy tree produces no report", this one says
+// "whatever else up reports, never the file it wrote".
+test('up never reports the settings file it writes itself', async () => {
+  const dir = scaffoldDirty()
+  try {
+    touch(dir, 'specs/backlog/feat-alpha/00-overview.md', 'mine\n')
+
+    const out = await runQuiet(['spec-env', 'up', 'feat-alpha', '--dir', dir])
+
+    // It really did write the file — otherwise this test proves nothing.
+    assert.ok(
+      fs.existsSync(path.join(dir, '.claude', 'settings.local.json')),
+      'up should have written the trust file',
+    )
+    const untouched = out.includes('left untouched') ? out.slice(out.indexOf('left untouched')) : ''
+    assert.ok(
+      !untouched.includes('settings.local.json'),
+      `up accused the file it wrote: ${out}`,
+    )
   } finally {
     cleanupGit(dir)
   }

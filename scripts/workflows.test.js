@@ -126,7 +126,7 @@ test('ci.yml does not set registry-url', () => {
 
 test('a workflow that really sets registry-url is caught', () => {
   assert.strictEqual(
-    setsRegistryUrl('      - uses: actions/setup-node@v4\n        with:\n          registry-url: https://registry.npmjs.org\n'),
+    setsRegistryUrl('      - uses: actions/setup-node@v7\n        with:\n          registry-url: https://registry.npmjs.org\n'),
     true,
   )
 })
@@ -142,7 +142,7 @@ test('a comment mentioning registry-url is not an accusation', () => {
   // The healthy-but-unusual input: ci.yml explains WHY it omits the option, so
   // the string is in the file and the setting is not. A grep-based check would
   // fail the correct file (`.claude/rules/negative-checks.md` rule 3).
-  const yaml = '# NOTE: setup-node is used WITHOUT `registry-url` — see release.yml.\n      - uses: actions/setup-node@v4\n'
+  const yaml = '# NOTE: setup-node is used WITHOUT `registry-url` — see release.yml.\n      - uses: actions/setup-node@v7\n'
   assert.strictEqual(setsRegistryUrl(yaml), false)
 })
 

@@ -554,6 +554,27 @@ function specEnvUp(dir, config, specArg) {
     return
   }
 
+  // READ THE TREE BEFORE WRITING ANYTHING INTO IT.
+  //
+  // The report below divides the uncommitted tree into this spec's paths and
+  // everyone else's, and "everyone else's" means *the operator's* — work that
+  // was here before this command ran. Anything this command writes must
+  // therefore be invisible to that read, or `up` reports its own output as
+  // somebody's unfinished business.
+  //
+  // It did exactly that: the trust write below creates
+  // .claude/settings.local.json, and a clean checkout then reported
+  // "not this spec's — left untouched (1)" naming that very file. It went
+  // unnoticed for as long as it did because git reads ~/.config/git/ignore as
+  // its global excludes with no core.excludesFile setting needed, and the
+  // author's happened to list that path — so git never mentioned the file on
+  // the one machine the suite ever ran on. The first CI runner disagreed.
+  const upGit = gitReader(dir)
+  const upStatus = upGit(['status', '--porcelain'])
+  const upDirtyPaths = dirtyPaths(upGit)
+  const upOnFork = specOnForkPoint(dir, upGit, spec)
+  const upSpecUntracked = specIsUntracked(dir, upGit, spec)
+
   // Trust the shared worktree root so edits into the freshly-provisioned worktree
   // don't prompt. One absolute entry (the root) covers every spec; self-heals on
   // every provision for teammates who only cloned and ran /spec-start.
@@ -577,18 +598,15 @@ function specEnvUp(dir, config, specArg) {
     attached = fs.existsSync(spec.worktreePath)
   }
 
-  // The tree gate: the same facts the checkout planner gets. A worktree forks
-  // from base, so an uncommitted spec would produce a branch without it.
-  const upGit = gitReader(dir)
-  const upStatus = upGit(['status', '--porcelain'])
-  const upOnFork = specOnForkPoint(dir, upGit, spec)
+  // The tree gate: the same facts the checkout planner gets, all of them read
+  // above — before this command wrote anything of its own into the tree.
   const plan = planUp(spec, { slot, attached }, config, {
     clean: upStatus !== null && upStatus.length === 0,
-    dirtyPaths: dirtyPaths(upGit),
+    dirtyPaths: upDirtyPaths,
     specOnFork: upOnFork.onFork,
     specFoundOn: upOnFork.foundOn,
     forkRef: spec.baseRef || currentBranch(upGit) || 'HEAD',
-    specUntracked: specIsUntracked(dir, upGit, spec),
+    specUntracked: upSpecUntracked,
   })
 
   if (plan.blocked) {
