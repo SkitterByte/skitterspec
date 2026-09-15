@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-prove-staged-publish (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-15)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -100,6 +100,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-15 | Ready | backlog | Reuben Greaves |
 | 2026-09-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -113,4 +114,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-15 — Phase 3: `@skitterbyte/skitterspec-linear@13.0.0` published by
   CI with provenance naming commit 8e55fc8. Both distributions now ship signed,
   from CI, with no token anywhere. The pipeline is proven end to end.
+- 2026-09-15 — Completed; all phases done, tests green (2396). Both
+  distributions published by CI on Trusted Publishing with provenance. The
+  pipeline built by `feat-staged-publish-pipeline` is now exercised rather than
+  assumed, which is what this spec was carved out to do.
 
