@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-offer-implies-wait (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-15)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -123,6 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-15 | Ready | backlog | Reuben Greaves |
 | 2026-09-15 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -157,3 +158,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and the re-run duplicated — SKS-273 and SKS-274 are the same phase 1. The
   parent was stamped and skipped correctly, so only the sub-issue leg is
   missing the already-created check. Not in scope here.
+- 2026-09-15 — Completed; all three phases done, 2542 tests green. Each phase
+  ended in a verdict pressed on the page — commit-continue, commit-continue,
+  commit — so the loop this spec builds was exercised on the spec itself.
