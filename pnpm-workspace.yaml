@@ -1,4 +1,4 @@
 packages:
   - 'packages/*'
 minimumReleaseAgeExclude:
-  - '@skitterbyte/skittership@1.1.0 || 2.0.2 || 2.0.5'
+  - '@skitterbyte/skittership@1.1.0 || 2.0.2 || 2.0.5 || 2.0.6'

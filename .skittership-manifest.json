@@ -1,5 +1,5 @@
 {
-  "installedVersion": "2.0.5",
+  "installedVersion": "2.0.6",
   "files": {
     ".claude/rules/commit-messages.md": "sha256-b5250a21a74b4195fb259d009dc45a83031460f1042026074761757f9f3a679e",
     ".claude/skills/commit/SKILL.md": "sha256-bca6221144145870a474787132bc2de44c4d2c8e1888d7369ba9d0ce9d61453d",
