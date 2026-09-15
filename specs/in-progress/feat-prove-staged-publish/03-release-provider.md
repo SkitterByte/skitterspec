@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-260"
 ---
 
-# Phase 3 — Release and verify `skitterspec-linear` 13.0.0 ⬜
+# Phase 3 — Release and verify `skitterspec-linear` 13.0.0 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** `@skitterbyte/skitterspec-linear@13.0.0` is live and verified the same
 way, proving the pipeline handles the larger composition too.

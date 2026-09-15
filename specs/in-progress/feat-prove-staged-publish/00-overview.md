@@ -88,7 +88,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Push `main` and prove CI runs | ✅ | [01-first-ci-run.md](01-first-ci-run.md) |
 | 2 | Release and verify `skitterspec` 19.0.0 | ✅ | [02-release-base.md](02-release-base.md) |
-| 3 | Release and verify `skitterspec-linear` 13.0.0 | ⬜ | [03-release-provider.md](03-release-provider.md) |
+| 3 | Release and verify `skitterspec-linear` 13.0.0 | 🔄 | [03-release-provider.md](03-release-provider.md) |
 
 ## Open questions
 
