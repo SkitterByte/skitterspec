@@ -22,8 +22,9 @@ expected commit.
 - [ ] **Ask before pushing any tag.** Confirm the go-ahead explicitly; everything
       from here is outward-facing.
 - [ ] Release `skitterspec` as **19.0.0** via `release.js skitterspec major --yes`,
-      then `git push --follow-tags`. The `Release-Note!:` on the version commit
-      announces the Node 22.13 floor as a breaking change.
+      then `git push --follow-tags`. The `Release-Note!:` announcing the Node
+      22.13 floor already rides on phase 2's commit, which is where the
+      generator scans for it — nothing to add to the version commit.
 - [ ] Watch the run, then approve with `npm run approve skitterspec 19.0.0`.
 - [ ] Verify it actually published — a green workflow is only a staged build:
       `npm view @skitterbyte/skitterspec dist-tags` shows 19.0.0 as latest, and

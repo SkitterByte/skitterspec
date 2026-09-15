@@ -145,3 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-15 — Phase 2: ci.yml documents why it omits `registry-url`, so the
   guard strips comments before looking for the setting — a grep would have
   failed the very file that got it right.
+- 2026-09-15 — Phase 2: the breaking-change `Release-Note!:` goes on the
+  commit that raises the floor, not on phase 5's version commit —
+  `release-notes.js` scans the footers of commits in the tag range, so a
+  note on the version commit itself would be the one place it cannot help.
