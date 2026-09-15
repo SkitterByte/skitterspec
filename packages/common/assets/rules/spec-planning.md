@@ -244,10 +244,10 @@ things clear it — a **committing verdict**, or
 `git commit` refuses in that worktree. `skitterspec spec-env review gate
 [--check] [--json]` is what both ask.
 
-**The hook is the half that cannot be talked past.** `skitterspec init` installs
-`.claude/hooks/review-gate.js` and registers it in the project's committed
-`.claude/settings.json`, so a `git commit` is refused by the harness rather than
-by prose — which is what covers a bare `git commit`, a chained command, and
+**The hook is the half that cannot be talked past.** `skitterspec init` and
+`skitterspec update` install `.claude/hooks/review-gate.cjs` and register it in
+the project's committed `.claude/settings.json`, so a `git commit` is refused by
+the harness rather than by prose — which is what covers a bare `git commit`, a chained command, and
 skittership's own `/commit` without skitterspec ever editing it. It decides
 nothing itself: it hands the command line to
 `spec-env review gate --check --for-command` and turns one exit status into an

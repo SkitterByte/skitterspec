@@ -39,14 +39,23 @@ function listCommands() {
   }
 }
 
-// Hook scripts shipped as `assets/hooks/*.js`, installed to `.claude/hooks/`.
-// Discovered from the bundled tree like everything else, so a distribution
-// installs precisely what it ships and a hook can be retired by deleting it.
+// Hook scripts shipped as `assets/hooks/*.cjs` (or `*.mjs`), installed to
+// `.claude/hooks/`. Discovered from the bundled tree like everything else, so a
+// distribution installs precisely what it ships and a hook can be retired by
+// deleting it.
+//
+// A BARE `.js` IS DELIBERATELY NOT DISCOVERED. These files are copied into the
+// TARGET project, where that project's `package.json` — the one file skitterspec
+// does not control — decides how node parses a `.js`. Shipping CommonJS as `.js`
+// crashed the review-gate hook in every `"type": "module"` project, on every
+// Bash tool call. The extension is the only thing that settles it at the file,
+// so both accepted forms pin it; `env-review-hook.test.js` asserts the rule over
+// the whole directory rather than over this filter.
 function listHooks() {
   try {
     return fs
       .readdirSync(path.join(ASSETS, 'hooks'))
-      .filter((f) => f.endsWith('.js'))
+      .filter((f) => f.endsWith('.cjs') || f.endsWith('.mjs'))
       .sort()
   } catch {
     return [] // a distribution may ship no hooks
@@ -412,6 +421,12 @@ function registerReviewGateHook(dir) {
     report.created.push(label)
   } else if (res.reason === 'added') {
     report.updated.push(label)
+  } else if (res.reason === 'migrated') {
+    // A WRITE, so it may not fall through to `skipped`. It was doing exactly
+    // that: rewriting the registered path and then reporting "already
+    // registered" — a run that acts and says it did not, which is the shape of
+    // the bug this whole change exists to fix.
+    report.updated.push('.claude/settings.json (review-gate hook repointed at the renamed script)')
   } else {
     report.skipped.push('.claude/settings.json (review-gate hook already registered)')
   }
@@ -728,6 +743,15 @@ function resync(dir, { force = false, claudeMd = true, diff = false } = {}) {
   installFolders(dir)
   removeRetiredFiles(dir)
   pruneRetiredManaged(dir, manifest)
+  // The hook SCRIPT arrives above, as one more managed target; registering it is
+  // a separate write to a file we do not manage, so it has to be asked for here.
+  // It is easy to read this as duplication of `installHooks()` and delete it —
+  // it is not. `installHooks()` is unreachable from this path, and the two
+  // halves being in different functions is exactly how they drifted apart once:
+  // `update` copied `.claude/hooks/` and registered nothing, for every upgrading
+  // project, while reporting a file created. `init-review-gate-hook.test.js`
+  // asserts over the entry points rather than over this call.
+  registerReviewGateHook(dir)
   if (claudeMd) installClaudeMd(dir, { mode: 'update' })
   flushManifest(dir)
   printReport(dir, 'resync', { diff })

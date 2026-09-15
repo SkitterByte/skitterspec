@@ -1,0 +1,12 @@
+{
+  "issue": "af7487f3e08409ba8ff5b02f6ec1ba2446b69d2c",
+  "issueFields": {
+    "description": "457203796eed009c2853db8a4ca501efb8270a2a",
+    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
+    "assignee": "46f9da98cdf4bd363761b569600549b081b0ae45"
+  },
+  "subIssues": {
+    "SKS-270": "d946c7953e21c2da91afd503f992df381b2eb13c",
+    "SKS-271": "1f085ceec76f48642575c38949dbabb61b54a30f"
+  }
+}

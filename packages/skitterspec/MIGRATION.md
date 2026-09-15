@@ -1,5 +1,53 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v20 → v21 (the review gate actually installs)
+
+If you upgraded to v20 and the commit gate never once fired, this is why. Two
+independent bugs, either of which alone made it a no-op.
+
+### Breaking change
+
+**The hook ships as `.claude/hooks/review-gate.cjs`**, renamed from
+`review-gate.js`. The script is CommonJS and it is copied *into your* project,
+where your `package.json` decides how node parses a `.js` — so in any
+`"type": "module"` project it died on its own first `require`, printing a stack
+trace on **every Bash tool call**. `.cjs` settles the parse mode at the file,
+which is the only place independent of the one file skitterspec does not
+control. An ESM rewrite would have inverted the same problem onto CommonJS
+projects, which are still the default for anything with no `"type"` set.
+
+The upgrade migrates you: your existing `PreToolUse` entry has its path
+**rewritten in place** — so a wrapper, a flag or a different interpreter you
+added all survive — and the retired `review-gate.js` is deleted. If you edited
+that file yourself it is **kept**, with a warning, and left for you to remove.
+
+### Bug fix
+
+**`skitterspec update` now registers the hook.** v20's notes said `init` and
+`update` both did; only `init` did. `update` copied the script, reported
+`created: .claude/hooks/review-gate.js`, and wired nothing — so every project
+that upgraded into v20 got a hook file and no hook, with nothing saying so.
+
+### What to do
+
+1. **Upgrade** — `npx @skitterbyte/skitterspec update`.
+2. **Commit `.claude/settings.json` and `.claude/hooks/review-gate.cjs`**, and
+   the deletion of `.claude/hooks/review-gate.js`. A hook only a fraction of the
+   team has is a gate that holds for a fraction of the team.
+3. **Check it is actually on** — the update reports
+   `updated: .claude/settings.json (review-gate hook)` the first time, and
+   `unchanged` afterwards. If it says neither, your settings file could not be
+   parsed; it was left untouched and the hook is not registered.
+
+Nothing else changes: `review.required` still defaults to `true`, and the engine
+and `/spec-next` held the gate throughout regardless of the hook.
+
+## `@skitterbyte/skitterspec-linear` v14 → v15 (the review gate actually installs)
+
+The same change as `@skitterbyte/skitterspec` v20 → v21 above — this
+distribution composes the same lifecycle skills. Read that entry; nothing here
+is Linear-specific.
+
 ## `@skitterbyte/skitterspec` v19 → v20 (a phase owes a verdict)
 
 ### Breaking change
@@ -41,8 +89,10 @@ cannot-tell lets the commit through.
 ### Breaking change
 
 **`.claude/settings.json` is now written by the installer.** `skitterspec init`
-and `skitterspec update` copy `.claude/hooks/review-gate.js` and register it as
-a `PreToolUse` hook in your project's **committed** settings file. That is a
+and `skitterspec update` copy the hook script and register it as a `PreToolUse`
+hook in your project's **committed** settings file. (In v20 `update` copied
+without registering, and the script was named `review-gate.js` — both fixed in
+v21; read that entry above if you are landing on the current release.) That is a
 tracked file in most repos, so expect it in `git status` after upgrading — and
 commit it, because a hook only a fraction of the team has is a gate that holds
 for a fraction of the team.
@@ -76,8 +126,8 @@ as before.
 ### What to do
 
 1. **Upgrade** — `npx @skitterbyte/skitterspec update`.
-2. **Commit `.claude/settings.json` and `.claude/hooks/review-gate.js`.** Both
-   are new in your working tree after the update.
+2. **Commit `.claude/settings.json` and the hook script.** Both are new in your
+   working tree after the update.
 3. **Nothing else to configure.** `review.required` defaults to `true` and
    `review.commitWith` defaults to `/commit`; neither needs adding unless you
    are changing it.

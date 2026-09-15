@@ -105,12 +105,24 @@ Ensure it exists. If missing, create it documenting:
 Read a sibling spec skill (e.g. `spec`, `spec-next`) for the canonical shapes
 rather than inventing them. If the rule already exists, leave it unless stale.
 
-## 4a. The review-gate hook (`.claude/hooks/review-gate.js`)
+## 4a. The review-gate hook (`.claude/hooks/review-gate.cjs`)
 
-`skitterspec init` installs the hook script and registers it in the project's
-**committed** `.claude/settings.json` as a `PreToolUse` hook on `Bash`. It runs
-one engine call per Bash tool call and refuses a `git commit` in a worktree
-whose phase is still awaiting a verdict.
+`skitterspec init` **and `skitterspec update`** install the hook script and
+register it in the project's **committed** `.claude/settings.json` as a
+`PreToolUse` hook on `Bash`. It runs one engine call per Bash tool call and
+refuses a `git commit` in a worktree whose phase is still awaiting a verdict.
+
+**Both commands, and that is not a detail.** Copying the script and registering
+it are one operation, and they were once split across two code paths — so
+`update` landed the file, reported `created:`, and wired nothing, on every
+project that upgraded. Landing the script is not installing the hook.
+
+**`.cjs`, and the extension is load-bearing.** The script lands inside the
+target project, where *that* project's `package.json` decides how node parses a
+`.js` — so CommonJS shipped as `.js` crashes in any `"type": "module"` project,
+on every Bash tool call. `.cjs` settles it at the file. A registration left over
+from the release that named `.js` is rewritten in place, keeping any wrapping
+the operator added, rather than gaining a second entry beside it.
 
 **Committed, not machine-local**, and the difference is the point: the trusted
 worktree root is one machine's absolute path, while *a phase that ended owes an

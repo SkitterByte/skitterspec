@@ -25,7 +25,9 @@ const { execFileSync, spawnSync } = require('node:child_process')
 
 const { ensureReviewGateHook, alreadyRegistered, hookEntry, HOOK_SCRIPT } = require('../src/env/hooks.js')
 
-const HOOK = path.join(__dirname, '..', 'assets', 'hooks', 'review-gate.js')
+// Derived from HOOK_SCRIPT rather than spelled out, so the asset, the registered
+// path and this suite cannot name three different files.
+const HOOK = path.join(__dirname, '..', 'assets', 'hooks', path.basename(HOOK_SCRIPT))
 const ENGINE = path.join(__dirname, '..', 'bin', 'skitterspec.js')
 
 function git(cwd, ...args) {
@@ -357,4 +359,159 @@ test('a settings file it cannot parse is reported, never rewritten', () => {
 test('the registered command points at the script the package ships', () => {
   assert.ok(fs.existsSync(HOOK), 'the hook asset exists')
   assert.match(hookEntry().hooks[0].command, new RegExp(HOOK_SCRIPT.replace(/[.]/g, '\\.')))
+})
+
+// --- the extension pins the parse mode --------------------------------------
+//
+// THE BUG THESE EXIST FOR. The hook was CommonJS shipped as `.js`, and it is
+// copied INTO the target project — where that project's `package.json`, the one
+// file skitterspec does not control, decides how node parses it. In a
+// `"type": "module"` project it died on its own first `require`, and because it
+// is registered on `matcher: "Bash"` it did so on every Bash tool call. Exit 1
+// is non-blocking for `PreToolUse`, so the commit survived; what did not was the
+// gate (it never evaluated anything) or the operator's terminal.
+//
+// An ESM rewrite would invert exactly this onto CommonJS projects, which are
+// still the default for anything with no `"type"` set. Only an extension that
+// pins the parse mode is independent of the host.
+
+function hostProject(packageJson) {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-host-')))
+  if (packageJson !== null) fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(packageJson))
+  const installed = path.join(dir, HOOK_SCRIPT)
+  fs.mkdirSync(path.dirname(installed), { recursive: true })
+  fs.copyFileSync(HOOK, installed)
+  return { dir, installed }
+}
+
+// A non-Bash payload so the hook allows before it ever looks for an engine —
+// this is a test of whether the file PARSES, and nothing else.
+const inertPayload = JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: 'a.js' } })
+
+for (const [label, pkg] of [
+  ['a "type": "module" project', { name: 'x', type: 'module' }],
+  ['a CommonJS project', { name: 'x', type: 'commonjs' }],
+  ['a project with no "type" set at all', { name: 'x' }],
+  ['a project with no package.json at all', null],
+]) {
+  test(`the installed hook runs clean in ${label}`, () => {
+    const { dir, installed } = hostProject(pkg)
+    try {
+      const res = spawnSync(process.execPath, [installed], {
+        input: inertPayload,
+        cwd: dir,
+        encoding: 'utf8',
+      })
+      assert.strictEqual(res.status, 0, `exit 0 in ${label}`)
+      assert.strictEqual(res.stdout.trim(), '', 'no opinion')
+      // The loud half. A crashing hook is merely non-blocking; a crashing hook
+      // on `matcher: "Bash"` prints its stack trace over every command the
+      // operator runs.
+      assert.strictEqual(res.stderr.trim(), '', `no stack trace in ${label}`)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+}
+
+test('every hook this package ships pins its own parse mode', () => {
+  // The rule, not the instance: a bare `.js` hook is parsed however the HOST
+  // project's package.json says, so shipping one re-opens this bug under a new
+  // filename. `.cjs` and `.mjs` both decide it at the file.
+  const dir = path.join(__dirname, '..', 'assets', 'hooks')
+  const shipped = fs.readdirSync(dir).filter((f) => !f.startsWith('.'))
+  assert.ok(shipped.length > 0, 'the package ships at least one hook')
+  for (const name of shipped) {
+    assert.ok(
+      name.endsWith('.cjs') || name.endsWith('.mjs'),
+      `${name} must be .cjs or .mjs — a bare .js hook is parsed by the host project's rules`,
+    )
+  }
+})
+
+// --- migrating a registration that names the retired path -------------------
+
+test('a registration naming the old .js path is rewritten, not duplicated', () => {
+  // A project that took the release which shipped the hook as `.js`. The file it
+  // points at is retired by this same upgrade, so leaving the entry alone would
+  // aim the harness at nothing — and adding a second entry beside it would run
+  // the gate twice and read as a bug in the gate.
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  try {
+    fs.mkdirSync(path.join(dir, '.claude'), { recursive: true })
+    const stale = 'node "${CLAUDE_PROJECT_DIR}/.claude/hooks/review-gate.js"'
+    fs.writeFileSync(
+      path.join(dir, '.claude', 'settings.json'),
+      JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: stale, timeout: 10 }] }] },
+      }),
+    )
+
+    assert.strictEqual(ensureReviewGateHook(dir).reason, 'migrated')
+    const after = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
+    assert.strictEqual(after.hooks.PreToolUse.length, 1, 'exactly one entry')
+    assert.strictEqual(after.hooks.PreToolUse[0].hooks.length, 1)
+    assert.strictEqual(
+      after.hooks.PreToolUse[0].hooks[0].command,
+      `node "\${CLAUDE_PROJECT_DIR}/${HOOK_SCRIPT}"`,
+      'and it names the file that exists',
+    )
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test("an operator's own wrapping is migrated in place, not replaced", () => {
+  // The path moved; their command did not become ours. Only the script path
+  // inside it is rewritten, so a wrapper, a flag or a different interpreter all
+  // survive the migration that fixes the extension.
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  try {
+    fs.mkdirSync(path.join(dir, '.claude'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, '.claude', 'settings.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: 'Bash', hooks: [{ type: 'command', command: 'myrunner .claude/hooks/review-gate.js --verbose' }] },
+          ],
+        },
+      }),
+    )
+
+    assert.strictEqual(ensureReviewGateHook(dir).reason, 'migrated')
+    const after = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
+    assert.strictEqual(after.hooks.PreToolUse.length, 1)
+    assert.strictEqual(
+      after.hooks.PreToolUse[0].hooks[0].command,
+      `myrunner ${HOOK_SCRIPT} --verbose`,
+      'their runner and their flag both survive',
+    )
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('an entry already naming the shipped path is left completely alone', () => {
+  // The stays-silent half of the migration: "present" must still mean no write.
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  try {
+    ensureReviewGateHook(dir)
+    const before = fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8')
+    assert.strictEqual(ensureReviewGateHook(dir).reason, 'present')
+    assert.strictEqual(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'), before)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a hook that merely shares the prefix is not mistaken for ours', () => {
+  // `review-gate-extra.js` is somebody else's file. Matching on the stem must
+  // stop at a boundary, or this upgrade silently rewrites a hook we do not own.
+  assert.strictEqual(
+    alreadyRegistered([
+      { matcher: 'Bash', hooks: [{ type: 'command', command: 'node .claude/hooks/review-gate-extra.js' }] },
+    ]),
+    false,
+  )
 })

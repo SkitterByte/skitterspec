@@ -18,8 +18,21 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const HOOK_SCRIPT = '.claude/hooks/review-gate.js'
+// `.cjs`, and the extension is load-bearing. This file is copied INTO the target
+// project, where that project's `package.json` decides how node parses a `.js` —
+// so the CommonJS script shipped as `review-gate.js` died on its own first
+// `require` in every `"type": "module"` project, printing a stack trace over
+// every Bash tool call. `.cjs` settles the parse mode at the file, independently
+// of the one file skitterspec does not control.
+const HOOK_STEM = '.claude/hooks/review-gate'
+const HOOK_SCRIPT = `${HOOK_STEM}.cjs`
 const HOOK_COMMAND = `node "\${CLAUDE_PROJECT_DIR}/${HOOK_SCRIPT}"`
+
+// Our script under ANY extension, so a registration naming the retired `.js` is
+// recognised as ours and migrated rather than duplicated. The trailing lookahead
+// is the boundary: without it `review-gate-extra.js` — somebody else's hook —
+// matches on the stem and gets silently rewritten.
+const HOOK_SCRIPT_RE = /[.]claude[/\\]hooks[/\\]review-gate(?:[.][A-Za-z0-9]+)?(?![\w.-])/
 // Seconds. The engine call behind this is one git-free read of a small JSON
 // file, so anything approaching this is a wedge rather than slow work — and a
 // hook that times out fails OPEN, which is the answer we want for a wedge.
@@ -55,13 +68,21 @@ function hookEntry() {
  * run it twice and look like a bug in the gate.
  */
 function alreadyRegistered(preToolUse) {
-  if (!Array.isArray(preToolUse)) return false
-  return preToolUse.some(
-    (group) =>
-      isObject(group) &&
-      Array.isArray(group.hooks) &&
-      group.hooks.some((h) => isObject(h) && typeof h.command === 'string' && h.command.includes(HOOK_SCRIPT)),
-  )
+  return registeredHooks(preToolUse).length > 0
+}
+
+// Every hook object under `PreToolUse` whose command names our script, whatever
+// extension it names it under. Pure.
+function registeredHooks(preToolUse) {
+  if (!Array.isArray(preToolUse)) return []
+  const out = []
+  for (const group of preToolUse) {
+    if (!isObject(group) || !Array.isArray(group.hooks)) continue
+    for (const h of group.hooks) {
+      if (isObject(h) && typeof h.command === 'string' && HOOK_SCRIPT_RE.test(h.command)) out.push(h)
+    }
+  }
+  return out
 }
 
 /**
@@ -69,6 +90,7 @@ function alreadyRegistered(preToolUse) {
  * Idempotent and non-destructive. Returns `{ changed, reason }`:
  *   - `created`   — no settings file; one was written
  *   - `added`     — merged into an existing file
+ *   - `migrated`  — registered under a retired path; the path was rewritten
  *   - `present`   — already registered (no write)
  *   - `malformed` — the file exists but is not parseable JSON (left untouched)
  */
@@ -98,7 +120,22 @@ function ensureReviewGateHook(dir) {
 
   const hooks = isObject(parsed.hooks) ? parsed.hooks : {}
   const preToolUse = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : []
-  if (alreadyRegistered(preToolUse)) return { changed: false, reason: 'present' }
+
+  // Registered already — but possibly under a path that no longer exists, since
+  // the script's extension changed. Rewrite the path IN PLACE rather than
+  // replacing the command: an operator who wrapped our hook, added a flag or
+  // changed the interpreter has registered it their way, and the thing that
+  // moved is the file, not their command. Adding a fresh entry beside theirs
+  // would run the gate twice and read as a bug in the gate; leaving the old one
+  // alone would aim the harness at a file this same upgrade retires.
+  const registered = registeredHooks(preToolUse)
+  if (registered.length) {
+    const stale = registered.filter((h) => !h.command.includes(HOOK_SCRIPT))
+    if (!stale.length) return { changed: false, reason: 'present' }
+    for (const h of stale) h.command = h.command.replace(HOOK_SCRIPT_RE, HOOK_SCRIPT)
+    writeSettings(file, parsed)
+    return { changed: true, reason: 'migrated' }
+  }
 
   writeSettings(file, {
     ...parsed,
@@ -110,8 +147,11 @@ function ensureReviewGateHook(dir) {
 module.exports = {
   ensureReviewGateHook,
   alreadyRegistered,
+  registeredHooks,
   hookEntry,
   settingsPath,
+  HOOK_STEM,
   HOOK_SCRIPT,
+  HOOK_SCRIPT_RE,
   HOOK_COMMAND,
 }

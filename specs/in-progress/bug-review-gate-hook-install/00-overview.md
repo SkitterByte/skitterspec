@@ -1,8 +1,15 @@
+---
+linear_identifier: "SKS-269"
+linear_url: "https://linear.app/skitterbyte/issue/SKS-269/bug-the-review-gate-hook-never-installs-and-crashes-where-it-does"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
+---
+
 # Bug: the review-gate hook never installs, and crashes where it does
 
 > **Type:** Bug
 > **Name:** bug-review-gate-hook-install
-> **Status:** In Progress — fixing (red test added)
+> **Status:** In Progress — fixed (green)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
@@ -61,7 +68,32 @@ does not control.
 
 ## Failing test (red)
 
-Written in phase 1 and phase 2 respectively; see the phase files.
+`packages/common/test/init-review-gate-hook.test.js` (new) and additions to
+`packages/common/test/env-review-hook.test.js`. Run with `node --test` from the
+repo root, or `node --test test/<file>` inside `packages/common`.
+
+Bug 1 — parameterised over the install entry points, so the two that already
+worked prove the test is not just failing everywhere:
+
+```
+✔ init registers the review-gate hook, and reports it
+✖ update registers the review-gate hook, and reports it
+✔ reset registers the review-gate hook, and reports it
+✖ update registers into a settings file that already exists
+✖ re-running update registers nothing a second time, and writes nothing
+✖ update leaves a settings file it cannot parse exactly as it found it
+```
+
+Bug 2 — only the ESM host fails, which is the whole claim:
+
+```
+✖ the installed hook runs clean in a "type": "module" project
+✔ the installed hook runs clean in a CommonJS project
+✔ the installed hook runs clean in a project with no "type" set at all
+✖ every hook this package ships pins its own parse mode
+✖ a registration naming the old .js path is rewritten, not duplicated
+✖ an operator's own wrapping is migrated in place, not replaced
+```
 
 ## Impact
 
@@ -74,10 +106,13 @@ Written in phase 1 and phase 2 respectively; see the phase files.
 
 ## Phases
 
+Each phase lives in its own file in this folder. Status: ⬜ not started ·
+🔄 in progress · ✅ done.
+
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | [`update` registers the hook](01-register-on-update.md) | ⬜ |
-| 2 | [Ship the hook as `.cjs`, migrate stale registrations](02-cjs-extension.md) | ⬜ |
+| 1 | [`update` registers the hook](01-register-on-update.md) | ✅ |
+| 2 | [Ship the hook as `.cjs`, migrate stale registrations](02-cjs-extension.md) | ✅ |
 
 ## State log
 
@@ -88,3 +123,22 @@ Written in phase 1 and phase 2 respectively; see the phase files.
 ## Changelog
 
 - 2026-09-15 — Both bugs reproduced against HEAD; spec captured.
+- 2026-09-15 — Fixed: `resync()` registers the hook; test asserts over every
+  install entry point rather than over `resync` alone, since the failure was two
+  of them disagreeing. Test green.
+- 2026-09-15 — Fixed: hook ships as `.cjs`; `listHooks()` now refuses a bare
+  `.js` outright, so the rule survives the next hook rather than only this one.
+  A registration naming the retired path is rewritten **in place**, keeping any
+  operator wrapping, so the migration cannot destroy their command. Test green.
+- 2026-09-15 — Decided: retire the old script via `pruneRetiredManaged`, not
+  `RETIRED_FILES` — see phase 2 for the reasoning and what it costs.
+- 2026-09-15 — Follow-up surfaced: `init` does not call `pruneRetiredManaged`,
+  so any managed file a previous version shipped and this one does not — a
+  retired skill or rule, not just this hook — survives a re-`init`. Only
+  `update` sweeps them. Not in scope here; the leftover is inert once nothing
+  registers it.
+- 2026-09-15 — Caught late, by running the built `update` against a simulated
+  project on the old release: the `migrated` outcome fell through to
+  `report.skipped`, so the run rewrote the registration and reported
+  "already registered". No unit test could see it — they assert on disk, and the
+  disk was right. Fixed, and now asserted on `lastReport()`.
