@@ -1429,15 +1429,80 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     })
   }
 
+  /**
+   * Is this page running as a published Artifact?
+   *
+   * A CAPABILITY CHECK, not a hostname one. `window.claude.use` is the whole
+   * contract for reaching anything the viewer grants, and it exists only where
+   * a viewer is there to grant it — so its presence is what distinguishes the
+   * published page from the two the engine serves, without this file knowing
+   * anything about where it was published.
+   */
+  function isArtifact() {
+    return Boolean(window.claude && typeof window.claude.use === 'function')
+  }
+
+  /**
+   * Hand the pass to the artifact's own store.
+   *
+   * THE THIRD TRANSPORT, for the reader no local server can reach: a phone on
+   * mobile data, or anyone away from the LAN the engine serves on. The pass
+   * lands in a document Claude reads back and deletes, so it is consumed
+   * exactly like a claimed one.
+   *
+   * `use` is asked only once the reader has pressed something. Asking at load
+   * would spend a consent prompt on every render, including the ones nobody
+   * ends in a verdict.
+   */
+  function sendToStore(json) {
+    copyHint.hidden = false
+    copyHint.textContent = 'Sending…'
+    var landed = false
+    window.claude.use('db').then(function (db) {
+      // `null` means this view cannot run db — not granted, not served, failed
+      // to load, all indistinguishable by design. The clipboard is still there,
+      // so the pass is recoverable rather than lost.
+      if (!db) {
+        showFallback(json, 'Could not reach the store. Copy this, then paste it to Claude.')
+        return
+      }
+      return db
+        .collection('passes')
+        .add({ spec: data.spec, at: new Date().toISOString(), render: data.generatedAt, blob: JSON.parse(json) })
+        .then(function () {
+          landed = true
+          // NO CODE HERE, and none invented. Six digits are the engine's, minted
+          // by the holding area this pass never went through — so the page says
+          // the one thing that is true and actionable.
+          copyHint.textContent = 'Sent. Run this where Claude is:'
+          showCommand('/spec-reviewed')
+        })
+    }).then(null, function (err) {
+      if (landed) return
+      showFallback(
+        json,
+        'Could not store the pass' + (err && err.code ? ' (' + err.code + ')' : '') +
+          '. Copy this, then paste it to Claude.',
+      )
+    })
+  }
+
   function send(verdict) {
     var json = JSON.stringify(buildBlob(verdict), null, 2)
-    // DECIDED FROM WHAT THE PAGE IS, not from what it can guess. A page opened
-    // over http was served by the engine and can hand the pass straight back; a
-    // `file://` page has no server to talk to and never will.
+    // DECIDED FROM WHAT THE PAGE IS, not from what it can guess. A published
+    // page has a store and no server; a page opened over http was served by the
+    // engine and can hand the pass straight back; a `file://` page has no server
+    // to talk to and never will.
     //
     // NOT "try the POST and fall back on failure": a failed POST and an absent
     // one look identical to the reader, so the fallback would hide a server
-    // that is refusing passes behind a message about copying.
+    // that is refusing passes behind a message about copying. The published page
+    // is exactly that trap — its POST would go to claude.ai and fail — which is
+    // why it is answered first, by what the page IS rather than by what failed.
+    if (isArtifact()) {
+      sendToStore(json)
+      return
+    }
     if (location.protocol !== 'file:') {
       post(json)
       return

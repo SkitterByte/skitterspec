@@ -84,8 +84,8 @@ test('it points at /spec-diff for the routing rather than copying it', () => {
 })
 
 test('nothing waiting is an ordinary answer, not a problem', () => {
-  assert.match(SKILL, /\*\*Nothing waiting is an ordinary answer\.\*\*/)
-  assert.match(SKILL, /Do not hunt through\s*\n?\s*other specs/i)
+  assert.match(SKILL, /\*\*Nothing waiting in either is an ordinary answer\.\*\*/)
+  assert.match(SKILL, /Do not hunt\s*\n?\s*through other specs/i)
   // A `file://` page never posts, so the pass may be on their clipboard.
   assert.match(SKILL, /clipboard/i)
 })
@@ -237,7 +237,7 @@ test('a wrong code refuses without naming what is waiting', () => {
 test('bare resolution is untouched by any of this', () => {
   assert.match(SKILL, /the worktree you are\s*\n?\s*standing in, else the sole provisioned spec/i)
   assert.match(SKILL, /Several provisioned and none resolved is a refusal/)
-  assert.match(SKILL, /\*\*Nothing waiting is an ordinary answer\.\*\*/)
+  assert.match(SKILL, /\*\*Nothing waiting in either is an ordinary answer\.\*\*/)
 })
 
 // The echo is GONE, not relocated. Its phrasings are what a later edit would

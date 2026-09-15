@@ -150,10 +150,17 @@ everything a decision needs, so there is nothing to go looking for, and going
 looking is the bypass step 0 forbids. The file is right there and readable; that
 is precisely why the rule is written down rather than assumed.
 
-**Nothing waiting is an ordinary answer.** Say so and stop. Do not hunt through
-other specs, and do not treat an empty holding area as a problem — a `file://`
-page copies to the clipboard instead of sending, so mention that the pass may be
-on their clipboard waiting to be pasted, and finish.
+**Check the store before concluding nothing is waiting.** Only when this spec
+has a published page (`--json` reports a `url`): a reader off the LAN sent their
+pass to the artifact's own `passes` collection rather than to the engine, so an
+empty holding area is not an empty answer yet. Read it with the Artifact tool's
+`read_db`, merge the `blob` through `--notes`, and **delete the document** —
+`/spec-diff` §6 owns the whole sequence, including that a claim consumes.
+
+**Nothing waiting in either is an ordinary answer.** Say so and stop. Do not hunt
+through other specs, and do not treat an empty holding area as a problem — a
+`file://` page copies to the clipboard instead of sending, so mention that the
+pass may be on their clipboard waiting to be pasted, and finish.
 
 ## 3. One pass waiting? Act on it
 

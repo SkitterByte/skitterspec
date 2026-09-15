@@ -115,13 +115,20 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Gate engine — record, verbs, skip | ✅ | [01-gate-engine.md](01-gate-engine.md) |
 | 2 | Skill wiring — arm, wait, auto-claim, doc sweep | ✅ | [02-skill-wiring.md](02-skill-wiring.md) |
 | 3 | Commit hook — install + stays-silent tests | ✅ | [03-commit-hook.md](03-commit-hook.md) |
-| 4 | Artifact page — db verdicts for off-LAN readers | ⬜ | [04-artifact-page.md](04-artifact-page.md) |
+| 4 | Artifact page — db verdicts for off-LAN readers | ✅ | [04-artifact-page.md](04-artifact-page.md) |
 
 ## Open questions
 
-- [ ] Artifact storage limits in practice: the page cap is 16MB per render and
-      same-URL redeploy replaces versions — verify nothing else accumulates
-      (old versions, db rows) across long specs during phase 4.
+- [x] **Answered in phase 4.** Nothing accumulates that needs clearing down.
+      The page is republished to the **same file path**, so every render
+      reuses one URL — one artifact per spec, not one per phase, and the
+      gallery gains a single entry however long the spec runs. Versions are
+      kept under that URL rather than as separate artifacts. The store caps at
+      5,000 documents per artifact and 256 KiB per document, and a pass is
+      **deleted when it is claimed**, so the `passes` collection is bounded by
+      how many reviews are outstanding at once — never by how many the spec
+      had. What remains true is the original caveat: skitterspec cannot delete
+      a published page, so it is still yours to remove.
 
 ## State log
 
@@ -137,6 +144,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the notes `decisions` log. The page maps unrecognised verdicts to
   "discussed", so a `skip` logged there would render as a lie; showing the gate
   log on the page moved to phase 2.
+- 2026-09-15 — Phase 4: no `--artifact` render variant was added. The page
+  feature-detects `window.claude.use` instead, so one render serves all three
+  transports and a published page cannot be the wrong build. `user` was not
+  declared either — it is not available on this contract, and a shared
+  `passes` collection is what a review pass wants.
 - 2026-09-15 — Follow-up surfaced: the serve token is minted per server, so
   every URL printed in an earlier report dies silently when the server
   restarts — a stale token is `notfound`, which is right as a guard but reads

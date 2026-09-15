@@ -570,6 +570,46 @@ The engine knows nothing about publishing and cannot do it. It writes a file and
 reads a URL back as an opaque string; everything about what that string means
 lives here.
 
+### Publish it so the buttons still work
+
+A published page is the answer for a reader **no local server can reach** — a
+phone on mobile data, anyone away from the LAN the engine serves on. It is also
+the one surface where the verdict buttons have nowhere to POST: the page's own
+URL is on claude.ai, so a POST fails and the reader gets "could not reach the
+server" after pressing a verdict they meant.
+
+So **publish it with a store**, and the page uses it:
+
+- Declare `capabilities: {db: {}}`. The page checks for `window.claude.use` and
+  writes the pass into the artifact's own `passes` collection instead of
+  POSTing. Nothing else about it changes — same marks, same verdicts, same
+  refusal to commit over an open comment.
+- **Do not declare `user`.** The pass is not per-viewer private state, a shared
+  collection is what it wants, and a declaration nothing uses is a grant asked
+  for nothing.
+- **Same file path every time**, so a redeploy reuses the URL. That is what
+  answers the clear-down worry: one page per spec, replaced at each render,
+  rather than an artifact per phase accumulating in the gallery.
+- **Send a push notification with the URL** when you publish. The reader is by
+  definition somewhere else — that is why it was published.
+
+### Taking a stored pass back
+
+A pass in the store is claimed the same way in spirit and a different way in
+mechanism, because the engine cannot see it:
+
+1. Read the `passes` collection with the Artifact tool's `read_db`.
+2. **Apply step 0 unchanged.** One waiting pass, offered by what it says and
+   when it was sent; two is a refusal to guess. Nothing here is automatic —
+   there is no wait window on this transport, because nothing pushes from the
+   store to this conversation.
+3. Write the pass's `blob` to a scratch file **verbatim** and merge it with
+   `spec-env review <spec> --notes <file>`. It rejoins the ordinary path at §2
+   step 1, so the verdict is judged and routed exactly as any other.
+4. **Delete the document** with `write_db` once it is merged. A claim consumes:
+   a pass left in the store is claimable twice, which is the one property the
+   six-digit code has always had and this transport must not lose.
+
 ## 7. Report
 
 End with the block defined in `.claude/rules/spec-reports.md`. That file carries
