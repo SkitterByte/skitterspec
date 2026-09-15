@@ -1,5 +1,93 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v19 → v20 (a phase owes a verdict)
+
+### Breaking change
+
+**A phase that has ended now refuses to go further until you send a verdict.**
+`/spec-next` **arms** a gate when it finishes a phase and renders its review
+page. While it is armed, two things refuse:
+
+- `/spec-next` will not build the next phase.
+- `git commit` inside **that spec's own worktree** is blocked by a harness hook
+  — which is what covers a bare `git commit`, a chained command, and
+  skittership's `/commit` without skitterspec editing any of them.
+
+Exactly two things clear it, and both are one command:
+
+```
+# press Commit or Commit & Continue on the review page — or:
+skitterspec spec-env review skip "none: additive, nothing to revert"
+```
+
+The skip is deliberately not silent: the reason goes into the review outcome
+log, on the same reasoning as the `Gating:` header — a reason is a decision a
+reviewer can argue with, where silence is an oversight.
+
+**It is on by default** wherever isolation is configured (`env.config.json`
+present). To turn it off for a project, add to `specs/.core/env.config.json`:
+
+```json
+{ "review": { "required": false } }
+```
+
+Three things keep it a push rather than a wall, and they are worth knowing
+before you reach for that setting. It is armed **only by a phase ending**, so a
+mid-phase `/spec-diff` owes nothing. The exit is always one command. And it
+accuses only on a positive signal — no engine, an unreadable payload, a commit
+on the base branch or in another spec's tree, a repo with no isolation: every
+cannot-tell lets the commit through.
+
+### Breaking change
+
+**`.claude/settings.json` is now written by the installer.** `skitterspec init`
+and `skitterspec update` copy `.claude/hooks/review-gate.js` and register it as
+a `PreToolUse` hook in your project's **committed** settings file. That is a
+tracked file in most repos, so expect it in `git status` after upgrading — and
+commit it, because a hook only a fraction of the team has is a gate that holds
+for a fraction of the team.
+
+A settings file that cannot be parsed is **reported and left alone**, never
+rewritten. The hook is an extra layer: the engine and `/spec-next` hold the gate
+without it.
+
+### The review page can now reach your session — deliberately
+
+This inverts an invariant the docs used to state outright: *a device that
+reaches your page cannot reach your conversation*. It no longer holds, and the
+change is the point. `/spec-next` now ends a phase by rendering the page and
+**waiting** on it, so the button you press is what carries the work on — there
+is no command to remember.
+
+What replaced the old guard is two mechanisms and one rule:
+
+- **The serve token** — 48 random bits in the URL path, minted per server —
+  decides who can POST at all.
+- **The wait window** — only a pass that arrives *while the session is waiting*
+  is claimed for you, and two arrivals refuse rather than pick one.
+- Outside that window nothing is claimed unasked. `/spec-reviewed`, or
+  `/spec-reviewed 324199` to name one exactly, is still how a pass sent when
+  nobody was waiting gets picked up — and it is still user-only, so the model
+  cannot claim a pass on its own.
+
+A `file://` page has no server to talk to, so it copies and you paste, exactly
+as before.
+
+### What to do
+
+1. **Upgrade** — `npx @skitterbyte/skitterspec update`.
+2. **Commit `.claude/settings.json` and `.claude/hooks/review-gate.js`.** Both
+   are new in your working tree after the update.
+3. **Nothing else to configure.** `review.required` defaults to `true` and
+   `review.commitWith` defaults to `/commit`; neither needs adding unless you
+   are changing it.
+
+## `@skitterbyte/skitterspec-linear` v13 → v14 (a phase owes a verdict)
+
+The same change as `@skitterbyte/skitterspec` v19 → v20 above — this
+distribution composes the same lifecycle skills. Read that entry; nothing here
+is Linear-specific.
+
 ## `@skitterbyte/skitterspec` v18 → v19 (starting a spec offers phase 1)
 
 ### Breaking change
