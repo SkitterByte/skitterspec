@@ -58,3 +58,9 @@ picked up. It is now carried *by* the panel, and restored on a re-open, since
 the tab holding it is often not the tab you come back in. And `LABELS` only ever
 named the two committing verdicts, so a decided `changes` or `discuss` rendered
 as a raw keyword; it now names all four, in one place.
+
+**The CSS guard paid for itself immediately.** Written for `.sent-cmd`, it
+failed on a second class the same instant: `.reviewable`, where
+`Show the diff anyway` would have un-hidden a `#context` section that a spec
+with no overview ships hidden. That one had never been pressed on such a spec,
+so nothing else would have found it.

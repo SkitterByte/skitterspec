@@ -145,6 +145,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the notes `decisions` log. The page maps unrecognised verdicts to
   "discussed", so a `skip` logged there would render as a lie; showing the gate
   log on the page moved to phase 2.
+- 2026-09-15 — Phase 5: hiding an element in JavaScript did nothing where its
+  class set a `display`, because that beats `[hidden]`. `.sent-cmd` was the
+  visible failure; a stylesheet-reading guard found `.reviewable` too. The DOM
+  shim has no CSS, so no behavioural test could have caught either.
 - 2026-09-15 — Phase 5: the copy control is now conditional on there being a
   code. Carrying the hand-off onto the decided panel was right, but rendering a
   bare `/spec-reviewed` as an input plus a Copy button dressed a word you type

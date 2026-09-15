@@ -1591,3 +1591,34 @@ test('the history line goes quiet once the panel says the same thing', async () 
   // And the panel is still the one that speaks.
   assert.match(dom.byId['decided-what'].textContent, /You chose/)
 })
+
+// A `display` rule beats the browser's `[hidden] { display: none }`, so an
+// element the page hides in JavaScript stays on screen unless its class carries
+// an explicit override. This is invisible to every other test here — the DOM
+// shim has no CSS, so `hidden = true` "works" — and it shipped: a finished
+// review kept showing an empty command box because `.sent-cmd` is `display:
+// flex`. So the guard reads the stylesheet rather than the behaviour.
+test('anything the page hides has a [hidden] override where it needs one', () => {
+  const css = /<style>([\s\S]*?)<\/style>/.exec(TEMPLATE)[1]
+  // Classes the template ships hidden, or that the page hides at runtime.
+  const hides = new Set()
+  for (const tag of TEMPLATE.match(/<[^>]*\shidden(\s|>|=)[^>]*>/g) || []) {
+    const cls = /\bclass="([^"]+)"/.exec(tag)
+    if (cls) for (const c of cls[1].split(/\s+/)) hides.add(c)
+  }
+  assert.ok(hides.size > 0, 'the template ships some hidden elements')
+
+  const offenders = []
+  for (const cls of hides) {
+    // Does any rule give this class a display other than none?
+    const sets = new RegExp(`\\.${cls}\\s*\\{[^}]*display:\\s*(?!none)`, 'g').test(css)
+    if (!sets) continue
+    const guarded = new RegExp(`\\.${cls}\\[hidden\\]\\s*\\{[^}]*display:\\s*none`).test(css)
+    if (!guarded) offenders.push(cls)
+  }
+  assert.deepStrictEqual(
+    offenders,
+    [],
+    `these classes set a display and would ignore [hidden]:\n  .${offenders.join('\n  .')}`,
+  )
+})
