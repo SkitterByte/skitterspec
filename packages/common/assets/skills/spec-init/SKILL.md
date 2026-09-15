@@ -105,6 +105,28 @@ Ensure it exists. If missing, create it documenting:
 Read a sibling spec skill (e.g. `spec`, `spec-next`) for the canonical shapes
 rather than inventing them. If the rule already exists, leave it unless stale.
 
+## 4a. The review-gate hook (`.claude/hooks/review-gate.js`)
+
+`skitterspec init` installs the hook script and registers it in the project's
+**committed** `.claude/settings.json` as a `PreToolUse` hook on `Bash`. It runs
+one engine call per Bash tool call and refuses a `git commit` in a worktree
+whose phase is still awaiting a verdict.
+
+**Committed, not machine-local**, and the difference is the point: the trusted
+worktree root is one machine's absolute path, while *a phase that ended owes an
+answer* is the project's policy and should reach everyone who clones it. The
+command is written with `${CLAUDE_PROJECT_DIR}`, so it holds in worktrees too.
+
+**Say it is there, once.** A hook that blocks a commit with the operator not
+knowing a hook exists reads as a broken git, so name it in the report when it is
+newly registered — and say what turns it off (`review.required: false` in
+`env.config.json`, which the hook defers to entirely).
+
+**Never fatal, and never rewritten.** A settings file that is not parseable JSON
+is reported and left exactly as it is — it is the operator's config, and
+everything else in it would be lost. A settings file that already names this
+script, however it was wrapped, is left alone rather than gaining a second copy.
+
 ## 5. CLAUDE.md
 
 Ensure a `## Spec workflow` section exists. If absent, add one with the

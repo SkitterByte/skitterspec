@@ -85,6 +85,7 @@ const {
 } = require('./env/review.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
 const { classifyDirtyTree } = require('./env/classify.js')
+const { isGitCommit } = require('./env/commitcmd.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
@@ -1699,11 +1700,48 @@ function specEnvReviewArm(dir, config, specArg, flags) {
  * — exits 0 and says which, because a check that accuses on an absence accuses
  * healthy repos (`.claude/rules/negative-checks.md`).
  */
-function specEnvReviewGate(dir, config, specArg, flags) {
+function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
+  // `--for-command` is the hook's half: it asks about a command line rather
+  // than about the repo, and a command that is not a commit is simply not this
+  // check's business. Answered FIRST and in silence, because the overwhelming
+  // majority of tool calls land here and every one of them must cost nothing
+  // and say nothing.
+  if (flags.forCommand !== undefined && !isGitCommit(flags.forCommand)) return
+
   const target = gateTarget(dir, config, specArg)
-  const judged = target.spec
+  let judged = target.spec
     ? gateState({ ...readGate(target.out, target.spec.folder), required: config.review.required })
     : { state: 'unknown', reason: target.reason, gate: null }
+
+  // ASKED ABOUT A COMMAND, the question is narrower than "is anything owed in
+  // this repo": it is "does the commit happening HERE owe a verdict". The bare
+  // resolution answers with the sole provisioned spec wherever you stand, which
+  // is right for a person typing the verb and wrong for this — it denied a
+  // commit on the base branch because some other spec was mid-review, which is
+  // exactly how a backlog spec authored from the primary checkout (the thing
+  // `commit-trailers.md` asks for) would be blocked by unrelated work.
+  //
+  // So it wants a POSITIVE signal (`.claude/rules/negative-checks.md` rule 1):
+  // this commit is running inside that spec's own worktree. Anything else —
+  // the primary checkout, another spec's tree, a path that cannot be resolved —
+  // is a cannot-tell, and cannot-tell allows.
+  if (flags.forCommand !== undefined && judged.state === 'armed') {
+    const inside = (child, parent) => {
+      try {
+        const rel = path.relative(fs.realpathSync(parent), fs.realpathSync(child))
+        return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
+      } catch {
+        return false
+      }
+    }
+    if (!inside(invokedFrom, target.spec.worktreePath)) {
+      judged = {
+        state: 'unknown',
+        reason: `this command is not running inside ${target.spec.folder}'s worktree`,
+        gate: judged.gate,
+      }
+    }
+  }
 
   if (flags.json) {
     process.stdout.write(
@@ -3430,6 +3468,7 @@ async function specEnv(rest) {
     else if (args[i] === '--drop') flags.drop = args[++i]
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--check') flags.check = true
+    else if (args[i] === '--for-command') flags.forCommand = args[++i]
     else if (args[i] === '--phase') flags.phase = args[++i]
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
@@ -3500,7 +3539,7 @@ async function specEnv(rest) {
         break
       }
       if (positional[0] === 'gate') {
-        specEnvReviewGate(dir, config, positional[1], flags)
+        specEnvReviewGate(dir, config, positional[1], flags, invokedFrom)
         break
       }
       if (positional[0] === 'skip') {
@@ -3521,6 +3560,7 @@ async function specEnv(rest) {
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
+          '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +
           '  review skip "<reason>"                 move on without one, on the record\n' +
           '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +

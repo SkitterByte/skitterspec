@@ -5,6 +5,7 @@ const path = require('path')
 const crypto = require('crypto')
 
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
+const { ensureReviewGateHook } = require('./env/hooks.js')
 const { repoInfo, expandTokens } = require('./env/resolve.js')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
@@ -38,6 +39,20 @@ function listCommands() {
   }
 }
 
+// Hook scripts shipped as `assets/hooks/*.js`, installed to `.claude/hooks/`.
+// Discovered from the bundled tree like everything else, so a distribution
+// installs precisely what it ships and a hook can be retired by deleting it.
+function listHooks() {
+  try {
+    return fs
+      .readdirSync(path.join(ASSETS, 'hooks'))
+      .filter((f) => f.endsWith('.js'))
+      .sort()
+  } catch {
+    return [] // a distribution may ship no hooks
+  }
+}
+
 function listRules() {
   return fs
     .readdirSync(path.join(ASSETS, 'rules'))
@@ -60,6 +75,8 @@ const SKILLS = listSkills()
 const COMMANDS = listCommands()
 
 const RULES = listRules()
+
+const HOOKS = listHooks()
 
 const SPEC_FOLDERS = ['.core', 'backlog', 'in-progress', 'complete', 'cancelled']
 
@@ -209,6 +226,7 @@ function managedTargets(dir) {
   for (const name of COMMANDS)
     add(path.join('commands', name), path.join(dir, '.claude', 'commands', name), renderCommand)
   for (const name of RULES) add(path.join('rules', name), path.join(dir, '.claude', 'rules', name))
+  for (const name of HOOKS) add(path.join('hooks', name), path.join(dir, '.claude', 'hooks', name))
   for (const asset of CORE_FILES) add(asset, path.join(dir, 'specs', '.core', path.basename(asset)))
   return out
 }
@@ -370,6 +388,40 @@ function installRule(dir, opts) {
       opts,
     )
   }
+}
+
+// Register the review-gate hook in the project's committed settings, so a
+// phase that owes a verdict is enforced one level below the skills. Best-effort
+// in exactly the way `trustWorktreeRoot` is: a settings file we cannot parse is
+// reported and left alone, never rewritten, and never fatal — the hook is an
+// extra layer, and the engine and `/spec-next` hold the gate without it.
+function registerReviewGateHook(dir) {
+  const label = '.claude/settings.json (review-gate hook)'
+  let res
+  try {
+    res = ensureReviewGateHook(dir)
+  } catch {
+    report.warnings.push('could not write .claude/settings.json — review-gate hook not registered')
+    return
+  }
+  if (res.reason === 'malformed') {
+    report.warnings.push(
+      '.claude/settings.json is not valid JSON — did not register the review-gate hook',
+    )
+  } else if (res.reason === 'created') {
+    report.created.push(label)
+  } else if (res.reason === 'added') {
+    report.updated.push(label)
+  } else {
+    report.skipped.push('.claude/settings.json (review-gate hook already registered)')
+  }
+}
+
+function installHooks(dir, opts) {
+  for (const name of HOOKS) {
+    copyAsset(dir, path.join('hooks', name), path.join(dir, '.claude', 'hooks', name), opts)
+  }
+  registerReviewGateHook(dir)
 }
 
 function installFolders(dir) {
@@ -737,6 +789,7 @@ function reset(dir, { claudeMd = true } = {}) {
   installSkills(dir, { force: true })
   installCommands(dir, { force: true })
   installRule(dir, { force: true })
+  installHooks(dir, { force: true })
   installFolders(dir)
   removeRetiredFiles(dir)
   installCore(dir, { force: true })
@@ -836,6 +889,7 @@ async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gati
   installSkills(dir, { force })
   installCommands(dir, { force })
   installRule(dir, { force })
+  installHooks(dir, { force })
   installFolders(dir)
   removeRetiredFiles(dir)
   installCore(dir, { force })

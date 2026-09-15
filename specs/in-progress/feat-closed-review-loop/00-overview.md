@@ -100,7 +100,8 @@ page with db-backed verdict buttons for readers no local server can reach.
 | CLI command | update | `spec-env review <spec> --claim-since <iso>` (claim the pass from a wait window), `--artifact` (db-backed page variant) |
 | Config key | add | `review.required` in `env.config.json` (default `true`) |
 | Engine state | add | gate record + outcome log beside `.pending.json` in `.spec-env/reviews/` |
-| Hook | add | `PreToolUse` on `git commit`, installed by `spec-init` into project settings |
+| Hook | add | `.claude/hooks/review-gate.js`, registered as a `PreToolUse` Bash hook in the project's committed `.claude/settings.json` |
+| Engine | add | `src/env/commitcmd.js` (is this a `git commit`?), `src/env/hooks.js` (settings registration) |
 | Skill/rule | update | `spec-next` (arm + wait + refusal), `spec-diff` (wait mode, artifact publish, db claim), `spec-reviewed` (fallback framing, db claim), `spec-init` (hook install) |
 | Skill/rule | update | `spec-planning.md`, CLAUDE.md review paragraphs — invariant rewritten, gate documented |
 
@@ -113,7 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Gate engine — record, verbs, skip | ✅ | [01-gate-engine.md](01-gate-engine.md) |
 | 2 | Skill wiring — arm, wait, auto-claim, doc sweep | ✅ | [02-skill-wiring.md](02-skill-wiring.md) |
-| 3 | Commit hook — install + stays-silent tests | ⬜ | [03-commit-hook.md](03-commit-hook.md) |
+| 3 | Commit hook — install + stays-silent tests | ✅ | [03-commit-hook.md](03-commit-hook.md) |
 | 4 | Artifact page — db verdicts for off-LAN readers | ⬜ | [04-artifact-page.md](04-artifact-page.md) |
 
 ## Open questions
@@ -136,6 +137,20 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the notes `decisions` log. The page maps unrecognised verdicts to
   "discussed", so a `skip` logged there would render as a lie; showing the gate
   log on the page moved to phase 2.
+- 2026-09-15 — Follow-up surfaced: the serve token is minted per server, so
+  every URL printed in an earlier report dies silently when the server
+  restarts — a stale token is `notfound`, which is right as a guard but reads
+  to the operator as a broken page rather than a stale link. It cost a
+  phase-end review here: the link in the report 404'd on the Mac and the phone,
+  and looked like the page was down. Not in scope for this spec.
+- 2026-09-15 — Phase 3: the hook refuses only when the commit runs inside that
+  spec's own worktree. The first version denied commits in the primary checkout
+  whenever any spec was mid-review, because the engine's bare resolution
+  answers with the sole provisioned spec wherever you stand — which would have
+  blocked authoring a backlog spec from `main`. Caught by a stays-silent test.
+- 2026-09-15 — Phase 3: `spec-env review gate --for-command <cmdline>` added so
+  the hook asks one question and holds no judgement of its own; the "is this a
+  git commit" reading lives in `src/env/commitcmd.js` and is unit tested.
 - 2026-09-15 — Phase 2: the wait window became an engine flag
   (`spec-env review --claim-since <iso>`) rather than a rule the skill follows.
   A skill told to claim "the pass from this wait" has to read the store and
