@@ -7,7 +7,7 @@ linear_url: "https://linear.app/skitterbyte/issue/SKS-245/the-review-explains-it
 
 > **Type:** Feature
 > **Name:** feat-seamless-review-loop (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-14)
+> **Status:** Complete (2026-09-15)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-14
@@ -175,8 +175,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-14 | Ready | backlog | Reuben Greaves |
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-15 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-15 — Completed; both phases done, tests green (2353).
 
 - 2026-09-15 — **Open question answered, and Decision 8 was partly wrong.** The
   fear was that a picker taxes every phase because `/commit && /spec-next` is
