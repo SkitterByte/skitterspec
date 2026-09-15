@@ -625,7 +625,7 @@ the shape; this section carries only what is specific here.
 - `⏸` — the spec has no worktree. Say that plainly: a spec that has not been
   started has nothing to diff, which is an ordinary state and not an error.
 
-**Fields:** `Built` · `Tests` · `Snags` · `Review` · `Follow-ups` · `Next`
+**Fields:** `Built` · `Tests` · `Notes` · `Review` · `Follow-ups` · `Next`
 
 ## 7a. End in a picker
 

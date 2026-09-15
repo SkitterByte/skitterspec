@@ -35,14 +35,13 @@ for (const name of RENDERS) {
     assert.match(text, /\*\*after\*\* the tests pass and\s*\n?\*\*before\*\* the commit/)
   })
 
-  // The offer is the block's `Review` row now, not prose after it — see
+  // The offer is a `Review` row in the block, not prose after it — see
   // `assets-offer-last.test.js` for why the anchor moved and what must not be
-  // weakened when it moves again. All three skills carry the same wording, so
-  // this asserts it across all three rather than in one.
+  // weakened when it moves again. All three carry the row; only the one that
+  // WAITS also carries the banner, which is asserted separately below.
   test(`/${name} offers the review as a question, in the Review row`, () => {
     assert.match(text, /want a written review before you commit\?/)
-    assert.match(text, /The offer is the `Review` row/)
-    assert.match(text, /It ends in a question, addressed to someone/)
+    assert.match(text, /`Review` row/)
     // The shape it must not go back to.
     assert.doesNotMatch(text, /```\nPage is rendered:/)
   })
@@ -164,3 +163,15 @@ test('the config keys are documented where an adopter reads them', () => {
   assert.match(doc, /unguessable path token/)
 })
 
+// THE BANNER IS EARNED BY WAITING. `/spec-next` arms the gate and holds for a
+// verdict, so its offer is a banner; `/spec-bug` and `/spec-hotfix` render at
+// the end of red→green work, arm nothing and hold for nothing, so theirs stays
+// a row. Giving every render a banner is how a reader learns to scroll past
+// banners — which would cost exactly what the banner was introduced to buy.
+test('only the skill that waits carries the banner', () => {
+  assert.match(skillText('spec-next'), /## ⏸ Review ready/)
+  for (const name of ['spec-bug', 'spec-hotfix']) {
+    assert.doesNotMatch(skillText(name), /## ⏸ Review ready/, name)
+    assert.doesNotMatch(skillText(name), /spec-env review arm/, `${name} arms nothing`)
+  }
+})

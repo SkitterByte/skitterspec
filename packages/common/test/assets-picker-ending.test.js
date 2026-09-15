@@ -39,12 +39,32 @@ test('nothing may claim a pass without a pick, and the trade is explained', () =
   assert.match(NEXT, /routing around the \*\*mechanism\*\*/)
 })
 
-test('the rule permits a picker after the block, and still bans prose', () => {
-  assert.match(RULE, /\*\*One control may follow the block: a picker\.\*\*/)
-  assert.match(RULE, /Prose after the block stays banned/)
-  // The reasoning, so the next reader does not delete the picker as a violation
-  // of the sentence three paragraphs above it.
-  assert.match(RULE, /A\s*\n?\s*picker does not compete/i)
+test('the rule permits two controls after the block, and still bans prose', () => {
+  assert.match(RULE, /\*\*Two controls may follow the block, and nothing else ever\.\*\*/)
+  assert.match(RULE, /\*\*The first is a picker\.\*\*/)
+  assert.match(RULE, /\*\*The second is the review call-to-action\*\*/)
+  // The reasoning, so the next reader does not delete either as a violation of
+  // the sentence three paragraphs above it.
+  assert.match(RULE, /A control does not compete/i)
+  assert.match(RULE, /Prose after either of them is the\s*\n?\s*same violation/i)
+})
+
+// THE BANNER IS EARNED BY WAITING, not by having rendered a page. A render
+// nobody is held for stays a row — giving every page a banner is how a reader
+// learns to scroll past banners.
+test('the banner is reserved for a run that is actually waiting', () => {
+  assert.match(RULE, /only where the run is actually\s*\n?\s*\*\*waiting\*\* on a verdict/i)
+  assert.match(RULE, /\*\*Where the run is not waiting, it stays a `Review` row\.\*\*/)
+  // And the two must not both appear: one subject, one place.
+  assert.match(RULE, /\*\*Omitted entirely when the run is waiting on a verdict\*\*/)
+})
+
+// It is a SHAPE, not a sentence — a rule, a heading, the link, the exits.
+test('the banner has a defined shape rather than being left to taste', () => {
+  assert.match(RULE, /## ⏸ Review ready/)
+  assert.match(RULE, /I'm holding here until you send a verdict/)
+  assert.match(RULE, /`\/spec-reviewed` picks it up/)
+  assert.match(RULE, /never a\s*\n?\s*paragraph explaining it/i)
 })
 
 // The rule was stated and broken repeatedly, which makes it a missing
@@ -52,15 +72,15 @@ test('the rule permits a picker after the block, and still bans prose', () => {
 test('the rule names where that content goes, not only that it may not follow', () => {
   assert.match(RULE, /\*\*if it is worth telling the reader, it is a row\.\*\*/)
   assert.match(RULE, /\*\*If it is not a row, it is not worth telling them\.\*\*/)
-  assert.match(RULE, /^\| `Snags` \|/m, 'and the row exists')
+  assert.match(RULE, /^\| `Notes` \|/m, 'and the row exists')
   // Distinguished from the two fields it would otherwise be confused with.
   assert.match(RULE, /Not a caveat on the outcome/)
   assert.match(RULE, /not future work/)
 })
 
-test('both skills that offer the picker declare Snags', () => {
-  assert.match(NEXT, /\*\*Fields:\*\*[^\n]*`Snags`/)
-  assert.match(DIFF, /\*\*Fields:\*\*[^\n]*`Snags`/)
+test('both skills that offer the picker declare Notes', () => {
+  assert.match(NEXT, /\*\*Fields:\*\*[^\n]*`Notes`/)
+  assert.match(DIFF, /\*\*Fields:\*\*[^\n]*`Notes`/)
 })
 
 test('the four endings are named, with what each does', () => {

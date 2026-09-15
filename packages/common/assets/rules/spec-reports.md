@@ -69,15 +69,49 @@ where it buried the rows it was meant to sit beside. A missing destination reads
 as a rule that does not fit the work, and a rule that does not fit gets ignored.
 So: **if it is worth telling the reader, it is a row.**
 **If it is not a row, it is not worth telling them.**
-`Snags` is the row most of that content belongs in.
+`Notes` is the row most of that content belongs in.
 
-**One control may follow the block: a picker.** Where the run ends in a choice
-the reader must make, the options may be offered after the table. That is not
-an exception squeezed into the rule — the ban exists because *prose* after the
-block competes with it for the reader's attention and loses them the rows. A
-picker does not compete: it is the `Next` row made actionable, in the place the
-reader's eye already finishes. Prose after the block stays banned, and adding a
-sentence alongside the picker is the same violation wearing a control's clothes.
+**Two controls may follow the block, and nothing else ever.** The ban exists
+because *prose* after the block competes with it for the reader's attention and
+loses them the rows. A control does not compete: it is a row made actionable, in
+the place the reader's eye already finishes. Prose after either of them is the
+same violation wearing a control's clothes.
+
+**The first is a picker.** Where the run ends in a choice the reader must make,
+the options may be offered after the table.
+
+**The second is the review call-to-action**, and only where the run is actually
+**waiting** on a verdict. It is a banner, not a sentence:
+
+---
+
+## ⏸ Review ready — 7 files, +212 −18
+
+**[Open the page](http://…)** · I'm holding here until you send a verdict.
+
+`/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
+
+---
+
+A rule, a heading naming the state and the size, the link in bold, one line
+saying the run is stopped, and the two exits. Nothing else, and never a
+paragraph explaining it.
+
+**This is not the old failure returning**, and the difference is the whole
+justification. The offer used to be two quoted lines in the tail of a long
+report, addressed to nobody, under a closing line that told the reader to move
+on — and it was never once taken. It was moved into a labelled row to make it
+findable, and that worked. What changed since is that the run now *waits*: the
+reader is not being offered something optional, they are being told the work has
+stopped until they answer. A row cannot carry that, because a row is scanned at
+the same weight as every other row. So the state gets the loudest shape on
+screen, at the end, where reading finishes.
+
+**Where the run is not waiting, it stays a `Review` row.** A render nobody is
+being held for — a mid-phase `/spec-diff`, a page produced alongside other work
+— is a convenience, and giving it a banner teaches the reader to scroll past
+banners. The shape marks the difference between *here is a page* and *nothing
+proceeds until you answer*.
 
 **Never fence a message to the reader.** A fenced block is for a command to
 run, code, or engine output quoted verbatim — things the reader copies or
@@ -130,11 +164,11 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Cause` | The root cause, for work that diagnosed one. |
 | `Built` | What the run produced — the code, the edits, the spec written. |
 | `Tests` | The result and the command that produced it. |
-| `Snags` | What this run hit and handled — one short paragraph. A wrong turn, a guard that fired, a check of yours that turned out to be a false negative. Not a caveat on the outcome (`⚠️` and `Why` carry those) and not future work (`Follow-ups` carries that): this is what happened on the way. |
+| `Notes` | What this run hit and handled — one short paragraph. Named `Snags` once, which announced a problem before the reader had read one; most of what belongs here is neither good nor bad, just worth knowing. A wrong turn, a guard that fired, a check of yours that turned out to be a false negative. Not a caveat on the outcome (`⚠️` and `Why` carry those) and not future work (`Follow-ups` carries that): this is what happened on the way. |
 | `Landed` | A fast-forward, a tag, a cherry-pick. |
 | `Worktree` | A worktree provisioned, entered, or torn down. |
 | `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |
-| `Review` | The rendered diff page: files, `+`/`−`, the link — and the offer of a written review, in the same row. |
+| `Review` | The rendered diff page: files, `+`/`−`, the link — and the offer of a written review, in the same row. **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
 | `Next` | **Last.** The single next action for this work — runnable from the state the run leaves behind. |
 
@@ -152,10 +186,11 @@ is how that verdict stops meaning anything. It is still reported rather than
 silent, because "I provisioned, and your four files are still sitting there" is
 a different sentence from "I provisioned".
 
-**`Review` is one row, not two.** The page and the offer to read it are the same
-subject, and splitting them made the reader resolve a distinction before acting
-on either. The offer does not need the final row once it has a label column to
-be found by.
+**`Review` is one row, not two** — and where the run is waiting, it is no rows
+at all. The page and the offer to read it are the same subject, and splitting
+them made the reader resolve a distinction before acting on either. A waiting
+run promotes the whole subject into the banner; keeping the row as well would
+recreate that split with the two halves further apart than ever.
 
 ## The four verdicts
 

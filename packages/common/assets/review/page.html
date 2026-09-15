@@ -411,16 +411,87 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   padding: .5rem;
 }
 .copy-out[hidden] { display: none; }
-.context { margin: 0 0 1rem; padding: .75rem .9rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel, transparent); }
-.context h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .9rem 0 .35rem; }
+/* THE REVIEW, ONCE IT IS OVER. A verdict that has actually been handed over
+   ends the page: the diff fades out and what you decided takes its place. The
+   fade is a transition on a class rather than a timer, so nothing depends on
+   JavaScript finishing, and `Show the diff anyway` brings it back — read-only,
+   with the buttons dead. */
+.reviewable { transition: opacity .35s ease; }
+.is-decided .reviewable { display: none; }
+.is-decided.show-diff .reviewable { display: block; opacity: .75; }
+.is-decided.show-diff .reviewable:hover { opacity: 1; }
+
+.decided {
+  margin: 0 0 1.25rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+  animation: decided-in .35s ease;
+}
+@keyframes decided-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.decided[hidden] { display: none; }
+.decided-what { margin: 0 0 .35rem; font-size: 1.05rem; font-weight: 650; line-height: 1.4; }
+.decided-note { margin: 0 0 .8rem; color: var(--muted); font-size: .88rem; line-height: 1.5; max-width: 62ch; }
+.decided-note:last-child { margin-bottom: 0; }
+.decided-toggle { font-size: .78rem; }
+
+/* WHY THE CHANGE EXISTS — the PR description this page never had. It is prose
+   to be read rather than data to be scanned, so it gets a measure, air, and a
+   quieter voice than the diff below it. It was once full-bleed 15px text at
+   1.5 in a tight box, which read as a wall and got skipped. */
+.context {
+  margin: 0 0 1.5rem;
+  padding: 1.1rem 1.3rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel, transparent);
+}
+.context h3 {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  font-weight: 650;
+  margin: 1.4rem 0 .5rem;
+}
 .context h3:first-child { margin-top: 0; }
-.context p { margin: 0 0 .5rem; line-height: 1.5; }
+/* A MEASURE. Prose set the full width of a 1400px page is measurably harder to
+   read — the eye loses the line it is returning to. */
+.context p { margin: 0 0 .7rem; font-size: .92rem; line-height: 1.65; max-width: 72ch; }
 .context p:last-child { margin-bottom: 0; }
-.context table { border-collapse: collapse; width: 100%; font-size: .85rem; }
-.context th, .context td { text-align: left; padding: .2rem .5rem .2rem 0; vertical-align: top; }
-.context th { color: var(--muted); font-weight: 600; }
-.context ul { margin: 0; padding-left: 1.1rem; }
-.context li { margin: .15rem 0; line-height: 1.45; }
+.context table { border-collapse: collapse; width: 100%; font-size: .84rem; margin: .2rem 0 .3rem; }
+.context th, .context td { text-align: left; padding: .35rem .8rem .35rem 0; vertical-align: top; }
+.context th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: .3rem;
+}
+.context tbody tr + tr td { border-top: 1px solid var(--line); }
+.context ul { margin: 0; padding-left: 1.15rem; max-width: 72ch; }
+.context li { margin: .3rem 0; font-size: .92rem; line-height: 1.6; }
+/* The disclosure is a CONTROL, not a panel. Full-width and boxed, it read as a
+   section header that happened to be clickable. */
+.context-more { margin: .9rem 0 0; }
+.context-more > summary {
+  display: inline-block;
+  width: auto;
+  cursor: pointer;
+  font-size: .78rem;
+  color: var(--muted);
+  padding: .25rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  list-style: none;
+}
+.context-more > summary::-webkit-details-marker { display: none; }
+.context-more > summary:hover { color: var(--accent); border-color: var(--accent); }
+.context-more[open] > summary { margin-bottom: .6rem; }
 .context li.done { color: var(--muted); }
 .context-more > summary { cursor: pointer; color: var(--muted); font-size: .85rem; margin-top: .6rem; }
 .copy-hint { font-size: .8rem; color: var(--muted); margin: .4rem 0 0; }
@@ -437,7 +508,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="wrap">
 <header>
   <h1 id="title"></h1>
   <p class="sub" id="sub"></p>
@@ -459,15 +530,23 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
          engine from the spec's own files — nothing here passed through the
          model, so it is free however large the diff. Absent entirely for a spec
          whose overview cannot be read: the page worked without it before. -->
-    <section class="context" id="context" hidden>
+    <!-- WHAT YOU DECIDED, once the pass has actually been handed over. It sits
+         above everything because on a re-open it is the only thing you need:
+         the review is over, and this says how it ended. -->
+    <section class="decided" id="decided" hidden>
+      <p class="decided-what" id="decided-what"></p>
+      <p class="decided-note" id="decided-note"></p>
+      <button type="button" class="decided-toggle" id="decided-toggle">Show the diff anyway</button>
+    </section>
+    <section class="context reviewable" id="context" hidden>
       <div class="context-why" id="context-why"></div>
       <details class="context-more" id="context-more" hidden>
         <summary id="context-more-summary">More</summary>
         <div id="context-rest"></div>
       </details>
     </section>
-    <div id="review-block">__REVIEW_BLOCK__</div>
-    <div id="files"></div>
+    <div id="review-block" class="reviewable">__REVIEW_BLOCK__</div>
+    <div id="files" class="reviewable"></div>
     <!-- THE VERDICT SITS AT THE END, where reading finishes. It began in the
          header and the first person to use it could not find it: you read a
          350-line diff downward, and the control asking for your conclusion was
@@ -613,6 +692,9 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   // Best effort, both ways. Safari refuses storage on file:// by THROWING, and
   // a review page that fails to render because it could not autosave would be a
   // far worse bug than a lost pass.
+  // What this reader concluded, once it was actually HANDED OVER — never on a
+  // clipboard copy, which is a pass still sitting in the reader's hands.
+  var decided = null
   var STORE_KEY = 'skitterspec-review:' + data.spec + ':' + data.generatedAt
   function save() {
     try {
@@ -622,7 +704,10 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
         accepts[st.file.path] = st.accept
         st.drafts.forEach(function (d) { drafts.push(d) })
       })
-      window.localStorage.setItem(STORE_KEY, JSON.stringify({ seq: seq, accepts: accepts, drafts: drafts, replies: replies }))
+      window.localStorage.setItem(
+        STORE_KEY,
+        JSON.stringify({ seq: seq, accepts: accepts, drafts: drafts, replies: replies, decided: decided }),
+      )
     } catch (e) { /* no storage, or a quota — the pass still works, it just is not saved */ }
   }
   function restore() {
@@ -633,6 +718,10 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     try { saved = JSON.parse(raw) } catch (e) { return }
     seq = saved.seq || 0
     replies = saved.replies || {}
+    // THE DECISION OUTLIVES THE TAB. Keyed to this render like every other
+    // mark, so the next render — the one after the commit — is a live page
+    // again rather than a page that thinks it is finished.
+    if (saved.decided && saved.decided.verdict) decided = saved.decided
     var byPath = {}
     state.forEach(function (st) { byPath[st.file.path] = st })
     Object.keys(saved.accepts || {}).forEach(function (path) {
@@ -1122,7 +1211,15 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   // here, and the shared block below follows for free — the same reason the
   // engine keeps a `COMMITTING` list rather than a second condition.
   var COMMITTERS = ['commit', 'commit-continue']
-  var LABELS = { commit: '✓ Commit', 'commit-continue': '✓ Commit & Continue' }
+  // ALL FOUR, because this is now the one place a verdict gets a reader-facing
+  // name: `refresh` relabels only the committing pair, but the decided panel
+  // has to name whichever verdict was actually sent.
+  var LABELS = {
+    commit: '✓ Commit',
+    'commit-continue': '✓ Commit & Continue',
+    changes: '↺ Request changes',
+    discuss: '… Discuss first',
+  }
   var TITLES = {
     commit: 'Commit what you just read, and stop there',
     // Says what it will NOT do: a reader must not press this expecting the
@@ -1133,6 +1230,11 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   var verdictCount = document.getElementById('verdict-count')
   var verdictLog = document.getElementById('verdict-log')
   var copyOut = document.getElementById('copy-out')
+  var wrapEl = document.getElementById('wrap')
+  var decidedBox = document.getElementById('decided')
+  var decidedWhat = document.getElementById('decided-what')
+  var decidedNote = document.getElementById('decided-note')
+  var decidedToggle = document.getElementById('decided-toggle')
   var copyHint = document.getElementById('copy-hint')
   var sentCmd = document.getElementById('sent-cmd')
   var sentCmdText = document.getElementById('sent-cmd-text')
@@ -1164,6 +1266,10 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   // the moment the last note goes and a phone tab switch mid-review costs
   // nothing.
   function refresh() {
+    // A decided page is finished. `refresh` runs on every mark and re-enables
+    // the two committing buttons unconditionally, so without this it would undo
+    // the ending every time anything redrew.
+    if (decided) return drawDecided()
     var n = pending()
     var open = openNotes()
     verdictCount.textContent = n
@@ -1203,6 +1309,62 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     verdictBtns.discuss.disabled = false
     save()
   }
+
+  /**
+   * End the review, and say how it ended.
+   *
+   * A verdict that has been handed over is the END of this page's job, and the
+   * page used to carry on as if it were not: the diff stayed, the four buttons
+   * stayed live, and a line of small grey text under them said "Sent." A reader
+   * coming back to that tab has no way to tell a sent review from an unsent
+   * one, and pressing a button again reaches an agent that stopped listening.
+   *
+   * So the diff goes, what was decided takes its place, and the controls die
+   * with a reason on them.
+   */
+  function drawDecided() {
+    if (!decided) return
+    var said = SAID[decided.verdict] || decided.verdict
+    var when = String(decided.at || '').slice(0, 10)
+    decidedBox.hidden = false
+    decidedWhat.textContent = 'You chose: ' + (LABELS[decided.verdict] || decided.verdict)
+    decidedNote.textContent =
+      'Sent to Claude' + (when ? ' on ' + when : '') + ' — this review is ' + said + '. ' +
+      'Nothing here reaches Claude any more, so the verdict buttons are closed.'
+    wrapEl.className = wrapEl.className.replace(/\s*\bis-decided\b/g, '') + ' is-decided'
+    // EVERY button, not only the committing pair: `refresh` re-enables those two
+    // by design, and a decided page must beat it.
+    Object.keys(verdictBtns).forEach(function (key) {
+      var btn = verdictBtns[key]
+      btn.disabled = true
+      btn.title = 'Already sent — ' + said
+    })
+    verdictCount.textContent = 'Sent — ' + said
+    // THE HAND-OFF SURVIVES THE ENDING. A served pass is picked up by a command
+    // the reader still has to run, so ending the review must not take it off
+    // the screen — and on a re-open it is restored, because the tab that had it
+    // is often not the tab they come back in.
+    if (decided.cmd) {
+      copyHint.hidden = false
+      copyHint.textContent = 'Sent. Run this where Claude is:'
+      showCommand(decided.cmd)
+    }
+  }
+
+  /** Record a verdict that was actually delivered, and end the page on it. */
+  function markDecided(verdict, cmd) {
+    decided = { verdict: verdict, at: new Date().toISOString(), cmd: cmd || null }
+    save()
+    drawDecided()
+  }
+
+  // A WAY BACK IN, read-only. "It is finished" and "I cannot see what I
+  // approved" are different things, and only the first one is true.
+  decidedToggle.addEventListener('click', function () {
+    var showing = / \bshow-diff\b/.test(' ' + wrapEl.className)
+    wrapEl.className = wrapEl.className.replace(/\s*\bshow-diff\b/g, '') + (showing ? '' : ' show-diff')
+    decidedToggle.textContent = showing ? 'Show the diff anyway' : 'Hide the diff'
+  })
 
   // How a logged verdict reads. EVERY VERDICT NAMED, and an unknown one says
   // so: the fallback was `discussed`, which quietly relabelled `commit` — and a
@@ -1388,7 +1550,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
    * you read six digits out, where a paste costs context in proportion to how
    * much you wrote.
    */
-  function post(json) {
+  function post(json, verdict) {
     copyHint.hidden = false
     copyHint.textContent = 'Sending…'
     fetch(location.pathname, {
@@ -1414,12 +1576,14 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
         if (code) {
           copyHint.textContent = 'Sent. Run this where Claude is:'
           showCommand('/spec-reviewed ' + code)
+          markDecided(verdict, '/spec-reviewed ' + code)
         } else {
           // NO CODE, NO COMMAND. A `/spec-reviewed` with nothing after it still
           // works — it picks up the single waiting pass — but the page cannot
           // claim the server named THIS one, so it does not put words in its
           // mouth. Bare is what the reader is told, because bare is what is true.
           copyHint.textContent = 'Sent — run /spec-reviewed to pick it up.'
+          markDecided(verdict)
         }
       })
     }, function () {
@@ -1454,7 +1618,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
    * would spend a consent prompt on every render, including the ones nobody
    * ends in a verdict.
    */
-  function sendToStore(json) {
+  function sendToStore(json, verdict) {
     copyHint.hidden = false
     copyHint.textContent = 'Sending…'
     var landed = false
@@ -1476,6 +1640,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
           // the one thing that is true and actionable.
           copyHint.textContent = 'Sent. Run this where Claude is:'
           showCommand('/spec-reviewed')
+          markDecided(verdict, '/spec-reviewed')
         })
     }).then(null, function (err) {
       if (landed) return
@@ -1500,11 +1665,11 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     // is exactly that trap — its POST would go to claude.ai and fail — which is
     // why it is answered first, by what the page IS rather than by what failed.
     if (isArtifact()) {
-      sendToStore(json)
+      sendToStore(json, verdict)
       return
     }
     if (location.protocol !== 'file:') {
-      post(json)
+      post(json, verdict)
       return
     }
     // `file://` is not a secure context everywhere, and the clipboard API is
@@ -1542,6 +1707,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   restore()
   drawContext()
   drawLog()
+  drawDecided()
   wireChecks()
   state.forEach(function (st) {
     var btn = st.details && st.details.querySelector('.accept')

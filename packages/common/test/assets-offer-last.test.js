@@ -33,25 +33,39 @@ const ASSETS = path.join(__dirname, '..', 'assets')
 const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 const NEXT = skillText('spec-next')
 
-test('the offer ends in a question, not a block of engine output', () => {
-  assert.match(NEXT, /want a written review before you commit\?/)
-  assert.match(NEXT, /It ends in a question, addressed to someone/)
-  // The shape it must not go back to.
+test('the offer is addressed to someone, in whichever shape it takes', () => {
+  assert.match(NEXT, /want a written review before you commit\?/, 'the not-waiting row still asks')
+  assert.match(NEXT, /I'm holding here until you send a verdict/, 'the waiting banner still tells')
+  assert.match(NEXT, /Both shapes are addressed to someone/)
+  // The shape it must not go back to: engine output quoted at nobody.
   assert.doesNotMatch(NEXT, /```\nPage is rendered:/)
 })
 
+// TWO SHAPES, ONE SUBJECT. A run that is waiting promotes the offer into the
+// banner and drops the row; a run that is not keeps the row and shows no
+// banner. Emitting both would split one page across two places — the same
+// failure the one-row rule was written against, with the halves further apart.
+test('waiting promotes the offer to a banner and drops the row', () => {
+  assert.match(NEXT, /the offer is the banner after the block/i)
+  assert.match(NEXT, /\*\*the `Review` row is dropped\*\*/)
+  assert.match(NEXT, /Where you are not waiting, it stays the `Review` row/)
+  assert.match(NEXT, /## ⏸ Review ready/, 'and the banner shape is written out')
+})
+
 test('the position is stated, and stated as the point of it', () => {
-  assert.match(NEXT, /The offer is the `Review` row of step 6's block/)
-  assert.match(NEXT, /It sits above `Follow-ups` and `Next`/)
+  assert.match(NEXT, /The row sits above the last two rows of\s*\n?\s*the block/)
   assert.match(NEXT, /Never bury it and never split it/)
 })
 
 // The page and the question are ONE row. Splitting them was tried and rejected:
 // two adjacent rows about the same page make the reader resolve a distinction
 // before acting on either.
-test('the link and the question stay in the same row', () => {
-  assert.match(NEXT, /the counts, the page link\s*\n?and a question, in one row/)
-  assert.match(NEXT, /separates the link from the question/)
+test('one page is named in one place, never two', () => {
+  assert.match(NEXT, /the banner\s*\n?replaces the row rather than joining it/i)
+  assert.match(NEXT, /Two places naming one page/i)
+  // Stated as the SAME failure as the old adjacent-rows one, so a later edit
+  // cannot read the banner as permission to have both.
+  assert.match(NEXT, /whether the two places are adjacent rows or a row and a\s*\n?banner/i)
 })
 
 // The two steps have to agree, because step 5 writes the offer and step 6 writes
@@ -60,11 +74,12 @@ test('the link and the question stay in the same row', () => {
 // Step 5 writes the offer and step 6 writes the block it lives in, so the two
 // have to name the same place. They disagreed before, when one said "one line"
 // and the other said the report ends on which phase is next.
-test('step 6 agrees about where the offer goes', () => {
+test('step 6 agrees about which shape the offer takes', () => {
   const six = NEXT.slice(NEXT.indexOf('## 6. Report'))
-  assert.match(six, /Step 5's offer is the `Review` row/)
-  assert.match(six, /not a paragraph after the block/)
-  assert.match(six, /the two must not disagree about where\s*\n?it goes/)
+  assert.match(six, /Step 5's offer lands in one of two shapes, and never both/)
+  assert.match(six, /Neither is a paragraph/)
+  assert.match(six, /the ban on prose after the\s*\n?block is untouched/)
+  assert.match(six, /must not disagree about which shape it\s*\n?takes/)
 })
 
 // The contract says nothing follows the block. If the offer were also "the last
@@ -76,9 +91,13 @@ test('nothing is left claiming to follow the block', () => {
   assert.doesNotMatch(NEXT, /as the final thing on screen/)
 })
 
-test('a later edit that reorders it back is named a regression', () => {
-  assert.match(NEXT, /Never bury it and never split it/)
-  assert.match(NEXT, /read as a regression rather than tidying/)
+test('the banner is justified, not merely permitted', () => {
+  // Without the reasoning, the next reader deletes it as a violation of the
+  // no-prose-after-the-block rule sitting three paragraphs above it.
+  const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
+  assert.match(rule, /\*\*This is not the old failure returning\*\*/)
+  assert.match(rule, /the run now \*waits\*/)
+  assert.match(rule, /A row cannot carry that/)
 })
 
 // The phase now WAITS for the verdict rather than asking a question a chained

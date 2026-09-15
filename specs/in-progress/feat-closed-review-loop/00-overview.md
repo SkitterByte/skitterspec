@@ -116,6 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Skill wiring — arm, wait, auto-claim, doc sweep | ✅ | [02-skill-wiring.md](02-skill-wiring.md) |
 | 3 | Commit hook — install + stays-silent tests | ✅ | [03-commit-hook.md](03-commit-hook.md) |
 | 4 | Artifact page — db verdicts for off-LAN readers | ✅ | [04-artifact-page.md](04-artifact-page.md) |
+| 5 | The endings people actually see | ✅ | [05-review-ux.md](05-review-ux.md) |
 
 ## Open questions
 
@@ -144,11 +145,28 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the notes `decisions` log. The page maps unrecognised verdicts to
   "discussed", so a `skip` logged there would render as a lie; showing the gate
   log on the page moved to phase 2.
+- 2026-09-15 — Phase 5: `Snags` renamed to `Notes` in the report contract and
+  every skill that declares it.
+- 2026-09-15 — Phase 5 added after using the loop for real. Three things the
+  build got wrong in practice: the report kept growing prose after the table
+  (twice in one message), so the review offer is promoted out of the table into
+  a designed banner and the contract gains its second permitted control; the
+  page left a "Sent. Run this…" line under live buttons after a verdict, where
+  it should end the review and say what was decided; and the `WHY` block reads
+  as blocky and oversized.
 - 2026-09-15 — Phase 4: no `--artifact` render variant was added. The page
   feature-detects `window.claude.use` instead, so one render serves all three
   transports and a published page cannot be the wrong build. `user` was not
   declared either — it is not available on this contract, and a shared
   `passes` collection is what a review pass wants.
+- 2026-09-15 — Follow-up surfaced: **the served page cannot show page changes
+  made on a branch.** The review daemon runs the primary checkout's installed
+  copy by design (so it outlives the worktree it serves), and that copy is the
+  base branch — so a phase that edits `assets/review/page.html` renders its own
+  changes into the *file* and the *published* copy, while the LAN URL keeps
+  serving the old template. Nothing warns about it, and the diff shown on the
+  stale page contains the very markup that is missing from it. Not in scope
+  here; the file render and the published page are both correct meanwhile.
 - 2026-09-15 — Follow-up surfaced: the serve token is minted per server, so
   every URL printed in an earlier report dies silently when the server
   restarts — a stale token is `notfound`, which is right as a guard but reads

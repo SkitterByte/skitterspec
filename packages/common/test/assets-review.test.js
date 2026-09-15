@@ -221,6 +221,7 @@ function fakeDom(islandText) {
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
     'sent-cmd', 'sent-cmd-text', 'sent-cmd-copy',
     'context', 'context-why', 'context-more', 'context-more-summary', 'context-rest',
+    'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
@@ -290,11 +291,14 @@ function fakeDom(islandText) {
   return { document, window, byId, store }
 }
 
-function runPage(data, { checks = [], failStorage = false, clipboard = true, protocol = 'file:', fetchWith = null, claudeUse = null } = {}) {
+function runPage(data, { checks = [], failStorage = false, clipboard = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
   const dom = fakeDom(island[1])
+  // A SECOND PAGE OVER THE SAME STORAGE is how a reader re-opening their tab is
+  // modelled — the decision has to outlive the page object, not just the call.
+  if (storage) dom.window.localStorage = storage
   if (failStorage) dom.window.localStorage._fail = true
   // The review block is spliced in as MARKUP, which the shim cannot parse — so
   // a test that wants checks hands them over already built.
@@ -914,7 +918,7 @@ test('the verdict bar sits after the diff, not above it', () => {
   // control asking for your conclusion was off-screen above you. A later edit
   // that tidies it back into the header re-creates exactly that, so the order
   // is pinned rather than left to prose.
-  const files = TEMPLATE.indexOf('<div id="files">')
+  const files = TEMPLATE.search(/<div id="files"/)
   const bar = TEMPLATE.indexOf('id="verdict-commit"')
   assert.ok(files > -1 && bar > -1, 'both are present')
   assert.ok(bar > files, 'the verdict comes after the thing it is a verdict on')
@@ -1443,4 +1447,109 @@ test('a file:// page still copies, exactly as before', () => {
   dom.byId['verdict-discuss'].dispatch('click')
   assert.strictEqual(dom.copied.length, 1)
   assert.deepStrictEqual(dom.posted, [])
+})
+
+// --- the review ends when the verdict is delivered --------------------------
+//
+// The page used to carry on as if nothing had happened: the diff stayed, all
+// four buttons stayed live, and a line of small grey text under them said
+// "Sent." A reader returning to that tab could not tell a sent review from an
+// unsent one, and pressing again reached an agent that had stopped listening.
+
+const decidedOn = (dom) => dom.byId['decided'].hidden === false
+
+test('a delivered verdict ends the review and says what was chosen', async () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  dom.byId['verdict-commit'].dispatch('click')
+  await settle()
+
+  assert.ok(decidedOn(dom), 'the panel is shown')
+  assert.match(dom.byId['decided-what'].textContent, /You chose: ✓ Commit/)
+  assert.match(dom.byId['decided-note'].textContent, /Sent to Claude/)
+  // The diff is faded out by a class rather than a timer, so nothing depends on
+  // JavaScript finishing an animation.
+  assert.match(dom.byId['wrap'].className, /\bis-decided\b/)
+})
+
+test('every verdict button dies, with the reason on it', async () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  dom.byId['verdict-commit'].dispatch('click')
+  await settle()
+  for (const key of ['commit', 'commit-continue', 'changes', 'discuss']) {
+    const btn = dom.byId['verdict-' + key]
+    assert.strictEqual(btn.disabled, true, key)
+    assert.match(btn.title, /Already sent/, key)
+  }
+  // `refresh` re-enables the non-committing pair unconditionally, so a decided
+  // page has to beat it — this is the assertion that catches that regression.
+  assert.match(dom.byId['verdict-count'].textContent, /Sent —/)
+})
+
+test('the decision survives a reload of the same render', async () => {
+  const data = marked()
+  const first = runPage(data, { protocol: 'http:' })
+  first.byId['verdict-changes'].dispatch('click')
+  await settle()
+  // A second page over the SAME storage — the reader re-opening their tab.
+  const again = runPage(data, { protocol: 'http:', storage: first.window.localStorage })
+  assert.ok(decidedOn(again))
+  assert.match(again.byId['decided-what'].textContent, /Request changes/)
+  assert.strictEqual(again.byId['verdict-commit'].disabled, true)
+})
+
+test('the next render is a live page again', async () => {
+  // Keyed to the render, like every other mark: after the commit the phase
+  // re-renders, and that page is not finished just because the last one was.
+  const first = runPage(marked(), { protocol: 'http:' })
+  first.byId['verdict-commit'].dispatch('click')
+  await settle()
+  const next = marked()
+  next.generatedAt = '2027-01-01T00:00:00.000Z'
+  const fresh = runPage(next, { protocol: 'http:', storage: first.window.localStorage })
+  assert.strictEqual(decidedOn(fresh), false)
+  assert.strictEqual(fresh.byId['verdict-commit'].disabled, false)
+})
+
+test('there is a way back to the diff, and the buttons stay dead there', async () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  dom.byId['verdict-commit'].dispatch('click')
+  await settle()
+  dom.byId['decided-toggle'].dispatch('click')
+  assert.match(dom.byId['wrap'].className, /\bshow-diff\b/, 'the diff comes back')
+  assert.match(dom.byId['wrap'].className, /\bis-decided\b/, 'and it is still decided')
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, true, 'so the buttons stay closed')
+  assert.match(dom.byId['decided-toggle'].textContent, /Hide the diff/)
+})
+
+test('a stored pass ends the review the same way', () => {
+  const claude = fakeClaude()
+  const dom = runPage(marked(), { protocol: 'https:', claudeUse: claude.use })
+  dom.byId['verdict-discuss'].dispatch('click')
+  return settle().then(() => {
+    assert.ok(decidedOn(dom))
+    assert.match(dom.byId['decided-what'].textContent, /Discuss first/)
+  })
+})
+
+// STAYS SILENT. A clipboard copy is NOT a delivery — the pass is in the
+// reader's hands, not Claude's — so ending the page there would claim
+// something was handed over when the reader still has to paste it.
+test('a clipboard copy does not end the review', async () => {
+  const dom = runPage(marked(), { protocol: 'file:' })
+  dom.byId['verdict-commit'].dispatch('click')
+  await settle()
+  assert.strictEqual(decidedOn(dom), false)
+  assert.strictEqual(dom.byId['verdict-commit'].disabled, false)
+})
+
+test('a refused pass does not end the review either', () => {
+  const dom = runPage(marked(), {
+    protocol: 'http:',
+    fetchWith: () => Promise.resolve({ ok: false, status: 400, text: () => Promise.resolve('bad blob') }),
+  })
+  dom.byId['verdict-commit'].dispatch('click')
+  return settle().then(() => {
+    assert.strictEqual(decidedOn(dom), false, 'nothing was accepted, so nothing was decided')
+    assert.match(dom.byId['copy-hint'].textContent, /Not sent/)
+  })
 })

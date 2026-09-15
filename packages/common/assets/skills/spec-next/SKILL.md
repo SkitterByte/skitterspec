@@ -285,23 +285,38 @@ all it asserts.
 costs — roughly **700 output tokens**, because writing it means reading the diff
 — and that spend is the operator's call, not a default.
 
-**The offer is the `Review` row of step 6's block** — the counts, the page link
-and a question, in one row:
+**Where you are going to wait, the offer is the banner after the block** —
+defined in `.claude/rules/spec-reports.md`, and **the `Review` row is dropped**
+so one subject lives in one place:
+
+---
+
+## ⏸ Review ready — <N> files, +<a> −<d>
+
+**[Open the page](<the `open:` URL>)** · I'm holding here until you send a verdict.
+
+`/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
+
+---
+
+**Where you are not waiting, it stays the `Review` row** — the counts, the page
+link and a question, in one row:
 
 | **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) — want a written review before you commit? |
 
-**It ends in a question, addressed to someone.** It was once a fenced block of
-engine output, and it fired on every phase and was never once taken: two quoted
-lines under the test counts, addressed to nobody, with the report then closing
-on *"commit this first"* — the last instruction the reader got was to move on,
-so they did. A row in a labelled table is findable; a question in it is
-answerable. Both halves are load-bearing.
+**Both shapes are addressed to someone, and that is the constraint.** The offer
+was once a fenced block of engine output: two quoted lines under the test
+counts, addressed to nobody, with the report then closing on *"commit this
+first"* — the last instruction the reader got was to move on, so they did. A row
+in a labelled table is findable; a question in it is answerable; a banner says
+the work has stopped. What must never come back is something unaddressed,
+unfindable, or fenced.
 
-**Never bury it and never split it.** It sits above `Follow-ups` and `Next`, and
-the page and the question stay in the same row: two adjacent rows about one page
-make the reader resolve a distinction before acting on either. A later edit that
-moves it out of the block, or separates the link from the question, undoes this
-and should be read as a regression rather than tidying.
+**Never bury it and never split it.** The row sits above the last two rows of
+the block, and the page and the question stay in the same row; the banner
+replaces the row rather than joining it. Two places naming one page make the reader
+resolve a distinction before acting on either — which is the same failure
+whether the two places are adjacent rows or a row and a banner.
 
 ### Then wait for the verdict, where the harness can
 
@@ -402,7 +417,7 @@ the shape; this section carries only what is specific here.
 - `❌` — the phase's tests are red, or it stopped part-way. Quote the failure.
 - `⏸` — no spec in flight, or the name given does not match the one that is.
 
-**Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Snags` · `Review` ·
+**Fields:** `Tracker` · `Branch` · `Built` · `Tests` · `Notes` · `Review` ·
 `Follow-ups` · `Next`
 
 ## 6a. End in a picker
@@ -460,8 +475,10 @@ top of an uncommitted one — so a `Next` that names only `/spec-next` sends the
 reader straight into that refusal. The two halves are four hundred lines apart,
 which is exactly how they drifted.
 
-**Step 5's offer is the `Review` row.** It is not a paragraph after the block,
-because nothing is after the block: the counts, the page link and the question
-go in one row, above `Follow-ups` and `Next`. Step 5 renders before the commit
-and this step is where its offer lands, so the two must not disagree about where
-it goes.
+**Step 5's offer lands in one of two shapes, and never both.** Waiting on a
+verdict → the **banner** after the block, and no `Review` row. Not waiting → the
+`Review` row, and no banner. Neither is a paragraph: the ban on prose after the
+block is untouched, and the banner is a control the contract names
+(`.claude/rules/spec-reports.md`). Step 5 renders before the commit and this
+step is where its offer lands, so the two must not disagree about which shape it
+takes.
