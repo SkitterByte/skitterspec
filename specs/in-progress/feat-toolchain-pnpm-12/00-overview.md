@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-254"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-254/toolchain-pnpm-12-and-a-pinned-dev-node"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Toolchain: pnpm 12 and a pinned dev Node
 
 > **Type:** Feature
 > **Name:** feat-toolchain-pnpm-12 (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-15)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
 > **Area:** package.json, pnpm-lock.yaml, .nvmrc, .github/workflows/ci.yml, scripts/workflows.test.js, scripts/toolchain.test.js, scripts/lib/engines.js
 > **Stack:** worktree
@@ -146,6 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-15 | Ready | backlog | Reuben Greaves |
+| 2026-09-15 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
