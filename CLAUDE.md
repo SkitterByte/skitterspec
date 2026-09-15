@@ -27,14 +27,27 @@ written review asked — then **end it in a decision**. Three buttons, each
 carrying its own verdict:
 `✓ Commit` commits it, `✓ Commit & Continue` commits and builds the next phase,
 `↺ Request changes` sends it straight back to be worked, `… Discuss first` asks
-you what's up. A **served** page hands the pass to
-the engine, which **holds** it and shows a six-digit code. Type `/spec-reviewed`
-and the waiting pass is picked up and acted on; paste the code after it
-(`/spec-reviewed 324199`) to name one exactly, which matters only when two are
-waiting. **Nothing pushes** — a device that reaches your page cannot reach this
-conversation, which is what keeps a stray approval out of your review, and is
-why the code is an address rather than a password. A `file://` page has no server to talk to, so it
-copies and you paste, as before. Approve is unavailable while a note is open —
+you what's up. A **served** page hands the pass to the engine, which holds it
+and shows a six-digit code.
+
+**The phase waits for that press.** `/spec-next` ends a phase by rendering the
+page and then watching for your verdict, so the button is what carries the work
+on — no command to remember. What makes that safe is not that the page is
+unreachable (it is reachable, deliberately): it is the **serve token** in the
+URL, 48 random bits deciding who can POST at all, plus the **window** — only a
+pass that arrives *while the session is waiting* is claimed for you, and two
+arrivals refuse rather than pick. Outside that window nothing is claimed
+unasked: type `/spec-reviewed`, or `/spec-reviewed 324199` to name one exactly,
+which matters only when two are waiting. A `file://` page has no server to talk
+to, so it copies and you paste, as before.
+
+**And a phase that ended owes you an answer.** The gate is armed when the page
+is rendered at the end of a phase, and cleared by a committing verdict or by
+`skitterspec spec-env review skip "<reason>"` — while it is armed, `/spec-next`
+refuses to build the next phase. Mid-phase renders arm nothing, every
+cannot-tell exits 0 and says nothing, and `review.required: false` turns it off
+for a project. The exit is always one command; one of them is *"I am moving
+on"*, and that reason goes on the record. Approve is unavailable while a note is open —
 you asked for something, so it cannot also be fine — and it hands off to your
 own commit skill (`review.commitWith`, `/commit` by default) rather than a copy
 living here. Fixes come back as resolutions, so the next render shows each note

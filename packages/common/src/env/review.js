@@ -231,7 +231,7 @@ function resolveReader(config, env = {}) {
  * clean, not because the caller asked for it — see the fallback in
  * `specEnvReview` (`cli.js`).
  */
-function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, fellBack = false }) {
+function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false }) {
   const files = []
   for (const f of trackedFiles(git, ref)) {
     const { patch, whole } = patchFor(git, ref, f, false)
@@ -298,6 +298,9 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     // Absent stays absent, exactly as `phases` does: a spec this cannot read
     // adds no key and the page renders its header-less self.
     ...(context ? { context } : {}),
+    // Same rule again: a gate that was never armed and never skipped adds no
+    // key at all.
+    ...(gateForPage(gate) ? { gate: gateForPage(gate) } : {}),
     // WHICH ENGINE DREW THIS PAGE. The render is always current — the git reads
     // happen per request — so a page rendered by a stale process looks entirely
     // right: the counts move, `generatedAt` moves, the diff is correct. Only the
@@ -705,6 +708,43 @@ function claimPending(pending, code) {
   return { pass, pending: { ...pending, passes: rest }, count: rest.length }
 }
 
+/**
+ * Which pass arrived inside a WAIT WINDOW. Pure — it selects, never claims.
+ *
+ * THE WINDOW IS THE SCOPE, and it is what replaces "a person typed the
+ * command" when a watch wakes the session instead. A skill that asked to be
+ * woken when the store changed knows one thing nothing else does: the moment
+ * it started waiting. A pass sent after that, while it was waiting, is the
+ * pass it was waiting for — and a pass that was already there is a stranger's,
+ * or an older sitting's, and must not be swept up by a wait that was not about
+ * it.
+ *
+ * Three answers, and only one of them acts:
+ *
+ * - exactly one in the window → that is the pass, named by its code.
+ * - none → nothing to claim. Ordinary: the watch can fire on a write that was
+ *   not a pass at all.
+ * - more than one → REFUSE and name the count, never pick. Two people, or two
+ *   sittings, landed in one window; choosing between them is exactly the guess
+ *   `claimPending` refuses to make, and the operator has the codes.
+ *
+ * A pass whose `at` cannot be parsed is never in the window. That is the
+ * cannot-tell case routed to inaction (`.claude/rules/negative-checks.md` rule
+ * 4): including it would auto-claim a pass whose age — the one tell a stranger
+ * has — could not be established.
+ */
+function passesSince(pending, since) {
+  const from = Date.parse(since)
+  if (!Number.isFinite(from)) return { codes: [], usable: false }
+  const codes = (pending.passes || [])
+    .filter((p) => {
+      const at = Date.parse(p.at)
+      return Number.isFinite(at) && at >= from
+    })
+    .map((p) => p.code)
+  return { codes, usable: true }
+}
+
 /* ==========================================================================
  * The gate — a standing obligation to review, not a message in flight
  *
@@ -823,6 +863,29 @@ function disarmGate(gate, { at, by, reason = null }) {
  * which is precisely the decision this exists to put on the record — and it
  * fails toward asking rather than toward letting a phase through unread.
  */
+/**
+ * What the page is told about the gate. Pure. `null` when there is nothing to
+ * say, so a project that never armed one renders byte-identically to how it
+ * did before any of this existed — the same rule `phases` and `context` follow.
+ *
+ * The last SKIP travels with it, because that is the page's answer to the one
+ * question an untouched-looking review raises: was this read and moved past, or
+ * never read at all? A verdict already had an answer there; a skip did not.
+ */
+function gateForPage(gate) {
+  if (!gate) return null
+  const log = Array.isArray(gate.log) ? gate.log : []
+  const skips = log.filter((e) => e && e.by === 'skip')
+  const lastSkip = skips.length ? skips[skips.length - 1] : null
+  if (!gate.armed && !lastSkip) return null
+  return {
+    armed: gate.armed === true,
+    armedAt: gate.armedAt || null,
+    phase: gate.phase === undefined ? null : gate.phase,
+    ...(lastSkip ? { lastSkip: { at: lastSkip.at || null, reason: lastSkip.reason || null } } : {}),
+  }
+}
+
 function gateState({ gate, corrupt, present, required }) {
   if (required === false) return { state: 'unknown', reason: 'review.required is false', gate }
   if (corrupt) return { state: 'unknown', reason: 'the gate sidecar is not readable JSON', gate }
@@ -1422,6 +1485,7 @@ module.exports = {
   mintPendingCode,
   addPending,
   claimPending,
+  passesSince,
   describePending,
   pendingAge,
   PENDING_CODE_LENGTH,
@@ -1434,6 +1498,7 @@ module.exports = {
   armGate,
   disarmGate,
   gateState,
+  gateForPage,
   mergeNotes,
   applyResolutions,
   applyNotes,

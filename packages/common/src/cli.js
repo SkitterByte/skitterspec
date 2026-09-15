@@ -68,6 +68,7 @@ const {
   readPending,
   writePending,
   claimPending,
+  passesSince,
   describePending,
   pendingAge,
   reviewPendingPath,
@@ -1849,11 +1850,51 @@ async function specEnvReview(dir, config, specArg, flags) {
   let sentVerdict = null
   let claimed = null
 
+  // `--claim-since <iso>` resolves to a code and then joins the ordinary claim
+  // path below. THE ENGINE PICKS SO THE AGENT DOES NOT: an agent left to find
+  // "the pass that just arrived" reads the store and chooses, and the rule that
+  // it must not choose becomes a request. Here the window is the only input, and
+  // an answer of anything but exactly one pass acts on nothing.
+  let claimCode = flags.claim
+  if (!claimCode && flags.claimSince) {
+    const heldRead = readPending(out, spec.folder)
+    if (heldRead.corrupt) {
+      process.stdout.write(
+        `spec-env review: ${reviewPendingPath(out)} is not readable JSON — ` +
+          'move it aside rather than losing the passes it holds.\n',
+      )
+      return
+    }
+    const window = passesSince(heldRead.pending, flags.claimSince)
+    if (!window.usable) {
+      process.stdout.write(
+        `spec-env review: --claim-since ${flags.claimSince} is not a timestamp — nothing claimed\n`,
+      )
+      return
+    }
+    if (window.codes.length === 0) {
+      process.stdout.write(
+        `spec-env review: no pass has arrived since ${flags.claimSince} — nothing claimed\n`,
+      )
+      return
+    }
+    if (window.codes.length > 1) {
+      // Names the count, never the codes — the same silence a wrong `--claim`
+      // keeps, for the same reason. The operator has them; the page prints them.
+      process.stdout.write(
+        `spec-env review: ${window.codes.length} passes arrived in that window — ` +
+          'claim one by its code rather than guessing between them.\n',
+      )
+      return
+    }
+    claimCode = window.codes[0]
+  }
+
   // A CLAIM IS A DELIVERY MECHANISM, not a second kind of review. It lifts a
   // pass out of the holding area and hands it to exactly the same merge a
   // pasted blob goes through, so nothing downstream can tell — or behave
   // differently — by how the pass arrived.
-  if (flags.claim) {
+  if (claimCode) {
     const heldRead = readPending(out, spec.folder)
     if (heldRead.corrupt) {
       // Same rule as the notes sidecar: a file we cannot parse is not "nothing
@@ -1864,7 +1905,7 @@ async function specEnvReview(dir, config, specArg, flags) {
       )
       return
     }
-    const result = claimPending(heldRead.pending, String(flags.claim).trim())
+    const result = claimPending(heldRead.pending, String(claimCode).trim())
     if (!result.pass) {
       // NO FALLBACK, EVER. Not "the only one", not "the most recent" — either
       // would let a pass nobody read out reach the review, which is the whole
@@ -2080,8 +2121,14 @@ async function specEnvReview(dir, config, specArg, flags) {
   // request rather than a discipline.
   const waiting = describePending(readPending(out, spec.folder).pending)
 
+  // Read AFTER the verdict half above, so a claim that just cleared the gate
+  // renders as cleared rather than as still owing. Corrupt contributes nothing:
+  // the page is a convenience and the gate is not what it is for.
+  const gateNow = readGate(out, spec.folder)
+  const gate = gateNow.corrupt ? null : gateNow.gate
+
   const now = new Date().toISOString()
-  let data = collectReview({ spec, git, mode, ref, base, now, notes })
+  let data = collectReview({ spec, git, mode, ref, base, now, notes, gate })
 
   // A CLEAN WORKING TREE IS NOT "NOTHING TO REVIEW". It is the state a phase
   // ends in: the page is rendered before the commit, the commit happens
@@ -2113,6 +2160,7 @@ async function specEnvReview(dir, config, specArg, flags) {
         base: fallbackBase,
         now,
         notes,
+        gate,
         fellBack: true,
       })
       if (wider.totals.files > 0) {
@@ -3378,6 +3426,7 @@ async function specEnv(rest) {
     else if (args[i] === '--resolve') flags.resolve = args[++i]
     else if (args[i] === '--outcome') flags.outcome = args[++i]
     else if (args[i] === '--claim') flags.claim = args[++i]
+    else if (args[i] === '--claim-since') flags.claimSince = args[++i]
     else if (args[i] === '--drop') flags.drop = args[++i]
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--check') flags.check = true
@@ -3473,6 +3522,7 @@ async function specEnv(rest) {
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
           '  review skip "<reason>"                 move on without one, on the record\n' +
+          '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +

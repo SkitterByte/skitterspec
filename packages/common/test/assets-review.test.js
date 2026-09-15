@@ -847,12 +847,57 @@ test('unaccepted files never block committing, however many there are', () => {
 
 test('the last decision is shown as history beneath the bar', () => {
   const data = marked()
+  // A sidecar written before the rename says `approve`, and it means the same
+  // thing the engine reads it as: a commit. The page says what HAPPENED, so it
+  // says committed — it used to say "approved", which described the button
+  // rather than the outcome.
   data.notes.lastDecision = { verdict: 'approve', at: '2026-09-14T10:00:00.000Z', note: 'committed a1b2c3d' }
   const dom = runPage(data)
   assert.strictEqual(dom.byId['verdict-log'].hidden, false)
-  assert.match(dom.byId['verdict-log'].textContent, /approved earlier/)
+  assert.match(dom.byId['verdict-log'].textContent, /committed earlier/)
   assert.match(dom.byId['verdict-log'].textContent, /2026-09-14/)
   assert.match(dom.byId['verdict-log'].textContent, /committed a1b2c3d/)
+})
+
+test('every verdict is named, and an unknown one says so', () => {
+  // THE FALLBACK WAS A LIE. Anything the page did not recognise read as
+  // "discussed" — including `commit`, the commonest verdict there is — so the
+  // history line could tell you a commit was a conversation.
+  for (const [verdict, said] of [
+    ['commit', /committed earlier/],
+    ['commit-continue', /committed, then carried on/],
+    ['changes', /changes requested/],
+    ['discuss', /discussed earlier/],
+  ]) {
+    const data = marked()
+    data.notes.lastDecision = { verdict, at: '2026-09-14T10:00:00.000Z', note: null }
+    assert.match(runPage(data).byId['verdict-log'].textContent, said, verdict)
+  }
+  const odd = marked()
+  odd.notes.lastDecision = { verdict: 'something-new', at: '2026-09-14T10:00:00.000Z', note: null }
+  assert.match(runPage(odd).byId['verdict-log'].textContent, /recorded as "something-new"/)
+})
+
+test('a skip reads as a skip, with its reason', () => {
+  // The page's answer to "was this read and moved past, or never read at all?"
+  // A skip that did not show would make those two states identical.
+  const data = marked()
+  data.gate = { armed: false, armedAt: null, phase: '2', lastSkip: { at: '2026-09-14T11:00:00.000Z', reason: 'docs only' } }
+  const dom = runPage(data)
+  assert.match(dom.byId['verdict-log'].textContent, /moved on without a verdict/)
+  assert.match(dom.byId['verdict-log'].textContent, /docs only/)
+})
+
+test('the more recent of a verdict and a skip is the one shown', () => {
+  const data = marked()
+  data.notes.lastDecision = { verdict: 'commit', at: '2026-09-14T10:00:00.000Z', note: null }
+  data.gate = { armed: true, armedAt: null, phase: '3', lastSkip: { at: '2026-09-13T10:00:00.000Z', reason: 'older' } }
+  assert.match(runPage(data).byId['verdict-log'].textContent, /committed earlier/, 'the newer verdict wins')
+
+  const other = marked()
+  other.notes.lastDecision = { verdict: 'commit', at: '2026-09-13T10:00:00.000Z', note: null }
+  other.gate = { armed: true, armedAt: null, phase: '3', lastSkip: { at: '2026-09-14T10:00:00.000Z', reason: 'newer' } }
+  assert.match(runPage(other).byId['verdict-log'].textContent, /moved on without a verdict/)
 })
 
 test('the verdict bar sits after the diff, not above it', () => {

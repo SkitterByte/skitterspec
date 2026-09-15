@@ -1204,12 +1204,34 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     save()
   }
 
-  // The last honoured verdict, as history. It is why the page can look
-  // untouched after an approval: the verdict was consumed, not stored.
+  // How a logged verdict reads. EVERY VERDICT NAMED, and an unknown one says
+  // so: the fallback was `discussed`, which quietly relabelled `commit` — and a
+  // page that tells you a commit was a discussion is worse than one that admits
+  // it does not know the word.
+  var SAID = {
+    approve: 'committed',
+    commit: 'committed',
+    'commit-continue': 'committed, then carried on',
+    changes: 'changes requested',
+    discuss: 'discussed',
+    skip: 'moved on without a verdict',
+  }
+
+  // The last thing that happened here, as history. It is why the page can look
+  // untouched after a commit: the verdict was consumed, not stored. A SKIP is
+  // history of exactly the same kind — it is the recorded decision to move on,
+  // and hiding it would make a skipped review indistinguishable from one that
+  // never ended.
   function drawLog() {
     var last = data.notes && data.notes.lastDecision
+    var skip = data.gate && data.gate.lastSkip
+    // Whichever is more recent. Both are timestamped, and comparing is what
+    // stops an old verdict shadowing a skip taken after it.
+    if (skip && (!last || String(skip.at || '') > String(last.at || ''))) {
+      last = { verdict: 'skip', at: skip.at, note: skip.reason }
+    }
     if (!last) return
-    var said = last.verdict === 'approve' ? 'approved' : last.verdict === 'changes' ? 'changes requested' : 'discussed'
+    var said = SAID[last.verdict] || ('recorded as "' + last.verdict + '"')
     var when = String(last.at || '').slice(0, 10)
     verdictLog.hidden = false
     verdictLog.textContent = said + ' earlier' + (when ? ' · ' + when : '') + (last.note ? ' · ' + last.note : '')

@@ -52,14 +52,20 @@ A review comes back to you one of two ways, and **both are ordinary**:
 Either way, **this is not a request to render anything**: it is a review coming
 back, and these steps replace §3–§5 below.
 
-0. **Never claim a pass you were not asked to claim.**
+0. **Never claim a pass you were not asked to claim.** And never go looking
+   for one.
 
-   This is the whole security property and there is no second one. A device that
-   reaches the page can POST all day; what it cannot reach is
-   **this conversation**. So a pass it queues sits in the holding area forever —
-   unless
-   you go and fetch it, at which point the rogue pass lands in the operator's
-   review and nothing anywhere noticed.
+   A device that reaches the page can POST all day. What decides whether one of
+   those passes reaches the operator's review is this rule, and — since the wait
+   in §4b — two mechanical facts beside it: the **serve token**, 48 unguessable
+   bits minted per server, which decides who can POST at all; and the wait
+   **window**, which decides which pass a watch may claim. There is exactly one
+   way a pass is taken without a person naming it, `--claim-since`, it is
+   described in §4b, and it acts on nothing unless precisely one pass arrived
+   while this session was waiting for it.
+
+   Everything else here is unchanged. A pass that was already sitting there when
+   you arrived is never yours to take.
 
    **Do not read the code out of `.spec-env/reviews/<spec>.pending.json`.** The
    store is a file you can open, so nothing stops you; that is precisely why the
@@ -342,6 +348,17 @@ is no. The page is free to produce and changes nothing. The same goes for the
 marks: a spec with unread files or open comments is an ordinary spec, and
 nothing here may start counting them.
 
+**And this skill never arms the gate.** Arming is `/spec-next`'s, at the one
+moment that means something: a phase ended. Rendering mid-phase — the common
+case this skill exists for — must not create an obligation, because then
+looking at your own work halfway through would owe you a verdict on it. Reading
+is free; ending a phase is what is answerable.
+
+An **already-armed** gate is a different matter, and it is not this skill's to
+enforce either: `/spec-next` §2 is where that refusal lives. Here it is only
+context — the render says a verdict is owed, and this skill's whole job is to
+help someone give one.
+
 ## 4. Render the page — or serve it
 
 ```
@@ -421,6 +438,54 @@ answer left.
 operator settle where they are reading, and an explicit value is believed without
 sniffing. `review.serveOnRemote` (default `true`) settles whether the engine may
 act on it.
+
+## 4b. Wait for the verdict, where the harness can watch a file
+
+A served page can hand its pass back the moment it is pressed. Without a wait,
+that pass lands in the holding area and stops — nothing happens until someone
+types `/spec-reviewed`, so the review and the work carrying on are two separate
+acts joined only by the operator remembering.
+**This is the step that joins them**, and it is this skill's, so `/spec-next` can point here rather than
+keeping a second copy.
+
+**Wait when the page was served and the reader is going to read it now.** That
+is the phase-end case, and an operator who says they will look later. Do not
+wait on a bare `--page-only`, on a render nobody asked to be woken about, or
+when the pass has already arrived — there is nothing to wait for.
+
+1. **Note the moment**, as an ISO timestamp, before you start. That instant is
+   the entire scope of what may be claimed without a person naming it.
+2. **Watch** `.spec-env/reviews/<spec>.pending.json` in the primary checkout,
+   and **end the turn**. Not a poll and not a held-open turn: the operator has
+   their terminal back, and the session costs nothing while they read.
+3. **On waking, let the engine choose:**
+
+   ```
+   skitterspec spec-env review <spec> --claim-since <timestamp> --json
+   ```
+
+   Three answers, and only one of them acts. One pass in the window — that is
+   the pass, claimed and merged exactly as `--claim` would. **None** — ordinary;
+   the file changed for some other reason, so say nothing and wait again or
+   stop. **Two or more** — it refuses and names the count, never the codes; that
+   is §2 step 0's two-passes case, so offer them from the render and ask.
+4. **Route on the verdict** through §2 step 2 onward. A claim is a delivery
+   mechanism; nothing downstream may behave differently because a watch woke
+   you rather than a person typing.
+
+**What holds this up.** Not "the page cannot reach the conversation" — after
+this step it can, deliberately. Two things replace it. The **serve token** is
+48 bits of `crypto` randomness in the URL path, minted per server, and it
+decides who can POST at all. The **window** decides which pass is yours: a pass
+sitting there before you started waiting is never swept up, which is precisely
+the stranger's pass the old rule was written about, and two arrivals refuse
+rather than pick. What is left of the old rule is unchanged and still absolute —
+outside this window, a pass is claimed because a person named it.
+
+**`/spec-reviewed` is not replaced by this.** It stays the way in for a pass
+that arrived when nobody was waiting, for the two-passes case, and for every
+harness with no file-watch at all. It is user-only, and that is still the
+enforcement that makes a named claim a person's decision.
 
 ## 5. Offer the written review — say what it costs first
 

@@ -81,10 +81,16 @@ test('a later edit that reorders it back is named a regression', () => {
   assert.match(NEXT, /read as a regression rather than tidying/)
 })
 
-test('the offer does not block the run', () => {
-  assert.match(NEXT, /Non-blocking, deliberately/)
-  assert.match(NEXT, /Do not end your turn waiting on the answer/)
-  assert.match(NEXT, /`\/commit && \/spec-next` typed as one line/)
+// The phase now WAITS for the verdict rather than asking a question a chained
+// run scrolls past — so what is pinned is no longer "never block". It is the
+// reason blocking was feared: a chained `/commit && /spec-next` must not be
+// stopped mid-way. The wait sits at the end, after the chain has finished.
+test('waiting does not break a chained run', () => {
+  assert.match(NEXT, /`\/commit && \/spec-next` is typed as\s*\n?\s*one line/i)
+  assert.match(NEXT, /the chain has finished/i)
+  // And the wait is a watch plus an ended turn, never a held-open one.
+  assert.match(NEXT, /\*\*end\s*\n?\s*your turn\*\*/i)
+  assert.match(NEXT, /Do not poll/i)
 })
 
 // The contract's own scope rule, guarded where it was actually broken: a report

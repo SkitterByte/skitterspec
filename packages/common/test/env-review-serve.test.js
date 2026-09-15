@@ -33,6 +33,14 @@ const {
   startReviewServer,
 } = require('../src/env/serve.js')
 const { loadEnvConfig } = require('../src/env/config.js')
+const {
+  reviewOutPath,
+  writeNotes,
+  emptyNotes,
+  writeGate,
+  armGate,
+  emptyGate,
+} = require('../src/env/review.js')
 const { resolveSpec, liveWorktreePaths } = require('../src/env/resolve.js')
 const { run } = require('../src/cli.js')
 
@@ -298,4 +306,73 @@ test('--stop with nothing running is a no-op, not a failure', async () => {
     cleanup(dir)
   }
   assert.match(out, /nothing to stop/)
+})
+
+// --- the served page carries the REVIEW'S state, not just the diff ----------
+//
+// It once rendered without the notes sidecar, on the reasoning that this path
+// writes no file. But the reader on a phone is reading THIS page: without the
+// sidecar their own accepts vanished on every refresh and the history line
+// never appeared at all, so the two surfaces answered differently about one
+// review. Read-only — nothing on this path writes the sidecar.
+
+test('a served page shows the accepts the sidecar holds', async () => {
+  const { dir, wt } = scaffold()
+  const { config } = loadEnvConfig(dir)
+  const g = gitReader(dir)
+  const spec = resolveSpec('feat-alpha', dir, config, { searchDirs: [...liveWorktreePaths(g)] })
+  try {
+    const out = reviewOutPath(dir, 'feat-alpha')
+    const hash = execFileSync('git', ['-C', wt, 'hash-object', '--', 'added.js']).toString().trim()
+    writeNotes(out, {
+      ...emptyNotes('feat-alpha'),
+      files: { 'added.js': { acceptedHash: hash, acceptedAt: '2026-01-01T00:00:00.000Z' } },
+    })
+    const page = renderSpecPage(dir, config, spec, {})
+    const data = JSON.parse(/__REVIEW_DATA__|<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(page.html)[1])
+    const added = data.files.find((f) => f.path === 'added.js')
+    assert.strictEqual(added.accepted, true, 'the accept reached the served page')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a served page shows the gate, and says nothing when there is none', async () => {
+  const { dir } = scaffold()
+  const { config } = loadEnvConfig(dir)
+  const g = gitReader(dir)
+  const spec = resolveSpec('feat-alpha', dir, config, { searchDirs: [...liveWorktreePaths(g)] })
+  try {
+    const out = reviewOutPath(dir, 'feat-alpha')
+    const read = (html) =>
+      JSON.parse(/<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)[1])
+
+    // Absent stays absent: a project that never armed one renders as it always
+    // did, with no key at all.
+    assert.strictEqual(read(renderSpecPage(dir, config, spec, {}).html).gate, undefined)
+
+    writeGate(out, armGate(emptyGate('feat-alpha'), { at: '2026-01-01T00:00:00.000Z', phase: '2' }))
+    const armed = read(renderSpecPage(dir, config, spec, {}).html)
+    assert.strictEqual(armed.gate.armed, true)
+    assert.strictEqual(armed.gate.phase, '2')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: an unreadable gate does not break the served page', async () => {
+  const { dir } = scaffold()
+  const { config } = loadEnvConfig(dir)
+  const g = gitReader(dir)
+  const spec = resolveSpec('feat-alpha', dir, config, { searchDirs: [...liveWorktreePaths(g)] })
+  try {
+    const out = reviewOutPath(dir, 'feat-alpha')
+    fs.mkdirSync(path.dirname(out), { recursive: true })
+    fs.writeFileSync(out.replace(/\.html$/, '') + '.gate.json', '{ not json')
+    const page = renderSpecPage(dir, config, spec, {})
+    assert.ok(page.html.length > 0, 'the page still renders')
+    assert.ok(page.totals.files > 0, 'and still has the diff, which is what it is for')
+  } finally {
+    cleanup(dir)
+  }
 })

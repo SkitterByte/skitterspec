@@ -116,7 +116,7 @@ A **name argument** is accepted, but it must *match* the spec in flight — it
 narrows a re-run, it does not select a different spec. A mismatch refuses,
 naming both.
 
-## 2. Pre-flight — commit prior work
+## 2. Pre-flight — the last phase is committed, and was answered
 
 Before writing any code for this phase, get the workspace clean:
 
@@ -127,6 +127,32 @@ Before writing any code for this phase, get the workspace clean:
   `/commit`) so each phase lands as its own reviewable commit — don't build the
   next phase on top of an uncommitted one. (Skip if this is the first phase —
   there's nothing prior to commit.)
+
+- **Confirm the last phase's review was answered.** Ask the engine, never the
+  sidecar:
+
+  ```
+  skitterspec spec-env review gate <spec> --json
+  ```
+
+  `state: "armed"` means a phase ended, its page was rendered, and nobody has
+  said what they concluded. **Refuse, with the `⏸` block**, and name the three
+  ways out in the `Next` row: read the page and send a verdict, type
+  `/spec-reviewed` if one is already waiting, or
+  `skitterspec spec-env review skip "<reason>"` to move on with the reason on
+  the record.
+
+  `state: "clear"` carries on.
+  **`state: "unknown"` also carries on, in silence** — it is the project opting out, a sidecar that could not be read, or
+  a spec the engine could not resolve, and none of those is evidence that
+  anything is owed (`.claude/rules/negative-checks.md`). Do not mention it: a
+  line about a gate nobody armed is an accusation against a healthy repo.
+
+  **This refusal counts nothing.** It is not a tally of ticked boxes — those
+  still gate nothing and still are not counted. It asserts one thing: a phase
+  that ended has an answer. And the exit is always **one command**, one of them
+  being *"I am moving on"*, which is what keeps this a push rather than a wall —
+  a gate with no exit gets switched off wholesale instead of answered.
 
 ## 3. Implement the phase
 
@@ -226,7 +252,7 @@ skitterspec spec-env resolve <spec> --assert-primary-clean
 - **"cannot tell"** — no baseline, or one from another spec. It exits 0 and
   claims nothing; say so in one line and carry on. An absence is not evidence.
 
-## 5. Render the page — then offer the review, never write it
+## 5. Render the page, arm the gate, then wait for the verdict
 
 **Only when the project has per-spec isolation** (`specs/.core/env.config.json`
 present). Without it there is no worktree to read and this step does not exist.
@@ -242,6 +268,18 @@ skitterspec spec-env review <spec>
 **This is free.** It is the engine reading git and splicing text into a template;
 the diff never passes through you, so a 266KB patch costs nothing. Report the
 path it prints and move on.
+
+**Then arm the gate**, so the phase now owes a verdict:
+
+```
+skitterspec spec-env review arm <spec> --phase <n>
+```
+
+It is idempotent within a phase, so a re-render does not restart the clock, and
+it is **never fatal**: a project that opted out, or an engine that could not
+resolve the spec, says so and the phase is still built. Nothing here counts
+anything — the gate asserts that a phase which ended has an answer, and that is
+all it asserts.
 
 **Then offer `/spec-diff`. Do not run it.** The written review is the part that
 costs — roughly **700 output tokens**, because writing it means reading the diff
@@ -265,9 +303,52 @@ make the reader resolve a distinction before acting on either. A later edit that
 moves it out of the block, or separates the link from the question, undoes this
 and should be read as a regression rather than tidying.
 
-**Non-blocking, deliberately.** Do not end your turn waiting on the answer.
-Phases get chained — `/commit && /spec-next` typed as one line — and a question
-that stops the run taxes every phase to fix a problem the row already fixes.
+### Then wait for the verdict, where the harness can
+
+The row is findable, but a row cannot make the continuation follow from the
+reading — and that is the gap the whole gate exists to close.
+**Where this harness can watch a file and wake the session on a change, use it.** The pass
+arrives at the engine's holding area, the watch fires, and the verdict the
+reader pressed is what carries the work on.
+
+1. **Note the moment you start waiting**, as an ISO timestamp. That instant is
+   the whole scope of what you may claim.
+2. **Watch the pending store** for the spec —
+   `.spec-env/reviews/<spec>.pending.json` in the primary checkout — and
+   **end your turn**. Do not poll, and do not hold the turn open: the point is that
+   the reader has the terminal back while they read.
+3. **On waking, let the engine pick**:
+
+   ```
+   skitterspec spec-env review <spec> --claim-since <the timestamp> --json
+   ```
+
+   It claims the one pass that arrived inside the window, and acts on nothing
+   at all when none did (the watch can fire on a write that was not a pass) or
+   when two did (two sittings, or two people — the operator has the codes).
+4. **Route on the verdict** exactly as `/spec-diff` §2 and §4 describe. Do not
+   restate that routing here.
+
+**WHY THIS IS SAFE, AND WHAT IT COSTS.** It was once true that a device
+reaching your page could not reach your conversation, and that fact was the
+whole guard: a pass sat in the holding area until a person typed
+`/spec-reviewed`. This replaces that guard rather than weakening it by
+accident, and the replacement is two things together — **the serve token**,
+48 unguessable bits minted per server, which is what decides who can POST at
+all; and **the window**, which is what decides which pass is yours. A pass
+already waiting when the wait began is never claimed by it, which is exactly
+the stranger's pass the old rule was written about. What is genuinely given up
+is that the page can now act, so the token has become a credential rather than
+a convenience — and `--claim-since` refusing to choose between two passes is
+what stops a race becoming a wrong commit.
+
+**Where the harness cannot watch a file, change nothing.** The `Review` row and
+`/spec-reviewed` are the whole story, exactly as before. The gate still holds
+either way: it is the engine's, not the watch's.
+
+**It still does not break a chained run.** `/commit && /spec-next` is typed as
+one line; by the time this step is reached the chain has finished, so waiting
+here stops nothing that was still going to happen.
 
 Relay the **`open:`** line the engine prints, not the bare path: a path is not
 clickable in any terminal, and a page nobody can open is a page nobody reads.
@@ -329,6 +410,12 @@ the shape; this section carries only what is specific here.
 The block says what happened; this is what to do about it. Offer the same four
 endings the review page carries, so a review finishes the same way wherever the
 reader is standing — the page, a pasted code, or here.
+
+**Not when you are waiting.** Where §5 set a watch and ended the turn, the
+verdict is coming from the page and the picker would be a second way to answer
+a question already asked — so the block ends on `Next`, which names the page.
+The picker is for the run that did not wait: no watch available, or a render
+the reader is expected to come back to in their own time.
 
 | Option | Does |
 |--------|------|

@@ -55,7 +55,12 @@ test('one waiting pass is claimed outright, with the reason on record', () => {
   assert.match(SKILL, /\*\*The code was never an authorisation\.\*\*/)
   assert.match(SKILL, /A later edit must not restore it as\s*\n?\s*one/i)
   // The property that actually holds, stated where a later reader will find it.
-  assert.match(SKILL, /can\s*\n?\s*reach your page and cannot reach this conversation/i)
+  // It used to be that the page could not reach the conversation; a phase-end
+  // wait means it can, so what holds now is this command being untypeable by
+  // anything but a person, plus a bounded window for the one automatic path.
+  assert.match(SKILL, /cannot be\s*\n?\s*typed by anything but a person/i)
+  assert.match(SKILL, /--claim-since/, 'the automatic path is named rather than left implicit')
+  assert.match(SKILL, /bounded by a window/i)
 })
 
 test('two waiting is the one case that asks, and it asks rather than picking', () => {

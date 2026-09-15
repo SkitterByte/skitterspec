@@ -37,16 +37,25 @@ of `/spec-diff` step 0's central rule:
 **never claim a pass you were not asked to claim**.
 
 That rule exists because a review pass can be POSTed by anything that reaches
-the page, and what it cannot reach is **this conversation**. So a stranger's pass
-sits in the holding area forever — unless an agent goes and fetches it, which is
-exactly what happened once: an agent found a waiting approval, read its code off
-disk, claimed it, and reported the round-trip working.
+the page. So a stranger's pass sits in the holding area — unless an agent goes
+and fetches it, which is exactly what happened once: an agent found a waiting
+approval, read its code off disk, claimed it, and reported the round-trip
+working.
 
 Prose alone did not prevent that. The harness does —
-**the model cannot invoke this skill** — so a pass is only ever picked up
-because a person typed the command. Typing it *is* the human signal. A later edit that makes this skill
-model-invocable does not make it more convenient — it removes the only thing
-standing between a stray approval and someone's repo.
+**the model cannot invoke this skill** — so a pass picked up *this way* is only
+ever picked up because a person typed the command. Typing it *is* the human
+signal. A later edit that makes this skill model-invocable does not make it more
+convenient — it removes the only thing standing between a stray approval and
+someone's repo.
+
+**There is exactly one other way in, and it is bounded rather than trusting.**
+A phase that ends waits on its page, and a pass arriving *during that wait* is
+claimed by the engine (`--claim-since`, `/spec-diff` §4b): scoped to the window,
+acting on nothing when no pass arrived, refusing when two did. A pass already
+sitting there when the wait began is never swept up by it — which is the
+stranger's pass this whole rule was written about. Everything outside that
+window still comes through here.
 
 ## 1. Resolve the spec
 
@@ -155,10 +164,11 @@ manufactured, because the model cannot invoke it.
 
 **The code was never an authorisation.** A later edit must not restore it as
 one. It earned its keep when the *page* pushed: the agent went looking, found
-a pass, and had to prove which one it had. That channel is gone. What stops a
-stranger's approval reaching your repo is that a device on your network can
-reach your page and cannot reach this conversation — the confirmation step
-added nothing to that, and cost a round-trip on every review.
+a pass, and had to prove which one it had. What stops a stranger's approval
+reaching your repo is not those six digits — it is that this command cannot be
+typed by anything but a person, and that the one automatic path (`--claim-since`)
+is bounded by a window a stranger's pass falls outside of. The confirmation step
+added nothing to either, and cost a round-trip on every review.
 
 So the code has exactly one job left: **telling two passes apart**. That is
 disambiguation, not a gate.

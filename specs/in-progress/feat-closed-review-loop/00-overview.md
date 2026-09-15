@@ -97,7 +97,7 @@ page with db-backed verdict buttons for readers no local server can reach.
 | Surface | Change | Detail |
 |---------|--------|--------|
 | CLI command | add | `spec-env review gate [--check] [--json]`, `spec-env review skip "<reason>"` |
-| CLI command | update | `spec-env review <spec> --artifact` (db-backed page variant) |
+| CLI command | update | `spec-env review <spec> --claim-since <iso>` (claim the pass from a wait window), `--artifact` (db-backed page variant) |
 | Config key | add | `review.required` in `env.config.json` (default `true`) |
 | Engine state | add | gate record + outcome log beside `.pending.json` in `.spec-env/reviews/` |
 | Hook | add | `PreToolUse` on `git commit`, installed by `spec-init` into project settings |
@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Gate engine — record, verbs, skip | ✅ | [01-gate-engine.md](01-gate-engine.md) |
-| 2 | Skill wiring — arm, wait, auto-claim, doc sweep | ⬜ | [02-skill-wiring.md](02-skill-wiring.md) |
+| 2 | Skill wiring — arm, wait, auto-claim, doc sweep | ✅ | [02-skill-wiring.md](02-skill-wiring.md) |
 | 3 | Commit hook — install + stays-silent tests | ⬜ | [03-commit-hook.md](03-commit-hook.md) |
 | 4 | Artifact page — db verdicts for off-LAN readers | ⬜ | [04-artifact-page.md](04-artifact-page.md) |
 
@@ -136,6 +136,19 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the notes `decisions` log. The page maps unrecognised verdicts to
   "discussed", so a `skip` logged there would render as a lie; showing the gate
   log on the page moved to phase 2.
+- 2026-09-15 — Phase 2: the wait window became an engine flag
+  (`spec-env review --claim-since <iso>`) rather than a rule the skill follows.
+  A skill told to claim "the pass from this wait" has to read the store and
+  choose, which turns the never-choose rule into a request; the engine answers
+  in three states and acts only on exactly one pass.
+- 2026-09-15 — Phase 2: the served page now reads the notes sidecar and the
+  gate. It never read either, so accepts vanished on every refresh there and no
+  history line could appear — leaving the gate undisplayable on the one surface
+  a phone can reach. Read-only, and `serve.js`'s header comment corrected.
+- 2026-09-15 — Phase 2: the prose guards that pinned "a device that reaches
+  your page cannot reach your conversation" now pin what replaced it (the serve
+  token, the wait window, and `/spec-reviewed` being untypeable by the model).
+  The guards were kept and re-aimed rather than deleted.
 - 2026-09-15 — Phase 1: no tree state is recorded at arming, against the plan.
   A gate that lapsed when the tree changed would be cleared by the act of
   carrying on working, which is the bypass it exists to close. It clears on a

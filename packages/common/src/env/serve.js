@@ -8,9 +8,16 @@
  * moment: true when it was taken, and overwritten by the next render. A served
  * page cannot be out of date, because there is no artefact between the git
  * objects and the response. That is the whole reason this exists, and it is why
- * nothing here reads or writes `.spec-env/reviews/` — the file path and the
- * served path are two answers to the same question, and keeping them
- * independent is what stops one quietly becoming the other's cache.
+ * no HTML is read from or written to `.spec-env/reviews/` — the file path and
+ * the served path are two answers to the same question, and keeping the
+ * artefacts independent is what stops one quietly becoming the other's cache.
+ *
+ * THE SIDECARS ARE A DIFFERENT MATTER, and this once over-applied the rule
+ * above to them. Notes, the gate and the pending store are the REVIEW'S state,
+ * not the page's: they belong to whoever is reading, and a reader on a phone is
+ * reading this page. So they are read here (and, for a pass arriving, written)
+ * — which is what makes a refresh keep your accepts and the history line say
+ * what happened. What is never read here is a rendered page.
  *
  * Dependency-free, in the shape of `proxy.js`: pure functions for routing and
  * the index, an injectable render callback, and a `require.main` entry point so
@@ -40,6 +47,8 @@ const {
   readPending,
   writePending,
   addPending,
+  readNotes,
+  readGate,
 } = require('./review.js')
 
 /**
@@ -248,7 +257,20 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     mode = 'branch'
   }
 
-  let data = collectReview({ spec, git, mode, ref, base: baseName, now })
+  // THE REVIEW STATE IS THE READER'S, not the artefact's. It was once left out
+  // here on the reasoning that this path writes no file — but a reader on a
+  // phone is reading THIS page, and without the sidecar their own accepts
+  // vanish on every refresh and the history line never appears at all. The two
+  // surfaces answered differently about the same review, which is worse than
+  // either answer. Read-only: nothing on this path writes the sidecar.
+  const out = reviewOutPath(dir, spec.folder, null)
+  const notes = readNotes(out, spec.folder).notes
+  const gateRead = readGate(out, spec.folder)
+  // A corrupt gate contributes nothing rather than failing the render. The page
+  // is a convenience and the gate is not what it is for.
+  const gate = gateRead.corrupt ? null : gateRead.gate
+
+  let data = collectReview({ spec, git, mode, ref, base: baseName, now, notes, gate })
 
   if (!branch && data.totals.files === 0) {
     const fallbackBase = base()
@@ -261,6 +283,8 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
         ref: mergeBase,
         base: fallbackBase,
         now,
+        notes,
+        gate,
         fellBack: true,
       })
       if (wider.totals.files > 0) {

@@ -29,11 +29,17 @@ rather than invoking it.
 
 `/spec-reviewed` is a **skill** and **user-only**, and there the marking is not
 convenience — it is the enforcement of `/spec-diff` step 0's rule that a waiting
-review pass is never claimed unasked. A pass can be POSTed by anything that
-reaches the page; what it cannot reach is the conversation. Because the model
-cannot invoke this skill, a pass is only ever picked up because a person typed
-the command, and typing it **is** the human signal. Prose alone did not hold
-that line once already.
+review pass is never claimed unasked. Because the model cannot invoke this
+skill, a pass named this way is only ever picked up because a person typed the
+command, and typing it **is** the human signal. Prose alone did not hold that
+line once already.
+
+It is **no longer the only way in**, and the difference is worth stating
+precisely. A phase that ends now *waits* on its page, and a pass arriving inside
+that wait is claimed by the engine (`--claim-since`) without anyone typing
+anything — scoped to the window, refusing when two arrive. `/spec-reviewed` is
+what answers everything outside it: a pass sent when nobody was waiting, two
+passes to choose between, and every harness with no file-watch to wait with.
 
 `/spec-to-main`, `/spec-status` and `/spec-sync` stay **skills** — each carries
 real judgment (green tests before a land; an MCP fetch and a team-key check; ten
@@ -174,13 +180,24 @@ paste, exactly as before. The clipboard path is **not legacy**: it is the whole
 story for a local reader.
 
 The code is **not a secret** — it is printed on the page, and it cannot be a
-gate against Claude either, because the store is a file Claude can read. What
-actually holds is narrower and stronger:
-**a device that reaches your page cannot reach your conversation.**
-So a pass it queues sits in the holding area
-forever, and the rule that keeps it there is that
-**Claude never claims a pass it was not asked to** — stated in `/spec-diff` step
-0, because nothing enforces it.
+gate against Claude either, because the store is a file Claude can read.
+
+It was once true that a device reaching your page
+**could not reach your conversation**, and that fact was the whole guard: a pass sat in the holding
+area until you typed `/spec-reviewed`. It is no longer true, deliberately —
+a phase that ends **waits** for its verdict, so the button you press on the page
+is what carries the work on. What replaced the guard is two mechanisms and one
+rule. The **serve token** — 48 bits of randomness in the URL path, minted per
+server — decides who can POST at all. The **wait window** decides which pass may
+be claimed without you naming it: the engine's `--claim-since` takes the one
+pass that arrived *while this session was waiting*, acts on nothing when none
+did, and refuses to choose when two did. And outside that window the rule stands
+unchanged and absolute: **Claude never claims a pass it was not asked to**
+(`/spec-diff` step 0, because nothing enforces it).
+
+What you give up is real and worth naming: the page can now act. What you get is
+the loop closing without anyone remembering a command — which is the failure the
+old design traded it for.
 
 What the code *does* is let you **tell two passes apart** — it is an address,
 never a password. One waiting pass is claimed and acted on the moment you type
@@ -217,6 +234,29 @@ because you asked for something and it therefore cannot also be fine. Files you
 never ticked block nothing — an unticked file is something you said nothing
 about, and requiring every one of them would be the tally this design exists to
 avoid.
+
+**The gate — a phase that ended owes an answer.** That is the second refusal,
+and it is a different kind: not a count, and not about the marks at all.
+`/spec-next` **arms** it when a phase ends and renders its page, and exactly two
+things clear it — a **committing verdict**, or
+`skitterspec spec-env review skip "<reason>"`. Until one of them happens,
+`/spec-next` refuses to build the next phase and (where the hook is installed)
+`git commit` refuses in that worktree. `skitterspec spec-env review gate
+[--check] [--json]` is what both ask.
+
+Three things keep it a push rather than a wall. It is armed
+**only by a phase ending**, so reading your own half-finished work mid-phase
+owes nothing.
+It has an **exit that is always one command**, and one of them is
+*"I am moving on"* — with a reason, because `none: additive, nothing to revert` is a decision
+a reviewer can argue with while silence is an oversight. And it accuses
+**only on a positive signal**: an unreadable sidecar, a project that set
+`review.required: false`, a spec the engine could not resolve — every
+cannot-tell exits 0 and says nothing (`.claude/rules/negative-checks.md`).
+
+It is on by default wherever isolation is configured. That is the point: the
+push toward reading the diff is the normal path, and stepping off it is the
+thing you have to do deliberately.
 
 **The verdict names the action**, and that is why it is `commit` rather than
 `approve`: a review is the guard in front of an action, and an approval that

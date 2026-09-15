@@ -552,8 +552,22 @@ test('the engine offers what the prose promises', () => {
 
 test('the skill forbids claiming a pass it was not asked to claim', () => {
   assert.match(SKILL, /\*\*Never claim a pass you were not asked to claim\.\*\*/)
-  // The security property, stated as the narrow thing it actually is.
-  assert.match(SKILL, /what it cannot reach is\s*\n?\s*\*\*this conversation\*\*/i)
+  // The security property, stated as the narrow thing it actually is. It is no
+  // longer "the page cannot reach the conversation" — a phase-end wait means it
+  // can, deliberately — so what is pinned here is what REPLACED that: who can
+  // POST, and which pass a wait may take.
+  assert.match(SKILL, /\*\*serve token\*\*/, 'who can POST at all')
+  assert.match(SKILL, /\*\*window\*\*, which decides which pass/i, 'which pass may be claimed without being named')
+  assert.match(SKILL, /--claim-since/, 'the one automatic path is named, not implied')
+})
+
+// The window is the whole scope, so the two ways it can be wrong are pinned:
+// nothing arrived (ordinary) and two arrived (refuse rather than pick).
+test('the wait claims only inside its window, and refuses to pick', () => {
+  assert.match(SKILL, /## 4b\. Wait for the verdict/)
+  assert.match(SKILL, /end the turn/i, 'it waits by ending the turn, not by polling')
+  assert.match(SKILL, /\*\*Two or more\*\* — it refuses/i)
+  assert.match(SKILL, /never swept up|never yours to take/i, 'a pass that predates the wait is not claimed')
 })
 
 // THE BYPASS IS NAMED. Prose that says "wait to be asked" without naming the
