@@ -220,6 +220,7 @@ function fakeDom(islandText) {
     'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-changes', 'verdict-discuss',
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
     'sent-cmd', 'sent-cmd-text', 'sent-cmd-copy',
+    'context', 'context-why', 'context-more', 'context-more-summary', 'context-rest',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
@@ -1220,4 +1221,90 @@ test('the page asks the filesystem nothing — it reasons from what it was given
   // one, and could not be opened from a phone at all.
   assert.match(TEMPLATE, /data\.phases\.hasNextPhase === false/)
   assert.match(TEMPLATE, /Boolean\(data\.phases\)/, 'absence is checked before the value')
+})
+
+// ── Phase 1 of feat-seamless-review-loop ─────────────────────────────────────
+//
+// The page opened on a file list and said nothing about what the change was
+// for. A reviewer on a phone met `page.html +18 −4` with no statement of the
+// problem or the surfaces it touches — the two things a pull request puts above
+// the diff, because nobody can review a change they must reconstruct first.
+
+const CONTEXT = {
+  problem: 'The lead paragraph, which is the one that stays open.\n\nA second paragraph that folds away.',
+  impact: { rows: [{ surface: 'Engine', change: 'update', detail: 'collectReview — context' }] },
+  phase: {
+    n: 2,
+    title: 'The report ends in a choice',
+    goal: 'the terminal is a third way to finish a review',
+    tasks: [{ done: true, text: 'Amend spec-reports.md' }, { done: false, text: 'Offer it from /spec-diff' }],
+  },
+}
+const withContext = (over) => marked({ context: { ...CONTEXT, ...over } })
+
+test('the header carries the problem, the impact rows and the live phase', () => {
+  const dom = runPage(withContext())
+  assert.strictEqual(dom.byId['context'].hidden, false, 'the header is shown')
+
+  const why = dom.byId['context-why'].textContent
+  assert.match(why, /The lead paragraph/, 'the problem leads')
+
+  const rest = dom.byId['context-rest'].textContent
+  assert.match(rest, /A second paragraph/, 'the remainder folds away, it is not dropped')
+  assert.match(rest, /collectReview — context/, 'the impact detail is there')
+  assert.match(rest, /Engine/)
+  assert.match(rest, /update/)
+  assert.match(rest, /Phase 2 — The report ends in a choice/)
+  assert.match(rest, /third way to finish a review/, 'the goal')
+  assert.match(rest, /Amend spec-reports\.md/, 'and the tasks')
+})
+
+// A PHONE SHOWS ABOUT SIX LINES before the file list is pushed off-screen, and
+// pushing it off is precisely what this header must not do.
+test('only the lead paragraph is open; the rest is behind a fold', () => {
+  const dom = runPage(withContext())
+  assert.strictEqual(dom.byId['context-more'].hidden, false, 'there is a fold')
+  assert.doesNotMatch(dom.byId['context-why'].textContent, /A second paragraph/)
+  assert.doesNotMatch(dom.byId['context-why'].textContent, /Phase 2/)
+})
+
+test('a done task reads differently from one still open', () => {
+  const dom = runPage(withContext())
+  const rest = dom.byId['context-rest'].textContent
+  assert.match(rest, /✅ Amend spec-reports\.md/)
+  assert.match(rest, /⬜ Offer it from \/spec-diff/)
+})
+
+test('each part is optional — a problem with no impact and no phase still draws', () => {
+  const dom = runPage(marked({ context: { problem: 'Only this.' } }))
+  assert.strictEqual(dom.byId['context'].hidden, false)
+  assert.match(dom.byId['context-why'].textContent, /Only this/)
+  // Nothing folded away, so there is nothing to offer a fold for.
+  assert.strictEqual(dom.byId['context-more'].hidden, true)
+})
+
+test('a spec touching no external surface says so, rather than showing an empty table', () => {
+  const dom = runPage(marked({ context: { impact: { prose: 'No external surface changes — internal refactor only.' } } }))
+  assert.match(dom.byId['context-rest'].textContent, /No external surface changes/)
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). A legacy bare `<name>.md`, an
+// overview with inline phases, a spec with no `## Problem` — all yield no
+// context at all, and the page must render exactly as it did before this.
+test('stays silent: no context means no header, not an empty one', () => {
+  const dom = runPage(marked())
+  assert.strictEqual(dom.byId['context'].hidden, true, 'nothing is shown')
+  assert.strictEqual(dom.byId['context-why'].textContent, '', 'and nothing was drawn')
+  assert.ok(dom.byId.files.childNodes.length > 0, 'the file list is untouched')
+})
+
+// The header is markdown out of a spec file — anything someone typed — and this
+// page is served over the network. Built with createElement so a spec's prose
+// can never reach the DOM as markup.
+test('the header is built as text, never spliced as markup', () => {
+  const dom = runPage(marked({ context: { problem: '<img src=x onerror=alert(1)> and <b>bold</b>' } }))
+  const why = dom.byId['context-why']
+  assert.match(why.textContent, /<img src=x/, 'it is shown verbatim, as text')
+  assert.strictEqual(findAll(why, 'anything').length, 0, 'no elements were parsed out of it')
+  assert.doesNotMatch(TEMPLATE, /context-why[\s\S]{0,400}innerHTML/, 'and it never reaches for innerHTML')
 })

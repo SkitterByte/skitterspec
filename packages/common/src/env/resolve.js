@@ -88,7 +88,148 @@ function readPhases(specDir, { overviewFile = '00-overview.md' } = {}) {
     }
     if (phaseIsDone(text)) done++
   }
-  return { total: files.length, done, hasNextPhase: done < files.length }
+  return { total: files.length, done, hasNextPhase: done < files.length, live: livePhase(specDir, files) }
+}
+
+/**
+ * The phase this diff is about — its number, title, goal and tasks.
+ *
+ * WHICH PHASE. The one in progress, else the last one done. A goal shown beside
+ * a diff that predates it is worse than no goal at all, and those two are the
+ * only phases a diff can plausibly be about: work in flight, or work just
+ * finished and not yet committed.
+ *
+ * `null` throughout rather than a half-filled object — a phase file this cannot
+ * parse is a phase with nothing to say, and the page omits the section rather
+ * than rendering an empty one.
+ */
+function livePhase(specDir, files) {
+  let inProgress = null
+  let lastDone = null
+  for (const name of files) {
+    let text
+    try {
+      text = fs.readFileSync(path.join(specDir, name), 'utf8')
+    } catch {
+      continue
+    }
+    const parsed = parsePhase(text, name)
+    if (!parsed) continue
+    if (phaseIsDone(text)) lastDone = parsed
+    else if (phaseIsStarted(text)) inProgress = inProgress || parsed
+  }
+  return inProgress || lastDone
+}
+
+/** Is this phase under way? The status line wins, for `phaseIsDone`'s reason. */
+function phaseIsStarted(text) {
+  const status = /^>.*\*\*Status:\*\*\s*(.+)$/m.exec(text)
+  if (status) return /^in progress\b/i.test(status[1].trim())
+  return /^#\s.*🔄\s*$/m.test(text)
+}
+
+/**
+ * One phase file's readable parts. Pure, and tolerant: every field but `n` is
+ * optional, because a phase file someone wrote by hand is still a phase file.
+ */
+function parsePhase(text, name) {
+  const num = /^(\d\d)-/.exec(name)
+  if (!num) return null
+  const heading = /^#\s+(.+?)\s*$/m.exec(text)
+  // `# Phase 1 — The engine reads the phase index ✅` → the title between the
+  // dash and the status emoji, which is the half a reader wants.
+  let title = heading ? heading[1] : ''
+  title = title.replace(/^Phase\s+\d+\s*[—–-]\s*/i, '').replace(/\s*[⬜🔄✅]\s*$/u, '').trim()
+  const goal = /^\*\*Goal:\*\*\s*([\s\S]*?)(?:\n\n|\n##)/m.exec(text)
+  // LINE BY LINE, not one regex. A task wraps across lines with the
+  // continuation indented, and an `$` under `/m` matches at every line end — so
+  // the obvious regex silently truncates every wrapped task at its first line.
+  // It looked right on the short ones, which is why this is done the long way.
+  const tasks = []
+  for (const line of text.split('\n')) {
+    const start = /^- \[([ xX])\]\s*(.*)$/.exec(line)
+    if (start) {
+      tasks.push({ done: start[1].toLowerCase() === 'x', text: start[2].trim() })
+      continue
+    }
+    // An indented non-empty line continues the task above it. Anything else —
+    // a blank line, a heading, an unindented paragraph — ends the list.
+    if (!tasks.length) continue
+    if (/^\s+\S/.test(line)) tasks[tasks.length - 1].text += ' ' + line.trim()
+    else if (line.trim()) break
+  }
+  return {
+    n: Number(num[1]),
+    title,
+    goal: goal ? goal[1].replace(/\s+/g, ' ').trim() : null,
+    tasks,
+  }
+}
+
+/**
+ * The spec's own `## Problem` and `## Impact`, for the page's header.
+ *
+ * WHAT WOULD FOOL THIS: a spec that renames those headings, or a legacy bare
+ * `<name>.md` with no overview at all. Both yield `null`, which the caller
+ * routes to omitting the header — the page rendered without one yesterday and
+ * still does (`.claude/rules/negative-checks.md` rule 4).
+ */
+function readOverview(specDir, { overviewFile = '00-overview.md' } = {}) {
+  let text
+  try {
+    text = fs.readFileSync(path.join(specDir, overviewFile), 'utf8')
+  } catch {
+    return null
+  }
+  const problem = sectionOf(text, 'Problem') || sectionOf(text, 'Symptom')
+  const impact = impactRows(sectionOf(text, 'Impact'))
+  if (!problem && !impact) return null
+  return {
+    ...(problem ? { problem } : {}),
+    ...(impact ? { impact } : {}),
+  }
+}
+
+/**
+ * The body under one `## Heading`, up to the next one. Trimmed, or null.
+ *
+ * SLICED, not lookahead-matched. The obvious regex ends with
+ * `(?=^##\s|\Z)` — and JS has no `\Z`, so that alternative is a literal
+ * `Z` and every section at the END of a file returns nothing. It passed on the
+ * spec used to write it, whose Problem happened to be followed by another
+ * heading, and failed on a bug spec's Symptom and on any Impact table written
+ * last.
+ */
+function sectionOf(text, heading) {
+  const open = new RegExp(`^##\\s+${heading}\\s*$`, 'm').exec(text)
+  if (!open) return null
+  const from = open.index + open[0].length
+  const next = /^##\s/m.exec(text.slice(from))
+  const body = (next ? text.slice(from, from + next.index) : text.slice(from)).trim()
+  return body || null
+}
+
+/**
+ * The Impact table's rows. The heading is always present in a spec, and the
+ * table is not — a spec touching no external surface writes a one-line sentence
+ * instead, which is a real answer and is returned as prose.
+ */
+function impactRows(section) {
+  if (!section) return null
+  const rows = []
+  for (const line of section.split('\n')) {
+    if (!line.trim().startsWith('|')) continue
+    const cells = line.split('|').slice(1, -1).map((c) => c.trim())
+    if (cells.length < 3) continue
+    // The header and its `|---|` separator, dropped by shape rather than by
+    // position — a spec that omits either still yields its rows.
+    if (/^-{2,}$/.test(cells[0].replace(/:/g, ''))) continue
+    if (/^surface$/i.test(cells[0]) && /^change$/i.test(cells[1])) continue
+    rows.push({ surface: cells[0], change: cells[1], detail: cells[2] })
+  }
+  if (rows.length) return { rows }
+  const prose = section.split('\n').map((l) => l.trim()).filter(Boolean).join(' ').replace(/^_|_$/g, '')
+  return prose ? { prose } : null
 }
 
 /**
@@ -409,6 +550,9 @@ module.exports = {
   findSpecFolder,
   readPhases,
   phaseIsDone,
+  phaseIsStarted,
+  parsePhase,
+  readOverview,
   readFrontmatterField,
   readStackField,
   readBaseVersionField,

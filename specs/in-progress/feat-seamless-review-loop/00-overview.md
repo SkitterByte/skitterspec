@@ -132,6 +132,7 @@ spec is against.
 | Skill/rule | update | `spec-next` — the report may end in a picker |
 | Skill/rule | update | `spec-diff` — the same picker, and a pick supersedes a waiting pass |
 | Skill/rule | update | `spec-reviewed` — narrowed to the standalone entry point |
+| Skill/rule | add | `spec-reports.md` — a `Snags` row, for issues this run handled |
 | Skill/rule | update | `spec-reports.md` — a picker is a permitted ending |
 
 ## Phases
@@ -141,7 +142,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The page opens with why | ⬜ | [01-page-opens-with-why.md](01-page-opens-with-why.md) |
+| 1 | The page opens with why | ✅ | [01-page-opens-with-why.md](01-page-opens-with-why.md) |
 | 2 | The report ends in a choice | ⬜ | [02-report-ends-in-a-choice.md](02-report-ends-in-a-choice.md) |
 
 ## Non-goals
@@ -177,6 +178,37 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-14 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-15 — **`Snags` row added to phase 2.** "Nothing follows the block" was
+  stated and broken repeatedly, which makes it a missing *destination* rather
+  than a missing prohibition: the content after the block was worth reading and
+  had nowhere inside it to go. One short paragraph, after `Tests`.
+- 2026-09-15 — **The review page cannot be reviewed through the review page.**
+  The daemon serves from `packages/skitterspec`, a *composed dist* in the
+  **primary checkout** — not the worktree, not even `packages/common`. So a
+  change to `page.html` or `collectReview` is invisible on the served URL until
+  it lands on the base branch and the dist is rebuilt. Restarting the server
+  from the worktree does not help: the spawn resolves against the primary
+  checkout's `.spec-env/`. Not in scope here; the route that exists today is
+  `/spec-to-main`, then rebuild, then restart.
+
+- 2026-09-15 — Phase 1: **two parsing bugs, both of which read correctly on the
+  spec they were written against.** A task's regex ended `(?=…|$)` under `/m`,
+  where `$` matches at every line end — so every *wrapped* task truncated at its
+  first line, and the short ones looked fine. And `sectionOf` ended `(?=^##\s|\Z)`,
+  but **JS has no `\Z`** — it matched a literal `Z`, so any section at the end of
+  a file returned nothing. The first spec tried had its Problem followed by
+  another heading; a bug spec's `## Symptom` is last, and would have silently
+  had no context at all. Both now avoid the clever anchor: the tasks are read
+  line by line, the section is sliced.
+- 2026-09-15 — Phase 1: `env-phases.test.js` pinned `readPhases`' whole return
+  with `deepStrictEqual`, so adding `live` failed three healthy tests. Repinned
+  to the three counts each one is actually about — the same repin this repo has
+  now needed several times, and always for a guard asserting a spelling rather
+  than a property.
+- 2026-09-15 — Phase 1: a spec with **nothing started** has no live phase, and
+  the header omits the section rather than showing phase 1 untouched. Nothing
+  has been built, so there is no phase the diff is about.
 
 - 2026-09-14 — Picker extended to `/spec-diff`, where changing your mind is the
   natural case, with a pick **superseding** an unclaimed pass. Deleting

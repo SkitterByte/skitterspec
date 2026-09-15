@@ -18,7 +18,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
-const { readPhases } = require('./resolve.js')
+const { readPhases, readOverview } = require('./resolve.js')
 const { execFileSync } = require('node:child_process')
 
 // `-U` large enough that a file's patch IS the file. Reviewing a changed line
@@ -258,7 +258,11 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   // Every bucket, because a page is rendered for specs in `in-progress/` and for
   // finished ones in `complete/` — and the finished one is the case this exists
   // for. `null` when it cannot tell, and the page leaves its button alone.
-  const phases = spec.worktreePath ? findPhasesIn(spec.worktreePath, spec.folder) : null
+  const specDir = spec.worktreePath ? findSpecDirIn(spec.worktreePath, spec.folder) : null
+  const phases = specDir ? readPhases(specDir) : null
+  // The PR description this page never had: why the change exists, what it
+  // touches, and what this phase set out to do.
+  const context = readContextIn(specDir, phases)
 
   const totals = files.reduce(
     (acc, f) => ({
@@ -291,6 +295,9 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     // Absent stays absent: a spec whose phases cannot be read adds no key, so
     // the page renders byte-identically to how it did before any of this.
     ...(phases ? { phases } : {}),
+    // Absent stays absent, exactly as `phases` does: a spec this cannot read
+    // adds no key and the page renders its header-less self.
+    ...(context ? { context } : {}),
     // WHICH ENGINE DREW THIS PAGE. The render is always current — the git reads
     // happen per request — so a page rendered by a stale process looks entirely
     // right: the counts move, `generatedAt` moves, the diff is correct. Only the
@@ -337,12 +344,30 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
  * tree to look in — the spec's own worktree — and looking anywhere else would
  * answer about a branch that is not the one being reviewed.
  */
-function findPhasesIn(worktreePath, folder) {
+function findSpecDirIn(worktreePath, folder) {
   for (const bucket of ['in-progress', 'backlog', 'complete', 'cancelled']) {
     const dir = path.join(worktreePath, 'specs', bucket, folder)
-    if (fs.existsSync(dir)) return readPhases(dir)
+    if (fs.existsSync(dir)) return dir
   }
   return null
+}
+
+/**
+ * What the change is FOR, for the top of the page — composed from the spec's
+ * own files, never written.
+ *
+ * That is the same rule the diff follows: nothing here passes through the
+ * model, so the header is free however large the review. The moment it were
+ * generated it would start costing tokens and start going stale.
+ *
+ * `null` when there is nothing to say — and a spec with an unreadable overview
+ * is not a broken spec. The page rendered without this yesterday.
+ */
+function readContextIn(dir, phases) {
+  const overview = dir ? readOverview(dir) : null
+  const phase = phases && phases.live ? phases.live : null
+  if (!overview && !phase) return null
+  return { ...(overview || {}), ...(phase ? { phase } : {}) }
 }
 
 const ENGINE_VERSION = (() => {

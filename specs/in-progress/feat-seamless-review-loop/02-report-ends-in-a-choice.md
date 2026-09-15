@@ -39,6 +39,16 @@ terminal is a third way to finish a review rather than a row you retype.
       an hour ago, the fresh session — and why the picker does not replace it: a
       picker is consumed when the turn ends, and this is the only claim path the
       harness itself enforces.
+- [ ] **Add a `Snags` field to the report vocabulary** in `spec-reports.md`: one
+      short paragraph for the issues this run hit and handled. It goes after
+      `Tests` and before `Review`, and it is what the "nothing follows the
+      block" rule has been losing — the content is worth keeping, it just had
+      nowhere inside the block to live, so it kept ending up after it.
+- [ ] **Tighten the rule while adding the row.** "Nothing follows the block" is
+      already stated and was already broken repeatedly, which makes it a missing
+      *destination* rather than a missing prohibition. Say plainly: if it is
+      worth telling the reader, it is a row; if it is not a row, it is not worth
+      telling them.
 - [ ] **Answer the Open question** before building: does the picker fire when no
       pass is waiting? Decide, record it in the Changelog, and build that.
 - [ ] Tests pinning the prose as `assets-spec-reviewed.test.js` and

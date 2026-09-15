@@ -41,7 +41,10 @@ const drop = (root) => fs.rmSync(root, { recursive: true, force: true })
 test('a spec mid-way through has a phase to build', () => {
   const { root, dir } = specDir(['Done', 'In progress', 'Not started'])
   try {
-    assert.deepStrictEqual(readPhases(dir), { total: 3, done: 1, hasNextPhase: true })
+    const p = readPhases(dir)
+    assert.strictEqual(p.total, 3)
+    assert.strictEqual(p.done, 1)
+    assert.strictEqual(p.hasNextPhase, true)
   } finally {
     drop(root)
   }
@@ -52,7 +55,10 @@ test('a spec mid-way through has a phase to build', () => {
 test('a spec with every phase done has none', () => {
   const { root, dir } = specDir(['Done', 'Done', 'Done'])
   try {
-    assert.deepStrictEqual(readPhases(dir), { total: 3, done: 3, hasNextPhase: false })
+    const p = readPhases(dir)
+    assert.strictEqual(p.total, 3)
+    assert.strictEqual(p.done, 3)
+    assert.strictEqual(p.hasNextPhase, false)
   } finally {
     drop(root)
   }
@@ -126,7 +132,10 @@ const render = (worktreePath, folder = 'feat-x') =>
 test('the render carries the phases, from the worktree', () => {
   const { root } = specDir(['Done', 'Not started'])
   try {
-    assert.deepStrictEqual(render(root).phases, { total: 2, done: 1, hasNextPhase: true })
+    const p = render(root).phases
+    assert.strictEqual(p.total, 2)
+    assert.strictEqual(p.done, 1)
+    assert.strictEqual(p.hasNextPhase, true)
   } finally {
     drop(root)
   }
