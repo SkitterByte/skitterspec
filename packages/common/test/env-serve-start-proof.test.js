@@ -21,7 +21,7 @@ const { test } = require('node:test')
 const assert = require('node:assert')
 const net = require('node:net')
 
-const { portsInUse } = require('../src/env/proxy.js')
+const { portsInUse, portsInUseOn } = require('../src/env/proxy.js')
 
 function squat(port, host) {
   return new Promise((resolve, reject) => {
@@ -41,23 +41,96 @@ async function freePort() {
   })
 }
 
-// THE ROOT CAUSE, in one assertion. A wildcard bind and a loopback bind coexist,
-// so asking about loopback tells you nothing about whether a wildcard bind will
-// succeed — and the daemon binds wildcard whenever it is reachable from a phone.
-test('a loopback probe cannot see a wildcard squatter', async () => {
+
+// THE LINUX BUG, as a claim that can be checked on any platform.
+//
+// The probe works by binding, so two probes of the SAME port must never be in
+// flight at once — they contend with each other. On BSD that contention is
+// invisible (a wildcard bind and a loopback bind coexist), which is why this
+// shipped; on Linux the two are mutually exclusive, so probing both addresses
+// concurrently reported a completely free port as busy and the review server
+// refused to start on every CI run.
+//
+// Asserting on the OVERLAP rather than on the verdict is what makes this
+// reproduce on a Mac. A test that merely asked "is a free port free?" passes
+// here no matter how the probing is ordered, which is exactly how the defect
+// reached CI.
+test('the two address probes never overlap', async () => {
+  let inFlight = 0
+  let peak = 0
+  const probe = async (ports, host) => {
+    inFlight += 1
+    peak = Math.max(peak, inFlight)
+    await new Promise((r) => setImmediate(r))
+    inFlight -= 1
+    return []
+  }
+
+  await portsInUseOn(7777, ['0.0.0.0', '127.0.0.1'], probe)
+
+  assert.strictEqual(peak, 1, 'probes of one port must not contend with each other')
+})
+
+test('every address is still asked, and a busy one still refuses', async () => {
+  const asked = []
+  const probe = async (ports, host) => {
+    asked.push(host)
+    return host === '127.0.0.1' ? [ports[0]] : []
+  }
+
+  const busy = await portsInUseOn(7777, ['0.0.0.0', '127.0.0.1'], probe)
+
+  assert.deepStrictEqual(asked, ['0.0.0.0', '127.0.0.1'], 'both addresses asked, in order')
+  assert.deepStrictEqual(busy, [7777], 'a port half-taken is not usable')
+})
+
+test('a loopback bind asks once, not twice', async () => {
+  const asked = []
+  const probe = async (ports, host) => {
+    asked.push(host)
+    return []
+  }
+
+  await portsInUseOn(7777, ['127.0.0.1', '127.0.0.1'], probe)
+
+  assert.deepStrictEqual(asked, ['127.0.0.1'], 'deduped, as the call site always intended')
+})
+
+// THE ROOT CAUSE. Asking about loopback tells you nothing reliable about
+// whether a WILDCARD bind will succeed, so the pre-flight must ask about the
+// address the daemon will actually bind.
+//
+// WHY THIS TEST IS SPLIT BY PLATFORM: the original wrote BSD's answer down as
+// though it were everyone's. Under BSD a wildcard bind and a loopback bind of
+// one port coexist, so the loopback probe comes back clean while a squatter
+// holds the port — the substitution that let a leaked daemon sit on 7777. Linux
+// makes the two mutually exclusive, so there the loopback probe happens to see
+// it. The universal half is asserted for both; the premise is asserted for the
+// platform that actually has it, because a test that states a falsehood on half
+// the machines it runs on teaches the next reader the wrong thing about sockets.
+test('the probe sees a wildcard squatter on the address it will bind', async () => {
   const port = await freePort()
   const held = await squat(port, '0.0.0.0')
   try {
-    assert.deepStrictEqual(
-      await portsInUse([port], '127.0.0.1'),
-      [],
-      'binding loopback succeeds — which is exactly why it is the wrong question',
-    )
+    // TRUE EVERYWHERE, and the only thing the pre-flight's correctness rests on.
     assert.deepStrictEqual(
       await portsInUse([port], '0.0.0.0'),
       [port],
       'asked about the address it will actually bind, it sees the conflict',
     )
+
+    const loopback = await portsInUse([port], '127.0.0.1')
+    if (process.platform === 'linux') {
+      // Linux refuses the loopback bind while the wildcard is held, so the probe
+      // is not blind here — it is merely answering a different question.
+      assert.deepStrictEqual(loopback, [port], 'linux: the binds are exclusive')
+    } else {
+      assert.deepStrictEqual(
+        loopback,
+        [],
+        'bsd: binding loopback succeeds — which is exactly why it is the wrong question',
+      )
+    }
   } finally {
     await held.close()
   }
@@ -75,7 +148,15 @@ test('the pre-flight never substitutes loopback for the bind it will make', () =
     'the pre-flight probes loopback for a wildcard bind',
   )
   // Pinned as a property, not a spelling: the bind host is among what is asked.
-  assert.match(src, /new Set\(\[host, '127\.0\.0\.1'\]\)/, 'both addresses are probed')
+  // The dedup moved into `portsInUseOn` when the probes were made sequential, so
+  // this matches the PAIR rather than the `new Set(...)` that used to wrap it.
+  assert.match(src, /\[host, '127\.0\.0\.1'\]/, 'both addresses are probed')
+  // And asked one at a time — probing this port twice at once is the Linux bug.
+  assert.doesNotMatch(
+    src,
+    /Promise\.all\(probes\.map/,
+    'the pre-flight races its own probes against each other',
+  )
 })
 
 // A port answering is not proof that OUR process is answering it. That is the

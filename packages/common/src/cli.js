@@ -83,7 +83,7 @@ const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
 const { planHotfixLand } = require('./env/hotfix.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
-const { renderRoutes, portsInUse, waitListening } = require('./env/proxy.js')
+const { renderRoutes, portsInUse, portsInUseOn, waitListening } = require('./env/proxy.js')
 const { mintToken, servableSpecs, engineVersionFor, staleServer } = require('./env/serve.js')
 
 const pkg = require('../package.json')
@@ -2451,8 +2451,15 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   //
   // A port either half-taken is not usable, so both are asked and either
   // refuses. Deduped, so a loopback bind asks once.
-  const probes = [...new Set([host, '127.0.0.1'])]
-  const busy = (await Promise.all(probes.map((h) => portsInUse([usePort], h)))).flat()
+  //
+  // ASKED ONE AT A TIME, and that is load-bearing rather than tidy. The probe
+  // binds, so two probes of one port contend with each other — and the BSD
+  // coexistence this comment relies on is exactly what Linux does NOT do, where
+  // a wildcard and a loopback bind of one port are mutually exclusive. Asked
+  // concurrently the pair therefore reported a free port as busy, and the review
+  // server refused to start on every Linux machine while macOS stayed green.
+  // `portsInUseOn` owns the ordering; see its comment for the verification.
+  const busy = await portsInUseOn(usePort, [host, '127.0.0.1'])
   if (busy.length) return { error: 'busy', port: usePort, replaced, engineWas }
 
   fs.mkdirSync(path.dirname(abs(settingsFile)), { recursive: true })

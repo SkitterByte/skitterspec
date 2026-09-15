@@ -141,7 +141,40 @@ async function waitListening(
   return false
 }
 
-module.exports = { renderRoutes, createRouteServer, startProxy, portsInUse, waitListening }
+
+/**
+ * Ask whether `port` is free on EVERY host it will need, one host at a time.
+ *
+ * SEQUENTIAL IS THE WHOLE POINT, and it is not a style choice. The probe works
+ * by binding, so two probes of the same port running concurrently contend with
+ * each other — and on Linux a wildcard bind and a loopback bind of one port are
+ * mutually exclusive, so the pair reports a completely free port as busy. The
+ * review server then refused to start on every Linux machine, which is to say
+ * on CI, while every macOS run stayed green because BSD lets the two coexist.
+ *
+ * Probing one host at a time asks the question that was always intended — is
+ * anything ELSE holding this port — instead of racing the caller against
+ * itself. Verified on node:24-alpine: parallel reports busy on a free port,
+ * sequential does not; both still refuse a real squatter on either address.
+ *
+ * `probe` is injectable so the concurrency can be asserted without sockets.
+ */
+async function portsInUseOn(port, hosts, probe = portsInUse) {
+  const busy = []
+  for (const host of [...new Set(hosts)]) {
+    busy.push(...(await probe([port], host)))
+  }
+  return [...new Set(busy)]
+}
+
+module.exports = {
+  renderRoutes,
+  createRouteServer,
+  startProxy,
+  portsInUse,
+  portsInUseOn,
+  waitListening,
+}
 
 // Entry point: run as a detached process by the CLI. Reads its routes from a
 // file so a re-`connect` just rewrites the file and restarts this (tiny) process.
