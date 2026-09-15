@@ -54,7 +54,11 @@ test('the rule permits two controls after the block, and still bans prose', () =
 // learns to scroll past banners.
 test('the banner is reserved for a run that is actually waiting', () => {
   assert.match(RULE, /only where the run is actually\s*\n?\s*\*\*waiting\*\* on a verdict/i)
-  assert.match(RULE, /\*\*Where the run is not waiting, it stays a `Review` row\.\*\*/)
+  // The shapes are now derived from one rule rather than listed as two
+  // situations, so what is pinned is the rule and both of its branches.
+  assert.match(RULE, /\*\*ASKING IMPLIES WAITING/)
+  assert.match(RULE, /\*\*Not asking\*\* → the `Review` row/)
+  assert.match(RULE, /A render nobody is being held for is still worth reporting/)
   // And the two must not both appear: one subject, one place.
   assert.match(RULE, /\*\*Omitted entirely when the run is waiting on a verdict\*\*/)
 })

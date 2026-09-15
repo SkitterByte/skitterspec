@@ -34,9 +34,12 @@ const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'S
 const NEXT = skillText('spec-next')
 
 test('the offer is addressed to someone, in whichever shape it takes', () => {
-  assert.match(NEXT, /want a written review before you commit\?/, 'the not-waiting row still asks')
+  // ASKING IMPLIES WAITING. The row no longer asks — a question in a row is
+  // unanswerable by construction — so what is addressed to the reader is the
+  // banner, which is the shape the run actually waits behind.
   assert.match(NEXT, /I'm holding here until you send a verdict/, 'the waiting banner still tells')
   assert.match(NEXT, /Both shapes are addressed to someone/)
+  assert.doesNotMatch(NEXT, /want a written review before you commit\?/, 'the row stopped asking')
   // The shape it must not go back to: engine output quoted at nobody.
   assert.doesNotMatch(NEXT, /```\nPage is rendered:/)
 })
@@ -184,6 +187,11 @@ test('the banner only promises a wait the transport can deliver', () => {
   const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
   assert.match(rule, /\*\*Only promise a wait the transport can deliver\.\*\*/)
   assert.match(rule, /I cannot see it until you do/)
+  // The wait is real on every transport — only what carries it back varies.
+  // "No file-watch" was once an exemption from waiting at all, and that is the
+  // hatch a whole class of unanswerable questions came through.
+  assert.match(rule, /The wait itself is real in\s*\n?every case/)
+  assert.match(rule, /does not get an exemption/)
 })
 
 // ONE LINK. Two doors and no way to tell which the run is standing behind is

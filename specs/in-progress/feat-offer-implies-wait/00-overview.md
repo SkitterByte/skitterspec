@@ -110,7 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The `Continue` verdict and the button set | ✅ | [01-continue-verdict.md](01-continue-verdict.md) |
-| 2 | The report contract: offer implies wait | ⬜ | [02-report-contract.md](02-report-contract.md) |
+| 2 | The report contract: offer implies wait | ✅ | [02-report-contract.md](02-report-contract.md) |
 | 3 | The skills that offer | ⬜ | [03-skills-wait.md](03-skills-wait.md) |
 
 ## Open questions
@@ -135,6 +135,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-15 — Phase 1: `continue` is not blocked by an open note. The engine's
   single refusal is about COMMITTING verdicts, and a disabled button for a
   refusal the engine does not make would be the page holding a second opinion.
+- 2026-09-15 — Phase 2 reached past its Impact map, deliberately and minimally.
+  The new guard refuses a question in **any** skill's `Review` row, so
+  `/spec-bug`, `/spec-hotfix` and `/spec-next` lost that question here rather
+  than in phase 3 — a guard that ships red is not a guard. Phase 3 still owns
+  the substantive work in those skills: arming and waiting. The same one-line
+  example row in `spec-planning.md` was fixed for the same reason: leaving it
+  would have it contradict the rule this phase writes.
 - 2026-09-15 — Follow-up surfaced while linking this spec: `spec-sync apply`
   hit a Linear 503 part-way, printed "re-run to resume without duplicating",
   and the re-run duplicated — SKS-273 and SKS-274 are the same phase 1. The

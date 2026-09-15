@@ -35,13 +35,22 @@ for (const name of RENDERS) {
     assert.match(text, /\*\*after\*\* the tests pass and\s*\n?\*\*before\*\* the commit/)
   })
 
-  // The offer is a `Review` row in the block, not prose after it — see
-  // `assets-offer-last.test.js` for why the anchor moved and what must not be
-  // weakened when it moves again. All three carry the row; only the one that
-  // WAITS also carries the banner, which is asserted separately below.
-  test(`/${name} offers the review as a question, in the Review row`, () => {
-    assert.match(text, /want a written review before you commit\?/)
+  // The page is named in a `Review` row in the block, not in prose after it —
+  // see `assets-offer-last.test.js` for why the anchor moved and what must not
+  // be weakened when it moves again.
+  //
+  // THE ROW ASKS NOTHING. A row cannot be waited on, so a question in one is
+  // unanswerable by construction: these three shipped one, and verdicts pressed
+  // in answer to it sat unread. A skill that wants the question answered waits,
+  // and waiting means the banner.
+  test(`/${name} names the page in the Review row, and asks nothing there`, () => {
     assert.match(text, /`Review` row/)
+    const rows = [...text.matchAll(/^\|\s*\*\*Review\*\*\s*\|(.*)\|\s*$/gm)]
+    assert.ok(rows.length > 0, 'the row is written out, so this asserts something')
+    for (const m of rows) {
+      assert.ok(!m[1].includes('?'), `the row must not ask: ${m[1].trim()}`)
+      assert.match(m[1], /open the page/, 'and it still carries the link')
+    }
     // The shape it must not go back to.
     assert.doesNotMatch(text, /```\nPage is rendered:/)
   })

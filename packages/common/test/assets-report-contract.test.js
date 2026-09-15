@@ -402,3 +402,64 @@ test('stays silent: a skill that commits its own work needs no commit in Next', 
     assert.ok(!LEAVES_DIRTY.test(skillText('common', name)), `${name} commits its own work`)
   }
 })
+
+// --- asking implies waiting -------------------------------------------------
+
+/**
+ * A `Review` row cannot be waited on, so a question inside one is unanswerable
+ * by construction. That is not a style point: `/spec-bug` and `/spec-hotfix`
+ * shipped a row asking *"want a written review before you commit?"* and then
+ * finished with nothing watching, and two verdicts pressed on one spec's page
+ * sat in the holding area unread. The second was pressed only because the first
+ * appeared to do nothing.
+ *
+ * WHAT WOULD FOOL THIS: it reads the ROW, not the skill. A skill may still ask
+ * whatever it likes in the banner — which is the shape that waits — and this
+ * check must never see that, or the fix for the failure becomes indistinguishable
+ * from the failure.
+ */
+const REVIEW_ROW = /^\|\s*\*\*Review\*\*\s*\|(.*)\|\s*$/gm
+
+test('no skill asks a question in a Review row', () => {
+  const offenders = []
+  for (const [id, pkg, name] of entries()) {
+    for (const m of skillText(pkg, name).matchAll(REVIEW_ROW)) {
+      if (m[1].includes('?')) offenders.push(`${id}: ${m[1].trim()}`)
+    }
+  }
+  assert.deepStrictEqual(
+    offenders,
+    [],
+    'a Review row carries counts and the link — a question belongs in the banner, ' +
+      'which is the shape that waits for the answer',
+  )
+})
+
+test('the rule says why the row carries no question', () => {
+  const rule = fs.readFileSync(RULE, 'utf8')
+  assert.match(rule, /\*\*ASKING IMPLIES WAITING/)
+  assert.match(rule, /loses the question/)
+  assert.match(rule, /a reader taught that the button is decorative/)
+  // The rejected alternative, kept where the next editor will meet it.
+  assert.match(rule, /a truthful caveat does not make an unanswerable question worth\s*\n?asking/i)
+})
+
+// The detector has to be able to fire, or the test above passes for the wrong
+// reason once someone reformats a row.
+test('the guard fires on the shape this phase removed', () => {
+  const bad = '| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review? |\n'
+  const found = [...bad.matchAll(REVIEW_ROW)].filter((m) => m[1].includes('?'))
+  assert.strictEqual(found.length, 1, 'the old row is caught')
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). The rule is about the ROW. A
+// question in the banner is the correct shape, and a skill that waits must not
+// be accused for asking there.
+test('stays silent: a question in the banner, and a row without one, both pass', () => {
+  const banner =
+    "**[Open the page](http://…)** · I'm holding here until you send a verdict.\n" +
+    'Want a written review before you commit?\n' +
+    '| **Review** | 7 files, +212 −18 · [open the page](file:///…) |\n'
+  const found = [...banner.matchAll(REVIEW_ROW)].filter((m) => m[1].includes('?'))
+  assert.deepStrictEqual(found, [], 'only the row is read, and this row asks nothing')
+})

@@ -301,7 +301,7 @@ its verdicts and its fields.
 | **Branch** | `spec/feat-orders` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · npm test |
-| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review before you commit? |
+| **Review** | 7 files, +212 −18 · [open the page](file:///…) |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 

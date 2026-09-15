@@ -316,18 +316,23 @@ else.
 **Where you are not waiting, it stays the `Review` row** — the counts, the page
 link and a question, in one row:
 
-| **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) — want a written review before you commit? |
+| **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) |
 
 **Both shapes are addressed to someone, and that is the constraint.** The offer
 was once a fenced block of engine output: two quoted lines under the test
 counts, addressed to nobody, with the report then closing on *"commit this
 first"* — the last instruction the reader got was to move on, so they did. A row
-in a labelled table is findable; a question in it is answerable; a banner says
-the work has stopped. What must never come back is something unaddressed,
-unfindable, or fenced.
+in a labelled table is findable; a banner says the work has stopped. What must
+never come back is something unaddressed, unfindable, or fenced.
+
+**The row asks nothing, and that is not a weakening of the above.** A row cannot
+be waited on, so a question in one is unanswerable however findable it is —
+which is the failure `spec-reports.md` records under *asking implies waiting*.
+The row names the page; the banner is what asks, because the banner is the shape
+the run is standing behind.
 
 **Never bury it and never split it.** The row sits above the last two rows of
-the block, and the page and the question stay in the same row; the banner
+the block, and the page and its counts stay in the same row; the banner
 replaces the row rather than joining it. Two places naming one page make the reader
 resolve a distinction before acting on either — which is the same failure
 whether the two places are adjacent rows or a row and a banner.

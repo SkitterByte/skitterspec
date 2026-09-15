@@ -36,7 +36,7 @@ A verdict sentence, a blank line, then a two-column table:
 | **Branch** | `spec/feat-foo` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · npm test |
-| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review before you commit? |
+| **Review** | 7 files, +212 −18 · [open the page](file:///…) |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 
@@ -97,14 +97,53 @@ A rule, a heading naming the state and the size, the link in bold, one line
 saying the run is stopped, and the two exits. Nothing else, and never a
 paragraph explaining it.
 
-**Only promise a wait the transport can deliver.** A page the engine SERVES
-hands its pass to the local store, which a file-watch sees — that is the one
-case where *"I'm holding here"* is true. A **published** page writes to the
-artifact's own store, and nothing pushes from there into the conversation, so a
-verdict pressed on it is invisible until someone asks for it. Its banner says
-so instead:
+**Only promise a wait the transport can deliver.** The wait itself is real in
+every case; what varies is what carries it back, not whether the run is
+stopped. Three transports, three true sentences:
+
+- **A page the engine SERVES** hands its pass to the local store, which a
+  file-watch sees. The run is woken by the press:
+  *"I'm holding here until you send a verdict."*
+- **A `file://` page** has no server to POST to, so the pass is copied and
+  pasted — the reader's next message is what carries it. The run is stopped just
+  the same, and says so:
+  *"I'm holding here — paste the pass when you have it."*
+  This is the same wait, carried by the conversation instead of a watch. It is
+  not a lesser one, and it is not an excuse to ask without waiting.
+- **A PUBLISHED page** writes to the artifact's own store, and nothing pushes
+  from there into the conversation. That is the one case where a verdict is
+  genuinely invisible until someone asks for it, so the banner says that instead
+  of claiming a watch:
 
 **[Open the page](https://…)** · press a verdict, then type `/spec-reviewed` — I cannot see it until you do.
+
+**A harness with no file-watch does not get an exemption.** It once read
+"change nothing" — keep the row, keep the question, do not wait — and that
+escape hatch is what let a whole class of runs go on asking questions nobody was
+listening for. Where a watch is unavailable the wait is the turn ending, which
+every harness can do.
+
+**The `Continue` ending, and why the banner's exits differ mid-run.** A page
+rendered part-way through a run offers `Continue` — *I have read it, carry on* —
+in place of the committing verdicts, because "commit" is the wrong verb for
+unfinished work. Its banner names the same state and different exits:
+
+**[Open the page](http://…)** · I'm holding here until you send a verdict.
+
+`Continue` carries on · `Request changes` works them now
+
+**It is not the `none` verdict that was removed.** `none` recorded itself and
+did nothing, which is the record-and-do-nothing ending this contract exists
+against. `Continue` **resumes the run** — it names an action, which is the bar
+every verdict has to clear. What it does not do is commit, and it can never
+clear the gate a finished phase armed: that gate is discharged by a committing
+verdict or a recorded skip, and by nothing else.
+
+**So waiting and arming are separate**, and only one of them is about this
+block. *Waiting* is what any offer does, and it is what this section governs.
+*Arming* asserts an obligation that outlives the turn, and belongs only to work
+that is finished. A mid-run render waits without arming — walking away from it
+costs nothing, which is exactly why `Continue` is safe to offer there.
 
 **Exactly one link, never two.** The banner offers the page the reader can
 actually use, and the engine has already decided which that is — a served URL
@@ -124,11 +163,34 @@ stopped until they answer. A row cannot carry that, because a row is scanned at
 the same weight as every other row. So the state gets the loudest shape on
 screen, at the end, where reading finishes.
 
-**Where the run is not waiting, it stays a `Review` row.** A render nobody is
-being held for — a mid-phase `/spec-diff`, a page produced alongside other work
-— is a convenience, and giving it a banner teaches the reader to scroll past
-banners. The shape marks the difference between *here is a page* and *nothing
-proceeds until you answer*.
+**ASKING IMPLIES WAITING — one rule, and the two shapes follow from it.** Any
+render that asks the reader for a verdict ends the turn watching for one. A run
+that does not intend to wait does not ask: its `Review` row keeps the counts and
+the link and **loses the question**.
+
+So there are two shapes and no third:
+
+- **Asking** → the banner above, and the run waits.
+- **Not asking** → the `Review` row: counts and link, no question.
+
+**What this guards against is a reader taught that the button is decorative.**
+`/spec-bug` and `/spec-hotfix` used to render the page, emit a row
+asking *"want a written review before you commit?"*, and finish — with nothing
+watching. A verdict pressed on that page landed in the holding area and stayed
+there, because the run had told the reader the page was **ready** rather than
+that it was **waiting**. It happened twice on one spec, and the second press
+existed only because the first appeared to do nothing. An offer that cannot be
+answered costs more than never having offered.
+
+**Rejected: keeping the question and adding a caveat** — *"press a verdict, but
+I will not see it until you ask"*. That is exactly the shape that stranded those
+two passes, and a truthful caveat does not make an unanswerable question worth
+asking. Either watch for the answer, or do not ask.
+
+**A render nobody is being held for is still worth reporting** — a mid-phase
+`/spec-diff`, a page produced alongside other work. It gets the row, because
+giving it a banner teaches the reader to scroll past banners. The shape marks
+the difference between *here is a page* and *nothing proceeds until you answer*.
 
 **Never fence a message to the reader.** A fenced block is for a command to
 run, code, or engine output quoted verbatim — things the reader copies or
@@ -185,7 +247,7 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Landed` | A fast-forward, a tag, a cherry-pick. |
 | `Worktree` | A worktree provisioned, entered, or torn down. |
 | `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |
-| `Review` | The rendered diff page: files, `+`/`−`, the link — and the offer of a written review, in the same row. **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
+| `Review` | The rendered diff page: files, `+`/`−`, the link. **No question** — a row cannot be waited on, so a question in one is unanswerable by construction (see *asking implies waiting*). **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
 | `Next` | **Last.** The single next action for this work — runnable from the state the run leaves behind. |
 
@@ -204,10 +266,16 @@ silent, because "I provisioned, and your four files are still sitting there" is
 a different sentence from "I provisioned".
 
 **`Review` is one row, not two** — and where the run is waiting, it is no rows
-at all. The page and the offer to read it are the same subject, and splitting
-them made the reader resolve a distinction before acting on either. A waiting
-run promotes the whole subject into the banner; keeping the row as well would
+at all. The page and what to do with it are the same subject, and splitting them
+made the reader resolve a distinction before acting on either. A waiting run
+promotes the whole subject into the banner; keeping the row as well would
 recreate that split with the two halves further apart than ever.
+
+**The row carries no question, and that is the rule above applied here.** It
+once ended *"want a written review before you commit?"* — a question addressed
+to a reader the run was not waiting for. Putting it in a findable row fixed
+where it was; it did not fix that nothing was listening. A run that wants that
+question answered waits for it, and waiting means the banner.
 
 ## The four verdicts
 

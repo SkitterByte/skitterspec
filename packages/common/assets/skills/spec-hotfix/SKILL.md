@@ -239,7 +239,7 @@ costs — roughly **700 output tokens**, because writing it means reading the di
 **The offer is the `Review` row of step 6's block** — the counts, the page link
 and a question, in one row:
 
-| **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) — want a written review before you commit? |
+| **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) |
 
 **It ends in a question, addressed to someone.** It was once a fenced block of
 engine output, and it fired on every phase and was never once taken: two quoted
