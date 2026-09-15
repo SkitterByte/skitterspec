@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-248"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-248/staged-publish-pipeline-on-trusted-publishing"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Staged publish pipeline on Trusted Publishing
 
 > **Type:** Feature
 > **Name:** feat-staged-publish-pipeline (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-15)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-15
 > **Area:** .github/workflows/, scripts/release.js, scripts/approve-release.cjs, packages/*/package.json, RELEASING.md, CLAUDE.md
 > **Stack:** worktree
@@ -128,6 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-15 | Ready | backlog | Reuben Greaves |
+| 2026-09-15 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
