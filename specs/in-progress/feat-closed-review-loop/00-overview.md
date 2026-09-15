@@ -111,7 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Gate engine — record, verbs, skip | ⬜ | [01-gate-engine.md](01-gate-engine.md) |
+| 1 | Gate engine — record, verbs, skip | ✅ | [01-gate-engine.md](01-gate-engine.md) |
 | 2 | Skill wiring — arm, wait, auto-claim, doc sweep | ⬜ | [02-skill-wiring.md](02-skill-wiring.md) |
 | 3 | Commit hook — install + stays-silent tests | ⬜ | [03-commit-hook.md](03-commit-hook.md) |
 | 4 | Artifact page — db verdicts for off-LAN readers | ⬜ | [04-artifact-page.md](04-artifact-page.md) |
@@ -132,3 +132,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-15 — Spec created.
+- 2026-09-15 — Phase 1: the skip log lives in the gate record's own `log`, not
+  the notes `decisions` log. The page maps unrecognised verdicts to
+  "discussed", so a `skip` logged there would render as a lie; showing the gate
+  log on the page moved to phase 2.
+- 2026-09-15 — Phase 1: no tree state is recorded at arming, against the plan.
+  A gate that lapsed when the tree changed would be cleared by the act of
+  carrying on working, which is the bypass it exists to close. It clears on a
+  decision or not at all.

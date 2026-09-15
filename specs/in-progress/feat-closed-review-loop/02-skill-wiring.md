@@ -39,6 +39,10 @@ invariant rewritten.
       spec-workflow section, and the `spec-diff` / `spec-reviewed` skill
       rationale — the serve token is the credential, the wait window is the
       scope, `/spec-reviewed` is fallback and disambiguation
+- [ ] Show the gate on the page: the outcome log as history (a skip reads as a
+      skip, with its reason), and fix `drawLog`, which currently maps every
+      verdict but `changes` to "discussed" — including `commit` (carried over
+      from phase 1)
 - [ ] Tests: skill prose is not unit-testable, but the engine calls it leans
       on are — extend phase 1's tests with the arm-at-phase-end +
       claim-disarms sequence as one integration-shaped test; `pnpm test` green

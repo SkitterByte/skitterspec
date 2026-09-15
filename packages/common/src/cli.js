@@ -74,6 +74,13 @@ const {
   validateResolutions,
   mergeNotes,
   applyResolutions,
+  COMMITTING,
+  reviewGatePath,
+  readGate,
+  writeGate,
+  armGate,
+  disarmGate,
+  gateState,
 } = require('./env/review.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
 const { classifyDirtyTree } = require('./env/classify.js')
@@ -1628,6 +1635,158 @@ function verdictSaid(v) {
   return 'discuss first'
 }
 
+/**
+ * Resolve the spec and its page path for a gate verb, or say why not.
+ *
+ * Shared by `arm`, `gate` and `skip` so all three answer about the same
+ * sidecar the render writes beside the page — `--out` moves them together, and
+ * a gate keyed to a different path than its page is a gate nobody can clear.
+ *
+ * It never throws. Resolution failure is a cannot-tell for these verbs, not an
+ * error: `gate --check` is called by a commit hook, and a hook that fails on a
+ * repo it could not resolve would block every commit in it.
+ */
+function gateTarget(dir, config, specArg) {
+  try {
+    const spec = resolveSpecWithWorktree(dir, config, specArg)
+    return { spec, out: reviewOutPath(dir, spec.folder), reason: null }
+  } catch (err) {
+    return { spec: null, out: null, reason: err.message }
+  }
+}
+
+// `review arm` — a phase ended, and its diff is now owed a verdict.
+function specEnvReviewArm(dir, config, specArg, flags) {
+  const target = gateTarget(dir, config, specArg)
+  if (!target.spec) {
+    // Arming is a best-effort half of a phase ending; the phase is still built.
+    process.stdout.write(`spec-env review arm: cannot tell which spec — ${target.reason}\n`)
+    return
+  }
+  const read = readGate(target.out, target.spec.folder)
+  if (read.corrupt) {
+    // Same rule as every other sidecar: never write over a file we could not
+    // read. Here that also means never claiming to have armed something.
+    process.stdout.write(
+      `spec-env review arm: ${reviewGatePath(target.out)} is not readable JSON — ` +
+        'move it aside rather than losing the history it holds.\n',
+    )
+    return
+  }
+  const phase = flags.phase === undefined ? null : flags.phase
+  const before = read.gate
+  const gate = armGate(before, { at: new Date().toISOString(), phase })
+  writeGate(target.out, gate)
+  const again = before.armed && gate.armedAt === before.armedAt
+  if (flags.json) {
+    process.stdout.write(JSON.stringify({ spec: target.spec.folder, armed: true, armedAt: gate.armedAt, phase: gate.phase, alreadyArmed: again }, null, 2) + '\n')
+    return
+  }
+  process.stdout.write(
+    `spec-env review arm: ${target.spec.folder} is awaiting a verdict` +
+      `${gate.phase ? ` (phase ${gate.phase})` : ''}` +
+      `${again ? ' — already was, since ' + String(gate.armedAt).slice(0, 19) : ''}\n`,
+  )
+}
+
+/**
+ * `review gate` — is anything owed?
+ *
+ * `--check` is the one call a commit hook makes, and it exits non-zero ONLY on
+ * `armed`: a positive signal, read from a present and parseable sidecar. Every
+ * other state — cleared, unreadable, versioned past this engine, switched off
+ * — exits 0 and says which, because a check that accuses on an absence accuses
+ * healthy repos (`.claude/rules/negative-checks.md`).
+ */
+function specEnvReviewGate(dir, config, specArg, flags) {
+  const target = gateTarget(dir, config, specArg)
+  const judged = target.spec
+    ? gateState({ ...readGate(target.out, target.spec.folder), required: config.review.required })
+    : { state: 'unknown', reason: target.reason, gate: null }
+
+  if (flags.json) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          spec: target.spec ? target.spec.folder : null,
+          state: judged.state,
+          reason: judged.reason,
+          armedAt: judged.gate ? judged.gate.armedAt : null,
+          phase: judged.gate ? judged.gate.phase : null,
+          required: config.review.required,
+          log: judged.gate && Array.isArray(judged.gate.log) ? judged.gate.log : [],
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+  } else if (judged.state === 'armed') {
+    const g = judged.gate
+    process.stdout.write(
+      `spec-env review gate: ${target.spec.folder} is awaiting a verdict` +
+        `${g.phase ? ` (phase ${g.phase})` : ''}` +
+        `${g.armedAt ? ` since ${String(g.armedAt).slice(0, 19)}` : ''}\n` +
+        '  read the page and send a verdict, or record why you are moving on:\n' +
+        '    skitterspec spec-env review skip "<reason>"\n',
+    )
+  } else if (judged.state === 'clear') {
+    process.stdout.write(`spec-env review gate: ${target.spec.folder} owes nothing — ${judged.reason}\n`)
+  } else {
+    process.stdout.write(
+      `spec-env review gate: cannot tell — ${judged.reason}.\n` +
+        '  nothing is being claimed, and nothing is blocked.\n',
+    )
+  }
+
+  // The exit status is the whole interface for a hook, so it is set from the
+  // one state that is evidence and never from the two that are not.
+  if (flags.check && judged.state === 'armed') process.exitCode = 1
+}
+
+// `review skip` — move on without a verdict, on the record.
+function specEnvReviewSkip(dir, config, reason, flags) {
+  const said = String(reason || '').trim()
+  if (!said) {
+    // The reason IS the feature. A skip with no reason is the silence this
+    // whole gate exists to replace, so it is refused rather than defaulted.
+    process.stdout.write(
+      'spec-env review skip: needs a reason — skitterspec spec-env review skip "<why>"\n',
+    )
+    process.exitCode = 1
+    return
+  }
+  const target = gateTarget(dir, config, null)
+  if (!target.spec) {
+    process.stdout.write(`spec-env review skip: cannot tell which spec — ${target.reason}\n`)
+    process.exitCode = 1
+    return
+  }
+  const read = readGate(target.out, target.spec.folder)
+  if (read.corrupt) {
+    process.stdout.write(
+      `spec-env review skip: ${reviewGatePath(target.out)} is not readable JSON — ` +
+        'move it aside rather than losing the history it holds.\n',
+    )
+    process.exitCode = 1
+    return
+  }
+  const result = disarmGate(read.gate, { at: new Date().toISOString(), by: 'skip', reason: said })
+  if (!result.logged) {
+    // Nothing was owed, so nothing is recorded: a log entry here would claim a
+    // decision was taken about an obligation that did not exist.
+    process.stdout.write(`spec-env review skip: ${target.spec.folder} owes nothing — nothing to skip\n`)
+    return
+  }
+  writeGate(target.out, result.gate)
+  if (flags.json) {
+    process.stdout.write(JSON.stringify({ spec: target.spec.folder, skipped: true, reason: said }, null, 2) + '\n')
+    return
+  }
+  process.stdout.write(
+    `spec-env review skip: ${target.spec.folder} moved on without a verdict\n  reason: ${said}\n`,
+  )
+}
+
 async function specEnvReview(dir, config, specArg, flags) {
   // An unknown name throws here rather than falling back to the branch: a review
   // of the wrong spec looks exactly like a review of the right one.
@@ -1868,6 +2027,29 @@ async function specEnvReview(dir, config, specArg, flags) {
       // Named here so the skill that routes on the verdict does not have to
       // read the config itself — one answer, from the engine that owns it.
       commitWith: config.review.commitWith,
+    }
+
+    // A COMMITTING verdict is what the gate was waiting for, so it clears it —
+    // and only it. `changes` leaves the gate armed deliberately: the work
+    // happens, the page re-renders, and the next verdict is the exit. `discuss`
+    // likewise, including a REFUSED commit, which did not happen and must not
+    // clear an obligation on the strength of having been asked for.
+    if (judged.honoured && COMMITTING.includes(judged.effective)) {
+      const gateRead = readGate(out, spec.folder)
+      if (!gateRead.corrupt) {
+        const result = disarmGate(gateRead.gate, {
+          at: new Date().toISOString(),
+          by: 'verdict',
+          reason: judged.effective,
+        })
+        if (result.logged) {
+          writeGate(out, result.gate)
+          verdictReport.gateCleared = true
+        }
+      }
+      // A corrupt gate is left exactly as it is. It already reads as
+      // cannot-tell everywhere, so it refuses nothing — there is no obligation
+      // to clear, and writing over it would lose the log it holds.
     }
   }
 
@@ -3198,6 +3380,8 @@ async function specEnv(rest) {
     else if (args[i] === '--claim') flags.claim = args[++i]
     else if (args[i] === '--drop') flags.drop = args[++i]
     else if (args[i] === '--json') flags.json = true
+    else if (args[i] === '--check') flags.check = true
+    else if (args[i] === '--phase') flags.phase = args[++i]
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
     else positional.push(args[i])
@@ -3259,6 +3443,24 @@ async function specEnv(rest) {
         await specEnvReviewServe(dir, config, flags)
         break
       }
+      // The gate verbs sit here for the same reason `serve` does: they answer
+      // about the page this command renders, keyed to the same path, and a
+      // sibling verb would have to re-derive every bit of that.
+      if (positional[0] === 'arm') {
+        specEnvReviewArm(dir, config, positional[1], flags)
+        break
+      }
+      if (positional[0] === 'gate') {
+        specEnvReviewGate(dir, config, positional[1], flags)
+        break
+      }
+      if (positional[0] === 'skip') {
+        // The one positional is the REASON, not a spec: the two are
+        // indistinguishable as free text, and the spec is the one thing this
+        // engine can already resolve from where you are standing.
+        specEnvReviewSkip(dir, config, positional[1], flags)
+        break
+      }
       await specEnvReview(dir, config, positional[0], flags)
       break
     case 'live':
@@ -3268,6 +3470,9 @@ async function specEnv(rest) {
       process.stdout.write(
         'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--json] [--record-primary] [--assert-primary-clean]\n' +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
+          '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
+          '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
+          '  review skip "<reason>"                 move on without one, on the record\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +
           '  A bare `live` takes that spec when the workbench is free, and prints the\n' +

@@ -126,7 +126,19 @@ const DEFAULT_CONFIG = Object.freeze({
   // a verdict that records itself and does nothing. A review is the guard in
   // front of an action; recording an approval for SOMEONE ELSE to act on is a
   // different mechanism, not a value of this key.
-  review: Object.freeze({ reader: 'detect', servePort: 7777, serveOnRemote: true, commitWith: '/commit' }),
+  //
+  // `required` decides whether a phase that ended owes a verdict before its
+  // work can be committed or the next phase built. It defaults TRUE: the push
+  // toward reading the diff is the point, and a project that would rather not
+  // be pushed says so once. It is the only key anything reads to decide
+  // whether the gate refuses, so turning it off turns off the hook with it.
+  review: Object.freeze({
+    reader: 'detect',
+    servePort: 7777,
+    serveOnRemote: true,
+    commitWith: '/commit',
+    required: true,
+  }),
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
@@ -338,6 +350,10 @@ function mergeConfig(base, parsed) {
     // here. There is nothing it could mean instead: the hand-off has no off
     // switch, so a blank value is a typo rather than an instruction.
     assign(base.review, parsed.review, 'commitWith', 'string')
+    // Same shape as `serveOnRemote`, and for a sharper reason: a non-boolean
+    // leaves the gate ON. Turning off a check that refuses must be something
+    // someone WROTE, never something a typo achieved on their behalf.
+    assign(base.review, parsed.review, 'required', 'boolean')
   }
 
   if (isObject(parsed.spec) && Array.isArray(parsed.spec.companionPaths)) {

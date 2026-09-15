@@ -274,11 +274,24 @@ no live `env.config.json` was found.
   // review page must not offer — a review is the guard in front of an action.
   // Recording an approval for SOMEONE ELSE to act on is a separate mechanism,
   // not a value of this key. Default: "/commit".
+  //
+  // `required` decides whether a phase that has ended owes a verdict before its
+  // work is committed or the next phase is built. The gate is armed when a
+  // phase's page is rendered and cleared by exactly two things: a COMMITTING
+  // verdict, or `spec-env review skip "<reason>"` — allowed, and on the record,
+  // which is the whole difference between skipping and drifting.
+  //   true   — the default. A review is the normal exit from a phase.
+  //   false  — nothing is ever owed; `review gate` answers "cannot tell" and
+  //            the commit hook (if installed) defers to it, so this one key
+  //            turns the whole thing off.
+  // Only a literal `false` opts out: a typo leaves a check that REFUSES in
+  // place rather than quietly disabling it. Default: true.
   "review": {
     "reader": "detect",
     "servePort": 7777,
     "serveOnRemote": true,
-    "commitWith": "/commit"
+    "commitWith": "/commit",
+    "required": true
   }
 }
 ```

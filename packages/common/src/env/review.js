@@ -705,6 +705,139 @@ function claimPending(pending, code) {
   return { pass, pending: { ...pending, passes: rest }, count: rest.length }
 }
 
+/* ==========================================================================
+ * The gate — a standing obligation to review, not a message in flight
+ *
+ * A pending pass is something someone SENT. The gate is something the repo
+ * OWES: a phase ended, its page was rendered, and nobody has said what they
+ * concluded yet. Kept in its own sidecar for exactly that reason — claiming a
+ * pass consumes the pass, while only a COMMITTING verdict or a recorded skip
+ * consumes the gate, and one file holding both states would have to encode
+ * that difference anyway.
+ *
+ * It is the one thing in this engine that refuses. The marks still gate
+ * nothing and nothing counts them — what this asserts is narrower: a phase
+ * that ended is not finished until a person said something about it.
+ * ========================================================================== */
+
+const GATE_VERSION = 1
+
+// How a disarm happened. `verdict` is a review that reached a committing
+// conclusion; `skip` is the operator saying, on the record, that they are
+// moving on without one.
+const DISARMED_BY = ['verdict', 'skip']
+
+function reviewGatePath(outPath) {
+  return outPath.replace(/\.html$/, '') + '.gate.json'
+}
+
+function emptyGate(specFolder) {
+  return { version: GATE_VERSION, spec: specFolder, armed: false, armedAt: null, phase: null, log: [] }
+}
+
+/**
+ * Read the gate sidecar. Never throws, and reports `corrupt` rather than
+ * hiding it — the same three states `readNotes` answers in, for the same
+ * reason. Here the third state is load-bearing in the other direction: a gate
+ * we cannot parse must never READ AS ARMED, because that would refuse a commit
+ * on the strength of a file nobody can interpret.
+ */
+function readGate(outPath, specFolder) {
+  let raw
+  try {
+    raw = fs.readFileSync(reviewGatePath(outPath), 'utf8')
+  } catch {
+    // Absent is the ordinary state — a project that never ends a phase through
+    // the review path has no gate file at all.
+    return { gate: emptyGate(specFolder), corrupt: false, present: false }
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    return {
+      gate: {
+        version: parsed.version,
+        spec: parsed.spec || specFolder,
+        armed: parsed.armed === true,
+        armedAt: parsed.armedAt || null,
+        phase: parsed.phase === undefined ? null : parsed.phase,
+        log: Array.isArray(parsed.log) ? parsed.log : [],
+      },
+      corrupt: false,
+      present: true,
+    }
+  } catch {
+    return { gate: emptyGate(specFolder), corrupt: true, present: true }
+  }
+}
+
+function writeGate(outPath, gate) {
+  const p = reviewGatePath(outPath)
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(gate, null, 2) + '\n')
+  return p
+}
+
+/**
+ * Arm the gate. Pure.
+ *
+ * IDEMPOTENT ON PURPOSE. Re-rendering a page for a phase already awaiting a
+ * verdict must not move `armedAt` — the timestamp answers "how long has this
+ * been waiting", and a render is not an event that resets that. A gate armed
+ * for a DIFFERENT phase is re-armed, because that is a new obligation.
+ */
+function armGate(gate, { at, phase = null }) {
+  if (gate.armed && gate.phase === phase) return gate
+  return { ...gate, armed: true, armedAt: at, phase }
+}
+
+/**
+ * Disarm it, and say how. Pure.
+ *
+ * The log is append-only and nothing reads it back to decide anything — it is
+ * the record that a decision was taken, which is the whole value of a skip
+ * over a silence. Disarming an already-clear gate logs nothing: there was no
+ * obligation, so there is no outcome to record.
+ */
+function disarmGate(gate, { at, by, reason = null }) {
+  if (!gate.armed) return { gate, logged: false }
+  const log = Array.isArray(gate.log) ? gate.log.slice() : []
+  log.push({ by, at, phase: gate.phase === undefined ? null : gate.phase, reason })
+  return { gate: { ...gate, armed: false, armedAt: null, phase: null, log }, logged: true }
+}
+
+/**
+ * What the gate says, in three states. Pure.
+ *
+ * `armed` is the only one that refuses, and it is reached only by a POSITIVE
+ * signal: a sidecar that is present, parseable, and says so
+ * (`.claude/rules/negative-checks.md` rule 1). Everything else routes to the
+ * harmless branch (rule 4) under its own name:
+ *
+ * - `clear` — read it, nothing is owed.
+ * - `unknown` — could not read it, or the project turned the gate off. Nothing
+ *   is claimed and nothing refuses.
+ *
+ * WHAT WOULD FOOL THIS: a gate armed for a phase whose work has since been
+ * committed by hand still reads armed, so the refusal outlives the thing it
+ * was guarding. That is deliberate — the exit is one `skip` with a reason,
+ * which is precisely the decision this exists to put on the record — and it
+ * fails toward asking rather than toward letting a phase through unread.
+ */
+function gateState({ gate, corrupt, present, required }) {
+  if (required === false) return { state: 'unknown', reason: 'review.required is false', gate }
+  if (corrupt) return { state: 'unknown', reason: 'the gate sidecar is not readable JSON', gate }
+  if (!present) return { state: 'clear', reason: 'no gate recorded', gate }
+  if (gate.version !== GATE_VERSION) {
+    return {
+      state: 'unknown',
+      reason: `gate version ${JSON.stringify(gate.version)} — this engine reads version ${GATE_VERSION}`,
+      gate,
+    }
+  }
+  if (!gate.armed) return { state: 'clear', reason: 'nothing is awaiting a verdict', gate }
+  return { state: 'armed', reason: 'a phase is awaiting a verdict', gate }
+}
+
 /**
  * Validate a blob from the page, wholesale.
  *
@@ -1292,6 +1425,15 @@ module.exports = {
   describePending,
   pendingAge,
   PENDING_CODE_LENGTH,
+  GATE_VERSION,
+  DISARMED_BY,
+  reviewGatePath,
+  emptyGate,
+  readGate,
+  writeGate,
+  armGate,
+  disarmGate,
+  gateState,
   mergeNotes,
   applyResolutions,
   applyNotes,
