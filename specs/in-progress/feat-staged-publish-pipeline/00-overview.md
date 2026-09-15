@@ -115,7 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Correct the publish metadata, guarded by a test | ⬜ | [01-publish-metadata.md](01-publish-metadata.md) |
+| 1 | Correct the publish metadata, guarded by a test | ✅ | [01-publish-metadata.md](01-publish-metadata.md) |
 | 2 | Raise the Node floor and add ci.yml | ⬜ | [02-ci-and-node-floor.md](02-ci-and-node-floor.md) |
 | 3 | release.yml — OIDC staging on a tag push | ⬜ | [03-release-workflow.md](03-release-workflow.md) |
 | 4 | Approve helper; CI becomes the only publisher | ⬜ | [04-approve-and-handover.md](04-approve-and-handover.md) |
@@ -135,3 +135,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-15 — Spec created.
+- 2026-09-15 — Phase 1: confirmed `build-dist.js` rebuilds only
+  `assets`/`bin`/`src`, so each dist `package.json` is committed and ships as
+  edited — task 4 needed no change to the build.
+- 2026-09-15 — Phase 1: the guard also covers the root manifest and requires
+  `repository.directory` on every workspace package; a private package with no
+  `repository` at all stays unaccused, which is what `packages/linear` and
+  `packages/sync-core` were before this phase.
