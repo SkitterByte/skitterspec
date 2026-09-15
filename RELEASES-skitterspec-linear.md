@@ -5,6 +5,20 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 14.0.0 — 15 Sep 2026
+
+### Review
+- **New** — When a phase is waiting on you, the terminal now says so in a banner you cannot scroll past instead of a row in a table. Sending a verdict closes the review page and tells you what you chose — the same message is there if you come back to it, with the buttons safely shut and the diff one click away.
+- **New** — You can now review from a phone that is nowhere near your machine: the published page takes your verdict directly instead of failing to reach a server it cannot see. One page per spec keeps the same link every time, so there is nothing to tidy up afterwards.
+- **New** — A phase waiting on your verdict now holds against a plain git commit as well as the spec commands, so the review is hard to walk past by accident. It never blocks work on another branch or another spec, and anything it cannot determine lets the commit through.
+- **New** — Finishing a phase now hands you the diff and waits — press a verdict on the page and the work carries on from there, with no command to remember. Reviewing from a phone keeps your ticks between refreshes, and the history line says what actually happened rather than calling every decision a discussion.
+- **New** — A phase that has ended now owes you a verdict before its work is committed, so reading the diff becomes the normal way out of a phase rather than something to remember. Moving on without one is still one command away, and records the reason.
+- **Fixed** — A waiting review now gives you one link — the page you can actually open — instead of two that behave differently. Publishing is kept for when your machine cannot be reached at all.
+- **Fixed** — When a review page is published for reading elsewhere, the report now tells you the verdict needs picking up with /spec-reviewed rather than implying it will be noticed on its own.
+- **Fixed** — A review page drawn from a working copy now says it is an unreleased build instead of reporting a version number that was never released.
+- **Fixed** — A finished review no longer leaves an empty input box under the verdict buttons.
+- **Fixed** — Finishing a review now leaves one clear statement of what you chose, instead of the same fact repeated in four places with a Copy button for a command you were about to type anyway.
+
 ## 13.0.0 — 15 Sep 2026
 
 **Highlights:**
