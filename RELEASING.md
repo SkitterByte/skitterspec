@@ -107,6 +107,38 @@ when.
 The follow-up commands the tool prints still name the tag explicitly, so they
 work either way.
 
+## Release from `main`, not from a spec branch
+
+**Cut release tags on the base branch, or land the branch before tagging.** A
+rebase after tagging leaves the published provenance pointing at commits that are
+no longer in `main`'s history.
+
+It happened on the first real release. `skitterspec@19.0.0` and
+`skitterspec-linear@13.0.0` were tagged on a spec branch, pushed, staged and
+approved — and the branch was then rebased onto a `main` that had moved, which
+replayed every commit at a new sha. The result:
+
+- `main` carries `chore(release): skitterspec@19.0.0` at one sha;
+- the tag, and the attestation npm published, name a different one;
+- that commit is **not an ancestor of `main`**.
+
+Nothing was corrupted. Annotated tags keep their commits alive, so
+`refs/tags/skitterspec@19.0.0` still dereferences to exactly the commit the
+attestation names and verification still succeeds. But two things degrade:
+
+- **Every future `<tag>..HEAD` range is wider than it should be**, because the
+  tag is off the history line — so the changelog and release-note generators scan
+  commits that already shipped. They produced no duplicates that time only
+  because none of the re-scanned commits yielded a note.
+- **`git log main` no longer shows the release commit** the registry was built
+  from, which is the audit trail anyone would reach for first.
+
+**Do not "fix" it by moving the tag.** Re-pointing a release tag at the rebased
+commit makes the attestation's `gitCommit` disagree with what its `ref` resolves
+to, which breaks the one property provenance exists to provide. A published
+attestation is immutable; local history is not, and the mismatch is the cheaper
+of the two.
+
 ## Guards
 
 Before mutating anything, the tool fails closed on:
