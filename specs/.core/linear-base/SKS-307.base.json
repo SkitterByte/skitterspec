@@ -1,0 +1,12 @@
+{
+  "issue": "22b0066c43a2705e72c6fe5fc8ffb3f569783113",
+  "issueFields": {
+    "description": "f76fce008d7a47d95b91ab37a751a84857acd0e2",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833"
+  },
+  "subIssues": {
+    "SKS-308": "5656155bea382a5064ced97850b25e5155ca340f",
+    "SKS-309": "3b73785a4ffb2ee0fef5e8591e133edc3e5251f2"
+  }
+}
