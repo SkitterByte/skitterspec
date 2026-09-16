@@ -224,7 +224,7 @@ function fakeDom(islandText) {
   for (const id of [
     'title', 'sub', 'files', 'tree', 'tree-wrap', 'tree-summary',
     'expand-all', 'collapse-all', 'show-noise', 'noise-label', 'theme', 'review-block',
-    'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-continue',
+    'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-commit-start', 'verdict-continue',
     'verdict-changes', 'verdict-discuss',
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
     'sent-cmd', 'sent-cmd-lead', 'sent-cmd-text', 'sent-cmd-copy', 'cmd-list', 'cmd-lead',
@@ -1252,10 +1252,16 @@ test('stays silent: changes, discuss and unticked files block nothing', () => {
   }
 })
 
-test('the committing pair is named once, so a fifth verdict cannot slip the block', () => {
+test('the committing verdicts are named once, so one cannot slip the block', () => {
   // The same reason the engine keeps a COMMITTING list rather than a second
   // condition: adding a committing verdict means adding it to one place.
-  assert.match(TEMPLATE, /var COMMITTERS = \['commit', 'commit-continue'\]/)
+  //
+  // PINNED LITERALLY, and updated deliberately when `commit-start` was added —
+  // which is the test doing its job. A regex loose enough to accept a new
+  // member without anyone noticing would accept the bug this guards against:
+  // a committing verdict that is not in the list is a committing verdict an
+  // open comment does not block.
+  assert.match(TEMPLATE, /var COMMITTERS = \['commit', 'commit-continue', 'commit-start'\]/)
   assert.match(TEMPLATE, /COMMITTERS\.forEach/)
   // And the old per-button form is gone, not merely unused.
   assert.doesNotMatch(TEMPLATE, /verdictBtns\.approve/)

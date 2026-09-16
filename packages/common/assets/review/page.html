@@ -611,9 +611,11 @@ a.ticket:hover { border-color: var(--accent); }
    enough to read past. No new tokens: `v-commit` and `v-changes` above borrow
    exactly this pair. */
 .cmd-row[data-verdict="commit"],
+.cmd-row[data-verdict="commit-start"],
 .cmd-row[data-verdict="commit-continue"],
 .cmd-row[data-verdict="continue"] { border-left: 3px solid var(--good-fg); }
 .cmd-row[data-verdict="commit"] .cmd-label,
+.cmd-row[data-verdict="commit-start"] .cmd-label,
 .cmd-row[data-verdict="commit-continue"] .cmd-label,
 .cmd-row[data-verdict="continue"] .cmd-label { color: var(--good-fg); }
 .cmd-row[data-verdict="changes"] { border-left: 3px solid var(--flag-fg); }
@@ -758,6 +760,12 @@ a.ticket:hover { border-color: var(--accent); }
              read it, carry on. It is not the removed `none` verdict — that
              recorded itself and did nothing, while this one resumes the run. -->
         <button id="verdict-continue" class="v-continue" type="button" hidden>→ Continue</button>
+        <!-- THE AUTHORING VERDICT, hidden unless the render asked for it. A spec
+             that has just been written has no phase in flight to continue, so
+             "Commit & Continue" is the wrong verb for it: this one commits the
+             spec and puts it IN FLIGHT, which is the `commit && /spec-start`
+             that was typed by hand until now. -->
+        <button id="verdict-commit-start" class="v-commit" type="button" hidden>&#10003; Commit &amp; Start</button>
         <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
         <button id="verdict-discuss" type="button">… Discuss first</button>
         <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
@@ -1440,6 +1448,7 @@ a.ticket:hover { border-color: var(--accent); }
   var verdictBtns = {
     commit: document.getElementById('verdict-commit'),
     'commit-continue': document.getElementById('verdict-commit-continue'),
+    'commit-start': document.getElementById('verdict-commit-start'),
     continue: document.getElementById('verdict-continue'),
     changes: document.getElementById('verdict-changes'),
     discuss: document.getElementById('verdict-discuss'),
@@ -1447,7 +1456,7 @@ a.ticket:hover { border-color: var(--accent); }
   // The committing pair, named once. A fifth verdict that commits is added
   // here, and the shared block below follows for free — the same reason the
   // engine keeps a `COMMITTING` list rather than a second condition.
-  var COMMITTERS = ['commit', 'commit-continue']
+  var COMMITTERS = ['commit', 'commit-continue', 'commit-start']
 
   /*
    * WHICH BUTTONS THIS PAGE OFFERS, and it comes from the render rather than
@@ -1462,7 +1471,14 @@ a.ticket:hover { border-color: var(--accent); }
    * changes.
    */
   var MIDRUN = data.buttons === 'midrun'
-  var OFFERED = MIDRUN ? ['continue', 'changes', 'discuss'] : ['commit', 'commit-continue', 'changes', 'discuss']
+  // ONE TABLE, keyed by the set the engine named. A chain of ternaries is how a
+  // third set becomes a fourth condition somebody forgets to add a button to.
+  var OFFERS = {
+    midrun: ['continue', 'changes', 'discuss'],
+    authoring: ['commit-start', 'commit', 'changes', 'discuss'],
+    committing: ['commit', 'commit-continue', 'changes', 'discuss'],
+  }
+  var OFFERED = OFFERS[data.buttons] || OFFERS.committing
   Object.keys(verdictBtns).forEach(function (key) {
     verdictBtns[key].hidden = OFFERED.indexOf(key) === -1
   })
@@ -1475,6 +1491,7 @@ a.ticket:hover { border-color: var(--accent); }
   var LABELS = {
     commit: '✓ Commit',
     'commit-continue': '✓ Commit & Continue',
+    'commit-start': '✓ Commit & Start',
     continue: '→ Continue',
     changes: '↺ Request changes',
     discuss: '… Discuss first',
@@ -1484,6 +1501,9 @@ a.ticket:hover { border-color: var(--accent); }
     // Says what it will NOT do: a reader must not press this expecting the
     // spec to be finished and landed.
     'commit-continue': 'Commit what you just read, then build the next phase — nothing is landed',
+    // Says what it WILL do, because this is the one verdict that provisions:
+    // a worktree appears and phase 1 starts.
+    'commit-start': 'Commit this spec, then put it in flight and build phase 1',
     // Says what it will NOT do, for the same reason: nothing is committed by
     // this, so the work it resumes is still uncommitted afterwards.
     continue: 'You have read it — carry on with the run; nothing is committed',
@@ -1700,6 +1720,7 @@ a.ticket:hover { border-color: var(--accent); }
     approve: 'committed',
     commit: 'committed',
     'commit-continue': 'committed, then carried on',
+    'commit-start': 'committed, then put in flight',
     continue: 'read it and carried on',
     changes: 'changes requested',
     discuss: 'discussed',
@@ -2534,7 +2555,9 @@ a.ticket:hover { border-color: var(--accent); }
   sep()
   part(data.mode === 'branch'
     ? 'everything since ' + data.base + (data.fellBack ? ' (working tree clean)' : '')
-    : 'uncommitted work')
+    : data.mode === 'docs'
+      ? "the spec's own documents"
+      : 'uncommitted work')
   sep()
   part(t.files + ' file' + (t.files === 1 ? '' : 's'))
   sep()

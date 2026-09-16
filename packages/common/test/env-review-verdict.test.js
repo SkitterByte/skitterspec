@@ -136,7 +136,7 @@ test('an unknown verdict is refused by name rather than read as discuss', () => 
   for (const bad of ['aprove', 'APPROVE', '', 'reject', 3, true, ['commit']]) {
     assert.throws(
       () => parse({ verdict: bad }),
-      /verdict .* is not one of commit, commit-continue, continue, changes, discuss/,
+      /verdict .* is not one of commit, commit-continue, commit-start, continue, changes, discuss/,
       `should refuse ${JSON.stringify(bad)}`,
     )
   }
@@ -522,8 +522,15 @@ test('annotateLastDecision touches only the last entry', () => {
 // review page that did not describe what it does, and a review is the guard in
 // front of an action.
 
-test('the five verdicts are the actions, and an absent one still means discuss', () => {
-  assert.deepStrictEqual(VERDICTS, ['commit', 'commit-continue', 'continue', 'changes', 'discuss'])
+test('the six verdicts are the actions, and an absent one still means discuss', () => {
+  assert.deepStrictEqual(VERDICTS, [
+    'commit',
+    'commit-continue',
+    'commit-start',
+    'continue',
+    'changes',
+    'discuss',
+  ])
   assert.strictEqual(DEFAULT_VERDICT, 'discuss')
   for (const v of VERDICTS) assert.strictEqual(parse({ verdict: v }).verdict, v)
   // Compatibility, not taste: an absent verdict has meant discuss since
@@ -562,12 +569,14 @@ test('a stored or sent `approve` reads as `commit` everywhere it can appear', ()
   assert.ok(appendDecision(emptyNotes('feat-alpha'), { verdict: 'commit', at: 'T' }).decisions.length)
 })
 
-// ONE LIST, ONE REFUSAL. A fourth verdict must not become a way around the
+// ONE LIST, ONE REFUSAL. A further verdict must not become a way around the
 // single block this engine makes — adding a committing verdict means adding it
-// to `COMMITTING`, and the block follows for free.
-test('both committing verdicts are blocked by the same open comment', () => {
+// to `COMMITTING`, and the block follows for free. The loop below is what makes
+// that free: `commit-start` was added to the list and got its block with no
+// test written for it.
+test('every committing verdict is blocked by the same open comment', () => {
   const { COMMITTING } = require('../src/env/review.js')
-  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue'])
+  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue', 'commit-start'])
 
   const notes = mergeNotes(
     emptyNotes('feat-alpha'),

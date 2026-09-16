@@ -198,8 +198,9 @@ test('a six-digit code is its own argument shape, and the four cannot collide', 
   assert.match(SKILL, /a \*\*tracker id\*\* carries a letter and a hyphen/i)
   assert.match(SKILL, /the parse needs no flag/i)
   // The verdict shape is a CLOSED list, and the skill names it in full — a
-  // shape defined by "one of these five" only works if the five are written
-  // down where the reader of the skill can see them.
+  // shape defined by "one of these words" only works if every one of them is
+  // written down where the reader of the skill can see it. Driven off VERDICTS,
+  // so adding one to the engine fails here until the skill names it too.
   for (const v of VERDICTS) {
     assert.ok(SKILL.includes('`' + v + '`'), `${v} is named in the skill`)
   }

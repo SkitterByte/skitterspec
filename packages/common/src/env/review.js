@@ -45,6 +45,24 @@ function isNoise(relPath) {
 }
 
 /**
+ * Is this path one of `folder`'s own spec documents, in any bucket?
+ *
+ * Every bucket, for the same reason `classifyDirtyTree` checks every bucket: a
+ * tree mid-`git mv` is dirty in two of them at once and both halves are the
+ * same spec's.
+ *
+ * It exists because `isNoise` above is exactly wrong for the `docs` mode. That
+ * rule — everything under `specs/` is bookkeeping — is right for a phase's code
+ * diff, where the spec's own checkbox edits are not what anyone came to read.
+ * On a page whose SUBJECT is the spec, applying it folds away every file and
+ * renders a page with nothing open on it.
+ */
+function isSpecDocOf(relPath, folder) {
+  const parts = String(relPath).split('/')
+  return parts.length > 3 && parts[0] === 'specs' && parts[2] === folder
+}
+
+/**
  * A git runner bound to one checkout, returning stdout **untrimmed**.
  *
  * The untrimmed part is load-bearing and is why this does not reuse the CLI's
@@ -234,17 +252,39 @@ function resolveReader(config, env = {}) {
  * `buttons` is the button set the page renders — see `BUTTON_SETS`. It is the
  * caller's declaration about the work, not a reading of the gate.
  */
-function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false, buttons = null }) {
+function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false, buttons = null, only = null, treePath = null }) {
+  // WHICH TREE THE SPEC'S OWN DOCUMENTS ARE READ FROM. Every render but one
+  // reads the spec's worktree, and for those the two are the same path — so
+  // `treePath` left null keeps the existing behaviour exactly. The `docs` mode
+  // has no worktree to read, which is the whole reason it exists.
+  const root = treePath || spec.worktreePath
+
+  // AN EXPLICIT FILE SET, or every changed file. `only` is a whitelist of
+  // repo-relative paths, and it exists because the `docs` mode reads a tree
+  // several sessions write into: rendering everything uncommitted there would
+  // put another spec's documents on this page and then commit them under this
+  // page's verdict. Null — every other caller — filters nothing.
+  const wanted = only ? new Set(only) : null
+  const keep = (f) => !wanted || wanted.has(f.path)
+
+  // WHAT COUNTS AS BOOKKEEPING, and it inverts for the `docs` mode. Everywhere
+  // else the spec's own documents are the bookkeeping beside the code; on a
+  // docs page they are the code, and the companions the project declared (a
+  // tracker snapshot, say) are what belongs folded away.
+  const noiseOf = (p) => (mode === 'docs' ? !isSpecDocOf(p, spec.folder) : isNoise(p))
+
   const files = []
   for (const f of trackedFiles(git, ref)) {
+    if (!keep(f)) continue
     const { patch, whole } = patchFor(git, ref, f, false)
     const { additions, deletions, binary } = numstatFor(git, ref, f, false)
-    files.push({ ...f, additions, deletions, binary, whole, noise: isNoise(f.path), patch })
+    files.push({ ...f, additions, deletions, binary, whole, noise: noiseOf(f.path), patch })
   }
   for (const f of untrackedFiles(git)) {
+    if (!keep(f)) continue
     const { patch, whole } = patchFor(git, ref, f, true)
     const { additions, deletions, binary } = numstatFor(git, ref, f, true)
-    files.push({ ...f, additions, deletions, binary, whole, noise: isNoise(f.path), patch })
+    files.push({ ...f, additions, deletions, binary, whole, noise: noiseOf(f.path), patch })
   }
 
   // Content hashes and the stored review state, folded on before the totals so
@@ -261,7 +301,7 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   // Every bucket, because a page is rendered for specs in `in-progress/` and for
   // finished ones in `complete/` — and the finished one is the case this exists
   // for. `null` when it cannot tell, and the page leaves its button alone.
-  const specDir = spec.worktreePath ? findSpecDirIn(spec.worktreePath, spec.folder) : null
+  const specDir = root ? findSpecDirIn(root, spec.folder) : null
   const phases = specDir ? readPhases(specDir) : null
   // The PR description this page never had: why the change exists, what it
   // touches, and what this phase set out to do.
@@ -280,7 +320,11 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     spec: spec.folder,
     title: spec.folder,
     branch: spec.branch,
-    worktree: spec.worktreePath,
+    // The tree the diff was read from. Identical to the worktree for every
+    // mode but `docs`, where there is no worktree and this is the checkout the
+    // documents actually live in — saying `worktree` there would name a path
+    // that does not exist.
+    worktree: root,
     mode,
     base,
     ref,
@@ -304,6 +348,15 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     // Same rule again: a gate that was never armed and never skipped adds no
     // key at all.
     ...(gateForPage(gate) ? { gate: gateForPage(gate) } : {}),
+    // THE PATHS A COMMITTING VERDICT HERE MUST COMMIT, carried on the payload
+    // so the skill that routes on the verdict never recomputes them. It matters
+    // that they travel with the page rather than being asked for again: a
+    // checkout is shared, so the set of this spec's uncommitted documents can
+    // differ between the render and the verdict — and the reader's conclusion is
+    // about what the page showed them.
+    //
+    // Absent for every other mode, which is what keeps their payloads identical.
+    ...(only ? { docs: { paths: only } } : {}),
     // THE DEFAULT ADDS NO KEY, so a caller that did not ask for a button set —
     // and a caller that asked for the default by name — renders the payload it
     // rendered before this existed. Opting in is the only thing that shows.
@@ -401,7 +454,15 @@ const NOTES_VERSION = 1
  * THE VERDICT NAMES THE ACTION. It was `approve` once, and an approval that
  * only recorded itself is the one thing on a review page that does not describe
  * what happens — a review is the guard in front of an action, so the word is
- * the action: `commit`, `commit-continue`, `changes`, `discuss`.
+ * the action: `commit`, `commit-continue`, `commit-start`, `changes`,
+ * `discuss`.
+ *
+ * `commit-start` is the authoring verdict: commit the spec that was just
+ * written, then put it in flight. It is its own word rather than a
+ * context-dependent reading of `commit-continue` for exactly the reason above —
+ * a verdict that means `/spec-start` on one page and `/spec-next` on another
+ * names neither, and the outcome log would record the same word for two
+ * different actions with no way to tell them apart afterwards.
  *
  * `discuss` is the default because it is the behaviour that existed before any
  * verdict did. So a blob from an older page, or one a reader sent without
@@ -414,7 +475,7 @@ const NOTES_VERSION = 1
  * below and is therefore structurally incapable of clearing an armed gate: a
  * phase that ended still owes a committing verdict or a recorded skip.
  */
-const VERDICTS = ['commit', 'commit-continue', 'continue', 'changes', 'discuss']
+const VERDICTS = ['commit', 'commit-continue', 'commit-start', 'continue', 'changes', 'discuss']
 const DEFAULT_VERDICT = 'discuss'
 
 // The verdicts that COMMIT, and are therefore blocked by an open comment. One
@@ -427,7 +488,7 @@ const DEFAULT_VERDICT = 'discuss'
 // obligation that outlives the turn. A mid-run reader saying "carry on" has
 // answered the offer in front of them and nothing else, so the gate a finished
 // phase armed must survive it untouched.
-const COMMITTING = ['commit', 'commit-continue']
+const COMMITTING = ['commit', 'commit-continue', 'commit-start']
 
 /**
  * Which set of buttons a rendered page shows.
@@ -442,8 +503,13 @@ const COMMITTING = ['commit', 'commit-continue']
  * `committing` is the default, so a caller that says nothing keeps today's page
  * exactly — the key is left off the payload entirely rather than written out as
  * the default, so an unchanged caller renders an unchanged page.
+ *
+ * `authoring` is the set for a spec that has just been written: its committing
+ * pair is `commit-start` and `commit` — put it in flight now, or keep it for
+ * later. `commit-continue` is absent because there is no phase in flight to
+ * continue, and `continue` is absent because the run has nothing left to resume.
  */
-const BUTTON_SETS = ['committing', 'midrun']
+const BUTTON_SETS = ['committing', 'midrun', 'authoring']
 const DEFAULT_BUTTON_SET = 'committing'
 
 /**

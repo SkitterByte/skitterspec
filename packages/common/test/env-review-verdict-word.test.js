@@ -118,7 +118,7 @@ test('an unknown word is refused by name, and writes nothing', async () => {
   const { dir } = scaffold()
   try {
     const out = await review(dir, '--verdict', 'aprove')
-    assert.match(out, /is not one of commit, commit-continue, continue, changes, discuss/)
+    assert.match(out, /is not one of commit, commit-continue, commit-start, continue, changes, discuss/)
     assert.strictEqual(
       fs.existsSync(path.join(dir, '.spec-env', 'reviews', 'feat-alpha.notes.json')),
       false,

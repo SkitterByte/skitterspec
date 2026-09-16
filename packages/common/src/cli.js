@@ -1715,6 +1715,52 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
 }
 
 /**
+ * The tree and the file set behind `review --docs`: this spec's own uncommitted
+ * documents, in the checkout the caller is standing in.
+ *
+ * It is `stage`'s split, reused rather than re-derived — same tree resolution,
+ * same `classifyDirtyTree`. THE `owned` HALF IS WHAT MAKES THIS SAFE TO RENDER:
+ * a checkout is shared by every session standing in it, so the uncommitted tree
+ * routinely holds spec documents this spec has no claim on. Rendering the tree
+ * would put them on this page, and a committing verdict here would then commit
+ * them under this spec's ticket.
+ *
+ * WHAT WOULD FOOL THIS: nothing, for a path outside the spec's folder that the
+ * project declared a companion — those are owned by construction. What it
+ * cannot see is a document belonging to this spec that is already committed:
+ * `dirtyPaths` answers about the uncommitted tree only, so a spec whose files
+ * are all committed renders as nothing to review rather than as its own text.
+ * That is the intended reading — there is no change to review — and it is why
+ * the empty case says so instead of drawing an empty page.
+ *
+ * Three states, never two (`.claude/rules/negative-checks.md` rule 4). A git
+ * that could not be read is `cannot tell`, and must not become an empty file
+ * set: an empty set renders a page saying nothing changed, which is the one
+ * reading that is certainly wrong.
+ *
+ * @returns {{tree: string, owned: string[]}|{error: string}}
+ */
+function resolveSpecDocs(config, spec, invokedFrom) {
+  const git = gitReader(invokedFrom)
+  const tree = git(['rev-parse', '--show-toplevel']) || invokedFrom
+  const paths = dirtyPaths(gitReader(tree))
+  if (paths === null) {
+    return {
+      error:
+        `git could not be read at ${tree}, so ${spec.folder}'s documents were not classified — ` +
+        'nothing rendered. This is not "nothing to review".',
+    }
+  }
+  const { owned } = classifyDirtyTree(spec, paths, config)
+  if (!owned.length) {
+    return {
+      error: `${spec.folder} has no uncommitted documents in ${tree} — nothing to review.`,
+    }
+  }
+  return { tree, owned }
+}
+
+/**
  * Write a self-contained HTML review of a spec's diff.
  *
  * Read entirely through `git -C <worktreePath>` — the caller's shell never moves,
@@ -1732,6 +1778,11 @@ function verdictSaid(v) {
   // thing that will happen to the repo and the reader should see it coming.
   if (v.effective === 'commit') return `committing with ${v.commitWith}`
   if (v.effective === 'commit-continue') return `committing with ${v.commitWith}, then the next phase`
+  // EVERY COMMITTING VERDICT NEEDS A LINE HERE, and the fall-through below is
+  // why: a verdict this function does not know reads as `discuss first`, so a
+  // reader who pressed a green button would be told their review ended in a
+  // conversation. Adding one to `COMMITTING` and not to this list is silent.
+  if (v.effective === 'commit-start') return `committing with ${v.commitWith}, then putting it in flight`
   // Names what it does NOT do, because the reader of a mid-run page has just
   // pressed a green button and must not read it as a commit.
   if (v.effective === 'continue') return 'read — carrying on, nothing committed'
@@ -2019,7 +2070,7 @@ function specEnvReviewSkip(dir, config, reason, flags) {
   )
 }
 
-async function specEnvReview(dir, config, specArg, flags) {
+async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // REFUSED BY NAME, never coerced to the default. A typo'd button set silently
   // rendering the committing page is the same failure the verdict validator
   // refuses for the same reason: a caller asking for the mid-run page and
@@ -2038,21 +2089,38 @@ async function specEnvReview(dir, config, specArg, flags) {
   // of the wrong spec looks exactly like a review of the right one.
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
+  // `--docs` reviews the spec's OWN DOCUMENTS from the tree in hand, and so
+  // never consults a worktree — a spec in `backlog/` has none, which is exactly
+  // the case with no page today.
+  let docs = null
+  if (flags.docs) {
+    docs = resolveSpecDocs(config, spec, invokedFrom)
+    if (docs.error) {
+      process.stdout.write(`spec-env review: ${docs.error}\n`)
+      return
+    }
+  }
+
   // The worktree is what we read; without it there is nothing to say. This is an
   // absence that means something — `git worktree list` is the same source that
   // resolved the path — so it is safe to act on.
-  if (!fs.existsSync(spec.worktreePath)) {
+  //
+  // It names `--docs` because for a spec that has landed or has not yet started,
+  // provisioning a worktree is not what the reader wanted: they wanted to read
+  // the spec.
+  if (!docs && !fs.existsSync(spec.worktreePath)) {
     process.stdout.write(
       `spec-env review: ${spec.folder} has no worktree at ${spec.worktreePath} — ` +
-        'run /spec-start to provision it.\n',
+        'run /spec-start to provision it, or --docs to review the spec itself.\n',
     )
     return
   }
 
-  const git = rawGitReader(spec.worktreePath)
-  const trimmed = gitReader(spec.worktreePath)
+  const readFrom = docs ? docs.tree : spec.worktreePath
+  const git = rawGitReader(readFrom)
+  const trimmed = gitReader(readFrom)
 
-  let mode = 'working'
+  let mode = docs ? 'docs' : 'working'
   let ref = 'HEAD'
   let base = null
 
@@ -2415,7 +2483,18 @@ async function specEnvReview(dir, config, specArg, flags) {
   const gate = gateNow.corrupt ? null : gateNow.gate
 
   const now = new Date().toISOString()
-  let data = collectReview({ spec, git, mode, ref, base, now, notes, gate, buttons })
+  let data = collectReview({
+    spec,
+    git,
+    mode,
+    ref,
+    base,
+    now,
+    notes,
+    gate,
+    buttons,
+    ...(docs ? { only: docs.owned, treePath: docs.tree } : {}),
+  })
 
   // A CLEAN WORKING TREE IS NOT "NOTHING TO REVIEW". It is the state a phase
   // ends in: the page is rendered before the commit, the commit happens
@@ -2431,8 +2510,14 @@ async function specEnvReview(dir, config, specArg, flags) {
   // An explicit `--branch` is never re-interpreted, and a non-empty working tree
   // is never swapped out from under the reader. The swap only ever replaces an
   // empty view, so no information is lost by it.
+  //
+  // `--docs` NEVER FALLS BACK. Its file set is this spec's documents and the
+  // branch range is every file on the branch, so the swap would replace "the
+  // spec you asked for" with "everything this branch changed" — and on the base
+  // branch, where a backlog spec is read, that range is the whole of main. The
+  // empty case is already refused above, so there is nothing here to rescue.
   let fellBack = false
-  if (!flags.branch && data.totals.files === 0) {
+  if (!docs && !flags.branch && data.totals.files === 0) {
     const fallbackBase = reviewBase()
     const mergeBase = trimmed(['merge-base', fallbackBase, 'HEAD'])
     // Cannot tell -> do nothing, exactly as the `--branch` path refuses. No
@@ -2527,10 +2612,16 @@ async function specEnvReview(dir, config, specArg, flags) {
         {
           spec: spec.folder,
           branch: spec.branch,
-          worktree: spec.worktreePath,
+          // The tree the diff was read from — `spec.worktreePath` for every
+          // mode but `docs`, where it would name a path that does not exist.
+          worktree: readFrom,
           mode,
           base,
           fellBack,
+          // The paths a committing verdict on this page must commit, so the
+          // skill that routes on it never recomputes the set the reader saw.
+          // Absent for every other mode, which keeps their output identical.
+          ...(docs ? { docs: { paths: docs.owned } } : {}),
           out,
           publishCopy,
           reader: reader.reader,
@@ -3766,13 +3857,15 @@ async function specEnv(rest) {
     else if (args[i] === '--for-command') flags.forCommand = args[++i]
     else if (args[i] === '--phase') flags.phase = args[++i]
     else if (args[i] === '--record-primary') flags.recordPrimary = true
+    else if (args[i] === '--docs') flags.docs = true
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
     else positional.push(args[i])
   }
   dir = path.resolve(dir)
-  // Where the caller actually is, kept before the re-anchor below. Only `stage`
-  // wants it: every other subcommand asks about the repo, while that one asks
-  // about the tree in front of you, and the two differ inside a worktree.
+  // Where the caller actually is, kept before the re-anchor below. `stage` and
+  // `review --docs` want it: every other subcommand asks about the repo, while
+  // those two ask about the tree in front of you, and the two differ inside a
+  // worktree.
   const invokedFrom = dir
   // Anchor on the primary checkout so every subcommand resolves {repo}, worktree
   // paths, and the registry identically whether run from main or a worktree.
@@ -3870,7 +3963,7 @@ async function specEnv(rest) {
         specEnvReviewSkip(dir, config, positional[1], flags)
         break
       }
-      await specEnvReview(dir, config, positional[0], flags)
+      await specEnvReview(dir, config, positional[0], flags, invokedFrom)
       break
     case 'live':
       await specEnvLive(dir, config, positional)

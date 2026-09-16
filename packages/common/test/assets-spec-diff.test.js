@@ -657,8 +657,15 @@ test('the engine speaks the words the prose routes on', () => {
   // `continue` is in the vocabulary from the engine's side; the `/spec-diff`
   // prose that routes on it lands with the skills, not here.
   const { VERDICTS, COMMITTING } = require('../src/env/review.js')
-  assert.deepStrictEqual(VERDICTS, ['commit', 'commit-continue', 'continue', 'changes', 'discuss'])
-  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue'])
+  assert.deepStrictEqual(VERDICTS, [
+    'commit',
+    'commit-continue',
+    'commit-start',
+    'continue',
+    'changes',
+    'discuss',
+  ])
+  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue', 'commit-start'])
   const { DEFAULT_CONFIG } = require('../src/env/config.js')
   assert.strictEqual(DEFAULT_CONFIG.review.commitWith, '/commit')
 })

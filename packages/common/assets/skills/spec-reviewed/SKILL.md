@@ -71,7 +71,7 @@ never pick from it. See `.claude/rules/spec-planning.md`; do not restate the
 rule here.
 
 **Four argument shapes, and they cannot collide.** A **six-digit code**
-matches `^\d{6}$`; a **verdict** is one of a closed list of five words;
+matches `^\d{6}$`; a **verdict** is one of a closed list of six words;
 a **tracker id** carries a letter and a hyphen;
 a **spec name** is none of them and always carries a lifecycle prefix
 (`feat-`, `bug-`, `hotfix-`), which no verdict does. So the parse needs no flag,
@@ -82,8 +82,9 @@ A **six-digit code** is a pass the operator read off their own page. It says
 invocation does, above, and claim the code *there*. Then go to step 4 — a named
 pass has nothing to disambiguate.
 
-A **verdict word** — `commit`, `commit-continue`, `continue`, `changes`,
-`discuss` — is the conclusion itself, arriving without a pass behind it. It is
+A **verdict word** — `commit`, `commit-continue`, `commit-start`, `continue`,
+`changes`, `discuss` — is the conclusion itself, arriving without a pass behind
+it. It is
 what a **`file://` page** hands over: that page has no server to POST to and no
 store to write to, so it copies a command instead of sending anything, and this
 is the command. Resolve the spec as a bare invocation does, then send the word
