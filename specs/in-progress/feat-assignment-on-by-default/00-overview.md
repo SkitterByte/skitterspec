@@ -130,7 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `none` is a first-class ownership value | ✅ | [01-ownership-none.md](01-ownership-none.md) |
-| 2 | `spec-sync assign` refuses what it cannot push | ⬜ | [02-assign-guard.md](02-assign-guard.md) |
+| 2 | `spec-sync assign` refuses what it cannot push | ✅ | [02-assign-guard.md](02-assign-guard.md) |
 | 3 | Flip the default, invert the setup, write the migration | ⬜ | [03-flip-the-default.md](03-flip-the-default.md) |
 
 ## Open questions
@@ -151,3 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (`ownsField`, in `sync-core`) rather than an inline condition at each of
   the three call sites — `field in fieldOwnership` becomes "always true"
   once phase 3 lands, so three copies would have drifted precisely then.
+- 2026-09-16 — Phase 2: adding the guard turned four existing `cli-assign`
+  tests red — their fixture never owned the field, so they had been asserting
+  the success line over a push that would drop the stamp. The fixture now
+  states its ownership explicitly.

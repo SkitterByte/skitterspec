@@ -478,6 +478,13 @@ function specSyncStamp(dir, config, specArg, flags, out) {
  * the skills that call it) writes the field. A push that resolved identity for
  * itself would quietly re-assign a spec to whoever happened to run it — which is
  * how a teammate pushing someone else's branch would steal their work.
+ *
+ * **And it refuses where the write could not travel.** Two preconditions, for
+ * one reason: an unlinked spec has no issue, and a repo that does not own
+ * `assignee` has no field. In either case the stamp would sit in the file doing
+ * nothing while this command's success line promised `next: push it, so Linear
+ * agrees`. The failure mode being guarded is not a silent skip — it is a true-
+ * sounding sentence, which is worse, because nothing later contradicts it.
  */
 function specSyncAssign(dir, config, specArg, flags, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
@@ -493,6 +500,23 @@ function specSyncAssign(dir, config, specArg, flags, out) {
   // An unlinked spec has no issue to assign. Refusing beats stamping a field
   // that would sit in the file doing nothing until someone noticed.
   if (!identifier) problems.push(`${rel} is not linked to Linear — /spec-push it first`)
+  // AND THE SAME REASONING FOR THE FIELD ITSELF. `toFieldSet` drops a field the
+  // repo does not own, so a stamp written here would never reach the tracker —
+  // while this command's success line says `next: push it, so Linear agrees`.
+  // That is not a silent skip, it is an assertion that is untrue, and the cost
+  // is someone believing a spec is assigned for as long as it takes them to
+  // look. `/spec-claim` already refuses on this; the engine beneath it did not.
+  //
+  // Applies to `--release` too. Nothing it could clear was ever pushed, so
+  // releasing is inert here as well, and one command in this function acting on
+  // a field the repo declares it does not own is the inconsistency that would
+  // teach the next reader the check is optional.
+  if (!ownsField(config, 'assignee')) {
+    problems.push(
+      'this repo does not own the assignee field — set sync.fieldOwnership.assignee ' +
+        `to "push" in ${CONFIG_FILE}`,
+    )
+  }
 
   if (problems.length) {
     out.write(

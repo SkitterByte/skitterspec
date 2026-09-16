@@ -24,11 +24,18 @@ const path = require('node:path')
 const { specSync } = require('../src/cli-sync.js')
 const { CONFIG_FILE } = require('../src/config.js')
 
-function fixtureRepo({ linked = true, assignee = null } = {}) {
+// `owns` is the repo's `sync.fieldOwnership.assignee`. It defaults to owning the
+// field because that is the only state in which this verb does anything — and
+// the fixture SAYING SO is the point: it was previously silent, which meant
+// every test below ran against a repo whose push would have dropped the stamp,
+// and asserted the success line promising otherwise.
+function fixtureRepo({ linked = true, assignee = null, owns = 'push' } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-assign-'))
   const cfg = path.join(dir, CONFIG_FILE)
   fs.mkdirSync(path.dirname(cfg), { recursive: true })
-  fs.writeFileSync(cfg, JSON.stringify({ linear: { teamId: 'T1' } }), 'utf-8')
+  const tracker = { linear: { teamId: 'T1' } }
+  if (owns) tracker.sync = { fieldOwnership: { assignee: owns } }
+  fs.writeFileSync(cfg, JSON.stringify(tracker), 'utf-8')
 
   const folder = path.join(dir, 'specs', 'in-progress', 'feat-owned')
   fs.mkdirSync(folder, { recursive: true })
@@ -156,4 +163,77 @@ test('every refusal says nothing was changed', async () => {
   const dir = fixtureRepo({ linked: false })
   const r = await run(['assign', 'feat-owned', '--to', 'user-1'], dir)
   assert.match(r.out, /nothing was changed/, 'the operator should not have to check')
+})
+
+// --- the field this verb writes has to be one the repo owns -------------------
+//
+// `toFieldSet` drops a field the repo does not own, so a stamp written into a
+// repo that declined `assignee` never reaches the tracker. What made that worth
+// a guard is not the drop — it is that this command then printed
+// `next: push it, so Linear agrees`, which is a true-sounding sentence with
+// nothing downstream to contradict it. `/spec-claim` refused on this already;
+// the engine beneath it did not, and the engine is what a script calls.
+
+test('--to refuses when the repo does not own the assignee field', async () => {
+  const dir = fixtureRepo({ owns: 'none' })
+  const r = await run(['assign', 'feat-owned', '--to', 'user-1', '--name', 'Jane Dev'], dir)
+  assert.equal(r.code, 1)
+  assert.match(r.out, /refusing to write — nothing was changed/)
+  assert.match(r.out, /sync\.fieldOwnership\.assignee/, 'the exit is one config line')
+  assert.ok(!/linear_assignee_id/.test(overview(dir)), 'and nothing was written')
+})
+
+test('a repo that never listed the field refuses the same way', async () => {
+  // Declining and never listing are one state to every other reader, so they
+  // must be one state here too.
+  const dir = fixtureRepo({ owns: null })
+  const r = await run(['assign', 'feat-owned', '--to', 'user-1'], dir)
+  assert.equal(r.code, 1)
+  assert.match(r.out, /sync\.fieldOwnership\.assignee/)
+})
+
+test('--release refuses too, rather than clearing a stamp nothing pushed', async () => {
+  const dir = fixtureRepo({ owns: 'none', assignee: 'user-1' })
+  const r = await run(['assign', 'feat-owned', '--release'], dir)
+  assert.equal(r.code, 1)
+  assert.match(r.out, /sync\.fieldOwnership\.assignee/)
+  assert.match(overview(dir), /linear_assignee_id: "user-1"/, 'the stamp is left where it is')
+})
+
+test('the refusal reads like the others in this verb', async () => {
+  // It joins the existing `problems` list, so an unlinked spec that ALSO does
+  // not own the field reports both reasons at once rather than the first only.
+  const dir = fixtureRepo({ linked: false, owns: 'none' })
+  const r = await run(['assign', 'feat-owned', '--to', 'user-1'], dir)
+  assert.equal(r.code, 1)
+  assert.match(r.out, /not linked to Linear/)
+  assert.match(r.out, /sync\.fieldOwnership\.assignee/)
+})
+
+// --- stays silent ------------------------------------------------------------
+
+test('a repo that owns the field assigns and releases exactly as before', async () => {
+  // The healthy input. This guard must fire at nobody who is using the feature
+  // — and it is the test that fails if the check is written as
+  // `'assignee' in fieldOwnership`, which reads correct and becomes always-true
+  // the moment the field is owned by default.
+  const dir = fixtureRepo()
+  const took = await run(['assign', 'feat-owned', '--to', 'user-1', '--name', 'Jane Dev'], dir)
+  assert.equal(took.code, 0)
+  assert.match(overview(dir), /linear_assignee_id: "user-1"/)
+  assert.match(took.out, /next: push it/)
+
+  const released = await run(['assign', 'feat-owned', '--release'], dir)
+  assert.equal(released.code, 0)
+  assert.ok(!/linear_assignee_id/.test(overview(dir)))
+})
+
+test('"both" owns the field as surely as "push" does', async () => {
+  // The guard asks whether the field is owned, not whether it is owned in one
+  // particular direction. Narrowing it to `=== 'push'` would refuse a config
+  // that is perfectly entitled to write.
+  const dir = fixtureRepo({ owns: 'both' })
+  const r = await run(['assign', 'feat-owned', '--to', 'user-1'], dir)
+  assert.equal(r.code, 0)
+  assert.match(overview(dir), /linear_assignee_id: "user-1"/)
 })

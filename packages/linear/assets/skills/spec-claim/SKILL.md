@@ -1,6 +1,6 @@
 ---
 name: spec-claim
-description: Take ownership of a spec, hand it back, or give it to a teammate — the spec records who is building it and its Linear issue is assigned to them. Opt-in — needs specs/.core/linear.config.json with assignee in sync.fieldOwnership. Use when the user says "/spec-claim", "claim this spec", "take ownership of this", "I'm picking this up", "hand this back", or "assign this spec to someone".
+description: Take ownership of a spec, hand it back, or give it to a teammate — the spec records who is building it and its Linear issue is assigned to them. Opt-in — needs specs/.core/linear.config.json with the repo owning assignee in sync.fieldOwnership. Use when the user says "/spec-claim", "claim this spec", "take ownership of this", "I'm picking this up", "hand this back", or "assign this spec to someone".
 disable-model-invocation: true
 ---
 
@@ -16,9 +16,17 @@ and the push that follows tells Linear. This skill is how that record changes
 after `/spec-start` has set it — a hand-off mid-flight, a spec picked up from
 someone who moved on, or work a lead is distributing.
 
-**Opt-in.** Needs `specs/.core/linear.config.json` *and* `assignee` in its
-`sync.fieldOwnership`. If either is missing, say which one and stop — without the
-field the stamp would sit in the file doing nothing.
+**Opt-in.** Needs `specs/.core/linear.config.json` *and* the repo to **own**
+`assignee` in its `sync.fieldOwnership` — which `"none"` declines as surely as
+omitting it does. If either is missing, say which one and stop: without the field
+the stamp would sit in the file doing nothing.
+
+**The engine refuses this too, and that is the point.** `spec-sync assign` checks
+the same thing and writes nothing, so the rule holds for a script, a chained
+command, and anyone who reached for the CLI directly. This paragraph was the only
+thing enforcing it for long enough that the engine's own success line —
+`next: push it, so Linear agrees` — was printed over a push that would drop the
+field. Prose in one skill is not a guard; it is a guard's documentation.
 
 ## 1. Identify the target spec
 
