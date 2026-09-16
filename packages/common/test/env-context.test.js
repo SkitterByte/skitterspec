@@ -198,3 +198,60 @@ test('stays silent: the counts answer exactly as they did', () => {
   assert.strictEqual(p.hasNextPhase, true)
   drop(dir)
 })
+
+// --- the tracker ticket, read off the overview's frontmatter -----------------
+//
+// The base is tracker-free: this knows nothing about Linear beyond the two key
+// names a provider stamps. The url becomes an `href` on a page served over the
+// network, which is why the scheme is checked here rather than trusted there.
+
+const withFm = (fm) => `---\n${fm}\n---\n\n# Spec\n\n## Problem\n\nSomething.\n`
+
+test('a linked spec yields its ticket id and url', () => {
+  const dir = tmpSpec({
+    '00-overview.md': withFm('linear_identifier: "SKS-285"\nlinear_url: "https://linear.app/x/issue/SKS-285/y"'),
+  })
+  assert.deepStrictEqual(readOverview(dir).ticket, {
+    id: 'SKS-285',
+    url: 'https://linear.app/x/issue/SKS-285/y',
+  })
+  drop(dir)
+})
+
+test('a ticket with no url keeps the id and drops the link', () => {
+  const dir = tmpSpec({ '00-overview.md': withFm('linear_identifier: "SKS-285"') })
+  assert.deepStrictEqual(readOverview(dir).ticket, { id: 'SKS-285', url: null })
+  drop(dir)
+})
+
+test('a non-http url is refused, and the id survives it', () => {
+  // The value comes out of a file someone edits and ends up in an `href`, so
+  // `javascript:` there is script execution on a page served over the network.
+  // Dropping the whole ticket would be the over-correction: the id is still a
+  // true fact about this work.
+  for (const bad of ['javascript:alert(1)', 'data:text/html,<script>', 'file:///etc/passwd', 'JaVaScRiPt:x']) {
+    const dir = tmpSpec({ '00-overview.md': withFm(`linear_identifier: "SKS-1"\nlinear_url: "${bad}"`) })
+    assert.deepStrictEqual(readOverview(dir).ticket, { id: 'SKS-1', url: null }, bad)
+    drop(dir)
+  }
+})
+
+test('a ticket alone is enough to draw a header', () => {
+  // A spec with neither Problem nor Impact used to yield null. It still has a
+  // ticket worth naming in the title, so the ticket counts towards "is there
+  // anything to say".
+  const dir = tmpSpec({ '00-overview.md': '---\nlinear_identifier: "SKS-9"\n---\n\n# Spec\n' })
+  assert.deepStrictEqual(readOverview(dir), { ticket: { id: 'SKS-9', url: null } })
+  drop(dir)
+})
+
+test('STAYS SILENT: an unlinked spec has no ticket key at all', () => {
+  // The ordinary state of a project with no tracker installed, and of any spec
+  // before its first push. It must be indistinguishable from before this
+  // existed, not an empty object the page then has to test for.
+  const dir = tmpSpec({ '00-overview.md': '# Spec\n\n## Problem\n\nSomething.\n' })
+  const ctx = readOverview(dir)
+  assert.strictEqual('ticket' in ctx, false)
+  assert.match(ctx.problem, /Something/, 'and the rest is untouched')
+  drop(dir)
+})

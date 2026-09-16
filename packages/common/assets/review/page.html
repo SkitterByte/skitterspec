@@ -168,25 +168,58 @@ input:focus-visible,
   font-size: .85rem;
   font-weight: 600;
 }
-.tree { padding: 0 .6rem .7rem; font-size: .82rem; }
-.tree ul { list-style: none; margin: 0; padding-left: .8rem; }
-.tree > ul { padding-left: 0; }
-.tree .dir { color: var(--muted); display: block; padding: .1rem 0; }
+/* The tree scrolls SIDEWAYS; names never wrap. A wrapped name turned every
+   long path into three ragged lines, which is what made the sidebar hard to
+   scan. Indentation is per-row padding rather than nested <ul> padding — see
+   renderTree, which explains why the sticky column below depends on it. */
+.tree { padding: 0 0 .7rem; font-size: .82rem; overflow-x: auto; }
+.tree ul { list-style: none; margin: 0; padding: 0; }
+/* max-content makes the list as wide as its widest row, and min-width keeps it
+   filling the sidebar when everything fits. Together they give every row the
+   same width, which is what `.ct` needs. */
+.tree > ul { width: max-content; min-width: 100%; }
+.tree .dir { color: var(--muted); display: block; padding: .1rem .6rem; white-space: nowrap; }
 .tree-file {
   display: flex;
   gap: .4rem;
   width: 100%;
   text-align: left;
-  background: none;
+  /* A COLOUR, not `none`: `.ct` inherits it to mask the name scrolling under
+     it, and inherit re-resolves on hover so the pinned counts follow the row. */
+  background: var(--panel);
   border: 0;
   border-radius: 6px;
-  padding: .15rem .3rem;
+  /* NO horizontal padding, deliberately. A sticky box is clamped by its
+     containing block — this row's content box — so a .6rem side padding gave
+     `.ct` two different resting places: flush to the scrollport while pinned,
+     and .6rem inside it once scrolled to the end, which reads as the counts
+     sliding as you reach the right. The gutters live on `.nm` and `.ct`
+     instead, where they move with the element rather than fencing it in. */
+  padding: .15rem 0;
   color: inherit;
   font-size: .82rem;
 }
 .tree-file:hover { background: var(--panel-2); color: inherit; }
-.tree-file .nm { overflow-wrap: anywhere; }
-.tree-file .ct { margin-left: auto; white-space: nowrap; font-family: ui-monospace, monospace; font-size: .75rem; }
+.tree-file .nm { white-space: nowrap; }
+/* Pinned to the right edge of the tree's scrollport, so the change counts stay
+   readable however far the names are scrolled. Sticky can only pin within its
+   own row, which is why every row spans the full scroll width above. */
+.tree-file .ct {
+  margin-left: auto;
+  position: sticky;
+  right: 0;
+  background: inherit;
+  /* The right gutter is PADDING on the pinned element, not a `right` offset.
+     An offset would hold the box away from the edge and let names scroll
+     visibly through the gap beside it; padding keeps the masking background
+     running to the scrollport edge with the text inset. */
+  padding-left: .55rem;
+  padding-right: .6rem;
+  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, .45);
+  white-space: nowrap;
+  font-family: ui-monospace, monospace;
+  font-size: .75rem;
+}
 .tree-file.is-noise .nm { color: var(--muted); }
 
 .file {
@@ -393,6 +426,13 @@ tr.note-row td {
 /* A button the render did not ask for is GONE, not dimmed — a disabled control
    invites a reader to work out how to enable it, and there is nothing to do. */
 .verdict button[hidden] { display: none; }
+/* AND THE BAR ITSELF. `display: flex` beats the browser's `[hidden]`, so the
+   whole bar stayed on screen on a `file://` page — offering four buttons that
+   POST to a server that is not there, directly above the command list that
+   exists because they cannot. The guard in `assets-review` only read the
+   template for a `hidden` attribute, and this element is hidden at runtime, so
+   it never saw it; the guard reads the script now too. */
+.verdict[hidden] { display: none; }
 /* A blocked control is dashed as well as dimmed, so the block survives a
    greyscale screen — and the reason rides in the label, never in a tooltip
    nobody hovers on a phone. */
@@ -509,6 +549,17 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
 .context-more > summary:hover { color: var(--accent); border-color: var(--accent); }
 .context-more[open] > summary { margin-bottom: .6rem; }
 .context li.done { color: var(--muted); }
+/* The ticket rides ON the title line rather than under it — it is the other
+   name for this work, not a fact about it. Sized down and tinted so the title
+   still reads as the title. */
+.ticket {
+  font-size: .62em; font-weight: 600; vertical-align: middle;
+  font-family: var(--mono, ui-monospace, monospace);
+  color: var(--accent); text-decoration: none;
+  padding: .12em .45em; border: 1px solid var(--line); border-radius: 999px;
+  white-space: nowrap;
+}
+a.ticket:hover { border-color: var(--accent); }
 .context-more > summary { cursor: pointer; color: var(--muted); font-size: .85rem; margin-top: .6rem; }
 .copy-hint { font-size: .8rem; color: var(--muted); margin: .4rem 0 0; }
 .sent-cmd { display: flex; gap: .4rem; align-items: stretch; margin: .4rem 0 0; }
@@ -527,18 +578,53 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   overflow-x: auto; white-space: pre; line-height: 1.6;
 }
 .sent-cmd-copy { white-space: nowrap; }
-.cmd-list { margin: .6rem 0 0; }
+/* ONE GRID FOR THE WHOLE LIST, so the command column starts at the same x on
+   every row. A per-row layout cannot do that: each row would size its own label
+   column to its own label, and `Commit` and `Commit & Continue` are not the
+   same width. The label column is `max-content` — the longest label decides,
+   which is a fact about the labels rather than a rem value someone has to
+   remember to update when one changes. */
+.cmd-list { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; margin: .6rem 0 0; }
 .cmd-list[hidden] { display: none; }
-.cmd-lead { font-size: .85rem; color: var(--muted); margin: 0 0 .5rem; }
+.cmd-lead { grid-column: 1 / -1; font-size: .85rem; color: var(--muted); margin: 0 0 .5rem; }
+/* ONE LINE: label, command, Copy. It was three lines deep — the label on its
+   own row above the command — which spent a screenful on four rows that fit on
+   four lines. */
 .cmd-row {
-  display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
-  padding: .45rem .55rem; margin-bottom: .4rem;
+  display: grid;
+  grid-column: 1 / -1;
+  /* FALLBACK FIRST, then subgrid. A browser without subgrid drops the second
+     declaration and keeps this one, which still gives one line per row — just
+     each sized to itself. Without a fallback the row would fall back to a
+     single auto column and stack, which is worse than the misalignment. */
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-columns: subgrid;
+  gap: .5rem; align-items: center;
+  padding: .4rem .5rem; margin-bottom: .35rem;
   background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
 }
 .cmd-row[hidden] { display: none; }
-.cmd-label { font-weight: 600; font-size: .9rem; flex-basis: 100%; }
+.cmd-label { font-weight: 600; font-size: .85rem; white-space: nowrap; }
+/* A TINTED EDGE, NOT A TINTED BOX. Four filled rows read as four warnings —
+   the colour shouted where it only needed to identify. The left border and the
+   label carry it now, which is enough to recognise the choice by and quiet
+   enough to read past. No new tokens: `v-commit` and `v-changes` above borrow
+   exactly this pair. */
+.cmd-row[data-verdict="commit"],
+.cmd-row[data-verdict="commit-continue"],
+.cmd-row[data-verdict="continue"] { border-left: 3px solid var(--good-fg); }
+.cmd-row[data-verdict="commit"] .cmd-label,
+.cmd-row[data-verdict="commit-continue"] .cmd-label,
+.cmd-row[data-verdict="continue"] .cmd-label { color: var(--good-fg); }
+.cmd-row[data-verdict="changes"] { border-left: 3px solid var(--flag-fg); }
+.cmd-row[data-verdict="changes"] .cmd-label { color: var(--flag-fg); }
+/* Discuss keeps the neutral panel, exactly as its button does — it is the
+   ending that decides nothing, and colouring it would say otherwise. */
 .cmd-text {
-  flex: 1; min-width: 0; font-family: var(--mono, ui-monospace, monospace);
+  /* No `flex` — the list's grid column sizes this now. min-width:0 still
+     earns its place: it is what lets a long command scroll inside its own box
+     instead of widening the column and pushing Copy off the row. */
+  min-width: 0; font-family: var(--mono, ui-monospace, monospace);
   font-size: .85rem; padding: .3rem .45rem; color: var(--fg);
   background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
   /* One tap takes the whole command — see `.sent-cmd-text`. */
@@ -1152,28 +1238,56 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     d.scrollIntoView({ block: 'start' })
   }
 
+  // ONE FLAT LIST, indented by per-row padding rather than by nesting <ul>s.
+  //
+  // That is not a tidy-up: the change counts are `position: sticky; right: 0`,
+  // and a sticky box can only pin within its own row. Nested <ul>s make each
+  // level narrower than its parent, so a deep row ends before the scrollport's
+  // right edge and its counts slide away the moment you scroll sideways. Flat
+  // rows all share the widest row's width, so every one of them has something
+  // to pin to.
+  //
+  // Depth goes on as an inline style because it is data, not a class: the tree
+  // is however deep the diff happens to be, and a rule per level would be a
+  // guess at the maximum.
+  function indent(node, depth, base) {
+    // Rounded, because 3 * 0.8 is 2.4000000000000004 in binary floating point
+    // and that lands verbatim in the attribute. CSS copes; a person reading the
+    // page source does not, and neither does a test asserting the value.
+    var rem = Math.round((base + depth * 0.8) * 100) / 100
+    node.setAttribute('style', 'padding-left:' + rem + 'rem')
+    return node
+  }
+
   function renderTree(node) {
     var ul = el('ul')
-    Object.keys(node.dirs).sort().forEach(function (name) {
-      var li = el('li')
-      li.appendChild(el('span', 'dir', name + '/'))
-      li.appendChild(renderTree(node.dirs[name]))
-      ul.appendChild(li)
-    })
-    node.files.sort(function (a, b) { return a.name.localeCompare(b.name) }).forEach(function (entry) {
-      var li = el('li')
-      var b = el('button', 'tree-file' + (entry.file.noise ? ' is-noise' : ''))
-      b.type = 'button'
-      b.appendChild(el('span', 'nm', entry.name))
-      var ct = el('span', 'ct')
-      ct.appendChild(el('span', 'a', '+' + entry.file.additions))
-      ct.appendChild(document.createTextNode(' '))
-      ct.appendChild(el('span', 'd', '-' + entry.file.deletions))
-      b.appendChild(ct)
-      b.addEventListener('click', function () { reveal(entry.file) })
-      li.appendChild(b)
-      ul.appendChild(li)
-    })
+    ;(function walk(n, depth) {
+      Object.keys(n.dirs).sort().forEach(function (name) {
+        var li = el('li')
+        li.appendChild(indent(el('span', 'dir', name + '/'), depth, 0.6))
+        ul.appendChild(li)
+        // The subtree goes in AFTER its own label and before this level's
+        // files, which is the order the nested form produced.
+        walk(n.dirs[name], depth + 1)
+      })
+      n.files.sort(function (a, b) { return a.name.localeCompare(b.name) }).forEach(function (entry) {
+        var li = el('li')
+        var b = el('button', 'tree-file' + (entry.file.noise ? ' is-noise' : ''))
+        b.type = 'button'
+        // The same .6rem base as a dir label, so a file sits level with the
+        // directory it is in. It is on the name rather than the row because the
+        // row must reach the scrollport edge — see `.tree-file` padding.
+        b.appendChild(indent(el('span', 'nm', entry.name), depth, 0.6))
+        var ct = el('span', 'ct')
+        ct.appendChild(el('span', 'a', '+' + entry.file.additions))
+        ct.appendChild(document.createTextNode(' '))
+        ct.appendChild(el('span', 'd', '-' + entry.file.deletions))
+        b.appendChild(ct)
+        b.addEventListener('click', function () { reveal(entry.file) })
+        li.appendChild(b)
+        ul.appendChild(li)
+      })
+    })(node, 0)
     return ul
   }
 
@@ -1588,9 +1702,16 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
    * and leave someone hunting for a highlight that is not there.
    */
   function selectCommand() {
+    return selectNode(sentCmdText)
+  }
+
+  /**
+   * Put a node's whole text in the reader's selection. Returns whether it took.
+   */
+  function selectNode(node) {
     try {
       var range = document.createRange()
-      range.selectNodeContents(sentCmdText)
+      range.selectNodeContents(node)
       var sel = window.getSelection && window.getSelection()
       if (!sel) return false
       sel.removeAllRanges()
@@ -1601,16 +1722,70 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     }
   }
 
+  /**
+   * Can this browser copy AT ALL — by either route?
+   *
+   * WHAT THIS GOT WRONG, and why the button kept vanishing where it was needed
+   * most: `navigator.clipboard` is **secure-context only**, so it is absent on
+   * every `http://<lan-ip>:7777` page — which is exactly the page someone reads
+   * on a phone. Asking only about that API therefore hid the Copy button in the
+   * one case the button exists for, and left a phone reader long-pressing to
+   * select text on a page that could have copied for them all along.
+   *
+   * `document.execCommand('copy')` is deprecated and universally implemented,
+   * and it works in a non-secure context inside a user gesture. So there are
+   * two routes, and the rule below is unchanged: offer the button only where
+   * one of them exists.
+   */
+  function canCopy() {
+    return Boolean(
+      (navigator.clipboard && navigator.clipboard.writeText) ||
+        (document.execCommand && window.getSelection),
+    )
+  }
+
+  /**
+   * Copy `text`, by whichever route this browser has. Resolves on success and
+   * rejects otherwise, so every caller reports the same three outcomes.
+   *
+   * `node` is what gets left selected when copying fails — the reader can then
+   * do it by hand, which is the behaviour this button replaced rather than
+   * removed.
+   */
+  function copyText(text, node) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text)
+    }
+    return new Promise(function (resolve, reject) {
+      // The selection IS the mechanism here, not a consolation: execCommand
+      // copies what is selected. So it is made first and deliberately left in
+      // place — a failed copy then lands the reader exactly where the old
+      // no-clipboard path did.
+      if (!selectNode(node)) return reject(new Error('no selection'))
+      var ok = false
+      try {
+        ok = document.execCommand('copy')
+      } catch (e) {
+        ok = false
+      }
+      return ok ? resolve() : reject(new Error('execCommand refused'))
+    })
+  }
+
   function showCommand(cmd) {
     sentCmd.hidden = false
     sentCmdText.textContent = cmd
-    var canCopy = Boolean(navigator.clipboard && navigator.clipboard.writeText)
-    sentCmdCopy.hidden = !canCopy
+    var copyable = canCopy()
+    sentCmdCopy.hidden = !copyable
+    sentCmdCopy.textContent = 'Copy'
     // SET HERE, NOT LEFT TO THE MARKUP. The lead says two different things and
     // the box is shown more than once in a page's life, so a line that was only
     // ever correct on first render would go stale the moment either changed.
-    if (canCopy) {
+    if (copyable) {
       sentCmdLead.textContent = 'Run this where Claude is:'
+      // NOT SELECTED when there is a button. Pre-selecting made the line look
+      // like a focused input, which is what it was mistaken for — and it is the
+      // long-press-to-select gesture the button is here to spare a phone reader.
       return
     }
     // Selected where that is possible, and SAID to be selected: a reader who
@@ -1626,7 +1801,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
 
   if (sentCmdCopy) {
     sentCmdCopy.addEventListener('click', function () {
-      navigator.clipboard.writeText(sentCmdText.textContent).then(function () {
+      copyText(sentCmdText.textContent, sentCmdText).then(function () {
         sentCmdCopy.textContent = 'Copied'
       }, function () {
         // The capability was there and the write still failed. Fall back to the
@@ -1662,16 +1837,64 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
       into.appendChild(h)
     }
 
+    /**
+     * THE PHASE COMES FIRST, and the spec's Problem is folded away behind it.
+     *
+     * The open part of this header used to be `Why` — the overview's Problem,
+     * which is about the whole spec. A reader opening a page for phase 3 got
+     * the same paragraph they had already read at phase 1, and had to expand
+     * `More` to reach the only thing that told them what THIS review covers.
+     * The question a review page answers is "what am I looking at", so the
+     * phase answers it, and the background it sits in is one tap away.
+     *
+     * The TASK LIST is open too, deliberately. It is the cheapest statement of
+     * what is and is not in this diff — which matters most half-way through a
+     * phase, where a `/spec-diff` shows three ticked boxes and four empty ones
+     * and the empty ones are the reason the diff looks unfinished.
+     */
+    if (ctx.phase) {
+      head(why, 'Phase ' + ctx.phase.n + (ctx.phase.title ? ' — ' + ctx.phase.title : ''))
+      if (ctx.phase.goal) {
+        var g = document.createElement('p')
+        g.textContent = ctx.phase.goal
+        why.appendChild(g)
+      }
+      if (ctx.phase.tasks && ctx.phase.tasks.length) {
+        var ul = document.createElement('ul')
+        ul.className = 'tasks'
+        ctx.phase.tasks.forEach(function (task) {
+          var li = document.createElement('li')
+          // Done is dimmed rather than struck through: every task is ticked by
+          // the time a phase renders, and a whole list struck through reads as
+          // cancelled work.
+          li.className = task.done ? 'done' : ''
+          li.textContent = (task.done ? '✅ ' : '⬜ ') + task.text
+          ul.appendChild(li)
+        })
+        why.appendChild(ul)
+      }
+    }
+
     if (ctx.problem) {
-      // FIRST PARAGRAPH OPEN, the remainder folded. A phone shows perhaps six
-      // lines before the file list is pushed off-screen, and pushing it off is
-      // the thing this header was built to avoid.
+      // FOLDED, ALL OF IT. With the phase open above, the spec's Problem is
+      // background rather than the answer — and on a phone every line of it is
+      // a line of the file list pushed off-screen, which is the thing this
+      // header was built to avoid. Where there is NO phase (a branch-wide diff,
+      // a spec with no live phase) the first paragraph stays open, because then
+      // it is the only thing the header can say.
       var paras = String(ctx.problem).split(/\n\s*\n/)
-      head(why, 'Why')
-      var lead = document.createElement('p')
-      lead.textContent = paras[0].replace(/\s+/g, ' ').trim()
-      why.appendChild(lead)
-      for (var i = 1; i < paras.length; i++) {
+      var from = 0
+      if (!ctx.phase) {
+        head(why, 'Why')
+        var lead = document.createElement('p')
+        lead.textContent = paras[0].replace(/\s+/g, ' ').trim()
+        why.appendChild(lead)
+        from = 1
+      } else if (paras.length) {
+        head(rest, 'Why')
+        drewRest = true
+      }
+      for (var i = from; i < paras.length; i++) {
         var p = document.createElement('p')
         p.textContent = paras[i].replace(/\s+/g, ' ').trim()
         rest.appendChild(p)
@@ -1705,29 +1928,6 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
         var prose = document.createElement('p')
         prose.textContent = ctx.impact.prose
         rest.appendChild(prose)
-      }
-    }
-
-    if (ctx.phase) {
-      head(rest, 'Phase ' + ctx.phase.n + (ctx.phase.title ? ' — ' + ctx.phase.title : ''))
-      drewRest = true
-      if (ctx.phase.goal) {
-        var g = document.createElement('p')
-        g.textContent = ctx.phase.goal
-        rest.appendChild(g)
-      }
-      if (ctx.phase.tasks && ctx.phase.tasks.length) {
-        var ul = document.createElement('ul')
-        ctx.phase.tasks.forEach(function (t) {
-          var li = document.createElement('li')
-          // Done is dimmed rather than struck through: every task is ticked by
-          // the time a phase renders, and a whole list struck through reads as
-          // cancelled work.
-          li.className = t.done ? 'done' : ''
-          li.textContent = (t.done ? '✅ ' : '⬜ ') + t.text
-          ul.appendChild(li)
-        })
-        rest.appendChild(ul)
       }
     }
 
@@ -1825,7 +2025,13 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
 
   function buildCmdRows() {
     if (!NO_TRANSPORT || !cmdList) return
-    cmdLead.textContent = 'Nothing here can reach Claude, so run one of these where it is:'
+    // WHERE, not just what. "Run one of these where it is" assumed the reader
+    // knew which terminal counts, and there is usually more than one open. The
+    // answer is specific and worth saying: the session that produced this page
+    // is the one holding the review.
+    cmdLead.textContent =
+      'This page has no way to reach Claude. Copy one of these and paste it into the ' +
+      'Claude Code session that produced this review — that is the one waiting for your verdict.'
     // THE SAME LIST THE BAR USES. `OFFERED` already answers which verdicts this
     // render offers — a mid-run page lists Continue and never the committing
     // pair — so deriving the rows from it is what keeps the two from drifting.
@@ -1836,14 +2042,16 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
       var cmd = el('code', 'cmd-text', '/spec-reviewed ' + verdict)
       row.appendChild(label)
       row.appendChild(cmd)
-      // NEVER A BUTTON THAT CANNOT COPY — the same rule `showCommand` follows.
-      // A control that does nothing on tap reads as a broken page, and
-      // `file://` is exactly where the clipboard API is most often withheld.
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      // NEVER A BUTTON THAT CANNOT COPY — the same rule `showCommand` follows,
+      // through the same `canCopy`. A control that does nothing on tap reads as
+      // a broken page; a control that is MISSING where it would have worked
+      // reads as a page that never offered it, which is the failure this shares
+      // its capability check to avoid.
+      if (canCopy()) {
         var copy = el('button', 'cmd-copy', 'Copy')
         copy.setAttribute('type', 'button')
         copy.addEventListener('click', function () {
-          navigator.clipboard.writeText(cmd.textContent).then(function () {
+          copyText(cmd.textContent, cmd).then(function () {
             // COPIED IS DECIDED. The reader has the command; what happens next
             // happens in their terminal, and the page has nothing left to do
             // but say what they chose — with the command repeated, because a
@@ -1851,7 +2059,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
             // record of it.
             markDecided(verdict, cmd.textContent, false)
           }, function () {
-            copy.textContent = selectRow(cmd) ? 'Copy failed — selected' : 'Copy failed'
+            copy.textContent = selectNode(cmd) ? 'Copy failed — selected' : 'Copy failed'
           })
         })
         row.appendChild(copy)
@@ -1859,20 +2067,6 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
       cmdList.appendChild(row)
       cmdRows[verdict] = row
     })
-  }
-
-  function selectRow(node) {
-    try {
-      var range = document.createRange()
-      range.selectNodeContents(node)
-      var sel = window.getSelection && window.getSelection()
-      if (!sel) return false
-      sel.removeAllRanges()
-      sel.addRange(range)
-      return true
-    } catch (e) {
-      return false
-    }
   }
 
   /**
@@ -2114,7 +2308,54 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   })
 
   // --- header --------------------------------------------------------------
-  document.getElementById('title').textContent = data.title
+  var titleEl = document.getElementById('title')
+  titleEl.textContent = data.title
+  /**
+   * The tracker ticket, beside the title and linked where there is a url.
+   *
+   * `href` IS SET ONLY FROM A URL THE ENGINE ALREADY VETTED as http(s) — see
+   * `readTicket`. The value originates in a spec file someone edits, and this
+   * page is served over the network, so a `javascript:` url in an href would be
+   * script execution. An id with no usable url still renders; it just does not
+   * become a link, which is the harmless half of the pair.
+   */
+  ;(function () {
+    var tk = data.context && data.context.ticket
+    if (!tk || !tk.id) return
+    var node
+    if (tk.url) {
+      node = document.createElement('a')
+      node.setAttribute('href', tk.url)
+      node.setAttribute('target', '_blank')
+      node.setAttribute('rel', 'noopener noreferrer')
+    } else {
+      node = document.createElement('span')
+    }
+    node.className = 'ticket'
+    node.textContent = tk.id
+    titleEl.appendChild(document.createTextNode(' '))
+    titleEl.appendChild(node)
+  })()
+
+  /**
+   * An ISO timestamp is a machine's format. The header showed
+   * `2026-09-16T13:53:58.370Z` to a person deciding whether a page was stale,
+   * which is the one question it is there to answer and the hardest way to ask
+   * it. Rendered in the READER's locale and zone, because that is the clock
+   * they are comparing against; the raw value stays as the `title` so nothing
+   * precise is lost, and it survives a browser that throws on either call.
+   */
+  function whenRendered(iso) {
+    try {
+      var d = new Date(iso)
+      if (isNaN(d.getTime())) return iso
+      return d.toLocaleString(undefined, {
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    } catch (e) {
+      return iso
+    }
+  }
   var t = data.totals
   var sub = document.getElementById('sub')
   function part(text, cls) { sub.appendChild(el('span', cls, text)) }
@@ -2131,7 +2372,9 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   part(' ')
   part('-' + t.deletions, 'd')
   sep()
-  part(data.generatedAt)
+  var when = el('span', null, whenRendered(data.generatedAt))
+  when.setAttribute('title', data.generatedAt)
+  sub.appendChild(when)
 })()
 </script>
 </body>

@@ -135,6 +135,13 @@ function queryAll(root, sel, out = []) {
 // using that is not here fails loudly as a TypeError, which is the behaviour we
 // want — a silent stub would let a broken page pass.
 function fakeDom(islandText) {
+  // `execCommand('copy')` copies the SELECTION, so the shim reads back through
+  // the same ranges the page added. Modelling the copy without the selection
+  // would let a page that selects nothing still "copy" in a test.
+  const selectedText = () => {
+    const last = selection.ranges[selection.ranges.length - 1]
+    return last && last.node ? last.node.textContent : ''
+  }
   const make = (tag) => {
     const node = {
       tagName: tag,
@@ -262,6 +269,18 @@ function fakeDom(islandText) {
   const document = {
     documentElement: make('html'),
     createElement: make,
+    // `execCommand('copy')` is the page's PLAIN-HTTP copy route, so the shim has
+    // to model it as a real capability that can be present, absent, or present
+    // and refusing — the three states a browser actually offers. `_exec` is what
+    // a test sets; `_execCopied` records what it was asked to copy.
+    _exec: () => true,
+    _execCopied: [],
+    execCommand(cmd) {
+      if (cmd !== 'copy') return false
+      const ok = document._exec()
+      if (ok) document._execCopied.push(selectedText())
+      return ok
+    },
     createRange: () => ({ node: null, selectNodeContents(n) { this.node = n } }),
     createTextNode: (t) => ({ nodeValue: String(t), childNodes: [] }),
     getElementById: (id) => byId[id] || null,
@@ -303,7 +322,7 @@ function fakeDom(islandText) {
   return { document, window, byId, store, selection }
 }
 
-function runPage(data, { checks = [], failStorage = false, clipboard = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false } = {}) {
+function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
@@ -313,6 +332,10 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true, pro
   if (storage) dom.window.localStorage = storage
   if (failStorage) dom.window.localStorage._fail = true
   if (noSelection) dom.window.getSelection = () => null
+  // Three states for the fallback route, matching what browsers really do:
+  // present and working, present and refusing, and absent altogether.
+  if (execCopy === false) dom.document.execCommand = undefined
+  else if (execCopy === 'refuse') dom.document._exec = () => false
   // The review block is spliced in as MARKUP, which the shim cannot parse — so
   // a test that wants checks hands them over already built.
   for (const c of checks) {
@@ -999,28 +1022,58 @@ test('with a clipboard, Copy is offered and puts the command on it verbatim', as
   assert.match(btn.textContent, /Copied/)
 })
 
-// The ordinary case on a LAN-served page: `navigator.clipboard` is
-// secure-context-only and `http://<lan-ip>:7777` is not a secure context.
-test('with no clipboard the command is shown and selected, and says so', async () => {
+// THE CASE THE BUTTON EXISTS FOR, and the one it used to be missing from.
+// `navigator.clipboard` is secure-context-only, so it is absent on every
+// `http://<lan-ip>:7777` page — which is the page someone reads on a phone.
+// Gating the button on that API alone hid it exactly there, and left a phone
+// reader long-pressing to select text the page could have copied for them.
+// `document.execCommand('copy')` has no such restriction.
+test('a LAN-served page with no clipboard API still offers Copy, and it works', async () => {
   const dom = runPage(marked(), { protocol: 'http:', clipboard: false, fetchWith: polling(['waiting']).fetchWith })
   pressed(dom, 'commit')
   await drained()
-  assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
-  assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
-  // A reader who sees nothing happen cannot tell a page that did the work from
-  // one that did nothing, so the selection is announced rather than silent —
-  // on the box's own lead line, which is beside it. It was appended to the
-  // footer hint, which is now half a page away from the thing it described.
-  assert.match(dom.byId['sent-cmd-lead'].textContent, /selected/i)
+  const btn = dom.byId['sent-cmd-copy']
+  assert.strictEqual(btn.hidden, false, 'the button is there without a clipboard API')
+  btn.dispatch('click')
+  await drained()
+  assert.deepStrictEqual(dom.document._execCopied, ['/spec-reviewed 418207'], 'verbatim, code included')
+  assert.match(btn.textContent, /Copied/)
 })
 
-// NEVER A BUTTON THAT CANNOT COPY. Decided from the capability, not from trying
-// and failing — a control that does nothing on tap reads as a broken page.
-test('no Copy control appears when the clipboard API is absent', async () => {
-  const dom = runPage(marked(), { protocol: 'http:', clipboard: false })
+test('with a button, the command is NOT pre-selected', async () => {
+  // Pre-selecting is what made the line read as a focused input rather than a
+  // command, and it is the long-press gesture the button is here to spare.
+  const dom = runPage(marked(), { protocol: 'http:', clipboard: false, fetchWith: polling(['waiting']).fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+  assert.strictEqual(dom.selection.ranges.length, 0, 'nothing selected before the tap')
+  assert.doesNotMatch(dom.byId['sent-cmd-lead'].textContent, /selected/i)
+})
+
+// NEVER A BUTTON THAT CANNOT COPY — unchanged as a rule; what changed is that
+// the capability is now asked about honestly. Both routes gone is the only
+// state that earns the text-only page.
+test('no Copy control appears when NEITHER copy route exists', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', clipboard: false, execCopy: false })
   pressed(dom, 'commit')
   await settled()
   assert.strictEqual(dom.byId['sent-cmd-copy'].hidden, true)
+  assert.match(dom.byId['sent-cmd-lead'].textContent, /copy it/i, 'and it asks by hand instead')
+})
+
+test('a copy route that REFUSES leaves the command selected, and says so', async () => {
+  // Present-but-refusing is a real browser state, and it is why the selection
+  // is made before execCommand rather than after: the reader is left exactly
+  // where the old no-clipboard page put them, not empty-handed.
+  const dom = runPage(marked(), {
+    protocol: 'http:', clipboard: false, execCopy: 'refuse', fetchWith: polling(['waiting']).fetchWith,
+  })
+  pressed(dom, 'commit')
+  await drained()
+  dom.byId['sent-cmd-copy'].dispatch('click')
+  await drained()
+  assert.match(dom.byId['sent-cmd-copy'].textContent, /Copy failed — selected/)
+  assert.strictEqual(dom.selection.ranges[0].node, dom.byId['sent-cmd-text'])
 })
 
 // A server that answered without a code cannot have its pass addressed, so the
@@ -1316,37 +1369,47 @@ const CONTEXT = {
 }
 const withContext = (over) => marked({ context: { ...CONTEXT, ...over } })
 
-test('the header carries the problem, the impact rows and the live phase', () => {
+test('the header opens on THIS PHASE, not on the whole spec', () => {
+  // The question a review page answers is "what am I looking at". It used to
+  // open on the overview's Problem — the same paragraph at phase 1 and phase 4
+  // — and the only line naming what this review actually covers was folded
+  // away behind `More`.
   const dom = runPage(withContext())
   assert.strictEqual(dom.byId['context'].hidden, false, 'the header is shown')
 
   const why = dom.byId['context-why'].textContent
-  assert.match(why, /The lead paragraph/, 'the problem leads')
+  assert.match(why, /Phase 2 — The report ends in a choice/, 'the phase leads')
+  assert.match(why, /third way to finish a review/, 'with its goal')
+  assert.doesNotMatch(why, /The lead paragraph/, 'and not the spec-wide problem')
+})
 
-  const rest = dom.byId['context-rest'].textContent
-  assert.match(rest, /A second paragraph/, 'the remainder folds away, it is not dropped')
-  assert.match(rest, /collectReview — context/, 'the impact detail is there')
-  assert.match(rest, /Engine/)
-  assert.match(rest, /update/)
-  assert.match(rest, /Phase 2 — The report ends in a choice/)
-  assert.match(rest, /third way to finish a review/, 'the goal')
-  assert.match(rest, /Amend spec-reports\.md/, 'and the tasks')
+test('every task checkbox is open, not folded', () => {
+  // The cheapest statement of what is and is NOT in this diff, which matters
+  // most half-way through a phase: three ticked boxes and four empty ones is
+  // why the diff looks unfinished, and the empty ones say so without asking.
+  const why = runPage(withContext()).byId['context-why'].textContent
+  assert.match(why, /✅ Amend spec-reports\.md/)
+  assert.match(why, /⬜ Offer it from \/spec-diff/)
 })
 
 // A PHONE SHOWS ABOUT SIX LINES before the file list is pushed off-screen, and
 // pushing it off is precisely what this header must not do.
-test('only the lead paragraph is open; the rest is behind a fold', () => {
+test('the spec-wide background is behind the fold, not dropped', () => {
   const dom = runPage(withContext())
   assert.strictEqual(dom.byId['context-more'].hidden, false, 'there is a fold')
+  const rest = dom.byId['context-rest'].textContent
+  assert.match(rest, /The lead paragraph/, 'the problem moved, it did not vanish')
+  assert.match(rest, /A second paragraph/)
+  assert.match(rest, /collectReview — context/, 'and the impact detail is still there')
   assert.doesNotMatch(dom.byId['context-why'].textContent, /A second paragraph/)
-  assert.doesNotMatch(dom.byId['context-why'].textContent, /Phase 2/)
 })
 
-test('a done task reads differently from one still open', () => {
-  const dom = runPage(withContext())
-  const rest = dom.byId['context-rest'].textContent
-  assert.match(rest, /✅ Amend spec-reports\.md/)
-  assert.match(rest, /⬜ Offer it from \/spec-diff/)
+test('with NO phase the problem leads, because nothing else can', () => {
+  // A branch-wide diff, or a spec with no live phase. Three states, and this is
+  // the one where folding the problem away would leave an empty header.
+  const dom = runPage(marked({ context: { problem: 'Lead para.\n\nSecond para.' } }))
+  assert.match(dom.byId['context-why'].textContent, /Lead para/)
+  assert.doesNotMatch(dom.byId['context-why'].textContent, /Second para/)
 })
 
 test('each part is optional — a problem with no impact and no phase still draws', () => {
@@ -1625,6 +1688,36 @@ test('anything the page hides has a [hidden] override where it needs one', () =>
   }
   assert.ok(hides.size > 0, 'the template ships some hidden elements')
 
+  // AND THE ONES THE SCRIPT HIDES. This half is what the comment above always
+  // claimed and the code never did, and the gap is exactly how `.verdict`
+  // shipped without an override: it carries no `hidden` attribute in the markup
+  // — the page hides it at runtime when it has no transport — so the template
+  // scan could not see it, and a `file://` page kept offering four buttons that
+  // POST to a server that is not there, directly above the command list that
+  // exists because they cannot.
+  const script = pageScript()
+  const idOf = new Map()
+  for (const m of script.matchAll(/var\s+(\w+)\s*=\s*document\.getElementById\(\s*'([^']+)'\s*\)/g)) {
+    idOf.set(m[1], m[2])
+  }
+  const hiddenIds = new Set()
+  for (const m of script.matchAll(/(\w+)\.hidden\s*=/g)) {
+    if (idOf.has(m[1])) hiddenIds.add(idOf.get(m[1]))
+  }
+  for (const m of script.matchAll(/document\.getElementById\(\s*'([^']+)'\s*\)\.hidden\s*=/g)) {
+    hiddenIds.add(m[1])
+  }
+  // WHAT THIS STILL CANNOT SEE, named rather than left to be rediscovered: a
+  // node built by `el(...)` and hidden through a local variable has no id to
+  // resolve, so it is out of range. Those are all inside `.cmd-row`/`.tree`,
+  // which carry their own overrides; a new one would not be covered.
+  assert.ok(hiddenIds.size > 0, 'the script really does hide things by id')
+  for (const id of hiddenIds) {
+    const tag = new RegExp(`<[^>]*\\sid="${id}"[^>]*>`).exec(TEMPLATE)
+    const cls = tag && /\bclass="([^"]+)"/.exec(tag[0])
+    if (cls) for (const c of cls[1].split(/\s+/)) hides.add(c)
+  }
+
   const offenders = []
   for (const cls of hides) {
     // Does any rule give this class a display other than none?
@@ -1834,8 +1927,10 @@ test('Copy takes what is on screen, and the clipboardless path selects it', asyn
   const bare = runPage(marked(), { protocol: 'http:', clipboard: false, fetchWith: polling(['waiting']).fetchWith })
   pressed(bare, 'commit')
   await drained()
-  assert.strictEqual(bare.selection.ranges.length, 1, 'the command really was selected')
-  assert.strictEqual(bare.selection.ranges[0].node, bare.byId['sent-cmd-text'])
+  bare.byId['sent-cmd-copy'].dispatch('click')
+  await drained()
+  assert.deepStrictEqual(bare.document._execCopied, ['/spec-reviewed 418207'], 'the same text, the other route')
+  assert.strictEqual(bare.selection.ranges[0].node, bare.byId['sent-cmd-text'], 'which copies the selection')
 })
 
 // Rule 4 again, on a smaller thing: a browser with no selection at all must not
@@ -1843,7 +1938,7 @@ test('Copy takes what is on screen, and the clipboardless path selects it', asyn
 // there is worse off than one who was simply asked to copy.
 test('a page that cannot select says copy it, and never claims it selected', async () => {
   const dom = runPage(marked(), {
-    protocol: 'http:', clipboard: false, fetchWith: polling(['waiting']).fetchWith, noSelection: true,
+    protocol: 'http:', clipboard: false, execCopy: false, fetchWith: polling(['waiting']).fetchWith, noSelection: true,
   })
   pressed(dom, 'commit')
   await drained()
@@ -1916,6 +2011,32 @@ test('a mid-run page lists Continue and never the committing pair', () => {
   assert.strictEqual(rowFor(dom, 'commit'), undefined, 'commit is not a verb for unfinished work')
 })
 
+test('a file:// page with no clipboard API still offers Copy on every row', async () => {
+  // `file://` is where the clipboard API is most often withheld, and this list
+  // is the `file://` page's ONLY way to hand a verdict over — so a missing
+  // button here costs more than it does anywhere else on the page.
+  const dom = runPage(marked(), { protocol: 'file:', clipboard: false })
+  const rows = cmdRows(dom)
+  assert.ok(rows.length > 0, 'the fixture really lists rows')
+  for (const r of rows) assert.ok(r.querySelector('.cmd-copy'), 'every row has a Copy')
+
+  rowFor(dom, 'commit').querySelector('.cmd-copy').dispatch('click')
+  await settled()
+  assert.deepStrictEqual(dom.document._execCopied, ['/spec-reviewed commit'])
+})
+
+test('STAYS SILENT: with neither copy route the rows are text, as before', async () => {
+  // The one state that still earns a row with no button. It is worth pinning
+  // because the fix widened when the button appears, and a widening with no
+  // floor under it would put a dead control on a page that genuinely cannot
+  // copy — which is the rule this change kept rather than removed.
+  const dom = runPage(marked(), { protocol: 'file:', clipboard: false, execCopy: false })
+  for (const r of cmdRows(dom)) {
+    assert.strictEqual(r.querySelector('.cmd-copy'), null)
+    assert.ok(r.querySelector('.cmd-text').textContent.startsWith('/spec-reviewed '), 'the command is still there')
+  }
+})
+
 test('copying a row puts its command on the clipboard and ends the page on it', async () => {
   const dom = runPage(marked(), { protocol: 'file:' })
   rowFor(dom, 'commit-continue').querySelector('.cmd-copy').dispatch('click')
@@ -1974,4 +2095,254 @@ test('stays silent: a published page keeps its verdict bar too', () => {
   const dom = runPage(marked(), { protocol: 'https:', claudeUse: () => Promise.resolve(null) })
   assert.strictEqual(dom.byId.verdict.hidden, false)
   assert.deepStrictEqual(cmdRows(dom), [])
+})
+
+// --- the file tree scrolls sideways, and the counts do not go with it --------
+//
+// Wrapped names turned every long path into three ragged lines. Unwrapping them
+// means the tree scrolls horizontally, and the change counts have to survive
+// that scroll or the column is useless at exactly the moment it is needed.
+//
+// The mechanism is load-bearing and invisible to the DOM shim, which has no CSS
+// and no layout: `.ct` is `position: sticky`, and a sticky box can only pin
+// within its own row. So every row must span the full scroll width — which is
+// what the flat list and `width: max-content` on the list buy. Nest the rows
+// again and the counts slide away on deep paths only, which is the kind of bug
+// that ships. These read the stylesheet for the same reason the [hidden] guard
+// above does.
+
+// A diff of exactly these paths, with everything else the page needs held at
+// its dullest — the tree's SHAPE is what these tests are about.
+function treeFixture(paths) {
+  const base = fixture()
+  return {
+    ...base,
+    totals: { files: paths.length, additions: paths.length, deletions: 0 },
+    files: paths.map((path) => ({
+      path,
+      status: 'modified',
+      additions: 1,
+      deletions: 0,
+      whole: true,
+      noise: false,
+      binary: false,
+      patch: ['--- a/' + path, '+++ b/' + path, '@@ -1,1 +1,1 @@', '-old', '+new'].join('\n'),
+    })),
+  }
+}
+
+const TREE_CSS = () => /<style>([\s\S]*?)<\/style>/.exec(TEMPLATE)[1]
+const rule = (sel) => {
+  const m = new RegExp(`\\${sel}\\s*\\{([^}]*)\\}`).exec(TREE_CSS())
+  return m ? m[1] : ''
+}
+
+test('a file name never wraps', () => {
+  assert.match(rule('.tree-file .nm'), /white-space:\s*nowrap/)
+  assert.ok(!/overflow-wrap:\s*anywhere/.test(rule('.tree-file .nm')), 'wrapping is what this replaced')
+})
+
+test('the tree is what scrolls sideways, not the page', () => {
+  assert.match(rule('.tree'), /overflow-x:\s*auto/)
+  // `.main` keeps its min-width:0 so a wide diff still cannot push the body
+  // sideways — the tree gaining a scroller must not quietly undo that.
+  assert.match(rule('.main'), /min-width:\s*0/)
+})
+
+test('the counts column is pinned to the scrollport', () => {
+  const ct = rule('.tree-file .ct')
+  assert.match(ct, /position:\s*sticky/)
+  assert.match(ct, /right:\s*0/)
+  assert.match(ct, /white-space:\s*nowrap/, 'a wrapped count defeats the fixed column')
+})
+
+test('the counts rest in the same place pinned as they do at the scroll end', () => {
+  // The bug this pins: a sticky box is clamped by its containing block, so a
+  // horizontal padding on the ROW gave `.ct` two resting places — flush to the
+  // scrollport while pinned, and inset by that padding once scrolled fully
+  // right. The counts appeared to slide inwards as you reached the end. The
+  // gutter has to travel with the element, so it is padding on `.ct`.
+  assert.match(rule('.tree-file'), /padding:\s*\.15rem 0\b/, 'no horizontal padding on the row')
+  assert.match(rule('.tree-file .ct'), /padding-right:/, 'the gutter rides on the pinned element')
+  assert.match(rule('.tree-file .ct'), /right:\s*0/, 'and the box itself reaches the edge')
+})
+
+test('the pinned counts have something opaque to sit on', () => {
+  // `background: inherit` and a row background are one mechanism, not two: the
+  // names scroll UNDER `.ct`, so a transparent one shows them through, and
+  // inherit is what makes it follow the row's hover colour instead of going
+  // flat against it.
+  assert.match(rule('.tree-file .ct'), /background:\s*inherit/)
+  assert.ok(
+    !/background:\s*none/.test(rule('.tree-file')),
+    'the row needs a real colour for .ct to inherit',
+  )
+})
+
+test('every row spans the full scroll width, which is what sticky needs', () => {
+  assert.match(rule('.tree > ul'), /width:\s*max-content/)
+  assert.match(rule('.tree > ul'), /min-width:\s*100%/)
+  assert.match(rule('.tree-file'), /width:\s*100%/)
+})
+
+test('the tree is flat, and indentation rides on the rows', () => {
+  // The nested form is what breaks the pin, so this asserts the shape rather
+  // than trusting the comment that explains why.
+  const dom = runPage(treeFixture(['a/b/c/deep.ts', 'top.md']))
+  const list = dom.byId.tree.childNodes.filter((n) => n.tagName === 'ul')
+  assert.strictEqual(list.length, 1, 'one list')
+  assert.ok(
+    list[0].childNodes.every((li) => !li.childNodes.some((c) => c.tagName === 'ul')),
+    'no row contains another list',
+  )
+  const deep = findAll(dom.byId.tree, 'tree-file').find((e) => e.textContent.includes('deep.ts'))
+  const nm = deep.childNodes.find((c) => String(c.className).includes('nm'))
+  assert.strictEqual(nm.getAttribute('style'), 'padding-left:3rem', '3 levels deep, plus the .6rem gutter')
+})
+
+test('STAYS SILENT: a root-level file sits at the gutter, not indented', () => {
+  // The healthy edge. An off-by-one in the walk would push everything in by a
+  // level, and a tree where nothing sits flush reads as merely ugly rather than
+  // wrong — so it is worth pinning the base case. .6rem is the gutter every
+  // row shares, which is also what a depth-0 dir label gets.
+  const dom = runPage(treeFixture(['top.md']))
+  const row = findAll(dom.byId.tree, 'tree-file')[0]
+  const nm = row.childNodes.find((c) => String(c.className).includes('nm'))
+  assert.strictEqual(nm.getAttribute('style'), 'padding-left:0.6rem')
+
+  const dir = findAll(dom.byId.tree, 'dir')[0]
+  assert.strictEqual(dir, undefined, 'a root-level file has no dir label above it')
+})
+
+// --- the file:// command list: one line, the verdict's colours, and a where --
+
+test('the verdict bar is really gone on a page that cannot POST', () => {
+  // The .hidden property was always set correctly; what was missing was the CSS
+  // to honour it, so four buttons that POST to a server that is not there sat
+  // directly above the command list that exists BECAUSE they cannot. A reader
+  // pressing one got nothing and no reason.
+  const css = TREE_CSS()
+  assert.match(css, /\.verdict\[hidden\]\s*\{[^}]*display:\s*none/)
+  const dom = runPage(marked(), { protocol: 'file:' })
+  assert.strictEqual(dom.byId.verdict.hidden, true, 'and the page still sets it')
+})
+
+test('a command row is one line, not a label stacked over a command', () => {
+  // `flex-basis: 100%` on the label is what forced the wrap, and four rows at
+  // three lines each spent a screenful on something that fits in four lines.
+  assert.ok(
+    !/flex-basis:\s*100%/.test(rule('.cmd-label')),
+    'the label must not claim a whole row',
+  )
+  assert.match(rule('.cmd-row'), /display:\s*grid/)
+})
+
+test('the commands line up, because the whole list shares one grid', () => {
+  // THE POINT: a per-row layout sizes each label column to its own label, and
+  // `Commit` and `Commit & Continue` are not the same width — so the commands
+  // started at four different x positions. `max-content` lets the longest label
+  // decide, which is a fact about the labels rather than a rem value someone
+  // has to remember to update when one changes.
+  assert.match(rule('.cmd-list'), /display:\s*grid/)
+  assert.match(rule('.cmd-list'), /grid-template-columns:\s*max-content/)
+  assert.match(rule('.cmd-row'), /grid-template-columns:\s*subgrid/, 'rows share the list\'s columns')
+  assert.match(rule('.cmd-row'), /grid-column:\s*1 \/ -1/, 'and span all of them')
+  // The lead is a grid item too, so it has to be told to span or it would sit
+  // in the label column and squeeze it to the width of a sentence.
+  assert.match(rule('.cmd-lead'), /grid-column:\s*1 \/ -1/)
+})
+
+test('a browser without subgrid still gets one line per row', () => {
+  // Fallback first, then the override: drop the second declaration and the row
+  // still lays itself out. Without the fallback it would fall back to a single
+  // auto column and STACK, which is worse than the misalignment it was fixing.
+  const row = rule('.cmd-row')
+  const cols = row.match(/grid-template-columns:[^;]*/g) || []
+  assert.strictEqual(cols.length, 2, 'two declarations, in that order')
+  assert.match(cols[0], /max-content/, 'the fallback is a real layout')
+  assert.match(cols[1], /subgrid/)
+})
+
+test('each row is marked with the colour its verdict button would have', () => {
+  // These rows STAND IN for the verdict bar, so the choice should be
+  // recognisable without re-reading four labels — but as an EDGE, not a fill.
+  // Four tinted boxes read as four warnings; the colour was shouting where it
+  // only needed to identify.
+  const css = TREE_CSS()
+  const commitRow = /\.cmd-row\[data-verdict="commit"\][^{]*\{([^}]*)\}/.exec(css)
+  assert.ok(commitRow, 'commit is marked')
+  assert.match(commitRow[1], /border-left:[^;]*var\(--good-fg\)/, 'the same pair as .v-commit')
+  assert.ok(!/background/.test(commitRow[1]), 'an edge, not a fill')
+  assert.match(css, /\.cmd-row\[data-verdict="changes"\]\s*\{[^}]*border-left:[^;]*var\(--flag-fg\)/)
+  // No new tokens: every colour used here is one the verdict buttons already
+  // borrow, which is what keeps the two in step through a theme change.
+  const rows = css.match(/\.cmd-row\[data-verdict=[^{]*\{[^}]*\}/g).join('')
+  const colours = rows.match(/#[0-9a-f]{3,8}/gi) || []
+  assert.deepStrictEqual(colours, [], 'no literal colours, only tokens')
+})
+
+test('STAYS SILENT: discuss keeps the neutral panel', () => {
+  // The ending that decides nothing must not be dressed as one that does. It is
+  // the row most likely to be coloured "for consistency", which would be the
+  // page telling a reader something untrue about their options.
+  const css = TREE_CSS()
+  assert.ok(
+    !/\.cmd-row\[data-verdict="discuss"\]/.test(css),
+    'no rule of its own — it inherits the plain .cmd-row',
+  )
+})
+
+test('the lead says WHERE the command has to be pasted', async () => {
+  // "Run one of these where it is" assumed the reader knew which terminal
+  // counts, and there is usually more than one open.
+  const dom = runPage(marked(), { protocol: 'file:' })
+  const lead = dom.byId['cmd-lead'].textContent
+  assert.match(lead, /paste/i, 'it names the action')
+  assert.match(lead, /session that produced this review/i, 'and which session')
+})
+
+// --- the ticket in the title, and a date a person can read -------------------
+
+const ticketNode = (dom) => dom.byId.title.childNodes.find((n) => String(n.className) === 'ticket')
+
+test('a linked spec carries its ticket id in the title, as a link', () => {
+  const dom = runPage(marked({
+    context: { problem: 'x', ticket: { id: 'SKS-285', url: 'https://linear.app/x/issue/SKS-285/y' } },
+  }))
+  const tk = ticketNode(dom)
+  assert.ok(tk, 'the ticket is rendered')
+  assert.strictEqual(tk.tagName, 'a')
+  assert.strictEqual(tk.textContent, 'SKS-285')
+  assert.strictEqual(tk.getAttribute('href'), 'https://linear.app/x/issue/SKS-285/y')
+  assert.strictEqual(tk.getAttribute('rel'), 'noopener noreferrer', 'and it opens safely')
+})
+
+test('an id with no url is still shown, just not as a link', () => {
+  // Half the pair is worth having: the id is how this work is addressed outside
+  // the repo, whether or not the page can reach it.
+  const dom = runPage(marked({ context: { problem: 'x', ticket: { id: 'SKS-285', url: null } } }))
+  const tk = ticketNode(dom)
+  assert.ok(tk)
+  assert.strictEqual(tk.tagName, 'span', 'no href to give it')
+  assert.strictEqual(tk.textContent, 'SKS-285')
+})
+
+test('STAYS SILENT: an unlinked spec shows no ticket at all', () => {
+  // The ordinary state of a project with no tracker installed. An empty pill,
+  // or a link to nowhere, would be the page inventing an address.
+  const dom = runPage(marked({ context: { problem: 'x' } }))
+  assert.strictEqual(ticketNode(dom), undefined)
+  const plain = runPage(marked())
+  assert.strictEqual(ticketNode(plain), undefined, 'and with no context either')
+})
+
+test('the rendered-at time is readable, with the exact value kept on hover', () => {
+  // `2026-09-16T13:53:58.370Z` was shown to a person deciding whether a page
+  // was stale — the one question the header exists to answer, asked in the
+  // hardest possible way. Nothing precise is lost: the ISO string is the title.
+  const dom = runPage(marked())
+  const when = dom.byId.sub.childNodes[dom.byId.sub.childNodes.length - 1]
+  assert.strictEqual(when.getAttribute('title'), '2020-01-01T00:00:00.000Z', 'the exact value survives')
+  assert.doesNotMatch(when.textContent, /T\d\d:\d\d:\d\d/, 'but the ISO shape is gone from the text')
+  assert.match(when.textContent, /2020/, 'and it still says when')
 })

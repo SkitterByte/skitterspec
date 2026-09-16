@@ -167,7 +167,37 @@ function parsePhase(text, name) {
 }
 
 /**
- * The spec's own `## Problem` and `## Impact`, for the page's header.
+ * The tracker ticket a spec is linked to, as `{ id, url }`, or null.
+ *
+ * Read straight out of the overview's frontmatter, where every provider stamps
+ * it. The base is tracker-free, so this knows nothing about Linear beyond the
+ * two key names a provider writes — an unlinked spec, or a project with no
+ * provider installed, simply has neither and gets `null`.
+ *
+ * ONLY http(s) URLS SURVIVE. The value comes out of a file someone edits, and
+ * the page turns it into an `href`; `javascript:` in that position is script
+ * execution on a page served over the network. An id with an unusable url is
+ * still worth having, so the id is kept and the link dropped rather than the
+ * whole ticket.
+ */
+function readTicket(text) {
+  const fm = /^---\n([\s\S]*?)\n---/.exec(text)
+  if (!fm) return null
+  const field = (name) => {
+    const m = new RegExp(`^${name}:\\s*(.*)$`, 'm').exec(fm[1])
+    if (!m) return null
+    const v = m[1].trim().replace(/^["']|["']$/g, '').trim()
+    return v || null
+  }
+  const id = field('linear_identifier')
+  if (!id) return null
+  const url = field('linear_url')
+  return { id, url: url && /^https?:\/\//i.test(url) ? url : null }
+}
+
+/**
+ * The spec's own `## Problem` and `## Impact`, plus its tracker ticket, for the
+ * page's header.
  *
  * WHAT WOULD FOOL THIS: a spec that renames those headings, or a legacy bare
  * `<name>.md` with no overview at all. Both yield `null`, which the caller
@@ -183,10 +213,14 @@ function readOverview(specDir, { overviewFile = '00-overview.md' } = {}) {
   }
   const problem = sectionOf(text, 'Problem') || sectionOf(text, 'Symptom')
   const impact = impactRows(sectionOf(text, 'Impact'))
-  if (!problem && !impact) return null
+  const ticket = readTicket(text)
+  // The ticket counts towards "is there anything to say": a spec linked to a
+  // tracker but carrying neither section still has a header worth drawing.
+  if (!problem && !impact && !ticket) return null
   return {
     ...(problem ? { problem } : {}),
     ...(impact ? { impact } : {}),
+    ...(ticket ? { ticket } : {}),
   }
 }
 
