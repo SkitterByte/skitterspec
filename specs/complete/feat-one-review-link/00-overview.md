@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-one-review-link (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-16)
+> **Status:** Complete (2026-09-16)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -107,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
 | 2026-09-16 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-16 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -134,3 +135,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   would be wrong about a healthy repo, which is why the index omitted them in
   the first place. Three existing assertions moved, each premise having gone
   stale rather than each assertion having been wrong.
+- 2026-09-16 — Completed; all three phases done, 2856 tests green. Deferred to
+  its own spec: the `also:` lines still offer Parallels adapters no phone can
+  reach, which is misleading rather than blocking now the LAN path is proven.
