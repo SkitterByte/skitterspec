@@ -1,0 +1,12 @@
+{
+  "issue": "bcdaa3349775a1fa9a35258f50b71521fadaba39",
+  "issueFields": {
+    "description": "261f58aa8f5fcdfa7c0bb28c747033644dcab538",
+    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
+    "assignee": "46f9da98cdf4bd363761b569600549b081b0ae45"
+  },
+  "subIssues": {
+    "SKS-282": "5fb566b7072be6813e06038b212f20ef7e0e93d3",
+    "SKS-283": "b739111c9e223115e58e23a0a7d7e369dd3e04c7"
+  }
+}

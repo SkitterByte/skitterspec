@@ -518,8 +518,24 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   flex: 1; min-width: 0; font-family: var(--mono, ui-monospace, monospace);
   font-size: .85rem; padding: .35rem .5rem; color: var(--fg);
   background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+  /* One tap takes the whole command — the gesture that still works on a page
+     served over plain http, where the clipboard API is withheld. */
+  user-select: all; -webkit-user-select: all;
+  overflow-x: auto; white-space: pre; line-height: 1.6;
 }
 .sent-cmd-copy { white-space: nowrap; }
+/* AN ACTION, NOT A NOTE. The command reached the reader as a grey line under a
+   bar that had just closed, and it read as a footnote to something finished —
+   so it is now a filled callout inside the decided panel, which is the block a
+   re-opened page shows first. It reuses the add palette rather than minting a
+   green of its own: those three tokens are already defined on bare `:root` and
+   redefined in both theme blocks, which is the property `assets-review` guards. */
+.sent-cmd.act {
+  flex-wrap: wrap; align-items: center; margin-top: .7rem;
+  padding: .55rem .6rem; border-radius: 6px;
+  background: var(--add-bg); border: 1px solid var(--add-mark); color: var(--add-fg);
+}
+.sent-cmd-lead { flex-basis: 100%; font-size: .85rem; font-weight: 600; color: var(--add-fg); }
 /* The claim code is read aloud or copied, so it is set apart from the sentence
    around it rather than buried in it. */
 .copy-hint { user-select: text; }
@@ -554,6 +570,23 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     <section class="decided" id="decided" hidden>
       <p class="decided-what" id="decided-what"></p>
       <p class="decided-note" id="decided-note"></p>
+      <!-- THE ONE THING LEFT TO DO, and it lives HERE rather than under the
+           verdict bar because that is where it was being missed: a grey line
+           below a bar that had just closed, in the type size of a footnote,
+           saying the same words whether it mattered or not. It is shown only
+           where the page has ESTABLISHED that the pass is still sitting there,
+           so when it appears it is always an instruction. -->
+      <p class="sent-cmd act" id="sent-cmd" hidden>
+        <span class="sent-cmd-lead" id="sent-cmd-lead"></span>
+        <!-- PLAIN TEXT, NOT AN INPUT. A readonly field still looks like
+             something to type into, and on a phone tapping it raises the
+             keyboard for a value nobody can change. It is a command to read and
+             copy, so it is marked up as one — `user-select: all` makes a single
+             tap take the whole thing, which is the gesture that works where no
+             clipboard API does. -->
+        <code class="sent-cmd-text" id="sent-cmd-text"></code>
+        <button type="button" class="sent-cmd-copy" id="sent-cmd-copy" hidden>Copy</button>
+      </p>
       <button type="button" class="decided-toggle" id="decided-toggle">Show the diff anyway</button>
     </section>
     <section class="context reviewable" id="context" hidden>
@@ -588,10 +621,6 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
       </div>
       <p class="verdict-log" id="verdict-log" hidden></p>
       <p class="copy-hint" id="copy-hint" hidden></p>
-      <p class="sent-cmd" id="sent-cmd" hidden>
-        <input class="sent-cmd-text" id="sent-cmd-text" readonly aria-label="Command to run">
-        <button type="button" class="sent-cmd-copy" id="sent-cmd-copy" hidden>Copy</button>
-      </p>
       <textarea class="copy-out" id="copy-out" readonly hidden aria-label="Review blob to copy"></textarea>
       <p class="drawn-by" id="drawn-by"></p>
     </footer>
@@ -1289,6 +1318,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   var sentCmd = document.getElementById('sent-cmd')
   var sentCmdText = document.getElementById('sent-cmd-text')
   var sentCmdCopy = document.getElementById('sent-cmd-copy')
+  var sentCmdLead = document.getElementById('sent-cmd-lead')
 
   function pending() {
     var b = buildBlob()
@@ -1404,29 +1434,54 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     // sentence again in smaller type, so it goes.
     verdictLog.hidden = true
 
+    // WHAT THE PAGE ESTABLISHED, replayed — never re-derived. `picked` is the
+    // answer the poll got, and a re-opened tab has no way to ask again for a
+    // pass that is long gone, so it says what it said before rather than
+    // quietly changing its mind a day later.
+    copyHint.hidden = true
+    copyOut.hidden = true
+    if (decided.picked === true) {
+      // NOTHING TO RUN, and so nothing offered. This is the whole point of
+      // asking: the command used to appear here on every single ending, which
+      // taught the reader it was decoration.
+      sentCmd.hidden = true
+      decidedNote.textContent += ' Claude picked this up — there is nothing to run.'
+      return
+    }
     // THE HAND-OFF SURVIVES THE ENDING — but only where there is something
     // worth carrying. A code is six digits to transcribe, and the box and its
     // Copy button exist for exactly that. A bare `/spec-reviewed` is a word the
     // reader is about to type into the terminal they are already sitting in;
     // dressing it as a copyable artefact makes the ending look unfinished.
     if (decided.cmd && /\s/.test(decided.cmd)) {
-      copyHint.hidden = false
-      copyHint.textContent = 'Sent. Run this where Claude is:'
+      decidedNote.textContent += ' It is still waiting to be picked up.'
       showCommand(decided.cmd)
       return
     }
-    copyHint.hidden = true
     sentCmd.hidden = true
-    copyOut.hidden = true
     if (decided.cmd) {
       decidedNote.textContent +=
         ' If Claude was not already waiting, run ' + decided.cmd + ' where it is.'
     }
   }
 
-  /** Record a verdict that was actually delivered, and end the page on it. */
-  function markDecided(verdict, cmd) {
-    decided = { verdict: verdict, at: new Date().toISOString(), cmd: cmd || null }
+  /**
+   * Record a verdict that was actually delivered, and end the page on it.
+   *
+   * `picked` is three-valued and the third value is the useful one: `true` the
+   * engine confirmed somebody claimed this pass, `false` it confirmed nobody
+   * has, and `null` NOTHING COULD BE ESTABLISHED — an older daemon with no
+   * lookup, a poll that never came back, a page that stopped asking. Only
+   * `true` takes the command away, so every way of not knowing leaves it on
+   * screen (`.claude/rules/negative-checks.md` rule 4).
+   */
+  function markDecided(verdict, cmd, picked) {
+    decided = {
+      verdict: verdict,
+      at: new Date().toISOString(),
+      cmd: cmd || null,
+      picked: picked === undefined ? null : picked,
+    }
     save()
     drawDecided()
   }
@@ -1482,29 +1537,61 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
    * here, not an edge one. A Copy button that does nothing when tapped is worse
    * than text that was always text, so the button only exists where it can work.
    */
+  /**
+   * Put the whole command in the reader's selection. Returns whether it worked.
+   *
+   * REPORTED, NOT ASSUMED. It replaces `input.select()`, which the box no longer
+   * has anything to call — and the honest thing to do when a browser withholds
+   * `getSelection` is to stop claiming the text is selected, rather than say so
+   * and leave someone hunting for a highlight that is not there.
+   */
+  function selectCommand() {
+    try {
+      var range = document.createRange()
+      range.selectNodeContents(sentCmdText)
+      var sel = window.getSelection && window.getSelection()
+      if (!sel) return false
+      sel.removeAllRanges()
+      sel.addRange(range)
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
   function showCommand(cmd) {
     sentCmd.hidden = false
-    sentCmdText.value = cmd
+    sentCmdText.textContent = cmd
     var canCopy = Boolean(navigator.clipboard && navigator.clipboard.writeText)
     sentCmdCopy.hidden = !canCopy
-    if (canCopy) return
-    // Selected, and SAID to be selected: a reader who sees nothing happen has
-    // no way to tell a page that did nothing from one that already did the work.
-    sentCmdText.focus()
-    sentCmdText.select()
-    copyHint.textContent = copyHint.textContent + ' (selected — copy it)'
+    // SET HERE, NOT LEFT TO THE MARKUP. The lead says two different things and
+    // the box is shown more than once in a page's life, so a line that was only
+    // ever correct on first render would go stale the moment either changed.
+    if (canCopy) {
+      sentCmdLead.textContent = 'Run this where Claude is:'
+      return
+    }
+    // Selected where that is possible, and SAID to be selected: a reader who
+    // sees nothing happen has no way to tell a page that did nothing from one
+    // that already did the work. The lead carries it now that the box lives in
+    // the decided panel — `copy-hint` is down in the footer with the verdict
+    // bar, and appending to it put the sentence half a page from the thing it
+    // describes.
+    sentCmdLead.textContent = selectCommand()
+      ? 'Run this where Claude is (selected — copy it):'
+      : 'Run this where Claude is — copy it:'
   }
 
   if (sentCmdCopy) {
     sentCmdCopy.addEventListener('click', function () {
-      navigator.clipboard.writeText(sentCmdText.value).then(function () {
+      navigator.clipboard.writeText(sentCmdText.textContent).then(function () {
         sentCmdCopy.textContent = 'Copied'
       }, function () {
         // The capability was there and the write still failed. Fall back to the
-        // same selection the no-clipboard path uses rather than saying nothing.
-        sentCmdText.focus()
-        sentCmdText.select()
-        sentCmdCopy.textContent = 'Copy failed — selected'
+        // same selection the no-clipboard path uses rather than saying nothing —
+        // and if even that is unavailable, say THAT, because a button reading
+        // "selected" over nothing highlighted is worse than an honest failure.
+        sentCmdCopy.textContent = selectCommand() ? 'Copy failed — selected' : 'Copy failed'
       })
     })
   }
@@ -1648,16 +1735,19 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
         // stays, as the thing to CHECK: it is the one part of a waiting pass
         // that tells yours apart from anyone else's.
         if (code) {
-          copyHint.textContent = 'Sent. Run this where Claude is:'
-          showCommand('/spec-reviewed ' + code)
-          markDecided(verdict, '/spec-reviewed ' + code)
+          // SENT, AND NOW ASK WHAT BECAME OF IT. The page used to name the
+          // command here unconditionally — the same sentence whether a session
+          // was waiting to claim the pass or nothing was — because it had no
+          // way to find out. It has one now.
+          markDecided(verdict, '/spec-reviewed ' + code, null)
+          watchPass(code, verdict)
         } else {
           // NO CODE, NO COMMAND. A `/spec-reviewed` with nothing after it still
           // works — it picks up the single waiting pass — but the page cannot
           // claim the server named THIS one, so it does not put words in its
           // mouth. Bare is what the reader is told, because bare is what is true.
           copyHint.textContent = 'Sent — run /spec-reviewed to pick it up.'
-          markDecided(verdict)
+          markDecided(verdict, null, null)
         }
       })
     }, function () {
@@ -1665,6 +1755,67 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
       // back to the clipboard keeps the pass recoverable rather than lost.
       showFallback(json, 'Could not reach the server. Copy this, then paste it to Claude.')
     })
+  }
+
+  // How long to keep asking, and how often. A claim is a file-watch waking a
+  // session that is already sitting there, so the answer normally arrives in
+  // well under a second; these are sized for the case where it does not.
+  var PASS_POLL_MS = 900
+  var PASS_POLL_ROUNDS = 8
+
+  /**
+   * Ask the engine what became of the pass we just sent, and end on the answer.
+   *
+   * THE PAGE STOPPED GUESSING. It used to hand over `/spec-reviewed <code>` on
+   * every successful POST, because it could not tell an auto-claimed pass from
+   * one nobody was listening for — so the reader was told to run a command they
+   * almost never needed, in the same words used when running it was the only
+   * thing that would save their review. Both sentences are now earned.
+   *
+   * ONE ANSWER TAKES THE COMMAND AWAY, and it is the positive one: `claimed`,
+   * which the engine reads off a decision log that NAMES this code. Everything
+   * else — `waiting`, `unknown`, a server that never replied, a body that did
+   * not parse, an older daemon with no lookup, the rounds running out — leaves
+   * the command exactly where it is. A command nobody needed to run costs a
+   * glance; a pass nobody claims costs the review.
+   *
+   * WHAT WOULD FOOL A LOOSER VERSION: treating a failed poll as "probably fine".
+   * The failures that make a poll fail are the same ones that make a claim fail
+   * — the machine sleeping, the daemon restarting, the network going — so the
+   * moment this is least able to see is the moment its answer matters most.
+   */
+  function watchPass(code, verdict) {
+    var rounds = 0
+    // `?pass=` on the page's own path, so the serve token in the URL guards
+    // this exactly as it guards everything else and there is no second address.
+    var url = location.pathname + '?pass=' + encodeURIComponent(code)
+
+    function stop(picked) {
+      markDecided(verdict, '/spec-reviewed ' + code, picked)
+    }
+
+    function ask() {
+      rounds++
+      fetch(url, { method: 'GET', headers: { accept: 'application/json' } }).then(function (res) {
+        if (!res || !res.ok) return again()
+        return res.text().then(function (text) {
+          var state = null
+          try { state = JSON.parse(text).state } catch (e) {}
+          if (state === 'claimed') return stop(true)
+          return again()
+        })
+      }, again)
+    }
+
+    function again() {
+      // Out of rounds is a CANNOT-TELL, not a no. Nobody is obliged to claim a
+      // pass inside seven seconds, and a page that concluded "abandoned" would
+      // be inventing an answer out of its own impatience.
+      if (rounds >= PASS_POLL_ROUNDS) return stop(false)
+      window.setTimeout(ask, PASS_POLL_MS)
+    }
+
+    ask()
   }
 
   /**
@@ -1714,7 +1865,11 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
           // the one thing that is true and actionable.
           copyHint.textContent = 'Sent. Run this where Claude is:'
           showCommand('/spec-reviewed')
-          markDecided(verdict, '/spec-reviewed')
+          // A PUBLISHED PAGE CANNOT ASK. The pass went into the artifact's own
+          // store, which the engine only reads when someone tells it to, so
+          // nothing here could ever come back `true` — and the command is the
+          // whole ending rather than a fallback within it.
+          markDecided(verdict, '/spec-reviewed', null)
         })
     }).then(null, function (err) {
       if (landed) return

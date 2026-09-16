@@ -220,7 +220,7 @@ function fakeDom(islandText) {
     'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-continue',
     'verdict-changes', 'verdict-discuss',
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
-    'sent-cmd', 'sent-cmd-text', 'sent-cmd-copy',
+    'sent-cmd', 'sent-cmd-lead', 'sent-cmd-text', 'sent-cmd-copy',
     'context', 'context-why', 'context-more', 'context-more-summary', 'context-rest',
     'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle', 'drawn-by',
   ]) {
@@ -250,9 +250,15 @@ function fakeDom(islandText) {
   root.appendChild(byId['review-block'])
   root.appendChild(byId.files)
 
+  // A selection, enough for the page's one use of it: the command box has no
+  // `select()` any more, so the fallback goes through a Range — and a shim that
+  // simply lacked `createRange` would send every test down the could-not-select
+  // branch and never touch the one that ships.
+  const selection = { ranges: [], removeAllRanges() { this.ranges = [] }, addRange(r) { this.ranges.push(r) } }
   const document = {
     documentElement: make('html'),
     createElement: make,
+    createRange: () => ({ node: null, selectNodeContents(n) { this.node = n } }),
     createTextNode: (t) => ({ nodeValue: String(t), childNodes: [] }),
     getElementById: (id) => byId[id] || null,
     querySelector: (sel) => queryAll(root, sel)[0] || null,
@@ -274,6 +280,7 @@ function fakeDom(islandText) {
   const store = new Map()
   const window = {
     matchMedia: (q) => ({ matches: /min-width/.test(q) }),
+    getSelection: () => selection,
     // Real enough to prove the autosave round-trips; `_fail` makes it throw the
     // way Safari does on file://, which is the case the page must survive.
     localStorage: {
@@ -289,10 +296,10 @@ function fakeDom(islandText) {
     },
     setTimeout: (fn) => fn(),
   }
-  return { document, window, byId, store }
+  return { document, window, byId, store, selection }
 }
 
-function runPage(data, { checks = [], failStorage = false, clipboard = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null } = {}) {
+function runPage(data, { checks = [], failStorage = false, clipboard = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
@@ -301,6 +308,7 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true, pro
   // modelled — the decision has to outlive the page object, not just the call.
   if (storage) dom.window.localStorage = storage
   if (failStorage) dom.window.localStorage._fail = true
+  if (noSelection) dom.window.getSelection = () => null
   // The review block is spliced in as MARKUP, which the shim cannot parse — so
   // a test that wants checks hands them over already built.
   for (const c of checks) {
@@ -959,16 +967,18 @@ test('a served page posts the pass to its own URL', () => {
 })
 
 test('the command is handed over where the verdict was pressed', async () => {
-  const dom = runPage(marked(), { protocol: 'http:' })
+  // Once the page has ESTABLISHED that nobody picked the pass up. It used to be
+  // handed over on every send, which is what taught the reader to ignore it.
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: polling(['waiting']).fetchWith })
   pressed(dom, 'discuss')
-  await settled()
+  await drained()
   // The code used to be read out for CHECKING, back when the agent went looking
   // for a pass and had to prove which one it had. It is handed over as the whole
   // command now — the reader's next action, not a number to compare.
-  assert.match(dom.byId['copy-hint'].textContent, /Sent/)
+  assert.match(dom.byId['decided-what'].textContent, /You chose/)
   assert.strictEqual(dom.byId['sent-cmd'].hidden, false, 'the command is offered')
-  assert.strictEqual(dom.byId['sent-cmd-text'].value, '/spec-reviewed 418207')
-  assert.doesNotMatch(dom.byId['copy-hint'].textContent, /claim it with/, 'it asks for no transcription')
+  assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
+  assert.doesNotMatch(dom.byId['sent-cmd-lead'].textContent, /claim it with/, 'it asks for no transcription')
 })
 
 // ── Phase 2 of feat-page-hands-you-the-command ───────────────────────────────
@@ -988,14 +998,16 @@ test('with a clipboard, Copy is offered and puts the command on it verbatim', as
 // The ordinary case on a LAN-served page: `navigator.clipboard` is
 // secure-context-only and `http://<lan-ip>:7777` is not a secure context.
 test('with no clipboard the command is shown and selected, and says so', async () => {
-  const dom = runPage(marked(), { protocol: 'http:', clipboard: false })
+  const dom = runPage(marked(), { protocol: 'http:', clipboard: false, fetchWith: polling(['waiting']).fetchWith })
   pressed(dom, 'commit')
-  await settled()
+  await drained()
   assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
-  assert.strictEqual(dom.byId['sent-cmd-text'].value, '/spec-reviewed 418207')
+  assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
   // A reader who sees nothing happen cannot tell a page that did the work from
-  // one that did nothing, so the selection is announced rather than silent.
-  assert.match(dom.byId['copy-hint'].textContent, /selected/i)
+  // one that did nothing, so the selection is announced rather than silent —
+  // on the box's own lead line, which is beside it. It was appended to the
+  // footer hint, which is now half a page away from the thing it described.
+  assert.match(dom.byId['sent-cmd-lead'].textContent, /selected/i)
 })
 
 // NEVER A BUTTON THAT CANNOT COPY. Decided from the capability, not from trying
@@ -1189,17 +1201,17 @@ test('the committing pair is named once, so a fifth verdict cannot slip the bloc
 // Copy that names no command is copy that makes the operator invent one.
 
 test('the sent message names /spec-reviewed', async () => {
-  const dom = runPage(marked(), { protocol: 'http:' })
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: polling(['waiting']).fetchWith })
   pressed(dom, 'commit')
-  await settled()
-  const hint = dom.byId['copy-hint'].textContent
-  const cmd = dom.byId['sent-cmd-text'].value
-  // The command moved OUT of the hint and into a field the reader can copy —
-  // the hint introduces it. Both halves are asserted so neither can vanish.
+  await drained()
+  const lead = dom.byId['sent-cmd-lead'].textContent
+  const cmd = dom.byId['sent-cmd-text'].textContent
+  // The command moved OUT of the sentence and into a field the reader can copy —
+  // the lead introduces it. Both halves are asserted so neither can vanish.
   assert.match(cmd, /\/spec-reviewed/, 'it names the command to type')
   assert.match(cmd, /418207/, 'carrying the code, so the pass is addressed')
-  assert.match(hint, /Run this/, 'and the hint points at it')
-  assert.doesNotMatch(hint, /tell Claude it is waiting/, 'the old arrangement is gone')
+  assert.match(lead, /Run this/, 'and the lead points at it')
+  assert.doesNotMatch(lead, /tell Claude it is waiting/, 'the old arrangement is gone')
 })
 
 // --- the button reasons from the phases (feat-page-knows-the-phase) ---------
@@ -1566,7 +1578,7 @@ test('a code keeps its box, because six digits are worth copying', async () => {
   dom.byId['verdict-commit'].dispatch('click')
   await settle()
   assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
-  assert.strictEqual(dom.byId['sent-cmd-text'].value, '/spec-reviewed 418207')
+  assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
 })
 
 test('a bare command is a sentence, not a copyable artefact', async () => {
@@ -1711,4 +1723,141 @@ test('an unarmed gate does not take the committing buttons away', () => {
   const armed = runPage(marked({ gate: { state: 'armed', phase: 1, armedAt: 'T' }, buttons: 'midrun' }))
   assert.strictEqual(armed.byId['verdict-continue'].hidden, false, 'and an armed one does not force them on')
   assert.strictEqual(armed.byId['verdict-commit'].hidden, true)
+})
+
+// ── bug-page-cannot-tell-if-claimed ──────────────────────────────────────────
+//
+// A successful POST used to end on `Sent. Run this where Claude is:` — the same
+// sentence whether a session was waiting to claim the pass or nothing was. The
+// page cannot know that at send time, so it stopped guessing and started
+// ASKING: it polls its own URL for the code it was given, and says the one
+// thing that is true.
+//
+// WHAT WOULD FOOL THIS: a poll that reads "claimed" from the code being ABSENT.
+// A store that moved, a spec path typo, a corrupt sidecar read as empty — all
+// three are absences, and all three would quietly tell the reader Claude has
+// their pass when nobody has it. So the quiet ending fires on a POSITIVE
+// `claimed`, and every other answer — including one that cannot tell — hands
+// over the command.
+
+// The poll answer, as the server gives it. `settled()` alone is not enough:
+// each poll is a fresh promise chain, so the queue has to drain per round.
+const drained = async (n = 4) => { for (let i = 0; i < n; i++) await settled() }
+
+function polling(states) {
+  const asked = []
+  const queue = states.slice()
+  return {
+    asked,
+    fetchWith: (url, opts) => {
+      if (opts && opts.method === 'POST') {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{"code":"418207"}') })
+      }
+      asked.push(url)
+      const next = queue.length > 1 ? queue.shift() : queue[0]
+      if (next === 'boom') return Promise.reject(new Error('offline'))
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ state: next })) })
+    },
+  }
+}
+
+test('a sent pass is checked, not guessed about', async () => {
+  const p = polling(['waiting'])
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: p.fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+  assert.ok(p.asked.length >= 1, 'the page asked what became of the pass')
+  assert.strictEqual(p.asked[0], '/tok/feat-x?pass=418207', 'its own path, carrying the code it was given')
+})
+
+test('a pass Claude picked up names no command at all', async () => {
+  const p = polling(['claimed'])
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: p.fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, true, 'nothing for the reader to run')
+  assert.match(dom.byId['decided-note'].textContent, /picked (it|this) up/i)
+  assert.doesNotMatch(dom.byId['decided-note'].textContent, /Run this where Claude is/)
+})
+
+test('a pass still sitting there hands over the command, loudly', async () => {
+  const p = polling(['waiting'])
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: p.fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false, 'the command is handed over')
+  assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
+  assert.match(dom.byId['decided-note'].textContent, /still waiting/i, 'and it says why')
+})
+
+// WHERE it sits is a fact about the markup, so it is asserted on the markup.
+// The shim cannot parse the spliced template, so every element it makes is a
+// root — `closest()` would answer `null` for a correctly nested box and for a
+// missing one alike, which is no assertion at all.
+test('the command box lives inside the You chose panel, marked as an action', () => {
+  const decided = /<section class="decided" id="decided"[\s\S]*?<\/section>/.exec(TEMPLATE)
+  assert.ok(decided, 'the decided panel is there')
+  assert.match(decided[0], /id="sent-cmd"/, 'the command box sits in it')
+  assert.match(decided[0], /class="sent-cmd act"/, 'marked as an action, not a note')
+  // And nowhere else: two boxes with one id is a page that hides the wrong one.
+  assert.strictEqual((TEMPLATE.match(/id="sent-cmd"/g) || []).length, 1)
+  // The callout has to be visible in both themes, so it may only use tokens the
+  // bare `:root` defines — the whole-template check guards that, and this one
+  // guards that it is actually filled rather than another grey line.
+  assert.match(TEMPLATE, /\.sent-cmd\.act\s*\{[^}]*background:\s*var\(--add-bg\)/)
+})
+
+// The command is TEXT. A readonly input still reads as a field to type into,
+// and on a phone tapping one raises a keyboard for a value nobody can change.
+test('the command is plain text with a Copy control, not a form field', () => {
+  const box = /<code class="sent-cmd-text" id="sent-cmd-text"><\/code>/.exec(TEMPLATE)
+  assert.ok(box, 'the command is a <code> element, empty until the page fills it')
+  assert.doesNotMatch(TEMPLATE, /<input[^>]*id="sent-cmd-text"/, 'and never an input')
+  // One tap takes the whole command, which is the gesture that still works on a
+  // page served over plain http — where the clipboard API is withheld.
+  assert.match(TEMPLATE, /\.sent-cmd-text\s*\{[^}]*user-select:\s*all/)
+  assert.match(TEMPLATE, /id="sent-cmd-copy"/, 'the Copy control is still there')
+})
+
+test('Copy takes what is on screen, and the clipboardless path selects it', async () => {
+  const withCopy = runPage(marked(), { protocol: 'http:', fetchWith: polling(['waiting']).fetchWith })
+  pressed(withCopy, 'commit')
+  await drained()
+  withCopy.byId['sent-cmd-copy'].dispatch('click')
+  await drained()
+  assert.deepStrictEqual(withCopy.copied, ['/spec-reviewed 418207'], 'the text, verbatim')
+
+  const bare = runPage(marked(), { protocol: 'http:', clipboard: false, fetchWith: polling(['waiting']).fetchWith })
+  pressed(bare, 'commit')
+  await drained()
+  assert.strictEqual(bare.selection.ranges.length, 1, 'the command really was selected')
+  assert.strictEqual(bare.selection.ranges[0].node, bare.byId['sent-cmd-text'])
+})
+
+// Rule 4 again, on a smaller thing: a browser with no selection at all must not
+// be told its text is highlighted. A reader hunting for a highlight that is not
+// there is worse off than one who was simply asked to copy.
+test('a page that cannot select says copy it, and never claims it selected', async () => {
+  const dom = runPage(marked(), {
+    protocol: 'http:', clipboard: false, fetchWith: polling(['waiting']).fetchWith, noSelection: true,
+  })
+  pressed(dom, 'commit')
+  await drained()
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false, 'the command is still handed over')
+  assert.match(dom.byId['sent-cmd-lead'].textContent, /copy it/i)
+  assert.doesNotMatch(dom.byId['sent-cmd-lead'].textContent, /selected/i)
+})
+
+// Rule 4 of `.claude/rules/negative-checks.md`: three states, and the one that
+// cannot tell goes to the harmless branch. A command nobody needs to run costs
+// a glance; a pass nobody claims costs the review.
+test('a poll that cannot tell hands over the command rather than claiming silence', async () => {
+  for (const answer of ['boom', 'unknown', 'nonsense']) {
+    const p = polling([answer])
+    const dom = runPage(marked(), { protocol: 'http:', fetchWith: p.fetchWith })
+    pressed(dom, 'commit')
+    await drained()
+    assert.strictEqual(dom.byId['sent-cmd'].hidden, false, `${answer}: the command survives`)
+    assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
+  }
 })

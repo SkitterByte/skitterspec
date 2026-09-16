@@ -2145,7 +2145,16 @@ async function specEnvReview(dir, config, specArg, flags) {
       // The log is appended only for a verdict that was ACTED ON. A refused
       // approval did not happen, and recording it as history would leave a
       // trail of decisions the repo never took.
-      notes = appendDecision(notes, { verdict: judged.effective, at: new Date().toISOString() })
+      // THE CODE GOES IN THE LOG, and it is the only present thing that lets
+      // the page conclude a pass was picked up. Without it `claimed` could only
+      // be read off the code being gone from the holding area — which `--drop`,
+      // a moved store and a mistyped folder all achieve without anyone claiming
+      // anything. Null for a pasted blob, which carried no code to record.
+      notes = appendDecision(notes, {
+        verdict: judged.effective,
+        at: new Date().toISOString(),
+        code: claimed ? claimed.code : null,
+      })
       writeNotes(out, notes)
     }
     verdictReport = {

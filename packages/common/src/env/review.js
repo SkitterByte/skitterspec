@@ -675,6 +675,59 @@ function addPending(pending, { blob, at, render }, mint = mintPendingCode) {
 }
 
 /**
+ * What became of ONE pass, by its code. Reads; writes nothing, refuses nothing.
+ *
+ * The served page POSTs, is handed six digits, and then has to end on one of
+ * two sentences — Claude picked this up, or here is the command that picks it
+ * up. It cannot know which at send time, so it asks, and this answers.
+ *
+ * Three states, and the third is the point:
+ *
+ * - `waiting` — the code IS in the holding area. Nobody has claimed it.
+ * - `claimed` — the decision log NAMES the code. Somebody did.
+ * - `unknown` — neither could be established.
+ *
+ * BOTH ANSWERS REST ON SOMETHING PRESENT, which is what stops this being the
+ * fourth row in the table at the top of `.claude/rules/negative-checks.md`. The
+ * tempting cheap version reads `claimed` off the code being ABSENT from the
+ * holding area — and absence there has four causes, of which exactly one is a
+ * claim: `--drop` removes a pass and writes no decision, a store written under
+ * a different `--out` is a store this never opens, and a mistyped folder finds
+ * an empty one. Three of those four would report a pass as picked up while it
+ * sits in a file nobody is reading, which is this spec's own bug told back to
+ * the reader with confidence.
+ *
+ * So `unknown` answers everything that is not a positive signal, and the caller
+ * turns it back into the command. That direction is deliberate: a command
+ * nobody needed to run costs a glance, and a pass nobody claims costs the
+ * review.
+ *
+ * A code that is not six digits never reaches disk. It cannot be one this
+ * engine minted, so there is nothing to look up, and answering it from the
+ * filesystem would make a reachable endpoint into a path-shaped probe.
+ */
+function passState(outPath, specFolder, code) {
+  const wanted = typeof code === 'string' ? code.trim() : ''
+  if (!new RegExp(`^\\d{${PENDING_CODE_LENGTH}}$`).test(wanted)) return { state: 'unknown' }
+
+  const held = readPending(outPath, specFolder)
+  // A store we could not parse is not an empty one. It holds somebody's passes
+  // and we simply cannot see them, so neither answer is available.
+  if (held.corrupt) return { state: 'unknown' }
+  if ((held.pending.passes || []).some((p) => p && p.code === wanted)) return { state: 'waiting' }
+
+  const stored = readNotes(outPath, specFolder)
+  if (stored.corrupt) return { state: 'unknown' }
+  const decisions = Array.isArray(stored.notes.decisions) ? stored.notes.decisions : []
+  if (decisions.some((d) => d && d.code === wanted)) return { state: 'claimed' }
+
+  // Gone from the holding area and unnamed in the log. It may have been
+  // dropped, it may predate this field, the store may not be the one the page
+  // was served from. Say so.
+  return { state: 'unknown' }
+}
+
+/**
  * What is waiting, as the render should describe it. Pure.
  *
  * THE BLOB IS DELIBERATELY NOT HERE. A decision about a waiting pass needs its
@@ -1060,9 +1113,18 @@ function judgeVerdict(verdict, notes) {
  * commit something nobody read. What is kept is the account of what was
  * decided, when, and eventually what it produced.
  */
-function appendDecision(notes, { verdict, at, note = null }) {
+function appendDecision(notes, { verdict, at, note = null, code = null }) {
   const decisions = Array.isArray(notes.decisions) ? notes.decisions.slice() : []
-  decisions.push({ verdict, at, note: note === undefined ? null : note })
+  // `code` NAMES THE PASS this decision came out of, and it is the only present
+  // thing anyone can assert to conclude that a pass was picked up. Four
+  // different things make a code vanish from the holding area and only one of
+  // them is a claim — `--drop` is another, a moved store and a mistyped folder
+  // are two more — so `passState` reads this, and never reads an absence.
+  //
+  // `null` for every other path in: a pasted blob and a `--verdict` word carry
+  // no code, and inventing one would put a pass in the record that never
+  // existed.
+  decisions.push({ verdict, at, note: note === undefined ? null : note, code: code || null })
   return { ...notes, updatedAt: at, decisions }
 }
 
@@ -1525,6 +1587,7 @@ module.exports = {
   addPending,
   claimPending,
   passesSince,
+  passState,
   describePending,
   pendingAge,
   PENDING_CODE_LENGTH,

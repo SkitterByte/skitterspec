@@ -45,6 +45,7 @@ const {
   reviewOutPath,
   validateNotesBlob,
   readPending,
+  passState: readPassState,
   writePending,
   addPending,
   readNotes,
@@ -83,6 +84,15 @@ function routeFor(url, { token = null } = {}) {
 
   if (segments.length === 0) return { kind: 'index' }
   if (segments.length > 1) return { kind: 'notfound' }
+
+  // `?pass=<code>` asks what became of ONE pass, and it is checked BEFORE
+  // `?branch` because it is not a view of the diff at all — it is the page
+  // finding out whether the verdict it sent was picked up. Deliberately only
+  // ever one code wide: a route that listed what is waiting would hand a
+  // prober exactly what the six digits are bought to withhold, and the POST
+  // route was kept from being that oracle for the same reason.
+  const pass = query.get('pass')
+  if (pass !== null) return { kind: 'pass', spec: segments[0], code: pass }
 
   // `?branch` and `?branch=1` both mean the whole-spec view; `?branch=0` does
   // not, so a link can turn it off as well as on.
@@ -388,7 +398,7 @@ function readBody(req, limit = MAX_PASS_BYTES) {
   })
 }
 
-function createReviewServer({ resolveEntries, render, receive = null, token = null }) {
+function createReviewServer({ resolveEntries, render, receive = null, passState = null, token = null }) {
   return http.createServer((req, res) => {
     const send = (code, body, type = 'text/html; charset=utf-8') => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' })
@@ -423,6 +433,22 @@ function createReviewServer({ resolveEntries, render, receive = null, token = nu
         return send(200, JSON.stringify({ code: out.code }), 'application/json; charset=utf-8')
       })
       return
+    }
+
+    // THE READ THAT IS NOT A RENDER. It answers three words and never a diff,
+    // so a page polling it costs the server a file read rather than a patch.
+    //
+    // A SERVER BUILT WITHOUT THE LOOKUP SAYS SO, rather than 404ing or falling
+    // through to the diff page. An older daemon still running beside a newer
+    // page is the ordinary way here, and both of those answers would be read as
+    // something they are not — a 404 as "that pass does not exist", HTML as a
+    // parse failure. `unknown` is the one answer that keeps the command on the
+    // reader's screen, which is where it belongs when nothing can be
+    // established.
+    if (route.kind === 'pass') {
+      const out = passState ? passState(route.spec, route.code) : null
+      const state = out && typeof out.state === 'string' ? out.state : 'unknown'
+      return send(200, JSON.stringify({ state }), 'application/json; charset=utf-8')
     }
 
     try {
@@ -558,6 +584,14 @@ if (require.main === module) {
     resolveEntries,
     render: (folder, opts) => renderSpecPage(dir, config, resolveOne(folder), opts),
     receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
+    // A spec this daemon cannot resolve is not a pass that was claimed — it is
+    // a lookup that could not see, so it says nothing rather than reporting the
+    // comfortable answer. Same rule the engine's own three states follow.
+    passState: (folder, code) => {
+      const one = resolveOne(folder)
+      if (!one) return { state: 'unknown' }
+      return readPassState(reviewOutPath(dir, one.folder, null), one.folder, code)
+    },
     token,
   })
   startReviewServer(server, { port, host }).then(

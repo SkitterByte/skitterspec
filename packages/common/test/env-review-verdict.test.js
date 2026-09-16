@@ -213,9 +213,12 @@ test('the outcome log appends rather than replaces', () => {
   assert.ok(!('decisions' in notes), 'empty notes carry no log')
   notes = appendDecision(notes, { verdict: 'changes', at: 'T1' })
   notes = appendDecision(notes, { verdict: 'commit', at: 'T2', note: 'commit abc1234' })
+  // `code` names the pass a claim consumed, and is honestly null where there
+  // was none — a pasted blob, or a verdict that never went through the holding
+  // area at all.
   assert.deepStrictEqual(notes.decisions, [
-    { verdict: 'changes', at: 'T1', note: null },
-    { verdict: 'commit', at: 'T2', note: 'commit abc1234' },
+    { verdict: 'changes', at: 'T1', note: null, code: null },
+    { verdict: 'commit', at: 'T2', note: 'commit abc1234', code: null },
   ])
   assert.strictEqual(notes.updatedAt, 'T2')
 })
@@ -230,7 +233,7 @@ test('the log survives a merge, a resolution and a round-trip through disk', () 
     notes = applyResolutions(notes, validateResolutions([{ id: 'c1', note: 'done' }]), 'T3').notes
     writeNotes(out, notes)
     const back = readNotes(out, 'feat-alpha')
-    assert.deepStrictEqual(back.notes.decisions, [{ verdict: 'changes', at: 'T1', note: null }])
+    assert.deepStrictEqual(back.notes.decisions, [{ verdict: 'changes', at: 'T1', note: null, code: null }])
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -502,7 +505,7 @@ test('annotateLastDecision touches only the last entry', () => {
   )
   const { notes, annotated } = annotateLastDecision(base, 'committed a1b2c3d by hand')
   assert.strictEqual(annotated, true)
-  assert.deepStrictEqual(notes.decisions[0], { verdict: 'discuss', at: 'T1', note: null })
+  assert.deepStrictEqual(notes.decisions[0], { verdict: 'discuss', at: 'T1', note: null, code: null })
   assert.strictEqual(notes.decisions[1].note, 'committed a1b2c3d by hand')
   // Pure: the input is not mutated.
   assert.strictEqual(base.decisions[1].note, null)
