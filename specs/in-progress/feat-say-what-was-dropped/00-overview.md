@@ -128,7 +128,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | An adopted path is not your edit | ✅ | [01-adopted-paths.md](01-adopted-paths.md) |
-| 2 | An unknown config key says so | ⬜ | [02-unknown-config-keys.md](02-unknown-config-keys.md) |
+| 2 | An unknown config key says so | ✅ | [02-unknown-config-keys.md](02-unknown-config-keys.md) |
 | 3 | The help lists every verb, and stays that way | ⬜ | [03-help-verb-sync.md](03-help-verb-sync.md) |
 
 ## Open questions
@@ -151,3 +151,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   managed target — and a hand-built manifest object (as tests pass) lacks the
   flag, so it falls back to `customized`, which is the branch that keeps the
   file.
+- 2026-09-16 — Phase 2: the known-key set is `DEFAULT_CONFIG` itself rather than
+  a declared `KNOWN_KEYS` beside it. Every key `mergeConfig` reads must already
+  be a key of the defaults, so a separate list would be a second copy of the
+  same contract — and a second copy is how the two come to disagree.
+- 2026-09-16 — Phase 2: the check found a live instance on its first run. This
+  repo's own `env.config.json` still carried `linkLinear`, removed by
+  `feat-monorepo-ticketing-extraction` and read by nothing since — exactly the
+  retired-`open` shape the phase was written about. Removed.

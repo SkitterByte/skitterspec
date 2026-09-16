@@ -155,6 +155,47 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
+/**
+ * List the keys in a parsed config that `mergeConfig` will not read, as dotted
+ * paths (`open`, `review.readr`). Advisory only — nothing here refuses, and the
+ * merge below is unchanged: unknown keys are still dropped, they are just no
+ * longer dropped in silence.
+ *
+ * The known set is DEFAULT_CONFIG itself rather than a list written out beside
+ * it. That is not a shortcut: every key `mergeConfig` reads is necessarily a key
+ * of the defaults, because a key with no default has nothing to merge onto — so
+ * a hand-written list would be a second copy of the same contract, and a second
+ * copy is how the two come to disagree. Adding a key to `mergeConfig` without
+ * adding its default is already impossible; this check inherits that.
+ *
+ * It descends only where the DEFAULT is a plain object. An array's elements are
+ * data, not keys — `dev` entries, `setup` commands, `spec.companionPaths`,
+ * `live.migrations`, `hotfix.targets` — and walking into them would report every
+ * path in the list as an unknown key.
+ *
+ * WHAT IT DELIBERATELY DOES NOT REPORT: a KNOWN key whose value was rejected for
+ * its type or for not matching an enum (`mode: "Checkout"`,
+ * `teardown.deleteRemoteBranch: "yes"`). Those already fall through to a
+ * documented conservative default, each with a comment saying why, and folding
+ * them in here would change what this line means from "I ignored a key you wrote"
+ * to "I disagreed with a value you wrote".
+ */
+function collectUnknownKeys(parsed, known = DEFAULT_CONFIG, prefix = '') {
+  if (!isObject(parsed)) return []
+  const out = []
+  for (const key of Object.keys(parsed)) {
+    const dotted = prefix ? `${prefix}.${key}` : key
+    if (!Object.prototype.hasOwnProperty.call(known, key)) {
+      out.push(dotted)
+      continue
+    }
+    if (isObject(known[key]) && isObject(parsed[key])) {
+      out.push(...collectUnknownKeys(parsed[key], known[key], dotted))
+    }
+  }
+  return out
+}
+
 // A fresh, deeply-mutable copy of the defaults to merge onto.
 function defaults() {
   return {
@@ -377,10 +418,15 @@ function mergeConfig(base, parsed) {
 
 /**
  * Load and normalise `specs/.core/env.config.json` from `dir` (default cwd).
- * Returns `{ config, present }`:
- *   - missing file → `{ config: defaults, present: false }` (opt-out; never throws)
- *   - present      → `{ config: merged,   present: true }`
+ * Returns `{ config, present, unknown }`:
+ *   - missing file → `{ config: defaults, present: false, unknown: [] }`
+ *     (opt-out; never throws)
+ *   - present      → `{ config: merged,   present: true,  unknown: [...] }`
  * Malformed JSON → throws a clear Error (callers exit non-zero).
+ *
+ * `unknown` lists the dotted paths the merge ignored, for a caller to report.
+ * It is advisory in the strongest sense: nothing here acts on it, and a config
+ * full of strays loads exactly as it always did.
  */
 function loadEnvConfig(dir = process.cwd()) {
   const base = defaults()
@@ -390,7 +436,7 @@ function loadEnvConfig(dir = process.cwd()) {
   try {
     raw = readFileSync(file, 'utf-8')
   } catch (error) {
-    if (error.code === 'ENOENT') return { config: base, present: false }
+    if (error.code === 'ENOENT') return { config: base, present: false, unknown: [] }
     throw error
   }
 
@@ -401,11 +447,12 @@ function loadEnvConfig(dir = process.cwd()) {
     throw new Error(`Invalid ${CONFIG_FILE}: ${error.message}`)
   }
 
-  return { config: mergeConfig(base, parsed), present: true }
+  return { config: mergeConfig(base, parsed), present: true, unknown: collectUnknownKeys(parsed) }
 }
 
 module.exports = {
   loadEnvConfig,
+  collectUnknownKeys,
   mergeConfig,
   DEFAULT_CONFIG,
   CONFIG_FILE,

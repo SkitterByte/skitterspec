@@ -21,8 +21,27 @@ port block, and no `.env`.
 exactly as it does today.
 
 The loader (`src/env/config.js` → `loadEnvConfig`) merges your file over the
-frozen defaults below and returns `{ config, present }`; `present:false` means
-no live `env.config.json` was found.
+frozen defaults below and returns `{ config, present, unknown }`;
+`present:false` means no live `env.config.json` was found.
+
+**A key not listed below is ignored — and says so.** Every `spec-env` command
+prints one advisory line per unrecognised key, top-level or nested:
+
+```
+spec-env: env.config.json — unknown key "docker.portbase" is ignored.
+```
+
+It is advisory in the strongest sense: the key is dropped exactly as it always
+was, nothing refuses, and the exit status is unchanged. It exists because the
+two things an unknown key can be — a deliberate forward-compat entry and a typo
+— are indistinguishable from here, and only one of them is a mistake you would
+want to hear about. A mis-typed `review.required` leaves the commit gate on and
+a mis-typed `teardown.deleteRemoteBranch` reverts to `prompt`; before this, the
+only signal either gave was that nothing happened.
+
+A **known** key whose value is rejected — `mode: "Checkout"`,
+`teardown.deleteRemoteBranch: "yes"` — is not reported here. Each of those falls
+through to a documented conservative default; see the field notes below.
 
 ## Fields
 

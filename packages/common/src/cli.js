@@ -10,6 +10,9 @@ const {
   releaseToolingNotice,
 } = require('./deprecate.js')
 const { loadEnvConfig } = require('./env/config.js')
+
+// Named once so the advisory below and any future caller agree on the wording.
+const ENV_CONFIG_LABEL = 'env.config.json'
 const {
   readRegistry,
   writeRegistry,
@@ -3509,13 +3512,31 @@ async function specEnv(rest) {
   // paths, and the registry identically whether run from main or a worktree.
   dir = resolvePrimaryCheckout(dir, gitReader(dir))
 
-  const { config, present } = loadEnvConfig(dir)
+  const { config, present, unknown } = loadEnvConfig(dir)
   if (!present) {
     process.stdout.write(
       'spec-env: isolation not enabled (no specs/.core/env.config.json).\n' +
         'Opt in by copying specs/.core/env.config.json.example → env.config.json.\n',
     )
     return
+  }
+
+  // A key the loader does not read is dropped — it always was, and still is.
+  // What changed is that it is no longer dropped in SILENCE: a mis-typed
+  // `review.required` leaves the gate on and a mis-typed
+  // `teardown.deleteRemoteBranch` reverts to prompt, and the only signal either
+  // gave was that nothing happened.
+  //
+  // Every spec-env subcommand passes through here, which is why it sits at this
+  // one point rather than in a reporting verb someone might never run. It is
+  // ADVISORY: it writes lines and changes no exit status, because a forward-compat
+  // key and a typo are indistinguishable from here and only one of them is a
+  // mistake (.claude/rules/negative-checks.md rule 4).
+  //
+  // STDERR, deliberately: `--json` subcommands write their payload to stdout, and
+  // an advisory line on stdout would make it unparseable.
+  for (const key of unknown || []) {
+    process.stderr.write(`spec-env: ${ENV_CONFIG_LABEL} — unknown key "${key}" is ignored.\n`)
   }
 
   switch (sub) {
