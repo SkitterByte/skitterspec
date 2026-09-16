@@ -5,6 +5,17 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 15.0.0 — 16 Sep 2026
+
+**Highlights:** Fixing a bug or shipping a hotfix now waits for your review verdict instead of finishing without one, so a button you press on the page always carries the work on. A commit in that spec's worktree is held until you send a verdict or record a reason for moving on.
+
+### Review
+- **New** — A review page rendered part-way through a run now offers Continue - "I have read it, carry on" - instead of a Commit button that would be the wrong verb for unfinished work. It can never clear the gate a finished phase arms, so a phase that ended still owes you a verdict.
+- **Fixed** — The commit review gate now installs when you upgrade an existing project, not only on a fresh init, and its hook no longer crashes in projects that use ES modules.
+
+### Skills
+- **New** — Fixing a bug or shipping a hotfix now waits for your review verdict instead of finishing without one, so a button you press on the page always carries the work on. A commit in that spec's worktree is held until you send a verdict or record a reason for moving on.
+
 ## 14.0.0 — 15 Sep 2026
 
 ### Review
