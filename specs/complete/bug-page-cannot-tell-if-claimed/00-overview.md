@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-page-cannot-tell-if-claimed (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — phase 1 green
+> **Status:** Complete (2026-09-16)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -144,19 +144,23 @@ dropping what the reader wrote.
 | Page | update | polls after POST; command moves into `.decided` as a filled callout, rendered as `<code>` rather than a readonly input |
 | Sidecar | update | `notes.decisions[].code` — the claimed pass, `null` where there was none |
 | Engine API | add | `passState()`; `createReviewServer({ passState })` |
+| CLI flag | add | `spec-env review <spec> --verdict <word>` |
+| Skill | update | `/spec-reviewed <verdict>` — a fourth argument shape |
+| Page | update | a `file://` page lists one command per verdict instead of the verdict bar |
 
 ## Phase index
 
 | Phase | Goal | Status |
 |-------|------|--------|
 | [01](01-ask-what-became-of-it.md) | The served page asks, and says what is true | ✅ |
-| [02](02-commands-where-buttons-cannot-work.md) | A page with no transport offers commands, not buttons | ⬜ |
+| [02](02-commands-where-buttons-cannot-work.md) | A page with no transport offers commands, not buttons | ✅ |
 
 ## State log
 
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-16 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-16 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -169,3 +173,10 @@ dropping what the reader wrote.
 - 2026-09-16 — Review (`331951`, commit-continue): the command box became plain
   text with a Copy control instead of a readonly input. Proven live on the real
   store — that pass read `waiting`, then `claimed` once it was picked up.
+- 2026-09-16 — Fixed (phase 2): `--verdict <word>` joins the same merge a claim
+  does, and a `file://` page lists one command per verdict — each labelled with
+  the button's own name. Marks still travel as the blob, announced rather than
+  dropped. 2587 tests green.
+- 2026-09-16 — Spacing: `Show the diff anyway` gained a margin, so it reads as
+  the way back to the diff rather than part of the callout above it.
+- 2026-09-16 — Completed; all phases done, tests green (2587).
