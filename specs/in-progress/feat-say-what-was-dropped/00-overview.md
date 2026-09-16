@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-277"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-277/say-what-was-dropped"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Say what was dropped
 
 > **Type:** Feature
 > **Name:** feat-say-what-was-dropped (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-16)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
 > **Area:** packages/common/src/init.js, packages/common/src/env/config.js, packages/common/src/cli.js, MIGRATION.md
 > **Stack:** worktree
@@ -138,6 +140,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
+| 2026-09-16 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
