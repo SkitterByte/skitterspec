@@ -61,7 +61,7 @@ function scaffold() {
     // and left to `detect` they resolve to `remote` whenever the suite runs
     // from a bridged or ssh session, which stands a real server up mid-test.
     JSON.stringify(
-      { baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local' } },
+      { baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local', serve: 'never' } },
       null,
       2,
     ),

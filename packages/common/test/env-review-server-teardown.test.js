@@ -55,7 +55,7 @@ function scaffold() {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local' } }),
+    JSON.stringify({ baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local', serve: 'never' } }),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   fs.writeFileSync(path.join(dir, 'app.js'), 'one\n')
@@ -145,7 +145,7 @@ function scaffoldSpecs(names) {
     JSON.stringify({
       baseBranch: 'main',
       docker: { enabled: false },
-      review: { reader: 'local' },
+      review: { reader: 'local', serve: 'never' },
       guards: { refuseTeardownIfDirty: false, refuseTeardownIfUnpushed: false },
     }),
   )

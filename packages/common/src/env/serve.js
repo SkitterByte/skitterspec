@@ -37,6 +37,7 @@ const {
   resolveBaseBranch,
 } = require('./resolve.js')
 const { loadEnvConfig } = require('./config.js')
+const { specDocsIn } = require('./classify.js')
 const {
   rawGitReader,
   collectReview,
@@ -177,19 +178,57 @@ ${body}
 }
 
 /**
- * Resolve the specs worth listing: every spec with a worktree of its own.
+ * WHICH VIEW A SPEC GETS, decided in one place so every route agrees.
  *
- * A spec with no worktree is OMITTED, not listed as an error. An unstarted spec
- * has nothing to diff, which is the ordinary state of most of `specs/` — and a
- * doorway that lists them as failures would be wrong about a healthy repo.
+ * `worktree` — it has one, so the page is its branch's diff, exactly as before.
+ * `docs` — it has none, so the page is its own uncommitted documents read from
+ *   the checkout this server is anchored to. That is the authoring page
+ *   `spec-env review --docs` writes, and this is what lets it be SERVED: a
+ *   `file://` page has no server to POST to, so without this the authoring page
+ *   exists and its verdict buttons have nowhere to go.
+ * `null` — neither: no worktree and nothing uncommitted of its own, which is
+ *   the ordinary state of most of `specs/` and a 404 rather than an error.
+ *
+ * WHAT WOULD FOOL A WORKTREE-ONLY VERSION of this — which is what shipped, and
+ * what 404'd a page rendered minutes earlier: an authoring page belongs to a
+ * spec with no worktree BY DEFINITION, so gating the route on a worktree
+ * excludes precisely the specs the docs view exists for.
+ */
+function viewFor(dir, config, spec, git) {
+  if (!spec) return null
+  const wt = spec.worktreePath
+  if (wt && wt !== dir && fs.existsSync(wt)) return { kind: 'worktree' }
+  const found = specDocsIn(dir, spec, config, trimmedGitReader(dir))
+  // `error` is cannot-tell and `empty` is nothing-to-show; neither is a page,
+  // and neither is an error page either (rule 4: the harmless branch).
+  if (found.error || found.empty) return null
+  return { kind: 'docs', tree: found.tree, owned: found.owned }
+}
+
+// `specDocsIn` wants a reader that TRIMS, because it compares whole paths.
+function trimmedGitReader(treePath) {
+  const git = rawGitReader(treePath)
+  return (argv) => {
+    const out = git(argv)
+    return out == null ? null : String(out).trim()
+  }
+}
+
+/**
+ * Resolve the specs worth listing: every spec this server can render a page for.
+ *
+ * A spec with neither a worktree nor uncommitted documents of its own is
+ * OMITTED, not listed as an error — that is the ordinary state of most of
+ * `specs/`, and a doorway listing them as failures would be wrong about a
+ * healthy repo.
+ *
+ * IT INCLUDES WORKTREE-LESS SPECS NOW, and both halves are needed together: a
+ * page that serves but is absent from the index is a page nobody finds.
  */
 function servableSpecs(dir, config, git) {
   const worktreePaths = liveWorktreePaths(git)
   return allSpecs(dir, config, worktreePaths)
-    .filter((s) => {
-      const wt = s.worktreePath
-      return wt && wt !== dir && worktreePaths.has(path.resolve(wt))
-    })
+    .filter((s) => Boolean(viewFor(dir, config, s, git)))
     .sort((a, b) => a.folder.localeCompare(b.folder))
 }
 
@@ -217,7 +256,11 @@ function servableSpecs(dir, config, git) {
  * which is the harmless direction.
  */
 function receivePass(dir, config, spec, blob) {
-  if (!spec || !fs.existsSync(spec.worktreePath)) return null
+  // A VIEW, NOT A WORKTREE. The pending store lives in the checkout this server
+  // is anchored to, so accepting a pass needs no worktree — and requiring one
+  // rejected every verdict sent from an authoring page, which is the one page
+  // whose spec never has a worktree.
+  if (!spec || !viewFor(dir, config, spec, rawGitReader(dir))) return null
   let parsed
   try {
     parsed = validateNotesBlob(blob, spec.folder)
@@ -244,7 +287,36 @@ function receivePass(dir, config, spec, blob) {
 }
 
 function renderSpecPage(dir, config, spec, { branch = false } = {}) {
-  if (!spec || !fs.existsSync(spec.worktreePath)) return null
+  const view = viewFor(dir, config, spec, rawGitReader(dir))
+  if (!view) return null
+
+  // THE DOCS VIEW IS A DIFFERENT TREE AND A DIFFERENT FILE SET, and it takes
+  // the authoring buttons: a spec with no worktree has no phase in flight, so
+  // "commit and build the next phase" is the wrong offer for it.
+  if (view.kind === 'docs') {
+    const docsGit = rawGitReader(view.tree)
+    const out = reviewOutPath(dir, spec.folder, null)
+    const notes = readNotes(out, spec.folder).notes
+    const gateRead = readGate(out, spec.folder)
+    const data = collectReview({
+      spec,
+      git: docsGit,
+      mode: 'docs',
+      ref: 'HEAD',
+      now: new Date().toISOString(),
+      notes,
+      gate: gateRead.corrupt ? null : gateRead.gate,
+      buttons: 'authoring',
+      only: view.owned,
+      treePath: view.tree,
+    })
+    return {
+      html: renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }),
+      totals: data.totals,
+      mode: data.mode,
+      fellBack: false,
+    }
+  }
 
   const git = rawGitReader(spec.worktreePath)
   const trimmed = (argv) => {
@@ -321,7 +393,46 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
  * same question in one call per spec; untracked files are counted separately
  * because `git diff` cannot see them.
  */
-function specSummary(spec) {
+/**
+ * Counts for a docs view: numstat over just this spec's owned paths.
+ *
+ * Untracked files are counted with `--no-index` against /dev/null, which is the
+ * only way git will diff a file it does not track — and a brand-new spec is
+ * entirely untracked, so without that half the index would show a spec with
+ * four documents as `0 files`.
+ */
+function docsSummary(view) {
+  const git = rawGitReader(view.tree)
+  const totals = { files: 0, additions: 0, deletions: 0 }
+  const add = (row) => {
+    const [a, d] = String(row).split('\t')
+    totals.files += 1
+    if (a === '-' || d === '-') return
+    totals.additions += Number(a) || 0
+    totals.deletions += Number(d) || 0
+  }
+  for (const rel of view.owned) {
+    const tracked = git(['diff', '--numstat', 'HEAD', '--', rel])
+    const rows = String(tracked || '').split('\n').filter(Boolean)
+    if (rows.length) {
+      rows.forEach(add)
+      continue
+    }
+    const untracked = git(['diff', '--no-index', '--numstat', '--', '/dev/null', rel])
+    String(untracked || '')
+      .split('\n')
+      .filter(Boolean)
+      .forEach(add)
+  }
+  return totals
+}
+
+function specSummary(spec, dir = null, config = null) {
+  // The index counts whatever the page would show, so it takes the same view.
+  // `dir`/`config` are optional so an existing caller counting a worktree spec
+  // is unchanged; without them only the worktree view can be counted.
+  const view = dir ? viewFor(dir, config, spec, rawGitReader(dir)) : null
+  if (view && view.kind === 'docs') return docsSummary(view)
   if (!spec || !fs.existsSync(spec.worktreePath)) return null
   const git = rawGitReader(spec.worktreePath)
 
@@ -576,7 +687,7 @@ if (require.main === module) {
       return {
         folder: s.folder,
         branch: one ? one.branch : '',
-        totals: specSummary(one),
+        totals: specSummary(one, dir, config),
       }
     })
 

@@ -120,7 +120,7 @@ const {
   gateState,
 } = require('./env/review.js')
 const { planUp, planCheckoutUp } = require('./env/provision.js')
-const { classifyDirtyTree } = require('./env/classify.js')
+const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
@@ -400,49 +400,6 @@ function specEnvStatus(dir, config) {
 // This creates no worktree and starts no stack — the caller runs the
 // printed commands. Keep the output's verb honest about that.
 
-// git quotes a path containing unusual bytes and C-escapes it. Unquote what we
-// can; anything we cannot parse confidently is returned as-is, which makes it
-// fail the spec-folder comparison and land in `foreign` — a refusal, which is the
-// safe direction to be wrong in.
-function unquotePath(p) {
-  if (!p.startsWith('"') || !p.endsWith('"')) return p
-  try {
-    return JSON.parse(p)
-  } catch {
-    return p
-  }
-}
-
-/**
- * Repo-relative paths of everything uncommitted. Returns null when git could not
- * be read at all — the caller must treat that as "nobody looked", never "clean".
- *
- * Two prefix-free listings rather than `git status --porcelain`, deliberately.
- * Porcelain prefixes every path with a two-character status field, and the shared
- * git reader TRIMS its output — which eats the leading space of the first line
- * only, so a fixed-offset parse silently returned `EADME.md` for `README.md`.
- * These emit bare paths, so there is no offset to get wrong. `--others` also
- * lists untracked files INDIVIDUALLY, where porcelain collapses them into their
- * topmost untracked directory — reporting a brand-new spec as `specs/backlog/`,
- * an ancestor attributable to no single spec, and so refusing the very tree this
- * gate exists to accept. Both were found by running it, not by reading it.
- */
-function dirtyPaths(git) {
-  const lists = [
-    git(['diff', '--name-only', 'HEAD']),
-    git(['ls-files', '--others', '--exclude-standard']),
-  ]
-  if (lists.every((l) => l === null)) return null
-  const out = []
-  for (const list of lists) {
-    if (!list) continue
-    for (const line of list.split('\n')) {
-      const q = line.trim()
-      if (q) out.push(unquotePath(q))
-    }
-  }
-  return out
-}
 
 // Is this spec new to git? Asked directly, so the commit subject does not depend
 // on the shape of `git status` output.
@@ -1743,21 +1700,23 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
 function resolveSpecDocs(config, spec, invokedFrom) {
   const git = gitReader(invokedFrom)
   const tree = git(['rev-parse', '--show-toplevel']) || invokedFrom
-  const paths = dirtyPaths(gitReader(tree))
-  if (paths === null) {
+  // THE CLASSIFICATION IS SHARED with the review server's route for the same
+  // spec (`specDocsIn`), so the served page and the written page cannot
+  // disagree about which files they show. This function adds only the wording.
+  const found = specDocsIn(tree, spec, config, gitReader(tree))
+  if (found.error) {
     return {
       error:
         `git could not be read at ${tree}, so ${spec.folder}'s documents were not classified — ` +
         'nothing rendered. This is not "nothing to review".',
     }
   }
-  const { owned } = classifyDirtyTree(spec, paths, config)
-  if (!owned.length) {
+  if (found.empty) {
     return {
       error: `${spec.folder} has no uncommitted documents in ${tree} — nothing to review.`,
     }
   }
-  return { tree, owned }
+  return found
 }
 
 /**
@@ -2584,8 +2543,20 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // nothing at all: the ordinary render must read exactly as it did before any
   // of this existed.
   let serverSaid = null
-  if (reader.reader === 'remote' && config.review.serveOnRemote) {
-    const up = await ensureReviewServer(dir, config, { host: '0.0.0.0' })
+  // EVERY RENDER SERVES, because a `file://` page has no server to POST to and
+  // so its verdict buttons have nowhere to go. The reader is not consulted here
+  // any more — that gate is what handed a local machine a page it could read
+  // and not answer.
+  //
+  // THE BIND STILL COMES FROM THE READER, and that is what makes this free of
+  // new exposure: a remote reader binds every interface exactly as before, and
+  // a local or unknown one binds loopback — `http://127.0.0.1` instead of
+  // `file://`, which opens on the machine holding the page and, unlike
+  // `file://`, can POST. Cannot-tell binds loopback, the harmless direction
+  // (`.claude/rules/negative-checks.md` rule 4).
+  if (config.review.serve === 'always') {
+    const host = reader.reader === 'remote' ? '0.0.0.0' : '127.0.0.1'
+    const up = await ensureReviewServer(dir, config, { host })
     if (up.replaced === 'engine') {
       serverSaid = up.error
         ? // BOTH facts. A reader told only "could not start" cannot see why it

@@ -106,7 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Serving stops asking where the reader is, or for a worktree | ⬜ | [01-serving-is-unconditional.md](01-serving-is-unconditional.md) |
+| 1 | Serving stops asking where the reader is, or for a worktree | ✅ | [01-serving-is-unconditional.md](01-serving-is-unconditional.md) |
 | 2 | Detection goes back to deciding wording | ⬜ | [02-detection-decides-wording.md](02-detection-decides-wording.md) |
 
 ## Open questions
@@ -131,3 +131,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and it is the one that 404s an authoring page. Found by curl'ing the LAN URL
   and getting 404 from loopback too; confirmed by a fresh server reporting
   "serving 0 specs" with no worktrees, then 200 once one existed.
+- 2026-09-16 — Phase 1: the docs classification moved into `classify.js` and is
+  now shared by the CLI and the server, so the served and written pages cannot
+  disagree. Fourteen test scaffolds gained `serve: 'never'` — serving everywhere
+  otherwise spawns a daemon per review test, and one run leaked 60. The
+  `env-serve-start-proof` port guard was widened from `scaffold('remote')` to
+  every reader and immediately caught two offenders.

@@ -304,14 +304,24 @@ test('the reader suite stops what it starts, structurally', () => {
 })
 
 test('no serving test binds the machine\'s configured default port', () => {
-  // A POSITIVE SIGNAL: every `scaffold('remote'…)` must name a port. Omitting
-  // one silently takes `review.servePort`, which is the real 7777 on the real
-  // machine — and a test has no business binding the port the operator uses.
-  const bare = [...READER_SUITE.matchAll(/scaffold\('remote'(?:,\s*\{([^}]*)\})?\)/g)].filter(
-    (m) => !m[1] || !/servePort/.test(m[1]),
+  // A POSITIVE SIGNAL: every scaffold that will serve must name a port.
+  // Omitting one silently takes `review.servePort`, and a test has no business
+  // binding a port the operator might be using.
+  //
+  // WIDENED FROM `scaffold('remote'…)` TO EVERY READER, because serving stopped
+  // being gated on the reader: a `scaffold('local')` now stands a server up
+  // too, so the narrow version had stopped covering most of the file. That is
+  // the shape of guard this repo keeps getting wrong — one written for the
+  // cases that existed when it was written, silently narrowing as the code
+  // widens.
+  const bare = [
+    ...READER_SUITE.matchAll(/scaffold\('(?:remote|local|detect)'(?:,\s*\{([^}]*)\})?\)/g),
+  ].filter((m) => !m[1] || !/servePort/.test(m[1]))
+  // A scaffold that never serves never reaches a bind, so it may omit one —
+  // either spelling, since the legacy key's tolerance is itself under test.
+  const offenders = bare.filter(
+    (m) => !/serve:\s*'never'/.test(m[1] || '') && !/serveOnRemote:\s*false/.test(m[1] || ''),
   )
-  // `serveOnRemote: false` never reaches a bind, so it is allowed to omit one.
-  const offenders = bare.filter((m) => !/serveOnRemote:\s*false/.test(m[1] || ''))
   assert.deepStrictEqual(
     offenders.map((m) => m[0]),
     [],

@@ -67,7 +67,7 @@ function scaffold() {
       {
         baseBranch: 'main',
         docker: { enabled: false },
-        review: { reader: 'local' },
+        review: { reader: 'local', serve: 'never' },
         spec: { companionPaths: ['specs/.core/snap-{slug}.json'] },
       },
       null,

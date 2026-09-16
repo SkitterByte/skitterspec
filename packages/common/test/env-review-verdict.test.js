@@ -53,7 +53,7 @@ function scaffold() {
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
     JSON.stringify(
-      { baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local' } },
+      { baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local', serve: 'never' } },
       null,
       2,
     ),

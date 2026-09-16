@@ -206,7 +206,7 @@ test('serveOnRemote off returns the marked link and the command to type', async 
 })
 
 test('a local reader gets the link and no warning', async () => {
-  const { dir } = scaffold('local')
+  const { dir } = scaffold('local', { servePort: await freePort() })
   try {
     const out = await review(dir)
     assert.match(out, /reader: local \(configured\)/)
@@ -220,7 +220,7 @@ test('a local reader gets the link and no warning', async () => {
 // An unknown reader is the ordinary state of a local machine. Saying so, or
 // warning on it, would be noise about a healthy session.
 test('an unknown reader is not announced and not warned about', async () => {
-  const { dir } = scaffold('detect')
+  const { dir } = scaffold('detect', { servePort: await freePort() })
   const saved = { ...process.env }
   delete process.env.SSH_CONNECTION
   delete process.env.SSH_TTY
@@ -230,7 +230,11 @@ test('an unknown reader is not announced and not warned about', async () => {
     assert.doesNotMatch(out, /reader:/, 'nothing to report is reported as nothing')
     assert.doesNotMatch(out, /will not open/)
     assert.doesNotMatch(out, /serve:/)
-    assert.match(out, /open: file:\/\//, 'and the link is still offered, exactly as before')
+    // The SILENCE is what this test is about and it is unchanged. The link is
+    // now loopback http rather than `file://` — serving stopped being gated on
+    // the reader — but an unknown reader is still not announced and still not
+    // warned about, which is the accusation this guards against.
+    assert.match(out, /open: http:\/\/127\.0\.0\.1:/, 'a link that opens, and can answer')
   } finally {
     process.env.SSH_CONNECTION = saved.SSH_CONNECTION
     process.env.SSH_TTY = saved.SSH_TTY
@@ -347,14 +351,25 @@ test('a second review adopts the running server rather than restarting it', asyn
 // STAYS SILENT (`.claude/rules/negative-checks.md` rule 3). The expensive
 // mistake is a LAN listener standing up on the laptop of every developer who
 // never asked for one, so the absence of a pidfile is asserted, not assumed.
-test('a local reader starts no server at all', async () => {
+// INVERTED, DELIBERATELY. These two asserted that a local and an unknown reader
+// got no server, and the reasoning was real: `'nothing was started for a reader
+// who is sitting right here'`. What defeats it is that the reader sitting right
+// here also cannot SEND a verdict — a `file://` page has no server to POST to,
+// so the buttons on it have nowhere to go. Serving them costs one loopback
+// process and no exposure, because the bind still comes from the reader.
+//
+// The remote cases below are untouched on purpose: that path worked and this
+// change must not disturb it.
+
+test('a local reader is served too, on loopback, because file:// cannot POST', async () => {
   const { dir } = scaffold('local', { servePort: await freePort() })
   try {
     const out = review(dir)
-    assert.match(out, /open: file:\/\//)
+    assert.match(out, /open: http:\/\/127\.0\.0\.1:/, 'a link that opens AND can answer')
+    assert.doesNotMatch(out, /open: file:\/\//)
     assert.ok(
-      !fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')),
-      'nothing was started for a reader who is sitting right here',
+      fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')),
+      'the server is what makes the verdict buttons work',
     )
   } finally {
     stopServe(dir)
@@ -362,12 +377,53 @@ test('a local reader starts no server at all', async () => {
   }
 })
 
-test('an unknown reader starts no server either', async () => {
+test('an unknown reader is served on loopback as well — cannot-tell is not a reason to withhold', async () => {
   const { dir } = scaffold('detect', { servePort: await freePort() })
   try {
     const out = review(dir)
-    assert.doesNotMatch(out, /open: http:\/\//)
+    assert.match(out, /open: http:\/\/127\.0\.0\.1:/)
+    assert.ok(fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')))
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('NEITHER binds beyond loopback, so serving everywhere exposes nothing new', async () => {
+  // The whole safety argument for serving unconditionally. If this ever starts
+  // reporting a LAN address for a local reader, the change stopped being free.
+  for (const who of ['local', 'detect']) {
+    const { dir } = scaffold(who, { servePort: await freePort() })
+    try {
+      const out = review(dir)
+      assert.doesNotMatch(out, /open: http:\/\/(?!127\.0\.0\.1)/, `${who} must bind loopback only`)
+      assert.doesNotMatch(out, /^\s*also: /m, `${who} has no alternates to offer`)
+    } finally {
+      stopServe(dir)
+      cleanup(dir)
+    }
+  }
+})
+
+test('serve: "never" is the way back to the file:// link', async () => {
+  const { dir } = scaffold('local', { servePort: await freePort(), serve: 'never' })
+  try {
+    const out = review(dir)
+    assert.match(out, /open: file:\/\//)
     assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')))
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('a legacy serveOnRemote: false is still read as serve: "never"', async () => {
+  // Tolerance, not migration: these configs are committed, so a rename with no
+  // tolerance breaks every other checkout on the next pull.
+  const { dir } = scaffold('local', { servePort: await freePort(), serveOnRemote: false })
+  try {
+    const out = review(dir)
+    assert.match(out, /open: file:\/\//)
   } finally {
     stopServe(dir)
     cleanup(dir)

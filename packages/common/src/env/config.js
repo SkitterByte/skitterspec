@@ -197,9 +197,11 @@ const DEFAULT_CONFIG = Object.freeze({
   // planned for a LANDED branch — see teardown.js.
   teardown: Object.freeze({ deleteRemoteBranch: 'prompt' }),
 
-  // `reader` decides how a diff's location is worded, and — via
-  // `serveOnRemote` — whether the engine stands the local server up so a remote
-  // reader gets a link that opens. It never decides to PUBLISH: publishing
+  // `reader` decides how a diff's location is WORDED, and nothing else. It
+  // once also decided whether the engine served — a gate that produced the
+  // `file://` link on a local machine, where a `file://` page cannot POST and
+  // so the verdict buttons had nowhere to go. `serve` owns that now.
+  // It never decides to PUBLISH: publishing
   // leaves a page this tooling cannot remove, so it stays an explicit ask.
   // `detect` sniffs; `local`/`remote` are the operator's own answer and are
   // believed without sniffing, because they know where they are reading and no
@@ -219,10 +221,20 @@ const DEFAULT_CONFIG = Object.freeze({
   // toward reading the diff is the point, and a project that would rather not
   // be pushed says so once. It is the only key anything reads to decide
   // whether the gate refuses, so turning it off turns off the hook with it.
+  // `serve` decides whether a render stands the local server up: `always`
+  // (the default) or `never`. It replaced `serveOnRemote`, whose name would now
+  // claim to govern remote renders while governing every one of them — and a
+  // config key that lies is what made a wrong fix look right. A legacy
+  // `serveOnRemote: false` is still read as `serve: "never"`.
+  //
+  // THE BIND IS NOT THIS KEY'S BUSINESS, and that separation is what keeps
+  // serving-everywhere free of new exposure: `reader` still decides it, so a
+  // remote reader binds every interface exactly as before and a local or
+  // unknown one binds loopback. Serving more never means listening wider.
   review: Object.freeze({
     reader: 'detect',
     servePort: 'auto',
-    serveOnRemote: true,
+    serve: 'always',
     commitWith: '/commit',
     required: true,
   }),
@@ -485,10 +497,22 @@ function mergeConfig(base, parsed) {
     } else if (parsed.review.servePort === 'auto') {
       base.review.servePort = 'auto'
     }
-    // Opting OUT is the only thing this key can do — a non-boolean leaves the
-    // default in place rather than being read as a refusal, so a typo cannot
-    // quietly restore the dead `file://` link on a remote reader.
-    assign(base.review, parsed.review, 'serveOnRemote', 'boolean')
+    // `always` | `never`; anything else leaves the default standing, so a typo
+    // cannot quietly restore the dead `file://` link this key exists to end.
+    if (parsed.review.serve === 'always' || parsed.review.serve === 'never') {
+      base.review.serve = parsed.review.serve
+    }
+    // TOLERANCE, NOT MIGRATION — the same rule `readVerdict` follows for the
+    // old `approve` spelling. These configs are committed, so a rename with no
+    // tolerance breaks every other checkout on the next pull. Only `false` is
+    // read: `serveOnRemote: true` said "serve where it matters", which is what
+    // `always` now does anyway, so it needs no translation.
+    //
+    // An explicit `serve` wins, so a config carrying both is read the way its
+    // author most recently meant.
+    if (parsed.review.serve === undefined && parsed.review.serveOnRemote === false) {
+      base.review.serve = 'never'
+    }
     // An empty string leaves `/commit` standing, like every other string key
     // here. There is nothing it could mean instead: the hand-off has no off
     // switch, so a blank value is a typo rather than an instruction.

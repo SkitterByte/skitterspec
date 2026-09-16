@@ -30,6 +30,7 @@ const {
   specSummary,
   renderSpecPage,
   createReviewServer,
+  receivePass,
   startReviewServer,
 } = require('../src/env/serve.js')
 const { loadEnvConfig } = require('../src/env/config.js')
@@ -114,9 +115,10 @@ async function serve(dir, { token = null } = {}) {
     resolveEntries: () =>
       servableSpecs(dir, config, g).map((s) => {
         const one = resolveOne(s.folder)
-        return { folder: s.folder, branch: one ? one.branch : '', totals: specSummary(one) }
+        return { folder: s.folder, branch: one ? one.branch : '', totals: specSummary(one, dir, config) }
       }),
     render: (folder, opts) => renderSpecPage(dir, config, resolveOne(folder), opts),
+    receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
     token,
   })
   const addr = await startReviewServer(server, { port: 0, host: '127.0.0.1' })
@@ -124,6 +126,12 @@ async function serve(dir, { token = null } = {}) {
   return {
     base,
     get: (p = '') => fetch(base + p),
+    post: (p, body) =>
+      fetch(base + p, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
     root: `http://127.0.0.1:${addr.port}`,
     close: () => new Promise((r) => server.close(r)),
   }
@@ -373,6 +381,141 @@ test('stays silent: an unreadable gate does not break the served page', async ()
     assert.ok(page.html.length > 0, 'the page still renders')
     assert.ok(page.totals.files > 0, 'and still has the diff, which is what it is for')
   } finally {
+    cleanup(dir)
+  }
+})
+
+
+// --- a spec with no worktree: the authoring page, served --------------------
+//
+// This is the case that broke. `feat-a-new-spec-gets-a-page` made
+// `spec-env review --docs` render a spec with no worktree, and left the
+// identical worktree gate in this file — so the page was written and then 404'd
+// by the only transport that can POST a verdict. Every test below fails against
+// that version.
+
+// `feat-unstarted` is committed by the scaffold, so give it something
+// uncommitted: that is what an authoring page IS — a spec just written.
+function authorIt(dir, folder = 'feat-unstarted') {
+  const sd = path.join(dir, 'specs', 'backlog', folder)
+  fs.mkdirSync(sd, { recursive: true })
+  fs.writeFileSync(path.join(sd, '01-first.md'), `# Phase 1 — first ⬜\n\nGoal.\n`)
+  return sd
+}
+
+test('a backlog spec with uncommitted documents is served, not 404ed', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    const res = await s.get('feat-unstarted')
+    assert.strictEqual(res.status, 200, 'the authoring page is the one page that must be servable')
+    const html = await res.text()
+    assert.match(html, /01-first\.md/, 'and it shows the document that is uncommitted')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('it appears in the index too, since a page nobody finds is no page', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    const html = await (await s.get()).text()
+    assert.match(html, /feat-unstarted/)
+    assert.doesNotMatch(html, /error|failed/i)
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('the served docs page shows this spec and not another spec written beside it', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  // A second spec authored in the same checkout — the ordinary state of this
+  // workflow, and what a render-the-whole-tree version would leak.
+  authorIt(dir, 'feat-theirs')
+  const s = await serve(dir)
+  try {
+    const res = await s.get('feat-unstarted')
+    // ASSERT 200 FIRST. A 404 body names no spec either, so without this the
+    // test passed against the gate it exists to catch — a false pass found by
+    // mutating the gate back rather than by reading it.
+    assert.strictEqual(res.status, 200)
+    const html = await res.text()
+    assert.doesNotMatch(html, /feat-theirs/, "a colleague's spec must never appear")
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('the served docs page carries the authoring buttons, not the phase ones', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    const html = await (await s.get('feat-unstarted')).text()
+    // A spec with no worktree has no phase in flight, so "commit and build the
+    // next phase" is the wrong offer.
+    assert.match(html, /"buttons":\s*"authoring"/)
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('a verdict POSTed from a docs page is accepted, which is the whole point', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    const res = await s.post('feat-unstarted', {
+      version: 1,
+      spec: 'feat-unstarted',
+      accepted: [],
+      unaccepted: [],
+      comments: [],
+      verdict: 'commit-start',
+    })
+    assert.strictEqual(res.status, 200, 'rejecting this left the buttons with nowhere to go')
+    const body = await res.json()
+    assert.match(String(body.code), /^\d{6}$/, 'and it hands back a claim code')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+// --- stays silent (rule 3) --------------------------------------------------
+
+test('STAYS SILENT: a spec with a worktree still serves its branch view', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    const html = await (await s.get('feat-alpha')).text()
+    assert.match(html, /added\.js/, 'the worktree view is unchanged')
+    assert.doesNotMatch(html, /"buttons":\s*"authoring"/, 'and it keeps the committing set')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a committed backlog spec is still omitted and still 404s', async () => {
+  const { dir } = scaffold()
+  // Nothing uncommitted of its own — the ordinary state of most of specs/.
+  const s = await serve(dir)
+  try {
+    const html = await (await s.get()).text()
+    assert.doesNotMatch(html, /feat-unstarted/)
+    assert.strictEqual((await s.get('feat-unstarted')).status, 404)
+  } finally {
+    await s.close()
     cleanup(dir)
   }
 })

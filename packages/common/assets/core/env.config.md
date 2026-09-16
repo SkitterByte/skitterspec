@@ -241,13 +241,12 @@ through to a documented conservative default; see the field notes below.
 
   // Reading a spec's diff (`spec-env review`, `/spec-diff`).
   //
-  // `reader` decides how the page's LOCATION IS WORDED, and — through
-  // `serveOnRemote` below — whether the engine stands its local server up so a
-  // remote reader gets a link that opens. It never decides to PUBLISH. Three
-  // values:
-  //   "local"  — you are at the machine holding the page; a file:// URL opens.
-  //   "remote" — you are not; it does not, so the page is served instead.
-  //   "detect" — work it out (the default).
+  // `reader` decides how the page's LOCATION IS WORDED and WHAT THE SERVER
+  // BINDS TO — and nothing else. It never decides whether to serve (`serve`
+  // does) and never decides to PUBLISH. Three values:
+  //   "local"  — you are at the machine holding the page; it binds 127.0.0.1.
+  //   "remote" — you are not; it binds every interface so the page opens.
+  //   "detect" — work it out (the default); cannot-tell binds 127.0.0.1.
   // An explicit "local"/"remote" is BELIEVED WITHOUT SNIFFING: you know where
   // you are reading, and no signal outranks being told. Detection is only the
   // default, and it has three outcomes rather than two — local, remote, and
@@ -286,12 +285,18 @@ through to a documented conservative default; see the field notes below.
   // an unguessable path token and prints the LAN URL including it — anyone
   // holding that URL can read every spec's diff while it runs.
   //
-  // `serveOnRemote` is whether a "remote" reader may have that server started
-  // FOR them. On (the default) the engine brings it up, binds 0.0.0.0, and puts
-  // the served URL on the `open:` line — best-guess network address first, the
-  // rest listed under it, because the guess reads interface names and a VPN or
-  // an unusual adapter will fool it. Off, you get the file:// URL with its
-  // "will not open where you are reading" marker and the command to type.
+  // `serve` is whether a render stands the local server up at all:
+  //   "always" — every render does (the default), so the `open:` line is always
+  //              an http URL the page can POST a verdict back to. A remote
+  //              reader gets the LAN address first with the rest listed under
+  //              it, because the guess reads interface names and a VPN or an
+  //              unusual adapter will fool it.
+  //   "never"  — you get the file:// URL instead. Note what that costs: a
+  //              file:// page has no server to POST to, so its verdict buttons
+  //              copy a command for you to paste rather than sending anything.
+  // It replaced `serveOnRemote`, which gated serving on the reader — and so
+  // handed a local machine a page it could read and not answer. A legacy
+  // `serveOnRemote: false` is still read as `serve: "never"`.
   // Either way NOTHING IS PUBLISHED on a detection: a server is one process
   // ended by one flag, while a published page is one this tooling cannot
   // remove, so that half stays an explicit ask. Teardown names a server that
@@ -331,7 +336,7 @@ through to a documented conservative default; see the field notes below.
   "review": {
     "reader": "detect",
     "servePort": "auto",
-    "serveOnRemote": true,
+    "serve": "always",
     "commitWith": "/commit",
     "required": true
   }

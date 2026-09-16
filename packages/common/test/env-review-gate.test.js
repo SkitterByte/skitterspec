@@ -174,7 +174,7 @@ function scaffold({ config } = {}) {
       JSON.stringify({
         baseBranch: 'main',
         docker: { enabled: false },
-        review: { reader: 'local', ...(config || {}) },
+        review: { reader: 'local', serve: 'never', ...(config || {}) },
       }),
     )
   }
