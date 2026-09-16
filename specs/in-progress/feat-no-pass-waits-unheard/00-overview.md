@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The engine owns the wait | ⬜ | [01-the-engine-owns-the-wait.md](01-the-engine-owns-the-wait.md) |
+| 1 | The engine owns the wait | ✅ | [01-the-engine-owns-the-wait.md](01-the-engine-owns-the-wait.md) |
 | 2 | The skills stop improvising one | ⬜ | [02-skills-stop-improvising.md](02-skills-stop-improvising.md) |
 | 3 | A pass nobody heard is found on the way back in | ⬜ | [03-found-on-the-way-back-in.md](03-found-on-the-way-back-in.md) |
 
@@ -168,6 +168,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the wait has no implementation, so every run improvises one and silence reads
   as patience. The engine owns it now; the prose rules follow from that rather
   than standing in for it.
+- 2026-09-16 — Phase 1: `spec-env review wait` built, 10 tests. Follow-up
+  surfaced — `addPending` supersedes two passes that both carry `render: null`
+  (`null !== null` is false), so two readers' passes collapse into one; the
+  comment in `serve.js` asserts the opposite. Not this spec's to fix.
 - 2026-09-16 — Follow-up recorded: `servePort` is `7777` for every repo, so a
   second repo takes it and this one is moved aside, leaving a link handed out
   earlier pointing at a stranger's daemon. Out of scope here. (First written as

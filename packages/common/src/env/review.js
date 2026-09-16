@@ -836,6 +836,75 @@ function passesSince(pending, since) {
 }
 
 /* ==========================================================================
+ * The wait — one implementation, because improvised ones cannot be tested
+ *
+ * The skills used to say "watch the pending store and end your turn" and stop
+ * there, so every run wrote its own watcher in shell. Three failed in two days,
+ * each reaching the operator as "I pressed the button and nothing happened" —
+ * and the worst of them was `until [ -f "$P" ] && [ "$x" \\> "$y" ]`, valid bash
+ * and a syntax error in zsh, which spun for five minutes writing to a stderr
+ * nobody reads.
+ *
+ * What made that expensive was not the typo. It is that SILENCE WAS THE SUCCESS
+ * SIGNAL: from outside, a watcher that can never fire and one patiently working
+ * look exactly alike. So the comparison lives here, in one place, where a test
+ * can hand it a store that gains a pass mid-flight and watch it return.
+ * ========================================================================== */
+
+const WAIT_POLL_MS = 400
+
+/**
+ * Block until exactly one pass arrives inside a window. Impure only in that it
+ * reads the store and sleeps; it writes nothing and claims nothing.
+ *
+ * Four outcomes, and they are distinct because the caller acts differently on
+ * each:
+ *
+ * - `{ state: 'arrived', code }` — one pass, inside the window. Claim it.
+ * - `{ state: 'ambiguous', count }` — more than one. NAMES NO CODE, because
+ *   choosing between two is exactly the guess `claimPending` refuses to make.
+ * - `{ state: 'timeout' }` — only when a timeout was asked for.
+ * - `{ state: 'unusable' }` — the window could not be parsed, so there is
+ *   nothing to wait inside. Returns AT ONCE rather than blocking forever on a
+ *   comparison that can never be satisfied — which is the failure this whole
+ *   function exists to stop.
+ *
+ * NO TIMEOUT UNLESS ASKED. `timeoutMs` omitted means wait as long as the
+ * process lives, and that is the default the skills use: any fixed number is a
+ * guess about how long someone reads, and a reader who walks away from a diff
+ * is the normal case rather than the edge one. An hour was picked once and a
+ * lunch break beat it.
+ *
+ * WHAT WOULD FOOL A LOOSER VERSION: treating an absent, empty, or older-only
+ * store as a reason to return. None of those is a pass — they are the ordinary
+ * state of a review nobody has answered yet — and a wait that ended on one
+ * would report "no pass" as an outcome (`.claude/rules/negative-checks.md`
+ * rule 3 has a test for each).
+ */
+async function waitForPass(readStore, since, { timeoutMs = null, pollMs = WAIT_POLL_MS, sleep } = {}) {
+  if (!Number.isFinite(Date.parse(since))) return { state: 'unusable' }
+  const nap = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)))
+  const deadline = Number.isFinite(timeoutMs) && timeoutMs !== null ? Date.now() + timeoutMs : null
+
+  for (;;) {
+    // A store that will not parse is not an empty one, and it is not a pass
+    // either — keep waiting rather than reading someone's unreadable passes as
+    // an answer. `readPending` already reports `corrupt` rather than throwing.
+    const read = readStore()
+    if (read && !read.corrupt) {
+      const window = passesSince(read.pending, since)
+      if (window.usable) {
+        if (window.codes.length === 1) return { state: 'arrived', code: window.codes[0] }
+        if (window.codes.length > 1) return { state: 'ambiguous', count: window.codes.length }
+      }
+    }
+    if (deadline !== null && Date.now() >= deadline) return { state: 'timeout' }
+    // Never overshoot the deadline by a whole poll interval.
+    await nap(deadline === null ? pollMs : Math.max(0, Math.min(pollMs, deadline - Date.now())))
+  }
+}
+
+/* ==========================================================================
  * The gate — a standing obligation to review, not a message in flight
  *
  * A pending pass is something someone SENT. The gate is something the repo
@@ -1587,6 +1656,8 @@ module.exports = {
   addPending,
   claimPending,
   passesSince,
+  waitForPass,
+  WAIT_POLL_MS,
   passState,
   describePending,
   pendingAge,

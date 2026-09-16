@@ -101,6 +101,7 @@ const {
   writePending,
   claimPending,
   passesSince,
+  waitForPass,
   describePending,
   pendingAge,
   reviewPendingPath,
@@ -1697,6 +1698,97 @@ function gateTarget(dir, config, specArg) {
   } catch (err) {
     return { spec: null, out: null, reason: err.message }
   }
+}
+
+/**
+ * `review wait` — block until a verdict arrives, so nobody has to improvise it.
+ *
+ * THE COMMAND EXISTS BECAUSE THE WAIT DID NOT. The skills said "watch the
+ * pending store and end your turn", so every run wrote its own watcher in
+ * shell — and one of them wrote `[ "$x" \> "$y" ]`, which is valid bash and a
+ * syntax error in zsh. It could never be true, spun for five minutes, and
+ * looked exactly like patience the whole time.
+ *
+ * So this says it started. A caller can then tell a live wait from a dead one,
+ * which is the one thing none of the improvised watchers could offer.
+ *
+ * It is a WAIT and not a claim: the pass is left in the holding area for
+ * `--claim-since` to take, so the rule that a pass is never claimed without a
+ * person asking (`/spec-diff` §0) is untouched by anything here.
+ */
+async function specEnvReviewWait(dir, config, specArg, flags) {
+  let spec
+  try {
+    spec = resolveSpecWithWorktree(dir, config, specArg)
+  } catch (err) {
+    process.stdout.write(`spec-env review wait: ${err.message}\n`)
+    process.exitCode = 1
+    return
+  }
+
+  // A WINDOW IS REQUIRED, and an absent one is not an open one. Without it
+  // there is no way to tell this sitting's pass from a stranger's, and waiting
+  // for "any pass at all" is how one gets swept up.
+  if (!flags.since) {
+    process.stdout.write(
+      'spec-env review wait: --since <iso> is required — it is the window that decides which pass is yours\n',
+    )
+    process.exitCode = 1
+    return
+  }
+
+  const out = reviewOutPath(dir, spec.folder, flags.out)
+  const timeoutMs =
+    flags.timeout === undefined || flags.timeout === null ? null : Number(flags.timeout) * 1000
+  if (timeoutMs !== null && !Number.isFinite(timeoutMs)) {
+    process.stdout.write(`spec-env review wait: --timeout ${flags.timeout} is not a number of seconds\n`)
+    process.exitCode = 1
+    return
+  }
+
+  // SAID BEFORE THE FIRST POLL, not after it. The whole point is that a caller
+  // knows the wait is running; a line printed on the way out would arrive only
+  // for the waits that already worked.
+  if (!flags.json) {
+    process.stdout.write(
+      `spec-env review wait: ${spec.folder} — waiting for a verdict sent since ${flags.since}` +
+        `${timeoutMs === null ? '' : ` (up to ${flags.timeout}s)`}\n`,
+    )
+  }
+
+  const result = await waitForPass(() => readPending(out, spec.folder), flags.since, { timeoutMs })
+
+  if (flags.json) {
+    process.stdout.write(`${JSON.stringify({ spec: spec.folder, since: flags.since, ...result }, null, 2)}\n`)
+  }
+
+  if (result.state === 'arrived') {
+    if (!flags.json) {
+      process.stdout.write(
+        `  arrived: ${result.code}\n` +
+          `  claim it: skitterspec spec-env review ${spec.folder} --claim-since ${flags.since}\n`,
+      )
+    }
+    return
+  }
+
+  process.exitCode = 1
+  if (flags.json) return
+
+  if (result.state === 'unusable') {
+    process.stdout.write(`  --since ${flags.since} is not a timestamp — nothing to wait inside\n`)
+    return
+  }
+  if (result.state === 'ambiguous') {
+    // NAMES THE COUNT, NEVER THE CODES — the same silence `--claim-since` keeps.
+    // Two in one window is two sittings or two people, and the operator has the
+    // codes; printing them here would hand a guesser the answer.
+    process.stdout.write(
+      `  ${result.count} passes arrived in that window — claim one by its code rather than guessing\n`,
+    )
+    return
+  }
+  process.stdout.write('  timed out — no verdict arrived in the window\n')
 }
 
 // `review arm` — a phase ended, and its diff is now owed a verdict.
@@ -3571,6 +3663,8 @@ async function specEnv(rest) {
     else if (args[i] === '--outcome') flags.outcome = args[++i]
     else if (args[i] === '--claim') flags.claim = args[++i]
     else if (args[i] === '--claim-since') flags.claimSince = args[++i]
+    else if (args[i] === '--since') flags.since = args[++i]
+    else if (args[i] === '--timeout') flags.timeout = args[++i]
     else if (args[i] === '--drop') flags.drop = args[++i]
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--check') flags.check = true
@@ -3662,6 +3756,10 @@ async function specEnv(rest) {
         specEnvReviewArm(dir, config, positional[1], flags)
         break
       }
+      if (positional[0] === 'wait') {
+        await specEnvReviewWait(dir, config, positional[1], flags)
+        break
+      }
       if (positional[0] === 'gate') {
         specEnvReviewGate(dir, config, positional[1], flags, invokedFrom)
         break
@@ -3686,6 +3784,7 @@ async function specEnv(rest) {
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +
           '  review skip "<reason>"                 move on without one, on the record\n' +
+          '  review wait [spec] --since <iso>       block until a verdict arrives ([--timeout <s>])\n' +
           '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +
           '  review [spec] --verdict <word>         send just a verdict, with nothing marked\n' +
           '  review [spec] --buttons midrun         the page offers Continue, not a commit\n' +
