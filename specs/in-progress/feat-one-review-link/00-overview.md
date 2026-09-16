@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-314"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-314/one-review-link-valid-until-you-are-done-with-it"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # One review link, valid until you are done with it
 
 > **Type:** Feature
 > **Name:** feat-one-review-link (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-16)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
 > **Area:** packages/common/src/cli.js, packages/common/src/env/serve.js, packages/common/src/env/review.js, packages/common/test/
 > **Stack:** worktree
@@ -104,6 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
+| 2026-09-16 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
@@ -112,3 +115,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   causes were self-inflicted by restarting the server to pick up rebuilt code;
   the fourth is that the token and the port disagree about whether a URL should
   survive.
+- 2026-09-16 — Evidence found at start: a server died on its own and the next
+  render minted a fresh token, handing out a sixth URL for this repo in one
+  session with nobody having restarted anything. So cause 2 is not only
+  self-inflicted — any process death loses the link, which raises phase 1 from
+  a tidiness fix to the one that matters.
