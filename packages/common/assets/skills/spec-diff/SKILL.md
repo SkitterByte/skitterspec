@@ -489,8 +489,8 @@ said the page was **ready** rather than that it was **waiting**.
 **So the question is not "can I watch a file".** It is "am I asking?" — and the
 transport only decides what carries the answer back:
 
-- **A served page** posts to the local store; a file-watch sees it, and the
-  steps below are that watch.
+- **A served page** posts to the local store; the engine's own wait returns when
+  it lands, and the steps below run it.
 - **A `file://` page** has nothing to post to, so the reader pastes the pass and
   their next message carries it. Say you are holding and **end the turn** — that
   is the same wait, carried by the conversation. It is not a lesser one.
@@ -504,9 +504,20 @@ already arrived. Those get the `Review` row, no question, and nothing is owed.
 
 1. **Note the moment**, as an ISO timestamp, before you start. That instant is
    the entire scope of what may be claimed without a person naming it.
-2. **Watch** `.spec-env/reviews/<spec>.pending.json` in the primary checkout,
-   and **end the turn**. Not a poll and not a held-open turn: the operator has
-   their terminal back, and the session costs nothing while they read.
+2. **Run the engine's wait in the background, and end the turn:**
+
+   ```
+   skitterspec spec-env review wait <spec> --since <timestamp>
+   ```
+
+   **Never a watcher of your own, and never a timeout.** It lasts as long as the
+   session, because a reader who walks away from a diff is the normal case — and
+   a loop composed here would be proven by nothing, which is how one written as
+   `[ "$x" \> "$y" ]` spun for five minutes in zsh and looked exactly like
+   patience. `/spec-next` §5 carries the full account.
+
+   Not a poll and not a held-open turn: the operator has their terminal back,
+   and the session costs nothing while they read.
 3. **On waking, let the engine choose:**
 
    ```

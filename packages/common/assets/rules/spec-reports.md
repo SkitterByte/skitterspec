@@ -101,9 +101,22 @@ paragraph explaining it.
 every case; what varies is what carries it back, not whether the run is
 stopped. Three transports, three true sentences:
 
-- **A page the engine SERVES** hands its pass to the local store, which a
-  file-watch sees. The run is woken by the press:
+- **A page the engine SERVES** hands its pass to the local store, and
+  `spec-env review wait` returns when it lands. The run is woken by the press:
   *"I'm holding here until you send a verdict."*
+
+  **That sentence is only true for as long as the wait is actually running**, so
+  the wait is the engine's and never one composed for the occasion. A watcher
+  written per run is proven by nothing: one was written
+  `until [ -f "$P" ] && [ "$x" \> "$y" ]` — valid bash, a syntax error in zsh,
+  a predicate that could never be true — and it spun for five minutes while the
+  report underneath it said the run was holding.
+  **Silence is what made that expensive**:
+  a wait that cannot fire and one patiently working look identical,
+  so nothing seemed wrong until the reader asked. Give the wait no timeout
+  either; it lasts as long as the session, because a reader who walks away from
+  a diff is the normal case and a bounded watch once lost a verdict to a lunch
+  break.
 - **A `file://` page** has no server to POST to, so the pass is copied and
   pasted — the reader's next message is what carries it. The run is stopped just
   the same, and says so:

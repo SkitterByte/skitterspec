@@ -352,16 +352,25 @@ whether the two places are adjacent rows or a row and a banner.
 
 The row is findable, but a row cannot make the continuation follow from the
 reading — and that is the gap the whole gate exists to close.
-**Where this harness can watch a file and wake the session on a change, use it.** The pass
-arrives at the engine's holding area, the watch fires, and the verdict the
-reader pressed is what carries the work on.
+
+**The wait is a command. Do not write one.**
 
 1. **Note the moment you start waiting**, as an ISO timestamp. That instant is
    the whole scope of what you may claim.
-2. **Watch the pending store** for the spec —
-   `.spec-env/reviews/<spec>.pending.json` in the primary checkout — and
-   **end your turn**. Do not poll, and do not hold the turn open: the point is that
-   the reader has the terminal back while they read.
+2. **Run the engine's wait in the background, and end your turn:**
+
+   ```
+   skitterspec spec-env review wait <spec> --since <the timestamp>
+   ```
+
+   It returns when a pass arrives inside that window, and
+   **it takes no timeout unless you pass one** —
+   the wait lasts as long as your session, because a reader who walks away from
+   a diff is the normal case rather than the edge one. Do not give it a duration
+   of your own.
+
+   Then **end your turn**. Do not poll it and do not hold the turn open: the
+   point is that the reader has the terminal back while they read.
 3. **On waking, let the engine pick**:
 
    ```
@@ -369,10 +378,25 @@ reader pressed is what carries the work on.
    ```
 
    It claims the one pass that arrived inside the window, and acts on nothing
-   at all when none did (the watch can fire on a write that was not a pass) or
-   when two did (two sittings, or two people — the operator has the codes).
+   at all when none did (the wait can be woken by something that was not a
+   pass) or when two did (two sittings, or two people — the operator has the
+   codes).
 4. **Route on the verdict** exactly as `/spec-diff` §2 and §4 describe. Do not
    restate that routing here.
+
+**WHY A COMMAND RATHER THAN A LOOP YOU COMPOSE.** This step used to say "watch
+the pending store" and stop, so every run invented its own watcher in shell —
+and three failed in two days, each reaching the operator as *"I pressed the
+button and nothing happened"*. The worst wrote
+`until [ -f "$P" ] && [ "$x" \> "$y" ]`: valid bash, a syntax error in zsh, a
+predicate that could never be true. It spun for five minutes writing to a
+stderr nobody reads.
+
+**The bug is not the lesson — the silence is.** A watcher that can never fire
+and one patiently working are indistinguishable from outside, so nothing about
+that run looked wrong until the operator asked. `review wait` says it has
+started, is written once, and is tested against a store that gains a pass
+mid-flight. A predicate composed fresh each time is proven by nothing.
 
 **WHY THIS IS SAFE, AND WHAT IT COSTS.** It was once true that a device
 reaching your page could not reach your conversation, and that fact was the
@@ -387,11 +411,11 @@ is that the page can now act, so the token has become a credential rather than
 a convenience — and `--claim-since` refusing to choose between two passes is
 what stops a race becoming a wrong commit.
 
-**Where the harness cannot watch a file, you still wait** — the turn ending is
-the wait. Say the page is rendered and that you are holding for the pass, then end
-your turn; the reader's next message is what carries it, and `/spec-diff` picks
-it up from the paste exactly as it always has. The gate holds either way: it is
-the engine's, not the watch's.
+**Where the harness cannot run something in the background, you still wait** —
+the turn ending is the wait. Say the page is rendered and that you are holding
+for the pass, then end your turn; the reader's next message is what carries it,
+and `/spec-diff` picks it up from the paste exactly as it always has. The gate
+holds either way: it is the engine's, not the wait's.
 
 This once read *"change nothing"* — keep the row, keep the question, do not
 wait — and that exemption is the hatch a whole class of unanswerable questions

@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The engine owns the wait | ✅ | [01-the-engine-owns-the-wait.md](01-the-engine-owns-the-wait.md) |
-| 2 | The skills stop improvising one | ⬜ | [02-skills-stop-improvising.md](02-skills-stop-improvising.md) |
+| 2 | The skills stop improvising one | ✅ | [02-skills-stop-improvising.md](02-skills-stop-improvising.md) |
 | 3 | A pass nobody heard is found on the way back in | ⬜ | [03-found-on-the-way-back-in.md](03-found-on-the-way-back-in.md) |
 
 ## Open questions
@@ -172,6 +172,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   surfaced — `addPending` supersedes two passes that both carry `render: null`
   (`null !== null` is false), so two readers' passes collapse into one; the
   comment in `serve.js` asserts the opposite. Not this spec's to fix.
+- 2026-09-16 — Phase 2: the four documents now name `spec-env review wait` and
+  forbid composing one, guarded by `assets-verdict-wait` — proved red against
+  each mutation it exists to catch before being trusted.
 - 2026-09-16 — Follow-up recorded: `servePort` is `7777` for every repo, so a
   second repo takes it and this one is moved aside, leaving a link handed out
   earlier pointing at a stranger's daemon. Out of scope here. (First written as
