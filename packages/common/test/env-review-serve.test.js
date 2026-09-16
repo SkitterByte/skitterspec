@@ -274,7 +274,14 @@ test('a spec with no worktree is omitted from the index, not listed as an error'
     const html = await (await s.get()).text()
     assert.doesNotMatch(html, /feat-unstarted/, 'an unstarted spec has nothing to diff')
     assert.doesNotMatch(html, /error|failed/i)
-    assert.strictEqual((await s.get('feat-unstarted')).status, 404)
+    // THE 404 HALF WAS DROPPED DELIBERATELY. It asserted that a committed spec
+    // has no page at all, and that is what destroyed a page the moment its own
+    // verdict was honoured. The INDEX still omits it — that is this test's
+    // point, and a menu of finished specs would be wrong about a healthy repo —
+    // but a direct request is someone opening an address they were given, and
+    // it now resolves. See `a docs page still answers after its documents are
+    // committed`.
+    assert.strictEqual((await s.get('feat-unstarted')).status, 200)
   } finally {
     await s.close()
     cleanup(dir)
@@ -526,14 +533,16 @@ test('STAYS SILENT: a spec with a worktree still serves its branch view', async 
   }
 })
 
-test('STAYS SILENT: a committed backlog spec is still omitted and still 404s', async () => {
+test('STAYS SILENT: a committed backlog spec is still omitted from the index', async () => {
   const { dir } = scaffold()
-  // Nothing uncommitted of its own — the ordinary state of most of specs/.
+  // Nothing uncommitted of its own — the ordinary state of most of specs/. The
+  // index is a menu of what AWAITS review, so it stays out of it; the direct
+  // page resolves, because a link someone is holding must keep working.
   const s = await serve(dir)
   try {
     const html = await (await s.get()).text()
     assert.doesNotMatch(html, /feat-unstarted/)
-    assert.strictEqual((await s.get('feat-unstarted')).status, 404)
+    assert.strictEqual((await s.get('feat-unstarted')).status, 200)
   } finally {
     await s.close()
     cleanup(dir)
@@ -576,4 +585,74 @@ test('an unresolvable companion is simply not owned, and nothing throws', () => 
   const out = classifyDirtyTree(bare, ['specs/backlog/feat-alpha/00-overview.md', 'app.js'], config)
   assert.deepStrictEqual(out.owned, ['specs/backlog/feat-alpha/00-overview.md'])
   assert.deepStrictEqual(out.foreign, ['app.js'])
+})
+
+// --- a docs page outlives the verdict pressed on it -------------------------
+//
+// The cause that actually stranded a reader: the link was valid, the server was
+// up, the network was fine, and the page had been destroyed by honouring the
+// verdict pressed on it. `--docs` renders a spec's UNCOMMITTED documents, so
+// committing them is what removes the page. A reload 404s and reads as "the
+// review vanished".
+
+test('a docs page still answers after its documents are committed', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    assert.strictEqual((await s.get('feat-unstarted')).status, 200, 'it served before the commit')
+    // What honouring a `commit` verdict does.
+    git(dir, 'add', '--', 'specs/backlog/feat-unstarted')
+    git(dir, 'commit', '-q', '-m', 'the verdict was honoured')
+    const res = await s.get('feat-unstarted')
+    assert.strictEqual(res.status, 200, 'pressing a verdict must not destroy the page it came from')
+    const html = await res.text()
+    assert.match(html, /01-first\.md/, 'and it still shows the spec')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('the fallback says it is showing the spec as committed', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    git(dir, 'add', '--', 'specs/backlog/feat-unstarted')
+    git(dir, 'commit', '-q', '-m', 'committed')
+    const html = await (await s.get('feat-unstarted')).text()
+    // A reader who pressed a verdict and reloaded should be able to tell their
+    // press landed, rather than wondering why the diff looks different.
+    assert.match(html, /"mode":\s*"docs-committed"/)
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: uncommitted documents still win over the committed ones', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    const html = await (await s.get('feat-unstarted')).text()
+    assert.match(html, /"mode":\s*"docs"/, 'the fallback must add a case, not replace the primary')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a spec folder with no documents at all still 404s', async () => {
+  const { dir } = scaffold()
+  const s = await serve(dir)
+  try {
+    // `feat-unstarted` is committed by the scaffold and has only an overview;
+    // a name that is no spec at all must stay a 404 rather than render empty.
+    assert.strictEqual((await s.get('feat-nonexistent')).status, 404)
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
 })

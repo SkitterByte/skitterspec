@@ -194,15 +194,54 @@ ${body}
  * spec with no worktree BY DEFINITION, so gating the route on a worktree
  * excludes precisely the specs the docs view exists for.
  */
-function viewFor(dir, config, spec, git) {
+function viewFor(dir, config, spec, git, { fallback = false } = {}) {
   if (!spec) return null
   const wt = spec.worktreePath
   if (wt && wt !== dir && fs.existsSync(wt)) return { kind: 'worktree' }
   const found = specDocsIn(dir, spec, config, trimmedGitReader(dir))
-  // `error` is cannot-tell and `empty` is nothing-to-show; neither is a page,
-  // and neither is an error page either (rule 4: the harmless branch).
-  if (found.error || found.empty) return null
-  return { kind: 'docs', tree: found.tree, owned: found.owned }
+  // `error` is cannot-tell — not a page, and not an error page either (rule 4:
+  // the harmless branch).
+  if (found.error) return null
+  if (!found.empty) return { kind: 'docs', tree: found.tree, owned: found.owned }
+
+  // NOTHING UNCOMMITTED IS NOT NOTHING TO SHOW, on this route. A `--docs` page
+  // renders a spec's uncommitted documents, so HONOURING THE VERDICT PRESSED ON
+  // IT is what removes them: the reader presses `Commit`, the agent commits, and
+  // a reload 404s. The link was valid, the server was up and the network was
+  // fine — the page had been deliberately destroyed by the thing it asked for.
+  //
+  // So fall back to what the spec now IS, which mirrors the phase page's
+  // clean-tree fallback for the same reason: the page is rendered before the
+  // commit and read after it.
+  //
+  // ONLY FOR A NAMED PAGE, never for the index. The two routes ask different
+  // questions: the index is a menu of what AWAITS review, and every completed
+  // spec in the repo falling back would fill it with dozens of finished ones —
+  // the doorway would be wrong about a healthy repo, which is the reason it
+  // omits them in the first place. A direct request is someone opening an
+  // address they were given, and that has to keep resolving.
+  if (!fallback) return null
+  const committed = committedDocsFor(dir, config, spec)
+  if (!committed) return null
+  return { kind: 'docs-committed', tree: dir, owned: committed }
+}
+
+/**
+ * The spec's committed document paths at `HEAD`, or null when it has none.
+ *
+ * KEPT ONLY WHERE IT FINDS SOMETHING, exactly as the branch fallback is: a name
+ * that is no spec at all must stay a 404 rather than render an empty page with
+ * a commit button on it.
+ */
+function committedDocsFor(dir, config, spec) {
+  const git = trimmedGitReader(dir)
+  const out = git(['ls-files', '--', `specs/*/${spec.folder}/*`])
+  if (out == null) return null
+  const paths = String(out)
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+  return paths.length ? paths : null
 }
 
 // `specDocsIn` wants a reader that TRIMS, because it compares whole paths.
@@ -260,7 +299,11 @@ function receivePass(dir, config, spec, blob) {
   // is anchored to, so accepting a pass needs no worktree — and requiring one
   // rejected every verdict sent from an authoring page, which is the one page
   // whose spec never has a worktree.
-  if (!spec || !viewFor(dir, config, spec, rawGitReader(dir))) return null
+  // `fallback: true` so the POST follows the PAGE. A reader who reloads a
+  // committed docs page gets buttons; rejecting what they press would be the
+  // failure this whole area keeps producing — a control that appears to do
+  // nothing. Whether the verdict is worth acting on is the routing's call.
+  if (!spec || !viewFor(dir, config, spec, rawGitReader(dir), { fallback: true })) return null
   let parsed
   try {
     parsed = validateNotesBlob(blob, spec.folder)
@@ -287,13 +330,13 @@ function receivePass(dir, config, spec, blob) {
 }
 
 function renderSpecPage(dir, config, spec, { branch = false } = {}) {
-  const view = viewFor(dir, config, spec, rawGitReader(dir))
+  const view = viewFor(dir, config, spec, rawGitReader(dir), { fallback: true })
   if (!view) return null
 
   // THE DOCS VIEW IS A DIFFERENT TREE AND A DIFFERENT FILE SET, and it takes
   // the authoring buttons: a spec with no worktree has no phase in flight, so
   // "commit and build the next phase" is the wrong offer for it.
-  if (view.kind === 'docs') {
+  if (view.kind === 'docs' || view.kind === 'docs-committed') {
     const docsGit = rawGitReader(view.tree)
     const out = reviewOutPath(dir, spec.folder, null)
     const notes = readNotes(out, spec.folder).notes
@@ -301,8 +344,11 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     const data = collectReview({
       spec,
       git: docsGit,
-      mode: 'docs',
-      ref: 'HEAD',
+      mode: view.kind,
+      // A committed view diffs against the commit BEFORE HEAD's spec content —
+      // there is nothing uncommitted to compare, so the whole document is the
+      // content, exactly as an untracked file renders.
+      ref: view.kind === 'docs-committed' ? 'HEAD~1' : 'HEAD',
       now: new Date().toISOString(),
       notes,
       gate: gateRead.corrupt ? null : gateRead.gate,

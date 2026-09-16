@@ -268,12 +268,34 @@ test('two POSTs from one render leave one pass; from two renders, two', () => {
   }
 })
 
-test('a spec whose worktree is gone receives nothing', () => {
+test('a spec whose worktree is gone still receives, because its page still serves', () => {
+  // THE PREMISE MOVED, deliberately. This asserted that losing the worktree
+  // meant receiving nothing — and that is what made a verdict button on a
+  // committed docs page appear to do nothing, which is the failure this area
+  // keeps producing. The page falls back to the spec's committed documents, so
+  // the POST follows the page: whether the verdict is worth acting on is the
+  // routing's call, not the endpoint's.
   const { dir, spec } = repo()
   try {
     const { config } = loadEnvConfig(dir)
     fs.rmSync(spec.worktreePath, { recursive: true, force: true })
-    assert.strictEqual(receivePass(dir, config, spec, { version: 1, spec: 'feat-alpha' }), null)
+    const got = receivePass(dir, config, spec, { version: 1, spec: 'feat-alpha' })
+    assert.ok(got && /^\d{6}$/.test(String(got.code)), 'a page that offers buttons must accept one')
+  } finally {
+    drop(dir)
+  }
+})
+
+test('a spec with neither a worktree nor committed documents receives nothing', () => {
+  // The case that must still be refused, and the reason the check is not simply
+  // deleted: a name that is no spec at all has no page, so a POST to it is not
+  // a reader pressing anything.
+  const { dir, spec } = repo()
+  try {
+    const { config } = loadEnvConfig(dir)
+    fs.rmSync(spec.worktreePath, { recursive: true, force: true })
+    const ghost = { ...spec, folder: 'feat-nonexistent', slug: 'nonexistent' }
+    assert.strictEqual(receivePass(dir, config, ghost, { version: 1, spec: 'feat-nonexistent' }), null)
   } finally {
     drop(dir)
   }
