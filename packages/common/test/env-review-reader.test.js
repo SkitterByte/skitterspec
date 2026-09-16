@@ -701,3 +701,55 @@ test('nothing but rotation mints a token', () => {
   assert.match(src, /function repoToken\(dir, config\) \{[\s\S]*?mintToken\(\)/)
   assert.match(src, /if \(flags\.rotateToken\) \{[\s\S]*?mintToken\(\)/)
 })
+
+// --- one URL shape, whatever the bind --------------------------------------
+//
+// `token = loopback ? null : …` made the URL's SHAPE follow the bind, and the
+// bind follows reader detection — which flipped `unknown` → `remote` inside a
+// single session. So the same repo's address gained and lost a path segment
+// depending on what the engine last guessed about where someone was sitting.
+
+const shapeOf = (u) => (u ? u.replace(/^http:\/\/[^/]+/, '').replace(/[^/]+$/, '') : null)
+
+test('the path is the same under local, remote and detect — only the host differs', async () => {
+  const port = await freePort()
+  const shapes = {}
+  for (const who of ['local', 'remote', 'detect']) {
+    const { dir } = scaffold(who, { servePort: port })
+    try {
+      const url = urlOf(review(dir))
+      assert.ok(url, `${who} produced no served URL`)
+      shapes[who] = shapeOf(url)
+    } finally {
+      stopServe(dir)
+      cleanup(dir)
+    }
+  }
+  // Different repos, so the tokens differ; what must match is the SHAPE — a
+  // token segment present in every case rather than only on a network bind.
+  for (const who of ['local', 'remote', 'detect']) {
+    assert.match(shapes[who], /^\/[0-9a-f]{12}\/$/, `${who} must carry a token segment`)
+  }
+})
+
+test('a loopback server carries a token, so a detection flip cannot reshape the URL', async () => {
+  const { dir } = scaffold('local', { servePort: await freePort() })
+  try {
+    const url = urlOf(review(dir))
+    assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{12}\/feat-alpha$/)
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: the token still guards a network bind, and a wrong one is notfound', () => {
+  // Widening WHERE the token appears must not weaken WHAT it does. `routeFor`
+  // is pure, so this is the cheapest place to assert it.
+  const { routeFor } = require('../src/env/serve.js')
+  const token = 'abcdef012345'
+  assert.strictEqual(routeFor(`/${token}/`, { token }).kind, 'index')
+  assert.strictEqual(routeFor(`/${token}/feat-alpha`, { token }).kind, 'spec')
+  assert.strictEqual(routeFor('/deadbeef0000/feat-alpha', { token }).kind, 'notfound')
+  assert.strictEqual(routeFor('/feat-alpha', { token }).kind, 'notfound', 'never a redirect')
+})

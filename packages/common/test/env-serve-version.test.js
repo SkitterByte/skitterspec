@@ -200,7 +200,12 @@ test('the reuse rule is in the code, not just the intent', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli.js'), 'utf8')
   // Pinned as source because the alternative is spawning servers to observe a
   // URL: the replacement path reuses the recorded token rather than minting.
-  assert.match(src, /const token = loopback \? null : reuseToken \|\| repoToken\(dir, config\)/)
+  assert.match(src, /const token = reuseToken \|\| repoToken\(dir, config\)/)
+  // AND NO LONGER CONDITIONED ON THE BIND. `loopback ? null : …` made the
+  // URL's shape follow reader detection, which flips; the token is now carried
+  // on every bind so the address has one shape. On loopback it guards nothing
+  // and is not there to.
+  assert.doesNotMatch(src, /const token = loopback \?/)
   assert.match(src, /reuseToken = settings\.token \|\| null/)
 
   // UPDATED, AND THE OLD REASONING IS WHY. This read

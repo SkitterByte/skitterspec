@@ -3092,7 +3092,14 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   //
   // `reuseToken` still wins where a server is being replaced on the same bind —
   // now redundant rather than wrong, and left alone as its own guarantee.
-  const token = loopback ? null : reuseToken || repoToken(dir, config)
+  //
+  // EVERY BIND CARRIES IT, loopback included, and on loopback it guards nothing:
+  // a server reachable only from this machine needs no credential. It is there
+  // so the URL has ONE SHAPE. The bind comes from reader detection, and that
+  // detection flipped `unknown` → `remote` inside a single session — so a
+  // token-only-on-network rule meant the same repo's address gained and lost a
+  // path segment underneath whoever was holding it.
+  const token = reuseToken || repoToken(dir, config)
 
   if (running) await stopProcess(proc, { rootDir: dir })
 

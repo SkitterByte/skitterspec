@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The token outlives the process | ✅ | [01-a-token-per-repo.md](01-a-token-per-repo.md) |
-| 2 | One URL shape, whatever the bind | ⬜ | [02-one-url-shape.md](02-one-url-shape.md) |
+| 2 | One URL shape, whatever the bind | ✅ | [02-one-url-shape.md](02-one-url-shape.md) |
 | 3 | A docs page outlives its verdict | ⬜ | [03-the-page-outlives-the-commit.md](03-the-page-outlives-the-commit.md) |
 
 ## Open questions
@@ -125,3 +125,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   handed-out link dies. A pinned test asserting the old `mintToken()` literal was
   updated with its reasoning rewritten, since its premise — no link worth
   preserving on a cold start — stopped being true when the port became derived.
+- 2026-09-16 — Phase 2: the token is carried on every bind, loopback included,
+  where it guards nothing and exists only so the URL has one shape. A Linear
+  push returned HTTP 503 mid-phase; the repo is correct and the next push
+  repairs the mirror.
