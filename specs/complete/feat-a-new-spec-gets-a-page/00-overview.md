@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-a-new-spec-gets-a-page (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-16)
+> **Status:** Complete (2026-09-16)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -117,6 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
 | 2026-09-16 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-16 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -135,3 +136,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-16 — Phase 3: added a fourth button set, `refresh` (commit, changes,
   discuss), rather than reusing `authoring` — a start verdict on a refreshed
   spec would offer to provision a worktree it may already have.
+- 2026-09-16 — Completed; all three phases done, 2755 tests green.
