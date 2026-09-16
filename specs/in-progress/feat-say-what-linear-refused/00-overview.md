@@ -151,7 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Say what Linear refused, and whether waiting helps | ✅ | [01-say-what-linear-refused.md](01-say-what-linear-refused.md) |
-| 2 | Resume is a guarantee, not a comment | ⬜ | [02-resume-is-a-guarantee.md](02-resume-is-a-guarantee.md) |
+| 2 | Resume is a guarantee, not a comment | ✅ | [02-resume-is-a-guarantee.md](02-resume-is-a-guarantee.md) |
 | 3 | Point a spec back at its issue | ⬜ | [03-point-a-spec-back-at-its-issue.md](03-point-a-spec-back-at-its-issue.md) |
 
 ## Open questions
@@ -169,6 +169,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   skips what can never succeed; `apply` reports Linear's own words and whether
   anything was written. Found while building: the resume property phase 2 was to
   prove is already tested in `cli-apply.test.js`.
+- 2026-09-16 — Phase 2: resume proved at every boundary, with the re-run
+  genuinely re-planned rather than replaying a stale plan. The create-landed-
+  stamp-failed hole now names the orphaned identifier and points at `reattach`,
+  because a re-run there mints a second issue.
 
 ## State log
 

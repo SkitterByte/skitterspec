@@ -2427,6 +2427,14 @@ async function applyOneSpec(args) {
     const r = progress.result
     if (error && typeof error === 'object' && error.stamped === undefined) {
       error.stamped = r ? (r.issue ? 1 : 0) + Object.keys(r.subIssues || {}).length : 0
+      // THE ONE CASE A RE-RUN MAKES WORSE. `created` is what Linear holds;
+      // `stamped` is what the repo recorded. They part company when a create
+      // lands and its stamp cannot be written — and then the next plan still
+      // reads the spec as unlinked, so re-running mints a SECOND issue beside a
+      // perfectly good one. The identifiers travel out so the caller can name
+      // them and send the reader to `reattach` instead.
+      error.created = progress.created || []
+      error.orphans = error.created.slice(error.stamped)
     }
     throw error
   }
@@ -2465,6 +2473,10 @@ async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, team
     }))
     if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
     parentId = created.id
+    // NOTED BEFORE IT IS STAMPED. The stamp can fail — a read-only tree, a
+    // permission error — and then this identifier exists in Linear with nothing
+    // in the repo pointing at it. Recorded here so the failure can name it.
+    if (progress) (progress.created = progress.created || []).push(created.identifier)
     // Stamped NOW: an interrupt after this point must not mint a second issue.
     writeFrontmatter(snapshotDir, config, { linear_identifier: created.identifier, linear_url: created.url })
     result.issue = { id: created.id, identifier: created.identifier, url: created.url }
@@ -2500,6 +2512,7 @@ async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, team
       stateId: stateId(sub.state),
     }))
     if (!created || !created.identifier) throw new Error(`Linear returned no issue for sub-issue ${sub.ref}`)
+    if (progress) (progress.created = progress.created || []).push(created.identifier)
     const file = resolvePhaseFile(snapshotDir, sub.ref)
     if (!file) throw new Error(`no phase file for ref ${sub.ref}`)
     stampSubIssueId(snapshotDir, file, created.identifier)
@@ -2868,12 +2881,18 @@ async function specSyncApply(dir, config, specArg, flags, out) {
           ...lines,
           `  !! ${said[0]}`,
           ...said.slice(1).map((l) => `  ${l}`),
-          // ONLY THE TRUE ONE. Nothing written means re-running starts over; a
-          // part-way failure means it resumes. Saying the second on both paths
-          // is how a reader concludes an issue exists that does not.
-          error && error.stamped
-            ? '  ids stamped so far are saved — re-run to resume without duplicating'
-            : '  nothing was created — re-run once the cause is resolved',
+          // THREE ENDINGS, and the third is the one a re-run makes worse.
+          // Something exists in Linear that the repo does not record, so the
+          // next plan still reads this spec as unlinked and re-running mints a
+          // second issue beside it. Name what exists and send the reader to
+          // `reattach` instead.
+          error && error.orphans && error.orphans.length
+            ? `  ${error.orphans.join(', ')} ${error.orphans.length === 1 ? 'exists' : 'exist'} in Linear but could not be ` +
+              'recorded — reattach rather than re-running, or a second will be minted:\n' +
+              `    skitterspec spec-sync reattach ${plan && plan.spec ? plan.spec : '<spec>'} --to ${error.orphans[0]}`
+            : error && error.stamped
+              ? '  ids stamped so far are saved — re-run to resume without duplicating'
+              : '  nothing was created — re-run once the cause is resolved',
         ].join('\n') + '\n',
       )
       return 1

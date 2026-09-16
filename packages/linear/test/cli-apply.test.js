@@ -689,3 +689,117 @@ test('a usage cap arrives with the reason and the fix, not as a rate limit', asy
   assert.match(r.out, /USAGE_LIMIT_EXCEEDED/)
   assert.match(r.out, /nothing was created/i, 'and re-running is a fresh start, not a resume')
 })
+
+// --- every boundary a run can fail on ----------------------------------------
+//
+// "Re-run to resume without duplicating" is what makes *just run it again* safe
+// advice, and advice nobody tested is how a duplicate gets minted on the one
+// path nobody tried. The boundary above covers the issue landing and the first
+// sub-issue failing; these are the rest.
+
+// A plan with TWO sub-issues, so there is a boundary between them to fail at.
+const TWO_PHASE_PLAN = {
+  issue: { description: '# Applied\n\n## Problem\n\nThe header is `X-Extraction-Key`.', state: 'in-progress' },
+  subIssues: {
+    create: [
+      { ref: '01-engine', name: 'Engine', goal: '**Goal:** go.', state: 'backlog' },
+      { ref: '02-second', name: 'Second', goal: '**Goal:** also go.', state: 'backlog' },
+    ],
+    update: [],
+  },
+}
+
+test('failing on the very first write stamps nothing, and a re-run mints once', async () => {
+  const dir = fixtureRepo()
+  const r1 = await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, {
+    adapter: fakeLinear({ failOn: 1 }),
+  })
+  assert.strictEqual(r1.code, 1)
+  assert.doesNotMatch(overview(dir), /linear_identifier/, 'nothing was created, so nothing is stamped')
+
+  const second = fakeLinear()
+  const r2 = await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, { adapter: second })
+  assert.strictEqual(r2.code, 0)
+  const creates = second.log.filter((c) => c.op === 'createIssue')
+  assert.strictEqual(creates.length, 2, 'the issue and its sub-issue — one of each, not three')
+  assert.match(overview(dir), /linear_identifier/)
+})
+
+test('failing between two sub-issues keeps the first, and the re-run creates only the second', async () => {
+  const dir = fixtureRepo()
+  fs.writeFileSync(
+    path.join(dir, 'specs/in-progress/feat-applied/02-second.md'),
+    '# Phase 2 — Second ⬜\n\n**Goal:** also go.\n',
+    'utf-8',
+  )
+  // Writes are: issue, sub 1, sub 2 — so failing on the third leaves one sub.
+  const first = fakeLinear({ failOn: 3 })
+  const r1 = await run(['apply', 'feat-applied', '--plan', planFile(dir, TWO_PHASE_PLAN)], dir, { adapter: first })
+  assert.strictEqual(r1.code, 1)
+  assert.match(r1.out, /ids stamped so far are saved/, 'two objects landed, so a re-run resumes')
+  assert.match(phase(dir), /linear_issue_id/, 'the sub-issue that landed is stamped')
+
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(dir, 'specs/in-progress/feat-applied/02-second.md'), 'utf-8'),
+    /linear_issue_id/,
+    'and the one that never landed is not',
+  )
+
+  // THE RE-RUN IS RE-PLANNED, never the stale plan replayed. A plan lists what
+  // was missing WHEN IT WAS COMPUTED, so feeding the old one back asks for both
+  // sub-issues again and proves nothing about resumability — it proves the
+  // planner was not consulted. This is the whole mechanism: the stamps from the
+  // interrupted run make the new plan smaller.
+  const second = fakeLinear()
+  second.store.set('SKI-1', { id: 'uuid-1', identifier: 'SKI-1', url: 'u', description: 'x' })
+  second.store.set('SKI-2', { id: 'uuid-2', identifier: 'SKI-2', url: 'u', description: 'x' })
+  const replan = path.join(dir, 'replan.json')
+  const statesFile = path.join(dir, 'states.json')
+  fs.writeFileSync(statesFile, JSON.stringify(STATES.map((st) => st.name)), 'utf-8')
+  const planOut = []
+  await specSync(['plan', 'feat-applied', '--workspace-states', statesFile, '--json'], {
+    cwd: dir,
+    out: { write: (x) => planOut.push(x) },
+    err: { write: () => {} },
+    env: { LINEAR_API_KEY: 'lin_api_test' },
+  })
+  const replanned = JSON.parse(planOut.join(''))
+  assert.strictEqual(
+    (replanned.subIssues.create || []).length,
+    1,
+    'the re-plan asks for one sub-issue — the one that never landed',
+  )
+  fs.writeFileSync(replan, JSON.stringify(replanned), 'utf-8')
+  const r2 = await run(['apply', 'feat-applied', '--plan', replan], dir, { adapter: second })
+  assert.strictEqual(r2.code, 0)
+  const creates = second.log.filter((c) => c.op === 'createIssue')
+  assert.strictEqual(creates.length, 1, 'only the sub-issue that never landed')
+})
+
+// THE HOLE. A create that succeeds and a stamp that fails leaves an issue in
+// Linear that nothing records — and a re-run would mint a second, because the
+// plan still reads the spec as unlinked. So the failure must name the
+// identifier that exists and point at reattach, NOT at a re-run.
+test('a create that lands with a stamp that fails names the orphan', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear()
+  // The stamp writes the overview; make that write fail after the create.
+  const overviewPath = path.join(dir, 'specs/in-progress/feat-applied/00-overview.md')
+  const realWrite = fs.writeFileSync
+  fs.writeFileSync = (file, ...rest) => {
+    if (String(file) === overviewPath) throw new Error('EACCES: permission denied')
+    return realWrite(file, ...rest)
+  }
+  let r
+  try {
+    r = await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, { adapter: linear })
+  } finally {
+    fs.writeFileSync = realWrite
+  }
+  assert.strictEqual(r.code, 1)
+  const created = linear.log.filter((c) => c.op === 'createIssue')
+  assert.strictEqual(created.length, 1, 'the issue really was created')
+  assert.match(r.out, /SKI-1/, 'so the identifier that exists is named')
+  assert.match(r.out, /reattach/, 'and the way back is reattach, not a re-run')
+  assert.doesNotMatch(r.out, /re-run to resume/, 're-running here would mint a second')
+})
