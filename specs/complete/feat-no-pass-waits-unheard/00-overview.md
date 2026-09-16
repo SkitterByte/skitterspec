@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-no-pass-waits-unheard (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-16)
+> **Status:** Complete (2026-09-16)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -185,6 +185,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   a *silent* fallback — it is not: `ensureReviewServer` refuses with
   `port 7777 is already in use`, and the move happens because a caller then
   passes `--port`.)
+- 2026-09-16 — Completed; all three phases done, tests green (2669). Verified
+  on the evidence that motivated it: the wait carried all three of this spec's
+  own reviews, and the scan found every stranded pass on its first run.
 
 ## State log
 
@@ -192,3 +195,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
 | 2026-09-16 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-16 | Complete | complete | Reuben Greaves |
