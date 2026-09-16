@@ -154,6 +154,24 @@ Before writing any code for this phase, get the workspace clean:
   being *"I am moving on"*, which is what keeps this a push rather than a wall —
   a gate with no exit gets switched off wholesale instead of answered.
 
+- **Report anything left waiting, and claim none of it.** Ask the engine once:
+
+  ```
+  skitterspec spec-env review waiting
+  ```
+
+  A pass listed here arrived when nothing was watching — a wait that never ran,
+  a session cleared, a terminal closed overnight — and no watcher can recover
+  those, however good. Relay what it prints: the spec, the code, the verdict and
+  the age, with `/spec-reviewed <code>` to pick one up and `--drop <code>` to
+  disown it.
+
+  **It is information, not a gate.** It never refuses, nothing here is
+  conditional on it, and **you never claim one** — `/spec-diff` §0 stands
+  unchanged, and a pass sitting there when you arrived was not sent to you.
+  Silent when nothing is waiting, which is the usual case: say nothing rather
+  than reporting that there was nothing to report.
+
 ## 3. Implement the phase
 
 Identify the **first unfinished phase** from the `00-overview.md` phase index,

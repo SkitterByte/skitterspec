@@ -102,6 +102,7 @@ const {
   claimPending,
   passesSince,
   waitForPass,
+  waitingPasses,
   describePending,
   pendingAge,
   reviewPendingPath,
@@ -309,6 +310,60 @@ async function cleanupReleaseTooling(dir, opts) {
  * `git worktree prune`) stays listed until pruned. That over-reports, which is
  * the harmless direction for a read-only report.
  */
+/**
+ * The reviews sidecar directory for this repo. Named once, because the scan and
+ * everything that renders it must agree on where to look.
+ */
+function reviewsDirFor(dir, config) {
+  return path.join(dir, stateDirLabel(config), 'reviews')
+}
+
+/**
+ * Render "what is waiting" for a human. Returns '' when nothing is — a repo
+ * with no waiting pass must read exactly as it did before this existed, so the
+ * heading is absent rather than printed over an empty list.
+ */
+function waitingSection(dir, config, now = new Date().toISOString()) {
+  const found = waitingPasses(reviewsDirFor(dir, config))
+  if (!found.passes.length && !found.unreadable.length) return ''
+  const width = Math.max(0, ...found.passes.map((p) => p.spec.length))
+  const rows = found.passes
+    .map(
+      (p) =>
+        `  ${p.spec.padEnd(width)}  ${p.code} · ${p.verdict || 'no verdict'} · ${pendingAge(p.at, now)}\n`,
+    )
+    .join('')
+  // Named, never counted as zero: an unreadable store holds someone's pass, and
+  // reporting "nothing waiting" over it is the one answer certainly wrong.
+  const broken = found.unreadable
+    .map((folder) => `  ${folder}: its pending store is not readable JSON — move it aside\n`)
+    .join('')
+  // The disown line only where there is something to disown. It is information
+  // beside a list, not an instruction to act on every pass in it.
+  const how = found.passes.length
+    ? '  disown one with: skitterspec spec-env review <spec> --drop <code>\n'
+    : ''
+  return `\nReviews waiting:\n${rows}${broken}${how}`
+}
+
+// `review waiting` — the same answer on its own, for a caller who wants only
+// this. It claims nothing and exits 0 whatever it finds: a waiting pass is
+// information, never an accusation.
+function specEnvReviewWaiting(dir, config, flags) {
+  const found = waitingPasses(reviewsDirFor(dir, config))
+  if (flags.json) {
+    // ABSENT, NOT EMPTY. A consumer that predates this must see a
+    // byte-identical object when there is nothing waiting.
+    const out = {}
+    if (found.passes.length) out.waiting = found.passes
+    if (found.unreadable.length) out.unreadable = found.unreadable
+    process.stdout.write(`${JSON.stringify(out, null, 2)}\n`)
+    return
+  }
+  const section = waitingSection(dir, config)
+  process.stdout.write(section ? `${section.replace(/^\n/, '')}` : 'spec-env review: nothing waiting.\n')
+}
+
 function specEnvStatus(dir, config) {
   const worktreePaths = liveWorktreePaths(gitReader(dir))
   const provisioned = allSpecs(dir, config, worktreePaths)
@@ -318,8 +373,11 @@ function specEnvStatus(dir, config) {
     .filter((s) => s.wt !== dir && worktreePaths.has(s.wt))
     .sort((a, b) => a.folder.localeCompare(b.folder))
 
+  // REACHED EITHER WAY. This used to return here, so a repo with nothing in
+  // flight could say nothing about a waiting pass — and a repo with nothing in
+  // flight is exactly where one hides longest.
   if (!provisioned.length) {
-    process.stdout.write('spec-env: no provisioned specs.\n')
+    process.stdout.write(`spec-env: no provisioned specs.\n${waitingSection(dir, config)}`)
     return
   }
 
@@ -334,6 +392,7 @@ function specEnvStatus(dir, config) {
     }
     process.stdout.write(`  ${folder}${ports}\n    ${path.relative(dir, wt) || wt}\n`)
   }
+  process.stdout.write(waitingSection(dir, config))
 }
 
 // Plan a provision: allocate the slot, persist the registry, and print the plan
@@ -3756,6 +3815,10 @@ async function specEnv(rest) {
         specEnvReviewArm(dir, config, positional[1], flags)
         break
       }
+      if (positional[0] === 'waiting') {
+        specEnvReviewWaiting(dir, config, flags)
+        break
+      }
       if (positional[0] === 'wait') {
         await specEnvReviewWait(dir, config, positional[1], flags)
         break
@@ -3785,6 +3848,7 @@ async function specEnv(rest) {
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +
           '  review skip "<reason>"                 move on without one, on the record\n' +
           '  review wait [spec] --since <iso>       block until a verdict arrives ([--timeout <s>])\n' +
+          '  review waiting [--json]                every pass waiting, across every spec\n' +
           '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +
           '  review [spec] --verdict <word>         send just a verdict, with nothing marked\n' +
           '  review [spec] --buttons midrun         the page offers Continue, not a commit\n' +

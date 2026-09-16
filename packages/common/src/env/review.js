@@ -584,9 +584,13 @@ function writeNotes(outPath, notes) {
 
 const PENDING_VERSION = 1
 
-// Beside the page and the notes sidecar, under gitignored `.spec-env/`.
+// Beside the page and the notes sidecar, under gitignored `.spec-env/`. The
+// suffix is named once so the cross-spec scan recognises a store by the same
+// spelling that writes one.
+const PENDING_SUFFIX = '.pending.json'
+
 function reviewPendingPath(outPath) {
-  return outPath.replace(/\.html$/, '') + '.pending.json'
+  return outPath.replace(/\.html$/, '') + PENDING_SUFFIX
 }
 
 function emptyPending(specFolder) {
@@ -902,6 +906,66 @@ async function waitForPass(readStore, since, { timeoutMs = null, pollMs = WAIT_P
     // Never overshoot the deadline by a whole poll interval.
     await nap(deadline === null ? pollMs : Math.max(0, Math.min(pollMs, deadline - Date.now())))
   }
+}
+
+/**
+ * Every waiting pass, across every spec. Reads; writes, claims and refuses
+ * nothing.
+ *
+ * A wait that never fired, a session cleared, a terminal closed overnight —
+ * none of those is recoverable by any watcher, however good. This is what finds
+ * the pass afterwards, so recovery stops depending on the operator happening to
+ * suspect something.
+ *
+ * IT READS THE SIDECAR DIRECTORY, NEVER THE PROVISIONED LIST, and that is the
+ * load-bearing decision rather than an implementation detail. `specEnvStatus`
+ * walks specs that have a **worktree**; the ten passes that motivated this all
+ * belonged to specs that had been completed and torn down. Scoping the scan to
+ * provisioned specs would therefore make it blind to precisely the case that
+ * produced it. A `<spec>.pending.json` is here because a pass was received —
+ * a positive signal (`.claude/rules/negative-checks.md` rule 1), and one that
+ * outlives the spec's worktree, its branch and its folder.
+ *
+ * WHAT WOULD FOOL THIS: a store that will not parse. It holds someone's passes
+ * and reading it as empty would report "nothing waiting", which is the one
+ * answer that is certainly wrong — so it comes back named in `unreadable`
+ * rather than counted as zero (rule 4).
+ *
+ * Oldest first and stable, ties broken on the code, exactly as
+ * `describePending` orders one spec's own.
+ */
+function waitingPasses(reviewsDirPath) {
+  let entries
+  try {
+    entries = fs.readdirSync(reviewsDirPath)
+  } catch {
+    // No directory means no review has ever been rendered here. That is the
+    // ordinary state of a fresh repo, not a failure to report.
+    return { passes: [], unreadable: [] }
+  }
+
+  const passes = []
+  const unreadable = []
+  for (const name of entries.sort()) {
+    if (!name.endsWith(PENDING_SUFFIX)) continue
+    const folder = name.slice(0, -PENDING_SUFFIX.length)
+    // The engine's own reader, so "corrupt" means here what it means everywhere.
+    const read = readPending(path.join(reviewsDirPath, `${folder}.html`), folder)
+    if (read.corrupt) {
+      unreadable.push(folder)
+      continue
+    }
+    for (const pass of read.pending.passes || []) {
+      if (pass && pass.code) {
+        passes.push({ spec: folder, code: pass.code, verdict: readVerdict(pass.blob && pass.blob.verdict), at: pass.at || null })
+      }
+    }
+  }
+  passes.sort((a, b) => {
+    const at = String(a.at || '').localeCompare(String(b.at || ''))
+    return at !== 0 ? at : a.code.localeCompare(b.code)
+  })
+  return { passes, unreadable }
 }
 
 /* ==========================================================================
@@ -1649,6 +1713,7 @@ module.exports = {
   appendDecision,
   annotateLastDecision,
   reviewPendingPath,
+  PENDING_SUFFIX,
   emptyPending,
   readPending,
   writePending,
@@ -1656,6 +1721,7 @@ module.exports = {
   addPending,
   claimPending,
   passesSince,
+  waitingPasses,
   waitForPass,
   WAIT_POLL_MS,
   passState,

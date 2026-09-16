@@ -268,6 +268,25 @@ here beyond knowing it is no longer dead code.
 A spec ideally arrives `Ready` from `/spec`; a `Draft` works too — sanity-check
 it is well-formed first.
 
+- **Report anything left waiting, and claim none of it.** Ask the engine once:
+
+  ```
+  skitterspec spec-env review waiting
+  ```
+
+  A pass listed here arrived when nothing was watching — a wait that never ran,
+  a session cleared, a terminal closed overnight — and no watcher can recover
+  those, however good. Relay what it prints: the spec, the code, the verdict and
+  the age, with `/spec-reviewed <code>` to pick one up and `--drop <code>` to
+  disown it.
+
+  **It is information, not a gate.** It never refuses, nothing here is
+  conditional on it, and **you never claim one** — `/spec-diff` §0 stands
+  unchanged, and a pass sitting there when you arrived was not sent to you.
+  Silent when nothing is waiting, which is the usual case: say nothing rather
+  than reporting that there was nothing to report.
+
+
 ## 4b. Note a missing gating decision (only if configured)
 
 **Only when `specs/.core/gating.config.json` exists.** Run

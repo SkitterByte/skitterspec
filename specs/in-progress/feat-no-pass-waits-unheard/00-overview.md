@@ -151,7 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The engine owns the wait | ✅ | [01-the-engine-owns-the-wait.md](01-the-engine-owns-the-wait.md) |
 | 2 | The skills stop improvising one | ✅ | [02-skills-stop-improvising.md](02-skills-stop-improvising.md) |
-| 3 | A pass nobody heard is found on the way back in | ⬜ | [03-found-on-the-way-back-in.md](03-found-on-the-way-back-in.md) |
+| 3 | A pass nobody heard is found on the way back in | ✅ | [03-found-on-the-way-back-in.md](03-found-on-the-way-back-in.md) |
 
 ## Open questions
 
@@ -175,6 +175,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-16 — Phase 2: the four documents now name `spec-env review wait` and
   forbid composing one, guarded by `assets-verdict-wait` — proved red against
   each mutation it exists to catch before being trusted.
+- 2026-09-16 — Phase 3: `waitingPasses` scans the reviews sidecar directory —
+  never the provisioned list, which would have been blind to all ten — surfaced
+  by `spec-env status` and `spec-env review waiting`. Found every one of them on
+  its first run.
 - 2026-09-16 — Follow-up recorded: `servePort` is `7777` for every repo, so a
   second repo takes it and this one is moved aside, leaving a link handed out
   earlier pointing at a stranger's daemon. Out of scope here. (First written as

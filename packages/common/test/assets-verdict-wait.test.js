@@ -94,3 +94,54 @@ test('stays silent: the turn-ending wait survives, and spec-hotfix is untouched'
   assert.doesNotMatch(hotfix, /spec-env review wait/, 'it defers rather than restating')
   assert.match(hotfix, /spec-next/, 'and says where the sequence lives')
 })
+
+// ── phase 3: found on the way back in ────────────────────────────────────────
+//
+// A wait that never ran cannot be recovered by a better wait. These two skills
+// are the realistic ways back in — you either start a spec or continue one — so
+// they are where a pass nobody heard gets surfaced. It is deliberately NOT
+// every spec skill: a line about waiting reviews on a `/spec-cancel` is noise
+// beside the thing the operator asked for, and a rule nobody needs is a rule
+// that teaches people to skim.
+
+const ENTRY_POINTS = ['spec-next', 'spec-start']
+
+for (const name of ENTRY_POINTS) {
+  const text = skill(name)
+
+  test(`/${name} reports a pass nobody heard`, () => {
+    assert.match(text, /spec-env review waiting/, 'it asks the engine on the way in')
+    assert.match(text, /information, not a gate/i, 'and does not refuse on what it finds')
+  })
+
+  // The one thing it must never do. `/spec-diff` §0 is the rule a stranger's
+  // POST stands behind, and a skill that surfaced a pass AND took it would walk
+  // straight through it.
+  // ANCHORED TO THE BLOCK IT IS ABOUT, not to the skill at large. A first
+  // version allowed `/never claim/` anywhere in the file, and these skills say
+  // that in other contexts — so weakening the rule to "you may claim one" left
+  // the test green. A guard that matches something else is not a guard.
+  test(`/${name} claims nothing it finds`, () => {
+    const block = /review waiting[\s\S]{0,1200}/.exec(text)
+    assert.ok(block, 'the waiting block is there to anchor on')
+    assert.match(block[0], /\*\*you never claim one\*\*/, 'the rule is stated in the block itself')
+    assert.match(block[0], /spec-diff.{0,12}§0/i, 'and names the rule it is standing on')
+  })
+}
+
+// STAYS SILENT. Two healthy things this must not accuse:
+//
+// - a repo with nothing waiting, where the engine prints nothing and so does
+//   the skill. Reporting that there was nothing to report is the noise
+//   `spec-reports.md` bans.
+// - the skills that were deliberately left out. Requiring the check everywhere
+//   would be a rule invented for symmetry, which is how a findable line becomes
+//   one people skim past.
+test('stays silent: nothing waiting says nothing, and the other skills are untouched', () => {
+  for (const name of ENTRY_POINTS) {
+    assert.match(skill(name), /[Ss]ilent when nothing is waiting/, `${name} says nothing when there is nothing`)
+  }
+  for (const name of ['spec-cancel', 'spec-complete', 'spec-review']) {
+    assert.doesNotMatch(skill(name), /spec-env review waiting/, `${name} was left out deliberately`)
+  }
+})
