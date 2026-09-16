@@ -2820,6 +2820,42 @@ function stateDirLabel(config) {
   return path.posix.dirname(config.registry) || '.spec-env'
 }
 
+/**
+ * This repo's serve token, minted once and then read.
+ *
+ * STORED, NOT DERIVED, and the asymmetry with the port is the point. The port
+ * is `PORT_BASE + hash(realpath(repo)) % PORT_SPAN` because a port is not a
+ * secret and a stable one keeps a handed-out link working. The token is the
+ * only guard on a non-loopback bind, and a repo path is guessable by anyone on
+ * the machine — so deriving it the same way would buy stability with the single
+ * property it exists for. It keeps all 48 random bits; only its lifetime moved.
+ *
+ * WHAT WOULD FOOL THIS: a token file someone has emptied or truncated. A short
+ * or non-hex value is treated as absent and replaced, because a malformed token
+ * cannot guard anything — and the alternative, refusing to serve, would take
+ * the page away over a file nobody reads.
+ */
+function repoToken(dir, config) {
+  const file = path.resolve(dir, `${stateDirLabel(config)}/review-token`)
+  try {
+    const found = String(fs.readFileSync(file, 'utf8')).trim()
+    if (/^[0-9a-f]{12}$/.test(found)) return found
+  } catch {
+    // Absent is the ordinary first-run state, not a problem.
+  }
+  const minted = mintToken()
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, minted + '\n')
+  } catch {
+    // UNWRITEABLE IS NOT FATAL. The server can still serve on this token for
+    // as long as it lives; what is lost is only the survival across a restart,
+    // which is exactly where this started. Taking the page away instead would
+    // be a worse answer to a read-only `.spec-env`.
+  }
+  return minted
+}
+
 // The supervised proxy process descriptor (paths relative to the checkout root).
 function proxyProcFor(config, routesFileAbs) {
   const sdir = stateDirLabel(config)
@@ -3048,10 +3084,15 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   const usePort = resolved.port
   const loopback = host === '127.0.0.1' || host === 'localhost'
   // The token is the ONLY guard on a non-loopback bind, so it is minted with the
-  // bind rather than offered as an option to forget — except when replacing a
-  // server on the same bind, where carrying the old one keeps a link that is
-  // already open on someone's phone alive.
-  const token = loopback ? null : reuseToken || mintToken()
+  // bind rather than offered as an option to forget. It is read from the repo's
+  // own store, so it OUTLIVES THIS PROCESS: the port beside it is a pure
+  // function of the repo path and stable across a restart by design, and a URL
+  // whose two halves disagree about that is a URL that dies for no reason the
+  // reader can see. Six were handed out for one repo in a single session.
+  //
+  // `reuseToken` still wins where a server is being replaced on the same bind —
+  // now redundant rather than wrong, and left alone as its own guarantee.
+  const token = loopback ? null : reuseToken || repoToken(dir, config)
 
   if (running) await stopProcess(proc, { rootDir: dir })
 
@@ -3147,6 +3188,25 @@ async function specEnvReviewServe(dir, config, flags) {
   // and is overwritten rather than reported as an error.
   const pid = readPid(abs(proc.pidFile))
   const running = pid && isAlive(pid) ? pid : null
+
+  // ROTATION IS THE ONLY WAY TO CHANGE A TOKEN, and it says what it costs.
+  // Every other path reads the stored one; a silent mint is the whole bug this
+  // replaced, so the one place that mints deliberately announces it.
+  if (flags.rotateToken) {
+    const file = abs(`${sdir}/review-token`)
+    const minted = mintToken()
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, minted + '\n')
+    process.stdout.write(
+      'spec-env review serve: token rotated.\n' +
+        '  EVERY LINK ALREADY HANDED OUT IS NOW DEAD — re-render and send the new one.\n' +
+        (running
+          ? `  the running server (pid ${running}) still answers on the old token; ` +
+            '--stop it, then render again.\n'
+          : ''),
+    )
+    return
+  }
 
   if (flags.status) {
     if (!running) {
@@ -3830,6 +3890,7 @@ async function specEnv(rest) {
     else if (args[i] === '--older-than') flags.olderThanDays = Number(args[++i])
     else if (args[i] === '--branch') flags.branch = true
     else if (args[i] === '--stop') flags.stop = true
+    else if (args[i] === '--rotate-token') flags.rotateToken = true
     else if (args[i] === '--status') flags.status = true
     else if (args[i] === '--port') flags.port = args[++i]
     else if (args[i] === '--host') flags.host = args[++i]
@@ -3966,6 +4027,7 @@ async function specEnv(rest) {
       process.stdout.write(
         `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
+        '  review serve --rotate-token    mint a new URL token; every handed-out link dies\n' +
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +

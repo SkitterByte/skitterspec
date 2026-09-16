@@ -546,3 +546,158 @@ test('STAYS SILENT: a served render explains nothing, because nothing needs it',
     cleanup(dir)
   }
 })
+
+// --- the token outlives the process ----------------------------------------
+//
+// The port is `PORT_BASE + hash(realpath(repo)) % PORT_SPAN` — a pure function
+// of the path, stable across a restart by design. The token beside it was
+// `crypto.randomBytes(6)` per process, so one half of the URL was built to
+// survive and the other was not. Six URLs were handed out for one repo in a
+// single session and a reader was left pressing verdicts on dead pages twice.
+
+const urlOf = (out) => {
+  const m = /open: (http:\/\/\S+)/.exec(out)
+  return m ? m[1] : null
+}
+
+test('a stop and a start leave the URL unchanged', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    const first = urlOf(review(dir))
+    assert.ok(first, `expected a served URL, got:\n${review(dir)}`)
+    stopServe(dir)
+    const second = urlOf(review(dir))
+    assert.strictEqual(second, first, 'a restart must not change the link someone is holding')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('a server dying leaves the URL unchanged too, which a restart-only fix would miss', async () => {
+  // The case found while starting this spec: nobody restarted anything, the
+  // server had died on its own, and the next render minted a sixth token.
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    const first = urlOf(review(dir))
+    const pid = Number(
+      fs.readFileSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid'), 'utf8').trim(),
+    )
+    process.kill(pid, 'SIGKILL')
+    // No --stop, no settings rewrite: exactly what a crash or a sleep leaves.
+    const second = urlOf(review(dir))
+    assert.strictEqual(second, first, 'a death must not change the link either')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('the token is stored once, not derived from the repo path', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    review(dir)
+    const file = path.join(dir, '.spec-env', 'review-token')
+    assert.ok(fs.existsSync(file), 'it is written where the next process can read it')
+    const token = fs.readFileSync(file, 'utf8').trim()
+    assert.match(token, /^[0-9a-f]{12}$/, '48 random bits, unchanged — only its lifetime moved')
+    // NOT DERIVED, deliberately. The port is a pure function of the path
+    // because a port is not a secret; the token is the only guard on a
+    // non-loopback bind, and a path is guessable by anyone on the machine.
+    const crypto = require('node:crypto')
+    const fromPath = crypto.createHash('sha256').update(fs.realpathSync(dir)).digest('hex')
+    assert.notStrictEqual(token, fromPath.slice(0, 12), 'a path-derived token would be guessable')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('two repos get different tokens', async () => {
+  const a = scaffold('remote', { servePort: await freePort() })
+  const b = scaffold('remote', { servePort: await freePort() })
+  try {
+    review(a.dir)
+    review(b.dir)
+    const read = (d) => fs.readFileSync(path.join(d, '.spec-env', 'review-token'), 'utf8').trim()
+    assert.notStrictEqual(read(a.dir), read(b.dir))
+  } finally {
+    stopServe(a.dir)
+    stopServe(b.dir)
+    cleanup(a.dir)
+    cleanup(b.dir)
+  }
+})
+
+test('STAYS SILENT: the token file is gitignored, so serving leaves no change to commit', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    review(dir)
+    const status = execFileSync('git', ['-C', dir, 'status', '--porcelain'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString()
+    assert.doesNotMatch(status, /review-token/, 'a served review must not dirty the tree')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('--rotate-token changes it, and says every existing link is dead', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    const before = urlOf(review(dir))
+    const rotate = execFileSync(
+      'node',
+      [
+        '-e',
+        `const { run } = require(${JSON.stringify(path.resolve(__dirname, '../src/cli.js'))});` +
+          'run(process.argv.slice(1)).then(() => {}, (e) => { console.error(e); process.exit(1) })',
+        'spec-env',
+        'review',
+        'serve',
+        '--rotate-token',
+        '--dir',
+        dir,
+      ],
+      { encoding: 'utf-8' },
+    )
+    assert.match(rotate, /token rotated/)
+    assert.match(rotate, /EVERY LINK ALREADY HANDED OUT IS NOW DEAD/)
+    // ADOPTION STILL WINS while the old server lives, and the message says so:
+    // rotating the file does not reach a process that already holds a token.
+    assert.match(rotate, /still answers on the old token/)
+    assert.strictEqual(urlOf(review(dir)), before, 'the running server keeps its token')
+    stopServe(dir)
+    const after = urlOf(review(dir))
+    assert.notStrictEqual(after, before, 'and the next server picks the rotated one up')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('a malformed token file is replaced rather than serving nothing', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    fs.mkdirSync(path.join(dir, '.spec-env'), { recursive: true })
+    fs.writeFileSync(path.join(dir, '.spec-env', 'review-token'), '\n')
+    const out = review(dir)
+    assert.match(out, /open: http:\/\//, 'a file nobody reads must not take the page away')
+    const token = fs.readFileSync(path.join(dir, '.spec-env', 'review-token'), 'utf8').trim()
+    assert.match(token, /^[0-9a-f]{12}$/)
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('nothing but rotation mints a token', () => {
+  // The silent mint is the bug. This is the structural half: `mintToken` may be
+  // called from the per-repo store and from the rotate verb, and nowhere else.
+  const src = fs.readFileSync(require.resolve('../src/cli.js'), 'utf8')
+  const calls = [...src.matchAll(/mintToken\(\)/g)]
+  assert.strictEqual(calls.length, 2, `mintToken() is called ${calls.length} times, expected 2`)
+  assert.match(src, /function repoToken\(dir, config\) \{[\s\S]*?mintToken\(\)/)
+  assert.match(src, /if \(flags\.rotateToken\) \{[\s\S]*?mintToken\(\)/)
+})

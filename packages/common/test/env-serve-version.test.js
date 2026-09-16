@@ -200,10 +200,18 @@ test('the reuse rule is in the code, not just the intent', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli.js'), 'utf8')
   // Pinned as source because the alternative is spawning servers to observe a
   // URL: the replacement path reuses the recorded token rather than minting.
-  assert.match(src, /const token = loopback \? null : reuseToken \|\| mintToken\(\)/)
-  // And only on a replacement — a cold start still mints, because there is no
-  // link in anyone's hand to preserve.
+  assert.match(src, /const token = loopback \? null : reuseToken \|\| repoToken\(dir, config\)/)
   assert.match(src, /reuseToken = settings\.token \|\| null/)
+
+  // UPDATED, AND THE OLD REASONING IS WHY. This read
+  // `reuseToken || mintToken()`, on the stated grounds that "a cold start still
+  // mints, because there is no link in anyone's hand to preserve". That premise
+  // was false: the port is derived per repo and stable across restarts, so a
+  // cold start lands on the same port with a different token and the link in
+  // someone's hand breaks for no visible reason. Six were handed out for one
+  // repo in a session. A cold start now reads the repo's stored token; the
+  // replacement path above is redundant rather than wrong, and is kept as its
+  // own guarantee.
 })
 
 // STAYS SILENT. The ordinary render must read exactly as it did before any of

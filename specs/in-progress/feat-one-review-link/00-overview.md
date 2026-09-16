@@ -93,7 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The token outlives the process | ⬜ | [01-a-token-per-repo.md](01-a-token-per-repo.md) |
+| 1 | The token outlives the process | ✅ | [01-a-token-per-repo.md](01-a-token-per-repo.md) |
 | 2 | One URL shape, whatever the bind | ⬜ | [02-one-url-shape.md](02-one-url-shape.md) |
 | 3 | A docs page outlives its verdict | ⬜ | [03-the-page-outlives-the-commit.md](03-the-page-outlives-the-commit.md) |
 
@@ -120,3 +120,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   session with nobody having restarted anything. So cause 2 is not only
   self-inflicted — any process death loses the link, which raises phase 1 from
   a tidiness fix to the one that matters.
+- 2026-09-16 — Phase 1: the token is stored at `.spec-env/review-token`, read by
+  every cold start, and changed only by `--rotate-token`, which states that every
+  handed-out link dies. A pinned test asserting the old `mintToken()` literal was
+  updated with its reasoning rewritten, since its premise — no link worth
+  preserving on a cold start — stopped being true when the port became derived.
