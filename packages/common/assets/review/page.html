@@ -644,6 +644,26 @@ a.ticket:hover { border-color: var(--accent); }
   background: var(--add-bg); border: 1px solid var(--add-mark); color: var(--add-fg);
 }
 .sent-cmd-lead { flex-basis: 100%; font-size: .85rem; font-weight: 600; color: var(--add-fg); }
+/* A FAILED SEND, IN THE PALETTE OF A FAILURE. The same callout the waiting-pass
+   case uses, in the delete colours rather than the add ones — `--del-bg` /
+   `--del-fg` / `--del-mark` are already defined on bare `:root` and redefined in
+   both theme blocks, which is the property `assets-review` guards. No new token
+   is minted for this. */
+.sent-cmd.act.fail {
+  background: var(--del-bg); border-color: var(--del-mark); color: var(--del-fg);
+}
+.sent-cmd.act.fail .sent-cmd-lead { color: var(--del-fg); }
+/* THE OUTCOME THE READER MUST ACT ON, AS LOUD AS THE ONE THEY NEED NOT.
+   A failed send used to be a small grey line in the footer, under a verdict bar
+   that had just closed — quieter than the success it was not. It gets the panel
+   the decided page gets, at the top of the column, in the delete palette. What
+   it does NOT get is `is-decided`: nothing was delivered, so the diff stays and
+   the verdict buttons stay live for a second try. */
+.decided.failed {
+  border-left-color: var(--del-mark);
+  background: var(--panel);
+}
+.decided.failed .decided-what { color: var(--del-mark); }
 /* The claim code is read aloud or copied, so it is set apart from the sentence
    around it rather than buried in it. */
 .copy-hint { user-select: text; }
@@ -672,6 +692,21 @@ a.ticket:hover { border-color: var(--accent); }
          engine from the spec's own files — nothing here passed through the
          model, so it is free however large the diff. Absent entirely for a spec
          whose overview cannot be read: the page worked without it before. -->
+    <!-- A SEND THAT DID NOT LAND. Same shape as the panel below, delete palette,
+         and deliberately NOT the same section: this one leaves the page
+         undecided, because nothing was delivered and the reader still has a
+         verdict to give. It names which failure happened, since a server that
+         has moved and a pass the engine refused send the reader to different
+         places. -->
+    <section class="decided failed" id="send-failed" hidden>
+      <p class="decided-what" id="send-failed-what"></p>
+      <p class="decided-note" id="send-failed-note"></p>
+      <p class="sent-cmd act fail" id="send-failed-cmd" hidden>
+        <span class="sent-cmd-lead" id="send-failed-lead"></span>
+        <code class="sent-cmd-text" id="send-failed-text"></code>
+        <button type="button" class="sent-cmd-copy" id="send-failed-copy" hidden>Copy</button>
+      </p>
+    </section>
     <!-- WHAT YOU DECIDED, once the pass has actually been handed over. It sits
          above everything because on a re-open it is the only thing you need:
          the review is over, and this says how it ended. -->
@@ -1468,6 +1503,13 @@ a.ticket:hover { border-color: var(--accent); }
   var sentCmdText = document.getElementById('sent-cmd-text')
   var sentCmdCopy = document.getElementById('sent-cmd-copy')
   var sentCmdLead = document.getElementById('sent-cmd-lead')
+  var failBox = document.getElementById('send-failed')
+  var failWhat = document.getElementById('send-failed-what')
+  var failNote = document.getElementById('send-failed-note')
+  var failCmd = document.getElementById('send-failed-cmd')
+  var failLead = document.getElementById('send-failed-lead')
+  var failText = document.getElementById('send-failed-text')
+  var failCopy = document.getElementById('send-failed-copy')
 
   function pending() {
     var b = buildBlob()
@@ -1944,6 +1986,91 @@ a.ticket:hover { border-color: var(--accent); }
     copyHint.textContent = why
   }
 
+  /**
+   * Put the whole recovery command in the failure callout, with its Copy control.
+   *
+   * THE SAME CONTROL THE `file://` PAGE ALREADY USES — `/spec-reviewed <verdict>`
+   * — so there is one command row rather than a second kind. It reaches the
+   * agent regardless of any server, which is the only reason a recovery can be
+   * offered from a failed send at all.
+   *
+   * `canCopy` decides whether there is a button, exactly as `showCommand` does:
+   * a control that does nothing on tap reads as a broken page, and one that is
+   * missing where it would have worked reads as a page that never offered it.
+   */
+  function showFailCommand(cmd) {
+    failCmd.hidden = false
+    failText.textContent = cmd
+    var copyable = canCopy()
+    failCopy.hidden = !copyable
+    failCopy.textContent = 'Copy'
+    failLead.textContent = copyable
+      ? 'Your verdict is not lost — run this where Claude is:'
+      : selectNode(failText)
+        ? 'Your verdict is not lost — run this where Claude is (selected — copy it):'
+        : 'Your verdict is not lost — run this where Claude is — copy it:'
+  }
+
+  if (failCopy) {
+    failCopy.addEventListener('click', function () {
+      copyText(failText.textContent, failText).then(function () {
+        failCopy.textContent = 'Copied'
+      }, function () {
+        failCopy.textContent = selectNode(failText) ? 'Copy failed — selected' : 'Copy failed'
+      })
+    })
+  }
+
+  /** Take the failure panel down — a fresh attempt, or one that landed. */
+  function clearSendFailure() {
+    failBox.hidden = true
+    failCmd.hidden = true
+    failWhat.textContent = ''
+    failNote.textContent = ''
+  }
+
+  /**
+   * Say that a send did not land, as loudly as a send that did.
+   *
+   * THE ONE OUTCOME THE READER MUST ACT ON used to be reported more quietly than
+   * the one they need do nothing about: a small grey line in the footer, under a
+   * verdict bar that had just closed. It gets the panel at the top of the column
+   * now, in the delete palette.
+   *
+   * IT DOES NOT DECIDE THE PAGE. Nothing was delivered, so the diff stays and
+   * the verdict buttons stay live — a page that closed its controls over a
+   * failed send would strand the reader with no way to try again.
+   *
+   * A pass carrying MARKS still goes to the clipboard, because a command line
+   * cannot carry notes and a failed send must not become the moment they are
+   * silently dropped.
+   */
+  function sendFailed(json, verdict, what, note) {
+    copyHint.hidden = true
+    copyHint.textContent = ''
+    failBox.hidden = false
+    failWhat.textContent = what
+    if (pending() > 0) {
+      failCmd.hidden = true
+      failNote.textContent =
+        note +
+        ' You have marked things up, and a command line cannot carry notes — the whole pass is ' +
+        'below. Copy it and paste it to Claude.'
+      copyOut.hidden = false
+      copyOut.value = json
+      copyOut.focus()
+      copyOut.select()
+    } else {
+      failNote.textContent = note
+      showFailCommand('/spec-reviewed ' + verdict)
+    }
+    // WHERE THE READER IS LOOKING. The verdict bar is at the foot of the page
+    // and this panel is at the head of it, so a failure announced without this
+    // is a failure announced off-screen — which is the shape of the bug being
+    // fixed, one scroll position removed.
+    if (failBox.scrollIntoView) failBox.scrollIntoView()
+  }
+
   // One action per decision: the verdict button IS the copy button, so the blob
   // can never carry a verdict other than the one just pressed.
   /**
@@ -1954,6 +2081,7 @@ a.ticket:hover { border-color: var(--accent); }
    * much you wrote.
    */
   function post(json, verdict) {
+    clearSendFailure()
     copyHint.hidden = false
     copyHint.textContent = 'Sending…'
     fetch(location.pathname, {
@@ -1963,11 +2091,45 @@ a.ticket:hover { border-color: var(--accent); }
     }).then(function (res) {
       return res.text().then(function (text) {
         if (!res.ok) {
-          // A pass the server REFUSED must never read as sent. Its message
-          // names the entry that was wrong, so it is shown rather than summarised.
-          copyHint.textContent = 'Not sent — ' + (text || res.status)
+          // A pass the server REFUSED must never read as sent — and WHICH
+          // refusal decides where the reader goes next, so the two are named
+          // separately rather than collapsed into one "not sent".
+          if (res.status === 404) {
+            // THE PORT MOVED, or another repo's daemon holds this one. The token
+            // in this URL means nothing there, so re-opening the page from the
+            // session that produced it is the fix — the link is stale, the pass
+            // is fine.
+            sendFailed(
+              json,
+              verdict,
+              'Not sent — this page\'s server is gone.',
+              'Nothing is answering at this address any more: the review server moved to another ' +
+                'port, or a different repo holds this one. Re-open the page from the Claude Code ' +
+                'session that produced it and the buttons below will send.',
+            )
+          } else if (res.status === 422) {
+            // THE ENGINE READ IT AND SAID NO. Its message names the entry that
+            // was wrong, so it is relayed verbatim — paraphrasing is how a
+            // reader ends up hunting for a problem the tool had already named.
+            // AND NO "re-open": the page is fine, and re-opening would only be
+            // refused again.
+            sendFailed(
+              json,
+              verdict,
+              'Not sent — the engine refused this pass.',
+              text || 'It answered ' + res.status + ' without saying why.',
+            )
+          } else {
+            sendFailed(
+              json,
+              verdict,
+              'Not sent — the server answered ' + res.status + '.',
+              text || 'It gave no reason.',
+            )
+          }
           return
         }
+        clearSendFailure()
         var code = ''
         try { code = JSON.parse(text).code } catch (e) {}
         // NAME THE COMMAND. Not "claim it with 418207", which instructs a
@@ -1993,9 +2155,17 @@ a.ticket:hover { border-color: var(--accent); }
         }
       })
     }, function () {
-      // The server was there when the page was served and is not now. Falling
-      // back to the clipboard keeps the pass recoverable rather than lost.
-      showFallback(json, 'Could not reach the server. Copy this, then paste it to Claude.')
+      // THE REQUEST NEVER ARRIVED — the network, or a server that has stopped.
+      // Distinct from both refusals above: there is no status and no message,
+      // because nothing answered. Re-opening may fix it and the command
+      // certainly will, so both are offered.
+      sendFailed(
+        json,
+        verdict,
+        'Not sent — could not reach the server.',
+        'The request did not arrive: the server has stopped, or this device cannot reach it. ' +
+          'Re-open the page from the session that produced it to try again.',
+      )
     })
   }
 

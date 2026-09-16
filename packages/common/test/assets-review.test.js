@@ -230,6 +230,8 @@ function fakeDom(islandText) {
     'sent-cmd', 'sent-cmd-lead', 'sent-cmd-text', 'sent-cmd-copy', 'cmd-list', 'cmd-lead',
     'context', 'context-why', 'context-more', 'context-more-summary', 'context-rest',
     'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle', 'drawn-by',
+    'send-failed', 'send-failed-what', 'send-failed-note', 'send-failed-cmd',
+    'send-failed-lead', 'send-failed-text', 'send-failed-copy',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
@@ -1114,6 +1116,9 @@ test('a refused pass offers no command to run', async () => {
 test('a refused pass is shown, not swallowed', async () => {
   // A pass the server rejected must never read as sent — the engine's message
   // names the entry that was wrong, so it is relayed rather than summarised.
+  // It reads out of the CALLOUT now rather than the footer's grey line: the one
+  // outcome the reader must act on stopped being quieter than the one they need
+  // do nothing about.
   const dom = runPage(marked(), {
     protocol: 'http:',
     fetchWith: () =>
@@ -1125,17 +1130,22 @@ test('a refused pass is shown, not swallowed', async () => {
   })
   pressed(dom, 'commit')
   await settled()
-  assert.match(dom.byId['copy-hint'].textContent, /Not sent/)
-  assert.match(dom.byId['copy-hint'].textContent, /verdict "aprove" is not one of/)
+  assert.strictEqual(dom.byId['send-failed'].hidden, false)
+  assert.match(dom.byId['send-failed-what'].textContent, /Not sent/)
+  assert.match(dom.byId['send-failed-note'].textContent, /verdict "aprove" is not one of/)
+  assert.strictEqual(dom.byId['copy-hint'].hidden, true, 'and not also in the footer')
 })
 
-test('an unreachable server falls back to the clipboard rather than losing the pass', async () => {
+test('a request that never arrives is named, and the verdict is recoverable', async () => {
   const dom = runPage(marked(), { protocol: 'http:', fetchWith: () => Promise.reject(new Error('gone')) })
   pressed(dom, 'discuss')
   await settled()
-  assert.strictEqual(dom.byId['copy-out'].hidden, false, 'the blob is recoverable')
-  assert.match(dom.byId['copy-hint'].textContent, /Could not reach the server/)
-  accepted(JSON.parse(dom.byId['copy-out'].value))
+  assert.strictEqual(dom.byId['send-failed'].hidden, false)
+  assert.match(dom.byId['send-failed-what'].textContent, /could not reach the server/i)
+  // An unmarked pass is one word, so the command carries it — which reaches the
+  // agent whether or not any server ever comes back.
+  assert.strictEqual(dom.byId['send-failed-cmd'].hidden, false)
+  assert.strictEqual(dom.byId['send-failed-text'].textContent, '/spec-reviewed discuss')
 })
 
 // STAYS SILENT (`negative-checks.md` rule 3). A `file://` page has no server to
@@ -1630,7 +1640,7 @@ test('a refused pass does not end the review either', () => {
   dom.byId['verdict-commit'].dispatch('click')
   return settle().then(() => {
     assert.strictEqual(decidedOn(dom), false, 'nothing was accepted, so nothing was decided')
-    assert.match(dom.byId['copy-hint'].textContent, /Not sent/)
+    assert.match(dom.byId['send-failed-what'].textContent, /Not sent/)
   })
 })
 
@@ -2345,4 +2355,146 @@ test('the rendered-at time is readable, with the exact value kept on hover', () 
   assert.strictEqual(when.getAttribute('title'), '2020-01-01T00:00:00.000Z', 'the exact value survives')
   assert.doesNotMatch(when.textContent, /T\d\d:\d\d:\d\d/, 'but the ISO shape is gone from the text')
   assert.match(when.textContent, /2020/, 'and it still says when')
+})
+
+// --- a failed send is as loud as a successful one (phase 2) ------------------
+//
+// The one outcome the reader MUST act on was reported more quietly than the one
+// they need do nothing about: a small grey line in the footer, under a verdict
+// bar that had just closed. It moves into the decided panel's callout, in the
+// delete palette, and the three ways a send can fail are named separately —
+// because a server that has moved and a pass the engine refused send the reader
+// to different places.
+
+const failed = (dom) => ({
+  shown: dom.byId['send-failed'].hidden === false,
+  what: dom.byId['send-failed-what'].textContent,
+  note: dom.byId['send-failed-note'].textContent,
+})
+
+const respond = (status, body) => () =>
+  Promise.resolve({ ok: false, status, text: () => Promise.resolve(body) })
+
+test('a 404 says the server is gone, and offers the command', async () => {
+  // THE BUG, exactly: the port moved, so this page's URL now reaches another
+  // repo's daemon — or nothing. The token means nothing there and the POST
+  // comes back 404. Re-opening the page is the fix, because the page is what
+  // is stale; the verdict is fine.
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: respond(404, 'no such review') })
+  pressed(dom, 'commit')
+  await settled()
+  const f = failed(dom)
+  assert.strictEqual(f.shown, true, 'in the callout, not the footer')
+  assert.match(f.what, /server is gone/i)
+  assert.match(f.note, /Re-open the page/i, 'it names the fix')
+  assert.strictEqual(dom.byId['send-failed-cmd'].hidden, false)
+  assert.strictEqual(dom.byId['send-failed-text'].textContent, '/spec-reviewed commit')
+})
+
+test('a 422 relays the engine verbatim, and never says to re-open', async () => {
+  // The engine READ the pass and refused it; its message names the entry that
+  // was wrong. Paraphrasing is how a reader ends up hunting for a problem the
+  // tool had already named — and telling them to re-open would send them back
+  // to a page that would refuse them again.
+  const why = 'verdict "aprove" is not one of commit, changes, discuss'
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: respond(422, why) })
+  pressed(dom, 'commit')
+  await settled()
+  const f = failed(dom)
+  assert.match(f.what, /the engine refused this pass/i)
+  assert.strictEqual(f.note, why, 'verbatim, not summarised')
+  assert.doesNotMatch(f.note, /re-open/i)
+  assert.doesNotMatch(f.what, /re-open/i)
+})
+
+test('a rejected request is distinguishable from both refusals', async () => {
+  // Nothing answered, so there is no status and no message to relay. That is a
+  // third sentence rather than either of the two above.
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: () => Promise.reject(new Error('down')) })
+  pressed(dom, 'changes')
+  await settled()
+  const f = failed(dom)
+  assert.match(f.what, /could not reach the server/i)
+  assert.doesNotMatch(f.what, /server is gone/i, 'not the 404 sentence')
+  assert.doesNotMatch(f.what, /refused/i, 'and not the 422 one')
+  assert.match(f.note, /did not arrive/i)
+})
+
+test('the verdict buttons stay live through all three failures', async () => {
+  // NOTHING WAS DELIVERED, so the page is not decided. A page that closed its
+  // controls over a failed send would strand the reader with the fix in hand
+  // and no way to apply it.
+  const ways = [respond(404, ''), respond(422, 'nope'), () => Promise.reject(new Error('down'))]
+  for (const fetchWith of ways) {
+    const dom = runPage(marked(), { protocol: 'http:', fetchWith })
+    pressed(dom, 'commit')
+    await settled()
+    assert.strictEqual(decidedOn(dom), false, 'the page is not decided')
+    assert.strictEqual(dom.byId['verdict-commit'].disabled, false, 'commit is still pressable')
+    assert.strictEqual(dom.byId['verdict-changes'].disabled, false)
+    assert.strictEqual(dom.byId['verdict-discuss'].disabled, false)
+  }
+})
+
+test('a marked pass still falls back to the blob — notes are not dropped', async () => {
+  // A command line carries a verdict and nothing else. A failed send must not
+  // become the moment someone's notes disappear, so the whole pass goes to the
+  // textarea exactly as it always has — and the callout says why.
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: respond(404, '') })
+  accepts(dom)[0].dispatch('click')
+  pressed(dom, 'discuss')
+  await settled()
+  assert.strictEqual(failed(dom).shown, true, 'still as loud')
+  assert.strictEqual(dom.byId['send-failed-cmd'].hidden, true, 'no command, because it cannot carry them')
+  assert.match(dom.byId['send-failed-note'].textContent, /cannot carry notes/i)
+  assert.strictEqual(dom.byId['copy-out'].hidden, false)
+  const blob = JSON.parse(dom.byId['copy-out'].value)
+  assert.strictEqual(blob.verdict, 'discuss')
+  accepted(blob)
+})
+
+test('a retry after a failure clears the panel rather than stacking on it', async () => {
+  // Two attempts must not leave two accounts of what happened on screen, and a
+  // failure that outlived the send that fixed it would be worse than one nobody
+  // saw.
+  let fail = true
+  const dom = runPage(marked(), {
+    protocol: 'http:',
+    fetchWith: () =>
+      fail
+        ? Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve('') })
+        : Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{"code":"418207"}') }),
+  })
+  pressed(dom, 'commit')
+  await settled()
+  assert.strictEqual(failed(dom).shown, true)
+  fail = false
+  pressed(dom, 'commit')
+  await drained()
+  assert.strictEqual(dom.byId['send-failed'].hidden, true, 'the failure is gone')
+  assert.strictEqual(decidedOn(dom), true, 'and the send that worked ended the page')
+})
+
+test('STAYS SILENT: a successful send is untouched', async () => {
+  // The whole of this phase must cost the working case nothing — same panel,
+  // same wording, same poll, same command box.
+  const poll = polling(['waiting'])
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: poll.fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+  assert.strictEqual(dom.byId['send-failed'].hidden, true, 'no failure panel anywhere near it')
+  assert.strictEqual(dom.byId['send-failed-cmd'].hidden, true)
+  assert.strictEqual(decidedOn(dom), true)
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false, 'the waiting-pass box is the one that shows')
+  assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
+})
+
+test('STAYS SILENT: a file:// page never reaches any of this', () => {
+  // It has no server to fail against. The clipboard path is not a fallback
+  // here, it is the whole story for a local reader.
+  const dom = runPage(marked())
+  pressed(dom, 'commit')
+  assert.strictEqual(dom.posted.length, 0)
+  assert.strictEqual(dom.byId['send-failed'].hidden, true)
+  assert.strictEqual(dom.copied.length, 1)
 })

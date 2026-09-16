@@ -113,7 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | A port per repo, stable across restarts | ✅ | [01-a-port-per-repo.md](01-a-port-per-repo.md) |
-| 2 | A failed send is as loud as a successful one | ⬜ | [02-a-failed-send-is-loud.md](02-a-failed-send-is-loud.md) |
+| 2 | A failed send is as loud as a successful one | ✅ | [02-a-failed-send-is-loud.md](02-a-failed-send-is-loud.md) |
 
 ## Open questions
 
@@ -121,6 +121,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-16 — Phase 2: the failure panel is a **sibling** of the decided
+  panel rather than the decided panel itself. The task asked for "the decided
+  panel's callout", but a failure must not mark the page decided — so it takes
+  the same shape and palette treatment while leaving `is-decided` off, which is
+  what keeps the verdict buttons live for a retry.
+- 2026-09-16 — Phase 2: statuses other than `404`/`422` get a fourth, generic
+  sentence naming the status. The spec named three cases; a `500` is none of
+  them and must not be silently read as one.
 - 2026-09-16 — Phase 1: `servePort` refuses an unrecognised value by falling
   through to the default, rather than throwing at config-load. That matches
   `reader`, `mode` and `deleteRemoteBranch`, and it costs nothing here: the only
