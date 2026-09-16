@@ -1,6 +1,6 @@
 ---
 name: spec-diff
-description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", wants to read a worktree's changes away from the terminal, or hands back what the review page produced — a six-digit claim code, or the pasted JSON.
+description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", wants to read a worktree's changes away from the terminal, or hands back what the review page produced — a six-digit claim code, a bare verdict word, or the pasted JSON.
 ---
 
 # /spec-diff — see the phase before you commit it
@@ -41,13 +41,19 @@ sole candidate or prints the candidates.
 The page has marks on it — `✓ accept` per file, notes against a line or a whole
 file, answers to the checks a written review asked — and it
 **ends in a decision**: `✓ Approve`, `↺ Request changes` or `… Discuss first`.
-A review comes back to you one of two ways, and **both are ordinary**:
+A review comes back to you one of three ways, and **all three are ordinary**:
 
 - **A six-digit code** — `418207`, on its own. A *served* page hands its pass
   straight to the engine, which holds it until someone reads the code out. This
   is the usual way on a phone.
-- **A pasted JSON blob** — a `file://` page has no server to talk to, so it
-  copies. Not legacy: it is the whole story for a local reader.
+- **A verdict word** — `commit`, `commit-continue`, `continue`, `changes` or
+  `discuss`. A `file://` page cannot send anything, so where the reader marked
+  nothing it copies a command carrying the conclusion on its own. Send it with
+  `skitterspec spec-env review <spec> --verdict <word>`; it joins the same merge
+  a claimed pass does, so everything below is unchanged.
+- **A pasted JSON blob** — the same `file://` page, once the reader has marked
+  something up: accepts and notes do not fit on a command line, so the whole
+  pass travels. Not legacy: it is the whole story for a local reader.
 
 Either way, **this is not a request to render anything**: it is a review coming
 back, and these steps replace §3–§5 below.

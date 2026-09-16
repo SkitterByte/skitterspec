@@ -491,14 +491,19 @@ test('the no-gate rule survives the verdict intact', () => {
 
 // --- the claim path (feat-review-post-back phase 4) -------------------------
 
-test('a review comes back two ways, and neither is the legacy one', () => {
+test('a review comes back three ways, and none of them is the legacy one', () => {
   assert.match(SKILL, /--claim <code>/, 'it names the engine call that claims')
   assert.match(SKILL, /--notes <file>/, 'and the one that merges a paste')
+  assert.match(SKILL, /--verdict <word>/, 'and the one that sends a bare verdict')
   assert.match(SKILL, /six-digit code/i)
-  // The clipboard path is the whole story on `file://`, where there is no
-  // server to talk to — so it must not be described as superseded.
+  // The clipboard path is the whole story on `file://` once anything is marked
+  // up — a command line cannot carry notes — so it must not be described as
+  // superseded by the word that now covers the unmarked case.
   assert.match(SKILL, /Not legacy/i)
-  assert.match(SKILL, /\*\*both are ordinary\*\*/i)
+  assert.match(SKILL, /\*\*all three are ordinary\*\*/i)
+  // The word's own limit is stated where the reader meets the word, not left
+  // to be discovered when someone's notes go missing.
+  assert.match(SKILL, /do not fit on a command line/i)
 })
 
 test('a claim is a delivery mechanism, not a second kind of review', () => {

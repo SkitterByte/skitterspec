@@ -220,7 +220,7 @@ function fakeDom(islandText) {
     'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-continue',
     'verdict-changes', 'verdict-discuss',
     'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
-    'sent-cmd', 'sent-cmd-lead', 'sent-cmd-text', 'sent-cmd-copy',
+    'sent-cmd', 'sent-cmd-lead', 'sent-cmd-text', 'sent-cmd-copy', 'cmd-list', 'cmd-lead',
     'context', 'context-why', 'context-more', 'context-more-summary', 'context-rest',
     'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle', 'drawn-by',
   ]) {
@@ -249,6 +249,10 @@ function fakeDom(islandText) {
   const root = make('div')
   root.appendChild(byId['review-block'])
   root.appendChild(byId.files)
+  // The command list is built by the script into a container the template
+  // ships, so the shim has to put that container somewhere document-level
+  // queries can reach — otherwise its rows exist and no test can see them.
+  root.appendChild(byId['cmd-list'])
 
   // A selection, enough for the page's one use of it: the command box has no
   // `select()` any more, so the fallback goes through a Range — and a shim that
@@ -1860,4 +1864,114 @@ test('a poll that cannot tell hands over the command rather than claiming silenc
     assert.strictEqual(dom.byId['sent-cmd'].hidden, false, `${answer}: the command survives`)
     assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed 418207')
   }
+})
+
+// ── phase 2: a page with no transport offers commands, not buttons ───────────
+//
+// A `file://` page has no server to POST to and no store to write to. Its
+// verdict buttons never delivered anything — they built a JSON blob and put it
+// on the clipboard for the reader to paste. Where the pass carries nothing but
+// a verdict, that blob is a wall of text standing in for one word, so the word
+// travels as a command instead.
+//
+// THE ROWS ARE LABELLED WITH THE BUTTONS' OWN NAMES. `✓ Commit & Continue` is
+// what the reader chose on every other page; `commit-continue` is what the
+// engine calls it, and asking someone to recognise their decision in the wire
+// spelling is asking them to learn a second vocabulary for no reason.
+
+const cmdRows = (dom) => findAll(dom.document._root, 'cmd-row')
+const rowFor = (dom, verdict) => cmdRows(dom).filter((r) => r.getAttribute('data-verdict') === verdict)[0]
+
+test('a file:// page offers a command per verdict, not the verdict bar', () => {
+  const dom = runPage(marked(), { protocol: 'file:' })
+  assert.strictEqual(dom.byId.verdict.hidden, true, 'the buttons cannot deliver, so they are not offered')
+  const rows = cmdRows(dom)
+  assert.deepStrictEqual(
+    rows.map((r) => r.getAttribute('data-verdict')),
+    ['commit', 'commit-continue', 'changes', 'discuss'],
+    'one row per verdict this render offers, in the same order',
+  )
+})
+
+test('each row is named as the button was, and carries the command it sends', () => {
+  const dom = runPage(marked(), { protocol: 'file:' })
+  const seen = cmdRows(dom).map((r) => ({
+    label: r.querySelector('.cmd-label').textContent,
+    cmd: r.querySelector('.cmd-text').textContent,
+  }))
+  assert.deepStrictEqual(seen, [
+    { label: '✓ Commit', cmd: '/spec-reviewed commit' },
+    { label: '✓ Commit & Continue', cmd: '/spec-reviewed commit-continue' },
+    { label: '↺ Request changes', cmd: '/spec-reviewed changes' },
+    { label: '… Discuss first', cmd: '/spec-reviewed discuss' },
+  ])
+})
+
+test('a mid-run page lists Continue and never the committing pair', () => {
+  const dom = runPage(marked({ buttons: 'midrun' }), { protocol: 'file:' })
+  assert.deepStrictEqual(
+    cmdRows(dom).map((r) => r.getAttribute('data-verdict')),
+    ['continue', 'changes', 'discuss'],
+  )
+  assert.strictEqual(rowFor(dom, 'commit'), undefined, 'commit is not a verb for unfinished work')
+})
+
+test('copying a row puts its command on the clipboard and ends the page on it', async () => {
+  const dom = runPage(marked(), { protocol: 'file:' })
+  rowFor(dom, 'commit-continue').querySelector('.cmd-copy').dispatch('click')
+  await settled()
+  assert.deepStrictEqual(dom.copied, ['/spec-reviewed commit-continue'])
+  // The SAME You chose box the served path shows, with the command repeated in
+  // it — a copy can fail silently, and a reader coming back an hour later has
+  // nowhere else to find what they chose.
+  assert.strictEqual(dom.byId.decided.hidden, false)
+  assert.match(dom.byId['decided-what'].textContent, /✓ Commit & Continue/)
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false)
+  assert.strictEqual(dom.byId['sent-cmd-text'].textContent, '/spec-reviewed commit-continue')
+  assert.deepStrictEqual(dom.posted, [], 'and it never reached for the network')
+})
+
+// A decision on a `file://` page outlives the tab exactly as a sent one does.
+test('a copied verdict is still there when the page is re-opened', async () => {
+  const first = runPage(marked(), { protocol: 'file:' })
+  rowFor(first, 'changes').querySelector('.cmd-copy').dispatch('click')
+  await settled()
+  const again = runPage(marked(), { protocol: 'file:', storage: first.window.localStorage })
+  assert.strictEqual(again.byId.decided.hidden, false)
+  assert.strictEqual(again.byId['sent-cmd-text'].textContent, '/spec-reviewed changes')
+})
+
+// THE MARKS DO NOT FIT IN A COMMAND LINE, and are never silently dropped. The
+// moment the pass carries an accept or a comment, the rows give way to the blob
+// the page has always handed over — announced, because a reader whose notes
+// vanished would not find out until the review came back without them.
+test('a marked pass gives way to the blob, and says why', () => {
+  const dom = runPage(marked(), { protocol: 'file:' })
+  assert.ok(cmdRows(dom).length, 'the rows are there while nothing is marked')
+  accepts(dom)[0].dispatch('click')
+  assert.strictEqual(cmdRows(dom).length ? cmdRows(dom)[0].hidden : true, true, 'the rows stand down')
+  assert.strictEqual(dom.byId.verdict.hidden, false, 'and the buttons come back to carry the pass')
+  assert.match(dom.byId['copy-hint'].textContent, /marked|notes|blob/i, 'and it says why')
+})
+
+test('clearing the last mark brings the commands back', () => {
+  const dom = runPage(marked(), { protocol: 'file:' })
+  accepts(dom)[0].dispatch('click')
+  accepts(dom)[0].dispatch('click')
+  assert.strictEqual(cmdRows(dom)[0].hidden, false, 'nothing marked again, so a word carries it')
+  assert.strictEqual(dom.byId.verdict.hidden, true)
+})
+
+// Stays silent (rule 3): a SERVED page is untouched by any of this. It can
+// deliver, so it keeps its buttons.
+test('stays silent: a served page keeps its verdict bar and grows no rows', () => {
+  const dom = runPage(marked(), { protocol: 'http:' })
+  assert.strictEqual(dom.byId.verdict.hidden, false)
+  assert.deepStrictEqual(cmdRows(dom), [])
+})
+
+test('stays silent: a published page keeps its verdict bar too', () => {
+  const dom = runPage(marked(), { protocol: 'https:', claudeUse: () => Promise.resolve(null) })
+  assert.strictEqual(dom.byId.verdict.hidden, false)
+  assert.deepStrictEqual(cmdRows(dom), [])
 })

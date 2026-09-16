@@ -15,6 +15,9 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
+// The vocabulary comes from the engine, so a verdict added there without being
+// documented here is a failure rather than a silent gap.
+const { VERDICTS } = require('../src/env/review.js')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -188,21 +191,37 @@ test('a run that moves the session says where it moved to', () => {
 // A pasted code is the whole interaction, so the skill has to understand one
 // before the page is allowed to offer it.
 
-test('a six-digit code is a third argument shape, and the three cannot collide', () => {
-  assert.match(SKILL, /\*\*Three argument shapes, and they cannot collide\.\*\*/)
+test('a six-digit code is its own argument shape, and the four cannot collide', () => {
+  assert.match(SKILL, /\*\*Four argument shapes, and they cannot collide\.\*\*/)
   assert.match(SKILL, /\^\\d\{6\}\$/, 'the code shape is pinned, so nothing else can match it')
   // The discriminators are stated, not left to be inferred from examples.
   assert.match(SKILL, /a \*\*tracker id\*\* carries a letter and a hyphen/i)
   assert.match(SKILL, /the parse needs no flag/i)
+  // The verdict shape is a CLOSED list, and the skill names it in full — a
+  // shape defined by "one of these five" only works if the five are written
+  // down where the reader of the skill can see them.
+  for (const v of VERDICTS) {
+    assert.ok(SKILL.includes('`' + v + '`'), `${v} is named in the skill`)
+  }
 
   // Not just asserted in prose — the discriminator the skill names is applied to
   // one argument of each shape, so a later edit that loosens it fails here.
   const isCode = (a) => /^\d{6}$/.test(a)
-  const isId = (a) => !isCode(a) && /^[A-Za-z]+-\d+$/.test(a)
-  const routeOf = (a) => (isCode(a) ? 'code' : isId(a) ? 'id' : 'name')
+  const isVerdict = (a) => VERDICTS.includes(a)
+  const isId = (a) => !isCode(a) && !isVerdict(a) && /^[A-Za-z]+-\d+$/.test(a)
+  const routeOf = (a) => (isCode(a) ? 'code' : isVerdict(a) ? 'verdict' : isId(a) ? 'id' : 'name')
   assert.equal(routeOf('608223'), 'code')
   assert.equal(routeOf('SKS-227'), 'id')
   assert.equal(routeOf('feat-page-hands-you-the-command'), 'name')
+  // A verdict word never reads as a spec: every spec folder carries a lifecycle
+  // prefix, and no verdict starts with one. That is a structural argument, not
+  // a hope, so it is asserted against the real vocabulary.
+  for (const v of VERDICTS) {
+    assert.equal(routeOf(v), 'verdict', `${v} routes as a verdict`)
+    for (const prefix of ['feat-', 'bug-', 'hotfix-']) {
+      assert.ok(!v.startsWith(prefix), `${v} must not look like a ${prefix} spec`)
+    }
+  }
   // The near-misses, since those are what a loosened shape would swallow.
   assert.equal(routeOf('60822'), 'name', 'five digits is not a code')
   assert.equal(routeOf('6082233'), 'name', 'seven digits is not a code')

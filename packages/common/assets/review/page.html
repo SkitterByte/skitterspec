@@ -448,7 +448,10 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
 .decided-what { margin: 0 0 .35rem; font-size: 1.05rem; font-weight: 650; line-height: 1.4; }
 .decided-note { margin: 0 0 .8rem; color: var(--muted); font-size: .88rem; line-height: 1.5; max-width: 62ch; }
 .decided-note:last-child { margin-bottom: 0; }
-.decided-toggle { font-size: .78rem; }
+/* SPACE ABOVE IT. The toggle sits under whatever the panel ended on — a
+   sentence, or the command callout — and butted straight against the callout's
+   border it read as part of it rather than as the way back to the diff. */
+.decided-toggle { font-size: .78rem; margin-top: .8rem; }
 
 /* WHY THE CHANGE EXISTS — the PR description this page never had. It is prose
    to be read rather than data to be scanned, so it gets a measure, air, and a
@@ -524,6 +527,25 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   overflow-x: auto; white-space: pre; line-height: 1.6;
 }
 .sent-cmd-copy { white-space: nowrap; }
+.cmd-list { margin: .6rem 0 0; }
+.cmd-list[hidden] { display: none; }
+.cmd-lead { font-size: .85rem; color: var(--muted); margin: 0 0 .5rem; }
+.cmd-row {
+  display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
+  padding: .45rem .55rem; margin-bottom: .4rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+}
+.cmd-row[hidden] { display: none; }
+.cmd-label { font-weight: 600; font-size: .9rem; flex-basis: 100%; }
+.cmd-text {
+  flex: 1; min-width: 0; font-family: var(--mono, ui-monospace, monospace);
+  font-size: .85rem; padding: .3rem .45rem; color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+  /* One tap takes the whole command — see `.sent-cmd-text`. */
+  user-select: all; -webkit-user-select: all;
+  overflow-x: auto; white-space: pre; line-height: 1.6;
+}
+.cmd-copy { white-space: nowrap; }
 /* AN ACTION, NOT A NOTE. The command reached the reader as a grey line under a
    bar that had just closed, and it read as a footnote to something finished —
    so it is now a filled callout inside the decided panel, which is the block a
@@ -618,6 +640,18 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
         <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
         <button id="verdict-discuss" type="button">… Discuss first</button>
         <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
+      </div>
+      <!-- WHERE THE BUTTONS CANNOT DELIVER, the commands stand in their place.
+           A `file://` page has no server to POST to and no store to write to,
+           so a verdict button there only ever built a blob for the reader to
+           paste — a wall of JSON standing in for one word. Each row is named
+           with the BUTTON'S own label, because that is the word the reader
+           chose everywhere else; `commit-continue` is the wire spelling, and
+           nobody should have to learn a second vocabulary to recognise their
+           own decision. Built by the script, so there is exactly one list of
+           verdicts and it is the one the bar already uses. -->
+      <div class="cmd-list" id="cmd-list" hidden>
+        <p class="cmd-lead" id="cmd-lead"></p>
       </div>
       <p class="verdict-log" id="verdict-log" hidden></p>
       <p class="copy-hint" id="copy-hint" hidden></p>
@@ -1306,6 +1340,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     continue: 'You have read it — carry on with the run; nothing is committed',
   }
 
+  var verdictEl = document.getElementById('verdict')
   var verdictCount = document.getElementById('verdict-count')
   var verdictLog = document.getElementById('verdict-log')
   var copyOut = document.getElementById('copy-out')
@@ -1350,6 +1385,10 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     // the two committing buttons unconditionally, so without this it would undo
     // the ending every time anything redrew.
     if (decided) return drawDecided()
+    // Which shape this page offers is re-answered here rather than at load: a
+    // reader who ticks an accept half-way through has changed what their pass
+    // contains, and a command line cannot carry the new contents.
+    drawCmdList()
     var n = pending()
     var open = openNotes()
     verdictCount.textContent = n
@@ -1421,6 +1460,9 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
       'Sent to Claude' + (when ? ' on ' + when : '') + ' — this review is ' + said + '. ' +
       'Nothing here reaches Claude any more, so the verdict buttons are closed.'
     wrapEl.className = wrapEl.className.replace(/\s*\bis-decided\b/g, '') + ' is-decided'
+    // The commands go with the bar. A decided page offers no way to decide
+    // again, whichever shape it was offering.
+    if (cmdList) cmdList.hidden = true
     // EVERY button, not only the committing pair: `refresh` re-enables those two
     // by design, and a decided page must beat it.
     Object.keys(verdictBtns).forEach(function (key) {
@@ -1757,6 +1799,109 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
     })
   }
 
+  /* ==========================================================================
+   * The command list — a verdict bar for a page that cannot deliver one
+   *
+   * A `file://` page has no server and no store, so its buttons never sent
+   * anything: they built a JSON blob and put it on the clipboard to paste. That
+   * is still the only way a pass carrying MARKS can travel, and it stays. What
+   * changes is the common case — a reader who ticked nothing and wrote nothing,
+   * whose whole pass is one word — where a command they run in the terminal
+   * beside them beats a wall of text every time.
+   *
+   * WHICH SHAPE IS LIVE IS DECIDED BY WHAT THE PASS CARRIES, and it is
+   * re-decided on every mark. Tick one accept and the rows stand down, because
+   * a command line cannot carry someone's notes and dropping them silently
+   * would be worse than asking for the paste. Clear it again and they return.
+   * ======================================================================== */
+
+  // Only a `file://` page. A served page posts; a published one writes to its
+  // store. Both can deliver, so both keep their buttons — decided from what the
+  // page IS, exactly as `send` decides.
+  var NO_TRANSPORT = location.protocol === 'file:' && !isArtifact()
+  var cmdList = document.getElementById('cmd-list')
+  var cmdLead = document.getElementById('cmd-lead')
+  var cmdRows = {}
+
+  function buildCmdRows() {
+    if (!NO_TRANSPORT || !cmdList) return
+    cmdLead.textContent = 'Nothing here can reach Claude, so run one of these where it is:'
+    // THE SAME LIST THE BAR USES. `OFFERED` already answers which verdicts this
+    // render offers — a mid-run page lists Continue and never the committing
+    // pair — so deriving the rows from it is what keeps the two from drifting.
+    OFFERED.forEach(function (verdict) {
+      var row = el('div', 'cmd-row')
+      row.setAttribute('data-verdict', verdict)
+      var label = el('span', 'cmd-label', LABELS[verdict])
+      var cmd = el('code', 'cmd-text', '/spec-reviewed ' + verdict)
+      row.appendChild(label)
+      row.appendChild(cmd)
+      // NEVER A BUTTON THAT CANNOT COPY — the same rule `showCommand` follows.
+      // A control that does nothing on tap reads as a broken page, and
+      // `file://` is exactly where the clipboard API is most often withheld.
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        var copy = el('button', 'cmd-copy', 'Copy')
+        copy.setAttribute('type', 'button')
+        copy.addEventListener('click', function () {
+          navigator.clipboard.writeText(cmd.textContent).then(function () {
+            // COPIED IS DECIDED. The reader has the command; what happens next
+            // happens in their terminal, and the page has nothing left to do
+            // but say what they chose — with the command repeated, because a
+            // copy can fail silently and an hour later this box is the only
+            // record of it.
+            markDecided(verdict, cmd.textContent, false)
+          }, function () {
+            copy.textContent = selectRow(cmd) ? 'Copy failed — selected' : 'Copy failed'
+          })
+        })
+        row.appendChild(copy)
+      }
+      cmdList.appendChild(row)
+      cmdRows[verdict] = row
+    })
+  }
+
+  function selectRow(node) {
+    try {
+      var range = document.createRange()
+      range.selectNodeContents(node)
+      var sel = window.getSelection && window.getSelection()
+      if (!sel) return false
+      sel.removeAllRanges()
+      sel.addRange(range)
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
+  /**
+   * Decide, now, which of the two shapes this page is offering.
+   *
+   * Called from `refresh`, so it re-answers on every mark rather than once at
+   * load: the reader who ticks an accept half-way through has changed what
+   * their pass contains, and the page has to change with them.
+   */
+  function drawCmdList() {
+    if (!NO_TRANSPORT || !cmdList) return
+    var marked = pending() > 0
+    cmdList.hidden = marked
+    Object.keys(cmdRows).forEach(function (k) { cmdRows[k].hidden = marked })
+    // The bar comes back to carry what a command cannot, and SAYS SO. A reader
+    // whose notes had been dropped would not find out until the review came
+    // back without them.
+    verdictEl.hidden = !marked
+    if (marked) {
+      copyHint.hidden = false
+      copyHint.textContent =
+        'You have marked something up, and a command line cannot carry notes — ' +
+        'use a verdict button below and paste what it copies.'
+    } else if (copyHint.textContent.indexOf('cannot carry notes') !== -1) {
+      copyHint.hidden = true
+      copyHint.textContent = ''
+    }
+  }
+
   // How long to keep asking, and how often. A claim is a file-watch waking a
   // session that is already sitting there, so the answer normally arrives in
   // well under a second; these are sized for the case where it does not.
@@ -1943,6 +2088,7 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
   }
 
   restore()
+  buildCmdRows()
   drawContext()
   drawLog()
   drawDecided()

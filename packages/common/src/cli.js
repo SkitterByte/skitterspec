@@ -92,6 +92,7 @@ const {
   reviewNotesPath,
   readNotes,
   writeNotes,
+  VERDICTS,
   validateNotesBlob,
   judgeVerdict,
   appendDecision,
@@ -1983,6 +1984,39 @@ async function specEnvReview(dir, config, specArg, flags) {
     claimCode = window.codes[0]
   }
 
+  // ONE VERDICT PER INVOCATION, and this refuses rather than reconciles. The
+  // three ways a verdict arrives can carry three different words, and there is
+  // no honest rule for picking between them: acting on either would commit
+  // somebody's work on the strength of a word they did not mean as the answer.
+  // Refused BEFORE anything is looked up, so a rejected combination cannot also
+  // spend a pending code or read a blob off disk.
+  if (flags.verdict && (flags.claim || flags.claimSince || flags.notes)) {
+    process.stdout.write(
+      'spec-env review: --verdict carries one verdict and so does ' +
+        `${flags.notes ? '--notes' : '--claim'} — send one, not both\n`,
+    )
+    return
+  }
+
+  // A VERDICT WITH NOTHING ATTACHED — the word a `file://` page hands over when
+  // the pass it would otherwise build carries nothing but the conclusion. It
+  // joins the same merge below rather than forking: `judgeVerdict` still
+  // refuses a commit over open comments, the log still records it, and the gate
+  // still clears. What it cannot carry is marks, and it does not pretend to —
+  // `merged` stays null, because nothing was.
+  if (flags.verdict) {
+    const word = String(flags.verdict).trim()
+    if (!VERDICTS.includes(word)) {
+      // The engine's own vocabulary, named in full. A word refused without the
+      // list is a typo the reader has to go looking for.
+      process.stdout.write(
+        `spec-env review: verdict "${word}" is not one of ${VERDICTS.join(', ')}\n`,
+      )
+      return
+    }
+    sentVerdict = word
+  }
+
   // A CLAIM IS A DELIVERY MECHANISM, not a second kind of review. It lifts a
   // pass out of the holding area and hands it to exactly the same merge a
   // pasted blob goes through, so nothing downstream can tell — or behave
@@ -3532,6 +3566,7 @@ async function specEnv(rest) {
     else if (args[i] === '--out') flags.out = args[++i]
     else if (args[i] === '--review') flags.review = args[++i]
     else if (args[i] === '--notes') flags.notes = args[++i]
+    else if (args[i] === '--verdict') flags.verdict = args[++i]
     else if (args[i] === '--resolve') flags.resolve = args[++i]
     else if (args[i] === '--outcome') flags.outcome = args[++i]
     else if (args[i] === '--claim') flags.claim = args[++i]
@@ -3645,13 +3680,14 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
+        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +
           '  review skip "<reason>"                 move on without one, on the record\n' +
           '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +
+          '  review [spec] --verdict <word>         send just a verdict, with nothing marked\n' +
           '  review [spec] --buttons midrun         the page offers Continue, not a commit\n' +
           '  [spec] is optional everywhere: omit it and the worktree you are standing\n' +
           '  in is used, else the sole provisioned spec (several -> it lists them).\n' +

@@ -1,6 +1,6 @@
 ---
 name: spec-reviewed
-description: Pick up the review you approved on the page — run it bare to pick up the single waiting pass, paste the six-digit code off the page ("/spec-reviewed 608223") to name one exactly, and be asked which only when two are waiting. Use when the user says "/spec-reviewed", "I approved it", "I've reviewed it", "pick up my review", "I pressed approve", or otherwise says they have finished reviewing a rendered diff.
+description: Pick up the review you approved on the page — run it bare to pick up the single waiting pass, paste the six-digit code off the page ("/spec-reviewed 608223") to name one exactly, or pass the verdict itself ("/spec-reviewed commit") when the page could not send and copied you a command instead. Use when the user says "/spec-reviewed", "I approved it", "I've reviewed it", "pick up my review", "I pressed approve", or otherwise says they have finished reviewing a rendered diff.
 disable-model-invocation: true
 ---
 
@@ -70,15 +70,40 @@ Several provisioned and none resolved is a refusal — relay its list and stop,
 never pick from it. See `.claude/rules/spec-planning.md`; do not restate the
 rule here.
 
-**Three argument shapes, and they cannot collide.** A **six-digit code**
-matches `^\d{6}$`; a **tracker id** carries a letter and a hyphen; a
-**spec name** is neither. So the parse needs no flag, and nothing has to be
-guessed at from context.
+**Four argument shapes, and they cannot collide.** A **six-digit code**
+matches `^\d{6}$`; a **verdict** is one of a closed list of five words;
+a **tracker id** carries a letter and a hyphen;
+a **spec name** is none of them and always carries a lifecycle prefix
+(`feat-`, `bug-`, `hotfix-`), which no verdict does. So the parse needs no flag,
+and nothing has to be guessed at from context.
 
 A **six-digit code** is a pass the operator read off their own page. It says
 **which pass**, not which spec — so resolve the spec exactly as a bare
 invocation does, above, and claim the code *there*. Then go to step 4 — a named
 pass has nothing to disambiguate.
+
+A **verdict word** — `commit`, `commit-continue`, `continue`, `changes`,
+`discuss` — is the conclusion itself, arriving without a pass behind it. It is
+what a **`file://` page** hands over: that page has no server to POST to and no
+store to write to, so it copies a command instead of sending anything, and this
+is the command. Resolve the spec as a bare invocation does, then send the word
+through the engine:
+
+```
+skitterspec spec-env review <spec> --verdict <word>
+```
+
+It joins the same merge a claimed pass goes through, so the routing in step 4
+is unchanged: a commit over open notes is refused exactly as it would be, the
+outcome log records it, and the gate a phase armed is cleared. Then go to step
+4 — there is nothing to disambiguate.
+
+**A word carries a verdict and nothing else**, and that is a property of the
+transport, not a shortcut. Accepts and comments do not fit on a command line,
+so the page only ever offers the words while the reader has marked nothing —
+the moment they tick an accept or write a note it goes back to handing over the
+blob. If someone tells you they marked things up *and* gives you a word, ask
+for the pass: the word would land a verdict with their notes silently dropped.
 
 A **name** targets that spec instead. A **tracker id** does too, but only
 through a **provider seam**: the base knows nothing about tracker ids, so
