@@ -179,7 +179,7 @@ function assertComposedAssets() {
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
 
-const report = { created: [], updated: [], skipped: [], refused: [], removed: [], customized: [], healed: [], warnings: [] }
+const report = { created: [], updated: [], skipped: [], refused: [], removed: [], customized: [], adopted: [], healed: [], warnings: [] }
 
 function resetReport() {
   for (const k of Object.keys(report)) report[k].length = 0
@@ -241,16 +241,31 @@ function managedTargets(dir) {
 }
 
 // Read the manifest (tolerant: missing/malformed → an empty baseline).
+// `baselined` answers a question `files` cannot: could this manifest have SEEN
+// a path? It is true only when the file parsed into the expected shape AND
+// records at least one entry — a POSITIVE signal, not an absence, which is what
+// lets `managedState` read a path's absence from it as evidence of anything
+// (`.claude/rules/negative-checks.md` rule 1).
+//
+// WHAT WOULD FOOL IT: nothing silently. A missing manifest and a malformed one
+// both fall into the same empty baseline below — correct for reading hashes,
+// and useless for reasoning about absence, since on a repo with no manifest yet
+// EVERY path is absent. Both answer `baselined: false`, so the one conclusion
+// that depends on it is simply not drawn.
 function readManifest(dir) {
   try {
     const parsed = JSON.parse(fs.readFileSync(path.join(dir, MANIFEST_FILE), 'utf8'))
     if (parsed && typeof parsed === 'object' && parsed.files && typeof parsed.files === 'object') {
-      return { version: parsed.version || MANIFEST_VERSION, files: parsed.files }
+      return {
+        version: parsed.version || MANIFEST_VERSION,
+        files: parsed.files,
+        baselined: Object.keys(parsed.files).length > 0,
+      }
     }
   } catch {
     /* missing or malformed → empty baseline */
   }
-  return { version: MANIFEST_VERSION, files: {} }
+  return { version: MANIFEST_VERSION, files: {}, baselined: false }
 }
 
 function writeManifest(dir, files) {
@@ -265,6 +280,29 @@ function writeManifest(dir, files) {
 //   missing    — not on disk
 //   pristine   — ours to update: it matches the package asset, or the hash we recorded
 //   customized — on disk but differs from both — a user edit; keep it
+//   adopted    — a path this version has NEWLY CLAIMED, where the project
+//                already had a file: it differs from what we ship, and the
+//                manifest that could have named it does not. Keep it too — the
+//                two states differ only in what the report CLAIMS about it.
+//
+// The split exists because `customized` made a false statement about the second
+// case. "Your edit — kept" describes our file at a path upstream had not
+// claimed, and the reader acts on it: v21 renamed the commit hook to
+// `review-gate.cjs`, which is the same name anyone would have picked to work
+// around v20's ESM crash — so their shim was kept, the real hook was never
+// installed, and `review-gate.js` was pruned out from under it. The shim fails
+// open, so the gate went silently absent under a report that said success.
+//
+// WHAT WOULD FOOL THIS, and why neither does:
+//   - A repo with no manifest (or an unreadable one) has EVERY path absent.
+//     `baselined` is the positive signal that gates the conclusion, so those
+//     fall back to `customized` — which keeps the file either way
+//     (`.claude/rules/negative-checks.md` rules 1 and 4).
+//   - The signal is ONE-SHOT. `flushManifest`'s migration seed gives any
+//     present managed file an entry on the very next run, so an adopted path
+//     reads `customized` from then on. Anyone who already upgraded has spent
+//     it — which is why the `.cjs` trap is also written into MIGRATION.md,
+//     where that reader is actually looking.
 //
 // `bundled` (the current package asset) is optional but decisive: a file whose
 // CONTENT equals what we ship is not customized, whatever the manifest says.
@@ -280,7 +318,8 @@ function managedState(dir, relPath, manifest, bundled) {
   const onDisk = fs.readFileSync(abs, 'utf8')
   if (bundled !== undefined && onDisk === bundled) return 'pristine'
   const known = manifest.files[relPath]
-  return known && sha1(onDisk) === known ? 'pristine' : 'customized'
+  if (known) return sha1(onDisk) === known ? 'pristine' : 'customized'
+  return manifest.baselined ? 'adopted' : 'customized'
 }
 
 // Reconcile and persist the manifest after an install/resync run: keep prior
@@ -627,6 +666,8 @@ function checkSync(dir, { claudeMd = true, log = console.log } = {}) {
     const state = managedState(dir, relPath, manifest, bundled)
     if (state === 'missing') rows.push([relPath, 'missing — would be created'])
     else if (state === 'customized') rows.push([relPath, 'your edit — kept (--force overwrites)'])
+    else if (state === 'adopted')
+      rows.push([relPath, 'adopted upstream — yours kept, theirs not installed (--force takes theirs)'])
     else if (fs.readFileSync(abs, 'utf8') !== bundled) rows.push([relPath, 'out of date — would be updated'])
   }
   const section = claudeMd ? claudeMdSectionState(dir) : 'fresh'
@@ -714,14 +755,16 @@ function resyncManagedFile(dir, target, manifest, force) {
     report[bucket].push(relPath)
   }
   if (state === 'missing') return write('created')
-  if (state === 'customized') {
+  // `adopted` writes exactly as `customized` does — keep unless forced. Only the
+  // bucket differs, because only the REPORT was ever wrong about it.
+  if (state === 'customized' || state === 'adopted') {
     if (force) return write('updated')
     writtenHashes[relPath] = manifest.files[relPath] || writtenHashes[relPath] // keep baseline
     // Carry the change the user just DECLINED. A bare filename tells them a
     // decision was made on their behalf but not what it was, which leaves
     // "clobber and re-apply my edits by hand" as the only safe way to upgrade.
     const { added, removed, hunks } = linesDiff(fs.readFileSync(abs, 'utf8'), bundled)
-    return report.customized.push({ relPath, added, removed, hunks })
+    return report[state].push({ relPath, added, removed, hunks })
   }
   // pristine — update only if the bundled content actually changed
   if (fs.readFileSync(abs, 'utf8') === bundled) {
@@ -836,6 +879,10 @@ function printReport(dir, mode, { diff = false } = {}) {
     'customized (kept)',
     report.customized.map((c) => `${c.relPath}  +${c.added} \u2212${c.removed}`),
   )
+  line(
+    'adopted upstream (kept — ours was never installed)',
+    report.adopted.map((c) => `${c.relPath}  +${c.added} \u2212${c.removed}`),
+  )
   line('manifest repaired', report.healed)
   line('unchanged', report.skipped)
   if (report.refused.length) {
@@ -851,13 +898,17 @@ function printReport(dir, mode, { diff = false } = {}) {
     process.stdout.write('\nwarnings:\n')
     for (const w of report.warnings) process.stdout.write(`  ! ${w}\n`)
   }
+  const declined = [
+    ...report.customized.map((c) => [c, 'kept — this is what you declined']),
+    ...report.adopted.map((c) => [c, 'kept — this is what was not installed']),
+  ]
   if (diff) {
-    for (const c of report.customized) {
+    for (const [c, why] of declined) {
       if (!c.hunks.length) continue
-      process.stdout.write(`\n--- ${c.relPath} (kept — this is what you declined)\n`)
+      process.stdout.write(`\n--- ${c.relPath} (${why})\n`)
       for (const h of c.hunks) process.stdout.write(`${h}\n`)
     }
-  } else if (report.customized.length) {
+  } else if (declined.length) {
     process.stdout.write('\nRe-run with --diff to see the changes those files declined.\n')
   }
   const isolationOn = fs.existsSync(path.join(dir, 'specs', '.core', 'env.config.json'))

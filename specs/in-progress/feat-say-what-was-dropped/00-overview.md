@@ -127,7 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | An adopted path is not your edit | ⬜ | [01-adopted-paths.md](01-adopted-paths.md) |
+| 1 | An adopted path is not your edit | ✅ | [01-adopted-paths.md](01-adopted-paths.md) |
 | 2 | An unknown config key says so | ⬜ | [02-unknown-config-keys.md](02-unknown-config-keys.md) |
 | 3 | The help lists every verb, and stays that way | ⬜ | [03-help-verb-sync.md](03-help-verb-sync.md) |
 
@@ -145,3 +145,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-16 — Spec created.
+- 2026-09-16 — Phase 1: the positive signal ships as a `baselined` flag on
+  `readManifest`'s return rather than a separate `manifestPresent(dir)`. Same
+  guarantee, computed once per run instead of re-reading the manifest for every
+  managed target — and a hand-built manifest object (as tests pass) lacks the
+  flag, so it falls back to `customized`, which is the branch that keeps the
+  file.

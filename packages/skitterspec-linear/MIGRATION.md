@@ -21,6 +21,26 @@ The upgrade migrates you: your existing `PreToolUse` entry has its path
 added all survive — and the retired `review-gate.js` is deleted. If you edited
 that file yourself it is **kept**, with a warning, and left for you to remove.
 
+**Check whether you already had a `review-gate.cjs` of your own.** `.cjs` is the
+obvious way to work around the v20 crash, so anyone who fixed it by hand most
+likely picked this exact filename — and this upgrade is the moment skitterspec
+starts managing that path. A file already sitting there is **kept**, the real
+hook is therefore never installed, and `review-gate.js` is pruned out from under
+it. A hand-written shim that only `require`d the old script then fails open, so
+the gate is silently absent under an update that reported success.
+
+Two lines settle it:
+
+```
+head -3 .claude/hooks/review-gate.cjs        # ours opens with a 'use strict' + a doc comment
+npx @skitterbyte/skitterspec update --check  # a line naming this path means yours was kept
+```
+
+If it is yours, take ours — `npx @skitterbyte/skitterspec update --force`, or
+delete the file and re-run `update`. Later versions report this case in its own
+words rather than as `your edit — kept`, but the manifest records the path after
+the first upgrade, so that wording cannot reach anyone who has already run one.
+
 ### Bug fix
 
 **`skitterspec update` now registers the hook.** v20's notes said `init` and
