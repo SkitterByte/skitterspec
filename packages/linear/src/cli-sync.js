@@ -2368,11 +2368,78 @@ async function specSyncList(dir, config, flags, out) {
  *
  * Every id is stamped the moment its object exists — see `specSyncApply`.
  */
-async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, project, states }) {
+/**
+ * A refusal, as the lines a reader acts on. Pure.
+ *
+ * Two questions, and the old single line answered neither: **what was refused**
+ * and **can waiting help**. `Linear API error: usage limit exceeded` reads like
+ * a throttle, so an hour went into checking a rate limit that was untouched —
+ * while Linear's own explanation, naming the free-plan issue cap and how to
+ * clear it, sat in `extensions.userPresentableMessage`.
+ *
+ * WHAT WOULD FOOL A LOOSER VERSION: treating "no verdict" as retryable. An error
+ * that said nothing about itself — every MCP-path error, every older Linear
+ * response — gets exactly the line it always got and no claim in either
+ * direction (`.claude/rules/negative-checks.md` rule 4).
+ */
+function describeRefusal(error) {
+  const message = (error && error.message) || String(error)
+  const presentable = error && error.userPresentableMessage
+  const code = error && error.code
+  const metric = error && error.meta && error.meta.usageMetric
+  const retryable = error && error.retryable
+
+  // Nothing to add. Say what was always said, and stop.
+  if (!presentable && retryable !== false) return [message]
+
+  const lines = []
+  lines.push(
+    retryable === false
+      ? 'Linear refused this write — not a rate limit, so waiting will not help.'
+      : message,
+  )
+  // The presentable message usually repeats the short one; printing both reads
+  // as two problems, so the short one is dropped where the long one says it.
+  if (presentable) lines.push(`  ${presentable}`)
+  else if (retryable === false) lines.push(`  ${message}`)
+  const tail = [code, metric].filter(Boolean)
+  if (tail.length) lines.push(`  (${tail.join(' · ')})`)
+  return lines
+}
+
+/**
+ * Apply a plan, and say what landed even when it throws.
+ *
+ * A thin wrapper, because the caller has to answer a question the inner
+ * function's `result` knows and a thrown error does not carry: **was anything
+ * written?** That decides whether re-running is a resume or a fresh start, and
+ * the failure line claimed `ids stamped so far are saved` on both paths —
+ * including the one where nothing had been created.
+ *
+ * Counted from what was actually stamped, never inferred from which call
+ * failed: the second reading goes wrong the moment the order changes.
+ */
+async function applyOneSpec(args) {
+  const progress = {}
+  try {
+    return await applyOneSpecInner({ ...args, progress })
+  } catch (error) {
+    const r = progress.result
+    if (error && typeof error === 'object' && error.stamped === undefined) {
+      error.stamped = r ? (r.issue ? 1 : 0) + Object.keys(r.subIssues || {}).length : 0
+    }
+    throw error
+  }
+}
+
+async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, teamId, project, states, progress }) {
   const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
   const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
   const lines = []
   const result = { issue: null, subIssues: {} }
+  // Handed out immediately, so a throw from anywhere below still reports what
+  // had been stamped by the time it happened.
+  if (progress) progress.result = result
   const stateId = (bucket) => (bucket ? stateIdFor(bucket, config, states) : null)
 
   // Resolve every state id BEFORE the first write, so a bad config.states value
@@ -2795,8 +2862,19 @@ async function specSyncApply(dir, config, specArg, flags, out) {
     } catch (error) {
       // Whatever landed before the failure is already stamped, so re-running
       // resumes rather than duplicating — say so instead of leaving it ambiguous.
+      const said = describeRefusal(error)
       out.write(
-        [...lines, `  !! ${error.message}`, '  ids stamped so far are saved — re-run to resume without duplicating'].join('\n') + '\n',
+        [
+          ...lines,
+          `  !! ${said[0]}`,
+          ...said.slice(1).map((l) => `  ${l}`),
+          // ONLY THE TRUE ONE. Nothing written means re-running starts over; a
+          // part-way failure means it resumes. Saying the second on both paths
+          // is how a reader concludes an issue exists that does not.
+          error && error.stamped
+            ? '  ids stamped so far are saved — re-run to resume without duplicating'
+            : '  nothing was created — re-run once the cause is resolved',
+        ].join('\n') + '\n',
       )
       return 1
     }
@@ -3545,4 +3623,4 @@ async function specSync(rest, io = {}) {
   }
 }
 
-module.exports = { specSync, listSpecs, promptHidden }
+module.exports = { specSync, listSpecs, promptHidden, describeRefusal }

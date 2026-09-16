@@ -639,3 +639,53 @@ test('a state-only plan still resolves its state id before writing', async () =>
   assert.notStrictEqual(r.code, 0, 'a bad state name fails before the first write')
   assert.ok(!linear.log.some((e) => e.op === 'updateIssue'), 'nothing was written')
 })
+
+// --- what was written decides the next move ---------------------------------
+//
+// The failure line claimed `ids stamped so far are saved` on every path,
+// including the one where nothing had been created. That is not a cosmetic
+// inaccuracy: it is the sentence the reader uses to decide whether re-running
+// is a resume or a fresh start, and it was true in only one of the two cases.
+
+test('a refusal before the first write says nothing was created', async () => {
+  const dir = fixtureRepo()
+  // Fail on the FIRST write — nothing lands at all.
+  const linear = fakeLinear({ failOn: 1 })
+  const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, { adapter: linear })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /nothing was created/i)
+  assert.doesNotMatch(r.out, /ids stamped so far/, 'nothing was stamped, so it must not claim otherwise')
+  assert.doesNotMatch(overview(dir), /linear_identifier/, 'and the spec is untouched')
+})
+
+test('a refusal part-way still says what it stamped', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear({ failOn: 2 })
+  const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, { adapter: linear })
+  assert.match(r.out, /ids stamped so far are saved/)
+  assert.doesNotMatch(r.out, /nothing was created/i)
+})
+
+// The whole point of phase 1, end to end: a usage cap reaches the operator as
+// Linear's own explanation plus the one fact that decides what to do next.
+test('a usage cap arrives with the reason and the fix, not as a rate limit', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear()
+  const { LinearRefusal } = require('../src/api.js')
+  linear.createIssue = async () => {
+    throw new LinearRefusal('Linear API error: usage limit exceeded', {
+      code: 'USAGE_LIMIT_EXCEEDED',
+      userError: true,
+      userPresentableMessage:
+        "You've exceeded the free issue limit for this workspace. Please upgrade or contact sales@linear.app for a free trial.",
+      meta: { usageMetric: 'activeIssueCount' },
+      retryable: false,
+    })
+  }
+  const r = await run(['apply', 'feat-applied', '--plan', planFile(dir, CREATE_PLAN)], dir, { adapter: linear })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /waiting will not help/i, 'the fact that decides the next move')
+  assert.match(r.out, /free issue limit/, "Linear's own words")
+  assert.match(r.out, /USAGE_LIMIT_EXCEEDED/)
+  assert.match(r.out, /nothing was created/i, 'and re-running is a fresh start, not a resume')
+})

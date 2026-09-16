@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Say what Linear refused, and whether waiting helps | ⬜ | [01-say-what-linear-refused.md](01-say-what-linear-refused.md) |
+| 1 | Say what Linear refused, and whether waiting helps | ✅ | [01-say-what-linear-refused.md](01-say-what-linear-refused.md) |
 | 2 | Resume is a guarantee, not a comment | ⬜ | [02-resume-is-a-guarantee.md](02-resume-is-a-guarantee.md) |
 | 3 | Point a spec back at its issue | ⬜ | [03-point-a-spec-back-at-its-issue.md](03-point-a-spec-back-at-its-issue.md) |
 
@@ -164,6 +164,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `usage limit exceeded`. The cause — a free-plan `activeIssueCount` cap — was
   in `extensions.userPresentableMessage` the whole time, and was found only by
   wrapping `fetch` by hand to print the full payload.
+- 2026-09-16 — Phase 1: `LinearRefusal` carries `code`, `userError`,
+  `userPresentableMessage`, `meta` and a three-valued `retryable`; the retry loop
+  skips what can never succeed; `apply` reports Linear's own words and whether
+  anything was written. Found while building: the resume property phase 2 was to
+  prove is already tested in `cli-apply.test.js`.
 
 ## State log
 

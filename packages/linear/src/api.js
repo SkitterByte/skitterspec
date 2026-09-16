@@ -118,6 +118,76 @@ const ISSUE_FIELDS =
 const USER_FIELDS = 'id name displayName email active'
 
 /**
+ * Codes Linear returns that no amount of waiting will clear. `userError` decides
+ * it on its own where Linear sends one; this is the fallback for a payload that
+ * carries a code and not the flag.
+ *
+ * DELIBERATELY SHORT. A code absent from this list and carrying no `userError`
+ * is a cannot-tell, not a retryable — see `LinearRefusal` below.
+ */
+const UNRETRYABLE_CODES = new Set(['USAGE_LIMIT_EXCEEDED', 'FEATURE_NOT_ACCESSIBLE', 'INVALID_INPUT'])
+
+/**
+ * What Linear refused, kept whole.
+ *
+ * THE FIELDS ARE ADDED BESIDE `message`, NEVER INSTEAD OF IT. Every existing
+ * caller prints `error.message`, and this must not require them all to change to
+ * go on working — so the joined message is still exactly what it was.
+ *
+ * `retryable` is THREE-VALUED and the third value is the point:
+ *
+ * - `false` — Linear said `userError`, or sent a code that never clears. Waiting
+ *   cannot help, so the retry loop must not spend three attempts proving it.
+ * - `true`  — set by the throttle path, where waiting is the entire answer.
+ * - `null`  — nothing said either way. Every error the MCP path produces and
+ *   every older Linear response lands here, and it must read as neither: a
+ *   missing field is not evidence (`.claude/rules/negative-checks.md` rule 1).
+ *
+ * WHAT THIS COST WHEN IT WAS MISSING: a push failed twice with
+ * `Linear API error: usage limit exceeded`, which reads like a throttle. An hour
+ * went into checking a rate limit that was untouched, while
+ * `extensions.userPresentableMessage` — naming both the free-plan issue cap and
+ * how to fix it — sat one layer below what was printed.
+ */
+class LinearRefusal extends Error {
+  constructor(message, { code = null, userError = null, userPresentableMessage = null, meta = null, retryable = null } = {}) {
+    super(message)
+    this.name = 'LinearRefusal'
+    this.code = code
+    this.userError = userError
+    this.userPresentableMessage = userPresentableMessage
+    this.meta = meta
+    this.retryable = retryable
+  }
+}
+
+/**
+ * Read a GraphQL `errors` array into one refusal. Pure.
+ *
+ * The first entry carries the detail — Linear sends one error per failed field
+ * and a mutation fails on one — while the message joins them all, as it always
+ * has, so nothing that reads `message` notices this changed.
+ */
+function refusalFrom(errors) {
+  const joined = errors.map((e) => (e && e.message) || String(e)).join('; ')
+  const ext = (errors[0] && errors[0].extensions) || {}
+  const code = typeof ext.code === 'string' ? ext.code : null
+  const userError = typeof ext.userError === 'boolean' ? ext.userError : null
+  // `false` only on a POSITIVE signal. An unrecognised code with no flag stays
+  // `null`, so it keeps whatever retry behaviour it had rather than gaining a
+  // verdict nothing supports.
+  const retryable = userError === true || (code !== null && UNRETRYABLE_CODES.has(code)) ? false : null
+  return new LinearRefusal(`Linear API error: ${joined}`, {
+    code,
+    userError,
+    userPresentableMessage:
+      typeof ext.userPresentableMessage === 'string' ? ext.userPresentableMessage : null,
+    meta: ext.meta && typeof ext.meta === 'object' ? ext.meta : null,
+    retryable,
+  })
+}
+
+/**
  * A GraphQL caller bound to one key. Throws a clear Error on transport failure,
  * on an HTTP error, and on a GraphQL `errors` payload — an `apply` that half
  * succeeds must be loud, never silent.
@@ -160,12 +230,20 @@ function makeClient({ apiKey, fetch: fetchImpl, endpoint = ENDPOINT, sleep, maxR
         continue
       }
       if (res.status === 429) {
-        throw new Error(`Linear rate-limited this request and did not recover after ${maxRetries} retries`)
+        // RETRYABLE, said out loud. This is the failure where waiting is the
+        // whole answer, and the one a refusal must be distinguishable from.
+        throw new LinearRefusal(
+          `Linear rate-limited this request and did not recover after ${maxRetries} retries`,
+          { retryable: true },
+        )
       }
       if (!res.ok) throw new Error(`Linear API returned HTTP ${res.status}`)
       const body = await res.json()
       if (body && Array.isArray(body.errors) && body.errors.length) {
-        throw new Error(`Linear API error: ${body.errors.map((e) => e.message).join('; ')}`)
+        // NOT RETRIED, when Linear says it cannot succeed. The loop above exists
+        // for throttling; a usage cap retried three times is three identical
+        // refusals and a slower failure.
+        throw refusalFrom(body.errors)
       }
       return body && body.data
     }
@@ -424,6 +502,9 @@ function stateIdFor(bucket, config, states) {
 
 module.exports = {
   ENDPOINT,
+  LinearRefusal,
+  refusalFrom,
+  UNRETRYABLE_CODES,
   MAX_RETRIES,
   resolveApiKey,
   makeClient,
