@@ -2965,12 +2965,17 @@ function specSyncInitConfig(dir, flags, out) {
   // shape — a blank key or a duplicate fails there, in one place, rather than
   // being re-checked here and drifting from the loader.
   if (flags.stages.length) draft.release = { stages: flags.stages }
-  // Assignment is opt-in and rides `fieldOwnership` rather than a key of its
-  // own. Only `assignee` is written: the loader merges this map PER KEY onto the
+  // Assignment ships ON, so the flag is the OPT-OUT and it writes `none`. The
+  // previous `--assign` is gone rather than kept as a no-op: a flag whose meaning
+  // the default flip inverted, still accepted and doing nothing, is the
+  // record-and-do-nothing shape this project is against — and an unknown flag
+  // already fails loudly, which is a better answer than silence.
+  //
+  // Only `assignee` is written: the loader merges this map PER KEY onto the
   // defaults, so restating the other three would freeze today's defaults into
   // the file and quietly opt the repo out of any later change to them — the very
   // thing "only the keys that differ" exists to avoid.
-  if (flags.assign) draft.sync = { fieldOwnership: { assignee: 'push' } }
+  if (flags.noAssign) draft.sync = { fieldOwnership: { assignee: 'none' } }
 
   for (const bucket of Object.keys(flags.stateNames)) {
     if (!LIFECYCLE_BUCKETS.includes(bucket)) {
@@ -3327,7 +3332,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, assign: false, mine: false, by: null, inProgress: false }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -3367,7 +3372,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--unset') flags.unset = true
     else if (args[i] === '--to') flags.to = String(args[++i] || '').trim()
     else if (args[i] === '--release') flags.release = true
-    else if (args[i] === '--assign') flags.assign = true
+    else if (args[i] === '--no-assign') flags.noAssign = true
     else if (args[i] === '--limit') flags.limit = Number(args[++i]) || 0
     else if (args[i] === '--cursor') flags.cursor = String(args[++i] || '').trim()
     else if (args[i] === '--command') flags.command = String(args[++i] || '').trim()
@@ -3534,7 +3539,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync doctor [--check-remote] [--mcp <file>] [--json]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +
         '                    [--intake-label L] [--bug-labels a,b] [--hotfix-labels a,b]\n' +
-        '                    [--assign]\n' +
+        '                    [--no-assign]\n' +
         '                    [--state <bucket>=<name> …] [--states <file>] [--force] [--json]\n')
       return 0
   }

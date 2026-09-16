@@ -113,12 +113,14 @@ test('a genuine disagreement the repo WILL overwrite is reported as drift', asyn
 
 // --- stays silent ------------------------------------------------------------
 
-test('a repo that never opted in gets no assignee line at all', async () => {
+test('a repo that says nothing DOES get an assignee line — the default owns it', async () => {
+  // The inversion at v16, stated where it is most visible: `optIn: false` used
+  // to mean inert. It now means "took the default", and the default is `push`.
   const dir = fixtureRepo({ optIn: false, assignee: 'user-1' })
   const remote = remoteFile(dir, { assignee: { id: 'user-9', name: 'Priya PM' } })
   const r = await run(['status', 'feat-owned', '--remote', remote], dir)
   assert.strictEqual(r.code, 0)
-  assert.ok(!/assignee/i.test(r.out), 'inert means invisible, not merely inactive')
+  assert.match(r.out, /assignee/i, 'silence is not an opt-out any more')
 })
 
 test('the workflow-state drift line is untouched by any of this', async () => {

@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `none` is a first-class ownership value | ✅ | [01-ownership-none.md](01-ownership-none.md) |
 | 2 | `spec-sync assign` refuses what it cannot push | ✅ | [02-assign-guard.md](02-assign-guard.md) |
-| 3 | Flip the default, invert the setup, write the migration | ⬜ | [03-flip-the-default.md](03-flip-the-default.md) |
+| 3 | Flip the default, invert the setup, write the migration | ✅ | [03-flip-the-default.md](03-flip-the-default.md) |
 
 ## Open questions
 
@@ -155,3 +155,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   tests red — their fixture never owned the field, so they had been asserting
   the success line over a push that would drop the stamp. The fixture now
   states its ownership explicitly.
+- 2026-09-16 — Phase 3: five existing tests encoded "unlisted means opted
+  out" or a count that depended on it; each now asserts the inverse with the
+  reason at the assertion. `@skitterbyte/skitterspec-linear` bumped to 16.0.0.

@@ -172,17 +172,22 @@ const DEFAULT_CONFIG = Object.freeze({
     // the set, so the PM's triage is never touched. The `push` marker is retained
     // for shape; any key you add joins the pushed projection.
     //
-    // `assignee` is the one field that OPTS IN this way rather than shipping on:
-    // add `"assignee": "push"` and the issue is assigned to whoever is building
-    // the spec, and released when it completes. Left out (the default) the whole
-    // feature is inert — nothing is written, no hash is recorded in a snapshot,
-    // and `status` prints no assignee line. It is deliberately not a new config
-    // key: this map is already the documented extension point, and assignment is
-    // exactly "one more field the repo owns".
+    // `assignee` ships ON, and the opt-out is `"assignee": "none"`. It was
+    // opt-in until v16, and the cost of that was silent in exactly the wrong
+    // direction: a repo that never added the line looked identical to one that
+    // did not want the feature, so the only signal was noticing an unassigned
+    // issue weeks later.
+    //
+    // WHAT MAKES ON-BY-DEFAULT SAFE, and it is not this line: a spec that
+    // records no assignee sends none (so a PM's triage survives), and a snapshot
+    // with no assignee key means "never pushed" rather than "was null" (so no
+    // upgrade emits a clear). Flipping the default widens who gets assigned; it
+    // cannot widen who gets UNassigned. See `compare.js` `issueChanges`.
     fieldOwnership: Object.freeze({
       description: 'push',
       subIssues: 'push',
       workflowState: 'push',
+      assignee: 'push',
     }),
     localOnlySections: Object.freeze(['State log', 'Changelog', 'Open questions']),
     // Fields that are keyed collections (arrays of objects with a stable id),

@@ -44,12 +44,15 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(config.sync.fieldOwnership.description, 'push')
   assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
   // One-way: the projection is the spec issue's description + its sub-issues +
-  // workflow state. Tasks/priority/labels are not in the set.
+  // workflow state + who is building it. Tasks/priority/labels are not in the
+  // set — those are Linear-native triage and nothing here writes them.
   assert.deepStrictEqual(Object.keys(config.sync.fieldOwnership), [
     'description',
     'subIssues',
     'workflowState',
+    'assignee',
   ])
+  assert.strictEqual(config.sync.fieldOwnership.assignee, 'push', 'assignment ships on')
   assert.deepStrictEqual(config.sync.localOnlySections, ['State log', 'Changelog', 'Open questions'])
 })
 

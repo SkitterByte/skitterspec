@@ -234,18 +234,22 @@ Sections listed in `sync.localOnlySections` (default: **State log**, **Changelog
 **Open questions**) are stripped from the pushed description — they never leave
 the repo.
 
-### Assignment (opt-in)
+### Assignment (on by default)
 
-Add `"assignee": "push"` to `sync.fieldOwnership` and the spec issue is assigned
-to whoever is building it: `/spec-start` records them, and the issue is released
-automatically when the spec completes. Left out, nothing about it happens at all
-— see **Assignment** in `linear.config.md` for the full rules.
+The spec issue is assigned to whoever is building it: `/spec-start` records them,
+and the issue is released automatically when the spec completes. To decline it,
+set `"assignee": "none"` in `sync.fieldOwnership` (or pass `--no-assign` to
+`spec-sync init-config`) — see **Assignment** in `linear.config.md` for the full
+rules.
+
+It cannot overwrite an assignment a PM made in Linear: a spec that records nobody
+sends nothing, and only an assignee this repo pushed is ever cleared.
 
 You do not configure *who you are*: it comes from your own API key. Check it
 with `skitterspec spec-sync whoami` (`--set` overrides it if the key is shared or
 a bot's), and `skitterspec spec-sync users <name-or-email>` looks somebody up.
 `skitterspec spec-sync doctor` reports the resolved identity, and stays quiet
-about it in a project that has not opted in.
+about it in a project that declined the field.
 
 ## 7. What to commit
 

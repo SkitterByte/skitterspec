@@ -183,13 +183,13 @@ test('--to refuses when the repo does not own the assignee field', async () => {
   assert.ok(!/linear_assignee_id/.test(overview(dir)), 'and nothing was written')
 })
 
-test('a repo that never listed the field refuses the same way', async () => {
-  // Declining and never listing are one state to every other reader, so they
-  // must be one state here too.
+test('a repo that says nothing gets the default, which OWNS the field', async () => {
+  // Since v16 silence is not declining — the default is `push`, so a config
+  // with no `sync` block assigns. Declining has to be said, and `none` is how.
   const dir = fixtureRepo({ owns: null })
   const r = await run(['assign', 'feat-owned', '--to', 'user-1'], dir)
-  assert.equal(r.code, 1)
-  assert.match(r.out, /sync\.fieldOwnership\.assignee/)
+  assert.equal(r.code, 0)
+  assert.match(overview(dir), /linear_assignee_id: "user-1"/)
 })
 
 test('--release refuses too, rather than clearing a stamp nothing pushed', async () => {

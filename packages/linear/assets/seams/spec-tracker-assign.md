@@ -11,10 +11,14 @@ refuses to land the branch later. See the placement tests in
 packages/common/test/assets.test.js.
 -->
 
-**Only when all three hold**: `specs/.core/linear.config.json` exists, its
-`sync.fieldOwnership` includes `assignee`, and the spec carries a
+**Only when all three hold**: `specs/.core/linear.config.json` exists, the repo
+**owns** `assignee` in its `sync.fieldOwnership`, and the spec carries a
 `linear_identifier`. Any one missing → skip this step silently and carry on; a
-project that has not opted in must see no trace of assignment.
+project that declined must see no trace of assignment.
+
+Ownership is the **value**, not the key: `assignee` is owned by default, and
+`"none"` is how a project declines it. Testing whether the key is *present* would
+read as opted-in everywhere, since the default puts it in every config.
 
 **Never blocks, never fails the skill.** Everything below is best-effort: the
 branch is provisioned and the spec is moving either way, and an unassigned issue

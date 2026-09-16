@@ -19,7 +19,9 @@ your team ID (and an optional grouping project).
 The loader (`src/sync/config.js` → `loadLinearConfig`) merges your file over the
 frozen defaults below and returns `{ config, present }`; `present:false` means no
 live `linear.config.json` was found (the opt-in gate — it never throws on
-absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error.
+absence). A `sync.fieldOwnership` value outside `both|pull|push|none` is a hard error.
+`none` is how a repo **declines** a field the defaults own — see
+**Assignment** below, which is the field that needs it.
 
 ## Fields
 
@@ -119,7 +121,8 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
     "fieldOwnership": {
       "description": "push",
       "subIssues": "push",
-      "workflowState": "push"
+      "workflowState": "push",
+      "assignee": "push"
     },
 
     // Markdown sections of 00-overview.md that are local-only scaffolding and
@@ -135,37 +138,41 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push` is a hard error
 
 ## Assignment (`sync.fieldOwnership.assignee`)
 
-Off by default. Add one key and the spec issue is assigned to whoever is
-building it:
+**On by default since v16.** The spec issue is assigned to whoever is building
+it: `/spec-start` records them, and the issue is released when the spec
+completes. To decline it, say so:
 
 ```jsonc
 "fieldOwnership": {
-  "description": "push",
-  "subIssues": "push",
-  "workflowState": "push",
-  "assignee": "push"          // <- the whole opt-in
+  "assignee": "none"          // <- the whole opt-out
 }
 ```
 
 It is deliberately **not** a config key of its own. `fieldOwnership` is already
 the documented extension point — "any key you add joins the pushed projection" —
-and assignment is exactly one more field the repo owns.
+and assignment is exactly one more field the repo owns. `none` is a value rather
+than an omitted key because the map merges **per key** onto the defaults: once a
+field is owned by default there is nothing an absent key can subtract.
 
-- **Absent = inert.** No writes, no prompts, no drift line, and no assignee hash
-  in any snapshot. A project that never opts in cannot tell the feature exists,
-  which is why it is missing from `linear.config.json.example`: that file is
-  copied verbatim into new projects, and shipping the key there would opt
-  everyone in by default.
+- **`none` = inert.** No writes, no prompts, no drift line, and no assignee hash
+  in any snapshot — identical in every respect to a field the config never
+  listed. A repo that declines cannot tell the feature exists.
+- **It was opt-in until v16**, and the cost of that was silent in the wrong
+  direction: a repo that never added the line looked exactly like one that had
+  decided against it, so the only signal was noticing an unassigned issue weeks
+  later. Declining is now a decision on the record; forgetting is not a state.
 - **The bucket decides.** The spec's `linear_assignee_id` is pushed while the
   spec is live (`backlog`, `in-progress`) and cleared once it reaches `complete`
   or `cancelled` — so finishing a spec hands the issue back with no unassign
   step for anyone to remember. The stamp stays in the file, and so does
   `> **Developer:**`: they record who *actioned* the work, which outlives who is
   holding it.
-- **Unset means don't touch.** A spec that records nobody sends no assignee at
-  all, so an issue a PM assigned in Linear is never overwritten. Only an assignee
-  the repo itself pushed is ever cleared — and a snapshot written before you
-  opted in counts as "never pushed", not as "was nobody".
+- **Unset means don't touch, and this is what makes on-by-default safe.** A
+  spec that records nobody sends no assignee at all, so an issue a PM assigned in
+  Linear is never overwritten. Only an assignee the repo itself pushed is ever
+  cleared — and a snapshot written before the field was owned counts as "never
+  pushed", not as "was nobody". Turning the default on widens who gets
+  **assigned**; it cannot widen who gets **unassigned**.
 - **Only the spec issue.** Phase sub-issues are never assigned: one person builds
   a spec, and N assigned sub-issues is N notifications for one piece of work.
   They stay independently assignable in Linear.

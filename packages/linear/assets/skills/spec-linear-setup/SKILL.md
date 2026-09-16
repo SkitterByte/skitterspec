@@ -178,19 +178,27 @@ a state from the `list_issue_statuses` names you already have:
   automation closes them and a problem otherwise — `spec-sync doctor` warns about
   it either way, so say which it is.
 
-## 7b. Should a spec's issue be assigned to whoever is building it? (optional)
+## 7b. Assignment is on — does this team want it off?
 
-Ask it plainly, in one line: with this on, `/spec-start` records the developer
-and their Linear issue is assigned to them, released again when the spec
-completes. Off, nothing about assignment happens at all.
+Say what it does, in one line: `/spec-start` records the developer and their
+Linear issue is assigned to them, released again when the spec completes. Then
+ask whether to turn it **off**.
 
-**Offer once and take "no" for an answer.** It is off by default deliberately —
-a team whose PM owns assignment in Linear does not want the repo writing that
-field, and the cost of guessing wrong is somebody else's triage being
-overwritten.
+**The question inverted at v16, and the reason is which mistake is recoverable.**
+While it was opt-in, a repo that simply never added the line was
+indistinguishable from one that had decided against it — so the only signal was
+someone noticing weeks later that nobody was on the issue. On by default, a team
+that does not want it says so once, here, and the answer is on the record.
 
-If they want it, pass **`--assign`** in step 8. Then settle who *they* are, so
-`/spec-start` never has to stop and ask:
+**It cannot overwrite a PM's triage either way**, which is what makes the default
+safe rather than merely convenient: a spec that records no assignee sends none,
+and a snapshot with no assignee key means "never pushed" rather than "was null".
+Assignment only ever writes specs *this repo* started.
+
+If they want it off, pass **`--no-assign`** in step 8, and skip the rest of this
+step — there is no identity to settle for a repo that does not assign.
+
+Otherwise settle who *they* are, so `/spec-start` never has to stop and ask:
 
 ```
 skitterspec spec-sync whoami
@@ -210,7 +218,7 @@ setup.
 skitterspec spec-sync init-config \
   --team-id <uuid> [--team-key KEY] [--project-id <uuid>] \
   [--intake-label <name>] [--bug-labels a,b] [--hotfix-labels a,b] \
-  [--state <bucket>=<name> …] [--assign] \
+  [--state <bucket>=<name> …] [--no-assign] \
   --states <statesfile> [--force] [--json]
 ```
 

@@ -276,22 +276,26 @@ test('a ladder the workspace covers is written', async () => {
   assert.deepStrictEqual(loadLinearConfig(dir).config.release.stages, [{ key: 'prod', state: 'Done' }])
 })
 
-// --- assignment opt-in -------------------------------------------------------
+// --- assignment, and the flag that declines it --------------------------------
+//
+// The flag INVERTED at v16: assignment ships on, so what a config can express is
+// the opt-out. `--assign` is gone rather than accepted-and-ignored, which is why
+// the unknown-flag refusal below is part of this group rather than an aside.
 
-test('--assign opts the repo into assignment, and the loader agrees', async () => {
+test('--no-assign declines assignment, and the loader agrees', async () => {
   const dir = repo()
-  const r = await run(dir, ['--team-id', 'T1', '--assign'])
+  const r = await run(dir, ['--team-id', 'T1', '--no-assign'])
   assert.strictEqual(r.code, 0, r.text)
-  assert.strictEqual(loadLinearConfig(dir).config.sync.fieldOwnership.assignee, 'push')
+  assert.strictEqual(loadLinearConfig(dir).config.sync.fieldOwnership.assignee, 'none')
 })
 
-test('--assign writes ONLY the assignee key, not the whole ownership map', async () => {
-  // `fieldOwnership` merges per key onto the defaults, so restating the other
-  // three would freeze today's values into the file and opt this repo out of any
-  // later change to them — exactly what "only the keys that differ" avoids.
+test('--no-assign writes ONLY the assignee key, not the whole ownership map', async () => {
+  // `fieldOwnership` merges per key onto the defaults, so restating the others
+  // would freeze today's values into the file and opt this repo out of any later
+  // change to them — exactly what "only the keys that differ" avoids.
   const dir = repo()
-  await run(dir, ['--team-id', 'T1', '--assign'])
-  assert.deepStrictEqual(written(dir).sync, { fieldOwnership: { assignee: 'push' } })
+  await run(dir, ['--team-id', 'T1', '--no-assign'])
+  assert.deepStrictEqual(written(dir).sync, { fieldOwnership: { assignee: 'none' } })
   // …and the defaults still arrive through the loader.
   const { config } = loadLinearConfig(dir)
   assert.strictEqual(config.sync.fieldOwnership.description, 'push')
@@ -300,11 +304,22 @@ test('--assign writes ONLY the assignee key, not the whole ownership map', async
   assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base', 'unrelated sync defaults survive')
 })
 
-test('without --assign the config says nothing about assignment', async () => {
-  // The opt-out has to be invisible: a project that declined must not carry a
-  // key recording that it declined.
+test('a plain init writes nothing about assignment, and gets it anyway', async () => {
+  // The default has to be invisible in the FILE and present in the LOADER: a
+  // config that says nothing is a config that took the default, and writing the
+  // value down would freeze it.
   const dir = repo()
   await run(dir, ['--team-id', 'T1'])
   assert.ok(!fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8').includes('assignee'))
-  assert.strictEqual('assignee' in loadLinearConfig(dir).config.sync.fieldOwnership, false)
+  assert.strictEqual(loadLinearConfig(dir).config.sync.fieldOwnership.assignee, 'push')
+})
+
+test('the retired --assign fails loudly rather than doing nothing', async () => {
+  // Kept as a silent no-op it would read as "assignment configured" to anyone
+  // who wrote it before v16 — the record-and-do-nothing ending this project is
+  // against. An unknown flag is a better answer than a quiet one.
+  const dir = repo()
+  const r = await run(dir, ['--team-id', 'T1', '--assign'])
+  assert.notStrictEqual(r.code, 0)
+  assert.match(r.text, /--assign/)
 })

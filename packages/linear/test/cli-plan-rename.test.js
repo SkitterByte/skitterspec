@@ -93,10 +93,13 @@ test('STAYS SILENT: fieldOwnership vocabulary is untouched by the rename', () =>
 })
 
 test('STAYS SILENT: the source keeps the config vocabulary it writes', () => {
-  // `spec-sync init --assign` writes `fieldOwnership: { assignee: 'push' }`. An
-  // over-eager rename of the source would make it write 'plan' and every config
-  // it generated would mean nothing.
+  // `spec-sync init-config --no-assign` writes
+  // `fieldOwnership: { assignee: 'none' }`, and the DEFAULTS carry
+  // `assignee: 'push'`. An over-eager rename of the source would make one of
+  // them write 'plan', and every config it generated would mean nothing.
   const fs = require('node:fs')
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli-sync.js'), 'utf8')
-  assert.match(src, /fieldOwnership: \{ assignee: 'push' \}/)
+  assert.match(src, /fieldOwnership: \{ assignee: 'none' \}/)
+  const cfg = fs.readFileSync(path.join(__dirname, '..', 'src', 'config.js'), 'utf8')
+  assert.match(cfg, /assignee: 'push'/)
 })

@@ -28,8 +28,8 @@ packages/common/test/assets.test.js.
     them. Skip it and a started spec stays mirrored as a phase-less issue.
 - **Never mint the spec issue.** An unlinked spec is skipped, not created —
   `/spec-push` is how someone opts in.
-- **Backfill a missing assignee silently; never ask.** Only when
-  `sync.fieldOwnership` includes `assignee`. If the spec records nobody and
+- **Backfill a missing assignee silently; never ask.** Only when the repo owns
+  `assignee` (it does by default; `"none"` declines it). If the spec records nobody and
   `skitterspec spec-sync whoami --json` answers, stamp it with
   `skitterspec spec-sync assign <spec> --to <id> --name "<name>"` and let the
   push above carry it. If identity is unknown, skip it in silence.

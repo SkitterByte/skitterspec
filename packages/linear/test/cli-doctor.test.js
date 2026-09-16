@@ -134,7 +134,11 @@ test('a missing key names the team and the command, without failing the run', as
   assert.strictEqual(r.code, 0, 'a missing opt-in exits 0')
   assert.match(r.out, /key\s+missing/)
   assert.match(r.out, /credentials set/)
-  assert.match(r.out, /1 check\(s\) need attention/, 'still reported, though')
+  // TWO, since v16: no key means no identity either, and assignment is on by
+  // default — so a configured-but-keyless repo is now short of both. The count
+  // was 1 while `identity` skipped itself on every repo that had not opted in.
+  assert.match(r.out, /2 check\(s\) need attention/, 'still reported, though')
+  assert.match(r.out, /identity\s+missing/)
 })
 
 test('the key row is skipped when there is no tracker at all', async () => {

@@ -1,5 +1,66 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec-linear` v15 → v16 (assignment is on by default)
+
+### Breaking change
+
+**A spec's Linear issue is now assigned to whoever is building it.**
+`sync.fieldOwnership.assignee` defaults to `"push"`; it was absent
+before, and absent meant inert. From this version `/spec-start` stamps the
+developer on the spec and the push assigns the issue, and `/spec-complete`
+releases it — on every repo that has not said otherwise.
+
+**To decline it**, one line in `specs/.core/linear.config.json`:
+
+```jsonc
+"sync": {
+  "fieldOwnership": {
+    "assignee": "none"
+  }
+}
+```
+
+`none` is a new value in the ownership enum (`both|pull|push|none`) and means
+*this repo does not own the field*: nothing is written, no hash is recorded in a
+snapshot, and `spec-sync status` prints no assignee line — identical in every
+respect to the old behaviour of never listing it. It has to be a value rather
+than an omitted key, because the map merges **per key** onto the defaults: once
+a field is owned by default, there is nothing an absent key can subtract.
+
+**An explicit `"assignee": "push"` you already had is now redundant and harmless.**
+Nothing rewrites it and nothing needs to.
+
+### It cannot overwrite a PM's triage, and that is by construction
+
+The concern this default has to answer is whether upgrading re-assigns or
+un-assigns issues someone else owns. It cannot, for two reasons that predate it:
+
+- **A spec that records no assignee sends none.** Only a spec the repo itself
+  stamped is ever pushed, so an issue a PM assigned in Linear is left alone.
+- **A snapshot with no assignee key means "never pushed", not "was null".** Every
+  spec linked before this existed has exactly such a snapshot, and the diff emits
+  a *clear* only against an assignee it has a recorded hash for.
+
+So the flip widens who gets **assigned** — specs you start from now on — and
+cannot widen who gets **unassigned**. There is a regression test pinning this
+(`sync-assignee-projection.test.js`, "THE UPGRADE CASE").
+
+### `spec-sync init-config --assign` is gone; `--no-assign` replaces it
+
+The flag's meaning inverted with the default, so it is removed rather than kept
+as a silent no-op — a flag that still parses and does nothing would read as
+"assignment configured" to anyone who wrote it before v16. `--assign` now fails
+as an unknown flag, which is the louder and more useful answer. `--no-assign`
+writes the `"none"` opt-out above.
+
+### `spec-sync assign` now refuses a field the repo does not own
+
+Previously it stamped the frontmatter in any repo and printed
+`next: push it, so Linear agrees` — while `toFieldSet` dropped the field, so the
+push never carried it. It now refuses, naming `sync.fieldOwnership.assignee` and
+the value that enables it. Only `/spec-claim` enforced this before, so a script
+or a direct CLI call got the untrue sentence.
+
 ## `@skitterbyte/skitterspec` v20 → v21 (the gate installs, and asking implies waiting)
 
 If you upgraded to v20 and the commit gate never once fired, this is why. Two
