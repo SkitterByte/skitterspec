@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-assignment-on-by-default (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-16)
+> **Status:** Complete (2026-09-16)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -143,6 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
 | 2026-09-16 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-16 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -158,3 +159,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-16 — Phase 3: five existing tests encoded "unlisted means opted
   out" or a count that depended on it; each now asserts the inverse with the
   reason at the assertion. `@skitterbyte/skitterspec-linear` bumped to 16.0.0.
+- 2026-09-16 — Completed; all 3 phases done, tests green.
