@@ -94,6 +94,7 @@ serving could not happen.
 | Surface | Change | Detail |
 |---------|--------|--------|
 | CLI command | update | `spec-env review` serves on every render, not only for a remote reader |
+| Route/UI | update | served route renders a spec with no worktree (was 404); index lists it |
 | Config key | add | `review.serve: "always" \| "never"` (default `always`) |
 | Config key | remove | `review.serveOnRemote` — `false` still read as `serve: "never"` |
 | Business rule | update | `detectReader` decides wording only; bind rule unchanged |
@@ -105,7 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Serving stops asking where the reader is | ⬜ | [01-serving-is-unconditional.md](01-serving-is-unconditional.md) |
+| 1 | Serving stops asking where the reader is, or for a worktree | ⬜ | [01-serving-is-unconditional.md](01-serving-is-unconditional.md) |
 | 2 | Detection goes back to deciding wording | ⬜ | [02-detection-decides-wording.md](02-detection-decides-wording.md) |
 
 ## Open questions
@@ -125,3 +126,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   A committed `review.reader: "remote"` was tried first and reverted: it worked,
   but it encodes a session-scoped fact in a committed file and cannot be set
   from a phone.
+- 2026-09-16 — Phase 1 widened before it started: `serve.js` has its own
+  worktree gate (404 on three call sites) separate from the decision to serve,
+  and it is the one that 404s an authoring page. Found by curl'ing the LAN URL
+  and getting 404 from loopback too; confirmed by a fresh server reporting
+  "serving 0 specs" with no worktrees, then 200 once one existed.

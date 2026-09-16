@@ -2,13 +2,14 @@
 linear_issue_id: "SKS-308"
 ---
 
-# Phase 1 — Serving stops asking where the reader is ⬜
+# Phase 1 — Serving stops asking where the reader is, or for a worktree ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 
 **Goal:** every render hands back an `http://` URL — a loopback one on a local
-or unknown session, the LAN one unchanged when detection says remote — so the
-page can always POST a verdict.
+or unknown session, the LAN one unchanged when detection says remote — **and
+that URL answers 200** for a spec with no worktree, so the page can always POST
+a verdict.
 
 ## Tasks
 
@@ -31,10 +32,31 @@ page can always POST a verdict.
       `http://` link, and the bind is loopback. Keep the assertion that a
       **remote** reader gets a LAN URL exactly as it is; that is the path this
       spec must not disturb.
+- [ ] **Relax the served route's own worktree gate.** `serve.js` re-renders on
+      every request and returns 404 when the spec has no worktree
+      (`if (!spec || !fs.existsSync(spec.worktreePath)) return null` at three
+      call sites). That is a *second* gate, separate from the decision to serve,
+      and it is the one that actually 404s an authoring page: a `--docs` page
+      belongs to a spec with no worktree by definition.
+- [ ] Serve a worktree-less spec as the **docs** view, reading the primary
+      checkout the server is anchored to and filtering to that spec's `owned`
+      paths — the same classification `spec-env review --docs` uses, so the
+      served page and the written page cannot disagree about what they show.
+- [ ] **Include worktree-less specs in the index.** `resolveServable` lists
+      "every spec with a worktree of its own", so a backlog spec is omitted from
+      the server's own listing even once its page serves. Both halves or
+      neither.
+- [ ] Tests: **a backlog spec's docs page returns 200 from the server** — the
+      case that broke, and the reason this is in phase 1 rather than a later one;
+      the index lists a spec with no worktree; the served docs page shows that
+      spec's documents and not another's.
 - [ ] Tests: a local render prints `open: http://127.0.0.1:` and writes a pid
       file; an unknown render does the same; a remote render still prints the LAN
       URL and binds `0.0.0.0`; `serve: "never"` returns the `file://` link;
       `serveOnRemote: false` does the same through the tolerance path.
+- [ ] **Stays-silent test** (rule 3): a spec **with** a worktree still serves
+      exactly as it does today — same route, same rendered view. The relaxation
+      must add a case rather than change the existing one.
 - [ ] **Stays-silent test** (rule 3): a busy port still falls back to the
       `file://` link and still exits 0 — a port in use is not evidence of
       anything wrong with the repo. The existing test for this must keep
@@ -47,6 +69,15 @@ page can always POST a verdict.
       `.claude/rules/spec-planning.md`) — green before the phase is done.
 
 ## Notes
+
+**Why the serve-path gate is in this phase and not a later one.** It was missed
+when the spec was written, and the miss is the same one that shipped in
+`feat-a-new-spec-gets-a-page`: that spec relaxed the worktree gate in
+`spec-env review --docs` and left the identical gate in `serve.js` untouched, so
+an authoring page could be written but never served — and `file://`, the only
+transport left, is the one that cannot POST a verdict. Landing phase 1 without
+this would let the spec claim serving was fixed while the reported page still
+404s.
 
 The two tests being inverted are not stale — they are correct assertions about a
 design being deliberately replaced, so each wants its reasoning comment
