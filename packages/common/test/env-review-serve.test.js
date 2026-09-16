@@ -71,7 +71,27 @@ function scaffold() {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+    JSON.stringify(
+      {
+        baseBranch: 'main',
+        docker: { enabled: false },
+        // THE `{identifier}` TOKEN, deliberately — it is what this repo really
+        // configures, and it is the only companion shape that reads a spec's
+        // frontmatter. A scaffold with no companion patterns never calls that
+        // code at all, which is why the index threw on every spec while this
+        // suite stayed green.
+        spec: { companionPaths: ['specs/.core/linear-base/{identifier}.base.json'] },
+        // AND the field it reads. The throw needs BOTH — an `{identifier}`
+        // pattern and a configured field to look up — because
+        // `readFrontmatterField` short-circuits on a missing field name before
+        // it ever touches the path. A scaffold with one and not the other looks
+        // like coverage and is not: this test passed against the unguarded code
+        // until this line was added.
+        branch: { pattern: '{type}/{slug}', identifierField: 'linear_identifier' },
+      },
+      null,
+      2,
+    ),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   fs.writeFileSync(path.join(dir, 'app.js'), 'one\ntwo\n')
@@ -518,4 +538,42 @@ test('STAYS SILENT: a committed backlog spec is still omitted and still 404s', a
     await s.close()
     cleanup(dir)
   }
+})
+
+
+// --- the index survives a spec shape that carries no path -------------------
+
+test('the index lists specs rather than failing on one with no frontmatter path', async () => {
+  const { dir } = scaffold()
+  authorIt(dir)
+  const s = await serve(dir)
+  try {
+    const res = await s.get()
+    assert.strictEqual(res.status, 200)
+    const html = await res.text()
+    // The regression: `allSpecs` hands back `{folder, slug, worktreePath}` with
+    // no `path`, and expanding an `{identifier}` companion read the frontmatter
+    // of `undefined` — so the whole index answered
+    // `render failed: The "path" argument must be of type string`.
+    assert.doesNotMatch(html, /render failed/, 'one unresolvable companion must not cost the page')
+    assert.doesNotMatch(html, /must be of type string/)
+    assert.match(html, /feat-alpha/, 'and the specs are actually listed')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('an unresolvable companion is simply not owned, and nothing throws', () => {
+  // The unit-level half, so the fix is pinned where it lives rather than only
+  // through the page that exposed it.
+  const { classifyDirtyTree } = require('../src/env/classify.js')
+  const bare = { folder: 'feat-alpha', slug: 'alpha' } // no `path`, as allSpecs returns
+  const config = {
+    spec: { companionPaths: ['specs/.core/linear-base/{identifier}.base.json'] },
+    branch: { identifierField: 'linear_identifier' },
+  }
+  const out = classifyDirtyTree(bare, ['specs/backlog/feat-alpha/00-overview.md', 'app.js'], config)
+  assert.deepStrictEqual(out.owned, ['specs/backlog/feat-alpha/00-overview.md'])
+  assert.deepStrictEqual(out.foreign, ['app.js'])
 })

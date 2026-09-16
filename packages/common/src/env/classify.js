@@ -45,7 +45,18 @@ function expandCompanion(pattern, spec, config) {
   const tokens = { slug: spec.slug }
   if (/\{identifier\}/.test(pattern)) {
     const field = config && config.branch && config.branch.identifierField
-    const identifier = readFrontmatterField(spec.path, field)
+    // NO PATH IS CANNOT-TELL, not an error. Callers hand in spec objects of two
+    // shapes: `resolveSpec` returns a full one, and `allSpecs` returns
+    // `{folder, slug, worktreePath}` with no `path` at all. Reading the
+    // frontmatter of `undefined` threw, and the throw surfaced as
+    // `render failed: The "path" argument must be of type string` on the review
+    // server's index — every spec, not just one.
+    //
+    // It routes to the same answer a missing identifier already routes to:
+    // expand nothing, so the pattern matches nothing and the path is not
+    // claimed as this spec's. Being wrong here costs a companion file left
+    // unstaged; throwing cost the whole page.
+    const identifier = spec.path ? readFrontmatterField(spec.path, field) : null
     if (!identifier) return null
     tokens.identifier = identifier
   }
