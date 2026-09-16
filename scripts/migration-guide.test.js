@@ -88,3 +88,72 @@ test('entries are ordered newest-first within each package', () => {
     seen.set(h.npm, h.to)
   }
 })
+
+/**
+ * COVERAGE HAS A CEILING AS WELL AS A FLOOR, and only the floor was guarded.
+ *
+ * The test above asks whether every major up to the current version has an
+ * entry — it reads upward from v2 and stops at `currentMajor`, so a heading
+ * naming a version BEYOND that is never looked at. An entry for a release
+ * nobody has planned therefore passes in silence, which is how a v21 → v22
+ * entry was written while v21 itself was still unreleased: the work it
+ * described was going to ship in v21, and the heading sent a reader looking for
+ * an upgrade that did not exist.
+ *
+ * ONE AHEAD IS LEGITIMATE and must stay so. An entry is written when the work
+ * is done, which is always before `scripts/release.js` bumps the manifest — so
+ * at the moment of writing, the entry names a version one higher than
+ * `package.json` says. That is the normal state of this file between a feature
+ * landing and its release, and accusing it would fire on every correct entry.
+ *
+ * Two ahead is the accusation, and it reads a PRESENCE — a heading that exists,
+ * naming a number — rather than an absence, so there is no lookup that could
+ * have been too narrow to see it (`.claude/rules/negative-checks.md` rule 1).
+ */
+test('no entry names a version further ahead than the next release', () => {
+  const found = headings()
+  const ahead = []
+  for (const { dir, npm } of Object.values(PACKAGES)) {
+    const next = currentMajor(dir) + 1
+    for (const h of found.filter((h) => h.npm === npm)) {
+      if (h.to > next) ahead.push(`${h.heading} — ${npm} is at v${currentMajor(dir)}, so v${next} is the most it can name`)
+    }
+  }
+  assert.deepEqual(
+    ahead,
+    [],
+    `MIGRATION.md entries naming a release that does not exist:\n  ${ahead.join('\n  ')}\n` +
+      'Fold the entry into the unreleased version, or bump the package first.',
+  )
+})
+
+// The detector has to be able to fire, or the test above passes for the reason
+// the old one did — by never looking.
+test('the ceiling check catches the heading this guard was written for', () => {
+  const dir = Object.values(PACKAGES)[0].dir
+  const npm = Object.values(PACKAGES)[0].npm
+  const next = currentMajor(dir) + 1
+  const fake = [
+    { npm, from: next, to: next + 1, heading: `\`${npm}\` v${next} → v${next + 1} (unreleased)` },
+  ]
+  assert.ok(fake.some((h) => h.to > next), 'two ahead is caught')
+  // And the legitimate one is not.
+  assert.ok(!fake.some((h) => h.to > next + 1), 'one ahead is left alone')
+})
+
+// STAYS SILENT (`negative-checks.md` rule 3). The healthy-but-unusual input is
+// the file as it sits between a feature landing and its release: the newest
+// entry names a version `package.json` has not reached yet, and that is
+// correct. Asserting it here means a later tightening cannot quietly make
+// writing an entry before the bump into an offence.
+test('stays silent: the newest entry may name the version being prepared', () => {
+  for (const { dir, npm } of Object.values(PACKAGES)) {
+    const next = currentMajor(dir) + 1
+    const newest = headings().filter((h) => h.npm === npm)[0]
+    assert.ok(newest, `${npm} has an entry at all`)
+    assert.ok(
+      newest.to <= next,
+      `${npm}: the newest entry names v${newest.to}, past the v${next} being prepared`,
+    )
+  }
+})
