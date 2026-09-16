@@ -1,8 +1,50 @@
 # Migration guide
 
-## `@skitterbyte/skitterspec` v21 → v22 (a review port per repo)
+## `@skitterbyte/skitterspec` v21 → v22 (a review port per repo, and every render serves)
 
-### Breaking change
+### Breaking change 1 — `review.serveOnRemote` is now `review.serve`
+
+**Every render now stands the review server up**, and hands back an `http://`
+URL instead of a `file://` one. It used to serve only when it detected that you
+were reading from somewhere else — and that detection reads three environment
+variables, so a plain local terminal got a `file://` page. A `file://` page has
+**no server to POST to**, so the verdict buttons on it had nowhere to go: the
+press-a-button-and-the-work-continues loop was missing from exactly the sessions
+that are easiest to use.
+
+**No new exposure, and that is deliberate.** What the server binds to is still
+chosen by `review.reader`: a remote reader binds every interface exactly as
+before, and a local or unknown one binds **loopback**. The change is `file://`
+→ `http://127.0.0.1`, which opens on the machine holding the page and, unlike
+`file://`, can answer. Serving more never means listening wider.
+
+**What to change.** `review.serveOnRemote: false` is still read as the new
+`review.serve: "never"`, so a config that turned serving off keeps working. The
+key is renamed because the old name would now claim to govern remote renders
+while governing every one of them:
+
+```jsonc
+// specs/.core/env.config.json — before
+"review": { "serveOnRemote": false }
+// after
+"review": { "serve": "never" }
+```
+
+`serveOnRemote: true` needs no translation — `"always"` is the default and does
+what it did. Note what `"never"` costs you: the page falls back to `file://`,
+and its buttons copy a command for you to paste rather than sending anything.
+
+**A render that could not serve now says why** — `review.serve is "never"`, or
+the failure naming the port to free — on the `open:` line and in `--json` as
+`notServed`. A `file://` link with nothing said about it used to be the ordinary
+outcome; now it can only mean the ask did not land.
+
+**A spec with no worktree is served too.** A spec you have only just written has
+no branch of its own, and the served route used to refuse it — so its page
+existed and 404'd. It is now served as its own documents, listed in the index,
+and accepts a verdict.
+
+### Breaking change 2 — a review port per repo
 
 **`review.servePort` now defaults to `"auto"`, not `7777`.** A repo that does
 not pin the key moves to a port derived from its own path —
@@ -39,11 +81,15 @@ refuses a busy port rather than moving itself aside.
 `spec-env review serve --status` now prints the port **and which of the three chose it** —
 `--port`, `review.servePort`, or the derivation.
 
-## `@skitterbyte/skitterspec-linear` v16 → v17 (a review port per repo)
+## `@skitterbyte/skitterspec-linear` v16 → v17 (a review port per repo, and every render serves)
 
-The same change as `@skitterbyte/skitterspec` v21 → v22 above — this
+The same two changes as `@skitterbyte/skitterspec` v21 → v22 above — this
 distribution composes the same engine. Read that entry; nothing here is
 Linear-specific.
+
+**If you are coming from v15, read the v15 → v16 entry below as well.** 16.0.0
+was bumped in the repo and never published, so npm went 15 → 17 and both
+entries apply to you.
 
 ## `@skitterbyte/skitterspec-linear` v15 → v16 (assignment is on by default)
 
