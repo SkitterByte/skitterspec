@@ -104,7 +104,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The engine renders a spec that has no worktree | ✅ | [01-a-spec-renders-without-a-worktree.md](01-a-spec-renders-without-a-worktree.md) |
-| 2 | `/spec` ends on the page, and the button commits it | ⬜ | [02-spec-ends-on-the-page.md](02-spec-ends-on-the-page.md) |
+| 2 | `/spec` ends on the page, and the button commits it | ✅ | [02-spec-ends-on-the-page.md](02-spec-ends-on-the-page.md) |
 | 3 | `/spec-review` hands its refresh back the same way | ⬜ | [03-spec-review-hands-it-back.md](03-spec-review-hands-it-back.md) |
 
 ## Open questions
@@ -127,3 +127,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `verdictSaid` needed a `commit-start` case or an honoured one read as
   `discuss first`. `/spec-reviewed`'s verdict vocabulary gained the word, which
   a test driving off `VERDICTS` required.
+- 2026-09-16 — Phase 2: the arming guard is anchored to a command line rather
+  than a mention, because `doesNotMatch(/review arm/)` matched the skill's own
+  prohibition. Set `review.reader: "remote"` in the project config out-of-band
+  so renders serve an http page rather than a file:// one — not part of this
+  spec, and uncommitted on `main`.

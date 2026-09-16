@@ -241,6 +241,103 @@ open questions, `Draft` when you deliberately left some unresolved. Either way
 the next step is `/spec-start`. The Report section below is where all of that
 reaches the user — do not narrate it here as well.
 
+## Phase C2 — render the spec, then wait for the verdict
+
+**Only when the project has per-spec isolation** (`specs/.core/env.config.json`
+present). Without it there is no page and this phase does not exist — skip it in
+silence rather than explaining an absence.
+
+A spec is the one artefact whose whole purpose is to be
+**read before work begins**, and until now it was the only one with no reading
+surface: `/spec`
+finished, the spec sat uncommitted, and `/spec-start` had to point that out and
+commit it as a side effect of provisioning. So this phase ends where every other
+phase of the lifecycle ends — on a page, in a verdict.
+
+```
+skitterspec spec-env review <spec> --docs --buttons authoring
+```
+
+`--docs` reads the spec's own documents from the tree you are standing in, so it
+never wants a worktree — a backlog spec has none. It renders
+**this spec's documents and nobody else's**: several specs are routinely
+authored in one
+checkout, and the file set comes from `spec-env stage`'s `owned` half precisely
+so a colleague's spec cannot land on your page and then be committed under your
+verdict.
+
+**This is free.** The engine reads git and splices text into a template; the
+diff never passes through you.
+
+**Render nothing when nothing was written.** A `⏸` run — grilling that never
+reached a shared understanding — has no spec to show, and must not ask for a
+verdict on one.
+
+**Arm nothing.** There is no `spec-env review arm` in this path, and that is a
+decision rather than an omission: the gate asserts that *a phase which ended*
+owes an answer, and a backlog spec owes no phase. Walking away from this page
+costs nothing — the spec is simply still uncommitted, which `/spec-start` already
+handles. A `/spec` run must leave `spec-env review gate --check` exiting 0.
+
+### The two endings this page offers
+
+`--buttons authoring` offers `Commit & Start` and `Commit` in place of the
+committing pair, because "commit and build the next phase" is meaningless for a
+spec with no phase in flight.
+
+- **`commit-start`** — hand off to `review.commitWith` (`/commit` by default),
+  passing the pathspec the render reported on `docs.paths`, then run
+  **`/spec-start <name>`** and **stop there**. It never completes, lands or tears
+  anything down, exactly as `commit-continue` stops after `/spec-next`. This is
+  the `commit && /spec-start` that was typed by hand.
+- **`commit`** — the same commit, then finish. The spec stays `Ready` in
+  `backlog`, ready for a `/spec-start` whenever it is wanted.
+- **`changes`** — work the notes into the spec, record a resolution for each one
+  so the next render shows it struck through with what changed, then
+  **re-render, and wait again**. The reader is still holding a decision, so
+  ending the turn and
+  making them type `/spec-diff` would reopen the loop this exists to close.
+- **`discuss`** — report and talk. Claim nothing, change nothing.
+
+**Take the pathspec from the render, not from the tree.** A checkout is shared,
+so the set of this spec's uncommitted documents can differ between the render and
+the verdict — and the reader's conclusion is about what the page showed them.
+
+### Then wait for it
+
+**The wait is a command. Do not write one.**
+
+1. **Note the moment you start waiting**, as an ISO timestamp. That instant is
+   the whole scope of what you may claim.
+2. **Run the engine's wait in the background, and end your turn:**
+
+   ```
+   skitterspec spec-env review wait <spec> --since <the timestamp>
+   ```
+
+   It takes no timeout unless you pass one, and you must not pass one: a reader
+   who walks away from a spec is the normal case, and a bounded watch once lost a
+   verdict to a lunch break.
+3. **On waking, let the engine pick:**
+
+   ```
+   skitterspec spec-env review <spec> --docs --claim-since <the timestamp> --json
+   ```
+
+   It claims the one pass that arrived inside the window, acts on nothing when
+   none did, and refuses to choose when two did.
+4. **Route on the verdict** as above.
+
+**Where the page is `file://`** — the engine could not serve — there is no server
+to POST to, so the pass is copied and pasted and the reader's next message is
+what carries it. **Do not start a watch that cannot fire**: a wait on the pending
+store would spin forever while the report underneath it claimed to be holding,
+which is the exact failure `.claude/rules/spec-reports.md` records. The wait is
+the turn ending, and the banner says so.
+
+Relay the **`open:`** line the engine prints, never the bare path, and never two
+links: the engine has already decided which page the reader can use.
+
 ## Phase D — record the isolation stack (only if configured)
 
 **Only when `specs/.core/env.config.json` exists** (per-spec isolation is
@@ -292,8 +389,34 @@ the shape; this section carries only what is specific here.
 **Fields:** `Tracker` · `Spec` · `Built` · `Follow-ups` · `Next`
 
 `Built` is the spec's path and phase count; `Spec` is its status and bucket;
-`Next` is `/spec-start <name>`, with the name spelled the way it must be typed.
 `Tracker` appears only when a provider is installed and linked it.
+
+**`Next` depends on whether Phase C2 rendered a page.** Where it did, the run is
+waiting on a verdict, so the block **omits the `Review` row** and ends on the
+banner defined in `.claude/rules/spec-reports.md` — counts, the one link, and
+this page's two exits:
+
+---
+
+## ⏸ Review ready — &lt;N&gt; files, +&lt;a&gt; −&lt;d&gt;
+
+**[Open the page](&lt;the `open:` URL&gt;)** · I'm holding here until you send a verdict.
+
+`Commit & Start` puts it in flight · `Commit` keeps it for later
+
+---
+
+There `Next` names the page rather than a command, because the button is what
+carries the work on.
+
+Where no page was rendered — isolation is not configured, or nothing was
+written — `Next` is `/spec-start <name>`, with the name spelled the way it must
+be typed.
+
+**A spec written without a page is still uncommitted**, so that `Next` relies on
+`/spec-start` committing the spec when it is all that is uncommitted. Say
+`/commit, then /spec-start <name>` when anything else is uncommitted too, or the
+row sends the reader to a refusal.
 
 **`Follow-ups` is almost always `none` here.** This skill's whole job is to
 capture work, so anything it surfaced belongs in the spec it just wrote rather

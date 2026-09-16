@@ -1,0 +1,163 @@
+'use strict'
+
+/**
+ * `/spec` ends on a page and waits for a verdict.
+ *
+ * The gap this closes: a spec is the one artefact whose whole purpose is to be
+ * read before work begins, and it was the only one in the lifecycle with no
+ * reading surface. `/spec` finished, the spec sat uncommitted, and `/spec-start`
+ * had to point that out and commit it as a side effect of provisioning.
+ *
+ * Most of what is asserted here is the DISCIPLINE around the wait rather than
+ * the wait itself, because every one of those rules is written down in response
+ * to something that actually went wrong: a watcher composed per-run that could
+ * never fire, an offer nobody was listening for, two links with the wait behind
+ * only one of them, and a gate armed by work that owed nothing.
+ *
+ * The last two tests are the stays-silent half
+ * (`.claude/rules/negative-checks.md` rule 3). This phase changes the ending of
+ * every `/spec`, so a project that never adopted isolation — and a run that
+ * wrote no spec at all — must be provably untouched.
+ */
+
+const { test } = require('node:test')
+const assert = require('node:assert')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const ASSETS = path.join(__dirname, '..', 'assets')
+const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
+
+const SPEC = skillText('spec')
+
+// --- it renders, and renders the right thing --------------------------------
+
+test('/spec renders the spec itself, with the authoring buttons', () => {
+  assert.match(SPEC, /skitterspec spec-env review <spec> --docs --buttons authoring/)
+  assert.match(SPEC, /never wants a worktree — a backlog spec has none/)
+})
+
+test('the page shows this spec and nobody else, and says why that matters', () => {
+  // The safety property, not a detail: a shared checkout routinely holds another
+  // session's spec, and a committing verdict here would commit it.
+  assert.match(SPEC, /this spec's\s*\n?\*\*documents and nobody else's\*\*|\*\*this spec's\s*\n?documents and nobody else's\*\*/)
+  assert.match(SPEC, /spec-env stage.{0,40}owned/s)
+  assert.match(SPEC, /committed under your\s*\n?verdict/)
+})
+
+test('the pathspec comes from the render, not from the tree at verdict time', () => {
+  assert.match(SPEC, /docs\.paths/)
+  assert.match(SPEC, /Take the pathspec from the render, not from the tree/)
+})
+
+// --- the wait ---------------------------------------------------------------
+
+test('the wait is the engine command, and the skill forbids composing one', () => {
+  assert.match(SPEC, /\*\*The wait is a command\. Do not write one\.\*\*/)
+  assert.match(SPEC, /skitterspec spec-env review wait <spec> --since <the timestamp>/)
+})
+
+test('no timeout is passed, and the skill says why not', () => {
+  assert.match(SPEC, /takes no timeout unless you pass one, and you must not pass one/)
+  assert.match(SPEC, /lunch break/)
+})
+
+test('the engine picks the pass, so the skill never chooses one', () => {
+  assert.match(SPEC, /--docs --claim-since <the timestamp> --json/)
+  assert.match(SPEC, /refuses to choose when two did/)
+})
+
+test('a file:// page waits by ending the turn, and starts no watch that cannot fire', () => {
+  // The documented failure: a watch on the pending store spins forever while the
+  // report underneath it claims to be holding.
+  assert.match(SPEC, /\*\*Do not start a watch that cannot fire\*\*/)
+  assert.match(SPEC, /The wait is\s*\n?the turn ending/)
+})
+
+test('one link, because the engine has already chosen which page the reader can use', () => {
+  assert.match(SPEC, /never two\s*\n?links/)
+  assert.match(SPEC, /Relay the \*\*`open:`\*\* line/)
+})
+
+// --- the four endings -------------------------------------------------------
+
+test('commit-start commits then starts the spec, and stops there', () => {
+  assert.match(SPEC, /review\.commitWith/)
+  assert.match(SPEC, /then run\s*\n?\s*\*\*`\/spec-start <name>`\*\* and \*\*stop there\*\*/)
+  // The thing it must not do, named — the same caveat `commit-continue` carries.
+  assert.match(SPEC, /never completes, lands or tears\s*\n?\s*anything down/)
+})
+
+test('commit keeps the spec in the backlog rather than starting it', () => {
+  assert.match(SPEC, /the same commit, then finish/)
+  assert.match(SPEC, /stays `Ready` in\s*\n?\s*`backlog`/)
+})
+
+test('changes re-renders and waits again rather than dropping out to the terminal', () => {
+  assert.match(SPEC, /\*\*re-render, and\s*\n?\s*wait again\*\*/)
+  assert.match(SPEC, /record a resolution for each one/)
+  assert.match(SPEC, /reopen the loop this exists to close/)
+})
+
+test('discuss claims nothing and changes nothing', () => {
+  assert.match(SPEC, /\*\*`discuss`\*\* — report and talk\. Claim nothing, change nothing\./)
+})
+
+// --- arming is separate from waiting ----------------------------------------
+
+test('/spec arms nothing, and says that is a decision rather than an omission', () => {
+  assert.match(SPEC, /\*\*Arm nothing\.\*\*/)
+  assert.match(SPEC, /a backlog spec owes no phase/)
+  assert.match(SPEC, /`spec-env review gate --check` exiting 0/)
+})
+
+test('/spec never calls review arm', () => {
+  // The positive assertion above states the rule; this one is what a later edit
+  // pasting the phase-end block in for symmetry would trip over.
+  //
+  // ANCHORED TO A CALL, NOT A MENTION. A bare `doesNotMatch(/review arm/)` is
+  // the guard that matches something else: the skill has to NAME the command in
+  // order to forbid it, so the naive form fails on its own prohibition — it did,
+  // the first time this was written. A command in this skill is a line that
+  // starts with `skitterspec`; the prohibition is inline prose in backticks.
+  const callsArm = SPEC.split('\n').filter((l) => /^\s*skitterspec spec-env review arm/.test(l))
+  assert.deepStrictEqual(callsArm, [], 'arming belongs to a phase that ended, not to authoring')
+  // And the prohibition is still there to be read, which the check above cannot
+  // tell you on its own.
+  assert.match(SPEC, /There is no `spec-env review arm` in this path/)
+})
+
+// --- the report shape -------------------------------------------------------
+
+test('a waiting run ends on the banner and drops the Review row', () => {
+  assert.match(SPEC, /\*\*omits the `Review` row\*\*/)
+  assert.match(SPEC, /## ⏸ Review ready/)
+  assert.match(SPEC, /I'm holding here until you send a verdict/)
+  assert.match(SPEC, /`Commit & Start` puts it in flight · `Commit` keeps it for later/)
+})
+
+test('the no-page Next still lands the reader somewhere runnable', () => {
+  assert.match(SPEC, /`\/spec-start <name>`, with the name spelled the way it must\s*\n?be typed/)
+  assert.match(SPEC, /`\/commit, then \/spec-start <name>` when anything else is uncommitted/)
+})
+
+// --- stays silent -----------------------------------------------------------
+
+test('STAYS SILENT: no isolation config means no page and no wait', () => {
+  assert.match(SPEC, /\*\*Only when the project has per-spec isolation\*\*/)
+  assert.match(SPEC, /skip it in\s*\n?silence rather than explaining an absence/)
+})
+
+test('STAYS SILENT: a run that wrote no spec renders nothing and waits for nothing', () => {
+  assert.match(SPEC, /\*\*Render nothing when nothing was written\.\*\*/)
+  assert.match(SPEC, /must not ask for a\s*\n?verdict on one/)
+})
+
+test('STAYS SILENT: the phase-end skills keep the committing set, not the authoring one', () => {
+  // `authoring` is for a spec with no phase in flight. A phase page offering
+  // `Commit & Start` would offer to start a spec that is already started.
+  for (const name of ['spec-next', 'spec-bug', 'spec-hotfix']) {
+    assert.doesNotMatch(skillText(name), /--buttons authoring/, `${name} must not render the authoring set`)
+  }
+  assert.match(skillText('spec-next'), /takes the committing button set/)
+})
