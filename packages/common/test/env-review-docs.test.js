@@ -464,3 +464,46 @@ test('an honoured commit-start says what it will do, never "discuss first"', asy
     cleanup(dir)
   }
 })
+
+// --- the refresh set: a re-validated spec, never a start verdict ------------
+
+test('a tracked spec renders as a patch, not as whole new files', async () => {
+  const dir = scaffold()
+  try {
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-q', '-m', 'specs')
+    // What `/spec-review` does: rewrite a document that is already tracked.
+    const doc = path.join(dir, 'specs', 'backlog', 'feat-mine', '00-overview.md')
+    fs.writeFileSync(doc, fs.readFileSync(doc, 'utf8').replace('Something', 'Something else'))
+    const data = await docsJson(dir, 'feat-mine', '--buttons', 'refresh')
+    assert.deepStrictEqual(paths(data), ['specs/backlog/feat-mine/00-overview.md'])
+    assert.strictEqual(data.files[0].status, 'modified', 'a refresh is what drifted, not a new file')
+    assert.ok(data.files[0].additions > 0 && data.files[0].deletions > 0, 'both sides of the patch')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('the refresh set offers three verdicts and no start', () => {
+  assert.ok(review.BUTTON_SETS.includes('refresh'))
+  assert.match(PAGE, /refresh: \['commit', 'changes', 'discuss'\]/)
+  // The one that must NOT be there: a refreshed spec may already be in flight,
+  // so offering to provision it is wrong for half this set's inputs.
+  const offers = /refresh: \[([^\]]*)\]/.exec(PAGE)[1]
+  assert.ok(!offers.includes('commit-start'), 'no start verdict on a refresh page')
+  assert.ok(!offers.includes('commit-continue'), 'and no next-phase verdict either')
+})
+
+test('STAYS SILENT: a review that changed nothing renders no page', async () => {
+  const dir = scaffold()
+  try {
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-q', '-m', 'specs')
+    // The commonest `/spec-review` outcome: the spec is still accurate.
+    const out = await docs(dir, 'feat-mine', '--buttons', 'refresh')
+    assert.match(out, /nothing to review/)
+    assert.doesNotMatch(out, /page: /, 'an empty diff under a commit button asks for a verdict on nothing')
+  } finally {
+    cleanup(dir)
+  }
+})

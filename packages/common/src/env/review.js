@@ -508,8 +508,14 @@ const COMMITTING = ['commit', 'commit-continue', 'commit-start']
  * pair is `commit-start` and `commit` — put it in flight now, or keep it for
  * later. `commit-continue` is absent because there is no phase in flight to
  * continue, and `continue` is absent because the run has nothing left to resume.
+ *
+ * `refresh` is the set for a spec that was re-validated rather than written:
+ * `commit`, `changes`, `discuss`, and NO start verdict. A refreshed spec may
+ * already be in progress, so offering to put it in flight would be wrong for
+ * half this set's inputs — and wrong in the expensive direction, since it would
+ * offer to provision a worktree for a spec that already has one.
  */
-const BUTTON_SETS = ['committing', 'midrun', 'authoring']
+const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh']
 const DEFAULT_BUTTON_SET = 'committing'
 
 /**

@@ -161,3 +161,67 @@ test('STAYS SILENT: the phase-end skills keep the committing set, not the author
   }
   assert.match(skillText('spec-next'), /takes the committing button set/)
 })
+
+// --- /spec-review hands its refresh back the same way -----------------------
+//
+// Same ending, different set. It is a separate block rather than a loop over
+// both skills because the two differ in exactly the way that matters — whether
+// a start verdict is offered — and a loop asserting "renders a page" would pass
+// while that difference was wrong.
+
+const REVIEW = skillText('spec-review')
+
+test('/spec-review renders the refresh with the refresh buttons', () => {
+  assert.match(REVIEW, /skitterspec spec-env review <spec> --docs --buttons refresh/)
+  assert.match(REVIEW, /wants no worktree and works for a spec in any bucket/)
+})
+
+test('a refresh is shown as a patch, because the documents are tracked', () => {
+  assert.match(REVIEW, /a patch rather than a set of new\s*\n?files/)
+  assert.match(REVIEW, /what drifted, and what you\s*\n?rewrote/)
+})
+
+test('/spec-review offers no start verdict, and says why', () => {
+  assert.match(REVIEW, /\*\*No start verdict, deliberately\.\*\*/)
+  assert.match(REVIEW, /may already be\s*\n?in progress/)
+  assert.match(REVIEW, /provision a worktree for a spec that already has one/)
+})
+
+test('/spec-review waits with the engine command and passes no timeout', () => {
+  assert.match(REVIEW, /\*\*The wait is a command\. Do not write one\.\*\*/)
+  assert.match(REVIEW, /skitterspec spec-env review wait <spec> --since <the timestamp>/)
+  assert.match(REVIEW, /Pass no timeout/)
+  assert.match(REVIEW, /--docs --claim-since <the timestamp> --json/)
+})
+
+test('/spec-review arms nothing', () => {
+  const callsArm = REVIEW.split('\n').filter((l) => /^\s*skitterspec spec-env review arm/.test(l))
+  assert.deepStrictEqual(callsArm, [], 'a re-validated spec has ended no phase')
+  assert.match(REVIEW, /\*\*Arm nothing\.\*\*/)
+})
+
+test('a waiting /spec-review drops the Review row for the banner', () => {
+  assert.match(REVIEW, /omits the\s*\n?`Review` row/)
+  assert.match(REVIEW, /## ⏸ Review ready/)
+  assert.match(REVIEW, /I'm holding here until you send a verdict/)
+  assert.match(REVIEW, /`Commit` commits the refresh · `Request changes` works them now/)
+})
+
+test('STAYS SILENT: no drift means no page, and that is a success not a gap', () => {
+  assert.match(REVIEW, /\*\*Render nothing when nothing changed\.\*\*/)
+  assert.match(REVIEW, /that is a success rather than a gap/)
+  assert.match(REVIEW, /Take that refusal\s*\n?as the answer/)
+})
+
+test('STAYS SILENT: no isolation config means /spec-review skips the page entirely', () => {
+  assert.match(REVIEW, /skip\s*\n?the whole step in silence/)
+})
+
+test('the two authoring-side skills offer different sets, which is the point', () => {
+  // `/spec` can start a spec; `/spec-review` cannot. A single shared set would
+  // be simpler and would put a provision button on a spec already in flight.
+  assert.match(SPEC, /--buttons authoring/)
+  assert.doesNotMatch(SPEC, /--buttons refresh/)
+  assert.match(REVIEW, /--buttons refresh/)
+  assert.doesNotMatch(REVIEW, /--buttons authoring/)
+})

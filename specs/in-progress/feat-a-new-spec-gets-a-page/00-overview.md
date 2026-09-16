@@ -105,7 +105,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The engine renders a spec that has no worktree | ✅ | [01-a-spec-renders-without-a-worktree.md](01-a-spec-renders-without-a-worktree.md) |
 | 2 | `/spec` ends on the page, and the button commits it | ✅ | [02-spec-ends-on-the-page.md](02-spec-ends-on-the-page.md) |
-| 3 | `/spec-review` hands its refresh back the same way | ⬜ | [03-spec-review-hands-it-back.md](03-spec-review-hands-it-back.md) |
+| 3 | `/spec-review` hands its refresh back the same way | ✅ | [03-spec-review-hands-it-back.md](03-spec-review-hands-it-back.md) |
 
 ## Open questions
 
@@ -132,3 +132,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   prohibition. Set `review.reader: "remote"` in the project config out-of-band
   so renders serve an http page rather than a file:// one — not part of this
   spec, and uncommitted on `main`.
+- 2026-09-16 — Phase 3: added a fourth button set, `refresh` (commit, changes,
+  discuss), rather than reusing `authoring` — a start verdict on a refreshed
+  spec would offer to provision a worktree it may already have.
