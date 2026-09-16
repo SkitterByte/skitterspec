@@ -152,7 +152,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Say what Linear refused, and whether waiting helps | ✅ | [01-say-what-linear-refused.md](01-say-what-linear-refused.md) |
 | 2 | Resume is a guarantee, not a comment | ✅ | [02-resume-is-a-guarantee.md](02-resume-is-a-guarantee.md) |
-| 3 | Point a spec back at its issue | ⬜ | [03-point-a-spec-back-at-its-issue.md](03-point-a-spec-back-at-its-issue.md) |
+| 3 | Point a spec back at its issue | ✅ | [03-point-a-spec-back-at-its-issue.md](03-point-a-spec-back-at-its-issue.md) |
 
 ## Open questions
 
@@ -173,6 +173,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   genuinely re-planned rather than replaying a stale plan. The create-landed-
   stamp-failed hole now names the orphaned identifier and points at `reattach`,
   because a re-run there mints a second issue.
+- 2026-09-16 — Phase 3: `spec-sync reattach` adopts the one unclaimed
+  exact-title match (and its phases), refusing rather than choosing when several
+  do; minting now refuses over such a match, with `--force-new` as the escape.
+  The guard that would have prevented SKS-284.
 
 ## State log
 

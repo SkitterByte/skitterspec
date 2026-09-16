@@ -42,6 +42,7 @@ In a project that installs the Linear superset the binary is
 | "what specs are there?", "what's in the backlog?", "what is Jane on?" | `list` — or hand to `/spec-list` |
 | "did the mirror survive the push?" | `verify <spec> --stored <file>` |
 | "link this spec to KEY-1 by hand" | `stamp <spec> --issue KEY-1` |
+| "this spec lost its link", "a push made a duplicate issue" | `reattach <spec>` — or `--to KEY-1` to name one |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
 | "is the team key stale?", "did Linear get renamed?" | `retarget` |
 | "what ticket am I on?", writing a commit | `ref` |

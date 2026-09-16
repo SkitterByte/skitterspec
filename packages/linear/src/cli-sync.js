@@ -1879,6 +1879,154 @@ function configuredVocabularyLines(config, names) {
  * Degrades rather than blocks: no key, or a Linear that will not answer, exits 0
  * with an empty list and says why. A missing picker must never fail `/spec`.
  */
+/**
+ * `reattach` — point a spec back at the issue it already has.
+ *
+ * A spec whose `linear_identifier` is gone had no way back: the next push read
+ * it as unlinked and minted a second issue over a perfectly good one. That is
+ * the SKS-283/284 incident — a stray `sed '1s/…'` clobbered a stamped phase
+ * file's opening `---`, and the duplicate had to be cancelled by hand.
+ *
+ * THREE ANSWERS, AND ONLY ONE ACTS. Exactly one unclaimed candidate is stamped;
+ * none says so; more than one refuses and names them. Choosing between two is
+ * the guess `claimPending` refuses to make, and this refuses it for the same
+ * reason.
+ *
+ * WHAT WOULD FOOL A FUZZY VERSION: a title that merely reads similarly. A
+ * near-match is not evidence (`.claude/rules/negative-checks.md` rule 1), and
+ * acting on one would re-point a spec at somebody else's issue — so the match is
+ * EXACT. The cost is that a **renamed** spec is not found, which `--to` answers
+ * and which is said out loud rather than discovered.
+ *
+ * IT WRITES AN ID AND NOTHING ELSE. No title, no description, no state: this is
+ * the one command whose shape makes a pull tempting, and the one-way rule holds
+ * here exactly as everywhere. The next push overwrites the mirror.
+ */
+async function specSyncReattach(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const already = linkedIdentifier(path.join(snapshotDir, overviewFile))
+  if (already) {
+    // A linked spec is not broken, and re-pointing one is a different act with
+    // different consequences. Refuse rather than quietly moving it.
+    out.write(`spec-sync reattach: already linked to ${already} — nothing to reattach\n`)
+    return 1
+  }
+
+  const key = resolveApiKey(config, flags.env || process.env)
+  if (!key.ok && !flags.adapter) {
+    out.write(`spec-sync reattach: ${key.error}\n`)
+    return 1
+  }
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  const teamId = (config.linear && config.linear.teamId) || null
+
+  let chosen = null
+  if (flags.to) {
+    if (!ID_RE.test(flags.to)) {
+      out.write(`spec-sync reattach: --to ${flags.to} is not an id like SKI-42\n`)
+      return 1
+    }
+    // NAMED, so nothing is searched and nothing is matched. This is the escape
+    // for a spec whose title has changed since it was linked.
+    const found = await adapter.readIssue(flags.to)
+    if (!found || !found.identifier) {
+      out.write(`spec-sync reattach: no issue ${flags.to}\n`)
+      return 1
+    }
+    chosen = found
+  } else {
+    const title = String(readSnapshot(snapshotDir, config).title || '').trim()
+    if (!title) {
+      out.write('spec-sync reattach: the spec has no title to match on — name one with --to <ISSUE-REF>\n')
+      return 1
+    }
+    let candidates
+    try {
+      candidates = await adapter.searchIssues({ query: title, teamId })
+    } catch (error) {
+      out.write(`spec-sync reattach: ${error.message}\n`)
+      return 1
+    }
+    // The candidate set is what NO spec already holds: an issue another spec is
+    // linked to is not an orphan, it is somebody's live mirror.
+    const claimed = new Set(listSpecs(dir, config).map((sp) => sp.identifier).filter(Boolean))
+    const unclaimed = (candidates || [])
+      .filter((i) => i && i.identifier && !claimed.has(i.identifier))
+      .filter((i) => String(i.title || '').trim() === title)
+
+    if (unclaimed.length === 0) {
+      out.write(
+        `spec-sync reattach: no unclaimed issue titled "${title}" — name one with --to <ISSUE-REF>\n`,
+      )
+      return 1
+    }
+    if (unclaimed.length > 1) {
+      out.write(
+        `spec-sync reattach: ${unclaimed.length} unclaimed issues match — name one with --to <ISSUE-REF>:\n` +
+          unclaimed.map((i) => `  ${i.identifier}  ${i.title}\n`).join(''),
+      )
+      return 1
+    }
+    chosen = unclaimed[0]
+  }
+
+  const lines = [`spec-sync reattach: ${chosen.identifier}`]
+  writeFrontmatter(snapshotDir, config, {
+    linear_identifier: chosen.identifier,
+    linear_url: chosen.url || null,
+  })
+
+  // THE PHASES TOO, or it says it did not. A spec issue with unlinked phases is
+  // half a link: the next push mints a sub-issue per phase beside the ones
+  // already there — the same duplicate, one level down.
+  let children = []
+  try {
+    children = (await adapter.listSubIssues(chosen.id || chosen.identifier)) || []
+  } catch {
+    // A parent whose children cannot be listed is not a parent with none.
+    children = null
+  }
+  if (children === null) {
+    lines.push('  phases not checked — could not list the issue\'s children')
+  } else {
+    // The projection already knows every phase's file and the title it pushes
+    // as the sub-issue's — so the match here is against exactly what a push
+    // would have created, rather than a second reading of the same headings.
+    for (const ph of projectionOf(snapshotDir, config).subIssues || []) {
+      // Already linked — leave it. Reattach fills gaps; it does not re-point
+      // phases that are fine.
+      if (ph.id) continue
+      const ref = ph.ref
+      // `resolvePhaseFile`, exactly as `apply` does it, so a ref resolves to the
+      // same file on both paths rather than by a second spelling of the rule.
+      const file = resolvePhaseFile(snapshotDir, ref)
+      if (!file) continue
+      const phaseTitle = String(ph.name || '').trim()
+      const hits = children.filter((c) => String(c.title || '').trim() === phaseTitle)
+      if (hits.length === 1) {
+        stampSubIssueId(snapshotDir, file, hits[0].identifier)
+        lines.push(`  phase ${ref} → ${hits[0].identifier}`)
+      } else if (hits.length > 1) {
+        // Refused individually, never for the whole run: the spec issue is
+        // linked and one ambiguous phase should not undo that.
+        lines.push(`  phase ${ref}: ${hits.length} children match "${phaseTitle}" — left unlinked`)
+      } else {
+        lines.push(`  phase ${ref}: no child matches "${phaseTitle}" — left unlinked`)
+      }
+    }
+  }
+
+  if (flags.json) {
+    out.write(JSON.stringify({ spec: path.basename(snapshotDir), identifier: chosen.identifier }, null, 2) + '\n')
+  } else {
+    out.write(lines.join('\n') + '\n')
+  }
+  return 0
+}
+
 async function specSyncProjects(dir, config, flags, out) {
   const key = resolveApiKey(config, flags.env || process.env)
   const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
@@ -2440,7 +2588,7 @@ async function applyOneSpec(args) {
   }
 }
 
-async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, teamId, project, states, progress }) {
+async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, teamId, project, states, progress, forceNew = false }) {
   const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
   const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
   const lines = []
@@ -2461,6 +2609,43 @@ async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, team
   // 1. The spec issue. No identifier yet → this push mints it.
   let parentId = null
   if (!identifier) {
+    // REFUSE TO MINT A TWIN. This is the guard SKS-284 needed: the push was
+    // creating because the spec read as unlinked, while SKS-283 sat unclaimed
+    // with exactly this title. An EXACT match held by no spec is a positive
+    // signal that the issue already exists.
+    //
+    // WHAT WOULD FOOL A FUZZY VERSION: a title that merely reads similarly.
+    // Being wrong here BLOCKS a legitimate push, so a near-match must never
+    // count (`.claude/rules/negative-checks.md` rule 1) — and the cost, a
+    // renamed spec that is not recognised, is answered by `reattach --to`.
+    //
+    // Only on a MINT. An update already has its issue, and checking one would
+    // find its own mirror.
+    if (!forceNew && adapter.searchIssues) {
+      const wanted = String(plan.title || readSnapshot(snapshotDir, config).title || '').trim()
+      if (wanted) {
+        let found = []
+        try {
+          found = (await adapter.searchIssues({ query: wanted, teamId })) || []
+        } catch {
+          // A search we could not run is not evidence of an orphan. Carry on and
+          // mint — the cannot-tell case goes to the harmless branch, which here
+          // is the one that does the work the caller asked for (rule 4).
+          found = []
+        }
+        const claimed = new Set(listSpecs(dir, config).map((sp) => sp.identifier).filter(Boolean))
+        const twin = found.find(
+          (i) => i && i.identifier && !claimed.has(i.identifier) && String(i.title || '').trim() === wanted,
+        )
+        if (twin) {
+          throw new Error(
+            `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +
+              `adopt it with \`spec-sync reattach ${path.basename(snapshotDir)} --to ${twin.identifier}\`, ` +
+              'or pass --force-new to create a second',
+          )
+        }
+      }
+    }
     const created = await adapter.createIssue(withoutNull({
       title: readSnapshot(snapshotDir, config).title,
       teamId,
@@ -2865,7 +3050,7 @@ async function specSyncApply(dir, config, specArg, flags, out) {
     out.write(`spec-sync apply: ${error.message}\n`)
     return 1
   }
-  const shared = { dir, config, adapter, teamId, project: flags.project, states }
+  const shared = { dir, config, adapter, teamId, project: flags.project, states, forceNew: flags.forceNew }
 
   if (!bulk) {
     const lines = ['spec-sync apply: transport = api']
@@ -3458,6 +3643,9 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--url') flags.url = args[++i]
     else if (args[i] === '--sub') flags.subs.push(args[++i])
     else if (args[i] === '--force') flags.force = true
+    // Distinct from `--force`, deliberately. That one overrides other guards;
+    // this one says "the duplicate title is real, create a second issue".
+    else if (args[i] === '--force-new') flags.forceNew = true
     else if (args[i] === '--yes') flags.yes = true
     else if (args[i] === '--check-remote') flags.remoteCheck = true
     else if (args[i] === '--stdin') flags.stdin = true
@@ -3579,6 +3767,8 @@ async function specSync(rest, io = {}) {
           'It computes the create/update plan and writes nothing; `spec-sync apply` applies it.\n',
       )
       return 1
+    case 'reattach':
+      return specSyncReattach(dir, config, positional[0], flags, out)
     case 'stamp':
       return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
@@ -3632,6 +3822,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +
         '       skitterspec spec-sync stage <key> [<range>] [--apply] [--json]\n' +
+        '       skitterspec spec-sync reattach <spec> [--to <ISSUE-REF>] [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
         '       skitterspec spec-sync doctor [--check-remote] [--mcp <file>] [--json]\n' +
         '       skitterspec spec-sync init-config --team-id <id> [--team-key K] [--project-id id]\n' +

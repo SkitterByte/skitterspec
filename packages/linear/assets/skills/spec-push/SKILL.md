@@ -233,6 +233,33 @@ This writes the last-pushed snapshot from the now-stamped files, so the next
 `/spec-push` produces an empty plan. Commit the stamped spec + snapshot into the
 branch so the mirror-link rides in the PR.
 
+## 5b. A refused mint, and the way back
+
+Two refusals reach you from `apply`, and neither is a failure to retry.
+
+**`N already exists and no spec claims it`** — the push was about to mint, and
+an issue with **exactly** this title is sitting there unheld. That is almost
+always the spec's own issue, whose link was lost: a bad merge, a hand edit, a
+stray `sed` over the frontmatter. Adopt it rather than creating a twin:
+
+```
+skitterspec spec-sync reattach <spec> --to <ISSUE-REF>
+```
+
+Bare, `reattach` searches by title itself and stamps the one unclaimed match;
+it refuses when several match and names them, because choosing between two is
+a guess. `--force-new` is the escape when the duplicate title is genuine.
+
+**`N exists in Linear but could not be recorded`** — the create landed and the
+stamp did not, so Linear holds an issue the repo does not point at.
+**Do not re-run**:
+the plan still reads the spec as unlinked, so a re-run mints a second.
+`reattach --to <the named id>` is the fix.
+
+Everything else — a rate limit, a refusal that says waiting will not help — is
+reported with Linear's own explanation and whether retrying can help. Relay it;
+do not paraphrase.
+
 ## 6. Report
 
 End with the block defined in `.claude/rules/spec-reports.md`. That file carries
