@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-every-render-serves (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-16)
+> **Status:** Complete (2026-09-16)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -119,6 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
 | 2026-09-16 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-16 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -143,3 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   bind and not whether to serve, and three guards pin that: serving must not
   read the reader, the bind must, and the comment must still record the cost.
   A `file://` render now also says why it fell back.
+- 2026-09-16 — Completed; both phases done, 2838 tests green. Two follow-ups
+  recorded rather than folded in: the dev daemon runs the gitignored dist build
+  instead of the source being edited, and `verdictSaid` reads an unnamed
+  committing verdict as `discuss first`.
