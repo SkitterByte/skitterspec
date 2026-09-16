@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKS-294"
+---
+
 # Phase 1 — A port per repo, stable across restarts ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started

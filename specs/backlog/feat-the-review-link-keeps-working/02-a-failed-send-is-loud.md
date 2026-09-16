@@ -1,3 +1,7 @@
+---
+linear_issue_id: "SKS-295"
+---
+
 # Phase 2 — A failed send is as loud as a successful one ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started

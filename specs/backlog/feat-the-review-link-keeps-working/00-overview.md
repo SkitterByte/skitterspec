@@ -1,3 +1,8 @@
+---
+linear_identifier: "SKS-293"
+linear_url: "https://linear.app/skitterbyte/issue/SKS-293/the-review-link-keeps-working-and-says-so-when-it-cannot"
+---
+
 # The review link keeps working — and says so when it cannot
 
 > **Type:** Feature
