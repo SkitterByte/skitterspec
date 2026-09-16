@@ -1,0 +1,12 @@
+{
+  "issue": "83a43d789a44cce5c305dc5660e99b8655a76d27",
+  "issueFields": {
+    "description": "3efbad18f2f46e3ada79cf223a53363d36554480",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833"
+  },
+  "subIssues": {
+    "SKS-305": "1af1b8047b44cf810c607f7035de22e5b681c6a8",
+    "SKS-306": "4640f76269198cc1b88e65d60592a7de7c2fcc2e"
+  }
+}
