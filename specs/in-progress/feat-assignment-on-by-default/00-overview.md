@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-285"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-285/assignment-on-by-default-and-an-ownership-value-that-can-decline"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Assignment on by default, and an ownership value that can decline
 
 > **Type:** Feature
 > **Name:** feat-assignment-on-by-default (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-16)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
 > **Area:** packages/linear/src/config.js, packages/linear/src/cli-sync.js, packages/linear/src/doctor.js, packages/sync-core/src/normalize.js, packages/linear/assets/, MIGRATION.md
 > **Stack:** worktree
@@ -140,6 +142,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
+| 2026-09-16 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
