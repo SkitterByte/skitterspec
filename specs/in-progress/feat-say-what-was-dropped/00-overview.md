@@ -129,7 +129,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | An adopted path is not your edit | ✅ | [01-adopted-paths.md](01-adopted-paths.md) |
 | 2 | An unknown config key says so | ✅ | [02-unknown-config-keys.md](02-unknown-config-keys.md) |
-| 3 | The help lists every verb, and stays that way | ⬜ | [03-help-verb-sync.md](03-help-verb-sync.md) |
+| 3 | The help lists every verb, and stays that way | ✅ | [03-help-verb-sync.md](03-help-verb-sync.md) |
 
 ## Open questions
 
@@ -159,3 +159,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   repo's own `env.config.json` still carried `linkLinear`, removed by
   `feat-monorepo-ticketing-extraction` and read by nothing since — exactly the
   retired-`open` shape the phase was written about. Removed.
+- 2026-09-16 — Phase 2: the doc's typo example was `review.readr`, which tripped
+  an existing guard in `scripts/docs-claims.test.js` — every `review.<key>` a
+  shipped surface names must be one the engine merges. The guard was right and
+  the example was the false positive; it now uses `docker.portbase`.
+- 2026-09-16 — Phase 3: each assertion in the new drift guard was checked by
+  mutation before the phase was called done — a guard for a class of drift that
+  has already happened twice is worth proving can fail.

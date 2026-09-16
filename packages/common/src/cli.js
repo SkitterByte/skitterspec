@@ -13,6 +13,34 @@ const { loadEnvConfig } = require('./env/config.js')
 
 // Named once so the advisory below and any future caller agree on the wording.
 const ENV_CONFIG_LABEL = 'env.config.json'
+
+// The `spec-env` verbs, in the order the usage line prints them. ONE list,
+// because two drifted: `live` and `stage` were each added to the dispatcher and
+// to this usage line while `--help` was left listing ten of twelve — separately,
+// months apart, which is what makes it a missing constraint rather than two
+// slips. An undocumented verb reads as a removed one.
+//
+// `cli-help-verbs.test.js` holds the three ends together: every verb here
+// appears in HELP, HELP names no verb that is not here, and this list matches
+// the `case` labels the dispatcher actually handles.
+//
+// The `review` SUB-ACTIONS (serve/arm/gate/skip) are deliberately absent — they
+// are arguments to `review`, not verbs, and the usage block spells them out on
+// their own lines below.
+const SPEC_ENV_VERBS = Object.freeze([
+  'up',
+  'down',
+  'prune',
+  'dev',
+  'connect',
+  'integrate',
+  'hotfix',
+  'live',
+  'review',
+  'stage',
+  'status',
+  'resolve',
+])
 const {
   readRegistry,
   writeRegistry,
@@ -147,11 +175,16 @@ Usage:
                                 connect <spec>    expose a spec on the canonical ports (main = off)
                                 integrate <spec>  plan rebase + fast-forward onto the base branch
                                 hotfix land <spec>  tag + cherry-pick a hotfix (--also <tag>)
-                                status            list provisioned specs + port blocks
+                                live <spec>       check a spec out in the primary checkout so
+                                                  the running dev server serves it (take |
+                                                  release | abort | status; main hands it back)
                                 review <spec>     write an HTML page of the spec's diff
                                                   (--branch for the whole spec; --out, --json)
                                                   (--notes <json> merges a review pass back;
                                                    --resolve <json> records what was done)
+                                stage [spec]      split the uncommitted tree into this spec's
+                                                  documents and everything else
+                                status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
@@ -3603,7 +3636,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        'Usage: skitterspec spec-env <up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n' +
+        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
@@ -3725,6 +3758,7 @@ async function run(argv) {
 }
 
 module.exports = {
+  SPEC_ENV_VERBS,
   run,
   parse,
   HELP,
