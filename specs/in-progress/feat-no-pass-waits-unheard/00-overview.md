@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-289"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-289/no-review-pass-waits-unheard"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # No review pass waits unheard
 
 > **Type:** Feature
 > **Name:** feat-no-pass-waits-unheard (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-16)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
 > **Area:** `packages/common/src/env/review.js`, `packages/common/src/cli.js`, `packages/common/assets/skills/spec-next/SKILL.md`, `packages/common/assets/skills/spec-bug/SKILL.md`, `packages/common/assets/skills/spec-diff/SKILL.md`, `packages/common/assets/rules/spec-reports.md`
 > **Stack:** worktree
@@ -178,3 +180,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
+| 2026-09-16 | In Progress | in-progress | Reuben Greaves |
