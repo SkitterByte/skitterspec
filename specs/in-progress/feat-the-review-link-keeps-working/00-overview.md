@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | A port per repo, stable across restarts | ⬜ | [01-a-port-per-repo.md](01-a-port-per-repo.md) |
+| 1 | A port per repo, stable across restarts | ✅ | [01-a-port-per-repo.md](01-a-port-per-repo.md) |
 | 2 | A failed send is as loud as a successful one | ⬜ | [02-a-failed-send-is-loud.md](02-a-failed-send-is-loud.md) |
 
 ## Open questions
@@ -121,6 +121,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-16 — Phase 1: `servePort` refuses an unrecognised value by falling
+  through to the default, rather than throwing at config-load. That matches
+  `reader`, `mode` and `deleteRemoteBranch`, and it costs nothing here: the only
+  value a typo can fall through to is `"auto"`, which is also the only string
+  that would have been accepted — so a misspelt `"auto"` behaves identically to
+  the spelling that was meant, and a misspelt number was never a number. There
+  is no reading of the key where silence hides a port the author pinned.
+- 2026-09-16 — Phase 1: the resolved port's **source** is written into
+  `.spec-env/review-serve.json` as `portSource`, not recomputed at `--status`
+  time. A server adopted across an upgrade has no recorded source, and the
+  status line then carries the port alone — a recomputed answer could disagree
+  with the port actually being served.
 - 2026-09-16 — Spec created. Split out of `feat-no-pass-waits-unheard`, which
   found this while diagnosing a different cause of the same symptom: both make a
   reader press a verdict and see nothing happen, but a watcher that never fires

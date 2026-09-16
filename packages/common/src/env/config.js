@@ -43,10 +43,97 @@
  *   }
  */
 
-const { readFileSync } = require('node:fs')
-const { join } = require('node:path')
+const { createHash } = require('node:crypto')
+const { readFileSync, realpathSync } = require('node:fs')
+const { join, resolve } = require('node:path')
 
 const CONFIG_FILE = join('specs', '.core', 'env.config.json')
+
+// The window `servePort: "auto"` derives a port from. 7700-7799 keeps the
+// familiar neighbourhood — 7777, the old shared default, is inside it — while
+// giving every repo on a machine its own slot without anyone configuring one.
+//
+// A hundred slots is a SMALL chance of two repos landing together, not no
+// chance. That case is not papered over: the server still refuses the busy
+// port and names `servePort` as the durable fix. Walking up to the next free
+// port would remove the refusal and keep the staleness, because the port would
+// then depend on which repo started first.
+const PORT_BASE = 7700
+const PORT_SPAN = 100
+
+/**
+ * The repo path the derivation hashes — `realpath`ed ONCE, here.
+ *
+ * A symlinked spelling of one tree (`/tmp` → `/private/tmp` on macOS, a
+ * convenience symlink into a worktree root) is the same repo, and hashing the
+ * two spellings separately would hand out two different ports for it — two
+ * different URLs, one of them dead. Resolving once is what makes the port a
+ * property of the tree rather than of how you typed it.
+ *
+ * WHAT WOULD FOOL THIS: `realpathSync` throws on a path that does not exist, so
+ * it falls back to `resolve`. That is the cannot-tell branch and it is routed
+ * to inaction (.claude/rules/negative-checks.md rule 4) — an absolute path is
+ * still deterministic, so the worst case is a stable port for a directory that
+ * is not there, never a crash on an unrelated command.
+ */
+function servePortRoot(dir) {
+  try {
+    return realpathSync(resolve(dir))
+  } catch {
+    return resolve(dir)
+  }
+}
+
+/**
+ * `PORT_BASE + hash(path) % PORT_SPAN` — a PURE function of the path.
+ *
+ * Purity is the whole point, not an implementation detail. A port that is
+ * merely *free* is not a port a link handed out yesterday can still resolve, so
+ * nothing here may read the registry, `.spec-env/`, or any other state on disk:
+ * a port that depends on a file changes when the file is deleted, and this
+ * exists precisely so it does not change. The same tree gets the same port
+ * across a restart, a reboot, and a `--stop`.
+ *
+ * sha256 rather than a hand-rolled hash because its distribution is not
+ * something this file has to argue for — with a hundred slots, clustering is
+ * the only way the derivation could fail at its job.
+ */
+function derivedServePort(root) {
+  const digest = createHash('sha256').update(root).digest()
+  return PORT_BASE + (digest.readUInt32BE(0) % PORT_SPAN)
+}
+
+/**
+ * The port `spec-env review serve` should use, and HOW it was chosen.
+ *
+ * Three sources, in precedence order: `--port` on this run, an explicit number
+ * in `review.servePort`, else the derivation. The `source` rides along so
+ * `--status` can answer "why is this on 7742?" from the tool rather than from
+ * reading this file.
+ *
+ * Returns `{ port, source, root? }`; `root` is the resolved path that was
+ * hashed, present only on a derived port.
+ */
+function resolveServePort(config, dir, override) {
+  const flag = Number(override)
+  if (override != null && override !== '' && Number.isFinite(flag)) {
+    return { port: flag, source: 'flag' }
+  }
+  const configured = config && config.review ? config.review.servePort : undefined
+  if (typeof configured === 'number' && Number.isFinite(configured)) {
+    return { port: configured, source: 'configured' }
+  }
+  const root = servePortRoot(dir)
+  return { port: derivedServePort(root), source: 'derived', root }
+}
+
+/** One sentence naming how a resolved port was chosen, for `--status`. */
+function servePortReason(source) {
+  if (source === 'flag') return 'this run only, from --port'
+  if (source === 'configured') return 'pinned by review.servePort'
+  if (source === 'derived') return "derived from this repo's path"
+  return ''
+}
 
 const DEFAULT_CONFIG = Object.freeze({
   // Where a spec's branch is built. "worktree" gives every spec its own checkout
@@ -134,7 +221,7 @@ const DEFAULT_CONFIG = Object.freeze({
   // whether the gate refuses, so turning it off turns off the hook with it.
   review: Object.freeze({
     reader: 'detect',
-    servePort: 7777,
+    servePort: 'auto',
     serveOnRemote: true,
     commitWith: '/commit',
     required: true,
@@ -382,7 +469,22 @@ function mergeConfig(base, parsed) {
     if (reader === 'local' || reader === 'remote' || reader === 'detect') {
       base.review.reader = reader
     }
-    assign(base.review, parsed.review, 'servePort', 'number')
+    // Two accepted forms: a finite number pins the port, and the string "auto"
+    // derives it from the repo's path. Anything else is refused BY NAME — the
+    // default stands — exactly as `reader`, `mode` and `deleteRemoteBranch`
+    // refuse a value they do not recognise.
+    //
+    // Falling through costs nothing here, and that is worth stating rather than
+    // assuming: the only value a typo can fall through to is "auto", which is
+    // also the only string that would have been accepted. So a misspelt "auto"
+    // behaves identically to the spelling that was meant, and a misspelt number
+    // was never a number. There is no reading of this key where silence hides a
+    // port the author pinned.
+    if (typeof parsed.review.servePort === 'number' && Number.isFinite(parsed.review.servePort)) {
+      base.review.servePort = parsed.review.servePort
+    } else if (parsed.review.servePort === 'auto') {
+      base.review.servePort = 'auto'
+    }
     // Opting OUT is the only thing this key can do — a non-boolean leaves the
     // default in place rather than being read as a refusal, so a typo cannot
     // quietly restore the dead `file://` link on a remote reader.
@@ -452,6 +554,12 @@ function loadEnvConfig(dir = process.cwd()) {
 
 module.exports = {
   loadEnvConfig,
+  resolveServePort,
+  derivedServePort,
+  servePortRoot,
+  servePortReason,
+  PORT_BASE,
+  PORT_SPAN,
   collectUnknownKeys,
   mergeConfig,
   DEFAULT_CONFIG,

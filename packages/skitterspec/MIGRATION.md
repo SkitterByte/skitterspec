@@ -1,5 +1,50 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v21 → v22 (a review port per repo)
+
+### Breaking change
+
+**`review.servePort` now defaults to `"auto"`, not `7777`.** A repo that does
+not pin the key moves to a port derived from its own path —
+`7700 + hash(realpath(repoRoot)) % 100` — the first time `spec-env review serve`
+starts after the upgrade.
+
+**The one-time break is a link, and only a link.** A review page open on a
+phone at that moment points at `7777`, and `7777` is no longer this repo's
+server. The verdict you press there goes nowhere. **Re-render the page** —
+`/spec-diff`, or `/spec-next`'s own render — and the new link works. Nothing on
+disk is lost, no pass is dropped, and this happens once.
+
+**Why not simply keep 7777.** It was shared by every repo on the machine, so the
+second repo to start was refused, whoever hit that passed `--port`, and the
+links they had already handed out pointed at another repo's daemon — a `404`,
+reported in a grey line in the page footer. A derived port is stable for a given
+tree across a restart, a reboot and a `--stop`, which is what a link handed out
+yesterday needs.
+
+### To keep a fixed port
+
+Pin it, and nothing derives:
+
+```jsonc
+// specs/.core/env.config.json
+"review": { "servePort": 7777 }
+```
+
+An explicit number always wins, exactly as it did before. Pin one when you want
+a port you can memorise, or when two repos happen to derive the same one — a
+hundred slots is a small chance of that, not no chance, and the server still
+refuses a busy port rather than moving itself aside.
+
+`spec-env review serve --status` now prints the port **and which of the three chose it** —
+`--port`, `review.servePort`, or the derivation.
+
+## `@skitterbyte/skitterspec-linear` v16 → v17 (a review port per repo)
+
+The same change as `@skitterbyte/skitterspec` v21 → v22 above — this
+distribution composes the same engine. Read that entry; nothing here is
+Linear-specific.
+
 ## `@skitterbyte/skitterspec-linear` v15 → v16 (assignment is on by default)
 
 ### Breaking change

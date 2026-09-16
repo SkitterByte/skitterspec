@@ -9,7 +9,7 @@ const {
   removeReleaseTooling,
   releaseToolingNotice,
 } = require('./deprecate.js')
-const { loadEnvConfig } = require('./env/config.js')
+const { loadEnvConfig, resolveServePort, servePortReason } = require('./env/config.js')
 
 // Named once so the advisory below and any future caller agree on the wording.
 const ENV_CONFIG_LABEL = 'env.config.json'
@@ -2914,6 +2914,11 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
           const lb = settings.host === '127.0.0.1' || settings.host === 'localhost'
           return {
             port: settings.port,
+            // How the RUNNING server's port was chosen, as it recorded it. A
+            // server from before this was written has no answer; `null` says so
+            // rather than recomputing one, because a recomputed answer could
+            // disagree with the port actually being served.
+            portSource: settings.portSource || null,
             token: settings.token || null,
             loopback: lb,
             pid: running,
@@ -2951,7 +2956,11 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
     }
   }
 
-  const usePort = Number(port || config.review.servePort)
+  // `--port` wins, then an explicit `review.servePort` number, then the
+  // derivation. `source` is recorded in the settings file below so `--status`
+  // can say WHY this port, rather than leaving the operator to read config.js.
+  const resolved = resolveServePort(config, dir, port)
+  const usePort = resolved.port
   const loopback = host === '127.0.0.1' || host === 'localhost'
   // The token is the ONLY guard on a non-loopback bind, so it is minted with the
   // bind rather than offered as an option to forget — except when replacing a
@@ -2982,7 +2991,8 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
   // server refused to start on every Linux machine while macOS stayed green.
   // `portsInUseOn` owns the ordering; see its comment for the verification.
   const busy = await portsInUseOn(usePort, [host, '127.0.0.1'])
-  if (busy.length) return { error: 'busy', port: usePort, replaced, engineWas }
+  if (busy.length)
+    return { error: 'busy', port: usePort, portSource: resolved.source, replaced, engineWas }
 
   fs.mkdirSync(path.dirname(abs(settingsFile)), { recursive: true })
   fs.writeFileSync(
@@ -2994,7 +3004,15 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
     // — the process is alive, the file exists, and every page it renders is
     // drawn by code that was replaced underneath it.
     JSON.stringify(
-      { dir, port: usePort, host, token, script: proc.script, engine: engineVersionFor(proc.script) },
+      {
+        dir,
+        port: usePort,
+        portSource: resolved.source,
+        host,
+        token,
+        script: proc.script,
+        engine: engineVersionFor(proc.script),
+      },
       null,
       2,
     ) + '\n',
@@ -3058,8 +3076,16 @@ async function specEnvReviewServe(dir, config, flags) {
     // ordinary answer and needs no comment; `unknown` is a server from before
     // this was recorded, which is healthy and must not be accused of anything.
     const verdict = staleServer(settings.engine, engineVersionFor(proc.script))
+    // The port AND how it was chosen, so "why is this on 7742?" is answered by
+    // the tool. A server started before `portSource` was recorded has no answer
+    // — the line then carries the port alone rather than a guess, because an
+    // absence is not evidence of any particular source.
+    const reason = servePortReason(settings.portSource)
     process.stdout.write(
       `spec-env review serve: running (pid ${running})\n` +
+        (settings.port
+          ? `  port:  ${settings.port}${reason ? ` (${reason})` : ''}\n`
+          : '') +
         (settings.port ? `  local: ${serveUrl('127.0.0.1', settings)}\n` : '') +
         (settings.engine ? `  engine: ${settings.engine}\n` : '') +
         (verdict === 'stale'
@@ -3093,9 +3119,19 @@ async function specEnvReviewServe(dir, config, flags) {
   })
 
   if (started.error === 'busy') {
+    // NAME `servePort`, not only `--port`. `--port` moves this run aside and
+    // leaves every link already handed out pointing at the busy port — which is
+    // the bug this refusal used to send people straight into. Pinning
+    // `review.servePort` is the durable fix: it is what the next link is built
+    // from, so the move happens once and the links follow it.
     process.stdout.write(
       `spec-env review serve: port ${started.port} is already in use — ` +
-        'pass --port, or --stop if this is an older server.\n',
+        (started.portSource === 'derived'
+          ? 'two repos derived the same port. '
+          : '') +
+        'pin a free one in specs/.core/env.config.json ("review": { "servePort": <n> }) ' +
+        'so the links follow, or --stop if this is an older server.\n' +
+        '  --port <n> moves this run only, and leaves existing links on the busy port.\n',
     )
     return
   }

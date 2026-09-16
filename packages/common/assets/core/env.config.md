@@ -257,12 +257,34 @@ through to a documented conservative default; see the field notes below.
   // unrecognised value falls through to "detect", so a typo cannot become a
   // confident answer. Default: detect.
   //
-  // `servePort` is the default port for `spec-env review serve`, which renders
-  // every spec's diff per request on one local server. `--port` overrides it per
-  // run. The server binds 127.0.0.1 unless `--host 0.0.0.0` is passed, which
-  // mints an unguessable path token and prints the LAN URL including it —
-  // anyone holding that URL can read every spec's diff while it runs.
-  // Default: 7777.
+  // `servePort` is the port for `spec-env review serve`, which renders every
+  // spec's diff per request on one local server. Two forms:
+  //
+  //   "auto" (the default) — derive it from this repo's path, as
+  //     7700 + hash(realpath(repoRoot)) % 100. Two repos on one machine stop
+  //     competing for one shared port without anyone configuring anything, and
+  //     — the part that matters — THE SAME REPO GETS THE SAME PORT EVERY TIME.
+  //     The derivation reads nothing on disk, so the port survives a restart, a
+  //     reboot and a `--stop`, which is what lets a link handed out yesterday
+  //     still resolve. A symlinked spelling of the tree resolves first, so one
+  //     repo never lands on two ports.
+  //   <a number> — pin it. An explicit number always wins, and pinning is what
+  //     you do when you want a port you can memorise, or when two repos derive
+  //     the same one.
+  //
+  // A derived port CAN still collide — a hundred slots is a small chance, not
+  // no chance — and the server refuses rather than moving itself aside. The fix
+  // it names is `servePort`, because that is what the next link is built from;
+  // `--port` moves one run and leaves every link already handed out pointing at
+  // the busy port. `spec-env review serve --status` prints the port and which
+  // of the three chose it.
+  //
+  // An unrecognised value falls through to "auto", like every other typed key
+  // here. Default: "auto".
+  //
+  // The server binds 127.0.0.1 unless `--host 0.0.0.0` is passed, which mints
+  // an unguessable path token and prints the LAN URL including it — anyone
+  // holding that URL can read every spec's diff while it runs.
   //
   // `serveOnRemote` is whether a "remote" reader may have that server started
   // FOR them. On (the default) the engine brings it up, binds 0.0.0.0, and puts
@@ -308,7 +330,7 @@ through to a documented conservative default; see the field notes below.
   // place rather than quietly disabling it. Default: true.
   "review": {
     "reader": "detect",
-    "servePort": 7777,
+    "servePort": "auto",
     "serveOnRemote": true,
     "commitWith": "/commit",
     "required": true
