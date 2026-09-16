@@ -142,6 +142,41 @@ test('the key row is skipped when there is no tracker at all', async () => {
   assert.match(r.out, /key\s+skipped/)
 })
 
+// --- identity, and who owns the assignee --------------------------------------
+//
+// The gather that feeds this row asks `ownsField`, not `'assignee' in …`. The
+// membership test reads correct and is not: the key is present in every config
+// once the defaults carry it, so it would report a repo that DECLINED the field
+// as opted in — and then chase it for a missing identity it has no use for.
+
+test('identity: a repo that declined the field is skipped, not chased for a key', async () => {
+  const dir = configuredRepo()
+  const cfg = path.join(dir, CONFIG_FILE)
+  const parsed = JSON.parse(fs.readFileSync(cfg, 'utf-8'))
+  parsed.sync = { fieldOwnership: { assignee: 'none' } }
+  fs.writeFileSync(cfg, JSON.stringify(parsed), 'utf-8')
+
+  const r = await run(['doctor'], dir, { LINEAR_API_KEY: SECRET })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /identity\s+skipped/)
+  assert.ok(!/whoami/.test(r.out), 'a declined field is not a missing identity')
+})
+
+test('identity: owning the field is what makes the row ask for one', async () => {
+  // The positive half — without it the test above passes on a row that can
+  // never fire at all.
+  const dir = configuredRepo()
+  const cfg = path.join(dir, CONFIG_FILE)
+  const parsed = JSON.parse(fs.readFileSync(cfg, 'utf-8'))
+  parsed.sync = { fieldOwnership: { assignee: 'push' } }
+  fs.writeFileSync(cfg, JSON.stringify(parsed), 'utf-8')
+
+  const r = await run(['doctor'], dir, { LINEAR_API_KEY: SECRET })
+  assert.strictEqual(r.code, 0, 'an uncached identity never fails the run')
+  assert.match(r.out, /identity\s+missing/)
+  assert.match(r.out, /whoami/)
+})
+
 // --- machine-readable ---------------------------------------------------------
 
 test('--json parses, carries every row, and leaks no key', async () => {

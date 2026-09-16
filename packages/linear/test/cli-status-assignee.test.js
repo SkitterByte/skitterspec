@@ -28,7 +28,10 @@ function fixtureRepo({ optIn = true, assignee = null, bucket = 'in-progress' } =
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-assigneestatus-'))
   const cfg = path.join(dir, CONFIG_FILE)
   fs.mkdirSync(path.dirname(cfg), { recursive: true })
-  const fieldOwnership = optIn ? { ...OWNERSHIP, assignee: 'push' } : { ...OWNERSHIP }
+  // Three configs, not two: owning the field, never listing it, and DECLINING
+  // it with `none`. The last must be indistinguishable from the middle.
+  const fieldOwnership =
+    optIn === 'none' ? { ...OWNERSHIP, assignee: 'none' } : optIn ? { ...OWNERSHIP, assignee: 'push' } : { ...OWNERSHIP }
   fs.writeFileSync(cfg, JSON.stringify({ linear: { teamId: 'T1' }, sync: { fieldOwnership } }), 'utf-8')
 
   const folder = path.join(dir, 'specs', bucket, 'feat-owned')
@@ -123,4 +126,16 @@ test('the workflow-state drift line is untouched by any of this', async () => {
   const remote = remoteFile(dir, { state: 'Backlog', assignee: { id: 'user-1', name: 'Jane Dev' } })
   const r = await run(['status', 'feat-owned', '--remote', remote], dir)
   assert.match(r.out, /drift: Linear workflow-state is "backlog" but the spec is "in-progress"/)
+})
+
+test('a repo that DECLINED the field sees no trace of it either', async () => {
+  // `"assignee": "none"` has to be as invisible as never listing it — the line
+  // is driven by the projection, and declining removes the key rather than
+  // nulling it. Testing the key's presence anywhere upstream would show this
+  // repo an assignee line it deliberately opted out of.
+  const dir = fixtureRepo({ optIn: 'none', assignee: 'user-1' })
+  const remote = remoteFile(dir, { assignee: { id: 'user-9', name: 'Priya PM' } })
+  const r = await run(['status', 'feat-owned', '--remote', remote], dir)
+  assert.strictEqual(r.code, 0)
+  assert.ok(!/assignee/i.test(r.out), 'declined means invisible, not merely inactive')
 })

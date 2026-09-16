@@ -54,6 +54,7 @@ const {
   isEmptyRetarget,
   dirtyPaths,
   phaseModeFor,
+  ownsField,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const {
@@ -1024,7 +1025,10 @@ function gatherState(dir, flags) {
   // but has not yet reports as "not cached", with `whoami` as the fix, rather
   // than as a fault: not having asked is not the same as having no answer.
   if (config) {
-    const owned = !!(config.sync && config.sync.fieldOwnership && 'assignee' in config.sync.fieldOwnership)
+    // `ownsField`, not `'assignee' in …`: the key is present in every config
+    // once the defaults carry it, so the membership test would read as opted-in
+    // for a repo that declined with `"assignee": "none"`.
+    const owned = ownsField(config, 'assignee')
     state.identity = { owned }
     if (owned) {
       const store = readStore(storePath(flags.env || process.env))

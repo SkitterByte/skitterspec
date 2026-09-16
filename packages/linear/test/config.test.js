@@ -108,12 +108,41 @@ test('invalid fieldOwnership enum → clear throw', () => {
   writeConfig(dir, { sync: { fieldOwnership: { description: 'sideways' } } })
   assert.throws(
     () => loadLinearConfig(dir),
-    /fieldOwnership\.description.*expected one of both\|pull\|push/,
+    /fieldOwnership\.description.*expected one of both\|pull\|push\|none/,
   )
 })
 
-test('OWNERSHIP enum is exactly both|pull|push', () => {
-  assert.deepStrictEqual([...OWNERSHIP], ['both', 'pull', 'push'])
+test('OWNERSHIP enum is exactly both|pull|push|none', () => {
+  assert.deepStrictEqual([...OWNERSHIP], ['both', 'pull', 'push', 'none'])
+})
+
+test('"none" is a value, not an omission — a field can be declined', () => {
+  // The key cannot simply be left out once a field is owned by DEFAULT:
+  // `mergeFieldOwnership` merges per key onto the defaults, so there is nothing
+  // an absent key can subtract. Declining has to be sayable.
+  const dir = tmpDir()
+  writeConfig(dir, { sync: { fieldOwnership: { assignee: 'none' } } })
+  const { config } = loadLinearConfig(dir)
+  assert.strictEqual(config.sync.fieldOwnership.assignee, 'none')
+})
+
+test('declining one field does not disturb the others', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { sync: { fieldOwnership: { assignee: 'none' } } })
+  const { config } = loadLinearConfig(dir)
+  assert.strictEqual(config.sync.fieldOwnership.description, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.subIssues, 'push')
+})
+
+test('a near-miss of "none" is still a throw, not an opt-out', () => {
+  // The failure mode this guards: a typo silently reading as "declined" would
+  // turn a misconfiguration into a mirror that quietly stops pushing a field.
+  for (const typo of ['None', 'non', 'off', 'false']) {
+    const dir = tmpDir()
+    writeConfig(dir, { sync: { fieldOwnership: { assignee: typo } } })
+    assert.throws(() => loadLinearConfig(dir), /fieldOwnership\.assignee/)
+  }
 })
 
 test('localOnlySections override replaces the default list (strings only)', () => {

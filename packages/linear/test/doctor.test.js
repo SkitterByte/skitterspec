@@ -468,9 +468,11 @@ test('identity: an unresolved user is missing, with the command that fixes it', 
 // `.claude/rules/negative-checks.md`: the rows above prove it can report; these
 // prove it does not accuse a project that is perfectly healthy without it.
 
-test('identity: a project that never opted in is skipped, not missing', () => {
+test('identity: a project that does not own the field is skipped, not missing', () => {
+  // `owned:false` is both "never listed it" and "declined it with none" — the
+  // gather collapses them on purpose, because neither is a fault.
   const c = identity({ owned: false })
-  assert.strictEqual(c.state, 'skipped', 'assignment is opt-in — not using it is not a fault')
+  assert.strictEqual(c.state, 'skipped', 'not owning the field is not a fault')
   assert.match(c.detail, /fieldOwnership/, 'and it says what would enable it')
 })
 

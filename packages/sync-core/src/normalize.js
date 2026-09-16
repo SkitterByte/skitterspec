@@ -488,11 +488,36 @@ function lintPhases(snapshotDir, config) {
 
 // --- ownership-driven field set ---------------------------------------------
 
+/**
+ * Does this repo own `field` — i.e. does the projection carry it at all?
+ *
+ * THE VALUE DECIDES, NEVER THE KEY'S PRESENCE. A field configured `none` is
+ * declared not-ours, and it must be indistinguishable from one the config never
+ * listed: both produce a projection with no such key, which is the single
+ * vocabulary every downstream reader already speaks for "not in play"
+ * (`compare.js` hashes it only when defined; the status report prints an
+ * assignee line only when defined).
+ *
+ * Asked in one place so the two cannot drift. Testing `field in fieldOwnership`
+ * at a call site reads correct and is not: once a field is owned by DEFAULT the
+ * key is always present, and the test silently becomes "always true".
+ */
+function ownsField(config, field) {
+  const owned = config && config.sync && config.sync.fieldOwnership
+  return !!owned && field in owned && owned[field] !== 'none'
+}
+
 // Reduce an `extracted` map to exactly the configured field keys, defaulting a
 // missing field to `null` so local and remote always share an identical set.
+//
+// A declined field is OMITTED, not set null. The two are not interchangeable
+// here: `null` is a value this projection asserts — it is how a finished spec
+// hands its issue back — so writing it for a field the repo does not own would
+// clear in Linear exactly what declining ownership promised not to touch.
 function toFieldSet(extracted, config) {
   const out = {}
   for (const field of Object.keys(config.sync.fieldOwnership)) {
+    if (!ownsField(config, field)) continue
     out[field] = field in extracted ? extracted[field] : null
   }
   return out
@@ -1065,6 +1090,7 @@ function stateSuggestions(config, workspaceStates) {
 }
 
 module.exports = {
+  ownsField,
   stateSuggestions,
   configuredStateNames,
   normalizeLocal,

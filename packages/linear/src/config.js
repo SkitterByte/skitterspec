@@ -11,8 +11,8 @@
  *
  * Mirrors the shape/idiom of `src/env/config.js` (frozen defaults, merge known
  * keys only, forward-compatible on unknown keys). Zero-dependency. The one place
- * it is stricter: a `sync.fieldOwnership` value outside `both|pull|push` is a
- * hard error — the engine's whole safety model rests on those enums.
+ * it is stricter: a `sync.fieldOwnership` value outside `both|pull|push|none` is
+ * a hard error — the engine's whole safety model rests on those enums.
  *
  * Shape (see assets/core/linear.config.md for field docs):
  *   {
@@ -25,7 +25,7 @@
  *     branch:   { pattern },
  *     sync: {
  *       baseDir, backupDir,
- *       fieldOwnership: { <field>: "both" | "pull" | "push" },
+ *       fieldOwnership: { <field>: "both" | "pull" | "push" | "none" },
  *       localOnlySections: string[]
  *     }
  *   }
@@ -36,7 +36,14 @@ const { join } = require('node:path')
 
 const CONFIG_FILE = join('specs', '.core', 'linear.config.json')
 
-const OWNERSHIP = Object.freeze(['both', 'pull', 'push'])
+// `none` is how a repo DECLINES a field the defaults own. It has to be a
+// value rather than an omitted key, because an omitted key cannot override a
+// default that is present — and `mergeFieldOwnership` merges per key onto the
+// defaults, so there is no way to subtract one. Every reader asks `ownsField`
+// rather than testing for the key, which is what keeps the two indistinguishable
+// downstream: a declined field and an unlisted one both leave the projection
+// without that key at all.
+const OWNERSHIP = Object.freeze(['both', 'pull', 'push', 'none'])
 
 // How a phase's task list is projected into its sub-issue description.
 //   checklist — mirror the tasks as a read-only markdown checklist (default)

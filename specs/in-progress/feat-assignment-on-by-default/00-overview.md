@@ -129,7 +129,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `none` is a first-class ownership value | ⬜ | [01-ownership-none.md](01-ownership-none.md) |
+| 1 | `none` is a first-class ownership value | ✅ | [01-ownership-none.md](01-ownership-none.md) |
 | 2 | `spec-sync assign` refuses what it cannot push | ⬜ | [02-assign-guard.md](02-assign-guard.md) |
 | 3 | Flip the default, invert the setup, write the migration | ⬜ | [03-flip-the-default.md](03-flip-the-default.md) |
 
@@ -147,3 +147,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-16 — Spec created.
+- 2026-09-16 — Phase 1: the is-owned test is one exported helper
+  (`ownsField`, in `sync-core`) rather than an inline condition at each of
+  the three call sites — `field in fieldOwnership` becomes "always true"
+  once phase 3 lands, so three copies would have drifted precisely then.

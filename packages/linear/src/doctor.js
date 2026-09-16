@@ -261,10 +261,11 @@ function keyCheck(s = {}, tracker = {}) {
  *
  * WHAT WOULD MAKE THIS CHECK ACCUSE THE INNOCENT, and why it does not:
  *
- *   - **A project that never opted in.** Assignment is opt-in through
- *     `sync.fieldOwnership.assignee`; without it nothing reads an identity, so
- *     reporting one as missing would tell a healthy project to fix something it
- *     deliberately does not use. That is `skipped`, and it is the common case.
+ *   - **A project that does not own the field.** `sync.fieldOwnership.assignee`
+ *     decides, and `"none"` declines it as surely as omitting it does; without
+ *     ownership nothing reads an identity, so reporting one as missing would
+ *     tell a healthy project to fix something it deliberately does not use.
+ *     That is `skipped`.
  *   - **An identity that is merely underivable.** No key, offline, a shared
  *     credential — all ordinary, all `missing` rather than `broken`, because the
  *     lifecycle skills skip assignment and carry on. Nothing here fails a run.
@@ -276,7 +277,7 @@ function keyCheck(s = {}, tracker = {}) {
 function identityCheck(s = {}, tracker = {}) {
   if (!tracker.present) return row('identity', 'identity', 'skipped', 'no tracker configured')
   if (!s.owned) {
-    return row('identity', 'identity', 'skipped', 'assignment not enabled (sync.fieldOwnership.assignee)')
+    return row('identity', 'identity', 'skipped', 'assignment not owned here (sync.fieldOwnership.assignee)')
   }
   if (!s.ok) {
     return row(
