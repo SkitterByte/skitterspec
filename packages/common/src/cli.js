@@ -2554,9 +2554,25 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // `file://`, which opens on the machine holding the page and, unlike
   // `file://`, can POST. Cannot-tell binds loopback, the harmless direction
   // (`.claude/rules/negative-checks.md` rule 4).
+  // WHY THERE IS NO SERVED URL, when there is none. The `file://` line used to
+  // mean "nobody asked for serving"; now that every render asks, it can only
+  // mean the ask did not land — so the render says which: the operator turned
+  // it off, or it failed and here is the reason.
+  let noServeBecause = config.review.serve === 'never' ? 'review.serve is "never"' : null
   if (config.review.serve === 'always') {
     const host = reader.reader === 'remote' ? '0.0.0.0' : '127.0.0.1'
     const up = await ensureReviewServer(dir, config, { host })
+    // TRANSLATED, because `error` is a code for a caller and this line is read
+    // by a person: `busy` alone does not say which port, and the port is the
+    // whole of what they can act on. An unmapped code is passed through rather
+    // than swallowed — a reason nobody anticipated still beats silence.
+    if (up.error === 'busy') {
+      noServeBecause = `port ${up.port} is already in use`
+    } else if (up.error === 'unreadable') {
+      noServeBecause = `a server is running (pid ${up.pid}) whose settings could not be read`
+    } else if (up.error) {
+      noServeBecause = String(up.error)
+    }
     if (up.replaced === 'engine') {
       serverSaid = up.error
         ? // BOTH facts. A reader told only "could not start" cannot see why it
@@ -2598,6 +2614,9 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           reader: reader.reader,
           readerWhy: reader.why,
           served,
+          // Absent when there IS a served URL, so a consumer that only ever
+          // saw a served render sees no new key.
+          ...(served ? {} : noServeBecause ? { notServed: noServeBecause } : {}),
           ...(serverSaid ? { server: serverSaid } : {}),
           fileUrl: reviewFileUrl(out),
           urlFile,
@@ -2718,6 +2737,10 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
         : `  open: ${reviewFileUrl(out)}${
             reader.reader === 'remote' ? '   (will not open where you are reading)' : ''
           }\n` +
+          // THE REASON, not just the fallback. A `file://` link with nothing
+          // said about it reads as the ordinary outcome, and since phase 1 it
+          // is not: something stopped the server this render asked for.
+          (noServeBecause ? `  not served: ${noServeBecause}\n` : '') +
           (serverSaid ? `  ${serverSaid}\n` : '') +
           (reader.reader === 'remote'
             ? '  serve: skitterspec spec-env review serve --host 0.0.0.0\n'

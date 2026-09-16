@@ -475,3 +475,74 @@ test('the alternates are real alternatives to the offered link', async () => {
     cleanup(dir)
   }
 })
+
+// --- why there is no served URL, when there is none -------------------------
+//
+// Since serving stopped being gated on the reader, a `file://` link can only
+// mean the ask did not land. Saying nothing about it reads as the ordinary
+// outcome, which it no longer is.
+
+test('serve: "never" says so, rather than leaving the file:// link unexplained', async () => {
+  const { dir } = scaffold('local', { servePort: await freePort(), serve: 'never' })
+  try {
+    const out = review(dir)
+    assert.match(out, /open: file:\/\//)
+    assert.match(out, /not served: review\.serve is "never"/)
+    assert.strictEqual(JSON.parse(review(dir, '--json')).notServed, 'review.serve is "never"')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('a failed serve names the failure, not just the fallback', async () => {
+  const port = await freePort()
+  const net = require('node:net')
+  const blocker = net.createServer()
+  await new Promise((r) => blocker.listen(port, '127.0.0.1', r))
+  const { dir } = scaffold('remote', { servePort: port })
+  try {
+    const out = review(dir)
+    assert.match(out, /open: file:\/\//, 'the floor is still the old link, never an error')
+    // The PORT, not just the word `busy` — the port is the whole of what the
+    // reader can act on.
+    assert.match(out, new RegExp(`not served: port ${port} is already in use`))
+    const json = JSON.parse(review(dir, '--json'))
+    assert.strictEqual(json.served, null)
+    assert.match(String(json.notServed), /is already in use/)
+  } finally {
+    await new Promise((r) => blocker.close(r))
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('a remote reader still gets the warning on that fallback, and only there', async () => {
+  const port = await freePort()
+  const net = require('node:net')
+  const blocker = net.createServer()
+  await new Promise((r) => blocker.listen(port, '127.0.0.1', r))
+  const { dir } = scaffold('remote', { servePort: port })
+  try {
+    const out = review(dir)
+    assert.match(out, /will not open where you are reading/)
+    assert.match(out, /serve: skitterspec spec-env review serve --host 0\.0\.0\.0/)
+  } finally {
+    await new Promise((r) => blocker.close(r))
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a served render explains nothing, because nothing needs it', async () => {
+  const { dir } = scaffold('local', { servePort: await freePort() })
+  try {
+    const out = review(dir)
+    assert.match(out, /open: http:\/\/127\.0\.0\.1:/)
+    assert.doesNotMatch(out, /not served/, 'a reason for a thing that happened is noise')
+    assert.ok(!('notServed' in JSON.parse(review(dir, '--json'))))
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})

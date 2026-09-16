@@ -192,12 +192,21 @@ function numstatFor(git, ref, file, untracked) {
  * `remote` — somewhere else, so it does not.
  * `unknown` — CANNOT TELL, and that is a real answer rather than a soft `local`.
  *
- * **This decides wording and nothing else.** Nothing in the engine serves,
- * publishes or refuses on the strength of it, because being wrong has to stay
- * cheap in both directions: a wrong `local` prints a dead link (the bug this
- * exists to fix), and a wrong `remote` acted upon would publish something the
- * tooling cannot remove, unprompted. `unknown` is therefore wired to exactly the
- * behaviour that existed before any of this.
+ * **This decides two things: the WORDING, and WHAT THE SERVER BINDS TO.** It
+ * does not decide *whether* to serve — `review.serve` does — and it never
+ * decides to publish. Being wrong therefore stays cheap in both directions: a
+ * wrong `local` binds loopback, which is reachable from the machine holding the
+ * page and says so; a wrong `remote` binds every interface, which is the
+ * existing behaviour and is announced on the render.
+ *
+ * IT DID DECIDE WHETHER TO SERVE, ONCE, and this comment claimed otherwise
+ * throughout — the sentence above used to read "nothing in the engine serves on
+ * the strength of it" while `cli.js` served only for a `remote` reader. The bill
+ * was a `file://` link on a local machine, and a `file://` page has no server to
+ * POST to, so the verdict buttons on it had nowhere to go: the loop the page
+ * exists to close was absent from the sessions easiest to use. If you are here
+ * wondering whether to make detection load-bearing again, that is what it cost
+ * the last time, and `env-serve-start-proof` now fails if you do.
  *
  * `env` is passed in, never read from `process` here, so a test states the world
  * it is testing instead of inheriting the machine the suite happens to run on.

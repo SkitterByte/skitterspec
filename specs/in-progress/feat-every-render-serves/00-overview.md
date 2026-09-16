@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Serving stops asking where the reader is, or for a worktree | ✅ | [01-serving-is-unconditional.md](01-serving-is-unconditional.md) |
-| 2 | Detection goes back to deciding wording | ⬜ | [02-detection-decides-wording.md](02-detection-decides-wording.md) |
+| 2 | Detection goes back to deciding wording | ✅ | [02-detection-decides-wording.md](02-detection-decides-wording.md) |
 
 ## Open questions
 
@@ -137,3 +137,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   otherwise spawns a daemon per review test, and one run leaked 60. The
   `env-serve-start-proof` port guard was widened from `scaffold('remote')` to
   every reader and immediately caught two offenders.
+- 2026-09-16 — Phase 2: the plan asked for `detectReader`'s comment to be
+  restored as written, which would have been false a second time — phase 1 kept
+  `reader` for the bind. The comment now says it decides the wording and the
+  bind and not whether to serve, and three guards pin that: serving must not
+  read the reader, the bind must, and the comment must still record the cost.
+  A `file://` render now also says why it fell back.

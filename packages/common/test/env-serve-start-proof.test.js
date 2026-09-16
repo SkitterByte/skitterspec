@@ -328,3 +328,45 @@ test('no serving test binds the machine\'s configured default port', () => {
     'a serving test took the configured default port',
   )
 })
+
+// --- the serve decision does not read the reader ---------------------------
+//
+// `detectReader`'s doc comment claimed for a long time that nothing in the
+// engine served on the strength of it, while `cli.js` served only for a
+// `remote` reader. A comment cannot fail, so the claim drifted from the code
+// and the bill was a `file://` link on a local machine — a page whose verdict
+// buttons had nowhere to POST.
+//
+// These two are the half that outlives the comment.
+
+test('the serve decision reads review.serve, and not the reader', () => {
+  const src = fs.readFileSync(require.resolve('../src/cli.js'), 'utf8')
+  const guard = /\n\s*if \(config\.review\.serve === 'always'\) \{/.exec(src)
+  assert.ok(guard, 'the serve decision is guarded by review.serve')
+  // The condition itself must not mention the reader. Anchored to the `if`
+  // line rather than the block, because the BIND inside the block reads
+  // `reader` on purpose — that is what keeps serving-everywhere free of new
+  // exposure, and a test banning the word outright would forbid it.
+  const line = src.slice(guard.index + 1, src.indexOf('\n', guard.index + 1))
+  assert.doesNotMatch(line, /reader/, 'serving must not depend on where the reader is sitting')
+})
+
+test('the bind DOES read the reader, which is what keeps it free of new exposure', () => {
+  // The positive half. If this stops being true, a local session starts
+  // listening on every interface and "serving more never means listening
+  // wider" stops being a claim anyone can rely on.
+  const src = fs.readFileSync(require.resolve('../src/cli.js'), 'utf8')
+  assert.match(
+    src,
+    /const host = reader\.reader === 'remote' \? '0\.0\.0\.0' : '127\.0\.0\.1'/,
+    'the bind is chosen from the reader, and loopback is the default',
+  )
+})
+
+test("detectReader's comment records that it once decided serving", () => {
+  // Not decoration: the next person to wonder whether detection may be made
+  // load-bearing should find the answer and the bill in the same place.
+  const src = fs.readFileSync(require.resolve('../src/env/review.js'), 'utf8')
+  assert.match(src, /IT DID DECIDE WHETHER TO SERVE, ONCE/)
+  assert.match(src, /does not decide \*whether\* to serve/)
+})
