@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-say-what-linear-refused (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-16)
+> **Status:** Complete (2026-09-16)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -177,6 +177,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   exact-title match (and its phases), refusing rather than choosing when several
   do; minting now refuses over such a match, with `--force-new` as the escape.
   The guard that would have prevented SKS-284.
+- 2026-09-16 — Completed; all three phases done, tests green (2734). The spec
+  closed the loop on its own origin: the `usage limit exceeded` that cost an
+  hour now reports Linear's free-plan explanation and that waiting will not
+  help, and the SKS-283/284 duplicate that prompted phase 3 is now a refusal
+  with `reattach` as the way out.
 
 ## State log
 
@@ -184,3 +189,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
 | 2026-09-16 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-16 | Complete | complete | Reuben Greaves |
