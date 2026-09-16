@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-307"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-307/every-render-serves-so-no-link-depends-on-a-guess"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Every render serves, so no link depends on a guess
 
 > **Type:** Feature
 > **Name:** feat-every-render-serves (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-16)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
 > **Area:** packages/common/src/cli.js, packages/common/src/env/review.js, packages/common/src/env/config.js, packages/common/test/env-review-reader.test.js
 > **Stack:** worktree
@@ -115,6 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
+| 2026-09-16 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
