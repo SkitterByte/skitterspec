@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-docs-catch-up-on-review (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-17)
+> **Status:** Complete (2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -123,6 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
 | 2026-09-17 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-17 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -173,3 +174,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   explicit list can do. The regex ban also fixed a near-miss where the same
   claim appeared as "your conversation" on the site and "this conversation" in
   the CLAUDE section.
+- 2026-09-17 — Completed; all four phases done, tests green (3002). Phase 4's
+  sub-issue was never mirrored: Linear refused the write with
+  `USAGE_LIMIT_EXCEEDED` — the workspace is at its free issue limit — so SKS-310
+  carries phases 1–3 and the repo is the record for phase 4.
