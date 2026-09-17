@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-ci-matches-local (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-17)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
 > **Area:** .github/workflows/ci.yml, packages/common/test/env-review-reader.test.js, packages/common/test/env-proxy.test.js, packages/common/test/env-serve-start-proof.test.js, packages/common/test/env-review-server-teardown.test.js, packages/common/test/cli-review-serve-port.test.js, packages/common/test/env-review-tiers.test.js, packages/common/test/env-supervise.test.js, RELEASING.md
 > **Stack:** worktree
@@ -91,6 +91,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
+| 2026-09-17 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
