@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The published READMEs, and the guard | ✅ | [01-the-npm-readmes.md](01-the-npm-readmes.md) |
-| 2 | The docs site | ⬜ | [02-the-docs-site.md](02-the-docs-site.md) |
+| 2 | The docs site | ✅ | [02-the-docs-site.md](02-the-docs-site.md) |
 | 3 | The developer-facing README | ⬜ | [03-the-repo-readme.md](03-the-repo-readme.md) |
 
 ## Open questions
@@ -121,3 +121,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   comparison reads that. The predicted six discrepancies were not the real ones
   — `/spec-remote-review` landed the same day and no hand-kept list would have
   known — which is the case for set comparison made by the thing itself.
+- 2026-09-17 — Phase 2: both site pages gained a marked `commands` region and
+  the base page's review section was **corrected rather than extended**. It was
+  documenting the security model that existed before the phase learnt to wait —
+  *"a device that reaches your page cannot reach your conversation"* — which is
+  a worse failure than the absence the spec predicted, so that sentence and two
+  others went into the negative half by name. The *documented but not shipped*
+  half is now checked against the union of all distributions: a page may
+  cross-reference a real command, and what that half is for is a name that
+  ships nowhere.

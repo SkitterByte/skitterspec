@@ -73,29 +73,69 @@ function documented(file) {
   return [...new Set([...m[1].matchAll(TOKEN)].map((x) => x[1]))].sort()
 }
 
+const PROVIDER_SHIPS = names('packages/linear/assets/skills').sort()
+
+/**
+ * Every published surface, and which set each one's region is held to.
+ *
+ * THE TWO SUPERSET SURFACES ARE HELD TO DIFFERENT SETS, and the difference is
+ * about who reads them rather than about consistency. The superset **README**
+ * is the only document inside that npm package, so someone who installs it and
+ * reads nothing else must find all 21 commands there — it is the whole product.
+ * `docs/linear.html` sits beside `docs/index.html` on one site and links to it,
+ * so its job is the Linear half; demanding it restate the base's fifteen would
+ * make it a worse page, not a more complete one.
+ */
 const READMES = [
   ['packages/skitterspec/README.md', () => BASE_SHIPS],
   ['packages/skitterspec-linear/README.md', () => LINEAR_SHIPS],
+  ['docs/index.html', () => BASE_SHIPS],
+  ['docs/linear.html', () => PROVIDER_SHIPS],
 ]
 
 // --- positive: everything shipped is documented ---------------------------
 
+/**
+ * THE TWO HALVES ARE SCOPED DIFFERENTLY, and it took a real false positive to
+ * see why.
+ *
+ * *Shipped but undocumented* is checked **per surface**: whatever this document
+ * is responsible for listing, it must list all of. That is the half that let
+ * two live commands go unmentioned.
+ *
+ * *Documented but not shipped* is checked against the **union** of everything
+ * every distribution ships — because a name in a region that ships SOMEWHERE is
+ * a real command, and cross-referencing one is ordinary writing. `linear.html`'s
+ * `/spec-list` card says the folder name is what you paste into
+ * `/spec-start <name>`, which is true and useful; reading that as "the provider
+ * claims to ship `/spec-start`" would force the page to be written around the
+ * test. What this half is actually for is a name that exists nowhere at all — a
+ * command that was removed, or a typo.
+ */
+const SHIPS_ANYWHERE = [...new Set([...LINEAR_SHIPS, ...BASE_SHIPS])].sort()
+
 for (const [file, ships] of READMES) {
   test(`${file} documents exactly the commands it ships`, () => {
     const doc = documented(file)
-    const shipped = ships()
     assert.deepStrictEqual(
-      doc.filter((n) => !shipped.includes(n)),
+      doc.filter((n) => !SHIPS_ANYWHERE.includes(n)),
       [],
-      'documented but not shipped — a command that was removed, or a typo',
+      'documented but shipped nowhere — a command that was removed, or a typo',
     )
     assert.deepStrictEqual(
-      shipped.filter((n) => !doc.includes(n)),
+      ships().filter((n) => !doc.includes(n)),
       [],
       'shipped but undocumented — this is the half that let two live commands go unmentioned',
     )
   })
 }
+
+// The half above is only as good as its ability to fire. A name that ships
+// nowhere must fail it, or the loosening just made it decorative.
+test('a command that ships nowhere still fails the check', () => {
+  const doc = [...documented('docs/linear.html'), 'spec-env-down']
+  assert.deepStrictEqual(doc.filter((n) => !SHIPS_ANYWHERE.includes(n)), ['spec-env-down'])
+})
 
 // Read from `DEFAULT_CONFIG.review` rather than listed here, so a new key fails
 // this until someone writes it up. That is the whole point: the keys added the
@@ -131,6 +171,18 @@ const BANNED = [
   {
     phrase: '/spec-env-down',
     why: 'the skill was removed in v3 — teardown folded into `/spec-complete` and `/spec-cancel`. Naming it in version history is fine; naming it as a command is not',
+  },
+  {
+    phrase: 'cannot reach your conversation',
+    why: 'that guard was REPLACED, not weakened by accident. A phase now waits on its page and `--claim-since` claims a pass that arrived inside the window — so what holds is the serve token plus that window, and a page saying otherwise documents a security model the engine no longer has',
+  },
+  {
+    phrase: 'to record the verdict and commit nothing',
+    why: '`review.commitWith: "none"` existed and was removed — it produced the one thing a review page must not have, a verdict that records itself and does nothing (`env/config.js`)',
+  },
+  {
+    phrase: 'names that code back',
+    why: 'the read-back round-trip is gone: one waiting pass is claimed the moment someone types `/spec-reviewed`, with nothing read out. The code tells two passes apart; it was never an authorisation',
   },
 ]
 

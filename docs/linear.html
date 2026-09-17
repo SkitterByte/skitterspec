@@ -784,6 +784,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
       <p class="sub">The repo is the source of truth. There is no pull.</p>
     </div>
 
+    <!-- commands:start -->
     <div class="cards-3 reveal">
       <div class="icard">
         <h3><span class="mono">/spec-status</span></h3>
@@ -797,9 +798,22 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
         <h3><span class="mono">/spec-sync</span></h3>
         <p>The repo-wide operations: what is linked, the workspace's states and projects, read-back verification, and mirroring a whole bucket at once. Run it bare for an overview.</p>
       </div>
+      <div class="icard">
+        <h3><span class="mono">/spec-list</span></h3>
+        <p>What the tracker holds, read-only — id, title, state, and each spec's folder name so <span class="mono">/spec-start &lt;name&gt;</span> is a paste away. The folder buckets are only the truth on the branch you are standing on; this answers from the mirror instead.</p>
+      </div>
+      <div class="icard">
+        <h3><span class="mono">/spec-claim</span></h3>
+        <p>Ownership mid-flight: take a spec, hand it back, or hand it to a teammate. The spec file is the record and the ticket is the mirror, so this writes the repo and the next push tells Linear.</p>
+      </div>
+      <div class="icard">
+        <h3><span class="mono">/spec-linear-setup</span></h3>
+        <p>The setup interview — which team this repo files into, how products split, which labels drive intake — then it writes <span class="mono">linear.config.json</span> and checks your workflow-state names against the workspace.</p>
+      </div>
     </div>
+    <!-- commands:end -->
 
-    <p class="reveal">Every lifecycle skill already refreshes the mirror as it goes, so in practice you rarely push by hand. The full list of commands lives on <a href="index.html#reference">the base page's reference</a>.</p>
+    <p class="reveal">Every lifecycle skill already refreshes the mirror as it goes, so in practice you rarely push by hand. These six are what the superset <em>adds</em>; the base's own fifteen — the lifecycle, the review loop, isolation — are listed on <a href="index.html#loop">the base page</a>, and installing this package gives you all twenty-one.</p>
   </div>
 </section>
 
