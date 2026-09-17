@@ -1,0 +1,11 @@
+{
+  "issue": "9874f213759cb3c7698e0781d17559944bc990c2",
+  "issueFields": {
+    "description": "ae9a4356cca9585409bb710e1700e1c13e039187",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833"
+  },
+  "subIssues": {
+    "SKS-319": "0c1703683d1c49996529601eafd0b6184e372a11"
+  }
+}
