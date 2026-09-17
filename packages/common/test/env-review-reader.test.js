@@ -25,6 +25,7 @@ const { execFileSync } = require('node:child_process')
 
 const { detectReader, resolveReader } = require('../src/env/review.js')
 const { portsInUseOn } = require('../src/env/proxy.js')
+const { signalGroup } = require('../src/env/supervise.js')
 const { loadEnvConfig } = require('../src/env/config.js')
 const { run } = require('../src/cli.js')
 
@@ -311,21 +312,10 @@ function freePort() {
 /**
  * Wait until a killed review server has actually let go of its port.
  *
- * WHY THIS IS NOT A SLEEP, AND NOT OPTIONAL. `process.kill(pid, 'SIGKILL')`
- * returns as soon as the signal is *delivered*, not when the process has died
- * and its listening socket has been released. The next render probes that port
- * with `portsInUseOn` and, finding it still held, returns `error: 'busy'` and
- * falls back to a `file://` page — so the assertion reads `null` instead of the
- * URL, and blames the URL-stability logic for a race in its own setup.
- *
- * macOS releases the socket inside the gap and Linux does not, so this passed
- * locally on every run and failed on every CI runner — which is the worst shape
- * a test can have: green where it is written, red where it is trusted. It cost
- * two release workflows.
- *
- * It waits on **the product's own probe** rather than a timer, so what it waits
- * for is exactly what `ensureReviewServer` decides on. A timer would be a guess
- * about the same race, tuned on the machine that never lost it.
+ * Paired with a GROUP kill, never a bare `process.kill(pid, …)` — see the test
+ * below. On its own this cannot rescue a server that is still running: it will
+ * wait the full timeout and say so. A timeout here means the kill MISSED, not
+ * that the OS was slow to release the socket.
  */
 async function waitPortReleased(port, { timeoutMs = 10000 } = {}) {
   const deadline = Date.now() + timeoutMs
@@ -333,7 +323,11 @@ async function waitPortReleased(port, { timeoutMs = 10000 } = {}) {
     const busy = await portsInUseOn(port, ['0.0.0.0', '127.0.0.1'])
     if (!busy.length) return
     if (Date.now() > deadline) {
-      throw new Error(`port ${port} still held ${timeoutMs}ms after SIGKILL — not the race this waits for`)
+      throw new Error(
+        `port ${port} still held ${timeoutMs}ms after SIGKILL — the server is still ` +
+          'running, so the kill missed it (a bare pid kill hits the `sh -c` wrapper, ' +
+          'not the node child it forked)',
+      )
     }
     await new Promise((r) => setTimeout(r, 50))
   }
@@ -659,10 +653,21 @@ test('a server dying leaves the URL unchanged too, which a restart-only fix woul
     const pid = Number(
       fs.readFileSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid'), 'utf8').trim(),
     )
-    process.kill(pid, 'SIGKILL')
-    // The signal is delivered before the socket is released; render too soon and
-    // the port probe reports 'busy' and hands back a file:// page. See
-    // `waitPortReleased` — this is the line CI failed on.
+    // THE GROUP, NOT THE PID — and this is the whole of what passed on macOS and
+    // failed on every Linux runner. `startProcess` spawns
+    // `sh -c "node <daemon> <settings>"` detached, so the recorded pid is the
+    // SHELL. Where that shell execs the command it is also the server and a bare
+    // kill works; where it forks, the node server is its child, survives the kill,
+    // and goes on holding the port. The next render then correctly reported
+    // 'busy' and handed back a `file://` page — so the assertion read `null` and
+    // blamed the URL logic for a server that had never died.
+    //
+    // `signalGroup` is what `stopProcess` uses, for exactly this reason. A test
+    // simulating a death has to kill what the product kills, or it is not
+    // simulating the thing it claims to.
+    signalGroup(pid, 'SIGKILL')
+    // Then wait for the socket: the signal is delivered before the process is
+    // reaped. A timeout here means the kill missed, not that the OS was slow.
     await waitPortReleased(port)
     // No --stop, no settings rewrite: exactly what a crash or a sleep leaves.
     const second = urlOf(review(dir))

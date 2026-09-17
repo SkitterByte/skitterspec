@@ -147,4 +147,11 @@ async function waitHealthy(
   return false
 }
 
-module.exports = { startProcess, stopProcess, waitHealthy, isAlive, readPid }
+// `signalGroup` is exported for TESTS that need to simulate a process dying.
+// Killing the recorded pid alone is not that simulation: the pid is the detached
+// `sh -c` leader, and where the shell forks rather than execs, the real server
+// is its child and survives. A test that reaches for `process.kill(pid, …)`
+// therefore kills the wrapper, leaves the server holding its port, and then
+// blames whatever it asserts next. Killing the group is what `stopProcess` does
+// and what a test must do to mean "it died".
+module.exports = { startProcess, stopProcess, waitHealthy, isAlive, readPid, signalGroup }
