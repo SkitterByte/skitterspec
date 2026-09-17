@@ -14,13 +14,13 @@
  */
 
 const { ownsField, normalizeLocal, lintPhases, readSnapshot, parseFrontmatter, remoteWorkflowState, titleFromText, validateStates, stateSuggestions, stageForState, remoteStage, phaseModeFor, LADDER_ORIGIN_BUCKET } = require('./src/normalize.js')
-const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify } = require('./src/compare.js')
+const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify, remoteDescriptionEdited } = require('./src/compare.js')
 const { readBase, writeBase } = require('./src/base.js')
 const { push, recordPush, projectionOf } = require('./src/push.js')
 const { writeFrontmatter, deleteFrontmatter, stampSubIssueId, stampIssueId, findPhaseFileByTitle, listPhaseFiles } = require('./src/write.js')
 const { sanitizeSpecMarkdown } = require('./src/sanitise.js')
 const { detectLegacyMirror } = require('./src/legacy.js')
-const { compareStored } = require('./src/verify.js')
+const { compareStored, stream } = require('./src/verify.js')
 const { flattenNestedTables } = require('./src/tables.js')
 const { planRetarget, applyRetarget, deriveRecordedKey, isEmptyRetarget, dirtyPaths } = require('./src/retarget.js')
 
@@ -59,6 +59,13 @@ module.exports = {
   sanitizeSpecMarkdown,
   detectLegacyMirror,
   compareStored,
+  // The tolerant reduction behind both `compareStored` and the snapshot's
+  // `descriptionStream` hash — exported so a provider can reduce a read-back the
+  // same way rather than writing a second one that disagrees.
+  stream,
+  // Did someone else edit the tracker's description since the last push?
+  // Three-valued; `null` is cannot-tell and must never be reported as drift.
+  remoteDescriptionEdited,
   flattenNestedTables,
   planRetarget,
   applyRetarget,

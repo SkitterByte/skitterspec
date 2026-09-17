@@ -157,7 +157,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Preserve the original as a Linear comment | ✅ | [01-preserve-engine.md](01-preserve-engine.md) |
 | 2 | Wire preserve into the three adoption paths | ✅ | [02-adoption-skills.md](02-adoption-skills.md) |
-| 3 | Detect a description edited on Linear | ⬜ | [03-drift-detection.md](03-drift-detection.md) |
+| 3 | Detect a description edited on Linear | ✅ | [03-drift-detection.md](03-drift-detection.md) |
 | 4 | Report the drift, and correct the docs | ⬜ | [04-report-and-docs.md](04-report-and-docs.md) |
 
 ## Open questions
@@ -191,3 +191,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   claim had a second copy in `assets/core/linear.config.md`. An existing asset
   test pinned it, so removing it from the seam turned that test red; both copies
   are now replaced and the test asserts the new answer.
+- 2026-09-17 — Phase 3: the drift helper landed in `compare.js` rather than
+  `verify.js` — it asks a question about the snapshot, which `compare.js` owns —
+  importing `stream` from `verify.js` instead of reimplementing the reduction.
+  An empty description records a stream hash rather than omitting the key, so a
+  pre-upgrade snapshot stays the only thing an absent key can mean.

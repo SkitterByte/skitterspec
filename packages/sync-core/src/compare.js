@@ -19,6 +19,10 @@
  */
 
 const { createHash } = require('node:crypto')
+// The tolerant reduction `verify.js` already uses to tell Linear's own
+// reserialisation apart from a real edit. Imported rather than reimplemented:
+// two reductions that disagree would be two different answers to one question.
+const { stream } = require('./verify.js')
 
 // Deterministic JSON: object keys sorted recursively; array order preserved.
 // undefined normalises to null.
@@ -69,7 +73,67 @@ function specIssueFieldHashes(p) {
   // "the feature is inert" has to include the files it writes, or opting in later
   // would find a history of hashes it never agreed to.
   if (p.assignee !== undefined) hashes.assignee = hashField(p.assignee ?? null)
+
+  // A SECOND HASH OF THE SAME TEXT, answering a different question.
+  //
+  // `description` above decides what to PUSH: it is exact, because any
+  // difference between the repo and what the repo last sent is a difference the
+  // repo should send again. This one decides whether SOMEBODY ELSE has been
+  // here, and for that exactness is precisely wrong — Linear reserialises
+  // markdown on save (bullets rewritten, ordered lists renumbered, table
+  // separators collapsed), so comparing the exact hash against a read-back would
+  // report a human edit on every intact mirror in the workspace.
+  //
+  // So it hashes the `stream` reduction instead: word characters only, which is
+  // what `compareStored` already compares and what makes every benign transform
+  // invisible. The cost is the mirror image — an edit consisting ONLY of
+  // punctuation or formatting is invisible here too — and that is the right way
+  // round: the unknown case goes to the branch that says nothing rather than the
+  // one that accuses (`.claude/rules/negative-checks.md` rule 4).
+  //
+  // It is recorded and never planned on. `issueChanges` reads `description`,
+  // `state` and `assignee` by name and never iterates this object, so adding a
+  // key here cannot make a push pending — there is a test for exactly that.
+  hashes.descriptionStream = hashField(stream(p.description ?? ''))
   return hashes
+}
+
+/**
+ * Has the tracker's copy of the description been edited by someone other than
+ * this repo, since the last push?
+ *
+ * THREE ANSWERS, and the third is the point: `true`, `false`, and `null` for
+ * cannot-tell. Only `true` may be reported to a user, because only `true` is
+ * evidence. The three cannot-tells, each an absence that proves nothing:
+ *
+ *   - no `issueFields.descriptionStream` in the snapshot. EVERY snapshot written
+ *     before this function existed lacks it, so reading that absence as evidence
+ *     would accuse every spec in every repo on the first run after an upgrade.
+ *     This is the blind spot that matters most here.
+ *   - no `description` key on the remote object. The caller did not ask the
+ *     tracker for it, or could not.
+ *   - a `description` that is not a string. The same blind spot `compareStored`
+ *     documents: a value the caller never fetched is indistinguishable from one
+ *     the tracker really holds empty.
+ *
+ * Pure: no I/O, no clock, no randomness.
+ *
+ * @param {object|null} snapshot  the committed last-pushed snapshot
+ * @param {object|null} remote    what the tracker currently holds for the issue
+ * @returns {boolean|null}
+ */
+function remoteDescriptionEdited(snapshot, remote) {
+  const fields = snapshot && snapshot.issueFields
+  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return null
+  const recorded = fields.descriptionStream
+  if (typeof recorded !== 'string' || !recorded) return null
+
+  if (!remote || typeof remote !== 'object') return null
+  if (!('description' in remote)) return null
+  const text = remote.description
+  if (typeof text !== 'string') return null
+
+  return hashField(stream(text)) !== recorded
 }
 // A phase SUB-ISSUE: its name, goal and state (all repo-owned).
 const subIssueHash = (s) => hashField({ name: s.name ?? null, goal: s.goal ?? null, state: s.state ?? null })
@@ -228,6 +292,7 @@ function isEmptyPlan(plan) {
 
 module.exports = {
   planChanges,
+  remoteDescriptionEdited,
   issueChanges,
   specIssueFieldHashes,
   snapshotOf,
