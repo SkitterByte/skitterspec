@@ -36,11 +36,40 @@ kill ports, and that nobody running `pnpm test` has reason to doubt the result.
 
 ## Decisions
 
-Only one is settled; the rest are the point of the spec.
-
 1. **The one failing test is already fixed and is not in scope here.** It waits
    on `portsInUseOn` — the probe the product itself decides with — rather than a
    timer. This spec is about the class, not that instance.
+2. **REJECTED: adding `macos-latest` to the CI matrix.** It was this spec's
+   leading candidate and it would not have prevented anything. `ci.yml` already
+   runs `on: push` against `ubuntu-latest`, so a Linux leg exists and **it is what caught the bug**
+   — the ubuntu job went red exactly as it should. Adding macOS would catch the
+   *inverse* (Linux-green, macOS-red), which is the direction that only ever
+   inconveniences the developer at their own keyboard. Cost was not the reason
+   to reject it: the repo is public, so Actions minutes are free, macOS
+   included. It is rejected for being aimed at the wrong failure.
+3. **The gap is WHEN the tag is cut, not WHERE the suite runs.**
+   `scripts/release.js` runs `pnpm test` on the releaser's own machine and then
+   tags. That local run is macOS; the tag is then pushed and CI discovers on
+   Linux what the tag has already asserted. The recovery we performed by hand —
+   push the commit, wait for `ci.yml` to go green, *then* tag — is the fix, and
+   it should not depend on someone remembering it.
+4. **A local Linux run is viable, and is proven rather than assumed.** Docker is
+   present and the full reader suite runs **42/42 on `node:22`** in a container
+   against this worktree. That is also how the group-kill fix was first confirmed
+   on Linux at all. It takes ~111s against ~22s natively — slower, and still far
+   cheaper than a release round-trip.
+5. **This is the second instance in three days, and the first was a product bug, not a test bug.**
+   `bug-probe-race-on-linux` — completed 15 Sep — opens *"Five tests fail on CI and all five pass on macOS"*,
+   with the same `file://` fallback symptom. A local Linux gate would have
+   caught that one before it was ever pushed, which a release-time gate would
+   not. That is the argument for doing both.
+6. **The audit found no surviving instance of the defect itself.** Across all
+   eight port-touching files there is exactly **zero** remaining site that kills
+   a supervised process by its recorded pid alone, or stops one and asserts
+   without waiting. What it did find is a **second tier**: five sites where
+   `stopProcess` waits on `isAlive(leaderPid)` rather than on the socket, so on
+   Linux a reaped `sh` leader can leave its node child still closing a listener
+   that the very next line re-binds.
 
 ## Solution overview
 
@@ -77,14 +106,19 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Decide the approach, and audit the port-touching tests | ⬜ | [01-audit-and-decide.md](01-audit-and-decide.md) |
-| 2 | Apply it — matrix, shared helper, or both | ⬜ | [02-apply.md](02-apply.md) |
+| 1 | Decide the approach, and audit the port-touching tests | ✅ | [01-audit-and-decide.md](01-audit-and-decide.md) |
+| 2 | Gate the tag on Linux, and close the second tier | ⬜ | [02-apply.md](02-apply.md) |
 
 ## Open questions
 
-- [ ] Is doubling CI minutes worth catching this class, given the suite is ~22s?
-- [ ] Do any of the other seven port-touching files already have the same race,
-      or did this one differ in kicking the process rather than stopping it?
+- [x] ~~Is doubling CI minutes worth catching this class?~~ Moot — the repo is
+      public, so Actions minutes are free, and the matrix is rejected on grounds
+      of aim rather than cost (Decision 2).
+- [x] ~~Do any of the other seven files have the same race?~~ No. Zero surviving
+      sites; five second-tier ones, carried into phase 2.
+- [ ] Should `stopProcess` itself wait for the port, or should its callers? The
+      five second-tier sites all turn on this, and it is a product decision
+      rather than a test one.
 
 ## State log
 
@@ -97,3 +131,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-09-17 — Spec created, from two release workflows failing on a test that
   was green locally.
+- 2026-09-17 — Phase 1 reversed this spec's own leading candidate. A CI matrix
+  would not have caught the incident: `ci.yml` already runs ubuntu on every
+  push and its ubuntu leg is what went red. The gap is that `release.js` tags
+  off a local macOS run and never consults that result.
+- 2026-09-17 — Phase 1: the audit found zero surviving defect sites and five
+  second-tier ones, where `stopProcess` waits on the leader pid rather than on
+  the socket. Also a landmine: the teardown test writes the runner's own pid
+  into a pidfile, safe only while nothing on that path calls `stopProcess`.
+- 2026-09-17 — Phase 1: a local Linux run was proven, not assumed — the reader
+  suite runs 42/42 on `node:22` in Docker against this worktree, which is also
+  how the group-kill fix was first confirmed on Linux.
