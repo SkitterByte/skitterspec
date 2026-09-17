@@ -187,7 +187,16 @@ const DEFAULT_CONFIG = Object.freeze({
   spec: Object.freeze({ companionPaths: Object.freeze([]) }),
   // Integration base branch. Empty = auto-detect (origin/HEAD → main → master).
   baseBranch: '',
-  guards: Object.freeze({ refuseTeardownIfDirty: true, refuseTeardownIfUnpushed: true }),
+  // `mainIsLandingZone` defaults ON wherever isolation is configured, matching
+  // the review gate's precedent: the push toward not working on the base branch
+  // is the normal path, and stepping off it is the deliberate act. That does
+  // change behaviour for a project on upgrade, which is the honest cost — the
+  // refusal names both exits (`/no-spec` and `/allow-main`) and this key.
+  guards: Object.freeze({
+    refuseTeardownIfDirty: true,
+    refuseTeardownIfUnpushed: true,
+    mainIsLandingZone: true,
+  }),
   // Teardown cleanup beyond this machine. `deleteRemoteBranch` decides what
   // `spec-env down` does about a branch the USER published by hand — nothing
   // publishes one at provisioning, so there is often no remote ref at all and
@@ -562,6 +571,7 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.guards)) {
     assign(base.guards, parsed.guards, 'refuseTeardownIfDirty', 'boolean')
     assign(base.guards, parsed.guards, 'refuseTeardownIfUnpushed', 'boolean')
+    assign(base.guards, parsed.guards, 'mainIsLandingZone', 'boolean')
   }
 
   // An unrecognised policy falls through to the default rather than erroring or

@@ -41,6 +41,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'status',
   'resolve',
   'nospec',
+  'main',
 ])
 const {
   readRegistry,
@@ -142,6 +143,12 @@ const { planUp, planCheckoutUp, worktreeCd } = require('./env/provision.js')
 const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
+const {
+  checkMainWrite,
+  recordAllow,
+  clearAllow,
+  mainGuardStatus,
+} = require('./env/mainguard.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
 const { planHotfixLand } = require('./env/hotfix.js')
@@ -200,6 +207,9 @@ Usage:
                                                   setup commands, no Docker
                                 nospec <name>     record a branch with no spec document
                                                   (/no-spec work) and print its plan
+                                main <check|allow|status>
+                                                  the main guard — is a write about to land
+                                                  on the base branch? (/allow-main lifts it)
                                 down <spec>       tear down (guards; --keep-volumes, --force)
                                 prune             reap orphaned test-DB volumes (--older-than <days>)
                                 dev up <spec>     start host dev servers on the spec's ports
@@ -629,6 +639,103 @@ function specEnvUpCheckout(dir, config, spec) {
     for (const cmd of plan.commands) out.push(`    ${cmd}`)
   }
   process.stdout.write(out.join('\n') + '\n')
+}
+
+/**
+ * `spec-env main <check|allow|status>` — the main guard.
+ *
+ * `check` is what the hook calls, so it follows `review gate --check`'s
+ * contract exactly: **exit 1 and print the reason** when the write should be
+ * refused, exit 0 and say nothing otherwise. Every cannot-tell is an exit 0.
+ *
+ * `allow` and `status` are for a person. `allow` is reached only through
+ * `/allow-main`, which is user-only — a guard the model can lift is decoration.
+ */
+function specEnvMain(dir, config, positional, flags = {}, present = true, invokedFrom = dir) {
+  const action = positional[0] || 'status'
+  const sessionId = flags.session || process.env.CLAUDE_CODE_SESSION_ID || null
+  const git = gitReader(dir)
+
+  if (action === 'check') {
+    // `invokedFrom`, NOT `dir`. Every subcommand is re-anchored on the primary
+    // checkout before it runs, so asking `dir` whether it is the primary
+    // checkout always answers yes — and the guard would fire on a write inside
+    // somebody's worktree, which is the one place it must never fire.
+    const from = invokedFrom || dir
+    const verdict = checkMainWrite(from, config, gitReader(from), { sessionId, present })
+    if (!verdict.refuse) return
+    process.stdout.write(`spec-env main: ${verdict.reason}\n`)
+    process.exitCode = 1
+    return
+  }
+
+  if (action === 'allow') {
+    // The primary checkout owns the allow file, so an `/allow-main` typed from a
+    // worktree still lands where the guard reads it.
+    const root = dir
+
+    if (flags.off || positional[1] === 'off') {
+      const had = clearAllow(root, config)
+      process.stdout.write(
+        had
+          ? 'spec-env main: allow cleared — the base branch is guarded again.\n'
+          : 'spec-env main: nothing to clear — the base branch was already guarded.\n',
+      )
+      return
+    }
+
+    const reason = positional.slice(1).join(' ').trim() || null
+    const value = recordAllow(root, config, {
+      sessionId,
+      reason,
+      at: new Date().toISOString(),
+    })
+    const scope =
+      value.scope === 'session'
+        ? 'this session only — it lapses when the session ends'
+        : 'this repo until cleared — no session id available, so `/allow-main off` is what ends it'
+    process.stdout.write(
+      `spec-env main: writes to the base branch are allowed (${scope}).\n` +
+        (reason ? `  reason: ${reason}\n` : '  reason: none given\n'),
+    )
+    return
+  }
+
+  if (action === 'status') {
+    const st = mainGuardStatus(dir, config, { sessionId, present })
+    if (flags.json) {
+      process.stdout.write(JSON.stringify(st, null, 2) + '\n')
+      return
+    }
+    if (st.state === 'unconfigured') {
+      process.stdout.write('spec-env main: isolation is not configured — the guard is inactive.\n')
+      return
+    }
+    if (st.state === 'off') {
+      process.stdout.write(
+        'spec-env main: off for this project (guards.mainIsLandingZone is false).\n',
+      )
+      return
+    }
+    if (st.state === 'allowed') {
+      process.stdout.write(
+        `spec-env main: allowed (${st.scope})\n  reason: ${st.reason || 'none given'}\n` +
+          '  /allow-main off ends it\n',
+      )
+      return
+    }
+    process.stdout.write(
+      'spec-env main: guarded — the base branch is a landing zone.\n' +
+        (st.otherSession
+          ? '  an allow exists for a different session, so it does not apply here\n'
+          : ''),
+    )
+    return
+  }
+
+  process.stdout.write(
+    `spec-env main: unknown action "${action}" — one of check, allow, status.\n`,
+  )
 }
 
 /**
@@ -4515,6 +4622,7 @@ async function specEnv(rest) {
     else if (args[i] === '--phase') flags.phase = args[++i]
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--docs') flags.docs = true
+    else if (args[i] === '--session') flags.session = args[++i]
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
     else positional.push(args[i])
   }
@@ -4589,6 +4697,9 @@ async function specEnv(rest) {
       break
     case 'nospec':
       specEnvNospec(dir, config, positional[0], flags)
+      break
+    case 'main':
+      specEnvMain(dir, config, positional, flags, present, invokedFrom)
       break
     case 'down':
       specEnvDown(dir, config, positional[0], flags)

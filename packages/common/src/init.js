@@ -5,7 +5,7 @@ const path = require('path')
 const crypto = require('crypto')
 
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
-const { ensureReviewGateHook } = require('./env/hooks.js')
+const { ensureHooks } = require('./env/hooks.js')
 const { repoInfo, expandTokens } = require('./env/resolve.js')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
@@ -444,17 +444,20 @@ function installRule(dir, opts) {
 // reported and left alone, never rewritten, and never fatal — the hook is an
 // extra layer, and the engine and `/spec-next` hold the gate without it.
 function registerReviewGateHook(dir) {
-  const label = '.claude/settings.json (review-gate hook)'
+  // "hooks", plural, because two ship now — the review gate and the main guard.
+  // The label names the file and the subject rather than one script, so adding a
+  // third does not leave a report that undercounts what it wrote.
+  const label = '.claude/settings.json (skitterspec hooks)'
   let res
   try {
-    res = ensureReviewGateHook(dir)
+    res = ensureHooks(dir)
   } catch {
-    report.warnings.push('could not write .claude/settings.json — review-gate hook not registered')
+    report.warnings.push('could not write .claude/settings.json — skitterspec hooks not registered')
     return
   }
   if (res.reason === 'malformed') {
     report.warnings.push(
-      '.claude/settings.json is not valid JSON — did not register the review-gate hook',
+      '.claude/settings.json is not valid JSON — did not register the skitterspec hooks',
     )
   } else if (res.reason === 'created') {
     report.created.push(label)
@@ -465,9 +468,9 @@ function registerReviewGateHook(dir) {
     // that: rewriting the registered path and then reporting "already
     // registered" — a run that acts and says it did not, which is the shape of
     // the bug this whole change exists to fix.
-    report.updated.push('.claude/settings.json (review-gate hook repointed at the renamed script)')
+    report.updated.push('.claude/settings.json (skitterspec hooks repointed at the renamed script)')
   } else {
-    report.skipped.push('.claude/settings.json (review-gate hook already registered)')
+    report.skipped.push('.claude/settings.json (skitterspec hooks already registered)')
   }
 }
 

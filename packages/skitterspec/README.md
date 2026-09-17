@@ -31,6 +31,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-connect` | Point your canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |
 | `/spec-remote-review` | Permit (or forbid) reviewing from off your network |
+| `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
 <!-- commands:end -->
 
 The last three are **slash commands** rather than skills: each pre-executes one

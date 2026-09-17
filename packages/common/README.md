@@ -41,6 +41,7 @@ the operator can run them.
 | `/spec-connect` | Point the canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so a running dev server reloads it |
 | `/spec-remote-review` | Permit (or forbid) publishing a review for a reader off the network |
+| `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
 
 <!-- commands:end -->
 

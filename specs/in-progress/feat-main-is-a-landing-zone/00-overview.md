@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-main-is-a-landing-zone (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 4 (started 2026-09-17)
+> **Status:** In Progress — all 4 phases built (2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -172,7 +172,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Docs-mode provisioning — `spec-env up --docs` | ✅ | [01-docs-mode-provisioning.md](01-docs-mode-provisioning.md) |
 | 2 | `/spec` authors in its worktree and lands on the verdict | ✅ | [02-spec-authors-in-worktree.md](02-spec-authors-in-worktree.md) |
 | 3 | `/no-spec` — the lane for work with no spec | ✅ | [03-no-spec.md](03-no-spec.md) |
-| 4 | The main guard — hook, engine verb, `/allow-main` | ⬜ | [04-main-guard.md](04-main-guard.md) |
+| 4 | The main guard — hook, engine verb, `/allow-main` | ✅ | [04-main-guard.md](04-main-guard.md) |
 
 **Phase order is a safety property, not a preference.** The guard is a wall until
 `/no-spec` exists to be pushed toward, so it ships last. Phase 1 is engine-only
@@ -244,6 +244,31 @@ branch — strictly worse than today.
 - 2026-09-17 — Phase 3: nothing was needed to ship the skill. `init.js`'s
   `listSkills()` reads the assets directory, so a new skill ships by existing —
   the task assumed a list that does not exist.
+- 2026-09-17 — Phase 4, a near-miss worth recording: every `spec-env` subcommand
+  re-anchors `dir` on the **primary checkout** before it runs, so asking `dir`
+  whether it is the primary checkout always answers yes — and the guard would
+  have fired on every write inside every worktree, which is the one place it must
+  never fire. `check` uses the pre-anchor `invokedFrom` instead. The test that
+  would have caught it is the first stays-silent one; it was written before the
+  bug, and found it.
+- 2026-09-17 — Phase 4: `guards.mainIsLandingZone` alone cannot answer "is
+  isolation configured" — a defaults-only config is indistinguishable from a
+  configured one that matches the defaults. `present` from `loadEnvConfig` is
+  threaded through instead, so the guard never has to re-read the file.
+- 2026-09-17 — Phase 4: `ensureReviewGateHook` became `ensureHooks` over a
+  `HOOKS` list, with the old name kept as an alias — a rename that breaks an
+  installed older `init.js` is a removal, not a rename. Its one-word `reason` now
+  covers a compound outcome, ranked added > migrated > present: a run that
+  migrated one hook and added another did change the file, and `migrated` would
+  undersell the new refusal.
+- 2026-09-17 — Phase 4: the matcher is `Edit|Write|NotebookEdit|MultiEdit`, one
+  tool wider than the spec said. `MultiEdit` writes files exactly as `Edit` does,
+  and omitting it would have left a silent hole in a guard whose whole value is
+  that it has none.
+- 2026-09-17 — Phase 4: `assets-published-docs.test.js`'s command token needed
+  the `allow-main` stem too. Rejected building the pattern from what actually
+  ships — self-maintaining, and it would make the test's other half
+  (documented-but-shipped-nowhere) vacuous by construction.
 - 2026-09-17 — Phase 3: the suite caught four registrations the task list had
   missed — `/spec-reviewed` must name every verdict word, `spec-init` must count
   its own skills, every published surface must list every command it ships, and

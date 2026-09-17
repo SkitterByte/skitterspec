@@ -173,10 +173,23 @@ test('the command says permitting is not publishing', () => {
 // Only `remote` gets one. `network` is ON by default, so turning it off is a
 // rare deliberate act, and a slash command per tier is clutter for the tier
 // nobody touches — the engine accepts `--set` for both either way.
+//
+// The list is exhaustive rather than a membership check, so a command added for
+// some other reason still has to come past this comment. `allow-main` did, and
+// belongs: it is the main guard's exit, not a review tier.
 test('STAYS SILENT: no command was shipped for the tier nobody touches', () => {
   const dir = path.dirname(COMMAND)
   const shipped = fs.readdirSync(dir).sort()
-  assert.deepStrictEqual(shipped, ['spec-connect.md', 'spec-live.md', 'spec-remote-review.md'])
+  assert.deepStrictEqual(shipped, [
+    'allow-main.md',
+    'spec-connect.md',
+    'spec-live.md',
+    'spec-remote-review.md',
+  ])
+  assert.ok(
+    !shipped.some((f) => /network/.test(f)),
+    'still nothing for the network tier',
+  )
 })
 
 test('--set works for network too, so shipping a command later is one file', async () => {

@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-343"
 ---
 
-# Phase 4 — The main guard: engine verb, hook, `/allow-main` ⬜
+# Phase 4 — The main guard: engine verb, hook, `/allow-main` ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** an `Edit`/`Write` in the primary checkout while it sits on the base
 branch is refused by the harness, naming the two exits — and every cannot-tell
@@ -12,76 +12,59 @@ allows it in silence.
 
 ## Tasks
 
-- [ ] Add `spec-env main <check|allow|status>` to `packages/common/src/cli.js`,
-      in a new `packages/common/src/env/mainguard.js`:
-      - `check --dir <cwd> [--session <id>]` — exit 1 **only** on the positive
-        signal, printing the refusal on stdout; exit 0 otherwise.
-      - `allow [reason] [--session <id>] [--off]` — record or clear an allow in
-        gitignored `.spec-env/`.
-      - `status [--json]` — what is in force, and why.
-- [ ] Write the positive signal as one function, and comment the blind spots beside
-      it per `.claude/rules/negative-checks.md`. All four must hold: isolation is
-      configured (`env.config.json` present), `guards.mainIsLandingZone` is not
-      `false`, `--dir` resolves to the **primary checkout** (not a worktree), and
-      `resolve.js`'s `{ onBase }` is true. Anything unresolvable is a cannot-tell
-      and allows.
-- [ ] Add `guards.mainIsLandingZone` to `config.js`, defaulting to `true` when
-      isolation is configured. Document the upgrade effect where the key is
-      defined: existing projects gain the guard on update, and the refusal is what
-      tells them so.
-- [ ] Write `packages/common/assets/hooks/main-guard.cjs`, modelled on
-      `review-gate.cjs` — same stdin shim, same `findEngine` walk, same
-      `permissionDecision: 'deny'` JSON route so the reason reaches Claude, same
-      fail-open on `result.error`, `status === null` and anything but exit 1.
-      Matcher `Edit|Write|NotebookEdit`; pass `payload.cwd` and
-      `payload.session_id`. It decides nothing itself.
-- [ ] Word the refusal so it carries both exits and never reads as breakage:
-      *"the primary checkout is on `main`, and `main` is a landing zone. Move the
-      work: `/no-spec <name>` for a one-off, `/spec-start <name>` for a spec. If
-      you mean it, the user can type `/allow-main`."* Name `/allow-main` as
-      **the user's** command, since Claude cannot run it.
-- [ ] Generalise `ensureReviewGateHook` in `packages/common/src/env/hooks.js` to
-      register N hooks — each with its own script, matcher and timeout — keeping
-      every property it already earned: preserve unknown keys, leave a malformed
-      settings file untouched, match on the **script path** so an operator's
-      wrapped invocation is migrated in place rather than duplicated, and stay
-      idempotent. Rename the export accordingly and update `init.js`'s caller.
-- [ ] Add `packages/common/assets/commands/allow-main.md` — a **command**, not a
-      skill, `disable-model-invocation: true`, following the `/spec-remote-review`
-      pattern of pre-executing one verb and relaying it. `/allow-main [reason]`
-      allows; `/allow-main off` clears.
-- [ ] Session-scope the allow with `CLAUDE_CODE_SESSION_ID`, which the hook payload
-      also carries as `session_id`. With no session id, degrade to a repo-wide
-      toggle cleared by `/allow-main off`, and have `main status` say which kind is
-      in force — an allow that outlives its session must never look like one that
-      does not.
-- [ ] Document it in `.claude/rules/spec-planning.md`: `/allow-main` in the
-      commands paragraph beside `/spec-connect`, `/spec-live` and
-      `/spec-remote-review`, with the reason it is user-only stated plainly —
-      a guard the model can lift is decoration.
-- [ ] Tests: the positive signal fires on the primary checkout on base; the hook
-      emits the deny JSON with both exits named; an allow suppresses it and
-      `--off` restores it; a session-scoped allow does not apply to another
-      session id.
-- [ ] Tests (stays-silent, one per blind spot): a worktree on a spec branch; the
-      primary checkout on a spec branch; a repo with no `env.config.json`; a
-      non-git directory; `guards.mainIsLandingZone: false`; a missing engine; an
-      engine that times out; a crash in the hook itself. Every one allows the
-      write and prints nothing.
-- [ ] Run `pnpm typecheck` and `pnpm test` — green before this phase is done.
+- [x] Add `spec-env main <check|allow|status>` (`packages/common/src/env/mainguard.js`
+      + the CLI case). `check` follows `review gate --check`'s contract exactly:
+      exit 1 and print the reason, or exit 0 and say nothing.
+- [x] Write the positive signal as one pure function (`judgeMainWrite`) with the
+      blind spots named beside it. All four parts must hold; each cannot-tell is
+      its own early return rather than a combined condition, so a later reader
+      cannot widen the others by deleting one.
+- [x] Add `guards.mainIsLandingZone` to `config.js`, defaulting to `true`. A
+      non-boolean is dropped by the merge, so a mistyped `"false"` leaves the
+      guard **on** — the safe way to be wrong about a value nobody can see.
+- [x] Write `packages/common/assets/hooks/main-guard.cjs` on the write tools,
+      modelled on `review-gate.cjs`: same stdin shim, same `findEngine` walk,
+      same deny-JSON route, same fail-open on every path.
+- [x] Word the refusal so it carries both exits and names `/allow-main` as
+      **the user's** command.
+- [x] Generalise `hooks.js` to register N hooks — one `HOOKS` list, one
+      `ensureOneHook`, and `ensureHooks` over it. Every property it had earned
+      is kept: unknown keys preserved, a malformed file untouched, matching on
+      the script **path** so an operator's wrapping is migrated in place, and
+      idempotent. `ensureReviewGateHook` stays as an alias.
+- [x] Add `packages/common/assets/commands/allow-main.md` — a command, not a
+      skill, `disable-model-invocation: true`.
+- [x] Session-scope the allow with `CLAUDE_CODE_SESSION_ID` / the payload's
+      `session_id`, degrading to a repo-wide toggle when neither exists, with
+      `main status` saying which kind is in force.
+- [x] Document it in `spec-planning.md`, plus `--help`, `env.config.md`,
+      `docs/index.html` (chip **and** verb table) and three READMEs.
+- [x] Tests (`env-mainguard.test.js`, 21): the positive signal, the refusal's
+      two exits, both allow scopes, the strict read of a malformed allow file,
+      all four status states, and the config key.
+- [x] Tests (`main-guard-hook.test.js`, 16): the real script against a real git
+      repo — every write tool denied, every non-write tool ignored, the
+      session-scoped allow, `off`, and the allow file being gitignored.
+- [x] Tests (stays-silent, one per blind spot, asserting **empty output** rather
+      than merely a non-deny): a worktree on a spec branch; the primary checkout
+      on a spec branch; no `env.config.json`; a non-git directory;
+      `mainIsLandingZone: false`; no engine; an engine exiting non-1 with output
+      on stdout; an unreadable payload; a payload with no tool name.
+- [x] Tests (`assets-allow-main.test.js`, 13): the user-only marking beside
+      `/no-spec`'s deliberate absence of it, the reason, the two allow kinds, and
+      every load-bearing sentence in the hook and the rule.
+- [x] Run the project's test command — **3207 pass, 0 fail** (`node --test`).
 
 ## Notes
 
-**Ships last, and that is a safety property.** Until `/no-spec` exists the guard
-has nowhere to send anyone, and a guard with no exit gets switched off wholesale
-rather than answered — which is the failure `review-gate.cjs`'s own header
-records.
+**Ships last, and that is a safety property.** Until `/no-spec` existed the
+guard had nowhere to send anyone, and a guard with no exit gets switched off
+wholesale rather than answered.
 
 **The asymmetry with phase 3 is the design.** `/no-spec` is model-invocable so
-Claude can move work *off* `main` on its own; `/allow-main` is user-only so it
-cannot lift the guard. That is the same line `/spec-reviewed` draws, and
-`spec-planning.md` already notes prose alone failed to hold it once.
+Claude can move work *off* the base branch on its own; `/allow-main` is user-only
+so it cannot lift the guard.
 
-`git` is untouched by this matcher, so `spec-env integrate`'s
-`merge --ff-only` into the primary checkout still writes files on `main` exactly
-as it must — landing is not editing.
+`git` is untouched by this matcher, so `spec-env integrate`'s `merge --ff-only`
+into the primary checkout still writes files on the base branch exactly as it
+must — landing is not editing.

@@ -75,21 +75,25 @@ for (const [name, run] of ENTRY_POINTS) {
       await quiet(() => run(dir))
 
       const commands = registeredCommands(dir)
-      assert.strictEqual(commands.length, 1, `${name} registered exactly one hook`)
-      assert.ok(commands[0].includes(HOOK_SCRIPT), `${name} registered the shipped script`)
-
-      // The file and the registration are one operation — a run that lands the
-      // script without wiring it is the exact failure this suite is about.
-      assert.ok(
-        fs.existsSync(path.join(dir, HOOK_SCRIPT)),
-        `${name} installed the script it registered`,
-      )
+      // BOTH shipped hooks, and every one of them registered. The count is
+      // asserted rather than just membership: the failure this suite is about is
+      // a script landing on disk with nothing wiring it up, and that reads as a
+      // missing entry rather than a wrong one.
+      assert.strictEqual(commands.length, 2, `${name} registered both shipped hooks`)
+      for (const script of ['.claude/hooks/review-gate.cjs', '.claude/hooks/main-guard.cjs']) {
+        assert.ok(
+          commands.some((c) => c.includes(script)),
+          `${name} registered ${script}`,
+        )
+        // The file and the registration are one operation.
+        assert.ok(fs.existsSync(path.join(dir, script)), `${name} installed ${script}`)
+      }
 
       // Reported, not silent. The bug was invisible precisely because the only
       // code that would have mentioned it never ran.
       const report = lastReport()
       const mentions = [...report.created, ...report.updated].filter((l) =>
-        String(l).includes('review-gate hook'),
+        String(l).includes('skitterspec hooks'),
       )
       assert.strictEqual(mentions.length, 1, `${name} reported the registration`)
     } finally {
@@ -113,10 +117,10 @@ test('update registers into a settings file that already exists', async () => {
     const after = readSettings(dir)
     assert.deepStrictEqual(after.permissions.allow, ['Bash(pnpm test)'], 'their permissions survive')
     assert.strictEqual(after.hooks.PostToolUse.length, 1, 'their other hooks survive')
-    assert.strictEqual(after.hooks.PreToolUse.length, 1)
-    assert.ok(registeredCommands(dir)[0].includes(HOOK_SCRIPT))
+    assert.strictEqual(after.hooks.PreToolUse.length, 2)
+    assert.ok(registeredCommands(dir).some((c) => c.includes(HOOK_SCRIPT)))
     assert.ok(
-      lastReport().updated.some((l) => String(l).includes('review-gate hook')),
+      lastReport().updated.some((l) => String(l).includes('skitterspec hooks')),
       'merging into an existing file is reported as an update',
     )
   } finally {
@@ -132,9 +136,9 @@ test('re-running update registers nothing a second time, and writes nothing', as
 
     await quiet(() => resync(dir, { claudeMd: false }))
     assert.strictEqual(fs.readFileSync(settingsFile(dir), 'utf8'), before, 'byte-for-byte unchanged')
-    assert.strictEqual(readSettings(dir).hooks.PreToolUse.length, 1)
+    assert.strictEqual(readSettings(dir).hooks.PreToolUse.length, 2)
     assert.ok(
-      lastReport().skipped.some((l) => String(l).includes('review-gate hook already registered')),
+      lastReport().skipped.some((l) => String(l).includes('skitterspec hooks already registered')),
       'the second run says it was already there',
     )
   } finally {
@@ -208,19 +212,24 @@ test('upgrading a project off the old release leaves one entry, naming the file 
     assert.ok(!fs.existsSync(path.join(dir, oldRel)), 'the retired script is gone')
 
     const commands = registeredCommands(dir)
-    assert.strictEqual(commands.length, 1, 'exactly one entry — not one beside the other')
-    assert.ok(commands[0].includes(HOOK_SCRIPT), 'pointing at the file that exists')
+    const gate = commands.filter((c) => /review-gate/.test(c))
+    assert.strictEqual(gate.length, 1, 'exactly one review-gate entry — not one beside the other')
+    assert.ok(gate[0].includes(HOOK_SCRIPT), 'pointing at the file that exists')
+    // The same upgrade also registers the main guard, which is an ADDITION
+    // rather than a duplicate — the migration above is about the one entry that
+    // moved, not about the total.
+    assert.strictEqual(commands.length, 2, 'and the main guard alongside it')
 
     // Reported as the write it is. This fell through to `unchanged: already
     // registered` while rewriting the file underneath — caught by running the
     // real `update` against a project on the old release, which is the only
     // thing that looks at what the operator is actually told.
     assert.ok(
-      lastReport().updated.some((l) => String(l).includes('review-gate hook')),
+      lastReport().updated.some((l) => String(l).includes('skitterspec hooks')),
       'the repointing is reported as a change, not as "already registered"',
     )
     assert.ok(
-      !lastReport().skipped.some((l) => String(l).includes('review-gate hook')),
+      !lastReport().skipped.some((l) => String(l).includes('skitterspec hooks')),
       'and never as unchanged',
     )
 
@@ -256,8 +265,10 @@ test('an operator who edited the old hook keeps it, and is told', async () => {
     )
     // The registration still moves: it is the harness pointer, not their file.
     const commands = registeredCommands(dir)
-    assert.strictEqual(commands.length, 1)
-    assert.ok(commands[0].includes(HOOK_SCRIPT))
+    const gate = commands.filter((c) => /review-gate/.test(c))
+    assert.strictEqual(gate.length, 1)
+    assert.ok(gate[0].includes(HOOK_SCRIPT))
+    assert.strictEqual(commands.length, 2, 'the main guard is registered too')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }

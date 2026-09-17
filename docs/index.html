@@ -637,6 +637,7 @@
       <span class="chip"><b>/spec-cancel</b> · shelve with a reason</span>
       <span class="chip"><b>/spec-reviewed</b> · pick up a verdict nothing was waiting for</span>
       <span class="chip"><b>/spec-remote-review</b> · allow reviewing from off your network</span>
+      <span class="chip"><b>/allow-main</b> · lift the base-branch guard, for this session</span>
       <span class="chip"><b>/spec-init</b> · bootstrap or repair the workflow</span>
     </div>
     <!-- commands:end -->
@@ -956,6 +957,7 @@ $ skitterspec spec-env <span class="p">review</span> --branch</div>
           <tr class="grp-row"><td colspan="3">Actions — they do the thing</td></tr>
           <tr><td class="cmd">spec-env dev up|down &lt;spec&gt;</td><td>Start or stop the spec's host dev servers on its reserved ports.</td><td class="folder">/spec-start</td></tr>
           <tr><td class="cmd">spec-env connect [spec|main]</td><td>Point your canonical localhost ports at one spec's dev servers. Bare uses the spec you're on; <span class="mono">main</span> hands them back.</td><td class="folder">/spec-connect</td></tr>
+          <tr><td class="cmd">spec-env main check|allow|status</td><td>The main guard: refuse a write in the primary checkout while it sits on the base branch. <span class="mono">check</span> is what the hook calls; <span class="mono">allow</span> is reached only through <span class="mono">/allow-main</span>, which only you can run.</td><td class="folder">the main-guard hook · /allow-main</td></tr>
           <tr><td class="cmd">spec-env live [spec|main|status|release|abort]</td><td>Hand the running instance to one spec by checking its branch out in the primary checkout. Bare takes the spec you're on when the workbench is free, and prints the status report when it can't tell.</td><td class="folder">/spec-live</td></tr>
           <tr><td class="cmd">spec-env review [spec]</td><td>Write an HTML page of a spec's diff to <span class="mono">.spec-env/reviews/</span>. <span class="mono">--branch</span> for the whole spec rather than the uncommitted work; <span class="mono">--notes</span> merges a review pass back from the page, <span class="mono">--resolve</span> records what was done about a note.</td><td class="folder">/spec-diff · /spec-next</td></tr>
 

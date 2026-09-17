@@ -66,6 +66,42 @@ branch. Beneath it, `skitterspec spec-env nospec <name>` records the branch —
 and that record is what makes a name with nothing under `specs/**` resolvable by
 `review`, `integrate`, `down` and a bare `resolve`.
 
+**`/allow-main` is the fourth command.** It is user-only for a different reason
+from the other three: `/spec-connect`, `/spec-live` and `/spec-remote-review`
+are marked that way because there is no judgment to apply. This one is marked that
+way because **Claude must not be able to lift a guard aimed at Claude.**
+
+The guard is `.claude/hooks/main-guard.cjs`, a `PreToolUse` hook on the write
+tools, and it refuses an `Edit` or a `Write` in the **primary checkout** while
+it is on the **base branch**. `main` is where work lands, not where it happens:
+work done there leaves the base branch dirty for every in-flight spec to replay
+over, and renders no review page at all, so it is the one kind of change that
+arrives unreviewed. It refuses the FIRST write rather than the commit, because
+nothing has been written yet and the fix is one command — where a commit-time
+gate fires once the work already exists in a checkout that cannot `switch -c`
+out from under the other worktrees.
+
+It fires only on a **positive signal** — isolation configured, the guard not
+switched off, this directory IS the primary checkout, HEAD IS the base branch —
+and every cannot-tell allows the write in silence: no repo, no config, a
+worktree, an unresolvable base, a missing or crashed engine
+(`.claude/rules/negative-checks.md`). `skitterspec spec-env main
+<check|allow|status>` is the engine, and `guards.mainIsLandingZone` in
+`env.config.json` turns it off for a project. It is
+**on by default wherever isolation is configured**, matching the review gate.
+
+There is **no allowlist**, and it is empty by construction rather than by
+omission: `/spec` authors into its own worktree and `/no-spec` catches ad-hoc
+work, so no legitimate writer to the base branch is left. `/spec-init` looks
+like the exception and is not one — it bootstraps a repo with no
+`env.config.json` yet, so the guard never fires there.
+
+**Two exits, and they are not equal.** `/no-spec <name>` and `/spec-start
+<name>` move the work, and Claude takes those on its own; `/allow-main` lifts
+the guard, and only a person can type it. That asymmetry is the same line
+`/spec-reviewed` draws, and `spec-planning.md` already records that prose alone
+did not hold it once.
+
 `/spec-to-main`, `/spec-status` and `/spec-sync` stay **skills** — each carries
 real judgment (green tests before a land; an MCP fetch and a team-key check; ten
 subcommands) — but they are marked user-only too, since nobody reaches them
@@ -112,7 +148,7 @@ your canonical `localhost` ports so you can test it at the normal URL
 move, header edits, the code) happens on the spec's branch in the worktree; `main`
 changes only when it merges. Teardown is folded into `/spec-complete` ·
 `/spec-cancel`. Beneath the skills, `skitterspec spec-env
-<up|nospec|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve>` is the CLI
+<up|nospec|main|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve>` is the CLI
 engine. **Omit the spec name anywhere and it uses the worktree you are standing in**,
 else the sole provisioned spec — with no exceptions left: a bare
 `/spec-connect` connects, and a bare `/spec-live` takes, where both once meant

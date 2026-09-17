@@ -285,10 +285,18 @@ test('it registers into a settings file that does not exist yet', () => {
   try {
     assert.strictEqual(ensureReviewGateHook(dir).reason, 'created')
     const written = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
-    assert.strictEqual(written.hooks.PreToolUse[0].matcher, 'Bash')
-    // Portable across machines and worktrees — never an absolute path.
-    assert.match(written.hooks.PreToolUse[0].hooks[0].command, /\$\{CLAUDE_PROJECT_DIR\}/)
-    assert.ok(written.hooks.PreToolUse[0].hooks[0].timeout > 0, 'a wedge fails open rather than hanging')
+    // BOTH hooks this package ships. They guard different moments — a commit,
+    // and the first write — so they take different matchers and are separate
+    // entries rather than one.
+    assert.strictEqual(written.hooks.PreToolUse.length, 2)
+    const byMatcher = Object.fromEntries(written.hooks.PreToolUse.map((e) => [e.matcher, e]))
+    assert.ok(byMatcher.Bash, 'the review gate, on Bash')
+    assert.ok(byMatcher['Edit|Write|NotebookEdit|MultiEdit'], 'the main guard, on the write tools')
+    for (const entry of written.hooks.PreToolUse) {
+      // Portable across machines and worktrees — never an absolute path.
+      assert.match(entry.hooks[0].command, /\$\{CLAUDE_PROJECT_DIR\}/)
+      assert.ok(entry.hooks[0].timeout > 0, 'a wedge fails open rather than hanging')
+    }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -309,7 +317,7 @@ test('it merges without disturbing anything already in the file', () => {
     const written = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
     assert.deepStrictEqual(written.permissions.allow, ['Bash(pnpm test)'], 'their permissions survive')
     assert.strictEqual(written.hooks.PostToolUse.length, 1, 'their other hooks survive')
-    assert.strictEqual(written.hooks.PreToolUse.length, 1)
+    assert.strictEqual(written.hooks.PreToolUse.length, 2, 'both of ours, and nothing else')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -321,7 +329,7 @@ test('re-running registers nothing a second time', () => {
     ensureReviewGateHook(dir)
     assert.strictEqual(ensureReviewGateHook(dir).reason, 'present')
     const written = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
-    assert.strictEqual(written.hooks.PreToolUse.length, 1)
+    assert.strictEqual(written.hooks.PreToolUse.length, 2, 'neither was added twice')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -447,12 +455,16 @@ test('a registration naming the old .js path is rewritten, not duplicated', () =
       }),
     )
 
-    assert.strictEqual(ensureReviewGateHook(dir).reason, 'migrated')
+    // `added` rather than `migrated`: this one run both rewrote the stale path
+    // AND registered the main guard, and "added" is the stronger signal — a
+    // refusal now exists that did not before.
+    assert.strictEqual(ensureReviewGateHook(dir).reason, 'added')
     const after = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
-    assert.strictEqual(after.hooks.PreToolUse.length, 1, 'exactly one entry')
-    assert.strictEqual(after.hooks.PreToolUse[0].hooks.length, 1)
+    const gate = after.hooks.PreToolUse.filter((e) => /review-gate/.test(e.hooks[0].command))
+    assert.strictEqual(gate.length, 1, 'exactly one review-gate entry — migrated, not duplicated')
+    assert.strictEqual(gate[0].hooks.length, 1)
     assert.strictEqual(
-      after.hooks.PreToolUse[0].hooks[0].command,
+      gate[0].hooks[0].command,
       `node "\${CLAUDE_PROJECT_DIR}/${HOOK_SCRIPT}"`,
       'and it names the file that exists',
     )
@@ -479,11 +491,12 @@ test("an operator's own wrapping is migrated in place, not replaced", () => {
       }),
     )
 
-    assert.strictEqual(ensureReviewGateHook(dir).reason, 'migrated')
+    assert.strictEqual(ensureReviewGateHook(dir).reason, 'added')
     const after = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
-    assert.strictEqual(after.hooks.PreToolUse.length, 1)
+    const theirs = after.hooks.PreToolUse.filter((e) => /myrunner/.test(e.hooks[0].command))
+    assert.strictEqual(theirs.length, 1)
     assert.strictEqual(
-      after.hooks.PreToolUse[0].hooks[0].command,
+      theirs[0].hooks[0].command,
       `myrunner ${HOOK_SCRIPT} --verbose`,
       'their runner and their flag both survive',
     )

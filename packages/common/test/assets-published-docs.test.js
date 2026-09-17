@@ -65,12 +65,21 @@ const REGION = /<!-- commands:start -->([\s\S]*?)<!-- commands:end -->/
 // and `https://…/spec-foo`; `(?!\.md)` rejects a filename. Both are ordinary in
 // these files and neither is a command reference.
 //
-// `no-spec` IS NAMED, rather than the pattern being widened to any word. It is
-// the one shipped command whose name does not begin `spec`, and a token of
-// `/[a-z-]+` would match every URL path segment and relative link in these
-// files — turning the "documented but shipped nowhere" half into noise. A
-// second such command adds a second alternative here, deliberately.
-const TOKEN = /(?<![\w./-])\/((?:no-)?spec[a-z-]*)\b(?!\.md)/g
+// THE STEMS ARE NAMED, and the suffix is left open. Two shipped commands do not
+// begin `spec` — `no-spec` and `allow-main` — so each adds its stem here, while
+// `[a-z-]*` after it keeps the OTHER half of this test working: a removed
+// command or a typo (`/spec-redy`, `/allow-mian`) still matches, and is still
+// reported as documented-but-shipped-nowhere.
+//
+// Rejected: building the pattern from what actually ships. It is tempting and
+// self-maintaining, and it would make that second half vacuous by construction —
+// nothing could ever be documented-but-not-shipped if only shipped names can be
+// found. Rejected too: `/[a-z-]+`, which matches every URL path segment and
+// relative link in these files.
+//
+// Longest stem first, or `spec` would win the alternation before `no-spec` is
+// tried.
+const TOKEN = /(?<![\w./-])\/((?:no-spec|allow-main|spec)[a-z-]*)\b(?!\.md)/g
 
 function documented(file) {
   const text = read(file)
