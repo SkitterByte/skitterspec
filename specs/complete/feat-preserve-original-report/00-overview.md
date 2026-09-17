@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-preserve-original-report (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-17)
+> **Status:** Complete (2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -170,6 +170,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
 | 2026-09-17 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-17 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -206,3 +207,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   spec was being created, so phase 4's sub-issue was never minted and every
   subsequent push was refused as a whole. Re-running `/spec-push` once the
   limit is lifted resumes without duplicating SKS-330/331/332.
+- 2026-09-17 — Completed; all phases done, tests green (3038).
+- 2026-09-17 — Found while completing: `preserve`'s late-warning leans on
+  `readBase`, and a push that failed part-way leaves no snapshot — so an issue
+  that HAS been pushed can still read as never-pushed and be "preserved" with
+  the generated spec as its original. Hit for real on SKS-329 (comment removed).
+  Not fixed here; see Follow-ups.
