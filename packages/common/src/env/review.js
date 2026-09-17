@@ -494,6 +494,14 @@ const NOTES_VERSION = 1
  * verdict did. So a blob from an older page, or one a reader sent without
  * choosing, keeps doing exactly what it always did.
  *
+ * `commit-land` is the `/no-spec` verdict: commit this work, fast-forward the
+ * base branch to it, and tear the worktree down. It is its own word for exactly
+ * the reason `commit-start` is — reusing plain `commit` would make one verdict
+ * mean "commit and stop" on a phase page and "commit, land and destroy the
+ * worktree" on a `/no-spec` page, which is the context-dependent reading this
+ * vocabulary exists to prevent. The outcome log would then record the same word
+ * for two very differently destructive actions.
+ *
  * `continue` is the mid-run verdict: *I have read it, carry on*. It names an
  * action, which is what separates it from the `none` verdict that was removed —
  * `none` recorded itself and did nothing, while this one resumes the run. What
@@ -501,7 +509,15 @@ const NOTES_VERSION = 1
  * below and is therefore structurally incapable of clearing an armed gate: a
  * phase that ended still owes a committing verdict or a recorded skip.
  */
-const VERDICTS = ['commit', 'commit-continue', 'commit-start', 'continue', 'changes', 'discuss']
+const VERDICTS = [
+  'commit',
+  'commit-continue',
+  'commit-start',
+  'commit-land',
+  'continue',
+  'changes',
+  'discuss',
+]
 const DEFAULT_VERDICT = 'discuss'
 
 /**
@@ -700,7 +716,7 @@ function reviewTierLine(t) {
 // obligation that outlives the turn. A mid-run reader saying "carry on" has
 // answered the offer in front of them and nothing else, so the gate a finished
 // phase armed must survive it untouched.
-const COMMITTING = ['commit', 'commit-continue', 'commit-start']
+const COMMITTING = ['commit', 'commit-continue', 'commit-start', 'commit-land']
 
 /**
  * Which set of buttons a rendered page shows.
@@ -726,8 +742,21 @@ const COMMITTING = ['commit', 'commit-continue', 'commit-start']
  * already be in progress, so offering to put it in flight would be wrong for
  * half this set's inputs — and wrong in the expensive direction, since it would
  * offer to provision a worktree for a spec that already has one.
+ *
+ * `nospec` is the set for work with no spec document: its committing pair is
+ * `commit-land` and `commit` — finish it now, or commit and leave the branch
+ * standing. `commit-continue` is absent because there is no next phase, and
+ * `commit-start` because there is nothing to put in flight.
+ *
+ * REUSING `refresh` HERE WAS THE OBVIOUS MOVE AND IT IS WRONG. The three
+ * remaining buttons are identical, so the temptation is to let `/no-spec` take
+ * that set and treat plain `commit` as "commit, land, tear down". That makes one
+ * verdict word mean two different things depending on which skill rendered the
+ * page — precisely what having separate words for `commit-start` and
+ * `commit-continue` exists to avoid, and worse here, because one of the two
+ * readings destroys a worktree.
  */
-const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh']
+const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh', 'nospec']
 const DEFAULT_BUTTON_SET = 'committing'
 
 /**

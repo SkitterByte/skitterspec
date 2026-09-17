@@ -40,6 +40,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'stage',
   'status',
   'resolve',
+  'nospec',
 ])
 const {
   readRegistry,
@@ -47,9 +48,13 @@ const {
   allocateSlot,
   freeSlot,
   portOffset,
+  recordSpecless,
+  forgetSpecless,
+  isSpecless,
 } = require('./env/registry.js')
 const {
   resolveSpec,
+  resolveSpecless,
   resolveBaseBranch,
   liveWorktreePaths,
   collectSpecFolders,
@@ -133,7 +138,7 @@ const {
   cacheHit,
   asCached,
 } = require('./env/reviewers.js')
-const { planUp, planCheckoutUp } = require('./env/provision.js')
+const { planUp, planCheckoutUp, worktreeCd } = require('./env/provision.js')
 const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
@@ -193,6 +198,8 @@ Usage:
                                                   Docker stack (prints commands; creates nothing)
                                                   --docs: a tree to write documents in — no
                                                   setup commands, no Docker
+                                nospec <name>     record a branch with no spec document
+                                                  (/no-spec work) and print its plan
                                 down <spec>       tear down (guards; --keep-volumes, --force)
                                 prune             reap orphaned test-DB volumes (--older-than <days>)
                                 dev up <spec>     start host dev servers on the spec's ports
@@ -390,8 +397,8 @@ function specEnvReviewWaiting(dir, config, flags) {
 
 function specEnvStatus(dir, config) {
   const worktreePaths = liveWorktreePaths(gitReader(dir))
-  const provisioned = allSpecs(dir, config, worktreePaths)
-    .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath) }))
+  const provisioned = allSpecs(dir, config, worktreePaths, speclessMap(dir, config))
+    .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath), specless: s.specless }))
     // The primary checkout is itself in `git worktree list`; a spec is
     // provisioned only when it has its OWN worktree, separate from it.
     .filter((s) => s.wt !== dir && worktreePaths.has(s.wt))
@@ -407,14 +414,19 @@ function specEnvStatus(dir, config) {
 
   const registry = readRegistry(dir, config)
   process.stdout.write('Provisioned specs:\n')
-  for (const { folder, wt } of provisioned) {
+  for (const { folder, wt, specless } of provisioned) {
     const slot = registry.slots[folder]
     let ports = ''
     if (slot !== undefined) {
       const off = portOffset(slot, config)
       ports = `  slot ${slot}  ports ${off}-${off + config.docker.portsPerSpec - 1}`
     }
-    process.stdout.write(`  ${folder}${ports}\n    ${path.relative(dir, wt) || wt}\n`)
+    // SAID, not left to be noticed. A `/no-spec` branch appears in this list
+    // because it has a worktree like everything else, and a reader who goes
+    // looking for `specs/**/<name>/` must not conclude the repo is broken when
+    // there is nothing there — it is not missing, there never was one.
+    const tag = specless ? '  (no spec)' : ''
+    process.stdout.write(`  ${folder}${tag}${ports}\n    ${path.relative(dir, wt) || wt}\n`)
   }
   process.stdout.write(waitingSection(dir, config))
 }
@@ -619,6 +631,120 @@ function specEnvUpCheckout(dir, config, spec) {
   process.stdout.write(out.join('\n') + '\n')
 }
 
+/**
+ * `spec-env nospec <name>` — record a SPECLESS branch and print its plan.
+ *
+ * `/no-spec` is the lane for work that genuinely has no spec: bumping four
+ * projects to a new version, a lockfile refresh, a rename. It exists because a
+ * guard that refuses writes on the base branch is a wall unless there is
+ * somewhere cheap to go, and because work done on the base branch renders no
+ * page and therefore gets no review at all.
+ *
+ * IT RECORDS FIRST, THEN PLANS, and the order is the correctness condition. The
+ * record is what makes the name resolvable (`resolve.js`'s specless fallback),
+ * so every later verb — `review`, `integrate`, `down`, `status`, a bare
+ * `resolve` — can find a branch with no document behind it. Plan first and a
+ * caller that runs the printed commands owns a worktree the engine cannot name.
+ *
+ * NO `--docs` HERE, deliberately, and it is the opposite call from `/spec`.
+ * Documents mode skips the `setup` commands because writing markdown needs no
+ * dependencies; `/no-spec` work is *code*, so it needs them. The two lanes want
+ * opposite halves of the same provision.
+ *
+ * It is a planner like `up`: it creates no worktree. The registry write is its
+ * only side effect, which is why it is safe to re-run.
+ */
+function specEnvNospec(dir, config, name, flags = {}) {
+  if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name)) {
+    process.stdout.write(
+      'spec-env nospec: needs a kebab-case name — it becomes the branch and the ' +
+        'worktree folder.\n  e.g. skitterspec spec-env nospec bump-deps\n',
+    )
+    return
+  }
+
+  // A name that is already a spec is refused rather than shadowed. Two things
+  // answering to one name is how `down` comes to tear the wrong tree down.
+  let clash = null
+  try {
+    clash = resolveSpec(name, dir, config, {
+      searchDirs: [...liveWorktreePaths(gitReader(dir))],
+    })
+  } catch {
+    // Not found is the expected case, and the only one that proceeds.
+  }
+  if (clash && !clash.specless) {
+    process.stdout.write(
+      `spec-env nospec: ${name} is already a spec (${clash.bucket}) — ` +
+        `use /spec-start ${name} instead.\n`,
+    )
+    return
+  }
+
+  const before = readRegistry(dir, config)
+  const already = isSpecless(before, name)
+  const spec = resolveSpecless(name, dir, config, before.specless[name])
+  writeRegistry(dir, config, recordSpecless(before, name, { branch: spec.branch }))
+
+  const worktreeRootAbs = path.dirname(spec.worktreePath)
+  const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs)
+  const attached = fs.existsSync(spec.worktreePath)
+
+  const guard = worktreeCd(spec.worktreePath)
+  const setupCommands = (config.setup || []).map((cmd) => `${guard}; ${cmd}`)
+
+  const out = [
+    `spec-env nospec: ${name} ` +
+      (attached ? '(plan — worktree exists; will attach)' : '(plan — nothing created yet)'),
+    '',
+    `  worktree:  ${spec.worktreePath}`,
+    `  branch:    ${spec.branch}`,
+    '  stack:     worktree-only (no docker, no port block)',
+    `  recorded:  ${already ? 'already in' : 'added to'} ${config.registry} as a specless branch`,
+  ]
+  if (trust.reason === 'malformed') {
+    out.push(
+      '  trusted:   ! .claude/settings.local.json is not valid JSON — left it;' +
+        `\n             add ${worktreeRootAbs} to permissions.additionalDirectories yourself`,
+    )
+  } else {
+    out.push(
+      `  trusted:   ${worktreeRootAbs}  ` +
+        `(${trust.changed ? 'added to' : 'already in'} .claude/settings.local.json)`,
+    )
+  }
+  out.push('')
+  out.push('  to provision, run:')
+  out.push(
+    attached
+      ? `    git worktree add ${spec.worktreePath} ${spec.branch}`
+      : `    git worktree add ${spec.worktreePath} -b ${spec.branch}`,
+  )
+  if (setupCommands.length) {
+    out.push('')
+    out.push('  then, in the worktree, run:')
+    for (const cmd of setupCommands) out.push(`    ${cmd}`)
+  }
+  if (flags.json) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          name,
+          branch: spec.branch,
+          worktreePath: spec.worktreePath,
+          specless: true,
+          attached,
+          recorded: !already,
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+    return
+  }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
 function specEnvUp(dir, config, specArg, flags = {}) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
   const docs = flags.docs === true
@@ -778,6 +904,21 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     }
   }
   process.stdout.write(out.join('\n') + '\n')
+}
+
+/**
+ * The recorded specless branches (`/no-spec` work), or an empty map.
+ *
+ * Wrapped because every caller wants the same cannot-tell behaviour: a
+ * malformed or unreadable registry must not stop a resolution that the folder
+ * search can answer on its own (`.claude/rules/negative-checks.md` rule 4).
+ */
+function speclessMap(dir, config) {
+  try {
+    return readRegistry(dir, config).specless || {}
+  } catch {
+    return {}
+  }
 }
 
 // A read-only git reader over `cwd`: returns trimmed stdout, or null on failure.
@@ -970,12 +1111,25 @@ function specEnvDown(dir, config, specArg, flags) {
 
   // Free the slot (the engine's only write on down) — only if one was held; a
   // worktree-only teardown never touches the registry.
-  if (hasSlot) {
-    writeRegistry(dir, config, freeSlot(registry, spec.folder))
+  //
+  // A SPECLESS BRANCH IS FORGOTTEN HERE TOO, and it has to be: the record is the
+  // only thing that made the name resolvable, so leaving it behind would keep a
+  // torn-down `/no-spec` branch answering to `review`, `integrate` and a bare
+  // `resolve` with a worktree path that is no longer on disk. `forgetSpecless`
+  // is idempotent, so this costs a write and nothing else.
+  const wasSpecless = isSpecless(registry, spec.folder)
+  if (hasSlot || wasSpecless) {
+    let next = registry
+    if (hasSlot) next = freeSlot(next, spec.folder)
+    if (wasSpecless) next = forgetSpecless(next, spec.folder)
+    writeRegistry(dir, config, next)
   }
 
   const out = []
-  out.push(`spec-env down: ${spec.folder}${hasSlot ? ' (slot freed)' : ''}`)
+  out.push(
+    `spec-env down: ${spec.folder}` +
+      (hasSlot ? ' (slot freed)' : wasSpecless ? ' (specless record forgotten)' : ''),
+  )
   out.push('')
   out.push(`  worktree:  ${spec.worktreePath}`)
   out.push(`  volumes:   ${plan.volumesDropped ? 'dropped' : 'kept'}`)
@@ -1097,7 +1251,7 @@ function volumeCreatedAt(names) {
  */
 function provisionedSpecChoice(dir, config, cwd = process.cwd()) {
   const worktreePaths = liveWorktreePaths(gitReader(dir))
-  const provisioned = allSpecs(dir, config, worktreePaths)
+  const provisioned = allSpecs(dir, config, worktreePaths, speclessMap(dir, config))
     .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath) }))
     // The primary checkout is itself in `git worktree list`; a spec is
     // provisioned only when it has its OWN worktree, separate from it.
@@ -1177,7 +1331,18 @@ function resolveSpecWithWorktree(dir, config, specArg) {
   // another's. A worktree left behind by a declined teardown can still answer
   // with a stale bucket — that is a leftover to prune, not a lookup to distrust.
   const preferDirs = worktreeGuess === dir ? [] : [worktreeGuess]
-  return resolveSpec(specArg, dir, config, { searchDirs, preferDirs })
+  // A SPECLESS BRANCH RESOLVES TOO, on the registry's word and nothing else.
+  // `/no-spec` work has a worktree and a branch and no document under
+  // `specs/**`, so every verb below — down, integrate, review, resolve, status —
+  // would refuse it as "spec not found". Passing the recorded map here is what
+  // makes one name resolvable without making every typo resolvable: `resolveSpec`
+  // consults it only after the folder search has come up empty, and only for a
+  // name the engine itself wrote down.
+  return resolveSpec(specArg, dir, config, {
+    searchDirs,
+    preferDirs,
+    specless: speclessMap(dir, config),
+  })
 }
 
 // Every spec folder name found under specs/* across the given checkout roots.
@@ -1235,7 +1400,7 @@ function specEnvPrune(dir, config, flags) {
   }
 
   const worktrees = liveWorktreePaths(gitReader(dir))
-  const specs = allSpecs(dir, config, worktrees)
+  const specs = allSpecs(dir, config, worktrees, speclessMap(dir, config))
   const liveSlugs = liveSlugsForSpecs(specs, worktrees)
 
   const olderThanDays =
@@ -1613,7 +1778,9 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
   if (flags.recordPrimary) return recordPrimary(dir, config, r)
   if (flags.assertPrimaryClean) return assertPrimaryClean(dir, config, r)
   process.stdout.write(
-    `spec:       ${r.folder} (${r.bucket})\n` +
+    // A specless branch has no bucket because it has no document — say that
+    // rather than printing `(null)`, which reads as a lookup that failed.
+    `spec:       ${r.folder} (${r.specless ? 'no spec' : r.bucket})\n` +
       `type/slug:  ${r.type} / ${r.slug}\n` +
       `branch:     ${r.branch}\n` +
       `worktree:   ${r.worktreePath}\n` +
@@ -4419,6 +4586,9 @@ async function specEnv(rest) {
   switch (sub) {
     case 'up':
       specEnvUp(dir, config, positional[0], flags)
+      break
+    case 'nospec':
+      specEnvNospec(dir, config, positional[0], flags)
       break
     case 'down':
       specEnvDown(dir, config, positional[0], flags)

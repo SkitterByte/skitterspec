@@ -64,7 +64,13 @@ const REGION = /<!-- commands:start -->([\s\S]*?)<!-- commands:end -->/
 // A command, never a path or a URL. The lookbehind rejects `rules/spec-planning`
 // and `https://…/spec-foo`; `(?!\.md)` rejects a filename. Both are ordinary in
 // these files and neither is a command reference.
-const TOKEN = /(?<![\w./-])\/(spec[a-z-]*)\b(?!\.md)/g
+//
+// `no-spec` IS NAMED, rather than the pattern being widened to any word. It is
+// the one shipped command whose name does not begin `spec`, and a token of
+// `/[a-z-]+` would match every URL path segment and relative link in these
+// files — turning the "documented but shipped nowhere" half into noise. A
+// second such command adds a second alternative here, deliberately.
+const TOKEN = /(?<![\w./-])\/((?:no-)?spec[a-z-]*)\b(?!\.md)/g
 
 function documented(file) {
   const text = read(file)

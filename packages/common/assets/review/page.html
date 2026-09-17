@@ -689,10 +689,12 @@ a.ticket:hover { border-color: var(--accent); }
    exactly this pair. */
 .cmd-row[data-verdict="commit"],
 .cmd-row[data-verdict="commit-start"],
+.cmd-row[data-verdict="commit-land"],
 .cmd-row[data-verdict="commit-continue"],
 .cmd-row[data-verdict="continue"] { border-left: 3px solid var(--good-fg); }
 .cmd-row[data-verdict="commit"] .cmd-label,
 .cmd-row[data-verdict="commit-start"] .cmd-label,
+.cmd-row[data-verdict="commit-land"] .cmd-label,
 .cmd-row[data-verdict="commit-continue"] .cmd-label,
 .cmd-row[data-verdict="continue"] .cmd-label { color: var(--good-fg); }
 .cmd-row[data-verdict="changes"] { border-left: 3px solid var(--flag-fg); }
@@ -850,6 +852,13 @@ a.ticket:hover { border-color: var(--accent); }
              spec and puts it IN FLIGHT, which is the `commit && /spec-start`
              that was typed by hand until now. -->
         <button id="verdict-commit-start" class="v-commit" type="button" hidden>&#10003; Commit &amp; Start</button>
+        <!-- THE /no-spec VERDICT, hidden unless the render asked for it. Work with
+             no spec has no next phase and nothing to put in flight, so neither
+             committing verb above fits: this one commits, fast-forwards the base
+             branch, and tears the worktree down. Its own word rather than a
+             context-dependent reading of "Commit", because one of those two
+             readings destroys a worktree. -->
+        <button id="verdict-commit-land" class="v-commit" type="button" hidden>&#10003; Commit &amp; Land</button>
         <button id="verdict-changes" class="v-changes" type="button">↺ Request changes</button>
         <button id="verdict-discuss" type="button">… Discuss first</button>
         <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
@@ -1585,6 +1594,7 @@ a.ticket:hover { border-color: var(--accent); }
     commit: document.getElementById('verdict-commit'),
     'commit-continue': document.getElementById('verdict-commit-continue'),
     'commit-start': document.getElementById('verdict-commit-start'),
+    'commit-land': document.getElementById('verdict-commit-land'),
     continue: document.getElementById('verdict-continue'),
     changes: document.getElementById('verdict-changes'),
     discuss: document.getElementById('verdict-discuss'),
@@ -1592,7 +1602,7 @@ a.ticket:hover { border-color: var(--accent); }
   // The committing pair, named once. A fifth verdict that commits is added
   // here, and the shared block below follows for free — the same reason the
   // engine keeps a `COMMITTING` list rather than a second condition.
-  var COMMITTERS = ['commit', 'commit-continue', 'commit-start']
+  var COMMITTERS = ['commit', 'commit-continue', 'commit-start', 'commit-land']
 
   /*
    * WHICH BUTTONS THIS PAGE OFFERS, and it comes from the render rather than
@@ -1613,6 +1623,7 @@ a.ticket:hover { border-color: var(--accent); }
     midrun: ['continue', 'changes', 'discuss'],
     authoring: ['commit-start', 'commit', 'changes', 'discuss'],
     refresh: ['commit', 'changes', 'discuss'],
+    nospec: ['commit-land', 'commit', 'changes', 'discuss'],
     committing: ['commit', 'commit-continue', 'changes', 'discuss'],
   }
   var OFFERED = OFFERS[data.buttons] || OFFERS.committing
@@ -1629,6 +1640,7 @@ a.ticket:hover { border-color: var(--accent); }
     commit: '✓ Commit',
     'commit-continue': '✓ Commit & Continue',
     'commit-start': '✓ Commit & Start',
+    'commit-land': '✓ Commit & Land',
     continue: '→ Continue',
     changes: '↺ Request changes',
     discuss: '… Discuss first',
@@ -1641,6 +1653,10 @@ a.ticket:hover { border-color: var(--accent); }
     // Says what it WILL do, because this is the one verdict that provisions:
     // a worktree appears and phase 1 starts.
     'commit-start': 'Commit this spec, then put it in flight and build phase 1',
+    // Says what it WILL do, and every destructive part of it: this is the only
+    // verdict that removes a worktree, so the reader must not learn that from
+    // the outcome afterwards.
+    'commit-land': 'Commit this, fast-forward the base branch to it, and remove the worktree',
     // Says what it will NOT do, for the same reason: nothing is committed by
     // this, so the work it resumes is still uncommitted afterwards.
     continue: 'You have read it — carry on with the run; nothing is committed',
@@ -1858,6 +1874,7 @@ a.ticket:hover { border-color: var(--accent); }
     commit: 'committed',
     'commit-continue': 'committed, then carried on',
     'commit-start': 'committed, then put in flight',
+    'commit-land': 'committed, landed, and torn down',
     continue: 'read it and carried on',
     changes: 'changes requested',
     discuss: 'discussed',

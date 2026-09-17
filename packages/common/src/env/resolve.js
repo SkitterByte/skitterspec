@@ -468,11 +468,68 @@ function assertPrimaryOnMain(config, git) {
  * That is `bug-spec-env-cwd-anchor`'s fix and it is deliberately untouched here;
  * only which *file* is read moves.
  */
+/**
+ * Resolve a SPECLESS branch — `/no-spec` work — to the same shape `resolveSpec`
+ * returns, minus every field that comes from a spec document.
+ *
+ * `bucket`, `path`, `stack` and `baseRef` are null rather than invented: there
+ * is no document to read them from, and a plausible default would make a
+ * consumer believe it had read one. `specless: true` is the flag every caller
+ * branches on, so "is there a spec here?" is a field rather than an inference
+ * from a missing `path`.
+ *
+ * The branch is `chore/{slug}` by default — `branch.pattern` already carries a
+ * `{type}`, so nothing about branch naming is special-cased here. A recorded
+ * entry may name its own `branch`, which wins: the record is what the worktree
+ * was actually created against, and re-deriving it would go wrong the moment a
+ * project changed its pattern under a standing branch.
+ *
+ * Pure but for `repoInfo`, like `resolveSpec`.
+ */
+function resolveSpecless(name, dir, config, entry = {}) {
+  const { repo, repoSlug } = repoInfo(dir)
+  const slug = name
+  const tokens = { repo, repoSlug, slug }
+  const spec = {
+    folder: name,
+    bucket: null,
+    path: null,
+    type: (entry && entry.type) || 'chore',
+    slug,
+    stack: 'worktree',
+    baseRef: null,
+    specless: true,
+  }
+  const branch = (entry && entry.branch) || branchFor(spec, config)
+  const worktreeRoot = expandTokens(config.worktree.root, tokens)
+  const worktreeFolder = expandTokens(config.worktree.folderPattern, tokens)
+  return {
+    ...spec,
+    repo,
+    repoSlug,
+    branch,
+    worktreeRoot,
+    worktreeFolder,
+    worktreePath: path.resolve(dir, worktreeRoot, worktreeFolder),
+    projectName: expandTokens(config.docker.projectNamePattern, tokens),
+  }
+}
+
 function resolveSpec(specArg, dir, config, opts = {}) {
   const searchDirs = opts.searchDirs || []
   const preferDirs = opts.preferDirs || []
   const found = findSpecFolder(specArg, dir, searchDirs, preferDirs)
   if (!found) {
+    // A SPECLESS BRANCH, but only on the registry's word. `/no-spec` work has a
+    // worktree and a branch and no spec document anywhere, so it can never be
+    // found by looking under `specs/**` — and "not found there" is not evidence
+    // of it, because a typo looks identical (`.claude/rules/negative-checks.md`
+    // rule 1). The caller passes the registry's specless map, and being named in
+    // it is the positive signal; without one, nothing changes and the error
+    // below is thrown exactly as before.
+    if (opts.specless && Object.prototype.hasOwnProperty.call(opts.specless, specArg)) {
+      return resolveSpecless(specArg, dir, config, opts.specless[specArg])
+    }
     // Name the roots we looked under: the usual cause is a spec that only exists
     // on its own branch, and the message should say where we didn't find it.
     throw new Error(
@@ -489,7 +546,19 @@ function resolveSpec(specArg, dir, config, opts = {}) {
   // A hotfix forks its worktree from a release tag (its `Base version`) instead
   // of base HEAD; every other type resolves to baseRef:null (fork from HEAD).
   const baseRef = type === 'hotfix' ? readBaseVersionField(found.path) : null
-  const spec = { folder: found.folder, bucket: found.bucket, path: found.path, type, slug, stack, baseRef }
+  // `specless: false` is written out rather than left off, so every consumer
+  // reads the same field on every resolution instead of treating `undefined` as
+  // an answer.
+  const spec = {
+    folder: found.folder,
+    bucket: found.bucket,
+    path: found.path,
+    type,
+    slug,
+    stack,
+    baseRef,
+    specless: false,
+  }
   const branch = branchFor(spec, config)
 
   const worktreeRoot = expandTokens(config.worktree.root, tokens)
@@ -553,16 +622,35 @@ function collectSpecFolders(roots) {
  * spec that was authored on its branch and never committed to the primary
  * checkout.
  */
-function allSpecs(dir, config, worktreePaths) {
+function allSpecs(dir, config, worktreePaths, specless = {}) {
   const searchDirs = [...worktreePaths]
   const specs = []
   for (const folder of collectSpecFolders([dir, ...searchDirs])) {
     try {
       const spec = resolveSpec(folder, dir, config, { searchDirs })
-      specs.push({ folder: spec.folder, slug: spec.slug, worktreePath: spec.worktreePath })
+      specs.push({
+        folder: spec.folder,
+        slug: spec.slug,
+        worktreePath: spec.worktreePath,
+        specless: false,
+      })
     } catch {
       // Unresolvable folder (not a real spec) — skip.
     }
+  }
+  // SPECLESS BRANCHES ARE LISTED TOO, and they have to be added here rather than
+  // found: `collectSpecFolders` scans `specs/**`, where by definition they are
+  // not. Leaving them out is what would make a `/no-spec` worktree invisible to
+  // `status` and to every bare resolution — the outcome decision 7 rejected for
+  // a plain git branch, arrived at by omission instead.
+  for (const name of Object.keys(specless).sort()) {
+    const spec = resolveSpecless(name, dir, config, specless[name])
+    specs.push({
+      folder: spec.folder,
+      slug: spec.slug,
+      worktreePath: spec.worktreePath,
+      specless: true,
+    })
   }
   return specs
 }
@@ -570,6 +658,7 @@ function allSpecs(dir, config, worktreePaths) {
 module.exports = {
   BUCKETS,
   resolveSpec,
+  resolveSpecless,
   liveWorktreePaths,
   collectSpecFolders,
   allSpecs,

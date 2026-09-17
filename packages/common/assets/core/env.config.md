@@ -5,7 +5,7 @@ stack + host dev servers + a front-door proxy per in-progress spec).
 Provisioning is folded into `/spec-start`, teardown into `/spec-complete` ·
 `/spec-cancel`, traffic diversion is `/spec-connect`, and reading a spec's diff
 is `/spec-diff`; the `skitterspec spec-env
-<up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve>` CLI is
+<up|nospec|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve>` CLI is
 the engine beneath them.
 
 **Once this file is present, isolation is the default policy:** `/spec-start` gives

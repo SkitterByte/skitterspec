@@ -628,6 +628,7 @@
       <span class="lbl">branches off the spine:</span>
       <span class="chip"><b>/spec-bug</b> · red→green from a repro</span>
       <span class="chip"><b>/spec-hotfix</b> · fix a released tag</span>
+      <span class="chip"><b>/no-spec</b> · work that has none, off the base branch</span>
       <span class="chip"><b>/spec-review</b> · refresh a stale spec</span>
       <span class="chip"><b>/spec-diff</b> · read and mark up the diff</span>
       <span class="chip"><b>/spec-live</b> · test on your running server</span>
@@ -841,6 +842,7 @@
           <tr class="grp-row"><td colspan="3">Entry points &amp; upkeep</td></tr>
           <tr><td class="cmd">/spec-bug</td><td>Reproduce with a failing test, then drive red → green.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/spec-hotfix</td><td>Fork a worktree from a release tag; land by tag + cherry-pick.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/no-spec</td><td>Work that genuinely has no spec — a version bump, a rename. Its own branch, its own worktree, its own review page; never the base branch.</td><td class="folder">—</td></tr>
           <tr><td class="cmd">/spec-review</td><td>Re-validate a spec against the codebase; refresh stale parts.</td><td class="folder">— unchanged</td></tr>
           <tr><td class="cmd">/spec-init</td><td>Bootstrap or repair the workflow in a project (idempotent).</td><td class="folder">—</td></tr>
 
@@ -946,6 +948,7 @@ $ skitterspec spec-env <span class="p">review</span> --branch</div>
         <tbody>
           <tr class="grp-row"><td colspan="3">Planners — they print commands; the skill executes them</td></tr>
           <tr><td class="cmd">spec-env up &lt;spec&gt;</td><td>Plan a worktree (and a Docker stack, if the spec's <span class="mono">Stack</span> asks for one). Creates nothing.</td><td class="folder">/spec-start</td></tr>
+          <tr><td class="cmd">spec-env nospec &lt;name&gt;</td><td>Record a branch with no spec document — <span class="mono">/no-spec</span> work — and plan its worktree. The record is what makes a name with nothing under <span class="mono">specs/**</span> resolvable.</td><td class="folder">/no-spec</td></tr>
           <tr><td class="cmd">spec-env down &lt;spec&gt;</td><td>Plan teardown — remove the worktree, delete the branch, drop the stack.</td><td class="folder">/spec-complete · /spec-cancel</td></tr>
           <tr><td class="cmd">spec-env integrate &lt;spec&gt;</td><td>Plan the landing: rebase onto base, then fast-forward. Live-aware.</td><td class="folder">/spec-complete · /spec-to-main</td></tr>
           <tr><td class="cmd">spec-env hotfix land &lt;spec&gt;</td><td>Plan a hotfix landing — tag the patch, cherry-pick onto main.</td><td class="folder">/spec-complete</td></tr>

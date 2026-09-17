@@ -661,11 +661,12 @@ test('the engine speaks the words the prose routes on', () => {
     'commit',
     'commit-continue',
     'commit-start',
+    'commit-land',
     'continue',
     'changes',
     'discuss',
   ])
-  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue', 'commit-start'])
+  assert.deepStrictEqual(COMMITTING, ['commit', 'commit-continue', 'commit-start', 'commit-land'])
   const { DEFAULT_CONFIG } = require('../src/env/config.js')
   assert.strictEqual(DEFAULT_CONFIG.review.commitWith, '/commit')
 })

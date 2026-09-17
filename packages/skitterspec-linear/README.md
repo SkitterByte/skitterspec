@@ -77,6 +77,7 @@ them. Your `specs/` content and live `.core` config are never touched.
 | `/spec` | Grill to a shared understanding, then write a groomed spec |
 | `/spec-bug` | Reproduce with a failing test, then drive it red→green |
 | `/spec-hotfix` | Fix the released version: fork from a tag, land by tag + cherry-pick |
+| `/no-spec` | Work that genuinely has no spec — on its own branch all the same |
 | `/spec-review` | Re-validate a spec against the code; refresh what drifted |
 | `/spec-start` | Put a spec in flight — provision its branch, then build phase 1 |
 | `/spec-next` | Build the next phase of the spec in flight |

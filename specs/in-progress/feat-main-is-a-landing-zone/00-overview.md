@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-main-is-a-landing-zone (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 3 (started 2026-09-17)
+> **Status:** In Progress — Phase 4 (started 2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -171,7 +171,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Docs-mode provisioning — `spec-env up --docs` | ✅ | [01-docs-mode-provisioning.md](01-docs-mode-provisioning.md) |
 | 2 | `/spec` authors in its worktree and lands on the verdict | ✅ | [02-spec-authors-in-worktree.md](02-spec-authors-in-worktree.md) |
-| 3 | `/no-spec` — the lane for work with no spec | ⬜ | [03-no-spec.md](03-no-spec.md) |
+| 3 | `/no-spec` — the lane for work with no spec | ✅ | [03-no-spec.md](03-no-spec.md) |
 | 4 | The main guard — hook, engine verb, `/allow-main` | ⬜ | [04-main-guard.md](04-main-guard.md) |
 
 **Phase order is a safety property, not a preference.** The guard is a wall until
@@ -226,3 +226,29 @@ branch — strictly worse than today.
   including `--docs` "never wants a worktree". Updated rather than deleted, and
   two gained `doesNotMatch` checks so the old claims are provably gone rather
   than merely contradicted somewhere else in the file.
+- 2026-09-17 — Phase 3, correcting decision 7: the registry's `slots` are
+  **Docker-only** — a worktree-only spec has never taken one — so "a registry
+  entry" could not be a slot without making every `/no-spec` branch allocate
+  ports it never binds and read as a stateful spec in `status`. It got its own
+  `specless` key instead. The decision's substance stands; its mechanism was
+  wrong about the file it named.
+- 2026-09-17 — Phase 3, correcting its own task list: it said `/no-spec` would
+  provision with `spec-env up --docs`. That is backwards — documents mode skips
+  the `setup` commands because markdown needs no dependencies, and `/no-spec`
+  work is *code*. The two lanes want opposite halves of the same provision, so
+  `/no-spec` got its own verb, `spec-env nospec`, which keeps the setup.
+- 2026-09-17 — Phase 3: the specless map is **passed in** to `resolveSpec`
+  rather than read there. The fallback must fire on a positive signal — the
+  engine wrote this name down — and never on "no folder found", which is what a
+  typo also looks like (`.claude/rules/negative-checks.md` rule 1).
+- 2026-09-17 — Phase 3: nothing was needed to ship the skill. `init.js`'s
+  `listSkills()` reads the assets directory, so a new skill ships by existing —
+  the task assumed a list that does not exist.
+- 2026-09-17 — Phase 3: the suite caught four registrations the task list had
+  missed — `/spec-reviewed` must name every verdict word, `spec-init` must count
+  its own skills, every published surface must list every command it ships, and
+  every dispatched verb must be documented. One of them needed a code change:
+  `assets-published-docs.test.js`'s command token matched only `/spec…`, so
+  `/no-spec` could never be *seen* as documented. Widened with a named `no-`
+  alternative rather than to any word, which would have matched every URL path
+  segment in those files.

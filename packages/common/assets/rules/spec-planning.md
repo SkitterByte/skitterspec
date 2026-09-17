@@ -10,6 +10,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec` | (Feature) Grill to a clear shared understanding, write a groomed spec in its own worktree, then land it on the verdict | `Ready` (or `Draft`) | `specs/backlog/` (on the base branch, by a fast-forward) |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
+| `/no-spec` | Work that genuinely has no spec — its own branch, worktree, page and land. Writes no spec and moves nothing through the lifecycle | `—` | (none) |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-start` | Put a spec in flight — provision its branch, then build phase 1 | `In Progress` | `specs/in-progress/` |
 | `/spec-next` | Build the next phase of the spec this session is in (re-run per phase) | `In Progress` (unchanged) | (unchanged) |
@@ -51,6 +52,19 @@ that wait is claimed by the engine (`--claim-since`) without anyone typing
 anything — scoped to the window, refusing when two arrive. `/spec-reviewed` is
 what answers everything outside it: a pass sent when nobody was waiting, two
 passes to choose between, and every harness with no file-watch to wait with.
+
+**`/no-spec` is the one row that writes no spec**, and it is in the table
+because it is the same lane: a branch, a worktree, a review page, a verdict, a
+land. What it leaves out is the document, because mechanical work — a version
+bump, a lockfile refresh, a rename — genuinely has none, and a one-phase spec
+written for it is a document nobody reads. What it does **not** leave out is the
+branch. Doing that work in the primary checkout leaves the base branch dirty for
+every in-flight spec to replay over, and renders no page, so it is the one kind
+of change that reaches the base branch unreviewed. It is model-invocable, which
+matters: it is where Claude is sent when it would otherwise write on the base
+branch. Beneath it, `skitterspec spec-env nospec <name>` records the branch —
+and that record is what makes a name with nothing under `specs/**` resolvable by
+`review`, `integrate`, `down` and a bare `resolve`.
 
 `/spec-to-main`, `/spec-status` and `/spec-sync` stay **skills** — each carries
 real judgment (green tests before a land; an MCP fetch and a team-key check; ten
@@ -98,7 +112,7 @@ your canonical `localhost` ports so you can test it at the normal URL
 move, header edits, the code) happens on the spec's branch in the worktree; `main`
 changes only when it merges. Teardown is folded into `/spec-complete` ·
 `/spec-cancel`. Beneath the skills, `skitterspec spec-env
-<up|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve>` is the CLI
+<up|nospec|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve>` is the CLI
 engine. **Omit the spec name anywhere and it uses the worktree you are standing in**,
 else the sole provisioned spec — with no exceptions left: a bare
 `/spec-connect` connects, and a bare `/spec-live` takes, where both once meant

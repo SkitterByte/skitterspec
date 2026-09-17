@@ -22,7 +22,7 @@ function tmpDir() {
 
 test('readRegistry returns an empty registry when the file is absent', () => {
   const dir = tmpDir()
-  assert.deepStrictEqual(readRegistry(dir, CONFIG), { slots: {} })
+  assert.deepStrictEqual(readRegistry(dir, CONFIG), { slots: {}, specless: {} })
 })
 
 test('allocateSlot picks the lowest free index, filling gaps', () => {
@@ -51,8 +51,8 @@ test('allocateSlot does not mutate the input registry', () => {
 })
 
 test('freeSlot removes a spec and is a no-op when absent', () => {
-  assert.deepStrictEqual(freeSlot({ slots: { a: 0, b: 1 } }, 'a'), { slots: { b: 1 } })
-  assert.deepStrictEqual(freeSlot({ slots: { b: 1 } }, 'missing'), { slots: { b: 1 } })
+  assert.deepStrictEqual(freeSlot({ slots: { a: 0, b: 1 } }, 'a'), { slots: { b: 1 }, specless: {} })
+  assert.deepStrictEqual(freeSlot({ slots: { b: 1 } }, 'missing'), { slots: { b: 1 }, specless: {} })
 })
 
 test('a freed slot is reused by the next allocation', () => {
@@ -72,7 +72,7 @@ test('write then read round-trips the registry to disk', () => {
   const dir = tmpDir()
   writeRegistry(dir, CONFIG, { slots: { a: 0, b: 1 } })
   assert.ok(fs.existsSync(path.join(dir, '.spec-env', 'registry.json')))
-  assert.deepStrictEqual(readRegistry(dir, CONFIG), { slots: { a: 0, b: 1 } })
+  assert.deepStrictEqual(readRegistry(dir, CONFIG), { slots: { a: 0, b: 1 }, specless: {} })
 })
 
 test('readRegistry throws a clear error on malformed JSON', () => {
