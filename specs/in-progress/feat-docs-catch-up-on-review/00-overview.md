@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-310"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-310/the-docs-catch-up-on-the-review-loop-and-a-guard-keeps-them-there"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # The docs catch up on the review loop, and a guard keeps them there
 
 > **Type:** Feature
 > **Name:** feat-docs-catch-up-on-review (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-17)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
 > **Area:** packages/skitterspec/README.md, packages/skitterspec-linear/README.md, docs/index.html, docs/linear.html, packages/common/README.md, packages/common/test/
 > **Stack:** worktree
@@ -104,6 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
+| 2026-09-17 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
