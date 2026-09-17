@@ -5,6 +5,44 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 22.0.0 — 17 Sep 2026
+
+### Env
+- **New** — A key in `env.config.json` that skitterspec does not read is now named on every `spec-env` command instead of being dropped in silence — so a typo like `docker.portbase` tells you why the setting had no effect. It is advisory only: nothing refuses and nothing changes.
+
+### Install
+- **New** — `skitterspec --help` now lists the `spec-env live` and `spec-env stage` subcommands. Both have worked all along, but an undocumented command reads as a removed one.
+- **New** — `skitterspec update` no longer reports a file as "your edit" when it is really a path skitterspec has only just started managing. That case now says so in its own words, so you can tell a file you wrote from one you customized and decide whether to take ours.
+
+### Review
+- **New** — Each line of a rendered review now names the command that changes it — /spec-live to put the change live, /spec-live main to give the instance back, /spec-remote-review to allow reviewing from off your network. That last one is new and toggles, so you no longer have to remember which way round it was.
+- **New** — The review page now has a line above the verdicts for putting the change live, so you can use it as well as read it — and one press takes it down again. A review surface that is switched off shows a button to turn it on instead of a command to go and type.
+- **New** — A rendered review now tells you whether the spec is also running live, and where — so you can judge a change by using it as well as by reading it. A spec held live by someone else says so, and names the way to free it.
+- **New** — A rendered review now lists every way you could open the page — local, network and remote — each labelled and in the same order, with the one command that turns on whichever is off. No more guessing which link works from where you are reading.
+- **New** — You can now say which review surfaces a project allows instead of the tool guessing where you are reading, so a link that works on your phone no longer depends on it guessing right. Network reviews are on by default, which means the review server listens on your local network.
+- **New** — The review server no longer keeps answering from an older build of the same version, which made a fixed page look broken and a broken one look fixed.
+- **New** — Pressing a verdict on a spec's review page no longer makes that page disappear — reload it and the spec is still there, marked as committed.
+- **New** — A review link keeps the same address whether you are reading on this machine or another, so it cannot change shape between one render and the next.
+- **New** — A review link now keeps working across a restart, a crash and a reboot, so a page open on your phone does not stop answering for reasons you cannot see.
+- **New** — When the review page cannot be served it now says why, naming the port to free rather than quietly handing back a file:// link.
+- **New** — The review page is now always served over http, so its verdict buttons work wherever you read it — including a spec you have only just written, which previously had no page the server would answer for.
+- **New** — Re-validating a spec now ends on the same review page, showing what drifted and what was rewritten, so a refreshed spec is read before it is committed.
+- **New** — A spec can now be reviewed on the same page as everything else, before any work starts — including one still in the backlog with no branch of its own. The page shows the spec's own documents and nobody else's, even when several specs are being written in the same checkout.
+- **New** — When a verdict cannot be delivered, the review page now says so where you are looking rather than in a grey footnote — and tells you which failure it was: a server that has moved, a pass the engine refused, or a request that never arrived. Your verdict is not lost: the box hands you the command that carries it, and the buttons stay live.
+- **New** — Two repos on one machine no longer compete for the review server's port. Each gets its own, derived from its path and the same on every run, so a review link you handed out yesterday still opens today. Pin review.servePort to a number if you want a fixed one.
+- **New** — The review page header now names the phase you are reviewing and lists its tasks — ticked and unticked — with the tracker ticket linked from the title, so a mid-phase diff shows what is and is not covered. On a page opened from a file, the buttons that need a server are hidden and the copyable commands line up in one place.
+- **New** — One command now answers "is any review waiting anywhere?" — "skitterspec spec-env status", or "spec-env review waiting" on its own. It finds passes for specs you already finished and tore down, which is where they hid: a verdict you sent while nothing was listening used to be invisible unless you re-rendered that one spec. Starting or continuing a spec reports them too. Nothing is ever picked up on your behalf; each is listed with its code so you can claim it or disown it.
+- **New** — Waiting for you to press a verdict is now one command the engine owns, instead of a watcher improvised for each run. Those improvisations failed silently — one could never match at all and spun for five minutes looking exactly like patience — so a verdict you sent could go unheard until you asked about it. The wait also says out loud that it has started, and by default lasts as long as your session rather than giving up after an hour.
+- **New** — Reading a review as a local file now gives you a runnable command per verdict — "/spec-reviewed commit", labelled with the same "Commit & Continue" wording the buttons use — each with its own Copy button, instead of a button that only puts a wall of JSON on your clipboard. Tick an accept or write a note and it goes back to handing over the full pass, because a command line cannot carry your notes and it tells you so rather than dropping them.
+- **Fixed** — The review server's index page no longer fails to render in a project that names its companion files by tracker id.
+- **Fixed** — A review page you send from your phone now tells you what actually happened to it. When Claude picks the pass up — which is the normal case while a phase is waiting — the page says so and asks nothing of you. The "/spec-reviewed" command only appears when the pass really is still sitting there unclaimed, and it now sits inside the "You chose" box as a green call-to-action rather than a grey line under a bar that has just closed. The command is plain text with a Copy button, so tapping it no longer raises your keyboard.
+
+### Spec
+- **New** — Writing a spec now ends on the same review page as everything else, with buttons that commit it — or commit it and put it straight in flight. A spec no longer reaches /spec-start uncommitted.
+
+### Sync
+- **New** — If someone edits a spec's ticket description in Linear, /spec-status and /spec-push now tell you before the next push replaces it, with a link to go and read what they wrote. The push still goes ahead — the repo stays the source of truth — it just no longer happens silently.
+
 ## 21.0.0 — 16 Sep 2026
 
 **Highlights:** Fixing a bug or shipping a hotfix now waits for your review verdict instead of finishing without one, so a button you press on the page always carries the work on. A commit in that spec's worktree is held until you send a verdict or record a reason for moving on.
