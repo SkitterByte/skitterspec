@@ -93,7 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The published READMEs, and the guard | ⬜ | [01-the-npm-readmes.md](01-the-npm-readmes.md) |
+| 1 | The published READMEs, and the guard | ✅ | [01-the-npm-readmes.md](01-the-npm-readmes.md) |
 | 2 | The docs site | ⬜ | [02-the-docs-site.md](02-the-docs-site.md) |
 | 3 | The developer-facing README | ⬜ | [03-the-repo-readme.md](03-the-repo-readme.md) |
 
@@ -113,3 +113,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-16 — Spec created while preparing the v22 / v17 release, which is held
   until at least phase 1 lands: shipping a major whose README documents a
   removed question and four dead commands is the one thing a major should not do.
+- 2026-09-17 — Phase 1: the guard landed first and failed on every count, then
+  both READMEs were fixed. Decision 3's set comparison needed a **boundary** it
+  did not have: scanned over a whole file it accuses the base README for naming
+  the superset's commands and accuses an accurate version history for recording
+  a removal, so each README now carries a marked `commands` region and the
+  comparison reads that. The predicted six discrepancies were not the real ones
+  — `/spec-remote-review` landed the same day and no hand-kept list would have
+  known — which is the case for set comparison made by the thing itself.

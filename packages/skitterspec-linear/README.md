@@ -69,6 +69,39 @@ Add `--diff` to see those changes as a unified diff before deciding whether to
 re-apply your edits on top, or `--force` to take the package version and lose
 them. Your `specs/` content and live `.core` config are never touched.
 
+## Everything it ships
+
+<!-- commands:start -->
+| | |
+|---|---|
+| `/spec` | Grill to a shared understanding, then write a groomed spec |
+| `/spec-bug` | Reproduce with a failing test, then drive it red→green |
+| `/spec-hotfix` | Fix the released version: fork from a tag, land by tag + cherry-pick |
+| `/spec-review` | Re-validate a spec against the code; refresh what drifted |
+| `/spec-start` | Put a spec in flight — provision its branch, then build phase 1 |
+| `/spec-next` | Build the next phase of the spec in flight |
+| `/spec-diff` | Read what a phase changed, on a page you can mark up |
+| `/spec-reviewed` | Pick up a verdict pressed when nothing was waiting for it |
+| `/spec-to-main` | Land the branch mid-spec, without finishing it |
+| `/spec-complete` | Verify, land, tear down |
+| `/spec-cancel` | Record why, stamp the header, tear down |
+| `/spec-init` | Bootstrap or repair the workflow in a project |
+| `/spec-connect` | Point your canonical `localhost` ports at one spec's stack |
+| `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |
+| `/spec-remote-review` | Permit (or forbid) reviewing from off your network |
+| `/spec-push` | Repo → Linear, one-way |
+| `/spec-status` | Read-only drift report |
+| `/spec-list` | What the tracker holds, with each spec's folder name |
+| `/spec-claim` | Take a spec, hand it back, or hand it to a teammate |
+| `/spec-sync` | The `spec-sync` engine, for CI and local runs |
+| `/spec-linear-setup` | Connect this repo to a Linear team |
+<!-- commands:end -->
+
+**The whole base is here**, because this is a strict superset — install this
+*instead of* `@skitterbyte/skitterspec`, never alongside it. The base README
+documents the review loop, the gate and the `review.*` keys; everything below is
+what the Linear half adds on top.
+
 ## What the superset adds
 
 On top of the base skills (`/spec`, `/spec-start`, `/spec-next`, isolation, …):
@@ -126,7 +159,7 @@ a question it cannot answer itself or a failure at the moment it happens:
 | **Branch** | `spec/feat-orders` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · npm test |
-| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review before you commit? |
+| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** off |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 
