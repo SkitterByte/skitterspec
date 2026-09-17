@@ -679,10 +679,26 @@ function engineVersionFor(scriptPath) {
  * (a bundled build, an odd install layout). Both are answered `unknown`, and
  * neither is evidence of anything.
  */
-function staleServer(recorded, running) {
+function staleServer(recorded, running, recordedMtime, runningMtime) {
   if (typeof recorded !== 'string' || !recorded) return 'unknown'
   if (typeof running !== 'string' || !running) return 'unknown'
-  return recorded === running ? 'current' : 'stale'
+  if (recorded !== running) return 'stale'
+
+  // SAME VERSION IS NOT SAME CODE, which is the whole of this addition. The
+  // daemon runs a built copy of the engine — in this repo a symlink to the
+  // gitignored dist — so a rebuild moves the file without moving the version,
+  // and a version-only comparison adopted a process running last week's code.
+  // It cost two confidently wrong diagnoses in one session: a page reported as
+  // 404ing that the new code serves, and a regression reported as unfixed that
+  // had already been fixed.
+  //
+  // CANNOT TELL ADOPTS. A settings file written before this existed records no
+  // mtime, and an unreadable script has none to offer — restarting a healthy
+  // server over an absent field is the destructive reading, so an absent half
+  // falls back to the version verdict (rule 4).
+  const both = Number.isFinite(recordedMtime) && Number.isFinite(runningMtime)
+  if (both && recordedMtime !== runningMtime) return 'stale'
+  return 'current'
 }
 
 module.exports = {

@@ -753,3 +753,66 @@ test('STAYS SILENT: the token still guards a network bind, and a wrong one is no
   assert.strictEqual(routeFor('/deadbeef0000/feat-alpha', { token }).kind, 'notfound')
   assert.strictEqual(routeFor('/feat-alpha', { token }).kind, 'notfound', 'never a redirect')
 })
+
+// --- a stale BUILD is replaced, and the link survives it --------------------
+
+const pidOf = (dir) =>
+  Number(fs.readFileSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid'), 'utf8').trim())
+
+test('a daemon whose recorded build is older is replaced, and the URL is unchanged', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    const before = urlOf(review(dir))
+    const firstPid = pidOf(dir)
+
+    // What a rebuilt dist looks like from the engine's side: same version, a
+    // script whose mtime has moved. Done by rewinding the RECORDED value rather
+    // than touching the real engine file, which every other test shares.
+    const sfile = path.join(dir, '.spec-env', 'review-serve.json')
+    const settings = JSON.parse(fs.readFileSync(sfile, 'utf8'))
+    assert.ok(Number.isFinite(settings.scriptMtime), 'the spawn recorded a build')
+    fs.writeFileSync(sfile, JSON.stringify({ ...settings, scriptMtime: settings.scriptMtime - 5000 }))
+
+    const after = urlOf(review(dir))
+    assert.notStrictEqual(pidOf(dir), firstPid, 'the stale process was replaced')
+    // THE POINT OF DOING THIS NOW rather than earlier: the token outlives the
+    // process, so replacing it no longer costs the reader their link. Before
+    // `feat-one-review-link` this test could not have passed.
+    assert.strictEqual(after, before, 'and the link someone is holding still works')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a daemon whose build matches is adopted, with nothing said', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    const before = urlOf(review(dir))
+    const firstPid = pidOf(dir)
+    const out = review(dir)
+    assert.strictEqual(pidOf(dir), firstPid, 'the healthy server was adopted, not restarted')
+    assert.strictEqual(urlOf(out), before)
+    assert.doesNotMatch(out, /engine/, 'an ordinary render says nothing about the engine')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a settings file with no recorded build is adopted', async () => {
+  const { dir } = scaffold('remote', { servePort: await freePort() })
+  try {
+    review(dir)
+    const firstPid = pidOf(dir)
+    const sfile = path.join(dir, '.spec-env', 'review-serve.json')
+    const settings = JSON.parse(fs.readFileSync(sfile, 'utf8'))
+    delete settings.scriptMtime // a file written before this existed
+    fs.writeFileSync(sfile, JSON.stringify(settings))
+    review(dir)
+    assert.strictEqual(pidOf(dir), firstPid, 'an absent field must not restart a healthy server')
+  } finally {
+    stopServe(dir)
+    cleanup(dir)
+  }
+})

@@ -2821,6 +2821,25 @@ function stateDirLabel(config) {
 }
 
 /**
+ * The engine script's mtime in ms, or null when it cannot be read.
+ *
+ * WHY MTIME AND NOT A CONTENT HASH: the dist is assembled from several files,
+ * so a hash needs a manifest to stay honest, and this answers the only question
+ * asked — is the code on disk newer than the process serving it? WHY NOT THE
+ * PROCESS START TIME: `ps -o lstart=` is platform-specific and needs parsing,
+ * while this is a number we write ourselves into a file we already write.
+ *
+ * Null is cannot-tell and adopts. See `staleServer`.
+ */
+function scriptMtimeOf(scriptPath) {
+  try {
+    return fs.statSync(scriptPath).mtimeMs
+  } catch {
+    return null
+  }
+}
+
+/**
  * This repo's serve token, minted once and then read.
  *
  * STORED, NOT DERIVED, and the asymmetry with the port is the point. The port
@@ -3030,7 +3049,7 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
     if (settings && settings.port) {
       if (serverScriptOk(settings)) {
         const now = engineVersionFor(proc.script)
-        const verdict = staleServer(settings.engine, now)
+        const verdict = staleServer(settings.engine, now, settings.scriptMtime, scriptMtimeOf(proc.script))
         if (verdict !== 'stale') {
           const lb = settings.host === '127.0.0.1' || settings.host === 'localhost'
           return {
@@ -3145,6 +3164,9 @@ async function ensureReviewServer(dir, config, { host = '127.0.0.1', port, resta
         token,
         script: proc.script,
         engine: engineVersionFor(proc.script),
+        // Recorded so the NEXT adoption can tell a rebuild from a restart. A
+        // version alone cannot: the dist is rebuilt at the same version all day.
+        scriptMtime: scriptMtimeOf(proc.script),
       },
       null,
       2,

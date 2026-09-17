@@ -427,3 +427,55 @@ test('the anchoring that makes the above true is still in the code', () => {
   // as far as the server is concerned.
   assert.match(src, /dir = resolvePrimaryCheckout\(dir, gitReader\(dir\)\)/)
 })
+
+// --- stale by BUILD, not only by version -----------------------------------
+//
+// `staleServer` compared version strings, so a rebuilt dist at the same version
+// read as `current` and the stale process was adopted. In this repo the daemon
+// runs `node_modules/@skitterbyte/skitterspec` — a symlink to the gitignored
+// dist — so a session editing `packages/common/src` was served by the last
+// build with nothing saying so. It produced two confidently wrong diagnoses in
+// one session: a 404 on a page the new code serves, and a regression already
+// fixed.
+
+test('a moved script mtime at the same version is stale', () => {
+  assert.strictEqual(staleServer('1.2.3', '1.2.3', 1000, 2000), 'stale')
+  assert.strictEqual(staleServer('1.2.3', '1.2.3', 2000, 2000), 'current')
+})
+
+test('a changed version is still stale, whatever the mtimes say', () => {
+  // The existing signal is untouched: an npm upgrade changes the version, and
+  // that has always been enough.
+  assert.strictEqual(staleServer('1.2.3', '1.3.0', 2000, 2000), 'stale')
+  assert.strictEqual(staleServer('1.2.3', '1.3.0'), 'stale')
+})
+
+test('STAYS SILENT: a missing mtime falls back to the version verdict', () => {
+  // A settings file written before this existed records no mtime, and an
+  // unreadable script has none to compare. Both are cannot-tell, and
+  // cannot-tell must adopt rather than restart a healthy server over an absent
+  // field (`.claude/rules/negative-checks.md` rule 4).
+  assert.strictEqual(staleServer('1.2.3', '1.2.3', undefined, 2000), 'current')
+  assert.strictEqual(staleServer('1.2.3', '1.2.3', 1000, undefined), 'current')
+  assert.strictEqual(staleServer('1.2.3', '1.2.3', null, null), 'current')
+})
+
+test('STAYS SILENT: an unanswerable version is still unknown, never stale', () => {
+  // Widening the inputs must not turn a cannot-tell into an accusation.
+  assert.strictEqual(staleServer(null, '1.2.3', 1000, 2000), 'unknown')
+  assert.strictEqual(staleServer('1.2.3', null, 1000, 2000), 'unknown')
+})
+
+test('STAYS SILENT: the two-argument form behaves exactly as it did', () => {
+  assert.strictEqual(staleServer('1.2.3', '1.2.3'), 'current')
+  assert.strictEqual(staleServer('1.2.3', '9.9.9'), 'stale')
+  assert.strictEqual(staleServer('', '1.2.3'), 'unknown')
+})
+
+test('the spawn records the script mtime, so the next adoption can compare', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli.js'), 'utf8')
+  // Pinned as source for the same reason the reuse rule is: the alternative is
+  // spawning a server to read a file back.
+  assert.match(src, /scriptMtime: scriptMtimeOf\(proc\.script\)/)
+  assert.match(src, /staleServer\(settings\.engine, now, settings\.scriptMtime, scriptMtimeOf\(proc\.script\)\)/)
+})

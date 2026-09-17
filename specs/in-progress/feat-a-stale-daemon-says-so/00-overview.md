@@ -87,7 +87,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The daemon knows its build is old | ⬜ | [01-stale-by-build.md](01-stale-by-build.md) |
+| 1 | The daemon knows its build is old | ✅ | [01-stale-by-build.md](01-stale-by-build.md) |
 
 ## Open questions
 
@@ -106,3 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   from curl'ing a page served by the last dist build while the source was fixed.
   Deliberately written after `feat-one-review-link` landed: restarting the daemon
   is only a safe response once the token survives it.
+- 2026-09-17 — Phase 1: `staleServer` takes the recorded and current script
+  mtimes as two optional arguments, so a two-argument call is unchanged and no
+  existing caller moved. The live test rewinds the recorded value rather than
+  touching the shared engine file, and asserts the URL survives the replacement.
