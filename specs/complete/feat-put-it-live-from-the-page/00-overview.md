@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-put-it-live-from-the-page (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-17)
+> **Status:** Complete (2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -202,6 +202,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
 | 2026-09-17 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-17 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -260,3 +261,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   from the page, `ACTIONS` and the routing. Twelve assertions written earlier
   the same day moved with it — each was right about the wording it was written
   against — and two rule files gained the command so it is discoverable.
+- 2026-09-17 — Completed; all four phases done, tests green (2979).
