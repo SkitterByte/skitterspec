@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-main-is-a-landing-zone (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-17)
+> **Status:** In Progress — Phase 3 (started 2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -170,7 +170,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Docs-mode provisioning — `spec-env up --docs` | ✅ | [01-docs-mode-provisioning.md](01-docs-mode-provisioning.md) |
-| 2 | `/spec` authors in its worktree and lands on the verdict | ⬜ | [02-spec-authors-in-worktree.md](02-spec-authors-in-worktree.md) |
+| 2 | `/spec` authors in its worktree and lands on the verdict | ✅ | [02-spec-authors-in-worktree.md](02-spec-authors-in-worktree.md) |
 | 3 | `/no-spec` — the lane for work with no spec | ⬜ | [03-no-spec.md](03-no-spec.md) |
 | 4 | The main guard — hook, engine verb, `/allow-main` | ⬜ | [04-main-guard.md](04-main-guard.md) |
 
@@ -210,3 +210,19 @@ branch — strictly worse than today.
 - 2026-09-17 — This repo has no `typecheck` script (plain JS, no TypeScript), so
   every phase's gate is `node --test` alone. The phase files say "the project's
   typecheck and test commands"; read that as the test command here.
+- 2026-09-17 — Phase 2: two rule files needed edits the spec had not listed.
+  `spec-reports.md`'s follow-up offer told the reader to write a follow-up spec
+  from the primary checkout, which this phase makes unnecessary — `/spec` now
+  provisions the follow-up's own worktree. And `spec-planning.md`'s
+  `spec-env stage` paragraph was justified by several specs sharing one `specs/`
+  folder, which is no longer true where isolation is on; the call is still right
+  and now carries the smaller reason (`companionPaths`, a hand-edited
+  `specs/.core/`, the tracker snapshot).
+- 2026-09-17 — Phase 2: `/spec` had no `❌` verdict, which a land that fails
+  part-way needs — the run has committed and left a standing worktree, and that
+  is `❌` rather than `⏸`. Added alongside the `Landed` and `Worktree` fields.
+- 2026-09-17 — Phase 2: four assertions in
+  `assets-spec-authoring-review.test.js` pinned sentences this phase inverted,
+  including `--docs` "never wants a worktree". Updated rather than deleted, and
+  two gained `doesNotMatch` checks so the old claims are provably gone rather
+  than merely contradicted somewhere else in the file.

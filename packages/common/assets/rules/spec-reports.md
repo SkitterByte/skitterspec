@@ -452,11 +452,16 @@ finish, so it outlives the session:
   canonical port; not in scope here.
 ```
 
-**Say where the spec would be written.** These skills run inside the spec's own
-worktree, and a spec authored there physically lives on that branch — invisible
-from the base branch, and cancelled along with its host if the host is
-cancelled. So the offer names the primary checkout as the place to write it.
-`spec-planning.md` and `commit-trailers.md` carry the reasoning.
+**The offer needs no caveat about where.** These skills run inside the spec's own
+worktree, and a follow-up spec authored *there* would physically live on that
+branch — invisible from the base branch, and cancelled along with its host. That
+used to make the offer name the primary checkout as the place to write it.
+It no longer does: `/spec` provisions the **new** spec's own worktree before it
+writes anything and moves the session there, so the follow-up lands on its own
+branch and its own ticket without anyone naming a location. Take the offer and
+let `/spec` handle it. Where isolation is absent there is no worktree to move to,
+and the old caveat applies — `spec-planning.md` and `commit-trailers.md` carry
+the reasoning.
 
 ## Worked examples
 

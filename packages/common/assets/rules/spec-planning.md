@@ -7,7 +7,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 
 | Skill | Purpose | Status | Folder |
 |-------|---------|--------|--------|
-| `/spec` | (Feature) Grill to a clear shared understanding, then write a groomed spec | `Ready` (or `Draft`) | `specs/backlog/` |
+| `/spec` | (Feature) Grill to a clear shared understanding, write a groomed spec in its own worktree, then land it on the verdict | `Ready` (or `Draft`) | `specs/backlog/` (on the base branch, by a fast-forward) |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
@@ -129,11 +129,42 @@ stateful ones (`Stack: worktree + docker`, or a branch touching migrations) — 
 `/spec-connect` + a Docker stack for those, and for genuinely parallel testing.
 Beneath it, `skitterspec spec-env live <take|release|abort|status>` is the engine.
 
-**Staging one spec and not another (`spec-env stage`).** Several specs are
-authored at once — that is what the worktree mode is for — and they all land in
-the same `specs/` folder until they are committed. A `git add specs/` there
-stages a *directory*, sweeping whatever another session happens to have written
-into this spec's commit, under this spec's ticket trailer.
+**Authoring a spec is work, so it happens off the base branch too (`/spec`).**
+`main` is where work **lands**, not where it happens, and a spec document is no
+exception. With isolation configured, `/spec` grills first — which puts nothing
+on disk — then provisions the new spec's own worktree with
+`spec-env up <name> --docs`, moves the session into it, and writes the spec
+there. `--docs` skips the `setup` commands and Docker, so a tree to write
+markdown in costs one `git worktree add`; `/spec-start` re-runs `up` without the
+flag and the install happens then, at the first moment the tree holds code.
+
+**The committing verdict is what puts it on the base branch.** Phase C2's page
+offers `Commit & Start` and `Commit`, and **both** commit on the branch and then
+`spec-env integrate` — rebase, fast-forward — so the base gains the spec as one
+commit. That is not optional tidiness: `ls specs/backlog/` is how specs are
+found, and a folder bucket is only the truth on the branch you are standing on,
+so a spec left unlanded is invisible to everyone. They differ only in the
+worktree: `Commit & Start` keeps it and carries into `/spec-start`, plain
+`commit` tears it down, because a spec parked in the backlog should hold no
+checkout.
+
+**What this bought is the reason it changed.** The page waits for a verdict
+without a timeout — deliberately, because a reader walking away from a diff is
+the normal case — and while the spec was authored in the primary checkout that
+wait held the base branch dirty for as long as it lasted, so a release could not
+be cut through it. Now an unanswered spec sits on its own branch in its own
+worktree, in nothing's way. Phase C2 still **arms nothing**: the gate asserts
+that a phase which ended owes an answer, and a backlog spec owes no phase — and
+walking away from it now costs nobody anything rather than leaving a mess
+someone else has to work around.
+
+With isolation **absent** none of this applies: there is no worktree to make and
+no land to do, so `/spec` writes the folder where the session is standing,
+exactly as it always did.
+
+**Staging one spec and not another (`spec-env stage`).** A `git add specs/`
+stages a *directory*, sweeping whatever else happens to be sitting in it into
+this spec's commit, under this spec's ticket trailer.
 `skitterspec spec-env stage [<spec>] [--json]` is how a skill asks instead of
 guessing: it splits the uncommitted tree into the paths that are this spec's —
 its folder in **any** bucket, so a tree mid-`git mv` is handled, plus each
@@ -143,6 +174,14 @@ the primary checkout outside, and prints which. The `owned` half is the spec's
 **documents**, never its code: a phase's own implementation is `foreign`, because
 the commits this bounds are the lifecycle ones. Nothing here refuses, writes, or
 exits non-zero — `foreign` is a list of paths to leave alone, not an accusation.
+
+**And it stays load-bearing now that `/spec` authors in its own worktree**, even
+though that tree holds one spec. It was once justified by several specs sharing
+one `specs/` folder, and that justification is gone; what replaces it is smaller
+and just as real. A project's `spec.companionPaths`, a hand-edited
+`specs/.core/`, and a tracker snapshot all land in the same tree as the spec, and
+only the spec's own documents belong under its authoring verdict. Where isolation
+is absent the original reason applies unchanged.
 
 **Naming the paths is necessary and not sufficient**, which is why every spec
 commit is also pathspec-limited: `git add -- <paths>` **and**

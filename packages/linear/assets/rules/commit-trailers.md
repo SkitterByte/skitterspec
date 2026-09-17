@@ -32,10 +32,17 @@ that branch's own implementation work, which is nearly always.
 ## When the branch and the commit disagree
 
 The branch is a proxy for "what this commit is about", and it is a good one
-right up until you commit something that is not this branch's work. The usual
-way in: part-way through a spec, a design question warrants its own spec, so
-`/spec` writes a new one into `specs/backlog/` and links it. That commit is
-**entirely the new spec's**, but you are standing on the old spec's branch, and
+right up until you commit something that is not this branch's work.
+
+**Where isolation is configured, `/spec` closes the usual way in.** It
+provisions the new spec's own `--docs` worktree before writing a line of it and
+moves the session there, so the spec commit happens on the new spec's branch —
+and the **bare** command is then correct, because the branch and the commit's
+subject are the same spec. This is the normal path, and it needs nothing typed.
+
+**Without isolation the split is still real.** Part-way through a spec a design
+question warrants its own spec, `/spec` writes it into `specs/backlog/` on the
+branch you are standing on, and that commit is **entirely the new spec's** while
 the bare command answers with the old spec's ticket.
 
 Name the spec instead — still the engine, never a hand-written id:
@@ -48,9 +55,12 @@ The branch is not consulted, so this works from `main` too. An unknown spec name
 fails rather than falling back to the branch, so a typo can't become a
 confidently wrong ref.
 
-**Better still, avoid the split:** author backlog specs from the base branch.
-A spec written inside another spec's worktree physically lives on that branch —
-it is not on `main` until that spec lands, and it is cancelled along with it.
+**A spec in ANOTHER spec's worktree is still the thing to avoid**, and the fix
+is no longer "author from the base branch" — it is the provision above, which
+moves the session out of that tree and into the new spec's own. What was always
+true of the accident stays true: a spec written inside another spec's worktree
+physically lives on that branch, so it is not on `main` until that spec lands,
+and it is cancelled along with it.
 
 ## Rules
 

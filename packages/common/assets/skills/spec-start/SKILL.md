@@ -73,6 +73,20 @@ as printed; when it refuses, relay the reason and stop.
 It also refuses a **clean** tree whose spec is not in the commit the worktree
 would fork from — otherwise you get a branch missing the very spec it is for.
 
+**A spec that `/spec` already landed is the HEALTHY case of that check.**
+It is not the refusal. `/spec` authors in its own `--docs` worktree and its committing
+verdict fast-forwards the base branch, so by the time `/spec-start` runs the
+spec is already in the commit the worktree forks from and the tree is clean —
+which is exactly what that check is looking for. Do not read "clean tree,
+nothing to commit" as a sign something was skipped: it means the landing worked.
+
+**And the worktree may already exist**, because `Commit & Start` keeps it. That
+is a re-attach, not a clash: `spec-env up` plans the attach form rather than a
+second `-b` fork, and its `then, in the worktree, run:` step is where the
+`setup` commands `--docs` deliberately skipped finally run. So run the plan as
+printed — the install belongs to this moment, the first at which the tree is
+used for code — and report a re-attach rather than a fresh provision.
+
 ## 2. Identify the spec
 
 - Use the name/path argument when given.

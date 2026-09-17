@@ -34,15 +34,22 @@ const SPEC = skillText('spec')
 
 test('/spec renders the spec itself, with the authoring buttons', () => {
   assert.match(SPEC, /skitterspec spec-env review <spec> --docs --buttons authoring/)
-  assert.match(SPEC, /never wants a worktree — a backlog spec has none/)
+  // It reads the tree the session is standing in, which is now this spec's own
+  // worktree. The line this replaces said `--docs` "never wants a worktree —
+  // a backlog spec has none", which is the sentence Phase B inverted.
+  assert.match(SPEC, /which\s*\n?after Phase B is \*\*this spec's own worktree\*\*/)
+  assert.doesNotMatch(SPEC, /never wants a worktree/, 'the old claim is gone, not merely contradicted')
 })
 
 test('the page shows this spec and nobody else, and says why that matters', () => {
-  // The safety property, not a detail: a shared checkout routinely holds another
-  // session's spec, and a committing verdict here would commit it.
+  // The safety property, not a detail. Its ORIGINAL justification — several
+  // specs sharing one checkout — is gone now that each is authored in its own
+  // worktree, so the skill has to carry the replacement rather than the habit:
+  // companionPaths and a hand-edited .core land in the same tree as the spec.
   assert.match(SPEC, /this spec's\s*\n?\*\*documents and nobody else's\*\*|\*\*this spec's\s*\n?documents and nobody else's\*\*/)
-  assert.match(SPEC, /spec-env stage.{0,40}owned/s)
-  assert.match(SPEC, /committed under your\s*\n?verdict/)
+  assert.match(SPEC, /`owned` half of\s*\n?`spec-env stage`/)
+  assert.match(SPEC, /companionPaths/)
+  assert.match(SPEC, /only the spec's own\s*\n?documents belong under this verdict/)
 })
 
 test('the pathspec comes from the render, not from the tree at verdict time', () => {
@@ -88,13 +95,14 @@ test('every tier is relayed, in the engine\'s own order', () => {
 
 test('commit-start commits then starts the spec, and stops there', () => {
   assert.match(SPEC, /review\.commitWith/)
-  assert.match(SPEC, /then run\s*\n?\s*\*\*`\/spec-start <name>`\*\* and \*\*stop there\*\*/)
+  assert.match(SPEC, /run \*\*`\/spec-start <name>`\*\*, and \*\*stop there\*\*/)
   // The thing it must not do, named — the same caveat `commit-continue` carries.
-  assert.match(SPEC, /never completes, lands or tears\s*\n?\s*anything down/)
+  // `lands` dropped out of the list, because landing is now what it DOES.
+  assert.match(SPEC, /never completes or tears anything down/)
 })
 
 test('commit keeps the spec in the backlog rather than starting it', () => {
-  assert.match(SPEC, /the same commit, then finish/)
+  assert.match(SPEC, /the same commit and the same land/)
   assert.match(SPEC, /stays `Ready` in\s*\n?\s*`backlog`/)
 })
 
