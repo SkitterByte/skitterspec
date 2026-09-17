@@ -191,6 +191,8 @@ Usage:
                               specs/.core/env.config.json). Subcommands:
                                 up <spec>         print the plan to provision a worktree +
                                                   Docker stack (prints commands; creates nothing)
+                                                  --docs: a tree to write documents in — no
+                                                  setup commands, no Docker
                                 down <spec>       tear down (guards; --keep-volumes, --force)
                                 prune             reap orphaned test-DB volumes (--older-than <days>)
                                 dev up <spec>     start host dev servers on the spec's ports
@@ -617,8 +619,9 @@ function specEnvUpCheckout(dir, config, spec) {
   process.stdout.write(out.join('\n') + '\n')
 }
 
-function specEnvUp(dir, config, specArg) {
+function specEnvUp(dir, config, specArg, flags = {}) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
+  const docs = flags.docs === true
 
   // Checkout mode: the branch is built in the primary checkout, so none of the
   // worktree machinery below applies — no slot, no trust entry and no bootstrap.
@@ -668,21 +671,33 @@ function specEnvUp(dir, config, specArg) {
   const worktreeRootAbs = path.dirname(spec.worktreePath)
   const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs)
 
-  const wantsDocker = spec.stack === 'docker' && config.docker.enabled
+  // Documents mode brings no stack up, so a Docker spec provisioned this way is
+  // a worktree-only run — see `planUp`, which makes the same call.
+  const wantsDocker = spec.stack === 'docker' && config.docker.enabled && !docs
 
   // Slot allocation is Docker-only: a worktree-only spec never touches the
   // registry (no slot, no port block). Its re-run signal is the worktree already
   // existing on disk (attach the branch, don't `-b`); a Docker spec's is its slot.
+  //
+  // THE WORKTREE ON DISK COUNTS IN BOTH PATHS, and documents mode is what makes
+  // that necessary rather than merely tidy. A Docker spec provisioned with
+  // `--docs` allocates no slot, so a later `up` without the flag would read the
+  // registry, find nothing, and plan `git worktree add -b <branch>` over a
+  // worktree and a branch that both already exist — a plan that cannot run. The
+  // stronger signal is the honest one either way: a tree on disk is a re-run,
+  // whatever the registry remembers.
   let slot = null
   let attached
+  const worktreeOnDisk = fs.existsSync(spec.worktreePath)
   if (wantsDocker) {
     const before = readRegistry(dir, config)
-    attached = Object.prototype.hasOwnProperty.call(before.slots, spec.folder)
+    attached =
+      Object.prototype.hasOwnProperty.call(before.slots, spec.folder) || worktreeOnDisk
     const alloc = allocateSlot(before, spec.folder)
     slot = alloc.slot
     writeRegistry(dir, config, alloc.registry) // the engine's only write (Docker path)
   } else {
-    attached = fs.existsSync(spec.worktreePath)
+    attached = worktreeOnDisk
   }
 
   // The tree gate: the same facts the checkout planner gets, all of them read
@@ -694,7 +709,7 @@ function specEnvUp(dir, config, specArg) {
     specFoundOn: upOnFork.foundOn,
     forkRef: spec.baseRef || currentBranch(upGit) || 'HEAD',
     specUntracked: upSpecUntracked,
-  })
+  }, { docs })
 
   if (plan.blocked) {
     process.stdout.write(`spec-env up: blocked — ${plan.reason}.\n`)
@@ -726,6 +741,11 @@ function specEnvUp(dir, config, specArg) {
   // the operator's only evidence of which mode actually resolved — print it
   // whenever it was set explicitly, right or wrong.
   out.push('  mode:      worktree (each spec gets its own checkout)')
+  // Said positively and only when asked for, so the absent setup step below
+  // reads as a choice rather than as a project with nothing configured.
+  if (plan.docs) {
+    out.push('  docs:      documents only — no setup commands, no docker')
+  }
   if (trust.reason === 'malformed') {
     out.push(
       '  trusted:   ! .claude/settings.local.json is not valid JSON — left it;' +
@@ -4398,7 +4418,7 @@ async function specEnv(rest) {
 
   switch (sub) {
     case 'up':
-      specEnvUp(dir, config, positional[0])
+      specEnvUp(dir, config, positional[0], flags)
       break
     case 'down':
       specEnvDown(dir, config, positional[0], flags)

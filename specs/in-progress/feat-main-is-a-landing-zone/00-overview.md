@@ -169,7 +169,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Docs-mode provisioning — `spec-env up --docs` | ⬜ | [01-docs-mode-provisioning.md](01-docs-mode-provisioning.md) |
+| 1 | Docs-mode provisioning — `spec-env up --docs` | ✅ | [01-docs-mode-provisioning.md](01-docs-mode-provisioning.md) |
 | 2 | `/spec` authors in its worktree and lands on the verdict | ⬜ | [02-spec-authors-in-worktree.md](02-spec-authors-in-worktree.md) |
 | 3 | `/no-spec` — the lane for work with no spec | ⬜ | [03-no-spec.md](03-no-spec.md) |
 | 4 | The main guard — hook, engine verb, `/allow-main` | ⬜ | [04-main-guard.md](04-main-guard.md) |
@@ -194,3 +194,19 @@ branch — strictly worse than today.
 ## Changelog
 
 - 2026-09-17 — Spec created.
+- 2026-09-17 — Phase 1: decision 4 said docs mode skips `setup` and docker, and
+  the phase file also asked to *keep* slot allocation. That second half describes
+  something that never happened — slot allocation was already Docker-only in both
+  `planUp` and its CLI caller, so a worktree-only spec has never taken a slot.
+  Forcing `wantsDocker` false is the whole of the mode: slot, port offset and
+  `.env` all fall out null on their own.
+- 2026-09-17 — Phase 1: documents mode exposed a latent defect rather than
+  creating one. A Docker spec's re-run was detected by its slot being in the
+  registry; provisioned with `--docs` it allocates none, so the next `up` without
+  the flag would plan `git worktree add -b <branch>` over a worktree and branch
+  that both already exist — a plan that cannot run. Fixed by treating a worktree
+  on disk as an attach in **both** paths, which is the honest signal either way.
+  Pinned by `cli-spec-env-up-docs.test.js`.
+- 2026-09-17 — This repo has no `typecheck` script (plain JS, no TypeScript), so
+  every phase's gate is `node --test` alone. The phase files say "the project's
+  typecheck and test commands"; read that as the test command here.

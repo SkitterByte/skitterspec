@@ -238,18 +238,32 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
  * @param {object} alloc { slot, attached } — attached:true when the slot already
  *                       existed in the registry (re-run → attach, don't clobber).
  * @param {object} config normalised env config.
+ * @param {object} opts  { docs } — documents mode (see below). Optional.
  * @returns {object} { worktreePath, branch, projectName, slot, portOffset,
  *                     envContents, commands, seedCommands,
- *                     setupCommands, attached }
+ *                     setupCommands, docs, attached }
  */
-function planUp(spec, alloc, config, ctx) {
+function planUp(spec, alloc, config, ctx, opts = {}) {
   const { slot, attached } = alloc
+
+  // DOCUMENTS MODE — a worktree to write a spec in, not to run code in.
+  //
+  // `/spec` provisions before it writes the spec folder, so that authoring never
+  // touches the base branch. What it needs is a checkout on a branch; what it
+  // does not need is `pnpm install --frozen-lockfile` and a database, to write
+  // markdown. So this mode keeps the fork and drops everything whose only
+  // purpose is making the tree runnable.
+  //
+  // It is not a lesser provision that has to be undone: `/spec-start` re-runs
+  // `up` over the same worktree WITHOUT this flag, and the setup commands run
+  // then — at the first moment the tree is used for code.
+  const docs = opts.docs === true
 
   // Per-spec escalation: bring Docker up only when this spec's Stack is `docker`,
   // gated by the project master switch. A spec resolved without an explicit stack
   // (legacy/tests) follows the master switch — preserving pre-`Stack` behaviour.
   const stack = spec.stack || (config.docker.enabled ? 'docker' : 'worktree')
-  const wantsDocker = stack === 'docker' && config.docker.enabled
+  const wantsDocker = stack === 'docker' && config.docker.enabled && !docs
 
   // Slot, port block and `.env` are Docker-only. A worktree-only spec takes none
   // of them: no registry slot, no PORT_OFFSET, no `.env`.
@@ -325,7 +339,16 @@ function planUp(spec, alloc, config, ctx) {
     envContents,
     commands: gate.blocked ? [] : [...gate.commands, ...commands],
     seedCommands: gate.blocked ? [] : seedCommands,
-    setupCommands: gate.blocked ? [] : setupCommands,
+    // Documents mode drops these, and keeps the seed commands above. The two are
+    // not the same kind of thing: seeding links the gitignored files a worktree
+    // has none of — cheap, and a spec author may well want `.env` present —
+    // while `setup` is the expensive half that exists to make the tree run.
+    setupCommands: gate.blocked || docs ? [] : setupCommands,
+    // Reported so a caller reading `--json` can tell a documents worktree from a
+    // full one POSITIVELY, rather than inferring it from what is missing. An
+    // empty `setupCommands` also describes a project that configured no setup
+    // at all, and those two must not read alike.
+    docs,
     attached,
   }
 }
@@ -347,6 +370,12 @@ function planUp(spec, alloc, config, ctx) {
  *    refusal — it is the re-run, and the answer is "already attached".
  *
  * There is no bootstrap: the primary checkout already has its dependencies.
+ *
+ * AND THAT IS WHY `--docs` IS INERT HERE, rather than unimplemented. Documents
+ * mode exists to skip making a fresh tree runnable; this mode makes no fresh
+ * tree, so there is nothing for it to skip. The flag is accepted and changes
+ * nothing, because a caller passing it is asking for a cheap checkout and gets
+ * one — refusing would make `/spec` mode-aware for no behavioural difference.
  */
 function planCheckoutUp(spec, ctx, config) {
   const base = ctx.base || (config && config.baseBranch) || 'main'
