@@ -261,7 +261,7 @@ function resolveReader(config, env = {}) {
  * `buttons` is the button set the page renders — see `BUTTON_SETS`. It is the
  * caller's declaration about the work, not a reading of the gate.
  */
-function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false, buttons = null, only = null, treePath = null }) {
+function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false, buttons = null, only = null, treePath = null, live = null, tiers = null }) {
   // WHICH TREE THE SPEC'S OWN DOCUMENTS ARE READ FROM. Every render but one
   // reads the spec's worktree, and for those the two are the same path — so
   // `treePath` left null keeps the existing behaviour exactly. The `docs` mode
@@ -281,6 +281,11 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   // docs page they are the code, and the companions the project declared (a
   // tracker snapshot, say) are what belongs folded away.
   const noiseOf = (p) => (mode === 'docs' ? !isSpecDocOf(p, spec.folder) : isNoise(p))
+
+  // THE SURFACES BLOCK, built here so the page never has to know which tiers
+  // exist or which of them can be turned on. `null` when the caller passed
+  // neither a live state nor a stack — an absent key, not an empty one.
+  const surfaces = surfacesFor({ live, tiers })
 
   const files = []
   for (const f of trackedFiles(git, ref)) {
@@ -366,6 +371,18 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     //
     // Absent for every other mode, which is what keeps their payloads identical.
     ...(only ? { docs: { paths: only } } : {}),
+    // WHERE ELSE THIS REVIEW CAN BE REACHED, and whether it is also running.
+    //
+    // The page had no idea the other tiers existed — it is opened AT one URL
+    // and knows nothing about the rest — so an enable press needs somewhere to
+    // live, and that is this block. It carries only what the reader can act on:
+    // the live state, each tier that is OFF with the action that turns it on,
+    // and the `network` URL when it is on, which is the one address a reader
+    // wants that is not the one they are standing on.
+    //
+    // ABSENT STAYS ABSENT, exactly as `phases` and `gate` do: a caller that
+    // passes neither renders the payload it rendered before this existed.
+    ...(surfaces ? { surfaces } : {}),
     // THE DEFAULT ADDS NO KEY, so a caller that did not ask for a button set —
     // and a caller that asked for the default by name — renders the payload it
     // rendered before this existed. Opting in is the only thing that shows.
@@ -486,6 +503,171 @@ const NOTES_VERSION = 1
  */
 const VERDICTS = ['commit', 'commit-continue', 'commit-start', 'continue', 'changes', 'discuss']
 const DEFAULT_VERDICT = 'discuss'
+
+/**
+ * Actions the page can send INSTEAD of a verdict.
+ *
+ * AN ACTION IS NOT A VERDICT, and keeping the two vocabularies apart is the
+ * whole point rather than tidiness. A verdict is a conclusion about the work,
+ * consumed once by the thing it asked for. `live-on`/`live-off` change what is
+ * *running* and then put the reader back on the same page with the same
+ * options — so a run answering one has concluded nothing.
+ *
+ * Three consequences follow from that, and all three are structural rather than
+ * remembered:
+ *
+ * - It is absent from `VERDICTS`, so nothing that routes on a verdict can see
+ *   it.
+ * - It is absent from `COMMITTING`, so it is **incapable** of clearing an armed
+ *   gate: a phase that ended still owes a verdict after the reader has looked
+ *   at it running. The commit that a `live-on` performs first is the mechanical
+ *   precondition for `live take` (which refuses a dirty worktree), not the
+ *   reader's answer.
+ * - A blob may carry a verdict or an action, never both. Two answers in one
+ *   pass would need a rule about which wins, and any such rule would sometimes
+ *   act on the half the reader did not mean.
+ *
+ * `allow-network`/`allow-remote` turn a review TIER on, and they exist here
+ * because the page can now act — which is the premise
+ * `feat-three-review-links` decision 5 rejected a page toggle on, having
+ * recorded it as open to reopening. Two things replace the limit it rested on.
+ * **Only a reader who can already reach the page can press one**, so widening
+ * loopback→network can only be pressed from the machine itself, where the
+ * command was available anyway, and the serve token still decides who reaches
+ * the page at all. And `allow-remote` **permits publishing without
+ * publishing** — the permanent claude.ai page still takes an explicit ask.
+ *
+ * There is no disable direction, and `tierAction` is where that is enforced:
+ * turning `network` off from a page reached over the network kills the page
+ * doing the turning.
+ */
+const ACTIONS = ['live-on', 'live-off', 'allow-network', 'allow-remote']
+
+/**
+ * The action a tier that is OFF offers, or null.
+ *
+ * ENABLE-ONLY, and that is a decision rather than an omission: turning
+ * `network` off from a page you reached over the network kills the page doing
+ * the turning, and the reader gains nothing they could not get by typing the
+ * command. `local` has no setting at all — it is the machine the page is on.
+ */
+function tierAction(tier) {
+  if (!tier || !tier.off) return null
+  if (tier.tier === 'network') return 'allow-network'
+  if (tier.tier === 'remote') return 'allow-remote'
+  return null
+}
+
+/**
+ * What the page shows above the verdicts: where this review can be reached, and
+ * whether it is also running. Pure.
+ *
+ * ONLY WHAT THE READER CAN ACT ON. An `on` tier the reader is already standing
+ * on is not information — they are reading it — so the only tier URL carried is
+ * `network`'s, which is the one address someone on a laptop wants for their
+ * phone. Everything else here is a state plus the one press that changes it.
+ *
+ * `null` RATHER THAN AN EMPTY BLOCK when there is nothing to say: an
+ * `unavailable` live state and no stack means a caller that never asked, and
+ * the payload must then be byte-identical to what it was before this key
+ * existed.
+ */
+function surfacesFor({ live, tiers }) {
+  const rows = []
+
+  // `unavailable` contributes nothing — the cannot-tell state, routed to
+  // silence exactly as `liveStateLine` routes it (`env/live.js`).
+  if (live && live.state && live.state !== 'unavailable') {
+    rows.push({
+      kind: 'live',
+      state: live.state,
+      url: live.url || null,
+      reason: live.reason || null,
+      // `held` offers no press: the way out is another spec's to take, and a
+      // button here would either park someone else's work or do nothing.
+      action: live.state === 'on' ? 'live-off' : live.state === 'off' ? 'live-on' : null,
+    })
+  }
+
+  for (const t of tiers || []) {
+    const action = tierAction(t)
+    // ONLY WHAT THE READER CAN ACT ON. An `on` tier contributes nothing: the
+    // reader is standing on one of them, and the terminal render is where they
+    // got the link — printing it again here would be two places naming one page,
+    // which is the split `.claude/rules/spec-reports.md` records as a failure.
+    if (!action) continue
+    rows.push({
+      kind: 'tier',
+      tier: t.tier,
+      state: 'off',
+      url: null,
+      // SAID BEFORE THE PRESS, not after it. Unlike the live actions, which
+      // touch no tracked file, `allow` edits `specs/.core/env.config.json` in
+      // the primary checkout — changing behaviour for everyone who pulls and
+      // leaving that tree dirty. A setting change of that reach must not land
+      // because someone tapped a button labelled only `Allow remote`.
+      note: t.note || 'writes env.config.json — committed, and shared',
+      action,
+    })
+  }
+
+  return rows.length ? rows : null
+}
+
+/**
+ * The three review tiers, in a FIXED ORDER, each either a URL or the reason it
+ * is not one. Pure: it takes what the caller already resolved.
+ *
+ * Fixed order matters more than it looks. A reader who has learnt which line
+ * their phone opens should not have to re-read the labels every render, and a
+ * stack that reordered itself by availability would make them.
+ *
+ * WHY A STACK AT ALL, when the rule said exactly one link: the engine cannot
+ * know where the reader is sitting, and every attempt to guess failed the
+ * moment they moved. `local` and `network` are two doors into ONE room — the
+ * page POSTs to `location.pathname`, so both reach the same server and the same
+ * pending store, and one wait covers both. `remote` is a second store, which is
+ * why it carries the line saying so.
+ */
+function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
+  const tiers = []
+  const loopbackUrl = served && served.loopbackUrl ? served.loopbackUrl : null
+
+  tiers.push(
+    loopbackUrl
+      ? { tier: 'local', url: loopbackUrl }
+      : { tier: 'local', url: fileUrl, note: 'a file:// page cannot send a verdict' },
+  )
+
+  if (!config.review.allowNetwork) {
+    tiers.push({ tier: 'network', off: true, enable: 'skitterspec spec-env review allow network' })
+  } else if (served && !served.loopback && served.url) {
+    tiers.push({ tier: 'network', url: served.url, alternates: served.alternates || [] })
+  } else {
+    // Permitted, but there is no address to offer — a machine with no network,
+    // or a server that could not take one. Not a problem to report as an error.
+    tiers.push({ tier: 'network', unavailable: true, note: 'no network address on this machine' })
+  }
+
+  if (!config.review.allowRemote) {
+    tiers.push({ tier: 'remote', off: true, enable: 'skitterspec spec-env review allow remote' })
+  } else if (publishedUrl) {
+    tiers.push({ tier: 'remote', url: publishedUrl, note: 'a verdict here needs /spec-reviewed' })
+  } else {
+    tiers.push({ tier: 'remote', unavailable: true, note: 'publishing is an ask — nothing published yet' })
+  }
+
+  return tiers
+}
+
+// One tier as a line, padded so the labels form a column the eye can run down.
+function reviewTierLine(t) {
+  const label = `  ${t.tier}:`.padEnd(11)
+  if (t.url) return `${label}${t.url}${t.note ? `   (${t.note})` : ''}`
+  if (t.off) return `${label}off — turn on with: ${t.enable}`
+  return `${label}—   (${t.note})`
+}
+
 
 // The verdicts that COMMIT, and are therefore blocked by an open comment. One
 // list, so a fifth verdict cannot become a way around the single refusal this
@@ -833,6 +1015,11 @@ function describePending(pending) {
       // `approve`, and the operator must be offered the word that describes
       // what claiming it would do.
       verdict: readVerdict((p.blob && p.blob.verdict) || null) || null,
+      // AN ACTION IS REPORTED AS AN ACTION. A pass carrying one has no verdict,
+      // and listing it as `no verdict` would describe the instruction it does
+      // carry as an absence — which is the reading that makes a reader claim it
+      // expecting a conclusion.
+      action: (p.blob && p.blob.action) || null,
       at: p.at || null,
     }))
     .sort((a, b) => String(a.at).localeCompare(String(b.at)) || a.code.localeCompare(b.code))
@@ -1038,7 +1225,13 @@ function waitingPasses(reviewsDirPath) {
     }
     for (const pass of read.pending.passes || []) {
       if (pass && pass.code) {
-        passes.push({ spec: folder, code: pass.code, verdict: readVerdict(pass.blob && pass.blob.verdict), at: pass.at || null })
+        passes.push({
+          spec: folder,
+          code: pass.code,
+          verdict: readVerdict(pass.blob && pass.blob.verdict),
+          action: (pass.blob && pass.blob.action) || null,
+          at: pass.at || null,
+        })
       }
     }
   }
@@ -1272,7 +1465,20 @@ function validateNotesBlob(blob, specFolder) {
     }
     verdict = named
   }
-  return { accepted, unaccepted, comments, verdict }
+  // AN ACTION, refused by name for the same reason a misspelt verdict is: a
+  // dropped `action: "live-onn"` would read as a pass carrying no instruction
+  // at all, reported as if the press had been honoured.
+  let action = null
+  if (blob.action !== undefined && blob.action !== null) {
+    if (typeof blob.action !== 'string' || !ACTIONS.includes(blob.action)) {
+      fail(`action ${JSON.stringify(blob.action)} is not one of ${ACTIONS.join(', ')}`)
+    }
+    action = blob.action
+  }
+  if (action && verdict) {
+    fail(`carries both a verdict (${verdict}) and an action (${action}) — send one`)
+  }
+  return { accepted, unaccepted, comments, verdict, action }
 }
 
 /**
@@ -1299,7 +1505,15 @@ function validateNotesBlob(blob, specFolder) {
  * failure we can afford.
  */
 function judgeVerdict(verdict, notes) {
-  const sent = readVerdict(verdict) || null
+  const read = readVerdict(verdict) || null
+  // A WORD THIS ENGINE DOES NOT KNOW IS NOT HONOURED AS ONE. Every door into
+  // here validates first — `validateNotesBlob` refuses an unknown verdict by
+  // name and refuses an action in the verdict slot, and `--verdict` checks the
+  // list — so nothing reaches this today. It used to pass such a word straight
+  // through with `honoured: true`, which routes cannot-tell to the branch that
+  // acts (`.claude/rules/negative-checks.md` rule 4 inverted). Closing it costs
+  // nothing and means a fifth door added later cannot reopen it.
+  const sent = read && VERDICTS.includes(read) ? read : null
   const asked = sent || DEFAULT_VERDICT
   const open = (notes.comments || []).filter((c) => !c.resolved)
   const openFiles = [...new Set(open.map((c) => c.file))]
@@ -1777,6 +1991,11 @@ module.exports = {
   WHOLE_FILE_CONTEXT,
   NOTES_VERSION,
   VERDICTS,
+  ACTIONS,
+  tierAction,
+  surfacesFor,
+  reviewTierStack,
+  reviewTierLine,
   COMMITTING,
   BUTTON_SETS,
   DEFAULT_BUTTON_SET,

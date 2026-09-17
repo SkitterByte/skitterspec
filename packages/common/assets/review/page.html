@@ -415,6 +415,28 @@ tr.note-row td {
   border-radius: 10px;
   background: var(--panel);
 }
+/* WHERE THIS REVIEW LIVES, and whether it is also running. It sits ABOVE the
+   verdicts because the question it answers — do I want to look at this running
+   before I conclude? — comes before the conclusion, not after it. Visually its
+   own strip, because it is not a verdict: pressing one of these changes what is
+   running (or which surfaces are permitted) and hands the reader straight back
+   to the same page with the same options. */
+.surfaces {
+  margin: 1.2rem 0 0;
+  padding: .55rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.surfaces[hidden] { display: none; }
+.surfaces-title { display: block; font-size: .8rem; color: var(--muted); margin: 0 0 .35rem; }
+.surface-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .3rem 0; }
+.surface-label { font-size: .8rem; font-weight: 600; min-width: 4.5rem; }
+.surface-state { font-size: .8rem; color: var(--muted); }
+.surface-note { font-size: .78rem; color: var(--muted); }
+/* The command, for a page with no transport. Same treatment as the verdict
+   command list: plain text a single tap selects whole, never an input. */
+.surface-cmd { font-size: .78rem; user-select: all; }
 .verdict-end { margin: 1.2rem 0 0; }
 .verdict-title { font-size: .8rem; color: var(--muted); }
 .verdict-count { font-size: .8rem; color: var(--muted); }
@@ -743,6 +765,13 @@ a.ticket:hover { border-color: var(--accent); }
     </section>
     <div id="review-block" class="reviewable">__REVIEW_BLOCK__</div>
     <div id="files" class="reviewable"></div>
+    <!-- THE SURFACES STRIP. Built by the script from `data.surfaces`, and
+         absent entirely when the render carried none — a `--docs` page has no
+         branch to put live, so it gets no strip and no explanation of why. -->
+    <section class="surfaces reviewable" id="surfaces" hidden>
+      <span class="surfaces-title">Where this runs</span>
+      <div id="surface-rows"></div>
+    </section>
     <!-- THE VERDICT SITS AT THE END, where reading finishes. It began in the
          header and the first person to use it could not find it: you read a
          350-line diff downward, and the control asking for your conclusion was
@@ -2448,6 +2477,173 @@ a.ticket:hover { border-color: var(--accent); }
     })
   }
 
+  /**
+   * The surfaces strip: where this review lives, and whether it is also running.
+   *
+   * AN ACTION IS NOT A VERDICT, and the whole strip exists to make that visible.
+   * A verdict is the reader's conclusion, consumed once. These change what is
+   * RUNNING (or which tiers are permitted) and hand the reader straight back to
+   * the same page with the same options — so pressing one must not close the
+   * page into its decided state, and must not clear a gate.
+   *
+   * ENABLE-ONLY for the tiers. Turning `network` off from a page reached over
+   * the network kills the page doing the turning, and the reader gains nothing
+   * they could not get by typing the command — so the engine's `tierAction`
+   * never offers a disable and this renders whatever it is given.
+   */
+  var ACTION_LABEL = {
+    'live-on': '▶ Put it live',
+    'live-off': '■ Take it down',
+    'allow-network': '▶ Allow network',
+    'allow-remote': '▶ Allow remote',
+  }
+  var ACTION_CMD = {
+    'live-on': '/spec-live',
+    'live-off': '/spec-live main',
+    'allow-network': 'skitterspec spec-env review allow network',
+    'allow-remote': 'skitterspec spec-env review allow remote',
+  }
+  var SURFACE_LABEL = { live: 'live', network: 'network', remote: 'remote' }
+
+  function surfaceStateText(row) {
+    if (row.kind === 'live') {
+      if (row.state === 'on') return row.url ? 'on — running at ' + row.url : 'on'
+      if (row.state === 'held') return row.reason || 'held by another spec'
+      return 'off'
+    }
+    if (row.state === 'on') return row.url ? 'on — ' + row.url : 'on'
+    return row.state === 'off' ? 'off' : 'unavailable'
+  }
+
+  function buildSurfaces() {
+    var section = document.getElementById('surfaces')
+    var host = document.getElementById('surface-rows')
+    // ABSENT, NOT EMPTY. A render that carried no surfaces gets no strip and no
+    // line explaining the absence — a `--docs` page has no branch to put live,
+    // and that is a healthy page rather than a deprived one.
+    if (!section || !host || !data.surfaces || !data.surfaces.length) return
+    section.hidden = false
+    data.surfaces.forEach(function (row) {
+      var div = document.createElement('div')
+      div.className = 'surface-row'
+      var label = document.createElement('span')
+      label.className = 'surface-label'
+      label.textContent = SURFACE_LABEL[row.kind === 'live' ? 'live' : row.tier] || ''
+      div.appendChild(label)
+      var state = document.createElement('span')
+      state.className = 'surface-state'
+      state.textContent = surfaceStateText(row)
+      div.appendChild(state)
+      if (row.action) {
+        if (NO_TRANSPORT) {
+          // No server and no store, so a button here would build an instruction
+          // with nowhere to go. The command is the honest control — exactly the
+          // trade the verdict bar already makes on a `file://` page.
+          var cmd = document.createElement('code')
+          cmd.className = 'surface-cmd'
+          cmd.textContent = ACTION_CMD[row.action] || ''
+          div.appendChild(cmd)
+        } else {
+          var btn = document.createElement('button')
+          btn.type = 'button'
+          btn.textContent = ACTION_LABEL[row.action] || row.action
+          btn.setAttribute('data-action', row.action)
+          btn.addEventListener('click', function () {
+            if (btn.disabled) return
+            sendAction(row.action, btn)
+          })
+          div.appendChild(btn)
+        }
+      }
+      if (row.note) {
+        var note = document.createElement('span')
+        note.className = 'surface-note'
+        note.textContent = row.note
+        div.appendChild(note)
+      }
+      host.appendChild(div)
+    })
+  }
+
+  /**
+   * Send an action, and leave the page exactly as live as it was.
+   *
+   * IT CARRIES NO MARKS. An action blob is an instruction, not a review pass —
+   * so the accepts and comments stay on the page and travel with the verdict
+   * the reader eventually chooses. Sending them here would merge them early and
+   * then send them again, which is one reader's review counted twice.
+   *
+   * AND IT NEVER CALLS `markDecided`. The reader still owes a verdict; closing
+   * the page over an action would be the record-and-do-nothing ending this
+   * whole contract is against.
+   */
+  function sendAction(action, btn) {
+    var blob = {
+      version: 1,
+      spec: data.spec,
+      generatedAt: data.generatedAt,
+      accepted: [],
+      unaccepted: [],
+      comments: [],
+      action: action,
+    }
+    btn.disabled = true
+    var was = btn.textContent
+    btn.textContent = 'Sending…'
+    fetch(location.pathname, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(blob),
+    }).then(function (res) {
+      if (!res || !res.ok) {
+        btn.disabled = false
+        btn.textContent = was
+        return
+      }
+      return res.text().then(function (text) {
+        var code = null
+        try { code = JSON.parse(text).code } catch (e) {}
+        btn.textContent = 'Sent'
+        // RELOAD WHEN IT HAS BEEN ACTED ON, not on a timer. The agent re-renders
+        // after the action, so the page the reader wants is the next one — and
+        // `?pass=` already answers whether this exact code was claimed. Running
+        // out of rounds leaves the page alone rather than reloading on a guess.
+        if (code) watchAction(code, btn)
+      })
+    }, function () {
+      btn.disabled = false
+      btn.textContent = was
+    })
+  }
+
+  function watchAction(code, btn) {
+    var rounds = 0
+    var url = location.pathname + '?pass=' + encodeURIComponent(code)
+    function ask() {
+      rounds++
+      fetch(url, { method: 'GET', headers: { accept: 'application/json' } }).then(function (res) {
+        if (!res || !res.ok) return again()
+        return res.text().then(function (text) {
+          var state = null
+          try { state = JSON.parse(text).state } catch (e) {}
+          if (state === 'claimed') return window.location.reload()
+          return again()
+        })
+      }, again)
+    }
+    function again() {
+      // CANNOT TELL, so change nothing. Nobody is obliged to act on an action
+      // inside a few seconds, and a page that reloaded out of impatience would
+      // throw away marks the reader had not sent yet.
+      if (rounds >= PASS_POLL_ROUNDS) {
+        btn.textContent = 'Sent — reload when it is done'
+        return
+      }
+      window.setTimeout(ask, PASS_POLL_MS)
+    }
+    ask()
+  }
+
   Object.keys(verdictBtns).forEach(function (verdict) {
     verdictBtns[verdict].addEventListener('click', function () {
       // A disabled or hidden button does not fire in a browser; the guard is
@@ -2475,6 +2671,7 @@ a.ticket:hover { border-color: var(--accent); }
 
   restore()
   buildCmdRows()
+  buildSurfaces()
   drawContext()
   drawLog()
   drawDecided()

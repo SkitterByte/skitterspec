@@ -86,6 +86,37 @@ tier links got the page to them; nothing gets them the running app.
     others: a reader deciding whether to open the page wants to know whether it
     is already running somewhere, and that is one line rather than a trip.
 
+11. **The off-tiers become presses too, and enable-only.** `network` and
+    `remote` showed the reader a command to type; they now carry the same kind
+    of action the live line does. This **reverses decision 5 of
+    `feat-three-review-links`**, which rejected a page toggle on the stated
+    grounds that *"today the page can only queue a pass, and that limit is what
+    makes an open port defensible"* — and recorded it as decided-safely and open
+    to reopening. That premise is exactly what this spec removes: the page can
+    act. What replaces the old limit is two facts. **Only someone who can
+    already reach the page can press it** — so widening loopback→network can
+    only be pressed from the machine itself, where the command was available
+    anyway, and the serve token still decides who reaches the page at all. And
+    **`allow remote` permits publishing without publishing**: the press changes
+    a setting, and the permanent claude.ai page still takes an explicit ask.
+    **Enable-only** because the disable direction is a footgun with no upside —
+    turning `network` off from a page you reached over the network kills the
+    page you are standing on.
+12. **So the page gains a small surfaces block.** It had no idea the other tiers
+    existed — it is opened *at* one URL and knows nothing about the rest — so
+    the enable action needs somewhere to live. One block above the verdicts:
+    the live line, then any tier that is **off** with the press that turns it
+    on. A tier that is **on** contributes nothing — the reader is standing on
+    one of them, and the terminal render is where they got the link in the first
+    place, so printing it again would be the two-places-naming-one-page split
+    the report contract warns about.
+13. **`allow` writes a committed file, and the press says so.** Unlike the live
+    actions, which touch no tracked file, `allow` edits
+    `specs/.core/env.config.json` in the **primary checkout** — changing
+    behaviour for everyone who pulls and leaving that tree dirty. The engine
+    already reports the absolute path and whose tree it dirtied; a press must
+    relay that rather than let a setting change land invisibly.
+
 ## Solution overview
 
 The engine learns to answer *is this spec live* in a form a page can carry, the
@@ -120,8 +151,10 @@ The press sequence, and what each step is for:
 | CLI command | update | the render carries `live` in text and `--json` |
 | Domain object | add | `liveStateFor(spec)` → `on` · `off` · `held` · `unavailable` |
 | Domain object | update | `viewFor` reads the primary checkout while a spec is live |
-| Domain object | update | the pass blob accepts `action`, alongside `verdict` |
-| Route/UI | add | one live line above the verdict row, `committing`/`midrun` only |
+| Domain object | update | the pass blob accepts `action`, alongside `verdict` — never both |
+| Route/UI | add | a surfaces block above the verdict row, `committing`/`midrun` only |
+| Route/UI | add | `▶ Put it live` · `■ Take it down` · `▶ Allow network` · `▶ Allow remote` |
+| Domain object | move | `reviewTierStack`/`reviewTierLine` from `cli.js` into `env/review.js` |
 | Skill/rule | update | `/spec-diff` §2 routes the action; `spec-reports.md` banner gains `live:` |
 | Business rule | add | an action never enters `VERDICTS`/`COMMITTING` and never clears the gate |
 
@@ -133,7 +166,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The engine knows whether it is live | ✅ | [01-the-engine-knows.md](01-the-engine-knows.md) |
-| 2 | The page's line, and the action behind it | ⬜ | [02-the-line.md](02-the-line.md) |
+| 2 | The page's line, and the action behind it | ✅ | [02-the-line.md](02-the-line.md) |
 | 3 | The skills route it, the rule holds the shape | ⬜ | [03-routing-and-the-rule.md](03-routing-and-the-rule.md) |
 
 ## Open questions
@@ -164,3 +197,19 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   Decision 8's tree-switch turned out to need a second edit nobody had named:
   `spec-env review` refuses a spec with no worktree, and a live spec can have
   none, so that refusal gained a live exception.
+- 2026-09-17 — Mid-phase-2 scope, taken deliberately: the off-tiers'
+  `spec-env review allow <tier>` commands become presses as well, which
+  **reverses `feat-three-review-links` decision 5**. That decision rested on the
+  page being able to do nothing but queue a pass — the premise this spec
+  removes — and it was recorded as open to reopening for exactly this reason.
+  See decisions 11–13: enable-only, since disabling `network` from a page
+  reached over the network kills that page; and the press relays that `allow`
+  dirties a committed file in the primary checkout.
+- 2026-09-17 — Phase 2: the strip renders and the action reaches the holding
+  area by the same single write path a verdict does. Decision 12 was trimmed
+  while building it — an `on` tier contributes **no row**, where the plan had it
+  carrying the network URL. The reader is standing on one of those tiers and the
+  terminal render is where they got the link, so a second copy on the page is
+  the two-places-naming-one-page split the report contract records as a failure.
+  One latent hole closed on the way: `judgeVerdict` honoured any unrecognised
+  word, which is the cannot-tell case routed to the branch that acts.

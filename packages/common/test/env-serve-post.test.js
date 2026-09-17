@@ -300,3 +300,44 @@ test('a spec with neither a worktree nor committed documents receives nothing', 
     drop(dir)
   }
 })
+
+// --- an action arrives the same way a verdict does -------------------------
+
+// ONE WRITE PATH, and it does not learn a second shape for an action. The POST
+// route hands whatever arrived to the engine's own validator and relays its
+// answer — so an action pass is exactly as untrusted, and exactly as contained,
+// as a verdict pass. What it does when claimed is the routing's business.
+test('an action pass POSTs like any other, and gets a code', async () => {
+  const s = await serving({ receive: () => ({ code: '552311' }) })
+  try {
+    const res = await request(s.url('/feat-alpha'), {
+      method: 'POST',
+      body: blob({ action: 'live-on' }),
+    })
+    assert.strictEqual(res.status, 200)
+    assert.deepStrictEqual(JSON.parse(res.body), { code: '552311' })
+    assert.strictEqual(s.calls[0].blob.action, 'live-on')
+    // It carries no marks: an action is an instruction, and the reader's
+    // accepts travel with the verdict they eventually choose.
+    assert.deepStrictEqual(s.calls[0].blob.accepted, [])
+    assert.deepStrictEqual(s.calls[0].blob.comments, [])
+  } finally {
+    await s.close()
+  }
+})
+
+test("a refused action comes back with the engine's own message", async () => {
+  const s = await serving({
+    receive: () => ({ error: 'notes blob: action "live-onn" is not one of live-on, live-off' }),
+  })
+  try {
+    const res = await request(s.url('/feat-alpha'), {
+      method: 'POST',
+      body: blob({ action: 'live-onn' }),
+    })
+    assert.strictEqual(res.status, 422)
+    assert.match(res.body, /is not one of/)
+  } finally {
+    await s.close()
+  }
+})

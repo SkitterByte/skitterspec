@@ -79,6 +79,8 @@ const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const {
   rawGitReader,
   collectReview,
+  reviewTierStack,
+  reviewTierLine,
   renderReviewPage,
   renderReviewBlock,
   reviewOutPath,
@@ -131,7 +133,13 @@ const { planHotfixLand } = require('./env/hotfix.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
 const { renderRoutes, portsInUse, portsInUseOn, waitListening } = require('./env/proxy.js')
-const { mintToken, servableSpecs, engineVersionFor, staleServer } = require('./env/serve.js')
+const {
+  mintToken,
+  servableSpecs,
+  engineVersionFor,
+  staleServer,
+  pageTiers,
+} = require('./env/serve.js')
 
 const pkg = require('../package.json')
 
@@ -332,7 +340,8 @@ function waitingSection(dir, config, now = new Date().toISOString()) {
   const rows = found.passes
     .map(
       (p) =>
-        `  ${p.spec.padEnd(width)}  ${p.code} · ${p.verdict || 'no verdict'} · ${pendingAge(p.at, now)}\n`,
+        `  ${p.spec.padEnd(width)}  ${p.code} · ${p.action || p.verdict || 'no verdict'} · ` +
+          `${pendingAge(p.at, now)}\n`,
     )
     .join('')
   // Named, never counted as zero: an unreadable store holds someone's pass, and
@@ -2562,6 +2571,10 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   const gate = gateNow.corrupt ? null : gateNow.gate
 
   const now = new Date().toISOString()
+  // The surfaces block, on a worktree view only: a `--docs` page belongs to a
+  // spec with no branch to put live (decision 6), so it carries neither key and
+  // renders exactly as it did before this existed.
+  const surfaceArgs = docs ? {} : { live, tiers: pageTiers(config) }
   let data = collectReview({
     spec,
     git,
@@ -2572,6 +2585,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     notes,
     gate,
     buttons,
+    ...surfaceArgs,
     ...(docs ? { only: docs.owned, treePath: docs.tree } : {}),
   })
 
@@ -2613,6 +2627,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
         notes,
         gate,
         buttons,
+        ...surfaceArgs,
         fellBack: true,
       })
       if (wider.totals.files > 0) {
@@ -2831,7 +2846,10 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       (waiting.length
         ? `  pending: ${waiting.length} waiting\n` +
           waiting
-            .map((p) => `    ${p.code} · ${p.verdict || 'no verdict'} · ${pendingAge(p.at, now)}\n`)
+            .map(
+              (p) =>
+                `    ${p.code} · ${p.action || p.verdict || 'no verdict'} · ${pendingAge(p.at, now)}\n`,
+            )
             .join('')
         : '') +
       (outcomeSaid ? `  outcome: ${outcomeSaid}\n` : '') +
@@ -3512,60 +3530,6 @@ async function specEnvReviewServe(dir, config, flags) {
  * would break the open URL to fix a description, so it prints the address that
  * works and names the command that widens it.
  */
-/**
- * The three review tiers, in a FIXED ORDER, each either a URL or the reason it
- * is not one. Pure: it takes what the caller already resolved.
- *
- * Fixed order matters more than it looks. A reader who has learnt which line
- * their phone opens should not have to re-read the labels every render, and a
- * stack that reordered itself by availability would make them.
- *
- * WHY A STACK AT ALL, when the rule said exactly one link: the engine cannot
- * know where the reader is sitting, and every attempt to guess failed the
- * moment they moved. `local` and `network` are two doors into ONE room — the
- * page POSTs to `location.pathname`, so both reach the same server and the same
- * pending store, and one wait covers both. `remote` is a second store, which is
- * why it carries the line saying so.
- */
-function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
-  const tiers = []
-  const loopbackUrl = served && served.loopbackUrl ? served.loopbackUrl : null
-
-  tiers.push(
-    loopbackUrl
-      ? { tier: 'local', url: loopbackUrl }
-      : { tier: 'local', url: fileUrl, note: 'a file:// page cannot send a verdict' },
-  )
-
-  if (!config.review.allowNetwork) {
-    tiers.push({ tier: 'network', off: true, enable: 'skitterspec spec-env review allow network' })
-  } else if (served && !served.loopback && served.url) {
-    tiers.push({ tier: 'network', url: served.url, alternates: served.alternates || [] })
-  } else {
-    // Permitted, but there is no address to offer — a machine with no network,
-    // or a server that could not take one. Not a problem to report as an error.
-    tiers.push({ tier: 'network', unavailable: true, note: 'no network address on this machine' })
-  }
-
-  if (!config.review.allowRemote) {
-    tiers.push({ tier: 'remote', off: true, enable: 'skitterspec spec-env review allow remote' })
-  } else if (publishedUrl) {
-    tiers.push({ tier: 'remote', url: publishedUrl, note: 'a verdict here needs /spec-reviewed' })
-  } else {
-    tiers.push({ tier: 'remote', unavailable: true, note: 'publishing is an ask — nothing published yet' })
-  }
-
-  return tiers
-}
-
-// One tier as a line, padded so the labels form a column the eye can run down.
-function reviewTierLine(t) {
-  const label = `  ${t.tier}:`.padEnd(11)
-  if (t.url) return `${label}${t.url}${t.note ? `   (${t.note})` : ''}`
-  if (t.off) return `${label}off — turn on with: ${t.enable}`
-  return `${label}—   (${t.note})`
-}
-
 function reviewServedUrls(up, addrs, folder) {
   const page = (host) => `${serveUrl(host, up)}${encodeURIComponent(folder)}`
   // ALWAYS AVAILABLE WHEN SERVED. A server bound to 0.0.0.0 answers on loopback

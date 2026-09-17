@@ -38,6 +38,7 @@ const {
 } = require('./resolve.js')
 const { loadEnvConfig } = require('./config.js')
 const { specDocsIn } = require('./classify.js')
+const { liveStateFor } = require('./live.js')
 const {
   rawGitReader,
   collectReview,
@@ -250,6 +251,24 @@ function committedDocsFor(dir, config, spec) {
 }
 
 /**
+ * The tier rows the PAGE needs, from config alone.
+ *
+ * DELIBERATELY NOT `reviewTierStack`. That stack answers "where can this be
+ * read", which needs the server's bind, the machine's addresses and any
+ * published URL. The page needs only the half it can act on: which tiers are
+ * OFF, so it can offer the press that turns one on. An `off` tier has no URL by
+ * definition, so none of that machinery is required — and an `on` tier
+ * contributes nothing here, because the reader is standing on one of them.
+ */
+function pageTiers(config) {
+  const r = (config && config.review) || {}
+  return [
+    { tier: 'network', off: !r.allowNetwork },
+    { tier: 'remote', off: !r.allowRemote },
+  ]
+}
+
+/**
  * The branch name a git reader's checkout is on, or null.
  *
  * NULL FOR A DETACHED HEAD, which `rev-parse --abbrev-ref` spells `HEAD` — a
@@ -420,7 +439,30 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
   // is a convenience and the gate is not what it is for.
   const gate = gateRead.corrupt ? null : gateRead.gate
 
-  let data = collectReview({ spec, git, mode, ref, base: baseName, now, notes, gate })
+  // WHERE ELSE THIS REVIEW LIVES, and whether it is also running — the block
+  // above the verdicts. Worktree views only: a `--docs` page returns above,
+  // because a spec with no branch has nothing to put live.
+  const live = liveStateFor(spec, {
+    isolated: true,
+    onBase: headBranchOf(rawGitReader(dir)) !== spec.branch,
+    primaryBranch: headBranchOf(rawGitReader(dir)),
+    receipt: null,
+    worktreeExists: Boolean(spec.worktreePath && fs.existsSync(spec.worktreePath)),
+  })
+  const tiers = pageTiers(config)
+
+  let data = collectReview({
+    spec,
+    git,
+    mode,
+    ref,
+    base: baseName,
+    now,
+    notes,
+    gate,
+    live,
+    tiers,
+  })
 
   if (!branch && data.totals.files === 0) {
     const fallbackBase = base()
@@ -435,6 +477,8 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
         now,
         notes,
         gate,
+        live,
+        tiers,
         fellBack: true,
       })
       if (wider.totals.files > 0) {
@@ -735,6 +779,7 @@ module.exports = {
   specSummary,
   viewFor,
   headBranchOf,
+  pageTiers,
   routeFor,
   renderIndex,
   servableSpecs,

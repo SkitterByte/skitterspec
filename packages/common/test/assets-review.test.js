@@ -2504,3 +2504,71 @@ test('STAYS SILENT: a file:// page never reaches any of this', () => {
   assert.strictEqual(dom.byId['send-failed'].hidden, true)
   assert.strictEqual(dom.copied.length, 1)
 })
+
+// --- the surfaces strip ----------------------------------------------------
+
+/**
+ * The strip above the verdicts: where this review lives, and whether it is also
+ * running. Every assertion here is about the strip staying DISTINCT from the
+ * verdict bar — it is the difference between "I have concluded" and "show me
+ * this running first", and a strip that closed the page or cleared a gate would
+ * erase it.
+ */
+test('the strip sits above the verdicts, and says why', () => {
+  const at = (s) => TEMPLATE.indexOf(s)
+  assert.ok(at('id="surfaces"') > 0, 'the strip is in the template')
+  assert.ok(
+    at('id="surfaces"') < at('class="verdict-end"'),
+    'above the verdict bar, because the question comes before the conclusion',
+  )
+  assert.match(TEMPLATE, /it is not a verdict/)
+})
+
+test('the strip is hidden until a render carries surfaces', () => {
+  assert.match(TEMPLATE, /<section class="surfaces reviewable" id="surfaces" hidden>/)
+  assert.match(TEMPLATE, /\.surfaces\[hidden\] \{ display: none; \}/)
+  // ABSENT, NOT EMPTY — a `--docs` page has no branch to put live, and gets no
+  // strip and no line explaining the absence.
+  assert.match(TEMPLATE, /ABSENT, NOT EMPTY/)
+})
+
+test('every action has a label and a command, and the two lists agree', () => {
+  const list = (name) => {
+    const m = TEMPLATE.match(new RegExp('var ' + name + ' = \\{([\\s\\S]*?)\\n  \\}'))
+    assert.ok(m, `${name} is in the page`)
+    return [...m[1].matchAll(/'([a-z-]+)':/g)].map((x) => x[1])
+  }
+  const labels = list('ACTION_LABEL')
+  const cmds = list('ACTION_CMD')
+  assert.deepStrictEqual(labels, ['live-on', 'live-off', 'allow-network', 'allow-remote'])
+  assert.deepStrictEqual(cmds, labels, 'a label with no command leaves a file:// page mute')
+})
+
+// AN ACTION MUST NOT END THE PAGE. The reader still owes a verdict; closing
+// over an action would be the record-and-do-nothing ending this whole contract
+// is against.
+test('sending an action never decides the page', () => {
+  const fn = TEMPLATE.slice(TEMPLATE.indexOf('function sendAction('), TEMPLATE.indexOf('function watchAction('))
+  assert.doesNotMatch(fn, /markDecided/, 'an action is not a conclusion')
+  assert.match(TEMPLATE, /IT CARRIES NO MARKS/)
+  // The marks stay on the page and travel with the verdict, or one reader's
+  // review is counted twice.
+  const blob = fn.match(/var blob = \{[\s\S]*?\n {4}\}/)
+  assert.ok(blob, 'the action blob is built inline')
+  assert.match(blob[0], /accepted: \[\]/)
+  assert.match(blob[0], /comments: \[\]/)
+})
+
+// A `file://` page has no server and no store, so a button would build an
+// instruction with nowhere to go — the same trade the verdict bar already makes.
+test('a page with no transport shows the command instead of a button', () => {
+  const fn = TEMPLATE.slice(TEMPLATE.indexOf('function buildSurfaces('), TEMPLATE.indexOf('function sendAction('))
+  assert.match(fn, /if \(NO_TRANSPORT\) \{/)
+  assert.match(fn, /ACTION_CMD\[row\.action\]/)
+})
+
+// ENABLE-ONLY is the engine's rule; what the page must not do is invent a
+// disable. It renders whatever `tierAction` gave it and no more.
+test('the page invents no disable action of its own', () => {
+  assert.doesNotMatch(TEMPLATE, /'deny-network'|'deny-remote'|'allow-network-off'/)
+})

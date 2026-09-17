@@ -340,13 +340,20 @@ test('a description carries the code, the verdict and when it arrived', () => {
     blob: blobOf({ verdict: 'commit' }), at: '2026-01-01T10:00:00.000Z', render: 'R1',
   })
   const got = describePending(a.pending)
-  assert.deepStrictEqual(got, [{ code: a.code, verdict: 'commit', at: '2026-01-01T10:00:00.000Z' }])
+  assert.deepStrictEqual(got, [
+    { code: a.code, verdict: 'commit', action: null, at: '2026-01-01T10:00:00.000Z' },
+  ])
 })
 
 // THE BLOB IS NOT HERE, deliberately. A decision about a waiting pass needs its
-// code, verdict and age; the notes are what a claim is for. Returning them puts
-// an unclaimed stranger's text into the reader's context, which is the one thing
-// the holding area exists to defer.
+// code, its instruction and its age; the notes are what a claim is for.
+// Returning them puts an unclaimed stranger's text into the reader's context,
+// which is the one thing the holding area exists to defer.
+//
+// `action` JOINED THE ALLOWED KEYS when the page learnt to send one. It is the
+// same kind of fact as `verdict` — what claiming this pass would do — and the
+// substance of this test is unchanged: the allowlist is exact, so a later key
+// carrying the reader's text fails here rather than leaking.
 test('a description never carries the blob', () => {
   const a = addPending(emptyPending('feat-alpha'), {
     blob: blobOf({ comments: [{ id: 'c1', file: 'a.js', note: 'unclaimed text' }] }),
@@ -354,7 +361,7 @@ test('a description never carries the blob', () => {
     render: 'R1',
   })
   const got = describePending(a.pending)
-  assert.deepStrictEqual(Object.keys(got[0]).sort(), ['at', 'code', 'verdict'])
+  assert.deepStrictEqual(Object.keys(got[0]).sort(), ['action', 'at', 'code', 'verdict'])
   assert.ok(!JSON.stringify(got).includes('unclaimed text'))
 })
 
