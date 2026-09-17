@@ -125,6 +125,7 @@ const {
 } = require('./env/review.js')
 const {
   CHECKS_VERSION,
+  BUNDLED_ADAPTERS,
   runReviewers,
   diffHashOf,
   readChecks,
@@ -132,9 +133,6 @@ const {
   cacheHit,
   asCached,
 } = require('./env/reviewers.js')
-// Bundled adapters, by the name a config's `use` names. Empty until one ships;
-// an unknown `use` is that reviewer's own outcome rather than a thrown error.
-const REVIEWER_ADAPTERS = {}
 const { planUp, planCheckoutUp } = require('./env/provision.js')
 const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
@@ -2728,7 +2726,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
         base: base || reviewBase(),
         scope,
         spec: spec.folder,
-        adapters: REVIEWER_ADAPTERS,
+        adapters: BUNDLED_ADAPTERS,
       })
       checks = ran.checks
       outcomes = ran.outcomes
@@ -4379,6 +4377,23 @@ async function specEnv(rest) {
     process.stderr.write(
       `spec-env: ${ENV_CONFIG_LABEL} — review.reviewers[${bad.index}] ${bad.reason}; it is ignored.\n`,
     )
+  }
+
+  // A `use` NAMING AN ADAPTER THIS BUILD DOES NOT HAVE, said here rather than
+  // waiting for the run to report it. The config module deliberately does not
+  // know the registry — shape is its business and the adapter list is the
+  // runner's — so the check lives at the one place that can see both.
+  //
+  // It is advisory like the two above: an older engine reading a config written
+  // for a newer one is a forward-compat gap, not a mistake, and the run reports
+  // it again as that reviewer's own outcome either way.
+  for (const r of config.review.reviewers || []) {
+    if (r.use && !Object.prototype.hasOwnProperty.call(BUNDLED_ADAPTERS, r.use)) {
+      process.stderr.write(
+        `spec-env: ${ENV_CONFIG_LABEL} — review.reviewers "${r.use}" is not a bundled adapter ` +
+          `(have: ${Object.keys(BUNDLED_ADAPTERS).join(', ') || 'none'}); it will not run.\n`,
+      )
+    }
   }
 
   switch (sub) {

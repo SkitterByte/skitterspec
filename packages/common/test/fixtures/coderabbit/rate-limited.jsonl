@@ -1,0 +1,2 @@
+{"type":"review_context","repository":"example/app","base":"main"}
+{"type":"error","message":"Rate limit exceeded — 3 reviews per hour on the free plan."}

@@ -1,0 +1,3 @@
+{"type":"review_context","repository":"example/app","base":"main","filesChanged":0}
+{"type":"status","status":"review_skipped","reason":"no changes detected"}
+{"type":"complete","findings":0}

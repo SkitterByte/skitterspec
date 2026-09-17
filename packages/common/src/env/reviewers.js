@@ -33,6 +33,8 @@ const path = require('node:path')
 const crypto = require('node:crypto')
 const { spawn } = require('node:child_process')
 
+const BUNDLED_ADAPTERS = { coderabbit: require('./reviewers/coderabbit.js') }
+
 const CHECKS_VERSION = 1
 
 // Beside the page, the notes, the pending store and the gate, under gitignored
@@ -212,6 +214,35 @@ function firstLine(s) {
   return line ? (line.length > 200 ? line.slice(0, 197) + '…' : line) : null
 }
 
+/**
+ * Fold an adapter's own reading into the generic one. Pure.
+ *
+ * AN ADAPTER MAY SHARPEN OR DOWNGRADE, NEVER UPGRADE TO CLEAN OVER A FAILURE.
+ * It knows its tool's dialect — that "not authenticated" is a refusal rather
+ * than a review with no findings — and that is the one thing the generic rules
+ * cannot see. What it must not be able to do is make a run the generic path
+ * called failed read as approved, because this is exactly the layer where a
+ * vendor-specific guess would produce the false clean the whole feature exists
+ * against.
+ *
+ * So `clean` from an adapter is honoured only where the generic reading was
+ * already a clean one. The two states that are about the RUN rather than the
+ * output — a timeout and a failure to spawn — are never overridden at all: no
+ * amount of parsing tells you anything about a process that was killed or never
+ * started.
+ */
+function reconcile(generic, said, { timedOut, spawnError, name, count }) {
+  if (!said || typeof said !== 'object') return generic
+  if (timedOut || spawnError) return generic
+  if (said.state === 'clean' && generic.state !== 'clean' && generic.state !== 'findings') return generic
+  return {
+    name,
+    state: said.state || generic.state,
+    detail: said.detail === undefined ? generic.detail : said.detail,
+    count: said.state === 'findings' || said.state === 'clean' ? count : generic.count,
+  }
+}
+
 /* ==========================================================================
  * Running one
  * ========================================================================== */
@@ -298,21 +329,19 @@ function runReviewer(entry, ctx) {
       if (done) return
       done = true
       clearTimeout(timer)
-      const { findings, malformed } = parse ? parse(stdout) : parseRdjsonl(stdout)
-      const checks = findings.map((f) => checkFrom(f, entry.name))
-      resolve({
+      const read = parse ? parse(stdout, { exitCode, stderr }) : parseRdjsonl(stdout)
+      const checks = read.findings.map((f) => checkFrom(f, entry.name))
+      const generic = outcomeFor({
+        name: entry.name,
         checks,
-        outcome: outcomeFor({
-          name: entry.name,
-          checks,
-          exitCode,
-          signal,
-          stderr,
-          malformed: malformed + (truncated ? 1 : 0),
-          timedOut,
-          spawnError,
-        }),
+        exitCode,
+        signal,
+        stderr,
+        malformed: read.malformed + (truncated ? 1 : 0),
+        timedOut,
+        spawnError,
       })
+      resolve({ checks, outcome: reconcile(generic, read.said, { timedOut, spawnError, name: entry.name, count: checks.length }) })
     }
 
     child.stdout.on('data', (d) => {
@@ -474,6 +503,8 @@ module.exports = {
   checkFrom,
   substitute,
   outcomeFor,
+  reconcile,
+  BUNDLED_ADAPTERS,
   runReviewer,
   runReviewers,
   diffHashOf,

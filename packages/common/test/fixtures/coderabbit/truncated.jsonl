@@ -1,0 +1,3 @@
+{"type":"review_context","repository":"example/app","base":"main","filesChanged":3}
+{"type":"finding","severity":"critical","fileName":"src/orders.js","line":42,"comment":"Null deref."}
+{"type":"finding","severity":"maj

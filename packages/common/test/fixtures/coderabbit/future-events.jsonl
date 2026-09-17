@@ -1,0 +1,5 @@
+{"type":"review_context","repository":"example/app"}
+{"type":"telemetry","tokensUsed":41028,"model":"whatever-next"}
+{"type":"finding","severity":"critical","fileName":"src/a.js","line":3,"comment":"Still readable.","newFieldNobodyHasSeen":{"a":1}}
+{"type":"learnings_applied","count":2}
+{"type":"complete","findings":1}

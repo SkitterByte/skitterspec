@@ -1,0 +1,8 @@
+{"type":"review_context","repository":"example/app","base":"main","filesChanged":3}
+{"type":"status","status":"review_started"}
+{"type":"heartbeat","at":"2026-09-17T10:00:01Z"}
+{"type":"finding","severity":"critical","fileName":"src/orders.js","line":42,"codegenInstructions":"Guard against a null `customer` before reading `.id`.","suggestions":["if (!customer) return null"]}
+{"type":"finding","severity":"minor","fileName":"src/orders.js","line":88,"comment":"This variable shadows the outer `total`."}
+{"type":"heartbeat","at":"2026-09-17T10:00:31Z"}
+{"type":"finding","severity":"major","fileName":"src/db.js","comment":"Connection is never released on the error path."}
+{"type":"complete","findings":3}

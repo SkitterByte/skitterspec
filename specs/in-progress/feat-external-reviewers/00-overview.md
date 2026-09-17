@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-external-reviewers (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 2 (started 2026-09-17)
+> **Status:** In Progress — Phase 3 (started 2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The contract and the runner | ✅ | [01-runner.md](01-runner.md) |
 | 2 | Findings on the page | ✅ | [02-page.md](02-page.md) |
-| 3 | The CodeRabbit adapter | ⬜ | [03-coderabbit.md](03-coderabbit.md) |
+| 3 | The CodeRabbit adapter | ✅ | [03-coderabbit.md](03-coderabbit.md) |
 | 4 | Skills, config docs, and the offer | ⬜ | [04-skills-docs.md](04-skills-docs.md) |
 
 ## Open questions
@@ -166,6 +166,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-17 — Phase 3 built. One contract change the plan did not name: `parse`
+  now returns `said`, an outcome the adapter is sure of, because an adapter had
+  no way to tell the runner that "exit 1, no findings" meant *not authenticated*
+  rather than *clean*. `reconcile` folds it in under one rule — an adapter may
+  sharpen or downgrade, never upgrade a failure to clean — and that asymmetry is
+  asserted directly. Also recorded in the phase file: CodeRabbit's documented
+  finding shape carries no line number, so every plausible spelling is read and
+  a finding with none is kept rather than dropped.
 - 2026-09-17 — Phase 2 built. Three findings, all recorded in the phase file:
   the page shim rejects tag-prefixed selectors (the page's were over-specific
   and now are not), the in-process CLI test helper corrupts its own capture when
