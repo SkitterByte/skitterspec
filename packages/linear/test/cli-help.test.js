@@ -71,6 +71,44 @@ test('every documented command is reachable, not just listed', () => {
   }
 })
 
+// --- spec-sync's own subcommands --------------------------------------------
+
+test('every spec-sync subcommand it routes is named in its usage', async () => {
+  // The same invariant as the first test in this file, one level down. It is
+  // derived rather than listed: a subcommand added to the dispatch without a
+  // usage line fails here, which is the drift that once shipped a command the
+  // help said did not exist.
+  //
+  // RETIRED names are the one exemption, and naming them here is what keeps the
+  // exemption honest — `push` is still recognised so it can tell the caller what
+  // replaced it, and advertising it would undo that.
+  const RETIRED = new Set(['push'])
+
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli-sync.js'), 'utf-8')
+  const routed = [...src.matchAll(/^\s*case '([a-z-]+)':/gm)].map((m) => m[1]).filter((c) => !RETIRED.has(c))
+  assert.ok(routed.length > 10, 'the dispatch was found, not an empty match')
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-usage-'))
+  try {
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'specs', '.core', 'linear.config.json'), '{}', 'utf-8')
+
+    let text = ''
+    const { specSync } = require('../src/cli-sync.js')
+    await specSync(['not-a-subcommand'], {
+      cwd: dir,
+      out: { write: (s) => (text += s) },
+      err: { write: () => {} },
+    })
+
+    for (const name of routed) {
+      assert.match(text, new RegExp(`\\b${name}\\b`), `usage names ${name}`)
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 // --- the base distribution's half -------------------------------------------
 
 test('the base names the distribution that ships a provider command', () => {

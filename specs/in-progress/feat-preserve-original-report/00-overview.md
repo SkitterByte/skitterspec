@@ -155,7 +155,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Preserve the original as a Linear comment | ⬜ | [01-preserve-engine.md](01-preserve-engine.md) |
+| 1 | Preserve the original as a Linear comment | ✅ | [01-preserve-engine.md](01-preserve-engine.md) |
 | 2 | Wire preserve into the three adoption paths | ⬜ | [02-adoption-skills.md](02-adoption-skills.md) |
 | 3 | Detect a description edited on Linear | ⬜ | [03-drift-detection.md](03-drift-detection.md) |
 | 4 | Report the drift, and correct the docs | ⬜ | [04-report-and-docs.md](04-report-and-docs.md) |
@@ -174,3 +174,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-17 — Spec created.
+- 2026-09-17 — Phase 1: the HTML-comment marker was verified against real
+  Linear (posted on SKS-329, read back unaltered, deleted) — it survives, so
+  the visible-lead-in fallback stays as a second signal rather than becoming
+  the primary one.
+- 2026-09-17 — Phase 1 added an invariant the spec did not plan for: a test
+  deriving every `spec-sync` subcommand from the dispatch and asserting the
+  usage names it, with retired names allowlisted. The repo's own
+  `docs-claims` test already demanded the same of `docs/linear.html`, so
+  `preserve` was documented there in this phase rather than in phase 4.

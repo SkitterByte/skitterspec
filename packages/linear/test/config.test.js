@@ -219,6 +219,34 @@ test('intake merges label + bugLabels over the defaults', () => {
   assert.deepStrictEqual(config.intake.bugLabels, ['bug', 'defect'])
 })
 
+test('intake.preserveOriginal ships ON, so a repo that never heard of it gets it', () => {
+  // The default is the feature. Opt-in was rejected because a repo that never
+  // added the line would look identical to one that did not want it — and the
+  // only signal would be noticing a lost report weeks later.
+  const { config } = loadLinearConfig(tmpDir())
+  assert.strictEqual(config.intake.preserveOriginal, true)
+})
+
+test('intake.preserveOriginal: false is the opt-out', () => {
+  const dir = tmpDir()
+  writeConfig(dir, { intake: { preserveOriginal: false } })
+  assert.strictEqual(loadLinearConfig(dir).config.intake.preserveOriginal, false)
+})
+
+test('only a real boolean turns it off — a string or null leaves the default', () => {
+  // `'boolean'`, so a typo cannot read as a decline. Being wrong here would
+  // silently disable the thing the config never asked to disable.
+  for (const bad of ['false', 0, null, 'no']) {
+    const dir = tmpDir()
+    writeConfig(dir, { intake: { preserveOriginal: bad } })
+    assert.strictEqual(
+      loadLinearConfig(dir).config.intake.preserveOriginal,
+      true,
+      `${JSON.stringify(bad)} is not a decline`,
+    )
+  }
+})
+
 test('intake.bugLabels drops non-strings and trims — never throws', () => {
   const dir = tmpDir()
   writeConfig(dir, { intake: { bugLabels: ['  bug  ', '', 3, null, 'defect'] } })

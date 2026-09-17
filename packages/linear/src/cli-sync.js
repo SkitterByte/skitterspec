@@ -3561,6 +3561,279 @@ function repoConfigKeyCommand(dir) {
   }
 }
 
+// --- preserve: the reporter's original, kept before the spec replaces it ------
+
+/**
+ * The marker that makes preserving idempotent.
+ *
+ * An HTML comment, so it does not render in Linear's comment body — the reader
+ * sees a clean quote, and the machine sees a string it can match on. It is
+ * matched with `includes`, never parsed, so a Linear that reformats the
+ * surrounding markdown cannot detach it from the comment it identifies.
+ *
+ * WHAT WOULD FOOL THIS: a Linear that strips HTML comments on save. Then every
+ * run reads as "not yet preserved" and posts again. That is why
+ * `originalPreserved` ALSO matches the visible lead-in — two independent
+ * signals, either of which is enough, so losing one degrades to a duplicate
+ * check rather than to duplicate comments.
+ */
+const PRESERVE_MARKER = '<!-- skitterspec:original-report -->'
+
+// The visible half of the marker — a heading a human reads, and the fallback
+// the idempotence check falls back to if the HTML comment does not survive.
+const PRESERVE_HEADING = '**Original report**'
+
+/**
+ * Compose the preserving comment. Pure: no I/O, no clock, no randomness — the
+ * caller supplies everything, which is what makes this testable without a
+ * network and deterministic under `--json`.
+ *
+ * The description is quoted VERBATIM and never reflowed. Canonicalising it here
+ * would defeat the point: this comment exists precisely because the generated
+ * description is a canonicalised projection, and the thing worth keeping is
+ * what the reporter actually typed.
+ */
+function preserveComment(description, specName) {
+  return [
+    `${PRESERVE_HEADING} — preserved before this issue became a spec.`,
+    '',
+    `This issue's description is now a generated mirror of \`${specName}\`, ` +
+      'pushed from the repo. Edit the spec, not this issue. This is what was filed:',
+    '',
+    '---',
+    '',
+    String(description),
+    '',
+    PRESERVE_MARKER,
+  ].join('\n')
+}
+
+/**
+ * Has this issue already been preserved?
+ *
+ * Two signals, either sufficient: the hidden marker, and the visible lead-in.
+ * A POSITIVE match is what stops a second post, so the cost of being wrong runs
+ * one way only — a missed match posts a duplicate comment, which is untidy; a
+ * spurious match would silently skip preserving the one thing this exists for.
+ * Both signals are therefore specific enough that ordinary prose cannot trip
+ * them, and neither is an absence (`.claude/rules/negative-checks.md` rule 1).
+ */
+function originalPreserved(comments) {
+  if (!Array.isArray(comments)) return false
+  return comments.some((c) => {
+    const body = c && typeof c.body === 'string' ? c.body : ''
+    return body.includes(PRESERVE_MARKER) || body.startsWith(PRESERVE_HEADING)
+  })
+}
+
+/**
+ * `spec-sync preserve <spec> [--text <file>] [--json]` — post the issue's
+ * current description as a comment, before a push replaces it with the spec.
+ *
+ * ORDERING IS THE CORRECTNESS CONDITION. Run before the linking push, this
+ * captures the reporter's words. Run after it, it would capture the generated
+ * spec and report success — so the snapshot check below warns about exactly
+ * that, and the adoption skills order the call explicitly.
+ *
+ * EVERY CANNOT-TELL EXITS 0 AND SAYS NOTHING BEYOND WHY. Preserving is a
+ * best-effort courtesy on top of adoption: an unresolvable issue, a description
+ * that is absent, a project that declined — none of those is a reason to fail
+ * the skill that called this, and none is evidence that anything went wrong.
+ */
+async function specSyncPreserve(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+  const specName = path.basename(snapshotDir)
+  const say = (result) => {
+    if (flags.json) out.write(JSON.stringify(result, null, 2) + '\n')
+    // NO LINES MEANS NO OUTPUT, not a blank one. The opt-out is the case this
+    // is for: a project that declined must see nothing, and a bare newline is
+    // still a trace of a feature it turned off.
+    else if (result.lines.length) out.write(result.lines.join('\n') + '\n')
+    return 0
+  }
+
+  // The opt-out, checked first: a project that declined must see no trace of
+  // the feature, including a line about why it did nothing.
+  if (!(config.intake && config.intake.preserveOriginal)) {
+    return say({ spec: specName, preserved: false, reason: 'declined', lines: [] })
+  }
+
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
+  if (!identifier) {
+    return say({
+      spec: specName,
+      preserved: false,
+      reason: 'unlinked',
+      lines: [`spec-sync preserve: ${specName} is not linked to an issue — nothing to preserve`],
+    })
+  }
+
+  // ALREADY PUSHED, so the description on the issue is this spec's own mirror
+  // rather than anyone's original. A warning and not a refusal: a snapshot can
+  // be absent for reasons that have nothing to do with ordering (never
+  // committed, a fresh worktree), so this reads as "you may be late", never as
+  // "you are wrong".
+  const late = readBase(dir, identifier, config)
+    ? [
+        `  note: ${identifier} has been pushed before, so its description is already`,
+        '        the generated mirror — preserve runs before the linking push',
+      ]
+    : []
+
+  // `--text <file>` is the MCP path's supply line: the engine cannot call an
+  // MCP tool, so the skill reads the issue and hands the description over in a
+  // file, exactly as `--workspace-states` and `--stored` already do.
+  let description = null
+  if (flags.text) {
+    try {
+      description = fs.readFileSync(flags.text, 'utf-8')
+    } catch (error) {
+      out.write(`spec-sync preserve: cannot read --text ${flags.text}: ${error.message}\n`)
+      return 1
+    }
+  }
+
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+
+  if (transport === 'mcp' && description == null) {
+    return say({
+      spec: specName,
+      identifier,
+      preserved: false,
+      reason: 'mcp',
+      marker: PRESERVE_MARKER,
+      lines: [
+        'spec-sync preserve: transport = mcp (no writes made here)',
+        key.ok ? '  --via mcp was requested' : `  ${key.error}`,
+        ...late,
+        `  read ${identifier}'s description, check its comments for the marker`,
+        `    ${PRESERVE_MARKER}`,
+        '  and if it is absent, post this comment with the Linear comment tool:',
+        '',
+        ...preserveComment('<the description you just read>', specName).split('\n').map((l) => `    ${l}`),
+      ],
+    })
+  }
+
+  if (transport === 'mcp') {
+    // A description was supplied, so the body can be composed here even though
+    // the post itself belongs to the skill.
+    return say({
+      spec: specName,
+      identifier,
+      preserved: false,
+      reason: 'mcp',
+      marker: PRESERVE_MARKER,
+      body: preserveComment(description, specName),
+      lines: [
+        'spec-sync preserve: transport = mcp (no writes made here)',
+        ...late,
+        `  check ${identifier}'s comments for ${PRESERVE_MARKER}, and if absent post:`,
+        '',
+        ...preserveComment(description, specName).split('\n').map((l) => `    ${l}`),
+      ],
+    })
+  }
+
+  if (!key.ok) {
+    return say({
+      spec: specName,
+      identifier,
+      preserved: false,
+      reason: 'no-key',
+      lines: [`spec-sync preserve: skipped — ${key.error}`],
+    })
+  }
+
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  let issue
+  try {
+    issue = await adapter.readIssue(identifier)
+  } catch (error) {
+    // Unreachable is not evidence that nothing needs preserving — it is no
+    // evidence at all, so it exits 0 and the caller carries on (rule 4).
+    return say({
+      spec: specName,
+      identifier,
+      preserved: false,
+      reason: 'unreachable',
+      lines: [`spec-sync preserve: could not read ${identifier} — ${error.message}`],
+    })
+  }
+  if (!issue || !issue.id) {
+    return say({
+      spec: specName,
+      identifier,
+      preserved: false,
+      reason: 'not-found',
+      lines: [`spec-sync preserve: no Linear issue found for ${identifier}`],
+    })
+  }
+
+  // A description that is not a string was never read, and one that is empty
+  // has nothing in it worth keeping. Both are silent no-ops rather than an
+  // empty comment claiming to preserve something.
+  const text = description != null ? description : issue.description
+  if (typeof text !== 'string' || !text.trim()) {
+    return say({
+      spec: specName,
+      identifier,
+      preserved: false,
+      reason: 'no-description',
+      lines: [`spec-sync preserve: ${identifier} has no description to preserve`],
+    })
+  }
+
+  let comments
+  try {
+    comments = await adapter.listComments(issue.id)
+  } catch (error) {
+    // THE CANNOT-TELL BRANCH THAT MATTERS. Without the listing there is no way
+    // to know whether this already ran, and the two readings cost differently:
+    // skipping loses the original, posting again leaves a duplicate. Duplicate
+    // is the harmless one, so a failed read does not stop the write.
+    comments = null
+    late.push(`  note: could not list ${identifier}'s comments (${error.message}) — posting anyway`)
+  }
+  if (comments && originalPreserved(comments)) {
+    return say({
+      spec: specName,
+      identifier,
+      preserved: false,
+      reason: 'already',
+      lines: [`spec-sync preserve: ${identifier} already carries the original report — nothing posted`],
+    })
+  }
+
+  const body = preserveComment(text, specName)
+  try {
+    await adapter.createComment(issue.id, body)
+  } catch (error) {
+    return say({
+      spec: specName,
+      identifier,
+      preserved: false,
+      reason: 'refused',
+      lines: [`spec-sync preserve: Linear refused the comment on ${identifier} — ${error.message}`],
+    })
+  }
+
+  return say({
+    spec: specName,
+    identifier,
+    preserved: true,
+    reason: 'posted',
+    lines: [
+      `spec-sync preserve: ${identifier} — original report preserved as a comment`,
+      ...late,
+      `  ${text.length} characters kept verbatim; the push may now replace the description`,
+    ],
+  })
+}
+
 // Read stdin to completion (for `--stdin`).
 function readAllStdin(input) {
   return new Promise((resolve, reject) => {
@@ -3614,7 +3887,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false, text: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -3623,6 +3896,9 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--apply') flags.apply = true
     else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
     else if (args[i] === '--stored') flags.stored = path.resolve(args[++i])
+    // `preserve --text <file>`: the description to keep, when the caller read it
+    // over MCP and the engine cannot.
+    else if (args[i] === '--text') flags.text = path.resolve(args[++i])
     else if (args[i] === '--mcp') flags.mcp = path.resolve(args[++i])
     else if (args[i] === '--plan') flags.plan = path.resolve(args[++i])
     else if (args[i] === '--via') flags.via = args[++i]
@@ -3799,6 +4075,8 @@ async function specSync(rest, io = {}) {
       return (await specSyncApply(dir, config, positional[0], flags, out)) || 0
     case 'verify':
       return specSyncVerify(dir, config, positional[0], flags, out) || 0
+    case 'preserve':
+      return (await specSyncPreserve(dir, config, positional[0], flags, out)) || 0
     case 'linked':
       specSyncLinked(dir, config, flags, out)
       return 0
@@ -3817,6 +4095,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
+        '       skitterspec spec-sync preserve <spec> [--text <file>] [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync list [--state <name> …|--all|--in-progress] [--next N] [--mine|--by <user>] [--limit N] [--archived] [--json]\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +

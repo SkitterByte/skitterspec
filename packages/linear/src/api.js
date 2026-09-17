@@ -466,6 +466,34 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
       if (data && data.team) return (data.team.states && data.team.states.nodes) || []
       return (data && data.workflowStates && data.workflowStates.nodes) || []
     },
+    // An issue's comments, and a comment posted onto it — the two halves of
+    // `spec-sync preserve`, which keeps a reporter's original description alive
+    // once the linking push replaces it with the generated spec.
+    //
+    // COMMENTS ARE NOT PART OF THE PROJECTION and must never become part of it.
+    // `sync.fieldOwnership` excludes them deliberately (they are Linear-native
+    // triage), which is exactly what makes a comment a safe place to preserve
+    // something: no push can clobber it, and no read of one feeds the repo.
+    // These two ops exist for one write at adoption and one read to make that
+    // write idempotent — nothing else calls them.
+    //
+    // API-only, like `listIssueStates` and `readTeam`: the contract runs one
+    // way, so the adapter may add ops and may only never be missing one.
+    async listComments(issueId) {
+      const data = await call(
+        `query($id: String!) { issue(id: $id) { comments { nodes { id body } } } }`,
+        { id: issueId },
+      )
+      return (data && data.issue && data.issue.comments && data.issue.comments.nodes) || []
+    },
+    async createComment(issueId, body) {
+      const data = await call(
+        `mutation($input: CommentCreateInput!) {
+           commentCreate(input: $input) { success comment { id body } } }`,
+        { input: { issueId, body } },
+      )
+      return (data && data.commentCreate && data.commentCreate.comment) || null
+    },
   }
 }
 

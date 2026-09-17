@@ -17,7 +17,7 @@
  * Shape (see assets/core/linear.config.md for field docs):
  *   {
  *     linear:   { teamKey, teamId, projectId },
- *     intake:   { label, bugLabels, hotfixLabels },
+ *     intake:   { label, bugLabels, hotfixLabels, preserveOriginal },
  *     mapping:  { specFolder, phases, tasks },
  *     states:   { backlog, "in-progress", complete, cancelled },
  *     release:  { stages: [{ key, state }] },
@@ -132,7 +132,19 @@ const DEFAULT_CONFIG = Object.freeze({
   // and no routing. `hotfixLabels` wins over `bugLabels` on an issue carrying
   // both: production is the more specific destination, and the cost of getting it
   // wrong is asymmetric — a fix that lands only on main never reaches prod.
-  intake: Object.freeze({ label: '', bugLabels: Object.freeze([]), hotfixLabels: Object.freeze([]) }),
+  // `preserveOriginal` is the other half of intake, and it is about what
+  // adoption COSTS rather than where it routes. Adopting an existing issue
+  // replaces the reporter's description with the generated spec, so
+  // `spec-sync preserve` first posts that description as a comment — the one
+  // surface on the issue that sync never touches.
+  //
+  // ON BY DEFAULT, and `false` is how a project declines. Opt-in was rejected
+  // for the reason `sync.fieldOwnership.assignee` records below: a repo that
+  // never added the line would look identical to one that did not want the
+  // feature, and the only signal would be noticing a lost report weeks later.
+  // Being wrong in this direction costs a comment nobody needed; the other
+  // direction costs someone their words.
+  intake: Object.freeze({ label: '', bugLabels: Object.freeze([]), hotfixLabels: Object.freeze([]), preserveOriginal: true }),
   // A spec is a Linear ISSUE; each phase is a SUB-ISSUE of it; tasks are not
   // synced (they live only in the repo phase files).
   // A spec is an ISSUE; each phase a SUB-ISSUE of it. `tasks` selects how the
@@ -215,6 +227,7 @@ function defaults() {
       label: DEFAULT_CONFIG.intake.label,
       bugLabels: [...DEFAULT_CONFIG.intake.bugLabels],
       hotfixLabels: [...DEFAULT_CONFIG.intake.hotfixLabels],
+      preserveOriginal: DEFAULT_CONFIG.intake.preserveOriginal,
     },
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
@@ -424,6 +437,9 @@ function mergeConfig(base, parsed) {
     if (Array.isArray(parsed.intake.hotfixLabels)) {
       base.intake.hotfixLabels = stringList(parsed.intake.hotfixLabels)
     }
+    // `'boolean'`, so only a real `false` turns this off. A string, a null or a
+    // typo leaves the default standing rather than reading as a decline.
+    assign(base.intake, parsed.intake, 'preserveOriginal', 'boolean')
   }
 
   if (isObject(parsed.mapping)) {
