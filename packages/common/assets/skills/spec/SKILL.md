@@ -269,6 +269,12 @@ verdict.
 **This is free.** The engine reads git and splices text into a template; the
 diff never passes through you.
 
+**Never pass `--run-reviewers` here.** A spec is prose, and the reviewers
+`review.reviewers` names read code — spending a rate-limited review on a
+paragraph buys nothing. The engine refuses it on a `--docs` render whatever this
+skill asks for, so this is a note about intent rather than a guard you are
+holding: do not add the flag on the assumption that it was an oversight.
+
 **Render nothing when nothing was written.** A `⏸` run — grilling that never
 reached a shared understanding — has no spec to show, and must not ask for a
 verdict on one.

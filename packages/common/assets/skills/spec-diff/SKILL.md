@@ -1,6 +1,6 @@
 ---
 name: spec-diff
-description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", wants to read a worktree's changes away from the terminal, or hands back what the review page produced — a six-digit claim code, a bare verdict word, or the pasted JSON.
+description: See what a spec's worktree changed — render its diff as a page you can mark up, take that review pass back, and act on it. Answers at any point, including half-way through a phase, and takes --reviewers to run the project's configured code reviewers. Use when the user says "/spec-diff", "show me the diff", "what did this phase change", "review this spec's work", "run the reviewers", or hands back what the review page produced — a six-digit claim code, a bare verdict word, or the pasted JSON.
 ---
 
 # /spec-diff — see the phase before you commit it
@@ -437,8 +437,25 @@ help someone give one.
 ```
 skitterspec spec-env review <spec>              # uncommitted work (the default)
 skitterspec spec-env review <spec> --branch     # everything since the base branch
+skitterspec spec-env review <spec> --run-reviewers   # …and run review.reviewers
 skitterspec spec-env review serve               # every spec, on localhost
 ```
+
+**`--run-reviewers` is opt-in here, and a BARE `/spec-diff` MUST NOT PASS IT.**
+`/spec-next` runs the project's configured reviewers once per phase, where the
+cost is paid against work that is finished. This skill answers at any point,
+including several times in one phase — and each run spends a review against
+whatever hourly limit the reviewer has, which on the tiers this was built for is
+measured in single figures.
+
+So pass it when the operator asked for it: `/spec-diff --reviewers`, or they said
+in words that they want the second opinion. Otherwise render without it. The
+cached findings from the phase-end run still show on the page whenever the diff
+has not moved, so the usual mid-phase read loses nothing by not asking.
+
+Where it does run, say what it cost — a reviewer takes 30s–3min — and nothing
+else. The page's own strip reports each reviewer's outcome, and a reviewer that
+could not run is that strip's business rather than yours.
 
 **There is no switch left to handle.** The engine serves and prints a **stack** —
 one line per tier, `local`, `network`, `remote`, each either a URL or the one

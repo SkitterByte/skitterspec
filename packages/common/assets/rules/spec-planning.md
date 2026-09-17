@@ -237,6 +237,34 @@ silently. All of it lives beside the page in gitignored `.spec-env/`, and
 **the marks are information, never a gate**: nothing counts them and nothing
 refuses on them.
 
+**A second opinion, from something that did not write the code (`review.reviewers`).**
+The page can also carry findings from code reviewers
+that run from a CLI — CodeRabbit's has a free tier, PR-Agent and Kodus are
+self-hosted — and they arrive as **checks**, the same shape a written review
+uses. `/spec-next` runs them once per phase before the render, so the page is
+populated when it is opened; `/spec-diff --reviewers` is the opt-in mid-phase
+run, and a bare `/spec-diff` never spends one. Results are cached against a hash
+of the diff, so re-reading unchanged work costs nothing.
+
+**They inform; they never gate.** A check is not a comment, so a page carrying
+twenty findings still offers `Commit` — and a reader who replies to one creates
+a comment, which does gate, because then a person has asked for something. There
+is deliberately no severity threshold that blocks: that is the counting gate
+this whole design exists against, wearing a vendor's name.
+
+**And a reviewer that could not run says so**, which is the one place
+`.claude/rules/negative-checks.md` inverts. Silence is normally the safe branch;
+here a rate-limited or unauthenticated reviewer would render identically to one
+that read the diff and approved of it, on the page a commit decision is made
+from. So each gets a line — `12 findings` · `clean` · `did not run — <why>` —
+and none of it ever refuses a render, a verdict or a commit.
+
+The list is **empty by default** and `init` never writes one: configuring a
+hosted reviewer sends the worktree's diff to a third party, which is a real
+change for a tool that otherwise touches nothing outside `.spec-env/`. Every
+finding on the page is badged with the reviewer that produced it. `env.config.md`
+carries the field reference.
+
 **The verdict is chosen, never derived.** A verdict is one person's conclusion,
 sent once per pass; a counting gate is a refusal computed from how many boxes
 are ticked, and it stays forbidden. The one refusal here is not a count of

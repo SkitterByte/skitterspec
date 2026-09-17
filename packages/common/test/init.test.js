@@ -23,6 +23,7 @@ const {
   assertSafeToDelete,
 } = require('../src/init.js')
 const { parse, run } = require('../src/cli.js')
+const { loadEnvConfig } = require('../src/env/config.js')
 
 // Run the CLI with stdout suppressed (the dispatch prints a summary/notice).
 async function runQuiet(argv) {
@@ -345,6 +346,22 @@ test('init --isolation activates the live env.config.json', async () => {
   // it is a copy of the shipped example (activated, not a stub)
   const example = fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json.example'), 'utf8')
   assert.strictEqual(fs.readFileSync(live, 'utf8'), example, 'live config matches the example')
+})
+
+test('a freshly initialised project has no reviewer configured', async () => {
+  // THE FIRST OBLIGATION OF `review.reviewers`: be invisible. Configuring one
+  // sends the worktree's diff to a third party, so it can only ever be a thing
+  // someone chose — `init` writes the key present and EMPTY, never a default
+  // entry, and never the key missing (which would read as an older engine).
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  const live = JSON.parse(fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), 'utf8'))
+  assert.deepStrictEqual(live.review.reviewers, [], 'present, and empty')
+
+  // And the merged config agrees, so nothing downstream can find an entry the
+  // file does not have.
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.review.reviewers, [])
 })
 
 test('init without isolation does not activate env.config.json', async () => {

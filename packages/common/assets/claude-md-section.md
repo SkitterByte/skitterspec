@@ -34,6 +34,19 @@ An accept remembers the file's content, so it lapses by itself when that file
 changes again. The marks are information — nothing gates on them; the verdict is
 the one thing you choose, once.
 
+**A second opinion, when you want one** (`review.reviewers`, empty by default).
+Point it at a code reviewer that runs from your terminal — CodeRabbit's CLI has
+a free tier and `{ "use": "coderabbit" }` is the whole setup; anything printing
+[rdjsonl](https://github.com/reviewdog/reviewdog) works too — and its findings
+land on the page beside your own notes, each badged with the tool that found it
+and linked to the line it is about. `/spec-next` runs them once per phase;
+`/spec-diff --reviewers` is the mid-phase ask. **They never block a commit** —
+reply to one and your reply does, because then a person has asked for something.
+A reviewer that could not run says `did not run — <why>` rather than passing as
+clean, because on the page you commit from those two must not look alike.
+Adding one sends your diff to whatever the command talks to, which is why the
+list starts empty and `init` never writes one.
+
 **Above the verdicts sits one line that is not a verdict.** `▶ Put it live`
 commits the phase, checks the branch out where your dev server can see it, and
 hands you back the same page with the same options — so you can judge the change

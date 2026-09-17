@@ -280,12 +280,33 @@ the moment the page is about, so render it now — **after** the tests pass and
 **before** the commit:
 
 ```
-skitterspec spec-env review <spec>
+skitterspec spec-env review <spec> --run-reviewers
 ```
 
 **This is free.** It is the engine reading git and splicing text into a template;
 the diff never passes through you, so a 266KB patch costs nothing. Report the
 path it prints and move on.
+
+**`--run-reviewers` is free to *you* as well, and costs wall-clock.** Where the
+project configured any (`review.reviewers` — empty in most projects, and then
+this flag does nothing at all), the engine runs each one against the diff before
+rendering, so the page is already populated when it is opened. Their findings
+come back as JSON and land on the page as **checks**; the patch still never
+passes through you. What it spends is 30s–3min once, after the tests are green —
+which is the cheap half of a step that is about to wait on a person for far
+longer. A re-render of unchanged work reuses the cached findings rather than
+spending another review.
+
+**Findings never gate.** A check is not a comment, so a page carrying twenty of
+them still offers `Commit`; a reader who replies to one creates a comment, and
+that does gate, because then a person has asked for something. Nothing here
+counts them, and nothing here acts on them — you render and wait exactly as you
+would have.
+
+**A reviewer that could not run is reported by the page**, not by you. Do not
+re-state its outcome, do not investigate it, and never treat it as a failure of
+the phase: the strip on the page says `clean` or `did not run — <why>` for each
+one, which is where a reader deciding whether to commit will look.
 
 **This render takes the committing button set**, which is the default — so
 `--buttons` is not passed. That is a statement about the work, not about the
@@ -315,7 +336,7 @@ so one subject lives in one place:
 
 ---
 
-## ⏸ Review ready — <N> files, +<a> −<d>
+## ⏸ Review ready — <N> files, +<a> −<d><, <n> flagged by <reviewer> — only where one found something>
 
 - **local** — <the `local:` URL>
 - **network** — <the `network:` URL, or off with the command that turns it on>
@@ -326,6 +347,19 @@ so one subject lives in one place:
 I'm holding here until you send a verdict — the wait covers local and network.
 
 `/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
+
+**The findings count goes in the COUNTS, and nowhere else.** Where `--json`
+reported a reviewer in the `findings` state, its count joins the heading — the
+slot that already says `7 files, +212 −18` — and that is the whole of it. No
+extra line, no extra row, and nothing at all when every reviewer was `clean`,
+`cached` or could not run: the page's own strip is where the per-reviewer
+outcomes belong, and repeating them here would be the second place naming one
+subject that `.claude/rules/spec-reports.md` exists to prevent.
+
+**This is not a third amendment to that contract.** The counts slot is already
+there and already carries numbers about the same diff; nothing about the
+banner's shape, its lines or its exits changes. A reader who has configured no
+reviewer sees the heading they have always seen.
 
 **The stack is the engine's — copy it, do not compose it.** `spec-env review`
 printed one line per tier, in that order, and `--json` carries the same thing as

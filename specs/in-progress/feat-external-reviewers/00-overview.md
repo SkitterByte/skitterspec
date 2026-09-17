@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-external-reviewers (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 3 (started 2026-09-17)
+> **Status:** In Progress — Phase 4 (started 2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -151,7 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | The contract and the runner | ✅ | [01-runner.md](01-runner.md) |
 | 2 | Findings on the page | ✅ | [02-page.md](02-page.md) |
 | 3 | The CodeRabbit adapter | ✅ | [03-coderabbit.md](03-coderabbit.md) |
-| 4 | Skills, config docs, and the offer | ⬜ | [04-skills-docs.md](04-skills-docs.md) |
+| 4 | Skills, config docs, and the offer | ✅ | [04-skills-docs.md](04-skills-docs.md) |
 
 ## Open questions
 
@@ -166,6 +166,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-17 — Phase 4 built; all four phases done. Two follow-ups surfaced and
+  neither belongs to this spec: this repo's own `CLAUDE.md` is several specs
+  behind the shipped `claude-md-section.md` asset (re-syncing it here would put
+  three other specs' text under this spec's ticket), and
+  `env-review-reader.test.js`'s daemon-replacement test failed once under full
+  parallel load and passes in isolation — it stands a real server on a real
+  port, so it is load-sensitive rather than broken by anything here.
 - 2026-09-17 — Phase 3 built. One contract change the plan did not name: `parse`
   now returns `said`, an outcome the adapter is sure of, because an adapter had
   no way to tell the runner that "exit 1, no findings" meant *not authenticated*

@@ -380,7 +380,13 @@ through to a documented conservative default; see the field notes below.
   // Two entry shapes, told apart by which key is present:
   //   { "use": "<adapter>" }
   //       A bundled adapter. The engine owns its command line and its parser,
-  //       so this is the whole configuration.
+  //       so this is the whole configuration. One ships today: "coderabbit",
+  //       which drives `cr review --agent` (a free tier, rate-limited per
+  //       hour; `cr auth login` first). A `use` this build does not have is
+  //       reported on stderr and does not run.
+  //       Its adapter also does the one thing a shell script cannot: it tells
+  //       ITS OWN refusals — not authenticated, rate limited, no network —
+  //       apart from a review that ran and found nothing.
   //   { "name": "<label>", "command": "<shell>", "format": "rdjsonl" }
   //       Bring your own. `name` is what the page badges findings with, and
   //       `command` is a shell line run with the worktree as its cwd.
@@ -418,7 +424,7 @@ through to a documented conservative default; see the field notes below.
   // safe branch; here a rate-limited or unauthenticated reviewer would render
   // identically to one that read the diff and found nothing, on the page a
   // commit decision is made from. So every configured reviewer gets a line:
-  // `12 findings` · `clean` · `cached` · `did not run: <why>`. Nothing exits
+  // `12 findings` · `clean` · `cached` · `did not run — <why>`. Nothing exits
   // non-zero and nothing refuses — a reviewer that could not run never blocks a
   // render, a verdict or a commit.
   //
