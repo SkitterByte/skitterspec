@@ -1985,6 +1985,92 @@ function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
   if (flags.check && judged.state === 'armed') process.exitCode = 1
 }
 
+/**
+ * `review allow <network|remote> [--off]` — permit or withdraw a review tier.
+ *
+ * THE FIRST THING IN THIS ENGINE TO WRITE `env.config.json`, and that is why it
+ * is narrow: it reads, sets one key under `review`, and writes back with the
+ * indent the file already uses. It never reorders, never adds a key nobody
+ * asked for, and never touches another section.
+ *
+ * WHAT WOULD FOOL THIS: a config written with comments. `loadEnvConfig` parses
+ * it with `JSON.parse`, so such a file already fails to load and there is no
+ * comment-preserving case to protect — but a file indented with anything other
+ * than two spaces IS reformatted, which is cosmetic and worth knowing before it
+ * shows up in someone's diff.
+ *
+ * IT EDITS A COMMITTED FILE. Turning network reviews on for yourself turns them
+ * on for everyone who pulls, so the output says so rather than leaving it to be
+ * discovered by a colleague's render.
+ */
+function specEnvReviewAllow(dir, config, tier, flags) {
+  const TIERS = { network: 'allowNetwork', remote: 'allowRemote' }
+  const key = TIERS[String(tier || '').trim()]
+  if (!key) {
+    // Refused by name, never coerced to a default: silently permitting the
+    // wrong tier is the one outcome worth more than a round trip.
+    process.stdout.write(
+      `spec-env review allow: ${JSON.stringify(tier || '')} is not a tier — ` +
+        `one of ${Object.keys(TIERS).join(', ')}. Nothing changed.\n`,
+    )
+    process.exitCode = 1
+    return
+  }
+  const on = !flags.off
+  const file = path.resolve(dir, 'specs/.core/env.config.json')
+  let parsed
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch (err) {
+    // Cannot tell what is in there, so write nothing. Overwriting a config we
+    // could not read is unrecoverable, and the alternative costs one message.
+    //
+    // NARROWER THAN IT LOOKS: `loadEnvConfig` already refuses the whole
+    // `spec-env` command on an unparseable config, naming the file and the
+    // parse position — so this branch is reachable only if the file changes
+    // between that load and this write. It is kept for that race rather than
+    // deleted as dead, and the upstream refusal is what the test asserts.
+    process.stdout.write(
+      `spec-env review allow: ${file} could not be read as JSON (${err.message}) — ` +
+        'nothing changed.\n',
+    )
+    process.exitCode = 1
+    return
+  }
+  const before = Boolean(
+    parsed.review && parsed.review[key] !== undefined ? parsed.review[key] : config.review[key],
+  )
+  parsed.review = { ...(parsed.review || {}), [key]: on }
+  fs.writeFileSync(file, JSON.stringify(parsed, null, 2) + '\n')
+
+  const lines = [
+    `spec-env review allow: ${tier} reviews are now ${on ? 'ON' : 'OFF'}` +
+      (before === on ? ' (unchanged)' : ''),
+    // THE ABSOLUTE PATH, not one relative to `dir`. `dir` is re-anchored to the
+    // primary checkout, so run from inside a worktree this writes a file in a
+    // DIFFERENT TREE — and a relative path reads as the tree you are standing
+    // in. Found by running it from a worktree and reverting the surprise.
+    `  wrote: ${file}`,
+    '  that is the primary checkout, whichever tree you ran this from, and the file is',
+    '  COMMITTED — so it changes for everyone who pulls, and leaves that tree dirty.',
+  ]
+  if (key === 'allowNetwork') {
+    lines.push(
+      on
+        ? '  the next render binds every interface, so the page opens on your phone.'
+        : '  the next render binds 127.0.0.1 only, reachable from this machine.',
+    )
+  } else {
+    lines.push(
+      on
+        ? '  this PERMITS publishing; it publishes nothing. A published page cannot be\n' +
+          '  deleted by skitterspec, and a verdict there needs /spec-reviewed.'
+        : '  publishing is no longer permitted; any page already published stays up.',
+    )
+  }
+  process.stdout.write(lines.join('\n') + '\n')
+}
+
 // `review skip` — move on without a verdict, on the record.
 function specEnvReviewSkip(dir, config, reason, flags) {
   const said = String(reason || '').trim()
@@ -2560,7 +2646,12 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // it off, or it failed and here is the reason.
   let noServeBecause = config.review.serve === 'never' ? 'review.serve is "never"' : null
   if (config.review.serve === 'always') {
-    const host = reader.reader === 'remote' ? '0.0.0.0' : '127.0.0.1'
+    // THE BIND COMES FROM THE SETTING, not from a guess about the reader. That
+    // guess was the last decision detection had, and it was wrong every time the
+    // reader moved — a phone off the LAN, a local session reading a page whose
+    // buttons cannot POST. `allowNetwork` is the project saying which surfaces
+    // it permits, and the reader picks from what is listed.
+    const host = config.review.allowNetwork ? '0.0.0.0' : '127.0.0.1'
     const up = await ensureReviewServer(dir, config, { host })
     // TRANSLATED, because `error` is a code for a caller and this line is read
     // by a person: `busy` alone does not say which port, and the port is the
@@ -3920,6 +4011,7 @@ async function specEnv(rest) {
     else if (args[i] === '--branch') flags.branch = true
     else if (args[i] === '--stop') flags.stop = true
     else if (args[i] === '--rotate-token') flags.rotateToken = true
+    else if (args[i] === '--off') flags.off = true
     else if (args[i] === '--status') flags.status = true
     else if (args[i] === '--port') flags.port = args[++i]
     else if (args[i] === '--host') flags.host = args[++i]
@@ -4040,6 +4132,10 @@ async function specEnv(rest) {
         specEnvReviewGate(dir, config, positional[1], flags, invokedFrom)
         break
       }
+      if (positional[0] === 'allow') {
+        specEnvReviewAllow(dir, config, positional[1], flags)
+        break
+      }
       if (positional[0] === 'skip') {
         // The one positional is the REASON, not a spec: the two are
         // indistinguishable as free text, and the spec is the one thing this
@@ -4057,6 +4153,7 @@ async function specEnv(rest) {
         `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
         '  review serve --rotate-token    mint a new URL token; every handed-out link dies\n' +
+        '  review allow <network|remote> [--off]  permit a review tier (writes env.config.json)\n' +
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +

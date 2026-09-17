@@ -220,7 +220,7 @@ test('a local reader gets the link and no warning', async () => {
 // An unknown reader is the ordinary state of a local machine. Saying so, or
 // warning on it, would be noise about a healthy session.
 test('an unknown reader is not announced and not warned about', async () => {
-  const { dir } = scaffold('detect', { servePort: await freePort() })
+  const { dir } = scaffold('detect', { servePort: await freePort(), allowNetwork: false })
   const saved = { ...process.env }
   delete process.env.SSH_CONNECTION
   delete process.env.SSH_TTY
@@ -362,7 +362,8 @@ test('a second review adopts the running server rather than restarting it', asyn
 // change must not disturb it.
 
 test('a local reader is served too, on loopback, because file:// cannot POST', async () => {
-  const { dir } = scaffold('local', { servePort: await freePort() })
+  // `allowNetwork: false` is what confines it now; the reader no longer does.
+  const { dir } = scaffold('local', { servePort: await freePort(), allowNetwork: false })
   try {
     const out = review(dir)
     assert.match(out, /open: http:\/\/127\.0\.0\.1:/, 'a link that opens AND can answer')
@@ -378,7 +379,7 @@ test('a local reader is served too, on loopback, because file:// cannot POST', a
 })
 
 test('an unknown reader is served on loopback as well — cannot-tell is not a reason to withhold', async () => {
-  const { dir } = scaffold('detect', { servePort: await freePort() })
+  const { dir } = scaffold('detect', { servePort: await freePort(), allowNetwork: false })
   try {
     const out = review(dir)
     assert.match(out, /open: http:\/\/127\.0\.0\.1:/)
@@ -389,15 +390,39 @@ test('an unknown reader is served on loopback as well — cannot-tell is not a r
   }
 })
 
-test('NEITHER binds beyond loopback, so serving everywhere exposes nothing new', async () => {
-  // The whole safety argument for serving unconditionally. If this ever starts
-  // reporting a LAN address for a local reader, the change stopped being free.
-  for (const who of ['local', 'detect']) {
-    const { dir } = scaffold(who, { servePort: await freePort() })
+test('allowNetwork off binds loopback only, whatever the reader', async () => {
+  // THE GUARANTEE MOVED, IT DID NOT GO. This asserted that a local or unknown
+  // reader binds loopback, which was the safety argument for serving
+  // unconditionally: "serving more never means listening wider". The bind is no
+  // longer taken from the reader at all — `allowNetwork` decides it — so the
+  // same guarantee is now conditioned on the setting rather than on a guess.
+  //
+  // The DEFAULT changed with it, deliberately and by the operator's decision:
+  // network reviews are on out of the box, so a fresh project does bind every
+  // interface. That is the trade for a phone that can open the page without
+  // anyone configuring anything.
+  for (const who of ['local', 'detect', 'remote']) {
+    const { dir } = scaffold(who, { servePort: await freePort(), allowNetwork: false })
     try {
       const out = review(dir)
       assert.doesNotMatch(out, /open: http:\/\/(?!127\.0\.0\.1)/, `${who} must bind loopback only`)
       assert.doesNotMatch(out, /^\s*also: /m, `${who} has no alternates to offer`)
+    } finally {
+      stopServe(dir)
+      cleanup(dir)
+    }
+  }
+})
+
+test('allowNetwork on binds the network, whatever the reader', async () => {
+  // The other half, and the point of the change: a local session now gets a URL
+  // a phone can open, without detection having to be right about anything.
+  for (const who of ['local', 'detect']) {
+    const { dir } = scaffold(who, { servePort: await freePort() })
+    try {
+      const out = review(dir)
+      assert.match(out, /open: http:\/\//, `${who} is served`)
+      assert.doesNotMatch(out, /open: http:\/\/127\.0\.0\.1:/, `${who} is not confined to loopback`)
     } finally {
       stopServe(dir)
       cleanup(dir)
@@ -535,7 +560,7 @@ test('a remote reader still gets the warning on that fallback, and only there', 
 })
 
 test('STAYS SILENT: a served render explains nothing, because nothing needs it', async () => {
-  const { dir } = scaffold('local', { servePort: await freePort() })
+  const { dir } = scaffold('local', { servePort: await freePort(), allowNetwork: false })
   try {
     const out = review(dir)
     assert.match(out, /open: http:\/\/127\.0\.0\.1:/)
@@ -733,7 +758,7 @@ test('the path is the same under local, remote and detect — only the host diff
 })
 
 test('a loopback server carries a token, so a detection flip cannot reshape the URL', async () => {
-  const { dir } = scaffold('local', { servePort: await freePort() })
+  const { dir } = scaffold('local', { servePort: await freePort(), allowNetwork: false })
   try {
     const url = urlOf(review(dir))
     assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{12}\/feat-alpha$/)

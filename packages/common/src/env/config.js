@@ -231,10 +231,24 @@ const DEFAULT_CONFIG = Object.freeze({
   // serving-everywhere free of new exposure: `reader` still decides it, so a
   // remote reader binds every interface exactly as before and a local or
   // unknown one binds loopback. Serving more never means listening wider.
+  // `allowNetwork` and `allowRemote` are the two tiers a project permits. They
+  // exist because the engine CANNOT KNOW where the reader is sitting and kept
+  // being asked to guess: detection reported `unknown` on a local session and
+  // produced a page whose buttons cannot POST, reported `remote` and produced a
+  // LAN URL a phone off the network could not reach, and flipped mid-session
+  // and changed the address underneath a reader. Each was fixed on its own; the
+  // next reader position would have produced a fourth.
+  //
+  // So the reader picks instead. `allowNetwork` decides THE BIND — on binds
+  // every interface, off binds loopback — which is the last decision detection
+  // had. `allowRemote` PERMITS publishing; it never publishes, because each
+  // publish leaves a page skitterspec cannot delete.
   review: Object.freeze({
     reader: 'detect',
     servePort: 'auto',
     serve: 'always',
+    allowNetwork: true,
+    allowRemote: false,
     commitWith: '/commit',
     required: true,
   }),
@@ -521,6 +535,10 @@ function mergeConfig(base, parsed) {
     // leaves the gate ON. Turning off a check that refuses must be something
     // someone WROTE, never something a typo achieved on their behalf.
     assign(base.review, parsed.review, 'required', 'boolean')
+    // Same shape as the two above: a non-boolean leaves the default standing, so
+    // a typo cannot quietly widen a bind or permit a publish.
+    assign(base.review, parsed.review, 'allowNetwork', 'boolean')
+    assign(base.review, parsed.review, 'allowRemote', 'boolean')
   }
 
   if (isObject(parsed.spec) && Array.isArray(parsed.spec.companionPaths)) {

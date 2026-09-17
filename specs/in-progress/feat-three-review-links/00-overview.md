@@ -98,7 +98,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The tiers, and what turns them on | ⬜ | [01-the-tiers.md](01-the-tiers.md) |
+| 1 | The tiers, and what turns them on | ✅ | [01-the-tiers.md](01-the-tiers.md) |
 | 2 | The render stacks them, labelled | ⬜ | [02-the-stack.md](02-the-stack.md) |
 | 3 | The banner and the amended rule | ⬜ | [03-the-rule.md](03-the-rule.md) |
 
@@ -119,3 +119,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   review at all. Raised deliberately as a hammer for this nut: three separate
   one-link failures were each fixed on their own, and the next reader position
   would have produced a fourth.
+- 2026-09-17 — Phase 1: the default exposure changed. `allowNetwork` defaults
+  true, so a fresh project binds every interface rather than confining a local
+  reader to loopback — the "serving more never means listening wider" guarantee
+  now hangs off the setting instead of the reader, and its test was rewritten to
+  assert the off-case. `allow` is the first writer of `env.config.json`, and from
+  a worktree it writes the primary checkout and dirties it; the output says so.

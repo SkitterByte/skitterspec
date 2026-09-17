@@ -351,16 +351,26 @@ test('the serve decision reads review.serve, and not the reader', () => {
   assert.doesNotMatch(line, /reader/, 'serving must not depend on where the reader is sitting')
 })
 
-test('the bind DOES read the reader, which is what keeps it free of new exposure', () => {
-  // The positive half. If this stops being true, a local session starts
-  // listening on every interface and "serving more never means listening
-  // wider" stops being a claim anyone can rely on.
+test('the bind DOES read something explicit, and no longer the reader', () => {
+  // REPLACED, AND THE REASON IS THE WHOLE POINT. This asserted the bind came
+  // from reader detection, on the grounds that "serving more never means
+  // listening wider". The guarantee survives; what changed is what it hangs
+  // off. Detection is a guess that was wrong every time the reader moved — a
+  // phone off the LAN, a local session reading a page whose buttons cannot
+  // POST — so the bind now hangs off `review.allowNetwork`, which is the
+  // project saying what it permits rather than the engine guessing.
+  //
+  // The default moved from closed to open with it, by decision: network
+  // reviews are on out of the box so a phone works unconfigured.
+  // `allowNetwork: false` is what confines the bind now, and the reader suite
+  // asserts that it still does.
   const src = fs.readFileSync(require.resolve('../src/cli.js'), 'utf8')
   assert.match(
     src,
-    /const host = reader\.reader === 'remote' \? '0\.0\.0\.0' : '127\.0\.0\.1'/,
-    'the bind is chosen from the reader, and loopback is the default',
+    /const host = config\.review\.allowNetwork \? '0\.0\.0\.0' : '127\.0\.0\.1'/,
+    'the bind is chosen from the setting',
   )
+  assert.doesNotMatch(src, /const host = reader\.reader === 'remote'/, 'and not from a guess')
 })
 
 test("detectReader's comment records that it once decided serving", () => {
