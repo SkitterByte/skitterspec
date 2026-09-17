@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-339"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-339/main-is-a-landing-zone-not-a-workspace"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # main is a landing zone, not a workspace
 
 > **Type:** Feature
 > **Name:** feat-main-is-a-landing-zone (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-17)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
 > **Area:** `packages/common/src/env/{provision,review,resolve,teardown,hooks,cli}.js`, `packages/common/assets/skills/{spec,no-spec}/`, `packages/common/assets/commands/`, `packages/common/assets/hooks/`, `packages/common/assets/rules/spec-planning.md`
 > **Stack:** worktree
@@ -187,6 +189,7 @@ branch — strictly worse than today.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
+| 2026-09-17 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
