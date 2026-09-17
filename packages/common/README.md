@@ -3,15 +3,17 @@
 Spec-driven-development (SDD) workflow for [Claude Code](https://claude.com/claude-code),
 packaged so you can drop the same spec lifecycle into any project.
 
-It installs the **eight spec-lifecycle skills**, the governing
-`spec-planning.md` rule, and the `specs/` folder structure. The lifecycle is
-`backlog → in-progress → complete / cancelled`, with `.core` holding always-apply
-project rules.
+It installs the spec-lifecycle **skills**,
+the three `/spec-*` **slash commands**,
+the governing `spec-planning.md` rule, and the `specs/` folder structure. The lifecycle is `backlog → in-progress → complete / cancelled`, with
+`.core` holding always-apply project rules.
 
 > **Commits, changelog & release notes** live in a separate package,
 > [`@skitterbyte/skittership`](https://github.com/SkitterByte/skittership) — the
 > `/commit` skill and the `CHANGELOG.md`/`RELEASES.md` generators. Adopt it
 > alongside skitterspec (or on its own) with `npx @skitterbyte/skittership init`.
+
+<!-- commands:start -->
 
 | Skill | Action | Status | Folder |
 |-------|--------|--------|--------|
@@ -25,6 +27,21 @@ project rules.
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag | `In Progress` | `specs/in-progress/` |
 | `/spec-to-main` | Land the branch on the base mid-spec, without finishing | (unchanged) | (unchanged) |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
+| `/spec-diff` | Read what changed, on a page you can mark up and hand back | `—` | (unchanged) |
+| `/spec-reviewed` | Pick up a verdict pressed when nothing was waiting for it | (unchanged) | (unchanged) |
+
+Three of them are **slash commands** (`.claude/commands/`) rather than skills:
+each pre-executes one `skitterspec spec-env` verb and relays it, so there is no
+judgment to apply — and they are marked `disable-model-invocation`, meaning only
+the operator can run them.
+
+| Command | Action |
+|---------|--------|
+| `/spec-connect` | Point the canonical `localhost` ports at one spec's stack |
+| `/spec-live` | Check one spec out in the primary checkout, so a running dev server reloads it |
+| `/spec-remote-review` | Permit (or forbid) publishing a review for a reader off the network |
+
+<!-- commands:end -->
 
 ## Install into a project
 
@@ -109,7 +126,7 @@ a question it cannot answer itself or a failure at the moment it happens:
 | **Branch** | `spec/feat-orders` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · npm test |
-| **Review** | 7 files, +212 −18 · [open the page](file:///…) — want a written review before you commit? |
+| **Review** | 7 files, +212 −18 · **local** `http://127.0.0.1:7760/…` · **network** `http://192.168.0.136:7760/…` · **remote** off |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 
@@ -126,6 +143,48 @@ outside the repo, `Next` last because it is the only row you act on.
 line is an oversight. The block covers **that run only** — what else is in
 flight is a different question, and answering it here leaves you unable to tell
 what followed from the run you just watched.
+
+## The review engine — what owns what
+
+A contributor changing any of this meets four surfaces, and the split is worth
+knowing before touching one:
+
+| Surface | Owns |
+|---------|------|
+| `.claude/rules/` | **the mechanism** — the report contract, the negative-check discipline, why `/spec-reviewed` is user-only. Installed into a project, not published as marketing |
+| `assets/skills/` | **the judgment** — when to render, when to arm, how to route a verdict. `/spec-diff` §2 owns the routing and every other skill points at it |
+| `src/env/review.js` | **the page and the pass** — the payload, the verdict and action vocabularies, the sidecars |
+| `src/env/serve.js` | **the wait** — one server, one token, one write path |
+
+`skitterspec spec-env review` is the whole surface:
+
+```
+review [spec]                 # render the page for the uncommitted work
+review [spec] --branch        # …or everything since the base branch
+review [spec] --docs          # …or the spec's own documents, for a spec with no worktree
+review serve --host 0.0.0.0   # one daemon, every provisioned spec, token in the URL
+review wait <spec> --since T  # block until a pass arrives inside that window
+review <spec> --claim-since T # claim the one pass that did; refuse if two did
+review arm <spec> --phase N   # a phase ended: it now owes a verdict
+review gate [spec] --check    # is one owed? non-zero if so — what the commit hook asks
+review skip "<reason>"        # move on without one, on the record
+review waiting                # passes nobody claimed, across every spec
+review allow <tier> --set     # permit a tier; empty toggles (this is /spec-remote-review)
+```
+
+Three files sit beside the page in `.spec-env/reviews/`, all gitignored:
+`<spec>.html` is the render, `<spec>.notes.json` holds the accepts, comments,
+resolutions and the outcome log, and `<spec>.pending.json` is the holding area a
+POST writes into. **A POST can only reach the holding area**; the notes sidecar
+is written by a *claim*, which is the containment that lets the endpoint be open
+to the network at all.
+
+**The wait is the engine's, never one composed per run.** `review wait` is
+written once and tested against a store that gains a pass mid-flight. Three
+hand-written watchers failed in two days — the worst was valid bash and a syntax
+error in zsh, a predicate that could never be true, spinning for five minutes
+under a report claiming the run was holding. A watcher that cannot fire and one
+patiently working look identical from outside, which is what made it expensive.
 
 ## Release gating — record whether it ships behind a flag
 
@@ -186,16 +245,25 @@ The machine-local slot registry and volume backups live under `/.spec-env/`
 (gitignored). `docker.enabled` in the config is the project **master switch**
 ("is Docker escalation available?"), not "always run Docker".
 
-`/spec-env` · `/spec-env-down` remain the **manual engine** behind the automation
-— use them to escalate Docker onto an existing worktree, re-attach, or tear down:
+**`skitterspec spec-env <verb>` is the engine** underneath all of it — the
+skills are what exercise judgment about when to run which verb. Use it directly
+to escalate Docker onto an existing worktree, re-attach, or tear down:
 
 ```
-/spec-env <spec>        # worktree (+ stack iff Stack: worktree + docker)
-                        #   (idempotent; re-run attaches)
-/spec-env-down <spec>   # stop stack, drop volumes (backed up first), remove worktree,
-                        #   free the slot. Guards refuse a dirty/unpushed worktree
-                        #   unless --force; --keep-volumes preserves data.
+skitterspec spec-env up <spec>     # worktree (+ stack iff Stack: worktree + docker)
+                                   #   a PLANNER: it prints the commands, you run them
+skitterspec spec-env down <spec>   # stop stack, drop volumes (backed up first), remove
+                                   #   worktree, free the slot. Guards refuse a dirty or
+                                   #   unpushed-and-unlanded worktree unless --force;
+                                   #   --keep-volumes preserves data
+skitterspec spec-env resolve       # which spec is this tree, and where is its worktree
+skitterspec spec-env stage [spec]  # which uncommitted paths are this spec's, and which
+                                   #   are not — so a commit never sweeps up a sibling
 ```
+
+The `/spec-env` and `/spec-env-down` **skills** were removed in v3: provisioning
+folded into `/spec-start` and teardown into `/spec-complete` · `/spec-cancel`.
+The CLI engine above is what stayed. <!-- history -->
 
 Your `docker-compose.yml` must reference `${PORT_OFFSET}` on each published port
 so services land in the spec's reserved block. Two adoption modes:

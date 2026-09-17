@@ -95,7 +95,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The published READMEs, and the guard | ✅ | [01-the-npm-readmes.md](01-the-npm-readmes.md) |
 | 2 | The docs site | ✅ | [02-the-docs-site.md](02-the-docs-site.md) |
-| 3 | The developer-facing README | ⬜ | [03-the-repo-readme.md](03-the-repo-readme.md) |
+| 3 | The developer-facing README | ✅ | [03-the-repo-readme.md](03-the-repo-readme.md) |
 
 ## Open questions
 
@@ -130,3 +130,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   half is now checked against the union of all distributions: a page may
   cross-reference a real command, and what that half is for is a name that
   ships nowhere.
+- 2026-09-17 — Phase 3: the answer to its open question is that this file **is**
+  under the guard. The exemption it allowed for — a check firing on a history
+  section — did not apply, because the file had no history section; it had a
+  fenced block presenting two skills removed in v3 as the live engine. It also
+  gained a `## The review engine` section naming which surface owns the
+  mechanism, the judgment, the page and the wait, plus the whole
+  `spec-env review` verb list and the three sidecars. One mechanism was added:
+  `<!-- history -->` exempts a marked paragraph from the negative half, with a
+  test asserting an unmarked mention still fails.

@@ -91,6 +91,14 @@ const READMES = [
   ['packages/skitterspec-linear/README.md', () => LINEAR_SHIPS],
   ['docs/index.html', () => BASE_SHIPS],
   ['docs/linear.html', () => PROVIDER_SHIPS],
+  // NOT PUBLISHED TO NPM, and under the guard anyway. The phase that added it
+  // was allowed to conclude "not this file" — a check that fires on a history
+  // section would be the same over-reach this whole spec is fixing. It does not
+  // apply: this file had no history section, and presented two skills removed in
+  // v3 as the live "manual engine", in a fenced block someone would copy. That
+  // is the exact failure the guard is for, so the file is held to the base set
+  // like any other, and its one historical sentence lives outside the region.
+  ['packages/common/README.md', () => BASE_SHIPS],
 ]
 
 // --- positive: everything shipped is documented ---------------------------
@@ -186,20 +194,60 @@ const BANNED = [
   },
 ]
 
+/**
+ * WHAT THE NEGATIVE HALF READS, and the two things it deliberately does not.
+ *
+ * A `## v3` **section** recording what v3 removed is a record, not a claim —
+ * reading it as current documentation would make an accurate changelog a test
+ * failure, and the "fix" would be deleting the history.
+ *
+ * A paragraph marked `<!-- history -->` is the same exemption for a file with no
+ * version-history section. `packages/common/README.md` needs it: replacing the
+ * block that presented two removed skills as the live engine left one sentence
+ * worth keeping — *the `/spec-env` and `/spec-env-down` skills were removed in
+ * v3* — which is precisely the information a contributor reaching for them
+ * wants. The marker has to be **deliberate**, so an unmarked mention still
+ * fails; that is what stops it becoming a way to silence the check.
+ */
+function currentClaims(file) {
+  const text = read(file)
+  const m = text.match(REGION)
+  const cut = text.search(/^## (v\d|Migrating)/m)
+  const body = cut > 0 ? text.slice(0, cut) : text
+  const withoutHistory = body
+    .split(/\n\n+/)
+    .filter((para) => !para.includes('<!-- history -->'))
+    .join('\n\n')
+  return withoutHistory + (m ? m[1] : '')
+}
+
 for (const [file] of READMES) {
   test(`${file} does not document behaviour that was removed`, () => {
-    const text = read(file)
-    const m = text.match(REGION)
-    // The command region plus everything before the version history: that is
-    // the part of the file claiming to describe the product NOW. A `## v3`
-    // section recording what v3 removed is a record, not a claim.
-    const cut = text.search(/^## (v\d|Migrating)/m)
-    const current = (cut > 0 ? text.slice(0, cut) : text) + (m ? m[1] : '')
+    const current = currentClaims(file)
     for (const { phrase, why } of BANNED) {
       assert.ok(!current.includes(phrase), `${file} still says ${JSON.stringify(phrase)} — ${why}`)
     }
   })
 }
+
+// The marker must be DELIBERATE or it is a way to silence the check. An
+// unmarked mention of the same phrase still fails, which is what makes the
+// exemption an annotation rather than a loophole.
+test('the history marker exempts only the paragraph carrying it', () => {
+  const marked = 'The `/spec-env-down` skill was removed in v3. <!-- history -->'
+  const unmarked = 'Tear the worktree down with `/spec-env-down`.'
+  const strip = (text) =>
+    text
+      .split(/\n\n+/)
+      .filter((para) => !para.includes('<!-- history -->'))
+      .join('\n\n')
+  assert.ok(!strip(marked).includes('/spec-env-down'), 'a marked note is exempt')
+  assert.ok(strip(unmarked).includes('/spec-env-down'), 'an unmarked mention still fails')
+  assert.ok(
+    strip(`${marked}\n\n${unmarked}`).includes('/spec-env-down'),
+    'and marking one paragraph does not exempt the next',
+  )
+})
 
 // --- STAYS SILENT ---------------------------------------------------------
 
