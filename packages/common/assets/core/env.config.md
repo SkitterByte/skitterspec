@@ -286,12 +286,12 @@ through to a documented conservative default; see the field notes below.
   // holding that URL can read every spec's diff while it runs.
   //
   // `serve` is whether a render stands the local server up at all:
-  //   "always" — every render does (the default), so the `open:` line is always
-  //              an http URL the page can POST a verdict back to. A remote
-  //              reader gets the LAN address first with the rest listed under
-  //              it, because the guess reads interface names and a VPN or an
-  //              unusual adapter will fool it.
-  //   "never"  — you get the file:// URL instead. Note what that costs: a
+  //   "always" — every render does (the default), so `local:` and `network:`
+  //              are both http URLs the page can POST a verdict back to. The
+  //              LAN address comes first with the rest listed under it, because
+  //              the guess reads interface names and a VPN or an unusual
+  //              adapter will fool it.
+  //   "never"  — `local:` is a file:// URL instead. Note what that costs: a
   //              file:// page has no server to POST to, so its verdict buttons
   //              copy a command for you to paste rather than sending anything.
   // It replaced `serveOnRemote`, which gated serving on the reader — and so

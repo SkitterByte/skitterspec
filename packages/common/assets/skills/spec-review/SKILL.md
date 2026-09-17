@@ -184,13 +184,19 @@ API that moved, a task the code already does. `Spec` carries the status the
 review leaves it in, which is the answer to "can I start this?".
 
 **Where step 4b rendered a page the run is waiting**, so the block omits the
-`Review` row and ends on the banner from `.claude/rules/spec-reports.md`:
+`Review` row and ends on the banner from `.claude/rules/spec-reports.md` — the
+tier stack copied from the engine's own lines, never one link chosen for the
+reader:
 
 ---
 
 ## ⏸ Review ready — &lt;N&gt; files, +&lt;a&gt; −&lt;d&gt;
 
-**[Open the page](&lt;the `open:` URL&gt;)** · I'm holding here until you send a verdict.
+- **local** — &lt;the `local:` URL&gt;
+- **network** — &lt;the `network:` URL, or off with the command that turns it on&gt;
+- **remote** — &lt;the `remote:` URL, or off with the command that turns it on&gt;
+
+I'm holding here until you send a verdict — the wait covers local and network.
 
 `Commit` commits the refresh · `Request changes` works them now
 

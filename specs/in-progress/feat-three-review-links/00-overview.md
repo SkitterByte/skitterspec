@@ -100,7 +100,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The tiers, and what turns them on | ✅ | [01-the-tiers.md](01-the-tiers.md) |
 | 2 | The render stacks them, labelled | ✅ | [02-the-stack.md](02-the-stack.md) |
-| 3 | The banner and the amended rule | ⬜ | [03-the-rule.md](03-the-rule.md) |
+| 3 | The banner and the amended rule | ✅ | [03-the-rule.md](03-the-rule.md) |
 
 ## Open questions
 
@@ -131,3 +131,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   because the stack states each tier positively and names a setting instead.
   `reviewServedUrls` now always carries the loopback URL, since a wide-bound
   server answers there too.
+- 2026-09-17 — Phase 3: the one-link rule is amended rather than overturned —
+  **one link per reachable store, each labelled** — and its original evidence
+  travels with it, guarded by a stays-silent test asserting what stays
+  forbidden: two links into different stores with nothing saying which the wait
+  watches. The sweep ran wider than planned. `open:` stopped being printed in
+  phase 2, so six skills were naming engine output that no longer exists, and
+  `/spec-diff` still documented `review.serveOnRemote`; both are fixed here. The
+  reader-detection branch in four skills went with them, since a stack that
+  lists every tier leaves detection nothing to pick — the engine's own
+  `detectReader` is untouched.

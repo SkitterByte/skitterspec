@@ -129,8 +129,14 @@ test('the contract confines the block to the run that produced it', () => {
   assert.match(complete, /Report this spec and no other/)
 })
 
-test('the clickable URL is still what gets relayed, not the bare path', () => {
-  assert.match(NEXT, /Relay the \*\*`open:`\*\* line/)
+// The `open:` line it used to name is gone: the engine prints a labelled STACK
+// instead, because choosing one surface for the reader is the guess that failed
+// three ways in one day. What is guarded is unchanged — something clickable gets
+// relayed, and the bare `page:` path never does.
+test('the clickable URLs are still what gets relayed, not the bare path', () => {
+  assert.match(NEXT, /Relay the engine's \*\*stack\*\*/)
+  assert.match(NEXT, /`local:`, `network:` and `remote:` lines/)
+  assert.match(NEXT, /never the bare `page:` path/)
   assert.match(NEXT, /a path is not\s*\n?clickable in any terminal/)
 })
 
@@ -182,11 +188,16 @@ test('the offer is not turned into a gate on anything', () => {
 // holding. Three verdicts were pressed on the published page and sat unread.
 test('the banner only promises a wait the transport can deliver', () => {
   assert.match(NEXT, /nothing pushes from\s*\n?the artifact store/i)
-  assert.match(NEXT, /press a verdict, then type `\/spec-reviewed`/)
+  // The caveat moved onto `remote`'s own line when the stack replaced the single
+  // link — the holding line names the tiers the wait covers, and must never
+  // stretch over the one it cannot see.
+  assert.match(NEXT, /a verdict here needs `\/spec-reviewed`/)
+  assert.match(NEXT, /Never let the holding line promise a\s*\n?wait over that tier/)
+  assert.match(NEXT, /the wait covers local and network/)
 
   const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
   assert.match(rule, /\*\*Only promise a wait the transport can deliver\.\*\*/)
-  assert.match(rule, /I cannot see it until you do/)
+  assert.match(rule, /I cannot see it until you\s*\n?\s*do/)
   // The wait is real on every transport — only what carries it back varies.
   // "No file-watch" was once an exemption from waiting at all, and that is the
   // hatch a whole class of unanswerable questions came through.
@@ -194,21 +205,50 @@ test('the banner only promises a wait the transport can deliver', () => {
   assert.match(rule, /does not get an exemption/)
 })
 
-// ONE LINK. Two doors and no way to tell which the run is standing behind is
-// the whole failure, not a convenience with a caveat — the caveat existing is
-// the bug. The engine's `reader:` line has already picked which page the reader
-// can use, so the skill relays that one and publishes only when it could not
-// serve at all.
-test('exactly one link is offered, and publishing is the unreachable case', () => {
-  assert.match(NEXT, /\*\*One link, and the engine has already chosen it\.\*\*/)
-  assert.match(NEXT, /\*\*Never offer both\.\*\*/)
-  assert.match(NEXT, /for the reader the server cannot reach, and for nobody\s*\n?else/i)
-  // The pre-existing rule it leans on, sharpened rather than duplicated.
+// ONE LINK PER REACHABLE STORE. The rule used to read "exactly one link, never
+// two", and it was written on a real failure: two links handed over, the wait
+// standing behind only one, and three verdicts pressed on the published page
+// while each sat unread under a line claiming the run was holding.
+//
+// WHAT THE AMENDMENT TURNS ON is that the evidence was about the STORE, not the
+// count. Local and network POST to `location.pathname`, so they reach the same
+// server and the same pending store — one room, two doors — and one wait covers
+// both. `remote` is a second store and keeps the caveat it always had.
+test('every tier is offered, labelled, and the wait says which it covers', () => {
+  assert.match(NEXT, /\*\*The stack is the engine's — copy it, do not compose it\.\*\*/)
+  assert.match(NEXT, /\*\*Do not pick one for them\.\*\*/)
+  assert.match(NEXT, /\*\*one link per reachable store, each labelled\*\*/i)
+  assert.match(NEXT, /the wait covers local and network/)
+  // Publishing stays an ask, which is the half the amendment does not touch.
+  assert.match(NEXT, /Publishing is still never yours to do/)
   assert.match(NEXT, /is not a\s*\n?reason to publish as well/i)
 
   const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
-  assert.match(rule, /\*\*Exactly one link, never two\.\*\*/)
-  assert.match(rule, /it is the caveat existing at all/)
+  assert.match(rule, /\*\*One link per reachable store, each labelled\.\*\*/)
+  // The original evidence, carried into the amendment rather than dropped with
+  // the wording it justified.
+  assert.match(rule, /the caveat existing was the bug/)
+  assert.match(rule, /three times while each one sat unread/)
+  assert.match(rule, /Local and network are two doors into one room/)
+})
+
+// STAYS SILENT (`.claude/rules/negative-checks.md` rule 3): the SUBSTANCE of the
+// rule this amends has to survive the amendment. Widening "never two links" to
+// "one per store, labelled" must not read as permission to hand over two links
+// into DIFFERENT stores and let the reader work out which one the wait watches —
+// that is the exact failure, and it is still forbidden in as many words.
+test('the amended rule still forbids what the original one was written against', () => {
+  const rule = fs.readFileSync(path.join(ASSETS, 'rules', 'spec-reports.md'), 'utf8')
+  assert.match(
+    rule,
+    /\*\*Still forbidden\*\*, in the words of the rule this amends: offering two links\s*\n?into \*\*different\*\* stores without saying which one the wait is watching/,
+    'the prohibition survives the widening, stated as a prohibition',
+  )
+  // And the two halves that make a labelled stack different from two bare links.
+  assert.match(rule, /Two \*unlabelled\* links stay forbidden exactly as before/)
+  assert.match(rule, /one line says\s*\n?\*\*which tiers the wait covers\*\*/)
+  // `remote` is never folded into the room the wait can see.
+  assert.match(rule, /never as a door the wait\s*\n?is claimed to cover/)
 })
 
 test('/spec-diff says which store the wait actually watches', () => {

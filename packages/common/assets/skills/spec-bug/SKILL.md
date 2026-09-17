@@ -243,30 +243,31 @@ this worktree is refused until a verdict is sent or
 `skitterspec spec-env review skip "<reason>"` records the decision to move on.
 The exit is always one command, and one of them is *"I am moving on"*.
 
-Relay the **`open:`** line rather than the bare path: a path is not clickable in
-any terminal, and a page nobody can open is a page nobody reads.
+Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines, all
+three — rather than the bare `page:` path: a path is not clickable in any
+terminal, and a page nobody can open is a page nobody reads.
+`.claude/rules/spec-reports.md` carries the shape.
 
 - **Never write the review unasked**, and **never publish**. Publishing leaves
   something behind that this tooling cannot remove, so it is always an ask. A
   `file://` link is no use on a phone, and saying so **is** the ask —
   `/spec-diff` §6 owns how.
-**Follow the `reader:` line the engine printed — do not sniff for it.** It
-answers where the person reading this is sitting, and the offer changes with it:
+**The `reader:` line no longer decides anything here, and that is the point.**
+It is still printed, and it is still the only place that question is answered —
+but the offer does not change with it, because the stack lists every tier
+whatever it says. Three reader states used to mean three different offers, and
+that branching is exactly what produced a `file://` page on a session detected
+`unknown`, a LAN URL for a phone off the network, and an address that changed
+underneath a reader when detection flipped mid-session.
 
-- **absent** (`unknown`) — the `file://` URL, exactly as always. **Do not warn:**
-  unknown is the ordinary state of a local machine, and a warning there is an
-  accusation against a healthy session.
-- **`local`** — the `file://` URL.
-- **`remote`** — the engine has already stood its local server up and put a URL
-  the reader can open on `open:`. So there is **nothing special to say**: relay
-  that line like any other. Any `also:` lines under it are the other addresses
-  this machine has, offered because the best-guess one can be wrong — pass them
-  on rather than editing them out.
+So: **relay all three tier lines, every time.** Any `also:` lines sit under
+`network` — the other addresses this machine has, offered because the
+best-guess one can be wrong — so pass them on rather than editing them out.
 
-**Never read an environment variable to decide this** — not `SSH_CONNECTION`,
-not `CLAUDE_CODE_*`, not a tty check. The engine did it, reports it on that line
-and in `--json`, and a second implementation here could not be tested and would
-drift.
+**Never read an environment variable to decide anything about the offer** — not
+`SSH_CONNECTION`, not `CLAUDE_CODE_*`, not a tty check. There is nothing left
+here for a detection to decide, and a second implementation of one could not be
+tested and would drift.
 
 **Serving is the engine's to do; publishing is never.** A `remote` reader
 authorises a local server — one process, ended by one flag, leaving nothing

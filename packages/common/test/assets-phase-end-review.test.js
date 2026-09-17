@@ -100,29 +100,36 @@ test('the skills that land branches do not gain the step', () => {
 for (const name of RENDERS) {
   const text = skillText(name)
 
-  test(`/${name} follows the engine's reader: line, with all three states`, () => {
-    assert.match(text, /Follow the `reader:` line the engine printed/)
-    assert.match(text, /absent\*\* \(`unknown`\)/)
-    assert.match(text, /\*\*`local`\*\*/)
-    assert.match(text, /\*\*`remote`\*\*/)
+  // THE OFFER STOPPED BRANCHING ON THE READER. It used to: three reader states,
+  // three different links, and the engine picking which one the reader could
+  // use. That guess failed three separate ways in one day, so the render now
+  // prints every tier and the skill relays all of them. The `reader:` line is
+  // still the only place the question is answered — it just no longer decides
+  // what is offered.
+  test(`/${name} relays every tier rather than branching on the reader`, () => {
+    assert.match(text, /The `reader:` line no longer decides anything here/)
+    assert.match(text, /relay all three tier lines, every time/i)
+    assert.match(text, /`local:`, `network:` and `remote:` lines/)
   })
 
-  // The engine serves on a remote reader and puts an openable URL on `open:`,
-  // so naming the serve command as the ANSWER is the old dead-link behaviour
-  // coming back. Mentioning it as an opt-out consequence is still fine, which
-  // is why this looks at the `remote` bullet rather than the whole file.
-  test(`/${name} does not send a remote reader off to start the server`, () => {
-    const bullet = text.match(/- \*\*`remote`\*\*[\s\S]*?(?=\n\n)/)
-    assert.ok(bullet, 'the remote bullet is there to check')
-    assert.doesNotMatch(bullet[0], /spec-env review serve --host/)
-    assert.match(bullet[0], /relay\s+that line|as\s+printed/)
+  // The old failure this replaced, kept as the thing that must not come back:
+  // a reader who could not open the page being sent off to start a server
+  // themselves. Now there is nothing to start — the tier line names the setting
+  // that turns its surface on.
+  test(`/${name} does not send a reader off to start the server`, () => {
+    assert.doesNotMatch(text, /spec-env review serve --host/)
+    assert.match(text, /rather than editing them out/)
   })
 
-  // Unknown is what a healthy local machine reports. Warning there would be an
-  // accusation against the common case (`.claude/rules/negative-checks.md`).
-  test(`/${name} does not warn on an unknown reader`, () => {
-    assert.match(text, /Do not warn/)
-    assert.match(text, /unknown is the ordinary state of a local machine/)
+  // Unknown is what a healthy local machine reports, and a warning there would
+  // be an accusation against the common case
+  // (`.claude/rules/negative-checks.md`). The warning is gone entirely now —
+  // every reader gets the same stack — so what is guarded is that nothing
+  // reintroduces a complaint about the detection's answer.
+  test(`/${name} says nothing at all about an unknown reader`, () => {
+    assert.doesNotMatch(text, /will not open where you are reading/)
+    assert.doesNotMatch(text, /unknown is the ordinary state of a local machine/)
+    assert.match(text, /the offer does not change with it/)
   })
 
   // The rule that replaced "wording, never action". Serving and publishing were

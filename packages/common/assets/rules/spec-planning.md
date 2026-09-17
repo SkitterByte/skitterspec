@@ -301,7 +301,7 @@ its verdicts and its fields.
 | **Branch** | `spec/feat-orders` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · npm test |
-| **Review** | 7 files, +212 −18 · [open the page](file:///…) |
+| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** off |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 

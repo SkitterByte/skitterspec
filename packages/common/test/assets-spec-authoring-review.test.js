@@ -74,9 +74,14 @@ test('a file:// page waits by ending the turn, and starts no watch that cannot f
   assert.match(SPEC, /The wait is\s*\n?the turn ending/)
 })
 
-test('one link, because the engine has already chosen which page the reader can use', () => {
-  assert.match(SPEC, /never two\s*\n?links/)
-  assert.match(SPEC, /Relay the \*\*`open:`\*\* line/)
+// Was "one link, because the engine has already chosen which page the reader can
+// use" — the engine no longer chooses. It prints every tier, labelled, and the
+// skill relays the lot; `.claude/rules/spec-reports.md` carries why.
+test('every tier is relayed, in the engine\'s own order', () => {
+  assert.match(SPEC, /Relay the engine's \*\*stack\*\*/)
+  assert.match(SPEC, /all\s*\n?three, in that order/)
+  assert.match(SPEC, /never the bare `page:` path/)
+  assert.match(SPEC, /spec-reports\.md/)
 })
 
 // --- the four endings -------------------------------------------------------

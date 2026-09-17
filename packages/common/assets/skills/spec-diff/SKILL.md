@@ -373,15 +373,17 @@ skitterspec spec-env review <spec> --branch     # everything since the base bran
 skitterspec spec-env review serve               # every spec, on localhost
 ```
 
-**The engine handles the switch.** A file when the reader is at this machine, a
-served URL when they are not: on a `remote` reader it stands its own server up
-and puts a URL the reader can open on the `open:` line. Both are free and neither
-publishes anything. You are not choosing between them; you are relaying whichever
-one the engine printed.
+**There is no switch left to handle.** The engine serves and prints a **stack** —
+one line per tier, `local`, `network`, `remote`, each either a URL or the one
+command that turns it on. All of it is free and none of it publishes anything.
+You are not choosing between them; you are relaying every line it printed.
+`.claude/rules/spec-reports.md` carries the shape and why.
 
-The operator who does not want a LAN listener started for them sets
-`review.serveOnRemote: false` in `env.config.json`, and the `file://` link with
-its *will not open where you are reading* marker comes back.
+The operator who does not want a LAN listener sets `review.allowNetwork: false`
+in `env.config.json` — `network` then reads `off` with the command that turns it
+back on, and `local` is the loopback page. Turning serving off entirely is
+`review.serve: "never"`, and then `local` is the `file://` page, which says on
+its own line that it cannot send a verdict.
 
 `serve` renders **per request**, so nothing it shows can be stale, and it lists
 every spec with a worktree rather than one. `--host 0.0.0.0` binds beyond
@@ -434,21 +436,29 @@ committing verdict or a recorded skip.
 
 **On `--page-only`, stop here** and report the path.
 
-## 4a. Read the `reader:` line — never sniff for it yourself
+## 4a. Relay the stack — every tier, never one you picked
 
-`spec-env review` reports where it believes the reader is, and
-**that is the only place this question is answered.** Three states:
+`spec-env review` prints one line per tier and `--json` carries the same thing
+as `tiers`. **Relay all of them, in that order**, whatever the `reader:` line
+says:
 
-| `reader:` | What to offer |
-|-----------|---------------|
-| absent (`unknown`) | the `file://` URL, exactly as always. **Do not warn** — unknown is the ordinary state of a local machine |
-| `local` | the `file://` URL |
-| `remote` | the `open:` line as printed — the engine already served it. Pass on any `also:` lines too |
+| Tier | Carries |
+|------|---------|
+| `local` | the loopback URL — or the `file://` page when nothing served, which says it cannot send a verdict |
+| `network` | the LAN URL and any `also:` alternates under it — or `off` with the command that turns it on |
+| `remote` | the published URL and *a verdict here needs `/spec-reviewed`* — or `off` with the command that turns it on |
 
-**Never read an environment variable to decide this.** Not `SSH_CONNECTION`, not
-`CLAUDE_CODE_*`, not a tty check — the engine already did it, reports the answer
-on that line and in `--json`, and a second implementation here could not be
-tested and would drift from the first. The ranking and the traps
+**The `reader:` line decides nothing here any more.** It is still printed and
+still the only place that question is answered, but the offer no longer branches
+on it — because branching on it is what produced a `file://` page for a session
+detected `unknown`, a LAN URL for a phone off the network, and an address that
+changed underneath a reader mid-session. A tier that is off keeps its line, so a
+reader who has left the house can see the surface exists and ask for it.
+
+**Never read an environment variable to decide anything about the offer.** Not
+`SSH_CONNECTION`, not `CLAUDE_CODE_*`, not a tty check — there is nothing left
+for a detection to decide, and a second implementation of one could not be
+tested and would drift. The ranking and the traps
 (`CLAUDE_CODE_ENTRYPOINT` describes the *process*, not the reader; stdin is never
 a tty under Claude Code) live in `review.js` beside the code, which is where they
 belong.
@@ -467,8 +477,9 @@ answer left.
 
 `review.reader` in `env.config.json` (`local` · `remote` · `detect`) lets the
 operator settle where they are reading, and an explicit value is believed without
-sniffing. `review.serveOnRemote` (default `true`) settles whether the engine may
-act on it.
+sniffing. What the engine may *do* is settled by the tier settings instead —
+`review.serve` (`always` · `never`), `review.allowNetwork` and
+`review.allowRemote` — not by the reader.
 
 ## 4b. Wait for the verdict — because asking for one means waiting for it
 
@@ -728,8 +739,8 @@ consumed rather than stored.
 purpose; someone who forgot they had voted has not, and only the report tells
 them apart.
 
-`Review` carries the files and `+`/`−`, the page's `open:` line, and the
-published URL when there is one. Where the page holds a review pass, it also
+`Review` carries the files and `+`/`−`, and the tier stack — labelled, run
+together with `·` because a row is one cell. Where the page holds a review pass, it also
 carries the three totals — files accepted, comments open, comments answered.
 `--json` reports those under `notes.totals`; read that, never the diff.
 

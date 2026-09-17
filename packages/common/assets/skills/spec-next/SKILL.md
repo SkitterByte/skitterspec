@@ -317,30 +317,40 @@ so one subject lives in one place:
 
 ## ⏸ Review ready — <N> files, +<a> −<d>
 
-**[Open the page](<the `open:` URL>)** · I'm holding here until you send a verdict.
+- **local** — <the `local:` URL>
+- **network** — <the `network:` URL, or off with the command that turns it on>
+- **remote** — <the `remote:` URL, or off with the command that turns it on>
+
+I'm holding here until you send a verdict — the wait covers local and network.
 
 `/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
 
-**One link, and the engine has already chosen it.** Where it served, the
-banner carries the served URL and the wait is real. Where it could not serve —
-a busy port, a machine with no network address — that is the case publishing
-exists for, and then the banner carries the published URL with what is true of
-it: *press a verdict, then type `/spec-reviewed`*, because nothing pushes from
-the artifact store into this conversation.
+**The stack is the engine's — copy it, do not compose it.** `spec-env review`
+printed one line per tier, in that order, and `--json` carries the same thing as
+`tiers`. Relay all three whatever they say, including the ones that are off with
+the command that turns them on: a reader who has left the house cannot ask for a
+remote page they were never shown.
 
-**Never offer both.** Publishing while the server is reachable adds a second
-door the reader cannot tell apart from the first, and the wait only stands
-behind one of them — that was done, and three verdicts were pressed on the
-published page while each sat unread under a line saying I was holding. The
-published page is for the reader the server cannot reach, and for nobody
-else.
+**Do not pick one for them.** The engine used to, and the guess failed three
+separate ways in one day. `.claude/rules/spec-reports.md` carries the shape and
+why the *one link, never two* rule now reads
+**one link per reachable store, each labelled** —
+local and network are two doors into one room, so the wait
+covers both. `remote` is a second store, so its own line carries its own caveat:
+*a verdict here needs `/spec-reviewed`*, because nothing pushes from
+the artifact store into this conversation. Never let the holding line promise a
+wait over that tier.
+
+**Publishing is still never yours to do.** `remote` reading `off` is the normal
+state, and the fix for it is the command on that line — typed by the operator,
+because a published page is one this tooling cannot remove.
 
 ---
 
 **Where you are not waiting, it stays the `Review` row** — the counts and the
 page link, and **no question**:
 
-| **Review** | <N> files, +<a> −<d> · [open the page](<the `open:` URL>) |
+| **Review** | <N> files, +<a> −<d> · **local** <URL> · **network** <URL> · **remote** off |
 
 At the end of a phase you are always waiting, so this shape belongs to the
 renders that are not this step: a mid-phase `/spec-diff`, a page produced
@@ -443,38 +453,38 @@ came through. Every harness can end a turn.
 one line; by the time this step is reached the chain has finished, so waiting
 here stops nothing that was still going to happen.
 
-Relay the **`open:`** line the engine prints, not the bare path: a path is not
-clickable in any terminal, and a page nobody can open is a page nobody reads.
+Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines —
+never the bare `page:` path: a path is not clickable in any terminal, and a page
+nobody can open is a page nobody reads.
 
 - **Never write the review unasked**, and **never publish**. Publishing leaves
   something behind that this tooling cannot remove, so it is always something
   someone asks for. A `file://` link is no use on a phone, and saying so **is**
   the ask — publishing is the answer to it, and `/spec-diff` §6 owns how.
-**Follow the `reader:` line the engine printed — do not sniff for it.** It
-answers where the person reading this is sitting, and the offer changes with it:
+**The `reader:` line no longer decides anything here, and that is the point.**
+It is still printed, and it is still the only place that question is answered —
+but the offer does not change with it, because the stack lists every tier
+whatever it says. Three reader states used to mean three different offers, and
+that branching is exactly what produced a `file://` page on a session detected
+`unknown`, a LAN URL for a phone off the network, and an address that changed
+underneath a reader when detection flipped mid-session.
 
-- **absent** (`unknown`) — the `file://` URL, exactly as always. **Do not warn:**
-  unknown is the ordinary state of a local machine, and a warning there is an
-  accusation against a healthy session.
-- **`local`** — the `file://` URL.
-- **`remote`** — the engine has already stood its local server up and put a URL
-  the reader can open on `open:`. So there is **nothing special to say**: relay
-  that line like any other. Any `also:` lines under it are the other addresses
-  this machine has, offered because the best-guess one can be wrong — pass them
-  on rather than editing them out.
+So: **relay all three tier lines, every time.** Any `also:` lines sit under
+`network` — the other addresses this machine has, offered because the
+best-guess one can be wrong — so pass them on rather than editing them out.
 
-**Never read an environment variable to decide this** — not `SSH_CONNECTION`,
-not `CLAUDE_CODE_*`, not a tty check. The engine did it, reports it on that line
-and in `--json`, and a second implementation here could not be tested and would
-drift.
+**Never read an environment variable to decide anything about the offer** — not
+`SSH_CONNECTION`, not `CLAUDE_CODE_*`, not a tty check. There is nothing left
+here for a detection to decide, and a second implementation of one could not be
+tested and would drift.
 
-**Serving is the engine's to do; publishing is never.** A `remote` reader
-authorises a local server — one process, ended by one flag, leaving nothing
-behind — and authorises nothing else. A reader the server CAN reach is not a
-reason to publish as well: the page they can already open is the page to name. Publishing leaves a page this tooling
-cannot remove, so it stays an ask in every case, always. If the engine could not
-serve (a busy port, a machine with no network address) it falls back to the
-`file://` URL with its marker, and that is when publishing is worth naming.
+**Serving is the engine's to do; publishing is never.** The server is one
+process, ended by one flag, leaving nothing behind, and `review.allowNetwork`
+decides whether it binds wide — no detection involved. A reader the server CAN
+reach is not a reason to publish as well: the tiers they can already open are on
+the stack. Publishing leaves a page this tooling cannot remove, so it stays an
+ask in every case, always — which is why `remote` shows the command rather than
+a URL until someone types it.
 
 - **Never fatal.** A failed render — no worktree, a git error — is one line and
   the phase is still done. The page is a convenience; the repo is the record.

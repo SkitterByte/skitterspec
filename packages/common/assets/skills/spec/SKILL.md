@@ -335,8 +335,9 @@ store would spin forever while the report underneath it claimed to be holding,
 which is the exact failure `.claude/rules/spec-reports.md` records. The wait is
 the turn ending, and the banner says so.
 
-Relay the **`open:`** line the engine prints, never the bare path, and never two
-links: the engine has already decided which page the reader can use.
+Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines, all
+three, in that order — never the bare `page:` path. `.claude/rules/spec-reports.md`
+carries the shape and why every tier is named rather than one being chosen.
 
 ## Phase D — record the isolation stack (only if configured)
 
@@ -393,14 +394,18 @@ the shape; this section carries only what is specific here.
 
 **`Next` depends on whether Phase C2 rendered a page.** Where it did, the run is
 waiting on a verdict, so the block **omits the `Review` row** and ends on the
-banner defined in `.claude/rules/spec-reports.md` — counts, the one link, and
+banner defined in `.claude/rules/spec-reports.md` — counts, the tier stack, and
 this page's two exits:
 
 ---
 
 ## ⏸ Review ready — &lt;N&gt; files, +&lt;a&gt; −&lt;d&gt;
 
-**[Open the page](&lt;the `open:` URL&gt;)** · I'm holding here until you send a verdict.
+- **local** — &lt;the `local:` URL&gt;
+- **network** — &lt;the `network:` URL, or off with the command that turns it on&gt;
+- **remote** — &lt;the `remote:` URL, or off with the command that turns it on&gt;
+
+I'm holding here until you send a verdict — the wait covers local and network.
 
 `Commit & Start` puts it in flight · `Commit` keeps it for later
 

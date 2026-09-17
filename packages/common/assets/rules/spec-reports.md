@@ -36,7 +36,7 @@ A verdict sentence, a blank line, then a two-column table:
 | **Branch** | `spec/feat-foo` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
 | **Tests** | 128 passed · npm test |
-| **Review** | 7 files, +212 −18 · [open the page](file:///…) |
+| **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** off |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
 
@@ -87,15 +87,39 @@ the options may be offered after the table.
 
 ## ⏸ Review ready — 7 files, +212 −18
 
-**[Open the page](http://…)** · I'm holding here until you send a verdict.
+- **local** — [http://127.0.0.1:7760/7e9e123e7540/feat-orders](http://127.0.0.1:7760/7e9e123e7540/feat-orders)
+- **network** — [http://192.168.0.136:7760/7e9e123e7540/feat-orders](http://192.168.0.136:7760/7e9e123e7540/feat-orders)
+- **remote** — off · `skitterspec spec-env review allow remote` turns it on
+
+I'm holding here until you send a verdict — the wait covers local and network.
 
 `/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
 
 ---
 
-A rule, a heading naming the state and the size, the link in bold, one line
-saying the run is stopped, and the two exits. Nothing else, and never a
-paragraph explaining it.
+A rule, a heading naming the state and the size, **the stack**, one line saying
+the run is stopped and which tiers it covers, and the two exits. Nothing else,
+and never a paragraph explaining it.
+
+**The stack is the engine's, copied rather than composed.** `spec-env review`
+prints one line per tier and `--json` carries the same thing as `tiers`, so take
+it from there in the order it comes — and do not decide which tiers are worth
+mentioning. The whole reason the stack exists is that the engine was being asked
+to guess where the reader was sitting, and it guessed wrong three separate ways
+in one day; a skill re-deciding that in prose is the same guess one layer up.
+
+**Three tiers, always all three, in this order.**
+
+| Tier | Is | Off when |
+|------|----|----------|
+| `local` | the loopback URL — the machine the run is on | never. With nothing served it is the `file://` page, and says it cannot send a verdict |
+| `network` | the LAN URL — a phone on the same wifi | `review.allowNetwork` is false, or this machine has no network address |
+| `remote` | a published page, for a reader off the network | `review.allowRemote` is false, or nothing has been published |
+
+A tier that is off **keeps its line** and names the one command that turns it
+on. Dropping the line is what left a reader who had walked out of the house with
+nothing on screen to tell them a remote page was even possible — they could not
+ask for what they could not see.
 
 **Only promise a wait the transport can deliver.** The wait itself is real in
 every case; what varies is what carries it back, not whether the run is
@@ -125,10 +149,16 @@ stopped. Three transports, three true sentences:
   not a lesser one, and it is not an excuse to ask without waiting.
 - **A PUBLISHED page** writes to the artifact's own store, and nothing pushes
   from there into the conversation. That is the one case where a verdict is
-  genuinely invisible until someone asks for it, so the banner says that instead
-  of claiming a watch:
+  genuinely invisible until someone asks for it, so its line in the stack says
+  that rather than letting the holding line speak for it:
 
-**[Open the page](https://…)** · press a verdict, then type `/spec-reviewed` — I cannot see it until you do.
+- **remote** — [https://…](https://…) · a verdict here needs `/spec-reviewed`
+
+  Where `remote` is the only tier a reader can reach, the holding line says so
+  too: *press a verdict, then type `/spec-reviewed` — I cannot see it until you
+  do.* Where a served tier is reachable as well, the holding line keeps naming
+  the tiers the wait covers, and `remote`'s own caveat sits on `remote`'s line
+  where it belongs.
 
 **A harness with no file-watch does not get an exemption.** It once read
 "change nothing" — keep the row, keep the question, do not wait — and that
@@ -139,11 +169,17 @@ every harness can do.
 **The `Continue` ending, and why the banner's exits differ mid-run.** A page
 rendered part-way through a run offers `Continue` — *I have read it, carry on* —
 in place of the committing verdicts, because "commit" is the wrong verb for
-unfinished work. Its banner names the same state and different exits:
+unfinished work. Its banner names the same state and the same stack, and
+different exits:
 
-**[Open the page](http://…)** · I'm holding here until you send a verdict.
+…the stack, unchanged…
+
+I'm holding here until you send a verdict — the wait covers local and network.
 
 `Continue` carries on · `Request changes` works them now
+
+The stack is written out once, above, and referred to everywhere else. Two
+copies of it is how the two come to disagree about which tiers exist.
 
 **It is not the `none` verdict that was removed.** `none` recorded itself and
 did nothing, which is the record-and-do-nothing ending this contract exists
@@ -158,13 +194,40 @@ block. *Waiting* is what any offer does, and it is what this section governs.
 that is finished. A mid-run render waits without arming — walking away from it
 costs nothing, which is exactly why `Continue` is safe to offer there.
 
-**Exactly one link, never two.** The banner offers the page the reader can
-actually use, and the engine has already decided which that is — a served URL
-when it could serve, a published one only when it could not. Handing over both
-asks the reader to know which door the run is standing behind, and they cannot:
-it was done, and a verdict was pressed on the published page three times while
-each one sat unread under a line claiming the run was waiting. Two links is not
-a convenience with a caveat; it is the caveat existing at all.
+**One link per reachable store, each labelled.** This amends
+*"exactly one link, never two"*, and the evidence that rule was written on is
+the reason it still reads the way it does. Two links were handed over, the wait
+stood behind only one of them, and a verdict was pressed on the published page
+three times while each one sat unread under a line claiming the run was waiting.
+Two links was not a convenience with a caveat; the caveat existing was the bug.
+
+**What that evidence is about is the store, not the count.** A served page hands
+its pass to the local pending store, which `spec-env review wait` watches; a
+published page writes to the artifact's own store, which nothing here can see.
+Two links into two stores asks the reader to know which door the run is standing
+behind, and they cannot.
+
+**Local and network are two doors into one room.** The page POSTs with
+`fetch(location.pathname, …)`, so a page opened at `127.0.0.1:7760/…` and one
+opened at `192.168.0.136:7760/…` reach the same server process and the same
+pending store. One wait covers both, and a verdict pressed on either wakes the
+same run. Between those two the objection does not apply — which is why both are
+offered, and why offering them gives nothing up.
+
+**So two things are required, and the second is what the old rule lacked.**
+Every link is **labelled** with its tier, and one line says
+**which tiers the wait covers**.
+Two *unlabelled* links stay forbidden exactly as before, because
+the reader still cannot tell them apart.
+
+**`remote` keeps the caveat it always had.** It is listed so a reader off the
+network knows the surface exists and what turns it on — never as a door the wait
+is claimed to cover. Where it is on and published, its line says what is true of
+it: *a verdict here needs `/spec-reviewed`*.
+
+**Still forbidden**, in the words of the rule this amends: offering two links
+into **different** stores without saying which one the wait is watching. That is
+the failure that cost three unread verdicts, and nothing here touches it.
 
 **This is not the old failure returning**, and the difference is the whole
 justification. The offer used to be two quoted lines in the tail of a long
@@ -260,7 +323,7 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Landed` | A fast-forward, a tag, a cherry-pick. |
 | `Worktree` | A worktree provisioned, entered, or torn down. |
 | `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |
-| `Review` | The rendered diff page: files, `+`/`−`, the link. **No question** — a row cannot be waited on, so a question in one is unanswerable by construction (see *asking implies waiting*). **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
+| `Review` | The rendered diff page: files, `+`/`−`, and the stack — the same tiers the banner lists, labelled, run together with `·` because a row is one cell. **No question** — a row cannot be waited on, so a question in one is unanswerable by construction (see *asking implies waiting*). **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
 | `Next` | **Last.** The single next action for this work — runnable from the state the run leaves behind. |
 
