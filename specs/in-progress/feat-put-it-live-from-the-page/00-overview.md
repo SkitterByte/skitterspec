@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The engine knows whether it is live | ⬜ | [01-the-engine-knows.md](01-the-engine-knows.md) |
+| 1 | The engine knows whether it is live | ✅ | [01-the-engine-knows.md](01-the-engine-knows.md) |
 | 2 | The page's line, and the action behind it | ⬜ | [02-the-line.md](02-the-line.md) |
 | 3 | The skills route it, the rule holds the shape | ⬜ | [03-routing-and-the-rule.md](03-routing-and-the-rule.md) |
 
@@ -155,3 +155,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the conclusion), whether a press may act (yes — `/spec-live`'s user-only
   marking is ergonomics, not enforcement), and whether the banner carries the
   state (one line, amended with its reason).
+- 2026-09-17 — Phase 1: the engine answers in four states and `unavailable`
+  prints nothing. One decision moved: **an unreadable receipt is not
+  `unavailable`**. The branch in the primary checkout is the authority — the
+  receipt is metadata, as `live.js`'s own header says — so losing it costs the
+  holder's name and never the state; concluding `unavailable` from that absence
+  would blank the line for a checkout plainly sitting on a feature branch.
+  Decision 8's tree-switch turned out to need a second edit nobody had named:
+  `spec-env review` refuses a spec with no worktree, and a live spec can have
+  none, so that refusal gained a live exception.

@@ -517,3 +517,86 @@ test('a free workbench is not refused — the gate stays silent when it should',
   })
   assert.strictEqual(plan.blocked, false)
 })
+
+// --- `--json`, and the text seam it must not move -------------------------
+
+// `--json` was accepted and ignored: the flag parsed, the text block printed,
+// and a caller that asked for JSON got prose. Both forms come from the same
+// place now, and the per-spec `live:      yes|no` TEXT line stays exactly as it
+// was — `/spec-start` reads it, and a flag must never move a seam.
+
+test('live status --json answers the bare form in machine shape', async () => {
+  const dir = scaffoldRepo()
+  try {
+    const out = await runQuiet(['spec-env', 'live', 'status', '--dir', dir, '--json'])
+    const j = JSON.parse(out)
+    assert.strictEqual(j.primary, 'main')
+    assert.strictEqual(j.onBase, true)
+    // Three states, not two: `null` is "nothing in flight" here, and the same
+    // key carries `null` for a hand-switched branch with no receipt.
+    assert.strictEqual(j.inFlight, null)
+    assert.strictEqual(j.receipt, null)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live status --json names the holder when one is recorded', async () => {
+  const dir = scaffoldRepo()
+  try {
+    git(dir, 'checkout', '-q', '-b', 'feat/x')
+    writeReceipt(dir, { registry: '.spec-env/registry.json' }, {
+      spec: 'feat-x',
+      branch: 'feat/x',
+      holder: 'Test',
+      heldSince: '2026-08-03T10:00:00Z',
+      baseMainCommit: git(dir, 'rev-parse', 'HEAD'),
+    })
+    const j = JSON.parse(await runQuiet(['spec-env', 'live', 'status', '--dir', dir, '--json']))
+    assert.strictEqual(j.onBase, false)
+    assert.strictEqual(j.inFlight, 'feat-x')
+    assert.strictEqual(j.receipt.branch, 'feat/x')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live status <spec> --json carries the four-state answer', async () => {
+  const dir = scaffoldRepo()
+  const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, 'x')
+  try {
+    fs.mkdirSync(path.join(dir, 'specs', 'in-progress', 'feat-x'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, 'specs', 'in-progress', 'feat-x', '00-overview.md'),
+      '# X\n\n> **Type:** Feature\n> **Status:** In Progress\n',
+    )
+    git(dir, 'worktree', 'add', '-q', '-b', 'feat/x', worktree)
+
+    const off = JSON.parse(
+      await runQuiet(['spec-env', 'live', 'status', 'feat-x', '--dir', dir, '--json']),
+    )
+    assert.strictEqual(off.live.state, 'off')
+
+    git(worktree, 'switch', '--detach')
+    git(dir, 'checkout', '-q', 'feat/x')
+    const on = JSON.parse(
+      await runQuiet(['spec-env', 'live', 'status', 'feat-x', '--dir', dir, '--json']),
+    )
+    assert.strictEqual(on.live.state, 'on')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// The seam `/spec-start` reads. Adding `--json` must leave it byte-identical.
+test('STAYS SILENT: --json does not change the text form it sits beside', async () => {
+  const dir = scaffoldRepo()
+  try {
+    const out = await runQuiet(['spec-env', 'live', 'status', '--dir', dir])
+    assert.match(out, /primary:\s+main\s+\(on base — free\)/)
+    assert.match(out, /in-flight: none — the workbench is free/)
+    assert.doesNotMatch(out, /[{}]/, 'no JSON leaks into the text form')
+  } finally {
+    cleanup(dir)
+  }
+})

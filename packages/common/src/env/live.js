@@ -85,6 +85,88 @@ function summarizeReceipt(receipt) {
   )
 }
 
+// --- is this spec live? ---------------------------------------------------
+
+/**
+ * Whether a spec is currently live, in a form a page can carry. Pure.
+ *
+ * FOUR STATES, NOT TWO, and the fourth is what keeps this quiet in a healthy
+ * repo. `on` and `off` are the two a reader acts on; `held` is another spec
+ * holding the workbench, which is a refusal with a named way out; and
+ * `unavailable` is **cannot tell** — routed to silence rather than to a warning
+ * (`.claude/rules/negative-checks.md` rule 4). A project with no isolation and a
+ * spec with no worktree both land there, and both are perfectly healthy.
+ *
+ * THE BRANCH IS THE AUTHORITY, NOT THE RECEIPT, exactly as this file's header
+ * says: the receipt is metadata for `live status` and crash recovery. So an
+ * unreadable or absent receipt costs the *holder's name* and nothing else — the
+ * state still comes from which branch the primary checkout is on. Deriving the
+ * state from the receipt instead would report `off` for a checkout plainly
+ * sitting on a feature branch, which is the one answer that would let something
+ * act.
+ *
+ * WHAT WOULD FOOL THIS: `onBase` and `primaryBranch` are read from the primary
+ * checkout by the caller. A caller that passes a *worktree's* git reader would
+ * describe the worktree's HEAD and call it the workbench — so `ctx` is built by
+ * `assertPrimaryOnMain` against the repo root and nowhere else.
+ *
+ * ctx: { isolated, onBase, primaryBranch, receipt, worktreeExists, url }
+ * @returns {{state:'on'|'off'|'held'|'unavailable', holder:string|null, url:string|null, reason:string|null}}
+ */
+function liveStateFor(spec, ctx) {
+  const c = ctx || {}
+  const unavailable = (reason) => ({ state: 'unavailable', holder: null, url: null, reason })
+
+  if (!spec || !spec.branch) return unavailable('no spec to ask about')
+  if (c.isolated === false) return unavailable('isolation is not configured')
+
+  // Not on base — something holds the workbench. Which something is the only
+  // question left, and the branch answers it without the receipt.
+  if (c.onBase === false) {
+    const branch = c.primaryBranch || null
+    if (branch && branch === spec.branch) {
+      return { state: 'on', holder: null, url: c.url || null, reason: null }
+    }
+    const holder = c.receipt && c.receipt.spec ? String(c.receipt.spec) : null
+    const on = branch || '(detached)'
+    return {
+      state: 'held',
+      holder,
+      url: null,
+      // Every way out, because this is the only explanation the reader gets —
+      // the same reasoning `planTake`'s guard 1 records for its own refusal.
+      reason: holder
+        ? `${holder} holds the workbench (branch ${on})`
+        : `the workbench is on ${on} — no receipt; switched by hand?`,
+    }
+  }
+
+  // `onBase` is deliberately three-valued: anything but a definite `true` here
+  // is a checkout we could not read, and that is not evidence the spec is off.
+  if (c.onBase !== true) return unavailable('could not read the primary checkout')
+  if (!c.worktreeExists) return unavailable('no worktree to put live')
+
+  return { state: 'off', holder: null, url: null, reason: null }
+}
+
+/**
+ * The one line the render prints for a live state, or null for `unavailable`.
+ * Pure.
+ *
+ * NULL IS THE POINT. `unavailable` prints nothing at all — not a dash, not an
+ * explanation — because every input that produces it is a healthy repo that
+ * simply has no live surface, and a line about one is an accusation.
+ */
+function liveStateLine(live) {
+  if (!live || live.state === 'unavailable') return null
+  const label = '  live:'.padEnd(11)
+  if (live.state === 'on') {
+    return `${label}on${live.url ? ` — running at ${live.url}` : ''}`
+  }
+  if (live.state === 'held') return `${label}held — ${live.reason}`
+  return `${label}off — the page can put it live`
+}
+
 // --- stateful detection (glob matching) -----------------------------------
 
 // Translate a restricted glob into an anchored RegExp: `**` matches across path
@@ -378,4 +460,6 @@ module.exports = {
   planTake,
   planRelease,
   planAbort,
+  liveStateFor,
+  liveStateLine,
 }

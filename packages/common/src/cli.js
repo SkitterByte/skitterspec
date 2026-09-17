@@ -70,6 +70,8 @@ const {
   summarizeReceipt,
   migrationsHit,
   planTake,
+  liveStateFor,
+  liveStateLine,
   planRelease,
   planAbort,
 } = require('./env/live.js')
@@ -2153,7 +2155,20 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // It names `--docs` because for a spec that has landed or has not yet started,
   // provisioning a worktree is not what the reader wanted: they wanted to read
   // the spec.
-  if (!docs && !fs.existsSync(spec.worktreePath)) {
+  // A LIVE SPEC IS THE EXCEPTION, and it is not a loosening of this absence.
+  // `live take` moves the branch into the primary checkout, so the work is
+  // somewhere readable even when the worktree has gone — refusing here would
+  // refuse a spec whose diff is right there. Every other missing worktree still
+  // refuses exactly as before.
+  const liveHere = (() => {
+    try {
+      const st = assertPrimaryOnMain(config, gitReader(dir))
+      return st.onBase === false && st.branch === spec.branch
+    } catch {
+      return false
+    }
+  })()
+  if (!docs && !liveHere && !fs.existsSync(spec.worktreePath)) {
     process.stdout.write(
       `spec-env review: ${spec.folder} has no worktree at ${spec.worktreePath} — ` +
         'run /spec-start to provision it, or --docs to review the spec itself.\n',
@@ -2161,7 +2176,26 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     return
   }
 
-  const readFrom = docs ? docs.tree : spec.worktreePath
+  // WHERE THE BRANCH ACTUALLY IS. `live take` detaches the worktree and checks
+  // the branch out in the primary checkout, so while a spec is live the tree
+  // holding its work — including anything uncommitted, since a fix made while
+  // live is made there — is the primary checkout. Reading the worktree then
+  // reports a clean tree and shows the reader nothing.
+  //
+  // WHAT WOULD FOOL THIS: it trusts the branch the primary checkout is on, so a
+  // branch checked out there by hand with no receipt still reads as live. That
+  // is the right answer — the work IS there — and it is the same authority
+  // `assertPrimaryOnMain` and `liveStateFor` use.
+  const primaryState = assertPrimaryOnMain(config, gitReader(dir))
+  const live = liveStateFor(
+    spec,
+    liveContext(dir, config, spec, {
+      onBase: primaryState.onBase,
+      primaryBranch: primaryState.branch,
+    }),
+  )
+
+  const readFrom = docs ? docs.tree : live.state === 'on' ? dir : spec.worktreePath
   const git = rawGitReader(readFrom)
   const trimmed = gitReader(readFrom)
 
@@ -2714,6 +2748,11 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
             publishedUrl: url,
             config,
           }),
+          // The same answer `live status --json` gives, from the same function,
+          // so the page and the command cannot disagree. Always present, unlike
+          // the tiers' optional keys: `unavailable` is a state a consumer needs
+          // to see rather than an absence it has to interpret.
+          live,
           // Absent when there IS a served URL, so a consumer that only ever
           // saw a served render sees no new key.
           ...(served ? {} : noServeBecause ? { notServed: noServeBecause } : {}),
@@ -2831,6 +2870,9 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       // `location.pathname`, so both reach this server and this pending store.
       // `remote` writes to the artifact's own store, which nothing here can see.
       '  the wait covers local + network; a remote verdict needs /spec-reviewed.\n' +
+      // WHETHER IT IS ALSO RUNNING SOMEWHERE, which is the other way to judge a
+      // change. `unavailable` prints nothing — see `liveStateLine`.
+      (liveStateLine(live) ? `${liveStateLine(live)}\n` : '') +
       // The reason there is no served URL, when there is none. A `file://` link
       // with nothing said about it reads as the ordinary outcome, and it is not.
       (!served && noServeBecause ? `  not served: ${noServeBecause}\n` : '') +
@@ -3706,7 +3748,7 @@ const DEPS_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.l
 // feature. The branch that's checked out IS the lock (assertPrimaryOnMain); the
 // receipt is advisory metadata. `status` is read-only; `take` performs the switch
 // (release/abort land in a later phase).
-async function specEnvLive(dir, config, positional) {
+async function specEnvLive(dir, config, positional, flags) {
   // Both verbs exist to route around the work living somewhere other than the
   // checkout you are in — a proxy to a second stack, or a temporary branch swap.
   // Checkout mode closes that gap permanently, so there is nothing to route.
@@ -3725,7 +3767,7 @@ async function specEnvLive(dir, config, positional) {
       // report cannot describe. It prints ABOVE the report, not instead of it:
       // you asked a question and should still get the answer.
       if (note) process.stdout.write(note)
-      specEnvLiveStatus(dir, config, specArg)
+      specEnvLiveStatus(dir, config, specArg, flags)
       break
     case 'take':
       await specEnvLiveTake(dir, config, specArg)
@@ -4029,8 +4071,9 @@ async function specEnvLiveAbort(dir, config) {
   )
 }
 
-function specEnvLiveStatus(dir, config, specArg) {
+function specEnvLiveStatus(dir, config, specArg, flags) {
   const { onBase, branch, baseBranch } = assertPrimaryOnMain(config, gitReader(dir))
+  const json = Boolean(flags && flags.json)
 
   // Per-spec query (`live status <spec>`): a clear yes/no verdict /spec-start and
   // skill branches on to decide whether to skip worktree provisioning and work in
@@ -4038,6 +4081,26 @@ function specEnvLiveStatus(dir, config, specArg) {
   if (specArg) {
     const spec = resolveSpecWithWorktree(dir, config, specArg)
     const live = !onBase && branch === spec.branch
+    // `--json` answers with the SAME function the review render uses, so a page
+    // and this command can never disagree about whether a spec is live. The
+    // text form above is left exactly as it was: `/spec-start` reads its
+    // `live:      yes|no` line, and a flag must not move a seam.
+    if (json) {
+      process.stdout.write(
+        JSON.stringify(
+          {
+            spec: spec.folder,
+            branch: spec.branch,
+            primary: branch || null,
+            base: baseBranch,
+            live: liveStateFor(spec, liveContext(dir, config, spec, { onBase, primaryBranch: branch })),
+          },
+          null,
+          2,
+        ) + '\n',
+      )
+      return
+    }
     process.stdout.write(
       `spec-env live status: ${spec.folder}\n` +
         `  spec:      ${spec.folder}  (branch ${spec.branch})\n` +
@@ -4068,12 +4131,65 @@ function specEnvLiveStatus(dir, config, specArg) {
       ? `${receipt.spec}  (branch ${branch || '(detached)'})`
       : `unknown  (branch ${branch || '(detached)'} — no receipt; switched by hand?)`
 
+  if (json) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          primary: branch || null,
+          base: baseBranch,
+          onBase,
+          // The three-state answer the text's `in-flight:` line carries, kept
+          // as three states here too: a branch switched by hand leaves no
+          // receipt, so the spec is `null` while the checkout is plainly busy.
+          inFlight: onBase ? null : receipt && receipt.spec ? String(receipt.spec) : null,
+          receipt: receipt || null,
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+    return
+  }
+
   process.stdout.write(
     'spec-env live:\n' +
       `  primary:   ${branch || '(detached)'}  (${state})\n` +
       `  in-flight: ${inFlight}\n` +
       `  receipt:   ${summarizeReceipt(receipt)}\n`,
   )
+}
+
+/**
+ * The `ctx` `liveStateFor` wants, probed from this repo.
+ *
+ * ONE BUILDER, so every caller passes the same shaped answer — the review
+ * render and `live status --json` both come through here, which is what makes
+ * "the page and the command agree" a property of the code rather than a habit.
+ *
+ * `onBase`/`primaryBranch` are the caller's, because it has usually already
+ * asked `assertPrimaryOnMain` and asking twice can straddle a branch switch.
+ *
+ * An unreadable receipt is caught and dropped: it costs the holder's NAME and
+ * never the state, which the branch answers (`liveStateFor`).
+ */
+function liveContext(dir, config, spec, { onBase, primaryBranch }) {
+  let receipt = null
+  try {
+    receipt = readReceipt(dir, config)
+  } catch {
+    receipt = null
+  }
+  const front = (config.dev || []).map((d) => d.frontPort).filter((p) => typeof p === 'number')[0]
+  return {
+    isolated: true,
+    onBase,
+    primaryBranch,
+    receipt,
+    worktreeExists: Boolean(spec && spec.worktreePath && fs.existsSync(spec.worktreePath)),
+    // Null where the project configured no canonical port — there is no URL to
+    // name, and inventing one would send the reader to a closed port.
+    url: front ? `http://${(config.proxy && config.proxy.host) || 'localhost'}:${front}` : null,
+  }
 }
 
 async function specEnv(rest) {
@@ -4240,7 +4356,7 @@ async function specEnv(rest) {
       await specEnvReview(dir, config, positional[0], flags, invokedFrom)
       break
     case 'live':
-      await specEnvLive(dir, config, positional)
+      await specEnvLive(dir, config, positional, flags)
       break
     default:
       process.stdout.write(

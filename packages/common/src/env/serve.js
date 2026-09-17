@@ -196,8 +196,13 @@ ${body}
  */
 function viewFor(dir, config, spec, git, { fallback = false } = {}) {
   if (!spec) return null
+  // LIVE COMES FIRST, because while a spec is live its worktree still exists —
+  // detached — and would win the check below while holding none of the work.
+  // `live take` checks the branch out HERE, and a fix made while live is made
+  // here too, so this checkout is the tree that answers.
+  if (spec.branch && headBranchOf(git) === spec.branch) return { kind: 'live', tree: dir }
   const wt = spec.worktreePath
-  if (wt && wt !== dir && fs.existsSync(wt)) return { kind: 'worktree' }
+  if (wt && wt !== dir && fs.existsSync(wt)) return { kind: 'worktree', tree: wt }
   const found = specDocsIn(dir, spec, config, trimmedGitReader(dir))
   // `error` is cannot-tell — not a page, and not an error page either (rule 4:
   // the harmless branch).
@@ -242,6 +247,21 @@ function committedDocsFor(dir, config, spec) {
     .map((l) => l.trim())
     .filter(Boolean)
   return paths.length ? paths : null
+}
+
+/**
+ * The branch name a git reader's checkout is on, or null.
+ *
+ * NULL FOR A DETACHED HEAD, which `rev-parse --abbrev-ref` spells `HEAD` — a
+ * name no branch has, and one that must never compare equal to a spec's.
+ * Returning it verbatim would make a detached checkout look like a spec called
+ * `HEAD`; the cannot-tell answer is null (`.claude/rules/negative-checks.md`).
+ */
+function headBranchOf(git) {
+  const out = git ? git(['rev-parse', '--abbrev-ref', 'HEAD']) : null
+  if (out == null) return null
+  const name = String(out).trim()
+  return name && name !== 'HEAD' ? name : null
 }
 
 // `specDocsIn` wants a reader that TRIMS, because it compares whole paths.
@@ -364,7 +384,9 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     }
   }
 
-  const git = rawGitReader(spec.worktreePath)
+  // `view.tree` rather than `spec.worktreePath`: the two differ for a live
+  // spec, whose branch is checked out here instead.
+  const git = rawGitReader(view.tree || spec.worktreePath)
   const trimmed = (argv) => {
     const out = git(argv)
     return out == null ? null : String(out).trim() || null
@@ -479,8 +501,11 @@ function specSummary(spec, dir = null, config = null) {
   // is unchanged; without them only the worktree view can be counted.
   const view = dir ? viewFor(dir, config, spec, rawGitReader(dir)) : null
   if (view && view.kind === 'docs') return docsSummary(view)
-  if (!spec || !fs.existsSync(spec.worktreePath)) return null
-  const git = rawGitReader(spec.worktreePath)
+  // The tree the page would read, which for a live spec is this checkout. The
+  // worktree fallback keeps the callers that pass no `dir` working unchanged.
+  const tree = view && view.tree ? view.tree : spec && spec.worktreePath
+  if (!tree || !fs.existsSync(tree)) return null
+  const git = rawGitReader(tree)
 
   const totals = { files: 0, additions: 0, deletions: 0 }
   const add = (row) => {
@@ -708,6 +733,8 @@ module.exports = {
   engineVersionFor,
   staleServer,
   specSummary,
+  viewFor,
+  headBranchOf,
   routeFor,
   renderIndex,
   servableSpecs,
