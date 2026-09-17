@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-external-reviewers (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 4 (started 2026-09-17)
+> **Status:** Complete (2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -163,9 +163,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
 | 2026-09-17 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-17 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-17 — Completed; all four phases done, 3162 tests green. Two follow-ups
+  recorded rather than fixed here: this repo's own `CLAUDE.md` lags the shipped
+  `claude-md-section.md` asset by several specs, and `env-review-reader.test.js`'s
+  daemon-replacement test flakes under full parallel load.
 - 2026-09-17 — Phase 4 built; all four phases done. Two follow-ups surfaced and
   neither belongs to this spec: this repo's own `CLAUDE.md` is several specs
   behind the shipped `claude-md-section.md` asset (re-syncing it here would put
