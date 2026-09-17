@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-329"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-329/preserve-the-original-report-and-notice-when-it-is-edited"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Preserve the original report, and notice when it is edited
 
 > **Type:** Feature
 > **Name:** feat-preserve-original-report (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-17)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
 > **Area:** packages/linear/src/api.js, packages/linear/src/cli-sync.js, packages/linear/src/config.js, packages/sync-core/src/compare.js, packages/common/assets/skills/spec, packages/common/assets/skills/spec-bug, packages/common/assets/skills/spec-hotfix, packages/linear/assets/skills/spec-status, packages/linear/assets/skills/spec-push
 > **Stack:** worktree
@@ -167,6 +169,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
+| 2026-09-17 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
