@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-a-stale-daemon-says-so (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-17)
+> **Status:** Complete (2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -99,6 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
 | 2026-09-17 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-17 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -110,3 +111,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   mtimes as two optional arguments, so a two-argument call is unchanged and no
   existing caller moved. The live test rewinds the recorded value rather than
   touching the shared engine file, and asserts the URL survives the replacement.
+- 2026-09-17 — Completed; the single phase done, 2865 tests green. The gate was
+  discharged by a recorded skip rather than a verdict — the work was committed
+  directly and the reason is on the record. That commit also surfaced a separate
+  finding: the review-gate hook is not installed in this repo at all, so the
+  half of the gate that cannot be talked past has never applied here.
