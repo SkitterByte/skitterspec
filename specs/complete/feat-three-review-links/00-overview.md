@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-three-review-links (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-17)
+> **Status:** Complete (2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -112,6 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
 | 2026-09-17 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-17 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -141,3 +142,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   reader-detection branch in four skills went with them, since a stack that
   lists every tier leaves detection nothing to pick — the engine's own
   `detectReader` is untouched.
+- 2026-09-17 — Completed; all phases done, tests green (2896).
