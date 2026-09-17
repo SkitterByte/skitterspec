@@ -34,6 +34,11 @@ const { spawnSync } = require('node:child_process')
 const ROOT = path.join(__dirname, '..')
 
 // The publishable distributions: short name → workspace dir + npm name.
+// The image the Linux run uses. The MAJOR tracks `engines.node` and the CI
+// matrix floor; it is deliberately not pinned to the exact patch, because this
+// is a second opinion about the PLATFORM, not a reproduction of a runner.
+const LINUX_IMAGE = 'node:22'
+
 const PACKAGES = {
   skitterspec: { dir: 'packages/skitterspec', npm: '@skitterbyte/skitterspec' },
   'skitterspec-linear': {
@@ -157,6 +162,10 @@ function buildPlan({
   nextVersion,
   level = 'plan',
   skipTests = false,
+  // The Linux gate's verdict, decided by `linuxGate` and passed in so buildPlan
+  // stays pure — a test states the world rather than needing a Docker daemon.
+  linux = { state: 'unknown', why: 'not asked' },
+  root = ROOT,
 }) {
   const tag = tagName(name, nextVersion)
   const needsBump = nextVersion !== currentVersion
@@ -205,6 +214,48 @@ function buildPlan({
       desc: 'run the suite against the version being released',
       restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [],
     })
+
+    // AND THE SAME SUITE ON LINUX, because the run above is on whatever the
+    // releaser happens to be sitting at. Two releases were cut off a green
+    // macOS run and could not build on Linux; see `linuxGate`.
+    //
+    // Ordered AFTER the native run deliberately: it is the slower of the two,
+    // and a failure common to both platforms should surface in seconds rather
+    // than minutes. The Linux run is the second opinion, not the first.
+    if (linux.state === 'run') {
+      steps.push({
+        phase: 'local',
+        kind: 'verify',
+        cmd: `docker run --rm --init -v "$PWD":/app -w /app ${LINUX_IMAGE} node --test`,
+        argv: [
+          'docker',
+          'run',
+          '--rm',
+          // `--init` IS LOAD-BEARING, NOT TIDINESS. Without it PID 1 in the
+          // container is the test runner, which does not reap orphans — so a
+          // killed detached `sh` stays a ZOMBIE, its process-table entry
+          // survives, and `process.kill(pid, 0)` goes on succeeding. Two
+          // teardown tests that assert a process is gone then fail in the
+          // container and pass on a real machine, which is a false accusation
+          // pointed at healthy code — the precise inverse of the bug this gate
+          // exists to catch, and far more corrosive, because a gate that cries
+          // wolf gets passed `--skip-linux` forever.
+          //
+          // A GitHub runner has a real init, so it never saw this. The
+          // container had to be told.
+          '--init',
+          '-v',
+          `${root}:/app`,
+          '-w',
+          '/app',
+          LINUX_IMAGE,
+          'node',
+          '--test',
+        ],
+        desc: `run the same suite on Linux (${LINUX_IMAGE})`,
+        restore: needsBump ? [`${dirRel}/package.json`, notesFile] : [],
+      })
+    }
   }
 
   if (needsBump) {
@@ -270,12 +321,61 @@ function buildPlan({
     needsBump,
     level,
     skipTests,
+    linux,
     steps,
     followUp,
   }
 }
 
 // --- guards (pure; fed real git output by the CLI) --------------------------
+
+/**
+ * THE RELEASE'S LINUX GATE — decide whether to run the suite on Linux too.
+ *
+ * WHY THIS EXISTS, AND WHY IT IS NOT A CI LOOKUP. skitterspec@22.0.0 and
+ * skitterspec-linear@17.0.0 were both cut off a green macOS suite, pushed, and
+ * failed in CI on a test that could not pass on Linux. The obvious fix — "check
+ * the commit's CI run before tagging" — is structurally impossible here: the
+ * commit being tagged is the `chore(release):` commit THIS SCRIPT CREATES, so
+ * no CI run for that sha can exist at the moment the tag is cut. CI is the
+ * gate AFTER the tag, by construction.
+ *
+ * So the property is proved locally instead, against the exact tree being
+ * tagged: run the same suite on Linux in a container. It is slower than the
+ * native run and far cheaper than a release round-trip.
+ *
+ * THREE ANSWERS, and only one of them stops anything:
+ *
+ *   - `run`     — Docker is here and nobody opted out. Run it.
+ *   - `skipped` — `--skip-linux`, on the record in the invocation and in the
+ *                printed plan, exactly as `--allow-empty` and `--skip-tests`.
+ *   - `unknown` — no Docker, or a daemon that is not running. That is not
+ *                evidence the tree is bad, so it must not block a release
+ *                (`.claude/rules/negative-checks.md` rule 4). It says so and
+ *                the release proceeds.
+ *
+ * WHAT WOULD FOOL IT: a container is not a GitHub runner. Same kernel family,
+ * different image, different filesystem semantics under a bind mount. It closes
+ * the macOS-vs-Linux gap that has now bitten twice; it does not promise CI
+ * parity, and nothing here should claim it does.
+ *
+ * Pure: the caller establishes `dockerAvailable`.
+ */
+function linuxGate({ dockerAvailable, skip = false } = {}) {
+  if (skip) return { state: 'skipped', why: '--skip-linux was passed' }
+  if (!dockerAvailable) {
+    return { state: 'unknown', why: 'no running Docker — the Linux run was not attempted' }
+  }
+  return { state: 'run', why: null }
+}
+
+// Is there a Docker daemon to run the Linux suite in? A missing binary, a
+// stopped daemon and a permission error are all the same answer — "cannot tell"
+// — and all route to the harmless branch above.
+function dockerAvailable(root = ROOT) {
+  const r = spawnSync('docker', ['info'], { cwd: root, stdio: 'ignore' })
+  return r.status === 0
+}
 
 function assertCleanTree(porcelain) {
   if (porcelain.trim()) {
@@ -348,6 +448,13 @@ function formatPlan(plan) {
   }
   if (plan.skipTests) {
     lines.push('  note:  --skip-tests — the suite will NOT run before this release is cut')
+  }
+  // SAID OUT LOUD IN EVERY STATE, including the one where nothing happens.
+  // A gate that is silent when it does not run teaches the reader it always
+  // ran — which is the false confidence this whole thing exists to remove.
+  else if (plan.linux && plan.linux.state !== 'run') {
+    lines.push(`  note:  Linux run skipped — ${plan.linux.why}`)
+    lines.push('         the suite below runs on this machine only')
   }
   lines.push('')
   lines.push('  steps:')
@@ -444,10 +551,19 @@ Levels (a bare run is a dry-run and changes nothing):
                  tag (a deliberate version-alignment bump)
   --skip-tests   cut the release without running the suite (the escape hatch
                  for a failure you have established is unrelated)
+  --skip-linux   cut the release without the second, Linux run of the suite.
+                 The native run still happens. Skipped automatically, with a
+                 note, when there is no running Docker.
 
 The suite runs after the version is written and before anything is staged, so
 guards that read the version being released — the migration guide's, for one —
 are in scope. A red suite leaves two unstaged files and no commit or tag.
+
+It runs TWICE: once natively, then again on Linux in a container. The commit
+being tagged is the one this script is about to create, so no CI run for it can
+exist yet — CI is the gate after the tag, never before it. Two releases were cut
+off a green macOS suite and could not build on Linux; the second run is what
+closes that.
 
 Never runs 'git push', and never publishes — pushing the tag is what stages the
 release on npm (.github/workflows/release.yml), which you then approve with
@@ -462,6 +578,7 @@ function parseArgs(argv) {
     yes: flags.has('--yes') || flags.has('--execute'),
     allowEmpty: flags.has('--allow-empty'),
     skipTests: flags.has('--skip-tests'),
+    skipLinux: flags.has('--skip-linux'),
     pkg: positional[0],
     bump: positional[1],
   }
@@ -479,12 +596,17 @@ function main(argv) {
   const resolved = resolvePackage(opts.pkg)
   const currentVersion = readVersion(resolved.pkgJsonPath)
   const nextVersion = computeNextVersion(currentVersion, opts.bump)
+  // Asked once, here, so the printed plan and the executed plan cannot
+  // disagree about whether Linux was checked.
+  const linux = linuxGate({ dockerAvailable: dockerAvailable(), skip: opts.skipLinux })
   const plan = buildPlan({
     ...resolved,
     currentVersion,
     nextVersion,
     level,
     skipTests: opts.skipTests,
+    linux,
+    root: ROOT,
   })
 
   console.log(formatPlan(plan))
@@ -517,6 +639,8 @@ module.exports = {
   buildPlan,
   assertCleanTree,
   assertTagAvailable,
+  linuxGate,
+  LINUX_IMAGE,
   formatPlan,
   verifyFailureMessage,
   parseArgs,

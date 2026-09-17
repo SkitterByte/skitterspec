@@ -125,7 +125,18 @@ for (const from of ['primary', 'worktree']) {
       const down = cli(cwd, 'spec-env', 'dev', 'down', 'feat-x')
       assert.doesNotMatch(down, /spec not found/)
       assert.match(down, new RegExp(`web: stopped \\(pid ${pid}\\)`))
+      // THE GROUP, NOT JUST THE LEADER. `startProcess` spawns
+      // `sh -c "<command>"` detached, so `pid` is the shell's and it is also
+      // the process-group id. Probing the leader alone proves the SHELL died —
+      // and where the shell forks rather than execs, which is what Linux does,
+      // the node child outlives it and this assertion passes anyway. The test
+      // would have been structurally blind to the exact failure that cost two
+      // release workflows.
+      //
+      // `kill(-pid, 0)` succeeds while ANY process in the group is alive, so
+      // this is the probe that means what the message says.
       assert.throws(() => process.kill(pid, 0), 'the dev process was killed')
+      assert.throws(() => process.kill(-pid, 0), 'and nothing it spawned outlived it')
     } finally {
       cleanup(dir)
     }

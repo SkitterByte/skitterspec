@@ -182,6 +182,40 @@ function review(dir, ...extra) {
   })
 }
 
+/**
+ * Stop the review server AND wait for its port to come back.
+ *
+ * FOR THE SITES THAT RE-BIND, and only those. `stopServe` resolves when
+ * `stopProcess` sees `isAlive(leaderPid)` go false — the LEADER, which is the
+ * detached `sh -c` wrapper. On Linux, where that shell forks, the wrapper can
+ * be reaped while the node child it spawned is still closing its listening
+ * socket. A test that stops and then immediately re-renders on the SAME pinned
+ * port can therefore hit a port that is not free yet, get `error: 'busy'`, and
+ * be handed a `file://` page — at which point it fails on whatever it asserts
+ * next and blames that instead.
+ *
+ * None of these sites is failing today. This is a door being closed, not a bug
+ * being fixed: the same shape, one layer along, as the one that reached a
+ * release twice.
+ *
+ * Teardown-only calls deliberately keep plain `stopServe` — nothing re-binds
+ * after them, so there is nothing to wait for and a wait would only slow the
+ * suite.
+ */
+async function stopServeAndWait(dir) {
+  // The port the server actually recorded, rather than one recomputed here: a
+  // recomputed answer could disagree with the port that was really served.
+  let port = null
+  try {
+    port = JSON.parse(fs.readFileSync(path.join(dir, '.spec-env', 'review-serve.json'), 'utf8')).port
+  } catch {
+    // No settings file means nothing was ever served, so nothing holds a port.
+    // An absence is not evidence of a problem here (negative-checks rule 4).
+  }
+  stopServe(dir)
+  if (typeof port === 'number' && port > 0) await waitPortReleased(port)
+}
+
 function stopServe(dir) {
   const script =
     `const { run } = require(${JSON.stringify(path.resolve(__dirname, '../src/cli.js'))});` +
@@ -634,7 +668,7 @@ test('a stop and a start leave the URL unchanged', async () => {
   try {
     const first = urlOf(review(dir))
     assert.ok(first, `expected a served URL, got:\n${review(dir)}`)
-    stopServe(dir)
+    await stopServeAndWait(dir)
     const second = urlOf(review(dir))
     assert.strictEqual(second, first, 'a restart must not change the link someone is holding')
   } finally {
@@ -753,7 +787,7 @@ test('--rotate-token changes it, and says every existing link is dead', async ()
     // rotating the file does not reach a process that already holds a token.
     assert.match(rotate, /still answers on the old token/)
     assert.strictEqual(urlOf(review(dir)), before, 'the running server keeps its token')
-    stopServe(dir)
+    await stopServeAndWait(dir)
     const after = urlOf(review(dir))
     assert.notStrictEqual(after, before, 'and the next server picks the rotated one up')
   } finally {
@@ -806,7 +840,10 @@ test('the path is the same under local, remote and detect — only the host diff
       assert.ok(url, `${who} produced no served URL`)
       shapes[who] = shapeOf(url)
     } finally {
-      stopServe(dir)
+      // WAIT HERE, unlike every other teardown in this file: the next iteration
+      // scaffolds a fresh repo on the SAME pinned port, so this teardown is
+      // followed by a re-bind. It is the tightest stop-then-rebind in the suite.
+      await stopServeAndWait(dir)
       cleanup(dir)
     }
   }

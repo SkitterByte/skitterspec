@@ -69,6 +69,24 @@ function pidFile(dir) {
   return path.join(dir, '.spec-env', 'pids', 'review-serve.pid')
 }
 
+/**
+ * Write a pid into the review server's pidfile.
+ *
+ * THE LIVE CASES PASS `process.pid` — THE TEST RUNNER'S OWN — and that is a
+ * loaded gun, not a trick. It is the only pid guaranteed to be alive, so it is
+ * the honest way to test "a running server keeps its record". It is safe for
+ * exactly one reason: nothing on the `prune` or `down` path calls
+ * `stopProcess`. Those paths only READ the pidfile — `cli.js` reports a live
+ * server and leaves it strictly alone.
+ *
+ * THE DAY THAT CHANGES, this file kills the whole test run:
+ * `stopProcess` sends `signalGroup(-pid, 'SIGTERM')`, and `-process.pid`
+ * is the runner's own process group. The failure would not look like a failed
+ * assertion — it would look like the suite vanishing mid-run, which is the
+ * hardest kind of failure to attribute.
+ *
+ * If you are adding a stop to either path, change these call sites first.
+ */
 function writePid(dir, pid) {
   fs.mkdirSync(path.dirname(pidFile(dir)), { recursive: true })
   fs.writeFileSync(pidFile(dir), String(pid))

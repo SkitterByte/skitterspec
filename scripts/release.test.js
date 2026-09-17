@@ -25,6 +25,8 @@ const {
   formatPlan,
   verifyFailureMessage,
   parseArgs,
+  linuxGate,
+  LINUX_IMAGE,
 } = require('./release.js')
 
 const ROOT = path.join(__dirname, '..')
@@ -311,6 +313,7 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
     yes: false,
     allowEmpty: false,
     skipTests: false,
+    skipLinux: false,
     pkg: 'skitterspec',
     bump: 'patch',
   })
@@ -575,3 +578,108 @@ test('an equal-version release emits no notes step', () => {
   assert.ok(!plan.steps.some((s) => /release-notes\.js/.test(s.cmd)), 'no notes step')
 })
 
+
+// --- the Linux gate ---------------------------------------------------------
+//
+// skitterspec@22.0.0 and skitterspec-linear@17.0.0 were both cut off a green
+// macOS suite and could not build on Linux. The commit being tagged is the one
+// release.js creates, so there can be no CI run for it yet — CI is the gate
+// AFTER the tag. The second run is what closes that, locally, against the exact
+// tree being tagged.
+
+const plan = (over = {}) =>
+  buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '1.0.0',
+    nextVersion: '1.1.0',
+    level: 'local',
+    ...over,
+  })
+
+const linuxStep = (p) => p.steps.find((s) => /^docker run/.test(s.cmd))
+
+test('with Docker available, the suite also runs on Linux', () => {
+  const p = plan({ linux: linuxGate({ dockerAvailable: true }) })
+  const step = linuxStep(p)
+  assert.ok(step, 'the Linux run is a step of the plan')
+  assert.strictEqual(step.kind, 'verify', 'and a failure stops the release')
+  assert.match(step.cmd, new RegExp(LINUX_IMAGE), 'on the image the gate names')
+})
+
+test('the Linux run comes AFTER the native one', () => {
+  // The native run is seconds and the container is minutes, so a failure common
+  // to both should surface from the fast one. The second is a second opinion.
+  const p = plan({ linux: linuxGate({ dockerAvailable: true }) })
+  const native = p.steps.findIndex((s) => s.cmd === 'pnpm test')
+  assert.ok(native >= 0)
+  assert.ok(p.steps.indexOf(linuxStep(p)) > native)
+})
+
+test('it passes --init, or it accuses healthy code', () => {
+  // WITHOUT --init the container's PID 1 is the test runner, which reaps no
+  // orphans — so a killed detached `sh` stays a zombie, its process-table entry
+  // survives, and `process.kill(pid, 0)` keeps succeeding. Two teardown tests
+  // that assert a process is gone then FAIL in the container and PASS on a real
+  // machine. That is a false accusation, and a gate that cries wolf gets
+  // skipped forever.
+  const step = linuxStep(plan({ linux: linuxGate({ dockerAvailable: true }) }))
+  assert.ok(step.argv.includes('--init'), 'in the argv that actually runs')
+  assert.match(step.cmd, /--init/, 'and in the line the reader sees')
+})
+
+// --- STAYS SILENT: the gate never blocks on a cannot-tell -------------------
+
+test('STAYS SILENT: no Docker is not evidence, so nothing is blocked', () => {
+  // A machine without Docker is not a machine with a bad tree. Routing this to
+  // the harmless branch is negative-checks rule 4; routing it to a refusal
+  // would make Docker a release dependency nobody agreed to.
+  const gate = linuxGate({ dockerAvailable: false })
+  assert.strictEqual(gate.state, 'unknown')
+  const p = plan({ linux: gate })
+  assert.strictEqual(linuxStep(p), undefined, 'no Linux step')
+  assert.ok(
+    p.steps.some((s) => s.cmd === 'pnpm test'),
+    'and the native run still happens — the release is not weakened, only unproven on Linux',
+  )
+})
+
+test('STAYS SILENT: but it SAYS the Linux run did not happen', () => {
+  // The half that makes the silence honest. A gate that skips quietly teaches
+  // the reader it always ran, which is the false confidence being removed.
+  const out = formatPlan(plan({ linux: linuxGate({ dockerAvailable: false }) }))
+  assert.match(out, /Linux run skipped/)
+  assert.match(out, /no running Docker/, 'and why')
+  assert.match(out, /this machine only/, 'and what that leaves unproven')
+})
+
+test('--skip-linux is on the record, like --allow-empty and --skip-tests', () => {
+  const gate = linuxGate({ dockerAvailable: true, skip: true })
+  assert.strictEqual(gate.state, 'skipped')
+  assert.match(formatPlan(plan({ linux: gate })), /--skip-linux was passed/)
+  assert.strictEqual(parseArgs(['n', 'r', 'skitterspec', 'patch', '--skip-linux']).skipLinux, true)
+  assert.strictEqual(parseArgs(['n', 'r', 'skitterspec', 'patch']).skipLinux, false)
+})
+
+test('--skip-tests skips the Linux run too — one suite, not two decisions', () => {
+  // Otherwise "skip the tests" would still spend minutes in a container, which
+  // is not what anyone passing it means.
+  const p = plan({ skipTests: true, linux: linuxGate({ dockerAvailable: true }) })
+  assert.strictEqual(linuxStep(p), undefined)
+  assert.ok(!p.steps.some((s) => s.cmd === 'pnpm test'))
+})
+
+test('a plan that was never asked reports unknown rather than claiming a run', () => {
+  // buildPlan's default. A caller that forgets to pass a verdict must not get a
+  // plan that silently looks Linux-verified.
+  const p = buildPlan({
+    name: 'skitterspec',
+    npm: '@skitterbyte/skitterspec',
+    dirRel: 'packages/skitterspec',
+    currentVersion: '1.0.0',
+    nextVersion: '1.1.0',
+  })
+  assert.strictEqual(p.linux.state, 'unknown')
+  assert.strictEqual(linuxStep(p), undefined)
+})

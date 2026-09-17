@@ -209,6 +209,41 @@ CI runs the suite too, but only once the tag is pushed — by then the tag exist
 and the commit is on the branch. This step is what stops the tag being cut at
 all.
 
+### And it runs twice — the second time on Linux
+
+The run above is on **whatever machine you are sitting at**. That is not a
+detail: `skitterspec@22.0.0` and `skitterspec-linear@17.0.0` were both cut off
+a green macOS suite, pushed, and failed in CI on a test that could not pass on
+Linux. Both tags had to be deleted and re-pushed.
+
+**"Check CI before tagging" cannot work here**, and the reason is structural
+rather than a missing feature: the commit being tagged is the
+`chore(release):` commit *this script creates*, so no CI run for that sha can
+exist at the moment the tag is cut. CI is the gate **after** the tag, always.
+
+So the property is proved locally instead, against the exact tree being tagged:
+
+```
+docker run --rm --init -v "$PWD":/app -w /app node:22 node --test
+```
+
+- **`--init` is load-bearing.** Without it the container's PID 1 is the test
+  runner, which reaps no orphans — a killed detached `sh` stays a zombie, its
+  process-table entry survives, and `process.kill(pid, 0)` goes on succeeding.
+  Two teardown tests then fail in the container and pass everywhere else. A gate
+  that accuses healthy code gets skipped forever, so this is not optional.
+- **No Docker is not a failure.** The step is dropped, the plan says so in
+  words, and the release proceeds — a machine without Docker is not a machine
+  with a bad tree.
+- **`--skip-linux`** opts out explicitly, on the record in the invocation and
+  in the printed plan, the same bargain as `--allow-empty` and `--skip-tests`.
+  `--skip-tests` drops both runs.
+
+**What it does not promise.** A container is not a GitHub runner — same kernel
+family, different image, different filesystem semantics under a bind mount. It
+closes the macOS-vs-Linux gap that has bitten twice. It is not CI parity, and
+nothing here should be read as saying the tag is safe because this passed.
+
 A red suite leaves **no commit and no tag**, and exactly two unstaged files. The
 next run refuses on a dirty tree, so the failure names them:
 

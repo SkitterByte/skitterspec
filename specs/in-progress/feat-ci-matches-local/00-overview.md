@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Decide the approach, and audit the port-touching tests | ✅ | [01-audit-and-decide.md](01-audit-and-decide.md) |
-| 2 | Gate the tag on Linux, and close the second tier | ⬜ | [02-apply.md](02-apply.md) |
+| 2 | Gate the tag on Linux, and close the second tier | ✅ | [02-apply.md](02-apply.md) |
 
 ## Open questions
 
@@ -116,9 +116,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
       of aim rather than cost (Decision 2).
 - [x] ~~Do any of the other seven files have the same race?~~ No. Zero surviving
       sites; five second-tier ones, carried into phase 2.
-- [ ] Should `stopProcess` itself wait for the port, or should its callers? The
-      five second-tier sites all turn on this, and it is a product decision
-      rather than a test one.
+- [x] ~~Should `stopProcess` itself wait for the port, or should its callers?~~
+      The callers. `stopProcess` is generic and knows no port, so teaching it to
+      wait would mean inventing one it has no business knowing.
 
 ## State log
 
@@ -142,3 +142,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-17 — Phase 1: a local Linux run was proven, not assumed — the reader
   suite runs 42/42 on `node:22` in Docker against this worktree, which is also
   how the group-kill fix was first confirmed on Linux.
+- 2026-09-17 — Phase 2: a CI lookup before tagging is structurally impossible —
+  the sha being tagged is created by `release.js` itself, so no run for it can
+  exist yet. The gate runs the suite in a container against the exact tree
+  instead, which proves the same property without restructuring the flow.
+- 2026-09-17 — Phase 2: the gate's first version accused healthy code. Without
+  `--init` a container reaps no orphans, so a killed `sh` stays a zombie and
+  two teardown tests failed there while passing on macOS and CI. `--init` is
+  load-bearing and has its own test — a gate that cries wolf gets skipped.
