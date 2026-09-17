@@ -42,7 +42,10 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push|none` is a hard 
   "intake": {
     "label": "",          // inbox filter — the label the web app files under
     "bugLabels": [],      // e.g. ["bug"] — these route to /spec-bug instead
-    "hotfixLabels": []    // e.g. ["production"] — these route to /spec-hotfix
+    "hotfixLabels": [],   // e.g. ["production"] — these route to /spec-hotfix
+    "preserveOriginal": true  // keep the reporter's description as a comment
+                              // before the linking push replaces it. ON by
+                              // default; false declines.
   },
 
   // How a spec's parts map onto Linear objects: a spec is an Issue, each phase a
@@ -612,8 +615,25 @@ The issue **becomes** the spec's issue: its identifier is stamped as
 `linear_identifier`, phases become its sub-issues, and the **linking push**
 — which runs as the spec is created — replaces its description with the spec. The
 reporter's comments, links and subscribers stay on the one issue everyone is
-already watching; their original words are carried into the spec's **Problem**
-(or **Symptom**) section, and Linear keeps the original in the issue's history.
+already watching.
+
+**What happens to what they wrote.** Two things, and neither is the issue's
+history:
+
+- **Adoption posts it back as a comment**, verbatim, before the push replaces
+  the description (`skitterspec spec-sync preserve <spec>`, which the adoption
+  skills run for you). A comment is outside `sync.fieldOwnership` by design —
+  Linear-native triage that one-way sync never touches — which is exactly what
+  makes it safe: no later push can clobber it. It carries a marker so a second
+  run posts nothing, and it never fails the adoption: an unreachable Linear, an
+  issue with no description or `intake.preserveOriginal: false` all exit 0 and
+  say so. Set that key to `false` to turn the whole thing off.
+- **The spec quotes them** in its **Problem** (or **Symptom**) section, which
+  *is* pushed as part of the generated description — so the reporter's words are
+  in the description too, and they round-trip like everything else.
+
+The issue's history does technically hold the pre-adoption text, and it is not
+the answer: a diff viewer is not quotable and nobody opens one.
 
 An issue already stamped on a spec can't be adopted twice — `skitterspec spec-sync
 linked` is the list that's checked.

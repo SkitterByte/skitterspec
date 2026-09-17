@@ -156,7 +156,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Preserve the original as a Linear comment | ✅ | [01-preserve-engine.md](01-preserve-engine.md) |
-| 2 | Wire preserve into the three adoption paths | ⬜ | [02-adoption-skills.md](02-adoption-skills.md) |
+| 2 | Wire preserve into the three adoption paths | ✅ | [02-adoption-skills.md](02-adoption-skills.md) |
 | 3 | Detect a description edited on Linear | ⬜ | [03-drift-detection.md](03-drift-detection.md) |
 | 4 | Report the drift, and correct the docs | ⬜ | [04-report-and-docs.md](04-report-and-docs.md) |
 
@@ -183,3 +183,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   usage names it, with retired names allowlisted. The repo's own
   `docs-claims` test already demanded the same of `docs/linear.html`, so
   `preserve` was documented there in this phase rather than in phase 4.
+- 2026-09-17 — Phase 2 corrected two assumptions in its own plan. The adoption
+  prose is **one seam fragment** (`packages/linear/assets/seams/spec-tracker-intake.md`),
+  not three skill files — `packages/skitterspec-linear/assets/` is a gitignored
+  build output — so the three-file edit was one edit.
+- 2026-09-17 — Phase 2: the "Linear keeps the original in the issue's history"
+  claim had a second copy in `assets/core/linear.config.md`. An existing asset
+  test pinned it, so removing it from the seam turned that test red; both copies
+  are now replaced and the test asserts the new answer.

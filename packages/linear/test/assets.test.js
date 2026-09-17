@@ -419,7 +419,52 @@ test('the fragment still forbids a base sidecar, and says why', () => {
 test('the fragment says where the reporter words survive, for either template', () => {
   const text = seamText('spec-tracker-intake')
   assert.match(text, /\*\*Problem\*\* \(or \*\*Symptom\*\*\)/, 'both section names')
-  assert.match(text, /Linear\s*\n?\s*keeps the original/, 'and that Linear keeps the original')
+  assert.match(text, /preserved as a comment/, 'and that the verbatim original is a comment')
+})
+
+// --- preserving the original, before the push overwrites it ------------------
+
+test('the fragment runs preserve, and orders it before the linking push', () => {
+  // THE ORDERING IS THE CORRECTNESS CONDITION, not a preference. Run after the
+  // push, preserve would capture the generated spec and report success — so the
+  // fragment has to state the order rather than leave it to reading position.
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /spec-sync preserve <spec>/, 'names the command')
+  assert.match(text, /before the linking push/i, 'and when it runs')
+  assert.match(text, /ordering is the whole correctness condition/i, 'says why the order matters')
+  assert.ok(
+    text.indexOf('spec-sync preserve') < text.indexOf('Say what will happen'),
+    'preserve comes before the finish-up step in the text an agent reads top-down',
+  )
+})
+
+test('the fragment says preserve never fails the adoption', () => {
+  // A courtesy that could fail the skill that called it would be a gate on
+  // /spec, which is not what this is.
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /never fails the adoption/i)
+  assert.match(text, /intake\.preserveOriginal/, 'names the opt-out')
+})
+
+test('the fragment stops sending anyone to the issue history', () => {
+  // It said Linear keeps the original there — true, and useless: a diff viewer
+  // is not quotable and nobody opens one. The comment is the answer now.
+  const text = seamText('spec-tracker-intake')
+  assert.doesNotMatch(text, /keeps the original in the issue's history/, 'stale answer gone')
+  assert.match(text, /Do not send anyone to the issue's history/, 'and replaced deliberately')
+})
+
+test('the finish-up message promises both halves', () => {
+  const text = seamText('spec-tracker-intake')
+  assert.match(text, /description\s*\n?\s*becomes the spec/, 'what is lost')
+  assert.match(text, /original is preserved as a comment/, 'and what is kept')
+})
+
+test('the config reference documents preserveOriginal where someone would look', () => {
+  const doc = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(doc, /"preserveOriginal"/, 'in the annotated field block')
+  assert.match(doc, /spec-sync preserve <spec>/, 'and the command that does it')
+  assert.doesNotMatch(doc, /keeps the original in the issue's history/, 'stale claim gone here too')
 })
 
 // --- hotfixLabels is documented where someone would look for it -------------

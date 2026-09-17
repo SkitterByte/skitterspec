@@ -93,8 +93,37 @@ it happens differs (`/spec` writes the spec in Phase B, `/spec-bug` in its step 
   description (an **update** to the existing issue, plus a sub-issue per phase).
   Recording a snapshot here would declare the mirror already in sync and strand
   the issue showing the raw report forever.
+- **Preserve the original, before anything replaces it.** Run this the moment
+  the spec file exists and **before the linking push**:
+
+  ```
+  skitterspec spec-sync preserve <spec>
+  ```
+
+  It posts the issue's current description onto the issue as a comment — the one
+  surface one-way sync never touches, so no push can clobber it. On the API path
+  it reads the description itself; without a key it prints the body and the
+  marker, and you post it with the Linear comment tool after checking the
+  comments for that marker.
+
+  **The ordering is the whole correctness condition.** Run before the push, this
+  keeps what the reporter filed. Run after it, it would keep the generated spec
+  and report success — which is why it is a step of its own here rather than a
+  line in the push sequence. The engine warns when it can tell it is late, but it
+  cannot always tell.
+
+  **It never fails the adoption.** A project that set
+  `intake.preserveOriginal: false`, an unreachable Linear, an issue with no
+  description, a comment Linear refused — every one of them exits 0 and says so.
+  Relay what it printed and carry on.
 - **Say what will happen** in the finish-up message. The linking step runs right
   after the spec is written, so the issue's description is replaced by the spec
-  **then** — not on some later manual push. The reporter's words are not lost:
-  they are quoted in the spec's **Problem** (or **Symptom**) section, and Linear
-  keeps the original in the issue's history.
+  **then** — not on some later manual push. Say both halves: the description
+  becomes the spec, **and** the original is preserved as a comment on the same
+  issue, so the reporter can still read what they wrote.
+
+  **Do not send anyone to the issue's history for it.** This used to say Linear
+  keeps the original there, and that is true and useless: history is a diff
+  viewer nobody opens, it is not quotable, and it degrades to "it is in there
+  somewhere". The comment is the answer, and the other half is the spec's own
+  **Problem** (or **Symptom**) section quoting the reporter.
