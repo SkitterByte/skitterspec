@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-320"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-320/three-links-labelled-and-you-pick-the-one-that-reaches-you"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Three links, labelled, and you pick the one that reaches you
 
 > **Type:** Feature
 > **Name:** feat-three-review-links (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-17)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
 > **Area:** packages/common/src/cli.js, packages/common/src/env/config.js, packages/common/src/env/review.js, .claude/rules/spec-reports.md, packages/common/test/
 > **Stack:** worktree
@@ -109,6 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
+| 2026-09-17 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
