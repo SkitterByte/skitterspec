@@ -2677,7 +2677,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       // The URLs come from the bind the server HAS, not the one asked for just
       // above — adoption can hand back a loopback server whatever was
       // requested. See `reviewServedUrls`.
-      const urls = reviewServedUrls(up, lanAddresses(), spec.folder)
+      const urls = reviewServedUrls(up, offerableLanAddresses(), spec.folder)
       if (urls) {
         served = { ...urls, port: up.port, token: up.token, started: up.started }
       }
@@ -2705,6 +2705,15 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           reader: reader.reader,
           readerWhy: reader.why,
           served,
+          // The same stack the text prints, so a skill reads the tiers rather
+          // than parsing prose — and the two can never disagree, because both
+          // come from `reviewTierStack`.
+          tiers: reviewTierStack({
+            served,
+            fileUrl: reviewFileUrl(out),
+            publishedUrl: url,
+            config,
+          }),
           // Absent when there IS a served URL, so a consumer that only ever
           // saw a served render sees no new key.
           ...(served ? {} : noServeBecause ? { notServed: noServeBecause } : {}),
@@ -2799,43 +2808,42 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
         ? ''
         : `  reader: ${reader.reader}${reader.why ? ` (${reader.why})` : ''}\n`) +
       `  page: ${out}\n` +
-      // Served: the `open:` line is a URL the reader can actually use, and
-      // `page:` above still says where the file is. Not served — including every
-      // way serving can fail — falls back to exactly the output this printed
-      // before, dead link and all: that is the floor, never made worse.
-      (served
-        ? `  open: ${served.url}\n` +
-          // Said only when there is a runner-up. One address is not a choice,
-          // and an `also:` line naming nothing reads as a warning.
-          (served.alternates.length
-            ? served.alternates.map((u) => `  also: ${u}\n`).join('')
-            : '') +
-          // A loopback server is reachable from this machine and nowhere else.
-          // Said here rather than left to be discovered by a phone that cannot
-          // open the URL — and it names the command instead of describing it.
-          (served.loopback
-            ? '  local only: this server is bound to 127.0.0.1 — not reachable from your phone.\n' +
-              `  widen: ${served.widen}\n`
-            : '') +
-          (served.started && !served.loopback
-            ? '  serving: every provisioned spec, to anyone with this URL on your network.\n' +
-              '  stop:  skitterspec spec-env review serve --stop\n'
-            : '') +
-          // One line, and only when something was actually done on the reader's
-          // behalf. An action nobody asked for is reported, not hidden — the
-          // same rule teardown follows.
-          (serverSaid ? `  ${serverSaid}\n` : '')
-        : `  open: ${reviewFileUrl(out)}${
-            reader.reader === 'remote' ? '   (will not open where you are reading)' : ''
-          }\n` +
-          // THE REASON, not just the fallback. A `file://` link with nothing
-          // said about it reads as the ordinary outcome, and since phase 1 it
-          // is not: something stopped the server this render asked for.
-          (noServeBecause ? `  not served: ${noServeBecause}\n` : '') +
-          (serverSaid ? `  ${serverSaid}\n` : '') +
-          (reader.reader === 'remote'
-            ? '  serve: skitterspec spec-env review serve --host 0.0.0.0\n'
-            : '')) +
+      // THE STACK, in a fixed order, every tier named. The single `open:` line
+      // it replaces asked the engine to pick which surface the reader could
+      // use, and the engine cannot know — that guess failed three separate ways
+      // in one day. Now every tier is listed, labelled, and either a URL or the
+      // one command that turns it on.
+      reviewTierStack({
+        served,
+        fileUrl: reviewFileUrl(out),
+        publishedUrl: url,
+        config,
+      })
+        .map((t) => reviewTierLine(t) + '\n')
+        .join('') +
+      // The runners-up sit UNDER the network tier, because that is what they are
+      // alternatives to — and virtual adapters are gone from them entirely.
+      (served && !served.loopback && (served.alternates || []).length
+        ? served.alternates.map((u) => `    also:  ${u}\n`).join('')
+        : '') +
+      // WHICH TIERS THE WAIT COVERS, once, next to the stack. `local` and
+      // `network` are two doors into one room — the page POSTs to
+      // `location.pathname`, so both reach this server and this pending store.
+      // `remote` writes to the artifact's own store, which nothing here can see.
+      '  the wait covers local + network; a remote verdict needs /spec-reviewed.\n' +
+      // The reason there is no served URL, when there is none. A `file://` link
+      // with nothing said about it reads as the ordinary outcome, and it is not.
+      (!served && noServeBecause ? `  not served: ${noServeBecause}\n` : '') +
+      (served && served.loopback && config.review.allowNetwork
+        ? `  network permitted but the running server is loopback-bound — ${served.widen}\n`
+        : '') +
+      (served && served.started && !served.loopback
+        ? '  serving: every provisioned spec, to anyone with a URL on your network.\n' +
+          '  stop:  skitterspec spec-env review serve --stop\n'
+        : '') +
+      // One line, and only when something was actually done on the reader's
+      // behalf. An action nobody asked for is reported, not hidden.
+      (serverSaid ? `  ${serverSaid}\n` : '') +
       // Named on its own line so the skill never has to build the path itself.
       (publishCopy ? `  publish: ${publishCopy}\n` : '') +
       (url ? `  published: ${url}\n` : '') +
@@ -3098,6 +3106,27 @@ function rankLanAddresses(nets) {
 // printing a URL a phone on the same network can actually open.
 function lanAddresses(nets = require('node:os').networkInterfaces()) {
   return rankLanAddresses(nets).map((e) => e.address)
+}
+
+/**
+ * The addresses worth OFFERING as alternatives — physical and unknown
+ * interfaces, never virtual ones.
+ *
+ * The ranking already puts virtuals last, so the best guess was right; what was
+ * wrong was listing them at all. A render offered `10.211.55.2` and
+ * `10.37.129.2` — both Parallels adapters — as alternatives to a working link,
+ * and no phone can route to either. An alternative that cannot work is worse
+ * than no alternative: it reads as something to try when the first one fails.
+ *
+ * WHAT WOULD FOOL THIS: an interface named outside both patterns is `unknown`
+ * and therefore KEPT, because a machine with unusual naming is more likely to
+ * have a real address than a fake one — being wrong that way offers one dud,
+ * where the opposite hides the only address that works.
+ */
+function offerableLanAddresses(nets = require('node:os').networkInterfaces()) {
+  return rankLanAddresses(nets)
+    .filter((e) => !VIRTUAL_IFACE.test(e.iface))
+    .map((e) => e.address)
 }
 
 /**
@@ -3441,10 +3470,69 @@ async function specEnvReviewServe(dir, config, flags) {
  * would break the open URL to fix a description, so it prints the address that
  * works and names the command that widens it.
  */
+/**
+ * The three review tiers, in a FIXED ORDER, each either a URL or the reason it
+ * is not one. Pure: it takes what the caller already resolved.
+ *
+ * Fixed order matters more than it looks. A reader who has learnt which line
+ * their phone opens should not have to re-read the labels every render, and a
+ * stack that reordered itself by availability would make them.
+ *
+ * WHY A STACK AT ALL, when the rule said exactly one link: the engine cannot
+ * know where the reader is sitting, and every attempt to guess failed the
+ * moment they moved. `local` and `network` are two doors into ONE room — the
+ * page POSTs to `location.pathname`, so both reach the same server and the same
+ * pending store, and one wait covers both. `remote` is a second store, which is
+ * why it carries the line saying so.
+ */
+function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
+  const tiers = []
+  const loopbackUrl = served && served.loopbackUrl ? served.loopbackUrl : null
+
+  tiers.push(
+    loopbackUrl
+      ? { tier: 'local', url: loopbackUrl }
+      : { tier: 'local', url: fileUrl, note: 'a file:// page cannot send a verdict' },
+  )
+
+  if (!config.review.allowNetwork) {
+    tiers.push({ tier: 'network', off: true, enable: 'skitterspec spec-env review allow network' })
+  } else if (served && !served.loopback && served.url) {
+    tiers.push({ tier: 'network', url: served.url, alternates: served.alternates || [] })
+  } else {
+    // Permitted, but there is no address to offer — a machine with no network,
+    // or a server that could not take one. Not a problem to report as an error.
+    tiers.push({ tier: 'network', unavailable: true, note: 'no network address on this machine' })
+  }
+
+  if (!config.review.allowRemote) {
+    tiers.push({ tier: 'remote', off: true, enable: 'skitterspec spec-env review allow remote' })
+  } else if (publishedUrl) {
+    tiers.push({ tier: 'remote', url: publishedUrl, note: 'a verdict here needs /spec-reviewed' })
+  } else {
+    tiers.push({ tier: 'remote', unavailable: true, note: 'publishing is an ask — nothing published yet' })
+  }
+
+  return tiers
+}
+
+// One tier as a line, padded so the labels form a column the eye can run down.
+function reviewTierLine(t) {
+  const label = `  ${t.tier}:`.padEnd(11)
+  if (t.url) return `${label}${t.url}${t.note ? `   (${t.note})` : ''}`
+  if (t.off) return `${label}off — turn on with: ${t.enable}`
+  return `${label}—   (${t.note})`
+}
+
 function reviewServedUrls(up, addrs, folder) {
   const page = (host) => `${serveUrl(host, up)}${encodeURIComponent(folder)}`
+  // ALWAYS AVAILABLE WHEN SERVED. A server bound to 0.0.0.0 answers on loopback
+  // too, so `local` is a real tier in both binds — it is not an alternative to
+  // the network URL, it is the same page from the machine holding it.
+  const loopbackUrl = page('127.0.0.1')
   if (up.loopback) {
     return {
+      loopbackUrl,
       url: page('127.0.0.1'),
       // No runners-up: every other address on this machine is one the server
       // is not listening on.
@@ -3457,8 +3545,14 @@ function reviewServedUrls(up, addrs, folder) {
   // and can be wrong, so the alternates are offered rather than thrown away. No
   // address at all means nothing to offer, and the `file://` fallback is the
   // honest answer.
-  if (!addrs.length) return null
-  return { url: page(addrs[0]), alternates: addrs.slice(1).map(page), loopback: false, widen: null }
+  if (!addrs.length) return { loopbackUrl, url: null, alternates: [], loopback: false, widen: null }
+  return {
+    loopbackUrl,
+    url: page(addrs[0]),
+    alternates: addrs.slice(1).map(page),
+    loopback: false,
+    widen: null,
+  }
 }
 
 /**
@@ -4283,6 +4377,8 @@ module.exports = {
   HELP,
   unknownCommand,
   rankLanAddresses,
+  offerableLanAddresses,
+  reviewTierStack,
   serveProcFor,
   serverScriptOk,
   daemonScript,

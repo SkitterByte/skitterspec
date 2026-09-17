@@ -99,7 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The tiers, and what turns them on | ✅ | [01-the-tiers.md](01-the-tiers.md) |
-| 2 | The render stacks them, labelled | ⬜ | [02-the-stack.md](02-the-stack.md) |
+| 2 | The render stacks them, labelled | ✅ | [02-the-stack.md](02-the-stack.md) |
 | 3 | The banner and the amended rule | ⬜ | [03-the-rule.md](03-the-rule.md) |
 
 ## Open questions
@@ -125,3 +125,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   now hangs off the setting instead of the reader, and its test was rewritten to
   assert the off-case. `allow` is the first writer of `env.config.json`, and from
   a worktree it writes the primary checkout and dirties it; the output says so.
+- 2026-09-17 — Phase 2: the single `open:` line became the labelled stack, which
+  moved 21 tests. Two outputs were removed with it — the
+  "will not open where you are reading" warning and the `serve: --host` hint —
+  because the stack states each tier positively and names a setting instead.
+  `reviewServedUrls` now always carries the loopback URL, since a wide-bound
+  server answers there too.

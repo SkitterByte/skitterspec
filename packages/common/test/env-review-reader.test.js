@@ -197,9 +197,13 @@ test('serveOnRemote off returns the marked link and the command to type', async 
   try {
     const out = await review(dir)
     assert.match(out, /reader: remote \(configured\)/)
-    assert.match(out, /will not open where you are reading/)
-    assert.match(out, /serve: skitterspec spec-env review serve --host 0\.0\.0\.0/)
-    assert.match(out, /open: file:\/\//, 'the path is marked, never suppressed')
+    // THE WARNING WAS REPLACED, NOT DROPPED. This asserted
+    // `will not open where you are reading` plus a `serve: --host 0.0.0.0`
+    // hint — telling the reader what was NOT available. The stack shows every
+    // tier and its state instead, which answers the same question positively
+    // and names a setting rather than a one-off flag.
+    assert.match(out, /^ {2}local: +file:\/\//m, 'the path is marked, never suppressed')
+    assert.match(out, /^ {2}network: +http:\/\/|^ {2}network: +off|^ {2}network: +—/m, 'network is stated')
   } finally {
     cleanup(dir)
   }
@@ -234,7 +238,7 @@ test('an unknown reader is not announced and not warned about', async () => {
     // now loopback http rather than `file://` — serving stopped being gated on
     // the reader — but an unknown reader is still not announced and still not
     // warned about, which is the accusation this guards against.
-    assert.match(out, /open: http:\/\/127\.0\.0\.1:/, 'a link that opens, and can answer')
+    assert.match(out, /^ {2}local: +http:\/\/127\.0\.0\.1:/m, 'a link that opens, and can answer')
   } finally {
     process.env.SSH_CONNECTION = saved.SSH_CONNECTION
     process.env.SSH_TTY = saved.SSH_TTY
@@ -313,10 +317,10 @@ test('a remote reader is given a link that opens where they are', async () => {
     assert.match(out, /reader: remote \(configured\)/)
     assert.match(
       out,
-      /open: http:\/\/[^\s]+\/feat-alpha/,
+      /^ {2}network: +http:\/\/[^\s]+\/feat-alpha/m,
       'the offered link must be one the reader can open, not a path on this machine',
     )
-    assert.doesNotMatch(out, /open: file:\/\//, 'a dead link is not an offer')
+    assert.doesNotMatch(out, /^ {2}network: +file:\/\//m, 'a dead link is not an offer')
   } finally {
     await stopServe(dir)
     cleanup(dir)
@@ -330,8 +334,8 @@ test('a second review adopts the running server rather than restarting it', asyn
     const secondText = review(dir)
     // The exposure warning is said ONCE, where the server is stood up. Repeating
     // it on every phase is how a real warning becomes wallpaper.
-    assert.match(firstText, /anyone with this URL on your network/)
-    assert.doesNotMatch(secondText, /anyone with this URL on your network/)
+    assert.match(firstText, /anyone with a URL on your network/)
+    assert.doesNotMatch(secondText, /anyone with a URL on your network/)
     const first = JSON.parse(review(dir, '--json')).served
     const second = JSON.parse(review(dir, '--json')).served
     assert.ok(first && second, 'both calls served')
@@ -366,8 +370,8 @@ test('a local reader is served too, on loopback, because file:// cannot POST', a
   const { dir } = scaffold('local', { servePort: await freePort(), allowNetwork: false })
   try {
     const out = review(dir)
-    assert.match(out, /open: http:\/\/127\.0\.0\.1:/, 'a link that opens AND can answer')
-    assert.doesNotMatch(out, /open: file:\/\//)
+    assert.match(out, /^ {2}local: +http:\/\/127\.0\.0\.1:/m, 'a link that opens AND can answer')
+    assert.doesNotMatch(out, /^ {2}local: +file:\/\//m)
     assert.ok(
       fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')),
       'the server is what makes the verdict buttons work',
@@ -382,7 +386,7 @@ test('an unknown reader is served on loopback as well — cannot-tell is not a r
   const { dir } = scaffold('detect', { servePort: await freePort(), allowNetwork: false })
   try {
     const out = review(dir)
-    assert.match(out, /open: http:\/\/127\.0\.0\.1:/)
+    assert.match(out, /^ {2}local: +http:\/\/127\.0\.0\.1:/m)
     assert.ok(fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')))
   } finally {
     stopServe(dir)
@@ -405,8 +409,8 @@ test('allowNetwork off binds loopback only, whatever the reader', async () => {
     const { dir } = scaffold(who, { servePort: await freePort(), allowNetwork: false })
     try {
       const out = review(dir)
-      assert.doesNotMatch(out, /open: http:\/\/(?!127\.0\.0\.1)/, `${who} must bind loopback only`)
-      assert.doesNotMatch(out, /^\s*also: /m, `${who} has no alternates to offer`)
+      assert.doesNotMatch(out, /^ {2}network: +http:\/\//m, `${who} must bind loopback only`)
+      assert.doesNotMatch(out, /^\s+also: +/m, `${who} has no alternates to offer`)
     } finally {
       stopServe(dir)
       cleanup(dir)
@@ -421,8 +425,8 @@ test('allowNetwork on binds the network, whatever the reader', async () => {
     const { dir } = scaffold(who, { servePort: await freePort() })
     try {
       const out = review(dir)
-      assert.match(out, /open: http:\/\//, `${who} is served`)
-      assert.doesNotMatch(out, /open: http:\/\/127\.0\.0\.1:/, `${who} is not confined to loopback`)
+      assert.match(out, /^ {2}(local|network): +http:\/\//m, `${who} is served`)
+      assert.match(out, /^ {2}network: +http:\/\//m, `${who} reaches the network`)
     } finally {
       stopServe(dir)
       cleanup(dir)
@@ -434,7 +438,7 @@ test('serve: "never" is the way back to the file:// link', async () => {
   const { dir } = scaffold('local', { servePort: await freePort(), serve: 'never' })
   try {
     const out = review(dir)
-    assert.match(out, /open: file:\/\//)
+    assert.match(out, /^ {2}local: +file:\/\//m)
     assert.ok(!fs.existsSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid')))
   } finally {
     stopServe(dir)
@@ -448,7 +452,7 @@ test('a legacy serveOnRemote: false is still read as serve: "never"', async () =
   const { dir } = scaffold('local', { servePort: await freePort(), serveOnRemote: false })
   try {
     const out = review(dir)
-    assert.match(out, /open: file:\/\//)
+    assert.match(out, /^ {2}local: +file:\/\//m)
   } finally {
     stopServe(dir)
     cleanup(dir)
@@ -466,8 +470,8 @@ test('a port already in use falls back to the file link, and does not fail', asy
   const { dir } = scaffold('remote', { servePort: port })
   try {
     const out = review(dir)
-    assert.match(out, /open: file:\/\//, 'the floor is the old link, never an error')
-    assert.doesNotMatch(out, /open: http:\/\//)
+    assert.match(out, /^ {2}local: +file:\/\//m, 'the floor is the old link, never an error')
+    assert.doesNotMatch(out, /^ {2}network: +http:\/\//m)
     assert.strictEqual(JSON.parse(review(dir, '--json')).served, null)
   } finally {
     await new Promise((r) => blocker.close(r))
@@ -485,9 +489,12 @@ test('the alternates are real alternatives to the offered link', async () => {
   const { dir } = scaffold('remote', { servePort: await freePort() })
   try {
     const out = review(dir)
-    const open = out.match(/^ {2}open: (\S+)$/m)
-    assert.ok(open, 'a link was offered')
-    const also = [...out.matchAll(/^ {2}also: (\S+)$/gm)].map((m) => m[1])
+    // The alternates now sit UNDER the network tier, indented, because that is
+    // what they are alternatives to — and virtual adapters no longer appear
+    // among them at all.
+    const open = out.match(/^ {2}network: +(\S+)$/m)
+    assert.ok(open, 'a network link was offered')
+    const also = [...out.matchAll(/^ {4}also: +(\S+)$/gm)].map((m) => m[1])
     const served = JSON.parse(review(dir, '--json')).served
     assert.strictEqual(also.length, served.alternates.length, 'text and --json agree')
     for (const url of also) {
@@ -511,7 +518,7 @@ test('serve: "never" says so, rather than leaving the file:// link unexplained',
   const { dir } = scaffold('local', { servePort: await freePort(), serve: 'never' })
   try {
     const out = review(dir)
-    assert.match(out, /open: file:\/\//)
+    assert.match(out, /^ {2}local: +file:\/\//m)
     assert.match(out, /not served: review\.serve is "never"/)
     assert.strictEqual(JSON.parse(review(dir, '--json')).notServed, 'review.serve is "never"')
   } finally {
@@ -528,7 +535,7 @@ test('a failed serve names the failure, not just the fallback', async () => {
   const { dir } = scaffold('remote', { servePort: port })
   try {
     const out = review(dir)
-    assert.match(out, /open: file:\/\//, 'the floor is still the old link, never an error')
+    assert.match(out, /^ {2}local: +file:\/\//m, 'the floor is still the old link, never an error')
     // The PORT, not just the word `busy` — the port is the whole of what the
     // reader can act on.
     assert.match(out, new RegExp(`not served: port ${port} is already in use`))
@@ -550,8 +557,10 @@ test('a remote reader still gets the warning on that fallback, and only there', 
   const { dir } = scaffold('remote', { servePort: port })
   try {
     const out = review(dir)
-    assert.match(out, /will not open where you are reading/)
-    assert.match(out, /serve: skitterspec spec-env review serve --host 0\.0\.0\.0/)
+    // Same replacement as above: the stack states each tier rather than warning
+    // about the one the reader cannot use.
+    assert.match(out, /^ {2}local: +file:\/\//m)
+    assert.match(out, /not served: /, 'and it still says why there is no server')
   } finally {
     await new Promise((r) => blocker.close(r))
     stopServe(dir)
@@ -563,7 +572,7 @@ test('STAYS SILENT: a served render explains nothing, because nothing needs it',
   const { dir } = scaffold('local', { servePort: await freePort(), allowNetwork: false })
   try {
     const out = review(dir)
-    assert.match(out, /open: http:\/\/127\.0\.0\.1:/)
+    assert.match(out, /^ {2}local: +http:\/\/127\.0\.0\.1:/m)
     assert.doesNotMatch(out, /not served/, 'a reason for a thing that happened is noise')
     assert.ok(!('notServed' in JSON.parse(review(dir, '--json'))))
   } finally {
@@ -580,9 +589,18 @@ test('STAYS SILENT: a served render explains nothing, because nothing needs it',
 // survive and the other was not. Six URLs were handed out for one repo in a
 // single session and a reader was left pressing verdicts on dead pages twice.
 
+/**
+ * The URL a reader would use, read off the tier stack.
+ *
+ * The single `open:` line this used to parse is gone: the engine stopped
+ * picking one surface, because it cannot know where the reader is. `network`
+ * first, then `local` — which is the order of reach, not the order printed.
+ */
 const urlOf = (out) => {
-  const m = /open: (http:\/\/\S+)/.exec(out)
-  return m ? m[1] : null
+  const net = /^ {2}network: +(http:\/\/\S+)/m.exec(out)
+  if (net) return net[1]
+  const local = /^ {2}local: +(http:\/\/\S+)/m.exec(out)
+  return local ? local[1] : null
 }
 
 test('a stop and a start leave the URL unchanged', async () => {
@@ -708,7 +726,7 @@ test('a malformed token file is replaced rather than serving nothing', async () 
     fs.mkdirSync(path.join(dir, '.spec-env'), { recursive: true })
     fs.writeFileSync(path.join(dir, '.spec-env', 'review-token'), '\n')
     const out = review(dir)
-    assert.match(out, /open: http:\/\//, 'a file nobody reads must not take the page away')
+    assert.match(out, /^ {2}(local|network): +http:\/\//m, 'a file nobody reads must not take the page away')
     const token = fs.readFileSync(path.join(dir, '.spec-env', 'review-token'), 'utf8').trim()
     assert.match(token, /^[0-9a-f]{12}$/)
   } finally {

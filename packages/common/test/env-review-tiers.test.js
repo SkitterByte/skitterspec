@@ -210,3 +210,180 @@ test('setting a tier to what it already is says so rather than pretending to cha
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// --- the stack -------------------------------------------------------------
+
+/**
+ * The render, run in a CHILD PROCESS rather than in-process.
+ *
+ * `runQuiet` hijacks `process.stdout.write`, and `node --test` writes its own
+ * report to the same stream — so a call that awaits long enough (a render does,
+ * it starts a server) captures the runner's binary protocol along with the
+ * output. That produced a `--json` parse failure and a stays-silent test
+ * matching `/error|failed/` against an embedded `test:fail` event. A child owns
+ * its own stdout, which is the pattern the other serving suites already use.
+ */
+function review(dir, ...extra) {
+  const script =
+    `const { run } = require(${JSON.stringify(path.resolve(__dirname, '../src/cli.js'))});` +
+    'run(process.argv.slice(1)).then(() => {}, (e) => { console.error(e); process.exit(1) })'
+  return execFileSync(
+    'node',
+    ['-e', script, 'spec-env', 'review', 'feat-alpha', '--dir', dir, ...extra],
+    { encoding: 'utf-8' },
+  )
+}
+
+function repoWithSpec(review_ = {}, port) {
+  const dir = repo({ ...review_, reader: 'local', servePort: port })
+  const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
+  const sd = path.join(dir, 'specs', 'in-progress', 'feat-alpha')
+  fs.mkdirSync(sd, { recursive: true })
+  fs.writeFileSync(path.join(sd, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
+  fs.writeFileSync(path.join(dir, 'app.js'), 'one\n')
+  g('add', '-A')
+  g('commit', '-q', '-m', 'spec')
+  const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'alpha')
+  g('worktree', 'add', '-q', '-b', 'feat/alpha', wt)
+  fs.writeFileSync(path.join(wt, 'app.js'), 'one\ntwo\n')
+  return { dir, wt }
+}
+
+function drop(dir) {
+  try {
+    execFileSync('git', ['-C', dir, 'worktree', 'prune'], { stdio: 'ignore' })
+  } catch {}
+  fs.rmSync(dir, { recursive: true, force: true })
+  fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
+}
+
+function stopServe(dir) {
+  const script =
+    `const { run } = require(${JSON.stringify(path.resolve(__dirname, '../src/cli.js'))});` +
+    'run(process.argv.slice(1)).then(() => {}, () => {})'
+  try {
+    execFileSync('node', ['-e', script, 'spec-env', 'review', 'serve', '--stop', '--dir', dir], {
+      stdio: 'ignore',
+    })
+  } catch {}
+}
+
+function freePort() {
+  const net = require('node:net')
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer()
+    srv.once('error', reject)
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address()
+      srv.close(() => resolve(port))
+    })
+  })
+}
+
+test('every tier is listed, in a fixed order, labelled', async () => {
+  const { dir } = repoWithSpec({}, await freePort())
+  try {
+    const out = review(dir)
+    const order = [...out.matchAll(/^ {2}(local|network|remote):/gm)].map((m) => m[1])
+    // FIXED ORDER, not availability order: a reader who has learnt which line
+    // their phone opens must not have to re-read the labels every render.
+    assert.deepStrictEqual(order, ['local', 'network', 'remote'])
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+test('local is the loopback http URL, never file:// when served', async () => {
+  const { dir } = repoWithSpec({}, await freePort())
+  try {
+    const out = review(dir)
+    assert.match(out, /^ {2}local: +http:\/\/127\.0\.0\.1:\d+\//m)
+    assert.doesNotMatch(out, /^ {2}local: +file:\/\//m, 'a file:// page cannot send a verdict')
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+test('a disabled tier names the command that turns it on, and shows no URL', async () => {
+  const { dir } = repoWithSpec({ allowNetwork: false }, await freePort())
+  try {
+    const out = review(dir)
+    assert.match(out, /^ {2}network: +off — turn on with: skitterspec spec-env review allow network$/m)
+    const net = /^ {2}network:.*$/m.exec(out)[0]
+    assert.doesNotMatch(net, /http:\/\//, 'off means no URL at all')
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+test('remote permitted but unpublished says publishing is an ask', async () => {
+  const { dir } = repoWithSpec({ allowRemote: true }, await freePort())
+  try {
+    const out = review(dir)
+    assert.match(out, /^ {2}remote: +— +\(publishing is an ask — nothing published yet\)$/m)
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+test('the stack says which tiers the wait covers, once', async () => {
+  const { dir } = repoWithSpec({}, await freePort())
+  try {
+    const out = review(dir)
+    const said = out.match(/the wait covers local \+ network/g) || []
+    assert.strictEqual(said.length, 1, 'said once, not per tier')
+    assert.match(out, /a remote verdict needs \/spec-reviewed/)
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+test('--json carries the same tiers, so a skill never parses prose', async () => {
+  const { dir } = repoWithSpec({}, await freePort())
+  try {
+    const d = JSON.parse(review(dir, '--json'))
+    assert.deepStrictEqual(
+      d.tiers.map((t) => t.tier),
+      ['local', 'network', 'remote'],
+    )
+    assert.match(d.tiers[0].url, /^http:\/\/127\.0\.0\.1:/)
+    assert.strictEqual(d.tiers[2].off, true)
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})
+
+test('virtual adapters are never offered as alternatives', () => {
+  // The ranking already put them last, so the best guess was right; what was
+  // wrong was offering them at all. A render listed two Parallels addresses as
+  // alternatives to a working link, and no phone can route to either.
+  const { offerableLanAddresses } = require('../src/cli.js')
+  const nets = {
+    en0: [{ family: 'IPv4', internal: false, address: '192.168.0.10' }],
+    bridge100: [{ family: 'IPv4', internal: false, address: '10.211.55.2' }],
+    utun3: [{ family: 'IPv4', internal: false, address: '10.37.129.2' }],
+    weird9: [{ family: 'IPv4', internal: false, address: '172.20.0.5' }],
+    lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }],
+  }
+  assert.deepStrictEqual(offerableLanAddresses(nets), ['192.168.0.10', '172.20.0.5'])
+  // `weird9` matches neither pattern and is KEPT: a machine with unusual naming
+  // is likelier to have a real address than a fake one, and being wrong that
+  // way offers one dud where the opposite hides the only address that works.
+})
+
+test('STAYS SILENT: a machine with no network address reports it, not an error', async () => {
+  const { dir } = repoWithSpec({ allowNetwork: false }, await freePort())
+  try {
+    const out = review(dir)
+    assert.doesNotMatch(out, /error|failed/i, 'no network is not a fault')
+  } finally {
+    stopServe(dir)
+    drop(dir)
+  }
+})

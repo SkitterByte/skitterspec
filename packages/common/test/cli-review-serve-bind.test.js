@@ -67,10 +67,19 @@ test('the spec name is encoded, loopback or not', () => {
   }
 })
 
-test('a wide server with no addresses to offer has nothing to print', () => {
-  // A machine with no network address. The `file://` fallback is the honest
-  // answer, and inventing a URL would be worse than saying nothing.
-  assert.strictEqual(reviewServedUrls(WIDE, [], 'feat-alpha'), null)
+test('a wide server with no addresses to offer has no NETWORK url, but still a local one', () => {
+  // A machine with no network address. Inventing a network URL would be worse
+  // than saying nothing — that part is unchanged, and `url` is null.
+  //
+  // WHAT CHANGED: this used to return `null` outright, discarding the loopback
+  // URL with it. A server bound to 0.0.0.0 answers on 127.0.0.1 too, so `local`
+  // is a real tier even here — and the stack needs it, because that is the one
+  // surface a machine with no network still has.
+  const served = reviewServedUrls(WIDE, [], 'feat-alpha')
+  assert.ok(served, 'the loopback tier survives')
+  assert.strictEqual(served.url, null, 'and no network URL is invented')
+  assert.ok(served.loopbackUrl.includes('127.0.0.1'))
+  assert.deepStrictEqual(served.alternates, [])
 })
 
 test('a loopback server still prints, even with no LAN addresses at all', () => {
