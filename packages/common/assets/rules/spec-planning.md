@@ -344,6 +344,27 @@ against a committed last-pushed snapshot and applies it) and `/spec-status`
 workflow-state drifted), backed by a `spec-sync` CLI. There is no content pull —
 the tracker is never read back or merged.
 
+**One-way means the repo wins, and it now wins *loudly*.** Those are different
+claims and only the first was ever in doubt. A ticket's description is generated
+from the spec, so a person editing it there is writing something the next push
+replaces — which is correct, and which used to happen in silence. The engine now
+compares a hash of what the tracker holds against a hash of what the repo last
+sent, and says *that* it changed and where to read it.
+It **reports and never refuses**: only a person can tell a typo fix from a
+paragraph worth keeping.
+
+**This is still not a pull.** Nothing read is merged, written to a spec, or fed
+into the projection, and the text never enters the conversation — the comparison
+is hashes, and the output is one line for a human. It is the same thing
+`compareStored` has always done for a different question.
+
+**And adoption no longer costs the reporter their words.** When a provider
+adopts an existing ticket — one a PM or colleague filed — the linking push
+replaces its description with the spec. Before that happens the original is
+posted back onto the ticket as a **comment**: a surface one-way sync never
+touches, so no later push can clobber it. Where a provider supports it, this is
+automatic and has an opt-out. See the provider's own docs.
+
 A provider may also ship a **read-only listing** of what the tracker holds. That
 is not a pull: nothing is merged back and no spec file is written. It exists
 because the folder buckets are only the truth *on the branch you are standing

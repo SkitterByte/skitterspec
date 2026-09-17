@@ -158,7 +158,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Preserve the original as a Linear comment | ✅ | [01-preserve-engine.md](01-preserve-engine.md) |
 | 2 | Wire preserve into the three adoption paths | ✅ | [02-adoption-skills.md](02-adoption-skills.md) |
 | 3 | Detect a description edited on Linear | ✅ | [03-drift-detection.md](03-drift-detection.md) |
-| 4 | Report the drift, and correct the docs | ⬜ | [04-report-and-docs.md](04-report-and-docs.md) |
+| 4 | Report the drift, and correct the docs | ✅ | [04-report-and-docs.md](04-report-and-docs.md) |
 
 ## Open questions
 
@@ -196,3 +196,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   importing `stream` from `verify.js` instead of reimplementing the reduction.
   An empty description records a stream hash rather than omitting the key, so a
   pre-upgrade snapshot stays the only thing an absent key can mean.
+- 2026-09-17 — Phase 4: `CLAUDE.md` needed no edit — it names no tracker. The
+  sync material is in `spec-planning.md`, which `.claude/rules/` symlinks into
+  the package assets, so one edit covered both. The drift line deliberately has
+  no "none" counterpart, since silence there covers cannot-tell as well as
+  no-edit and a reassuring "unchanged" would overclaim.
+- 2026-09-17 — All four phases done; every phase's tests green. The Linear
+  mirror is stale throughout: the workspace hit its free issue limit while this
+  spec was being created, so phase 4's sub-issue was never minted and every
+  subsequent push was refused as a whole. Re-running `/spec-push` once the
+  limit is lifted resumes without duplicating SKS-330/331/332.

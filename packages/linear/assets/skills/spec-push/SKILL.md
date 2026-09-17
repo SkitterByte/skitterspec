@@ -155,6 +155,24 @@ the chosen project through as `--project <id>`.
 
 ## 4a. Apply it yourself — the MCP path (order matters)
 
+**First, check whether you are about to overwrite someone.** On the API path
+`apply` does this for itself, off the read-back it already makes. On the MCP
+path nothing has read the issue yet, so ask before you write:
+
+```
+skitterspec spec-sync status <spec> --remote <issuefile>
+```
+
+using the same issue JSON step 2 fetched — it must carry the `description`. A
+`drift: … description was edited on Linear since the last push` line means a
+person wrote something there that step 1 below replaces.
+
+**It is a warning and never a gate.** The repo is the source of truth and the
+push still goes ahead; relay the line, name the issue, and carry on. What is
+forbidden is doing it *silently* — someone's paragraph disappearing with nothing
+said about it is the failure this exists to end. Nothing printed means nothing to
+say, which includes every case the engine could not tell.
+
 1. **Spec issue** → if the overview has no `linear_identifier`, this push
    **mints** it: run the picker in **Picking the Linear Project** below, then
    create it with `save_issue` (`team` = `linear.teamId`; `project` = the picked

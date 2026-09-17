@@ -55,6 +55,7 @@ const {
   dirtyPaths,
   phaseModeFor,
   ownsField,
+  remoteDescriptionEdited,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const {
@@ -625,10 +626,43 @@ function specSyncStatus(dir, config, specArg, flags, out) {
       lines.push('  drift: none — Linear workflow-state matches the spec')
     }
     lines.push(...assigneeLines(remote, projection, plan))
+    lines.push(...descriptionDriftLines(remote, snapshot, identifier))
   }
 
   out.write(lines.join('\n') + '\n')
   return 0
+}
+
+/**
+ * The description half of the drift report: has somebody edited the issue's
+ * description on Linear since the repo last pushed it?
+ *
+ * ITS OWN BRANCH, NOT THE `drift:` ONE ABOVE. Workflow-state and description
+ * are independent facts about the same issue — a PM can move the state, edit
+ * the prose, or both — and folding them together would let either hide behind
+ * the other.
+ *
+ * SILENT ON EVERYTHING EXCEPT A POSITIVE ANSWER, which is the whole discipline
+ * here. `remoteDescriptionEdited` returns `null` for every cannot-tell — a
+ * snapshot written before this feature existed (which is every snapshot, on the
+ * first run after an upgrade), a `--remote` file that carries no description,
+ * a description that is not a string — and none of those is evidence that
+ * anything happened. There is deliberately no "drift: none" counterpart either:
+ * the state line has one because it is always askable, and this one is not.
+ * (`.claude/rules/negative-checks.md`.)
+ */
+function descriptionDriftLines(remote, snapshot, identifier) {
+  if (remoteDescriptionEdited(snapshot, remote) !== true) return []
+  const lines = [
+    `  drift: ${identifier}'s description was edited on Linear since the last push`,
+    '         (repo wins on next push — read it before pushing)',
+  ]
+  // The URL, so the reader can go and look. This reports only THAT it changed
+  // and never what it now says: the text is the reader's to read on Linear, and
+  // pulling it in here would put a whole description into whatever is running
+  // this — the same rule the rendered diff already follows.
+  if (remote && typeof remote.url === 'string' && remote.url) lines.push(`         ${remote.url}`)
+  return lines
 }
 
 /**
@@ -2671,6 +2705,22 @@ async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, team
     if (!existing || !existing.id) throw new Error(`no Linear issue found for ${identifier}`)
     parentId = existing.id
     result.issue = { id: existing.id, identifier: existing.identifier, url: existing.url }
+
+    // SOMEONE ELSE EDITED THE DESCRIPTION SINCE WE LAST PUSHED, and this write
+    // is about to replace it. Said here because this is the one moment the
+    // engine has both halves in hand for free — the read-back it already does,
+    // and the snapshot on disk — so no extra round trip buys the warning.
+    //
+    // A WARNING AND NEVER A REFUSAL. One-way sync means the repo wins, and that
+    // is not in question; what was wrong was winning silently. Turning this
+    // into a gate would stop a legitimate push over a typo fix, and the whole
+    // point is that only a person can judge which it was. The exit code is
+    // untouched, deliberately.
+    if (remoteDescriptionEdited(readBase(dir, identifier, config), existing) === true) {
+      lines.push(
+        `  !! ${identifier}'s description was edited on Linear since the last push — this replaces it`,
+      )
+    }
     if (plan.issue) {
       const updates = withoutNull({
         description: plan.issue.description,

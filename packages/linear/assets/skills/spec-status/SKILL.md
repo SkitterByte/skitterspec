@@ -33,9 +33,20 @@ Use the argument, else the spec in context; ask if unclear.
 ## 2. Fetch the Linear issue (optional, for drift)
 
 If the spec has a `linear_identifier`, discover the Linear MCP read tool
-(`get_issue`) and write the issue JSON to a temp file — this lets the report
-compare workflow-state. If Linear isn't connected, skip the drift line (still
-report pending-push).
+(`get_issue`) and write the issue JSON to a temp file. If Linear isn't connected,
+skip the drift lines (still report pending-push).
+
+**Write the whole issue, including its `description`.** The engine reports two
+independent kinds of drift off that one file: the workflow-state someone moved,
+and the **description someone edited**. Write only the state fields and the
+second check has nothing to look at — and it says nothing rather than guessing,
+so the loss is silent. Keep `url` too: it is what the description line points
+the reader at.
+
+**The description itself never enters the conversation.** The engine hashes it
+and compares hashes; what it prints is *that* the text changed, plus where to
+read it. Do not open the temp file, and do not paste the description into your
+report.
 
 Optionally fetch the workspace issue-state names to a file to validate the
 configured `states` at the same time.
@@ -81,9 +92,12 @@ the shape; this section carries only what is specific here.
 **Verdicts**
 
 - `✅` — in sync; nothing would push.
-- `⚠️` — drift: N objects would push, or Linear's workflow state was moved by
-  hand. Neither is an error — the repo wins on the next push — but both are the
-  reason someone ran this.
+- `⚠️` — drift: N objects would push, Linear's workflow state was moved by hand,
+  or the issue's **description** was edited on Linear since the last push. None
+  is an error — the repo wins on the next push — but all are the reason someone
+  ran this. **Say which**, since the three call for different things: a pending
+  push is routine, a moved state is usually someone else's automation, and an
+  edited description means a person wrote something that the next push replaces.
 - `⏸` — no config, or the spec is not linked. Nothing to compare.
 
 **Fields:** `Tracker` · `Follow-ups` · `Next`
