@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-main-is-a-landing-zone (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — all 4 phases built (2026-09-17)
+> **Status:** Complete (2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -190,9 +190,11 @@ branch — strictly worse than today.
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
 | 2026-09-17 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-17 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-17 — Completed; all four phases done, 3207 tests green.
 - 2026-09-17 — Spec created.
 - 2026-09-17 — Phase 1: decision 4 said docs mode skips `setup` and docker, and
   the phase file also asked to *keep* slot allocation. That second half describes
