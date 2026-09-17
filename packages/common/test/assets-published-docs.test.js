@@ -259,7 +259,13 @@ function unreleasedMigrationEntries() {
 
 test('an unreleased migration entry is currently true', () => {
   const entries = unreleasedMigrationEntries()
-  assert.ok(entries.length, 'sanity: there is an unreleased entry to check')
+  // NO UNRELEASED ENTRY IS A HEALTHY STATE, not a missing fixture. It means
+  // every package has shipped up to everything the guide documents — which is
+  // exactly where a repo sits the moment a release finishes, and where this one
+  // sat when skitterspec@22 and skitterspec-linear@17 both went out. This used
+  // to `assert.ok(entries.length)` and failed the suite there, taking the
+  // release with it; the check has nothing to say, so it says nothing
+  // (`.claude/rules/negative-checks.md` rule 4).
   for (const { head, body } of entries) {
     for (const { phrase, why, exceptMigration } of BANNED) {
       if (exceptMigration) continue
@@ -289,7 +295,12 @@ test('an unreleased migration entry is currently true', () => {
  * the next one.
  */
 test('STAYS SILENT: an unreleased entry need not re-document older keys', () => {
-  const [{ body }] = unreleasedMigrationEntries()
+  const entries = unreleasedMigrationEntries()
+  // Same as above: with everything released there is no entry to demonstrate
+  // this on, and that is not a failure. Destructuring the empty set is what
+  // threw `Cannot read properties of undefined` during a release.
+  if (!entries.length) return
+  const { body } = entries[0]
   // Shipped in v20/v21 and correctly absent from the v22 entry's own subject.
   assert.ok(!body.includes('commitWith'), 'sanity: it really does not mention them')
   assert.ok(!body.includes('`required`'), 'sanity: nor this one')
