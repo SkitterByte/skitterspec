@@ -24,6 +24,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { detectReader, resolveReader } = require('../src/env/review.js')
+const { portsInUseOn } = require('../src/env/proxy.js')
 const { loadEnvConfig } = require('../src/env/config.js')
 const { run } = require('../src/cli.js')
 
@@ -305,6 +306,37 @@ function freePort() {
       srv.close(() => resolve(port))
     })
   })
+}
+
+/**
+ * Wait until a killed review server has actually let go of its port.
+ *
+ * WHY THIS IS NOT A SLEEP, AND NOT OPTIONAL. `process.kill(pid, 'SIGKILL')`
+ * returns as soon as the signal is *delivered*, not when the process has died
+ * and its listening socket has been released. The next render probes that port
+ * with `portsInUseOn` and, finding it still held, returns `error: 'busy'` and
+ * falls back to a `file://` page — so the assertion reads `null` instead of the
+ * URL, and blames the URL-stability logic for a race in its own setup.
+ *
+ * macOS releases the socket inside the gap and Linux does not, so this passed
+ * locally on every run and failed on every CI runner — which is the worst shape
+ * a test can have: green where it is written, red where it is trusted. It cost
+ * two release workflows.
+ *
+ * It waits on **the product's own probe** rather than a timer, so what it waits
+ * for is exactly what `ensureReviewServer` decides on. A timer would be a guess
+ * about the same race, tuned on the machine that never lost it.
+ */
+async function waitPortReleased(port, { timeoutMs = 10000 } = {}) {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const busy = await portsInUseOn(port, ['0.0.0.0', '127.0.0.1'])
+    if (!busy.length) return
+    if (Date.now() > deadline) {
+      throw new Error(`port ${port} still held ${timeoutMs}ms after SIGKILL — not the race this waits for`)
+    }
+    await new Promise((r) => setTimeout(r, 50))
+  }
 }
 
 // THE BUG. Detection was never the broken half — this line was. A `file://`
@@ -620,13 +652,18 @@ test('a stop and a start leave the URL unchanged', async () => {
 test('a server dying leaves the URL unchanged too, which a restart-only fix would miss', async () => {
   // The case found while starting this spec: nobody restarted anything, the
   // server had died on its own, and the next render minted a sixth token.
-  const { dir } = scaffold('remote', { servePort: await freePort() })
+  const port = await freePort()
+  const { dir } = scaffold('remote', { servePort: port })
   try {
     const first = urlOf(review(dir))
     const pid = Number(
       fs.readFileSync(path.join(dir, '.spec-env', 'pids', 'review-serve.pid'), 'utf8').trim(),
     )
     process.kill(pid, 'SIGKILL')
+    // The signal is delivered before the socket is released; render too soon and
+    // the port probe reports 'busy' and hands back a file:// page. See
+    // `waitPortReleased` — this is the line CI failed on.
+    await waitPortReleased(port)
     // No --stop, no settings rewrite: exactly what a crash or a sleep leaves.
     const second = urlOf(review(dir))
     assert.strictEqual(second, first, 'a death must not change the link either')
