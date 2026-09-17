@@ -322,8 +322,63 @@ tr.band button { font-size: .72rem; padding: .1rem .5rem; margin-right: .3rem; }
   font-size: .78rem;
   color: var(--muted);
   overflow-wrap: anywhere;
+  /* A button, because it jumps to the code — but it must keep reading as the
+     quiet path label it has always been, not gain a control's chrome. */
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
 }
+.check-file:hover { color: inherit; }
+/* WHO SAID IT. Absent on a written review's checks, which is why it is a
+   separate span rather than a prefix on the note: a page with one author looks
+   exactly as it always did. */
+.check-src {
+  grid-column: 2;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-weight: 700;
+  color: var(--muted);
+  margin-right: .4rem;
+}
+.check-src + .check-file { grid-column: 2; }
 .check-note { grid-column: 2; }
+
+/* --- the reviewer strip --------------------------------------------------
+   One line per configured reviewer, present even when every one found nothing.
+   A reviewer that was rate-limited and one that read the diff and approved are
+   the same page without it, and the reader is about to decide whether to
+   commit. */
+.reviewers { list-style: none; margin: 0 0 .8rem; padding: 0; display: grid; gap: .25rem; }
+.reviewer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: baseline;
+  font-size: .8rem;
+  color: var(--muted);
+}
+.reviewer-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  color: var(--fg);
+}
+.reviewer-name::after { content: ' —'; color: var(--muted); font-weight: 400; }
+/* A reviewer that could not run is marked, not hidden — the distinction between
+   "clean" and "never answered" is the whole reason this strip exists. */
+.reviewer.failed .reviewer-said,
+.reviewer.missing .reviewer-said,
+.reviewer.timeout .reviewer-said { color: var(--flag-fg); }
+.reviewer.findings .reviewer-said { color: var(--fg); }
+
+/* A line a check pointed at, so a jump lands somewhere visible rather than
+   leaving the reader to find the row themselves. */
+tr.goto-hit > td { background: var(--confirm-bg); }
 .check.flag { background: var(--flag-bg); }
 .check.flag .check-level { color: var(--flag-fg); }
 .check.confirm { background: var(--confirm-bg); }
@@ -1064,6 +1119,10 @@ a.ticket:hover { border-color: var(--accent); }
       } else {
         tr.appendChild(gutter(row, st, i))
         tr.appendChild(el('td', 'src', row.text === '' ? ' ' : row.text))
+        // The line number, so a check can point at this row. Set here rather
+        // than derived on demand because the file re-renders on every expand,
+        // and a lookup built once would go stale the first time a band opened.
+        if (row.n != null) tr.setAttribute('data-n', String(row.n))
       }
       body.appendChild(tr)
       // Anything said about this line sits directly beneath it — a note you
@@ -1308,6 +1367,54 @@ a.ticket:hover { border-color: var(--accent); }
     if (!d) return
     d.open = true
     d.scrollIntoView({ block: 'start' })
+  }
+
+  /**
+   * Jump to a file, and to one line inside it when a check named one.
+   *
+   * THREE STATES, AND ONLY ONE OF THEM IS A JUMP. A file that is not in this
+   * diff, and a line that is not in that file's patch, both do nothing beyond
+   * revealing what IS there — a reviewer's finding can name a line that has
+   * since moved, and a page that scrolled somewhere arbitrary would be worse
+   * than one that scrolled nowhere.
+   */
+  function gotoLine(path, line) {
+    var st = null
+    state.forEach(function (s) { if (s.file.path === path) st = s })
+    if (!st) return
+    reveal(st.file)
+    if (line == null) return
+    // A collapsed band hides the row, so drop any band covering it first. The
+    // file re-renders anyway; this just decides what is on screen when it does.
+    var idx = -1
+    for (var i = 0; i < st.rows.length; i++) {
+      if (st.rows[i].n === line) { idx = i; break }
+    }
+    if (idx < 0) return
+    st.bands = st.bands.filter(function (b) { return !(idx >= b.from && idx < b.to) })
+    renderFile(st)
+    if (!st.el) return
+    // Attribute-only, no tag prefix: within one file's element nothing but a
+    // code row carries `data-n`, and the narrower selector buys nothing.
+    var tr = st.el.querySelector('[data-n="' + line + '"]')
+    if (!tr) return
+    var prev = document.querySelector('.goto-hit')
+    if (prev) prev.className = prev.className.replace(/ ?goto-hit/, '')
+    tr.className += ' goto-hit'
+    tr.scrollIntoView({ block: 'center' })
+  }
+
+  // Wired per button rather than delegated from `document`. The review block is
+  // spliced in as markup by the engine, so it is all present by the time this
+  // runs — and a listener on each element is what the rest of this page does.
+  function wireGotos() {
+    var btns = document.querySelectorAll('[data-goto]')
+    Array.prototype.forEach.call(btns, function (btn) {
+      btn.addEventListener('click', function () {
+        var n = btn.getAttribute('data-goto-line')
+        gotoLine(btn.getAttribute('data-goto'), n == null ? null : parseInt(n, 10))
+      })
+    })
   }
 
   // ONE FLAT LIST, indented by per-row padding rather than by nesting <ul>s.
@@ -2684,6 +2791,7 @@ a.ticket:hover { border-color: var(--accent); }
   drawLog()
   drawDecided()
   wireChecks()
+  wireGotos()
   state.forEach(function (st) {
     var btn = st.details && st.details.querySelector('.accept')
     if (btn) btn.setAttribute('aria-pressed', String(st.accept))

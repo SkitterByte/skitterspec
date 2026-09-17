@@ -123,6 +123,18 @@ const {
   disarmGate,
   gateState,
 } = require('./env/review.js')
+const {
+  CHECKS_VERSION,
+  runReviewers,
+  diffHashOf,
+  readChecks,
+  writeChecks,
+  cacheHit,
+  asCached,
+} = require('./env/reviewers.js')
+// Bundled adapters, by the name a config's `use` names. Empty until one ships;
+// an unknown `use` is that reviewer's own outcome rather than a thrown error.
+const REVIEWER_ADAPTERS = {}
 const { planUp, planCheckoutUp } = require('./env/provision.js')
 const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
@@ -194,7 +206,8 @@ Usage:
                                 review <spec>     write an HTML page of the spec's diff
                                                   (--branch for the whole spec; --out, --json)
                                                   (--notes <json> merges a review pass back;
-                                                   --resolve <json> records what was done)
+                                                   --resolve <json> records what was done;
+                                                   --run-reviewers runs review.reviewers)
                                 stage [spec]      split the uncommitted tree into this spec's
                                                   documents and everything else
                                 status            list provisioned specs + port blocks
@@ -2689,6 +2702,62 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     data.review = JSON.parse(raw)
   }
 
+  // THE MACHINE HALF. It composes with the written review rather than replacing
+  // it: a page can carry a person's read and a tool's findings at once, and
+  // which is which is on every check as its `source`.
+  //
+  // `--docs` deliberately never runs them. A spec document is prose, not the
+  // code these tools read, and spending a rate-limited review on one is waste.
+  let reviewerOutcomes = null
+  if (flags.runReviewers && !docs && (config.review.reviewers || []).length) {
+    const scope = mode === 'branch' ? 'branch' : 'working'
+    const diffHash = diffHashOf(data.files)
+    const { cache, corrupt } = readChecks(out, spec.folder)
+    let checks
+    let outcomes
+    if (!corrupt && cacheHit(cache, spec.folder, diffHash)) {
+      // KEYED ON THE DIFF, NOT A CLOCK. Re-rendering unchanged work must not
+      // spend another review against an hourly limit — and any change at all
+      // must re-run, because findings about code that has moved on are worse
+      // than no findings.
+      checks = cache.checks
+      outcomes = asCached(cache.outcomes)
+    } else {
+      const ran = await runReviewers(config, {
+        worktree: spec.worktreePath,
+        base: base || reviewBase(),
+        scope,
+        spec: spec.folder,
+        adapters: REVIEWER_ADAPTERS,
+      })
+      checks = ran.checks
+      outcomes = ran.outcomes
+      // Best-effort. A cache that could not be written costs a re-run next
+      // time, which is the harmless direction — it must never fail the render.
+      try {
+        writeChecks(out, {
+          version: CHECKS_VERSION,
+          spec: spec.folder,
+          diffHash,
+          at: now,
+          checks,
+          outcomes,
+        })
+      } catch {
+        /* a cache is an optimisation, never a record */
+      }
+    }
+    reviewerOutcomes = outcomes
+    // The written review's checks lead — a person's read is what the reader
+    // came for — and the machine's follow, grouped by the reviewer that
+    // produced them because `runReviewers` runs in sequence.
+    data.review = {
+      ...(data.review || {}),
+      checks: [...((data.review && data.review.checks) || []), ...checks],
+      reviewers: outcomes,
+    }
+  }
+
   writeReviewPage(out, renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }))
 
   // The publish-ready copy, ONLY when asked. An ordinary render must not pay for
@@ -2823,6 +2892,10 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           // reporting it would make every existing consumer see a new key.
           ...(data.buttons ? { buttons: data.buttons } : {}),
           reviewed: Boolean(data.review),
+          // Absent unless reviewers actually ran, so a consumer that never
+          // configured one sees no new key. An empty ARRAY would be a claim
+          // that they ran and said nothing.
+          ...(reviewerOutcomes ? { reviewers: reviewerOutcomes } : {}),
           totals: data.totals,
           notes: data.notes,
           merged,
@@ -4210,6 +4283,7 @@ async function specEnv(rest) {
     branch: false,
     out: null,
     review: null,
+    runReviewers: false,
     notes: null,
     resolve: null,
     outcome: null,
@@ -4235,6 +4309,7 @@ async function specEnv(rest) {
     else if (args[i] === '--buttons') flags.buttons = args[++i]
     else if (args[i] === '--out') flags.out = args[++i]
     else if (args[i] === '--review') flags.review = args[++i]
+    else if (args[i] === '--run-reviewers') flags.runReviewers = true
     else if (args[i] === '--notes') flags.notes = args[++i]
     else if (args[i] === '--verdict') flags.verdict = args[++i]
     // `--set` keeps an EMPTY STRING rather than coercing it away: empty is the
@@ -4382,7 +4457,7 @@ async function specEnv(rest) {
       break
     default:
       process.stdout.write(
-        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
+        `Usage: skitterspec spec-env <${SPEC_ENV_VERBS.join('|')}> [spec] [--keep-volumes] [--force] [--also <tag>] [--older-than <days>] [--branch] [--out <file>] [--review <json>] [--run-reviewers] [--notes <json>] [--verdict <word>] [--resolve <json>] [--outcome <text>] [--claim <code>] [--drop <code>] [--buttons <set>] [--json] [--record-primary] [--assert-primary-clean]\n` +
         '  review serve [--port <n>] [--host <addr>] [--stop] [--status]  serve every diff locally\n' +
         '  review serve --rotate-token    mint a new URL token; every handed-out link dies\n' +
         '  review allow <network|remote> [--off]  permit a review tier (writes env.config.json)\n' +

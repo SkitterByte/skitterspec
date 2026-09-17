@@ -345,6 +345,16 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true, exe
     li.className = `check ${c.level || 'confirm'}`
     li.setAttribute('data-check', c.id)
     if (c.file) li.setAttribute('data-file', c.file)
+    if (c.line != null) li.setAttribute('data-line', String(c.line))
+    // The jump button, built the way `renderReviewBlock` builds it — the shim
+    // cannot parse markup, so a check that would carry one has to be handed it.
+    if (c.file) {
+      const btn = dom.document.createElement('button')
+      btn.className = 'check-file'
+      btn.setAttribute('data-goto', c.file)
+      if (c.line != null) btn.setAttribute('data-goto-line', String(c.line))
+      li.appendChild(btn)
+    }
     dom.byId['review-block'].appendChild(li)
   }
   const copied = []
@@ -2576,4 +2586,58 @@ test('a page with no transport shows the command instead of a button', () => {
 // disable. It renders whatever `tierAction` gave it and no more.
 test('the page invents no disable action of its own', () => {
   assert.doesNotMatch(TEMPLATE, /'deny-network'|'deny-remote'|'allow-network-off'/)
+})
+
+/* ==========================================================================
+ * A check that points at a line
+ *
+ * `renderReviewBlock` gives a machine finding a jump button; this is the half
+ * that proves the button lands somewhere. The unit tests for what the markup
+ * SAYS live in env-review-checks.test.js — this one is about what a press does.
+ * ========================================================================== */
+
+test('pressing a check with a line opens its file and marks the line', () => {
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'flag', file: 'src/app.js', line: 61 }] })
+  const btn = dom.document.querySelector('[data-goto]')
+  assert.ok(btn, 'the check rendered a jump button')
+  btn.dispatch('click')
+
+  const details = dom.byId['f-' + encodeURIComponent('src/app.js')]
+  assert.strictEqual(details.open, true, 'the file was opened')
+  const hit = dom.document.querySelector('[data-n="61"]')
+  assert.ok(hit, 'the row is on screen — the band hiding it was dropped')
+  assert.ok(String(hit.className).includes('goto-hit'), 'and it is marked')
+})
+
+test('stays silent: a check naming a line that is not in the diff jumps nowhere', () => {
+  // A reviewer's finding can name a line that has since moved. Revealing the
+  // file is right; scrolling to an arbitrary row would be worse than nothing.
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'flag', file: 'src/app.js', line: 99999 }] })
+  dom.document.querySelector('[data-goto]').dispatch('click')
+  assert.strictEqual(dom.byId['f-' + encodeURIComponent('src/app.js')].open, true)
+  assert.strictEqual(dom.document.querySelector('[data-n="99999"]'), null)
+})
+
+test('stays silent: a check naming a file that is not in the diff does nothing', () => {
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'flag', file: 'src/gone.js', line: 3 }] })
+  // The whole assertion is that this does not throw.
+  dom.document.querySelector('[data-goto]').dispatch('click')
+})
+
+test('a check with no line still reveals its file', () => {
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'src/app.js' }] })
+  dom.document.querySelector('[data-goto]').dispatch('click')
+  assert.strictEqual(dom.byId['f-' + encodeURIComponent('src/app.js')].open, true)
+})
+
+test('answering a check still works when the check carries a jump button', () => {
+  // The button is appended to the same <li> the reply box is, so the reply
+  // wiring must not have been displaced by it.
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'src/app.js', line: 61 }] })
+  const li = dom.document.querySelector('[data-check="k0"]')
+  li.querySelector('.reply').childNodes[0].dispatch('click')
+  writeNote(li.querySelector('.note-input'), 'looked at it')
+  const reply = copyBlob(dom).comments.find((c) => c.check === 'k0')
+  assert.ok(reply)
+  assert.strictEqual(reply.file, 'src/app.js')
 })

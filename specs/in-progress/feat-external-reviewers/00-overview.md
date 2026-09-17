@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-external-reviewers (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-17)
+> **Status:** In Progress — Phase 2 (started 2026-09-17)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The contract and the runner | ✅ | [01-runner.md](01-runner.md) |
-| 2 | Findings on the page | ⬜ | [02-page.md](02-page.md) |
+| 2 | Findings on the page | ✅ | [02-page.md](02-page.md) |
 | 3 | The CodeRabbit adapter | ⬜ | [03-coderabbit.md](03-coderabbit.md) |
 | 4 | Skills, config docs, and the offer | ⬜ | [04-skills-docs.md](04-skills-docs.md) |
 
@@ -166,6 +166,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-17 — Phase 2 built. Three findings, all recorded in the phase file:
+  the page shim rejects tag-prefixed selectors (the page's were over-specific
+  and now are not), the in-process CLI test helper corrupts its own capture when
+  the command awaits a spawn (this file runs the CLI as a subprocess), and the
+  findings cache is keyed on diff content rather than on the flag that framed
+  it — so `working` and `--branch` share a cache entry whenever they collect the
+  same files, which is correct and now has a test of its own.
 - 2026-09-17 — Phase 1 built. The config documentation moved from phase 4 into
   phase 1: `assets-published-docs.test.js` derives the `review.*` key list from
   `DEFAULT_CONFIG` and fails three documents until each key is written up, so

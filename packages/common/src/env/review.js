@@ -1871,6 +1871,7 @@ function renderReviewBlock(review) {
   if (review.summary) {
     parts.push(`<p class="review-summary">${escapeHtml(review.summary)}</p>`)
   }
+  parts.push(...renderReviewerStrip(review.reviewers))
   const checks = Array.isArray(review.checks) ? review.checks : []
   if (checks.length) {
     parts.push('<ul class="checks">')
@@ -1879,22 +1880,96 @@ function renderReviewBlock(review) {
       // reviewer's note because it was tagged oddly is worse than showing it
       // under a neutral heading.
       const level = CHECK_LEVELS.includes(c.level) ? c.level : 'confirm'
-      const file = c.file ? `<span class="check-file">${escapeHtml(c.file)}</span>` : ''
+      // `file:line` where a line is known, and the whole thing is a button so a
+      // finding can be read against the code it is about. A check with no line
+      // renders exactly as it always did — the written review supplies none, and
+      // its output must not change because machine findings now exist.
+      const hasLine = Number.isInteger(c.line) && c.line > 0
+      const label = c.file ? escapeHtml(c.file) + (hasLine ? `:${c.line}` : '') : ''
+      const file = c.file
+        ? `<button type="button" class="check-file" data-goto="${escapeHtml(c.file)}"` +
+          `${hasLine ? ` data-goto-line="${c.line}"` : ''}>${label}</button>`
+        : ''
+      // WHO SAID IT. Absent for a written review, which is what it has always
+      // been; present the moment two authors can appear on one page, because a
+      // reader weighing a finding needs to know whether a person read the code
+      // or a tool matched a pattern.
+      const src = c.source ? `<span class="check-src">${escapeHtml(c.source)}</span>` : ''
       // The id is positional and therefore stable for THIS render, which is all
       // a reply needs: it travels back in the same blob the page was built from.
       // `data-file` is what lets an answer land on the file the check is about.
       const id = `k${i}`
       const fileAttr = c.file ? ` data-file="${escapeHtml(c.file)}"` : ''
+      const lineAttr = hasLine ? ` data-line="${c.line}"` : ''
       parts.push(
-        `<li class="check ${level}" data-check="${id}"${fileAttr}>` +
+        `<li class="check ${level}" data-check="${id}"${fileAttr}${lineAttr}>` +
           `<span class="check-level">${level}</span>` +
-          `${file}<span class="check-note">${escapeHtml(c.note || '')}</span></li>`,
+          `${src}${file}<span class="check-note">${escapeHtml(c.note || '')}</span></li>`,
       )
     })
     parts.push('</ul>')
   }
   parts.push('</section>')
   return parts.join('\n')
+}
+
+/**
+ * One line per configured reviewer, saying what its run ended as.
+ *
+ * PRESENT EVEN WHEN EVERY REVIEWER FOUND NOTHING, which is the whole point and
+ * the one place `.claude/rules/negative-checks.md` inverts here. Silence is
+ * normally the safe branch; on this page it is not, because a reviewer that was
+ * rate-limited renders identically to one that read the diff and approved of it
+ * — and the reader is about to decide whether to commit. So the strip reports
+ * the RUN, which is a positive signal, rather than accusing the code.
+ *
+ * Absent entirely when no reviewer is configured: every project that exists
+ * today is in that state, and a strip saying "no reviewers" would be an absence
+ * reported at everyone.
+ */
+function renderReviewerStrip(outcomes) {
+  const list = Array.isArray(outcomes) ? outcomes : []
+  if (!list.length) return []
+  const parts = ['<ul class="reviewers">']
+  for (const o of list) {
+    const state = typeof o.state === 'string' ? o.state : 'failed'
+    parts.push(
+      `<li class="reviewer ${escapeHtml(state)}">` +
+        `<span class="reviewer-name">${escapeHtml(o.name || 'reviewer')}</span>` +
+        `<span class="reviewer-said">${escapeHtml(reviewerSaid(o))}</span></li>`,
+    )
+  }
+  parts.push('</ul>')
+  return parts
+}
+
+/**
+ * What one reviewer's outcome reads as. Pure.
+ *
+ * A STATE THIS BUILD DOES NOT KNOW IS SHOWN, not dropped — the same rule the
+ * check level follows. An unrecognised state means a newer engine wrote the
+ * cache, and losing the line entirely would read as a reviewer that was never
+ * configured.
+ */
+function reviewerSaid(o) {
+  const n = Number.isInteger(o.count) ? o.count : 0
+  const detail = o.detail ? ` — ${o.detail}` : ''
+  switch (o.state) {
+    case 'findings':
+      return `${n} finding${n === 1 ? '' : 's'}${detail}`
+    case 'cached':
+      return n ? `${n} finding${n === 1 ? '' : 's'} · cached` : 'clean · cached'
+    case 'clean':
+      return 'clean'
+    case 'missing':
+      return `did not run${o.detail ? ` — ${o.detail}` : ''}`
+    case 'timeout':
+      return 'did not run — timed out'
+    case 'failed':
+      return `did not run${o.detail ? ` — ${o.detail}` : ''}`
+    default:
+      return `${o.state}${detail}`
+  }
 }
 
 /**
@@ -2078,6 +2153,8 @@ module.exports = {
   escapeIsland,
   escapeHtml,
   renderReviewBlock,
+  renderReviewerStrip,
+  reviewerSaid,
   reviewUrlPath,
   reviewPublishPath,
   readReviewUrl,
