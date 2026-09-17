@@ -184,6 +184,17 @@ All optional, in `specs/.core/env.config.json`:
 | `review.commitWith` | `"/commit"` | the skill a committing verdict hands off to |
 | `review.reader` | `"detect"` | where you are reading — `local`, `remote`, or detect it |
 | `review.servePort` | derived | the port, normally derived from the repo's path |
+| `review.reviewers` | `[]` | external code reviewers whose findings render as checks. Empty by default — adding one sends the worktree's diff to whatever the command talks to |
+
+**`review.reviewers` is a seam, not a vendor.** An entry is either
+`{ "use": "<adapter>" }` for one skitterspec bundles, or
+`{ "name": "…", "command": "…", "format": "rdjsonl" }` for anything that prints
+[rdjsonl](https://github.com/reviewdog/reviewdog) — most linters already do, so
+an adapter is a twenty-line script. Findings arrive as **checks**, which never
+block a committing verdict; reply to one on the page and the reply is a
+**comment**, which does, because now a person asked. A reviewer that could not
+run is reported as `did not run: <why>` rather than passing as clean. See
+`specs/.core/env.config.md` for the full field reference and the privacy note.
 
 `/spec-next` writes the page at the end of every phase. Nothing about it depends
 on where your shell is.

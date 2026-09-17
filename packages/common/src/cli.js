@@ -4268,7 +4268,7 @@ async function specEnv(rest) {
   // paths, and the registry identically whether run from main or a worktree.
   dir = resolvePrimaryCheckout(dir, gitReader(dir))
 
-  const { config, present, unknown } = loadEnvConfig(dir)
+  const { config, present, unknown, badReviewers } = loadEnvConfig(dir)
   if (!present) {
     process.stdout.write(
       'spec-env: isolation not enabled (no specs/.core/env.config.json).\n' +
@@ -4293,6 +4293,17 @@ async function specEnv(rest) {
   // an advisory line on stdout would make it unparseable.
   for (const key of unknown || []) {
     process.stderr.write(`spec-env: ${ENV_CONFIG_LABEL} — unknown key "${key}" is ignored.\n`)
+  }
+
+  // The same advisory, for the one place the check above structurally cannot
+  // reach: `review.reviewers` is an array, and `collectUnknownKeys` deliberately
+  // does not walk into one. Dropping an entry silently is worse than dropping a
+  // key silently — the page then shows no line for that reviewer at all, which
+  // reads as "not configured" rather than "configured wrong".
+  for (const bad of badReviewers || []) {
+    process.stderr.write(
+      `spec-env: ${ENV_CONFIG_LABEL} — review.reviewers[${bad.index}] ${bad.reason}; it is ignored.\n`,
+    )
   }
 
   switch (sub) {

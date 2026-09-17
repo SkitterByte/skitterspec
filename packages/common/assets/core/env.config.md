@@ -364,12 +364,77 @@ through to a documented conservative default; see the field notes below.
   //            turns the whole thing off.
   // Only a literal `false` opts out: a typo leaves a check that REFUSES in
   // place rather than quietly disabling it. Default: true.
+  //
+  // `reviewers` lists EXTERNAL CODE REVIEWERS whose findings render on the page
+  // as CHECKS, beside (or instead of) a written review. Empty by default, and
+  // `init` never writes one.
+  //
+  //   READ THIS BEFORE ADDING ONE. A reviewer is a command run in the spec's
+  //   worktree, and every hosted one sends that worktree's diff to a third
+  //   party. Nothing else in skitterspec leaves your machine — the page is a
+  //   local file, the server binds your own network, and the diff never reaches
+  //   a model. Configuring a reviewer changes that, deliberately and only
+  //   because you asked. Every finding on the page is badged with the reviewer
+  //   that produced it, so it stays visible where the code went.
+  //
+  // Two entry shapes, told apart by which key is present:
+  //   { "use": "<adapter>" }
+  //       A bundled adapter. The engine owns its command line and its parser,
+  //       so this is the whole configuration.
+  //   { "name": "<label>", "command": "<shell>", "format": "rdjsonl" }
+  //       Bring your own. `name` is what the page badges findings with, and
+  //       `command` is a shell line run with the worktree as its cwd.
+  // Both take an optional `timeout` in seconds (default 180).
+  //
+  // `format` is the output contract, and today there is one: `rdjsonl` — one
+  // JSON object per line, reviewdog's diagnostic shape:
+  //   {"path":"src/a.js","range":{"start":{"line":12}},"severity":"ERROR","message":"…"}
+  // A flat `"line": 12` is read too. Most linters already emit this, so a
+  // project gets non-AI checks on the same page for free, and an adapter for
+  // anything else is a twenty-line script that prints rdjsonl.
+  //
+  // `command` may carry `${scope}` (`working` | `branch`), `${base}`,
+  // `${spec}` and `${worktree}`. `scope` matches the render's own two modes —
+  // a phase-end render is `working` (uncommitted + untracked in the worktree)
+  // and `--branch` is the whole spec against its base — so what the page shows
+  // is what was reviewed. An unknown `${…}` is left verbatim rather than
+  // blanked, so a typo shows up in the command that failed instead of silently
+  // becoming an empty argument.
+  //
+  // `severity` maps to the page's levels: `ERROR` → `flag`, everything else →
+  // `confirm`. Never `good` — that means "I read this and it is right", which
+  // is a thing a person says.
+  //
+  // FINDINGS NEVER GATE A COMMIT. They are checks, and `judgeVerdict` refuses a
+  // committing verdict only while a COMMENT is unresolved. A comment is
+  // something a person asked for; twelve machine findings are not. Reply to one
+  // on the page and that reply IS a comment — which does gate, because now
+  // someone asked. There is deliberately no severity threshold that blocks:
+  // that is the counting gate this whole design exists against, and it makes a
+  // reviewer's bad day into a wall.
+  //
+  // A REVIEWER THAT COULD NOT RUN SAYS SO, rather than staying silent — the one
+  // place `.claude/rules/negative-checks.md` inverts. Silence is normally the
+  // safe branch; here a rate-limited or unauthenticated reviewer would render
+  // identically to one that read the diff and found nothing, on the page a
+  // commit decision is made from. So every configured reviewer gets a line:
+  // `12 findings` · `clean` · `cached` · `did not run: <why>`. Nothing exits
+  // non-zero and nothing refuses — a reviewer that could not run never blocks a
+  // render, a verdict or a commit.
+  //
+  // They run in SEQUENCE, at the end of a phase and on demand (`/spec-diff
+  // --reviewers`), and the results are cached against a hash of the diff — so
+  // re-rendering unchanged work reuses them rather than spending another review
+  // against an hourly limit. An entry that is neither shape is dropped and
+  // REPORTED on stderr; it cannot be caught by the unknown-key check, because
+  // this default is an array. Default: [].
   "review": {
     "reader": "detect",
     "servePort": "auto",
     "serve": "always",
     "commitWith": "/commit",
-    "required": true
+    "required": true,
+    "reviewers": []
   }
 }
 ```

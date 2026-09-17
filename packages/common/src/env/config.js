@@ -251,6 +251,12 @@ const DEFAULT_CONFIG = Object.freeze({
     allowRemote: false,
     commitWith: '/commit',
     required: true,
+    // External code reviewers whose findings render as CHECKS on the page.
+    // Empty by default and never written by `init`: configuring one sends the
+    // worktree's diff to whatever the command talks to, which is a decision
+    // only the project can make. Two entry shapes — `{use}` names a bundled
+    // adapter, `{name, command, format}` is bring-your-own.
+    reviewers: Object.freeze([]),
   }),
   // Live overlay (`spec-env live`). `migrations` is a list of globs marking
   // migration files; a branch that changes any of them is treated as stateful and
@@ -325,7 +331,7 @@ function defaults() {
     baseBranch: DEFAULT_CONFIG.baseBranch,
     guards: { ...DEFAULT_CONFIG.guards },
     teardown: { ...DEFAULT_CONFIG.teardown },
-    review: { ...DEFAULT_CONFIG.review },
+    review: { ...DEFAULT_CONFIG.review, reviewers: [] },
     live: { migrations: [] },
     hotfix: { ...DEFAULT_CONFIG.hotfix, targets: [] },
   }
@@ -379,6 +385,89 @@ function normalizeFileList(parsed) {
     const file = raw.trim()
     if (file) out.push(file)
   }
+  return out
+}
+
+// How long a reviewer gets before it is killed, in seconds. A generous default:
+// these tools take 30s-3min, and the render they precede is about to wait on a
+// human for far longer.
+const DEFAULT_REVIEWER_TIMEOUT = 180
+
+// Output formats the runner can parse. `rdjsonl` is the native contract
+// (reviewdog's interchange shape); a bundled adapter brings its own parser and
+// declares no format at all.
+const REVIEWER_FORMATS = ['rdjsonl']
+
+/**
+ * Read one `review.reviewers` entry. Returns the normalised entry, or `null`
+ * with a reason — the caller decides whether to keep it or report it.
+ *
+ * Two shapes, and they are told apart by which key is present rather than by
+ * guessing: `{use}` names a bundled adapter (the engine owns its command line
+ * and its parser), `{name, command}` is bring-your-own. An entry carrying both
+ * is refused BY NAME rather than resolved in some order — it is two
+ * instructions, and picking one would run a reviewer the author did not ask for.
+ *
+ * WHETHER A NAMED ADAPTER EXISTS IS NOT CHECKED HERE, deliberately: the adapter
+ * registry lives in the runner, and this module must not depend on it to answer
+ * a question about shape. The runner reports an unknown `use` as its own
+ * outcome.
+ */
+function readReviewer(raw) {
+  if (!isObject(raw)) return { entry: null, reason: 'not an object' }
+  const use = typeof raw.use === 'string' ? raw.use.trim() : ''
+  const command = typeof raw.command === 'string' ? raw.command.trim() : ''
+  if (use && command) return { entry: null, reason: 'carries both use and command — write one' }
+  // A number that is not finite and positive is not a timeout. Falling through
+  // to the default is safe in a way `0` would not be: a zero timeout kills every
+  // reviewer instantly and would read, on the page, as one that never ran.
+  const t = raw.timeout
+  const timeout = typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : DEFAULT_REVIEWER_TIMEOUT
+  if (use) {
+    const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : use
+    return { entry: { name, use, command: null, format: null, timeout }, reason: null }
+  }
+  if (!command) return { entry: null, reason: 'has neither use nor command' }
+  const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : ''
+  if (!name) return { entry: null, reason: 'has a command but no name' }
+  // An unrecognised format is refused rather than defaulted to `rdjsonl`. The
+  // scalars above can fall through because their default is what the author
+  // most likely meant; here it is not — parsing one tool's output as another's
+  // shape yields zero findings and reports the reviewer as clean, which is the
+  // false clean this whole feature is built to avoid.
+  const fmt = raw.format === undefined || raw.format === null ? 'rdjsonl' : raw.format
+  if (!REVIEWER_FORMATS.includes(fmt)) {
+    return { entry: null, reason: `format ${JSON.stringify(raw.format)} is not one of ${REVIEWER_FORMATS.join(', ')}` }
+  }
+  return { entry: { name, use: null, command, format: fmt, timeout }, reason: null }
+}
+
+function normalizeReviewers(parsed) {
+  const out = []
+  for (const raw of parsed) {
+    const { entry } = readReviewer(raw)
+    if (entry) out.push(entry)
+  }
+  return out
+}
+
+/**
+ * List the `review.reviewers` entries the merge dropped, as
+ * `{ index, reason }`. Advisory, like `collectUnknownKeys` — nothing refuses.
+ *
+ * It exists because `collectUnknownKeys` structurally cannot cover this: it
+ * descends only where the DEFAULT is a plain object, and this default is an
+ * array. Without this, a reviewer entry with a typo in it is dropped in exactly
+ * the silence that check was added to end — and worse than an ignored key,
+ * because the page would then show no line for it at all.
+ */
+function collectBadReviewers(parsed) {
+  if (!isObject(parsed) || !isObject(parsed.review) || !Array.isArray(parsed.review.reviewers)) return []
+  const out = []
+  parsed.review.reviewers.forEach((raw, index) => {
+    const { entry, reason } = readReviewer(raw)
+    if (!entry) out.push({ index, reason })
+  })
   return out
 }
 
@@ -539,6 +628,15 @@ function mergeConfig(base, parsed) {
     // a typo cannot quietly widen a bind or permit a publish.
     assign(base.review, parsed.review, 'allowNetwork', 'boolean')
     assign(base.review, parsed.review, 'allowRemote', 'boolean')
+    // An entry that is neither shape is DROPPED rather than refused, like every
+    // other value here — but unlike the scalars above there is no default for it
+    // to fall through to, so a dropped entry is a reviewer that silently never
+    // runs. `collectUnknownKeys` cannot see it either: the default is an array,
+    // and it deliberately does not walk into one. So the dropping is reported
+    // separately, by `collectBadReviewers` below.
+    if (Array.isArray(parsed.review.reviewers)) {
+      base.review.reviewers = normalizeReviewers(parsed.review.reviewers)
+    }
   }
 
   if (isObject(parsed.spec) && Array.isArray(parsed.spec.companionPaths)) {
@@ -580,7 +678,7 @@ function loadEnvConfig(dir = process.cwd()) {
   try {
     raw = readFileSync(file, 'utf-8')
   } catch (error) {
-    if (error.code === 'ENOENT') return { config: base, present: false, unknown: [] }
+    if (error.code === 'ENOENT') return { config: base, present: false, unknown: [], badReviewers: [] }
     throw error
   }
 
@@ -591,7 +689,12 @@ function loadEnvConfig(dir = process.cwd()) {
     throw new Error(`Invalid ${CONFIG_FILE}: ${error.message}`)
   }
 
-  return { config: mergeConfig(base, parsed), present: true, unknown: collectUnknownKeys(parsed) }
+  return {
+    config: mergeConfig(base, parsed),
+    present: true,
+    unknown: collectUnknownKeys(parsed),
+    badReviewers: collectBadReviewers(parsed),
+  }
 }
 
 module.exports = {
@@ -603,7 +706,11 @@ module.exports = {
   PORT_BASE,
   PORT_SPAN,
   collectUnknownKeys,
+  collectBadReviewers,
+  readReviewer,
   mergeConfig,
   DEFAULT_CONFIG,
+  DEFAULT_REVIEWER_TIMEOUT,
+  REVIEWER_FORMATS,
   CONFIG_FILE,
 }

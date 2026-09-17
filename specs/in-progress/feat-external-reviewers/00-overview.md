@@ -148,7 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The contract and the runner | ⬜ | [01-runner.md](01-runner.md) |
+| 1 | The contract and the runner | ✅ | [01-runner.md](01-runner.md) |
 | 2 | Findings on the page | ⬜ | [02-page.md](02-page.md) |
 | 3 | The CodeRabbit adapter | ⬜ | [03-coderabbit.md](03-coderabbit.md) |
 | 4 | Skills, config docs, and the offer | ⬜ | [04-skills-docs.md](04-skills-docs.md) |
@@ -166,6 +166,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-17 — Phase 1 built. The config documentation moved from phase 4 into
+  phase 1: `assets-published-docs.test.js` derives the `review.*` key list from
+  `DEFAULT_CONFIG` and fails three documents until each key is written up, so
+  `review.reviewers` could not land without them. Two additions beyond the task
+  list, both correcting the plan rather than extending it — `collectBadReviewers`
+  (the unknown-key report structurally cannot see an array's entries, so a
+  malformed reviewer would have been dropped in silence), and `detached: true`
+  on the spawn (the timeout signals a process group, which without it is the
+  CLI's own).
 - 2026-09-17 — Spec created. Four design questions settled up front: reviewers
   fire at phase end and on demand; the run blocks the render but caches by diff
   hash; findings are checks and can never block a commit verdict; rdjsonl is the

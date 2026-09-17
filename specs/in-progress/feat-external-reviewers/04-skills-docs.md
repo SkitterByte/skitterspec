@@ -27,12 +27,15 @@ that configured none sees no change at all, anywhere.
 - [ ] `/spec` Phase C2 (`--docs` renders) — assert reviewers do **not** fire on a
       spec-document page. A prose diff is not what these tools read, and spending
       a review on one is waste. Add a test.
-- [ ] `specs/.core/env.config.md` — document `review.reviewers`: both entry
-      shapes, the substitutions, the severity mapping, the outcome states, and
-      **the privacy paragraph** (Decision 7) stated at the point of configuring,
-      not in a footnote.
-- [ ] `env.config.json.example` — include a commented-out `reviewers` entry, so
-      the shape is copyable without reading the doc.
+- [x] ~~`specs/.core/env.config.md` — document `review.reviewers`~~ — **done in
+      phase 1.** `assets-published-docs.test.js` reads the `review.*` keys off
+      `DEFAULT_CONFIG` and fails every claimant document until each is written
+      up, so the key could not land without it. `env.config.md`,
+      `env.config.json.example` and the base README all carry it, privacy
+      paragraph included.
+- [ ] Re-read that documentation once the page exists (phase 2) and the adapter
+      ships (phase 3) — it describes behaviour those phases implement, and a
+      doc written ahead of its code is the one most likely to drift.
 - [ ] `.claude/rules/spec-planning.md` — a paragraph in the `/spec-diff` section:
       the page takes findings from configured reviewers as **checks**, they never
       gate, a reply promotes one to a comment which does, and the list is empty
