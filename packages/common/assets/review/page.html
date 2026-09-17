@@ -2493,15 +2493,13 @@ a.ticket:hover { border-color: var(--accent); }
    */
   var ACTION_LABEL = {
     'live-on': '▶ Put it live',
-    'live-off': '■ Take it down',
     'allow-network': '▶ Allow network',
     'allow-remote': '▶ Allow remote',
   }
   var ACTION_CMD = {
     'live-on': '/spec-live',
-    'live-off': '/spec-live main',
     'allow-network': 'skitterspec spec-env review allow network',
-    'allow-remote': 'skitterspec spec-env review allow remote',
+    'allow-remote': '/spec-remote-review',
   }
   var SURFACE_LABEL = { live: 'live', network: 'network', remote: 'remote' }
 
@@ -2554,6 +2552,16 @@ a.ticket:hover { border-color: var(--accent); }
           })
           div.appendChild(btn)
         }
+      }
+      // THE COMMAND FOR A DIRECTION THE PAGE DOES NOT OFFER. A live spec shows
+      // no press — handing the instance back to `main` is a workspace decision,
+      // not this review's — so the line names `/spec-live main` instead, and the
+      // reader is never left knowing what they want and not what to type.
+      if (row.command && !row.action) {
+        var cmdOnly = document.createElement('code')
+        cmdOnly.className = 'surface-cmd'
+        cmdOnly.textContent = row.command
+        div.appendChild(cmdOnly)
       }
       if (row.note) {
         var note = document.createElement('span')

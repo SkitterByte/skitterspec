@@ -36,8 +36,14 @@ const blob = (extra) => ({ version: 1, spec: 'feat-x', ...extra })
 
 // --- the vocabularies stay apart ------------------------------------------
 
-test('the four actions, and none of them is a verdict', () => {
-  assert.deepStrictEqual(ACTIONS, ['live-on', 'live-off', 'allow-network', 'allow-remote'])
+// THREE, NOT FOUR. `live-off` was removed: putting THIS change live is about
+// the diff on screen, while handing the whole instance back to `main` is a
+// workspace decision with nothing to do with this review — and a control for it
+// on a review page invites the reader to make it while thinking about something
+// else. The `live:` line names `/spec-live main` for it instead.
+test('the three actions, and none of them is a verdict', () => {
+  assert.deepStrictEqual(ACTIONS, ['live-on', 'allow-network', 'allow-remote'])
+  assert.ok(!ACTIONS.includes('live-off'), 'the page does not hand main back')
   for (const a of ACTIONS) {
     assert.ok(!VERDICTS.includes(a), `${a} must never be a verdict`)
     assert.ok(!COMMITTING.includes(a), `${a} must never commit`)
@@ -124,13 +130,16 @@ test('the actions the tier stack can produce are exactly the enables', () => {
 
 // --- the surfaces block --------------------------------------------------
 
-test('a free workbench offers live-on; a live one offers live-off', () => {
+// ONE DIRECTION ONLY, and the other one is a command rather than nothing — the
+// reader must never be left knowing what they want and not what to type.
+test('a free workbench offers the press; a live one offers the command', () => {
   const off = surfacesFor({ live: { state: 'off' }, tiers: [] })
   assert.deepStrictEqual(off, [
-    { kind: 'live', state: 'off', url: null, reason: null, action: 'live-on' },
+    { kind: 'live', state: 'off', url: null, reason: null, action: 'live-on', command: null },
   ])
   const on = surfacesFor({ live: { state: 'on', url: 'http://127.0.0.1:3000' }, tiers: [] })
-  assert.strictEqual(on[0].action, 'live-off')
+  assert.strictEqual(on[0].action, null, 'no press for handing main back')
+  assert.strictEqual(on[0].command, '/spec-live main')
   assert.strictEqual(on[0].url, 'http://127.0.0.1:3000')
 })
 
@@ -159,6 +168,17 @@ test('an off tier becomes a row with its enable; an on one contributes nothing',
     rows.map((r) => [r.tier, r.action]),
     [['remote', 'allow-remote']],
   )
+  // And remote carries the command too, for a reader nowhere near the page.
+  assert.strictEqual(rows[0].command, '/spec-remote-review')
+})
+
+// ONLY `remote` GETS A SLASH COMMAND. `network` is ON by default, so turning it
+// off is a rare deliberate act — a command per tier is clutter for the one
+// nobody touches, and the engine accepts `--set` for both either way.
+test('network names no slash command, deliberately', () => {
+  const rows = surfacesFor({ live: null, tiers: [{ tier: 'network', off: true }] })
+  assert.strictEqual(rows[0].action, 'allow-network')
+  assert.strictEqual(rows[0].command, null)
 })
 
 // --- STAYS SILENT --------------------------------------------------------

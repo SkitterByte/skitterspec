@@ -1,7 +1,7 @@
 # Spec Planning
 
 Spec-driven development is driven by ten lifecycle skills (plus the
-`/spec-connect` and `/spec-live` **commands** when isolation is on) — use them rather than hand-rolling specs so the structure
+`/spec-connect`, `/spec-live` and `/spec-remote-review` **commands** when isolation is on) — use them rather than hand-rolling specs so the structure
 and lifecycle stay consistent. Each sets a status on the spec header
 (`> **Status:** …`):
 
@@ -20,12 +20,23 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
 
 **Skills vs commands.** The table above lists **skills** — Claude reads them and
-exercises judgment. `/spec-connect` and `/spec-live` are instead **slash commands**
+exercises judgment. `/spec-connect`, `/spec-live` and `/spec-remote-review` are
+instead **slash commands**
 (`.claude/commands/`): each pre-executes one `skitterspec spec-env` verb and
 relays its output, so there is no judgment to apply and no model turn spent
 finding one. They are marked `disable-model-invocation`, meaning
 **only you can run them** — a skill that wants one will tell you to type it
 rather than invoking it.
+
+**`/spec-remote-review`** is the newest and the smallest: it toggles
+`review.allowRemote`, and takes `on`/`off` when you would rather say which.
+It exists because a render's `remote:` line has to name something a person can
+act on, and `skitterspec spec-env review allow remote` is not what anyone
+reconstructs from a page they are reading on a phone. Making the line
+*clickable* was considered and rejected — the only clickable thing markdown has
+is a URL, and a URL that acts when it is **fetched** is one a link previewer or
+a prefetcher fires with nobody involved. It **permits** publishing; it publishes
+nothing.
 
 `/spec-reviewed` is a **skill** and **user-only**, and there the marking is not
 convenience — it is the enforcement of `/spec-diff` step 0's rule that a waiting

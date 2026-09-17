@@ -2027,7 +2027,47 @@ function specEnvReviewAllow(dir, config, tier, flags) {
     process.exitCode = 1
     return
   }
-  const on = !flags.off
+  // THREE WAYS TO SAY WHAT THE TIER SHOULD BE, and only the third is new.
+  // Bare `allow <tier>` turns it ON and `--off` turns it off, exactly as they
+  // always have — every existing caller and test reads those.
+  //
+  // `--set` exists because a SLASH COMMAND can only make one static
+  // substitution: `/spec-remote-review on` has to reach the engine as the word
+  // the person typed, not as a flag the command file worked out. An EMPTY value
+  // is the bare form of that command, and it toggles — which is the common case,
+  // because a reader flipping a tier is looking at the line that says which way
+  // it currently is.
+  let on = !flags.off
+  if (flags.set !== undefined) {
+    const said = String(flags.set).trim().toLowerCase()
+    if (said === '') {
+      // Toggle. Read through the same precedence the report below uses, so
+      // "turn it to the other thing" means the other thing the render showed.
+      const current = Boolean(
+        (() => {
+          try {
+            const now = JSON.parse(fs.readFileSync(path.resolve(dir, 'specs/.core/env.config.json'), 'utf8'))
+            return now.review && now.review[key] !== undefined ? now.review[key] : config.review[key]
+          } catch {
+            return config.review[key]
+          }
+        })(),
+      )
+      on = !current
+    } else if (said === 'on' || said === 'off') {
+      on = said === 'on'
+    } else {
+      // Refused by name, like an unknown tier. A misspelt state coerced to a
+      // default is the one outcome worth more than a round trip — and the
+      // wrong default here opens a port or permits a publish.
+      process.stdout.write(
+        `spec-env review allow: ${JSON.stringify(String(flags.set))} is not a state — ` +
+          'one of on, off, or nothing at all to toggle. Nothing changed.\n',
+      )
+      process.exitCode = 1
+      return
+    }
+  }
   const file = path.resolve(dir, 'specs/.core/env.config.json')
   let parsed
   try {
@@ -2075,8 +2115,10 @@ function specEnvReviewAllow(dir, config, tier, flags) {
     lines.push(
       on
         ? '  this PERMITS publishing; it publishes nothing. A published page cannot be\n' +
-          '  deleted by skitterspec, and a verdict there needs /spec-reviewed.'
-        : '  publishing is no longer permitted; any page already published stays up.',
+          '  deleted by skitterspec, and a verdict there needs /spec-reviewed.\n' +
+          '  turn it back off with: /spec-remote-review'
+        : '  publishing is no longer permitted; any page already published stays up.\n' +
+          '  turn it back on with: /spec-remote-review',
     )
   }
   process.stdout.write(lines.join('\n') + '\n')
@@ -4195,6 +4237,11 @@ async function specEnv(rest) {
     else if (args[i] === '--review') flags.review = args[++i]
     else if (args[i] === '--notes') flags.notes = args[++i]
     else if (args[i] === '--verdict') flags.verdict = args[++i]
+    // `--set` keeps an EMPTY STRING rather than coercing it away: empty is the
+    // bare `/spec-remote-review`, and it means toggle. `??` so a missing value
+    // at the end of argv is still the empty form rather than `undefined`, which
+    // would read as the flag never having been passed.
+    else if (args[i] === '--set') flags.set = args[++i] ?? ''
     else if (args[i] === '--resolve') flags.resolve = args[++i]
     else if (args[i] === '--outcome') flags.outcome = args[++i]
     else if (args[i] === '--claim') flags.claim = args[++i]

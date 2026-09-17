@@ -245,8 +245,10 @@ The exit is always one command, and one of them is *"I am moving on"*.
 
 Relay the engine's **stack** — the `local:`, `network:` and `remote:` lines, all
 three — rather than the bare `page:` path: a path is not clickable in any
-terminal, and a page nobody can open is a page nobody reads.
-`.claude/rules/spec-reports.md` carries the shape.
+terminal, and a page nobody can open is a page nobody reads. Relay the `live:`
+line with it where the engine printed one, and nothing where it did not.
+`.claude/rules/spec-reports.md` carries the shape, including why a rigid
+contract took that line.
 
 - **Never write the review unasked**, and **never publish**. Publishing leaves
   something behind that this tooling cannot remove, so it is always an ask. A

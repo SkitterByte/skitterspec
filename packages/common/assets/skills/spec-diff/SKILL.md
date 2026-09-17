@@ -157,6 +157,10 @@ back, and these steps replace §3–§5 below.
    absent verdict has always meant "report it and wait" — which is why that is
    what it still means.
 
+   **A pass may carry an `action:` instead**, and then none of the above
+   applies: it concluded nothing. Go to **§2b**. The engine refuses a pass
+   carrying both, so there is never a choice to make between them.
+
 3. **Say what you read, then ask what's up.** Report the accepted count, then
    each open comment as `file:line — note`, then the files you would touch.
    **Wait — unless the verdict already said otherwise.** Pasting on its own is
@@ -340,6 +344,69 @@ the diff already follows — git writes it, the engine splices it, you never rea
 it — and the paste was the one place it broke. The *work* either authorises is
 ordinary phase-sized cost, and step 3 is where the operator decides whether to
 spend it.
+
+## 2b. An action changes something, then hands the page back
+
+Only on a pass carrying an **action**. Three of them, and
+**all three end the same way**:
+do the thing, re-render (§4), and wait again (§4b) — because the reader
+still has a decision in front of them and has not made it.
+
+| Action | Do | Then |
+|--------|----|------|
+| `live-on` | commit first (below), then `skitterspec spec-env live take <spec>` | re-render `--branch`, wait again |
+| `allow-network` | `skitterspec spec-env review allow network` | re-render, wait again |
+| `allow-remote` | `skitterspec spec-env review allow remote --set on` | re-render, wait again |
+
+**THERE IS NO `live-off`, and its absence is deliberate.** Putting *this* change
+live is about the diff on screen; handing the whole instance back to `main` is a
+workspace decision with nothing to do with this review. The `live:` line names
+`/spec-live main` for it — a command the operator types, which is also why no
+skill runs it.
+
+**AN ACTION IS NOT A VERDICT, and the gate is untouched by all three.** A phase
+that ended armed the gate, and it is discharged by a committing verdict or a
+recorded skip and by nothing else — so after any of these the phase still owes
+an answer, and that is exactly why the run waits again rather than finishing.
+The engine enforces this rather than trusting it: `ACTIONS` is disjoint from
+`VERDICTS` and `COMMITTING`, so nothing that routes on a verdict can see one.
+
+**`live-on` commits first, and the commit is a precondition rather than an answer.**
+`live take` refuses a dirty worktree, and even without that guard
+uncommitted work stays behind in the worktree — so what went live would be the
+*previous* commit while the page claimed to be showing this one. Hand off to
+`review.commitWith` exactly as §2a does (do not restate its rules here), then
+take the instance. The reader has not approved anything by pressing it.
+
+**It re-renders `--branch` afterwards**, because the working view is now empty:
+the commit just happened, and the branch range is what still answers "what am I
+looking at". §4's clean-tree fallback reaches the same place on its own, so
+passing `--branch` is belt and braces rather than a separate rule.
+
+**A mid-phase page does not get the commit.** Where the render took
+`--buttons midrun`, the work is half a phase — committing it to look at it
+running splits one phase across two commits and leaves a mess nobody asked for.
+Say the phase needs to land first, re-render, and wait.
+
+**Relay every refusal, and work around none of them.** `live take` refuses a
+workbench another spec holds, a hotfix, a stateful spec, a branch touching
+migrations, and a tree with no dev server listening. Each refusal names its own
+way out. **Never park another spec's live session** to make room — that is
+someone else's work, and freeing it is their decision. Re-render and wait, so
+the reader can choose something else.
+
+**`allow` writes a committed file, and that is worth a sentence.** It edits
+`specs/.core/env.config.json` in the **primary checkout**, so it changes
+behaviour for everyone who pulls and leaves that tree dirty — unlike the live
+actions, which move a branch and write a gitignored receipt. The engine prints
+the absolute path and whose tree it dirtied; relay that rather than letting a
+shared setting change land silently. And it is **enable-only**: there is no
+action that turns a tier off, because turning `network` off from a page reached
+over the network kills the page doing the turning.
+
+**`allow remote` permits publishing. It does not publish.** Publishing stays an
+explicit ask in every case (§6), because the page it leaves behind is one this
+tooling cannot remove.
 
 ## 3. Gate it on nothing
 

@@ -89,7 +89,9 @@ the options may be offered after the table.
 
 - **local** — [http://127.0.0.1:7760/7e9e123e7540/feat-orders](http://127.0.0.1:7760/7e9e123e7540/feat-orders)
 - **network** — [http://192.168.0.136:7760/7e9e123e7540/feat-orders](http://192.168.0.136:7760/7e9e123e7540/feat-orders)
-- **remote** — off · `skitterspec spec-env review allow remote` turns it on
+- **remote** — off · `/spec-remote-review` turns it on
+
+live: off — /spec-live to put it live
 
 I'm holding here until you send a verdict — the wait covers local and network.
 
@@ -97,9 +99,42 @@ I'm holding here until you send a verdict — the wait covers local and network.
 
 ---
 
-A rule, a heading naming the state and the size, **the stack**, one line saying
-the run is stopped and which tiers it covers, and the two exits. Nothing else,
-and never a paragraph explaining it.
+A rule, a heading naming the state and the size, **the stack**, the `live:`
+line, one line saying the run is stopped and which tiers it covers, and the two
+exits. Nothing else, and never a paragraph explaining it.
+
+**The `live:` line, and why a rigid contract took a second amendment.** Reading
+a diff is not the only way to judge a change — often the question is whether it
+*works* — and the answer to that lives at the running URL. A reader deciding
+whether to open the page at all wants to know whether it is already running
+somewhere, and finding that out any other way is a trip to a terminal in the
+middle of a review.
+
+**Each line names a command a person types**, rather than describing a
+capability. `live: off — the page can put it live` told the reader that a page
+somewhere could do it and left them to find the verb — and the verb is what they
+need when they are in a terminal rather than on the page. So the lines say
+`/spec-live`, `/spec-live main`, `/spec-remote-review`. Making them *clickable*
+was considered and rejected: the only clickable thing markdown has is a URL, and
+a URL that acts when it is **fetched** is one a link previewer or a prefetcher
+fires with nobody involved.
+
+It is the engine's line, copied like the stack: `spec-env review` prints it and
+`--json` carries the same answer as `live`, from one function, so the report and
+the command cannot disagree. Four states, and only three of them are a line —
+`on` (with the URL when the project configured one), `off`, `held` (naming the
+spec holding the workbench). The fourth, `unavailable`,
+**prints nothing at all**:
+a project with no isolation and a spec with no worktree both land there,
+and a line about a surface that does not exist is an accusation against a
+healthy repo.
+
+**This is the second amendment to this section in two specs**, which is worth
+naming rather than letting pass. The contract earns its rigidity from real
+failures, and two amendments in a row is how a rigid contract quietly becomes a
+negotiable one. Both have carried their reason and both replaced a line rather
+than adding a paragraph.
+**A third should have to argue harder than either did.**
 
 **The stack is the engine's, copied rather than composed.** `spec-env review`
 prints one line per tier and `--json` carries the same thing as `tiers`, so take
@@ -323,7 +358,7 @@ behind it — say nothing rather than reporting that there was nothing to report
 | `Landed` | A fast-forward, a tag, a cherry-pick. |
 | `Worktree` | A worktree provisioned, entered, or torn down. |
 | `Untouched` | Uncommitted work the run deliberately left alone — whose, and how much. |
-| `Review` | The rendered diff page: files, `+`/`−`, and the stack — the same tiers the banner lists, labelled, run together with `·` because a row is one cell. **No question** — a row cannot be waited on, so a question in one is unanswerable by construction (see *asking implies waiting*). **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
+| `Review` | The rendered diff page: files, `+`/`−`, and the stack — the same tiers the banner lists, labelled, run together with `·` because a row is one cell, plus `live` where the engine reported one. **No question** — a row cannot be waited on, so a question in one is unanswerable by construction (see *asking implies waiting*). **Omitted entirely when the run is waiting on a verdict**: the banner after the block carries it instead, and a row saying the same thing beside it splits the reader's attention across two places. |
 | `Follow-ups` | **Always.** `none`, or one line each. |
 | `Next` | **Last.** The single next action for this work — runnable from the state the run leaves behind. |
 

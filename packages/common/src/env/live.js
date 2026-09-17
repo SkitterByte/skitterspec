@@ -160,11 +160,21 @@ function liveStateFor(spec, ctx) {
 function liveStateLine(live) {
   if (!live || live.state === 'unavailable') return null
   const label = '  live:'.padEnd(11)
+  // IT NAMES THE COMMAND, not the capability. This line read
+  // `off — the page can put it live`, which told the reader a page somewhere
+  // could do it and left them to find the verb — and the verb is the thing they
+  // actually need when they are in a terminal rather than on the page. It is
+  // `/spec-live` rather than `spec-env live take` because that command is what a
+  // person types: it is user-only by its own marking, and the model cannot run
+  // it either way.
   if (live.state === 'on') {
-    return `${label}on${live.url ? ` — running at ${live.url}` : ''}`
+    return (
+      `${label}on${live.url ? ` — running at ${live.url}` : ''}` +
+      '; /spec-live main to restore main'
+    )
   }
   if (live.state === 'held') return `${label}held — ${live.reason}`
-  return `${label}off — the page can put it live`
+  return `${label}off — /spec-live to put it live`
 }
 
 // --- stateful detection (glob matching) -----------------------------------

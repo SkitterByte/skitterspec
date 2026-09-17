@@ -23,6 +23,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { DEFAULT_CONFIG, loadEnvConfig } = require('../src/env/config.js')
+const { reviewTierStack, reviewTierLine } = require('../src/env/review.js')
 const { run } = require('../src/cli.js')
 
 function repo(review = {}) {
@@ -386,4 +387,35 @@ test('STAYS SILENT: a machine with no network address reports it, not an error',
     stopServe(dir)
     drop(dir)
   }
+})
+
+// THE OFF LINE NAMES A COMMAND A PERSON TYPES. It used to hand over
+// `skitterspec spec-env review allow remote` — correct, and nothing anyone
+// reconstructs from a render they are reading on a phone. `/spec-remote-review`
+// toggles, so the same line works whichever way the tier currently is.
+test('a disabled remote names its slash command, not the engine verb', () => {
+  const stack = reviewTierStack({
+    served: null,
+    fileUrl: 'file:///x',
+    publishedUrl: null,
+    config: { review: { allowNetwork: true, allowRemote: false } },
+  })
+  const remote = stack.find((t) => t.tier === 'remote')
+  assert.strictEqual(remote.enable, '/spec-remote-review')
+  assert.strictEqual(reviewTierLine(remote), '  remote:  off — turn on with: /spec-remote-review')
+})
+
+// STAYS SILENT: `network` keeps the engine command, deliberately. It is ON by
+// default, so turning it off is a rare deliberate act — a slash command per
+// tier is clutter for the one nobody touches.
+test('STAYS SILENT: a disabled network keeps naming the engine command', () => {
+  const stack = reviewTierStack({
+    served: null,
+    fileUrl: 'file:///x',
+    publishedUrl: null,
+    config: { review: { allowNetwork: false, allowRemote: true } },
+  })
+  const network = stack.find((t) => t.tier === 'network')
+  assert.strictEqual(network.enable, 'skitterspec spec-env review allow network')
+  assert.doesNotMatch(reviewTierLine(network), /\/spec-/)
 })

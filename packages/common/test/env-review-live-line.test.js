@@ -86,10 +86,12 @@ function take(dir, wt) {
   g(dir, 'checkout', '-q', 'feat/alpha')
 }
 
-test('a free workbench reports off, and says the page can change it', () => {
+// IT NAMES THE COMMAND, not the capability. `off — the page can put it live`
+// told the reader a page somewhere could do it and left them to find the verb.
+test('a free workbench reports off, and names the command that changes it', () => {
   const { dir } = repoWithSpec()
   try {
-    assert.match(review(dir), /^ {2}live: {4}off — the page can put it live$/m)
+    assert.match(review(dir), /^ {2}live: {4}off — \/spec-live to put it live$/m)
   } finally {
     drop(dir)
   }
@@ -101,7 +103,10 @@ test('a live spec reports on, with the canonical URL when one is configured', ()
     take(dir, wt)
     // The host is the project's own `proxy.host`, not a guessed `localhost`:
     // that is the address the canonical ports are actually bound on.
-    assert.match(review(dir), /^ {2}live: {4}on — running at http:\/\/127\.0\.0\.1:3000$/m)
+    assert.match(
+      review(dir),
+      /^ {2}live: {4}on — running at http:\/\/127\.0\.0\.1:3000; \/spec-live main to restore main$/m,
+    )
   } finally {
     drop(dir)
   }
@@ -112,7 +117,7 @@ test('a live spec with no canonical port says on and invents no URL', () => {
   try {
     take(dir, wt)
     const out = review(dir)
-    assert.match(out, /^ {2}live: {4}on$/m)
+    assert.match(out, /^ {2}live: {4}on; \/spec-live main to restore main$/m)
     assert.doesNotMatch(out, /running at/)
   } finally {
     drop(dir)
@@ -171,7 +176,7 @@ test('a live spec with no worktree left still renders', () => {
     execFileSync('git', ['-C', dir, 'worktree', 'remove', '--force', wt], { stdio: 'ignore' })
     const out = review(dir)
     assert.doesNotMatch(out, /has no worktree at/)
-    assert.match(out, /^ {2}live: {4}on$/m)
+    assert.match(out, /^ {2}live: {4}on; \/spec-live main to restore main$/m)
   } finally {
     drop(dir)
   }

@@ -509,9 +509,16 @@ const DEFAULT_VERDICT = 'discuss'
  *
  * AN ACTION IS NOT A VERDICT, and keeping the two vocabularies apart is the
  * whole point rather than tidiness. A verdict is a conclusion about the work,
- * consumed once by the thing it asked for. `live-on`/`live-off` change what is
- * *running* and then put the reader back on the same page with the same
- * options — so a run answering one has concluded nothing.
+ * consumed once by the thing it asked for. An action changes what is *running*
+ * — or which tiers are permitted — and then puts the reader back on the same
+ * page with the same options, so a run answering one has concluded nothing.
+ *
+ * THERE IS NO `live-off`, and its absence is the decision. Putting *this* change
+ * live is about the diff on screen; handing the whole instance back to `main` is
+ * a workspace decision with nothing to do with this review, and a control for it
+ * on a review page invites the reader to make it while thinking about something
+ * else. The `live:` line names `/spec-live main` instead, which is what a person
+ * types.
  *
  * Three consequences follow from that, and all three are structural rather than
  * remembered:
@@ -541,7 +548,7 @@ const DEFAULT_VERDICT = 'discuss'
  * turning `network` off from a page reached over the network kills the page
  * doing the turning.
  */
-const ACTIONS = ['live-on', 'live-off', 'allow-network', 'allow-remote']
+const ACTIONS = ['live-on', 'allow-network', 'allow-remote']
 
 /**
  * The action a tier that is OFF offers, or null.
@@ -583,9 +590,14 @@ function surfacesFor({ live, tiers }) {
       state: live.state,
       url: live.url || null,
       reason: live.reason || null,
-      // `held` offers no press: the way out is another spec's to take, and a
+      // ONE DIRECTION ONLY. `off` offers the press; `on` and `held` offer none —
+      // `on` because handing the instance back to `main` is not this review's
+      // business, and `held` because the way out is another spec's to take and a
       // button here would either park someone else's work or do nothing.
-      action: live.state === 'on' ? 'live-off' : live.state === 'off' ? 'live-on' : null,
+      action: live.state === 'off' ? 'live-on' : null,
+      // The command for the direction the page does not offer, so the reader is
+      // never left knowing what they want and not what to type.
+      command: live.state === 'on' ? '/spec-live main' : null,
     })
   }
 
@@ -601,12 +613,17 @@ function surfacesFor({ live, tiers }) {
       tier: t.tier,
       state: 'off',
       url: null,
-      // SAID BEFORE THE PRESS, not after it. Unlike the live actions, which
-      // touch no tracked file, `allow` edits `specs/.core/env.config.json` in
+      // SAID BEFORE THE PRESS, not after it. Unlike the live action, which
+      // touches no tracked file, `allow` edits `specs/.core/env.config.json` in
       // the primary checkout — changing behaviour for everyone who pulls and
       // leaving that tree dirty. A setting change of that reach must not land
       // because someone tapped a button labelled only `Allow remote`.
       note: t.note || 'writes env.config.json — committed, and shared',
+      // The same thing from a terminal, for the reader who is nowhere near the
+      // page. Only `remote` has a command of its own: `network` is ON by
+      // default, so turning it off is a rare deliberate act and a slash command
+      // per tier is clutter for the one nobody touches.
+      command: t.tier === 'remote' ? '/spec-remote-review' : null,
       action,
     })
   }
@@ -650,7 +667,11 @@ function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
   }
 
   if (!config.review.allowRemote) {
-    tiers.push({ tier: 'remote', off: true, enable: 'skitterspec spec-env review allow remote' })
+    // THE COMMAND A PERSON TYPES. `/spec-remote-review` toggles, so the same
+    // line works whichever way the tier currently is — and nobody has to
+    // reconstruct `spec-env review allow remote` from a render they are reading
+    // on a phone.
+    tiers.push({ tier: 'remote', off: true, enable: '/spec-remote-review' })
   } else if (publishedUrl) {
     tiers.push({ tier: 'remote', url: publishedUrl, note: 'a verdict here needs /spec-reviewed' })
   } else {

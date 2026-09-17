@@ -321,6 +321,8 @@ so one subject lives in one place:
 - **network** — <the `network:` URL, or off with the command that turns it on>
 - **remote** — <the `remote:` URL, or off with the command that turns it on>
 
+<the `live:` line, exactly as the engine printed it — omitted when it printed none>
+
 I'm holding here until you send a verdict — the wait covers local and network.
 
 `/spec-reviewed` picks it up · `spec-env review skip "<reason>"` moves on
@@ -343,7 +345,16 @@ wait over that tier.
 
 **Publishing is still never yours to do.** `remote` reading `off` is the normal
 state, and the fix for it is the command on that line — typed by the operator,
-because a published page is one this tooling cannot remove.
+or pressed on the page, because a published page is one this tooling cannot
+remove and permitting it is not publishing it.
+
+**The `live:` line goes with the stack**, and it is the engine's line too —
+copied as printed, and **absent when the engine printed none**. The page can act
+on it: a press puts the spec live or takes it down and hands the reader back the
+same page, which is `/spec-diff` §2b's routing and not this skill's. What
+matters here is that an action **never clears the gate this phase armed** — the
+reader has looked at it running and concluded nothing, so the phase still owes a
+verdict.
 
 ---
 

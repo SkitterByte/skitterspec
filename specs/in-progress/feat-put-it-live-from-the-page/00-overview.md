@@ -117,6 +117,26 @@ tier links got the page to them; nothing gets them the running app.
     already reports the absolute path and whose tree it dirtied; a press must
     relay that rather than let a setting change land invisibly.
 
+14. **The page puts it live; it does not hand `main` back.** `live-off` is gone
+    from the page, from `ACTIONS` and from the routing. Putting *this* change
+    live is about the diff on screen; returning the whole instance to `main` is
+    a workspace decision with nothing to do with this review, and a control for
+    it on a review page invites the reader to make it while thinking about
+    something else.
+15. **Every line names the command that changes it.** `live: off — the page can
+    put it live` described a *capability* and left the reader to find the verb.
+    The lines now say `/spec-live to put it live`,
+    `/spec-live main to restore main`, `/spec-remote-review to turn it on` —
+    which is also how a reader acts on a tier when they are nowhere near the
+    page.
+16. **`/spec-remote-review` rather than a clickable banner.** Making the banner
+    act would mean a URL that does something when it is *fetched*, and a link
+    previewer or a prefetcher fetches URLs with no person involved. Three
+    guarded shapes were weighed and all three were more machinery than the
+    problem deserves. Naming the command costs nothing and there is nothing to
+    guard. It **toggles** by default and takes `on`/`off`, because the common
+    case is flipping the tier you are looking at.
+
 ## Solution overview
 
 The engine learns to answer *is this spec live* in a form a page can carry, the
@@ -153,7 +173,9 @@ The press sequence, and what each step is for:
 | Domain object | update | `viewFor` reads the primary checkout while a spec is live |
 | Domain object | update | the pass blob accepts `action`, alongside `verdict` — never both |
 | Route/UI | add | a surfaces block above the verdict row, `committing`/`midrun` only |
-| Route/UI | add | `▶ Put it live` · `■ Take it down` · `▶ Allow network` · `▶ Allow remote` |
+| Route/UI | add | `▶ Put it live` · `▶ Allow network` · `▶ Allow remote` |
+| CLI command | add | `spec-env review allow <tier> --set <on\|off\|"">` — empty toggles |
+| Skill/rule | add | `/spec-remote-review` (a slash command, user-only) |
 | Domain object | move | `reviewTierStack`/`reviewTierLine` from `cli.js` into `env/review.js` |
 | Skill/rule | update | `/spec-diff` §2 routes the action; `spec-reports.md` banner gains `live:` |
 | Business rule | add | an action never enters `VERDICTS`/`COMMITTING` and never clears the gate |
@@ -167,7 +189,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | The engine knows whether it is live | ✅ | [01-the-engine-knows.md](01-the-engine-knows.md) |
 | 2 | The page's line, and the action behind it | ✅ | [02-the-line.md](02-the-line.md) |
-| 3 | The skills route it, the rule holds the shape | ⬜ | [03-routing-and-the-rule.md](03-routing-and-the-rule.md) |
+| 3 | The skills route it, the rule holds the shape | ✅ | [03-routing-and-the-rule.md](03-routing-and-the-rule.md) |
+| 4 | The lines name a command a person types | ✅ | [04-the-commands.md](04-the-commands.md) |
 
 ## Open questions
 
@@ -213,3 +236,27 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the two-places-naming-one-page split the report contract records as a failure.
   One latent hole closed on the way: `judgeVerdict` honoured any unrecognised
   word, which is the cannot-tell case routed to the branch that acts.
+- 2026-09-17 — Phase 3: `/spec-diff` §2b owns the routing for all four actions
+  and every one of them loops back to the page, with the gate stated as
+  untouched in the one place a reader would look for permission to commit.
+  `spec-reports.md` took the `live:` line, and its own paragraph records that
+  this is the section's second amendment in two specs and that a third must
+  argue harder. One existing assertion was widened rather than satisfied: the
+  tier-order test compared first mentions across the whole file, and §2b names
+  `network` in prose before the stack is described.
+- 2026-09-17 — Phase 4 added from review feedback on phases 2–3, before either
+  was committed. Three things: the surface lines name the **command** a person
+  types rather than describing a capability; `remote` gets
+  **`/spec-remote-review`** (toggle by default) so nobody has to reconstruct
+  `skitterspec spec-env review allow remote`; and **`live-off` is dropped
+  entirely** — putting this change live belongs on the review page, handing the
+  instance back to `main` does not. A clickable banner was considered first and
+  rejected: the only clickable thing markdown has is a URL, and a URL that acts
+  when fetched is one a previewer or prefetcher can fire with no person
+  involved. See decisions 14–16.
+- 2026-09-17 — Phase 4: `/spec-remote-review` ships (auto-discovered by
+  `init`/`update`), `--set <on|off|"">` backs it with the empty form toggling,
+  every surface line names the command that changes it, and `live-off` is gone
+  from the page, `ACTIONS` and the routing. Twelve assertions written earlier
+  the same day moved with it — each was right about the wording it was written
+  against — and two rule files gained the command so it is discoverable.

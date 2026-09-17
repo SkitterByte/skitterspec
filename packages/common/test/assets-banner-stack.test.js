@@ -107,15 +107,29 @@ test('every rendering skill relays the engine stack rather than one link', () =>
   for (const name of RENDERS) {
     const text = skillText(name)
     // Each tier named, however the skill spells it — a bullet in a banner or a
-    // line in the engine's output. What is asserted is that all three are
-    // there and in the engine's order, not one phrasing of them.
-    const at = (tier) => {
-      const m = text.match(new RegExp(`\\*\\*${tier}\\*\\*|\`${tier}:?\``))
-      assert.ok(m, `${name} names the ${tier} tier`)
-      return m.index
+    // line in the engine's output.
+    const hits = (tier) => [
+      ...text.matchAll(new RegExp(`\\*\\*${tier}\\*\\*|\`${tier}:?\``, 'g')),
+    ].map((m) => m.index)
+    for (const tier of ['local', 'network', 'remote']) {
+      assert.ok(hits(tier).length, `${name} names the ${tier} tier`)
     }
-    assert.ok(at('local') < at('network'), `${name}: local before network`)
-    assert.ok(at('network') < at('remote'), `${name}: network before remote`)
+    // AND IN THE ENGINE'S ORDER — asserted where the three appear TOGETHER,
+    // which is what "in order" can mean. A whole-file first-mention comparison
+    // was tried and is wrong: a skill may mention one tier in prose long before
+    // it describes the stack (`/spec-diff` names `network` while explaining that
+    // there is no action to turn it off), and that says nothing about the order
+    // the stack is written in.
+    const together = (() => {
+      for (const i of hits('local')) {
+        const window = text.slice(i, i + 400)
+        const n = window.search(/\*\*network\*\*|`network:?`/)
+        const r = window.search(/\*\*remote\*\*|`remote:?`/)
+        if (n > 0 && r > n) return true
+      }
+      return false
+    })()
+    assert.ok(together, `${name}: local, network, remote named together, in that order`)
     assert.match(text, /spec-reports\.md/, `${name} points at the rule that defines the shape`)
   }
 })

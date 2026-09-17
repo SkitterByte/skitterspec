@@ -39,20 +39,26 @@ test('on — the primary checkout is on this spec\'s branch', () => {
   })
   assert.strictEqual(live.state, 'on')
   assert.strictEqual(live.url, 'http://localhost:3000')
-  assert.match(liveStateLine(live), /^ {2}live: +on — running at http:\/\/localhost:3000$/)
+  // IT NAMES THE COMMAND. The line said `off — the page can put it live`, which
+  // told the reader a page somewhere could do it and left them to find the verb
+  // — and the verb is what they need when they are in a terminal.
+  assert.match(
+    liveStateLine(live),
+    /^ {2}live: +on — running at http:\/\/localhost:3000; \/spec-live main to restore main$/,
+  )
 })
 
 test('on with no canonical port names no URL rather than inventing one', () => {
   const live = liveStateFor(SPEC, { isolated: true, onBase: false, primaryBranch: 'feat/x' })
   assert.strictEqual(live.state, 'on')
   assert.strictEqual(live.url, null)
-  assert.strictEqual(liveStateLine(live), '  live:    on')
+  assert.strictEqual(liveStateLine(live), '  live:    on; /spec-live main to restore main')
 })
 
 test('off — the workbench is free and the spec has a worktree to take', () => {
   const live = liveStateFor(SPEC, { isolated: true, onBase: true, worktreeExists: true })
   assert.deepStrictEqual(live, { state: 'off', holder: null, url: null, reason: null })
-  assert.match(liveStateLine(live), /off — the page can put it live/)
+  assert.match(liveStateLine(live), /off — \/spec-live to put it live/)
 })
 
 test('held — another spec holds it, named, with every way out', () => {

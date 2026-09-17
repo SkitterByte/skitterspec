@@ -2540,8 +2540,13 @@ test('every action has a label and a command, and the two lists agree', () => {
   }
   const labels = list('ACTION_LABEL')
   const cmds = list('ACTION_CMD')
-  assert.deepStrictEqual(labels, ['live-on', 'live-off', 'allow-network', 'allow-remote'])
+  assert.deepStrictEqual(labels, ['live-on', 'allow-network', 'allow-remote'])
   assert.deepStrictEqual(cmds, labels, 'a label with no command leaves a file:// page mute')
+  // The command a PERSON types, not the engine verb behind it — the same reason
+  // the render's own lines name `/spec-live` and `/spec-remote-review`.
+  const cmdBlock = TEMPLATE.match(/var ACTION_CMD = \{([\s\S]*?)\n {2}\}/)[1]
+  assert.match(cmdBlock, /'allow-remote': '\/spec-remote-review'/)
+  assert.match(cmdBlock, /'live-on': '\/spec-live'/)
 })
 
 // AN ACTION MUST NOT END THE PAGE. The reader still owes a verdict; closing
