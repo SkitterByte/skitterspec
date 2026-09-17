@@ -145,16 +145,173 @@ test('a command that ships nowhere still fails the check', () => {
   assert.deepStrictEqual(doc.filter((n) => !SHIPS_ANYWHERE.includes(n)), ['spec-env-down'])
 })
 
+/**
+ * EVERY SURFACE THAT CLAIMS COMPLETENESS, not one of them.
+ *
+ * This started as a check against the base README alone, and two keys added
+ * after it was written — `allowNetwork` and `allowRemote` — walked straight
+ * through `env.config.md`, the example config and the CLAUDE section. The base
+ * README even sends people to `env.config.md` saying *every field* is
+ * documented there, which made a missing key into a false sentence.
+ *
+ * A guard pointed at too few documents is the original failure one layer out, so
+ * the fix is the same shape: read the claimants off a list, and put all of them
+ * on it.
+ */
+const OWES_CONFIG_KEYS = [
+  'packages/common/assets/core/env.config.md',
+  'packages/common/assets/core/env.config.json.example',
+  'packages/skitterspec/README.md',
+]
+
 // Read from `DEFAULT_CONFIG.review` rather than listed here, so a new key fails
 // this until someone writes it up. That is the whole point: the keys added the
-// week this was written (`serve`, `allowNetwork`, `allowRemote`) are exactly the
-// ones a hand-kept list would have missed.
-test('every review.* config key is documented where a user reads it', () => {
-  const keys = Object.keys(DEFAULT_CONFIG.review)
-  assert.ok(keys.length >= 5, 'sanity: the keys were read, not defaulted to empty')
-  const base = read('packages/skitterspec/README.md')
-  const missing = keys.filter((k) => !base.includes(`review.${k}`))
-  assert.deepStrictEqual(missing, [], 'a review.* key nobody wrote up')
+// week this was written are exactly the ones a hand-kept list would have missed.
+for (const file of OWES_CONFIG_KEYS) {
+  test(`${file} documents every review.* config key`, () => {
+    const keys = Object.keys(DEFAULT_CONFIG.review)
+    assert.ok(keys.length >= 5, 'sanity: the keys were read, not defaulted to empty')
+    const text = read(file)
+    // THREE SPELLINGS COUNT, because each surface has its own convention and
+    // this check asserts the key is documented rather than dictating how. The
+    // example is JSON (`"allowRemote"`), a README writes `review.allowRemote`,
+    // and `env.config.md` documents keys as bare backticked names inside the
+    // `"review": {` block it annotates.
+    //
+    // WHAT WOULD FOOL THIS: a bare backticked common word — `` `required` `` —
+    // could appear incidentally and pass. Accepted rather than tightened: the
+    // cost is a key recorded as "documented somewhere in the file", where the
+    // alternative forces every surface to break its own style to satisfy a
+    // test. The failure it exists for is a key nobody wrote up at all.
+    const spellings = (k) => [`review.${k}`, `"${k}"`, '`' + k + '`']
+    const missing = keys.filter((k) => !spellings(k).some((form) => text.includes(form)))
+    assert.deepStrictEqual(missing, [], 'a review.* key nobody wrote up')
+  })
+}
+
+/**
+ * THE SECTION CLAUDE ITSELF READS, in every project that installs this.
+ *
+ * `init` patches `assets/claude-md-section.md` into a project's `CLAUDE.md`, so
+ * a stale claim here is not a stale claim to a *reader* — it is one to the agent
+ * doing the work. It is a live claim surface rather than a history, so the
+ * negative half applies to it exactly as it does to a README.
+ */
+const CLAUDE_SECTION = 'packages/common/assets/claude-md-section.md'
+
+test(`${CLAUDE_SECTION} does not document behaviour that was removed`, () => {
+  const current = currentClaims(CLAUDE_SECTION)
+  for (const { phrase, why } of BANNED) {
+    assert.ok(!says(current, phrase), `${CLAUDE_SECTION} still says ${String(phrase)} — ${why}`)
+  }
+})
+
+// It describes the loop, so it has to name the parts of the loop that exist. Not
+// a set comparison — it is prose, not a reference — but these four were each
+// added by a spec that shipped, and each is a thing an agent reading this file
+// would otherwise not know it had.
+test(`${CLAUDE_SECTION} names the controls the loop actually has`, () => {
+  const text = read(CLAUDE_SECTION)
+  for (const [what, why] of [
+    ['/spec-remote-review', 'the command that turns the remote tier on'],
+    ['commit-start', 'the authoring verdict — commit the spec and put it in flight'],
+    ['local', 'the labelled tier stack: which surfaces the page can be read from'],
+    ['live', 'whether the change is also running, and the press that changes it'],
+  ]) {
+    assert.ok(text.includes(what), `${CLAUDE_SECTION} does not mention ${what} — ${why}`)
+  }
+})
+
+/**
+ * AN UNRELEASED MIGRATION ENTRY IS A CLAIM. A released one is history.
+ *
+ * `MIGRATION.md` is mostly history by design — describing how things used to
+ * work is its whole job — so checking it wholesale would accuse an accurate
+ * changelog. But an entry for a version that has **not shipped** is a promise
+ * about what you are about to release, and it has to be true today.
+ *
+ * The signal is POSITIVE and cheap: the version in that package's
+ * `package.json`. An entry whose target is above it has not shipped. Without
+ * that signal the check would either accuse history or miss exactly the bug it
+ * exists for — the v22 entry said the review server's bind is chosen by
+ * `review.reader`, which stopped being true when it moved to
+ * `review.allowNetwork`, in a release that had not gone out yet.
+ */
+function unreleasedMigrationEntries() {
+  const text = read('MIGRATION.md')
+  const shipped = {
+    '@skitterbyte/skitterspec': require(path.join(ROOT, 'packages/skitterspec/package.json')).version,
+    '@skitterbyte/skitterspec-linear': require(
+      path.join(ROOT, 'packages/skitterspec-linear/package.json'),
+    ).version,
+  }
+  const heads = [...text.matchAll(/^## `(@[^`]+)` v(\d+) → v(\d+).*$/gm)]
+  const out = []
+  heads.forEach((h, i) => {
+    const major = Number(String(shipped[h[1]] || '0').split('.')[0])
+    if (Number(h[3]) <= major) return
+    const start = h.index
+    const end = i + 1 < heads.length ? heads[i + 1].index : text.length
+    out.push({ head: h[0], body: text.slice(start, end) })
+  })
+  return out
+}
+
+test('an unreleased migration entry is currently true', () => {
+  const entries = unreleasedMigrationEntries()
+  assert.ok(entries.length, 'sanity: there is an unreleased entry to check')
+  for (const { head, body } of entries) {
+    for (const { phrase, why, exceptMigration } of BANNED) {
+      if (exceptMigration) continue
+      assert.ok(!says(body, phrase), `${head} still says ${String(phrase)} — ${why}`)
+    }
+  }
+})
+
+/**
+ * REJECTED: requiring an unreleased entry to name every `review.*` key.
+ *
+ * It was written, and it accused the v22 entry for not re-documenting
+ * `commitWith` and `required` — keys that shipped in v20 and v21. A migration
+ * entry documents a **transition**, and this check cannot tell which keys are
+ * new in one, so demanding all of them makes an accurate entry fail. That is
+ * the exact over-reach this whole spec exists to avoid, so it went.
+ *
+ * `env.config.md` is what guarantees every key is documented *somewhere*
+ * authoritative; the migration guide's job is what changed.
+ *
+ * AND BE STRAIGHT ABOUT WHAT FOUND THE BUG: no check here would have caught
+ * *"What the server binds to is still chosen by `review.reader`"*. It is not a
+ * removed name or a removed phrase — it is a true sentence that a later release
+ * made false. A person asking "are we sure the docs are up to date?" found it.
+ * It is banned by name below so it cannot come back, which is all an explicit
+ * list can ever do: it closes the door behind a mistake rather than predicting
+ * the next one.
+ */
+test('STAYS SILENT: an unreleased entry need not re-document older keys', () => {
+  const [{ body }] = unreleasedMigrationEntries()
+  // Shipped in v20/v21 and correctly absent from the v22 entry's own subject.
+  assert.ok(!body.includes('commitWith'), 'sanity: it really does not mention them')
+  assert.ok(!body.includes('`required`'), 'sanity: nor this one')
+  // And the check above passed anyway, which is the assertion that matters.
+})
+
+// STAYS SILENT: a RELEASED entry may say anything about how things used to work.
+// That is what a migration guide is, and a check that could not tell the two
+// apart would turn an accurate record into a build failure.
+test('STAYS SILENT: released migration entries are history and go unchecked', () => {
+  const text = read('MIGRATION.md')
+  const unreleased = unreleasedMigrationEntries().map((e) => e.head)
+  const all = [...text.matchAll(/^## `(@[^`]+)` v(\d+) → v(\d+).*$/gm)].map((m) => m[0])
+  const released = all.filter((h) => !unreleased.includes(h))
+  assert.ok(released.length > 3, 'sanity: most entries are history')
+  // And at least one of them says something the negative half bans — which is
+  // correct of it, and the assertion that this test is worth having.
+  const body = text.slice(text.indexOf(released[0]))
+  assert.ok(
+    BANNED.some(({ phrase }) => says(body, phrase)),
+    'a released entry names something since removed — and must not fail for it',
+  )
 })
 
 // --- negative: removed behaviour, with a reason each -----------------------
@@ -175,18 +332,33 @@ const BANNED = [
   {
     phrase: 'serveOnRemote',
     why: 'renamed to `review.serve`; a legacy value is still read, but the key is not the one to document',
+    // A RENAME MIGRATION HAS TO NAME THE OLD KEY — that is the entry's whole
+    // job, and banning it there would force the guide to describe a rename
+    // without saying what was renamed. Scoped rather than dropped: it stays
+    // banned in every document that describes the product as it is now.
+    exceptMigration: true,
   },
   {
     phrase: '/spec-env-down',
     why: 'the skill was removed in v3 — teardown folded into `/spec-complete` and `/spec-cancel`. Naming it in version history is fine; naming it as a command is not',
   },
   {
-    phrase: 'cannot reach your conversation',
+    // A REGEX, because the same wrong claim was written two ways. The site said
+    // *"cannot reach your conversation"* and the CLAUDE section said *"cannot
+    // reach this conversation"* — one substring caught one of them and walked
+    // past the other, in the file Claude itself reads. An explicit list is the
+    // only shape that can cover prose, and this is the care it needs: ban the
+    // claim, not one phrasing of it.
+    phrase: /cannot reach (your|this) conversation/,
     why: 'that guard was REPLACED, not weakened by accident. A phase now waits on its page and `--claim-since` claims a pass that arrived inside the window — so what holds is the serve token plus that window, and a page saying otherwise documents a security model the engine no longer has',
   },
   {
     phrase: 'to record the verdict and commit nothing',
     why: '`review.commitWith: "none"` existed and was removed — it produced the one thing a review page must not have, a verdict that records itself and does nothing (`env/config.js`)',
+  },
+  {
+    phrase: /binds to is still\s+chosen by `review\.reader`/,
+    why: '`review.allowNetwork` chooses the bind now; `review.reader` decides only how a page\'s location is worded. This one was TRUE when it was written and made false by a later release — no check here would have predicted it, a person asking found it, and it is listed so it cannot come back',
   },
   {
     phrase: 'names that code back',
@@ -209,6 +381,10 @@ const BANNED = [
  * wants. The marker has to be **deliberate**, so an unmarked mention still
  * fails; that is what stops it becoming a way to silence the check.
  */
+// A banned entry is a string or a RegExp; `says` is the one place that knows.
+const says = (text, phrase) =>
+  phrase instanceof RegExp ? phrase.test(text) : text.includes(phrase)
+
 function currentClaims(file) {
   const text = read(file)
   const m = text.match(REGION)
@@ -225,7 +401,7 @@ for (const [file] of READMES) {
   test(`${file} does not document behaviour that was removed`, () => {
     const current = currentClaims(file)
     for (const { phrase, why } of BANNED) {
-      assert.ok(!current.includes(phrase), `${file} still says ${JSON.stringify(phrase)} — ${why}`)
+      assert.ok(!says(current, phrase), `${file} still says ${String(phrase)} — ${why}`)
     }
   })
 }

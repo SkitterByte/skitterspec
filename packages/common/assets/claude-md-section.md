@@ -20,24 +20,35 @@ every phase.
 
 **Handing the review back.** The page takes marks: tick `✓ accept` per file as
 you read, note anything against a line or a whole file, answer the questions a
-written review asked — then **end it in a decision**. Three buttons, each
-carrying its own verdict:
-`✓ Commit` commits it, `✓ Commit & Continue` commits and builds the next phase,
-`↺ Request changes` sends it straight back to be worked, `… Discuss first` asks
-you what's up. A **served** page hands the pass to
-the engine, which **holds** it and shows a six-digit code. Type `/spec-reviewed`
-and the waiting pass is picked up and acted on; paste the code after it
-(`/spec-reviewed 324199`) to name one exactly, which matters only when two are
-waiting. **Nothing pushes** — a device that reaches your page cannot reach this
-conversation, which is what keeps a stray approval out of your review, and is
-why the code is an address rather than a password. A `file://` page has no server to talk to, so it
-copies and you paste, as before. Approve is unavailable while a note is open —
-you asked for something, so it cannot also be fine — and it hands off to your
-own commit skill (`review.commitWith`, `/commit` by default) rather than a copy
-living here. Fixes come back as resolutions, so the next render shows each note
-struck through with what changed. An accept remembers the file's content, so it
-lapses by itself when that file changes again. The marks are information —
-nothing gates on them; the verdict is the one thing you choose, once.
+written review asked — then **end it in a decision**. At the end of a phase the
+buttons are `✓ Commit`, `✓ Commit & Continue` (commit, then build the next
+phase), `↺ Request changes` and `… Discuss first`. A spec that has just been
+written gets `✓ Commit & Start` instead — the `commit-start` verdict, which is
+the `commit && /spec-start` you would otherwise type. A **served** page hands
+the pass to the engine, which **holds** it and shows a six-digit code. Committing
+is unavailable while a note is open — you asked for something, so it cannot also
+be fine — and it hands off to your own commit skill (`review.commitWith`,
+`/commit` by default) rather than a copy living here. Fixes come back as
+resolutions, so the next render shows each note struck through with what changed.
+An accept remembers the file's content, so it lapses by itself when that file
+changes again. The marks are information — nothing gates on them; the verdict is
+the one thing you choose, once.
+
+**Above the verdicts sits one line that is not a verdict.** `▶ Put it live`
+commits the phase, checks the branch out where your dev server can see it, and
+hands you back the same page with the same options — so you can judge the change
+by *using* it, not only by reading it. It clears no gate: you have looked at it
+running and concluded nothing, so the phase still owes an answer.
+
+**Every render lists where the page can be read**, labelled, in a fixed order —
+`local`, `network`, `remote` — each either a URL or the one command that turns it
+on, plus a `live:` line saying whether the change is also running. `local` and
+`network` are two doors into one room: the same server and the same waiting
+verdict, so one wait covers both. `remote` is a published page, a second store —
+a verdict there needs `/spec-reviewed`, and it stays off until someone types
+**`/spec-remote-review`**, which toggles it. Publishing is permitted by that
+command, never performed by it: a published page is one this tooling cannot
+remove.
 
 **One ending.** Every spec skill finishes with the same block — a verdict
 (`✅` · `⚠️` · `❌` · `⏸`), then a table of the fields that skill declares,

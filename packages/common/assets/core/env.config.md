@@ -241,7 +241,10 @@ through to a documented conservative default; see the field notes below.
 
   // Reading a spec's diff (`spec-env review`, `/spec-diff`).
   //
-  // `reader` decides how the page's LOCATION IS WORDED and WHAT THE SERVER
+  // `reader` decides how the page's LOCATION IS WORDED. It no longer decides
+  // the bind — `allowNetwork` does, see below — and it no longer decides which
+  // tiers are offered, because every tier is now listed whatever it says.
+  // WHAT THE SERVER
   // BINDS TO — and nothing else. It never decides whether to serve (`serve`
   // does) and never decides to PUBLISH. Three values:
   //   "local"  — you are at the machine holding the page; it binds 127.0.0.1.
@@ -302,6 +305,34 @@ through to a documented conservative default; see the field notes below.
   // remove, so that half stays an explicit ask. Teardown names a server that
   // served the last spec, and `spec-env prune` reaps a pidfile whose process is
   // gone. Default: true.
+  //
+  // `allowNetwork` and `allowRemote` decide WHICH TIERS a render offers, and
+  // they replaced the engine guessing where the reader was sitting. It guessed
+  // for a while and got it wrong three separate ways in one day: a file:// page
+  // on a session detected `unknown`, a LAN URL for a phone that had left the
+  // network, and an address that changed underneath a reader mid-session. So
+  // every tier is listed, labelled, and either a URL or the one command that
+  // turns it on — and you pick the one that reaches you.
+  //
+  //   `allowNetwork` — whether the review server binds EVERY INTERFACE, so the
+  //                    page opens on your phone, or loopback only. THIS IS WHAT
+  //                    CHOOSES THE BIND; `reader` no longer does. Default: true,
+  //                    which matches what the engine already did.
+  //   `allowRemote`  — whether PUBLISHING is permitted at all. It permits it; it
+  //                    publishes nothing. Default: FALSE, because a published
+  //                    page is one skitterspec cannot delete, so it must never
+  //                    happen unasked.
+  //
+  // `local` and `network` are two doors into ONE ROOM — the page POSTs to
+  // `location.pathname`, so both reach the same server and the same waiting
+  // verdict, and one wait covers both. `remote` is a second store: a verdict
+  // pressed on a published page needs `/spec-reviewed`, because nothing pushes
+  // from an artifact's store into a conversation.
+  //
+  // Both are toggled by `spec-env review allow <tier> --set [on|off]`, where an
+  // empty value toggles — which is what `/spec-remote-review` runs. It writes
+  // THIS FILE in the primary checkout, so it changes for everyone who pulls and
+  // leaves that tree dirty; the engine says so when it does.
   //
   // `commitWith` names the skill a COMMITTING verdict hands off to. A review
   // page ends in a verdict — commit, commit & continue, request changes,

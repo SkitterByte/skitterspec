@@ -12,11 +12,11 @@ variables, so a plain local terminal got a `file://` page. A `file://` page has
 press-a-button-and-the-work-continues loop was missing from exactly the sessions
 that are easiest to use.
 
-**No new exposure, and that is deliberate.** What the server binds to is still
-chosen by `review.reader`: a remote reader binds every interface exactly as
-before, and a local or unknown one binds **loopback**. The change is `file://`
-→ `http://127.0.0.1`, which opens on the machine holding the page and, unlike
-`file://`, can answer. Serving more never means listening wider.
+**Which interfaces it listens on is `review.allowNetwork`** — see breaking
+change 3, below. The change here is narrower than it looks: `file://` →
+`http://127.0.0.1`, a page that opens on the machine holding it and, unlike
+`file://`, can answer. Serving more never means listening wider; that is one
+setting, and it is not this one.
 
 **What to change.** `review.serveOnRemote: false` is still read as the new
 `review.serve: "never"`, so a config that turned serving off keeps working. The
@@ -80,6 +80,52 @@ refuses a busy port rather than moving itself aside.
 
 `spec-env review serve --status` now prints the port **and which of the three chose it** —
 `--port`, `review.servePort`, or the derivation.
+
+### Breaking change 3 — the reader no longer decides the bind: `review.allowNetwork` does
+
+**Two new keys, and one of them changes a default.** The engine used to guess
+where you were reading and pick a surface for you. It guessed wrong three
+separate ways in one day — a `file://` page on a session detected `unknown`, a
+LAN URL for a phone that had left the network, and an address that changed
+underneath a reader when detection flipped mid-session. So it stopped guessing:
+every render now lists every tier, labelled, in a fixed order.
+
+```jsonc
+// specs/.core/env.config.json — the new keys, with their defaults
+"review": {
+  "allowNetwork": true,   // the server binds every interface, so the page opens on your phone
+  "allowRemote": false    // publishing is permitted at all — it permits, it never publishes
+}
+```
+
+**`allowNetwork` defaults to `true`, and that is the behaviour change to read before upgrading.**
+Before, a local or unknown reader got a loopback bind and a
+remote one got every interface; now the setting decides, and its default is the
+wide bind — which is what a remote reader already got, applied to every render.
+The URL still carries the **serve token**, 48 random bits minted per server,
+which remains the only thing deciding who can POST a verdict. A machine you
+would rather not expose sets `"allowNetwork": false`, and `network:` then reads
+`off` with the command that turns it back on.
+
+**`allowRemote` defaults to `false`** and permits publishing without performing
+it — a published page is one skitterspec cannot delete, so it stays an explicit
+ask either way.
+
+**`review.reader` still exists** and now decides only how a page's location is
+*worded*. It no longer chooses the bind and no longer chooses which tiers appear.
+
+### `/spec-remote-review` — a new slash command
+
+Toggles `review.allowRemote`, and takes `on`/`off` when you would rather say
+which. It exists because a render's `remote:` line has to name something you can
+act on, and `skitterspec spec-env review allow remote` is not what anyone
+reconstructs from a page they are reading on a phone. `init` and `update`
+install it with the other commands; like them it is user-only, so nothing but you
+can run it.
+
+**It writes `specs/.core/env.config.json` in the primary checkout** — a
+committed file, so it changes for everyone who pulls and leaves that tree dirty.
+The engine says so when it does.
 
 ## `@skitterbyte/skitterspec-linear` v16 → v17 (a review port per repo, and every render serves)
 

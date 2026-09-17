@@ -108,8 +108,14 @@ written review asked — and then **ends in a decision**:
 |--------|------|
 | `✓ Commit` | commits the phase, and stops |
 | `✓ Commit & Continue` | commits, then builds the next phase — and stops there |
+| `✓ Commit & Start` | on a freshly written spec: commits it and puts it in flight. The `commit && /spec-start` you would otherwise type |
 | `↺ Request changes` | sends your notes straight back to be worked |
 | `… Discuss first` | reports what you wrote and asks what's up |
+
+The last one appears only on a spec's own page — a spec with no phase in flight
+has nothing to continue — and `▶ Put it live` sits above them all, which is not
+a verdict: it commits the phase, checks the branch out where your dev server can
+see it, and hands you back the same page. It clears no gate.
 
 **`/spec-next` ends a phase by rendering the page and then watching for that press**,
 so the button is what carries the work on — there is no command to

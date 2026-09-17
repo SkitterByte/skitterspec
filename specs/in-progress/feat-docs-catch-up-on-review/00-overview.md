@@ -68,6 +68,19 @@ that gap has existed.
    as marketing. Rejected repeating it on all four: four copies of a security
    argument is four places for it to drift.
 
+7. **Every surface that claims completeness is checked, not one of them.**
+   Phases 1–3 checked `review.*` keys in the base README alone, and two keys
+   added after this spec was written walked through `env.config.md`, the example
+   config and the CLAUDE section untouched. The guard being pointed at too few
+   documents is the original problem one layer out, so the fix is the same
+   shape: read the surfaces off a list, and put every claimant on it.
+8. **An unreleased migration entry is a claim; a released one is history.** The
+   distinction is decided by a **positive signal** — the version in that
+   package's `package.json`. An entry whose target version is above it has not
+   shipped, so it must be currently true and is checked; everything below it is
+   a record of what once was and is left alone. Without that signal a check
+   would either accuse an accurate changelog or miss exactly the bug it is for.
+
 ## Solution overview
 
 Phase 1 rewrites the review sections of both published READMEs: the correct
@@ -85,6 +98,8 @@ phase is checked by it.
 | Route/UI | update | `docs/index.html`, `docs/linear.html` — command reference + loop |
 | Skill/rule | update | `packages/common/README.md` |
 | Business rule | add | a test pairing documented commands/config against what ships |
+| Config key | update | `env.config.md` + example gain `allowNetwork`, `allowRemote` |
+| Skill/rule | update | `assets/claude-md-section.md`, `MIGRATION.md` (unreleased entries) |
 
 ## Phases
 
@@ -96,6 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | The published READMEs, and the guard | ✅ | [01-the-npm-readmes.md](01-the-npm-readmes.md) |
 | 2 | The docs site | ✅ | [02-the-docs-site.md](02-the-docs-site.md) |
 | 3 | The developer-facing README | ✅ | [03-the-repo-readme.md](03-the-repo-readme.md) |
+| 4 | The surfaces the guard was not pointed at | ✅ | [04-the-rest-of-the-surfaces.md](04-the-rest-of-the-surfaces.md) |
 
 ## Open questions
 
@@ -139,3 +155,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `spec-env review` verb list and the three sidecars. One mechanism was added:
   `<!-- history -->` exempts a marked paragraph from the negative half, with a
   test asserting an unmarked mention still fails.
+- 2026-09-17 — Phase 4 added after the question *"are we sure the docs are up to
+  date?"* was put and the answer checked rather than asserted. It was **no**, in
+  five places, all of them surfaces the guard was never pointed at:
+  `env.config.md` and its example were missing `allowNetwork`/`allowRemote`; the
+  **unreleased** v22 migration entry still said the bind is chosen by
+  `review.reader`; `claude-md-section.md` — the section Claude reads in every
+  project — still described three buttons; and the base README's verdict table
+  was short of `Commit & Start`. See decisions 7–8.
+- 2026-09-17 — Phase 4: all five gaps closed and the guard extended to the four
+  surfaces it had never been pointed at. Two findings are worth carrying
+  forward. An assertion demanding an unreleased migration entry name every
+  `review.*` key was written, fired on an **accurate** entry, and removed — the
+  guide documents a transition and the check cannot tell which keys are new in
+  one. And the wrong-bind sentence was **true when written**: nothing mechanical
+  predicts that, a person asking found it, and banning it by name is all an
+  explicit list can do. The regex ban also fixed a near-miss where the same
+  claim appeared as "your conversation" on the site and "this conversation" in
+  the CLAUDE section.
