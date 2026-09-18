@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-349"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-349/no-assumptions-about-the-host-projects-stack"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # No assumptions about the host project's stack
 
 > **Type:** Feature
 > **Name:** feat-no-stack-assumptions (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-18)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
 > **Area:** packages/common/src/init.js, packages/common/assets/commands/, packages/common/src/env/provision.js, packages/common/src/env/teardown.js, packages/common/assets/rules/
 > **Stack:** worktree
@@ -141,6 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-18 | Ready | backlog | Reuben Greaves |
+| 2026-09-18 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
