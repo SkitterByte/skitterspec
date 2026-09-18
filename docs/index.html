@@ -446,6 +446,18 @@
   tbody td.folder { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-faint); white-space: nowrap; }
   .grp-row td { background: var(--card-2); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; padding: 9px 20px; }
 
+
+  /* ---------- Review-card mockup (shared shape with review.html) ---------- */
+  .rv { border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); background: var(--card); overflow: hidden; }
+  .rv-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--card-2); font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-soft); }
+  .rv-bar .counts { margin-left: auto; color: var(--ink-faint); }
+  .rv-verdicts { background: var(--card-2); padding: 12px 14px; }
+  .rv-live { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); margin-bottom: 10px; }
+  .rv-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rv-btn { font-family: var(--font-mono); font-size: 0.76rem; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); }
+  .rv-btn.commit { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .rv-btn.commit2 { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
   /* ---------- Report block ---------- */
   .rpt { border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); background: var(--card); overflow: hidden; }
   .rpt-verdict { padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--card-2); font-size: 0.95rem; color: var(--ink); }
@@ -494,7 +506,7 @@
   <div class="wrap nav-inner">
     <div class="brand">
       <span class="glyph">/</span>
-      <span>skitterspec <small>+ linear</small></span>
+      <span>skitterspec</span>
     </div>
     <nav class="nav-links">
       <a href="index.html">Home</a>
@@ -512,13 +524,13 @@
   <div class="wrap hero-grid">
     <div class="reveal in">
       <div class="eyebrow">Spec-driven development · for Claude Code</div>
-      <h1>Your specs live in <span class="hl">git.</span><br>Linear just watches.</h1>
-      <p class="sub">skitterspec drives a feature from <strong>a grilled spec</strong> to <strong>landed, tested code</strong> — entirely in your terminal. Add the Linear layer and that same spec shows up as an issue your team can review and triage — a generated mirror of your git-canonical spec, pushed up one way.</p>
+      <h1>The spec is the plan.<br>The page is the review.<br><span class="hl">Git is the board.</span></h1>
+      <p class="sub">skitterspec drives a feature from <strong>a grilled spec</strong> to <strong>landed, tested code</strong> — entirely in your terminal. Every phase ends on a review page you can read anywhere and answer with one press, and the button is what carries the work on.</p>
       <div class="cta-row">
         <a href="#scenario" class="btn btn-primary">See it end to end →</a>
-        <a href="#surfaces" class="btn btn-ghost">Terminal vs Linear?</a>
+        <a href="review.html" class="btn btn-ghost">How review works</a>
       </div>
-      <p class="hero-note">git-native · worktree-isolated · tracker-optional</p>
+      <p class="hero-note">git-native · worktree-isolated · tracker-optional — <a href="#linear">add Linear</a> and your team watches a generated mirror</p>
     </div>
 
     <div class="surfaces reveal in">
@@ -530,60 +542,28 @@
         <div class="term">
 <div class="l"><span class="prompt">›</span> <span class="cmd">/spec-start</span> <span class="dim">feat-sort-inbox</span></div>
 <div class="l"><span class="dim">  provisioning worktree …</span> <span class="ok">✓</span></div>
-<div class="l"><span class="dim">  dev servers up on :3012 / :8092</span> <span class="ok">✓</span></div>
 <div class="l"><span class="dim">  implementing</span> <span class="info">Phase 2 · sort controls</span></div>
 <div class="l"><span class="dim">  tests</span> <span class="warn">red → green</span> <span class="ok">✓ 14 passing</span></div>
-<div class="l"><span class="prompt">›</span> <span class="cmd">/spec-push</span></div>
-<div class="l"><span class="dim">  SKI-204 ← spec issue + 2 sub-issues</span> <span class="ok">↑ synced</span></div>
+<div class="l"><span class="dim">  review page ready — holding for your verdict</span></div>
+<div class="l"><span class="dim">  local</span> <span class="info">127.0.0.1:7760/…</span> <span class="dim">· network</span> <span class="info">192.168.0.136:7760/…</span></div>
         </div>
       </div>
 
-      <div class="surface-link"><span class="bar"></span>one spec · two surfaces<span class="bar"></span></div>
+      <div class="surface-link"><span class="bar"></span>the phase ends here · you answer there<span class="bar"></span></div>
 
-      <div class="lcard" aria-label="The same spec shown as a Linear issue">
-        <div class="lcard-top">
-          <div>
-            <div class="id">SKI-204 · Issue</div>
-            <div class="name">Sort the task inbox</div>
+      <div class="rv" aria-label="The review page for that phase, waiting for a verdict">
+        <div class="rv-bar"><span>feat-sort-inbox · phase 2</span><span class="counts">5 files · +148 −12</span></div>
+        <div class="rv-verdicts">
+          <div class="rv-live">▶ Put it live — see it running, come back to this page</div>
+          <div class="rv-btns">
+            <span class="rv-btn commit">✓ Commit</span>
+            <span class="rv-btn commit2">✓ Commit &amp; Continue</span>
+            <span class="rv-btn">↺ Request changes</span>
+            <span class="rv-btn">… Discuss first</span>
           </div>
-          <span class="status progress">In Progress</span>
-        </div>
-        <div class="lcard-body">
-          <div class="issue done"><span class="box"></span>Phase 1 · schema + column<span class="tag">SKI-205</span></div>
-          <div class="issue"><span class="box"></span>Phase 2 · sort controls<span class="tag">SKI-208</span></div>
         </div>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- ============ THE REPORT ============ -->
-<section id="report">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">Every ending</div>
-      <h2>You should be able to tell what happened without reading a paragraph about it.</h2>
-      <p class="lede">Every skill finishes with the same block, and says nothing while it runs beyond a question it can't answer itself or a failure at the moment it happens. The fields come from a fixed vocabulary in a fixed order, and a skill emits only the ones it declares — so two runs of the same skill are scannable against each other, and you learn where to look once.</p>
-    </div>
-
-    <div class="rpt reveal">
-      <div class="rpt-verdict"><span class="state">✅</span> <b>Phase 2 built</b> <span class="dim">— <span class="mono">feat-orders</span>, 2 of 4</span></div>
-      <table>
-        <tbody>
-          <tr><td class="k">Tracker</td><td class="v"><span class="mono">SKS-88</span> · <span class="mono">feat-orders</span> · phase 2 moved</td></tr>
-          <tr><td class="k">Branch</td><td class="v"><span class="mono">spec/feat-orders</span> · 3 commits, clean</td></tr>
-          <tr><td class="k">Built</td><td class="v">POST /orders handler, orders schema</td></tr>
-          <tr><td class="k">Tests</td><td class="v">128 passed · <span class="mono">npm test</span></td></tr>
-          <tr><td class="k">Review</td><td class="v">7 files, +212 −18 · <b>local</b> 127.0.0.1:7760/… · <b>network</b> 192.168.0.136:7760/… · <b>remote</b> off</td></tr>
-          <tr><td class="k">Follow-ups</td><td class="v">none</td></tr>
-          <tr><td class="k">Next</td><td class="v"><span class="mono">/spec-next</span> → phase 3 (Auth)</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <p class="cmp-note reveal"><b>Four verdicts</b>, and the last two are different facts about your repo: <b>✅</b> done · <b>⚠️</b> done with caveats · <b>❌</b> failed part-way, so there is a mess to clear · <b>⏸</b> refused before acting, so nothing changed. Looking for wreckage that isn't there costs as much as walking past wreckage that is. <b>A refusal emits the block too</b> — "nothing happened" is a reported outcome rather than an absent one.</p>
-
-    <p class="cmp-note reveal"><b>Tracker</b> leads because the id is how you address this work outside the repo; <b>Next</b> closes because it is the only row you act on. <b>Follow-ups</b> is always there, since a recorded <span class="mono">none</span> is a decision where a missing line is an oversight. And the block covers <b>that run only</b> — what else is in flight is a different question, and answering it here leaves you unable to tell what followed from the run you just watched. The shape is defined once, in <span class="mono">.claude/rules/spec-reports.md</span>, and each skill's own <span class="mono">## Report</span> names only its verdicts and its fields.</p>
   </div>
 </section>
 
@@ -748,6 +728,69 @@
   </div>
 </section>
 
+<!-- ============ THE REPORT ============ -->
+<section id="report">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Every ending</div>
+      <h2>You should be able to tell what happened without reading a paragraph about it.</h2>
+      <p class="lede">Every skill finishes with the same block, and says nothing while it runs beyond a question it can't answer itself or a failure at the moment it happens. The fields come from a fixed vocabulary in a fixed order, and a skill emits only the ones it declares — so two runs of the same skill are scannable against each other, and you learn where to look once.</p>
+    </div>
+
+    <div class="rpt reveal">
+      <div class="rpt-verdict"><span class="state">✅</span> <b>Phase 2 built</b> <span class="dim">— <span class="mono">feat-orders</span>, 2 of 4</span></div>
+      <table>
+        <tbody>
+          <tr><td class="k">Tracker</td><td class="v"><span class="mono">SKS-88</span> · <span class="mono">feat-orders</span> · phase 2 moved</td></tr>
+          <tr><td class="k">Branch</td><td class="v"><span class="mono">spec/feat-orders</span> · 3 commits, clean</td></tr>
+          <tr><td class="k">Built</td><td class="v">POST /orders handler, orders schema</td></tr>
+          <tr><td class="k">Tests</td><td class="v">128 passed · <span class="mono">npm test</span></td></tr>
+          <tr><td class="k">Review</td><td class="v">7 files, +212 −18 · <b>local</b> 127.0.0.1:7760/… · <b>network</b> 192.168.0.136:7760/… · <b>remote</b> off</td></tr>
+          <tr><td class="k">Follow-ups</td><td class="v">none</td></tr>
+          <tr><td class="k">Next</td><td class="v"><span class="mono">/spec-next</span> → phase 3 (Auth)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="cmp-note reveal"><b>Four verdicts</b>, and the last two are different facts about your repo: <b>✅</b> done · <b>⚠️</b> done with caveats · <b>❌</b> failed part-way, so there is a mess to clear · <b>⏸</b> refused before acting, so nothing changed. Looking for wreckage that isn't there costs as much as walking past wreckage that is. <b>A refusal emits the block too</b> — "nothing happened" is a reported outcome rather than an absent one.</p>
+
+    <p class="cmp-note reveal"><b>Tracker</b> leads because the id is how you address this work outside the repo; <b>Next</b> closes because it is the only row you act on. <b>Follow-ups</b> is always there, since a recorded <span class="mono">none</span> is a decision where a missing line is an oversight. And the block covers <b>that run only</b> — what else is in flight is a different question, and answering it here leaves you unable to tell what followed from the run you just watched. The shape is defined once, in <span class="mono">.claude/rules/spec-reports.md</span>, and each skill's own <span class="mono">## Report</span> names only its verdicts and its fields.</p>
+  </div>
+</section>
+
+<!-- ============ REVIEW TEASER ============ -->
+<section id="review">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">The review loop</div>
+      <h2>Every phase ends on a page. The page ends in a decision.</h2>
+      <p class="lede">The diff renders as a self-contained page — whole-file context, a file tree, new files included — and the run <em>waits</em> for the verdict you press on it.</p>
+    </div>
+
+    <div class="pipeline reveal">
+      <div class="stage">
+        <span class="num">FREE</span>
+        <h3>The diff costs zero context tokens</h3>
+        <p>Git writes the patches and the engine splices them into the page — the model never reads them, so a 266KB patch costs the same as a 5KB one: nothing.</p>
+      </div>
+      <div class="stage">
+        <span class="num">ONE PRESS</span>
+        <h3>The button carries the work on</h3>
+        <p><b>Commit &amp; Continue</b> pressed from a phone commits the phase and builds the next one — a whole phase moved forward while you're away from the terminal.</p>
+      </div>
+      <div class="stage">
+        <span class="num">ANYWHERE</span>
+        <h3>local · network · remote</h3>
+        <p>Your desk, a phone on your wifi, or a published page out of the house — every render lists all three doors, and the wait covers the press on any served one.</p>
+      </div>
+    </div>
+
+    <div class="cta-row reveal" style="justify-content:center; margin-top:26px;">
+      <a href="review.html" class="btn btn-primary">How review works →</a>
+    </div>
+  </div>
+</section>
+
 <!-- ============ TWO SURFACES ============ -->
 <section id="surfaces">
   <div class="wrap">
@@ -826,21 +869,6 @@
   </div>
 </section>
 
-
-<!-- ============ REVIEW POINTER ============ -->
-<section id="review">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">See the phase</div>
-      <h2>Review, on its own page.</h2>
-      <p class="lede">Every phase ends on a page you can read anywhere and answer with one press — how that works, what it costs (nothing), and what guards it live on <a href="review.html">the review page</a>.</p>
-    </div>
-  </div>
-</section>
-
-
-
-
 <!-- ============ QUICKSTART ============ -->
 <section id="quickstart" class="quick">
   <div class="wrap">
@@ -908,6 +936,10 @@ npx @skitterbyte/skitterspec <span class="p">init</span>
     </div>
   </div>
 </section>
+
+
+
+
 
 <footer>
   <div class="wrap foot-inner">

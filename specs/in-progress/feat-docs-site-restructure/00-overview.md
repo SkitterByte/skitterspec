@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Scaffold the split — reference.html + shared nav | ✅ | [01-reference-page.md](01-reference-page.md) |
 | 2 | review.html — mockups + restructured rationale | ✅ | [02-review-page.md](02-review-page.md) |
-| 3 | Rebuild index.html — hero, teaser, trim | ⬜ | [03-index-rebuild.md](03-index-rebuild.md) |
+| 3 | Rebuild index.html — hero, teaser, trim | ✅ | [03-index-rebuild.md](03-index-rebuild.md) |
 | 4 | Re-skin linear.html — package identity | ⬜ | [04-linear-identity.md](04-linear-identity.md) |
 
 ## Open questions
@@ -127,3 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   mockups, 4 prose claims and a 10-item disclosure list; index keeps a pointer
   at #review; docs-claims review-key matcher taught that review.html is a
   filename. Suite 3458 green.
+- 2026-09-18 — Phase 3 done: hero sells the loop + review (terminal → review
+  card), Linear demoted to the hero note, `+ linear` dropped from the lockup,
+  review teaser with three claims, sections re-ordered (#surfaces kept beside
+  #linear as the superset summary). Suite 3458 green.
