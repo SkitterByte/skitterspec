@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-ci-matches-local (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-17)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-17
@@ -126,6 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-17 | Ready | backlog | Reuben Greaves |
 | 2026-09-17 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -150,3 +151,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `--init` a container reaps no orphans, so a killed `sh` stays a zombie and
   two teardown tests failed there while passing on macOS and CI. `--init` is
   load-bearing and has its own test — a gate that cries wolf gets skipped.
+- 2026-09-18 — Completed; both phases done, tests green (3076) on macOS and on
+  Linux through the gate's own command.
