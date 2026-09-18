@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-docs-site-restructure (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-18)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -114,6 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-18 | Ready | backlog | Reuben Greaves |
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -134,3 +135,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-18 — Phase 4 done: linear.html is indigo (#5e6ad2 light / #8a94e8
   dark) with a skitterspec-linear lockup and an npm package banner; base pages
   already name the superset. Suite 3458 green.
+- 2026-09-18 — Completed; all four phases done, suite 3458 green.
