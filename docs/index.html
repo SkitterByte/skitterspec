@@ -497,14 +497,10 @@
       <span>skitterspec <small>+ linear</small></span>
     </div>
     <nav class="nav-links">
-      <a href="#loop">The loop</a>
-      <a href="#scenario">Walkthrough</a>
-      <a href="#surfaces">Two surfaces</a>
-      <a href="#review">See the phase</a>
-      <a href="#report">Every ending</a>
-      <a href="#linear">Add Linear</a>
-      <a href="linear.html">Linear setup</a>
-      <a href="#reference">Reference</a>
+      <a href="index.html">Home</a>
+      <a href="#review">Review</a>
+      <a href="reference.html">Reference</a>
+      <a href="linear.html">Linear</a>
       <a class="pkg pill" href="#quickstart">Get started</a>
       <button class="theme-btn" id="themeToggle" aria-label="Toggle colour theme">◐</button>
     </nav>
@@ -819,51 +815,17 @@
   </div>
 </section>
 
-<!-- ============ REFERENCE ============ -->
+<!-- ============ REFERENCE POINTER ============ -->
 <section id="reference">
   <div class="wrap">
     <div class="section-head reveal">
-      <div class="eyebrow">Command reference</div>
-      <h2>Every skill, and what it does to the spec.</h2>
-      <p class="lede">Bucket is status — each command moves the spec's folder and stamps its header. The Linear group ships only with the <a href="linear.html">superset</a>. Sync itself waits for a <span class="mono" style="font-size:.9em">linear.config.json</span>, but <span class="mono" style="font-size:.9em">/spec-linear-setup</span> and <span class="mono" style="font-size:.9em">spec-sync doctor</span> are what you run <em>before</em> one exists.</p>
-    </div>
-
-    <div class="table-wrap reveal">
-      <table>
-        <thead>
-          <tr><th>Command</th><th>What it does</th><th>Lands in</th></tr>
-        </thead>
-        <tbody>
-          <tr class="grp-row"><td colspan="3">Core lifecycle</td></tr>
-          <tr><td class="cmd">/spec</td><td>Grill to a shared understanding, then write a groomed, phased spec.</td><td class="folder">backlog/ · Ready</td></tr>
-          <tr><td class="cmd">/spec-start</td><td>Put a spec in flight — provision its worktree, promote it, mirror the change, then offer to build phase 1 there.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-next</td><td>Build the next phase of the spec in flight, to green. Re-run per phase.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-complete</td><td>Verify all phases + tests, land on base, tear down.</td><td class="folder">complete/</td></tr>
-          <tr><td class="cmd">/spec-cancel</td><td>Record progress, stamp a reason, tear down.</td><td class="folder">cancelled/</td></tr>
-
-          <tr class="grp-row"><td colspan="3">Entry points &amp; upkeep</td></tr>
-          <tr><td class="cmd">/spec-bug</td><td>Reproduce with a failing test, then drive red → green.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-hotfix</td><td>Fork a worktree from a release tag; land by tag + cherry-pick.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/no-spec</td><td>Work that genuinely has no spec — a version bump, a rename. Its own branch, its own worktree, its own review page; never the base branch.</td><td class="folder">—</td></tr>
-          <tr><td class="cmd">/spec-review</td><td>Re-validate a spec against the codebase; refresh stale parts.</td><td class="folder">— unchanged</td></tr>
-          <tr><td class="cmd">/spec-init</td><td>Bootstrap or repair the workflow in a project (idempotent).</td><td class="folder">—</td></tr>
-
-          <tr class="grp-row"><td colspan="3">Run &amp; test locally</td></tr>
-          <tr><td class="cmd">/spec-live</td><td>Check the branch out in your primary checkout — reuse the running server. A <b>command</b>: it runs the verb directly, so you type it yourself.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-connect</td><td>Proxy canonical localhost ports to a spec's own dev stack. A <b>command</b>, like <span class="mono">/spec-live</span>.</td><td class="folder">—</td></tr>
-          <tr><td class="cmd">/spec-diff</td><td>Render the spec's diff as a self-contained page you can read anywhere, mark up and hand back — then, if you ask, write a review onto it and publish it. Gated on nothing.</td><td class="folder">— unchanged</td></tr>
-          <tr><td class="cmd">/spec-to-main</td><td>Rebase + fast-forward onto base mid-spec, for CI / shared envs.</td><td class="folder">in-progress/</td></tr>
-
-          <tr class="grp-row"><td colspan="3">Linear sync — the superset only</td></tr>
-          <tr><td class="cmd">/spec-linear-setup</td><td>Configure sync by interview; validates your workflow-state names.</td><td class="folder">—</td></tr>
-          <tr><td class="cmd">/spec-status</td><td>Read-only drift report: what the next push would create/update, any workflow-state drift, and any phase whose status markers disagree.</td><td class="folder">— read-only</td></tr>
-          <tr><td class="cmd">/spec-push</td><td>Repo → Linear, one way. Diffs against the last-pushed snapshot; creates/updates the spec issue and its phase sub-issues; stamps IDs back.</td><td class="folder">→ Linear</td></tr>
-          <tr><td class="cmd">/spec-sync</td><td>The repo-wide operations: what is linked, workspace states and projects, read-back checks, bulk mirroring.</td><td class="folder">— read-only by default</td></tr>
-        </tbody>
-      </table>
+      <div class="eyebrow">Reference</div>
+      <h2>Every skill and engine verb, on its own page.</h2>
+      <p class="lede">The full command reference — all the lifecycle skills, and the <span class="mono" style="font-size:.9em">spec-env</span> engine they drive — lives on <a href="reference.html">the reference page</a>, so this one can stay about the workflow.</p>
     </div>
   </div>
 </section>
+
 
 <!-- ============ SEE THE PHASE ============ -->
 <section id="review">
@@ -934,60 +896,7 @@ $ skitterspec spec-env <span class="p">review</span> --branch</div>
   </div>
 </section>
 
-<section id="engine">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">Under the skills</div>
-      <h2>The engine the skills drive — and the bits you drive yourself.</h2>
-      <p class="lede"><span class="mono" style="font-size:.9em">skitterspec spec-env</span> is the per-spec isolation engine: worktrees, dev servers, the proxy, landing, teardown. Most of its verbs are <b>planners</b> — they print commands and create nothing, and a skill runs what they print. Reach for them directly only when you want to see the plan, or for the three at the bottom that have no skill in front of them.</p>
-    </div>
 
-    <div class="table-wrap reveal">
-      <table>
-        <thead>
-          <tr><th>Verb</th><th>What it does</th><th>Run by</th></tr>
-        </thead>
-        <tbody>
-          <tr class="grp-row"><td colspan="3">Planners — they print commands; the skill executes them</td></tr>
-          <tr><td class="cmd">spec-env up &lt;spec&gt;</td><td>Plan a worktree (and a Docker stack, if the spec's <span class="mono">Stack</span> asks for one). Creates nothing.</td><td class="folder">/spec-start</td></tr>
-          <tr><td class="cmd">spec-env nospec &lt;name&gt;</td><td>Record a branch with no spec document — <span class="mono">/no-spec</span> work — and plan its worktree. The record is what makes a name with nothing under <span class="mono">specs/**</span> resolvable.</td><td class="folder">/no-spec</td></tr>
-          <tr><td class="cmd">spec-env down &lt;spec&gt;</td><td>Plan teardown — remove the worktree, delete the branch, drop the stack.</td><td class="folder">/spec-complete · /spec-cancel</td></tr>
-          <tr><td class="cmd">spec-env integrate &lt;spec&gt;</td><td>Plan the landing: rebase onto base, then fast-forward. Live-aware.</td><td class="folder">/spec-complete · /spec-to-main</td></tr>
-          <tr><td class="cmd">spec-env hotfix land &lt;spec&gt;</td><td>Plan a hotfix landing — tag the patch, cherry-pick onto main.</td><td class="folder">/spec-complete</td></tr>
-
-          <tr class="grp-row"><td colspan="3">Actions — they do the thing</td></tr>
-          <tr><td class="cmd">spec-env dev up|down &lt;spec&gt;</td><td>Start or stop the spec's host dev servers on its reserved ports.</td><td class="folder">/spec-start</td></tr>
-          <tr><td class="cmd">spec-env connect [spec|main]</td><td>Point your canonical localhost ports at one spec's dev servers. Bare uses the spec you're on; <span class="mono">main</span> hands them back.</td><td class="folder">/spec-connect</td></tr>
-          <tr><td class="cmd">spec-env main check|allow|status</td><td>The main guard: refuse a write in the primary checkout while it sits on the base branch. <span class="mono">check</span> is what the hook calls; <span class="mono">allow</span> is reached only through <span class="mono">/allow-main</span>, which only you can run.</td><td class="folder">the main-guard hook · /allow-main</td></tr>
-          <tr><td class="cmd">spec-env live [spec|main|status|release|abort]</td><td>Hand the running instance to one spec by checking its branch out in the primary checkout. Bare takes the spec you're on when the workbench is free, and prints the status report when it can't tell.</td><td class="folder">/spec-live</td></tr>
-          <tr><td class="cmd">spec-env review [spec]</td><td>Write an HTML page of a spec's diff to <span class="mono">.spec-env/reviews/</span>. <span class="mono">--branch</span> for the whole spec rather than the uncommitted work; <span class="mono">--notes</span> merges a review pass back from the page, <span class="mono">--resolve</span> records what was done about a note.</td><td class="folder">/spec-diff · /spec-next</td></tr>
-
-          <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
-          <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on. With <span class="mono">--record-primary</span> / <span class="mono">--assert-primary-clean</span> it also brackets a build done from outside the worktree, reporting anything that reached your primary checkout instead.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-env prune</td><td>List orphaned test-DB volumes left by aborted teardowns, and the commands to remove them.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-env status</td><td>List every spec that has a worktree, with its port block if it has one.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-env stage [spec]</td><td>Split the uncommitted tree into the paths that are this spec's — its folder in any bucket, plus each <span class="mono">spec.companionPaths</span> entry — and the paths that are not, so a commit can name them instead of staging <span class="mono">specs/</span> wholesale and sweeping up another session's work. Reads the tree you are standing in. <span class="mono">--json</span> for a skill to consume. Refuses nothing and writes nothing.</td><td class="folder">/spec-complete · /spec-cancel · you</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="reveal">
-      <p class="lede"><b>The spec name is optional, everywhere.</b> Omit it and the engine uses the worktree you are standing in — so inside a spec's worktree, every verb above just works. From the primary checkout with several worktrees open it lists them and stops, rather than guessing. <span class="mono">connect</span> and <span class="mono">live</span> used to be the two exceptions, where a missing spec meant <span class="mono">main</span>; they aren't any more, and <span class="mono">main</span> is how you hand either one back.</p>
-      <div class="code"><span class="c"># from inside a spec's worktree</span>
-$ skitterspec spec-env <span class="p">resolve</span>
-spec:       feat-cli-engine-docs (backlog)
-type/slug:  feat / cli-engine-docs
-branch:     feat/cli-engine-docs
-worktree:   /Users/you/code/skitterspec-wt/cli-engine-docs
-project:    skitterspec_cli-engine-docs
-
-<span class="c"># nothing to reap, and it says what it protected</span>
-$ skitterspec spec-env <span class="p">prune</span>
-spec-env prune: no orphaned volumes in skitterspec_* (0 namespace volume(s), 1 live spec(s) protected).</div>
-      <p class="lede"><b>What <span class="mono" style="font-size:.9em">status</span> counts.</b> A spec is provisioned when it has a <em>worktree</em> — so every in-flight spec appears, whether or not it runs Docker. Specs that do get a slot and a port block shown beside them; the rest just show their worktree path.</p>
-    </div>
-  </div>
-</section>
 
 
 <!-- ============ QUICKSTART ============ -->

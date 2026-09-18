@@ -2,16 +2,17 @@
 
 Marketing + docs site for **skitterspec** and the **skitterspec-linear** superset.
 
-Two pages, each self-contained — no build step, no dependencies, all CSS/JS and
+Four pages, each self-contained — no build step, no dependencies, all CSS/JS and
 the favicon inlined:
 
 | Page | Owns |
 |------|------|
-| `index.html` | The landing page and the **tracker-free base**: the loop, the walkthrough, the full command reference, and getting started with no tracker. |
+| `index.html` | The landing page and the **tracker-free base**: the loop, the walkthrough, the review teaser, and getting started with no tracker. |
+| `review.html` | The **review system** in full (arrives with the restructure's phase 2): the page, the verdicts, the local/network/remote tiers, and the pass-back. |
+| `reference.html` | The **command reference**, whole on one page: every lifecycle skill and every `spec-env` engine verb, so one page still answers "what are all the commands?". |
 | `linear.html` | The **Linear superset**, end to end: a new team, `/spec-linear-setup`, the API key, checking with `spec-sync doctor`, and repairing a renamed team with `spec-sync retarget`. |
 
-Each links to the other; the command reference stays whole on `index.html` so one
-page still answers "what are all the commands?". Two sibling assets support link previews: `og.png` (the 1200×630 social
+The pages share one nav (Home · Review · Reference · Linear). Two sibling assets support link previews: `og.png` (the 1200×630 social
 card, referenced by absolute URL because scrapers require a real raster image)
 and `favicon.svg` (the icon source; also inlined into `index.html`). It all lives
 outside the `packages/*` pnpm workspace glob, so it has no effect on
@@ -46,8 +47,9 @@ npx serve docs
 2. **Source:** Deploy from a branch.
 3. **Branch:** `main`, **Folder:** `/docs`.
 
-GitHub serves `docs/index.html` at the site root and `docs/linear.html` at
-`/linear.html` — no extra configuration for the second page. (No `.nojekyll`
+GitHub serves `docs/index.html` at the site root and every other page at its
+filename (`/reference.html`, `/linear.html`, …) — no extra configuration for
+the additional pages. (No `.nojekyll`
 needed — both are self-contained files with no `_`-prefixed asset paths.)
 
 Prefer to keep an arbitrary folder name / more control? Switch the Pages source to

@@ -130,7 +130,7 @@ test('the guard leaves the still-true framing sayable', () => {
 // cross-page link, and a dead one fails silently: the browser just does nothing.
 // Nothing else checks the site, so this does.
 
-const PAGES = ['docs/index.html', 'docs/linear.html']
+const PAGES = ['docs/index.html', 'docs/reference.html', 'docs/linear.html']
 
 const idsOf = (html) => new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))
 const readPage = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -202,6 +202,7 @@ test('each page carries its own canonical og:url', () => {
   const urls = PAGES.map((rel) => /og:url" content="([^"]+)"/.exec(readPage(rel))[1])
   assert.strictEqual(new Set(urls).size, urls.length, `og:url must differ per page, got ${JSON.stringify(urls)}`)
   assert.ok(urls.some((u) => u.endsWith('/linear.html')), 'the Linear page points at itself')
+  assert.ok(urls.some((u) => u.endsWith('/reference.html')), 'the reference page points at itself')
 })
 
 // --- the pages must not name a command that does not exist -------------------
@@ -346,7 +347,7 @@ const ENGINES = {
       const block = src.slice(open, end)
       return new Set([...block.matchAll(/^ {4}case '([a-z][a-z-]*)':/gm)].map((m) => m[1]))
     },
-    page: 'docs/index.html',
+    page: 'docs/reference.html',
     undocumented: {},
   },
   'spec-sync': {
@@ -424,7 +425,7 @@ test('stays silent: a documented verb and a reasoned allowlist entry both pass',
     demo: {
       source: 'packages/common/src/cli.js',
       verbs: () => new Set(['resolve', 'madeup']),
-      page: 'docs/index.html',
+      page: 'docs/reference.html',
       undocumented: { madeup: 'not a real verb — fixture for this test' },
     },
   }
@@ -436,7 +437,7 @@ test('stays silent: a documented verb and a reasoned allowlist entry both pass',
       }
       // `resolve` is documented on the page as `spec-env resolve`, so a lookup
       // keyed on the real engine name finds it and says nothing.
-      assert.ok(textOf('docs/index.html').includes(`spec-env ${verb}`), `${name} ${verb}`)
+      assert.ok(textOf('docs/reference.html').includes(`spec-env ${verb}`), `${name} ${verb}`)
     }
   }
 })

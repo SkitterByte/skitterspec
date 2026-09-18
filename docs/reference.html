@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="skitterspec command reference — every lifecycle skill and every spec-env engine verb, what each does to the spec, and who runs it.">
+<meta name="color-scheme" content="light dark">
+<link rel="alternate icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="skitterspec — command reference">
+<meta property="og:description" content="Every lifecycle skill and every spec-env engine verb on one page: what it does to the spec, where the spec lands, and who runs it.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://skitterbyte.github.io/skitterspec/reference.html">
+<meta property="og:site_name" content="skitterspec">
+<meta property="og:image" content="https://skitterbyte.github.io/skitterspec/og.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1260">
+<meta property="og:image:alt" content="skitterspec — Your specs live in git.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="skitterspec — command reference">
+<meta name="twitter:description" content="Every lifecycle skill and every spec-env engine verb on one page.">
+<meta name="twitter:image" content="https://skitterbyte.github.io/skitterspec/og.png">
+<title>skitterspec — command reference</title>
+<style>
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, "Cascadia Code", Consolas, monospace;
+
+    /* Light theme (default) — cool blueprint paper */
+    --paper: #eef1f7;
+    --ground: #f6f8fc;
+    --card: #ffffff;
+    --card-2: #f2f5fa;
+    --ink: #131f2c;
+    --ink-soft: #495a6e;
+    --ink-faint: #7a8ba0;
+    --line: #d6deea;
+    --line-soft: #e4eaf3;
+
+    --accent: #0f6fb8;
+    --accent-bright: #1a86d6;
+    --accent-ghost: rgba(15, 111, 184, 0.09);
+
+    /* Lifecycle semantics */
+    --st-ready: #2f74c9;
+    --st-ready-bg: rgba(47, 116, 201, 0.12);
+    --st-progress: #b9701a;
+    --st-progress-bg: rgba(185, 112, 26, 0.13);
+    --st-complete: #2f8a53;
+    --st-complete-bg: rgba(47, 138, 83, 0.13);
+    --st-cancel: #6b7889;
+    --st-cancel-bg: rgba(107, 120, 137, 0.13);
+
+    --grid-line: rgba(15, 111, 184, 0.07);
+    --shadow: 0 1px 2px rgba(19, 31, 44, 0.04), 0 12px 32px -12px rgba(19, 31, 44, 0.14);
+    --shadow-lg: 0 2px 4px rgba(19, 31, 44, 0.05), 0 30px 60px -24px rgba(19, 31, 44, 0.22);
+
+    --maxw: 1140px;
+    --radius: 14px;
+    --radius-sm: 9px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0b1522;
+      --ground: #0d1826;
+      --card: #132234;
+      --card-2: #0f1d2e;
+      --ink: #e8eefa;
+      --ink-soft: #a3b4c9;
+      --ink-faint: #6f8299;
+      --line: #26384e;
+      --line-soft: #1c2c40;
+
+      --accent: #3ea3e6;
+      --accent-bright: #5ab7f2;
+      --accent-ghost: rgba(62, 163, 230, 0.13);
+
+      --st-ready: #62a6f0;
+      --st-ready-bg: rgba(98, 166, 240, 0.15);
+      --st-progress: #e5a24a;
+      --st-progress-bg: rgba(229, 162, 74, 0.15);
+      --st-complete: #4fc07d;
+      --st-complete-bg: rgba(79, 192, 125, 0.15);
+      --st-cancel: #8698ac;
+      --st-cancel-bg: rgba(134, 152, 172, 0.15);
+
+      --grid-line: rgba(62, 163, 230, 0.08);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px -14px rgba(0, 0, 0, 0.6);
+      --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.35), 0 34px 64px -24px rgba(0, 0, 0, 0.7);
+    }
+  }
+
+  /* Explicit toggle overrides — must win both directions */
+  :root[data-theme="light"] {
+    --paper: #eef1f7; --ground: #f6f8fc; --card: #ffffff; --card-2: #f2f5fa;
+    --ink: #131f2c; --ink-soft: #495a6e; --ink-faint: #7a8ba0;
+    --line: #d6deea; --line-soft: #e4eaf3;
+    --accent: #0f6fb8; --accent-bright: #1a86d6; --accent-ghost: rgba(15, 111, 184, 0.09);
+    --st-ready: #2f74c9; --st-ready-bg: rgba(47, 116, 201, 0.12);
+    --st-progress: #b9701a; --st-progress-bg: rgba(185, 112, 26, 0.13);
+    --st-complete: #2f8a53; --st-complete-bg: rgba(47, 138, 83, 0.13);
+    --st-cancel: #6b7889; --st-cancel-bg: rgba(107, 120, 137, 0.13);
+    --grid-line: rgba(15, 111, 184, 0.07);
+    --shadow: 0 1px 2px rgba(19, 31, 44, 0.04), 0 12px 32px -12px rgba(19, 31, 44, 0.14);
+    --shadow-lg: 0 2px 4px rgba(19, 31, 44, 0.05), 0 30px 60px -24px rgba(19, 31, 44, 0.22);
+  }
+  :root[data-theme="dark"] {
+    --paper: #0b1522; --ground: #0d1826; --card: #132234; --card-2: #0f1d2e;
+    --ink: #e8eefa; --ink-soft: #a3b4c9; --ink-faint: #6f8299;
+    --line: #26384e; --line-soft: #1c2c40;
+    --accent: #3ea3e6; --accent-bright: #5ab7f2; --accent-ghost: rgba(62, 163, 230, 0.13);
+    --st-ready: #62a6f0; --st-ready-bg: rgba(98, 166, 240, 0.15);
+    --st-progress: #e5a24a; --st-progress-bg: rgba(229, 162, 74, 0.15);
+    --st-complete: #4fc07d; --st-complete-bg: rgba(79, 192, 125, 0.15);
+    --st-cancel: #8698ac; --st-cancel-bg: rgba(134, 152, 172, 0.15);
+    --grid-line: rgba(62, 163, 230, 0.08);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px -14px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.35), 0 34px 64px -24px rgba(0, 0, 0, 0.7);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.021em; text-wrap: balance; color: var(--ink); }
+  h2 { font-size: clamp(1.7rem, 3.4vw, 2.5rem); line-height: 1.1; }
+  h3 { font-size: 1.24rem; letter-spacing: -0.015em; }
+  p { margin: 0; }
+  a { color: inherit; }
+
+  .mono { font-family: var(--font-mono); }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 22px; height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+  }
+
+  /* ---------- Nav ---------- */
+  header.nav {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--ground) 82%, transparent);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.02em; font-size: 1.06rem; }
+  .brand .glyph {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: linear-gradient(150deg, var(--accent-bright), var(--accent));
+    display: grid; place-items: center;
+    color: #fff; font-family: var(--font-mono); font-weight: 700; font-size: 0.9rem;
+    box-shadow: 0 2px 8px -2px var(--accent);
+  }
+  .brand small { font-family: var(--font-mono); font-size: 0.64rem; color: var(--ink-faint); font-weight: 500; letter-spacing: 0.04em; }
+  .nav-links { display: flex; align-items: center; gap: 26px; }
+  .nav-links a { font-size: 0.9rem; color: var(--ink-soft); text-decoration: none; font-weight: 500; transition: color .15s; }
+  .nav-links a:hover { color: var(--ink); }
+  .theme-btn {
+    background: var(--card); border: 1px solid var(--line); color: var(--ink-soft);
+    width: 34px; height: 34px; border-radius: 9px; cursor: pointer; font-size: 15px;
+    display: grid; place-items: center; transition: border-color .15s, color .15s;
+  }
+  .theme-btn:hover { color: var(--ink); border-color: var(--accent); }
+  @media (max-width: 800px) { .nav-links a:not(.pkg) { display: none; } }
+
+  .pill {
+    font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+    padding: 4px 10px; border-radius: 999px; letter-spacing: 0.02em;
+    border: 1px solid var(--line); color: var(--ink-soft); background: var(--card);
+  }
+
+  /* ---------- Sections ---------- */
+  section { padding: clamp(64px, 9vw, 120px) 0; }
+  .section-head { max-width: 720px; margin-bottom: 52px; display: flex; flex-direction: column; gap: 18px; }
+  .section-head p.lede { font-size: 1.12rem; color: var(--ink-soft); }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative; overflow: hidden;
+    padding-top: clamp(56px, 8vw, 96px);
+    padding-bottom: clamp(56px, 8vw, 104px);
+    background:
+      linear-gradient(var(--ground), var(--paper));
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 34px 34px;
+    -webkit-mask-image: radial-gradient(120% 90% at 70% 0%, #000 30%, transparent 78%);
+    mask-image: radial-gradient(120% 90% at 70% 0%, #000 30%, transparent 78%);
+  }
+  .hero-grid {
+    position: relative; display: grid; grid-template-columns: 1.05fr 1fr;
+    gap: 52px; align-items: center;
+  }
+  @media (max-width: 940px) { .hero-grid { grid-template-columns: 1fr; gap: 40px; } }
+
+  .hero h1 {
+    font-size: clamp(2.5rem, 6vw, 4.05rem);
+    line-height: 1.02; letter-spacing: -0.035em; font-weight: 800;
+    margin-bottom: 22px;
+  }
+  .hero h1 .hl { color: var(--accent); }
+  .hero .sub { font-size: 1.2rem; color: var(--ink-soft); max-width: 30ch; margin-bottom: 30px; }
+  .hero .sub strong { color: var(--ink); font-weight: 600; }
+  .cta-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-family: var(--font-mono); font-size: 0.9rem; font-weight: 600;
+    padding: 12px 20px; border-radius: 10px; text-decoration: none; cursor: pointer;
+    border: 1px solid transparent; transition: transform .12s, box-shadow .15s, background .15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 18px -6px var(--accent); }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -8px var(--accent); }
+  .btn-ghost { background: var(--card); border-color: var(--line); color: var(--ink); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .hero-note { margin-top: 24px; font-size: 0.86rem; color: var(--ink-faint); font-family: var(--font-mono); }
+
+  /* Two-surface visual */
+  .surfaces { display: flex; flex-direction: column; gap: 16px; }
+  .surface-link {
+    display: flex; align-items: center; gap: 10px; justify-content: center;
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .surface-link .bar { flex: 1; height: 1px; background: var(--line); max-width: 60px; }
+
+  /* ---------- Terminal window ---------- */
+  .win { border-radius: var(--radius); border: 1px solid var(--line); overflow: hidden; box-shadow: var(--shadow-lg); background: var(--card); }
+  .win-bar { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: var(--card-2); }
+  .win-bar .dots { display: flex; gap: 6px; }
+  .win-bar .dots i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+  .dots i:nth-child(1) { background: #e0705f; } .dots i:nth-child(2) { background: #e0b24a; } .dots i:nth-child(3) { background: #5ab06a; }
+  .win-bar .title { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); margin-left: 6px; }
+  .term { font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.75; padding: 18px 18px; overflow-x: auto; color: var(--ink); }
+  .term .l { white-space: pre; }
+  .term .prompt { color: var(--accent); }
+  .term .cmd { color: var(--ink); font-weight: 600; }
+  .term .dim { color: var(--ink-faint); }
+  .term .ok { color: var(--st-complete); }
+  .term .warn { color: var(--st-progress); }
+  .term .info { color: var(--st-ready); }
+
+  /* ---------- Linear mock card ---------- */
+  .lcard { border-radius: var(--radius); border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow-lg); overflow: hidden; }
+  .lcard-top { padding: 15px 17px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--card-2); }
+  .lcard-top .id { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); }
+  .lcard-top .name { font-weight: 700; font-size: 0.98rem; letter-spacing: -0.01em; }
+  .lcard-body { padding: 16px 17px; display: flex; flex-direction: column; gap: 13px; }
+  .mstone { display: flex; flex-direction: column; gap: 7px; }
+  .mstone-h { display: flex; align-items: center; gap: 9px; font-size: 0.82rem; font-weight: 600; }
+  .mstone-h .di { width: 8px; height: 8px; border-radius: 50%; }
+  .issue { display: flex; align-items: center; gap: 9px; font-size: 0.82rem; color: var(--ink-soft); padding-left: 17px; }
+  .issue .box { width: 13px; height: 13px; border-radius: 4px; border: 1.5px solid var(--ink-faint); flex: none; }
+  .issue.done .box { background: var(--st-complete); border-color: var(--st-complete); position: relative; }
+  .issue.done .box::after { content: "✓"; color: #fff; font-size: 9px; position: absolute; inset: 0; display: grid; place-items: center; }
+  .issue.done { text-decoration: line-through; color: var(--ink-faint); }
+  .issue .tag { margin-left: auto; font-family: var(--font-mono); font-size: 0.64rem; color: var(--ink-faint); }
+
+  .status {
+    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+    padding: 3px 9px; border-radius: 999px; letter-spacing: 0.02em; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .status.ready { color: var(--st-ready); background: var(--st-ready-bg); }
+  .status.progress { color: var(--st-progress); background: var(--st-progress-bg); }
+  .status.complete { color: var(--st-complete); background: var(--st-complete-bg); }
+  .status.cancel { color: var(--st-cancel); background: var(--st-cancel-bg); }
+
+  /* ---------- Pipeline ---------- */
+  .pipeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  @media (max-width: 1100px) { .pipeline { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 820px) { .pipeline { grid-template-columns: 1fr; } }
+  .stage {
+    position: relative; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 24px 22px; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .stage .num {
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent);
+    font-weight: 600; letter-spacing: 0.05em;
+  }
+  .stage h3 .cmdname { font-family: var(--font-mono); color: var(--accent); font-size: 1.02rem; }
+  .stage p { font-size: 0.92rem; color: var(--ink-soft); }
+  .stage .foot { margin-top: 4px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); display: flex; align-items: center; gap: 8px; }
+  .stage-arrow { position: absolute; right: -14px; top: 50%; transform: translateY(-50%); color: var(--line); z-index: 2; }
+  @media (max-width: 820px) { .stage-arrow { display: none; } }
+
+  .side-skills { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .side-skills .lbl { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); margin-right: 4px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 0.76rem; font-weight: 500;
+    padding: 6px 11px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink-soft); white-space: nowrap;
+  }
+  .chip b { color: var(--accent); font-weight: 600; }
+
+  /* ---------- Scenario walkthrough ---------- */
+  .scenario { background: var(--paper); }
+  .steps { display: flex; flex-direction: column; gap: 4px; position: relative; }
+  .step {
+    display: grid; grid-template-columns: 54px 1fr; gap: 22px;
+    padding: 6px 0 34px;
+  }
+  @media (max-width: 720px) { .step { grid-template-columns: 40px 1fr; gap: 16px; } }
+  .step-rail { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .step-num {
+    width: 40px; height: 40px; border-radius: 11px; flex: none;
+    display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 0.94rem;
+    background: var(--card); border: 1px solid var(--line); color: var(--accent);
+    box-shadow: var(--shadow); z-index: 2;
+  }
+  @media (max-width: 720px) { .step-num { width: 34px; height: 34px; border-radius: 9px; font-size: 0.82rem; } }
+  .step-line { flex: 1; width: 2px; background: linear-gradient(var(--line), var(--line-soft)); border-radius: 2px; }
+  .step:last-child .step-line { display: none; }
+  .step-body { padding-top: 3px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .step-body h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .step-body h3 .cmd { font-family: var(--font-mono); font-size: 0.92rem; color: var(--accent); background: var(--accent-ghost); padding: 3px 9px; border-radius: 7px; font-weight: 600; }
+  .step-where {
+    font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 6px; font-weight: 600;
+  }
+  .step-where.term-w { color: var(--accent); background: var(--accent-ghost); }
+  .step-where.linear-w { color: var(--st-progress); background: var(--st-progress-bg); }
+  .step-body p { color: var(--ink-soft); font-size: 0.96rem; max-width: 64ch; }
+  .step-body p code { font-family: var(--font-mono); font-size: 0.85em; background: var(--card-2); border: 1px solid var(--line-soft); padding: 1px 6px; border-radius: 5px; color: var(--ink); }
+
+  .mini-term { font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.7; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 13px 15px; overflow-x: auto; box-shadow: var(--shadow); }
+  .mini-term .l { white-space: pre; }
+
+  /* ---------- Two surfaces ---------- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 860px) { .duo { grid-template-columns: 1fr; } }
+  .duo-col { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 30px 28px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 18px; }
+  .duo-col.term-col { border-top: 3px solid var(--accent); }
+  .duo-col.linear-col { border-top: 3px solid var(--st-progress); }
+  .duo-tag { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .duo-col.term-col .duo-tag { color: var(--accent); }
+  .duo-col.linear-col .duo-tag { color: var(--st-progress); }
+  .duo-col h3 { font-size: 1.3rem; }
+  .duo-col > p { color: var(--ink-soft); font-size: 0.96rem; }
+  .duo-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .duo-list li { display: flex; gap: 11px; font-size: 0.93rem; color: var(--ink-soft); align-items: flex-start; }
+  .duo-list li .mk { flex: none; margin-top: 2px; width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .term-col .duo-list li .mk { background: var(--accent-ghost); color: var(--accent); }
+  .linear-col .duo-list li .mk { background: var(--st-progress-bg); color: var(--st-progress); }
+  .duo-list li b { color: var(--ink); font-weight: 600; }
+  .who { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); padding-top: 4px; border-top: 1px dashed var(--line); }
+
+  .bridge {
+    margin-top: 22px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px 28px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
+    justify-content: center; text-align: center;
+  }
+  .bridge .b-cmds { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .bridge p { color: var(--ink-soft); font-size: 0.96rem; max-width: 52ch; }
+  .bridge p b { color: var(--ink); }
+
+  /* ---------- Linear deep section ---------- */
+  .cards-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 8px; }
+  @media (max-width: 860px) { .cards-3 { grid-template-columns: 1fr; } }
+  .icard { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 24px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; }
+  .icard .k { font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent); font-weight: 600; letter-spacing: 0.05em; }
+  .icard h3 { font-size: 1.12rem; }
+  .icard p { font-size: 0.92rem; color: var(--ink-soft); }
+
+  .map { display: flex; flex-direction: column; gap: 0; margin-top: 30px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); background: var(--card); }
+  .map-row { display: grid; grid-template-columns: 1fr 44px 1fr; align-items: center; gap: 16px; padding: 17px 24px; border-bottom: 1px solid var(--line-soft); }
+  .map-row:last-child { border-bottom: none; }
+  .map-l { font-family: var(--font-mono); font-size: 0.88rem; font-weight: 600; color: var(--ink); }
+  .map-l small { display: block; font-family: var(--font-sans); font-size: 0.78rem; font-weight: 400; color: var(--ink-faint); margin-top: 3px; letter-spacing: 0; }
+  .map-arrow { text-align: center; color: var(--accent); font-family: var(--font-mono); }
+  .map-r { display: flex; align-items: center; gap: 10px; }
+  .map-r .pill-l { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: var(--st-progress); background: var(--st-progress-bg); padding: 4px 11px; border-radius: 7px; }
+  .map-r small { font-size: 0.78rem; color: var(--ink-faint); }
+
+  .own { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+  @media (max-width: 720px) { .own { grid-template-columns: 1fr; } }
+  .own-card { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 18px 18px; background: var(--card); }
+  .own-card .oh { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; margin-bottom: 7px; display: flex; align-items: center; gap: 8px; }
+  .own-card .oh .d { width: 9px; height: 9px; border-radius: 3px; }
+  .own-card p { font-size: 0.85rem; color: var(--ink-soft); }
+  .own-both .d { background: var(--accent); } .own-both .oh { color: var(--accent); }
+  .own-pull .d { background: var(--st-progress); } .own-pull .oh { color: var(--st-progress); }
+  .own-push .d { background: var(--st-complete); } .own-push .oh { color: var(--st-complete); }
+
+  /* ---------- Comparison (vs native) ---------- */
+  .cmp-scroll { overflow-x: auto; border-radius: var(--radius); }
+  .cmp { min-width: 660px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); background: var(--card); }
+  .cmp-head, .cmp-row { display: grid; grid-template-columns: 1.15fr 1fr 1fr; }
+  .cmp-head { border-bottom: 1px solid var(--line); }
+  .cmp-cell { padding: 16px 22px; font-size: 0.92rem; color: var(--ink-soft); border-right: 1px solid var(--line-soft); }
+  .cmp-cell:last-child { border-right: none; }
+  .cmp-head .cmp-cell { font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; background: var(--card-2); color: var(--ink-faint); }
+  .cmp-head .cmp-ours { color: var(--accent); }
+  .cmp-row { border-bottom: 1px solid var(--line-soft); }
+  .cmp-row:last-child { border-bottom: none; }
+  .cmp-feat { font-weight: 600; color: var(--ink); font-family: var(--font-mono); font-size: 0.8rem; }
+  .cmp-ours { background: var(--accent-ghost); }
+  .cmp-native { position: relative; }
+  .cmp-mark { display: inline-flex; align-items: baseline; gap: 8px; }
+  .cmp-mark::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; transform: translateY(-1px); }
+  .cmp-native .cmp-mark::before { background: var(--st-cancel); }
+  .cmp-ours .cmp-mark { color: var(--ink); font-weight: 500; }
+  .cmp-ours .cmp-mark::before { background: var(--accent); }
+  .cmp-note { margin-top: 16px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-faint); line-height: 1.7; max-width: 74ch; }
+  .cmp-note b { color: var(--accent); font-weight: 600; }
+
+  /* ---------- Reference table ---------- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); background: var(--card); }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  thead th { text-align: left; font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-faint); font-weight: 600; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--card-2); }
+  tbody td { padding: 14px 20px; border-bottom: 1px solid var(--line-soft); font-size: 0.9rem; color: var(--ink-soft); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td.cmd { font-family: var(--font-mono); font-weight: 600; color: var(--accent); white-space: nowrap; }
+  tbody td.folder { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-faint); white-space: nowrap; }
+  .grp-row td { background: var(--card-2); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; padding: 9px 20px; }
+
+  /* ---------- Report block ---------- */
+  .rpt { border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); background: var(--card); overflow: hidden; }
+  .rpt-verdict { padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--card-2); font-size: 0.95rem; color: var(--ink); }
+  .rpt-verdict .state { font-size: 1.05rem; margin-right: 6px; }
+  .rpt-verdict b { color: var(--ink); font-weight: 650; }
+  .rpt-verdict .dim { color: var(--ink-faint); }
+  .rpt table { min-width: 0; }
+  .rpt tbody td.k { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--accent); white-space: nowrap; width: 1%; }
+  .rpt tbody td.v { font-size: 0.88rem; }
+  .rpt .mono { font-family: var(--font-mono); font-size: 0.85em; }
+
+  /* ---------- Quickstart ---------- */
+  .quick { background: var(--paper); }
+  .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 820px) { .quick-grid { grid-template-columns: 1fr; } }
+  .qbox { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 26px; box-shadow: var(--shadow); }
+  .qbox h3 { margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+  .qbox h3 .q-badge { font-family: var(--font-mono); font-size: 0.7rem; padding: 3px 8px; border-radius: 6px; background: var(--accent-ghost); color: var(--accent); font-weight: 600; }
+  .qbox > p { font-size: 0.9rem; color: var(--ink-soft); margin-bottom: 16px; }
+  .code {
+    font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.85;
+    background: var(--card-2); border: 1px solid var(--line-soft); border-radius: var(--radius-sm);
+    padding: 15px 16px; overflow-x: auto; white-space: pre; color: var(--ink);
+  }
+  .code .c { color: var(--ink-faint); }
+  .code .p { color: var(--accent); }
+
+  /* ---------- Footer ---------- */
+  footer { border-top: 1px solid var(--line-soft); padding: 44px 0 56px; background: var(--ground); }
+  .foot-inner { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: center; }
+  .foot-inner p { font-size: 0.84rem; color: var(--ink-faint); }
+  .foot-links { display: flex; gap: 20px; }
+  .foot-links a { font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-soft); text-decoration: none; }
+  .foot-links a:hover { color: var(--accent); }
+
+  /* ---------- Reveal animation ---------- */
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-inner">
+    <div class="brand">
+      <span class="glyph">/</span>
+      <span>skitterspec</span>
+    </div>
+    <nav class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="index.html#review">Review</a>
+      <a href="#reference">Reference</a>
+      <a href="linear.html">Linear</a>
+      <a class="pkg pill" href="index.html#quickstart">Get started</a>
+      <button class="theme-btn" id="themeToggle" aria-label="Toggle colour theme">◐</button>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" style="padding-top:clamp(40px,6vw,64px); padding-bottom:0;">
+  <div class="wrap">
+    <p class="eyebrow reveal in">Reference</p>
+    <h1 class="reveal in" style="font-size:clamp(1.8rem,4vw,2.6rem);">Every command, on one page.</h1>
+    <p class="lede reveal in" style="max-width:70ch;">The skills are what you type in Claude Code — they carry the judgment. The <span class="mono" style="font-size:.9em">spec-env</span> engine underneath is what they drive; you reach for it directly only where a row below says so. New here? Start with <a href="index.html">the walkthrough</a>.</p>
+  </div>
+</section>
+
+<!-- ============ REFERENCE ============ -->
+<section id="reference">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Command reference</div>
+      <h2>Every skill, and what it does to the spec.</h2>
+      <p class="lede">Bucket is status — each command moves the spec's folder and stamps its header. The Linear group ships only with the <a href="linear.html">superset</a>. Sync itself waits for a <span class="mono" style="font-size:.9em">linear.config.json</span>, but <span class="mono" style="font-size:.9em">/spec-linear-setup</span> and <span class="mono" style="font-size:.9em">spec-sync doctor</span> are what you run <em>before</em> one exists.</p>
+    </div>
+
+    <div class="table-wrap reveal">
+      <table>
+        <thead>
+          <tr><th>Command</th><th>What it does</th><th>Lands in</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp-row"><td colspan="3">Core lifecycle</td></tr>
+          <tr><td class="cmd">/spec</td><td>Grill to a shared understanding, then write a groomed, phased spec.</td><td class="folder">backlog/ · Ready</td></tr>
+          <tr><td class="cmd">/spec-start</td><td>Put a spec in flight — provision its worktree, promote it, mirror the change, then offer to build phase 1 there.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-next</td><td>Build the next phase of the spec in flight, to green. Re-run per phase.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-complete</td><td>Verify all phases + tests, land on base, tear down.</td><td class="folder">complete/</td></tr>
+          <tr><td class="cmd">/spec-cancel</td><td>Record progress, stamp a reason, tear down.</td><td class="folder">cancelled/</td></tr>
+
+          <tr class="grp-row"><td colspan="3">Entry points &amp; upkeep</td></tr>
+          <tr><td class="cmd">/spec-bug</td><td>Reproduce with a failing test, then drive red → green.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-hotfix</td><td>Fork a worktree from a release tag; land by tag + cherry-pick.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/no-spec</td><td>Work that genuinely has no spec — a version bump, a rename. Its own branch, its own worktree, its own review page; never the base branch.</td><td class="folder">—</td></tr>
+          <tr><td class="cmd">/spec-review</td><td>Re-validate a spec against the codebase; refresh stale parts.</td><td class="folder">— unchanged</td></tr>
+          <tr><td class="cmd">/spec-init</td><td>Bootstrap or repair the workflow in a project (idempotent).</td><td class="folder">—</td></tr>
+
+          <tr class="grp-row"><td colspan="3">Run &amp; test locally</td></tr>
+          <tr><td class="cmd">/spec-live</td><td>Check the branch out in your primary checkout — reuse the running server. A <b>command</b>: it runs the verb directly, so you type it yourself.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-connect</td><td>Proxy canonical localhost ports to a spec's own dev stack. A <b>command</b>, like <span class="mono">/spec-live</span>.</td><td class="folder">—</td></tr>
+          <tr><td class="cmd">/spec-diff</td><td>Render the spec's diff as a self-contained page you can read anywhere, mark up and hand back — then, if you ask, write a review onto it and publish it. Gated on nothing.</td><td class="folder">— unchanged</td></tr>
+          <tr><td class="cmd">/spec-to-main</td><td>Rebase + fast-forward onto base mid-spec, for CI / shared envs.</td><td class="folder">in-progress/</td></tr>
+
+          <tr class="grp-row"><td colspan="3">Linear sync — the superset only</td></tr>
+          <tr><td class="cmd">/spec-linear-setup</td><td>Configure sync by interview; validates your workflow-state names.</td><td class="folder">—</td></tr>
+          <tr><td class="cmd">/spec-status</td><td>Read-only drift report: what the next push would create/update, any workflow-state drift, and any phase whose status markers disagree.</td><td class="folder">— read-only</td></tr>
+          <tr><td class="cmd">/spec-push</td><td>Repo → Linear, one way. Diffs against the last-pushed snapshot; creates/updates the spec issue and its phase sub-issues; stamps IDs back.</td><td class="folder">→ Linear</td></tr>
+          <tr><td class="cmd">/spec-sync</td><td>The repo-wide operations: what is linked, workspace states and projects, read-back checks, bulk mirroring.</td><td class="folder">— read-only by default</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="engine">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Under the skills</div>
+      <h2>The engine the skills drive — and the bits you drive yourself.</h2>
+      <p class="lede"><span class="mono" style="font-size:.9em">skitterspec spec-env</span> is the per-spec isolation engine: worktrees, dev servers, the proxy, landing, teardown. Most of its verbs are <b>planners</b> — they print commands and create nothing, and a skill runs what they print. Reach for them directly only when you want to see the plan, or for the three at the bottom that have no skill in front of them.</p>
+    </div>
+
+    <div class="table-wrap reveal">
+      <table>
+        <thead>
+          <tr><th>Verb</th><th>What it does</th><th>Run by</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp-row"><td colspan="3">Planners — they print commands; the skill executes them</td></tr>
+          <tr><td class="cmd">spec-env up &lt;spec&gt;</td><td>Plan a worktree (and a Docker stack, if the spec's <span class="mono">Stack</span> asks for one). Creates nothing.</td><td class="folder">/spec-start</td></tr>
+          <tr><td class="cmd">spec-env nospec &lt;name&gt;</td><td>Record a branch with no spec document — <span class="mono">/no-spec</span> work — and plan its worktree. The record is what makes a name with nothing under <span class="mono">specs/**</span> resolvable.</td><td class="folder">/no-spec</td></tr>
+          <tr><td class="cmd">spec-env down &lt;spec&gt;</td><td>Plan teardown — remove the worktree, delete the branch, drop the stack.</td><td class="folder">/spec-complete · /spec-cancel</td></tr>
+          <tr><td class="cmd">spec-env integrate &lt;spec&gt;</td><td>Plan the landing: rebase onto base, then fast-forward. Live-aware.</td><td class="folder">/spec-complete · /spec-to-main</td></tr>
+          <tr><td class="cmd">spec-env hotfix land &lt;spec&gt;</td><td>Plan a hotfix landing — tag the patch, cherry-pick onto main.</td><td class="folder">/spec-complete</td></tr>
+
+          <tr class="grp-row"><td colspan="3">Actions — they do the thing</td></tr>
+          <tr><td class="cmd">spec-env dev up|down &lt;spec&gt;</td><td>Start or stop the spec's host dev servers on its reserved ports.</td><td class="folder">/spec-start</td></tr>
+          <tr><td class="cmd">spec-env connect [spec|main]</td><td>Point your canonical localhost ports at one spec's dev servers. Bare uses the spec you're on; <span class="mono">main</span> hands them back.</td><td class="folder">/spec-connect</td></tr>
+          <tr><td class="cmd">spec-env main check|allow|status</td><td>The main guard: refuse a write in the primary checkout while it sits on the base branch. <span class="mono">check</span> is what the hook calls; <span class="mono">allow</span> is reached only through <span class="mono">/allow-main</span>, which only you can run.</td><td class="folder">the main-guard hook · /allow-main</td></tr>
+          <tr><td class="cmd">spec-env live [spec|main|status|release|abort]</td><td>Hand the running instance to one spec by checking its branch out in the primary checkout. Bare takes the spec you're on when the workbench is free, and prints the status report when it can't tell.</td><td class="folder">/spec-live</td></tr>
+          <tr><td class="cmd">spec-env review [spec]</td><td>Write an HTML page of a spec's diff to <span class="mono">.spec-env/reviews/</span>. <span class="mono">--branch</span> for the whole spec rather than the uncommitted work; <span class="mono">--notes</span> merges a review pass back from the page, <span class="mono">--resolve</span> records what was done about a note.</td><td class="folder">/spec-diff · /spec-next</td></tr>
+
+          <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
+          <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on. With <span class="mono">--record-primary</span> / <span class="mono">--assert-primary-clean</span> it also brackets a build done from outside the worktree, reporting anything that reached your primary checkout instead.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-env prune</td><td>List orphaned test-DB volumes left by aborted teardowns, and the commands to remove them.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-env status</td><td>List every spec that has a worktree, with its port block if it has one.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-env stage [spec]</td><td>Split the uncommitted tree into the paths that are this spec's — its folder in any bucket, plus each <span class="mono">spec.companionPaths</span> entry — and the paths that are not, so a commit can name them instead of staging <span class="mono">specs/</span> wholesale and sweeping up another session's work. Reads the tree you are standing in. <span class="mono">--json</span> for a skill to consume. Refuses nothing and writes nothing.</td><td class="folder">/spec-complete · /spec-cancel · you</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="reveal">
+      <p class="lede"><b>The spec name is optional, everywhere.</b> Omit it and the engine uses the worktree you are standing in — so inside a spec's worktree, every verb above just works. From the primary checkout with several worktrees open it lists them and stops, rather than guessing. <span class="mono">connect</span> and <span class="mono">live</span> used to be the two exceptions, where a missing spec meant <span class="mono">main</span>; they aren't any more, and <span class="mono">main</span> is how you hand either one back.</p>
+      <div class="code"><span class="c"># from inside a spec's worktree</span>
+$ skitterspec spec-env <span class="p">resolve</span>
+spec:       feat-cli-engine-docs (backlog)
+type/slug:  feat / cli-engine-docs
+branch:     feat/cli-engine-docs
+worktree:   /Users/you/code/skitterspec-wt/cli-engine-docs
+project:    skitterspec_cli-engine-docs
+
+<span class="c"># nothing to reap, and it says what it protected</span>
+$ skitterspec spec-env <span class="p">prune</span>
+spec-env prune: no orphaned volumes in skitterspec_* (0 namespace volume(s), 1 live spec(s) protected).</div>
+      <p class="lede"><b>What <span class="mono" style="font-size:.9em">status</span> counts.</b> A spec is provisioned when it has a <em>worktree</em> — so every in-flight spec appears, whether or not it runs Docker. Specs that do get a slot and a port block shown beside them; the rest just show their worktree path.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-inner">
+    <p>skitterspec · skitterspec-linear — spec-driven development that stays in git, built for Claude Code.</p>
+    <div class="foot-links">
+      <a href="index.html">Home</a>
+      <a href="#reference">Skills</a>
+      <a href="#engine">Engine</a>
+      <a href="linear.html">Linear</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Theme toggle — stamp data-theme, overriding the media query both ways.
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    var root = document.documentElement;
+    btn.addEventListener('click', function () {
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var current = root.getAttribute('data-theme') || (prefersDark ? 'dark' : 'light');
+      root.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    });
+  })();
+
+  // Scroll reveal
+  (function () {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var els = document.querySelectorAll('.reveal');
+    if (reduce || !('IntersectionObserver' in window)) {
+      els.forEach(function (e) { e.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    els.forEach(function (e) { io.observe(e); });
+  })();
+</script>
+</body>
+</html>

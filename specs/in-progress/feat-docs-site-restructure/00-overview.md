@@ -99,7 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Scaffold the split — reference.html + shared nav | ⬜ | [01-reference-page.md](01-reference-page.md) |
+| 1 | Scaffold the split — reference.html + shared nav | ✅ | [01-reference-page.md](01-reference-page.md) |
 | 2 | review.html — mockups + restructured rationale | ⬜ | [02-review-page.md](02-review-page.md) |
 | 3 | Rebuild index.html — hero, teaser, trim | ⬜ | [03-index-rebuild.md](03-index-rebuild.md) |
 | 4 | Re-skin linear.html — package identity | ⬜ | [04-linear-identity.md](04-linear-identity.md) |
@@ -120,3 +120,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-18 — Spec created. Supersedes feat-docs-site-split's two-page
   decision; the site grows to four pages and the review system becomes the
   visual centrepiece.
+- 2026-09-18 — Phase 1 done: reference.html carries both tables; docs-claims
+  `PAGES`/fixtures and `assets-kickoff-surfaces` retargeted to the new page;
+  suite 3458 green.

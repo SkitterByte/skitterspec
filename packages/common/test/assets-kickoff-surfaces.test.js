@@ -20,7 +20,9 @@ const read = (p) => fs.readFileSync(p, 'utf8')
 const PLANNING = read(path.join(ASSETS, 'rules', 'spec-planning.md'))
 const README = read(path.join(__dirname, '..', 'README.md'))
 const MIGRATION = read(path.join(ROOT, 'MIGRATION.md'))
-const DOCS = read(path.join(ROOT, 'docs', 'index.html'))
+// The skills table and the engine table both live on the reference page since
+// the docs-site restructure — the landing page carries the workflow only.
+const DOCS = read(path.join(ROOT, 'docs', 'reference.html'))
 
 test('the rules file describes a start that asks, and moves you', () => {
   assert.match(PLANNING, /build phase 1 now\?/i)
