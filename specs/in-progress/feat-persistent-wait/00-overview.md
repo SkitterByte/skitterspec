@@ -84,7 +84,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Amend the wait contract in spec-reports.md | ⬜ | [01-contract.md](01-contract.md) |
+| 1 | Amend the wait contract in spec-reports.md | ✅ | [01-contract.md](01-contract.md) |
 | 2 | Point the four waiting skills at it | ⬜ | [02-skills.md](02-skills.md) |
 
 ## Open questions
@@ -103,3 +103,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-18 — Spec created, from the phase-4 wait of
   feat-docs-site-restructure dying under harness reaping and the re-arm
   never firing.
+- 2026-09-18 — Phase 1 done: persistent-primitive preference added, kill
+  reads as death (rule 1 citation replaces the rule 4 ambiguity default),
+  3 new pinning tests + a doesNotMatch on the old clause. Trial evidence:
+  this spec's own authoring wait rode Monitor persistent:true through a
+  ~25-minute idle and delivered the verdict as an event.

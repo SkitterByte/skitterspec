@@ -201,6 +201,16 @@ escape hatch is what let a whole class of runs go on asking questions nobody was
 listening for. Where a watch is unavailable the wait is the turn ending, which
 every harness can do.
 
+**Run it under a persistent watch primitive where the harness has one** — one
+that lives for the whole session and whose deliberate stop is an explicit act
+(Claude Code: the `Monitor` tool with `persistent: true`, ended by `TaskStop`).
+A backgrounded shell is reclaimed on a long idle — that is the death the next
+paragraph recovers from — where a session-length primitive is designed to
+survive it. Where the harness has none, background the command exactly as
+before. The engine's wait stays the one watcher either way: its heartbeat goes
+to stderr, so stdout carries only the start line and the arrival, and the exit
+ends the watch.
+
 **A watch that dies is re-armed, silently, on the same window.** A backgrounded
 wait does not always survive a long idle: three sessions lost theirs over one
 lunch break, and two in another were killed at 43 and 30 minutes. So a wait that
@@ -212,11 +222,17 @@ would strand exactly that pass.
 **Say nothing when you do it.** Nothing happened and the window is unchanged; a
 line on every death turns a working loop into a stream of non-events.
 
-**An operator who stopped it is not a death.** Re-arming over a deliberate stop
-makes the wait unstoppable, which is worse than a wait that stops. Where the two
-cannot be told apart, treat it as deliberate and leave it
-(`.claude/rules/negative-checks.md` rule 4): the cost of being wrong is one
-`/spec-reviewed`, against a loop nobody can break.
+**An operator who stopped it is not a death** — re-arming over a deliberate
+stop makes the wait unstoppable, which is worse than a wait that stops. But a
+deliberate stop is an **explicit act with positive evidence**: this session
+called TaskStop, or the operator said to stop waiting. A bare killed-task
+notification carries neither and is read as a **death**. This clause once said
+to treat the ambiguous kill as deliberate, and that safe branch ate the
+recovery whole: every observed kill was the harness reclaiming an idle shell
+and none was a person, so the case it protected against does not occur — while
+the `/spec-reviewed` it charged was paid on every idle review. The deliberate
+stop is the positive signal, so its absence is what a death looks like
+(`.claude/rules/negative-checks.md` rule 1).
 
 **It is bounded by the age of the window, not by a count of retries.** Keep
 re-arming while the window is younger than **12 hours**, then stop. A count means

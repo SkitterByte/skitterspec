@@ -48,7 +48,31 @@ test('a deliberate stop is not a death', () => {
   // that stops.
   assert.match(RULE, /not a death/)
   assert.match(RULE, /unstoppable/)
-  assert.match(RULE, /negative-checks\.md` rule 4/)
+})
+
+test('a deliberate stop needs positive evidence; a bare kill is a death', () => {
+  // The old default read the ambiguous kill as deliberate, which disabled the
+  // re-arm in the one case it was shipped for — every observed kill was the
+  // harness, none was a person.
+  assert.match(RULE, /explicit act with positive evidence/)
+  assert.match(RULE, /called TaskStop, or the operator said to stop waiting/)
+  assert.match(RULE, /is read as a \*\*death\*\*/)
+  assert.match(RULE, /negative-checks\.md` rule 1/)
+})
+
+test('STAYS SILENT: the old ambiguity default is gone, not merely contradicted', () => {
+  assert.doesNotMatch(RULE, /treat it as deliberate and leave it/)
+})
+
+test('the wait prefers a persistent watch primitive where the harness has one', () => {
+  assert.match(RULE, /persistent watch primitive/)
+  // Capability first, one named example — portable to any harness, still
+  // concrete enough to act on in the one we ship into.
+  assert.match(RULE, /`Monitor` tool with `persistent: true`/)
+  assert.match(RULE, /Where the harness has none, background the command/)
+  // Why stdout is monitor-ready: the heartbeat is on stderr, so each stdout
+  // line is a real event. Pinned so the next editor does not move it back.
+  assert.match(RULE, /heartbeat goes\nto stderr/)
 })
 
 test('the bound is the age of the window, not a count of retries', () => {
