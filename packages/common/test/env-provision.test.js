@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { planUp, seedCommandFor, worktreeCd } = require('../src/env/provision.js')
+const { planUp, seedCommandFor, worktreeCd, resolveStack } = require('../src/env/provision.js')
 
 // Every "in the worktree" command is prefixed with the cwd guard. These tests are
 // about the payload (token expansion, mode), so strip the guard and assert the rest;
@@ -33,6 +33,7 @@ function config(overrides = {}) {
   return {
     docker: {
       enabled: true,
+      composeFile: 'docker-compose.yml',
       portBase: 3000,
       portsPerSpec: 10,
       envFile: '.env',
@@ -44,19 +45,25 @@ function config(overrides = {}) {
   }
 }
 
+// A header-less spec now needs the compose file present before it inherits
+// `docker.enabled` — the master switch alone is a project-wide default, not
+// evidence that there is a stack to bring up. These tests are about the legacy
+// fallback in a project that genuinely has one, so they say so.
+const HAS_COMPOSE = { composeFilePresent: true }
+
 test('fresh spec → -b branch form + docker up, correct port offset', () => {
-  const plan = planUp(spec(), { slot: 1, attached: false }, config())
+  const plan = planUp(spec(), { slot: 1, attached: false }, config(), HAS_COMPOSE)
   assert.strictEqual(plan.attached, false)
   assert.strictEqual(plan.portOffset, 3010) // 3000 + 1*10
   assert.deepStrictEqual(plan.commands, [
     'git worktree add /wt/thing -b feat/thing',
-    'docker compose --project-name app_thing up -d',
+    'docker compose -f docker-compose.yml --project-name app_thing up -d',
   ])
   assert.strictEqual(plan.envContents, 'COMPOSE_PROJECT_NAME=app_thing\nPORT_OFFSET=3010\n')
 })
 
 test('already-provisioned spec → attach form (no -b)', () => {
-  const plan = planUp(spec(), { slot: 0, attached: true }, config())
+  const plan = planUp(spec(), { slot: 0, attached: true }, config(), HAS_COMPOSE)
   assert.strictEqual(plan.attached, true)
   assert.strictEqual(plan.portOffset, 3000)
   assert.strictEqual(plan.commands[0], 'git worktree add /wt/thing feat/thing')
@@ -120,11 +127,74 @@ test('worktree-only still expands the opener (empty portOffset token)', () => {
 })
 
 test('stack:docker emits the docker command when the master switch is on', () => {
-  const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config())
+  const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE)
   assert.deepStrictEqual(plan.commands, [
     'git worktree add /wt/thing -b feat/thing',
-    'docker compose --project-name app_thing up -d',
+    'docker compose -f docker-compose.yml --project-name app_thing up -d',
   ])
+})
+
+// --- the compose-file gate ---------------------------------------------------
+//
+// `docker.composeFile` was read, normalised and then never used. Decision 7 is
+// the first thing that reads it, so these cover both halves at once: what the
+// gate decides, and that the flag reaches docker.
+
+test('a header-less spec with a compose file present still inherits docker', () => {
+  const plan = planUp(spec(), { slot: 1, attached: false }, config(), HAS_COMPOSE)
+  assert.ok(
+    plan.commands.some((c) => c.startsWith('docker compose')),
+    'the legacy fallback still works where there is a stack to bring up',
+  )
+})
+
+test('a header-less spec with no compose file resolves to worktree', () => {
+  const plan = planUp(spec(), { slot: null, attached: false }, config(), { composeFilePresent: false })
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+  assert.strictEqual(plan.envContents, null, 'no .env for a worktree-only spec')
+})
+
+// Cannot-tell is not false, but it routes the same way: a caller that did not
+// look must not cause a stack to be brought up on no evidence.
+test('a header-less spec resolves to worktree when nobody looked for a compose file', () => {
+  const plan = planUp(spec(), { slot: null, attached: false }, config())
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+})
+
+// STAYS SILENT: the gate is about the FALLBACK. An explicit header is checked
+// first and must never be second-guessed by a file that happens to be absent —
+// a generated compose file is an ordinary, healthy setup.
+test('stays silent: an explicit docker header is never downgraded by a missing compose file', () => {
+  const plan = planUp(
+    spec({ stack: 'docker' }),
+    { slot: 1, attached: false },
+    config(),
+    { composeFilePresent: false },
+  )
+  assert.ok(
+    plan.commands.some((c) => c.startsWith('docker compose')),
+    'the header wins; the gate never sees this spec',
+  )
+})
+
+// STAYS SILENT: a project relying on docker's own discovery (its file is named
+// `compose.yaml` while this key sits at its default) must not gain a `-f` that
+// names a file it does not have.
+test('stays silent: no -f is passed when the compose file was not found', () => {
+  const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config())
+  const cmd = plan.commands.find((c) => c.startsWith('docker compose'))
+  assert.doesNotMatch(cmd, /-f /, 'docker discovery is left exactly as it was')
+})
+
+test('resolveStack and the CLI cannot disagree about a header-less spec', () => {
+  const cfg = config()
+  assert.strictEqual(resolveStack(spec(), cfg, {}).stack, 'worktree')
+  assert.strictEqual(resolveStack(spec(), cfg, { composeFilePresent: true }).stack, 'docker')
+  assert.strictEqual(
+    resolveStack(spec(), cfg, { composeFilePresent: true, docs: true }).wantsDocker,
+    false,
+    'documents mode brings no stack up, whatever the gate says',
+  )
 })
 
 test('stack:docker is still suppressed when the master switch is off', () => {
@@ -139,8 +209,8 @@ test('stack:docker is still suppressed when the master switch is off', () => {
 
 
 test('port offset scales with the slot', () => {
-  assert.strictEqual(planUp(spec(), { slot: 0, attached: false }, config()).portOffset, 3000)
-  assert.strictEqual(planUp(spec(), { slot: 5, attached: false }, config()).portOffset, 3050)
+  assert.strictEqual(planUp(spec(), { slot: 0, attached: false }, config(), HAS_COMPOSE).portOffset, 3000)
+  assert.strictEqual(planUp(spec(), { slot: 5, attached: false }, config(), HAS_COMPOSE).portOffset, 3050)
 })
 
 test('setupCommands defaults to empty when none configured', () => {
@@ -153,6 +223,7 @@ test('setupCommands expand tokens (slug/branch/worktreePath/portOffset)', () => 
     spec(),
     { slot: 2, attached: false },
     config({ setup: ['pnpm install', 'echo {slug} {branch} {worktreePath} {portOffset}'] }),
+    HAS_COMPOSE,
   )
   assert.deepStrictEqual(payloads(plan.setupCommands), [
     'pnpm install',
@@ -161,7 +232,7 @@ test('setupCommands expand tokens (slug/branch/worktreePath/portOffset)', () => 
 })
 
 test('setupCommands are emitted on re-attach too', () => {
-  const plan = planUp(spec(), { slot: 0, attached: true }, config({ setup: ['pnpm install'] }))
+  const plan = planUp(spec(), { slot: 0, attached: true }, config({ setup: ['pnpm install'] }), HAS_COMPOSE)
   assert.deepStrictEqual(payloads(plan.setupCommands), ['pnpm install'])
 })
 

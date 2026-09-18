@@ -140,7 +140,7 @@ const {
   cacheHit,
   asCached,
 } = require('./env/reviewers.js')
-const { planUp, planCheckoutUp, worktreeCd } = require('./env/provision.js')
+const { planUp, planCheckoutUp, worktreeCd, resolveStack } = require('./env/provision.js')
 const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
@@ -906,8 +906,13 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs)
 
   // Documents mode brings no stack up, so a Docker spec provisioned this way is
-  // a worktree-only run — see `planUp`, which makes the same call.
-  const wantsDocker = spec.stack === 'docker' && config.docker.enabled && !docs
+  // a worktree-only run. Asked through `resolveStack`, which `planUp` also
+  // calls, so the slot allocated here and the commands planned there cannot
+  // disagree about whether there is a stack — they did, for a header-less spec.
+  const wantsDocker = resolveStack(spec, config, {
+    docs,
+    composeFilePresent: composeFilePresent(dir, config),
+  }).wantsDocker
 
   // Slot allocation is Docker-only: a worktree-only spec never touches the
   // registry (no slot, no port block). Its re-run signal is the worktree already
@@ -943,6 +948,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     specFoundOn: upOnFork.foundOn,
     forkRef: spec.baseRef || currentBranch(upGit) || 'HEAD',
     specUntracked: upSpecUntracked,
+    composeFilePresent: composeFilePresent(dir, config),
   }, { docs })
 
   if (plan.blocked) {
@@ -1207,7 +1213,11 @@ function specEnvDown(dir, config, specArg, flags) {
 
   const base = resolveBaseBranch(config, gitReader(dir))
   const worktreeState = worktreeGitState(spec.worktreePath, base)
-  const plan = planDown(spec, config, flags, { worktreeState, timestamp: compactTimestamp() })
+  const plan = planDown(spec, config, flags, {
+    worktreeState,
+    timestamp: compactTimestamp(),
+    composeFilePresent: composeFilePresent(dir, config),
+  })
 
   if (plan.blocked) {
     process.stdout.write(
@@ -4194,6 +4204,26 @@ async function specEnvConnect(dir, config, specArg) {
 
 // Dispatch `skitterspec spec-env <sub> [args] [--dir path]`. No-ops with a clear
 // message when the feature isn't enabled (no specs/.core/env.config.json).
+// Is the project's configured compose file actually on disk?
+//
+// Read from the PRIMARY CHECKOUT rather than the worktree, and that is forced
+// rather than chosen: a fresh provision plans before `git worktree add` runs, so
+// the worktree does not exist yet to be looked in. A compose file is committed
+// at the repo root in every layout this supports, so the two answers agree
+// wherever both could be read.
+//
+// Any failure to look is `undefined` — cannot-tell, which callers route to the
+// branch that does not escalate — never `false`.
+function composeFilePresent(dir, config) {
+  const file = config && config.docker && config.docker.composeFile
+  if (!file) return undefined
+  try {
+    return fs.existsSync(path.join(dir, file))
+  } catch {
+    return undefined
+  }
+}
+
 // Run a mutating git command; return { ok, err } (stderr captured, not swallowed).
 function runGit(cwd, args) {
   try {

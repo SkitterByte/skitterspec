@@ -231,6 +231,60 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
 }
 
 /**
+ * The `-f <composeFile>` argument for a `docker compose` invocation.
+ *
+ * ONLY when the configured file is known to be present, and that condition is
+ * the whole point. `docker.composeFile` was read, normalised and validated by
+ * the config loader and then never passed to docker at all, so a project naming
+ * a non-default file was silently relying on docker's own discovery instead.
+ * Passing it unconditionally would fix that project and BREAK the mirror image
+ * of it — one whose compose file is `compose.yaml` (a name docker finds by
+ * itself) while this key sits at its untouched default of `docker-compose.yml`.
+ *
+ * So the flag is added on the positive signal and omitted otherwise, which
+ * leaves docker's discovery exactly as it is for everyone it was already
+ * working for.
+ */
+function composeFileArg(config, present) {
+  const file = config && config.docker && config.docker.composeFile
+  return present === true && file ? ` -f ${file}` : ''
+}
+
+/**
+ * Does this spec want a Docker stack?
+ *
+ * ONE function, called by `planUp` and by the `up` command in `cli.js`. They
+ * used to each carry their own copy and the copies disagreed: the CLI read
+ * `spec.stack === 'docker'` with no fallback, so a header-less spec allocated no
+ * registry slot, while the planner fell back to the master switch and emitted
+ * `docker compose up -d` anyway — a stack brought up on a port offset derived
+ * from a slot that was never allocated.
+ *
+ * A SPEC WITH NO `Stack:` HEADER NEEDS THE COMPOSE FILE TO BE PRESENT. The
+ * master switch alone is not evidence that there is a stack to bring up: it is
+ * a project-wide default, and `/spec` has written the header on every spec for
+ * some time, so the specs reaching this fallback are legacy or hand-written. The
+ * compose file is the positive signal that the escalation would land on
+ * something real (`.claude/rules/negative-checks.md` rule 1).
+ *
+ * WHAT WOULD FOOL THIS, deliberately unhandled: a project whose compose file is
+ * generated during `setup` rather than committed. It does not exist when the
+ * plan is built, so a header-less spec there resolves to `worktree`. The answer
+ * is an explicit `> **Stack:** worktree + docker` header, which is checked first
+ * and never consults this at all — so being wrong costs a header, not a stack.
+ *
+ * `composeFilePresent` undefined means the caller did not look, which is
+ * cannot-tell rather than false. It routes to no escalation, the harmless
+ * branch: a missing stack surfaces as a header to add, where a spurious one
+ * surfaces as `docker compose` failing mid-provision (rule 4).
+ */
+function resolveStack(spec, config, { docs = false, composeFilePresent } = {}) {
+  const stack =
+    spec.stack || (config.docker.enabled && composeFilePresent === true ? 'docker' : 'worktree')
+  return { stack, wantsDocker: stack === 'docker' && config.docker.enabled && !docs }
+}
+
+/**
  * Plan a provisioning run.
  *
  * @param {object} spec  resolved spec (from resolveSpec): { slug, type, branch,
@@ -259,11 +313,13 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
   // then — at the first moment the tree is used for code.
   const docs = opts.docs === true
 
-  // Per-spec escalation: bring Docker up only when this spec's Stack is `docker`,
-  // gated by the project master switch. A spec resolved without an explicit stack
-  // (legacy/tests) follows the master switch — preserving pre-`Stack` behaviour.
-  const stack = spec.stack || (config.docker.enabled ? 'docker' : 'worktree')
-  const wantsDocker = stack === 'docker' && config.docker.enabled && !docs
+  // Per-spec escalation, decided in ONE place (`resolveStack`) so the planner and
+  // the CLI cannot answer it differently — which they did, for exactly the
+  // header-less spec this gate is about.
+  const { wantsDocker } = resolveStack(spec, config, {
+    docs,
+    composeFilePresent: ctx ? ctx.composeFilePresent : undefined,
+  })
 
   // Slot, port block and `.env` are Docker-only. A worktree-only spec takes none
   // of them: no registry slot, no PORT_OFFSET, no `.env`.
@@ -312,7 +368,10 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
       : `git worktree add ${spec.worktreePath} -b ${spec.branch}${forkPoint}`,
   )
   if (wantsDocker) {
-    commands.push(`docker compose --project-name ${spec.projectName} up -d`)
+    commands.push(
+      `docker compose${composeFileArg(config, ctx ? ctx.composeFilePresent : undefined)}` +
+        ` --project-name ${spec.projectName} up -d`,
+    )
   }
 
   // The tree gate. A worktree forks from the base branch's tree, so an
@@ -417,4 +476,12 @@ function planCheckoutUp(spec, ctx, config) {
   return result
 }
 
-module.exports = { planUp, planCheckoutUp, planSpecCommit, seedCommandFor, worktreeCd }
+module.exports = {
+  planUp,
+  planCheckoutUp,
+  planSpecCommit,
+  seedCommandFor,
+  worktreeCd,
+  resolveStack,
+  composeFileArg,
+}

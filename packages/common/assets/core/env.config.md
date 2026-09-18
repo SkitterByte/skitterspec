@@ -80,6 +80,12 @@ through to a documented conservative default; see the field notes below.
     // worktree-only. false = every spec is worktree-only and the escalation is
     // hidden. (Was "always provision Docker" in the pre-Stack engine.)
     "enabled": true,
+    // Passed as `-f` to `docker compose` on up and down, but ONLY when the file
+    // is actually there — a project whose file has a name docker finds by
+    // itself keeps working untouched. It is also the signal that lets a spec
+    // with no `Stack:` header inherit `enabled` above: the switch is a
+    // project-wide default, the file is evidence there is a stack to bring up.
+    // An explicit header is checked first and never consults it.
     "composeFile": "docker-compose.yml",
     "projectNamePattern": "{repoSlug}_{slug}", // → COMPOSE_PROJECT_NAME
     "portBase": 3000,          // first port of slot 0's block

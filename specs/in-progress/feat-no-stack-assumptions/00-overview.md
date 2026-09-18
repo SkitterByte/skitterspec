@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Resolve the engine by a positive-signal ladder | ✅ | [01-engine-resolution.md](01-engine-resolution.md) |
-| 2 | Honour the docker config instead of assuming it | ⬜ | [02-docker-config.md](02-docker-config.md) |
+| 2 | Honour the docker config instead of assuming it | ✅ | [02-docker-config.md](02-docker-config.md) |
 | 3 | Stop writing the docs in npm | ⬜ | [03-docs-defaults.md](03-docs-defaults.md) |
 
 ## Open questions
@@ -148,6 +148,20 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-18 — Spec created.
+- 2026-09-18 — Phase 2: the stack decision existed in **three** copies —
+  `provision.js`, `teardown.js` and `cli.js` — and two of them disagreed. The
+  CLI read `spec.stack === 'docker'` with no fallback, so a header-less spec
+  allocated no registry slot while the planner emitted `docker compose up -d`
+  anyway, on a port offset derived from a slot that was never allocated.
+  Extracted to one exported `resolveStack`, which both now call. Not in the
+  spec's task list; found while implementing it.
+- 2026-09-18 — Phase 2: `-f` is passed **only when the compose file is found**,
+  not unconditionally. Always passing it would fix a project naming a custom
+  file and break the mirror image — one whose file is `compose.yaml` (a name
+  docker discovers itself) while the key sits at its default.
+- 2026-09-18 — Phase 2: teardown is deliberately **not** gated on the compose
+  file, where provisioning is. Skipping a `down` orphans a running stack and
+  its volumes, so the harmless branch points the other way there.
 - 2026-09-18 — Phase 1: `detectPackageManager` was **kept**, not replaced. It
   answers rung 1's "which runner reaches a local install", which is still a
   real question — `detectRunner` is the ladder layered over it. Replacing it

@@ -106,6 +106,30 @@ test('clean worktree → down --volumes + worktree remove, volumes dropped', () 
   ])
 })
 
+// `docker.composeFile` reaches docker on teardown too — the `up` that created
+// the stack named the file, so the `down` that removes it must name the same one.
+test('the configured compose file is passed to down when it is present', () => {
+  const p = planDown(spec(), config({ docker: { composeFile: 'infra/compose.yaml' } }), {}, {
+    ...CTX(),
+    composeFilePresent: true,
+  })
+  assert.strictEqual(
+    p.commands[0],
+    'docker compose -f infra/compose.yaml --project-name app_thing down --volumes',
+  )
+})
+
+// STAYS SILENT: teardown is deliberately NOT gated on the compose file — skipping
+// a `down` would orphan a running stack and its volumes. It still plans the down;
+// it just does not name a file it could not find.
+test('stays silent: a missing compose file still tears the stack down, without -f', () => {
+  const p = planDown(spec(), config({ docker: { composeFile: 'docker-compose.yml' } }), {}, {
+    ...CTX(),
+    composeFilePresent: false,
+  })
+  assert.strictEqual(p.commands[0], 'docker compose --project-name app_thing down --volumes')
+})
+
 test('--keep-volumes → plain down, no backup, volumes kept', () => {
   const p = planDown(
     spec(),

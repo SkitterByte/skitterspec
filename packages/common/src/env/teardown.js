@@ -22,6 +22,7 @@
  */
 
 const { expandTokens } = require('./resolve.js')
+const { composeFileArg } = require('./provision.js')
 
 /**
  * @param {object} spec  resolved spec: { slug, branch, worktreePath, projectName, ... }
@@ -64,6 +65,14 @@ function planDown(spec, config, flags, ctx) {
   // (Stack: worktree) has no stack/volumes even when the project master switch is
   // on — tearing it down is just removing the worktree. A spec resolved without an
   // explicit stack (legacy/tests) follows the master switch (pre-`Stack` behaviour).
+  //
+  // DELIBERATELY NOT GATED ON THE COMPOSE FILE, where `planUp` is. The two
+  // directions are not symmetric: bringing a stack up without evidence there is
+  // one to bring costs a failed provision, while skipping a `down` costs an
+  // orphaned stack and its volumes, still running, that nothing will come back
+  // for. So `up` needs a positive signal and `down` errs toward cleaning up —
+  // a `down` for a stack that was never started is a no-op (rule 4, pointing
+  // the other way because the harmless branch is the other branch).
   const stack = spec.stack || (config.docker.enabled ? 'docker' : 'worktree')
   const wantsDocker = stack === 'docker' && config.docker.enabled
 
@@ -86,7 +95,9 @@ function planDown(spec, config, flags, ctx) {
 
   // --- docker compose down (drop volumes unless kept) ---
   if (wantsDocker) {
-    const base = `docker compose --project-name ${spec.projectName} down`
+    const base =
+      `docker compose${composeFileArg(config, ctx ? ctx.composeFilePresent : undefined)}` +
+      ` --project-name ${spec.projectName} down`
     commands.push(volumesDropped ? `${base} --volumes` : base)
   }
 
