@@ -3,24 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="skitterspec — spec-driven development for Claude Code that stays in git, with an optional one-way Linear sync: the repo is canonical, Linear is a generated mirror. Scenario walkthrough and the terminal-vs-Linear division of labour.">
+<meta name="description" content="How skitterspec review works — every phase ends on a self-contained diff page you can read anywhere, mark up, and answer with one press: locally, over the LAN, or published for out of the house.">
 <meta name="color-scheme" content="light dark">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNWFiN2YyIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzFhODZkNiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0idXJsKCNnKSIvPgogIDxwYXRoIGQ9Ik0xOS41IDcuNSBMMjMuMiA3LjUgTDEyLjUgMjQuNSBMOC44IDI0LjUgWiIgZmlsbD0iI2ZmZiIvPgo8L3N2Zz4K">
 <link rel="alternate icon" href="favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="skitterspec — spec-driven development that stays in git">
-<meta property="og:description" content="Drive a feature from a grilled spec to landed, tested code in your terminal. Add Linear and the same spec becomes an issue your team can review — a generated mirror of your git-canonical spec, kept current with one-way push.">
+<meta property="og:title" content="skitterspec — the review loop">
+<meta property="og:description" content="Every phase ends on a page: the diff costs zero context tokens, the marks come back as a pass, and the verdict button is what carries the work on — from your desk or your phone.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://skitterbyte.github.io/skitterspec/">
+<meta property="og:url" content="https://skitterbyte.github.io/skitterspec/review.html">
 <meta property="og:site_name" content="skitterspec">
 <meta property="og:image" content="https://skitterbyte.github.io/skitterspec/og.png">
 <meta property="og:image:width" content="2400">
 <meta property="og:image:height" content="1260">
-<meta property="og:image:alt" content="skitterspec — Your specs live in git. Linear just watches.">
+<meta property="og:image:alt" content="skitterspec — Your specs live in git.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="skitterspec — spec-driven development that stays in git">
-<meta name="twitter:description" content="From a grilled spec to landed, tested code in your terminal. Add Linear and the same spec becomes an issue your team can review.">
+<meta name="twitter:title" content="skitterspec — the review loop">
+<meta name="twitter:description" content="Every phase ends on a page. The page ends in a decision.">
 <meta name="twitter:image" content="https://skitterbyte.github.io/skitterspec/og.png">
-<title>skitterspec — spec-driven development that stays in git</title>
+<title>skitterspec — the review loop</title>
 <style>
   :root {
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -488,423 +487,353 @@
 
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 </style>
+<style>
+  /* ---------- Review-page mockup ---------- */
+  .rv { border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); background: var(--card); overflow: hidden; }
+  .rv-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--card-2); font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-soft); }
+  .rv-bar .counts { margin-left: auto; color: var(--ink-faint); }
+  .rv-body { display: grid; grid-template-columns: 210px 1fr; }
+  @media (max-width: 720px) { .rv-body { grid-template-columns: 1fr; } .rv-tree { border-right: none; border-bottom: 1px solid var(--line-soft); } }
+  .rv-tree { border-right: 1px solid var(--line-soft); padding: 12px 8px; font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-soft); }
+  .rv-tree .dir { color: var(--ink-faint); padding: 3px 8px; }
+  .rv-tree .f { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 18px; border-radius: 6px; }
+  .rv-tree .f.sel { background: var(--accent-ghost); color: var(--accent); font-weight: 600; }
+  .rv-tree .tick { margin-left: auto; color: #2e9e63; }
+  .rv-diff { padding: 12px 0 4px; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.9; overflow-x: auto; }
+  .rv-diff .ln { padding: 0 16px; white-space: pre; }
+  .rv-diff .ctx { color: var(--ink-faint); }
+  .rv-diff .add { background: rgba(46, 158, 99, 0.13); }
+  .rv-diff .del { background: rgba(217, 72, 72, 0.10); color: var(--ink-faint); }
+  .rv-note { margin: 10px 16px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); background: var(--card-2); padding: 10px 12px; font-size: 0.8rem; color: var(--ink-soft); }
+  .rv-note b { color: var(--accent); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em; }
+  .rv-verdicts { border-top: 1px solid var(--line); background: var(--card-2); padding: 12px 14px; }
+  .rv-live { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); margin-bottom: 10px; }
+  .rv-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rv-btn { font-family: var(--font-mono); font-size: 0.76rem; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); }
+  .rv-btn.commit { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .rv-btn.commit2 { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  /* ---------- Pass-back strip ---------- */
+  .pb { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 860px) { .pb { grid-template-columns: 1fr 1fr; } }
+  .pb .st { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  .pb .k { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em; color: var(--accent); font-weight: 600; }
+  .pb h3 { font-size: 0.95rem; margin: 6px 0 4px; }
+  .pb p { font-size: 0.8rem; color: var(--ink-soft); }
+  .pb .code6 { font-family: var(--font-mono); font-weight: 700; letter-spacing: 0.3em; font-size: 1.05rem; color: var(--accent); background: var(--accent-ghost); border-radius: 8px; display: inline-block; padding: 4px 6px 4px 12px; margin-top: 8px; }
+
+  /* ---------- Tier stack ---------- */
+  .tiers { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 26px; align-items: start; }
+  @media (max-width: 880px) { .tiers { grid-template-columns: 1fr; } }
+  .tier { display: flex; gap: 14px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 12px; }
+  .tier .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; }
+  .tier .dot.on { background: #2e9e63; }
+  .tier .dot.off2 { background: var(--ink-faint); }
+  .tier h3 { font-size: 0.98rem; }
+  .tier .u { font-family: var(--font-mono); font-size: 0.74rem; color: var(--accent); word-break: break-all; }
+  .tier p { font-size: 0.8rem; color: var(--ink-soft); margin-top: 4px; }
+  .phone { width: 232px; margin: 0 auto; border: 10px solid #1d2733; border-radius: 30px; background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
+  .phone .ph-url { font-family: var(--font-mono); font-size: 0.58rem; color: var(--ink-faint); background: var(--card-2); border-bottom: 1px solid var(--line-soft); padding: 7px 8px; text-align: center; }
+  .phone .ph-body { padding: 10px; }
+  .phone .ph-file { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.62rem; color: var(--ink-soft); padding: 4px 6px; border-radius: 5px; }
+  .phone .ph-file.sel { background: var(--accent-ghost); color: var(--accent); }
+  .phone .ph-file .tick { margin-left: auto; color: #2e9e63; }
+  .phone .ph-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .phone .ph-btn { font-family: var(--font-mono); font-size: 0.58rem; text-align: center; padding: 6px 4px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink-soft); }
+  .phone .ph-btn.commit { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .phone-cap { text-align: center; font-size: 0.78rem; color: var(--ink-faint); margin-top: 10px; }
+
+  /* ---------- FAQ disclosures ---------- */
+  .faq details { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); margin-bottom: 10px; box-shadow: var(--shadow); }
+  .faq summary { cursor: pointer; padding: 13px 16px; font-weight: 600; font-size: 0.92rem; color: var(--ink); list-style: none; display: flex; gap: 10px; align-items: baseline; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::before { content: "▸"; color: var(--accent); flex: none; }
+  .faq details[open] summary::before { content: "▾"; }
+  .faq details .lede { padding: 0 16px 14px 36px; font-size: 0.88rem; max-width: none; }
+</style>
 </head>
 <body>
 <header class="nav">
   <div class="wrap nav-inner">
     <div class="brand">
       <span class="glyph">/</span>
-      <span>skitterspec <small>+ linear</small></span>
+      <span>skitterspec</span>
     </div>
     <nav class="nav-links">
       <a href="index.html">Home</a>
-      <a href="review.html">Review</a>
+      <a href="#page">Review</a>
       <a href="reference.html">Reference</a>
       <a href="linear.html">Linear</a>
-      <a class="pkg pill" href="#quickstart">Get started</a>
+      <a class="pkg pill" href="index.html#quickstart">Get started</a>
       <button class="theme-btn" id="themeToggle" aria-label="Toggle colour theme">◐</button>
     </nav>
   </div>
 </header>
 
-<!-- ============ HERO ============ -->
-<section class="hero" style="padding-top:clamp(56px,8vw,96px);">
-  <div class="wrap hero-grid">
-    <div class="reveal in">
-      <div class="eyebrow">Spec-driven development · for Claude Code</div>
-      <h1>Your specs live in <span class="hl">git.</span><br>Linear just watches.</h1>
-      <p class="sub">skitterspec drives a feature from <strong>a grilled spec</strong> to <strong>landed, tested code</strong> — entirely in your terminal. Add the Linear layer and that same spec shows up as an issue your team can review and triage — a generated mirror of your git-canonical spec, pushed up one way.</p>
-      <div class="cta-row">
-        <a href="#scenario" class="btn btn-primary">See it end to end →</a>
-        <a href="#surfaces" class="btn btn-ghost">Terminal vs Linear?</a>
-      </div>
-      <p class="hero-note">git-native · worktree-isolated · tracker-optional</p>
+<section class="hero" style="padding-top:clamp(40px,6vw,72px); padding-bottom:0;">
+  <div class="wrap">
+    <p class="eyebrow reveal in">The review loop</p>
+    <h1 class="reveal in" style="font-size:clamp(1.9rem,4.4vw,2.9rem);">The phase ends on a page.<br>The page ends in a decision.</h1>
+    <p class="lede reveal in" style="max-width:72ch;">A 350-line diff read as terminal text is scrolling, not review. Every phase renders instead as a self-contained page — whole-file context that folds away, a file tree, new files included — that you read wherever you are, mark up as you go, and answer with <em>one press</em>. The diff never passes through the model, so the page costs <b>zero context tokens</b> however large it is.</p>
+  </div>
+</section>
+
+<!-- ============ THE PAGE ITSELF ============ -->
+<section id="page">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">What a phase hands you</div>
+      <h2>Tick what you accept. Note what you don't. Press once.</h2>
+      <p class="lede">Accepts, line notes and answers all travel back as one <b>pass</b> with your verdict already on it — nothing is retyped from memory into the conversation.</p>
     </div>
 
-    <div class="surfaces reveal in">
-      <div class="win" aria-label="Terminal running skitterspec">
-        <div class="win-bar">
-          <span class="dots"><i></i><i></i><i></i></span>
-          <span class="title">claude-code — feat-sort-inbox</span>
+    <div class="rv reveal" role="img" aria-label="Mock-up of a skitterspec review page">
+      <div class="rv-bar"><span>feat-orders · phase 2</span><span class="counts">7 files · +212 −18</span></div>
+      <div class="rv-body">
+        <div class="rv-tree">
+          <div class="dir">src/orders/</div>
+          <div class="f sel">handler.ts</div>
+          <div class="f">schema.sql<span class="tick">✓</span></div>
+          <div class="dir">tests/</div>
+          <div class="f">orders.test.ts<span class="tick">✓</span></div>
         </div>
-        <div class="term">
-<div class="l"><span class="prompt">›</span> <span class="cmd">/spec-start</span> <span class="dim">feat-sort-inbox</span></div>
-<div class="l"><span class="dim">  provisioning worktree …</span> <span class="ok">✓</span></div>
-<div class="l"><span class="dim">  dev servers up on :3012 / :8092</span> <span class="ok">✓</span></div>
-<div class="l"><span class="dim">  implementing</span> <span class="info">Phase 2 · sort controls</span></div>
-<div class="l"><span class="dim">  tests</span> <span class="warn">red → green</span> <span class="ok">✓ 14 passing</span></div>
-<div class="l"><span class="prompt">›</span> <span class="cmd">/spec-push</span></div>
-<div class="l"><span class="dim">  SKI-204 ← spec issue + 2 sub-issues</span> <span class="ok">↑ synced</span></div>
-        </div>
-      </div>
-
-      <div class="surface-link"><span class="bar"></span>one spec · two surfaces<span class="bar"></span></div>
-
-      <div class="lcard" aria-label="The same spec shown as a Linear issue">
-        <div class="lcard-top">
-          <div>
-            <div class="id">SKI-204 · Issue</div>
-            <div class="name">Sort the task inbox</div>
+        <div>
+          <div class="rv-diff">
+<div class="ln ctx">  export async function createOrder(req) {</div>
+<div class="ln del">-   if (req.qty == null) return respond(500)</div>
+<div class="ln add">+   if (!isValidQty(req.qty)) return respond(422)</div>
+<div class="ln add">+   const order = await orders.insert(req)</div>
+<div class="ln ctx">    return respond(201, order)</div>
+<div class="ln ctx">  }</div>
           </div>
-          <span class="status progress">In Progress</span>
+          <div class="rv-note"><b>NOTE · line 4</b> — negative quantities return 422 now, but the spec also names zero. Covered?</div>
         </div>
-        <div class="lcard-body">
-          <div class="issue done"><span class="box"></span>Phase 1 · schema + column<span class="tag">SKI-205</span></div>
-          <div class="issue"><span class="box"></span>Phase 2 · sort controls<span class="tag">SKI-208</span></div>
+      </div>
+      <div class="rv-verdicts">
+        <div class="rv-live">▶ Put it live — commit, check it out under your dev server, come back to this page</div>
+        <div class="rv-btns">
+          <span class="rv-btn commit">✓ Commit</span>
+          <span class="rv-btn commit2">✓ Commit &amp; Continue</span>
+          <span class="rv-btn">↺ Request changes</span>
+          <span class="rv-btn">… Discuss first</span>
         </div>
       </div>
     </div>
+
+    <p class="cmp-note reveal" style="margin-top:18px;"><b>Every button is an action, not a record.</b> <b>Commit</b> commits the phase with your own commit skill; <b>Commit &amp; Continue</b> commits and builds the next phase — pressed from a phone, that is a whole phase built while you are away from the terminal; <b>Request changes</b> sends your notes straight back to be worked, and each fix returns as a resolution struck through on the next render; <b>Discuss first</b> reports and talks. While a note of yours is open, committing is unavailable — you asked for something, so it cannot also be fine.</p>
   </div>
 </section>
 
-<!-- ============ THE REPORT ============ -->
-<section id="report">
+<!-- ============ THE FLOW ============ -->
+<section id="flow" style="background: var(--paper);">
   <div class="wrap">
     <div class="section-head reveal">
-      <div class="eyebrow">Every ending</div>
-      <h2>You should be able to tell what happened without reading a paragraph about it.</h2>
-      <p class="lede">Every skill finishes with the same block, and says nothing while it runs beyond a question it can't answer itself or a failure at the moment it happens. The fields come from a fixed vocabulary in a fixed order, and a skill emits only the ones it declares — so two runs of the same skill are scannable against each other, and you learn where to look once.</p>
+      <div class="eyebrow">Where it sits in the loop</div>
+      <h2>The work happens in a worktree. You shouldn't have to go there to read it.</h2>
+      <p class="lede">A phase is built on its own branch in its own checkout, so <span class="mono" style="font-size:.9em">git diff</span> in your terminal answers about the base branch. The page is rendered the moment the phase's tests go green — after the build, before the commit, which is exactly the moment a review is about.</p>
     </div>
 
-    <div class="rpt reveal">
-      <div class="rpt-verdict"><span class="state">✅</span> <b>Phase 2 built</b> <span class="dim">— <span class="mono">feat-orders</span>, 2 of 4</span></div>
-      <table>
-        <tbody>
-          <tr><td class="k">Tracker</td><td class="v"><span class="mono">SKS-88</span> · <span class="mono">feat-orders</span> · phase 2 moved</td></tr>
-          <tr><td class="k">Branch</td><td class="v"><span class="mono">spec/feat-orders</span> · 3 commits, clean</td></tr>
-          <tr><td class="k">Built</td><td class="v">POST /orders handler, orders schema</td></tr>
-          <tr><td class="k">Tests</td><td class="v">128 passed · <span class="mono">npm test</span></td></tr>
-          <tr><td class="k">Review</td><td class="v">7 files, +212 −18 · <b>local</b> 127.0.0.1:7760/… · <b>network</b> 192.168.0.136:7760/… · <b>remote</b> off</td></tr>
-          <tr><td class="k">Follow-ups</td><td class="v">none</td></tr>
-          <tr><td class="k">Next</td><td class="v"><span class="mono">/spec-next</span> → phase 3 (Auth)</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <p class="cmp-note reveal"><b>Four verdicts</b>, and the last two are different facts about your repo: <b>✅</b> done · <b>⚠️</b> done with caveats · <b>❌</b> failed part-way, so there is a mess to clear · <b>⏸</b> refused before acting, so nothing changed. Looking for wreckage that isn't there costs as much as walking past wreckage that is. <b>A refusal emits the block too</b> — "nothing happened" is a reported outcome rather than an absent one.</p>
-
-    <p class="cmp-note reveal"><b>Tracker</b> leads because the id is how you address this work outside the repo; <b>Next</b> closes because it is the only row you act on. <b>Follow-ups</b> is always there, since a recorded <span class="mono">none</span> is a decision where a missing line is an oversight. And the block covers <b>that run only</b> — what else is in flight is a different question, and answering it here leaves you unable to tell what followed from the run you just watched. The shape is defined once, in <span class="mono">.claude/rules/spec-reports.md</span>, and each skill's own <span class="mono">## Report</span> names only its verdicts and its fields.</p>
-  </div>
-</section>
-
-<!-- ============ THE CORE LOOP ============ -->
-<section id="loop">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">The core loop</div>
-      <h2>Three commands carry a feature from idea to landed.</h2>
-      <p class="lede">Everything else is a branch off this spine. Each command sets the spec's status and moves its folder, so the repo tree <em>is</em> the board — no status field to keep honest by hand.</p>
-    </div>
-
-    <!-- commands:start -->
     <div class="pipeline reveal">
       <div class="stage">
-        <span class="num">01 · PLAN</span>
-        <h3><span class="cmdname">/spec</span></h3>
-        <p>Claude grills you to a genuinely shared understanding of the problem <em>and</em> the approach, then writes one concise, phased, test-included spec.</p>
-        <div class="foot"><span class="status ready">Ready</span> specs/backlog/</div>
+        <span class="num">01 · BUILD</span>
+        <h3><span class="cmdname">/spec-next</span></h3>
+        <p>Builds the phase to green, then writes the page and tells you where it is. That happens <em>after</em> the tests pass and <em>before</em> the commit — the moment the page is about.</p>
+        <div class="foot">free · no tokens</div>
         <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </div>
       <div class="stage">
-        <span class="num">02 · BUILD</span>
-        <h3><span class="cmdname">/spec-start</span></h3>
-        <p>Puts the spec in flight — provisions its worktree, brings dev servers up, promotes it to in-progress — then builds phase 1 in that worktree. Each phase after that is <code>/spec-next</code>, and a phase isn't done until its tests are green.</p>
-        <div class="foot"><span class="status progress">In Progress</span> specs/in-progress/</div>
+        <span class="num">02 · LOOK</span>
+        <h3><span class="cmdname">/spec-diff</span></h3>
+        <p>Re-renders for whatever is in front of you — half a phase, a hand edit, someone else's branch. Tick <b>✓ accept</b> as you read each file, note anything against a line or the file itself. Ask for the written review and Claude adds a summary plus <b>flag</b>, <b>confirm</b> and <b>good</b> notes — each with a box to answer it in.</p>
+        <div class="foot">page free · review ~700 tokens</div>
         <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </div>
       <div class="stage">
-        <span class="num">03 · LAND</span>
-        <h3><span class="cmdname">/spec-complete</span></h3>
-        <p>Verifies every phase is done and tests pass, lands the branch on your base, then tears the worktree and stack down. Clean exit.</p>
-        <div class="foot"><span class="status complete">Complete</span> specs/complete/</div>
+        <span class="num">03 · HAND BACK</span>
+        <h3><span class="cmdname">Your verdict</span></h3>
+        <p>The page ends in a decision, not a copy. At the end of a phase that is <b>✓ Commit</b>, <b>✓ Commit &amp; Continue</b>, <b>↺ Request changes</b> and <b>… Discuss first</b>; a freshly written spec gets <b>✓ Commit &amp; Start</b> instead, which is the <span class="mono" style="font-size:.9em">commit &amp;&amp; /spec-start</span> you used to type. Each carries the whole pass with its verdict already set, and on a served page it goes straight to the engine while <span class="mono" style="font-size:.9em">/spec-next</span> is still watching — so the press <em>is</em> the continuation. Above them sits one more line, and it isn't a verdict: <b>▶ Put it live</b> commits the phase, checks it out where your dev server can see it, and hands you back the same page with the same options.</p>
+        <div class="foot">six digits · nothing else</div>
+        <svg class="stage-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stage">
+        <span class="num">04 · COMMIT</span>
+        <h3><span class="cmdname">/commit</span></h3>
+        <p>An approval hands off to it, so "this is fine" and the commit are one decision rather than two. You've read the phase, so the message is written from something you actually looked at rather than from memory of what you asked for.</p>
+        <div class="foot">specs/in-progress/</div>
       </div>
     </div>
-
-    <div class="side-skills reveal">
-      <span class="lbl">branches off the spine:</span>
-      <span class="chip"><b>/spec-bug</b> · red→green from a repro</span>
-      <span class="chip"><b>/spec-hotfix</b> · fix a released tag</span>
-      <span class="chip"><b>/no-spec</b> · work that has none, off the base branch</span>
-      <span class="chip"><b>/spec-review</b> · refresh a stale spec</span>
-      <span class="chip"><b>/spec-diff</b> · read and mark up the diff</span>
-      <span class="chip"><b>/spec-live</b> · test on your running server</span>
-      <span class="chip"><b>/spec-connect</b> · proxy a spec to localhost</span>
-      <span class="chip"><b>/spec-to-main</b> · land mid-spec for CI</span>
-      <span class="chip"><b>/spec-cancel</b> · shelve with a reason</span>
-      <span class="chip"><b>/spec-reviewed</b> · pick up a verdict nothing was waiting for</span>
-      <span class="chip"><b>/spec-remote-review</b> · allow reviewing from off your network</span>
-      <span class="chip"><b>/allow-main</b> · lift the base-branch guard, for this session</span>
-      <span class="chip"><b>/spec-skip</b> · move on from a phase without a verdict, reason recorded</span>
-      <span class="chip"><b>/spec-init</b> · bootstrap or repair the workflow</span>
-    </div>
-    <!-- commands:end -->
   </div>
 </section>
 
-<!-- ============ SCENARIO WALKTHROUGH ============ -->
-<section id="scenario" class="scenario">
+<!-- ============ THE TIERS ============ -->
+<section id="tiers">
   <div class="wrap">
     <div class="section-head reveal">
-      <div class="eyebrow">Walkthrough · ship a feature</div>
-      <h2>One feature, start to finish — and exactly where each moment happens.</h2>
-      <p class="lede">Follow "sort the task inbox" through the whole lifecycle. Watch the colour of the label: <span class="step-where term-w">terminal</span> is where you build, <span class="step-where linear-w">linear.app</span> is where the work gets reviewed and processed.</p>
+      <div class="eyebrow">Read it anywhere</div>
+      <h2>Three doors to the same page — your desk, your wifi, out of the house.</h2>
+      <p class="lede">Every render lists all three, labelled, in a fixed order — you pick the one that reaches you, and the engine never guesses where you are sitting.</p>
     </div>
 
-    <div class="steps reveal">
-      <!-- 1 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">1</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec</span> Grill the idea into a spec <span class="step-where term-w">terminal</span></h3>
-          <p>You describe what you want. Claude pushes back — edge cases, the data model, how you'll test it — until the shape is genuinely agreed, then writes it out as a phased folder in <code>specs/backlog/</code>. Nothing is coded yet; you're buying clarity first.</p>
-          <p>Work can arrive the other way round, too: <code>/spec SKI-188</code> starts from an existing Linear issue, and <code>/spec --from-issue</code> browses the ones your web app filed. That issue <em>becomes</em> the spec's issue — the reporter's thread stays where it is, and their words carry into the spec's Problem section.</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec sort the task inbox by state + created date</div>
-<div class="l"><span style="color:var(--ink-faint)">  → 3 phases · 9 tasks · tests included</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  → specs/backlog/feat-sort-inbox/00-overview.md</span> <span style="color:var(--st-complete)">Ready</span></div>
+    <div class="tiers reveal">
+      <div>
+        <div class="tier">
+          <span class="dot on"></span>
+          <div>
+            <h3>local — the machine the run is on</h3>
+            <div class="u">http://127.0.0.1:7760/7e9e…/feat-orders</div>
+            <p>Always there. With nothing served it is a <span class="mono" style="font-size:.9em">file://</span> page that copies the pass to your clipboard instead.</p>
+          </div>
+        </div>
+        <div class="tier">
+          <span class="dot on"></span>
+          <div>
+            <h3>network — a phone on the same wifi</h3>
+            <div class="u">http://192.168.0.136:7760/7e9e…/feat-orders</div>
+            <p><b>Two doors into one room</b>: local and network reach the same server and the same waiting run, so a press on either carries the work on. The 48-bit token in the URL is what decides who can send a pass at all.</p>
+          </div>
+        </div>
+        <div class="tier">
+          <span class="dot off2"></span>
+          <div>
+            <h3>remote — a published page, off the network</h3>
+            <div class="u">off — /spec-remote-review turns it on</div>
+            <p>One private link per spec, updated phase after phase. A separate store, so a verdict there needs <span class="mono" style="font-size:.9em">/spec-reviewed</span> — and it stays off until you switch it on, because a published page is one this tooling cannot remove.</p>
           </div>
         </div>
       </div>
-
-      <!-- 2 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">2</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec-push</span> Publish it so the team can see it <span class="step-where linear-w">bridge</span></h3>
-          <p>Optional, and the part worth adopting: push publishes the spec as a <b>Linear issue</b> and each phase as a <b>sub-issue</b> (phase name, goal, and state), stamping the returned IDs back into your markdown. Each phase's tasks ride along inside its sub-issue as a read-only checklist. You pick which <b>Project</b> it belongs to as it's created — after that, where it lives is Linear's business. Now a PM who never opens a terminal can see the plan.</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-push</div>
-<div class="l"><span style="color:var(--ink-faint)">  project?</span> <span style="color:var(--st-progress)">Task Inbox</span> <span style="color:var(--ink-faint)">· Billing · None (team only)</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  created</span> <span style="color:var(--st-progress)">SKI-204</span> <span style="color:var(--ink-faint)">· issue + 2 sub-issues</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  stamped linear_identifier into frontmatter</span> <span style="color:var(--st-complete)">✓</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">3</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3>Review &amp; prioritise it <span class="step-where linear-w">linear.app</span></h3>
-          <p>In Linear, your teammate sets the priority to High, adds a <code>frontend</code> label, drops a comment on the second phase, and moves it into the current cycle. None of that touches your repo — priority, labels, cycles and comments are Linear-native triage, and one-way sync leaves them alone.</p>
-          <div class="lcard" style="max-width:440px">
-            <div class="lcard-top">
-              <div><div class="id">SKI-204 · updated in Linear</div><div class="name">Sort the task inbox</div></div>
-              <span class="status progress">High</span>
-            </div>
-            <div class="lcard-body" style="gap:9px">
-              <div class="issue" style="padding-left:0"><span style="color:var(--st-progress)">◆</span> priority → High · label <b style="color:var(--ink)">frontend</b></div>
-              <div class="issue" style="padding-left:0"><span style="color:var(--st-ready)">💬</span> "can we default to created-date?" — on Phase 2</div>
+      <div>
+        <div class="phone" role="img" aria-label="The same review page open on a phone">
+          <div class="ph-url">192.168.0.136:7760/7e9e…/feat-orders</div>
+          <div class="ph-body">
+            <div class="ph-file sel">handler.ts</div>
+            <div class="ph-file">schema.sql<span class="tick">✓</span></div>
+            <div class="ph-file">orders.test.ts<span class="tick">✓</span></div>
+            <div class="ph-btns">
+              <span class="ph-btn commit">✓ Commit</span>
+              <span class="ph-btn">✓ &amp; Continue</span>
+              <span class="ph-btn">↺ Changes</span>
+              <span class="ph-btn">… Discuss</span>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- 4 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">4</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec-next</span> Build the next phase <span class="step-where term-w">terminal</span></h3>
-          <p>Back in the terminal. The repo is already canonical, so there's nothing to pull down — <code>/spec-start</code> already put the spec in flight, and <code>/spec-next</code> builds each remaining phase — red tests to green before one is done. (Read priority and notes in Linear whenever you like; they don't gate the build.)</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-next</div>
-<div class="l"><span style="color:var(--ink-faint)">  repo is canonical · no pull needed</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  worktree ../wt/feat-sort-inbox · servers :3012</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  Phase 2 · sort controls</span> <span style="color:var(--st-progress)">red</span> <span style="color:var(--ink-faint)">→</span> <span style="color:var(--st-complete)">green ✓</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 5 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">5</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec-status</span> See what would push <span class="step-where term-w">terminal</span></h3>
-          <p>A read-only drift report. It shows what the next push would create or update, and flags if Linear's workflow-state drifted from the spec (a card someone moved). It changes nothing — you always know what a push would move before you run it.</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-status</div>
-<div class="l"><span style="color:var(--st-complete)">  ↑ pending</span>   2 sub-issues to update · issue changed</div>
-<div class="l"><span style="color:var(--st-progress)">  ~ drift</span>     Linear state "Todo" · spec "in-progress"</div>
-<div class="l"><span style="color:var(--ink-faint)">  repo wins on the next push</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 6 -->
-      <div class="step">
-        <div class="step-rail"><div class="step-num">6</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <h3><span class="cmd">/spec-complete</span> Land it and tear down <span class="step-where term-w">terminal</span></h3>
-          <p>Verifies every phase is done and green, fast-forwards the branch onto your base, tears the worktree and stack down, and moves the spec to <code>specs/complete/</code>. A final push flips the Linear issue to Done — the board reflects reality because reality drove it.</p>
-          <div class="mini-term">
-<div class="l"><span style="color:var(--accent)">›</span> /spec-complete</div>
-<div class="l"><span style="color:var(--ink-faint)">  all phases ✓ · 14 tests green · landed on main</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  worktree + stack torn down</span></div>
-<div class="l"><span style="color:var(--ink-faint)">  SKI-204 →</span> <span style="color:var(--st-complete)">Complete</span></div>
-          </div>
-        </div>
+        <p class="phone-cap">The run at your desk is <em>waiting</em> for this press — reviewing from the sofa is the designed path, not a workaround.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============ TWO SURFACES ============ -->
-<section id="surfaces">
+<!-- ============ THE PASS-BACK ============ -->
+<section id="passback" style="background: var(--paper);">
   <div class="wrap">
     <div class="section-head reveal">
-      <div class="eyebrow">Two surfaces · one source of truth</div>
-      <h2>The terminal does the work. Linear.app reviews and processes it.</h2>
-      <p class="lede">This is the split that's easy to miss — and the reason to bother wiring Linear in at all. You don't manage the project in <em>either</em> tool; you manage it in the repo, and each surface shows the slice its people need.</p>
+      <div class="eyebrow">The pass-back</div>
+      <h2>Your reading comes back as data. Six digits is all the model sees.</h2>
     </div>
 
-    <div class="duo reveal">
-      <div class="duo-col term-col">
-        <span class="duo-tag">◱ Terminal · Claude Code</span>
-        <h3>Where the work happens</h3>
-        <p>The doing surface. This is where the spec is authored and where every line of code and test gets written. The repo is the source of truth — it lives here.</p>
-        <ul class="duo-list">
-          <li><span class="mk">/</span><span><b>Grill &amp; author</b> the spec — problem, approach, phases, tests</span></li>
-          <li><span class="mk">/</span><span><b>Provision</b> isolated worktrees + dev servers per spec</span></li>
-          <li><span class="mk">/</span><span><b>Implement</b> phase by phase, driving tests red → green</span></li>
-          <li><span class="mk">/</span><span><b>Land &amp; tear down</b> — rebase, fast-forward, clean up</span></li>
-        </ul>
-        <p class="who">who lives here → you + Claude, mid-flow</p>
+    <div class="pb reveal">
+      <div class="st">
+        <span class="k">01 · PRESS</span>
+        <h3>You end in a verdict</h3>
+        <p>Ticks, notes, answers and one of the four buttons — sent from whichever door you opened.</p>
       </div>
-
-      <div class="duo-col linear-col">
-        <span class="duo-tag">◲ Linear.app · the website</span>
-        <h3>Where it's reviewed &amp; processed</h3>
-        <p>The coordinating surface. A projection of your specs that non-terminal people — PMs, leads, stakeholders — can read, discuss, and triage without ever cloning the repo.</p>
-        <ul class="duo-list">
-          <li><span class="mk">◆</span><span><b>See status</b> at a glance across every project and cycle</span></li>
-          <li><span class="mk">◆</span><span><b>Set priority &amp; labels</b>, slot work into cycles</span></li>
-          <li><span class="mk">◆</span><span><b>Discuss</b> in comments — decisions attached to the work</span></li>
-          <li><span class="mk">◆</span><span><b>Report &amp; plan</b> across teams, initiatives, roadmaps</span></li>
-        </ul>
-        <p class="who">who lives here → PMs, leads, stakeholders</p>
+      <div class="st">
+        <span class="k">02 · HELD</span>
+        <h3>The engine holds the pass</h3>
+        <p>It lands in a local store beside the page. Your marks and notes never enter the model's context.</p>
+      </div>
+      <div class="st">
+        <span class="k">03 · NAMED</span>
+        <h3>A code names it</h3>
+        <p>Printed on the page — an address, not a password. Its one job is telling two passes apart.</p>
+        <span class="code6">324199</span>
+      </div>
+      <div class="st">
+        <span class="k">04 · CLAIMED</span>
+        <h3>The waiting run continues</h3>
+        <p>A pass that arrives while the run is watching is claimed and acted on. Outside that window, <span class="mono" style="font-size:.9em">/spec-reviewed</span> — typed by you — is the only way in.</p>
       </div>
     </div>
 
-    <div class="bridge reveal">
-      <div class="b-cmds">
-        <span class="chip"><b>/spec-push</b> repo → Linear</span>
-        <span class="chip"><b>/spec-status</b> what would push · drift</span>
-      </div>
-      <p><b>One way: the repo is canonical, Linear is a generated mirror.</b> Push publishes structure &amp; content and the workflow state; Linear-native triage — priority, labels, cycles, comments — is the PM's and is left untouched. Nothing is read back or merged, so there's nothing to clobber.</p>
+    <div class="reveal" style="margin-top:26px;">
+      <p class="lede"><b>The pass doesn't go through the model any more.</b> A served page POSTs it to its own URL and the engine holds it, so what reaches Claude is six digits rather than kilobytes of your marks and notes. That's the same rule the diff already follows — git writes it, the engine splices it, the model never reads it — and the paste was the one place it broke. A <span class="mono" style="font-size:.9em">file://</span> page has no server to talk to, so it still copies to your clipboard; that path isn't legacy, it's the whole story for a local reader.</p>
     </div>
   </div>
 </section>
 
-<!-- ============ ADD LINEAR (pointer) ============ -->
-<section id="linear" class="scenario">
+<!-- ============ WHAT COSTS, WHAT GATES ============ -->
+<section id="costs">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="eyebrow">Optional</p>
-      <h2>Add Linear</h2>
-      <p class="sub">Opt in with one config file. Your repo stays canonical; Linear mirrors it.</p>
+      <div class="eyebrow">The two rules that hold it together</div>
+      <h2>The diff is free. A phase that ended owes an answer.</h2>
     </div>
-    <p class="reveal">
-      The <span class="mono">@skitterbyte/skitterspec-linear</span> superset is everything on this
-      page plus one-way sync: a spec becomes a Linear issue and each phase a sub-issue, pushed
-      from the repo and never read back. It is opt-in — until
-      <span class="mono">specs/.core/linear.config.json</span> exists, nothing changes.
-    </p>
-    <p class="reveal">
-      <a class="pkg pill" href="linear.html">Set it up, check it, fix it →</a>
-    </p>
-  </div>
-</section>
-
-<!-- ============ REFERENCE POINTER ============ -->
-<section id="reference">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">Reference</div>
-      <h2>Every skill and engine verb, on its own page.</h2>
-      <p class="lede">The full command reference — all the lifecycle skills, and the <span class="mono" style="font-size:.9em">spec-env</span> engine they drive — lives on <a href="reference.html">the reference page</a>, so this one can stay about the workflow.</p>
+    <div class="reveal">
+      <p class="lede"><b>What costs, and what doesn't.</b> The diff never passes through the model: git writes the patches and the engine splices them into the page as text. A 266KB patch costs <b>zero</b> context tokens, and a 289KB page costs the same to publish as a 5KB one. The only part that costs is the <em>written</em> review — roughly 700 output tokens, because writing it means reading the diff — so it's offered, never assumed.</p>
+      <p class="lede"><b>A phase that ended owes an answer.</b> The <b>gate</b> is armed when a phase ends and its page is rendered, and exactly two things clear it: a committing verdict, or <span class="mono" style="font-size:.9em">spec-env review skip "&lt;reason&gt;"</span>. Until one happens <span class="mono" style="font-size:.9em">/spec-next</span> refuses to build the next phase, and a hook refuses <span class="mono" style="font-size:.9em">git commit</span> in that worktree — which is what covers a bare commit, a chained one, and your own commit skill without skitterspec editing it. Three things keep it a push rather than a wall: it is armed only by a phase <em>ending</em>, so reading half-finished work owes nothing; the exit is always one command, and one of them is <em>"I am moving on"</em> with the reason on the record; and every cannot-tell case exits 0 and says nothing. <span class="mono" style="font-size:.9em">review.required: false</span> turns it off for a project.</p>
     </div>
   </div>
 </section>
 
-
-<!-- ============ REVIEW POINTER ============ -->
-<section id="review">
+<!-- ============ DESIGN NOTES ============ -->
+<section id="faq" style="background: var(--paper);">
   <div class="wrap">
     <div class="section-head reveal">
-      <div class="eyebrow">See the phase</div>
-      <h2>Review, on its own page.</h2>
-      <p class="lede">Every phase ends on a page you can read anywhere and answer with one press — how that works, what it costs (nothing), and what guards it live on <a href="review.html">the review page</a>.</p>
+      <div class="eyebrow">Design notes</div>
+      <h2>Why it is shaped this way.</h2>
+      <p class="lede">Every one of these was paid for — the full reasoning, kept short. Open the ones you care about.</p>
     </div>
-  </div>
-</section>
-
-
-
-
-<!-- ============ QUICKSTART ============ -->
-<section id="quickstart" class="quick">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <div class="eyebrow">Get started</div>
-      <h2>One command scaffolds it. Nothing else is required.</h2>
-      <p class="lede">The base is tracker-free and stays that way. No account, no config, no service — your specs are markdown in your repo, and every command is a filesystem operation.</p>
-    </div>
-
-    <div class="quick-grid reveal">
-      <div class="qbox">
-        <h3><span class="q-badge">1</span> Scaffold it</h3>
-        <p>Writes the spec skills and slash commands into <span class="mono">.claude/</span>, the <span class="mono">specs/</span> lifecycle folders, and the rules they follow. Idempotent — safe to re-run, and it repairs a half-install rather than clobbering your edits.</p>
-        <div class="code"><span class="c"># tracker-free base</span>
-npx @skitterbyte/skitterspec <span class="p">init</span>
-
-<span class="c"># or the Linear superset instead — one OR the other,</span>
-<span class="c"># never both; the superset contains the whole base</span>
-<span class="c"># npx @skitterbyte/skitterspec-linear init</span></div>
-      </div>
-
-      <div class="qbox">
-        <h3><span class="q-badge">2</span> Plan something</h3>
-        <p>In Claude Code. <span class="mono">/spec</span> grills you to a shared understanding first, then writes a phased spec into <span class="mono">specs/backlog/</span> — it does not start coding.</p>
-        <div class="code"><span class="p">/spec</span> add CSV export to reports
-
-<span class="c"># then build it, phase by phase</span>
-<span class="p">/spec-start</span> feat-csv-export
-
-<span class="c"># verify, land, tear down</span>
-<span class="p">/spec-complete</span></div>
-      </div>
-
-      <div class="qbox">
-        <h3><span class="q-badge">3</span> Where things live</h3>
-        <p>A spec's <strong>folder is its status</strong> — there is no index to keep in step, and <span class="mono">git log</span> is the history.</p>
-        <div class="code">specs/
-  <span class="p">backlog/</span>       ready to build
-  <span class="p">in-progress/</span>   being built now
-  <span class="p">complete/</span>      done
-  <span class="p">cancelled/</span>     dropped, with a reason
-  .core/         rules + config</div>
-        <p class="hero-note">Git does not store empty folders, so a bucket disappears when nothing is in it and returns when something is. That is normal.</p>
-      </div>
-
-      <div class="qbox">
-        <h3><span class="q-badge">4</span> Optional: a worktree per spec</h3>
-        <p>Turn on per-spec isolation and <span class="mono">/spec-start</span> gives every in-progress spec its own git worktree and branch. Several specs run side by side without stashing, and <span class="mono">main</span> stays free.</p>
-        <div class="code">npx @skitterbyte/skitterspec init <span class="p">--isolation</span></div>
-        <p>Teardown is folded into <span class="mono">/spec-complete</span> and <span class="mono">/spec-cancel</span>, so finishing a spec reclaims its worktree.</p>
-      </div>
-
-      <div class="qbox">
-        <h3><span class="q-badge">5</span> Optional: did we decide about a flag?</h3>
-        <p>A spec can reach <span class="mono">/spec-complete</span> having never been asked whether it ships behind a feature flag — and &ldquo;nobody asked&rdquo; looks exactly like &ldquo;we decided not to&rdquo;. Turn on release gating and every spec records the answer on its own header.</p>
-        <div class="code">npx @skitterbyte/skitterspec init <span class="p">--gating</span></div>
-        <div class="code"><span class="dim">&gt; **Gating:**</span> search-ranking-v2
-<span class="dim">&gt; **Gating:**</span> none: additive, nothing to revert</div>
-        <p>A flag name, or a reason for not using one — the reason is the point, because a missing line is an oversight and a reason is a decision. Skitterspec never reads your flag system; it asks the question and cites <em>your</em> documentation. <span class="mono">gating check</span> lists specs with no answer and always exits 0, so it never blocks your work.</p>
-      </div>
+    <div class="faq">
+      <details class="reveal">
+        <summary>Why does a tick survive the commit — and lapse by itself later?</summary>
+        <p class="lede"><b>A tick remembers the file, not the diff.</b> An accept is keyed to the file's content hash, so committing the phase doesn't lapse it and neither does switching between "what changed just now" and "what this whole spec does". Change that file again and the tick lapses by itself — shown as <em>accepted earlier — changed since</em>, never dropped in silence. The marks are information for whoever is reading: nothing counts them, and no phase, commit or completion is gated on them.</p>
+      </details>
+      <details class="reveal">
+        <summary>How can the page safely carry the work on?</summary>
+        <p class="lede"><b>The phase waits for that press.</b> <span class="mono" style="font-size:.9em">/spec-next</span> ends a phase by rendering the page and then watching, so the button is what carries the work on — there is no command to remember. It used to be true that a device reaching your page couldn't reach your conversation, and that fact was the whole guard. It isn't true any more, deliberately, and two mechanisms replaced it: the <b>serve token</b> — 48 random bits in the URL, minted per server, deciding who can POST at all — and the <b>window</b>, which decides <em>which</em> pass may be claimed without you naming it. A pass that arrived while the session was waiting is yours; one already sitting there when the wait began is never swept up, which is exactly the stranger's pass the old rule was written about.</p>
+      </details>
+      <details class="reveal">
+        <summary>What stops a pass being claimed unasked?</summary>
+        <p class="lede"><b>Outside that window, nothing is claimed unasked.</b> Type <span class="mono" style="font-size:.9em">/spec-reviewed</span> — bare when one pass is waiting, or <span class="mono" style="font-size:.9em">/spec-reviewed 324199</span> to name one exactly, which matters only when two are. That command is the one path the <em>harness</em> enforces: Claude cannot run it, so a pass picked up that way is only ever picked up because a person typed it. The rule it enforces had already been broken once by prose alone, by an agent that found a waiting approval and claimed it off disk.</p>
+      </details>
+      <details class="reveal">
+        <summary>Is the six-digit code a password?</summary>
+        <p class="lede"><b>The code is an address, not a password.</b> It's printed on the page, and it couldn't gate Claude anyway — the holding area is a file Claude can read. Its one job is telling two passes apart: one waiting is claimed and acted on with nothing read back, two is a refusal to guess, and a pass you disown is dropped by its code. A code that matches nothing refuses and <em>names nothing</em>, never falling back to "the only one" — that fallback is exactly what would let an unread pass through. Claiming spends it, so a code works once.</p>
+      </details>
+      <details class="reveal">
+        <summary>Why does the button say Commit, not Approve?</summary>
+        <p class="lede"><b>The verdict names the action.</b> It said <em>Approve</em> once, and an approval that only recorded itself was the one control on the page that didn't describe what it does — a review is the guard in front of an action, so the button is the action. <b>Commit &amp; Continue</b> goes one step further and builds the next phase, because reading the diff on a phone is worth doing precisely when you're away from the terminal. It stops there: it never completes, lands, or tears anything down.</p>
+      </details>
+      <details class="reveal">
+        <summary>Why can't I commit while a note is open?</summary>
+        <p class="lede"><b>Committing is the only thing that's ever unavailable — and never because of a tally.</b> Both committing buttons are blocked while a comment is still unresolved, for one reason you can argue with: you asked for something, so it can't also be fine. Files you never ticked block nothing — an unticked file is something you said nothing <em>about</em>, and a 60-file phase shouldn't be a chore before you can commit it. The verdict is one choice you make once, not a score derived from your marks, and it's <em>consumed</em> by the thing it asks for: a commit verdict is spent by the commit, changes by the work. So neither can go stale and later act on something nobody read. What's kept is a one-line outcome — <em>committed a1b2c3d</em> — shown as history the next time you open the page.</p>
+      </details>
+      <details class="reveal">
+        <summary>Whose commit skill runs the commit?</summary>
+        <p class="lede"><b>It commits with your commit skill, not ours.</b> An approval hands off to whatever <span class="mono" style="font-size:.9em">review.commitWith</span> names — <span class="mono" style="font-size:.9em">/commit</span> by default, any skill you install, any skill you install. There is no off switch, deliberately: <span class="mono" style="font-size:.9em">none</span> existed and was removed, because it produced the one thing a review page must not have — a verdict that records itself and does nothing. Skitterspec never ships a copy of one: <span class="mono" style="font-size:.9em">/commit</span> belongs to skittership, where it also writes the release-note footers your changelog is built from, and a fork of it living here would drift in silence. With no such skill available it commits directly — stage, typecheck, test, conventional message — and says it took that path, every time. And if the tests fail there's no commit: approving a change judges the change, it never promises that it builds.</p>
+      </details>
+      <details class="reveal">
+        <summary>Where does the page live?</summary>
+        <p class="lede"><b>The page is local by default.</b> It lands in <span class="mono" style="font-size:.9em">.spec-env/reviews/&lt;spec&gt;.html</span>, which is gitignored — reviewing a branch leaves no change in the branch you're reviewing. On a desktop that's the whole feature; nothing is sent anywhere.</p>
+      </details>
+      <details class="reveal">
+        <summary>What does publishing actually do?</summary>
+        <p class="lede"><b>Publishing is opt-in, and one page per spec.</b> Ask, and the page becomes a private link you can open on a phone. Every later phase updates <em>that</em> page under a version label rather than adding another entry — so a spec is one link, not eight. It's never automatic, for one blunt reason: publishing leaves something behind that this tooling cannot remove.</p>
+      </details>
+      <details class="reveal">
+        <summary>Why a page instead of a terminal tab?</summary>
+        <p class="lede"><b>This is what replaced reaching for a tab.</b> Three specs tried to solve it from the other end — one opened a viewer tab, one moved the shell into one, one reached for a better terminal program — and all three were cancelled, with their reasoning intact in <span class="mono" style="font-size:.9em">specs/cancelled/</span> (<a href="https://github.com/SkitterByte/skitterspec/tree/main/specs/cancelled/feat-spec-diff">feat-spec-diff</a>, <a href="https://github.com/SkitterByte/skitterspec/tree/main/specs/cancelled/feat-spec-start-opens-tab">feat-spec-start-opens-tab</a>, <a href="https://github.com/SkitterByte/skitterspec/tree/main/specs/cancelled/feat-lazygit-commits">feat-lazygit-commits</a>). The common assumption was that a terminal program must show the diff — which forces a tab, which is unreachable from a phone. Nothing about this page depends on where your shell is: the engine reads the worktree with <span class="mono" style="font-size:.9em">git -C</span> and never changes directory.</p>
+      </details>
     </div>
 
-    <div class="cta-row reveal">
-      <a class="btn btn-primary" href="linear.html">Want it mirrored in Linear? →</a>
+    <div class="reveal" style="margin-top:26px;">
+      <div class="code"><span class="c"># the uncommitted work — what this phase just did</span>
+$ skitterspec spec-env <span class="p">review</span>
+spec-env review: feat-phase-review (uncommitted)
+  9 files, +839 -24
+  page: /repo/.spec-env/reviews/feat-phase-review.html
+
+<span class="c"># or everything since the base branch — the whole spec</span>
+$ skitterspec spec-env <span class="p">review</span> --branch</div>
     </div>
   </div>
 </section>
@@ -913,10 +842,10 @@ npx @skitterbyte/skitterspec <span class="p">init</span>
   <div class="wrap foot-inner">
     <p>skitterspec · skitterspec-linear — spec-driven development that stays in git, built for Claude Code.</p>
     <div class="foot-links">
-      <a href="#loop">The loop</a>
-      <a href="#scenario">Walkthrough</a>
-      <a href="#linear">Add Linear</a>
-      <a href="#quickstart">Get started</a>
+      <a href="index.html">Home</a>
+      <a href="#page">The page</a>
+      <a href="#tiers">Read anywhere</a>
+      <a href="reference.html">Reference</a>
     </div>
   </div>
 </footer>

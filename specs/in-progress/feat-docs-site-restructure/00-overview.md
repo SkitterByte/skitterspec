@@ -100,7 +100,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Scaffold the split — reference.html + shared nav | ✅ | [01-reference-page.md](01-reference-page.md) |
-| 2 | review.html — mockups + restructured rationale | ⬜ | [02-review-page.md](02-review-page.md) |
+| 2 | review.html — mockups + restructured rationale | ✅ | [02-review-page.md](02-review-page.md) |
 | 3 | Rebuild index.html — hero, teaser, trim | ⬜ | [03-index-rebuild.md](03-index-rebuild.md) |
 | 4 | Re-skin linear.html — package identity | ⬜ | [04-linear-identity.md](04-linear-identity.md) |
 
@@ -123,3 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-18 — Phase 1 done: reference.html carries both tables; docs-claims
   `PAGES`/fixtures and `assets-kickoff-surfaces` retargeted to the new page;
   suite 3458 green.
+- 2026-09-18 — Phase 2 done: review.html carries the page/verdict/tier/phone
+  mockups, 4 prose claims and a 10-item disclosure list; index keeps a pointer
+  at #review; docs-claims review-key matcher taught that review.html is a
+  filename. Suite 3458 green.

@@ -130,7 +130,7 @@ test('the guard leaves the still-true framing sayable', () => {
 // cross-page link, and a dead one fails silently: the browser just does nothing.
 // Nothing else checks the site, so this does.
 
-const PAGES = ['docs/index.html', 'docs/reference.html', 'docs/linear.html']
+const PAGES = ['docs/index.html', 'docs/review.html', 'docs/reference.html', 'docs/linear.html']
 
 const idsOf = (html) => new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))
 const readPage = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -203,6 +203,7 @@ test('each page carries its own canonical og:url', () => {
   assert.strictEqual(new Set(urls).size, urls.length, `og:url must differ per page, got ${JSON.stringify(urls)}`)
   assert.ok(urls.some((u) => u.endsWith('/linear.html')), 'the Linear page points at itself')
   assert.ok(urls.some((u) => u.endsWith('/reference.html')), 'the reference page points at itself')
+  assert.ok(urls.some((u) => u.endsWith('/review.html')), 'the review page points at itself')
 })
 
 // --- the pages must not name a command that does not exist -------------------
@@ -699,8 +700,10 @@ test('every review.<key> a shipped surface names is a key the engine merges', ()
     // WHAT WOULD FOOL THIS: a bare \b lets a FILENAME in — `feat-phase-review.html`
     // ends in "review." too, and read as a config key it accuses a healthy page.
     // The lookbehind requires the word to start fresh, so a path segment or a
-    // hyphenated name cannot masquerade as the config block.
-    for (const m of text.matchAll(/(?<![\w/-])review\.([a-zA-Z][a-zA-Z0-9]*)\b/g)) {
+    // hyphenated name cannot masquerade as the config block. The lookahead
+    // excludes `review.html` — the docs site's own page, a filename that starts
+    // fresh in an href and is never a config key.
+    for (const m of text.matchAll(/(?<![\w/-])review\.(?!html\b)([a-zA-Z][a-zA-Z0-9]*)\b/g)) {
       if (!(m[1] in DEFAULT_CONFIG.review)) unknown.push(`${rel}: review.${m[1]}`)
     }
   }
@@ -735,8 +738,13 @@ test('the guard would fire on a review key that does not exist', () => {
 // that is not a config key anybody has to defend.
 test('stays silent: a filename ending in review is not a config key', () => {
   const line = 'page: /repo/.spec-env/reviews/feat-phase-review.html'
-  const found = [...line.matchAll(/(?<![\w/-])review\.([a-zA-Z][a-zA-Z0-9]*)\b/g)]
-  assert.deepStrictEqual(found, [], 'a path segment is not a key')
+  const re = /(?<![\w/-])review\.(?!html\b)([a-zA-Z][a-zA-Z0-9]*)\b/g
+  assert.deepStrictEqual([...line.matchAll(re)], [], 'a path segment is not a key')
+  // The site's own page is a filename too — an href starts the word fresh, so
+  // only the extension lookahead keeps it out.
+  assert.deepStrictEqual([...'<a href="review.html">'.matchAll(re)], [], 'the review page is not a key')
+  // And the guard still reads real keys: the lookahead must not eat them.
+  assert.strictEqual([...'review.required'.matchAll(re)][0][1], 'required')
 })
 
 test('no shipped surface still offers commitWith "none"', () => {
