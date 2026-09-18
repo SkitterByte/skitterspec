@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-live-press-does-nothing (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -110,8 +110,14 @@ Phased; see the index below.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-18 — Completed; all three phases done, tests green (3358 passed).
+  Landing this puts `/spec-skip` on the base branch, which
+  `.claude/rules/offered-unblocks.md` (feat-offer-the-unblock) defers citing
+  until it is there.
 
 - 2026-09-18 — Bug reproduced; failing test added (red).
 - 2026-09-18 — Fixed: the claim reports `action`, so `/spec-diff` §2b can
