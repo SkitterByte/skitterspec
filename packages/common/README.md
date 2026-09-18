@@ -77,6 +77,38 @@ npx @skitterbyte/skitterspec init --gating            # adopt release gating (fl
 npx @skitterbyte/skitterspec update                   # re-copy skills + rule, leave specs/ alone
 ```
 
+### Where the CLI itself lives
+
+`init` writes four slash commands that **pre-execute the CLI**, so they need an
+invocation that resolves later — and it picks one by looking, not by guessing:
+a local install (the lockfile then picks `pnpm exec` / `yarn` / `npx`), else the
+bin on `PATH`, else `npx` with a warning that it could not find one.
+
+**Any project can use skitterspec, whatever it is written in.** The engine
+shells out to `git` and — only for a spec that asks for one — `docker`; it never
+reads your source, your dependencies or your test framework. What it does need
+is Node ≥22.13 to run itself.
+
+In a **Node project**, add it as a dev dependency and the local rung finds it:
+
+```bash
+pnpm add -D @skitterbyte/skitterspec     # or npm i -D / yarn add -D
+```
+
+In a project that is **not** a Node project — C#, Python, Go, anything with no
+`package.json` to hold a dev dependency — install it **globally** instead, and
+the commands are written to call `skitterspec` directly:
+
+```bash
+npm i -g @skitterbyte/skitterspec
+npx @skitterbyte/skitterspec init        # then re-run init (or `update`)
+```
+
+Running only `npx @skitterbyte/skitterspec init` with the package installed
+nowhere is the one case that leaves those four commands unable to run. `init`
+says so rather than leaving you to find out, and `update` rewrites them once the
+CLI resolves.
+
 `update` pulls newer skill/rule versions after upgrading the package, without
 disturbing your specs. The CLAUDE.md section is wrapped in
 `<!-- skitterspec:start -->`…`<!-- skitterspec:end -->` markers so `update` can

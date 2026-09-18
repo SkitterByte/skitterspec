@@ -35,7 +35,7 @@ A verdict sentence, a blank line, then a two-column table:
 | **Tracker** | [ABC-88](https://example.invalid/ABC-88) · `feat-foo` · phase 2 moved |
 | **Branch** | `spec/feat-foo` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
-| **Tests** | 128 passed · npm test |
+| **Tests** | 128 passed · dotnet test |
 | **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** off |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
@@ -422,10 +422,10 @@ fenced block **above** the table, where a fence means what a fence should mean:
 
 | | |
 |---|---|
-| **Why** | 3 assertions fail in `orders.test.js`; nothing committed |
+| **Why** | 3 assertions fail in `test_orders.py`; nothing committed |
 | **Branch** | `spec/feat-foo` · 2 commits, dirty |
 | **Built** | POST /orders handler, orders schema |
-| **Tests** | 125 passed, 3 failed · npm test |
+| **Tests** | 125 passed, 3 failed · pytest |
 | **Follow-ups** | none |
 | **Next** | fix the failures, then `/spec-next` to finish phase 2 |
 
@@ -473,7 +473,7 @@ the reasoning.
 |---|---|
 | **Branch** | `spec/feat-foo` · 4 commits, clean |
 | **Built** | Auth middleware, session table |
-| **Tests** | 140 passed · npm test |
+| **Tests** | 140 passed · go test ./... |
 | **Follow-ups** | Session expiry is read from two places; phase 4 leans on one |
 | **Next** | `/spec-next` → phase 4 (Docs) |
 

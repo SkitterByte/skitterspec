@@ -110,6 +110,10 @@ through to a documented conservative default; see the field notes below.
   //          worktree). The main checkout is resolved robustly at run time via
   //          `git rev-parse --git-common-dir` — no hardcoded repo name or path.
   // Shorthand: `"seedFiles": [".env", …]` == `{ "mode": "symlink", "files": […] }`.
+  // `.env` is an ILLUSTRATION, not an expectation — skitterspec never reads any
+  // of these files, it only links or copies them. Name whatever your stack keeps
+  // out of git: `appsettings.Development.json` or a user-secrets file, `.envrc`,
+  // `local.settings.json`, `config/local.yml`.
   // Seeded files are gitignored, so they never make the worktree "dirty" and
   // never block teardown; they vanish with the worktree at `spec-env down`.
   // [] (or absent) = seed nothing (current behaviour).

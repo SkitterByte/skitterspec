@@ -428,7 +428,7 @@ its verdicts and its fields.
 | **Tracker** | [ABC-88](https://example.invalid/ABC-88) · `feat-orders` · phase 2 moved |
 | **Branch** | `spec/feat-orders` · 3 commits, clean |
 | **Built** | POST /orders handler, orders schema |
-| **Tests** | 128 passed · npm test |
+| **Tests** | 128 passed · dotnet test |
 | **Review** | 7 files, +212 −18 · **local** [http://127.0.0.1:7760/…](http://127.0.0.1:7760/…) · **network** [http://192.168.0.136:7760/…](http://192.168.0.136:7760/…) · **remote** off |
 | **Follow-ups** | none |
 | **Next** | `/spec-next` → phase 3 (Auth) |
@@ -530,9 +530,15 @@ The spec skills tell you to run "your project's typecheck and test commands" and
 to "honour project conventions". Make those concrete here so specs stay
 consistent with the codebase:
 
-- **Typecheck command:** `<e.g. npm run typecheck>`
-- **Test command:** `<e.g. npm test>` (single file/dir: `<e.g. npx vitest run path>`)
-- **Lint/format:** `<e.g. npm run lint>`
+Skitterspec never runs these itself and knows nothing about what this project
+is written in — it shells out to `git`, and to whatever you write below. The
+examples span several stacks on purpose: pick the shape that fits, or write one
+none of them describes.
+
+- **Typecheck command:** `<e.g. npm run typecheck · dotnet build · mypy . · go vet ./...>`
+- **Test command:** `<e.g. npm test · dotnet test · pytest · go test ./...>`
+  (single file/dir: `<e.g. npx vitest run path · dotnet test --filter · pytest path>`)
+- **Lint/format:** `<e.g. npm run lint · dotnet format · ruff check · golangci-lint run>`
 - **Other rules specs must honour:** link the relevant `.claude/rules/*.md`
   (architecture, code style, testing, database, etc.) rather than restating them.
 

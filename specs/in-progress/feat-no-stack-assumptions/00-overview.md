@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Resolve the engine by a positive-signal ladder | ✅ | [01-engine-resolution.md](01-engine-resolution.md) |
 | 2 | Honour the docker config instead of assuming it | ✅ | [02-docker-config.md](02-docker-config.md) |
-| 3 | Stop writing the docs in npm | ⬜ | [03-docs-defaults.md](03-docs-defaults.md) |
+| 3 | Stop writing the docs in npm | ✅ | [03-docs-defaults.md](03-docs-defaults.md) |
 
 ## Open questions
 
@@ -148,6 +148,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-18 — Spec created.
+- 2026-09-18 — Phase 3: the four worked examples in `spec-reports.md` were
+  **varied across stacks** rather than turned into placeholders. They exist to
+  show a filled-in report, and `<the project's test command>` makes them less
+  concrete, not more neutral. `test_orders.py` replaced `orders.test.js` in the
+  failure example so the filename and the runner agree.
+- 2026-09-18 — Phase 3: `env-supervise.test.js` failed once under full-suite
+  load (5164ms against 212ms in isolation) and passed on every re-run, in both
+  trees. It spawns a real process and polls it, so it is load-sensitive;
+  recorded rather than chased, since nothing in this spec touches it.
 - 2026-09-18 — Phase 2: the stack decision existed in **three** copies —
   `provision.js`, `teardown.js` and `cli.js` — and two of them disagreed. The
   CLI read `spec.stack === 'docker'` with no fallback, so a header-less spec
