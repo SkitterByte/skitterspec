@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-up-docs-unwritten-spec (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fix green, uncommitted
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -94,6 +94,7 @@ refusing — Error: spec not found under specs/**: feat-new-thing` (3 fail /
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -101,3 +102,4 @@ refusing — Error: spec not found under specs/**: feat-new-thing` (3 fail /
 - 2026-09-18 — Fixed: authoring lane in `spec-env up --docs` (record → resolve
   → plan, fork-point gate stays unknown); 6 new tests green, full suite 3464
   pass 0 fail.
+- 2026-09-18 — Completed; fix committed (6bede98), suite green (3464).
