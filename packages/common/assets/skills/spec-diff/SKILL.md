@@ -395,6 +395,14 @@ way out. **Never park another spec's live session** to make room — that is
 someone else's work, and freeing it is their decision. Re-render and wait, so
 the reader can choose something else.
 
+**A refusal may declare the way out of itself.** Ask with
+`skitterspec spec-env live take <spec> --json` and read its `offer` field:
+where one is present, relay the refusal and **then** offer it, exactly as
+`.claude/rules/offered-unblocks.md` describes. Do not re-decide from the reason
+text, and do not infer an offer that is not there — the boundary that keeps
+another spec's workbench out of this lives in that field rather than in prose
+here.
+
 **`allow` writes a committed file, and that is worth a sentence.** It edits
 `specs/.core/env.config.json` in the **primary checkout**, so it changes
 behaviour for everyone who pulls and leaves that tree dirty — unlike the live

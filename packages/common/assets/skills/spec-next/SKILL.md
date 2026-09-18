@@ -148,6 +148,12 @@ Before writing any code for this phase, get the workspace clean:
   anything is owed (`.claude/rules/negative-checks.md`). Do not mention it: a
   line about a gate nobody armed is an accusation against a healthy repo.
 
+  **It may also declare the way out.** An `armed` answer can carry an `offer`,
+  and where it does, relay the refusal and **then** offer it — once — exactly as
+  `.claude/rules/offered-unblocks.md` describes, spending it with
+  `skitterspec spec-env review gate <spec> --offered` as you raise it. Where
+  there is no `offer`, the three exits in the `Next` row are the whole answer.
+
   **This refusal counts nothing.** It is not a tally of ticked boxes — those
   still gate nothing and still are not counted. It asserts one thing: a phase
   that ended has an answer. And the exit is always **one command**, one of them

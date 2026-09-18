@@ -102,6 +102,15 @@ the guard, and only a person can type it. That asymmetry is the same line
 `/spec-reviewed` draws, and `spec-planning.md` already records that prose alone
 did not hold it once.
 
+**A refusal may OFFER its own exit, and that is a different thing again.**
+Where the engine declares one, a skill relays the refusal and **then** offers it
+— once per obligation, with the choice recorded, and answered by the operator
+rather than by Claude. `.claude/rules/offered-unblocks.md` is the whole
+contract. The three properties named there are what let a Claude-raised bypass
+survive the rule above, where a reasonless `--force` did not: the operator
+answers, the choice is on the record, and it is offered once. Remove any one and
+the objection returns.
+
 `/spec-to-main`, `/spec-status` and `/spec-sync` stay **skills** — each carries
 real judgment (green tests before a land; an MCP fetch and a team-key check; ten
 subcommands) — but they are marked user-only too, since nobody reaches them
