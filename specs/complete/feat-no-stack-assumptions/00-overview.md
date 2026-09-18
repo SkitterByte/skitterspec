@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-no-stack-assumptions (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-18)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -144,9 +144,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-18 | Ready | backlog | Reuben Greaves |
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-18 — Completed; all phases done, tests green (3371 passed).
 - 2026-09-18 — Spec created.
 - 2026-09-18 — Phase 3: the four worked examples in `spec-reports.md` were
   **varied across stacks** rather than turned into placeholders. They exist to
