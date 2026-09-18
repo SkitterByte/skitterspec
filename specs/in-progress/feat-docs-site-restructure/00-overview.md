@@ -102,7 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Scaffold the split — reference.html + shared nav | ✅ | [01-reference-page.md](01-reference-page.md) |
 | 2 | review.html — mockups + restructured rationale | ✅ | [02-review-page.md](02-review-page.md) |
 | 3 | Rebuild index.html — hero, teaser, trim | ✅ | [03-index-rebuild.md](03-index-rebuild.md) |
-| 4 | Re-skin linear.html — package identity | ⬜ | [04-linear-identity.md](04-linear-identity.md) |
+| 4 | Re-skin linear.html — package identity | ✅ | [04-linear-identity.md](04-linear-identity.md) |
 
 ## Open questions
 
@@ -131,3 +131,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   card), Linear demoted to the hero note, `+ linear` dropped from the lockup,
   review teaser with three claims, sections re-ordered (#surfaces kept beside
   #linear as the superset summary). Suite 3458 green.
+- 2026-09-18 — Phase 4 done: linear.html is indigo (#5e6ad2 light / #8a94e8
+  dark) with a skitterspec-linear lockup and an npm package banner; base pages
+  already name the superset. Suite 3458 green.

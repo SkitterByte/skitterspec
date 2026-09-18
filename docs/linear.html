@@ -37,9 +37,9 @@
     --line: #d6deea;
     --line-soft: #e4eaf3;
 
-    --accent: #0f6fb8;
-    --accent-bright: #1a86d6;
-    --accent-ghost: rgba(15, 111, 184, 0.09);
+    --accent: #5e6ad2;
+    --accent-bright: #7580dc;
+    --accent-ghost: rgba(94, 106, 210, 0.10);
 
     /* Lifecycle semantics */
     --st-ready: #2f74c9;
@@ -72,9 +72,9 @@
       --line: #26384e;
       --line-soft: #1c2c40;
 
-      --accent: #3ea3e6;
-      --accent-bright: #5ab7f2;
-      --accent-ghost: rgba(62, 163, 230, 0.13);
+      --accent: #8a94e8;
+      --accent-bright: #a0a9ef;
+      --accent-ghost: rgba(138, 148, 232, 0.15);
 
       --st-ready: #62a6f0;
       --st-ready-bg: rgba(98, 166, 240, 0.15);
@@ -96,7 +96,7 @@
     --paper: #eef1f7; --ground: #f6f8fc; --card: #ffffff; --card-2: #f2f5fa;
     --ink: #131f2c; --ink-soft: #495a6e; --ink-faint: #7a8ba0;
     --line: #d6deea; --line-soft: #e4eaf3;
-    --accent: #0f6fb8; --accent-bright: #1a86d6; --accent-ghost: rgba(15, 111, 184, 0.09);
+    --accent: #5e6ad2; --accent-bright: #7580dc; --accent-ghost: rgba(94, 106, 210, 0.10);
     --st-ready: #2f74c9; --st-ready-bg: rgba(47, 116, 201, 0.12);
     --st-progress: #b9701a; --st-progress-bg: rgba(185, 112, 26, 0.13);
     --st-complete: #2f8a53; --st-complete-bg: rgba(47, 138, 83, 0.13);
@@ -109,7 +109,7 @@
     --paper: #0b1522; --ground: #0d1826; --card: #132234; --card-2: #0f1d2e;
     --ink: #e8eefa; --ink-soft: #a3b4c9; --ink-faint: #6f8299;
     --line: #26384e; --line-soft: #1c2c40;
-    --accent: #3ea3e6; --accent-bright: #5ab7f2; --accent-ghost: rgba(62, 163, 230, 0.13);
+    --accent: #8a94e8; --accent-bright: #a0a9ef; --accent-ghost: rgba(138, 148, 232, 0.15);
     --st-ready: #62a6f0; --st-ready-bg: rgba(98, 166, 240, 0.15);
     --st-progress: #e5a24a; --st-progress-bg: rgba(229, 162, 74, 0.15);
     --st-complete: #4fc07d; --st-complete-bg: rgba(79, 192, 125, 0.15);
@@ -474,15 +474,18 @@
   .reveal.in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 
+  .pkg-banner { background: var(--accent); color: #fff; font-family: var(--font-mono); font-size: 0.72rem; text-align: center; padding: 6px 12px; }
+  .pkg-banner a { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 </style>
 </head>
 <body>
+<div class="pkg-banner">@skitterbyte/skitterspec-linear — the superset package · tracker-free? <a href="index.html">use the base</a></div>
 <header class="nav">
   <div class="wrap nav-inner">
     <div class="brand">
       <span class="glyph">/</span>
-      <span>skitterspec <small>+ linear</small></span>
+      <span>skitterspec-linear</span>
     </div>
     <nav class="nav-links">
       <a href="index.html">Home</a>
