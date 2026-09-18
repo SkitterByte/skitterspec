@@ -176,7 +176,10 @@ test('the command says permitting is not publishing', () => {
 //
 // The list is exhaustive rather than a membership check, so a command added for
 // some other reason still has to come past this comment. `allow-main` did, and
-// belongs: it is the main guard's exit, not a review tier.
+// belongs: it is the main guard's exit, not a review tier. `spec-skip` did
+// too, and belongs for the same shape of reason: it is the REVIEW GATE's exit —
+// the same `spec-env review skip "<reason>"` that always existed, at an address
+// a person will type — and not a tier toggle.
 test('STAYS SILENT: no command was shipped for the tier nobody touches', () => {
   const dir = path.dirname(COMMAND)
   const shipped = fs.readdirSync(dir).sort()
@@ -185,6 +188,7 @@ test('STAYS SILENT: no command was shipped for the tier nobody touches', () => {
     'spec-connect.md',
     'spec-live.md',
     'spec-remote-review.md',
+    'spec-skip.md',
   ])
   assert.ok(
     !shipped.some((f) => /network/.test(f)),

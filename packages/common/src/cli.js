@@ -2857,6 +2857,23 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       accepted: parsed.accepted.length,
       unaccepted: parsed.unaccepted.length,
       comments: parsed.comments.length,
+      // THE INSTRUCTION THE PASS CARRIED, and the one field here that is not a
+      // count. An action blob concludes nothing — it asks for something to be
+      // done and hands the page straight back — so a claim that reported only
+      // the counts was indistinguishable from a pass carrying no decision at
+      // all, and `/spec-diff` §2b could never fire. That is what a pressed
+      // `live-on` looked like: "0 accepts, 0 withdrawn, 0 comments".
+      //
+      // `null` rather than absent, deliberately. Every other optional key on
+      // this payload is spread away so an existing consumer sees nothing new,
+      // but `claimed` is itself conditional — anything reading it was written
+      // after this shipped, and a present `null` is what separates "carried no
+      // action" from "an engine too old to say".
+      //
+      // It is NOT a verdict and must never reach `sentVerdict`: `ACTIONS` is
+      // disjoint from `VERDICTS` by construction, and the gate reads the
+      // verdict. This is a field beside it, not a widening of it.
+      action: parsed.action || null,
     }
     merged = { accepted: claimed.accepted, unaccepted: claimed.unaccepted, comments: claimed.comments }
   }
@@ -3373,7 +3390,13 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
         : '') +
       (claimed
         ? `  claimed: ${claimed.code} — ${claimed.accepted} accept${claimed.accepted === 1 ? '' : 's'}, ` +
-          `${claimed.unaccepted} withdrawn, ${claimed.comments} comment${claimed.comments === 1 ? '' : 's'}\n`
+          `${claimed.unaccepted} withdrawn, ${claimed.comments} comment${claimed.comments === 1 ? '' : 's'}` +
+          // Last on the line rather than folded into the counts: a reader
+          // scanning for what a press did finds the verb at the end of the one
+          // line the claim prints, and a pass with no action reads exactly as it
+          // did before this existed.
+          (claimed.action ? ` · action: ${claimed.action}` : '') +
+          '\n'
         : '') +
       (dropped ? `  dropped: ${dropped.code} — merged nothing\n` : '') +
       (waiting.length

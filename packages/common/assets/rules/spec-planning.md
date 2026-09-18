@@ -102,6 +102,23 @@ the guard, and only a person can type it. That asymmetry is the same line
 `/spec-reviewed` draws, and `spec-planning.md` already records that prose alone
 did not hold it once.
 
+**`/spec-skip` is the fifth command**, and it is user-only for `/allow-main`'s
+reason rather than the mild one: it lifts the review gate, which is a guard
+aimed at Claude. It pre-executes `skitterspec spec-env review skip "<reason>"`
+and relays it — the same exit that always existed, at an address a person will
+actually type. The long form stays exactly as valid and is what the engine
+prints; what changed is that a refusal now names something reachable, because a
+gate whose exit nobody can find gets switched off wholesale instead of answered.
+
+**It is not a `--force`, and one was asked for.** A reasonless lift reopens
+precisely what the reason requirement closed: `none: additive, nothing to
+revert` is a decision a reviewer can argue with, and silence is an oversight.
+So a bare `/spec-skip` refuses and asks for a reason, and the two things that
+discharge a phase's obligation are still a committing verdict and a recorded
+skip — never a flag. Putting the flag on `/commit` was the other suggestion and
+is worse: `/commit` belongs to skittership, which is why the gate is enforced
+by a hook rather than by editing that skill.
+
 **A refusal may OFFER its own exit, and that is a different thing again.**
 Where the engine declares one, a skill relays the refusal and **then** offers it
 — once per obligation, with the choice recorded, and answered by the operator

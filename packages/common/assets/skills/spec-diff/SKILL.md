@@ -161,6 +161,13 @@ back, and these steps replace §3–§5 below.
    applies: it concluded nothing. Go to **§2b**. The engine refuses a pass
    carrying both, so there is never a choice to make between them.
 
+   **It is on the `claimed:` line** — `· action: live-on` at the end of it, and
+   `claimed.action` under `--json`. Read it there rather than inferring one
+   from a pass that merged nothing: a claim reporting no verdict and no counts
+   used to be the only trace a press left, which made every action look like a
+   reader who had concluded nothing. If the line carries no action, there was
+   none.
+
 3. **Say what you read, then ask what's up.** Report the accepted count, then
    each open comment as `file:line — note`, then the files you would touch.
    **Wait — unless the verdict already said otherwise.** Pasting on its own is

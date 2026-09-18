@@ -1,3 +1,10 @@
+---
+linear_identifier: "SKS-345"
+linear_url: "https://linear.app/skitterbyte/issue/SKS-345/bug-the-review-pages-live-press-does-nothing"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
+---
+
 # Bug: the review page's live press does nothing
 
 > **Type:** Bug
@@ -60,7 +67,22 @@ delivered to Claude rather than to the reader.
 
 ## Failing test (red)
 
-See the Fix phases — each carries its own.
+`packages/common/test/env-review-claim-action.test.js` — new. Holds a pass
+carrying `action: "live-on"` the way the serve endpoint does, claims it, and
+asserts the claim names the action in both the text report and `--json`.
+
+    ✖ claiming an action pass says which action it carried
+      Expected values to be strictly deep-equal:
+      + actual - expected
+      + undefined
+      - 'allow-remote'
+
+Run: `node --test packages/common/test/env-review-claim-action.test.js`
+
+Its other two tests are the stays-silent half
+(`.claude/rules/negative-checks.md` rule 3): a claim reporting an action must
+not let it fill the verdict slot or discharge the gate. Both passed before the
+fix, which is the point of them.
 
 ## Fix
 
@@ -70,9 +92,9 @@ Phased; see the index below.
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | [Report the action a claim took](01-claim-reports-the-action.md) | ⬜ |
-| 2 | [Say that the press commits](02-press-says-it-commits.md) | ⬜ |
-| 3 | [A typed exit from the gate](03-typed-exit-from-the-gate.md) | ⬜ |
+| 1 | [Report the action a claim took](01-claim-reports-the-action.md) | ✅ |
+| 2 | [Say that the press commits](02-press-says-it-commits.md) | ✅ |
+| 3 | [A typed exit from the gate](03-typed-exit-from-the-gate.md) | ✅ |
 
 ## Impact
 
@@ -92,3 +114,14 @@ Phased; see the index below.
 ## Changelog
 
 - 2026-09-18 — Bug reproduced; failing test added (red).
+- 2026-09-18 — Fixed: the claim reports `action`, so `/spec-diff` §2b can
+  fire; test green.
+- 2026-09-18 — Fixed: the live button names the commit it performs, and a
+  `midrun` page offers `/spec-live` as a command in place of a press it could
+  never honour.
+- 2026-09-18 — Added `/spec-skip "<reason>"`, the gate exit as a typed command.
+  Rejected a reasonless `--force` and a `--force` on `/commit` — reasoning in
+  phase 3.
+- 2026-09-18 — Decided against changing the engine's own `armed` line to name
+  the slash command: `spec-env review gate` is usable with no harness, where a
+  slash command names nothing. The hook's refusal carries both forms.

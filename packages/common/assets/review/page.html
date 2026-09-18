@@ -2616,7 +2616,12 @@ a.ticket:hover { border-color: var(--accent); }
    * never offers a disable and this renders whatever it is given.
    */
   var ACTION_LABEL = {
-    'live-on': '▶ Put it live',
+    // NAMES THE COMMIT IT PERFORMS. `live take` refuses a dirty worktree, so
+    // the action commits the phase before taking the instance — and a press
+    // that commits behind a label reading only "put it live" is a side effect
+    // nobody agreed to. The reader has still approved nothing: this is a
+    // precondition of the thing they asked for, not a verdict on the diff.
+    'live-on': '▶ Commit & put it live',
     'allow-network': '▶ Allow network',
     'allow-remote': '▶ Allow remote',
   }

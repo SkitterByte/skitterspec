@@ -121,9 +121,14 @@ function main() {
 
   deny(
     (result.stdout || '').trim() +
-      '\n\nThis phase is waiting on a verdict. Read the page and send one, ' +
-      'type /spec-reviewed if a pass is already waiting, or record why you are ' +
-      'moving on:\n  skitterspec spec-env review skip "<reason>"',
+      '\n\nThis phase is waiting on a verdict. Relay these to the operator ' +
+      'rather than choosing one: press a verdict on the page, /spec-reviewed if ' +
+      'a pass is already waiting, or /spec-skip "<reason>" to move on with the ' +
+      'reason recorded.\n\nAll three are theirs to type. /spec-skip is the same ' +
+      'exit as \'skitterspec spec-env review skip "<reason>"\' — a command ' +
+      'rather than an incantation, because the long form is what nobody retypes ' +
+      'and a gate with an unreachable exit gets switched off wholesale instead ' +
+      'of answered.',
   )
 }
 

@@ -20,6 +20,8 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
+const fs = require('node:fs')
+const path = require('node:path')
 
 const {
   ACTIONS,
@@ -244,4 +246,56 @@ test('a live row carries no warning, because it writes no tracked file', () => {
   const rows = surfacesFor({ live: { state: 'off' }, tiers: [] })
   assert.strictEqual(rows[0].reason, null)
   assert.ok(!('note' in rows[0]) || !rows[0].note)
+})
+
+// --- the press that commits ----------------------------------------------
+
+// A MID-PHASE PAGE CANNOT PUT ANYTHING LIVE. `live take` refuses a dirty
+// worktree, so the action commits the phase first — and `/spec-diff` §2b
+// refuses to commit half a phase, which is what a `midrun` page is showing. So
+// the press could only ever be declined, and a control that always refuses
+// teaches the reader that the buttons here are decorative.
+//
+// WHAT WOULD FOOL THIS: the default set is `committing` and arrives as `null`
+// from callers that never mention buttons. Withholding on anything other than
+// the literal `midrun` would silently disarm the press on every ordinary page.
+test('a midrun page offers the live command, never the press', () => {
+  const rows = surfacesFor({ live: { state: 'off' }, tiers: [], buttons: 'midrun' })
+  assert.strictEqual(rows[0].action, null, 'no press it could not honour')
+  assert.strictEqual(rows[0].command, '/spec-live', 'and the verb, so the reader is not left guessing')
+  assert.strictEqual(rows[0].state, 'off', 'the row itself stays — the surface exists')
+})
+
+test('every other button set still offers the press, including the unstated default', () => {
+  for (const buttons of [null, undefined, 'committing', 'authoring', 'refresh', 'nospec']) {
+    const rows = surfacesFor({ live: { state: 'off' }, tiers: [], buttons })
+    assert.strictEqual(rows[0].action, 'live-on', `${buttons} keeps the press`)
+    assert.strictEqual(rows[0].command, null, `${buttons} needs no command`)
+  }
+})
+
+// The two config actions commit nothing, so a mid-phase page is as good a place
+// to press them as any other.
+test('midrun withholds only the live press, never the enables', () => {
+  const rows = surfacesFor({
+    live: { state: 'off' },
+    tiers: [{ tier: 'remote', off: true }],
+    buttons: 'midrun',
+  })
+  assert.deepStrictEqual(
+    rows.map((r) => r.action),
+    [null, 'allow-remote'],
+  )
+})
+
+// THE LABEL NAMES THE COMMIT. The press commits the phase as a precondition of
+// taking the instance, and a button reading only "put it live" made that a
+// surprise — discovered when the commit refused for a reason nobody expected.
+test('the live button says it commits', () => {
+  const page = fs.readFileSync(
+    path.join(__dirname, '..', 'assets', 'review', 'page.html'),
+    'utf8',
+  )
+  assert.match(page, /'live-on': '▶ Commit & put it live'/, 'the label names both halves')
+  assert.ok(!page.includes("'live-on': '▶ Put it live'"), 'and the silent one is gone')
 })

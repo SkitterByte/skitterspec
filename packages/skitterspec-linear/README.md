@@ -91,6 +91,7 @@ them. Your `specs/` content and live `.core` config are never touched.
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |
 | `/spec-remote-review` | Permit (or forbid) reviewing from off your network |
 | `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
+| `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
 | `/spec-push` | Repo → Linear, one-way |
 | `/spec-status` | Read-only drift report |
 | `/spec-list` | What the tracker holds, with each spec's folder name |

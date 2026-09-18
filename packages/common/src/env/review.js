@@ -285,7 +285,7 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   // THE SURFACES BLOCK, built here so the page never has to know which tiers
   // exist or which of them can be turned on. `null` when the caller passed
   // neither a live state nor a stack — an absent key, not an empty one.
-  const surfaces = surfacesFor({ live, tiers })
+  const surfaces = surfacesFor({ live, tiers, buttons })
 
   const files = []
   for (const f of trackedFiles(git, ref)) {
@@ -595,7 +595,24 @@ function tierAction(tier) {
  * the payload must then be byte-identical to what it was before this key
  * existed.
  */
-function surfacesFor({ live, tiers }) {
+function surfacesFor({ live, tiers, buttons = null }) {
+  // A MID-PHASE PAGE CANNOT PUT ANYTHING LIVE, so it is not offered the press.
+  //
+  // `live take` refuses a dirty worktree, so the action commits the phase
+  // first — and `/spec-diff` §2b is explicit that half a phase is not
+  // committed to look at it running: that splits one phase across two commits
+  // and leaves a mess nobody asked for. So mid-run the press could only ever be
+  // declined, and a control that always refuses teaches the reader that the
+  // buttons on this page are decorative — the same failure
+  // `.claude/rules/spec-reports.md` records for the offer nothing was watching.
+  //
+  // The row stays, with the command in place of the button: the reader still
+  // learns the surface exists and what to type, which is exactly the trade the
+  // strip already makes on a `file://` page.
+  //
+  // ONLY `live-on`. `allow-network` and `allow-remote` write a config file
+  // and commit nothing, so they are as valid mid-phase as at the end of one.
+  const canCommit = buttons !== 'midrun'
   const rows = []
 
   // `unavailable` contributes nothing — the cannot-tell state, routed to
@@ -610,10 +627,12 @@ function surfacesFor({ live, tiers }) {
       // `on` because handing the instance back to `main` is not this review's
       // business, and `held` because the way out is another spec's to take and a
       // button here would either park someone else's work or do nothing.
-      action: live.state === 'off' ? 'live-on' : null,
+      action: live.state === 'off' && canCommit ? 'live-on' : null,
       // The command for the direction the page does not offer, so the reader is
-      // never left knowing what they want and not what to type.
-      command: live.state === 'on' ? '/spec-live main' : null,
+      // never left knowing what they want and not what to type. Mid-run that is
+      // `/spec-live` itself, since the press is withheld above.
+      command:
+        live.state === 'on' ? '/spec-live main' : live.state === 'off' && !canCommit ? '/spec-live' : null,
     })
   }
 
