@@ -2492,6 +2492,60 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // of the wrong spec looks exactly like a review of the right one.
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
+  // THE SIDECAR PATHS, RESOLVED BEFORE THE WORKTREE CHECK — and that ordering
+  // is the whole of this feature. `.spec-env/reviews/` lives in the PRIMARY
+  // CHECKOUT, keyed by the spec's folder name; not one byte of it comes from
+  // the worktree. `--out` moves the page and its sidecars together.
+  const out = reviewOutPath(dir, spec.folder, flags.out)
+
+  // The other half of a confirmation: a pass the operator says is not theirs.
+  // Left in the store it is reported on every render until they stop reading the
+  // line — which is how the real one gets waved away too.
+  //
+  // AHEAD OF THE WORKTREE CHECK, because a pass that needs disowning has almost
+  // always outlived its spec. `review waiting` finds the stranded ones and tells
+  // the reader to `--drop` them; refusing that on a missing worktree made the
+  // hint impossible to follow for every pass it could find, and ten real passes
+  // sat behind it. Disowning reads and writes this one file, so the tree it was
+  // being refused for was never involved.
+  //
+  // IT DOES NOT RETURN when it succeeds. A spec that still HAS a worktree falls
+  // through to the render exactly as before, so the page is rewritten without
+  // the pass on it; the gate below is what turns a successful drop into an
+  // ending, and only when there is no page left to write.
+  //
+  // WHAT WOULD FOOL THIS: a spec whose FOLDER was deleted rather than completed.
+  // `resolveSpecWithWorktree` above needs a document to resolve a name, so such
+  // a pass stays unreachable by name however this gate is ordered — only
+  // `spec-env review waiting`, which scans the store directly, can see it.
+  // Relaxing the worktree check does not cover that case and was never meant to:
+  // the two absences are different, and only one of them is what the ten
+  // stranded passes were behind.
+  let dropped = null
+  if (flags.drop) {
+    const heldRead = readPending(out, spec.folder)
+    if (heldRead.corrupt) {
+      process.stdout.write(
+        `spec-env review: ${reviewPendingPath(out)} is not readable JSON — ` +
+          'move it aside rather than losing the passes it holds.\n',
+      )
+      return
+    }
+    // Same match and the SAME SILENCE as a claim. A drop that listed the codes
+    // it could not find would hand a guesser exactly what the claim withholds.
+    const result = claimPending(heldRead.pending, String(flags.drop).trim())
+    if (!result.pass) {
+      process.stdout.write(
+        `spec-env review: no pending pass with that code` +
+          `${result.count ? ` (${result.count} waiting)` : ''}\n`,
+      )
+      return
+    }
+    writePending(out, result.pending)
+    // Nothing is merged, and the notes sidecar is not touched.
+    dropped = { code: result.pass.code, remaining: result.count }
+  }
+
   // `--docs` reviews the spec's OWN DOCUMENTS from the tree in hand, and so
   // never consults a worktree — a spec in `backlog/` has none, which is exactly
   // the case with no page today.
@@ -2525,9 +2579,63 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     }
   })()
   if (!docs && !liveHere && !fs.existsSync(spec.worktreePath)) {
+    // A DROP THAT ALREADY HAPPENED IS AN ENDING, not a refusal. The work this
+    // invocation asked for is done and written; there is simply no page left to
+    // rewrite, which is a fact about the spec rather than a failure of the run.
+    if (dropped) {
+      // THE SAME SPELLING the render uses for the same event. A drop reported
+      // one way here and another way there is two events as far as anyone
+      // grepping their scrollback is concerned.
+      process.stdout.write(
+        `spec-env review: ${spec.folder}\n` +
+          `  dropped: ${dropped.code} — merged nothing` +
+          `${dropped.remaining ? ` (${dropped.remaining} still waiting)` : ''}\n` +
+          '  no worktree, so nothing was rendered.\n',
+      )
+      return
+    }
+
+    // THE REFUSAL NAMES THE EXIT THAT WORKS. It used to say "run /spec-start to
+    // provision it", which for a completed spec is advice to resurrect it in
+    // order to throw a pass away — and that was the only advice a reader holding
+    // a stranded pass ever got.
+    //
+    // A STRANDED PASS STAYS UNCLAIMABLE, deliberately. Once the branch has
+    // merged and the worktree is gone a `commit` verdict has nowhere to land, so
+    // honouring one would report work that did not happen. Disowning is the only
+    // honest ending, so it is the only one offered.
+    // WHICH MESSAGE depends on a POSITIVE SIGNAL — a pass actually sitting in
+    // the store. That is not decoration: the two readers are in opposite
+    // situations, and one sentence cannot serve both.
+    //
+    // No pass waiting is overwhelmingly the commonest case — a spec in
+    // `backlog/` that nobody has started — and there `/spec-start` is exactly
+    // the right advice, so that message is left byte-for-byte as it was.
+    //
+    // A pass waiting means the spec has almost certainly finished, and telling
+    // that reader to provision a worktree is telling them to resurrect a
+    // completed spec in order to throw a pass away. A corrupt store reads as
+    // zero, so it takes the untouched message rather than inventing a count.
+    const held = readPending(out, spec.folder)
+    const count = held.corrupt ? 0 : (held.pending.passes || []).length
+    if (!count) {
+      process.stdout.write(
+        `spec-env review: ${spec.folder} has no worktree at ${spec.worktreePath} — ` +
+          'run /spec-start to provision it, or --docs to review the spec itself.\n',
+      )
+      return
+    }
     process.stdout.write(
-      `spec-env review: ${spec.folder} has no worktree at ${spec.worktreePath} — ` +
-        'run /spec-start to provision it, or --docs to review the spec itself.\n',
+      `spec-env review: ${spec.folder} has no worktree at ${spec.worktreePath}.\n` +
+        `  ${count} waiting — disown ${count === 1 ? 'it' : 'one'} with --drop <code>, ` +
+        'or `spec-env review waiting` to list them.\n' +
+        // WHY CLAIMING IS NOT OFFERED, said rather than left to be discovered.
+        // A stranded pass is unclaimable by design: with no worktree a `commit`
+        // verdict has nowhere to land, so honouring one would report work that
+        // did not happen. Disowning is the only honest ending, so it is the
+        // only one named.
+        '  It cannot be claimed: with no worktree, a verdict has nowhere to land.\n' +
+        "  --docs reviews the spec's own documents.\n",
     )
     return
   }
@@ -2589,9 +2697,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     mode = 'branch'
   }
 
-  // The sidecar is keyed to the page's path, so resolve that first — `--out`
-  // moves both together.
-  const out = reviewOutPath(dir, spec.folder, flags.out)
   const stored = readNotes(out, spec.folder)
   let notes = stored.notes
   let merged = null
@@ -2723,33 +2828,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     merged = { accepted: claimed.accepted, unaccepted: claimed.unaccepted, comments: claimed.comments }
   }
 
-  // The other half of a confirmation: a pass the operator says is not theirs.
-  // Left in the store it is reported on every render until they stop reading the
-  // line — which is how the real one gets waved away too.
-  let dropped = null
-  if (flags.drop) {
-    const heldRead = readPending(out, spec.folder)
-    if (heldRead.corrupt) {
-      process.stdout.write(
-        `spec-env review: ${reviewPendingPath(out)} is not readable JSON — ` +
-          'move it aside rather than losing the passes it holds.\n',
-      )
-      return
-    }
-    // Same match and the SAME SILENCE as a claim. A drop that listed the codes
-    // it could not find would hand a guesser exactly what the claim withholds.
-    const result = claimPending(heldRead.pending, String(flags.drop).trim())
-    if (!result.pass) {
-      process.stdout.write(
-        `spec-env review: no pending pass with that code` +
-          `${result.count ? ` (${result.count} waiting)` : ''}\n`,
-      )
-      return
-    }
-    writePending(out, result.pending)
-    // Nothing is merged, and the notes sidecar is not touched.
-    dropped = { code: result.pass.code, remaining: result.count }
-  }
 
   if (flags.notes) {
     // Refuse rather than write over notes we could not read: an unreadable

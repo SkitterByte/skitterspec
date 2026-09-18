@@ -93,7 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Disowning stops needing a worktree | ⬜ | [01-disown-needs-no-worktree.md](01-disown-needs-no-worktree.md) |
+| 1 | Disowning stops needing a worktree | ✅ | [01-disown-needs-no-worktree.md](01-disown-needs-no-worktree.md) |
 | 2 | Teardown says what it is about to strand | ⬜ | [02-teardown-names-the-pass.md](02-teardown-names-the-pass.md) |
 
 ## Open questions
@@ -109,6 +109,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-18 — Phase 1 built. Decision 3 turned out to need two messages rather
+  than one rewritten one: the worktree-less refusal is read far more often by
+  someone pointing at an unstarted backlog spec, where `/spec-start` is the right
+  advice, so the `--drop` wording is branched on a pass actually being in the
+  store and the no-pass message is unchanged. The ten stranded passes were
+  dropped and each code, verdict and date is recorded in the phase file; every
+  one was a committing verdict on a spec that has since landed, so nothing
+  discarded had gone unacted-on. `review waiting` now says nothing waiting.
 - 2026-09-16 — Spec created. Surfaced by `/spec-reviewed commit` finding no spec
   in flight, then `review waiting` listing ten passes none of which its own hint
   could clear.
