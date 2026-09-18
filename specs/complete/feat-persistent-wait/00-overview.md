@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-persistent-wait (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-18)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -97,6 +97,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-18 | Ready | backlog | Reuben Greaves |
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -114,3 +115,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the Monitor example). The emphasis guard caught a bold span crossing a
   line break on the first wording. This repo dev-links .claude/ into the
   assets, so the rebuild was the resync — no update run needed.
+- 2026-09-18 — Completed; both phases done, suite 3469 green.
