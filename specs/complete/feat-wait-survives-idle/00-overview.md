@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-wait-survives-idle (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-18)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -141,8 +141,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-18 | Ready | backlog | Reuben Greaves |
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-18 — Completed; the single phase done, tests green (3387 passed).
+  The re-arm half is prose in `spec-reports.md` by necessity, not by choice:
+  the process being killed IS the engine, so nothing is left alive to enforce
+  it. Everything testable went into the heartbeat instead.
 
 - 2026-09-18 — Phase 1 built. Verified end to end that the heartbeat reaches
   **stderr and not stdout**: with stderr discarded, stdout carries only the
