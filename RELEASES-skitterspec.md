@@ -5,6 +5,12 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 22.2.0 — 18 Sep 2026
+
+### Env
+- **New** — Review waits now ride your harness's persistent monitor where one exists and restart themselves after a harness kill, so a verdict pressed after a long idle is picked up without retyping anything.
+- **Fixed** — Starting a new spec now provisions its worktree before a line is written, so authoring never touches your base branch and the spec page is ready for review the moment it exists.
+
 ## 22.1.0 — 18 Sep 2026
 
 ### Env
