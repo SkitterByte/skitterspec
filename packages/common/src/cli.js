@@ -856,8 +856,41 @@ function specEnvNospec(dir, config, name, flags = {}) {
 }
 
 function specEnvUp(dir, config, specArg, flags = {}) {
-  const spec = resolveSpecWithWorktree(dir, config, specArg)
   const docs = flags.docs === true
+
+  // THE AUTHORING LANE — `up <name> --docs` for a spec that is not written yet.
+  // `/spec` provisions BEFORE it writes a line (feat-main-is-a-landing-zone
+  // phase 2), so the name resolves to nothing at exactly the moment this runs.
+  // It opens only on a positive signal, all three parts: the not-found refusal
+  // itself (by code, never by message), `--docs`, and a spec-shaped name — so a
+  // typo'd `up` without the flag, or with a name no spec could have, refuses
+  // exactly as before. Worktree mode only: in checkout mode `/spec` writes
+  // where the session stands and there is nothing to provision first.
+  let spec
+  let authoring = false
+  try {
+    spec = resolveSpecWithWorktree(dir, config, specArg)
+  } catch (err) {
+    const specShaped = typeof specArg === 'string' && /^(feat|bug|hotfix)-./.test(specArg)
+    if (err.code !== 'SPEC_NOT_FOUND' || !docs || !specShaped || config.mode === 'checkout') {
+      throw err
+    }
+    // Record first, then plan — the same order `nospec` keeps, for the same
+    // reason: the record is what makes the name resolvable (a bare `resolve`
+    // in the fresh worktree must name this spec before its folder exists), so
+    // a caller that runs the printed commands must never own a worktree the
+    // engine cannot name. `spec: true` is what makes the record resolve with
+    // the spec's own type and slug rather than as `/no-spec` work.
+    const beforeAuth = readRegistry(dir, config)
+    const resolved = resolveSpecless(specArg, dir, config, { spec: true })
+    writeRegistry(
+      dir,
+      config,
+      recordSpecless(beforeAuth, specArg, { branch: resolved.branch, spec: true }),
+    )
+    spec = resolved
+    authoring = true
+  }
 
   // Checkout mode: the branch is built in the primary checkout, so none of the
   // worktree machinery below applies — no slot, no trust entry and no bootstrap.
@@ -898,8 +931,13 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   const upGit = gitReader(dir)
   const upStatus = upGit(['status', '--porcelain'])
   const upDirtyPaths = dirtyPaths(upGit)
-  const upOnFork = specOnForkPoint(dir, upGit, spec)
-  const upSpecUntracked = specIsUntracked(dir, upGit, spec)
+  // An authoring run does not ask whether the spec is on the fork point — it is
+  // known to be nowhere, and that is the healthy state of the lane, not the
+  // "would fork without the spec it is for" refusal. `onFork: undefined` is the
+  // gate's cannot-tell branch, which allows (negative-checks rule 4). The
+  // untracked read is skipped the same way: there is no folder to ask about.
+  const upOnFork = authoring ? { onFork: undefined, foundOn: null } : specOnForkPoint(dir, upGit, spec)
+  const upSpecUntracked = authoring ? false : specIsUntracked(dir, upGit, spec)
 
   // Trust the shared worktree root so edits into the freshly-provisioned worktree
   // don't prompt. One absolute entry (the root) covers every spec; self-heals on
@@ -987,6 +1025,12 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // reads as a choice rather than as a project with nothing configured.
   if (plan.docs) {
     out.push('  docs:      documents only — no setup commands, no docker')
+  }
+  // Positive, so an operator reading the plan knows the missing spec folder is
+  // the lane working rather than something the engine failed to find.
+  if (authoring) {
+    out.push('  authoring: no spec document yet — /spec writes it in the worktree')
+    out.push(`  recorded:  added to ${config.registry} until the spec is written`)
   }
   if (trust.reason === 'malformed') {
     out.push(

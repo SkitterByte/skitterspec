@@ -488,17 +488,26 @@ function assertPrimaryOnMain(config, git) {
  */
 function resolveSpecless(name, dir, config, entry = {}) {
   const { repo, repoSlug } = repoInfo(dir)
-  const slug = name
+  // AN AUTHORING RECORD RESOLVES AS THE SPEC IT WILL BE. `spec: true` marks a
+  // record written by `up --docs` for a spec not written yet (the `/spec`
+  // authoring lane), so type and slug come from the name's own prefix — the
+  // branch and worktree it answers with MUST equal what the written spec will
+  // later resolve to, or the confirm step lands in one tree and the documents
+  // in another. A plain `/no-spec` record keeps the whole name as its slug,
+  // byte-identical to before.
+  const authored = entry && entry.spec === true
+  const slug = authored ? splitPrefix(name).slug : name
   const tokens = { repo, repoSlug, slug }
   const spec = {
     folder: name,
     bucket: null,
     path: null,
-    type: (entry && entry.type) || 'chore',
+    type: authored ? splitPrefix(name).type : (entry && entry.type) || 'chore',
     slug,
     stack: 'worktree',
     baseRef: null,
     specless: true,
+    unwritten: authored,
   }
   const branch = (entry && entry.branch) || branchFor(spec, config)
   const worktreeRoot = expandTokens(config.worktree.root, tokens)
@@ -532,10 +541,14 @@ function resolveSpec(specArg, dir, config, opts = {}) {
     }
     // Name the roots we looked under: the usual cause is a spec that only exists
     // on its own branch, and the message should say where we didn't find it.
-    throw new Error(
+    // The code is what lets `up --docs` catch exactly this refusal and open the
+    // authoring lane — matching on the message would make its wording API.
+    const err = new Error(
       `spec not found under specs/**: ${specArg} ` +
         `(searched: ${[...preferDirs, dir, ...searchDirs].join(', ')})`,
     )
+    err.code = 'SPEC_NOT_FOUND'
+    throw err
   }
 
   const { type, slug } = splitPrefix(found.folder)
@@ -643,7 +656,14 @@ function allSpecs(dir, config, worktreePaths, specless = {}) {
   // not. Leaving them out is what would make a `/no-spec` worktree invisible to
   // `status` and to every bare resolution — the outcome decision 7 rejected for
   // a plain git branch, arrived at by omission instead.
+  //
+  // A FOLDER SHADOWS ITS OWN RECORD. An authoring record (`up --docs` on an
+  // unwritten spec) shares its name with the folder `/spec` then writes, and
+  // once that folder exists it is the answer — listing the record beside it
+  // would show one spec twice.
+  const collected = new Set(specs.map((s) => s.folder))
   for (const name of Object.keys(specless).sort()) {
+    if (collected.has(name)) continue
     const spec = resolveSpecless(name, dir, config, specless[name])
     specs.push({
       folder: spec.folder,
