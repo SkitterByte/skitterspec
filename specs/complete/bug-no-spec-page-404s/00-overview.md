@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-no-spec-page-404s (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -104,6 +104,7 @@ Run with `node --test packages/common/test/env-serve-specless.test.js`.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -121,3 +122,5 @@ Run with `node --test packages/common/test/env-serve-specless.test.js`.
   request handling with no repo behind them, which is the absence of wiring
   rather than a copy of it. Narrowed to a positive signal: reaching for a
   resolver.
+- 2026-09-18 — Completed; fix in, 3352 tests green, `env-serve-specless.test.js`
+  passing where it was red at 404.
