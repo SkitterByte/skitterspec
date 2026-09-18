@@ -614,7 +614,9 @@ already arrived. Those get the `Review` row, no question, and nothing is owed.
 
 1. **Note the moment**, as an ISO timestamp, before you start. That instant is
    the entire scope of what may be claimed without a person naming it.
-2. **Run the engine's wait in the background, and end the turn:**
+2. **Run the engine's wait, and end your turn** — under the harness's
+   persistent watch primitive where one exists, else in the background
+   (`.claude/rules/spec-reports.md` carries the preference):
 
    ```
    skitterspec spec-env review wait <spec> --since <timestamp>

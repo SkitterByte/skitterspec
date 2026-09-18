@@ -85,7 +85,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Amend the wait contract in spec-reports.md | ✅ | [01-contract.md](01-contract.md) |
-| 2 | Point the four waiting skills at it | ⬜ | [02-skills.md](02-skills.md) |
+| 2 | Point the four waiting skills at it | ✅ | [02-skills.md](02-skills.md) |
 
 ## Open questions
 
@@ -108,3 +108,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   3 new pinning tests + a doesNotMatch on the old clause. Trial evidence:
   this spec's own authoring wait rode Monitor persistent:true through a
   ~25-minute idle and delivered the verdict as an event.
+- 2026-09-18 — Phase 2 done: five surfaces updated (spec, spec-next,
+  spec-bug, no-spec, plus spec-diff which carries the same sentence);
+  2 new one-copy tests (every waiter names the preference; none restates
+  the Monitor example). The emphasis guard caught a bold span crossing a
+  line break on the first wording. This repo dev-links .claude/ into the
+  assets, so the rebuild was the resync — no update run needed.

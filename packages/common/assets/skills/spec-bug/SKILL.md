@@ -217,8 +217,9 @@ skitterspec spec-env review arm <spec>
 
 **Then wait**, and `/spec-next` §5 owns the sequence — follow it there rather
 than reading a second copy here: note the moment, run
-`skitterspec spec-env review wait <spec> --since <that moment>` in the
-background, end your turn, and let `--claim-since` pick the one pass that
+`skitterspec spec-env review wait <spec> --since <that moment>` under the
+harness's persistent watch primitive where one exists (else in the
+background), end your turn, and let `--claim-since` pick the one pass that
 arrived inside the window. **Do not compose a watcher**, and do not give the
 wait a timeout — the reasoning is in `/spec-next` §5 and is not repeated here.
 The banner it describes is what this skill emits in place of a `Review` row,

@@ -436,7 +436,9 @@ reading — and that is the gap the whole gate exists to close.
 
 1. **Note the moment you start waiting**, as an ISO timestamp. That instant is
    the whole scope of what you may claim.
-2. **Run the engine's wait in the background, and end your turn:**
+2. **Run the engine's wait, and end your turn** — under the harness's
+   persistent watch primitive where one exists, else in the background
+   (`.claude/rules/spec-reports.md` carries the preference):
 
    ```
    skitterspec spec-env review wait <spec> --since <the timestamp>

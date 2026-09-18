@@ -106,6 +106,22 @@ test('every skill that waits points at the rule', () => {
   }
 })
 
+test('every skill that waits names the persistent-primitive preference', () => {
+  for (const skill of WAITERS) {
+    const text = read('skills', skill, 'SKILL.md')
+    assert.match(text, /persistent watch primitive/, `${skill} names the preference`)
+  }
+})
+
+test('STAYS SILENT: no skill restates the primitive — the example lives in the rule', () => {
+  // `Monitor`/`persistent: true` is spec-reports.md's one named example. A
+  // skill repeating it is the second copy this file exists to prevent.
+  for (const skill of WAITERS) {
+    const text = read('skills', skill, 'SKILL.md')
+    assert.doesNotMatch(text, /persistent: true/, `${skill} defers the example to the rule`)
+  }
+})
+
 test('STAYS SILENT: no skill restates the bound', () => {
   // The number lives in one place. A skill repeating it is the drift this
   // reference exists to prevent.
