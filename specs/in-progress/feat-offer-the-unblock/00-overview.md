@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-353"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-353/offer-the-unblock-instead-of-a-bare-refusal"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Offer the unblock instead of a bare refusal
 
 > **Type:** Feature
 > **Name:** feat-offer-the-unblock (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-18)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
 > **Area:** `packages/common/src/env/live.js`, `packages/common/src/env/review.js`, `packages/common/src/cli.js`, `packages/common/assets/rules/`, `packages/common/assets/skills/spec-diff/`
 > **Stack:** worktree
@@ -146,6 +148,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-18 | Ready | backlog | Reuben Greaves |
+| 2026-09-18 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
