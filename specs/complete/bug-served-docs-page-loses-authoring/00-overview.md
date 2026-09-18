@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-served-docs-page-loses-authoring (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -121,9 +121,11 @@ documents instead of its code.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-18 — Bug reproduced; failing test added (red).
 - 2026-09-18 — Fixed: `viewFor` resolves a docs worktree before a code
   worktree, keyed on backlog + documents-only; tests green.
+- 2026-09-18 — Completed; all phases done, tests green (3393 passed).
