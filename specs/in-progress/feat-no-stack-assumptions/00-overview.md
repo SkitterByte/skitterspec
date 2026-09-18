@@ -130,7 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Resolve the engine by a positive-signal ladder | ⬜ | [01-engine-resolution.md](01-engine-resolution.md) |
+| 1 | Resolve the engine by a positive-signal ladder | ✅ | [01-engine-resolution.md](01-engine-resolution.md) |
 | 2 | Honour the docker config instead of assuming it | ⬜ | [02-docker-config.md](02-docker-config.md) |
 | 3 | Stop writing the docs in npm | ⬜ | [03-docs-defaults.md](03-docs-defaults.md) |
 
@@ -148,6 +148,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-09-18 — Spec created.
+- 2026-09-18 — Phase 1: `detectPackageManager` was **kept**, not replaced. It
+  answers rung 1's "which runner reaches a local install", which is still a
+  real question — `detectRunner` is the ladder layered over it. Replacing it
+  outright would have deleted a tested function to rename it.
+- 2026-09-18 — Phase 1: the empty-runner case is handled in `renderCommand`,
+  which consumes `{{exec}}` **with its trailing space**, rather than by editing
+  the four command assets. One place instead of eight, and the templates stay
+  readable.
+- 2026-09-18 — Phase 1: the install-lane tests now seed a
+  `node_modules/.bin/skitterspec` before asserting a lockfile runner. Under the
+  ladder a lockfile alone no longer implies an install, so those tests were
+  asserting the old premise; the spec expected them to pass unchanged.
 - 2026-09-18 — Audit established empirically, before deciding the shape: `npx`
   resolves a globally installed package but not an arbitrary `PATH` binary; the
   unscoped name `skitterspec` 404s on npm; `npx` prepends its cache bin directory

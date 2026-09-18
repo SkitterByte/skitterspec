@@ -10,13 +10,40 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { detectPackageManager, renderCommand, COMMANDS, managedTargets } = require('../src/init.js')
+const {
+  detectPackageManager,
+  detectRunner,
+  renderCommand,
+  COMMANDS,
+  managedTargets,
+} = require('../src/init.js')
 
-function tmp(lockfiles = []) {
+function tmp(lockfiles = [], { localInstall = false } = {}) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-cmds-')))
   for (const f of lockfiles) fs.writeFileSync(path.join(dir, f), '')
+  if (localInstall) seedLocalInstall(dir)
   return dir
 }
+
+// A local install, as far as the ladder is concerned: the bin on disk under
+// `node_modules/.bin`. Nothing executes it, so an empty file is enough.
+function seedLocalInstall(dir) {
+  const bin = path.join(dir, 'node_modules', '.bin')
+  fs.mkdirSync(bin, { recursive: true })
+  fs.writeFileSync(path.join(bin, 'skitterspec'), '')
+  return dir
+}
+
+// A directory holding the bin, for the PATH rung. Returned as a fake env rather
+// than mutating the real PATH, so these tests say nothing about this machine.
+function envWith(...dirs) {
+  return { PATH: dirs.join(path.delimiter) }
+}
+
+// PATH deliberately emptied: without it, a developer machine with a global
+// install would take rung 2 and these assertions would pass for the wrong
+// reason — or fail on a machine without one.
+const NO_PATH = { PATH: '' }
 
 test('detectPackageManager reads the lockfile, not the environment', () => {
   const cases = [
@@ -55,8 +82,120 @@ test('detectPackageManager prefers pnpm when several lockfiles coexist', () => {
   }
 })
 
-test('renderCommand fills every {{exec}} occurrence', () => {
+// --- the resolution ladder ---------------------------------------------------
+//
+// Each rung asserts something PRESENT. The old code read a lockfile — which says
+// which runner would be used *if* the CLI were installed, never whether it is —
+// and a project with no lockfile got `npx skitterspec`, a name that 404s on npm.
+
+test('detectRunner: a local install takes rung 1, and the lockfile picks the runner', () => {
+  const dir = tmp(['pnpm-lock.yaml'], { localInstall: true })
+  try {
+    assert.deepStrictEqual(detectRunner(dir, NO_PATH), { runner: 'pnpm exec', rung: 'local' })
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('detectRunner: a local install is found by walking up from a subdirectory', () => {
+  const dir = tmp(['pnpm-lock.yaml'], { localInstall: true })
+  const deep = path.join(dir, 'packages', 'web')
+  fs.mkdirSync(deep, { recursive: true })
+  try {
+    assert.strictEqual(detectRunner(deep, NO_PATH).rung, 'local', 'hoisted install still counts')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('detectRunner: a global install takes rung 2 and renders bare', () => {
+  const dir = tmp()
+  const binDir = tmp()
+  fs.writeFileSync(path.join(binDir, 'skitterspec'), '')
+  try {
+    assert.deepStrictEqual(detectRunner(dir, envWith(binDir)), { runner: '', rung: 'path' })
+  } finally {
+    for (const d of [dir, binDir]) fs.rmSync(d, { recursive: true, force: true })
+  }
+})
+
+// Project-visible signals outrank machine-visible ones: the command file is
+// committed, so a render that varies by machine churns for the whole team.
+test('detectRunner: a local install outranks one on PATH', () => {
+  const dir = tmp(['yarn.lock'], { localInstall: true })
+  const binDir = tmp()
+  fs.writeFileSync(path.join(binDir, 'skitterspec'), '')
+  try {
+    assert.strictEqual(detectRunner(dir, envWith(binDir)).runner, 'yarn', 'the lockfile decides')
+  } finally {
+    for (const d of [dir, binDir]) fs.rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('detectRunner: neither install found falls back to npx and says so', () => {
   const dir = tmp(['pnpm-lock.yaml'])
+  try {
+    assert.deepStrictEqual(detectRunner(dir, NO_PATH), { runner: 'npx', rung: 'none' })
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// THE BLIND SPOT, and the reason rung 2 filters rather than trusting PATH.
+// `npx` prepends its own cache bin to PATH for the processes it spawns, so
+// running `npx @skitterbyte/skitterspec init` would otherwise look exactly like
+// a global install — and bake a bare `skitterspec …` into four committed files
+// that stop working the moment that one command exits.
+test('detectRunner: an npx cache directory on PATH is not a global install', () => {
+  const dir = tmp()
+  const cacheRoot = tmp()
+  const cacheBin = path.join(cacheRoot, '_npx', 'a1b2c3', 'node_modules', '.bin')
+  fs.mkdirSync(cacheBin, { recursive: true })
+  fs.writeFileSync(path.join(cacheBin, 'skitterspec'), '')
+  try {
+    assert.deepStrictEqual(
+      detectRunner(dir, envWith(cacheBin)),
+      { runner: 'npx', rung: 'none' },
+      'a transient npx bin is not evidence of an install',
+    )
+  } finally {
+    for (const d of [dir, cacheRoot]) fs.rmSync(d, { recursive: true, force: true })
+  }
+})
+
+// Stays silent: a directory whose NAME merely starts with _npx is a real place
+// someone could install to, and must not be filtered out.
+test('stays silent: a directory named _npxtools still counts as a global install', () => {
+  const dir = tmp()
+  const root = tmp()
+  const binDir = path.join(root, '_npxtools', 'bin')
+  fs.mkdirSync(binDir, { recursive: true })
+  fs.writeFileSync(path.join(binDir, 'skitterspec'), '')
+  try {
+    assert.strictEqual(detectRunner(dir, envWith(binDir)).rung, 'path', 'only the exact segment is filtered')
+  } finally {
+    for (const d of [dir, root]) fs.rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('renderCommand on the PATH rung leaves no leading space', () => {
+  const dir = tmp()
+  const binDir = tmp()
+  fs.writeFileSync(path.join(binDir, 'skitterspec'), '')
+  const realPath = process.env.PATH
+  process.env.PATH = binDir
+  try {
+    const out = renderCommand('allowed-tools: Bash({{exec}} skitterspec spec-env live:*)\n', dir)
+    assert.match(out, /Bash\(skitterspec spec-env live:\*\)/, 'no stray space before the bin')
+    assert.doesNotMatch(out, /Bash\( /, 'the token took its trailing space with it')
+  } finally {
+    process.env.PATH = realPath
+    for (const d of [dir, binDir]) fs.rmSync(d, { recursive: true, force: true })
+  }
+})
+
+test('renderCommand fills every {{exec}} occurrence', () => {
+  const dir = tmp(['pnpm-lock.yaml'], { localInstall: true })
   try {
     const src = 'allowed-tools: Bash({{exec}} skitterspec:*)\n!`{{exec}} skitterspec spec-env connect`\n'
     const out = renderCommand(src, dir)
@@ -68,7 +207,7 @@ test('renderCommand fills every {{exec}} occurrence', () => {
 })
 
 test('renderCommand leaves content without the token untouched', () => {
-  const dir = tmp(['pnpm-lock.yaml'])
+  const dir = tmp(['pnpm-lock.yaml'], { localInstall: true })
   try {
     const src = '# plain command\n\nNo token here.\n'
     assert.strictEqual(renderCommand(src, dir), src)
@@ -116,8 +255,8 @@ test('stays silent: a distribution with no command assets manages none', () => {
 
 const { init, managedState, readManifest } = require('../src/init.js')
 
-async function installInto(lockfile = 'pnpm-lock.yaml') {
-  const dir = tmp([lockfile])
+async function installInto(lockfile = 'pnpm-lock.yaml', opts = { localInstall: true }) {
+  const dir = tmp([lockfile], opts)
   const quiet = process.stdout.write.bind(process.stdout)
   process.stdout.write = () => true
   try {
@@ -184,6 +323,78 @@ test('an edited command is classified customized and kept', async () => {
     assert.strictEqual(managedState(dir, rel, manifest, bundled), 'customized')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// --- the cannot-tell warning -------------------------------------------------
+//
+// It warns rather than refusing: `init` has real work to do either way, and none
+// of it needs the CLI reachable later. What must not happen is SILENCE — a clean
+// install handing back four commands that 404 on first use.
+
+const { lastReport } = require('../src/init.js')
+
+// PATH is stubbed because the rung under test is "nothing could be found", and a
+// developer machine with a global install would otherwise take rung 2.
+async function installWithoutEngine(lockfile = 'pnpm-lock.yaml') {
+  const realPath = process.env.PATH
+  process.env.PATH = ''
+  try {
+    return await installInto(lockfile, { localInstall: false })
+  } finally {
+    process.env.PATH = realPath
+  }
+}
+
+test('init warns when no engine could be found, and still installs', async () => {
+  const dir = await installWithoutEngine()
+  try {
+    const warnings = lastReport().warnings
+    assert.ok(
+      warnings.some((w) => /could not be found/.test(w) && /npx skitterspec/.test(w)),
+      `expected a cannot-find warning, got ${JSON.stringify(warnings)}`,
+    )
+    for (const name of COMMANDS) {
+      assert.ok(fs.existsSync(cmdPath(dir, name)), `${name} was installed anyway`)
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// The positive test above proves the warning can fire; this proves it does not
+// fire at a healthy install (`.claude/rules/negative-checks.md` rule 3).
+test('stays silent: a local install draws no engine warning', async () => {
+  const dir = await installInto()
+  try {
+    const warnings = lastReport().warnings
+    assert.ok(
+      !warnings.some((w) => /could not be found/.test(w)),
+      `a resolvable install must warn about nothing, got ${JSON.stringify(warnings)}`,
+    )
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('stays silent: a global install draws no engine warning', async () => {
+  const binDir = tmp()
+  fs.writeFileSync(path.join(binDir, 'skitterspec'), '')
+  const realPath = process.env.PATH
+  process.env.PATH = binDir
+  let dir
+  try {
+    dir = await installInto('pnpm-lock.yaml', { localInstall: false })
+    const warnings = lastReport().warnings
+    assert.ok(
+      !warnings.some((w) => /could not be found/.test(w)),
+      `a global install must warn about nothing, got ${JSON.stringify(warnings)}`,
+    )
+    const body = fs.readFileSync(cmdPath(dir, COMMANDS[0]), 'utf8')
+    assert.match(body, /^!`skitterspec spec-env/m, 'invoked bare, with no runner')
+  } finally {
+    process.env.PATH = realPath
+    for (const d of [dir, binDir]) if (d) fs.rmSync(d, { recursive: true, force: true })
   }
 })
 

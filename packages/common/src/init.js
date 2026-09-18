@@ -93,14 +93,20 @@ const SPEC_FOLDERS = ['.core', 'backlog', 'in-progress', 'complete', 'cancelled'
 // env.config isolation templates; a provider superset also ships its own).
 const CORE_FILES = listCoreTemplates()
 
-// The CLI is a local devDependency and never on PATH, so a command file that
-// pre-executes it must carry a literal, working invocation. Detect the runner
-// from the lockfile and bake it in at write time.
+// A command file pre-executes the CLI, so it must carry a literal invocation
+// that actually resolves in THIS project. Three installs are possible — local
+// dependency, global, or none — and the runner differs for each.
 //
-// The lockfile is a POSITIVE signal — a file that must be present for the answer
-// to be yes — rather than an absence. When none is found we do not guess a
-// package manager we have no evidence for; `npx` is the fallback because it is
-// the one runner that works across all three installs.
+// A LOCKFILE DOES NOT ANSWER THIS QUESTION. It says which runner would be used
+// *if* the CLI were installed here, which is a different thing, and reading it
+// as evidence of an install is inferring from an absence
+// (`.claude/rules/negative-checks.md` rule 1). It cost the non-Node case
+// outright: a project with no lockfile got `npx skitterspec` baked into every
+// command file, and the unscoped name `skitterspec` does not exist on npm, so
+// all four 404'd.
+//
+// So the lockfile keeps the job it is good at — picking the runner once a local
+// install is established — and a ladder decides whether there is one.
 const PACKAGE_MANAGERS = [
   ['pnpm-lock.yaml', 'pnpm exec'],
   ['yarn.lock', 'yarn'],
@@ -108,6 +114,8 @@ const PACKAGE_MANAGERS = [
   ['bun.lockb', 'bunx'],
 ]
 
+// Which runner would reach a LOCAL install here? Rung 1's answer only — it says
+// nothing about whether the CLI is present, which is `detectRunner`'s job.
 function detectPackageManager(dir) {
   for (const [lockfile, exec] of PACKAGE_MANAGERS) {
     if (fs.existsSync(path.join(dir, lockfile))) return exec
@@ -115,12 +123,97 @@ function detectPackageManager(dir) {
   return 'npx'
 }
 
+// The bin names a distribution may expose. A provider superset ships its own
+// name alongside `skitterspec`, and either proves the engine is reachable.
+const ENGINE_BINS = ['skitterspec', 'skitterspec-linear']
+
+function binNames() {
+  return process.platform === 'win32'
+    ? ENGINE_BINS.flatMap((n) => [n, `${n}.cmd`, `${n}.exe`])
+    : ENGINE_BINS
+}
+
+// Rung 1 — a local install, found by walking up. Bounded at 6 levels, matching
+// the hooks' own `findEngine`: a git worktree's checkout has its own
+// `node_modules`, and a monorepo package hoists to the root.
+function hasLocalInstall(dir) {
+  let at = path.resolve(dir)
+  for (let i = 0; i < 6; i++) {
+    for (const name of binNames()) {
+      if (fs.existsSync(path.join(at, 'node_modules', '.bin', name))) return true
+    }
+    const up = path.dirname(at)
+    if (up === at) break
+    at = up
+  }
+  return false
+}
+
+// An npx cache bin directory. Matched on the path SEGMENT, so a project that
+// happens to live under a directory called `_npxtools` is not mistaken for one.
+const NPX_CACHE_RE = /[\\/]_npx[\\/]/
+
+// Rung 2 — a global install, found on PATH.
+//
+// WHAT WOULD FOOL THIS, and why the filter is not optional: `npx` PREPENDS its
+// own cache bin directory to PATH for the processes it spawns. Verified, not
+// assumed. So running `npx @skitterbyte/skitterspec init` puts a `skitterspec`
+// on PATH that exists only for the duration of that one command — and probing
+// for it here would bake a bare `skitterspec …` into four COMMITTED files that
+// stop working the moment init exits. Excluding `_npx` entries is what makes
+// this rung evidence of an install rather than evidence of the install running.
+function hasPathInstall(env = process.env) {
+  const raw = env.PATH || env.Path || ''
+  if (!raw) return false
+  for (const entry of raw.split(path.delimiter)) {
+    if (!entry || NPX_CACHE_RE.test(entry)) continue
+    for (const name of binNames()) {
+      if (fs.existsSync(path.join(entry, name))) return true
+    }
+  }
+  return false
+}
+
+/**
+ * How should a command file invoke the CLI here?
+ *
+ * A positive-signal ladder: each rung asserts something that must be PRESENT,
+ * and only the last is a fallback.
+ *
+ *   local — a local install; the lockfile picks the runner
+ *   path  — a global install; no runner at all, the bin is invoked bare
+ *   none  — neither could be found. `npx` is written as before, and the caller
+ *           warns, because this is the cannot-tell case rather than a third
+ *           kind of install (rule 4: the unknown routes to the harmless branch,
+ *           which here is "write what we always wrote and say so").
+ *
+ * PROJECT-VISIBLE SIGNALS OUTRANK MACHINE-VISIBLE ONES, which is why `local` is
+ * checked first. `.claude/commands/*.md` is committed and `renderCommand` feeds
+ * `managedTargets`, so a render that varies by machine makes the file flip
+ * between pristine and updatable as different people run `update`. A lockfile
+ * is committed and answers the same everywhere; PATH is one machine's business.
+ */
+function detectRunner(dir, env = process.env) {
+  if (hasLocalInstall(dir)) return { runner: detectPackageManager(dir), rung: 'local' }
+  if (hasPathInstall(env)) return { runner: '', rung: 'path' }
+  return { runner: 'npx', rung: 'none' }
+}
+
 // Fill a command file's `{{exec}}` placeholders. Kept a pure function of
 // (content, dir) so `managedTargets` can compare against exactly what
 // `installCommands` would write — otherwise every install would hash as
 // customized on the next run.
+//
+// The token is consumed WITH its trailing space, so an empty runner leaves
+// `Bash(skitterspec …)` rather than `Bash( skitterspec …)`. The second pass
+// catches a bare `{{exec}}` in case a template ever lands without one.
 function renderCommand(content, dir) {
-  return content.split('{{exec}}').join(detectPackageManager(dir))
+  const { runner } = detectRunner(dir)
+  return content
+    .split('{{exec}} ')
+    .join(runner ? `${runner} ` : '')
+    .split('{{exec}}')
+    .join(runner)
 }
 
 // --- composed-assets guard -------------------------------------------------
@@ -424,6 +517,19 @@ function installCommands(dir, opts) {
       dir,
     )
     writeFile(dir, path.join(dir, '.claude', 'commands', name), content, opts)
+  }
+
+  // ONLY on the cannot-tell rung, and it warns rather than refusing: `init` has
+  // real work to do either way — skills, rules, folders — and none of it needs
+  // the CLI reachable later. Silence here is what let a project install cleanly
+  // and hand back four commands that 404 on first use.
+  if (COMMANDS.length && detectRunner(dir).rung === 'none') {
+    report.warnings.push(
+      `the skitterspec CLI could not be found here, so the ${COMMANDS.length} slash ` +
+        'command(s) were written to call `npx skitterspec`, which will fail — ' +
+        'install it (npm i -g @skitterbyte/skitterspec, or add it as a dev ' +
+        'dependency) and re-run `skitterspec update` to rewrite them',
+    )
   }
 }
 
@@ -1007,5 +1113,6 @@ module.exports = {
   assertSafeToDelete,
   assertComposedAssets,
   detectPackageManager,
+  detectRunner,
   renderCommand,
 }
