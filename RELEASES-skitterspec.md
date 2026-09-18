@@ -5,6 +5,35 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 22.1.0 — 18 Sep 2026
+
+### Env
+- **New** — A phase waiting on your verdict no longer quietly stops watching. The wait proves it is alive while it waits, is restarted on the same window if it dies, and after twelve hours says plainly that you need to send the verdict yourself rather than claiming to still be holding.
+- **New** — Your base branch is now protected from accidental edits. Claude is refused when it tries to write there and is pointed at /no-spec or /spec-start instead, so ad-hoc work stops landing on main unreviewed. Only you can lift the guard, with /allow-main.
+- **New** — A worktree can now be provisioned just to write a spec in, skipping the dependency install and the Docker stack that only exist to make a tree runnable.
+- **Fixed** — Pressing the live button on a review page now actually puts the work live. The button says it commits first, a mid-phase page offers the command instead of a press it could not honour, and a phase waiting on a verdict can be moved past with /spec-skip "<reason>".
+- **Fixed** — A spec you have just written is now reviewed on a page that offers Commit & Start, not Commit & Continue. Since specs began being authored in their own worktree, the served page had been offering to build a next phase that a backlog spec does not have.
+- **Fixed** — Your docker.composeFile setting is now actually used — a project whose compose file is not at the default name has it passed to docker on both setup and teardown. A spec with no Stack header only brings a stack up where there is really one to bring.
+- **Fixed** — A /no-spec branch's review page now opens. It rendered fine but the server could not find it, so every link the skill handed you returned "not found" — and the branch was missing from the index too. Specless branches are resolved from the registry now, and a page provisioned after the server started is reachable without restarting it.
+- **Fixed** — Disowning a review pass now works when its spec has finished and its worktree is gone — which is the state nearly every stranded pass is in. The hint that `review waiting` prints could not previously be followed for any pass it listed. A refusal with a pass waiting now points at that command instead of telling you to start the spec up again.
+
+### Install
+- **New** — Slash commands installed into your project now call the skitterspec CLI in a way that actually works — whether it is a local dependency or installed globally — and say so plainly when it cannot be found at all, instead of writing four commands that fail the first time you use them.
+
+### Review
+- **New** — A phase now ends with your configured reviewer's findings already on the review page, so there is nothing to remember and nothing to run. Mid-phase reads reuse them instead of spending another review, and /spec-diff --reviewers asks for a fresh one when you want it.
+- **New** — Adding { "use": "coderabbit" } to review.reviewers is now the whole setup for CodeRabbit's free CLI — skitterspec knows its flags and reads its output. If it cannot run because you are not signed in or have hit the hourly limit, the review page says so rather than showing a clean review nobody did.
+- **New** — Point skitterspec at a code reviewer that runs from your terminal and its findings now appear on the review page beside your own notes, each one badged with the tool that found it and linked to the line it is about. They never block a commit — reply to one and your reply does, because then a person has asked for something. A reviewer that could not run says so on the page rather than passing as clean.
+
+### Serve
+- **Fixed** — A review page opened over http now offers the same verdicts as the page on disk. Work with no spec offered "Commit & Start" — putting a spec in flight that does not exist — and a page rendered mid-phase offered to commit unfinished work.
+
+### Spec
+- **New** — A refusal now offers the way out of itself. A spec whose worktree has uncommitted work offers to commit it and go live, and a phase still awaiting a verdict offers to commit without reading the diff — recorded as such, and asked only once.
+- **New** — Completing or cancelling a spec now tells you when a review pass is still waiting for it, before the worktree goes. Nothing is lost either way — a pass can still be disowned afterwards — but this is the last point at which a commit verdict can actually be acted on.
+- **New** — Mechanical work that does not warrant a spec — a version bump, a lockfile refresh, a rename — now has its own lane. /no-spec gives it a branch, a worktree and a review page like any phase, so it never has to be done on your base branch.
+- **New** — Writing a spec no longer leaves your base branch dirty while you read the review page. The spec is authored on its own branch in its own worktree and lands as one commit when you send a verdict, so you can cut a release in the middle of grilling a new spec.
+
 ## 22.0.0 — 17 Sep 2026
 
 ### Env
