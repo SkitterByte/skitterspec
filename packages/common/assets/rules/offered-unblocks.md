@@ -88,7 +88,7 @@ engine and the `PreToolUse` hook keep refusing regardless, so this is a layer on
 top of a guard and never the guard itself.
 
 **Not Claude lifting a guard aimed at Claude.** `spec-planning.md` draws that
-line for `/allow-main`, and a bypass offer survives it because
+line for `/allow-main` and `/spec-skip`, and a bypass offer survives it because
 three things hold at once, where a `--force` had none of them:
 
 1. **The operator answers.** Claude may raise the question and cannot answer it.
