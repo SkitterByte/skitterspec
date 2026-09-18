@@ -1,0 +1,12 @@
+{
+  "issue": "a145fd81c51e3d5e725a1ada1d539b825343fdaf",
+  "issueFields": {
+    "description": "0cdcab28248de2b2079d316468438a8b61cff18a",
+    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
+    "assignee": "46f9da98cdf4bd363761b569600549b081b0ae45",
+    "descriptionStream": "a7455e58347d92d22d1803ed6803d0b9a1b95d95"
+  },
+  "subIssues": {
+    "SKS-359": "a346961922e647b343ff940fe491d252fee9b74a"
+  }
+}
