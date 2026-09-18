@@ -256,7 +256,27 @@ function planTake(spec, config, ctx) {
     branch,
     worktreePath: spec.worktreePath,
   }
-  const block = (reason) => ({ ...result, blocked: true, reason })
+  /**
+   * A refusal, and — only where one exists — the way out of it.
+   *
+   * AN OFFER IS DECLARED HERE OR NOWHERE. A caller that raises a picker from a
+   * refusal is reading this field, never re-deciding from the reason text: the
+   * one boundary that matters is that work which is not the operator's must
+   * never be offered up (a workbench another spec holds is theirs to free), and
+   * a rule in prose is not what should be holding that line.
+   *
+   * ABSENT STAYS ABSENT. A refusal with no way out carries no `offer` key at
+   * all, so every existing consumer sees exactly the shape it saw before.
+   *
+   * @param {string} reason   what is wrong, unchanged
+   * @param {object} [offer]  { kind: 'satisfy'|'bypass', label, command }
+   */
+  const block = (reason, offer) => ({
+    ...result,
+    blocked: true,
+    reason,
+    ...(offer ? { offer } : {}),
+  })
 
   // 1. The lock: the primary checkout must be on base (free). Off-base → a spec
   //    (or you) already holds the live instance.
@@ -293,6 +313,15 @@ function planTake(spec, config, ctx) {
     return block(
       `${spec.folder}'s worktree has uncommitted changes — commit or stash them in ` +
         `${spec.worktreePath} first (the rebase cannot run over them)`,
+      // SATISFYING THE GUARD, not stepping past it. Committing the phase is the
+      // precondition `live take` is asking for, so doing it weakens nothing and
+      // needs no record — which is what separates this from a `bypass`.
+      //
+      // Offered for the WORKTREE's tree and never for the primary checkout's
+      // (check 2 above): that one holds whatever the operator happens to have
+      // open, not this spec's phase work, and committing it under this spec's
+      // ticket is the mis-stamping `commit-trailers.md` exists to prevent.
+      { kind: 'satisfy', label: 'Commit first, then go live', command: '/commit' },
     )
   }
   // 4. A hotfix is built on an old release tag; checking its branch out under the

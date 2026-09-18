@@ -2283,6 +2283,9 @@ function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
           armedAt: judged.gate ? judged.gate.armedAt : null,
           phase: judged.gate ? judged.gate.phase : null,
           required: config.review.required,
+          // Absent stays absent: only an `armed` gate has a way out to declare,
+          // and every cannot-tell state carries none.
+          ...(judged.offer ? { offer: judged.offer } : {}),
           log: judged.gate && Array.isArray(judged.gate.log) ? judged.gate.log : [],
         },
         null,
@@ -4265,7 +4268,7 @@ async function specEnvLive(dir, config, positional, flags) {
       specEnvLiveStatus(dir, config, specArg, flags)
       break
     case 'take':
-      await specEnvLiveTake(dir, config, specArg)
+      await specEnvLiveTake(dir, config, specArg, flags)
       break
     case 'release':
       await specEnvLiveRelease(dir, config, specArg)
@@ -4354,7 +4357,7 @@ function bareLive(dir, config) {
 
 // Take the running instance: rebase the spec's branch onto base, free it from its
 // worktree, and check it out in the primary checkout so the dev server reloads it.
-async function specEnvLiveTake(dir, config, specArg) {
+async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
 
   // Probe the primary checkout's git state (IO stays here; the planner is pure).
@@ -4402,7 +4405,34 @@ async function specEnvLiveTake(dir, config, specArg) {
   })
 
   if (plan.blocked) {
-    process.stdout.write(`spec-env live take: blocked — ${plan.reason}.\n`)
+    // A MACHINE-READABLE REFUSAL, so a caller reads the offer rather than
+    // parsing the sentence. `take` had no `--json` at all, and a skill
+    // scraping `blocked — …` prose for a command to run is exactly the kind of
+    // second implementation that drifts out of step with the first.
+    if (flags.json) {
+      process.stdout.write(
+        JSON.stringify(
+          {
+            spec: spec.folder,
+            blocked: true,
+            reason: plan.reason,
+            // Absent stays absent — most refusals have no way out to declare.
+            ...(plan.offer ? { offer: plan.offer } : {}),
+          },
+          null,
+          2,
+        ) + '\n',
+      )
+      return
+    }
+    // THE OFFER IS NAMED IN THE TEXT TOO, not only in `--json`. A reader in a
+    // plain terminal is the one person a picker cannot reach, and they are
+    // entitled to the same way out — so the refusal prints what it would have
+    // offered rather than making a harness the only route to it.
+    process.stdout.write(
+      `spec-env live take: blocked — ${plan.reason}.\n` +
+        (plan.offer ? `  ${plan.offer.label}: ${plan.offer.command}\n` : ''),
+    )
     return
   }
 

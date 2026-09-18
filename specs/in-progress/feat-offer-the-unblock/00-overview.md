@@ -135,7 +135,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The engine declares an offer | ⬜ | [01-engine-declares-an-offer.md](01-engine-declares-an-offer.md) |
+| 1 | The engine declares an offer | ✅ | [01-engine-declares-an-offer.md](01-engine-declares-an-offer.md) |
 | 2 | The gate remembers it offered | ⬜ | [02-gate-remembers-it-offered.md](02-gate-remembers-it-offered.md) |
 | 3 | The skills raise the picker | ⬜ | [03-skills-raise-the-picker.md](03-skills-raise-the-picker.md) |
 
@@ -155,3 +155,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-18 — Spec created. Grew out of `bug-live-press-does-nothing`
   (SKS-345), which shipped `/spec-skip` as the gate's typed exit; this is the
   offered one.
+- 2026-09-18 — Phase 1: added `--json` to `spec-env live take`, which had no
+  machine-readable surface — phase 3's picker would otherwise have had to scrape
+  the refusal text. Decided the armed gate keeps its existing text exit rather
+  than also printing the bypass command: a pre-canned reason in a terminal
+  invites pasting it unread.

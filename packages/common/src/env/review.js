@@ -1309,6 +1309,39 @@ function waitingPasses(reviewsDirPath) {
 
 const GATE_VERSION = 1
 
+/**
+ * The reason a BYPASS records, and it is deliberately a fixed string.
+ *
+ * A skip normally carries what the operator typed. This one is chosen from a
+ * picker with nothing typed, so the record has to say that for itself — and a
+ * string nobody would write by hand is what keeps a tapped bypass tellable from
+ * a considered one when both appear in the same log.
+ *
+ * It stays `by: 'skip'` rather than minting a third `DISARMED_BY` verb: the
+ * sidecar's vocabulary is versioned, and a distinct reason already buys the only
+ * thing a third verb would have.
+ */
+const GATE_BYPASS_REASON = 'none: chose to commit without reading the diff'
+
+/**
+ * The way out of an armed gate, declared beside the refusal rather than left
+ * for a caller to reconstruct.
+ *
+ * A BYPASS, NOT A SATISFY: the phase still owes a verdict and nobody has read
+ * it, so this steps past a guard that is still unsatisfied — which is exactly
+ * why it is recorded and a `satisfy` is not.
+ *
+ * WHAT THIS IS NOT: a `--force`. One was asked for and rejected, because a
+ * reasonless lift is indistinguishable from nobody having looked. The exits
+ * this gate has are unchanged — a committing verdict, or a recorded skip — and
+ * this is the second of those two at an address a person will actually reach.
+ */
+const GATE_BYPASS_OFFER = Object.freeze({
+  kind: 'bypass',
+  label: 'Commit without reading the diff — recorded as such',
+  command: `skitterspec spec-env review skip "${GATE_BYPASS_REASON}"`,
+})
+
 // How a disarm happened. `verdict` is a review that reached a committing
 // conclusion; `skip` is the operator saying, on the record, that they are
 // moving on without one.
@@ -1503,7 +1536,7 @@ function gateState({ gate, corrupt, present, required }) {
     }
   }
   if (!gate.armed) return { state: 'clear', reason: 'nothing is awaiting a verdict', gate }
-  return { state: 'armed', reason: 'a phase is awaiting a verdict', gate }
+  return { state: 'armed', reason: 'a phase is awaiting a verdict', gate, offer: GATE_BYPASS_OFFER }
 }
 
 /**
@@ -2224,6 +2257,8 @@ module.exports = {
   armGate,
   disarmGate,
   gateState,
+  GATE_BYPASS_OFFER,
+  GATE_BYPASS_REASON,
   gateForPage,
   mergeNotes,
   applyResolutions,

@@ -2,34 +2,41 @@
 linear_issue_id: "SKS-354"
 ---
 
-# Phase 1 — The engine declares an offer ⬜
+# Phase 1 — The engine declares an offer ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a blocked result can carry `offer`, two refusals declare one, and every
 other refusal is provably unchanged.
 
 ## Tasks
 
-- [ ] Add `offer` to the blocked shape in `packages/common/src/env/live.js` —
+- [x] Add `offer` to the blocked shape in `packages/common/src/env/live.js` —
       `{ kind: 'satisfy' | 'bypass', label, command }`, set through `block()` so
       there is one place that can produce one.
-- [ ] Declare it on **one** of `planTake`'s refusals: the spec's own worktree
+- [x] Declare it on **one** of `planTake`'s refusals: the spec's own worktree
       being dirty (check 3b). `kind: 'satisfy'`, label `Commit first, then go
       live`, command `/commit`.
-- [ ] Declare it on the armed gate (`gateState` / `specEnvReviewGate`):
+- [x] Declare it on the armed gate (`gateState` / `specEnvReviewGate`):
       `kind: 'bypass'`, label `Commit without reading the diff — recorded as
       such`, command the disarm from decision 7.
-- [ ] `--json` carries `offer` on both, and **only** when there is one — spread
-      conditionally, as `buttons` and `reviewers` already are.
-- [ ] The text output names the offer beneath the reason, so a reader in a plain
-      terminal sees the same thing the picker would have shown them.
-- [ ] Sync into the shipping packages (`npm run build` — they are generated).
-- [ ] Tests, including the stays-silent half: every other `planTake` refusal
+- [x] `--json` carries `offer` on both, and **only** when there is one — spread
+      conditionally, as `buttons` and `reviewers` already are. **`live take` had
+      no `--json` surface at all**, so one was added: a skill scraping
+      `blocked — …` prose for a command to run is the drifting second
+      implementation this field exists to avoid.
+- [x] The text output names the offer beneath the reason, so a reader in a plain
+      terminal sees the same thing the picker would have shown them —
+      **for `live take` only**. The armed gate already prints its exit, and
+      adding the pre-canned reason string to a terminal invites pasting it
+      unread, which is the reason requirement weakened by the thing meant to
+      support it.
+- [x] Sync into the shipping packages (`npm run build` — they are generated).
+- [x] Tests, including the stays-silent half: every other `planTake` refusal
       carries **no** `offer` — in particular the one where another spec holds the
       workbench (decision 6), the hotfix, the stateful spec and the migrations
       branch, which are redirections rather than unblocks.
-- [ ] Run the project's typecheck and test commands — green before the phase is
+- [x] Run the project's typecheck and test commands — green before the phase is
       done.
 
 ## Notes
