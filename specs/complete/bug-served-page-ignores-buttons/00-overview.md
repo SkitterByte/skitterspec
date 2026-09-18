@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-served-page-ignores-buttons
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -110,6 +110,7 @@ holding.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -117,3 +118,4 @@ holding.
 - 2026-09-18 — Fixed. Found a fourth call site while fixing: the branch
   fallback dropped the set too, which is the path a spec spends most of its life
   on.
+- 2026-09-18 — Completed; fix done, tests green (3369).
