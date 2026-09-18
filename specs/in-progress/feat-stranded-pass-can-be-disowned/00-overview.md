@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-stranded-pass-can-be-disowned (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-18)
+> **Status:** In Progress — Phase 2 (started 2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Disowning stops needing a worktree | ✅ | [01-disown-needs-no-worktree.md](01-disown-needs-no-worktree.md) |
-| 2 | Teardown says what it is about to strand | ⬜ | [02-teardown-names-the-pass.md](02-teardown-names-the-pass.md) |
+| 2 | Teardown says what it is about to strand | ✅ | [02-teardown-names-the-pass.md](02-teardown-names-the-pass.md) |
 
 ## Open questions
 
@@ -109,6 +109,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-09-18 — Phase 2 built. It reverses a decision a landed test asserted:
+  `feat-no-pass-waits-unheard` left `/spec-complete` and `/spec-cancel` out of
+  the waiting report as noise, which holds for a skill that passes a pass by and
+  not for one that destroys the worktree. The test now carries that distinction
+  and `/spec-review` stays out. Separately, two render-detectors were reading
+  `spec-env review` as one verb when it is four, so a skill naming
+  `review <spec> --drop <code>` was classified as rendering a page; the
+  sidecar-only invocations are now stripped before the scan.
 - 2026-09-18 — Phase 1 built. Decision 3 turned out to need two messages rather
   than one rewritten one: the worktree-less refusal is read far more often by
   someone pointing at an unstarted backlog spec, where `/spec-start` is the right

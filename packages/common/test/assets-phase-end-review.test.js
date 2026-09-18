@@ -85,13 +85,15 @@ test('/spec-hotfix says the range is measured from the base tag', () => {
 
 test('the skills that land branches do not gain the step', () => {
   for (const name of ['spec-complete', 'spec-to-main']) {
-    const text = skillText(name)
+    // The RENDER invocations only. `/spec-complete` names
+    // `review <spec> --drop <code>` before it tears the worktree down, and
+    // disowning a pass is not rendering a page — see `renderInvocations`.
     assert.doesNotMatch(
-      text,
+      renderInvocations(name),
       /spec-env review <spec>/,
       `${name} must not render a page — landing a branch is not ending a phase`,
     )
-    assert.doesNotMatch(text, /Want a written review of it before you commit\?/, name)
+    assert.doesNotMatch(skillText(name), /Want a written review of it before you commit\?/, name)
   }
 })
 
@@ -242,8 +244,30 @@ const NOT_OFFERING = {
   'spec-reviewed': 'claims a pass that has already arrived',
 }
 
+/**
+ * `spec-env review` is four verbs wearing one name, and only one of them
+ * renders. Matching the command at large conflated them — a skill that names
+ * `review <spec> --drop <code>` to disown a stranded pass was read as a skill
+ * that renders a page and then accused of not waiting for a verdict on it.
+ *
+ * So the sidecar-only invocations are removed before the scan looks. They touch
+ * `.spec-env/reviews/` and nothing else: no diff is read, no page is written,
+ * and there is nothing for anyone to give a verdict on.
+ */
+const NOT_A_RENDER = [
+  /skitterspec spec-env review waiting[^\n]*/g,
+  /skitterspec spec-env review <spec> --drop[^\n]*/g,
+  /skitterspec spec-env review <spec> --claim[^\n]*/g,
+]
+
+function renderInvocations(name) {
+  let text = skillText(name)
+  for (const re of NOT_A_RENDER) text = text.replace(re, '')
+  return text
+}
+
 function rendersAPage(name) {
-  return /skitterspec spec-env review </.test(skillText(name))
+  return /skitterspec spec-env review </.test(renderInvocations(name))
 }
 
 test('every skill that renders a page waits for the verdict, or is exempt with a reason', () => {

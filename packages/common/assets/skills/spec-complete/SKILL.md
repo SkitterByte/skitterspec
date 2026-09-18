@@ -231,6 +231,31 @@ nothing left to protect.
 worktree and branch are being kept, and go straight to sub-step 4. Mention
 `skitterspec spec-env up <name>` re-attaches it later either way.
 
+0. **Name a pass still waiting for THIS spec — before anything is removed.**
+
+   ```
+   skitterspec spec-env review waiting --json
+   ```
+
+   Filter to the spec being completed and say nothing about any other: a run
+   reports itself and nothing else (`.claude/rules/spec-reports.md`). For each
+   one, give the code, the verdict and the age, then the two exits — claim it
+   now with `/spec-reviewed <code>` **while the worktree still stands**, or
+   disown it with `skitterspec spec-env review <spec> --drop <code>`.
+
+   **Why here and not anywhere else.** Nothing is about to become unreachable —
+   a pass can be disowned long after its spec is gone. What is about to pass is
+   the last moment the verdict can still be **honoured**: before teardown a
+   `commit` pass can be claimed and acted on, after it there is no branch left
+   to commit to and disowning is all that remains.
+
+   **It reports, and it never blocks.** No refusal, no confirmation of its own,
+   no non-zero exit. And **it never claims** — reporting a pass is not taking
+   one, and `/spec-diff` §0 is untouched by this step.
+
+   Put what you found in the report's `Notes` row.
+   Silent when nothing is waiting, which is the usual case.
+
 1. **Disconnect the proxy if this spec is connected.** If `.spec-env/connected`
    names this spec, run `skitterspec spec-env connect main` first so the
    canonical ports go back to the primary checkout.

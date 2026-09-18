@@ -100,9 +100,7 @@ test('stays silent: the turn-ending wait survives, and spec-hotfix is untouched'
 // A wait that never ran cannot be recovered by a better wait. These two skills
 // are the realistic ways back in — you either start a spec or continue one — so
 // they are where a pass nobody heard gets surfaced. It is deliberately NOT
-// every spec skill: a line about waiting reviews on a `/spec-cancel` is noise
-// beside the thing the operator asked for, and a rule nobody needs is a rule
-// that teaches people to skim.
+// every spec skill: a rule nobody needs is a rule that teaches people to skim.
 
 const ENTRY_POINTS = ['spec-next', 'spec-start']
 
@@ -129,19 +127,81 @@ for (const name of ENTRY_POINTS) {
   })
 }
 
+// ── the teardown skills: the last moment a verdict can be honoured ───────────
+//
+// THIS REVERSES A DECISION THIS FILE USED TO ASSERT, and the reversal is the
+// point rather than an oversight. `/spec-cancel` and `/spec-complete` were
+// deliberately left out on the grounds that a line about waiting reviews is
+// noise beside the thing the operator asked for — which is right for a skill
+// that merely PASSES a pass by.
+//
+// These two do not pass it by: they destroy the worktree. Nothing becomes
+// unreachable (a pass can be disowned long after its spec is gone — that is
+// phase 1), but the last moment the verdict can be HONOURED does pass, because
+// after teardown there is no branch left to commit to. That is a different
+// claim from the one the old exclusion was written against, and it is why these
+// two earn the line where `/spec-review` still does not.
+
+const TEARDOWNS = ['spec-complete', 'spec-cancel']
+
+for (const name of TEARDOWNS) {
+  const text = skill(name)
+  const block = () => /review waiting[\s\S]{0,2000}/.exec(text)
+
+  test(`/${name} names a pass before it destroys the worktree`, () => {
+    assert.match(text, /spec-env review waiting/, 'it asks the engine before tearing down')
+    const b = block()
+    assert.ok(b, 'the waiting block is there to anchor on')
+    assert.match(b[0], /--drop <code>/, 'and names the disown exit')
+    assert.match(b[0], /spec-reviewed <code>/, 'and the claim-it-now exit')
+  })
+
+  // FILTERED TO THIS SPEC. `spec-reports.md` is explicit that a run reports
+  // itself and nothing else — a teardown that listed another spec's pass would
+  // leave the reader unable to tell whether it followed from what just
+  // happened.
+  test(`/${name} reports only the spec it is finishing`, () => {
+    const b = block()
+    assert.match(b[0], /THIS spec|to the spec being (completed|cancelled)/i)
+    assert.match(b[0], /nothing about any other|and nothing else/i)
+  })
+
+  // WHY NOW, rather than a bare warning. The old reading — "you will lose
+  // this" — is false after phase 1, and a caveat that is not true is worse than
+  // none.
+  test(`/${name} says why this moment and not another`, () => {
+    const b = block()
+    assert.match(b[0], /last moment/i)
+    assert.match(b[0], /honoured/i)
+  })
+
+  test(`/${name} reports without blocking`, () => {
+    const b = block()
+    assert.match(b[0], /never blocks?/i, 'no refusal of its own')
+    assert.match(b[0], /no non-zero exit/i)
+  })
+
+  // The one thing it must never do — anchored to the block, for the reason the
+  // entry-point version records above.
+  test(`/${name} claims nothing it finds`, () => {
+    const b = block()
+    assert.match(b[0], /\*\*it never\s*\n?\s*claims\*\*|\*\*it never claims\*\*/i, 'the rule is in the block')
+    assert.match(b[0], /spec-diff.{0,12}§0/i, 'and names the rule it is standing on')
+  })
+}
+
 // STAYS SILENT. Two healthy things this must not accuse:
 //
 // - a repo with nothing waiting, where the engine prints nothing and so does
 //   the skill. Reporting that there was nothing to report is the noise
 //   `spec-reports.md` bans.
-// - the skills that were deliberately left out. Requiring the check everywhere
-//   would be a rule invented for symmetry, which is how a findable line becomes
-//   one people skim past.
-test('stays silent: nothing waiting says nothing, and the other skills are untouched', () => {
-  for (const name of ENTRY_POINTS) {
+// - the skill still deliberately left out. Requiring the check everywhere would
+//   be a rule invented for symmetry, which is how a findable line becomes one
+//   people skim past — `/spec-review` neither enters the lifecycle nor destroys
+//   anything, so it has no moment to report at.
+test('stays silent: nothing waiting says nothing, and spec-review is untouched', () => {
+  for (const name of [...ENTRY_POINTS, ...TEARDOWNS]) {
     assert.match(skill(name), /[Ss]ilent when nothing is waiting/, `${name} says nothing when there is nothing`)
   }
-  for (const name of ['spec-cancel', 'spec-complete', 'spec-review']) {
-    assert.doesNotMatch(skill(name), /spec-env review waiting/, `${name} was left out deliberately`)
-  }
+  assert.doesNotMatch(skill('spec-review'), /spec-env review waiting/, 'spec-review is still left out')
 })

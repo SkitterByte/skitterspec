@@ -114,6 +114,35 @@ of the work, so an unreclaimed one is worth a line rather than a silence.
 reclaim the cancelled spec's environment. On confirmation, run the `spec-env` CLI
 directly (the old `/spec-env-down` skill is gone — teardown is folded in here):
 
+0. **Name a pass still waiting for THIS spec — before anything is removed.**
+
+   ```
+   skitterspec spec-env review waiting --json
+   ```
+
+   Filter to the spec being cancelled and say nothing about any other: a run
+   reports itself and nothing else (`.claude/rules/spec-reports.md`). For each
+   one, give the code, the verdict and the age, then the two exits — claim it
+   now with `/spec-reviewed <code>` **while the worktree still stands**, or
+   disown it with `skitterspec spec-env review <spec> --drop <code>`.
+
+   **Why here and not anywhere else.** Nothing is about to become unreachable —
+   a pass can be disowned long after its spec is gone. What is about to pass is
+   the last moment the verdict can still be **honoured**: before teardown a
+   `commit` pass can be claimed and acted on, after it there is no branch left
+   to commit to and disowning is all that remains. On a cancelled spec that is
+   sharper still — the worktree may hold the only copy of the work, so a pass
+   approving it is the one thing that might argue for keeping it.
+
+   **It reports, and it never blocks.** No refusal, no confirmation of its own,
+   no non-zero exit — this step already asks before it reclaims anything, and a
+   waiting pass is information rather than a second gate.
+   And **it never claims** — reporting a pass is not taking one, and
+   `/spec-diff` §0 is untouched by this step.
+
+   Put what you found in the report's `Notes` row.
+   Silent when nothing is waiting, which is the usual case.
+
 1. If `.spec-env/connected` names this spec, run `skitterspec spec-env connect
    main` first to free the canonical ports.
 2. `skitterspec spec-env dev down <name>` — stop its host dev servers.
