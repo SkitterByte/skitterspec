@@ -201,6 +201,42 @@ escape hatch is what let a whole class of runs go on asking questions nobody was
 listening for. Where a watch is unavailable the wait is the turn ending, which
 every harness can do.
 
+**A watch that dies is re-armed, silently, on the same window.** A backgrounded
+wait does not always survive a long idle: three sessions lost theirs over one
+lunch break, and two in another were killed at 43 and 30 minutes. So a wait that
+ends **without a verdict** and **was not stopped by the operator** is started
+again on the **same** `--since`. Not a fresh one — a pass that arrived during
+the gap is still inside the original window, and re-arming on a new timestamp
+would strand exactly that pass.
+
+**Say nothing when you do it.** Nothing happened and the window is unchanged; a
+line on every death turns a working loop into a stream of non-events.
+
+**An operator who stopped it is not a death.** Re-arming over a deliberate stop
+makes the wait unstoppable, which is worse than a wait that stops. Where the two
+cannot be told apart, treat it as deliberate and leave it
+(`.claude/rules/negative-checks.md` rule 4): the cost of being wrong is one
+`/spec-reviewed`, against a loop nobody can break.
+
+**It is bounded by the age of the window, not by a count of retries.** Keep
+re-arming while the window is younger than **12 hours**, then stop. A count means
+something different depending on whether deaths come five minutes or forty-five
+apart, and the observed interval already varies that much. Twelve hours
+deliberately does not cover an overnight gap — the pass is never lost, and
+`/spec-reviewed` is the designed recovery — because the alternative is waking
+the session every half hour all night for a review nobody is returning to
+before morning.
+
+**Past the bound the banner degrades**, to the sentence this file already
+defines for a transport that cannot push into the conversation:
+
+*press a verdict, then type `/spec-reviewed` — I cannot see it until you do.*
+
+That is a new **state** for an existing sentence, not a new sentence. The
+holding line is only ever printed while a wait is actually running, which is the
+rule this section has always carried: *only promise a wait the transport can
+deliver.*
+
 **The `Continue` ending, and why the banner's exits differ mid-run.** A page
 rendered part-way through a run offers `Continue` — *I have read it, carry on* —
 in place of the committing verdicts, because "commit" is the wrong verb for

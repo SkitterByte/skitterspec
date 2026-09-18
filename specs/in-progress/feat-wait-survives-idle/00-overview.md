@@ -129,7 +129,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The wait survives, and says so honestly when it cannot | ⬜ | [01-survive-and-degrade.md](01-survive-and-degrade.md) |
+| 1 | The wait survives, and says so honestly when it cannot | ✅ | [01-survive-and-degrade.md](01-survive-and-degrade.md) |
 
 ## Open questions
 
@@ -143,6 +143,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-18 — Phase 1 built. Verified end to end that the heartbeat reaches
+  **stderr and not stdout**: with stderr discarded, stdout carries only the
+  start line and the result. That split is what lets the beat exist at all —
+  stdout is the parsed answer, and every stdout line is a notification under a
+  monitor.
+- 2026-09-18 — The elapsed figure rounds to whole minutes, so a sub-minute
+  cadence reads `(0m)`. Left as is: the shipped cadence is five minutes, and
+  `--heartbeat` below that is a test affordance.
 
 - 2026-09-18 — Spec created, from three sessions losing their wait over one
   lunch break. Cause narrowed but not proven, so the design covers both

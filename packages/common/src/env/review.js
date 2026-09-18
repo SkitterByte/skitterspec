@@ -1194,6 +1194,11 @@ function passesSince(pending, since) {
 
 const WAIT_POLL_MS = 400
 
+// How often a running wait says it is still running. Five minutes, against a
+// 400ms poll: this is not part of the poll at all, it is proof of life for
+// whatever is supervising the process.
+const WAIT_HEARTBEAT_MS = 5 * 60 * 1000
+
 /**
  * Block until exactly one pass arrives inside a window. Impure only in that it
  * reads the store and sleeps; it writes nothing and claims nothing.
@@ -1216,16 +1221,42 @@ const WAIT_POLL_MS = 400
  * is the normal case rather than the edge one. An hour was picked once and a
  * lunch break beat it.
  *
+ * IT SAYS IT IS STILL RUNNING, on `onHeartbeat`. A backgrounded wait produced
+ * no output between starting and finding a pass, and over a long idle it was
+ * killed — three sessions lost their wait over one lunch break. Whether the
+ * trigger is process silence or session idleness was never established, so the
+ * cheap half is done here: the process stops being silent. The other half is
+ * the caller re-arming, which covers it either way.
+ *
+ * The cadence is INDEPENDENT of the poll. Polling stays at 400ms because that
+ * is how fast a press should be noticed; the heartbeat is minutes apart because
+ * it is addressed to a supervisor, not to a reader.
+ *
  * WHAT WOULD FOOL A LOOSER VERSION: treating an absent, empty, or older-only
  * store as a reason to return. None of those is a pass — they are the ordinary
  * state of a review nobody has answered yet — and a wait that ended on one
  * would report "no pass" as an outcome (`.claude/rules/negative-checks.md`
  * rule 3 has a test for each).
  */
-async function waitForPass(readStore, since, { timeoutMs = null, pollMs = WAIT_POLL_MS, sleep } = {}) {
+async function waitForPass(
+  readStore,
+  since,
+  {
+    timeoutMs = null,
+    pollMs = WAIT_POLL_MS,
+    sleep,
+    onHeartbeat = null,
+    heartbeatMs = WAIT_HEARTBEAT_MS,
+    now = () => Date.now(),
+  } = {},
+) {
   if (!Number.isFinite(Date.parse(since))) return { state: 'unusable' }
   const nap = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)))
-  const deadline = Number.isFinite(timeoutMs) && timeoutMs !== null ? Date.now() + timeoutMs : null
+  const startedAt = now()
+  const deadline = Number.isFinite(timeoutMs) && timeoutMs !== null ? startedAt + timeoutMs : null
+  // Counted from the start rather than scheduled, so a slow poll cannot make
+  // the heartbeat drift and a fast one cannot make it fire twice.
+  let beats = 0
 
   for (;;) {
     // A store that will not parse is not an empty one, and it is not a pass
@@ -1239,9 +1270,22 @@ async function waitForPass(readStore, since, { timeoutMs = null, pollMs = WAIT_P
         if (window.codes.length > 1) return { state: 'ambiguous', count: window.codes.length }
       }
     }
-    if (deadline !== null && Date.now() >= deadline) return { state: 'timeout' }
+    if (deadline !== null && now() >= deadline) return { state: 'timeout' }
+
+    // SAID ON THE WAY ROUND, never on the way out. A line printed when the wait
+    // ends would only ever appear for the waits that already worked, which is
+    // the half that never needed proof.
+    if (onHeartbeat && heartbeatMs > 0) {
+      const elapsed = now() - startedAt
+      const due = Math.floor(elapsed / heartbeatMs)
+      if (due > beats) {
+        beats = due
+        onHeartbeat({ elapsedMs: elapsed, since })
+      }
+    }
+
     // Never overshoot the deadline by a whole poll interval.
-    await nap(deadline === null ? pollMs : Math.max(0, Math.min(pollMs, deadline - Date.now())))
+    await nap(deadline === null ? pollMs : Math.max(0, Math.min(pollMs, deadline - now())))
   }
 }
 
@@ -2295,6 +2339,7 @@ module.exports = {
   passesSince,
   waitingPasses,
   waitForPass,
+  WAIT_HEARTBEAT_MS,
   WAIT_POLL_MS,
   passState,
   describePending,

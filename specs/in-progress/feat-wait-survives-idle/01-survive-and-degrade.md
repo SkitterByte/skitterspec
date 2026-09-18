@@ -2,39 +2,42 @@
 linear_issue_id: "SKS-359"
 ---
 
-# Phase 1 — The wait survives, and says so honestly when it cannot ⬜
+# Phase 1 — The wait survives, and says so honestly when it cannot ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a backgrounded wait is never silent, an unexpected death is re-armed
 on the same window, and after 12 hours the banner stops claiming to hold.
 
 ## Tasks
 
-- [ ] Add an `onHeartbeat` hook to `waitForPass`
+- [x] Add an `onHeartbeat` hook to `waitForPass`
       (`packages/common/src/env/review.js`) — called on its own cadence,
       independent of the 400ms poll, with the elapsed time and the window start.
       Pure enough to test with an injected clock, like `sleep` already is.
-- [ ] `specEnvReviewWait` writes the heartbeat to **`process.stderr`**, every 5
+- [x] `specEnvReviewWait` writes the heartbeat to **`process.stderr`**, every 5
       minutes by default. Never to stdout: that is the event stream under a
       monitor and the parsed result under a backgrounded task.
-- [ ] Add `--heartbeat <seconds>`, with `0` disabling it. Default 300.
-- [ ] **Suppress it entirely under `--json`.** That mode has one
+- [x] Add `--heartbeat <seconds>`, with `0` disabling it. Default 300. A value
+      that is not a number takes the DEFAULT rather than disabling: being wrong
+      that way costs a line of stderr nobody reads, where the opposite silently
+      removes the thing keeping the wait alive.
+- [x] **Suppress it entirely under `--json`.** That mode has one
       machine-readable payload and must not grow a second stream.
-- [ ] Write the re-arm contract into `.claude/rules/spec-reports.md`, beside the
+- [x] Write the re-arm contract into `.claude/rules/spec-reports.md`, beside the
       banner it exists to keep true: a wait that ended with no verdict and was
       not stopped by the operator is re-armed on the **same** `--since`, silently,
       while that window is younger than 12 hours.
-- [ ] Define the **degraded banner state** in the same rule — past the bound, the
+- [x] Define the **degraded banner state** in the same rule — past the bound, the
       holding line is replaced by the sentence the contract already uses for a
       transport that cannot push into the conversation (*press a verdict, then
       type `/spec-reviewed` — I cannot see it until you do*). A state for an
       existing sentence, not a new sentence.
-- [ ] Point `/spec`, `/spec-next`, `/spec-bug` and `/no-spec` at that rule from
+- [x] Point `/spec`, `/spec-next`, `/spec-bug` and `/no-spec` at that rule from
       their wait steps. **Do not restate it in four places** — the stack in this
       same rule is written once for exactly this reason.
-- [ ] Sync into the shipping packages (`npm run build` — they are generated).
-- [ ] Tests:
+- [x] Sync into the shipping packages (`npm run build` — they are generated).
+- [x] Tests:
       - the heartbeat fires on its cadence with an injected clock, and goes to
         stderr, never stdout;
       - `--heartbeat 0` and `--json` both produce none;
@@ -43,7 +46,7 @@ on the same window, and after 12 hours the banner stops claiming to hold.
         is reported exactly as it is today, since none of those is a death;
       - the rule carries the re-arm contract and the degraded state, and the four
         skills reference it rather than restating it.
-- [ ] Run the project's typecheck and test commands — green before the phase is
+- [x] Run the project's typecheck and test commands — green before the phase is
       done.
 
 ## Notes

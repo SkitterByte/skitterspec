@@ -112,6 +112,7 @@ const {
   claimPending,
   passesSince,
   waitForPass,
+  WAIT_HEARTBEAT_MS,
   waitingPasses,
   describePending,
   pendingAge,
@@ -2113,6 +2114,21 @@ function gateTarget(dir, config, specArg) {
  * `--claim-since` to take, so the rule that a pass is never claimed without a
  * person asking (`/spec-diff` §0) is untouched by anything here.
  */
+/**
+ * How often the wait says it is alive, in ms. `0` disables it.
+ *
+ * Three states, not two (`.claude/rules/negative-checks.md` rule 4): a value
+ * that is not a number is a cannot-tell, and it takes the DEFAULT rather than
+ * disabling — being wrong that way costs a line of stderr nobody reads, where
+ * the opposite silently removes the thing keeping the wait alive.
+ */
+function resolveHeartbeatMs(flags) {
+  if (flags.heartbeat === undefined || flags.heartbeat === null) return WAIT_HEARTBEAT_MS
+  const seconds = Number(flags.heartbeat)
+  if (!Number.isFinite(seconds) || seconds < 0) return WAIT_HEARTBEAT_MS
+  return seconds * 1000
+}
+
 async function specEnvReviewWait(dir, config, specArg, flags) {
   let spec
   try {
@@ -2153,7 +2169,30 @@ async function specEnvReviewWait(dir, config, specArg, flags) {
     )
   }
 
-  const result = await waitForPass(() => readPending(out, spec.folder), flags.since, { timeoutMs })
+  // THE HEARTBEAT GOES TO STDERR, and that is the whole reason it is safe.
+  // Stdout is the result a backgrounded caller parses and, under a monitor,
+  // every stdout line becomes a notification — so a proof-of-life line there
+  // would either corrupt the answer or wake somebody every five minutes.
+  // Stderr reaches the output file and raises neither.
+  //
+  // SUPPRESSED UNDER `--json`, which has one machine-readable payload and must
+  // not grow a second stream beside it.
+  const heartbeatMs = resolveHeartbeatMs(flags)
+  const onHeartbeat =
+    flags.json || heartbeatMs === 0
+      ? null
+      : ({ elapsedMs }) => {
+          process.stderr.write(
+            `spec-env review wait: ${spec.folder} — still waiting (${Math.round(elapsedMs / 60000)}m), ` +
+              `window since ${flags.since}\n`,
+          )
+        }
+
+  const result = await waitForPass(() => readPending(out, spec.folder), flags.since, {
+    timeoutMs,
+    onHeartbeat,
+    heartbeatMs: heartbeatMs || WAIT_HEARTBEAT_MS,
+  })
 
   if (flags.json) {
     process.stdout.write(`${JSON.stringify({ spec: spec.folder, since: flags.since, ...result }, null, 2)}\n`)
@@ -4777,6 +4816,7 @@ async function specEnv(rest) {
     outcome: null,
     claim: null,
     offered: false,
+    heartbeat: null,
     drop: null,
     buttons: null,
     json: false,
@@ -4810,6 +4850,7 @@ async function specEnv(rest) {
     else if (args[i] === '--outcome') flags.outcome = args[++i]
     else if (args[i] === '--claim') flags.claim = args[++i]
     else if (args[i] === '--claim-since') flags.claimSince = args[++i]
+    else if (args[i] === '--heartbeat') flags.heartbeat = args[++i]
     else if (args[i] === '--since') flags.since = args[++i]
     else if (args[i] === '--timeout') flags.timeout = args[++i]
     else if (args[i] === '--drop') flags.drop = args[++i]
@@ -4980,6 +5021,7 @@ async function specEnv(rest) {
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +
           '  review skip "<reason>"                 move on without one, on the record\n' +
           '  review gate [spec] --offered           record that the bypass was offered (spends it)\n' +
+          '  review wait [spec] --heartbeat <secs>  proof-of-life cadence on stderr; 0 disables\n' +
           '  review wait [spec] --since <iso>       block until a verdict arrives ([--timeout <s>])\n' +
           '  review waiting [--json]                every pass waiting, across every spec\n' +
           '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +

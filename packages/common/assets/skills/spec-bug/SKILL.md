@@ -224,6 +224,11 @@ wait a timeout — the reasoning is in `/spec-next` §5 and is not repeated here
 The banner it describes is what this skill emits in place of a `Review` row,
 and the routing on the verdict is `/spec-diff` §2 and §4, as it is everywhere.
 
+**A watch that dies is re-armed on the same window**, silently and bounded by
+the age of that window — `.claude/rules/spec-reports.md` carries the contract,
+including when to stop and what the banner says instead. Do not restate it
+here.
+
 **Why this skill arms as well as waits.** Waiting is what any offer does;
 **arming** asserts an obligation that outlives the turn, and belongs only to
 work that is finished. A bug fix is a completed unit — red→green, suite

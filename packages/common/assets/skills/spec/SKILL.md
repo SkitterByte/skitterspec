@@ -399,6 +399,11 @@ the verdict — and the reader's conclusion is about what the page showed them.
    verdict to a lunch break.
 3. **On waking, let the engine pick:**
 
+**A watch that dies is re-armed on the same window**, silently and bounded by
+the age of that window — `.claude/rules/spec-reports.md` carries the contract,
+including when to stop and what the banner says instead. Do not restate it
+here.
+
    ```
    skitterspec spec-env review <spec> --docs --claim-since <the timestamp> --json
    ```
