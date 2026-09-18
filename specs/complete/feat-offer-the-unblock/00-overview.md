@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-offer-the-unblock (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-18)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-18
@@ -149,8 +149,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-18 | Ready | backlog | Reuben Greaves |
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
+
+- 2026-09-18 — Completed; all three phases done, tests green (3420 passed).
+  Deferred: the rule cites `/allow-main` alone until `/spec-skip` lands.
 
 - 2026-09-18 — Spec created. Grew out of `bug-live-press-does-nothing`
   (SKS-345), which shipped `/spec-skip` as the gate's typed exit; this is the
