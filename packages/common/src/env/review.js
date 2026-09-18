@@ -1364,6 +1364,64 @@ function writeGate(outPath, gate) {
   return p
 }
 
+/* ==========================================================================
+ * The render record — what the caller DECLARED, for the re-render to read
+ * ========================================================================== */
+
+// Same stem as the other sidecars, so one spec's set still reads as one set.
+function renderRecordPath(outPath) {
+  return outPath.replace(/\.html$/, '') + '.render.json'
+}
+
+/**
+ * The button set the last CLI render of this spec declared, or null.
+ *
+ * WHY THIS EXISTS AT ALL. `--buttons` is declared by the caller — `BUTTON_SETS`
+ * above says why it is never derived — and the review daemon is not that
+ * caller. It re-renders a spec's page per request from the tree, so without a
+ * record it can only guess, and what it guessed was the default: every
+ * `/no-spec` page served over http offered `Commit & Start`.
+ *
+ * WHAT WOULD FOOL A CONSUMER THAT TRUSTED THIS OUTRIGHT: it is a file on disk
+ * and the tree moves underneath it. A spec rendered as `--docs` and then put in
+ * flight has a day-old record saying `authoring` and a worktree saying
+ * otherwise. So `buttonsForView` in `serve.js` takes only NARROWING words from
+ * here and reads the family off the tree — this function's job is to report
+ * what was written, not to decide whether it still holds.
+ *
+ * Three states, like `readNotes` and `readGate`: absent is the ordinary case,
+ * and corrupt is reported rather than hidden so neither reads as a declaration.
+ */
+function readRenderRecord(outPath, specFolder) {
+  let raw
+  try {
+    raw = fs.readFileSync(renderRecordPath(outPath), 'utf8')
+  } catch {
+    // Absent is ordinary: most pages are opened off the index without the CLI
+    // ever having rendered that spec.
+    return { buttons: null, corrupt: false, present: false }
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    const buttons = typeof parsed.buttons === 'string' && parsed.buttons ? parsed.buttons : null
+    // The folder is checked, not trusted: a record found under this spec's stem
+    // that names another spec is not this spec's declaration.
+    if (parsed.spec && specFolder && parsed.spec !== specFolder) {
+      return { buttons: null, corrupt: false, present: true }
+    }
+    return { buttons, corrupt: false, present: true }
+  } catch {
+    return { buttons: null, corrupt: true, present: true }
+  }
+}
+
+function writeRenderRecord(outPath, record) {
+  const p = renderRecordPath(outPath)
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, JSON.stringify(record, null, 2) + '\n')
+  return p
+}
+
 /**
  * Arm the gate. Pure.
  *
@@ -2062,8 +2120,9 @@ function reviewServerNotice({ running, othersServed }) {
   ]
 }
 
-// The publish-ready copy, beside the page it came from. Same stem, so the three
-// sidecars (`.notes.json`, `.url`, `.publish.html`) all read as one spec's set.
+// The publish-ready copy, beside the page it came from. Same stem, so every
+// sidecar (`.notes.json`, `.url`, `.publish.html`, `.render.json`) reads as one
+// spec's set.
 function reviewPublishPath(outPath) {
   return outPath.replace(/\.html$/, '') + '.publish.html'
 }
@@ -2159,6 +2218,9 @@ module.exports = {
   emptyGate,
   readGate,
   writeGate,
+  renderRecordPath,
+  readRenderRecord,
+  writeRenderRecord,
   armGate,
   disarmGate,
   gateState,

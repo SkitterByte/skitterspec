@@ -314,9 +314,15 @@ test('nothing is published on a detection, however remote the reader', async () 
     await review(dir)
     const reviews = path.join(dir, '.spec-env', 'reviews')
     const written = fs.readdirSync(reviews)
-    assert.deepStrictEqual(written, ['feat-alpha.html'], 'the page, and nothing else')
+    assert.ok(written.includes('feat-alpha.html'), 'the page is written')
     assert.ok(!written.some((f) => f.endsWith('.url')), 'a remote reader did not publish anything')
     assert.ok(!written.some((f) => f.endsWith('.publish.html')), 'nor write a publish copy')
+    // NOT AN EXACT FILE LIST, deliberately. It used to be `deepStrictEqual` to
+    // `['feat-alpha.html']`, which read as "and nothing else" but actually
+    // asserted "and no sidecar anyone adds later" — so adding an ordinary
+    // gitignored local artefact turned this test red while the prohibition it
+    // names went on holding perfectly. The claim is about PUBLISHING, and the
+    // two suffixes above are what publishing leaves behind.
   } finally {
     cleanup(dir)
   }

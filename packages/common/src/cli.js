@@ -125,6 +125,7 @@ const {
   reviewGatePath,
   readGate,
   writeGate,
+  writeRenderRecord,
   armGate,
   disarmGate,
   gateState,
@@ -3129,6 +3130,21 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   }
 
   writeReviewPage(out, renderReviewPage(data, { reviewHtml: renderReviewBlock(data.review) }))
+
+  // RECORD WHAT THIS RENDER DECLARED, for the served copy to read back. The
+  // daemon re-renders per request and is not the caller, so without this it can
+  // only see what the work IS — enough for `authoring`, `nospec` and
+  // `committing`, and blind to `midrun` and `refresh`, which say whether the run
+  // had finished. `buttonsForView` takes only those two from here.
+  //
+  // Best-effort, like the reviewer cache: a record that could not be written
+  // costs a served page its narrowing, which is the harmless direction, and it
+  // must never fail a render.
+  try {
+    writeRenderRecord(out, { spec: spec.folder, buttons, at: now })
+  } catch {
+    /* the page is the artefact; this is a note for the daemon */
+  }
 
   // The publish-ready copy, ONLY when asked. An ordinary render must not pay for
   // a second copy of the whole diff on disk for a path most renders never take.

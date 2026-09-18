@@ -53,6 +53,8 @@ const {
   addPending,
   readNotes,
   readGate,
+  readRenderRecord,
+  DEFAULT_BUTTON_SET,
 } = require('./review.js')
 
 /**
@@ -372,13 +374,65 @@ function receivePass(dir, config, spec, blob) {
   return { code: added.code, accepted: parsed.accepted.length, comments: parsed.comments.length }
 }
 
+/**
+ * The button set a SERVED page shows.
+ *
+ * Two sources, and each answers only what it knows.
+ *
+ * THE TREE ANSWERS THE FAMILY, and it answers it better than any record can,
+ * because a record is as old as the last render while the tree is now. A spec's
+ * uncommitted documents are `authoring`; a branch with no spec at all is
+ * `nospec`; a phase in a worktree is `committing`. Those three are exactly the
+ * sets that describe what the work IS, so they are read off what the work is.
+ *
+ * THE RECORD ANSWERS WHETHER THE RUN HAD FINISHED, which no tree can show.
+ * `midrun` and `refresh` exist for that — one offers `Continue` in place of the
+ * committing pair, the other drops the start verdict — and only the caller that
+ * rendered knew. So they, and nothing else, are taken from the record.
+ *
+ * WHICH MAKES THE RECORD NARROWING-ONLY. A word it does not recognise, a word
+ * that would WIDEN the offer, an unreadable file, no file at all: every one of
+ * them falls through to the tree (`.claude/rules/negative-checks.md` rule 4).
+ * The cost of a stale record is therefore a reader shown `Continue` where they
+ * could have been shown `Commit` — one refresh away from the right page — and
+ * never a specless branch handed a `Commit & Start` for a spec that does not
+ * exist. That was the bug: `renderSpecPage` took `{ branch }` and no set at all,
+ * so every `/no-spec` page served over http offered to put nothing in flight,
+ * and the pass came back naming a verdict its own skill could not act on.
+ */
+const NARROWING_SETS = ['midrun', 'refresh']
+
+function buttonsForView(viewKind, spec, recorded) {
+  if (NARROWING_SETS.includes(recorded)) return recorded
+  if (viewKind === 'docs' || viewKind === 'docs-committed') return 'authoring'
+  if (spec && spec.specless) return 'nospec'
+  return DEFAULT_BUTTON_SET
+}
+
+// What the last CLI render of this spec declared, or null when it declared
+// nothing readable. Never throws: the page is a convenience, and a sidecar is
+// not what it is for.
+function recordedButtons(dir, spec) {
+  try {
+    return readRenderRecord(reviewOutPath(dir, spec.folder, null), spec.folder).buttons
+  } catch {
+    return null
+  }
+}
+
 function renderSpecPage(dir, config, spec, { branch = false } = {}) {
   const view = viewFor(dir, config, spec, rawGitReader(dir), { fallback: true })
   if (!view) return null
 
-  // THE DOCS VIEW IS A DIFFERENT TREE AND A DIFFERENT FILE SET, and it takes
-  // the authoring buttons: a spec with no worktree has no phase in flight, so
-  // "commit and build the next phase" is the wrong offer for it.
+  // Resolved once, for BOTH paths below. The docs path used to hard-code
+  // `authoring` here and everything else took the default by saying nothing —
+  // which is how a specless branch ended up offering `Commit & Start`.
+  const buttons = buttonsForView(view.kind, spec, recordedButtons(dir, spec))
+
+  // THE DOCS VIEW IS A DIFFERENT TREE AND A DIFFERENT FILE SET. Its buttons
+  // come from `buttonsForView` above like every other view's — it used to name
+  // `authoring` here itself, which was right for this one case and left every
+  // other case with no answer at all.
   if (view.kind === 'docs' || view.kind === 'docs-committed') {
     const docsGit = rawGitReader(view.tree)
     const out = reviewOutPath(dir, spec.folder, null)
@@ -395,7 +449,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
       now: new Date().toISOString(),
       notes,
       gate: gateRead.corrupt ? null : gateRead.gate,
-      buttons: 'authoring',
+      buttons,
       only: view.owned,
       treePath: view.tree,
     })
@@ -464,6 +518,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     now,
     notes,
     gate,
+    buttons,
     live,
     tiers,
   })
@@ -472,6 +527,10 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     const fallbackBase = base()
     const mergeBase = trimmed(['merge-base', fallbackBase, 'HEAD'])
     if (mergeBase) {
+      // THE SET SURVIVES THE FALLBACK, and forgetting it here is not a smaller
+      // version of the same mistake — it is the one that fires most. A clean
+      // worktree is the state a phase ENDS in: the page is rendered, the commit
+      // lands, and from then on every render of that spec comes through here.
       const wider = collectReview({
         spec,
         git,
@@ -481,6 +540,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
         now,
         notes,
         gate,
+        buttons,
         live,
         tiers,
         fellBack: true,
@@ -861,6 +921,7 @@ module.exports = {
   servableSpecs,
   serverHooks,
   renderSpecPage,
+  buttonsForView,
   receivePass,
   createReviewServer,
   startReviewServer,
