@@ -94,7 +94,17 @@ function scaffold() {
   fs.mkdirSync(draft, { recursive: true })
   fs.writeFileSync(path.join(draft, '00-overview.md'), '# feat-draft\n\n> **Status:** Ready\n')
 
-  return { dir, specWt, choreWt }
+  // A spec authored the way `/spec` authors one NOW: its documents are
+  // uncommitted in ITS OWN `--docs` worktree, not in the primary checkout.
+  // `feat-draft` above is the same family in the world before that change,
+  // and both are kept — the fix has to serve each of them the authoring set.
+  const docsWt = path.join(root, 'authored')
+  git(dir, 'worktree', 'add', '-q', '-b', 'feat/authored', docsWt)
+  const authored = path.join(docsWt, 'specs', 'backlog', 'feat-authored')
+  fs.mkdirSync(authored, { recursive: true })
+  fs.writeFileSync(path.join(authored, '00-overview.md'), '# feat-authored\n\n> **Status:** Ready\n')
+
+  return { dir, specWt, choreWt, docsWt }
 }
 
 function cleanup(dir) {
@@ -412,4 +422,95 @@ test('stays silent: the call-site scan can actually fire', () => {
   // it at all, so prove the assertion it makes is one that can fail.
   const body = 'collectReview({\n    spec,\n    git,\n    mode,\n  })\n'
   assert.doesNotMatch(body, /\bbuttons\b/)
+})
+
+/* ==========================================================================
+ * The same bug, one world later
+ *
+ * `/spec` used to write into the primary checkout, so a backlog spec had no
+ * worktree and `viewFor` reached its docs branch. It now provisions the spec's
+ * own `--docs` worktree and writes there — and `viewFor` tests for a worktree
+ * BEFORE it tests for documents, so that branch became unreachable for exactly
+ * the specs it exists to serve.
+ *
+ * The page then offered `Commit & Continue` on a backlog spec with no phase to
+ * continue, and a reader pressed it. That is the same sentence this file's
+ * header records about specless branches, which is why these live here.
+ *
+ * WHAT WOULD FOOL A READER OF THIS FILE: the CLI is CORRECT. The page it writes
+ * carries `"buttons":"authoring"`. Only the daemon's re-render is wrong, so
+ * every assertion below goes over http.
+ * ========================================================================== */
+
+test('a spec authored in its own --docs worktree is served the authoring buttons', async () => {
+  // RED BEFORE THE FIX: `committing`. The worktree check won, and the page
+  // offered a phase that does not exist.
+  const { dir } = scaffold()
+  const s = await serve(dir)
+  try {
+    assert.strictEqual(await buttonsOf(s, 'feat-authored'), 'authoring')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('an authored page offers Commit & Start, and never Commit & Continue', async () => {
+  // The consequence in the words on the screen — a backlog spec has no phase in
+  // flight, so `commit-continue` is a verdict its page must not be able to send.
+  const { dir } = scaffold()
+  const s = await serve(dir)
+  try {
+    assert.strictEqual(await buttonsOf(s, 'feat-authored'), 'authoring')
+    const page = fs.readFileSync(path.join(__dirname, '..', 'assets', 'review', 'page.html'), 'utf8')
+    const set = page.match(/authoring:\s*\[([^\]]+)\]/)
+    assert.ok(set, 'the page defines an authoring offer')
+    assert.match(set[1], /commit-start/)
+    assert.doesNotMatch(set[1], /commit-continue/)
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+/* --------------------------------------------------------------------------
+ * Stays silent — what must NOT change
+ *
+ * The naive fix is to move the docs check above the worktree check. That would
+ * serve every in-flight spec its documents instead of its code, which is the
+ * common case and the whole point of the page.
+ * ------------------------------------------------------------------------ */
+
+test('STAYS SILENT: an in-flight spec with a code worktree is still a worktree view', async () => {
+  const { dir } = scaffold()
+  const s = await serve(dir)
+  try {
+    assert.strictEqual(await buttonsOf(s, 'feat-alpha'), 'committing')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a spec whose documents sit in the primary checkout is unaffected', async () => {
+  // The pre-change world, which still happens wherever isolation is off.
+  const { dir } = scaffold()
+  const s = await serve(dir)
+  try {
+    assert.strictEqual(await buttonsOf(s, 'feat-draft'), 'authoring')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a specless branch is untouched by any of this', async () => {
+  const { dir } = scaffold()
+  const s = await serve(dir)
+  try {
+    assert.strictEqual(await buttonsOf(s, 'tidy-up'), 'nospec')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
 })

@@ -38,7 +38,7 @@ const {
 } = require('./resolve.js')
 const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
-const { specDocsIn } = require('./classify.js')
+const { specDocsIn, classifyDirtyTree, dirtyPaths } = require('./classify.js')
 const { liveStateFor } = require('./live.js')
 const {
   rawGitReader,
@@ -198,6 +198,23 @@ ${body}
  * spec with no worktree BY DEFINITION, so gating the route on a worktree
  * excludes precisely the specs the docs view exists for.
  */
+/**
+ * Is this worktree a spec being WRITTEN rather than built?
+ *
+ * Returns the owned document paths when it is, and null for every other
+ * answer — including the ones we cannot work out. Never throws: a page is a
+ * convenience and a git that will not read is not evidence of anything.
+ */
+function docsWorktree(wt, spec, config) {
+  if (!spec || spec.bucket !== 'backlog') return null
+  const paths = dirtyPaths(trimmedGitReader(wt))
+  // Cannot tell — not "no documents".
+  if (paths === null) return null
+  const { owned, foreign } = classifyDirtyTree(spec, paths, config)
+  if (!owned.length || foreign.length) return null
+  return { owned }
+}
+
 function viewFor(dir, config, spec, git, { fallback = false } = {}) {
   if (!spec) return null
   // LIVE COMES FIRST, because while a spec is live its worktree still exists —
@@ -206,7 +223,34 @@ function viewFor(dir, config, spec, git, { fallback = false } = {}) {
   // here too, so this checkout is the tree that answers.
   if (spec.branch && headBranchOf(git) === spec.branch) return { kind: 'live', tree: dir }
   const wt = spec.worktreePath
-  if (wt && wt !== dir && fs.existsSync(wt)) return { kind: 'worktree', tree: wt }
+  if (wt && wt !== dir && fs.existsSync(wt)) {
+    // A DOCS WORKTREE IS NOT A CODE WORKTREE, and this used to be unreachable.
+    //
+    // `/spec` once wrote into the primary checkout, so a backlog spec had no
+    // worktree at all and fell through to the docs branch below. It now
+    // provisions the spec's own `--docs` worktree and writes there — so this
+    // check began winning for exactly the specs the docs branch exists to
+    // serve, and their pages were served the COMMITTING set. A reader pressed
+    // `Commit & Continue` on a backlog spec that has no phase to continue.
+    //
+    // Asked as a POSITIVE SIGNAL and never as "no code yet"
+    // (`.claude/rules/negative-checks.md` rule 1), and it takes BOTH halves:
+    //
+    //   - the spec is in the BACKLOG, which is what `authoring` means. Without
+    //     this, the window right after `/spec-start` — where the `git mv` and
+    //     the header edit are uncommitted and no phase code exists yet — reads
+    //     as documents-only and would offer `Commit & Start` for a spec
+    //     already in flight.
+    //   - the worktree holds NOTHING BUT this spec's own documents. Without
+    //     this, a backlog spec whose tree had been used for anything else
+    //     would have that work rendered under an authoring verdict.
+    //
+    // Anything else is the ordinary worktree view, including every cannot-tell:
+    // an unresolvable bucket, a git that will not read, an empty tree.
+    const docs = docsWorktree(wt, spec, config)
+    if (docs) return { kind: 'docs', tree: wt, owned: docs.owned }
+    return { kind: 'worktree', tree: wt }
+  }
   const found = specDocsIn(dir, spec, config, trimmedGitReader(dir))
   // `error` is cannot-tell — not a page, and not an error page either (rule 4:
   // the harmless branch).
