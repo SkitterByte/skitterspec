@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-stranded-pass-can-be-disowned (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 2 (started 2026-09-18)
+> **Status:** Complete (2026-09-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-16
@@ -106,9 +106,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-16 | Ready | backlog | Reuben Greaves |
 | 2026-09-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-18 — Completed; both phases done, 3328 tests green. `spec-env review
+  waiting` reports nothing waiting — the ten passes that prompted the spec are
+  cleared, and the command that could not clear them now can.
 - 2026-09-18 — Phase 2 built. It reverses a decision a landed test asserted:
   `feat-no-pass-waits-unheard` left `/spec-complete` and `/spec-cancel` out of
   the waiting report as noise, which holds for a skill that passes a pass by and
