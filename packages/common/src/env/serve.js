@@ -36,6 +36,7 @@ const {
   resolveSpec,
   resolveBaseBranch,
 } = require('./resolve.js')
+const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
 const { specDocsIn } = require('./classify.js')
 const { liveStateFor } = require('./live.js')
@@ -303,9 +304,12 @@ function trimmedGitReader(treePath) {
  * IT INCLUDES WORKTREE-LESS SPECS NOW, and both halves are needed together: a
  * page that serves but is absent from the index is a page nobody finds.
  */
-function servableSpecs(dir, config, git) {
+function servableSpecs(dir, config, git, specless = {}) {
   const worktreePaths = liveWorktreePaths(git)
-  return allSpecs(dir, config, worktreePaths)
+  // `allSpecs` scans `specs/**`, where a specless branch is by definition not —
+  // so it takes the registry's map and adds them. Defaulted to empty, because
+  // every caller that has no concept of them should behave exactly as before.
+  return allSpecs(dir, config, worktreePaths, specless)
     .filter((s) => Boolean(viewFor(dir, config, s, git)))
     .sort((a, b) => a.folder.localeCompare(b.folder))
 }
@@ -770,6 +774,78 @@ function staleServer(recorded, running, recordedMtime, runningMtime) {
   return 'current'
 }
 
+/**
+ * The hooks `createReviewServer` needs, built once.
+ *
+ * WHY THIS IS A FUNCTION AND NOT INLINE IN THE ENTRY POINT. It used to be
+ * inline, and the test suite built its own copy the same way — so the two
+ * drifted independently, and a suite standing up its own wiring could be green
+ * about a server nobody was shipping. That is exactly what happened: both
+ * copies called `resolveSpec` with no `specless` map, every `/no-spec` page
+ * 404'd, and nothing failed.
+ *
+ * THE SPECLESS MAP IS THE POINT. A `/no-spec` branch has a worktree and a
+ * branch and no document anywhere under `specs/**`, so it can only ever be
+ * resolved on the registry's word — which is a POSITIVE SIGNAL, and the reason
+ * a typo still 404s (`.claude/rules/negative-checks.md` rule 1). Both resolvers
+ * already took it; the server simply never passed it.
+ */
+function serverHooks(dir, config) {
+  const git = rawGitReader(dir)
+  const trimmedGit = (argv) => {
+    const out = git(argv)
+    return out == null ? null : String(out).trim() || null
+  }
+
+  // READ PER REQUEST, never cached. A branch provisioned after the daemon
+  // started must be servable without restarting it — the same reason `dir` is
+  // all the settings file stores. An unreadable registry is cannot-tell and
+  // yields an empty map: the specless branches lose their pages, and every
+  // ordinary spec carries on being served.
+  const specless = () => {
+    try {
+      return readRegistry(dir, config).specless || {}
+    } catch {
+      return {}
+    }
+  }
+
+  const resolveOne = (folder) => {
+    try {
+      return resolveSpec(folder, dir, config, {
+        searchDirs: [...liveWorktreePaths(trimmedGit)],
+        specless: specless(),
+      })
+    } catch {
+      return null
+    }
+  }
+
+  const resolveEntries = () =>
+    servableSpecs(dir, config, trimmedGit, specless()).map((s) => {
+      const one = resolveOne(s.folder)
+      return {
+        folder: s.folder,
+        branch: one ? one.branch : '',
+        totals: specSummary(one, dir, config),
+      }
+    })
+
+  return {
+    resolveEntries,
+    render: (folder, opts) => renderSpecPage(dir, config, resolveOne(folder), opts),
+    receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
+    // A spec this daemon cannot resolve is not a pass that was claimed — it is
+    // a lookup that could not see, so it says nothing rather than reporting the
+    // comfortable answer. Same rule the engine's own three states follow.
+    passState: (folder, code) => {
+      const one = resolveOne(folder)
+      if (!one) return { state: 'unknown' }
+      return readPassState(reviewOutPath(dir, one.folder, null), one.folder, code)
+    },
+  }
+}
+
 module.exports = {
   mintToken,
   readBody,
@@ -783,6 +859,7 @@ module.exports = {
   routeFor,
   renderIndex,
   servableSpecs,
+  serverHooks,
   renderSpecPage,
   receivePass,
   createReviewServer,
@@ -801,44 +878,7 @@ if (require.main === module) {
   }
   const { dir, port, host, token } = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
   const { config } = loadEnvConfig(dir)
-  const git = rawGitReader(dir)
-  const trimmedGit = (argv) => {
-    const out = git(argv)
-    return out == null ? null : String(out).trim() || null
-  }
-
-  const resolveOne = (folder) => {
-    try {
-      return resolveSpec(folder, dir, config, { searchDirs: [...liveWorktreePaths(trimmedGit)] })
-    } catch {
-      return null
-    }
-  }
-
-  const resolveEntries = () =>
-    servableSpecs(dir, config, trimmedGit).map((s) => {
-      const one = resolveOne(s.folder)
-      return {
-        folder: s.folder,
-        branch: one ? one.branch : '',
-        totals: specSummary(one, dir, config),
-      }
-    })
-
-  const server = createReviewServer({
-    resolveEntries,
-    render: (folder, opts) => renderSpecPage(dir, config, resolveOne(folder), opts),
-    receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
-    // A spec this daemon cannot resolve is not a pass that was claimed — it is
-    // a lookup that could not see, so it says nothing rather than reporting the
-    // comfortable answer. Same rule the engine's own three states follow.
-    passState: (folder, code) => {
-      const one = resolveOne(folder)
-      if (!one) return { state: 'unknown' }
-      return readPassState(reviewOutPath(dir, one.folder, null), one.folder, code)
-    },
-    token,
-  })
+  const server = createReviewServer({ ...serverHooks(dir, config), token })
   startReviewServer(server, { port, host }).then(
     () => {},
     (err) => {

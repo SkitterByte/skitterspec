@@ -27,6 +27,7 @@ const {
   renderIndex,
   mintToken,
   servableSpecs,
+  serverHooks,
   specSummary,
   renderSpecPage,
   createReviewServer,
@@ -119,28 +120,18 @@ function cleanup(dir) {
   fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
 }
 
-// Stand the real server up on an ephemeral port, wired exactly as the CLI wires
-// it, and hand back a fetch bound to it.
+// Stand the real server up on an ephemeral port, through THE PRODUCTION WIRING,
+// and hand back a fetch bound to it.
+//
+// It used to build `resolveOne`/`resolveEntries` here, "wired exactly as the CLI
+// wires it" — a second copy of the daemon's own setup, kept in step by hand. It
+// was not in step: both copies resolved without the registry's specless map, so
+// every `/no-spec` page 404'd and this suite was green throughout, because it
+// was testing its own copy of the defect. `serverHooks` is the one wiring; a
+// test that stands it up is a statement about what ships.
 async function serve(dir, { token = null } = {}) {
   const { config } = loadEnvConfig(dir)
-  const g = gitReader(dir)
-  const resolveOne = (folder) => {
-    try {
-      return resolveSpec(folder, dir, config, { searchDirs: [...liveWorktreePaths(g)] })
-    } catch {
-      return null
-    }
-  }
-  const server = createReviewServer({
-    resolveEntries: () =>
-      servableSpecs(dir, config, g).map((s) => {
-        const one = resolveOne(s.folder)
-        return { folder: s.folder, branch: one ? one.branch : '', totals: specSummary(one, dir, config) }
-      }),
-    render: (folder, opts) => renderSpecPage(dir, config, resolveOne(folder), opts),
-    receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
-    token,
-  })
+  const server = createReviewServer({ ...serverHooks(dir, config), token })
   const addr = await startReviewServer(server, { port: 0, host: '127.0.0.1' })
   const base = `http://127.0.0.1:${addr.port}/${token ? token + '/' : ''}`
   return {
