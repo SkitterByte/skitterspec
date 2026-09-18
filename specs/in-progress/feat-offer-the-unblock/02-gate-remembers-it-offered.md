@@ -2,29 +2,32 @@
 linear_issue_id: "SKS-355"
 ---
 
-# Phase 2 — The gate remembers it offered ⬜
+# Phase 2 — The gate remembers it offered ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a bypass offer is spent by being made, so the same arming cannot
 produce a second one.
 
 ## Tasks
 
-- [ ] Add `offeredAt` to the gate sidecar, written when the engine declares a
-      bypass offer.
-- [ ] `gateState` declares no bypass offer when `offeredAt` is already set for
+- [x] Add `offeredAt` to the gate sidecar, spent through a new
+      `markGateOffered()` and an explicit `review gate --offered` flag.
+      **Not written as a side effect of declaring the offer**, against the task
+      as first worded: `/spec-next` §2 reads `review gate --json` on every run,
+      so a read that spent the offer would burn it with no picker ever raised.
+- [x] `gateState` declares no bypass offer when `offeredAt` is already set for
       the current arming. The gate itself is unchanged — it still refuses; what
       is withheld is the *offer*, not the refusal.
-- [ ] Arming clears `offeredAt`, so the next phase that ends gets its own offer.
-- [ ] `GATE_VERSION` stays where it is: the field is additive and the sidecar is
+- [x] Arming clears `offeredAt`, so the next phase that ends gets its own offer.
+- [x] `GATE_VERSION` stays where it is: the field is additive and the sidecar is
       gitignored, so there is no fleet to migrate. A gate written before this
       ships reads as never-offered, which is the correct and harmless default.
-- [ ] Tests: an armed gate offers once; the second read of the same arming
+- [x] Tests: an armed gate offers once; the second read of the same arming
       offers nothing and still refuses; re-arming offers again; a sidecar with
       no `offeredAt` offers.
-- [ ] Sync into the shipping packages.
-- [ ] Run the project's typecheck and test commands — green before the phase is
+- [x] Sync into the shipping packages.
+- [x] Run the project's typecheck and test commands — green before the phase is
       done.
 
 ## Notes

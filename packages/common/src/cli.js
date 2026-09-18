@@ -129,6 +129,7 @@ const {
   armGate,
   disarmGate,
   gateState,
+  markGateOffered,
 } = require('./env/review.js')
 const {
   CHECKS_VERSION,
@@ -2269,6 +2270,24 @@ function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
         state: 'unknown',
         reason: `this command is not running inside ${target.spec.folder}'s worktree`,
         gate: judged.gate,
+      }
+    }
+  }
+
+  // RECORDED BEFORE THE ANSWER IS WRITTEN, so the offer this call hands back is
+  // also the one it spends. Explicit rather than automatic: a plain read of the
+  // gate must stay a read, because `/spec-next` makes one on every run.
+  //
+  // Best-effort, like the render record. A sidecar that could not be written
+  // costs a second offer, which is the harmless direction — where refusing to
+  // answer would block a commit over a bookkeeping failure.
+  if (flags.offered && judged.state === 'armed' && target.spec) {
+    const marked = markGateOffered(judged.gate, { at: new Date().toISOString() })
+    if (marked.marked) {
+      try {
+        writeGate(target.out, marked.gate)
+      } catch {
+        /* the gate is the guard; this is only its memory of having asked */
       }
     }
   }
@@ -4734,6 +4753,7 @@ async function specEnv(rest) {
     resolve: null,
     outcome: null,
     claim: null,
+    offered: false,
     drop: null,
     buttons: null,
     json: false,
@@ -4773,6 +4793,7 @@ async function specEnv(rest) {
     else if (args[i] === '--json') flags.json = true
     else if (args[i] === '--check') flags.check = true
     else if (args[i] === '--for-command') flags.forCommand = args[++i]
+    else if (args[i] === '--offered') flags.offered = true
     else if (args[i] === '--phase') flags.phase = args[++i]
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--docs') flags.docs = true
@@ -4935,6 +4956,7 @@ async function specEnv(rest) {
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +
           '  review skip "<reason>"                 move on without one, on the record\n' +
+          '  review gate [spec] --offered           record that the bypass was offered (spends it)\n' +
           '  review wait [spec] --since <iso>       block until a verdict arrives ([--timeout <s>])\n' +
           '  review waiting [--json]                every pass waiting, across every spec\n' +
           '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +

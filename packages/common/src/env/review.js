@@ -1352,7 +1352,7 @@ function reviewGatePath(outPath) {
 }
 
 function emptyGate(specFolder) {
-  return { version: GATE_VERSION, spec: specFolder, armed: false, armedAt: null, phase: null, log: [] }
+  return { version: GATE_VERSION, spec: specFolder, armed: false, armedAt: null, phase: null, offeredAt: null, log: [] }
 }
 
 /**
@@ -1380,6 +1380,10 @@ function readGate(outPath, specFolder) {
         armed: parsed.armed === true,
         armedAt: parsed.armedAt || null,
         phase: parsed.phase === undefined ? null : parsed.phase,
+        // A sidecar written before this field existed reads as never-offered,
+        // which is the correct and harmless default. These files are gitignored,
+        // so there is no fleet to migrate and `GATE_VERSION` does not move.
+        offeredAt: parsed.offeredAt || null,
         log: Array.isArray(parsed.log) ? parsed.log : [],
       },
       corrupt: false,
@@ -1464,8 +1468,32 @@ function writeRenderRecord(outPath, record) {
  * for a DIFFERENT phase is re-armed, because that is a new obligation.
  */
 function armGate(gate, { at, phase = null }) {
+  // Idempotent within a phase — a re-render must not restart the clock, and it
+  // must not hand back an offer this arming has already spent.
   if (gate.armed && gate.phase === phase) return gate
-  return { ...gate, armed: true, armedAt: at, phase }
+  // A NEW ARMING GETS A NEW OFFER. Each phase that ends is its own obligation,
+  // so the once-only rule is scoped to the arming rather than to the file.
+  return { ...gate, armed: true, armedAt: at, phase, offeredAt: null }
+}
+
+/**
+ * Record that the bypass was offered for this arming. Pure.
+ *
+ * SPENT BY BEING MADE, not by being taken. A reader who declines still saw it,
+ * and re-offering on the next refused commit is how a bypass becomes the default
+ * rather than a deliberate step.
+ *
+ * NOT DONE AS A SIDE EFFECT OF READING THE GATE, deliberately. `/spec-next`
+ * asks `review gate --json` on every single run, so a read that spent the
+ * offer would burn it with no picker ever raised — and the operator would never
+ * be offered the thing this exists to offer them.
+ *
+ * Marking an unarmed gate changes nothing: there is no obligation, so there is
+ * nothing to have offered a way out of.
+ */
+function markGateOffered(gate, { at }) {
+  if (!gate.armed || gate.offeredAt) return { gate, marked: false }
+  return { gate: { ...gate, offeredAt: at }, marked: true }
 }
 
 /**
@@ -1536,7 +1564,15 @@ function gateState({ gate, corrupt, present, required }) {
     }
   }
   if (!gate.armed) return { state: 'clear', reason: 'nothing is awaiting a verdict', gate }
-  return { state: 'armed', reason: 'a phase is awaiting a verdict', gate, offer: GATE_BYPASS_OFFER }
+  // The refusal is unchanged by the offer having been spent — what is withheld
+  // is the way out, never the guard. A second refused commit still refuses, and
+  // still names its exits in the text; the operator simply is not asked again.
+  return {
+    state: 'armed',
+    reason: 'a phase is awaiting a verdict',
+    gate,
+    ...(gate.offeredAt ? {} : { offer: GATE_BYPASS_OFFER }),
+  }
 }
 
 /**
@@ -2257,6 +2293,7 @@ module.exports = {
   armGate,
   disarmGate,
   gateState,
+  markGateOffered,
   GATE_BYPASS_OFFER,
   GATE_BYPASS_REASON,
   gateForPage,
