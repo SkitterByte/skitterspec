@@ -131,6 +131,8 @@ const {
   disarmGate,
   gateState,
   markGateOffered,
+  grantPermit,
+  permitHonoured,
 } = require('./env/review.js')
 const {
   CHECKS_VERSION,
@@ -2354,6 +2356,22 @@ function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
         reason: `this command is not running inside ${target.spec.folder}'s worktree`,
         gate: judged.gate,
       }
+    } else if (permitHonoured(judged.gate, { head: gitReader(target.spec.worktreePath)(['rev-parse', 'HEAD']) })) {
+      // A PRECONDITION, NOT AN ANSWER. The operator pressed `live-on`, whose
+      // handling commits the phase before `live take` will touch it, so this
+      // commit is the thing they asked for rather than a way around them. The
+      // permit is bound to the HEAD it was granted against, so it covers this
+      // one commit and dies the moment it lands — `grantPermit` carries the
+      // reasoning.
+      //
+      // `permitted` rather than `clear`: the obligation is untouched and the
+      // word should not say otherwise. It exits 0 like every other non-`armed`
+      // state, and only `armed` ever sets a non-zero status.
+      judged = {
+        state: 'permitted',
+        reason: `a claimed ${judged.gate.permit.for} press needs this commit first`,
+        gate: judged.gate,
+      }
     }
   }
 
@@ -2385,6 +2403,10 @@ function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
           armedAt: judged.gate ? judged.gate.armedAt : null,
           phase: judged.gate ? judged.gate.phase : null,
           required: config.review.required,
+          // Absent stays absent, so a gate with no permit is byte-identical to
+          // what it was before this existed. Present, it is the visible form of
+          // the one commit an armed gate will not refuse.
+          ...(judged.gate && judged.gate.permit ? { permit: judged.gate.permit } : {}),
           // Absent stays absent: only an `armed` gate has a way out to declare,
           // and every cannot-tell state carries none.
           ...(judged.offer ? { offer: judged.offer } : {}),
@@ -2405,6 +2427,14 @@ function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
     )
   } else if (judged.state === 'clear') {
     process.stdout.write(`spec-env review gate: ${target.spec.folder} owes nothing — ${judged.reason}\n`)
+  } else if (judged.state === 'permitted') {
+    // Says what it let through AND what is still owed, in that order. A line
+    // that only said "permitted" would read as the gate having been cleared,
+    // which is the one thing this state does not do.
+    process.stdout.write(
+      `spec-env review gate: ${target.spec.folder} — ${judged.reason}.\n` +
+        '  the phase still owes a verdict; this permits the commit and nothing else.\n',
+    )
   } else {
     process.stdout.write(
       `spec-env review gate: cannot tell — ${judged.reason}.\n` +
@@ -2959,6 +2989,47 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       action: parsed.action || null,
     }
     merged = { accepted: claimed.accepted, unaccepted: claimed.unaccepted, comments: claimed.comments }
+
+    // THE ONE COMMIT THIS ACTION DEPENDS ON, permitted here because the press
+    // is the positive signal. `live take` refuses a dirty worktree, so
+    // `/spec-diff` §2b commits the phase first — and the gate this phase armed
+    // would otherwise deny exactly that commit, which made the button
+    // unachievable in the only state it is offered in.
+    //
+    // IT IS NOT A VERDICT AND CLEARS NOTHING. The gate stays armed, so
+    // `/spec-next` still refuses the next phase; `grantPermit` is where the
+    // three signals it needs are documented.
+    //
+    // Read from the SPEC'S WORKTREE rather than `readFrom`, which follows the
+    // work to the primary checkout while a spec is live. The gate guards the
+    // worktree, so that is the tree whose HEAD the permit is bound to — and a
+    // spec that is already live has nothing to put live anyway.
+    //
+    // Best-effort throughout: an unreadable tree, an unwritable sidecar, a gate
+    // we could not parse all grant nothing and say nothing. Being wrong that
+    // way costs the refusal that already happens today; being wrong the other
+    // way is a hole in the one thing here that refuses.
+    if (claimed.action) {
+      const wtGit = gitReader(spec.worktreePath)
+      const status = wtGit(['status', '--porcelain'])
+      const head = wtGit(['rev-parse', 'HEAD'])
+      const gateRead = readGate(out, spec.folder)
+      if (!gateRead.corrupt) {
+        const granted = grantPermit(gateRead.gate, {
+          at: new Date().toISOString(),
+          action: claimed.action,
+          head,
+          dirty: status !== null && status.length > 0,
+        })
+        if (granted.granted) {
+          try {
+            writeGate(out, granted.gate)
+          } catch {
+            /* the refusal it would have lifted is the one that happens anyway */
+          }
+        }
+      }
+    }
   }
 
 

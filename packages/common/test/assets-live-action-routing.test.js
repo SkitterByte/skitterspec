@@ -66,6 +66,18 @@ test('/spec-diff calls live-on\'s commit a precondition, not an answer', () => {
   assert.match(sec, /The reader has not approved anything by pressing it/)
 })
 
+// The press was unachievable in the only state it is offered in: the page
+// offers it at the end of a phase, a phase that ended arms the gate, and the
+// gate denied the commit the press depends on. The skill has to say the permit
+// exists, or the next reader of a refusal here goes looking for a flag.
+test('/spec-diff says the gate permits live-on\'s commit, and only that', () => {
+  const sec = DIFF.slice(DIFF.indexOf('## 2b.'), DIFF.indexOf('## 3. Gate it on nothing'))
+  assert.match(sec, /The gate permits that one commit, and nothing more/)
+  assert.match(sec, /bound to\s*\n?the worktree's HEAD/)
+  // And it must not read as a lift: the obligation outlives the press.
+  assert.match(sec, /the gate stays\s*\n?\*\*armed\*\* throughout/)
+})
+
 // Half a phase committed to look at it running splits one phase across two
 // commits — a mess nobody asked for, and the opposite of what the commit-first
 // rule is for at a phase END.

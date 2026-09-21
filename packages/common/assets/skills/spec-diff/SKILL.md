@@ -385,6 +385,16 @@ uncommitted work stays behind in the worktree — so what went live would be the
 `review.commitWith` exactly as §2a does (do not restate its rules here), then
 take the instance. The reader has not approved anything by pressing it.
 
+**The gate permits that one commit, and nothing more.** A phase that ended
+armed the gate, so the commit this action needs is the very commit the gate
+refuses — which made the press unachievable in the only state it is offered in.
+Claiming a `live-on` pass therefore records a **permit** on the gate, bound to
+the worktree's HEAD, and the commit hook honours it. It dies the moment that
+commit lands, so a second one is refused exactly as before, and the gate stays
+**armed** throughout: the phase still owes a verdict and `/spec-next` still
+refuses to build the next one. Nothing is typed to get it — if a commit here is
+still refused, that is the ordinary gate and the exits are the ordinary three.
+
 **It re-renders `--branch` afterwards**, because the working view is now empty:
 the commit just happened, and the branch range is what still answers "what am I
 looking at". §4's clean-tree fallback reaches the same place on its own, so

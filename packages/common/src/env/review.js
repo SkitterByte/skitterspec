@@ -1449,7 +1449,7 @@ function reviewGatePath(outPath) {
 }
 
 function emptyGate(specFolder) {
-  return { version: GATE_VERSION, spec: specFolder, armed: false, armedAt: null, phase: null, offeredAt: null, log: [] }
+  return { version: GATE_VERSION, spec: specFolder, armed: false, armedAt: null, phase: null, offeredAt: null, permit: null, log: [] }
 }
 
 /**
@@ -1481,6 +1481,11 @@ function readGate(outPath, specFolder) {
         // which is the correct and harmless default. These files are gitignored,
         // so there is no fleet to migrate and `GATE_VERSION` does not move.
         offeredAt: parsed.offeredAt || null,
+        // Same rule as `offeredAt`: a sidecar written before this existed reads
+        // as no permit, which is the state that refuses. Anything that is not
+        // an object is read as absent rather than trusted — this file is the
+        // one thing standing between an armed gate and a commit.
+        permit: parsed.permit && typeof parsed.permit === 'object' ? parsed.permit : null,
         log: Array.isArray(parsed.log) ? parsed.log : [],
       },
       corrupt: false,
@@ -1570,7 +1575,13 @@ function armGate(gate, { at, phase = null }) {
   if (gate.armed && gate.phase === phase) return gate
   // A NEW ARMING GETS A NEW OFFER. Each phase that ends is its own obligation,
   // so the once-only rule is scoped to the arming rather than to the file.
-  return { ...gate, armed: true, armedAt: at, phase, offeredAt: null }
+  //
+  // AND A NEW OBLIGATION STARTS WITH NO WAY PAST IT. A permit is granted
+  // against one arming — the commit one pressed `live-on` depends on — so
+  // carrying it into the next phase would hand that phase a hole nobody asked
+  // for. It is bound to a HEAD as well, so this is belt and braces; both are
+  // cheap and only one of them has to hold.
+  return { ...gate, armed: true, armedAt: at, phase, offeredAt: null, permit: null }
 }
 
 /**
@@ -1594,6 +1605,82 @@ function markGateOffered(gate, { at }) {
 }
 
 /**
+ * The actions whose handling REQUIRES a commit in the spec's own worktree.
+ *
+ * One, and the list exists so the answer is looked up rather than remembered.
+ * `allow-network` and `allow-remote` write a config key and commit nothing, so
+ * neither has a precondition to permit — and a permit granted for an action
+ * that never commits is a hole with no commit to close it.
+ */
+const PERMITTED_ACTIONS = ['live-on']
+
+/**
+ * Record that ONE commit is a claimed action's mechanical precondition. Pure.
+ *
+ * WHY THIS EXISTS. The page offers `live-on` only on a non-midrun render, which
+ * is what a finished phase produces — and a finished phase arms the gate. The
+ * action is deliberately not a verdict, so it clears nothing; but `live take`
+ * refuses a dirty worktree, so handling the press means committing the phase
+ * first. That commit is a `git commit` in the spec's own worktree, which is
+ * exactly what the armed gate denies. Without this the button could never
+ * succeed in the only state it was ever offered in.
+ *
+ * WHAT IT IS NOT: a verdict, a skip, or a lift. The gate stays `armed`, so
+ * `/spec-next` still refuses the next phase and the obligation is still
+ * discharged by a committing verdict or a recorded skip and by nothing else.
+ * This widens one commit, not the guard.
+ *
+ * THREE POSITIVE SIGNALS, all required (`.claude/rules/negative-checks.md`
+ * rule 1), and every cannot-tell grants nothing:
+ *
+ * - The gate is ARMED. Nothing is refusing otherwise, so there is nothing to
+ *   permit past — and a permit written onto a clear gate would sit there
+ *   waiting for the next phase to arm.
+ * - The action is one that COMMITS. See `PERMITTED_ACTIONS` above.
+ * - The worktree is DIRTY, and a `head` was readable. A clean tree has no
+ *   precondition, so granting one would leave a permit lying around to cover
+ *   some later commit made for an entirely different reason.
+ *
+ * BOUND TO A HEAD, which is what makes it exactly one commit rather than a
+ * standing permission. `permitHonoured` compares the worktree's HEAD against
+ * the one recorded here, so the permit dies the instant its commit lands — and
+ * a commit that FAILED (red tests, a rejected message) leaves HEAD alone, so
+ * the retry is still covered. Spending it on the check instead would have made
+ * that retry a refusal.
+ */
+function grantPermit(gate, { at, action, head, dirty }) {
+  if (!gate || !gate.armed) return { gate, granted: false }
+  if (!PERMITTED_ACTIONS.includes(action)) return { gate, granted: false }
+  if (dirty !== true || !head) return { gate, granted: false }
+  return {
+    gate: { ...gate, permit: { for: action, at, head, phase: gate.phase === undefined ? null : gate.phase } },
+    granted: true,
+  }
+}
+
+/**
+ * Does this gate's permit cover a commit happening at `head`? Pure.
+ *
+ * WHAT WOULD FOOL THIS: nothing here checks WHERE the commit is running. That
+ * is deliberate — the caller has already established that it is inside this
+ * spec's own worktree, which is the same positive signal `--for-command` wants
+ * before it refuses at all, and duplicating it here would be a second copy free
+ * to drift from the first.
+ *
+ * A permit for an action not in `PERMITTED_ACTIONS` is ignored rather than
+ * trusted. The sidecar is gitignored and hand-editable, and an older engine
+ * meeting a newer word should refuse, not guess.
+ */
+function permitHonoured(gate, { head }) {
+  if (!gate || !gate.armed) return false
+  const permit = gate.permit
+  if (!permit || typeof permit !== 'object') return false
+  if (!PERMITTED_ACTIONS.includes(permit.for)) return false
+  if (!permit.head || !head) return false
+  return permit.head === head
+}
+
+/**
  * Disarm it, and say how. Pure.
  *
  * The log is append-only and nothing reads it back to decide anything — it is
@@ -1605,7 +1692,10 @@ function disarmGate(gate, { at, by, reason = null }) {
   if (!gate.armed) return { gate, logged: false }
   const log = Array.isArray(gate.log) ? gate.log.slice() : []
   log.push({ by, at, phase: gate.phase === undefined ? null : gate.phase, reason })
-  return { gate: { ...gate, armed: false, armedAt: null, phase: null, log }, logged: true }
+  // The permit goes with the obligation it was a way through. Nothing refuses
+  // once the gate is clear, so a surviving one could only ever apply to the
+  // next phase's arming — which is not what anybody pressed.
+  return { gate: { ...gate, armed: false, armedAt: null, phase: null, permit: null, log }, logged: true }
 }
 
 /**
@@ -2392,6 +2482,9 @@ module.exports = {
   disarmGate,
   gateState,
   markGateOffered,
+  PERMITTED_ACTIONS,
+  grantPermit,
+  permitHonoured,
   GATE_BYPASS_OFFER,
   GATE_BYPASS_REASON,
   gateForPage,
