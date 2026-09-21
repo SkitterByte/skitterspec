@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-live-on-gate-deadlock (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (test green), awaiting review
+> **Status:** Complete (2026-09-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -129,6 +129,7 @@ guard the widening.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -141,3 +142,4 @@ guard the widening.
   tests, no Conventional Commit message and no `Release-Note:`/`Refs:` footers.
   `/spec-diff` §2b already names the right handler; the fix is to stop denying
   it.
+- 2026-09-21 — Completed; fix landed, all tests green (3508).
