@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-review-current-and-close (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-21)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
 > **Area:** packages/common/assets/review/page.html, packages/common/test/assets-review.test.js
 > **Stack:** worktree
@@ -143,6 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-21 | Ready | backlog | Reuben Greaves |
+| 2026-09-21 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
