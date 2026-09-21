@@ -5,6 +5,16 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 17.3.0 — 21 Sep 2026
+
+### Review
+- **New** — After you send a verdict the review page now tells you it is waiting to hear back, rather than telling you to run a recovery command it takes back a moment later — and once Claude has picked the review up, the tab closes itself.
+- **New** — The review page's file list now highlights whichever file you are currently reading, and scrolls itself to keep that row in view — so a long diff stops being a map with no "you are here".
+- **New** — The review page for a bug or hotfix fix no longer offers "Commit & Continue" when there is no next phase to build, so pressing it can no longer reach a /spec-next with nothing to do.
+- **Fixed** — The review page's "Commit & put it live" button works again. It was offered only at the end of a phase, where the review gate refused the very commit it depends on, so every press ended in a refusal. The phase still owes you a verdict afterwards.
+- **Fixed** — Writing a note on the review page now wraps inside the pane instead of running off to the right, and pressing a verdict while text is still sitting unadded in the box warns you rather than silently throwing it away.
+- **Fixed** — A review page opened for a freshly written spec now shows the spec on it. A tracker snapshot sitting beside the spec used to flip the page to the phase view, where every file is bookkeeping — so the page loaded with an empty main column and the wrong verdict buttons. A change that is nothing but spec documents now opens too, rather than folding all of itself away.
+
 ## 17.2.0 — 18 Sep 2026
 
 ### Env
