@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-single-pass-buttons (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-21)
+> **Status:** Complete (2026-09-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -128,6 +128,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-21 | Ready | backlog | Reuben Greaves |
 | 2026-09-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -141,3 +142,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   plan: `/spec-complete` and `/spec-to-main` are asserted to declare no button
   set either, because the same symmetry argument that would paste the step into
   them would paste the flag in too.
+- 2026-09-21 — Completed; both phases done, 3,497 tests green.
