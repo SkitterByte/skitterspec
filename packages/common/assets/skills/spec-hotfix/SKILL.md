@@ -226,11 +226,17 @@ The fix is green and nothing is committed yet. That is the moment the page is
 about, so render it now — **after** the tests pass and **before** the commit:
 
 ```
-skitterspec spec-env review <spec>
+skitterspec spec-env review <spec> --buttons fix
 ```
 
 **This is free.** The engine reads git and splices the patches into a template;
 the diff never passes through you, so a 266KB patch costs nothing.
+
+**`--buttons fix` drops `Commit & Continue`**, because a hotfix has no next
+phase for `/spec-next` to build and that verb would name work which does not
+exist. There is no exception to this the way there is in `/spec-bug`: a hotfix
+is a single pass against a released tag by construction, so it never has phase
+files and the flag is unconditional here.
 
 **Then arm the gate**, so the fix now owes a verdict:
 

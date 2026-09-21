@@ -116,7 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | The `fix` set exists, and survives a served re-render | ✅ | [01-fix-button-set.md](01-fix-button-set.md) |
-| 2 | The two skills declare it | ⬜ | [02-skills-declare-it.md](02-skills-declare-it.md) |
+| 2 | The two skills declare it | ✅ | [02-skills-declare-it.md](02-skills-declare-it.md) |
 
 ## Open questions
 
@@ -137,3 +137,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-21 — Phase 1 done. The `NARROWING_SETS` entry was checked by reverting
   it: without `fix` on that list the CLI render is right and all three served
   tests go red, which is the refresh-is-wrong failure Decision 3 names.
+- 2026-09-21 — Phase 2 done. The stays-silent half grew a second case beyond the
+  plan: `/spec-complete` and `/spec-to-main` are asserted to declare no button
+  set either, because the same symmetry argument that would paste the step into
+  them would paste the flag in too.

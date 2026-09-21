@@ -321,3 +321,56 @@ test('stays silent: /spec-start starts the server without owing a verdict', () =
   assert.doesNotMatch(text, /skitterspec spec-env review </, 'and it renders no page')
   assert.doesNotMatch(text, /## ⏸ Review ready/, 'so it has no banner and needs none')
 })
+
+/* ==========================================================================
+ * The button set each render declares
+ *
+ * `/spec-next` builds a PHASE, so `Commit & Continue` names the phase after it
+ * and the default committing set is right — it passes no `--buttons` on
+ * purpose. `/spec-bug` and `/spec-hotfix` take a whole fix to green in one
+ * pass, so there is no phase after it and the verb names nothing.
+ *
+ * The page cannot work this out for itself: it dims the button on
+ * `data.phases.hasNextPhase === false`, and `readPhases` returns `null` for a
+ * folder with no phase files, because that is also a legacy inline-phase
+ * layout. So the caller declares it, which is what `buttons` is for.
+ * ========================================================================== */
+
+for (const name of ['spec-bug', 'spec-hotfix']) {
+  test(`/${name} renders the single-pass button set`, () => {
+    const text = skillText(name)
+    assert.match(text, /skitterspec spec-env review <spec> --buttons fix/)
+    assert.match(text, /Commit & Continue/, 'and says which verb it is dropping')
+  })
+
+  test(`/${name} still arms the gate — the set narrows, it does not excuse`, () => {
+    // `fix` drops a verb; it does not make the work unfinished. A fix that is
+    // green and rendered still owes a verdict, and `commit` is a committing
+    // one, so the gate is discharged exactly as before.
+    assert.match(skillText(name), /skitterspec spec-env review arm <spec>/)
+  })
+}
+
+test('/spec-bug keeps the committing set for a fix it split into phases', () => {
+  // The conditional half. §5 allows a large root cause to become phase files
+  // for `/spec-next` to continue — and there a next phase genuinely exists.
+  const text = skillText('spec-bug')
+  assert.match(text, /split the fix into phase files, drop the flag/i)
+})
+
+test('STAYS SILENT: /spec-next declares no set, and still says why', () => {
+  // The default IS the committing set, so passing it would be noise — but the
+  // reason has to stay written down, or the next person reads the absence as
+  // the oversight this spec just fixed two of.
+  const text = skillText('spec-next')
+  assert.ok(!/spec-env review <spec> --buttons fix/.test(text), '/spec-next must not take the single-pass set')
+  assert.match(text, /`--buttons` is not passed/)
+})
+
+test('STAYS SILENT: the landing skills gain no button set either', () => {
+  // Same reasoning as the render test above: they do not render a phase page,
+  // so there is nothing here for them to declare.
+  for (const name of ['spec-complete', 'spec-to-main']) {
+    assert.ok(!/--buttons/.test(skillText(name)), `/${name} declares no button set`)
+  }
+})

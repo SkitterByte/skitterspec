@@ -203,11 +203,24 @@ The fix is green and nothing is committed yet. That is the moment the page is
 about, so render it now — **after** the tests pass and **before** the commit:
 
 ```
-skitterspec spec-env review <spec>
+skitterspec spec-env review <spec> --buttons fix
 ```
 
 **This is free.** The engine reads git and splices the patches into a template;
 the diff never passes through you, so a 266KB patch costs nothing.
+
+**`--buttons fix` drops `Commit & Continue`**, because a fix that took one pass
+has no next phase and that verb names work which does not exist. The page has a
+guard for this and cannot see these specs: it dims the button on
+`data.phases.hasNextPhase === false`, and `readPhases` returns `null` for a
+folder with no phase files — deliberately, since that is also a legacy layout
+whose phases live inline in the overview. The set is the caller's declaration
+about the work, so the declaration is here.
+
+**Where §5 split the fix into phase files, drop the flag.** Then a next phase
+genuinely exists, `/spec-next` will build it, and the committing set is right —
+so take the default by passing no `--buttons` at all, exactly as `/spec-next`
+does.
 
 **Then arm the gate**, so the fix now owes a verdict:
 
