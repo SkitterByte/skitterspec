@@ -2576,18 +2576,58 @@ function specEnvReviewAllow(dir, config, tier, flags) {
 }
 
 // `review skip` — move on without a verdict, on the record.
-function specEnvReviewSkip(dir, config, reason, flags) {
+/**
+ * Split `skip`'s positionals into a spec and a reason.
+ *
+ * WHY IT IS NOT SIMPLY `positional[1]`. It was, and it made the gate's own
+ * documented exit unreachable: a spec whose worktree is gone resolves neither
+ * from the cwd nor from a sole provisioned spec, so the refusal told the
+ * operator to "name the one you mean" — a thing the command could not accept —
+ * while its worktree, the other half of that advice, no longer existed. The
+ * gate was then permanent, and clearing it meant hand-editing a gitignored
+ * sidecar. `review gate <spec>` and `review <spec> --claim-since` both take a
+ * name; this was the one that did not.
+ *
+ * TWO POSITIONALS are unambiguous: spec, then reason.
+ *
+ * ONE IS DECIDED BY A POSITIVE SIGNAL (`.claude/rules/negative-checks.md`
+ * rule 1) — it is a spec only where it RESOLVES to one. `findSpecFolder`
+ * matches a bucket folder by exact basename, so nothing fuzzy gets in: a reason
+ * has to be spelled exactly like a spec folder to be read as one, and a reason
+ * that is spelled exactly like a spec folder is a person naming a spec. Every
+ * cannot-tell — an unknown name, an unresolvable repo, a thrown resolver —
+ * falls to the reason, which is the behaviour this command has always had and
+ * the harmless branch.
+ *
+ * THE PROBE NEVER DECIDES THE OUTCOME, only which slot the word fills. What
+ * happens next is the ordinary resolution, refusal text and all.
+ */
+function splitSkipArgs(dir, config, rest) {
+  const args = (rest || []).filter((a) => a !== undefined && a !== null)
+  if (args.length >= 2) return { specArg: args[0], reason: args[1] }
+  if (args.length === 1) {
+    return gateTarget(dir, config, args[0]).spec
+      ? { specArg: args[0], reason: null }
+      : { specArg: null, reason: args[0] }
+  }
+  return { specArg: null, reason: null }
+}
+
+function specEnvReviewSkip(dir, config, rest, flags) {
+  const { specArg, reason } = splitSkipArgs(dir, config, rest)
   const said = String(reason || '').trim()
   if (!said) {
     // The reason IS the feature. A skip with no reason is the silence this
-    // whole gate exists to replace, so it is refused rather than defaulted.
+    // whole gate exists to replace, so it is refused rather than defaulted —
+    // and naming the spec is not giving one, which is why the probe above puts
+    // a lone spec name in the spec slot and leaves this empty.
     process.stdout.write(
-      'spec-env review skip: needs a reason — skitterspec spec-env review skip "<why>"\n',
+      'spec-env review skip: needs a reason — skitterspec spec-env review skip [<spec>] "<why>"\n',
     )
     process.exitCode = 1
     return
   }
-  const target = gateTarget(dir, config, null)
+  const target = gateTarget(dir, config, specArg)
   if (!target.spec) {
     process.stdout.write(`spec-env review skip: cannot tell which spec — ${target.reason}\n`)
     process.exitCode = 1
@@ -5114,10 +5154,10 @@ async function specEnv(rest) {
         break
       }
       if (positional[0] === 'skip') {
-        // The one positional is the REASON, not a spec: the two are
-        // indistinguishable as free text, and the spec is the one thing this
-        // engine can already resolve from where you are standing.
-        specEnvReviewSkip(dir, config, positional[1], flags)
+        // `skip [<spec>] "<why>"`. The spec is usually resolvable from where you
+        // are standing, which is why it stays optional — but not always, and
+        // `splitSkipArgs` carries why that mattered enough to change.
+        specEnvReviewSkip(dir, config, positional.slice(1), flags)
         break
       }
       await specEnvReview(dir, config, positional[0], flags, invokedFrom)
@@ -5134,7 +5174,7 @@ async function specEnv(rest) {
           '  review arm [spec] [--phase <n>]        a phase ended — its diff now owes a verdict\n' +
           '  review gate [spec] [--check] [--json]  is one owed? --check exits non-zero if so\n' +
           '       [--for-command <cmdline>]         ...but only when that command is a git commit\n' +
-          '  review skip "<reason>"                 move on without one, on the record\n' +
+          '  review skip [spec] "<reason>"          move on without one, on the record\n' +
           '  review gate [spec] --offered           record that the bypass was offered (spends it)\n' +
           '  review wait [spec] --heartbeat <secs>  proof-of-life cadence on stderr; 0 disables\n' +
           '  review wait [spec] --since <iso>       block until a verdict arrives ([--timeout <s>])\n' +

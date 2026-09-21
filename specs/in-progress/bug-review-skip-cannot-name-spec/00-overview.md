@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-review-skip-cannot-name-spec (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** In Progress — fixed (test green)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -74,24 +74,24 @@ the two other specs, and `gate --check` still exits 1.
 
 ## Fix
 
-- [ ] `specEnvReviewSkip` takes the spec: `review skip [<spec>] "<reason>"`,
+- [x] `specEnvReviewSkip` takes the spec: `review skip [<spec>] "<reason>"`,
       passing it to `gateTarget` as its siblings do.
-- [ ] One positional disambiguates on a **positive signal** — it is a spec only
+- [x] One positional disambiguates on a **positive signal** — it is a spec only
       where it resolves to one; anything else is a reason, which is today's
       behaviour and the harmless branch
       (`.claude/rules/negative-checks.md` rule 1).
-- [ ] A reason stays required in both forms; `skip <spec>` with no reason
+- [x] A reason stays required in both forms; `skip <spec>` with no reason
       refuses rather than recording the spec's name as its own reason.
-- [ ] Stays-silent test: the bare form in a repo with one worktree behaves
+- [x] Stays-silent test: the bare form in a repo with one worktree behaves
       exactly as today.
-- [ ] Failing test now passes (GREEN); `node --test` clean, no regressions.
+- [x] Failing test now passes (GREEN); `node --test` clean, no regressions.
 
 ## Impact
 
 | Surface | Change | Detail |
 |---------|--------|--------|
 | CLI command | update | `spec-env review skip [<spec>] "<reason>"` — new optional leading spec argument |
-| CLI command | update | `spec-env review skip` usage/refusal text names the spec form |
+| CLI command | update | `spec-env review skip` usage + no-reason refusal name the spec form |
 
 ## State log
 
@@ -102,3 +102,8 @@ the two other specs, and `gate --check` still exits 1.
 ## Changelog
 
 - 2026-09-21 — Bug reproduced; failing test added (red).
+- 2026-09-21 — Fixed: `skip` splits its positionals into a spec and a reason,
+  deciding a lone one on whether it resolves to a spec; test green, 3528 pass.
+- 2026-09-21 — Scope: `/spec-skip` still cannot name a spec — it passes
+  `"$ARGUMENTS"` as one quoted word, so word-splitting it would break the
+  unquoted multi-word reason that is its common case. Left for its own spec.

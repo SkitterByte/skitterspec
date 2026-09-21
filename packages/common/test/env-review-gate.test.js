@@ -160,7 +160,12 @@ function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
 }
 
-function scaffold({ config } = {}) {
+// `worktrees` names the specs that get one, and defaults to today's single
+// `feat-alpha` — a scaffold whose default changed would move every stays-silent
+// assertion in this file onto a repo none of them were written against. A spec
+// folder is written for each name either way: the case this exists for is a
+// spec that HAS a folder and has lost its worktree.
+function scaffold({ config, worktrees = ['alpha'] } = {}) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-gatecli-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
@@ -180,16 +185,21 @@ function scaffold({ config } = {}) {
   }
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   fs.writeFileSync(path.join(dir, 'app.js'), 'one\ntwo\n')
-  const specDir = path.join(dir, 'specs', 'in-progress', 'feat-alpha')
-  fs.mkdirSync(specDir, { recursive: true })
-  fs.writeFileSync(path.join(specDir, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
+  for (const slug of new Set(['alpha', ...worktrees])) {
+    const specDir = path.join(dir, 'specs', 'in-progress', `feat-${slug}`)
+    fs.mkdirSync(specDir, { recursive: true })
+    fs.writeFileSync(path.join(specDir, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
+  }
   git(dir, 'add', '-A')
   git(dir, 'commit', '-q', '-m', 'init')
   git(dir, 'branch', '-M', 'main')
-  const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'alpha')
-  git(dir, 'worktree', 'add', '-q', '-b', 'feat/alpha', wt)
-  fs.writeFileSync(path.join(wt, 'app.js'), 'one\nTWO\n')
-  return { dir, wt }
+  const root = path.resolve(dir, `../${path.basename(dir)}-wt`)
+  for (const slug of worktrees) {
+    const at = path.join(root, slug)
+    git(dir, 'worktree', 'add', '-q', '-b', `feat/${slug}`, at)
+    fs.writeFileSync(path.join(at, 'app.js'), 'one\nTWO\n')
+  }
+  return { dir, wt: worktrees.includes('alpha') ? path.join(root, 'alpha') : null }
 }
 
 function cleanup(dir) {
@@ -322,6 +332,71 @@ test('a skip with a reason clears the gate and keeps the reason', async () => {
 
     const json = JSON.parse((await cli(dir, 'gate', 'feat-alpha', '--json')).out)
     assert.strictEqual(json.state, 'clear')
+    assert.deepStrictEqual(json.log.map((e) => [e.by, e.reason]), [['skip', 'docs only, nothing to read']])
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a skip can name the spec, which is the only way out when its worktree is gone', async () => {
+  // THE STATE THE BARE FORM CANNOT ANSWER. `feat-alpha`'s gate is armed and its
+  // worktree is gone — a teardown refused after arming, then removed by hand —
+  // while two other specs are standing. So there is no cwd to resolve from and
+  // no sole provisioned spec, and the refusal's own advice ("name the one you
+  // mean, or run this from inside one") is impossible on both halves.
+  //
+  // Without this the gate is permanent: it reports `armed` to every query and
+  // nothing shipped clears it.
+  const { dir } = scaffold({ worktrees: ['beta', 'gamma'] })
+  try {
+    await cli(dir, 'arm', 'feat-alpha', '--phase', '2')
+    assert.strictEqual((await cli(dir, 'gate', 'feat-alpha', '--check')).code, 1, 'armed, and owed')
+
+    const skipped = await cli(dir, 'skip', 'feat-alpha', 'worktree torn down by hand')
+    assert.strictEqual(skipped.code, 0)
+    assert.match(skipped.out, /moved on without a verdict/)
+    assert.strictEqual((await cli(dir, 'gate', 'feat-alpha', '--check')).code, 0)
+
+    const json = JSON.parse((await cli(dir, 'gate', 'feat-alpha', '--json')).out)
+    assert.strictEqual(json.state, 'clear')
+    assert.deepStrictEqual(
+      json.log.map((e) => [e.by, e.reason]),
+      [['skip', 'worktree torn down by hand']],
+    )
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('naming a spec is not giving a reason', async () => {
+  // The spec name must not slide into the reason slot — `reason: "feat-alpha"`
+  // is the silence this gate exists to replace, wearing an argument's clothes.
+  const { dir } = scaffold({ worktrees: ['beta', 'gamma'] })
+  try {
+    await cli(dir, 'arm', 'feat-alpha', '--phase', '2')
+    const bare = await cli(dir, 'skip', 'feat-alpha')
+    assert.strictEqual(bare.code, 1)
+    assert.match(bare.out, /needs a reason/)
+    assert.strictEqual((await cli(dir, 'gate', 'feat-alpha', '--check')).code, 1, 'still armed')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a reason that names no spec is still a reason, in a repo with one worktree', async () => {
+  // THE STAYS-SILENT HALF (`.claude/rules/negative-checks.md` rule 3). The
+  // one-positional form is what everybody types, and it must keep resolving
+  // from the sole provisioned spec and keep treating its argument as free
+  // text. Only a positional that RESOLVES to a spec is read as one.
+  const { dir } = scaffold()
+  try {
+    await cli(dir, 'feat-alpha')
+    await cli(dir, 'arm', 'feat-alpha', '--phase', '2')
+    const skipped = await cli(dir, 'skip', 'docs only, nothing to read')
+    assert.strictEqual(skipped.code, 0)
+    assert.strictEqual((await cli(dir, 'gate', 'feat-alpha', '--check')).code, 0)
+
+    const json = JSON.parse((await cli(dir, 'gate', 'feat-alpha', '--json')).out)
     assert.deepStrictEqual(json.log.map((e) => [e.by, e.reason]), [['skip', 'docs only, nothing to read']])
   } finally {
     cleanup(dir)
