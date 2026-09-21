@@ -103,3 +103,6 @@ cross), and bookkeeping beside code (still folded away).
 ## Changelog
 
 - 2026-09-21 — Bug reproduced; failing tests added (red).
+- 2026-09-21 — Fixed: the served view tolerates project bookkeeping beside a
+  spec being written, and an all-bookkeeping change no longer folds itself
+  away; tests green.
