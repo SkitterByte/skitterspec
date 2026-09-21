@@ -205,13 +205,47 @@ ${body}
  * answer — including the ones we cannot work out. Never throws: a page is a
  * convenience and a git that will not read is not evidence of anything.
  */
+/**
+ * Project bookkeeping, as opposed to somebody's unfinished work.
+ *
+ * `specs/.core/` holds the project's own configuration and whatever a tracker
+ * provider writes beside it — a push snapshot, most often. None of it is a
+ * spec's documents and none of it is code, so finding it in an authoring tree
+ * says nothing about whether a spec is being written there.
+ *
+ * WHAT WOULD FOOL A WIDER VERSION OF THIS: anything outside `specs/`. A source
+ * file in the tree IS evidence that the tree is being used for something else,
+ * and that answer must stay unchanged — see the stays-silent test.
+ */
+function isProjectBookkeeping(p) {
+  return String(p).startsWith('specs/.core/')
+}
+
 function docsWorktree(wt, spec, config) {
   if (!spec || spec.bucket !== 'backlog') return null
   const paths = dirtyPaths(trimmedGitReader(wt))
   // Cannot tell — not "no documents".
   if (paths === null) return null
   const { owned, foreign } = classifyDirtyTree(spec, paths, config)
-  if (!owned.length || foreign.length) return null
+  // A TRACKER SNAPSHOT IS NOT SOMEBODY ELSE'S WORK, and requiring a
+  // foreign-free tree cost the whole page for the commonest authoring tree
+  // there is. The linking push writes `specs/.core/linear-base/<ID>.base.json`
+  // into this tree moments before the page is opened, and a project that never
+  // declared it in `spec.companionPaths` — which is the default — has one
+  // foreign path by construction. The view fell through to `worktree`, where
+  // every `specs/**` path is bookkeeping: seven files changed, seven folded
+  // away, nothing on screen.
+  //
+  // What the foreign test is actually for survives untouched: real work sitting
+  // in the tree still disqualifies it, because that is a tree being used for
+  // something other than writing this spec.
+  //
+  // THE RENDERED FILE SET DOES NOT WIDEN WITH IT. The page still shows `owned`,
+  // which is what `--docs` showed from the CLI — a served page that listed a
+  // file the run's own report did not would be a different page from the one
+  // the reader was told about.
+  const intruders = foreign.filter((p) => !isProjectBookkeeping(p))
+  if (!owned.length || intruders.length) return null
   return { owned }
 }
 

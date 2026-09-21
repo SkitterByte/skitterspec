@@ -301,6 +301,21 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
     files.push({ ...f, additions, deletions, binary, whole, noise: noiseOf(f.path), patch })
   }
 
+  // NOTHING TO BE BOOKKEEPING BESIDE. The flag is relative — a spec's own
+  // checkbox edits are not what anyone came to read WHEN THERE IS A DIFF TO
+  // READ — and applying it with no relative left folds the whole change away,
+  // rendering a page whose subject is invisible until the reader happens to
+  // click a file in the tree. A change that is entirely bookkeeping IS the
+  // change, so it opens.
+  //
+  // WHAT WOULD FOOL A LOOSER VERSION OF THIS: one source file in the diff. The
+  // test is EVERY file, so the moment there is something else to read the
+  // margin notes go back to being margin notes — which is the flag's whole
+  // point and has its own stays-silent test.
+  if (files.length && files.every((f) => f.noise)) {
+    for (const f of files) f.noise = false
+  }
+
   // Content hashes and the stored review state, folded on before the totals so
   // the page and `--json` see one shape.
   const store = notes || emptyNotes(spec.folder)
