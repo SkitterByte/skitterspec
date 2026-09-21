@@ -115,7 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | The `fix` set exists, and survives a served re-render | ⬜ | [01-fix-button-set.md](01-fix-button-set.md) |
+| 1 | The `fix` set exists, and survives a served re-render | ✅ | [01-fix-button-set.md](01-fix-button-set.md) |
 | 2 | The two skills declare it | ⬜ | [02-skills-declare-it.md](02-skills-declare-it.md) |
 
 ## Open questions
@@ -134,3 +134,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-21 — Spec created, from a follow-up surfaced by `bug-note-editor`
   (SKS-378): the page for that fix offered `Commit & Continue` and the press
   reached a `/spec-next` with nothing to build.
+- 2026-09-21 — Phase 1 done. The `NARROWING_SETS` entry was checked by reverting
+  it: without `fix` on that list the CLI render is right and all three served
+  tests go red, which is the refresh-is-wrong failure Decision 3 names.

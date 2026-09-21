@@ -307,10 +307,13 @@ test('buttonsForView: the tree decides the family', () => {
   assert.strictEqual(buttonsForView('live', { specless: false }, null), 'committing')
 })
 
-test('buttonsForView: only midrun and refresh come from the record', () => {
+test('buttonsForView: only the narrowing sets come from the record', () => {
   assert.strictEqual(buttonsForView('worktree', { specless: false }, 'midrun'), 'midrun')
   assert.strictEqual(buttonsForView('docs', { specless: false }, 'refresh'), 'refresh')
   assert.strictEqual(buttonsForView('worktree', { specless: true }, 'midrun'), 'midrun')
+  // `fix` is the third, and it answers a different question from the other two:
+  // not whether the run had finished, but whether the work was ever phased.
+  assert.strictEqual(buttonsForView('worktree', { specless: false }, 'fix'), 'fix')
   // Widening words are ignored wherever they appear.
   assert.strictEqual(buttonsForView('worktree', { specless: true }, 'committing'), 'nospec')
   assert.strictEqual(buttonsForView('worktree', { specless: true }, 'authoring'), 'nospec')
@@ -509,6 +512,52 @@ test('STAYS SILENT: a specless branch is untouched by any of this', async () => 
   const s = await serve(dir)
   try {
     assert.strictEqual(await buttonsOf(s, 'tidy-up'), 'nospec')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+
+/* ==========================================================================
+ * A single-pass fix keeps its set across a refresh
+ *
+ * `/spec-bug` and `/spec-hotfix` render `--buttons fix`, which drops
+ * `Commit & Continue` because a fix with no phase files has no next phase. That
+ * is a declaration only the caller could make: the tree cannot tell an unphased
+ * spec from a legacy inline-phase one, so `readPhases` returns `null` for both
+ * and the page's own `noPhaseLeft` guard never fires.
+ *
+ * So the record has to carry it. Without `fix` in `NARROWING_SETS` the CLI page
+ * is right and every SERVED re-render of the same URL falls through to the
+ * tree's `committing` family — handing back the exact verb the render dropped,
+ * on the second page anyone opens.
+ * ========================================================================== */
+
+test('a spec rendered as a single-pass fix is still served the fix buttons', async () => {
+  // RED WITHOUT `fix` IN NARROWING_SETS: `committing`.
+  const { dir } = scaffold()
+  record(dir, 'feat-alpha', 'fix')
+  const s = await serve(dir)
+  try {
+    assert.strictEqual(await buttonsOf(s, 'feat-alpha'), 'fix')
+  } finally {
+    await s.close()
+    cleanup(dir)
+  }
+})
+
+test('STAYS SILENT: a fix record never widens what the tree would have offered', async () => {
+  // The record is narrowing-only, and `fix` must not become the exception. A
+  // specless branch has no spec to commit a fix for, so its own family wins —
+  // the same rule that stops a stale record handing out `Commit & Start`.
+  const { dir } = scaffold()
+  record(dir, 'tidy-up', 'fix')
+  record(dir, 'feat-draft', 'fix')
+  const s = await serve(dir)
+  try {
+    assert.strictEqual(await buttonsOf(s, 'tidy-up'), 'fix', 'fix offers strictly fewer verdicts than nospec')
+    assert.strictEqual(await buttonsOf(s, 'feat-draft'), 'fix', 'and strictly fewer than authoring')
   } finally {
     await s.close()
     cleanup(dir)

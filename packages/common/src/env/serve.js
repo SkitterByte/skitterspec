@@ -463,10 +463,20 @@ function receivePass(dir, config, spec, blob) {
  * `nospec`; a phase in a worktree is `committing`. Those three are exactly the
  * sets that describe what the work IS, so they are read off what the work is.
  *
- * THE RECORD ANSWERS WHETHER THE RUN HAD FINISHED, which no tree can show.
- * `midrun` and `refresh` exist for that — one offers `Continue` in place of the
- * committing pair, the other drops the start verdict — and only the caller that
- * rendered knew. So they, and nothing else, are taken from the record.
+ * THE RECORD ANSWERS WHAT NO TREE CAN SHOW, which is two things rather than
+ * one. `midrun` and `refresh` answer whether the run had FINISHED — one offers
+ * `Continue` in place of the committing pair, the other drops the start
+ * verdict. `fix` answers whether the work was ever PHASED: a single-pass bug or
+ * hotfix has no phase files, and a folder with no phase files is also a legacy
+ * inline-phase layout, so the tree cannot tell the two apart and `readPhases`
+ * returns `null` for both. Only the caller that rendered knew, in all three
+ * cases. So they, and nothing else, are taken from the record.
+ *
+ * LEAVING `fix` OFF THIS LIST IS THE BUG IT WAS ADDED TO FIX, wearing the
+ * daemon's clothes: the CLI render would drop `Commit & Continue` and every
+ * SERVED re-render of the same URL would fall through to the tree's
+ * `committing` family and hand it straight back. The first page anyone opens
+ * looks right, and each refresh is wrong.
  *
  * WHICH MAKES THE RECORD NARROWING-ONLY. A word it does not recognise, a word
  * that would WIDEN the offer, an unreadable file, no file at all: every one of
@@ -478,7 +488,7 @@ function receivePass(dir, config, spec, blob) {
  * so every `/no-spec` page served over http offered to put nothing in flight,
  * and the pass came back naming a verdict its own skill could not act on.
  */
-const NARROWING_SETS = ['midrun', 'refresh']
+const NARROWING_SETS = ['midrun', 'refresh', 'fix']
 
 function buttonsForView(viewKind, spec, recorded) {
   if (NARROWING_SETS.includes(recorded)) return recorded

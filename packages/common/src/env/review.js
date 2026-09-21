@@ -789,8 +789,27 @@ const COMMITTING = ['commit', 'commit-continue', 'commit-start', 'commit-land']
  * page — precisely what having separate words for `commit-start` and
  * `commit-continue` exists to avoid, and worse here, because one of the two
  * readings destroys a worktree.
+ *
+ * `fix` is the set for a SINGLE-PASS fix — a bug or hotfix spec whose whole
+ * repair is one `## Fix` list and no phase files. It is `committing` minus
+ * `commit-continue`, because there is no next phase for `/spec-next` to build:
+ * the page used to offer that verb anyway, the press committed correctly, and
+ * `/spec-next` then refused with nothing to do.
+ *
+ * THE PAGE ALREADY HAS A GUARD FOR THIS AND IT CANNOT SEE THESE SPECS. It dims
+ * the button on `data.phases.hasNextPhase === false`, and `readPhases` returns
+ * `null` for a folder with no phase files — deliberately, because that is also
+ * a legacy layout whose phases live inline in the overview. So the caller says
+ * it instead, which is what the `buttons` parameter is for.
+ *
+ * REUSING `refresh` WAS THE OBVIOUS MOVE HERE TOO, and is wrong for the reason
+ * above one line up rather than the one above the paragraph: the three buttons
+ * are identical, but `refresh` means a re-validated spec DOCUMENT and this is a
+ * render of code. The word is stored in the render record and read back by the
+ * serve daemon, so one name covering two renders would be ambiguous exactly
+ * where it is used to decide something.
  */
-const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh', 'nospec']
+const BUTTON_SETS = ['committing', 'midrun', 'authoring', 'refresh', 'nospec', 'fix']
 const DEFAULT_BUTTON_SET = 'committing'
 
 /**

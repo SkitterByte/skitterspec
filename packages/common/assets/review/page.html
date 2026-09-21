@@ -1718,6 +1718,11 @@ a.ticket:hover { border-color: var(--accent); }
     refresh: ['commit', 'changes', 'discuss'],
     nospec: ['commit-land', 'commit', 'changes', 'discuss'],
     committing: ['commit', 'commit-continue', 'changes', 'discuss'],
+    // A SINGLE-PASS FIX: the committing set minus the verb it cannot honour.
+    // `/spec-bug` and `/spec-hotfix` render this when the repair took one pass,
+    // because `Commit & Continue` names a next phase a spec with no phase files
+    // does not have. Same three buttons as `refresh`, a different subject.
+    fix: ['commit', 'changes', 'discuss'],
   }
   var OFFERED = OFFERS[data.buttons] || OFFERS.committing
   Object.keys(verdictBtns).forEach(function (key) {

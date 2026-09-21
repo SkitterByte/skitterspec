@@ -1837,6 +1837,31 @@ test('a mid-run page says what a clean read does, and it is not committing', () 
   assert.strictEqual(countSays(runPage(marked())), 'Nothing marked — a clean read still commits')
 })
 
+test('a single-pass fix offers Commit, and not the verb it cannot honour', () => {
+  const dom = runPage(marked({ buttons: 'fix' }))
+  assert.strictEqual(dom.byId['verdict-commit'].hidden, false, 'the fix is finished, so Commit is right')
+  assert.strictEqual(
+    dom.byId['verdict-commit-continue'].hidden, true,
+    'there is no next phase for /spec-next to build',
+  )
+  assert.strictEqual(dom.byId['verdict-commit-start'].hidden, true, 'and nothing to put in flight')
+  assert.strictEqual(dom.byId['verdict-changes'].hidden, false)
+  assert.strictEqual(dom.byId['verdict-discuss'].hidden, false)
+})
+
+test('a single-pass fix still commits, and the engine reads the verdict back', () => {
+  const dom = runPage(marked({ buttons: 'fix' }))
+  const blob = copyBlob(dom, 'commit')
+  assert.strictEqual(blob.verdict, 'commit')
+  assert.strictEqual(accepted(blob).verdict, 'commit', 'a committing verdict, so it clears the gate')
+})
+
+test('a single-pass fix says a clean read commits — it is finished work', () => {
+  // `fix` drops a verb; it does not make the page mid-run. A page saying "still
+  // carries on" here would describe the one thing this set cannot do.
+  assert.strictEqual(countSays(runPage(marked({ buttons: 'fix' }))), 'Nothing marked — a clean read still commits')
+})
+
 test('a verdict this render never offered cannot be reached by dispatching at it', () => {
   // The button set is a fact, not a style — the same rule the disabled block
   // already follows. A browser will not fire a hidden control; every other
