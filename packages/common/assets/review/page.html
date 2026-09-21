@@ -417,6 +417,26 @@ tr.note-row td {
   border-top: 1px solid var(--note-line);
   border-bottom: 1px solid var(--note-line);
 }
+/* A NOTE IS PROSE, AND IT WRAPS TO THE PANE — never to the file.
+   The cell it sits in is a column of `table.diff`, so its width is the longest
+   line of source in this file (`td.src` is white-space:pre): 4,900px for a
+   wrapped markdown spec is ordinary, and a `width:100%` note inside that is four
+   screens wide. It scrolled sideways instead of wrapping, which is what a reader
+   sees as a box that keeps growing.
+   Sticky for the same reason `td.gutter` is: the row can be reached while the
+   pane is scrolled right, and a note you cannot see while typing it is no
+   better. `--pane-w`/`--gutter-w` are measured per code box by `sizeNotes` —
+   measured rather than summed from `--ln-w`, because the gutter is ONE sticky
+   cell precisely so nobody has to do that arithmetic.
+   `max-width` caps it at the cell, so the note can never be the thing that
+   widens the table. */
+.note-body {
+  position: sticky;
+  left: var(--gutter-w, 0px);
+  width: var(--pane-w, 100%);
+  max-width: 100%;
+  box-sizing: border-box;
+}
 .note-meta { font-size: .72rem; color: var(--muted); display: block; margin-bottom: .15rem; }
 .note-text { overflow-wrap: anywhere; }
 .note-row.is-resolved .note-text { text-decoration: line-through; opacity: .75; }
@@ -517,6 +537,19 @@ button:disabled { color: var(--muted); background: var(--panel-2); border-style:
 button:disabled:hover { color: var(--muted); border-color: var(--line); }
 .verdict-log { font-size: .8rem; color: var(--muted); margin: .45rem 0 0; }
 .verdict-log[hidden] { display: none; }
+/* Not muted, unlike the log beneath it: this one is the reason a press did
+   nothing, and a grey line under a bar that appeared to ignore you reads as a
+   broken page. */
+.verdict-warn {
+  font-size: .85rem;
+  color: var(--flag-fg);
+  background: var(--flag-bg);
+  border-left: 3px solid var(--flag-fg);
+  border-radius: 0 6px 6px 0;
+  padding: .45rem .6rem;
+  margin: .5rem 0 0;
+}
+.verdict-warn[hidden] { display: none; }
 /* Which engine drew this page. A render is always current and a stale RENDERER
    is invisible without it — the counts move, the date moves, the diff is right. */
 .drawn-by { font-size: .75rem; color: var(--muted); margin: .9rem 0 0; }
@@ -863,6 +896,12 @@ a.ticket:hover { border-color: var(--accent); }
         <button id="verdict-discuss" type="button">… Discuss first</button>
         <span class="verdict-count" id="verdict-count" aria-live="polite"></span>
       </div>
+      <!-- UNSENT TEXT, named at the moment it would have been destroyed. It sits
+           directly under the bar rather than beside the editor, because the
+           press that raises it happens here and the editor may be a screen
+           away. `assertive`: the reader is mid-decision and a polite region
+           would be read out after they have pressed again. -->
+      <p class="verdict-warn" id="verdict-warn" hidden aria-live="assertive"></p>
       <!-- WHERE THE BUTTONS CANNOT DELIVER, the commands stand in their place.
            A `file://` page has no server to POST to and no store to write to,
            so a verdict button there only ever built a blob for the reader to
@@ -1145,6 +1184,56 @@ a.ticket:hover { border-color: var(--accent); }
     table.appendChild(body)
     box.appendChild(table)
     host.appendChild(box)
+    sizeNotes(box)
+    watchPane(host)
+  }
+
+  /**
+   * Publish this code box's visible width, for the note bodies inside it.
+   *
+   * A note has to wrap at the width of what the reader can SEE, and the cell it
+   * lives in is a diff-table column sized by the longest line of source in the
+   * file. So the pane's own width is measured here and handed to the CSS.
+   *
+   * MEASURED, NEVER SUMMED. The gutter's width is `--ln-w` plus the +/- column
+   * plus padding plus a border, in whatever font the reader has — and `td.gutter`
+   * is one sticky cell rather than three precisely so that nobody has to get
+   * that arithmetic right. Asking the element is the same decision one layer up.
+   *
+   * A BOX MEASURED AT NOTHING PUBLISHES NOTHING. A file whose <details> has
+   * never been opened reports 0 for everything, and 0 is not a narrow pane —
+   * it is a box that has not been laid out. Writing it would give every note in
+   * that file a zero-width editor on the one render that matters, so the
+   * cannot-tell case leaves whatever was there alone and the CSS falls back to
+   * its own defaults.
+   */
+  function sizeNotes(box) {
+    if (!box || !box.style) return
+    var g = box.querySelector('td.gutter')
+    var gw = (g && g.offsetWidth) || 0
+    var pane = box.clientWidth || 0
+    if (!pane || !gw) return
+    box.style.setProperty('--gutter-w', gw + 'px')
+    box.style.setProperty('--pane-w', Math.max(0, pane - gw) + 'px')
+  }
+
+  // Re-measure when the layout moves under it — a rotated phone, a window
+  // dragged narrower, the file tree folding away. The HOST is watched rather
+  // than the box: a box is rebuilt on every band expansion, and an observer
+  // holding the old ones would keep a whole file's worth of detached rows alive
+  // for the life of the page. Observing the same host twice replaces the
+  // observation, so re-renders cost nothing.
+  //
+  // A browser without ResizeObserver keeps the width it opened at, which is
+  // wrong only for someone who then resizes. Nothing accuses, nothing breaks.
+  var paneWatch = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(function (entries) {
+        entries.forEach(function (e) { sizeNotes(e.target.querySelector('.code')) })
+      })
+    : null
+
+  function watchPane(host) {
+    if (paneWatch && host) paneWatch.observe(host)
   }
 
   // Every note about one line: what the engine stored, plus anything written on
@@ -1161,13 +1250,14 @@ a.ticket:hover { border-color: var(--accent); }
     var tr = el('tr', 'note-row' + (c.resolved ? ' is-resolved' : ''))
     tr.appendChild(el('td', 'gutter', '💬'))
     var td = el('td', 'src')
+    var body = el('div', 'note-body')
     var meta = c.line == null ? 'on this file' : 'line ' + c.line
     if (c.check) meta += ' · answering the review'
     if (!c.raisedAt) meta += ' · not sent yet'
-    td.appendChild(el('span', 'note-meta', meta))
-    td.appendChild(el('span', 'note-text', c.note))
+    body.appendChild(el('span', 'note-meta', meta))
+    body.appendChild(el('span', 'note-text', c.note))
     if (c.resolved) {
-      td.appendChild(el('span', 'note-resolution', '↳ ' + (c.resolved.note || 'resolved')))
+      body.appendChild(el('span', 'note-resolution', '↳ ' + (c.resolved.note || 'resolved')))
     }
     if (!c.raisedAt) {
       var actions = el('div', 'note-actions')
@@ -1179,8 +1269,9 @@ a.ticket:hover { border-color: var(--accent); }
         refresh()
       })
       actions.appendChild(del)
-      td.appendChild(actions)
+      body.appendChild(actions)
     }
+    td.appendChild(body)
     tr.appendChild(td)
     return tr
   }
@@ -1190,8 +1281,9 @@ a.ticket:hover { border-color: var(--accent); }
     var tr = el('tr', 'note-row')
     tr.appendChild(el('td', 'gutter', '💬'))
     var td = el('td', 'src')
-    td.appendChild(el('span', 'note-meta', row ? 'line ' + (row.n == null ? '—' : row.n) : 'on this file'))
-    td.appendChild(noteEditor(function (text) {
+    var body = el('div', 'note-body')
+    body.appendChild(el('span', 'note-meta', row ? 'line ' + (row.n == null ? '—' : row.n) : 'on this file'))
+    body.appendChild(noteEditor(function (text) {
       addDraft(st, text, row ? row.n : null, row ? row.text : null, null)
       st.draftAt = null
       renderFile(st)
@@ -1199,6 +1291,7 @@ a.ticket:hover { border-color: var(--accent); }
       st.draftAt = null
       renderFile(st)
     }))
+    td.appendChild(body)
     tr.appendChild(td)
     return tr
   }
@@ -1665,6 +1758,7 @@ a.ticket:hover { border-color: var(--accent); }
   var verdictEl = document.getElementById('verdict')
   var verdictCount = document.getElementById('verdict-count')
   var verdictLog = document.getElementById('verdict-log')
+  var verdictWarn = document.getElementById('verdict-warn')
   var copyOut = document.getElementById('copy-out')
   var wrapEl = document.getElementById('wrap')
   var decidedBox = document.getElementById('decided')
@@ -1764,6 +1858,10 @@ a.ticket:hover { border-color: var(--accent); }
     verdictBtns.continue.disabled = false
     verdictBtns.changes.disabled = false
     verdictBtns.discuss.disabled = false
+    // Adding the note is the ordinary way out of a warning, and every mark comes
+    // through here — so the line goes when the situation it described does,
+    // rather than standing over a page where nothing is unsent any more.
+    clearWarn()
     save()
   }
 
@@ -2781,6 +2879,67 @@ a.ticket:hover { border-color: var(--accent); }
     ask()
   }
 
+  /**
+   * TEXT STILL IN AN EDITOR — the one thing on this page a verdict destroys.
+   *
+   * Typing in the box is not a note; `Add note` is. So a reader who writes three
+   * lines and then presses a verdict sends a pass that does not contain them,
+   * `drawDecided` takes the diff away, and the text goes with it. Nothing said
+   * so, and there is nothing to go back to.
+   *
+   * WARNED, NOT REFUSED, and the distinction is the whole design. Discarding it
+   * is often exactly what the reader means — half a sentence, a note they
+   * thought better of — and this page makes ONE refusal on purpose (an open
+   * note blocks a committing verdict, mirroring `judgeVerdict`) and must not
+   * grow a second one it invented. So the first press says what would be lost
+   * and sends nothing; the same press again sends.
+   *
+   * THE CONFIRMATION IS OF WHAT THE READER WAS SHOWN, which is why the text
+   * itself is remembered and not just the verdict. Otherwise a warning raised
+   * over one note would silently carry away a second one written after it.
+   */
+  var warned = null
+
+  function unsentEditors() {
+    var out = []
+    Array.prototype.forEach.call(document.querySelectorAll('.note-input'), function (b) {
+      if (String(b.value || '').trim()) out.push(b)
+    })
+    return out
+  }
+
+  function clearWarn() {
+    warned = null
+    if (!verdictWarn) return
+    verdictWarn.hidden = true
+    verdictWarn.textContent = ''
+  }
+
+  function mayLose(verdict) {
+    var open = unsentEditors()
+    // Whitespace is not unfinished work, and neither is an editor opened and
+    // left empty. A page that stopped on those would teach the reader to press
+    // everything twice, which is how a warning stops being read.
+    if (!open.length) { clearWarn(); return true }
+    var text = open.map(function (b) { return b.value }).join('\u0000')
+    if (warned && warned.verdict === verdict && warned.text === text) { clearWarn(); return true }
+    warned = { verdict: verdict, text: text }
+    if (verdictWarn) {
+      verdictWarn.hidden = false
+      verdictWarn.textContent =
+        open.length + (open.length === 1 ? ' note is' : ' notes are') +
+        ' still in the box and not added. Press “Add note” to keep ' +
+        (open.length === 1 ? 'it' : 'them') + ', or press “' + (LABELS[verdict] || verdict) +
+        '” again to send without ' + (open.length === 1 ? 'it' : 'them') + '.'
+    }
+    // Take the reader to the first one. The bar is at the foot of the page and
+    // the editor can be a screen away, so a line naming a note they cannot see
+    // is only half an answer.
+    open[0].scrollIntoView()
+    open[0].focus()
+    return false
+  }
+
   Object.keys(verdictBtns).forEach(function (verdict) {
     verdictBtns[verdict].addEventListener('click', function () {
       // A disabled or hidden button does not fire in a browser; the guard is
@@ -2788,6 +2947,7 @@ a.ticket:hover { border-color: var(--accent); }
       // facts rather than styles — a verdict this render never offered must not
       // be reachable by dispatching at it.
       if (verdictBtns[verdict].disabled || verdictBtns[verdict].hidden) return
+      if (!mayLose(verdict)) return
       send(verdict)
     })
   })

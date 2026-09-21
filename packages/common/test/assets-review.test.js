@@ -108,12 +108,14 @@ function pageScript() {
   return m[1]
 }
 
-// Enough CSS selector to serve the page: `.cls`, `[attr]`, `.cls[attr="v"]`.
-// Anything richer would be a library, and the page does not ask for one.
+// Enough CSS selector to serve the page: `.cls`, `tag.cls`, `[attr]`,
+// `.cls[attr="v"]`. Anything richer would be a library, and the page does not
+// ask for one.
 function selectorMatches(node, sel) {
-  const m = /^(?:\.([\w-]+))?(?:\[([\w-]+)(?:="([^"]*)")?\])?$/.exec(sel.trim())
+  const m = /^([a-z]+)?(?:\.([\w-]+))?(?:\[([\w-]+)(?:="([^"]*)")?\])?$/.exec(sel.trim())
   if (!m) throw new Error(`shim: unsupported selector ${sel}`)
-  const [, cls, attr, value] = m
+  const [, tag, cls, attr, value] = m
+  if (tag && String(node.tagName || '').toLowerCase() !== tag) return false
   if (cls && !String(node.className || '').split(/\s+/).includes(cls)) return false
   if (attr) {
     const got = node.getAttribute ? node.getAttribute(attr) : null
@@ -134,7 +136,14 @@ function queryAll(root, sel, out = []) {
 // A DOM shim: only what the page actually touches. Anything the page starts
 // using that is not here fails loudly as a TypeError, which is the behaviour we
 // want — a silent stub would let a broken page pass.
-function fakeDom(islandText) {
+// What the shim reports when the page MEASURES. A shim cannot lay out, so a
+// width is declared rather than computed: a 1000px pane over a 44px gutter is
+// an ordinary review on a laptop. Keyed by class and read at access time,
+// because the page rebuilds its code box on every band expansion — a width set
+// on one node would not survive the next render.
+const DEFAULT_WIDTHS = { code: 1000, gutter: 44 }
+
+function fakeDom(islandText, widths = DEFAULT_WIDTHS) {
   // `execCommand('copy')` copies the SELECTION, so the shim reads back through
   // the same ranges the page added. Modelling the copy without the selection
   // would let a page that selects nothing still "copy" in a test.
@@ -188,6 +197,14 @@ function fakeDom(islandText) {
       },
       scrollIntoView() {},
       value: '',
+      // The page publishes the pane width onto the code box as custom
+      // properties, and reads nothing back from the cascade — so a recorder is
+      // the whole of what `style` has to be here.
+      style: {
+        _props: {},
+        setProperty(k, v) { this._props[k] = String(v) },
+        getPropertyValue(k) { return Object.prototype.hasOwnProperty.call(this._props, k) ? this._props[k] : '' },
+      },
       closest(sel) {
         const cls = sel.replace(/^\./, '')
         let n = node
@@ -198,6 +215,14 @@ function fakeDom(islandText) {
         return null
       },
     }
+    // Layout, to the depth the page asks about it: how wide the scrolling code
+    // box is and how wide the gutter column beside it. A node no test declared
+    // a width for reports 0 — which is what a <details> that has never been
+    // opened really reports, and the case `sizeNotes` must stay silent on.
+    const declaredWidth = () =>
+      String(node.className || '').split(/\s+/).reduce((w, c) => (widths[c] != null ? widths[c] : w), 0)
+    Object.defineProperty(node, 'clientWidth', { get: declaredWidth })
+    Object.defineProperty(node, 'offsetWidth', { get: declaredWidth })
     Object.defineProperty(node, 'parentNode', { get: () => node.parent })
     Object.defineProperty(node, 'textContent', {
       get() {
@@ -226,7 +251,7 @@ function fakeDom(islandText) {
     'expand-all', 'collapse-all', 'show-noise', 'noise-label', 'theme', 'review-block',
     'verdict', 'verdict-commit', 'verdict-commit-continue', 'verdict-commit-start', 'verdict-commit-land', 'verdict-continue',
     'verdict-changes', 'verdict-discuss',
-    'verdict-count', 'verdict-log', 'copy-out', 'copy-hint',
+    'verdict-count', 'verdict-log', 'verdict-warn', 'copy-out', 'copy-hint',
     'sent-cmd', 'sent-cmd-lead', 'sent-cmd-text', 'sent-cmd-copy', 'cmd-list', 'cmd-lead',
     'context', 'context-why', 'context-more', 'context-more-summary', 'context-rest',
     'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle', 'drawn-by',
@@ -324,11 +349,11 @@ function fakeDom(islandText) {
   return { document, window, byId, store, selection }
 }
 
-function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false } = {}) {
+function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false, widths = DEFAULT_WIDTHS } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
-  const dom = fakeDom(island[1])
+  const dom = fakeDom(island[1], widths)
   // A SECOND PAGE OVER THE SAME STORAGE is how a reader re-opening their tab is
   // modelled — the decision has to outlive the page object, not just the call.
   if (storage) dom.window.localStorage = storage
@@ -2640,4 +2665,112 @@ test('answering a check still works when the check carries a jump button', () =>
   const reply = copyBlob(dom).comments.find((c) => c.check === 'k0')
   assert.ok(reply)
   assert.strictEqual(reply.file, 'src/app.js')
+})
+
+// --- a note survives being written ------------------------------------------
+//
+// Two ways the page threw one away. It sized the editor by the DIFF COLUMN, so
+// on a file with long lines the box was several screens wide and a note scrolled
+// sideways instead of wrapping. And it treated text still sitting in the box as
+// nothing at all, so a verdict pressed over an unadded note destroyed it without
+// a word.
+
+test('a note body is pinned beside the gutter and takes the pane width', () => {
+  // The cell a note sits in is a diff-table column, so its width is the longest
+  // line of code in the file. Binding the note to that is what made it grow
+  // instead of wrap, so the binding is what this asserts.
+  const body = /\.note-body\s*\{([^}]*)\}/.exec(TEMPLATE)
+  assert.ok(body, 'the template defines .note-body')
+  assert.match(body[1], /position:\s*sticky/, 'it follows the horizontal scroll, like the gutter')
+  assert.match(body[1], /left:\s*var\(--gutter-w/, 'it pins beside the gutter, not under it')
+  assert.match(body[1], /width:\s*var\(--pane-w/, 'its width comes from the pane')
+  assert.match(body[1], /max-width:\s*100%/, 'and never widens the table it sits in')
+})
+
+test('every note on a row is inside that body — the stored one and the draft', () => {
+  const data = marked()
+  data.files[0].comments = [{ id: 'c1', line: 61, note: 'this needs a look', raisedAt: '2020-01-01T00:00:00.000Z' }]
+  const dom = runPage(data)
+  for (const row of findAll(dom.byId.files, 'note-row')) {
+    assert.ok(row.querySelector('.note-body'), 'the stored note is in a note body')
+  }
+  gutters(dom)[0].dispatch('click')
+  const input = findAll(dom.byId.files, 'note-input')[0]
+  assert.ok(input.closest('.note-body'), 'so is the editor the gutter opens')
+})
+
+test('rendering a file publishes the pane width the note body reads', () => {
+  const dom = runPage(marked())
+  const box = findAll(dom.byId.files, 'code')[0]
+  // The shim declares widths (see `widths`): a 1000px pane over a 44px gutter.
+  assert.strictEqual(box.style.getPropertyValue('--gutter-w'), '44px')
+  assert.strictEqual(box.style.getPropertyValue('--pane-w'), '956px')
+})
+
+test('a file measured at nothing keeps the width it had — a closed file is not a 0px pane', () => {
+  // STAYS SILENT. A <details> that has not been opened reports 0 for everything,
+  // and writing that would give the note a zero-width box on the one render that
+  // matters. Three states: a width, no width, and cannot tell.
+  const dom = runPage(marked(), { widths: { code: 0, gutter: 0 } })
+  const box = findAll(dom.byId.files, 'code')[0]
+  assert.strictEqual(box.style.getPropertyValue('--pane-w'), '', 'nothing was published')
+})
+
+test('a verdict pressed over an unadded note warns, and sends nothing', () => {
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  findAll(dom.byId.files, 'note-input')[0].value = 'the budget total is wrong here'
+  const before = dom.copied.length
+  dom.byId['verdict-discuss'].dispatch('click')
+  assert.strictEqual(dom.copied.length, before, 'nothing left the page')
+  assert.strictEqual(dom.byId['verdict-warn'].hidden, false, 'the reader was told')
+  assert.match(dom.byId['verdict-warn'].textContent, /not added/i)
+  assert.match(dom.byId['verdict-warn'].textContent, /Discuss first/, 'it names the button pressed')
+})
+
+test('the same verdict pressed again sends — warned, never refused', () => {
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  findAll(dom.byId.files, 'note-input')[0].value = 'thought better of this'
+  dom.byId['verdict-discuss'].dispatch('click')
+  const blob = copyBlob(dom)
+  assert.deepStrictEqual(blob.comments, [], 'the unadded text was the reader\'s to discard')
+  assert.strictEqual(dom.byId['verdict-warn'].hidden, true, 'and the warning went with it')
+})
+
+test('adding the note clears the warning rather than leaving it standing', () => {
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  const input = findAll(dom.byId.files, 'note-input')[0]
+  input.value = 'keep this one'
+  dom.byId['verdict-discuss'].dispatch('click')
+  writeNote(input, 'keep this one')
+  assert.strictEqual(dom.byId['verdict-warn'].hidden, true)
+  assert.strictEqual(copyBlob(dom).comments.length, 1, 'and the note is in the pass')
+})
+
+test('a second unadded note after a warning warns again, not sends', () => {
+  // The confirmation is of what the reader was SHOWN. Text written after the
+  // warning was never named in it, so a press that predates it must not carry
+  // it away.
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  findAll(dom.byId.files, 'note-input')[0].value = 'first'
+  dom.byId['verdict-discuss'].dispatch('click')
+  findAll(dom.byId.files, 'note-input')[0].value = 'first, and more'
+  const before = dom.copied.length
+  dom.byId['verdict-discuss'].dispatch('click')
+  assert.strictEqual(dom.copied.length, before, 'the new text was not in the warning')
+  assert.strictEqual(dom.byId['verdict-warn'].hidden, false)
+})
+
+test('an open editor with nothing in it is not warned about', () => {
+  // STAYS SILENT. An editor opened and left empty — or whitespace typed and
+  // deleted — is not unfinished work, and a page that stopped on it would teach
+  // the reader to press twice for everything.
+  const dom = runPage(marked())
+  gutters(dom)[0].dispatch('click')
+  findAll(dom.byId.files, 'note-input')[0].value = '   \n '
+  copyBlob(dom)
+  assert.strictEqual(dom.byId['verdict-warn'].hidden, true, 'nothing was said')
 })
