@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-review-skip-cannot-name-spec (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -98,6 +98,7 @@ the two other specs, and `gate --check` still exits 1.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -107,3 +108,4 @@ the two other specs, and `gate --check` still exits 1.
 - 2026-09-21 — Scope: `/spec-skip` still cannot name a spec — it passes
   `"$ARGUMENTS"` as one quoted word, so word-splitting it would break the
   unquoted multi-word reason that is its common case. Left for its own spec.
+- 2026-09-21 — Completed; all phases done, tests green (3528 pass).
