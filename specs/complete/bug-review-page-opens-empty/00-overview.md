@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-review-page-opens-empty (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -99,6 +99,7 @@ cross), and bookkeeping beside code (still folded away).
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -106,3 +107,4 @@ cross), and bookkeeping beside code (still folded away).
 - 2026-09-21 — Fixed: the served view tolerates project bookkeeping beside a
   spec being written, and an all-bookkeeping change no longer folds itself
   away; tests green.
+- 2026-09-21 — Completed; fix landed, tests green.
