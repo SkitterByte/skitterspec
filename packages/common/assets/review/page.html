@@ -222,6 +222,22 @@ input:focus-visible,
 }
 .tree-file.is-noise .nm { color: var(--muted); }
 
+/* THE FILE YOU ARE READING — the card crossing the top of the viewport.
+   An INSET SHADOW rather than a border or a left padding: either of those
+   would change the row's size, so the highlight moving down the list would
+   shunt every name sideways as it went. A shadow paints inside the box the
+   row already occupies.
+
+   A DIFFERENT CHANNEL FROM HOVER, deliberately. Hover owns the `--panel-2`
+   background, and the current row is very often NOT the row under your
+   finger — you scroll with one and point with the other. Sharing the
+   treatment would make the two indistinguishable at exactly the moment they
+   disagree, so this is a bar and a colour, and the background is left alone.
+   Leaving it alone also keeps `.ct` masking the names scrolling under it,
+   which is a background the row inherits. */
+.tree-file.is-current { box-shadow: inset 3px 0 0 var(--accent); }
+.tree-file.is-current .nm { color: var(--accent); font-weight: 600; }
+
 .file {
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1380,6 +1396,11 @@ a.ticket:hover { border-color: var(--accent); }
     var f = st.file
     var d = el('details', 'file')
     d.id = 'f-' + encodeURIComponent(f.path)
+    // Read back by the current-file observer, which is handed elements rather
+    // than files. The id would do — it is the same path, encoded — but decoding
+    // an id to recover data the element could simply carry is a round trip
+    // through a format that exists for a different reason.
+    d.setAttribute('data-path', f.path)
     var s = el('summary')
     s.appendChild(el('span', 'path', f.path))
     s.appendChild(el('span', 'chip', f.status))
@@ -1463,12 +1484,126 @@ a.ticket:hover { border-color: var(--accent); }
     return root
   }
 
+  // --- which file am I reading? --------------------------------------------
+  // The tree row for each path, captured as the tree is built. A lookup rather
+  // than a query, because this is answered on every scroll: a `querySelector`
+  // per event would walk the whole sidebar to find something the build already
+  // had in its hand.
+  var rowByPath = {}
+  var currentPath = null
+
+  /**
+   * Mark one file as the one being read.
+   *
+   * ONE ROW AT A TIME, and the previous one is cleared through the same map
+   * rather than by querying for `.is-current`. A map cannot report a row the
+   * tree no longer has, and it cannot miss one a selector spelled slightly
+   * differently.
+   */
+  function setCurrent(path) {
+    if (path === currentPath) return
+    var prev = rowByPath[currentPath]
+    if (prev) prev.className = prev.className.replace(/ ?is-current/, '')
+    currentPath = path
+    var row = rowByPath[path]
+    if (!row) return
+    row.className += ' is-current'
+    followCurrent(row)
+  }
+
+  /**
+   * Drop the highlight entirely.
+   *
+   * For the decided page, where the diff is hidden and no card can qualify —
+   * leaving a row lit there would point at something the reader can no longer
+   * see.
+   */
+  function clearCurrent() {
+    var prev = rowByPath[currentPath]
+    if (prev) prev.className = prev.className.replace(/ ?is-current/, '')
+    currentPath = null
+  }
+
+  /**
+   * Scroll the tree ONLY when the marked row has left its own scrollport.
+   *
+   * The sidebar is a bounded box (`max-height: calc(100vh - 2rem)`), so on a
+   * long diff the highlight is invisible unless the row can be brought in —
+   * and on a short one nothing should ever move. `block: 'nearest'` keeps the
+   * nudge a nudge: re-centring would put the sidebar in constant motion beside
+   * a reader who is already moving, which is the thing a fixed map is for.
+   *
+   * A browser that withholds `getBoundingClientRect` gets the highlight and no
+   * follow. Guessing a position from nothing is how a sidebar ends up scrolled
+   * somewhere arbitrary.
+   */
+  function followCurrent(row) {
+    var box = document.getElementById('tree-wrap')
+    if (!box || !row.getBoundingClientRect || !box.getBoundingClientRect) return
+    var r = row.getBoundingClientRect()
+    var b = box.getBoundingClientRect()
+    if (r.top >= b.top && r.bottom <= b.bottom) return
+    if (row.scrollIntoView) row.scrollIntoView({ block: 'nearest' })
+  }
+
+  // What is currently crossing the band, keyed by path. A SET rather than a
+  // running answer: entries arrive for what CHANGED, so the observer never
+  // hands over the whole picture and the page has to keep it.
+  var onScreen = {}
+
+  /**
+   * The topmost file on screen, in document order.
+   *
+   * NOTHING ON SCREEN IS NOT AN ANSWER, and this returning without calling
+   * `setCurrent` is the whole of that. Scrolled above the first card, past the
+   * last, or with the current file hidden by the noise filter, the previous
+   * row stays lit — clearing it would flicker the highlight off every time a
+   * card boundary crossed the band, and a stale "you were here" is worth more
+   * than nothing at all.
+   */
+  function pickCurrent() {
+    for (var i = 0; i < state.length; i++) {
+      if (onScreen[state[i].file.path]) return setCurrent(state[i].file.path)
+    }
+  }
+
+  /**
+   * Watch the cards against a band at the top of the viewport.
+   *
+   * THE BOTTOM MARGIN IS THE WHOLE TRICK. Pulled up by three quarters of the
+   * viewport, only the top slice counts as "on screen" — so the answer changes
+   * as you scroll. Without it every card on a tall screen intersects at once
+   * and the topmost is whatever is furthest up the document, which is the same
+   * file from the first scroll to the last.
+   *
+   * A browser without IntersectionObserver keeps a page with no highlight and
+   * no error — the shape `paneWatch` takes for ResizeObserver above. Nothing
+   * accuses and nothing breaks; the tree is still a tree.
+   */
+  var currentWatch = typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          var p = e.target.getAttribute('data-path')
+          if (!p) return
+          if (e.isIntersecting) onScreen[p] = true
+          else delete onScreen[p]
+        })
+        pickCurrent()
+      }, { rootMargin: '0px 0px -75% 0px' })
+    : null
+
   function reveal(f) {
     if (f.noise && !noiseBox.checked) { noiseBox.checked = true; applyNoise() }
     var d = document.getElementById('f-' + encodeURIComponent(f.path))
     if (!d) return
     d.open = true
     d.scrollIntoView({ block: 'start' })
+    // Mark it NOW rather than waiting for the scroll to settle. A click on the
+    // tree is a reader saying which file they mean, and the observer would
+    // agree a moment later — but the moment is visible, and a row that lights
+    // up after you have already looked away reads as a lag rather than an
+    // answer.
+    setCurrent(f.path)
   }
 
   /**
@@ -1565,6 +1700,9 @@ a.ticket:hover { border-color: var(--accent); }
         ct.appendChild(el('span', 'd', '-' + entry.file.deletions))
         b.appendChild(ct)
         b.addEventListener('click', function () { reveal(entry.file) })
+        // The path, not the name: two directories can hold a `README.md`, and
+        // the tree deliberately shows the leaf only.
+        rowByPath[entry.file.path] = b
         li.appendChild(b)
         ul.appendChild(li)
       })
@@ -1578,6 +1716,17 @@ a.ticket:hover { border-color: var(--accent); }
     'Files (' + data.files.length + ')'
   if (window.matchMedia && !window.matchMedia('(min-width: 60rem)').matches) {
     document.getElementById('tree-wrap').open = false
+  }
+
+  // AFTER the tree, because a mark with no row to put it on is nothing at all.
+  //
+  // It runs on a narrow screen too, where the tree is a collapsed <details> and
+  // nothing is visible: the class is still correct, so a reader who opens the
+  // sidebar half-way down a diff finds it already pointing at where they are,
+  // and `scrollIntoView` inside a closed <details> is a no-op rather than a
+  // special case to write.
+  if (currentWatch) {
+    state.forEach(function (st) { if (st.details) currentWatch.observe(st.details) })
   }
 
   // --- page-level controls -------------------------------------------------
@@ -1892,6 +2041,10 @@ a.ticket:hover { border-color: var(--accent); }
       'Sent to Claude' + (when ? ' on ' + when : '') + ' — this review is ' + said + '. ' +
       'Nothing here reaches Claude any more, so the verdict buttons are closed.'
     wrapEl.className = wrapEl.className.replace(/\s*\bis-decided\b/g, '') + ' is-decided'
+    // The diff is hidden from here on, so there is no card to be reading and
+    // nothing for the tree to point at. `drawDecided` runs on every redraw once
+    // a page is decided, and clearing something already cleared is free.
+    clearCurrent()
     // The commands go with the bar. A decided page offers no way to decide
     // again, whichever shape it was offering.
     if (cmdList) cmdList.hidden = true

@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Highlight the current file in the tree as you scroll | ⬜ | [01-current-file.md](01-current-file.md) |
+| 1 | Highlight the current file in the tree as you scroll | ✅ | [01-current-file.md](01-current-file.md) |
 | 2 | A truthful pickup state, and a tab that closes when it is done | ⬜ | [02-close-on-pickup.md](02-close-on-pickup.md) |
 
 ## Open questions
@@ -153,3 +153,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `watchPass` runs up to 8 rounds at 900ms, and the page was filling that window
   with the pessimistic answer. Showing the wait fixes a pre-existing wart as
   well as the close.
+- 2026-09-21 — Phase 1: the tree follow reads `getBoundingClientRect`, so the
+  test shim grew one (defaulting to all zeros, which reads as "in view" and
+  makes the no-scroll branch the default). Asserting the `scrollIntoView`
+  options needed field-by-field comparison rather than `deepStrictEqual`: the
+  options object is minted inside the vm realm and its prototype is not the
+  test's.

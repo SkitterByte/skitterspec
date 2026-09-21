@@ -195,7 +195,20 @@ function fakeDom(islandText, widths = DEFAULT_WIDTHS) {
       getAttribute(k) {
         return Object.prototype.hasOwnProperty.call(node.attrs, k) ? node.attrs[k] : null
       },
-      scrollIntoView() {},
+      // RECORDED, not ignored. The page scrolls for three different reasons —
+      // revealing a file, jumping to a line, following the current row — and
+      // the third is conditional on layout, so a test has to be able to see
+      // that it did NOT happen as well as that it did.
+      _scrolls: [],
+      scrollIntoView(opts) { node._scrolls.push(opts || null) },
+      // Layout the page asks about when deciding whether the current tree row
+      // has left the sidebar's scrollport. A node no test positioned reports
+      // all zeros, which reads as "inside the box" — so the default is the
+      // no-scroll branch and a test opts IN to the moving one.
+      _rect: null,
+      getBoundingClientRect() {
+        return node._rect || { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 }
+      },
       value: '',
       // The page publishes the pane width onto the code box as custom
       // properties, and reads nothing back from the cascade — so a recorder is
@@ -349,7 +362,39 @@ function fakeDom(islandText, widths = DEFAULT_WIDTHS) {
   return { document, window, byId, store, selection }
 }
 
-function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false, widths = DEFAULT_WIDTHS } = {}) {
+/**
+ * An IntersectionObserver the test drives by hand.
+ *
+ * ABSENT BY DEFAULT, because that is what the sandbox has always been: the vm
+ * context is an explicit allowlist, so every existing test already describes a
+ * browser without one — which is exactly the case the page's `typeof` guard is
+ * for, and it stays covered for free.
+ */
+function fakeIntersection() {
+  const io = {
+    callback: null,
+    options: null,
+    observed: [],
+    /** Hand the page a batch of changes, the way a browser would. */
+    fire(entries) {
+      io.callback(entries.map((e) => ({ target: e.target, isIntersecting: e.isIntersecting })))
+    },
+    /** Everything on screen at once — a tall viewport, or a tiny diff. */
+    fireAll(nodes) {
+      io.fire(nodes.map((target) => ({ target, isIntersecting: true })))
+    },
+  }
+  io.ctor = function (cb, opts) {
+    io.callback = cb
+    io.options = opts
+    this.observe = (node) => io.observed.push(node)
+    this.unobserve = (node) => { io.observed = io.observed.filter((n) => n !== node) }
+    this.disconnect = () => { io.observed = [] }
+  }
+  return io
+}
+
+function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false, widths = DEFAULT_WIDTHS, intersect = false } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
@@ -401,6 +446,7 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true, exe
       ? fetchWith(url, opts)
       : Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{"code":"418207"}') })
   }
+  const io = intersect ? fakeIntersection() : null
   vm.runInNewContext(
     `(function (document, window, navigator, location, fetch) { ${pageScript()} })(document, window, navigator, location, fetch)`,
     {
@@ -412,6 +458,8 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true, exe
       JSON,
       encodeURIComponent,
       Promise,
+      // Only where a test asked for one — see `fakeIntersection`.
+      ...(io ? { IntersectionObserver: io.ctor } : {}),
       // The page stamps a pass with the moment it was sent. The sandbox was
       // simply missing the global, not the page reaching for something it
       // should not have.
@@ -420,6 +468,7 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true, exe
   )
   dom.copied = copied
   dom.posted = posted
+  dom.intersect = io
   return dom
 }
 
@@ -517,6 +566,113 @@ test('clicking a hidden file in the tree turns the filter on and opens it', () =
   assert.strictEqual(dom.byId['show-noise'].checked, true, 'the filter was turned on for you')
   assert.strictEqual(noiseDetails.hidden, false)
   assert.strictEqual(noiseDetails.open, true)
+})
+
+// --- which file am I reading ------------------------------------------------
+
+const CODE = 'src/app.js'
+const NOISE = 'specs/in-progress/feat-x/00-overview.md'
+const row = (dom, name) =>
+  findAll(dom.byId.tree, 'tree-file').find((e) => e.textContent.includes(name))
+const isCurrent = (node) => String(node.className).split(/\s+/).includes('is-current')
+const card = (dom, path) => dom.byId['f-' + encodeURIComponent(path)]
+
+test('the tree marks the topmost file on screen, and only that one', () => {
+  const dom = runPage(fixture(), { intersect: true })
+  assert.strictEqual(dom.intersect.observed.length, 2, 'every file card is watched')
+
+  dom.intersect.fireAll([card(dom, CODE), card(dom, NOISE)])
+
+  assert.ok(isCurrent(row(dom, 'app.js')), 'the first file in document order wins')
+  assert.ok(!isCurrent(row(dom, '00-overview.md')), 'and it is the only one marked')
+})
+
+test('the mark moves as the file under the band changes', () => {
+  const dom = runPage(fixture(), { intersect: true })
+  dom.intersect.fireAll([card(dom, CODE)])
+  assert.ok(isCurrent(row(dom, 'app.js')))
+
+  // The first scrolls off as the second comes in — one batch, the way a
+  // browser delivers it.
+  dom.intersect.fire([
+    { target: card(dom, CODE), isIntersecting: false },
+    { target: card(dom, NOISE), isIntersecting: true },
+  ])
+
+  assert.ok(isCurrent(row(dom, '00-overview.md')), 'the mark followed')
+  assert.ok(!isCurrent(row(dom, 'app.js')), 'and left the row it was on')
+  assert.strictEqual(
+    findAll(dom.byId.tree, 'tree-file').filter(isCurrent).length,
+    1,
+    'exactly one row is ever current',
+  )
+})
+
+test('clicking a file in the tree marks it without waiting for the observer', () => {
+  const dom = runPage(fixture(), { intersect: true })
+  row(dom, 'app.js').dispatch('click')
+  assert.ok(isCurrent(row(dom, 'app.js')))
+})
+
+// STAYS SILENT. A browser with no IntersectionObserver is not a broken one,
+// and the page must render, build its tree and mark nothing — the same shape
+// the ResizeObserver guard beside it takes.
+test('a browser without IntersectionObserver gets a working page and no highlight', () => {
+  const dom = runPage(fixture())
+  assert.strictEqual(dom.intersect, null, 'the sandbox really has none')
+  assert.strictEqual(findAll(dom.byId.tree, 'tree-file').length, 2, 'the tree is still a tree')
+  assert.deepStrictEqual(findAll(dom.byId.tree, 'tree-file').filter(isCurrent), [])
+})
+
+// STAYS SILENT. Scrolled above the first card or past the last, nothing is on
+// screen — which is not an answer. Clearing the mark there would flicker it off
+// every time a card boundary crossed the band.
+test('nothing on screen leaves the last marked row exactly where it was', () => {
+  const dom = runPage(fixture(), { intersect: true })
+  dom.intersect.fireAll([card(dom, CODE)])
+  assert.ok(isCurrent(row(dom, 'app.js')))
+
+  dom.intersect.fire([{ target: card(dom, CODE), isIntersecting: false }])
+
+  assert.ok(isCurrent(row(dom, 'app.js')), 'still marked')
+})
+
+// STAYS SILENT. A row already inside the sidebar's scrollport must not be
+// scrolled to — that is the constant motion this deliberately avoids.
+test('the tree does not scroll for a row that is already in view', () => {
+  const dom = runPage(fixture(), { intersect: true })
+  dom.byId['tree-wrap']._rect = { top: 0, bottom: 500 }
+  row(dom, 'app.js')._rect = { top: 20, bottom: 40 }
+
+  dom.intersect.fireAll([card(dom, CODE)])
+
+  assert.deepStrictEqual(row(dom, 'app.js')._scrolls, [], 'nothing moved')
+})
+
+test('the tree scrolls itself when the marked row has left its scrollport', () => {
+  const dom = runPage(fixture(), { intersect: true })
+  dom.byId['tree-wrap']._rect = { top: 0, bottom: 500 }
+  row(dom, '00-overview.md')._rect = { top: 900, bottom: 920 }
+
+  dom.intersect.fireAll([card(dom, NOISE)])
+
+  // Asserted field by field rather than with deepStrictEqual: the options
+  // object is minted inside the vm realm, so its prototype is not this one's
+  // and a deep-equal fails on two objects that print identically.
+  const scrolls = row(dom, '00-overview.md')._scrolls
+  assert.strictEqual(scrolls.length, 1, 'scrolled once')
+  assert.strictEqual(scrolls[0].block, 'nearest', 'nudged in, never re-centred')
+})
+
+test('a decided page points at nothing, since its diff is hidden', async () => {
+  const dom = runPage(fixture(), { intersect: true, protocol: 'http:' })
+  dom.intersect.fireAll([card(dom, CODE)])
+  assert.ok(isCurrent(row(dom, 'app.js')))
+
+  dom.byId['verdict-commit'].dispatch('click')
+  await drained()
+
+  assert.strictEqual(findAll(dom.byId.tree, 'tree-file').filter(isCurrent).length, 0)
 })
 
 test('the noise filter hides bookkeeping and leaves real code alone', () => {
