@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-review-current-and-close (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-21)
+> **Status:** Complete (2026-09-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -144,6 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-21 | Ready | backlog | Reuben Greaves |
 | 2026-09-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -165,3 +166,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   would spin forever. The waiting sentence and the spinner live in the
   template markup, which the test shim cannot parse, so they are guarded
   against the template text instead.
+- 2026-09-21 — Completed; all phases done, tests green.
