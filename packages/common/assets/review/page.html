@@ -619,6 +619,37 @@ button:disabled:hover { color: var(--muted); border-color: var(--line); }
    border it read as part of it rather than as the way back to the diff. */
 .decided-toggle { font-size: .78rem; margin-top: .8rem; }
 
+/* STILL ASKING. The window between the pass landing on the server and the
+   engine saying whether a session took it — up to seven seconds, and until now
+   the page filled it with the pessimistic answer and retracted it afterwards.
+   A spinner is the honest shape for a question with no answer yet. */
+.pickup-wait {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0 0 .8rem;
+  color: var(--muted);
+  font-size: .88rem;
+}
+.pickup-wait[hidden] { display: none; }
+.pickup-spin {
+  width: .85rem;
+  height: .85rem;
+  flex: none;
+  border: 2px solid var(--line);
+  /* One side in the accent is what makes a ring read as turning. */
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: pickup-spin .8s linear infinite;
+}
+@keyframes pickup-spin { to { transform: rotate(360deg); } }
+/* A STATIC RING, not a hidden one. Someone who asked for less motion still
+   needs to see that something is in progress, and the sentence beside it is
+   doing most of that work anyway. */
+@media (prefers-reduced-motion: reduce) {
+  .pickup-spin { animation: none; border-top-color: var(--accent); }
+}
+
 /* WHY THE CHANGE EXISTS — the PR description this page never had. It is prose
    to be read rather than data to be scanned, so it gets a measure, air, and a
    quieter voice than the diff below it. It was once full-bleed 15px text at
@@ -843,6 +874,14 @@ a.ticket:hover { border-color: var(--accent); }
     <section class="decided" id="decided" hidden>
       <p class="decided-what" id="decided-what"></p>
       <p class="decided-note" id="decided-note"></p>
+      <!-- SHOWN ONLY WHILE THE PAGE IS ACTUALLY ASKING. A tab reopened
+           tomorrow over a stored `null` is reading history, not watching a
+           live poll, so it gets the command instead — a spinner that can never
+           resolve is worse than no spinner. -->
+      <p class="pickup-wait" id="pickup-wait" hidden>
+        <span class="pickup-spin" aria-hidden="true"></span>
+        <span id="pickup-wait-text">Sent — waiting for Claude to pick it up…</span>
+      </p>
       <!-- THE ONE THING LEFT TO DO, and it lives HERE rather than under the
            verdict bar because that is where it was being missed: a grey line
            below a bar that had just closed, in the type size of a footnote,
@@ -1931,6 +1970,52 @@ a.ticket:hover { border-color: var(--accent); }
   var failLead = document.getElementById('send-failed-lead')
   var failText = document.getElementById('send-failed-text')
   var failCopy = document.getElementById('send-failed-copy')
+  var pickupWait = document.getElementById('pickup-wait')
+
+  // IS A POLL RUNNING RIGHT NOW? Deliberately not persisted, and that is the
+  // whole of what it buys: a stored decision reloaded tomorrow carries the same
+  // `picked: null` — nothing was ever established — but nothing is asking any
+  // more, so it must not spin. Session state answers a question about the
+  // session.
+  var asking = false
+
+  // Has the close already been scheduled? `drawDecided` runs on every redraw
+  // once a page is decided, so without this a redraw would queue another timer.
+  var closing = false
+
+  // Long enough for the confirmation to register, short enough not to read as
+  // a hang. It only matters where the close is actually permitted.
+  var CLOSE_AFTER_MS = 900
+
+  /**
+   * This tab's job is over — best-effort, and only from the one state that
+   * earns it.
+   *
+   * ONLY ON CONFIRMED PICKUP. Reached from the branch where the engine has
+   * SAID a session claimed the pass, which is the only ending with provably
+   * nothing left on the page to read: no code to quote, no command to run, no
+   * blob to paste. Every other one — still asking, established-nobody-did, a
+   * poll that failed, a `file://` page whose pass is on the clipboard, a
+   * published page whose verdict needs `/spec-reviewed` — keeps the tab,
+   * because each leaves something the reader still needs.
+   *
+   * BEST-EFFORT BY CONSTRUCTION, not by caution. Browsers refuse
+   * `window.close()` on a tab the script did not open, and that is every tab
+   * here: somebody typed the URL or tapped a link. So the confirmation is
+   * drawn FIRST and the close attempted after it — a refused close leaves
+   * exactly the right ending standing, and a permitted one still reads as
+   * acknowledgement rather than a tab vanishing under the press.
+   */
+  function closeWhenDone() {
+    if (closing) return
+    closing = true
+    if (typeof window.close !== 'function' || !window.setTimeout) return
+    window.setTimeout(function () {
+      // A refusal can throw as well as do nothing, depending on the browser.
+      // Neither is a failure of the review, so neither reaches the reader.
+      try { window.close() } catch (e) {}
+    }, CLOSE_AFTER_MS)
+  }
 
   function pending() {
     var b = buildBlob()
@@ -2067,12 +2152,34 @@ a.ticket:hover { border-color: var(--accent); }
     // quietly changing its mind a day later.
     copyHint.hidden = true
     copyOut.hidden = true
+    pickupWait.hidden = true
+    // STILL ASKING — and saying so, which is the state this panel used not to
+    // have. `watchPass` takes up to seven seconds to establish whether a
+    // session claimed the pass, and the page used to spend that window
+    // asserting the pessimistic answer: "still waiting to be picked up", with
+    // a command under it, retracted a moment later on the usual outcome. The
+    // reader was being told to run something they almost never needed, in the
+    // same words used when running it is the only thing that saves their
+    // review.
+    //
+    // `asking` and not merely `picked === null`. A tab reopened over a stored
+    // decision has the same `null` — nothing was ever established — but no
+    // poll is running to resolve it, so it falls through to the command below.
+    // A spinner that can never stop is worse than no spinner.
+    // (`.claude/rules/negative-checks.md` rule 4: the cannot-tell case takes
+    // the harmless branch, which here is claiming neither answer.)
+    if (decided.picked === null && asking) {
+      sentCmd.hidden = true
+      pickupWait.hidden = false
+      return
+    }
     if (decided.picked === true) {
       // NOTHING TO RUN, and so nothing offered. This is the whole point of
       // asking: the command used to appear here on every single ending, which
       // taught the reader it was decoration.
       sentCmd.hidden = true
       decidedNote.textContent += ' Claude picked this up — there is nothing to run.'
+      closeWhenDone()
       return
     }
     // THE HAND-OFF SURVIVES THE ENDING — but only where there is something
@@ -2574,6 +2681,9 @@ a.ticket:hover { border-color: var(--accent); }
           // command here unconditionally — the same sentence whether a session
           // was waiting to claim the pass or nothing was — because it had no
           // way to find out. It has one now.
+          // Set BEFORE the draw, so the first render of the decided panel is
+          // already the waiting shape rather than the pessimistic one.
+          asking = true
           markDecided(verdict, '/spec-reviewed ' + code, null)
           watchPass(code, verdict)
         } else {
@@ -2731,6 +2841,10 @@ a.ticket:hover { border-color: var(--accent); }
     var url = location.pathname + '?pass=' + encodeURIComponent(code)
 
     function stop(picked) {
+      // Every exit from the poll comes through here — claimed, out of rounds,
+      // a server that stopped answering — so this is the one place the spinner
+      // can be retired without listing the ways it might end.
+      asking = false
       markDecided(verdict, '/spec-reviewed ' + code, picked)
     }
 

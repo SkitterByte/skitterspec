@@ -34,6 +34,21 @@ const TEMPLATE = loadTemplate()
 
 // --- the template as text ---------------------------------------------------
 
+// The waiting line's words and its spinner live in the MARKUP, not in the
+// script, so the shim cannot see them — this is where they are guarded.
+test('the template ships a hidden waiting line that says it is waiting', () => {
+  const tag = /<p class="pickup-wait" id="pickup-wait"[^>]*>/.exec(TEMPLATE)
+  assert.ok(tag, 'the waiting line ships')
+  assert.match(tag[0], /\shidden(\s|>)/, 'and starts hidden, so a page that never sends stays quiet')
+  assert.match(TEMPLATE, /waiting for Claude to pick it up/, 'it says what it is waiting for')
+  assert.match(TEMPLATE, /@keyframes pickup-spin/, 'the spinner turns without a network asset')
+  assert.match(
+    TEMPLATE,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pickup-spin \{ animation: none/,
+    'and stops turning for anyone who asked it to',
+  )
+})
+
 test('the template ships with both splice points', () => {
   assert.ok(TEMPLATE.includes(DATA_PLACEHOLDER), 'data island placeholder')
   assert.ok(TEMPLATE.includes(REVIEW_PLACEHOLDER), 'review block placeholder')
@@ -270,6 +285,7 @@ function fakeDom(islandText, widths = DEFAULT_WIDTHS) {
     'wrap', 'decided', 'decided-what', 'decided-note', 'decided-toggle', 'drawn-by',
     'send-failed', 'send-failed-what', 'send-failed-note', 'send-failed-cmd',
     'send-failed-lead', 'send-failed-text', 'send-failed-copy',
+    'pickup-wait',
   ]) {
     byId[id] = make('div')
     byId[id].id = id
@@ -358,6 +374,16 @@ function fakeDom(islandText, widths = DEFAULT_WIDTHS) {
       },
     },
     setTimeout: (fn) => fn(),
+    // THE TAB CLOSING, modelled as a real capability with the three states a
+    // browser offers: present and permitted, present and refusing (it throws),
+    // and absent. A page that calls it must survive all three, since a tab the
+    // script did not open is refused everywhere.
+    _closes: 0,
+    _closeThrows: false,
+    close() {
+      window._closes++
+      if (window._closeThrows) throw new Error('Scripts may not close windows that were not opened by script')
+    },
   }
   return { document, window, byId, store, selection }
 }
@@ -394,7 +420,7 @@ function fakeIntersection() {
   return io
 }
 
-function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false, widths = DEFAULT_WIDTHS, intersect = false } = {}) {
+function runPage(data, { checks = [], failStorage = false, clipboard = true, execCopy = true, protocol = 'file:', fetchWith = null, claudeUse = null, storage = null, noSelection = false, widths = DEFAULT_WIDTHS, intersect = false, canClose = true, closeThrows = false } = {}) {
   const html = renderReviewPage(data)
   const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html)
   assert.ok(island, 'the island was not closed early')
@@ -404,6 +430,10 @@ function runPage(data, { checks = [], failStorage = false, clipboard = true, exe
   if (storage) dom.window.localStorage = storage
   if (failStorage) dom.window.localStorage._fail = true
   if (noSelection) dom.window.getSelection = () => null
+  // A browser that withholds `close` altogether, and one that refuses by
+  // throwing — the page's guard and its try/catch respectively.
+  if (!canClose) dom.window.close = undefined
+  if (closeThrows) dom.window._closeThrows = true
   // Three states for the fallback route, matching what browsers really do:
   // present and working, present and refusing, and absent altogether.
   if (execCopy === false) dom.document.execCommand = undefined
@@ -2107,6 +2137,123 @@ test('a pass Claude picked up names no command at all', async () => {
   assert.strictEqual(dom.byId['sent-cmd'].hidden, true, 'nothing for the reader to run')
   assert.match(dom.byId['decided-note'].textContent, /picked (it|this) up/i)
   assert.doesNotMatch(dom.byId['decided-note'].textContent, /Run this where Claude is/)
+})
+
+// --- still asking, and the tab that closes once it is not --------------------
+
+/**
+ * A poll that never answers — the window the page used to fill with the
+ * pessimistic sentence. The POST lands, the GET hangs, and the page is left in
+ * the one state this phase gave a shape to.
+ */
+function stalled() {
+  return {
+    fetchWith: (url, opts) => {
+      if (opts && opts.method === 'POST') {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{"code":"418207"}') })
+      }
+      return new Promise(() => {})
+    },
+  }
+}
+
+test('while the pickup is still unknown the page spins and names no command', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: stalled().fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+
+  assert.strictEqual(dom.byId['pickup-wait'].hidden, false, 'it says it is asking')
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, true, 'and asserts nothing about the answer')
+  assert.doesNotMatch(dom.byId['decided-note'].textContent, /still waiting to be picked up/i)
+  assert.strictEqual(dom.window._closes, 0, 'nothing closes on an unanswered poll')
+})
+
+test('a confirmed pickup stops spinning and closes the tab', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: polling(['claimed']).fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+
+  assert.strictEqual(dom.byId['pickup-wait'].hidden, true, 'the spinner is retired')
+  assert.match(dom.byId['decided-note'].textContent, /picked (it|this) up/i)
+  assert.strictEqual(dom.window._closes, 1, 'the tab closed, once')
+})
+
+test('a redraw after the close does not queue a second one', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: polling(['claimed']).fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+  // Every mark redraws, and a decided page redraws straight back into
+  // `drawDecided` — which is the path a per-redraw timer would multiply.
+  accepts(dom)[0].dispatch('click')
+  await drained()
+
+  assert.strictEqual(dom.window._closes, 1)
+})
+
+// STAYS SILENT. The established-nobody-took-it case is where the recovery
+// command matters most, so it keeps today's sentence and the tab stays open.
+test('a pass nobody claimed keeps its command and keeps the tab', async () => {
+  const dom = runPage(marked(), { protocol: 'http:', fetchWith: polling(['waiting']).fetchWith })
+  pressed(dom, 'commit')
+  await drained()
+
+  assert.strictEqual(dom.byId['pickup-wait'].hidden, true)
+  assert.match(dom.byId['decided-note'].textContent, /still waiting to be picked up/i)
+  assert.strictEqual(dom.byId['sent-cmd'].hidden, false, 'the way back in is on screen')
+  assert.strictEqual(dom.window._closes, 0, 'and the page that carries it stays')
+})
+
+// STAYS SILENT. A `file://` page hands its pass to the clipboard for the reader
+// to paste, so there is never a confirmed pickup and never a close.
+test('a file:// page keeps the tab, since its pass is on the clipboard', async () => {
+  const dom = runPage(marked(), { protocol: 'file:' })
+  pressed(dom, 'commit')
+  await drained()
+
+  assert.strictEqual(dom.window._closes, 0)
+})
+
+// STAYS SILENT. Browsers refuse `close()` on a tab the script did not open —
+// which is every tab here — and some refuse by throwing. The confirmed ending
+// must survive it untouched.
+test('a browser that refuses the close leaves the confirmed ending standing', async () => {
+  const dom = runPage(marked(), {
+    protocol: 'http:', fetchWith: polling(['claimed']).fetchWith, closeThrows: true,
+  })
+  pressed(dom, 'commit')
+  await drained()
+
+  assert.strictEqual(dom.window._closes, 1, 'it was attempted')
+  assert.match(dom.byId['decided-note'].textContent, /picked (it|this) up/i, 'and the panel is intact')
+  assert.strictEqual(dom.byId.decided.hidden, false)
+})
+
+// STAYS SILENT. And a browser with no `close` at all.
+test('a browser without window.close renders the confirmed ending anyway', async () => {
+  const dom = runPage(marked(), {
+    protocol: 'http:', fetchWith: polling(['claimed']).fetchWith, canClose: false,
+  })
+  pressed(dom, 'commit')
+  await drained()
+
+  assert.match(dom.byId['decided-note'].textContent, /picked (it|this) up/i)
+  assert.strictEqual(dom.byId['pickup-wait'].hidden, true)
+})
+
+// STAYS SILENT. A reopened tab carries the same `picked: null` — nothing was
+// ever established — but no poll is running to resolve it. A spinner that can
+// never stop is worse than no spinner, so it gets the command instead.
+test('a reopened tab over an unresolved decision shows the command, not a spinner', async () => {
+  const first = runPage(marked(), { protocol: 'http:', fetchWith: stalled().fetchWith })
+  pressed(first, 'commit')
+  await drained()
+  assert.strictEqual(first.byId['pickup-wait'].hidden, false, 'it really was spinning')
+
+  const again = runPage(marked(), { protocol: 'http:', storage: first.window.localStorage })
+
+  assert.strictEqual(again.byId['pickup-wait'].hidden, true, 'nothing is asking any more')
+  assert.strictEqual(again.byId['sent-cmd'].hidden, false, 'so the way back in is offered')
+  assert.strictEqual(again.window._closes, 0)
 })
 
 test('a pass still sitting there hands over the command, loudly', async () => {

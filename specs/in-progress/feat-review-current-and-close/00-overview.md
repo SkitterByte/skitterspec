@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Highlight the current file in the tree as you scroll | ✅ | [01-current-file.md](01-current-file.md) |
-| 2 | A truthful pickup state, and a tab that closes when it is done | ⬜ | [02-close-on-pickup.md](02-close-on-pickup.md) |
+| 2 | A truthful pickup state, and a tab that closes when it is done | ✅ | [02-close-on-pickup.md](02-close-on-pickup.md) |
 
 ## Open questions
 
@@ -159,3 +159,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   options needed field-by-field comparison rather than `deepStrictEqual`: the
   options object is minted inside the vm realm and its prototype is not the
   test's.
+- 2026-09-21 — Phase 2: telling a live poll from a restored `null` needed a
+  session-only `asking` flag rather than a stored field — a reopened tab
+  carries the same `picked: null` and nothing is asking, so persisting it
+  would spin forever. The waiting sentence and the spinner live in the
+  template markup, which the test shim cannot parse, so they are guarded
+  against the template text instead.
