@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-note-editor (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (tests green)
+> **Status:** Complete (2026-09-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -105,6 +105,7 @@ always did.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -128,3 +129,9 @@ always did.
   shipped stylesheet: the same note that was 4,927px is 1,069px, wraps in view,
   and stays visible with the pane scrolled 2,500px right — and the table is
   narrower than before, since the note no longer widens it.
+- 2026-09-21 — Completed; both fixes in, 3,485 tests green.
+- 2026-09-21 — Follow-up surfaced: `/spec-bug` §5b renders with the default
+  committing button set, so a single-pass bug spec — no phase files, phases
+  inline in the overview — offers `Commit & Continue` with nothing to continue
+  into. `readPhases` returns `null` for that layout by design, so the page's
+  `noPhaseLeft` guard cannot see it. Spec'd separately; not in scope here.
