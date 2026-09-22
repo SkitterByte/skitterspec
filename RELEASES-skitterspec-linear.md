@@ -5,6 +5,14 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 17.3.1 — 22 Sep 2026
+
+### Linear sync
+- **Fixed** — A fresh Linear install now treats a spec's own Linear snapshot as part of that spec, so /spec-start and /spec-complete commit it with the spec instead of reporting it as someone else's file. Before this, every install had to be corrected by hand or the leftover snapshot would block the branch from landing.
+
+### Review
+- **Fixed** — An armed review gate can now be cleared from anywhere with `spec-env review skip <spec> "<reason>"`. Previously the gate's own documented exit was unreachable for a spec whose worktree had been removed, leaving an armed gate nothing shipped could clear.
+
 ## 17.3.0 — 21 Sep 2026
 
 ### Review
