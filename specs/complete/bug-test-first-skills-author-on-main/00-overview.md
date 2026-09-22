@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-test-first-skills-author-on-main (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — both phases green, awaiting completion
+> **Status:** Complete (2026-09-22)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-22
@@ -104,9 +104,11 @@ so it ships second and on its own evidence.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-22 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-22 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-09-22 — Completed; both phases done, tests green (3559).
 - 2026-09-22 — Fixed (phase 2): `spec-env up` gained `--from <ref>` for the
   authoring lane, and `/spec-hotfix` provisions from the tag and writes the spec
   in that worktree — the hand-move and its hazard paragraph are gone. Suite
