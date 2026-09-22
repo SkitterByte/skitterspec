@@ -210,6 +210,50 @@ const DEFAULT_CONFIG = Object.freeze({
   }),
 })
 
+// The frontmatter field `spec-sync apply` stamps a spec's issue identifier into.
+// Named once, because three things have to agree on it: the stamp itself, the
+// snapshot filename derived from it, and the `branch.identifierField` below that
+// tells the base engine where to read it back from.
+const IDENTIFIER_FIELD = 'linear_identifier'
+
+/**
+ * The per-spec-isolation keys THIS PROVIDER needs a project to declare, merged
+ * into the superset's shipped `env.config.json.example` by `build-dist`.
+ *
+ * WHY IT LIVES HERE. `env.config.json` belongs to the base engine, which is
+ * tracker-free by design and must keep shipping these two empty — a base that
+ * named Linear's snapshot would point every install at a directory nothing
+ * writes. The superset is the component that WRITES that snapshot, and it is
+ * therefore the only one that can declare it.
+ *
+ * WHAT GOES WRONG WITHOUT IT. `spec-env stage` splits a dirty tree by exact
+ * membership, so an undeclared `linear-base/<ID>.base.json` is FOREIGN — to the
+ * very `/spec-complete` skill that asserts it is declared and commits it by
+ * name. The snapshot is then left uncommitted and `spec-env integrate` refuses
+ * to land the branch over it, which is the failure that assertion exists to
+ * prevent.
+ *
+ * BOTH KEYS OR NEITHER, and this is the half that hides. `expandCompanion`
+ * (`common/src/env/classify.js`) expands `{identifier}` only when
+ * `branch.identifierField` names a frontmatter field to read it from, so a
+ * config carrying `companionPaths` alone expands to nothing, matches nothing,
+ * and looks applied while changing no behaviour.
+ *
+ * SETTING `identifierField` DOES NOT CHANGE BRANCH NAMES. `branchFor`
+ * (`common/src/env/resolve.js`) consults it only when `branch.pattern` contains
+ * `{identifier}`, and the shipped pattern is `{type}/{slug}`.
+ *
+ * The pattern is DERIVED from `sync.baseDir` rather than typed out beside it: a
+ * second copy of that path would stay valid while owning nothing the day the
+ * snapshot directory moved.
+ */
+const ENV_CONFIG_DEFAULTS = Object.freeze({
+  branch: Object.freeze({ identifierField: IDENTIFIER_FIELD }),
+  spec: Object.freeze({
+    companionPaths: Object.freeze([`${DEFAULT_CONFIG.sync.baseDir}/{identifier}.base.json`]),
+  }),
+})
+
 // The lifecycle buckets a per-bucket `mapping.phases` map may key on. Derived
 // from `states` rather than restated: both maps key on the spec's folder bucket,
 // so they cannot drift apart.
@@ -579,4 +623,6 @@ module.exports = {
   TRANSPORTS,
   DEFAULT_KEY_ENV,
   DEFAULT_RELEASE_IGNORE_PATHS,
+  ENV_CONFIG_DEFAULTS,
+  IDENTIFIER_FIELD,
 }

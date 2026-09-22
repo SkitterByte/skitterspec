@@ -77,8 +77,18 @@ test('the refusal names the build step and the offending file', () => {
   try {
     const { stderr } = runBin('base', ['init', dir, '--yes'])
     assert.match(stderr, /build/i, 'points at building the distribution')
-    assert.match(stderr, /skills[/\\]spec[/\\]SKILL\.md/, 'names a real offender')
     assert.match(stderr, /\d+ file\(s\)/, 'says how many')
+
+    // THE EXAMPLE IS CHECKED, NOT PINNED. It used to be asserted as a literal
+    // path, which made it a test of which offender happens to sort first — so
+    // adding a seam anywhere earlier in the tree failed a test measuring
+    // nothing about the guard. What matters is that the path it prints is a
+    // file the reader can open and find a marker in.
+    const eg = /e\.g\. ([^)]+)\)/.exec(stderr)
+    assert.ok(eg, `the refusal must name an offender: ${stderr}`)
+    const named = path.join(ASSETS, eg[1].trim())
+    assert.ok(fs.existsSync(named), `${eg[1]} must exist under assets/`)
+    assert.match(fs.readFileSync(named, 'utf8'), /<!--\s*seam:/, `${eg[1]} must really be uncomposed`)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }

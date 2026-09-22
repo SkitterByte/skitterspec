@@ -403,3 +403,223 @@ test('the tracker-free base ships no provider rule', () => {
   assert.ok(!rules.includes('commit-trailers.md'), 'the base must stay tracker-free')
   assert.ok(rules.includes('spec-planning.md'), 'but it still ships the common rules')
 })
+
+// --- the provider's isolation-config defaults --------------------------------
+//
+// `spec-env stage` splits a dirty tree into the paths that are this spec's and
+// the paths that are not, and it is deliberately EXACT: a project declares each
+// companion file by name in `spec.companionPaths`, because a prefix match over
+// `specs/.core/linear-base/` would hand one spec another spec's snapshot.
+//
+// The superset is the component that writes that snapshot, and it shipped the
+// base's empty defaults verbatim — so a fresh install reported a spec's OWN
+// snapshot as foreign, to the very `/spec-complete` skill that asserts it is
+// declared. The end of that is `spec-env integrate` refusing to land a branch
+// over the uncommitted file, which is the failure the skill says it prevents.
+//
+// BOTH KEYS OR NEITHER is the half that hides: `expandCompanion`
+// (`common/src/env/classify.js`) expands `{identifier}` only when
+// `branch.identifierField` names a frontmatter field to read it from, so a
+// config carrying only `companionPaths` looks applied and changes no behaviour.
+// `the two keys are one fix` below is what stops that trap shipping again.
+
+const SNAPSHOT_PATTERN = 'specs/.core/linear-base/{identifier}.base.json'
+
+const exampleOf = (dist) =>
+  JSON.parse(read(dist, 'assets', 'core', 'env.config.json.example'))
+
+test('the superset declares the two isolation keys its own snapshot needs', () => {
+  const example = exampleOf(buildLinear())
+  assert.strictEqual(
+    example.branch.identifierField,
+    'linear_identifier',
+    'the frontmatter field `spec-sync apply` stamps',
+  )
+  assert.deepStrictEqual(example.spec.companionPaths, [SNAPSHOT_PATTERN])
+})
+
+test('the companion pattern is derived from where the snapshot is actually written', () => {
+  // Not a second copy of the path. `sync.baseDir` is the one place the snapshot
+  // directory is decided, and a pattern typed out beside it is free to drift
+  // from it silently — the config would stay valid and own nothing.
+  const { DEFAULT_CONFIG } = require('../packages/linear/src/config.js')
+  const [pattern] = exampleOf(buildLinear()).spec.companionPaths
+  assert.strictEqual(path.posix.dirname(pattern), DEFAULT_CONFIG.sync.baseDir)
+})
+
+test('the tracker-free base declares neither key', () => {
+  // The base knows nothing about any tracker, so it has no companion to name —
+  // and a base that shipped Linear's would point every install at a directory
+  // nothing writes.
+  const example = exampleOf(buildBase())
+  assert.strictEqual(example.branch.identifierField, '')
+  assert.deepStrictEqual(example.spec.companionPaths, [])
+})
+
+test('the superset keeps every other key the base example ships', () => {
+  // The defaults are MERGED into the composed example, not written over it. A
+  // replace would be invisible here and catastrophic there: the example is
+  // copied verbatim into a new project, so a dropped key opts every fresh
+  // install out of whatever it configured.
+  const base = exampleOf(buildBase())
+  const superset = exampleOf(buildLinear())
+  for (const key of Object.keys(base)) {
+    assert.ok(key in superset, `superset example dropped ${key}`)
+  }
+  assert.deepStrictEqual(superset.branch.pattern, base.branch.pattern, 'branch.pattern untouched')
+  assert.deepStrictEqual(superset.review, base.review, 'sibling sections untouched')
+})
+
+// --- what the keys buy, end to end -------------------------------------------
+
+// A repo as a fresh superset install leaves it: isolation adopted from the
+// shipped example, one committed spec carrying the identifier `spec-sync apply`
+// stamps, and its snapshot sitting uncommitted beside it.
+function installedRepo(bin, tag, { patch = null } = {}) {
+  const proj = tmpDir(tag)
+  const init = spawnSync('node', [bin, 'init', proj, '--yes', '--no-claude-md', '--isolation'], {
+    encoding: 'utf8',
+  })
+  assert.strictEqual(init.status, 0, `init failed: ${init.stderr}`)
+
+  const cfgPath = path.join(proj, 'specs', '.core', 'env.config.json')
+  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
+  cfg.baseBranch = 'main'
+  cfg.docker = { enabled: false }
+  if (patch) patch(cfg)
+  fs.writeFileSync(cfgPath, `${JSON.stringify(cfg, null, 2)}\n`)
+
+  const git = (...args) =>
+    spawnSync('git', ['-C', proj, ...args], { encoding: 'utf8', stdio: 'pipe' })
+  git('init', '-q')
+  git('config', 'user.email', 'test@example.com')
+  git('config', 'user.name', 'Test')
+  const specDir = path.join(proj, 'specs', 'in-progress', 'feat-alpha')
+  fs.mkdirSync(specDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(specDir, '00-overview.md'),
+    '---\nlinear_identifier: "ERQ-545"\n---\n\n# X\n\n> **Stack:** worktree\n',
+  )
+  git('add', '-A')
+  git('commit', '-q', '-m', 'init')
+  git('branch', '-M', 'main')
+
+  const snapshot = path.join(proj, 'specs', '.core', 'linear-base', 'ERQ-545.base.json')
+  fs.mkdirSync(path.dirname(snapshot), { recursive: true })
+  fs.writeFileSync(snapshot, '{}\n')
+  return { proj, cfgPath }
+}
+
+const staged = (bin, proj) =>
+  JSON.parse(
+    spawnSync('node', [bin, 'spec-env', 'stage', 'feat-alpha', '--dir', proj, '--json'], {
+      encoding: 'utf8',
+    }).stdout,
+  )
+
+test("a fresh superset install owns a spec's own Linear snapshot", () => {
+  // THE ACCEPTANCE CRITERION. Nothing is hand-edited between `init --isolation`
+  // and this call — that is the whole defect: the install was the thing that
+  // had to be corrected by hand, seven times on one spec in the repo that
+  // reported it.
+  const bin = path.join(copyDistOut(buildLinear(), 'companion-out'), 'bin', 'skitterspec-linear.js')
+  const { proj } = installedRepo(bin, 'companion-proj')
+  const r = staged(bin, proj)
+  assert.deepStrictEqual(r.owned, ['specs/.core/linear-base/ERQ-545.base.json'])
+  assert.deepStrictEqual(r.foreign, [])
+})
+
+test('the two keys are one fix — companionPaths alone owns nothing', () => {
+  // The trap this bug shipped inside. Blanking `identifierField` leaves a
+  // config that still NAMES the snapshot and still expands to nothing, so a
+  // one-key repair reads as applied and changes no behaviour.
+  //
+  // It is the test above that this one gives its meaning to: alone, that test
+  // cannot tell a fix that set both keys from one that set either. If THIS
+  // test ever fails, the pattern stopped depending on the field and the pair
+  // is no longer being proved to have arrived together.
+  const bin = path.join(copyDistOut(buildLinear(), 'one-key-out'), 'bin', 'skitterspec-linear.js')
+  const { proj } = installedRepo(bin, 'one-key-proj', {
+    patch: (cfg) => {
+      cfg.branch.identifierField = ''
+    },
+  })
+  const r = staged(bin, proj)
+  assert.deepStrictEqual(r.owned, [])
+  assert.deepStrictEqual(r.foreign, ['specs/.core/linear-base/ERQ-545.base.json'])
+})
+
+// --- stays silent -------------------------------------------------------------
+
+test("another spec's snapshot, and an unrelated core file, stay foreign", () => {
+  // The exactness the report asked not to trade away. Declaring the companion
+  // by name must not become "anything under linear-base/", which would hand one
+  // spec another spec's snapshot — and `specs/.core/` holds the project's own
+  // files, which belong to no spec at all.
+  const bin = path.join(copyDistOut(buildLinear(), 'foreign-out'), 'bin', 'skitterspec-linear.js')
+  const { proj } = installedRepo(bin, 'foreign-proj')
+  fs.writeFileSync(path.join(proj, 'specs', '.core', 'linear-base', 'ERQ-999.base.json'), '{}\n')
+  fs.appendFileSync(path.join(proj, 'specs', '.core', 'env.config.md'), '\nedited\n')
+
+  const r = staged(bin, proj)
+  assert.deepStrictEqual(r.owned, ['specs/.core/linear-base/ERQ-545.base.json'])
+  assert.deepStrictEqual(r.foreign.sort(), [
+    'specs/.core/env.config.md',
+    'specs/.core/linear-base/ERQ-999.base.json',
+  ])
+})
+
+test('a spec with no identifier claims nothing extra, and does not error', () => {
+  // An ordinary state, not a broken one: a spec never pushed to Linear has no
+  // `linear_identifier`, so the pattern expands to nothing and matches nothing.
+  // Setting `identifierField` must not turn that into a failure.
+  const bin = path.join(copyDistOut(buildLinear(), 'unlinked-out'), 'bin', 'skitterspec-linear.js')
+  const { proj } = installedRepo(bin, 'unlinked-proj')
+  const overview = path.join(proj, 'specs', 'in-progress', 'feat-alpha', '00-overview.md')
+  fs.writeFileSync(overview, '# X\n\n> **Stack:** worktree\n')
+
+  const out = spawnSync('node', [bin, 'spec-env', 'stage', 'feat-alpha', '--dir', proj, '--json'], {
+    encoding: 'utf8',
+  })
+  assert.strictEqual(out.status, 0, `stage must stay quiet, got: ${out.stderr}`)
+  const r = JSON.parse(out.stdout)
+  assert.deepStrictEqual(r.owned, ['specs/in-progress/feat-alpha/00-overview.md'])
+  assert.deepStrictEqual(r.foreign, ['specs/.core/linear-base/ERQ-545.base.json'])
+})
+
+test('declaring identifierField does not change branch names', () => {
+  // The worry `identifierField` raises, answered rather than reasoned about.
+  // `branchFor` consults the field ONLY when `branch.pattern` contains
+  // `{identifier}`, and the shipped pattern is `{type}/{slug}` — so a spec with
+  // an identifier and one without must produce the same shape of branch name.
+  const { branchFor } = require('../packages/common/src/env/resolve.js')
+  const example = exampleOf(buildLinear())
+  const spec = { slug: 'alpha', type: 'feat', folder: 'feat-alpha', path: null }
+  assert.strictEqual(
+    branchFor(spec, example),
+    branchFor(spec, { ...example, branch: { ...example.branch, identifierField: '' } }),
+  )
+  assert.strictEqual(branchFor(spec, example), 'feat/alpha')
+})
+
+test('an install that already chose its own keys is left alone', () => {
+  // `env.config.json` is PROTECTED_CONFIG: `init` writes it only when isolation
+  // is being adopted, and `copyAsset` declines to overwrite one that exists.
+  // A project that set a different companion — or deliberately set none — must
+  // survive a re-init and an update untouched.
+  const bin = path.join(copyDistOut(buildLinear(), 'keep-out'), 'bin', 'skitterspec-linear.js')
+  const proj = tmpDir('keep-proj')
+  fs.mkdirSync(path.join(proj, 'specs', '.core'), { recursive: true })
+  const cfgPath = path.join(proj, 'specs', '.core', 'env.config.json')
+  const chosen = { branch: { identifierField: 'ticket' }, spec: { companionPaths: ['ours/{slug}.json'] } }
+  fs.writeFileSync(cfgPath, `${JSON.stringify(chosen, null, 2)}\n`)
+
+  for (const argv of [
+    ['init', proj, '--yes', '--no-claude-md', '--isolation'],
+    ['update', proj, '--yes'],
+  ]) {
+    const r = spawnSync('node', [bin, ...argv], { encoding: 'utf8' })
+    assert.strictEqual(r.status, 0, `${argv[0]} failed: ${r.stderr}`)
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(cfgPath, 'utf8')), chosen, `${argv[0]} rewrote it`)
+  }
+})

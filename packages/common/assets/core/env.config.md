@@ -188,6 +188,7 @@ through to a documented conservative default; see the field notes below.
   // deliberate: the file it names then belongs to some other spec, and the safe
   // failure is a refusal you clear with /commit, not a stranger's file swept
   // into your commit. Default: none — a spec owns only its own folder.
+  <!-- seam:env-config-companion -->
   "spec": {
     "companionPaths": []
   },

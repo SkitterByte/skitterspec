@@ -126,6 +126,34 @@ function overlayTree(srcDir, dstDir, fragments = {}) {
   composeAssets(srcDir, dstDir, fragments)
 }
 
+/**
+ * Merge a provider's per-spec-isolation defaults into the composed
+ * `env.config.json.example` a distribution ships.
+ *
+ * MERGED, NEVER REPLACED, and that is the whole shape of it. The example is
+ * copied verbatim into a new project by `init --isolation`, so a provider that
+ * shipped its own copy of the file would silently pin every fresh install to
+ * whatever the base's example looked like on the day that copy was taken. Here
+ * the provider states only the keys it needs and inherits the rest forever.
+ *
+ * Section-deep is deliberately as deep as it goes: these are `{ branch: {...},
+ * spec: {...} }` shaped, and a general deep merge over arrays would have to
+ * decide whether a provider's `companionPaths` appends to the base's or
+ * replaces it — a question with no right answer and no test to catch the wrong
+ * one. The base ships every such array empty, so the question does not arise.
+ *
+ * A provider declaring nothing is a clean no-op, which is what the base build
+ * relies on.
+ */
+function mergeConfigDefaults(examplePath, provided) {
+  if (!provided || !Object.keys(provided).length) return
+  const example = JSON.parse(fs.readFileSync(examplePath, 'utf8'))
+  for (const [section, keys] of Object.entries(provided)) {
+    example[section] = { ...(example[section] || {}), ...keys }
+  }
+  fs.writeFileSync(examplePath, `${JSON.stringify(example, null, 2)}\n`)
+}
+
 // Fail the build if any built `.js` still carries a bare workspace require —
 // that would make the published package depend on an unpublished private one.
 function guardNoWorkspaceRequires(dir) {
@@ -190,6 +218,14 @@ function buildLinear() {
   overlayTree(path.join(linear, 'assets', 'commands'), path.join(out, 'assets', 'commands'), fragments)
   overlayTree(path.join(linear, 'assets', 'rules'), path.join(out, 'assets', 'rules'), fragments)
   overlayTree(path.join(linear, 'assets', 'core'), path.join(out, 'assets', 'core'), fragments)
+  // The two isolation keys the provider's own snapshot needs declared. They are
+  // read from the adapter rather than restated here, so the companion pattern
+  // cannot drift from `sync.baseDir` — the one place the snapshot directory is
+  // decided. `ENV_CONFIG_DEFAULTS` carries why the base cannot ship them.
+  mergeConfigDefaults(
+    path.join(out, 'assets', 'core', 'env.config.json.example'),
+    require(path.join(linear, 'src', 'config.js')).ENV_CONFIG_DEFAULTS,
+  )
 
   // src: common at the root; the engine + adapter vendored under vendor/. All JS
   // has its workspace requires rewritten relative to srcRoot.

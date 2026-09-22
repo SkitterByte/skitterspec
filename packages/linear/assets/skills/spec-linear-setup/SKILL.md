@@ -242,6 +242,12 @@ paraphrase it into "done".
 **Only when `specs/.core/env.config.json` exists** (per-spec isolation is on). If
 it is absent, skip this — there is nothing to configure.
 
+**Check before you write — a fresh install already has this.** Since 17.4.0 the
+superset seeds both keys into the `env.config.json` that `init --isolation`
+writes, so the common case here is reading the file and finding it done. This
+step is the **retrofit**: a project that adopted isolation before that, or ran
+`/spec-linear-setup` before adopting it, still has the empty defaults.
+
 `/spec-start` commits an uncommitted spec for you, but only the paths it can
 prove belong to that spec. Its own folder always does; this repo's per-spec
 Linear snapshot (`sync.baseDir`, `specs/.core/linear-base/<ID>.base.json`) does
