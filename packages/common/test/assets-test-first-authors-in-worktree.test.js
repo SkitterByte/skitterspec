@@ -1,8 +1,8 @@
 'use strict'
 
 /**
- * `/spec-bug` authors in its own worktree — it never seeds a stub on the base
- * branch.
+ * The test-first skills author in their own worktree — neither seeds a stub on
+ * the base branch.
  *
  * WHAT THIS CLOSES. `feat-main-is-a-landing-zone` converted `/spec` to the
  * authoring lane and then shipped `main-guard.cjs`, which refuses an `Edit` or
@@ -32,6 +32,7 @@ const ASSETS = path.join(__dirname, '..', 'assets')
 const skillText = (name) => fs.readFileSync(path.join(ASSETS, 'skills', name, 'SKILL.md'), 'utf8')
 
 const BUG = skillText('spec-bug')
+const HOTFIX = skillText('spec-hotfix')
 
 // --- it provisions, and provisions before it writes -------------------------
 
@@ -97,4 +98,52 @@ test('STAYS SILENT: no isolation means no worktree and no mention of one', () =>
     /\*\*Only when per-spec isolation is enabled\*\* \(`specs\/\.core\/env\.config\.json`\s*\nexists\)\. Skip this whole section otherwise/,
   )
   assert.match(BUG, /the fix happens in place, on the\s*\ncurrent branch/)
+})
+
+// ---------------------------------------------------------------------------
+// `/spec-hotfix` — the same lane, plus the fork point its spec cannot yet name.
+// ---------------------------------------------------------------------------
+
+test('/spec-hotfix provisions from the tag, on the command line', () => {
+  assert.match(HOTFIX, /skitterspec spec-env up hotfix-<name> --docs --from <tag>/)
+  assert.match(HOTFIX, /\*\*Provision before you write, not after\.\*\*/)
+})
+
+test('it says why the tag cannot come off the spec, as it does everywhere else', () => {
+  // Without this the flag reads as redundant with the header and gets dropped,
+  // and a hotfix silently forks from main.
+  assert.match(HOTFIX, /the spec that would carry it does not\s*\n?exist yet/)
+  assert.match(HOTFIX, /fork from `main`/)
+})
+
+test('the hotfix stub is no longer seeded on the base branch either', () => {
+  assert.doesNotMatch(HOTFIX, /From the base branch \(`main`\), create/)
+  assert.match(HOTFIX, /`main` is where work \*\*lands\*\*, not where it\s*\n?happens/)
+})
+
+test('the hand-move across is gone, and so is the hazard paragraph it needed', () => {
+  const flat = HOTFIX.replace(/\s+/g, ' ')
+  assert.doesNotMatch(flat, /mv specs\/in-progress\/hotfix-/, 'nothing is moved')
+  assert.doesNotMatch(flat, /mkdir -p <worktreePath>/, 'no bucket-creation hazard left')
+  assert.doesNotMatch(flat, /renames your spec folder/, 'and not its warning either')
+})
+
+test('the session moves and confirms, and the setup commands still run', () => {
+  assert.match(HOTFIX, /plain `cd`/)
+  assert.match(HOTFIX, /`skitterspec spec-env resolve` with\s*\n?no argument must name this spec/)
+  assert.match(HOTFIX, /skitterspec spec-env up hotfix-<name>\n```/)
+})
+
+test('the header records the same tag the fork used', () => {
+  // `/spec-complete` tags and cherry-picks off the header, so a worktree forked
+  // from one ref and a header naming another is the whole bug wearing a hat.
+  assert.match(HOTFIX, /the same tag you passed to `--from`/)
+})
+
+test('STAYS SILENT: a hotfix without isolation still stops, rather than improvising', () => {
+  // The inverse of /spec-bug's stays-silent case: there is no in-place path
+  // here, so the healthy-but-unusual input is refused up front rather than
+  // half-provisioned.
+  assert.match(HOTFIX, /\*\*Isolation is required\.\*\*/)
+  assert.match(HOTFIX, /there is no in-place path/)
 })

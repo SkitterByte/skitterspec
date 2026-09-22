@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-test-first-skills-author-on-main (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — phase 1 green, phase 2 to build
+> **Status:** In Progress — both phases green, awaiting completion
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-22
@@ -82,7 +82,7 @@ Phased: two skills, and the second needs an engine flag the first does not.
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec-bug` takes the authoring lane | ✅ | [01-spec-bug-authoring-lane.md](01-spec-bug-authoring-lane.md) |
-| 2 | `/spec-hotfix`, and forking from a tag it has not written down yet | ⬜ | [02-hotfix-forks-from-a-tag.md](02-hotfix-forks-from-a-tag.md) |
+| 2 | `/spec-hotfix`, and forking from a tag it has not written down yet | ✅ | [02-hotfix-forks-from-a-tag.md](02-hotfix-forks-from-a-tag.md) |
 
 Phase 1 needs no engine change at all — it is `/spec` + `/spec-start`'s proven
 shape, with the deferred `setup` pulled forward because a bug has no
@@ -96,6 +96,7 @@ so it ships second and on its own evidence.
 | Skill | update | `/spec-bug` §2, §4 — provision before writing, in the worktree |
 | Skill | update | `/spec-hotfix` §3 — same, plus the tag on the command line |
 | CLI flag | add | `spec-env up <spec> --docs --from <ref>` (phase 2) |
+| Engine | fix | `specEnvUp` no longer crashes on the flagless re-run of a document-less spec |
 | Engine output | update | the authoring lane's `authoring:` line names the skill that asked, not `/spec` |
 
 ## State log
@@ -106,6 +107,15 @@ so it ships second and on its own evidence.
 
 ## Changelog
 
+- 2026-09-22 — Fixed (phase 2): `spec-env up` gained `--from <ref>` for the
+  authoring lane, and `/spec-hotfix` provisions from the tag and writes the spec
+  in that worktree — the hand-move and its hazard paragraph are gone. Suite
+  green, 3559 passed.
+- 2026-09-22 — Found while testing phase 2: the flagless re-run **crashed** for
+  a spec with no document (`specIsUntracked` on a null path), because the guard
+  asked `authoring` rather than whether a document exists. Both skills run that
+  command, so phase 1 had shipped an instruction that could not run. Fixed and
+  covered.
 - 2026-09-22 — Fixed (phase 1): `/spec-bug` provisions with
   `spec-env up bug-<name> --docs`, moves the session in, and writes the spec
   there; the flagless `up` follows for the `setup` commands. Suite green,

@@ -55,43 +55,73 @@ Hotfixes are concrete — confirm, don't over-grill. Establish:
 - **Root cause:** read the code **at the base tag** and trace it to `file:line`.
   The fix belongs on the tag's line, so reason about that code, not `main`'s.
 
-## 3. Seed the stub, then provision the worktree from the tag
+## 3. Provision the worktree from the tag, then write in it
 
-The engine forks the worktree from the spec's `Base version`, so the stub — with
-that header — must exist **before** `spec-env up`:
+**Provision before you write, not after.** §1 settled the tag and the name and
+§2 put nothing on disk, so this is the one moment where a worktree costs nothing
+to obtain and everything — the red test, the fix, the spec — is still ahead of
+it:
 
-- From the base branch (`main`), create
-  `specs/in-progress/hotfix-<name>/00-overview.md` with the header block
-  (including `> **Type:** Hotfix` and `> **Base version:** <tag>`) and the
-  `## Symptom` you established. It starts in `in-progress` — work begins now.
-- Run `skitterspec spec-env up hotfix-<name>`. It prints a `git worktree add …
-  -b hotfix/<slug> <tag>` command (the branch forks from **the tag**, not
-  `main`), the worktree path, and any `in the worktree, run:` bootstrap steps.
-- Run the printed `git worktree add`, then **move the stub across yourself.**
-  This is where a hotfix differs from `/spec-bug`, which no longer needs the move:
-  that skill's worktree forks from `main`, so committing the stub puts it there,
-  while **this worktree is checked out at the tag** — a commit on `main` is not in
-  it and never will be. The move is not redundant here; keep it.
-  **Create the destination bucket first:**
+```
+skitterspec spec-env up hotfix-<name> --docs --from <tag>
+```
 
-  ```
-  mkdir -p <worktreePath>/specs/in-progress
-  mv specs/in-progress/hotfix-<name> <worktreePath>/specs/in-progress/
-  ```
+**`--from` is how the tag reaches the engine, and it is not the header twice.**
+Everywhere else `up` forks a hotfix from the spec's own
+`> **Base version:**` line — but here the spec that would carry it does not
+exist yet, which is the whole of what this lane is for. Without the flag the
+branch would fork from `main`: the fix gets written against code prod is not
+running, while the tag and the cherry-pick downstream go on believing it is on
+the release line, and nothing says otherwise until someone asks why the patch
+did not take. The engine refuses a ref git does not know rather than forking
+from somewhere else quietly; where git cannot answer at all it passes the ref
+through to `git worktree add`, which refuses far more loudly than a planner
+guessing from an absence.
 
-  The `mkdir -p` is not belt-and-braces. Git does not store empty directories, so
-  `specs/in-progress/` is **absent** from the worktree whenever nothing was in
-  progress at that point in history — and here that point is an
-  **old release tag**, where it is absent more often than not. `mv` into a
-  missing destination renames your spec folder **to** `specs/in-progress`,
-  silently: the spec's files end up one level too high, `00-overview.md` sits
-  where the bucket should be, and every later step still appears to work until
-  something cannot find the spec. Confirm the result before carrying on — you
-  want `<worktreePath>/specs/in-progress/hotfix-<name>/00-overview.md`. <!--
-  seam:worktree-bootstrap -->
+Run what it prints — the `git worktree add … -b hotfix/<slug> <tag>` is checked
+out **at the tag**, not at `main` — then move this session into the worktree
+with a plain `cd`; the Bash working directory persists between calls, so from
+here on the test, the fix and the spec are all written on the hotfix's own
+branch. Confirm the move landed rather than reading silence as success
+(`.claude/rules/negative-checks.md` rule 1): `skitterspec spec-env resolve` with
+no argument must name this spec. If it does not, say so and stop rather than
+writing into a tree you cannot name.
+
+**Then run `up` again, without the flags:**
+
+```
+skitterspec spec-env up hotfix-<name>
+```
+
+`--docs` skips the `setup` commands — everything whose only purpose is making a
+tree *runnable* — because provisioning somewhere to write markdown should cost a
+`git worktree add` and nothing else. A hotfix has no `/spec-start` to leave them
+to: §4 runs the project's suite in this same tree, and
+**a tree that cannot run the suite cannot go red**.
+The flagless re-run re-attaches the worktree that now exists (no second `-b`
+fork, and no fork point — the branch is already on the tag's line) and prints
+the bootstrap steps the flag deferred.
+
+**Why nothing is seeded on the base branch, and nothing is moved.** This step
+used to write `specs/in-progress/hotfix-<name>/00-overview.md` in the primary
+checkout for the engine to resolve, and then `mv` the folder across into a
+worktree checked out at a tag — a move with a hazard paragraph of its own, since
+`specs/in-progress/` is usually absent at an old release tag. Both halves are
+gone. `main` is where work **lands**, not where it happens: where the project
+installs `.claude/hooks/main-guard.cjs` that first write is refused outright,
+and a step whose documented opening the repo will not perform is not a step. The
+spec is written in the worktree at §5, on the branch it belongs to.
+
+**§5 records the same tag you passed to `--from`**, on the spec's
+`> **Base version:**` header. That is not bookkeeping: `/spec-complete` tags the
+new patch and cherry-picks off the header, so a worktree forked from one ref and
+a header naming another is this whole bug again with the halves swapped.
+
+<!-- seam:worktree-bootstrap -->
 - **Do everything below in the worktree**, on the `hotfix/<slug>` branch — the red
-  test, the fix, and the rest of the spec. Act with absolute paths /
-  `git -C <worktreePath>`, or open a fresh session rooted there. `main` changes
+  test, the fix, and the rest of the spec. The `cd` above is what makes that the
+  default rather than something to remember; where a step has to reach out of
+  the tree, use an absolute path or `git -C <worktreePath>`. `main` changes
   only at `/spec-complete` (via cherry-pick, not merge).
 
 ## 4. Write the failing test FIRST (RED) — mandatory
@@ -108,7 +138,8 @@ Encode the **correct** (expected) behaviour as a test, then run it and confirm i
 
 ## 5. Write the Hotfix spec
 
-Flesh out `00-overview.md` in the worktree (you seeded the stub in §3). A hotfix
+Write `00-overview.md` in the worktree — §3 provisioned it at the tag and moved
+you there, so create the folder and write it here. A hotfix
 is usually a single-pass fix, so the `## Fix` block can live directly in
 `00-overview.md`. Keep it lean:
 

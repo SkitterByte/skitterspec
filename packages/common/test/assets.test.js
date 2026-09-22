@@ -829,11 +829,15 @@ test('/spec-bug no longer moves its stub — there is no stub to move', () => {
   assert.doesNotMatch(flat, /commits the stub first/i, 'and the stub commit is gone with it')
 })
 
-test('/spec-hotfix keeps the move, and says why it differs', () => {
+test('/spec-hotfix takes the same lane, with the tag on the command line', () => {
   const flat = skillText('spec-hotfix').replace(/\s+/g, ' ')
-  assert.match(flat, /mv specs\/in-progress\/hotfix-/, 'the move survives')
-  assert.match(flat, /checked out at the tag/i, 'names the reason')
-  assert.match(flat, /differs from `\/spec-bug`/i, 'points at the sibling it differs from')
+  // The move is gone: the spec is written in a worktree that is already
+  // checked out at the tag, so there is nothing on the base branch to carry
+  // across. What survives is the one thing that genuinely differs from
+  // `/spec-bug` — the fork point, which the spec cannot yet supply.
+  assert.doesNotMatch(flat, /mv specs\/in-progress\/hotfix-/, 'nothing is moved')
+  assert.match(flat, /up hotfix-<name> --docs --from <tag>/, 'the tag is passed in')
+  assert.match(flat, /checked out \*\*at the tag\*\*/i, 'and the worktree is on the release line')
 })
 
 // --- the assignment seam -----------------------------------------------------

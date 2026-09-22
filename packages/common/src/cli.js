@@ -886,6 +886,19 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     // a caller that runs the printed commands must never own a worktree the
     // engine cannot name. `spec: true` is what makes the record resolve with
     // the spec's own type and slug rather than as `/no-spec` work.
+    // `--from <ref>` is the fork point for a spec whose own header cannot yet
+    // supply one. `/spec-hotfix` is the caller: its worktree belongs on the
+    // released line, and `> **Base version:**` is written INSIDE that tree.
+    // Everywhere else `spec.baseRef` comes off the spec and stays the
+    // authority — which is why passing this to a spec that resolves refuses
+    // below rather than quietly losing to the header.
+    if (flags.from !== undefined) {
+      const bad = badForkRef(dir, flags.from)
+      if (bad) {
+        process.stdout.write(bad)
+        return
+      }
+    }
     const beforeAuth = readRegistry(dir, config)
     const resolved = resolveSpecless(specArg, dir, config, { spec: true })
     writeRegistry(
@@ -894,7 +907,21 @@ function specEnvUp(dir, config, specArg, flags = {}) {
       recordSpecless(beforeAuth, specArg, { branch: resolved.branch, spec: true }),
     )
     spec = resolved
+    if (flags.from !== undefined) spec.baseRef = flags.from
     authoring = true
+  }
+
+  // A flag that cannot be honoured is refused, never ignored. The operator
+  // typed a fork point; silently forking from base instead would build a hotfix
+  // against `main`'s code while everything downstream believes it is on the
+  // release line — the exact silent failure this flag exists to prevent.
+  if (flags.from !== undefined && !authoring) {
+    process.stdout.write(
+      `spec-env up: --from applies to a spec that is not written yet. ` +
+        `${specArg} already exists, and its own \`> **Base version:**\` header is ` +
+        'the fork point — edit that instead.\n',
+    )
+    return
   }
 
   // Checkout mode: the branch is built in the primary checkout, so none of the
@@ -936,13 +963,24 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   const upGit = gitReader(dir)
   const upStatus = upGit(['status', '--porcelain'])
   const upDirtyPaths = dirtyPaths(upGit)
-  // An authoring run does not ask whether the spec is on the fork point — it is
-  // known to be nowhere, and that is the healthy state of the lane, not the
-  // "would fork without the spec it is for" refusal. `onFork: undefined` is the
-  // gate's cannot-tell branch, which allows (negative-checks rule 4). The
-  // untracked read is skipped the same way: there is no folder to ask about.
-  const upOnFork = authoring ? { onFork: undefined, foundOn: null } : specOnForkPoint(dir, upGit, spec)
-  const upSpecUntracked = authoring ? false : specIsUntracked(dir, upGit, spec)
+  // A spec with no document on disk does not ask whether the spec is on the
+  // fork point — it is known to be nowhere, and that is the healthy state of
+  // the authoring lane, not the "would fork without the spec it is for"
+  // refusal. `onFork: undefined` is the gate's cannot-tell branch, which allows
+  // (negative-checks rule 4). The untracked read is skipped the same way: there
+  // is no folder to ask about.
+  //
+  // NOT `authoring`, which is only the run that OPENED the lane. The test-first
+  // skills re-run `up` without `--docs` for the setup commands before the spec
+  // is written, and that run resolves — off the registry record the lane left —
+  // so `authoring` is false while `spec.path` is still null. Asking git about a
+  // null path threw, which is a crash rather than a refusal: the condition is
+  // whether there is a document, and it always was.
+  const noDocument = authoring || !spec.path
+  const upOnFork = noDocument
+    ? { onFork: undefined, foundOn: null }
+    : specOnForkPoint(dir, upGit, spec)
+  const upSpecUntracked = noDocument ? false : specIsUntracked(dir, upGit, spec)
 
   // Trust the shared worktree root so edits into the freshly-provisioned worktree
   // don't prompt. One absolute entry (the root) covers every spec; self-heals on
@@ -1037,6 +1075,12 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     out.push('  authoring: no spec document yet — the skill writes it in the worktree')
     out.push(`  recorded:  added to ${config.registry} until the spec is written`)
   }
+  // Only where one was NAMED. The fork point is otherwise base HEAD, which is
+  // the unremarkable case, and a line asserting it on every provision would
+  // make the one run that forked from a tag look like every other.
+  if (authoring && flags.from !== undefined) {
+    out.push(`  fork:      ${flags.from}  (the branch forks from here, not from base)`)
+  }
   if (trust.reason === 'malformed') {
     out.push(
       '  trusted:   ! .claude/settings.local.json is not valid JSON — left it;' +
@@ -1087,6 +1131,38 @@ function speclessMap(dir, config) {
 }
 
 // A read-only git reader over `cwd`: returns trimmed stdout, or null on failure.
+/**
+ * Is `ref` a fork point git will accept? Returns a refusal string, or null.
+ *
+ * THIS IS AN ACCUSATION, so it fires only on a positive signal
+ * (`.claude/rules/negative-checks.md` rule 1). `rev-parse --verify` returning
+ * nothing means one of two very different things — the ref does not exist, or
+ * git could not answer at all — and only the first is evidence. So the control
+ * question is asked first: if git cannot even name its own directory, the ref
+ * is passed straight through and `git worktree add` refuses it far more loudly
+ * than a planner guessing from an absence ever could (rule 4).
+ *
+ * WHAT WOULD FOOL THIS: a ref that exists but is not a commit — an annotated
+ * tag object is peeled by `^{commit}`, so that case is covered, but a blob or
+ * tree ref would be rejected here and rejected by `git worktree add` too. Being
+ * wrong that way costs a refusal on something that could never have worked.
+ */
+function badForkRef(cwd, ref) {
+  const git = gitReader(cwd)
+  if (!ref) {
+    return 'spec-env up: --from needs a ref — the tag or commit to fork from.\n'
+  }
+  // The control question. No repo, no git, an unreadable directory — all land
+  // here, and none of them is evidence about the ref.
+  if (git(['rev-parse', '--git-dir']) === null) return null
+  if (git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) !== null) return null
+  return (
+    `spec-env up: --from ${ref} — git does not know that ref here, so the ` +
+    'worktree would fork from somewhere else without saying so.\n' +
+    '  check the tag exists (git tag --list), or fetch it first.\n'
+  )
+}
+
 function gitReader(cwd) {
   return (argv) => {
     try {
@@ -5019,6 +5095,7 @@ async function specEnv(rest) {
     else if (args[i] === '--phase') flags.phase = args[++i]
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--docs') flags.docs = true
+    else if (args[i] === '--from') flags.from = args[++i]
     else if (args[i] === '--session') flags.session = args[++i]
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
     else positional.push(args[i])
