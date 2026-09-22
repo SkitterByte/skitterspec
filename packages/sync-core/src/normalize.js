@@ -16,7 +16,8 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { flattenNestedTables } = require('./tables.js')
+const { dialectOf } = require('./dialect.js')
+const { fieldsOf } = require('./fields.js')
 const { fenceMask, findTaskBlocks, collapse, collapseHyphenAware } = require('./task-block.js')
 
 // --- markdown / frontmatter parsing -----------------------------------------
@@ -86,140 +87,6 @@ function parseSections(body) {
   }
   flush()
   return { title, sections }
-}
-
-// Linear mangles inline emphasis whose markers straddle a hard line break: it
-// terminates the run at end-of-line and restarts it at the next, so `**a\nb**`
-// comes back as `**a****\n****b**`, `*a\nb*` as `*a**\n**b*`, and a link splits
-// into two. Canonicalise BOTH representations — the clean straddle we author and
-// the mangled form Linear returns — to the same single-line span, so an
-// already-mangled remote stops reading as a spurious `remote-only` diff and the
-// payload we push carries no straddle for Linear to mangle again. Idempotent: a
-// joined span has no interior newline, so nothing re-fires. Repo files are never
-// rewritten — this only shapes the normalized projection the compare/push see.
-function joinEmphasisAcrossBreaks(text) {
-  let s = String(text)
-  // (1) Repair Linear's mangle artifacts first — an emphasis run terminated at
-  // end-of-line and restarted at the next. These are very specific asterisk runs
-  // flanking a break, so a targeted regex is safe:
-  //   bold:   `**X****\n****Y**` → the `****\n****` empty-bold artifact → a space.
-  s = s.replace(/\*{4}[ \t]*\n[ \t]*\*{4}/g, ' ')
-  //   italic: `*X**\n**Y*` — the `**\n**` artifact sits INSIDE a single-`*` span;
-  //   gate on the enclosing single `*` so a genuine pair of adjacent bolds at a
-  //   line boundary (`a**\n**b`) is left alone.
-  s = s.replace(/(^|[^*\n])\*([^*\n]+)\*\*[ \t]*\n[ \t]*\*\*([^*\n]+)\*(?![*])/g, '$1*$2 $3*')
-  //   link split across a break onto the same url → one link.
-  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)[ \t]*\n[ \t]*\[([^\]]+)\]\(\2\)/g, '[$1 $3]($2)')
-  // (2) Join the clean straddle we author — a newline that falls while an
-  // emphasis/link span is OPEN. A scanner (not a regex) so an opening `**` is
-  // never mis-paired with an unrelated closing `**` on the next line, and markers
-  // inside a `code span` are ignored (Linear only rejoins those, harmlessly).
-  return joinOpenSpans(s)
-}
-
-// Walk the text tracking whether we're inside a `**bold**`, `*italic*`, `[link
-// text]`/`(url)`, or `` `code` `` span. A newline encountered while a
-// non-code span is open joins the two lines with a single space (dropping the
-// next line's indentation); every other newline is preserved.
-function joinOpenSpans(text) {
-  const out = []
-  let bold = false
-  let italic = false
-  let code = false
-  let link = 0 // 0 none · 1 in link text · 2 in url
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]
-    if (c === '\n') {
-      if (!code && (bold || italic || link)) {
-        // Skip the continuation's indentation AND any blockquote marker (`>`) —
-        // a span wrapped across two `> …` lines is one quoted run, so the join
-        // must drop the continuation `>` rather than swallow it into the text.
-        // Then join: a word wrapped at a hyphen (`state-entry-with-`⏎`assignment`)
-        // is one compound — join TIGHT (no space); otherwise a single space.
-        let j = i + 1
-        while (j < text.length && (text[j] === ' ' || text[j] === '\t' || text[j] === '>')) j++
-        const softHyphen = text[i - 1] === '-' && /\w/.test(text[i - 2] || '') && /\w/.test(text[j] || '')
-        if (!softHyphen) out.push(' ')
-        i = j - 1
-      } else {
-        out.push('\n')
-      }
-      continue
-    }
-    if (c === '`') {
-      code = !code
-      out.push(c)
-      continue
-    }
-    if (code) {
-      out.push(c)
-      continue
-    }
-    if (c === '*' && text[i + 1] === '*') {
-      bold = !bold
-      out.push('**')
-      i++
-      continue
-    }
-    if (c === '*') {
-      // Basic flanking so a stray `*` (e.g. `2 * 3`) doesn't open a phantom span:
-      // an opener needs a non-space to its right, a closer a non-space to its left.
-      const ok = italic ? !/\s/.test(text[i - 1] || '') : !/\s/.test(text[i + 1] || '')
-      if (ok) italic = !italic
-      out.push(c)
-      continue
-    }
-    if (c === '[' && link === 0) {
-      link = 1
-      out.push(c)
-      continue
-    }
-    if (c === ']' && link === 1) {
-      if (text[i + 1] === '(') {
-        link = 2
-        out.push('](')
-        i++
-      } else {
-        link = 0
-        out.push(c)
-      }
-      continue
-    }
-    if (c === ')' && link === 2) {
-      link = 0
-      out.push(c)
-      continue
-    }
-    out.push(c)
-  }
-  return out.join('')
-}
-
-// Canonicalise markdown so semantically-equal content hashes equal across the
-// boundary. Linear reserializes markdown on save (authored `-` bullets come back
-// as `*`, trailing whitespace trimmed, blank runs collapsed, emphasis spanning a
-// line break mangled), so without this a clean push→pull would report
-// `description` as perpetually changed. Applied to the description on BOTH sides.
-// Conservative: only unifies list markers, whitespace, and emphasis-across-a-break
-// — the transforms actually observed from Linear.
-function canonicalizeMarkdown(text) {
-  if (text == null) return text
-  const marked = String(text)
-    .replace(/\r\n/g, '\n')
-    .split('\n')
-    // Unordered-list marker at line start (`*`/`+`/`-`) → `-`. Requires a space
-    // after the marker so bold/emphasis (`**Goal:**`) is untouched. Done BEFORE
-    // the emphasis join so a `*` list bullet can't spoof an italic delimiter.
-    .map((line) => line.replace(/^(\s*)[*+-]( +)/, '$1-$2').replace(/[ \t]+$/, ''))
-    .join('\n')
-  return joinEmphasisAcrossBreaks(marked)
-    // A word wrapped at a hyphen within a paragraph (`state-entry-with-`⏎
-    // `assignment`) rejoins TIGHT — otherwise Linear (CommonMark) renders the
-    // soft line break as a space and corrupts the compound. Single newline only,
-    // so paragraph breaks are preserved.
-    .replace(/(\w-)[ \t]*\n[ \t]*(?=\w)/g, '$1')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
 }
 
 // Canonical milestone status from the phase-index emoji.
@@ -357,7 +224,7 @@ function renderTaskBlockLine(b) {
 
 // Read the phase files (01-*.md, 02-*.md …) in execution order. Each yields its
 // linked milestone id (from optional frontmatter), title, goal and tasks.
-function readPhaseFiles(snapshotDir) {
+function readPhaseFiles(snapshotDir, config) {
   let entries
   try {
     entries = fs.readdirSync(snapshotDir)
@@ -388,7 +255,7 @@ function readPhaseFiles(snapshotDir) {
         phase: file.replace(/\.md$/, ''),
         file,
         // The sub-issue id, stamped back into the phase file on first push.
-        id: data.linear_issue_id != null ? String(data.linear_issue_id) : null,
+        id: data[fieldsOf(config).issueId] != null ? String(data[fieldsOf(config).issueId]) : null,
         name: phaseTitle(body),
         goal: goal.trim(),
         state: phaseStateBucket(body),
@@ -423,7 +290,7 @@ function readPhaseFiles(snapshotDir) {
  * (today: printed, never fatal).
  */
 function lintPhases(snapshotDir, config) {
-  const phases = readPhaseFiles(snapshotDir)
+  const phases = readPhaseFiles(snapshotDir, config)
   // BLIND SPOT: `readPhaseFiles` only sees `NN-*.md`, so a legacy bare
   // `<name>.md` spec yields no phases at all. Silence is the right answer —
   // there is no phase file to carry an emoji — but it is silence from having
@@ -534,7 +401,7 @@ function readSnapshot(snapshotDir, config) {
   const raw = fs.readFileSync(path.join(snapshotDir, overviewFile), 'utf-8')
   const { data, body } = parseFrontmatter(raw)
   const { title, sections } = parseSections(body)
-  const phases = readPhaseFiles(snapshotDir)
+  const phases = readPhaseFiles(snapshotDir, config)
   return { frontmatter: data, title, sections, phases, body }
 }
 
@@ -542,7 +409,7 @@ function readSnapshot(snapshotDir, config) {
 // removed. Keeps the title line for context. `extraSkip` drops additional
 // sections (e.g. "Phases" once milestones sync as first-class Linear objects, so
 // the phase list isn't duplicated in the description — Decision 5).
-function buildDescription(title, sections, localOnlySections, extraSkip = []) {
+function buildDescription(title, sections, localOnlySections, extraSkip = [], dialect) {
   const skip = new Set([...(localOnlySections || []), ...extraSkip])
   const parts = []
   if (title) parts.push(`# ${title}`)
@@ -550,7 +417,7 @@ function buildDescription(title, sections, localOnlySections, extraSkip = []) {
     if (skip.has(heading)) continue
     parts.push(`## ${heading}\n\n${content}`.trim())
   }
-  return flattenNestedTables(canonicalizeMarkdown(parts.join('\n\n'))) || null
+  return dialect.flattenTables(dialect.canonicalize(parts.join('\n\n'))) || null
 }
 
 // A phase sub-issue's description: its `**Goal:**` line, plus the phase's task
@@ -561,9 +428,9 @@ function buildDescription(title, sections, localOnlySections, extraSkip = []) {
 // push. Without it a sub-issue is a title and one sentence, which is too thin to
 // act on; with it the phase is legible to someone working in the tracker without
 // tasks becoming individually-synced objects again.
-function subIssueBody(phase, tasksMode, localOnlySections) {
-  if (tasksMode !== 'checklist') return flattenNestedTables(phase.goal)
-  return flattenNestedTables(projectPhaseBody(phase, localOnlySections))
+function subIssueBody(phase, tasksMode, localOnlySections, dialect) {
+  if (tasksMode !== 'checklist') return dialect.flattenTables(phase.goal)
+  return dialect.flattenTables(projectPhaseBody(phase, localOnlySections))
 }
 
 /**
@@ -674,10 +541,10 @@ function phaseHeading(phase) {
  * that drops content, which is exactly what the reporting project had to
  * hand-roll before this existed.
  */
-function withInlinePhases(description, inlined, tasksMode, localOnlySections) {
+function withInlinePhases(description, inlined, tasksMode, localOnlySections, dialect) {
   if (!inlined.length) return description
   const sections = inlined.map((phase) => {
-    const body = demoteHeadings(subIssueBody(phase, tasksMode, localOnlySections) || '', INLINE_PHASE_LEVEL - 1)
+    const body = demoteHeadings(subIssueBody(phase, tasksMode, localOnlySections, dialect) || '', INLINE_PHASE_LEVEL - 1)
     const heading = '#'.repeat(INLINE_PHASE_LEVEL) + ` ${phaseHeading(phase)}`
     return body ? `${heading}\n\n${body}` : heading
   })
@@ -718,9 +585,9 @@ const TERMINAL_BUCKETS = ['complete', 'cancelled']
  * `issueChanges`, where an assignee that was never pushed is left alone rather
  * than retracted. That is what stops this wiping a PM's triage.
  */
-function assigneeFor(workflowState, frontmatter) {
+function assigneeFor(workflowState, frontmatter, config) {
   if (TERMINAL_BUCKETS.includes(String(workflowState))) return null
-  const id = frontmatter && frontmatter.linear_assignee_id
+  const id = frontmatter && frontmatter[fieldsOf(config).assigneeId]
   return typeof id === 'string' && id.trim() ? id.trim() : null
 }
 
@@ -796,6 +663,7 @@ function phaseProjection(phases, workflowState, config) {
 }
 
 function normalizeLocal(snapshotDir, config) {
+  const dialect = dialectOf(config)
   const { frontmatter, title, sections, phases } = readSnapshot(snapshotDir, config)
   const tasksMode = (config.mapping && config.mapping.tasks) || 'checklist'
   // Status is the spec's lifecycle bucket. The folder is the source of truth; an
@@ -828,10 +696,12 @@ function normalizeLocal(snapshotDir, config) {
         sections,
         config.sync.localOnlySections,
         phasesCarriedBySubIssues ? ['Phases'] : [],
+        dialect,
       ),
       inlined,
       tasksMode,
       config.sync.localOnlySections,
+      dialect,
     ),
     // Sub-issue projection: one per phase. `ref` is the phase-file basename — the
     // local handle the push skill stamps a newly-created sub-issue id back into.
@@ -843,7 +713,7 @@ function normalizeLocal(snapshotDir, config) {
       id: p.id,
       ref: p.phase,
       name: p.name,
-      goal: subIssueBody(p, tasksMode, config.sync.localOnlySections),
+      goal: subIssueBody(p, tasksMode, config.sync.localOnlySections, dialect),
       state: p.state,
     })),
     workflowState,
@@ -851,7 +721,7 @@ function normalizeLocal(snapshotDir, config) {
     // `assignee` in `sync.fieldOwnership`, so the opt-in costs no extra check
     // here — an un-opted-in repo simply has no such key on its projection, and
     // every downstream reader treats that as "the field is not in play".
-    assignee: assigneeFor(workflowState, frontmatter),
+    assignee: assigneeFor(workflowState, frontmatter, config),
   }
   return toFieldSet(extracted, config)
 }
@@ -919,9 +789,12 @@ function canonicalRemoteStatus(state) {
   return s
 }
 
-// The real Linear issue carries its workflow state in `state` (an object
-// `{ name, type }`); accept `status` / a bare string too for robustness.
-function remoteStateName(issue) {
+// A tracker issue usually carries its workflow state in `state` (an object
+// `{ name, type }`); accept `status` / a bare string too for robustness. A
+// provider whose remote shape differs supplies `config.remote.stateName`.
+function remoteStateName(issue, config) {
+  const hook = config && config.remote && config.remote.stateName
+  if (typeof hook === 'function') return hook(issue)
   const st = issue.state != null ? issue.state : issue.status
   if (st == null) return null
   if (typeof st === 'object') return st.name != null ? st.name : st.type != null ? st.type : null
@@ -930,9 +803,9 @@ function remoteStateName(issue) {
 
 // The ONE thing one-way sync reads back: the mirror issue's current workflow
 // state, mapped to the local lifecycle bucket, so `/spec-status` can report a
-// drift ("Linear says Done, your spec says In Progress"). Read-only — never writes.
+// drift ("the tracker says Done, your spec says In Progress"). Read-only — never writes.
 function remoteWorkflowState(issue, config) {
-  const name = remoteStateName(issue || {})
+  const name = remoteStateName(issue || {}, config)
   return name != null ? bucketForState(name, config) : null
 }
 
@@ -940,7 +813,7 @@ function remoteWorkflowState(issue, config) {
 // Pairs with `remoteWorkflowState`: that says which bucket the issue maps to,
 // this says whether it got there by being deployed. Read-only.
 function remoteStage(issue, config) {
-  return stageForState(remoteStateName(issue || {}), config)
+  return stageForState(remoteStateName(issue || {}, config), config)
 }
 
 // A Linear issue title is plain text, so markdown emphasis is noise there — and
@@ -1107,9 +980,8 @@ module.exports = {
   titleFromText,
   validateStates,
   canonicalRemoteStatus,
-  canonicalizeMarkdown,
-  joinEmphasisAcrossBreaks,
   bucketForState,
+  LIFECYCLE_BUCKETS,
   stageForState,
   remoteStage,
   remoteWorkflowState,

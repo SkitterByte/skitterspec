@@ -79,7 +79,7 @@ function push({ dir, snapshotDir, identifier, config }) {
  */
 function recordPush({ dir, snapshotDir, identifier, config }) {
   const projection = projectionOf(snapshotDir, config)
-  return writeBase(dir, identifier, config, snapshotOf(projection))
+  return writeBase(dir, identifier, config, snapshotOf(projection, config))
 }
 
 module.exports = { push, recordPush, projectionOf }

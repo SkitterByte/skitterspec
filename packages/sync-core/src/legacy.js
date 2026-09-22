@@ -5,8 +5,9 @@
  *
  * v9 remapped the mirror: a spec is an issue (was a Project), a phase is a
  * sub-issue (was a Milestone), and tasks are no longer objects at all. The
- * frontmatter keys moved with it — `linear_project_id` → `linear_identifier`,
- * `linear_milestone_id` → `linear_issue_id`.
+ * frontmatter keys moved with it (in the Linear provider's vocabulary,
+ * `linear_project_id` -> `linear_identifier`, `linear_milestone_id` ->
+ * `linear_issue_id` — see `config.fields`).
  *
  * The failure this guards is silent and destructive: v9 looks for the new keys,
  * finds nothing, and produces a perfectly ordinary **all-creates** plan. Applying
@@ -27,9 +28,10 @@ const { parseFrontmatter } = require('./normalize.js')
 const { readBase } = require('./base.js')
 const { listPhaseFiles } = require('./write.js')
 
-// Frontmatter keys only the pre-9.0 model ever wrote.
-const LEGACY_OVERVIEW_KEY = 'linear_project_id'
-const LEGACY_PHASE_KEY = 'linear_milestone_id'
+// The pre-9.0 keys come from the provider's field vocabulary
+// (`config.fields.legacyIdentifier` / `.legacyIssueId`). A provider with no
+// pre-9.0 era omits them, and detection then reports nothing: there is no old
+// model its repos could be stranded on, so an absence is not evidence.
 
 function frontmatterOf(file) {
   try {
@@ -56,19 +58,27 @@ function countOrphans(snapshot) {
  * @returns {null|{keys:string[], files:string[], orphans:object|null, orphanCount:number}}
  */
 function detectLegacyMirror({ dir, snapshotDir, identifier, config }) {
+  const fields = (config && config.fields) || {}
+  const legacyOverviewKey = fields.legacyIdentifier
+  const legacyPhaseKey = fields.legacyIssueId
+  // No legacy vocabulary declared -> this provider has no pre-9.0 era, so there
+  // is no old model its repos could be stranded on, and an absence of the keys
+  // proves nothing (`.claude/rules/negative-checks.md`).
+  if (!legacyOverviewKey && !legacyPhaseKey) return null
+
   const keys = []
   const files = []
 
   const overviewFile = (config && config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
   const overview = frontmatterOf(path.join(snapshotDir, overviewFile))
-  if (overview[LEGACY_OVERVIEW_KEY] != null) {
-    keys.push(LEGACY_OVERVIEW_KEY)
+  if (legacyOverviewKey && overview[legacyOverviewKey] != null) {
+    keys.push(legacyOverviewKey)
     files.push(overviewFile)
   }
 
   for (const file of listPhaseFiles(snapshotDir)) {
-    if (frontmatterOf(path.join(snapshotDir, file))[LEGACY_PHASE_KEY] != null) {
-      if (!keys.includes(LEGACY_PHASE_KEY)) keys.push(LEGACY_PHASE_KEY)
+    if (legacyPhaseKey && frontmatterOf(path.join(snapshotDir, file))[legacyPhaseKey] != null) {
+      if (!keys.includes(legacyPhaseKey)) keys.push(legacyPhaseKey)
       files.push(file)
     }
   }

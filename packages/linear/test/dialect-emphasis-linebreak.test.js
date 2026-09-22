@@ -18,10 +18,10 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { renderTaskBlock, findTaskBlocks, inferWidth } = require('../src/task-block.js')
-const { canonicalizeMarkdown, joinEmphasisAcrossBreaks } = require('../src/normalize.js')
-const { hashField } = require('../src/compare.js')
-const { neutralConfig } = require('./_config.js')
+const { renderTaskBlock, findTaskBlocks, inferWidth } = require('@skitterbyte/skitterspec-sync-core/src/task-block.js')
+const { canonicalizeMarkdown, joinEmphasisAcrossBreaks } = require('../src/dialect.js')
+const { hashField } = require('@skitterbyte/skitterspec-sync-core')
+const { neutralConfig } = require('../../sync-core/test/_config.js')
 
 // A line "straddles" if an emphasis/link marker opens on it and doesn't close on
 // the same line: an odd number of `**`, an odd number of lone `*`, or an

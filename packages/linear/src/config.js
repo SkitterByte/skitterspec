@@ -34,6 +34,8 @@
 const { readFileSync } = require('node:fs')
 const { join } = require('node:path')
 
+const { dialect } = require('./dialect.js')
+
 const CONFIG_FILE = join('specs', '.core', 'linear.config.json')
 
 // `none` is how a repo DECLINES a field the defaults own. It has to be a
@@ -161,6 +163,21 @@ const DEFAULT_CONFIG = Object.freeze({
     cancelled: 'Canceled',
   }),
   snapshot: Object.freeze({ overviewFile: '00-overview.md' }),
+  // The frontmatter FIELD VOCABULARY this provider stamps into spec files. The
+  // engine reads and writes stamps by these names and hardcodes none of them
+  // (sync-core `src/fields.js`); the two `legacy*` keys are what the pre-9.0
+  // model wrote, and exist so `detectLegacyMirror` can still recognise a
+  // stranded mirror. Not user-configurable: the names are this provider's
+  // contract with every spec it ever stamped.
+  fields: Object.freeze({
+    identifier: 'linear_identifier',
+    url: 'linear_url',
+    issueId: 'linear_issue_id',
+    assigneeId: 'linear_assignee_id',
+    assigneeName: 'linear_assignee_name',
+    legacyIdentifier: 'linear_project_id',
+    legacyIssueId: 'linear_milestone_id',
+  }),
   // See DEFAULT_RELEASE_STAGES above. `stages` is ordered: the order is recorded
   // for reporting and doctor's ladder check, and deliberately NOT enforced — a
   // rollback from test and a hotfix going straight to prod are both legitimate.
@@ -276,6 +293,7 @@ function defaults() {
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
     snapshot: { ...DEFAULT_CONFIG.snapshot },
+    fields: { ...DEFAULT_CONFIG.fields },
     release: {
       stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })),
       ignorePaths: [...DEFAULT_CONFIG.release.ignorePaths],
@@ -557,6 +575,21 @@ function mergeConfig(base, parsed) {
  * Malformed JSON, a bad `fieldOwnership` enum, or a malformed `release.stages`
  * entry → throws a clear Error.
  */
+// Attach the parts of the provider contract that are code, not JSON: the
+// markdown dialect (sync-core calls its hooks wherever it used to hardcode
+// Linear's quirks) and the `provider` block retarget reads (which config file
+// records the team key, and under which JSON field). Runs on BOTH loader paths
+// so an absent config still carries them.
+function withRuntime(config) {
+  config.dialect = dialect
+  config.provider = {
+    teamKey: (config.linear && config.linear.teamKey) || '',
+    configFile: CONFIG_FILE,
+    teamKeyJsonField: 'teamKey',
+  }
+  return config
+}
+
 function loadLinearConfig(dir = process.cwd()) {
   const base = defaults()
   const file = join(dir, CONFIG_FILE)
@@ -565,7 +598,7 @@ function loadLinearConfig(dir = process.cwd()) {
   try {
     raw = readFileSync(file, 'utf-8')
   } catch (error) {
-    if (error.code === 'ENOENT') return { config: base, present: false }
+    if (error.code === 'ENOENT') return { config: withRuntime(base), present: false }
     throw error
   }
 
@@ -576,7 +609,7 @@ function loadLinearConfig(dir = process.cwd()) {
     throw new Error(`Invalid ${CONFIG_FILE}: ${error.message}`)
   }
 
-  return { config: mergeConfig(base, parsed), present: true }
+  return { config: withRuntime(mergeConfig(base, parsed)), present: true }
 }
 
 /**

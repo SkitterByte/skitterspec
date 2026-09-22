@@ -19,9 +19,9 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { normalizeLocal } = require('../src/normalize.js')
-const { flattenNestedTables } = require('../src/tables.js')
-const { neutralConfig } = require('./_config.js')
+const { normalizeLocal } = require('@skitterbyte/skitterspec-sync-core')
+const { flattenNestedTables } = require('../src/dialect.js')
+const { neutralConfig } = require('../../sync-core/test/_config.js')
 
 function specWith(body) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tbl-'))

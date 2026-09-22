@@ -102,3 +102,15 @@ test('push carries the finding on the plan, where --json will see it', () => {
 test('a clean spec leaves the plan untouched', () => {
   assert.strictEqual(push(repo()).plan.legacy, undefined)
 })
+
+test('a provider with no legacy vocabulary stays silent, even over old keys', () => {
+  // The jira-provider case: `fields` declares no legacy keys, so there is no
+  // pre-9.0 era its repos could be stranded on. A repo that happens to carry
+  // the OLD provider's keys is healthy-but-unusual for this provider, and the
+  // check must say nothing (`.claude/rules/negative-checks.md` rule 3).
+  const r = repo({ overview: '---\nlinear_project_id: "old"\n---\n\n' + OVERVIEW_9 })
+  const config = neutralConfig()
+  delete config.fields.legacyIdentifier
+  delete config.fields.legacyIssueId
+  assert.strictEqual(detectLegacyMirror({ ...r, config }), null)
+})

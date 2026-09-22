@@ -12,7 +12,7 @@ const os = require('node:os')
 const path = require('node:path')
 
 const { specSync } = require('../src/cli-sync.js')
-const { CONFIG_FILE } = require('../src/config.js')
+const { CONFIG_FILE, loadLinearConfig } = require('../src/config.js')
 const { stampSubIssueId } = require('@skitterbyte/skitterspec-sync-core')
 
 const ADOPTED = 'SKI-123'
@@ -88,7 +88,7 @@ test('after that first push is applied and recorded, the next one is empty', asy
   // What /spec-push does after applying: stamp each created sub-issue's id back
   // into its phase file, THEN record. Without the stamp the phase stays unlinked
   // and is legitimately re-created every time.
-  stampSubIssueId(path.join(dir, 'specs', 'in-progress', 'feat-adopted'), '01-fix.md', 'SKI-124')
+  stampSubIssueId(path.join(dir, 'specs', 'in-progress', 'feat-adopted'), '01-fix.md', 'SKI-124', loadLinearConfig(dir).config)
   await run(['record', 'feat-adopted'], dir)
   const text = await run(['plan', 'feat-adopted', '--skip-state-check'], dir, { tty: true })
   assert.match(text, /nothing to push/)

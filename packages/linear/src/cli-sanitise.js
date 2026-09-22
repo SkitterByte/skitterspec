@@ -10,7 +10,7 @@
  *
  * Dry-run by default (reports the files it WOULD change); pass `--write` to apply.
  * Minimal-diff and idempotent — only paragraphs/items that actually straddle are
- * reflowed (see sync-core `sanitizeSpecMarkdown`).
+ * reflowed (see `sanitise.js`).
  *
  *   skitterspec-linear spec-sanitise [paths...] [--write] [--width N]
  *
@@ -20,7 +20,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { sanitizeSpecMarkdown } = require('@skitterbyte/skitterspec-sync-core')
+const { sanitizeSpecMarkdown } = require('./sanitise.js')
 
 // Recursively collect *.md files under a path (a file path is returned as-is).
 function collectMarkdown(target) {

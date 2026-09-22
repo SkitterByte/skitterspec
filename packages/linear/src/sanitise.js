@@ -4,7 +4,8 @@
  * One-time sanitiser: rewrite spec markdown so no inline emphasis or link span
  * straddles a hard line break, and repair any Linear-mangled `****` artifacts
  * already committed. This brings hand-wrapped spec files "inline" so they round-
- * trip through Linear cleanly (Linear mangles a straddling `**`/`*`/link on save).
+ * trip through Linear cleanly (Linear mangles a straddling `**`/`*`/link on
+ * save) — which is why this lives in the Linear provider, beside its dialect.
  *
  * Deliberately minimal-diff: only a block that actually contains a straddle or a
  * mangle is reflowed — every other paragraph, table, code fence, and heading is
@@ -15,8 +16,8 @@
  * Pure string→string (`sanitizeSpecMarkdown`); the CLI wraps it with fs walking.
  */
 
-const { wrapEmphasisAware, collapseHyphenAware, inferWidth, DEFAULT_WIDTH } = require('./task-block.js')
-const { joinEmphasisAcrossBreaks } = require('./normalize.js')
+const { wrapEmphasisAware, collapseHyphenAware, inferWidth, DEFAULT_WIDTH } = require('@skitterbyte/skitterspec-sync-core/src/task-block.js')
+const { joinEmphasisAcrossBreaks } = require('./dialect.js')
 
 // A run of non-blank lines contains an emphasis straddle / mangle iff joining
 // spans across breaks changes it.

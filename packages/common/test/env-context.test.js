@@ -255,3 +255,38 @@ test('STAYS SILENT: an unlinked spec has no ticket key at all', () => {
   assert.match(ctx.problem, /Something/, 'and the rest is untouched')
   drop(dir)
 })
+
+// readTicket hardcodes no provider: any `<prefix>_identifier` + `<prefix>_url`
+// pair resolves, so a second provider's stamps work without touching the base.
+test('a jira-stamped spec yields its ticket exactly like a linear one', () => {
+  const dir = tmpSpec({
+    '00-overview.md':
+      '---\njira_identifier: "PROJ-9"\njira_url: "https://acme.atlassian.net/browse/PROJ-9"\n---\n\n## Problem\n\nX.\n',
+  })
+  const ctx = readOverview(dir)
+  assert.deepStrictEqual(ctx.ticket, { id: 'PROJ-9', url: 'https://acme.atlassian.net/browse/PROJ-9' })
+  drop(dir)
+})
+
+test('an explicit identifierField narrows the read to that provider', () => {
+  const dir = tmpSpec({
+    '00-overview.md':
+      '---\nlinear_identifier: "SKS-1"\nlinear_url: "https://linear.app/x/issue/SKS-1"\n---\n\n## Problem\n\nX.\n',
+  })
+  const ctx = readOverview(dir, { identifierField: 'linear_identifier' })
+  assert.strictEqual(ctx.ticket.id, 'SKS-1')
+  const miss = readOverview(dir, { identifierField: 'jira_identifier' })
+  assert.strictEqual(miss.ticket, undefined, 'a field the spec never stamped is not guessed around')
+  drop(dir)
+})
+
+// The stays-silent half: frontmatter with no identifier-shaped key at all is an
+// unlinked spec, not an error, and the header simply omits the ticket.
+test('frontmatter without any identifier key stays silent', () => {
+  const dir = tmpSpec({
+    '00-overview.md': '---\nauthor: someone\n---\n\n## Problem\n\nX.\n',
+  })
+  const ctx = readOverview(dir)
+  assert.strictEqual(ctx.ticket, undefined)
+  drop(dir)
+})

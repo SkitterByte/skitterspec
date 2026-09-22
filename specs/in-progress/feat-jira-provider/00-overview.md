@@ -140,7 +140,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | De-Linearise sync-core & common | ⬜ | [01-sync-core-neutrality.md](01-sync-core-neutrality.md) |
+| 1 | De-Linearise sync-core & common | ✅ | [01-sync-core-neutrality.md](01-sync-core-neutrality.md) |
 | 2 | Extract provider-kit, rewire linear | ⬜ | [02-provider-kit.md](02-provider-kit.md) |
 | 3 | Jira adapter core (client, ADF, transitions) | ⬜ | [03-jira-adapter.md](03-jira-adapter.md) |
 | 4 | Jira CLI, skills, seams | ⬜ | [04-jira-cli-skills.md](04-jira-cli-skills.md) |
@@ -162,3 +162,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-09-21 — Spec created from a full review of `packages/linear`,
   `sync-core`, and the build/release machinery.
+- 2026-09-22 — Phase 1 built. Deviations: `readTicket` neutralised by pattern
+  scan (any `<prefix>_identifier`) instead of `branch.identifierField`
+  plumbing; `sanitise.js` moved to `packages/linear` with the dialect (was
+  slated for phase 2); `LIFECYCLE_BUCKETS` deduped inside sync-core only,
+  common keeps its private copy.

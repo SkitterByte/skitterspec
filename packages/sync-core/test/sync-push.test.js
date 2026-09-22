@@ -77,7 +77,7 @@ test('push over a real snapshot creates, then records, then is idempotent', () =
   assert.strictEqual(r1.plan.subIssues.create[0].state, 'backlog') // ⬜ heading
 
   // Simulate the skill applying + stamping the returned sub-issue id, then recording.
-  stampSubIssueId(dir, '01-outbox.md', 'sub1')
+  stampSubIssueId(dir, '01-outbox.md', 'sub1', cfg)
   recordPush({ dir: root, snapshotDir: dir, identifier: ID, config: cfg })
 
   const r2 = push({ dir: root, snapshotDir: dir, identifier: ID, config: cfg })

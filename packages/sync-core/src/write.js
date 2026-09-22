@@ -5,7 +5,8 @@
  * Linear, the skill stamps each returned id back into the repo so the next push
  * updates rather than recreates. Everything here edits the repo in place:
  *
- *   - `stampSubIssueId(dir, file, id)` — add/update `linear_issue_id` in a phase
+ *   - `stampSubIssueId(dir, file, id, config)` — add/update the provider's
+ *     phase-stamp field (`config.fields.issueId`) in a phase
  *     file's frontmatter (locate the file with `findPhaseFileByTitle`).
  *   - `writeFrontmatter(dir, config, patch)` — patch `00-overview.md` frontmatter
  *     (e.g. the spec issue's `spec_identifier`, `last_synced_at`).
@@ -18,6 +19,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { findTaskBlocks, renderTaskBlock, collapse, inferWidth } = require('./task-block.js')
+const { fieldsOf } = require('./fields.js')
 
 // Serialize a JS value as a YAML-ish frontmatter scalar.
 function serialize(value) {
@@ -143,13 +145,13 @@ function findPhaseFileByTitle(snapshotDir, name) {
   return null
 }
 
-// Add/update linear_issue_id in a phase file's frontmatter (in place) — the
-// sub-issue id for that phase.
-function stampSubIssueId(snapshotDir, file, id) {
+// Add/update the provider's phase-stamp field (`config.fields.issueId`) in a
+// phase file's frontmatter (in place) — the sub-issue id for that phase.
+function stampSubIssueId(snapshotDir, file, id, config) {
   const p = path.join(snapshotDir, file)
   const raw = fs.readFileSync(p, 'utf-8')
   const { fmLines, body, had } = splitFrontmatter(raw)
-  const patched = patchFrontmatterLines(fmLines, { linear_issue_id: String(id) })
+  const patched = patchFrontmatterLines(fmLines, { [fieldsOf(config).issueId]: String(id) })
   const fm = `---\n${patched.join('\n')}\n---\n`
   fs.writeFileSync(p, had ? fm + body : fm + '\n' + raw, 'utf-8')
 }

@@ -50,7 +50,7 @@ test('provider config + one-way engine produce a create plan', () => {
 test('after apply + record, the next push is empty (idempotent)', () => {
   const { dir, specDir, config } = setup()
   const r = push({ dir, snapshotDir: specDir, identifier: ID, config })
-  for (const s of r.plan.subIssues.create) stampSubIssueId(specDir, `${s.ref}.md`, 'sub1')
+  for (const s of r.plan.subIssues.create) stampSubIssueId(specDir, `${s.ref}.md`, 'sub1', config)
   recordPush({ dir, snapshotDir: specDir, identifier: ID, config })
   assert.ok(push({ dir, snapshotDir: specDir, identifier: ID, config }).empty)
 })

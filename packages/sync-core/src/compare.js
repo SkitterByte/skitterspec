@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * One-sided change detection for one-way sync (repo → Linear).
+ * One-sided change detection for one-way sync (repo → tracker).
  *
  * The repo is the source of truth; Linear is a generated mirror. We never read
  * remote content. Instead we record a **last-pushed snapshot** — a content hash
@@ -19,9 +19,10 @@
  */
 
 const { createHash } = require('node:crypto')
-// The tolerant reduction `verify.js` already uses to tell Linear's own
+// The tolerant reduction `verify.js` already uses to tell the tracker's own
 // reserialisation apart from a real edit. Imported rather than reimplemented:
 // two reductions that disagree would be two different answers to one question.
+// Dialect-parameterised: the provider's `config.dialect` names the transforms.
 const { stream } = require('./verify.js')
 
 // Deterministic JSON: object keys sorted recursively; array order preserved.
@@ -63,7 +64,7 @@ function specIssueHash(p) {
 // `complete`, and welding the two meant any prose edit re-emitted the state and
 // dragged the issue back. Diffing them apart is what lets a push touch the
 // description without re-asserting a state someone else now owns.
-function specIssueFieldHashes(p) {
+function specIssueFieldHashes(p, config) {
   const hashes = {
     description: hashField(p.description ?? null),
     state: hashField(p.status ?? null),
@@ -79,7 +80,7 @@ function specIssueFieldHashes(p) {
   // `description` above decides what to PUSH: it is exact, because any
   // difference between the repo and what the repo last sent is a difference the
   // repo should send again. This one decides whether SOMEBODY ELSE has been
-  // here, and for that exactness is precisely wrong — Linear reserialises
+  // here, and for that exactness is precisely wrong — the tracker reserialises
   // markdown on save (bullets rewritten, ordered lists renumbered, table
   // separators collapsed), so comparing the exact hash against a read-back would
   // report a human edit on every intact mirror in the workspace.
@@ -94,7 +95,7 @@ function specIssueFieldHashes(p) {
   // It is recorded and never planned on. `issueChanges` reads `description`,
   // `state` and `assignee` by name and never iterates this object, so adding a
   // key here cannot make a push pending — there is a test for exactly that.
-  hashes.descriptionStream = hashField(stream(p.description ?? ''))
+  hashes.descriptionStream = hashField(stream(p.description ?? '', config))
   return hashes
 }
 
@@ -122,18 +123,19 @@ function specIssueFieldHashes(p) {
  * @param {object|null} remote    what the tracker currently holds for the issue
  * @returns {boolean|null}
  */
-function remoteDescriptionEdited(snapshot, remote) {
+function remoteDescriptionEdited(snapshot, remote, config) {
   const fields = snapshot && snapshot.issueFields
   if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return null
   const recorded = fields.descriptionStream
   if (typeof recorded !== 'string' || !recorded) return null
 
   if (!remote || typeof remote !== 'object') return null
-  if (!('description' in remote)) return null
-  const text = remote.description
+  // A provider whose remote shape differs supplies `config.remote.description`.
+  const hook = config && config.remote && config.remote.description
+  const text = typeof hook === 'function' ? hook(remote) : 'description' in remote ? remote.description : undefined
   if (typeof text !== 'string') return null
 
-  return hashField(stream(text)) !== recorded
+  return hashField(stream(text, config)) !== recorded
 }
 // A phase SUB-ISSUE: its name, goal and state (all repo-owned).
 const subIssueHash = (s) => hashField({ name: s.name ?? null, goal: s.goal ?? null, state: s.state ?? null })
@@ -144,7 +146,7 @@ const subIssueHash = (s) => hashField({ name: s.name ?? null, goal: s.goal ?? nu
  * aren't recorded until the skill stamps their returned id and the next
  * projection includes it.
  */
-function snapshotOf(projection) {
+function snapshotOf(projection, config) {
   const p = projection || {}
   const byId = (arr, hash) => {
     const out = {}
@@ -156,7 +158,7 @@ function snapshotOf(projection) {
     // `issue` keeps a snapshot readable by anything still expecting the combined
     // hash. Cheap insurance — two SHA-1s of text already in hand.
     issue: specIssueHash(p),
-    issueFields: specIssueFieldHashes(p),
+    issueFields: specIssueFieldHashes(p, config),
     subIssues: byId(p.subIssues, subIssueHash),
   }
 }
@@ -170,7 +172,7 @@ function snapshotOf(projection) {
  *   — the `ref` because the read-back check matches sub-issues to phases BY ref,
  *   and an update with only an id makes every one of them look unmatched.
  *   `plan.issue` (when present) is the spec issue's description + state; the push
- *   skill applies `config.linear.projectId` grouping on top of it.
+ *   skill applies its provider's project/grouping choice on top of it.
  */
 function planChanges(projection, snapshot) {
   const p = projection || {}

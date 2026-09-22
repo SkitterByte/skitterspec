@@ -5,7 +5,7 @@
  *
  * Renaming a Linear team rewrites the key in every issue identifier
  * (`SKI-7` → `SKS-7`). The repo stamps those identifiers in three places — spec
- * frontmatter, the `linear-base` snapshot filenames, and the `subIssues` keys
+ * frontmatter, the sync-base snapshot filenames, and the `subIssues` keys
  * inside those snapshots — and nothing moves them, so afterwards every stamped
  * spec is stale and `/spec-push` fails with `no issue found for SKI-7`.
  *
@@ -27,21 +27,22 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
-const { parseFrontmatter } = require('./normalize.js')
-
-// The lifecycle buckets a spec can live in. Kept local rather than imported so
-// sync-core stays free of the common package.
-const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
+const { parseFrontmatter, LIFECYCLE_BUCKETS: BUCKETS } = require('./normalize.js')
+const { fieldsOf } = require('./fields.js')
 
 // An issue identifier: team key, dash, number. Matched CASE-INSENSITIVELY
-// because `linear_url` carries the identifier lowercased in its path
+// because the stamped url field carries the identifier lowercased in its path
 // (`…/issue/reu-188/retire-…`). Matching only uppercase left 29 of 33 real URLs
 // in a live repo pointing at the old key — the same ones the hand-repair
 // missed. A rewrite only happens when the key matches `oldKey`, so an unrelated
 // token like `utf-8` is never in scope.
 const IDENTIFIER_RE = /\b([A-Za-z][A-Za-z0-9]*)-(\d+)\b/g
 
-const STAMP_FIELDS = ['linear_identifier', 'linear_issue_id']
+// The stamped identifier fields, from the provider's vocabulary.
+const stampFields = (config) => {
+  const f = fieldsOf(config)
+  return [f.identifier, f.issueId]
+}
 const SNAPSHOT_SUFFIX = '.base.json'
 
 // Every `.md` under each spec folder — overview and phase files alike, plus the
@@ -94,7 +95,7 @@ function movePrefix(text, oldKey, newKey) {
 /**
  * The recorded key this repo believes it is stamped with.
  *
- * `config.linear.teamKey` is authoritative when set — but it defaults to `""`
+ * `config.provider.teamKey` is authoritative when set — but it defaults to `""`
  * and is written by `init-config` and never read, which is exactly why a stale
  * key never failed loudly. So fall back to the prefix actually observed in the
  * stamps. Disagreeing stamps are reported, never guessed at and never thrown:
@@ -103,7 +104,7 @@ function movePrefix(text, oldKey, newKey) {
  * @returns {{key: string|null, source: 'config'|'stamps'|null, keys?: string[], reason?: string}}
  */
 function deriveRecordedKey(dir, config) {
-  const configured = (config.linear && config.linear.teamKey) || ''
+  const configured = (config.provider && config.provider.teamKey) || ''
   if (configured) return { key: configured, source: 'config' }
 
   const keys = new Set()
@@ -115,7 +116,7 @@ function deriveRecordedKey(dir, config) {
       continue
     }
     const { data } = parseFrontmatter(raw)
-    for (const field of STAMP_FIELDS) {
+    for (const field of stampFields(config)) {
       if (!data[field]) continue
       const m = /^([A-Z][A-Z0-9]*)-\d+$/.exec(String(data[field]).trim())
       if (m) keys.add(m[1])
@@ -138,7 +139,7 @@ function deriveRecordedKey(dir, config) {
     key: null,
     source: null,
     keys: found,
-    reason: `stamps disagree — found ${found.join(', ')}; set linear.teamKey to the recorded one`,
+    reason: `stamps disagree — found ${found.join(', ')}; set the provider config's team key to the recorded one`,
   }
 }
 
@@ -191,7 +192,7 @@ function planRetarget({ dir, oldKey, newKey, config }) {
     snapshots.push({ file: name, from: name, to: renamed, keys, body })
   }
 
-  const recorded = (config.linear && config.linear.teamKey) || ''
+  const recorded = (config.provider && config.provider.teamKey) || ''
   const configKey = recorded && recorded !== newKey ? { from: recorded, to: newKey } : null
 
   return { stamps, snapshots, configKey }
@@ -251,12 +252,15 @@ function applyRetarget(plan, { dir, config }) {
     }
   }
 
-  if (plan.configKey) {
+  if (plan.configKey && config.provider && config.provider.configFile) {
     // Textual, not parse-and-restringify: the config is hand-edited and carries
-    // ordering (and possibly comments) a JSON round-trip would discard.
-    const file = path.join(dir, 'specs', '.core', 'linear.config.json')
+    // ordering (and possibly comments) a JSON round-trip would discard. The
+    // file and the JSON key both come from the provider (`config.provider`).
+    const file = path.join(dir, config.provider.configFile)
+    const keyField = config.provider.teamKeyJsonField || 'teamKey'
     const raw = fs.readFileSync(file, 'utf-8')
-    fs.writeFileSync(file, raw.replace(/("teamKey"\s*:\s*")([^"]*)(")/, `$1${plan.configKey.to}$3`), 'utf-8')
+    const re = new RegExp('("' + keyField + '"\\s*:\\s*")([^"]*)(")')
+    fs.writeFileSync(file, raw.replace(re, `$1${plan.configKey.to}$3`), 'utf-8')
     changed.configKey = true
   }
 

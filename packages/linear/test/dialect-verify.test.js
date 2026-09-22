@@ -5,7 +5,11 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
-const { compareStored } = require('../src/verify.js')
+const { compareStored } = require('@skitterbyte/skitterspec-sync-core')
+const { dialect } = require('../src/dialect.js')
+// The engine's comparer reduces through the provider's dialect; these cases
+// were all observed from Linear, so they run with Linear's.
+const CFG = { dialect }
 
 const SENT = [
   '# Spec',
@@ -23,7 +27,7 @@ const SENT = [
 ].join('\n')
 
 test('an exact round-trip is clean', () => {
-  assert.strictEqual(compareStored(SENT, SENT).ok, true)
+  assert.strictEqual(compareStored(SENT, SENT, CFG).ok, true)
 })
 
 test('a dropped character is caught and located', () => {
@@ -41,7 +45,7 @@ test('the real corruption from the field is caught', () => {
   // Every data cell lost its first 3 characters on the actual push.
   const sent = '| `X-Extraction-Key` | shared secret, from Key Vault |'
   const stored = '| Extraction-Key` | red secret, from Key Vault |'
-  assert.strictEqual(compareStored(sent, stored).ok, false)
+  assert.strictEqual(compareStored(sent, stored, CFG).ok, false)
 })
 
 test('ordered-list renumbering does NOT trigger it', () => {
@@ -49,30 +53,30 @@ test('ordered-list renumbering does NOT trigger it', () => {
   // renumbering rewrites digits, and digits are alphanumeric. This is the case
   // that forced marker normalisation.
   const stored = SENT.replace('6. **Auth', '2. **Auth')
-  assert.strictEqual(compareStored(SENT, stored).ok, true, 'renumbering is benign')
+  assert.strictEqual(compareStored(SENT, stored, CFG).ok, true, 'renumbering is benign')
 })
 
 test('digits outside a list marker are still significant', () => {
   const sent = 'Listens on port 8443 with a 256-bit key.'
   const stored = 'Listens on port 843 with a 256-bit key.'
-  assert.strictEqual(compareStored(sent, stored).ok, false, 'a lost digit is real loss')
+  assert.strictEqual(compareStored(sent, stored, CFG).ok, false, 'a lost digit is real loss')
 })
 
 test('bullet rewriting, separator collapse and checkbox case are benign', () => {
   const stored = SENT.replace(/^- /gm, '* ').replace('- [x]', '* [X]')
-  assert.strictEqual(compareStored(SENT, stored).ok, true)
-  assert.strictEqual(compareStored('| a | b |\n|-----|-----|', '| a | b |\n| -- | -- |').ok, true)
+  assert.strictEqual(compareStored(SENT, stored, CFG).ok, true)
+  assert.strictEqual(compareStored('| a | b |\n|-----|-----|', '| a | b |\n| -- | -- |', CFG).ok, true)
 })
 
 test('bold boundary shifts around inline code are benign', () => {
   const sent = 'The **`X-Key`** header'
   const stored = 'The **`X-Key`** header'.replace('**`', '** `').replace('`**', '` **')
-  assert.strictEqual(compareStored(sent, stored).ok, true)
+  assert.strictEqual(compareStored(sent, stored, CFG).ok, true)
 })
 
 test('blank-run collapse and trailing whitespace are benign', () => {
   const stored = SENT.replace(/\n\n/g, '\n\n\n').replace(/$/gm, '  ')
-  assert.strictEqual(compareStored(SENT, stored).ok, true)
+  assert.strictEqual(compareStored(SENT, stored, CFG).ok, true)
 })
 
 test('an empty stored description against real content is caught', () => {
@@ -91,25 +95,25 @@ test('a `+` bullet coming back as `*` is benign', () => {
   // The marker set the normaliser accepts is `*`, `+` and `-`; the first two had
   // no test, so a narrower regex would have passed review.
   const sent = '+ first\n+ second'
-  assert.strictEqual(compareStored(sent, '* first\n* second').ok, true)
+  assert.strictEqual(compareStored(sent, '* first\n* second', CFG).ok, true)
 })
 
 test('re-indenting a nested list is benign', () => {
   // Linear rewrites nesting depth in spaces. Indentation is whitespace, which
   // the reduced stream drops entirely — this pins that it stays dropped.
   const sent = '- outer\n  - inner\n    - deeper'
-  assert.strictEqual(compareStored(sent, '- outer\n    - inner\n        - deeper').ok, true)
+  assert.strictEqual(compareStored(sent, '- outer\n    - inner\n        - deeper', CFG).ok, true)
 })
 
 test('a heading rewritten with a trailing hash run is benign', () => {
-  assert.strictEqual(compareStored('## Decisions', '## Decisions ##').ok, true)
+  assert.strictEqual(compareStored('## Decisions', '## Decisions ##', CFG).ok, true)
 })
 
 test('an empty description on both sides is intact, not lost', () => {
   // A phase with no goal sends ''. Comparing nothing to nothing must report
   // clean rather than dividing by an absence.
-  assert.strictEqual(compareStored('', '').ok, true)
-  assert.strictEqual(compareStored(null, null).ok, true)
+  assert.strictEqual(compareStored('', '', CFG).ok, true)
+  assert.strictEqual(compareStored(null, null, CFG).ok, true)
 })
 
 test('a whole word dropped from the middle is still reported', () => {

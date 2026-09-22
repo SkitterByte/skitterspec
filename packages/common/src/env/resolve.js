@@ -170,9 +170,12 @@ function parsePhase(text, name) {
  * The tracker ticket a spec is linked to, as `{ id, url }`, or null.
  *
  * Read straight out of the overview's frontmatter, where every provider stamps
- * it. The base is tracker-free, so this knows nothing about Linear beyond the
- * two key names a provider writes — an unlinked spec, or a project with no
- * provider installed, simply has neither and gets `null`.
+ * it. The base is tracker-free, so it hardcodes no provider's key names:
+ * every provider stamps `<prefix>_identifier` (`linear_identifier`,
+ * `jira_identifier`, …) with `<prefix>_url` beside it, so the id is whichever
+ * key matches that shape. A caller that knows the exact field (from
+ * `branch.identifierField`) may pass it; an unlinked spec, or a project with no
+ * provider installed, has no matching key and gets `null`.
  *
  * ONLY http(s) URLS SURVIVE. The value comes out of a file someone edits, and
  * the page turns it into an `href`; `javascript:` in that position is script
@@ -180,7 +183,7 @@ function parsePhase(text, name) {
  * still worth having, so the id is kept and the link dropped rather than the
  * whole ticket.
  */
-function readTicket(text) {
+function readTicket(text, identifierField) {
   const fm = /^---\n([\s\S]*?)\n---/.exec(text)
   if (!fm) return null
   const field = (name) => {
@@ -189,9 +192,20 @@ function readTicket(text) {
     const v = m[1].trim().replace(/^["']|["']$/g, '').trim()
     return v || null
   }
-  const id = field('linear_identifier')
+  let idField = identifierField || null
+  if (!idField) {
+    // First stamped `<prefix>_identifier` key wins. Two providers stamping one
+    // spec does not happen — the distributions are install-one-of.
+    const m = /^([A-Za-z][A-Za-z0-9]*)_identifier:/m.exec(fm[1])
+    idField = m ? `${m[1]}_identifier` : null
+  }
+  if (!idField) return null
+  const id = field(idField)
   if (!id) return null
-  const url = field('linear_url')
+  const urlField = idField.endsWith('_identifier')
+    ? idField.replace(/_identifier$/, '_url')
+    : `${idField}_url`
+  const url = field(urlField)
   return { id, url: url && /^https?:\/\//i.test(url) ? url : null }
 }
 
@@ -204,7 +218,7 @@ function readTicket(text) {
  * routes to omitting the header — the page rendered without one yesterday and
  * still does (`.claude/rules/negative-checks.md` rule 4).
  */
-function readOverview(specDir, { overviewFile = '00-overview.md' } = {}) {
+function readOverview(specDir, { overviewFile = '00-overview.md', identifierField = null } = {}) {
   let text
   try {
     text = fs.readFileSync(path.join(specDir, overviewFile), 'utf8')
@@ -213,7 +227,7 @@ function readOverview(specDir, { overviewFile = '00-overview.md' } = {}) {
   }
   const problem = sectionOf(text, 'Problem') || sectionOf(text, 'Symptom')
   const impact = impactRows(sectionOf(text, 'Impact'))
-  const ticket = readTicket(text)
+  const ticket = readTicket(text, identifierField)
   // The ticket counts towards "is there anything to say": a spec linked to a
   // tracker but carrying neither section still has a header worth drawing.
   if (!problem && !impact && !ticket) return null

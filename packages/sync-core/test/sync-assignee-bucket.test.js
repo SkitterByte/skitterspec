@@ -89,12 +89,12 @@ test('the stamp survives in the file after the bucket releases it', () => {
 // --- the rule on its own -----------------------------------------------------
 
 test('assigneeFor ignores a blank or non-string stamp', () => {
-  assert.strictEqual(assigneeFor('in-progress', { linear_assignee_id: '   ' }), null)
-  assert.strictEqual(assigneeFor('in-progress', { linear_assignee_id: 42 }), null)
-  assert.strictEqual(assigneeFor('in-progress', {}), null)
-  assert.strictEqual(assigneeFor('in-progress', null), null)
+  assert.strictEqual(assigneeFor('in-progress', { linear_assignee_id: '   ' }, neutralConfig()), null)
+  assert.strictEqual(assigneeFor('in-progress', { linear_assignee_id: 42 }, neutralConfig()), null)
+  assert.strictEqual(assigneeFor('in-progress', {}, neutralConfig()), null)
+  assert.strictEqual(assigneeFor('in-progress', null, neutralConfig()), null)
 })
 
 test('assigneeFor trims a stamp rather than sending whitespace to Linear', () => {
-  assert.strictEqual(assigneeFor('in-progress', { linear_assignee_id: ' user-1 ' }), 'user-1')
+  assert.strictEqual(assigneeFor('in-progress', { linear_assignee_id: ' user-1 ' }, neutralConfig()), 'user-1')
 })

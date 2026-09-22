@@ -15,8 +15,10 @@ const {
   normalizeLocal,
   titleFromText,
   validateStates,
-  canonicalizeMarkdown,
 } = require('../src/normalize.js')
+// The Linear dialect owns canonicalizeMarkdown now; imported from the provider
+// beside the fixtures that were written against Linear's reserialisation.
+const { canonicalizeMarkdown } = require('../../linear/src/dialect.js')
 const { collapseHyphenAware, findTaskBlocks } = require('../src/task-block.js')
 const { neutralConfig } = require('./_config.js')
 

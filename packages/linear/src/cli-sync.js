@@ -455,7 +455,7 @@ function specSyncStamp(dir, config, specArg, flags, out) {
     lines.push(`  overview: ${written.join(', ')}`)
   }
   for (const s of subs) {
-    stampSubIssueId(snapshotDir, s.file, s.id)
+    stampSubIssueId(snapshotDir, s.file, s.id, config)
     lines.push(`  ${s.file}: linear_issue_id = ${s.id}`)
   }
   lines.push('  next: skitterspec spec-sync record <spec>')
@@ -626,7 +626,7 @@ function specSyncStatus(dir, config, specArg, flags, out) {
       lines.push('  drift: none — Linear workflow-state matches the spec')
     }
     lines.push(...assigneeLines(remote, projection, plan))
-    lines.push(...descriptionDriftLines(remote, snapshot, identifier))
+    lines.push(...descriptionDriftLines(remote, snapshot, identifier, config))
   }
 
   out.write(lines.join('\n') + '\n')
@@ -651,8 +651,8 @@ function specSyncStatus(dir, config, specArg, flags, out) {
  * the state line has one because it is always askable, and this one is not.
  * (`.claude/rules/negative-checks.md`.)
  */
-function descriptionDriftLines(remote, snapshot, identifier) {
-  if (remoteDescriptionEdited(snapshot, remote) !== true) return []
+function descriptionDriftLines(remote, snapshot, identifier, config) {
+  if (remoteDescriptionEdited(snapshot, remote, config) !== true) return []
   const lines = [
     `  drift: ${identifier}'s description was edited on Linear since the last push`,
     '         (repo wins on next push — read it before pushing)',
@@ -790,7 +790,7 @@ function verifyLines(snapshotDir, config, stored, identifier) {
       bad++
       continue
     }
-    const r = compareStored(sent, got)
+    const r = compareStored(sent, got, config)
     if (r.ok) continue
     bad++
     lines.push(
@@ -2041,7 +2041,7 @@ async function specSyncReattach(dir, config, specArg, flags, out) {
       const phaseTitle = String(ph.name || '').trim()
       const hits = children.filter((c) => String(c.title || '').trim() === phaseTitle)
       if (hits.length === 1) {
-        stampSubIssueId(snapshotDir, file, hits[0].identifier)
+        stampSubIssueId(snapshotDir, file, hits[0].identifier, config)
         lines.push(`  phase ${ref} → ${hits[0].identifier}`)
       } else if (hits.length > 1) {
         // Refused individually, never for the whole run: the spec issue is
@@ -2753,7 +2753,7 @@ async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, team
     // into a gate would stop a legitimate push over a typo fix, and the whole
     // point is that only a person can judge which it was. The exit code is
     // untouched, deliberately.
-    if (remoteDescriptionEdited(readBase(dir, identifier, config), existing) === true) {
+    if (remoteDescriptionEdited(readBase(dir, identifier, config), existing, config) === true) {
       lines.push(
         `  !! ${identifier}'s description was edited on Linear since the last push — this replaces it`,
       )
@@ -2787,7 +2787,7 @@ async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, team
     if (progress) (progress.created = progress.created || []).push(created.identifier)
     const file = resolvePhaseFile(snapshotDir, sub.ref)
     if (!file) throw new Error(`no phase file for ref ${sub.ref}`)
-    stampSubIssueId(snapshotDir, file, created.identifier)
+    stampSubIssueId(snapshotDir, file, created.identifier, config)
     result.subIssues[sub.ref] = created.identifier
     lines.push(`  sub-issue created: ${sub.ref} → ${created.identifier}`)
   }

@@ -18,8 +18,11 @@ const path = require('node:path')
 
 const { planRetarget, deriveRecordedKey, isEmptyRetarget, movePrefix } = require('../src/retarget.js')
 
+const { neutralConfig } = require('./_config.js')
+
 const CONFIG = (teamKey = 'SKI') => ({
-  linear: { teamId: 'T1', teamKey },
+  ...neutralConfig(),
+  provider: { teamKey, configFile: 'specs/.core/linear.config.json', teamKeyJsonField: 'teamKey' },
   sync: { baseDir: 'specs/.core/linear-base' },
 })
 

@@ -20,6 +20,8 @@ const { test } = require('node:test')
 const assert = require('node:assert')
 
 const { snapshotOf, remoteDescriptionEdited, planChanges, isEmptyPlan, hashField, stream } = require('../index.js')
+const { neutralConfig } = require('./_config.js')
+const CFG = neutralConfig()
 
 const DESCRIPTION = [
   '# Export timeouts',
@@ -40,25 +42,25 @@ const DESCRIPTION = [
 ].join('\n')
 
 // What the repo would record after pushing that description.
-const snapshotFor = (description) => snapshotOf({ description, status: 'in-progress', subIssues: [] })
+const snapshotFor = (description) => snapshotOf({ description, status: 'in-progress', subIssues: [] }, CFG)
 
 // --- it can fire -------------------------------------------------------------
 
 test('a genuinely edited description is reported', () => {
   const snap = snapshotFor(DESCRIPTION)
   const edited = DESCRIPTION + '\n\nAlso: it only happens after a CSV import.'
-  assert.strictEqual(remoteDescriptionEdited(snap, { description: edited }), true)
+  assert.strictEqual(remoteDescriptionEdited(snap, { description: edited }, CFG), true)
 })
 
 test('an unchanged description is not', () => {
   const snap = snapshotFor(DESCRIPTION)
-  assert.strictEqual(remoteDescriptionEdited(snap, { description: DESCRIPTION }), false)
+  assert.strictEqual(remoteDescriptionEdited(snap, { description: DESCRIPTION }, CFG), false)
 })
 
 test('text deleted from the description counts as an edit', () => {
   const snap = snapshotFor(DESCRIPTION)
   const trimmed = DESCRIPTION.replace('- only over 50k rows\n', '')
-  assert.strictEqual(remoteDescriptionEdited(snap, { description: trimmed }), true)
+  assert.strictEqual(remoteDescriptionEdited(snap, { description: trimmed }, CFG), true)
 })
 
 // --- stays silent: the tracker's own reformatting is not an edit -------------
@@ -86,7 +88,7 @@ test('Linear reserialising the markdown is NOT an edit', () => {
 
   assert.notStrictEqual(reserialised, DESCRIPTION, 'the fixture really was reformatted')
   assert.strictEqual(
-    remoteDescriptionEdited(snap, { description: reserialised }),
+    remoteDescriptionEdited(snap, { description: reserialised }, CFG),
     false,
     'a reformatted-but-intact mirror must say nothing',
   )
@@ -94,7 +96,7 @@ test('Linear reserialising the markdown is NOT an edit', () => {
 
 test('CRLF from a different client is not an edit either', () => {
   const snap = snapshotFor(DESCRIPTION)
-  assert.strictEqual(remoteDescriptionEdited(snap, { description: DESCRIPTION.replace(/\n/g, '\r\n') }), false)
+  assert.strictEqual(remoteDescriptionEdited(snap, { description: DESCRIPTION.replace(/\n/g, '\r\n') }, CFG), false)
 })
 
 // --- stays silent: every cannot-tell is null, never true --------------------
@@ -105,11 +107,11 @@ test('a snapshot written before this existed is cannot-tell, not an edit', () =>
   // first run after upgrading — the exact failure mode the three incidents in
   // negative-checks.md share.
   const old = { issue: 'abc', issueFields: { description: 'abc', state: 'def' }, subIssues: {} }
-  assert.strictEqual(remoteDescriptionEdited(old, { description: 'anything at all' }), null)
+  assert.strictEqual(remoteDescriptionEdited(old, { description: 'anything at all' }, CFG), null)
 })
 
 test('no snapshot at all is cannot-tell', () => {
-  assert.strictEqual(remoteDescriptionEdited(null, { description: DESCRIPTION }), null)
+  assert.strictEqual(remoteDescriptionEdited(null, { description: DESCRIPTION }, CFG), null)
 })
 
 test('a snapshot with no issueFields is cannot-tell', () => {
@@ -133,7 +135,7 @@ test('a description that is not a string is cannot-tell, never "emptied"', () =>
   // second would be an accusation built on the first.
   const snap = snapshotFor(DESCRIPTION)
   for (const bad of [null, undefined, 0, {}]) {
-    assert.strictEqual(remoteDescriptionEdited(snap, { description: bad }), null, `${JSON.stringify(bad)}`)
+    assert.strictEqual(remoteDescriptionEdited(snap, { description: bad }, CFG), null, `${JSON.stringify(bad)}`)
   }
 })
 
@@ -147,7 +149,7 @@ test('a description the tracker really does hold empty is reported, once we know
   // The other side of the line above: an empty STRING was read back, so this is
   // evidence — someone cleared it — where a missing key would not be.
   const snap = snapshotFor(DESCRIPTION)
-  assert.strictEqual(remoteDescriptionEdited(snap, { description: '' }), true)
+  assert.strictEqual(remoteDescriptionEdited(snap, { description: '' }, CFG), true)
 })
 
 // --- the recorded hash must not leak into planning --------------------------
@@ -182,15 +184,15 @@ test('the stream hash is exactly what the exported reduction produces', () => {
   // So a provider can compute the comparison itself without guessing at the
   // recipe — which is what stops a second, disagreeing implementation appearing.
   const snap = snapshotFor(DESCRIPTION)
-  assert.strictEqual(snap.issueFields.descriptionStream, hashField(stream(DESCRIPTION)))
+  assert.strictEqual(snap.issueFields.descriptionStream, hashField(stream(DESCRIPTION, CFG)))
 })
 
 test('a spec with no description records a stream hash rather than omitting it', () => {
   // An omitted key would read as "old snapshot" forever, so this spec could
   // never be checked. Hashing the empty stream keeps the field a positive signal.
   const snap = snapshotFor(null)
-  assert.strictEqual(snap.issueFields.descriptionStream, hashField(stream('')))
-  assert.strictEqual(remoteDescriptionEdited(snap, { description: '' }), false)
+  assert.strictEqual(snap.issueFields.descriptionStream, hashField(stream('', CFG)))
+  assert.strictEqual(remoteDescriptionEdited(snap, { description: '' }, CFG), false)
 })
 
 // --- the known limit, stated rather than discovered -------------------------
@@ -201,5 +203,5 @@ test('a punctuation-only edit is invisible, and that is the accepted trade', () 
   // rather than a surprise: the alternative is accusing every intact mirror.
   const snap = snapshotFor(DESCRIPTION)
   const repunctuated = DESCRIPTION.replace('Exports time out on large accounts.', 'Exports time out on large accounts!!')
-  assert.strictEqual(remoteDescriptionEdited(snap, { description: repunctuated }), false)
+  assert.strictEqual(remoteDescriptionEdited(snap, { description: repunctuated }, CFG), false)
 })
