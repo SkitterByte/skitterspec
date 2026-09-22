@@ -23,6 +23,7 @@ const specs = require('./src/specs.js')
 const prompt = require('./src/prompt.js')
 const args = require('./src/args.js')
 const adapter = require('./src/adapter.js')
+const apply = require('./src/apply.js')
 
 module.exports = {
   ...config,
@@ -36,4 +37,5 @@ module.exports = {
   ...prompt,
   ...args,
   ...adapter,
+  ...apply,
 }

@@ -85,6 +85,7 @@ const {
 const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { resolveTransport } = require('@skitterbyte/skitterspec-provider-kit/src/transport.js')
 const { readAllStdin, promptHidden } = require('@skitterbyte/skitterspec-provider-kit/src/prompt.js')
+const { applySpecPlan } = require('@skitterbyte/skitterspec-provider-kit/src/apply.js')
 
 // Spec resolution, listing and lint reporting come from the provider kit
 // (`src/specs.js`), keyed by this provider's `config.fields`. `linkedIdentifier`
@@ -673,48 +674,8 @@ function specSyncVerify(dir, config, specArg, flags, out) {
   return 0
 }
 
-/**
- * The verify comparison itself, as reportable lines.
- *
- * Split out of `specSyncVerify` so `apply` runs the SAME check on the read-back
- * it does itself, rather than a second implementation that could disagree about
- * what counts as lost text.
- */
-function verifyLines(snapshotDir, config, stored, identifier) {
-  const projection = projectionOf(snapshotDir, config)
-  const checks = []
-  if (typeof stored.issue === 'string') checks.push(['issue', projection.description, stored.issue])
-  for (const [ref, text] of Object.entries(stored.subIssues || {})) {
-    const sub = projection.subIssues.find((s) => s.ref === ref)
-    if (!sub) {
-      checks.push([`sub-issue ${ref}`, null, text])
-      continue
-    }
-    checks.push([`sub-issue ${ref}`, sub.goal, text])
-  }
-
-  const lines = [`spec-sync verify: ${identifier}`]
-  let bad = 0
-  for (const [label, sent, got] of checks) {
-    if (sent == null) {
-      lines.push(`  ?? ${label}: read back, but the projection has no such phase — stale ref?`)
-      bad++
-      continue
-    }
-    const r = compareStored(sent, got, config)
-    if (r.ok) continue
-    bad++
-    lines.push(
-      `  !! ${label}: the tracker stored different text — ${Math.abs(r.lost)} character(s) ` +
-        `${r.lost > 0 ? 'lost' : 'added'}, first difference at ${r.at}`,
-      `     sent:   …${r.sentContext}…`,
-      `     stored: …${r.storedContext}…`,
-    )
-  }
-  if (!bad) lines.push(`  ${checks.length} description(s) round-tripped intact`)
-  else lines.push('     the repo is unchanged and still correct; re-push to overwrite the mirror')
-  return lines
-}
+// The read-back comparison rendering is the kit's (`specHelpers.verifyLines`).
+const verifyLines = specHelpers.verifyLines
 
 /**
  * `spec-sync doctor [--json]` — is this project set up, across every layer?
@@ -2538,209 +2499,73 @@ function describeRefusal(error) {
 }
 
 /**
- * Apply a plan, and say what landed even when it throws.
- *
- * A thin wrapper, because the caller has to answer a question the inner
- * function's `result` knows and a thrown error does not carry: **was anything
- * written?** That decides whether re-running is a resume or a fresh start, and
- * the failure line claimed `ids stamped so far are saved` on both paths —
- * including the one where nothing had been created.
- *
- * Counted from what was actually stamped, never inferred from which call
- * failed: the second reading goes wrong the moment the order changes.
+ * Apply one spec's plan over the API adapter. The orchestration — ordering,
+ * stamping, orphan accounting, twin guard, read-back verify, record — is the
+ * kit's (`provider-kit/src/apply.js`); the ops below are what is Linear's:
+ * workflow state folds into each create/update payload as a stateId, nulls are
+ * stripped (`withoutNull`) except the assignee clear, and the refusal texts
+ * name Linear and its commands.
  */
-async function applyOneSpec(args) {
-  const progress = {}
-  try {
-    return await applyOneSpecInner({ ...args, progress })
-  } catch (error) {
-    const r = progress.result
-    if (error && typeof error === 'object' && error.stamped === undefined) {
-      error.stamped = r ? (r.issue ? 1 : 0) + Object.keys(r.subIssues || {}).length : 0
-      // THE ONE CASE A RE-RUN MAKES WORSE. `created` is what Linear holds;
-      // `stamped` is what the repo recorded. They part company when a create
-      // lands and its stamp cannot be written — and then the next plan still
-      // reads the spec as unlinked, so re-running mints a SECOND issue beside a
-      // perfectly good one. The identifiers travel out so the caller can name
-      // them and send the reader to `reattach` instead.
-      error.created = progress.created || []
-      error.orphans = error.created.slice(error.stamped)
-    }
-    throw error
-  }
-}
-
-async function applyOneSpecInner({ dir, config, snapshotDir, plan, adapter, teamId, project, states, progress, forceNew = false }) {
-  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
-  const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
-  const lines = []
-  const result = { issue: null, subIssues: {} }
-  // Handed out immediately, so a throw from anywhere below still reports what
-  // had been stamped by the time it happened.
-  if (progress) progress.result = result
+async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, project, states, forceNew = false }) {
   const stateId = (bucket) => (bucket ? stateIdFor(bucket, config, states) : null)
-
-  // Resolve every state id BEFORE the first write, so a bad config.states value
-  // cannot strand the spec mid-apply.
-  const wanted = new Set()
-  if (plan.issue && plan.issue.state) wanted.add(plan.issue.state)
-  for (const s of (plan.subIssues && plan.subIssues.create) || []) if (s.state) wanted.add(s.state)
-  for (const s of (plan.subIssues && plan.subIssues.update) || []) if (s.state) wanted.add(s.state)
-  for (const bucket of wanted) stateId(bucket)
-
-  // 1. The spec issue. No identifier yet → this push mints it.
-  let parentId = null
-  if (!identifier) {
-    // REFUSE TO MINT A TWIN. This is the guard SKS-284 needed: the push was
-    // creating because the spec read as unlinked, while SKS-283 sat unclaimed
-    // with exactly this title. An EXACT match held by no spec is a positive
-    // signal that the issue already exists.
-    //
-    // WHAT WOULD FOOL A FUZZY VERSION: a title that merely reads similarly.
-    // Being wrong here BLOCKS a legitimate push, so a near-match must never
-    // count (`.claude/rules/negative-checks.md` rule 1) — and the cost, a
-    // renamed spec that is not recognised, is answered by `reattach --to`.
-    //
-    // Only on a MINT. An update already has its issue, and checking one would
-    // find its own mirror.
-    if (!forceNew && adapter.searchIssues) {
-      const wanted = String(plan.title || readSnapshot(snapshotDir, config).title || '').trim()
-      if (wanted) {
-        let found = []
-        try {
-          found = (await adapter.searchIssues({ query: wanted, teamId })) || []
-        } catch {
-          // A search we could not run is not evidence of an orphan. Carry on and
-          // mint — the cannot-tell case goes to the harmless branch, which here
-          // is the one that does the work the caller asked for (rule 4).
-          found = []
-        }
-        const claimed = new Set(listSpecs(dir, config).map((sp) => sp.identifier).filter(Boolean))
-        const twin = found.find(
-          (i) => i && i.identifier && !claimed.has(i.identifier) && String(i.title || '').trim() === wanted,
-        )
-        if (twin) {
-          throw new Error(
-            `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +
-              `adopt it with \`spec-sync reattach ${path.basename(snapshotDir)} --to ${twin.identifier}\`, ` +
-              'or pass --force-new to create a second',
-          )
-        }
-      }
-    }
-    const created = await adapter.createIssue(withoutNull({
-      title: readSnapshot(snapshotDir, config).title,
-      teamId,
-      projectId: project || (config.linear && config.linear.projectId) || null,
-      description: plan.issue && plan.issue.description,
-      stateId: stateId(plan.issue && plan.issue.state),
-      // Assert only. An issue being minted has no assignee to retract, so
-      // `withoutNull` dropping a null here is exactly right.
-      assigneeId: (plan.issue && plan.issue.assignee) || null,
-    }))
-    if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
-    parentId = created.id
-    // NOTED BEFORE IT IS STAMPED. The stamp can fail — a read-only tree, a
-    // permission error — and then this identifier exists in Linear with nothing
-    // in the repo pointing at it. Recorded here so the failure can name it.
-    if (progress) (progress.created = progress.created || []).push(created.identifier)
-    // Stamped NOW: an interrupt after this point must not mint a second issue.
-    writeFrontmatter(snapshotDir, config, { linear_identifier: created.identifier, linear_url: created.url })
-    result.issue = { id: created.id, identifier: created.identifier, url: created.url }
-    lines.push(`  issue created: ${created.identifier}`)
-  } else {
-    const existing = await adapter.readIssue(identifier)
-    if (!existing || !existing.id) throw new Error(`no Linear issue found for ${identifier}`)
-    parentId = existing.id
-    result.issue = { id: existing.id, identifier: existing.identifier, url: existing.url }
-
-    // SOMEONE ELSE EDITED THE DESCRIPTION SINCE WE LAST PUSHED, and this write
-    // is about to replace it. Said here because this is the one moment the
-    // engine has both halves in hand for free — the read-back it already does,
-    // and the snapshot on disk — so no extra round trip buys the warning.
-    //
-    // A WARNING AND NEVER A REFUSAL. One-way sync means the repo wins, and that
-    // is not in question; what was wrong was winning silently. Turning this
-    // into a gate would stop a legitimate push over a typo fix, and the whole
-    // point is that only a person can judge which it was. The exit code is
-    // untouched, deliberately.
-    if (remoteDescriptionEdited(readBase(dir, identifier, config), existing, config) === true) {
-      lines.push(
-        `  !! ${identifier}'s description was edited on Linear since the last push — this replaces it`,
-      )
-    }
-    if (plan.issue) {
+  const ops = {
+    prevalidateStates: (buckets) => {
+      for (const bucket of buckets) stateId(bucket)
+    },
+    searchTwin: (title) => adapter.searchIssues({ query: title, teamId }),
+    twinAdvice: (twin, wanted, specName) =>
+      `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +
+      `adopt it with \`spec-sync reattach ${specName} --to ${twin.identifier}\`, ` +
+      'or pass --force-new to create a second',
+    missingIssueMessage: (identifier) => `no Linear issue found for ${identifier}`,
+    remoteEditedLine: (identifier) =>
+      `  !! ${identifier}'s description was edited on Linear since the last push — this replaces it`,
+    mintIssue: async ({ title, issue }) => {
+      const created = await adapter.createIssue(withoutNull({
+        title,
+        teamId,
+        projectId: project || (config.linear && config.linear.projectId) || null,
+        description: issue && issue.description,
+        stateId: stateId(issue && issue.state),
+        // Assert only. An issue being minted has no assignee to retract, so
+        // `withoutNull` dropping a null here is exactly right.
+        assigneeId: (issue && issue.assignee) || null,
+      }))
+      if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
+      return created
+    },
+    updateIssue: async (existing, issue) => {
       const updates = withoutNull({
-        description: plan.issue.description,
-        stateId: stateId(plan.issue.state),
+        description: issue.description,
+        stateId: stateId(issue.state),
       })
       // APPLIED AFTER `withoutNull`, and that ordering is the whole point: null
       // is MEANINGFUL for this field — it is how Linear unassigns an issue — so
       // passing it through the stripper would drop exactly the clear that
-      // finishing a spec depends on, and the mirror would keep a finished spec
-      // assigned forever. The plan only carries the key when there is something
-      // to say, so `in` is the test, not truthiness.
-      if ('assignee' in plan.issue) updates.assigneeId = plan.issue.assignee ?? null
+      // finishing a spec depends on. The plan only carries the key when there
+      // is something to say, so `in` is the test, not truthiness.
+      if ('assignee' in issue) updates.assigneeId = issue.assignee ?? null
       await adapter.updateIssue(existing.id, updates)
-      lines.push(`  issue updated: ${identifier}`)
-    }
+    },
+    mintSubIssue: async (parentId, sub) => {
+      const created = await adapter.createSubIssue(parentId, withoutNull({
+        title: sub.name,
+        teamId,
+        description: sub.goal,
+        stateId: stateId(sub.state),
+      }))
+      if (!created || !created.identifier) throw new Error(`Linear returned no issue for sub-issue ${sub.ref}`)
+      return created
+    },
+    updateSubIssue: async (sub) => {
+      await adapter.updateIssue(sub.id, withoutNull({
+        title: sub.name,
+        description: sub.goal,
+        stateId: stateId(sub.state),
+      }))
+    },
   }
-
-  // 2. Sub-issue creates — each stamped as it lands, for the same reason.
-  for (const sub of (plan.subIssues && plan.subIssues.create) || []) {
-    const created = await adapter.createSubIssue(parentId, withoutNull({
-      title: sub.name,
-      teamId,
-      description: sub.goal,
-      stateId: stateId(sub.state),
-    }))
-    if (!created || !created.identifier) throw new Error(`Linear returned no issue for sub-issue ${sub.ref}`)
-    if (progress) (progress.created = progress.created || []).push(created.identifier)
-    const file = resolvePhaseFile(snapshotDir, sub.ref)
-    if (!file) throw new Error(`no phase file for ref ${sub.ref}`)
-    stampSubIssueId(snapshotDir, file, created.identifier, config)
-    result.subIssues[sub.ref] = created.identifier
-    lines.push(`  sub-issue created: ${sub.ref} → ${created.identifier}`)
-  }
-
-  // 3. Sub-issue updates — already linked, nothing to stamp.
-  //
-  // Keyed by REF, never by id: step 4 matches the read-back against the
-  // projection, which keys phases by ref. Keying an update by its id made every
-  // updated sub-issue report as a stale ref on every push. A plan written before
-  // updates carried a ref still resolves — by id, off the projection.
-  const refById = new Map()
-  for (const s of projectionOf(snapshotDir, config).subIssues || []) {
-    if (s.id != null) refById.set(String(s.id), s.ref)
-  }
-  for (const sub of (plan.subIssues && plan.subIssues.update) || []) {
-    await adapter.updateIssue(sub.id, withoutNull({
-      title: sub.name,
-      description: sub.goal,
-      stateId: stateId(sub.state),
-    }))
-    result.subIssues[sub.ref || refById.get(String(sub.id)) || sub.id] = sub.id
-    lines.push(`  sub-issue updated: ${sub.id}`)
-  }
-
-  // 4. Read back what Linear stored and run the SAME check `verify` runs.
-  const stored = { issue: undefined, subIssues: {} }
-  if (result.issue) {
-    const back = await adapter.readIssue(result.issue.id)
-    if (back && typeof back.description === 'string') stored.issue = back.description
-  }
-  for (const [ref, id] of Object.entries(result.subIssues)) {
-    const back = await adapter.readIssue(id)
-    if (back && typeof back.description === 'string') stored.subIssues[ref] = back.description
-  }
-  const verify = verifyLines(snapshotDir, config, stored, result.issue ? result.issue.identifier : identifier)
-  lines.push(...verify.map((l) => `  ${l}`))
-  const lost = verify.some((l) => l.includes('!!') || l.includes('??'))
-
-  // 5. Record the snapshot from the now-stamped files, so the next push is empty.
-  const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config })
-  lines.push(`  snapshot: ${path.relative(dir, file)}`)
-  return { result, lines, lost }
+  return applySpecPlan({ dir, config, snapshotDir, plan, adapter, ops, forceNew })
 }
 
 /**

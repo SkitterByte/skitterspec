@@ -15,7 +15,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const { BUCKETS, findSpecFolder } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
-const { readSnapshot, parseFrontmatter, lintPhases, fieldsOf } = require('@skitterbyte/skitterspec-sync-core')
+const { readSnapshot, parseFrontmatter, lintPhases, fieldsOf, projectionOf, compareStored } = require('@skitterbyte/skitterspec-sync-core')
 
 function makeSpecHelpers({ program = 'spec-sync' } = {}) {
   // Resolve a spec argument to its snapshot dir. Accepts a spec name/folder
@@ -122,7 +122,45 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
     if (lines.length) err.write(lines.join('\n') + '\n')
   }
 
-  return { resolveSnapshotDir, specIdentifier, linkedIdentifier, listSpecs, resolveOrExit, warningLines, warnToErr }
+  // Render the read-back comparison — the same check `verify` and `apply`
+  // both report through, so the two cannot disagree about what "intact" means.
+  function verifyLines(snapshotDir, config, stored, identifier) {
+    const projection = projectionOf(snapshotDir, config)
+    const checks = []
+    if (typeof stored.issue === 'string') checks.push(['issue', projection.description, stored.issue])
+    for (const [ref, text] of Object.entries(stored.subIssues || {})) {
+      const sub = projection.subIssues.find((s) => s.ref === ref)
+      if (!sub) {
+        checks.push([`sub-issue ${ref}`, null, text])
+        continue
+      }
+      checks.push([`sub-issue ${ref}`, sub.goal, text])
+    }
+
+    const lines = [`${program} verify: ${identifier}`]
+    let bad = 0
+    for (const [label, sent, got] of checks) {
+      if (sent == null) {
+        lines.push(`  ?? ${label}: read back, but the projection has no such phase — stale ref?`)
+        bad++
+        continue
+      }
+      const r = compareStored(sent, got, config)
+      if (r.ok) continue
+      bad++
+      lines.push(
+        `  !! ${label}: the tracker stored different text — ${Math.abs(r.lost)} character(s) ` +
+          `${r.lost > 0 ? 'lost' : 'added'}, first difference at ${r.at}`,
+        `     sent:   …${r.sentContext}…`,
+        `     stored: …${r.storedContext}…`,
+      )
+    }
+    if (!bad) lines.push(`  ${checks.length} description(s) round-tripped intact`)
+    else lines.push('     the repo is unchanged and still correct; re-push to overwrite the mirror')
+    return lines
+  }
+
+  return { resolveSnapshotDir, specIdentifier, linkedIdentifier, listSpecs, resolveOrExit, warningLines, warnToErr, verifyLines }
 }
 
 module.exports = { makeSpecHelpers }

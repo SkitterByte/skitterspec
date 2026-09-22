@@ -143,7 +143,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | De-Linearise sync-core & common | ✅ | [01-sync-core-neutrality.md](01-sync-core-neutrality.md) |
 | 2 | Extract provider-kit, rewire linear | ✅ | [02-provider-kit.md](02-provider-kit.md) |
 | 3 | Jira adapter core (client, ADF, transitions) | ✅ | [03-jira-adapter.md](03-jira-adapter.md) |
-| 4 | Jira CLI, skills, seams | ⬜ | [04-jira-cli-skills.md](04-jira-cli-skills.md) |
+| 4 | Jira CLI, skills, seams | ✅ | [04-jira-cli-skills.md](04-jira-cli-skills.md) |
 | 5 | Distribution + release wiring | ⬜ | [05-distribution-release.md](05-distribution-release.md) |
 | 6 | Docs, live smoke, first release | ⬜ | [06-docs-smoke.md](06-docs-smoke.md) |
 
@@ -176,3 +176,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   needed); nested-table flattening and the compare reduction hoisted to the kit
   as shared dialect pieces; jira's `skitterspec` bin alias moved to the phase-5
   distribution after a stale shim broke the workspace engine.
+- 2026-09-22 — Phase 4 built. Apply orchestration landed in the kit with both
+  providers consuming it (the phase-2 deferral resolved); jira ships no
+  spec-claim/sanitise (deferred/not-applicable); seams complete at nine.
