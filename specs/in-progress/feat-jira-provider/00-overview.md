@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-370"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-370/skitterspec-jira-a-jira-cloud-ticketing-provider"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # skitterspec-jira — a Jira Cloud ticketing provider
 
 > **Type:** Feature
 > **Name:** feat-jira-provider (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-09-22)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
 > **Area:** packages/sync-core, packages/common (src/env/resolve.js, src/init.js,
 > src/cli.js, assets/hooks), packages/linear (rewired, no behaviour change),
@@ -154,6 +156,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-21 | Ready | backlog | Reuben Greaves |
+| 2026-09-22 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
