@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-superset-undeclared-companion-path (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (test green)
+> **Status:** Complete (2026-09-22)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -124,9 +124,11 @@ Red before the fix:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-22 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-09-21 — Bug reproduced against the built distributions; spec captured.
 - 2026-09-22 — Fixed: the superset seeds both isolation keys into the
   `env.config.json.example` it ships, derived from `sync.baseDir`; tests green.
+- 2026-09-22 — Completed; all phases done, tests green (3538 pass, 0 fail).
