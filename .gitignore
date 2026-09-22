@@ -12,6 +12,9 @@ node_modules/
 /packages/skitterspec-linear/assets/
 /packages/skitterspec-linear/bin/
 /packages/skitterspec-linear/src/
+/packages/skitterspec-jira/assets/
+/packages/skitterspec-jira/bin/
+/packages/skitterspec-jira/src/
 
 # Per-spec isolation: machine-local slot registry + volume backups (never committed)
 /.spec-env/

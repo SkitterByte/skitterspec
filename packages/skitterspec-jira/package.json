@@ -1,0 +1,42 @@
+{
+  "name": "@skitterbyte/skitterspec-jira",
+  "version": "0.0.0",
+  "description": "Spec-driven development for Claude Code, with one-way Jira Cloud sync — a superset of @skitterbyte/skitterspec: the base filesystem workflow plus /spec-status · /spec-push and the spec-sync CLI. The repo is canonical; Jira is a generated mirror. Install this OR the base OR the Linear superset — exactly one.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "spec-driven-development",
+    "sdd",
+    "skills",
+    "scaffold",
+    "jira"
+  ],
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "bin": {
+    "skitterspec-jira": "bin/skitterspec-jira.js",
+    "skitterspec": "bin/skitterspec-jira.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "assets",
+    "MIGRATION.md"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2"
+  },
+  "scripts": {
+    "prepare": "node ../../scripts/build-dist.js skitterspec-jira",
+    "prepack": "node ../../scripts/build-dist.js skitterspec-jira"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkitterByte/skitterspec.git",
+    "directory": "packages/skitterspec-jira"
+  }
+}

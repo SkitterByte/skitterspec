@@ -50,13 +50,14 @@ on:
       # `skitterspec-linear@12.0.0`, so each package's tags stay its own.
       - 'skitterspec@*'
       - 'skitterspec-linear@*'
+      - 'skitterspec-jira@*'
   workflow_dispatch:
     inputs:
       package:
         description: Package to stage
         required: true
         type: choice
-        options: [skitterspec, skitterspec-linear]
+        options: [skitterspec, skitterspec-linear, skitterspec-jira]
       version:
         description: Version it must already be at (e.g. 19.0.0)
         required: true
@@ -96,7 +97,7 @@ jobs:
             version="${TAG##*@}"   # everything after it
           fi
           case "$pkg" in
-            skitterspec|skitterspec-linear) ;;
+            skitterspec|skitterspec-linear|skitterspec-jira) ;;
             *) echo "::error::refusing unknown package '$pkg'"; exit 1 ;;
           esac
           case "$version" in

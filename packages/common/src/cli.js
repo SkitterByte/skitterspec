@@ -178,11 +178,13 @@ const pkg = require('../package.json')
 // Commands this (tracker-free) base does NOT ship, and the distribution that
 // does. Without this the base says only "unknown command: spec-sync", which a
 // user correctly reads as "no such feature" — nothing anywhere named the
-// distribution that has it, so they were stranded. Naming Linear here is a
-// diagnostic string, not provider machinery: `init.js` already knows
-// `linear.config.json` and `linear-base/` by name in order to protect them.
+// distribution that has it, so they were stranded. Naming distributions here
+// is a diagnostic string, not provider machinery: `init.js` already knows the
+// provider config files by name in order to protect them. With two provider
+// supersets the hand-off names both where both ship the command, and the one
+// that does where only one does.
 const PROVIDER_COMMANDS = {
-  'spec-sync': '@skitterbyte/skitterspec-linear',
+  'spec-sync': '@skitterbyte/skitterspec-linear or @skitterbyte/skitterspec-jira',
   'spec-sanitise': '@skitterbyte/skitterspec-linear',
 }
 

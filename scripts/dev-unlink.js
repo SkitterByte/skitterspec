@@ -26,7 +26,7 @@ const { execFileSync } = require('node:child_process')
 const { installFlags } = require('./dev-link.js')
 
 const ROOT = path.join(__dirname, '..')
-const DISTS = ['skitterspec', 'skitterspec-linear']
+const DISTS = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira']
 const SCOPE = '@skitterbyte'
 
 function fail(message) {

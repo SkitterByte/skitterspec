@@ -36,6 +36,17 @@ Nothing in `env.config.json` changes.
 **If you added a secrets-hook exception for the printed seed commands**, you
 can remove it now. Nothing shipped prints them any more.
 
+## `@skitterbyte/skitterspec-jira` v0 → v1 (first release)
+
+Nothing to migrate: this is the distribution's first release. It is a superset
+of `@skitterbyte/skitterspec` — install exactly one of the base, the Linear
+superset, or this one. Coming from the base, run `npx
+@skitterbyte/skitterspec-jira update` and then `skitterspec-jira spec-sync
+init-config --site-url … --project-key …` (or the `/spec-jira-setup` skill) to
+opt into Jira sync. Coming from `@skitterbyte/skitterspec-linear`: the two
+supersets share one credentials store and one base workflow, but a repo syncs
+to one tracker — swap distributions only if the repo is moving trackers.
+
 ## `@skitterbyte/skitterspec` v21 → v22 (a review port per repo, and every render serves)
 
 ### Breaking change 1 — `review.serveOnRemote` is now `review.serve`

@@ -61,6 +61,7 @@ const VENDOR = [
   { from: '@skitterbyte/skitterspec-sync-core', to: (srcRoot) => path.join(srcRoot, 'vendor', 'sync-core') },
   { from: '@skitterbyte/skitterspec-provider-kit', to: (srcRoot) => path.join(srcRoot, 'vendor', 'provider-kit') },
   { from: '@skitterbyte/skitterspec-provider-linear/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'linear') },
+  { from: '@skitterbyte/skitterspec-provider-jira/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'jira') },
 ]
 
 // Any bare `@skitterbyte/skitterspec-*` require — the set the guard forbids in
@@ -198,49 +199,49 @@ function buildBase(out = path.join(PKGS, 'skitterspec')) {
   return out
 }
 
-function buildLinear(out = path.join(PKGS, 'skitterspec-linear')) {
+function buildProvider(providerName, distName, out = path.join(PKGS, distName)) {
   const common = path.join(PKGS, 'common')
-  const linear = path.join(PKGS, 'linear')
+  const provider = path.join(PKGS, providerName)
   const syncCore = path.join(PKGS, 'sync-core')
   const kit = path.join(PKGS, 'provider-kit')
   const srcRoot = path.join(out, 'src')
   for (const d of BUILT_DIRS) rmDir(path.join(out, d))
 
-  // Assets: compose common with the Linear fragments filled, then overlay the
-  // Linear-only skills, rules and linear.config templates.
+  // Assets: compose common with the provider's fragments filled, then overlay
+  // the provider-only skills, commands, rules and config templates.
   //
   // `rules` is overlaid for the same reason as `skills`: a provider rule is
   // tracker-specific, so it must reach the superset and NOT the tracker-free
   // base. `listRules` (common/src/init.js) then discovers it and installs it to
   // `.claude/rules/`, where it is loaded as a project instruction.
-  const fragments = mergeFragments(commonSeams(), loadFragments(path.join(linear, 'assets', 'seams')))
+  const fragments = mergeFragments(commonSeams(), loadFragments(path.join(provider, 'assets', 'seams')))
   composeAssets(path.join(common, 'assets'), path.join(out, 'assets'), fragments)
-  overlayTree(path.join(linear, 'assets', 'skills'), path.join(out, 'assets', 'skills'), fragments)
+  overlayTree(path.join(provider, 'assets', 'skills'), path.join(out, 'assets', 'skills'), fragments)
   // Commands are overlaid for the same reason as skills: a provider may ship its
   // own `.claude/commands/` entries. `composeAssets` already copies common's
   // whole assets tree, so the base distribution needs nothing here.
-  overlayTree(path.join(linear, 'assets', 'commands'), path.join(out, 'assets', 'commands'), fragments)
-  overlayTree(path.join(linear, 'assets', 'rules'), path.join(out, 'assets', 'rules'), fragments)
-  overlayTree(path.join(linear, 'assets', 'core'), path.join(out, 'assets', 'core'), fragments)
-  // The two isolation keys the provider's own snapshot needs declared. They are
+  overlayTree(path.join(provider, 'assets', 'commands'), path.join(out, 'assets', 'commands'), fragments)
+  overlayTree(path.join(provider, 'assets', 'rules'), path.join(out, 'assets', 'rules'), fragments)
+  overlayTree(path.join(provider, 'assets', 'core'), path.join(out, 'assets', 'core'), fragments)
+  // The isolation keys the provider's own snapshot needs declared. They are
   // read from the adapter rather than restated here, so the companion pattern
   // cannot drift from `sync.baseDir` — the one place the snapshot directory is
   // decided. `ENV_CONFIG_DEFAULTS` carries why the base cannot ship them.
   mergeConfigDefaults(
     path.join(out, 'assets', 'core', 'env.config.json.example'),
-    require(path.join(linear, 'src', 'config.js')).ENV_CONFIG_DEFAULTS,
+    require(path.join(provider, 'src', 'config.js')).ENV_CONFIG_DEFAULTS,
   )
 
-  // src: common at the root; the engine + adapter vendored under vendor/. All JS
-  // has its workspace requires rewritten relative to srcRoot.
+  // src: common at the root; the engine, kit and adapter vendored under
+  // vendor/. All JS has its workspace requires rewritten relative to srcRoot.
   copyTree(path.join(common, 'src'), srcRoot, srcRoot)
   copyFile(path.join(syncCore, 'index.js'), path.join(srcRoot, 'vendor', 'sync-core', 'index.js'), srcRoot)
   copyTree(path.join(syncCore, 'src'), path.join(srcRoot, 'vendor', 'sync-core', 'src'), srcRoot)
   copyFile(path.join(kit, 'index.js'), path.join(srcRoot, 'vendor', 'provider-kit', 'index.js'), srcRoot)
   copyTree(path.join(kit, 'src'), path.join(srcRoot, 'vendor', 'provider-kit', 'src'), srcRoot)
-  copyTree(path.join(linear, 'src'), path.join(srcRoot, 'vendor', 'linear'), srcRoot)
+  copyTree(path.join(provider, 'src'), path.join(srcRoot, 'vendor', providerName), srcRoot)
   // bin: the superset entry point (delegates to the vendored base CLI + adapter).
-  copyTree(path.join(linear, 'bin'), path.join(out, 'bin'), srcRoot)
+  copyTree(path.join(provider, 'bin'), path.join(out, 'bin'), srcRoot)
 
   copyMigrationGuide(out)
   guardNoWorkspaceRequires(srcRoot)
@@ -250,7 +251,8 @@ function buildLinear(out = path.join(PKGS, 'skitterspec-linear')) {
 
 const DISTS = {
   skitterspec: buildBase,
-  'skitterspec-linear': buildLinear,
+  'skitterspec-linear': () => buildProvider('linear', 'skitterspec-linear'),
+  'skitterspec-jira': () => buildProvider('jira', 'skitterspec-jira'),
 }
 
 function buildDist(name) {
@@ -274,7 +276,7 @@ module.exports = {
   rewriteRequires,
   guardNoWorkspaceRequires,
   buildBase,
-  buildLinear,
+  buildProvider,
   buildDist,
   buildAll,
 }

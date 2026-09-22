@@ -29,7 +29,7 @@ const ROOT = path.join(__dirname, '..')
 // The source-of-truth asset trees. The built dists under `packages/skitterspec*`
 // are generated FROM these and are gitignored, so linting them would report the
 // same failure twice and could never be fixed there.
-const SKILL_TREES = ['packages/common/assets/skills', 'packages/linear/assets/skills']
+const SKILL_TREES = ['packages/common/assets/skills', 'packages/linear/assets/skills', 'packages/jira/assets/skills']
 
 // Chosen, not measured: long enough for an outcome plus the trigger phrases,
 // short enough that 15 skills stay affordable in every session. Raising it is a

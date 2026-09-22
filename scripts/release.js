@@ -45,6 +45,10 @@ const PACKAGES = {
     dir: 'packages/skitterspec-linear',
     npm: '@skitterbyte/skitterspec-linear',
   },
+  'skitterspec-jira': {
+    dir: 'packages/skitterspec-jira',
+    npm: '@skitterbyte/skitterspec-jira',
+  },
 }
 
 // What actually goes into each distribution's tarball, as git-visible paths.
@@ -61,6 +65,13 @@ const TARBALL_INPUTS = {
     'packages/provider-kit',
     'packages/sync-core',
     'packages/skitterspec-linear',
+  ],
+  'skitterspec-jira': [
+    'packages/common',
+    'packages/jira',
+    'packages/provider-kit',
+    'packages/sync-core',
+    'packages/skitterspec-jira',
   ],
 }
 

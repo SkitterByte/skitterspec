@@ -58,14 +58,18 @@ test('previousTagFor ignores malformed versions rather than throwing', () => {
 test('packagesFor sends a common change to both distributions', () => {
   assert.deepStrictEqual(
     [...packagesFor(['packages/common/src/cli.js'])].sort(),
-    ['skitterspec', 'skitterspec-linear'],
+    ['skitterspec', 'skitterspec-jira', 'skitterspec-linear'],
   )
 })
 
 test('packagesFor keeps provider-only changes out of the base', () => {
-  for (const p of ['packages/linear/src/api.js', 'packages/sync-core/index.js']) {
-    assert.deepStrictEqual([...packagesFor([p])], ['skitterspec-linear'], p)
-  }
+  assert.deepStrictEqual([...packagesFor(['packages/linear/src/api.js'])], ['skitterspec-linear'])
+  assert.deepStrictEqual([...packagesFor(['packages/jira/src/api.js'])], ['skitterspec-jira'])
+  assert.deepStrictEqual(
+    [...packagesFor(['packages/sync-core/index.js'])].sort(),
+    ['skitterspec-jira', 'skitterspec-linear'],
+    'the shared engine ships in both supersets',
+  )
 })
 
 // The generated dist dirs are build output — gitignored and never hand-edited —
@@ -87,9 +91,10 @@ test('the FEEDS map stays in step with the build', () => {
   assert.match(build, /skitterspec-sync-core/, 'sync-core is vendored')
   assert.match(build, /skitterspec-provider-kit/, 'provider-kit is vendored')
   assert.match(build, /skitterspec-provider-linear\/src/, 'linear is vendored')
+  assert.match(build, /skitterspec-provider-jira\/src/, 'jira is vendored')
   assert.deepStrictEqual(
     FEEDS.map((f) => f.prefix),
-    ['packages/common/', 'packages/sync-core/', 'packages/provider-kit/', 'packages/linear/'],
+    ['packages/common/', 'packages/sync-core/', 'packages/provider-kit/', 'packages/linear/', 'packages/jira/'],
   )
 })
 

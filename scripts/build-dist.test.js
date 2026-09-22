@@ -11,7 +11,7 @@ const {
   rewriteRequires,
   guardNoWorkspaceRequires,
   buildBase,
-  buildLinear,
+  buildProvider,
 } = require('./build-dist.js')
 
 const PKGS = path.join(__dirname, '..', 'packages')
@@ -40,7 +40,7 @@ function scratchDist(dist) {
   return out
 }
 const builtBase = () => buildBase(scratchDist('skitterspec'))
-const builtLinear = () => buildLinear(scratchDist('skitterspec-linear'))
+const builtLinear = () => buildProvider('linear', 'skitterspec-linear', scratchDist('skitterspec-linear'))
 
 const listSkills = (proj) => fs.readdirSync(path.join(proj, '.claude', 'skills')).sort()
 const read = (...p) => fs.readFileSync(path.join(...p), 'utf8')
@@ -90,7 +90,11 @@ test('a clean tree passes the guard', () => {
 // written, and failed a release's suite on a healthy tree. So a build takes an
 // output directory, and every build in this file names a throwaway one.
 test('a build given an output directory writes there and leaves the real distribution alone', () => {
-  for (const [dist, build] of [['skitterspec', buildBase], ['skitterspec-linear', buildLinear]]) {
+  for (const [dist, build] of [
+    ['skitterspec', buildBase],
+    ['skitterspec-linear', (out) => buildProvider('linear', 'skitterspec-linear', out)],
+    ['skitterspec-jira', (out) => buildProvider('jira', 'skitterspec-jira', out)],
+  ]) {
     const real = path.join(PKGS, dist, 'assets')
     const before = fs.existsSync(real) ? fs.statSync(real).ino : null
     const out = tmpDir(`out-${dist}`)
