@@ -47,26 +47,55 @@ bug's **own branch**, never directly on `main`. Provision the worktree **now**,
 before the failing test, so the test, the fix, and the spec all land together and
 arrive as one reviewable PR.
 
-The engine resolves a spec by its folder, so seed a **minimal stub** for it to
-provision from — you'll flesh it out in §4:
+**Provision before you write, not after.** §1 put nothing on disk and the bug's
+name is settled by the end of it, so this is the one moment where a worktree
+costs nothing to obtain and everything — the red test, the fix, the spec — is
+still ahead of it:
 
-- From the base branch (`main`), create
-  `specs/in-progress/bug-<name>/00-overview.md` with just the header block and the
-  `## Symptom` you established above.
-- Run `skitterspec spec-env up bug-<name>` (the `spec-env` CLI engine). It prints
-  the `git worktree add … -b bug/<name>` command (a branch forked from `main`),
-  the worktree path, and any `in the worktree, run:` bootstrap steps.
-- Run the printed commands in order. The plan **commits the stub first** — the
-  worktree forks from `main`'s last commit, so the stub has to be in it — and
-  then adds the worktree. Nothing to move afterwards: the spec is already there.
-  The commit is planned, not silent; it appears in the printed plan above the
-  `git worktree add`, and `spec-env up` refuses outright if anything *other* than
-  this spec is uncommitted.
+```
+skitterspec spec-env up bug-<name> --docs
+```
+
+**The spec does not exist yet, and that is the lane.** `up` opens its authoring
+branch on exactly three signals — a spec it could not find, `--docs`, and a name
+shaped `bug-<something>` — records the branch so the name resolves from here on,
+and prints a `git worktree add … -b bug/<name>` forked from `main`. Run what it
+prints, then move this session into the worktree with a plain `cd`; the Bash
+working directory persists between calls, so from here on the test, the fix and
+the spec are all written on the bug's own branch. Confirm the move landed rather
+than reading silence as success (`.claude/rules/negative-checks.md` rule 1):
+`skitterspec spec-env resolve` with no argument must name this spec. If it does
+not, say so and stop rather than writing into a tree you cannot name.
+
+**Then run `up` again, without the flag:**
+
+```
+skitterspec spec-env up bug-<name>
+```
+
+`--docs` skips the `setup` commands — everything whose only purpose is making a
+tree *runnable* — because provisioning somewhere to write markdown should cost a
+`git worktree add` and nothing else. `/spec` leaves them to `/spec-start`, but
+**there is no `/spec-start` in a bug's life**: §3 runs the project's suite three
+steps from here, in this same tree, and
+**a tree that cannot run the suite cannot go red**.
+The flagless re-run re-attaches the worktree that now exists
+(no second `-b` fork) and prints the bootstrap steps the flag deferred.
+
+**Why the stub is no longer seeded on the base branch.** This step used to open
+by writing `specs/in-progress/bug-<name>/00-overview.md` in the primary checkout
+for the engine to resolve, and `main` is where work **lands**, not where it
+happens: where the project installs `.claude/hooks/main-guard.cjs` that write is
+refused, and the skill's documented first instruction becomes the one thing the
+repo will not do. Nothing is seeded and nothing is moved now — the spec is
+written in the worktree, at §4, on the branch it belongs to.
+
 <!-- seam:worktree-bootstrap -->
 - **Do everything below in the worktree**, on the branch — the red test, the fix,
-  and the rest of the spec. Act on the worktree with absolute paths /
-  `git -C <worktreePath>`, or open a session rooted at the printed path. `main`
-  changes only when the branch merges (at `/spec-complete`).
+  and the rest of the spec. The `cd` above is what makes that the default rather
+  than something to remember; where a step has to reach out of the tree, use an
+  absolute path or `git -C <worktreePath>`. `main` changes only when the branch
+  merges (at `/spec-complete`).
 
 ## 3. Write the failing test FIRST (RED) — mandatory
 
@@ -82,8 +111,10 @@ Encode the **correct** (expected) behaviour as a test, then run it and confirm i
 
 ## 4. Write the Bug spec
 
-Fill in the spec's entry point `00-overview.md`. **When isolated**, you already
-seeded this stub in §2 and moved it into the worktree — flesh it out there.
+Write the spec's entry point `00-overview.md`. **When isolated**, you are already
+standing in this spec's own worktree — §2 provisioned it and moved you there, so
+create the folder and write it here, on the bug's branch. Nothing was seeded
+ahead of it and nothing is moved across.
 **When not isolated**, create the spec **folder**
 `specs/in-progress/bug-<kebab-name>/` with its entry point `00-overview.md` now
 (every spec is a folder — never a bare file). A bug is

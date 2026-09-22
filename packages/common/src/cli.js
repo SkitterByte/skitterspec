@@ -863,6 +863,9 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // THE AUTHORING LANE — `up <name> --docs` for a spec that is not written yet.
   // `/spec` provisions BEFORE it writes a line (feat-main-is-a-landing-zone
   // phase 2), so the name resolves to nothing at exactly the moment this runs.
+  // `/spec-bug` takes the same lane and then re-runs `up` WITHOUT the flag for
+  // the `setup` commands it skipped — it has no `/spec-start` to defer them to,
+  // and its next step runs the suite in that tree.
   // It opens only on a positive signal, all three parts: the not-found refusal
   // itself (by code, never by message), `--docs`, and a spec-shaped name — so a
   // typo'd `up` without the flag, or with a name no spec could have, refuses
@@ -1031,7 +1034,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // Positive, so an operator reading the plan knows the missing spec folder is
   // the lane working rather than something the engine failed to find.
   if (authoring) {
-    out.push('  authoring: no spec document yet — /spec writes it in the worktree')
+    out.push('  authoring: no spec document yet — the skill writes it in the worktree')
     out.push(`  recorded:  added to ${config.registry} until the spec is written`)
   }
   if (trust.reason === 'malformed') {

@@ -817,11 +817,16 @@ test('the relocation is ordered before the teardown command, in both skills', ()
 // `main` never reaches. Deleting the move from the hotfix would provision a
 // worktree with no spec in it.
 
-test('/spec-bug no longer moves its stub — the gate commits it', () => {
+test('/spec-bug no longer moves its stub — there is no stub to move', () => {
   const flat = skillText('spec-bug').replace(/\s+/g, ' ')
   assert.doesNotMatch(flat, /mv specs\/in-progress\/bug-/, 'no manual move')
   assert.doesNotMatch(flat, /mkdir -p <worktreePath>/, 'no bucket-creation hazard left')
-  assert.match(flat, /commits the stub first/i, 'says what replaced it')
+  // What replaced it is the authoring lane: the worktree is provisioned for a
+  // spec that does not exist, and the spec is written in it. Nothing is seeded
+  // on the base branch for the engine to resolve, so nothing is committed
+  // ahead of the fork either.
+  assert.match(flat, /up bug-<name> --docs/, 'says what replaced it')
+  assert.doesNotMatch(flat, /commits the stub first/i, 'and the stub commit is gone with it')
 })
 
 test('/spec-hotfix keeps the move, and says why it differs', () => {
