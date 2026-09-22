@@ -5,6 +5,17 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 17.3.2 — 22 Sep 2026
+
+### Env
+- **Fixed** — /spec-hotfix now provisions its worktree from the release tag before it writes anything, so it no longer seeds a spec on the base branch or moves the folder across by hand.
+
+### Review
+- **Fixed** — On the review page the diff panes are now laid out in the same order as the file list beside them, so the highlight marking the file you are reading walks steadily down the list instead of jumping about.
+
+### Skills
+- **Fixed** — /spec-bug now provisions its own worktree before it writes anything, so a project with the main guard installed no longer has the skill denied on its own first step.
+
 ## 17.3.1 — 22 Sep 2026
 
 ### Linear sync
