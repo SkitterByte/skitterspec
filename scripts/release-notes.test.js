@@ -85,10 +85,11 @@ test('the FEEDS map stays in step with the build', () => {
   // superset. If that list changes, FEEDS has to change with it.
   assert.match(build, /skitterspec-common\/src/, 'common is vendored')
   assert.match(build, /skitterspec-sync-core/, 'sync-core is vendored')
+  assert.match(build, /skitterspec-provider-kit/, 'provider-kit is vendored')
   assert.match(build, /skitterspec-provider-linear\/src/, 'linear is vendored')
   assert.deepStrictEqual(
     FEEDS.map((f) => f.prefix),
-    ['packages/common/', 'packages/sync-core/', 'packages/linear/'],
+    ['packages/common/', 'packages/sync-core/', 'packages/provider-kit/', 'packages/linear/'],
   )
 })
 

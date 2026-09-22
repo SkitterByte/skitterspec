@@ -33,6 +33,7 @@ const PACKAGES = ['skitterspec', 'skitterspec-linear']
 const FEEDS = [
   { prefix: 'packages/common/', packages: PACKAGES },
   { prefix: 'packages/sync-core/', packages: ['skitterspec-linear'] },
+  { prefix: 'packages/provider-kit/', packages: ['skitterspec-linear'] },
   { prefix: 'packages/linear/', packages: ['skitterspec-linear'] },
 ]
 

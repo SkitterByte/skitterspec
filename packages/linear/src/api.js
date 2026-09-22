@@ -26,8 +26,7 @@ const ENDPOINT = 'https://api.linear.app/graphql'
 
 // Rate-limit handling. Enough retries to ride out a burst without turning a
 // genuinely stuck run into an unbounded one.
-const MAX_RETRIES = 5
-const MAX_BACKOFF_MS = 60_000
+const { withRateLimitRetry, MAX_RETRIES } = require('@skitterbyte/skitterspec-provider-kit/src/http.js')
 
 // Linear's hard per-page ceiling on a connection. `listIssues` pages against
 // this rather than trusting a caller's `first` to be under it.
@@ -201,62 +200,50 @@ function makeClient({ apiKey, fetch: fetchImpl, endpoint = ENDPOINT, sleep, maxR
   const wait = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)))
 
   return async function call(query, variables) {
-    for (let attempt = 0; ; attempt++) {
-      let res
-      try {
-        res = await doFetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // Raw, no `Bearer` — see the module comment.
-            Authorization: apiKey,
-          },
-          body: JSON.stringify({ query, variables }),
-        })
-      } catch (cause) {
-        throw new Error(`Linear API unreachable: ${cause && cause.message ? cause.message : cause}`)
-      }
-      if (res.status === 401 || res.status === 403) {
-        throw new Error(
-          `Linear rejected the API key (HTTP ${res.status}) — check the value of your key environment variable`,
-        )
-      }
-      // Rate limited. A bulk backfill is exactly the workload that hits this, and
-      // failing the run would strand a half-mirrored bucket — so wait and retry
-      // rather than surfacing it. Linear says how long to wait; honour that over
-      // guessing, and fall back to exponential backoff when it doesn't.
-      if (res.status === 429 && attempt < maxRetries) {
-        await wait(retryDelay(res, attempt))
-        continue
-      }
-      if (res.status === 429) {
-        // RETRYABLE, said out loud. This is the failure where waiting is the
-        // whole answer, and the one a refusal must be distinguishable from.
-        throw new LinearRefusal(
-          `Linear rate-limited this request and did not recover after ${maxRetries} retries`,
-          { retryable: true },
-        )
-      }
-      if (!res.ok) throw new Error(`Linear API returned HTTP ${res.status}`)
-      const body = await res.json()
-      if (body && Array.isArray(body.errors) && body.errors.length) {
-        // NOT RETRIED, when Linear says it cannot succeed. The loop above exists
-        // for throttling; a usage cap retried three times is three identical
-        // refusals and a slower failure.
-        throw refusalFrom(body.errors)
-      }
-      return body && body.data
+    // The 429 wait-and-retry discipline is the kit's (`provider-kit/src/http.js`);
+    // what stays here is Linear's protocol — the raw Authorization header, the
+    // 401/403 phrasing, and GraphQL's `errors` payload.
+    const { response: res, exhausted } = await withRateLimitRetry(
+      async () => {
+        try {
+          return await doFetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              // Raw, no `Bearer` — see the module comment.
+              Authorization: apiKey,
+            },
+            body: JSON.stringify({ query, variables }),
+          })
+        } catch (cause) {
+          throw new Error(`Linear API unreachable: ${cause && cause.message ? cause.message : cause}`)
+        }
+      },
+      { sleep: wait, maxRetries },
+    )
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `Linear rejected the API key (HTTP ${res.status}) — check the value of your key environment variable`,
+      )
     }
+    if (exhausted) {
+      // RETRYABLE, said out loud. This is the failure where waiting is the
+      // whole answer, and the one a refusal must be distinguishable from.
+      throw new LinearRefusal(
+        `Linear rate-limited this request and did not recover after ${maxRetries} retries`,
+        { retryable: true },
+      )
+    }
+    if (!res.ok) throw new Error(`Linear API returned HTTP ${res.status}`)
+    const body = await res.json()
+    if (body && Array.isArray(body.errors) && body.errors.length) {
+      // NOT RETRIED, when Linear says it cannot succeed. The retry loop exists
+      // for throttling; a usage cap retried three times is three identical
+      // refusals and a slower failure.
+      throw refusalFrom(body.errors)
+    }
+    return body && body.data
   }
-}
-
-// How long to wait before retrying a 429: the server's `Retry-After` (seconds)
-// when it sends one, else exponential backoff from 1s.
-function retryDelay(res, attempt) {
-  const header = res.headers && typeof res.headers.get === 'function' ? res.headers.get('retry-after') : null
-  const seconds = header != null ? Number(header) : NaN
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, MAX_BACKOFF_MS)
-  return Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS)
 }
 
 /**

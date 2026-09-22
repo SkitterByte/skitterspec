@@ -83,73 +83,19 @@ const {
   removeUser,
 } = require('./credentials.js')
 const { resolveIdentity, displayNameOf } = require('./identity.js')
+const { resolveTransport } = require('@skitterbyte/skitterspec-provider-kit/src/transport.js')
+const { readAllStdin, promptHidden } = require('@skitterbyte/skitterspec-provider-kit/src/prompt.js')
 
-// Resolve a spec argument to its snapshot dir. Accepts a spec name/folder found
-// under specs/** (preferred) or a literal path to a snapshot directory.
-function resolveSnapshotDir(specArg, dir) {
-  const found = findSpecFolder(specArg, dir)
-  if (found) return found.path
-  const literal = path.resolve(dir, specArg)
-  if (fs.existsSync(literal) && fs.statSync(literal).isDirectory()) return literal
-  return null
-}
+// Spec resolution, listing and lint reporting come from the provider kit
+// (`src/specs.js`), keyed by this provider's `config.fields`. `linkedIdentifier`
+// keeps a config-free arity below for its many local callers.
+const specHelpers = require('@skitterbyte/skitterspec-provider-kit/src/specs.js').makeSpecHelpers({ program: 'spec-sync' })
+const { resolveSnapshotDir, specIdentifier, listSpecs, resolveOrExit, warningLines, warnToErr } = specHelpers
 
-// The identifier keying the snapshot sidecar: the spec's linear_identifier if
-// set, else its folder name (so the engine is usable before a spec is linked).
-function specIdentifier(snapshotDir, config) {
-  try {
-    const { frontmatter } = readSnapshot(snapshotDir, config)
-    if (frontmatter.linear_identifier) return String(frontmatter.linear_identifier)
-  } catch {
-    /* fall through to folder name */
-  }
-  return path.basename(snapshotDir)
-}
-
-// Read a spec's `linear_identifier` without throwing: an unlinked spec, an
-// unreadable file and a spec with no frontmatter all read as `null`.
-function linkedIdentifier(overviewPath) {
-  let raw
-  try {
-    raw = fs.readFileSync(overviewPath, 'utf-8')
-  } catch {
-    return null
-  }
-  const { data } = parseFrontmatter(raw)
-  return data.linear_identifier ? String(data.linear_identifier) : null
-}
-
-// Every spec under specs/<bucket>/, paired with the Linear issue it is linked to
-// (`null` when it has never been pushed). Folder specs read `snapshot.overviewFile`;
-// legacy bare `<name>.md` specs read the file itself. Sorted for stable output.
-function listSpecs(dir, config) {
-  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
-  const specs = []
-  for (const bucket of BUCKETS) {
-    const root = path.join(dir, 'specs', bucket)
-    let entries
-    try {
-      entries = fs.readdirSync(root, { withFileTypes: true })
-    } catch {
-      continue
-    }
-    for (const entry of entries) {
-      let name
-      let overviewPath
-      if (entry.isDirectory()) {
-        name = entry.name
-        overviewPath = path.join(root, name, overviewFile)
-      } else if (entry.isFile() && entry.name.endsWith('.md')) {
-        name = entry.name.slice(0, -3)
-        overviewPath = path.join(root, entry.name)
-      } else {
-        continue
-      }
-      specs.push({ spec: name, bucket, identifier: linkedIdentifier(overviewPath) })
-    }
-  }
-  return specs.sort((a, b) => a.spec.localeCompare(b.spec))
-}
+// The stamp key is fixed for this provider, so the config-free arity survives
+// for the call sites that predate the kit.
+const linkedIdentifier = (overviewPath) =>
+  specHelpers.linkedIdentifier(overviewPath, { fields: require('./config.js').DEFAULT_CONFIG.fields })
 
 /**
  * `spec-sync linked` — which Linear issues are already adopted by a spec.
@@ -175,41 +121,6 @@ function specSyncLinked(dir, config, flags, out) {
   const n = specs.filter((s) => s.identifier).length
   lines.push(`  ${n}/${specs.length} linked`)
   out.write(lines.join('\n') + '\n')
-}
-
-// Phase-status warnings for a spec, one formatted line each.
-//
-// A spec states each phase's status three times — the phase file's h1 emoji, its
-// `> **Status:**` line, and the overview phase-index row — and only the h1 is
-// read. Get it wrong and the phase projects as `backlog`, pushes cleanly, and is
-// recorded as intended: invisible. So every subcommand that reads a projection
-// reports these, and none of them treats one as fatal — a legacy spec must still
-// push. See sync-core `lintPhases`.
-function warningLines(snapshotDir, config) {
-  return lintPhases(snapshotDir, config).map((w) => `  warning ${w.file}: ${w.message}`)
-}
-
-// Emit warnings on stderr, keeping stdout pure for a machine-readable payload.
-function warnToErr(snapshotDir, config, err) {
-  const lines = warningLines(snapshotDir, config)
-  if (lines.length) err.write(lines.join('\n') + '\n')
-}
-
-// Resolve a spec argument to its folder, or null with a message on stdout.
-// EVERY failure path here must print and EVERY caller must return a non-zero
-// code: /spec-push checks $? before it applies a plan, so a resolve failure that
-// exits 0 reads as "nothing to do" rather than "I could not find the spec".
-function resolveOrExit(specArg, dir, out) {
-  if (!specArg) {
-    out.write('spec-sync: no spec given\n')
-    return null
-  }
-  const snapshotDir = resolveSnapshotDir(specArg, dir)
-  if (!snapshotDir) {
-    out.write(`spec-sync: spec not found: ${specArg}\n`)
-    return null
-  }
-  return snapshotDir
 }
 
 // `spec-sync normalize <spec>` — print the local projection as JSON.
@@ -1281,7 +1192,7 @@ async function specSyncReleased(dir, config, rangeArg, flags, out) {
   // Titles are an ENRICHMENT: the scan itself is offline. No key, the MCP
   // transport, or a read failure degrades to bare refs — never a failure.
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
   let titles = null
   let titleNote = ''
   if (report.tickets.length && transport === 'api') {
@@ -1384,7 +1295,7 @@ async function specSyncStage(dir, config, stageKey, rangeArg, flags, out) {
   })
 
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
   const applying = Boolean(flags.apply)
 
   if (applying && transport !== 'api') {
@@ -1660,7 +1571,7 @@ async function specSyncRetarget(dir, config, flags, out) {
   }
 
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
 
   // Linear's MCP `get_team` does not return the team key (observed 2026-09-02),
   // so the one fact detection needs is unavailable there. Report what IS known
@@ -1810,7 +1721,7 @@ async function spotCheck({ dir, config, plan, adapter, oldKey, newKey }) {
  */
 async function specSyncStates(dir, config, flags, out) {
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
 
   if (transport === 'mcp') {
     if (flags.json) {
@@ -2063,7 +1974,7 @@ async function specSyncReattach(dir, config, specArg, flags, out) {
 
 async function specSyncProjects(dir, config, flags, out) {
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
   const teamId = (config.linear && config.linear.teamId) || null
 
   const degrade = (reason) => {
@@ -2227,7 +2138,7 @@ async function specSyncList(dir, config, flags, out) {
   }
 
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
   const teamId = (config.linear && config.linear.teamId) || null
 
   const degrade = (reason) => {
@@ -2966,7 +2877,7 @@ async function specSyncWhoami(dir, config, flags, out) {
  */
 async function specSyncUsers(dir, config, query, flags, out) {
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
 
   if (transport === 'mcp') {
     if (flags.json) {
@@ -3095,7 +3006,7 @@ async function specSyncApply(dir, config, specArg, flags, out) {
   }
 
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
 
   if (transport === 'mcp') {
     if (bulk) {
@@ -3783,7 +3694,7 @@ async function specSyncPreserve(dir, config, specArg, flags, out) {
   }
 
   const key = resolveApiKey(config, flags.env || process.env)
-  const transport = flags.via || (config.apply && config.apply.transport) || (key.ok ? 'api' : 'mcp')
+  const transport = resolveTransport(flags, config, key.ok)
 
   if (transport === 'mcp' && description == null) {
     return say({
@@ -3921,47 +3832,8 @@ async function specSyncPreserve(dir, config, specArg, flags, out) {
   })
 }
 
-// Read stdin to completion (for `--stdin`).
-function readAllStdin(input) {
-  return new Promise((resolve, reject) => {
-    let data = ''
-    input.setEncoding('utf-8')
-    input.on('data', (chunk) => (data += chunk))
-    input.on('end', () => resolve(data))
-    input.on('error', reject)
-  })
-}
+// `readAllStdin` and `promptHidden` come from the provider kit (`src/prompt.js`).
 
-// Prompt on a TTY with the input hidden. `_writeToOutput` is readline's own echo
-// hook — filtering it is what keeps the key off the screen (and out of a
-// screen-shared terminal or a recorded session).
-//
-// READLINE OWNS THE PROMPT, deliberately. Writing it ourselves and then starting
-// the interface loses it: readline clears from the cursor to the end of the
-// screen (`ESC[0J`) before its first redraw, so the prompt was wiped the instant
-// it appeared and the user was left staring at a blank line while the process
-// waited for a key — indistinguishable from a hang.
-//
-// The hook is assigned BEFORE `question`, so the very first redraw goes through
-// it. readline hands it `prompt + what has been typed`; re-writing only the
-// prompt is what keeps the key hidden while the prompt survives every redraw.
-function promptHidden(question, input, out) {
-  const readline = require('node:readline')
-  return new Promise((resolve) => {
-    // `out`, never `process.stdout`: they are the same stream in production, and
-    // hardcoding one half meant readline cleared a screen the prompt had not
-    // been written to under test — the split that hid this bug from the suite.
-    const rl = readline.createInterface({ input, output: out, terminal: true })
-    rl._writeToOutput = (s) => {
-      if (s.includes(question)) out.write(question)
-    }
-    rl.question(question, (answer) => {
-      out.write('\n')
-      rl.close()
-      resolve(answer)
-    })
-  })
-}
 
 async function specSync(rest, io = {}) {
   const out = io.out || process.stdout

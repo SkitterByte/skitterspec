@@ -58,6 +58,7 @@ const TARBALL_INPUTS = {
   'skitterspec-linear': [
     'packages/common',
     'packages/linear',
+    'packages/provider-kit',
     'packages/sync-core',
     'packages/skitterspec-linear',
   ],

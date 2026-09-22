@@ -59,6 +59,7 @@ function copyMigrationGuide(out) {
 const VENDOR = [
   { from: '@skitterbyte/skitterspec-common/src', to: (srcRoot) => srcRoot },
   { from: '@skitterbyte/skitterspec-sync-core', to: (srcRoot) => path.join(srcRoot, 'vendor', 'sync-core') },
+  { from: '@skitterbyte/skitterspec-provider-kit', to: (srcRoot) => path.join(srcRoot, 'vendor', 'provider-kit') },
   { from: '@skitterbyte/skitterspec-provider-linear/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'linear') },
 ]
 
@@ -201,6 +202,7 @@ function buildLinear(out = path.join(PKGS, 'skitterspec-linear')) {
   const common = path.join(PKGS, 'common')
   const linear = path.join(PKGS, 'linear')
   const syncCore = path.join(PKGS, 'sync-core')
+  const kit = path.join(PKGS, 'provider-kit')
   const srcRoot = path.join(out, 'src')
   for (const d of BUILT_DIRS) rmDir(path.join(out, d))
 
@@ -234,6 +236,8 @@ function buildLinear(out = path.join(PKGS, 'skitterspec-linear')) {
   copyTree(path.join(common, 'src'), srcRoot, srcRoot)
   copyFile(path.join(syncCore, 'index.js'), path.join(srcRoot, 'vendor', 'sync-core', 'index.js'), srcRoot)
   copyTree(path.join(syncCore, 'src'), path.join(srcRoot, 'vendor', 'sync-core', 'src'), srcRoot)
+  copyFile(path.join(kit, 'index.js'), path.join(srcRoot, 'vendor', 'provider-kit', 'index.js'), srcRoot)
+  copyTree(path.join(kit, 'src'), path.join(srcRoot, 'vendor', 'provider-kit', 'src'), srcRoot)
   copyTree(path.join(linear, 'src'), path.join(srcRoot, 'vendor', 'linear'), srcRoot)
   // bin: the superset entry point (delegates to the vendored base CLI + adapter).
   copyTree(path.join(linear, 'bin'), path.join(out, 'bin'), srcRoot)

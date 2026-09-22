@@ -1,0 +1,29 @@
+{
+  "name": "@skitterbyte/skitterspec-provider-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provider-neutral CLI plumbing shared by skitterspec ticketing providers \u2014 config merging, namespaced credentials, identity, doctor framework, released-range scanning, transport resolution and the plan\u2192apply\u2192verify orchestration. No tracker-specific code.",
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkitterByte/skitterspec.git",
+    "directory": "packages/provider-kit"
+  },
+  "dependencies": {
+    "@skitterbyte/skitterspec-common": "workspace:*",
+    "@skitterbyte/skitterspec-sync-core": "workspace:*"
+  }
+}

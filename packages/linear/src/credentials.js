@@ -1,393 +1,63 @@
 'use strict'
 
 /**
- * The user-level credentials store — where a Linear API key lives when it is
- * not in the environment.
+ * The Linear binding of the shared credentials store
+ * (`@skitterbyte/skitterspec-provider-kit`, `src/credentials.js`) — one file per
+ * machine at `$XDG_CONFIG_HOME/skitterspec/credentials.json`, keyed by Linear
+ * team id so one file serves every checkout.
  *
- * The repo's `specs/.core/linear.config.json` is COMMITTED and deliberately
- * holds only the NAME of an env var, never a key. That is what makes it safe to
- * share, so a key can never go there. This store is the alternative: one file
- * per machine, outside every repo, at
- * `$XDG_CONFIG_HOME/skitterspec/credentials.json` (else `~/.config/…`), keyed by
- * Linear team id so one file serves every checkout.
+ * The store machinery — schemas, permissions guards, keyCommand resolution —
+ * lives in the kit; what stays here is only what is Linear's: the provider
+ * name, the fact that v1 stores are this provider's (it predates the
+ * namespace), the `lin_api_` key shape, and the wording of the refusals that
+ * mention it.
  *
- * Reads never throw. `resolveApiKey` already treats "no key" as a NORMAL state
- * meaning "fall back to MCP" rather than an error, so every failure here returns
- * a structured reason the caller can report or ignore — a missing store is not a
- * problem, it is the default.
- *
- * Nothing in this module ever returns a key inside an error, and callers must
- * keep it out of logs, plans, snapshots and stamped frontmatter.
+ * The API is unchanged: reads never throw, "no key" is a normal state, and
+ * nothing here ever returns a key inside an error.
  */
 
-const { spawnSync } = require('node:child_process')
-const fs = require('node:fs')
-const os = require('node:os')
-const path = require('node:path')
+const kit = require('@skitterbyte/skitterspec-provider-kit/src/credentials.js')
 
-const DIR_NAME = 'skitterspec'
-const FILE_NAME = 'credentials.json'
-
-// Modes wider than owner-only. Checked ssh-style: a store other users can read
-// is refused rather than read, because silently using it would hide the leak,
-// and silently chmod'ing someone's file is not ours to do.
-const GROUP_OR_WORLD = 0o077
-
-/**
- * Absolute path of the store. Honours `$XDG_CONFIG_HOME`, else `~/.config`.
- * `env` and `homedir` are injected so tests never touch a real home directory.
- */
-function storePath(env = process.env, homedir = os.homedir) {
-  const xdg = env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.trim()
-  const base = xdg || path.join(homedir(), '.config')
-  return path.join(base, DIR_NAME, FILE_NAME)
-}
-
-/**
- * Read the store.
- *
- * @returns {object} `{ ok: true, store, path }` — parsed and owner-only;
- *   `{ ok: false, reason, code, path }` otherwise. `code` is one of:
- *   `absent` (no file — the normal default, not a problem), `permissions`
- *   (group/world readable), `unreadable`, `malformed`.
- */
-function readStore(file, { stat = fs.statSync, read = fs.readFileSync } = {}) {
-  let info
-  try {
-    info = stat(file)
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      return { ok: false, code: 'absent', path: file, reason: `no credentials store at ${file}` }
-    }
-    return { ok: false, code: 'unreadable', path: file, reason: `cannot read ${file}: ${err.message}` }
-  }
-
-  if (info.mode & GROUP_OR_WORLD) {
-    const mode = (info.mode & 0o777).toString(8)
-    return {
-      ok: false,
-      code: 'permissions',
-      path: file,
-      reason:
-        `credentials store ${file} is mode ${mode} — readable by other users.\n` +
-        `  Run: chmod 600 ${file}`,
-    }
-  }
-
-  let raw
-  try {
-    raw = read(file, 'utf-8')
-  } catch (err) {
-    return { ok: false, code: 'unreadable', path: file, reason: `cannot read ${file}: ${err.message}` }
-  }
-
-  let store
-  try {
-    store = JSON.parse(raw)
-  } catch (err) {
-    return { ok: false, code: 'malformed', path: file, reason: `invalid JSON in ${file}: ${err.message}` }
-  }
-  if (!store || typeof store !== 'object' || Array.isArray(store)) {
-    return { ok: false, code: 'malformed', path: file, reason: `invalid credentials store in ${file}` }
-  }
-  return { ok: true, store, path: file }
-}
-
-/**
- * The key recorded for one team, or null. Never throws, and never reports the
- * value it did or didn't find.
- */
-function keyForTeam(store, teamId) {
-  if (!teamId) return null
-  const teams = store && store.teams
-  const entry = teams && typeof teams === 'object' ? teams[teamId] : null
-  if (!entry || typeof entry !== 'object') return null
-  const key = entry.key
-  return typeof key === 'string' && key.trim() ? key.trim() : null
-}
-
-/**
- * The Linear IDENTITY recorded for one team, or null.
- *
- * Identity lives here rather than in the repo's `linear.config.json` for the
- * same reason the key does: that file is COMMITTED, so a user id written there
- * would follow the repo to every teammate who clones it and assign their specs
- * to whoever set it up. Who you are is a fact about this machine and this
- * workspace, which is exactly what this store is keyed for.
- *
- * Unlike a key, an identity is NOT a secret — it is a name and a public user id,
- * both of which appear on every issue in Linear. So it may be printed, passed as
- * an argument, and returned in an error.
- */
-function userForTeam(store, teamId) {
-  if (!teamId) return null
-  const teams = store && store.teams
-  const entry = teams && typeof teams === 'object' ? teams[teamId] : null
-  if (!entry || typeof entry !== 'object') return null
-  const user = entry.user
-  if (!user || typeof user !== 'object') return null
-  // The id is what the assignment is actually made with, so an entry without one
-  // is not a partial identity — it is no identity at all.
-  const id = typeof user.id === 'string' && user.id.trim() ? user.id.trim() : null
-  if (!id) return null
-  const name = typeof user.name === 'string' && user.name.trim() ? user.name.trim() : null
-  return { id, name }
-}
-
-// Last 4 characters, for reporting that a key exists without revealing it.
-function fingerprint(key) {
-  if (typeof key !== 'string' || !key) return null
-  return `…${key.slice(-4)}`
-}
-
-
-/**
- * Record a key for one team, creating the store at `0600` and its directory at
- * `0700`. Other teams' entries are preserved.
- *
- * Refuses rather than writing when the existing store is unreadable or
- * over-permissive — the same guard as reading, because silently rewriting a
- * world-readable file would leave the leak in place.
- *
- * Returns `{ ok: true, path, created }` or `{ ok: false, reason }`. The key is
- * never echoed back in either.
- */
-function writeKey(file, teamId, key, deps = {}) {
-  const mkdir = deps.mkdir || fs.mkdirSync
-  const write = deps.write || fs.writeFileSync
-  const chmod = deps.chmod || fs.chmodSync
-  const exists = deps.exists || fs.existsSync
-
-  if (!teamId) return { ok: false, reason: 'no team id — nothing to key the entry by' }
-  if (typeof key !== 'string' || !key.trim()) return { ok: false, reason: 'empty key — nothing stored' }
-
-  const created = !exists(file)
-  let store = { version: 1, teams: {} }
-  if (!created) {
-    const current = readStore(file, deps)
-    if (!current.ok) return { ok: false, reason: current.reason, code: current.code }
-    store = current.store
-    if (!store.teams || typeof store.teams !== 'object') store.teams = {}
-    if (!store.version) store.version = 1
-  }
-
-  store.teams[teamId] = { ...(store.teams[teamId] || {}), key: key.trim() }
-
-  mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
-  write(file, JSON.stringify(store, null, 2) + '\n', { mode: 0o600 })
-  // `mode` on writeFileSync only applies when the file is CREATED, so an
-  // existing file keeps its mode — narrow it explicitly.
-  chmod(file, 0o600)
-  return { ok: true, path: file, created }
-}
-
-/**
- * Record the Linear identity for one team, preserving that team's key (or
- * `keyCommand`) and every other team's entry.
- *
- * Same store, same 0600 / 0700 guards, same refusal on an over-permissive file
- * as `writeKey` — the file holds a key whether or not this particular write
- * carries one, so relaxing the guard here would relax it for the key too.
- *
- * Returns `{ ok: true, path, created }` or `{ ok: false, reason }`.
- */
-function writeUser(file, teamId, user, deps = {}) {
-  const mkdir = deps.mkdir || fs.mkdirSync
-  const write = deps.write || fs.writeFileSync
-  const chmod = deps.chmod || fs.chmodSync
-  const exists = deps.exists || fs.existsSync
-
-  if (!teamId) return { ok: false, reason: 'no team id — nothing to key the entry by' }
-  const id = user && typeof user.id === 'string' ? user.id.trim() : ''
-  if (!id) return { ok: false, reason: 'no user id — nothing stored' }
-  const name = user && typeof user.name === 'string' ? user.name.trim() : ''
-
-  const created = !exists(file)
-  let store = { version: 1, teams: {} }
-  if (!created) {
-    const current = readStore(file, deps)
-    if (!current.ok) return { ok: false, reason: current.reason, code: current.code }
-    store = current.store
-    if (!store.teams || typeof store.teams !== 'object') store.teams = {}
-    if (!store.version) store.version = 1
-  }
-
-  // Spread the existing entry, exactly as `writeKey` does: recording an identity
-  // must never cost the user the key sitting beside it.
-  store.teams[teamId] = { ...(store.teams[teamId] || {}), user: name ? { id, name } : { id } }
-
-  mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
-  write(file, JSON.stringify(store, null, 2) + '\n', { mode: 0o600 })
-  chmod(file, 0o600)
-  return { ok: true, path: file, created }
-}
-
-/**
- * Forget the identity recorded for one team, leaving that team's KEY in place.
- *
- * Deliberately not `removeKey`'s shape. That one drops the whole team entry,
- * which is right when the key is what you are revoking; here it would sign the
- * user out of Linear entirely because they corrected their own name. A store or
- * entry that isn't there is a clean no-op, not an error.
- */
-function removeUser(file, teamId, deps = {}) {
-  const write = deps.write || fs.writeFileSync
-  const current = readStore(file, deps)
-  if (!current.ok) {
-    if (current.code === 'absent') return { ok: true, path: file, removed: false }
-    return { ok: false, reason: current.reason, code: current.code }
-  }
-  const entry = current.store.teams && current.store.teams[teamId]
-  if (!entry || !entry.user) return { ok: true, path: file, removed: false }
-  delete entry.user
-  write(file, JSON.stringify(current.store, null, 2) + '\n', { mode: 0o600 })
-  return { ok: true, path: file, removed: true }
-}
-
-/**
- * Remove one team's entry, leaving every other team intact. A store or entry
- * that isn't there is a clean no-op, not an error.
- */
-function removeKey(file, teamId, deps = {}) {
-  const write = deps.write || fs.writeFileSync
-  const current = readStore(file, deps)
-  if (!current.ok) {
-    if (current.code === 'absent') return { ok: true, path: file, removed: false }
-    return { ok: false, reason: current.reason, code: current.code }
-  }
-  const teams = current.store.teams
-  if (!teams || !teams[teamId]) return { ok: true, path: file, removed: false }
-  delete teams[teamId]
-  write(file, JSON.stringify(current.store, null, 2) + '\n', { mode: 0o600 })
-  return { ok: true, path: file, removed: true }
-}
-
-/**
- * Resolve one team's key from the store: a stored `key` first, else running its
- * `keyCommand` and taking stdout.
- *
- * `keyCommand` is honoured ONLY from this user-level store — never from the
- * repo's committed `linear.config.json`. That file travels with the repo, so a
- * command named there would let a cloned repo run arbitrary code on the machine
- * of anyone who ran `spec-sync`. The repo config keeps naming only an env var.
- *
- * A command that fails, times out or prints nothing resolves to no key, which is
- * the ordinary "fall back to MCP" state — but its stderr is carried back so a
- * broken command is diagnosable rather than mysteriously inert. Its **stdout is
- * never** put in an error: that is the key.
- *
- * @returns {object} `{ key, source }` with source `'store'` | `'command'`, or
- *   `{ key: null, source: null, reason }`.
- */
-function resolveTeamKey(store, teamId, deps = {}) {
-  const direct = keyForTeam(store, teamId)
-  if (direct) return { key: direct, source: 'store' }
-
-  const entry = store && store.teams && typeof store.teams === 'object' ? store.teams[teamId] : null
-  const command = entry && typeof entry.keyCommand === 'string' ? entry.keyCommand.trim() : ''
-  if (!command) return { key: null, source: null }
-
-  const run = deps.run || defaultRunCommand
-  const result = run(command, deps.timeoutMs || COMMAND_TIMEOUT_MS)
-  if (!result.ok) {
-    return { key: null, source: null, command, reason: `keyCommand failed: ${result.error}` }
-  }
-  const key = (result.stdout || '').trim()
-  if (!key) {
-    return { key: null, source: null, command, reason: 'keyCommand produced no output' }
-  }
-  return { key, source: 'command', command }
-}
-
-// 60s: a password manager may prompt for biometric or a master password, and a
-// hang here would look like the CLI itself wedging.
-const COMMAND_TIMEOUT_MS = 60_000
+// v1 stores were only ever written by this provider — the store predates the
+// namespace — so this binding owns them and keeps writing them in place. The
+// first write by any OTHER provider migrates the file to v2.
+const store = kit.makeCredentialsStore({ provider: 'linear', legacyV1Owner: 'linear' })
 
 // Linear personal API keys are `lin_api_` + a long token.
 const LITERAL_KEY_RE = /lin_api_[A-Za-z0-9]{8,}/
 
-function defaultRunCommand(command, timeout) {
-  const r = spawnSync('sh', ['-c', command], { encoding: 'utf-8', timeout })
-  if (r.error) return { ok: false, error: r.error.message }
-  if (r.status !== 0) {
-    // stderr only — stdout is the secret, and must not reach an error message.
-    const detail = (r.stderr || '').trim().split('\n')[0] || `exit ${r.status}`
-    return { ok: false, error: detail }
-  }
-  return { ok: true, stdout: r.stdout }
-}
+const LITERAL_KEY_ADVICE =
+  'that command has a Linear key written into it.\n' +
+  '  A command is displayed by `credentials status` and is not treated as a\n' +
+  '  secret — embedding a key there exposes it. To store a key, run\n' +
+  '  `credentials set` with no arguments and paste at the hidden prompt.'
 
-/**
- * Record a command for one team instead of a key. Unlike a key, a command is not
- * a secret, so this one IS safe to pass as an argument.
- */
-function writeKeyCommand(file, teamId, command, deps = {}) {
-  const mkdir = deps.mkdir || fs.mkdirSync
-  const write = deps.write || fs.writeFileSync
-  const chmod = deps.chmod || fs.chmodSync
-  const exists = deps.exists || fs.existsSync
-
-  if (!teamId) return { ok: false, reason: 'no team id — nothing to key the entry by' }
-  if (typeof command !== 'string' || !command.trim()) {
-    return { ok: false, reason: 'empty command — nothing stored' }
-  }
-  // Refusing `--key` makes `--command "echo lin_api_…"` the obvious workaround,
-  // and it is worse: a command is NOT treated as a secret — `status` prints it
-  // back, and it sits in the store in clear. Catch the shortcut at the door.
-  if (LITERAL_KEY_RE.test(command)) {
-    return {
-      ok: false,
-      reason:
-        'that command has a Linear key written into it.\n' +
-        '  A command is displayed by `credentials status` and is not treated as a\n' +
-        '  secret — embedding a key there exposes it. To store a key, run\n' +
-        '  `credentials set` with no arguments and paste at the hidden prompt.',
-    }
-  }
-
-  const created = !exists(file)
-  let store = { version: 1, teams: {} }
-  if (!created) {
-    const current = readStore(file, deps)
-    if (!current.ok) return { ok: false, reason: current.reason, code: current.code }
-    store = current.store
-    if (!store.teams || typeof store.teams !== 'object') store.teams = {}
-    if (!store.version) store.version = 1
-  }
-
-  // A command REPLACES a stored key for that team — keeping both would mean the
-  // key silently wins and the command never runs.
-  store.teams[teamId] = { keyCommand: command.trim() }
-
-  mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
-  write(file, JSON.stringify(store, null, 2) + '\n', { mode: 0o600 })
-  chmod(file, 0o600)
-  return { ok: true, path: file, created }
-}
-
-/** The store's permission bits as an octal string, or null when absent. */
-function storeMode(file, deps = {}) {
-  const stat = deps.stat || fs.statSync
-  try {
-    return (stat(file).mode & 0o777).toString(8)
-  } catch {
-    return null
-  }
-}
+const keyForTeam = (s, teamId) => store.keyFor(s, teamId)
+const userForTeam = (s, teamId) => store.userFor(s, teamId)
+const resolveTeamKey = (s, teamId, deps) => store.resolveKey(s, teamId, deps)
+const writeKey = (file, teamId, key, deps) => store.writeKey(file, teamId, key, deps)
+const writeUser = (file, teamId, user, deps) => store.writeUser(file, teamId, user, deps)
+const removeKey = (file, teamId, deps) => store.removeKey(file, teamId, deps)
+const removeUser = (file, teamId, deps) => store.removeUser(file, teamId, deps)
+const writeKeyCommand = (file, teamId, command, deps) =>
+  store.writeKeyCommand(file, teamId, command, deps, {
+    literalKeyRe: LITERAL_KEY_RE,
+    literalKeyAdvice: LITERAL_KEY_ADVICE,
+  })
 
 module.exports = {
-  storePath,
-  readStore,
+  storePath: kit.storePath,
+  readStore: kit.readStore,
   keyForTeam,
   userForTeam,
-  fingerprint,
+  fingerprint: kit.fingerprint,
   writeKey,
   writeUser,
   writeKeyCommand,
   resolveTeamKey,
   removeKey,
   removeUser,
-  storeMode,
-  DIR_NAME,
-  FILE_NAME,
+  storeMode: kit.storeMode,
+  DIR_NAME: kit.DIR_NAME,
+  FILE_NAME: kit.FILE_NAME,
 }

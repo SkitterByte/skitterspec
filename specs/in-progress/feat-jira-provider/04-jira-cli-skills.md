@@ -45,4 +45,10 @@ cleanly.
       magic-word ban needed — but keep the one-ref-per-commit rules).
 - [ ] CLI tests mirroring linear's: exit codes, unknown flag refusal, help,
       state gate, stamp validation, preserve idempotence, adoption flow.
+- [ ] Generalise the apply orchestration (plan→apply→stamp-as-you-go→verify→
+      record, orphan accounting) into the kit with jira as the second consumer,
+      and rewire linear onto it (deferred from phase 2 so the hook shape is
+      validated by two providers).
+- [ ] Build jira's credentials command layer on the kit store + prompt helpers;
+      hoist whatever of linear's command layer proves genuinely shared.
 - [ ] Full workspace suite green.

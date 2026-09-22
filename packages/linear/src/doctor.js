@@ -29,18 +29,12 @@
  * by construction rather than by convention.
  */
 
-// `warn` sits between `ok` and `broken`: worth a human's attention, but not a
-// failure. A ladder whose last rung never closes an issue is a real problem for
-// most projects and a deliberate choice for some, and only the project knows
-// which — so it is said, and the exit code is left alone.
-const STATES = ['ok', 'missing', 'broken', 'skipped', 'warn']
-
-// A row is a check. `fix` is the exact command to run, or null when there is
-// nothing to fix.
-const row = (id, label, state, detail, fix = null) => {
-  if (!STATES.includes(state)) throw new Error(`doctor: unknown check state "${state}" for ${id}`)
-  return { id, label, state, detail, fix }
-}
+// The states, the row shape and the combining rule are the kit's
+// (`provider-kit/src/doctor.js`); the checks below are Linear's. A ladder whose
+// last rung never closes an issue is a real problem for most projects and a
+// deliberate choice for some, and only the project knows which — which is what
+// the kit's `warn` state exists for.
+const { DOCTOR_STATES: STATES, doctorRow: row, combineDoctorChecks } = require('@skitterbyte/skitterspec-provider-kit/src/doctor.js')
 
 /**
  * @param {object} state gathered by the caller:
@@ -65,9 +59,7 @@ function runChecks(state = {}) {
     ladderCheck(state.ladder, state.tracker),
     mcpCheck(state.mcp, state.tracker, state.project, state.remote),
   ]
-  // `missing` is a declined opt-in, so it must not fail the run. Only a
-  // configured-but-wrong layer does.
-  return { ok: !checks.some((c) => c.state === 'broken'), checks }
+  return combineDoctorChecks(checks)
 }
 
 /**

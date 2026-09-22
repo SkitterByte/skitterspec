@@ -35,6 +35,7 @@ const { readFileSync } = require('node:fs')
 const { join } = require('node:path')
 
 const { dialect } = require('./dialect.js')
+const kitConfig = require('@skitterbyte/skitterspec-provider-kit/src/config.js')
 
 const CONFIG_FILE = join('specs', '.core', 'linear.config.json')
 
@@ -276,10 +277,6 @@ const ENV_CONFIG_DEFAULTS = Object.freeze({
 // so they cannot drift apart.
 const LIFECYCLE_BUCKETS = Object.freeze(Object.keys(DEFAULT_CONFIG.states))
 
-function isObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
 // A fresh, deeply-mutable copy of the defaults to merge onto.
 function defaults() {
   return {
@@ -311,172 +308,17 @@ function defaults() {
   }
 }
 
-// Copy a typed field from parsed[key] onto base[key] when it matches `type`.
-// Strings are trimmed and must be non-empty to override; `string?` may be empty.
-function assign(base, parsed, key, type) {
-  const v = parsed[key]
-  if (type === 'string') {
-    if (typeof v === 'string' && v.trim()) base[key] = v.trim()
-  } else if (type === 'string?') {
-    if (typeof v === 'string') base[key] = v
-  } else if (type === 'boolean') {
-    if (typeof v === 'boolean') base[key] = v
-  }
-}
-
-// Normalise an array config value to trimmed, non-empty strings.
-function stringList(value) {
-  return value.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim())
-}
-
-// Merge (and validate) sync.fieldOwnership. Any key the caller lists joins the
-// compared field set; the value MUST be one of both|pull|push.
-function mergeFieldOwnership(base, parsed) {
-  if (!isObject(parsed)) return
-  for (const [field, dir] of Object.entries(parsed)) {
-    if (!OWNERSHIP.includes(dir)) {
-      throw new Error(
-        `Invalid ${CONFIG_FILE}: sync.fieldOwnership.${field} = ${JSON.stringify(dir)} ` +
-          `(expected one of ${OWNERSHIP.join('|')})`,
-      )
-    }
-    base[field] = dir
-  }
-}
-
-// Merge (and validate) `mapping.phases` in either of its two forms: a scalar
-// mode for the whole repo, or a map of lifecycle bucket → mode. Loud on a bad
-// key or value, like fieldOwnership and mapping.tasks — a misspelt bucket would
-// otherwise read as a deliberate default and go on minting the sub-issues the
-// config was written to stop.
-function mergePhaseMapping(base, parsed) {
-  const value = parsed.phases
-  if (typeof value === 'string') {
-    if (value.trim()) base.phases = value.trim()
-  } else if (isObject(value)) {
-    const byBucket = {}
-    for (const [bucket, mode] of Object.entries(value)) {
-      if (!LIFECYCLE_BUCKETS.includes(bucket)) {
-        throw new Error(
-          `Invalid ${CONFIG_FILE}: mapping.phases.${bucket} is not a lifecycle bucket ` +
-            `(expected one of ${LIFECYCLE_BUCKETS.join('|')})`,
-        )
-      }
-      if (!PHASE_MAPPINGS.includes(mode)) {
-        throw new Error(
-          `Invalid ${CONFIG_FILE}: mapping.phases.${bucket} = ${JSON.stringify(mode)} ` +
-            `(expected one of ${PHASE_MAPPINGS.join('|')})`,
-        )
-      }
-      byBucket[bucket] = mode
-    }
-    base.phases = byBucket
-  } else if (value !== undefined) {
-    throw new Error(
-      `Invalid ${CONFIG_FILE}: mapping.phases = ${JSON.stringify(value)} ` +
-        `(expected one of ${PHASE_MAPPINGS.join('|')}, or a map of lifecycle bucket to mode)`,
-    )
-  }
-  if (typeof base.phases === 'string' && !PHASE_MAPPINGS.includes(base.phases)) {
-    throw new Error(
-      `Invalid ${CONFIG_FILE}: mapping.phases = ${JSON.stringify(base.phases)} ` +
-        `(expected one of ${PHASE_MAPPINGS.join('|')}, or a map of lifecycle bucket to mode)`,
-    )
-  }
-}
-
-// Merge (and validate) `release.stages` — the project's deployment ladder.
-//
-// Loud on a malformed entry, like fieldOwnership and mapping.phases above: this
-// list names Linear states, and Linear SILENTLY IGNORES an unknown state. A
-// half-typed ladder would push clean and move nothing, which is exactly the
-// failure `validateStates` exists to stop — so a bad shape fails here, at load,
-// rather than at the first deploy nobody is watching.
-//
-// An ABSENT `release` block is not an error: it is the opt-out, and the whole
-// feature is unused without it.
-function mergeReleaseStages(base, parsed) {
-  const value = parsed.stages
-  if (value === undefined) return
-  if (!Array.isArray(value)) {
-    throw new Error(
-      `Invalid ${CONFIG_FILE}: release.stages = ${JSON.stringify(value)} ` +
-        '(expected an array of { key, state })',
-    )
-  }
-  const stages = []
-  const seen = new Set()
-  value.forEach((entry, i) => {
-    if (!isObject(entry)) {
-      throw new Error(
-        `Invalid ${CONFIG_FILE}: release.stages[${i}] = ${JSON.stringify(entry)} ` +
-          '(expected { key, state })',
-      )
-    }
-    for (const field of ['key', 'state']) {
-      if (typeof entry[field] !== 'string' || !entry[field].trim()) {
-        throw new Error(
-          `Invalid ${CONFIG_FILE}: release.stages[${i}].${field} = ${JSON.stringify(entry[field])} ` +
-            '(expected a non-empty string)',
-        )
-      }
-    }
-    const key = entry.key.trim()
-    if (seen.has(key)) {
-      throw new Error(
-        `Invalid ${CONFIG_FILE}: release.stages[${i}].key = ${JSON.stringify(key)} is a duplicate ` +
-          '(a stage key is how CI names the rung, so it must be unique)',
-      )
-    }
-    seen.add(key)
-    stages.push({ key, state: entry.state.trim() })
+// The merge machinery is the kit's, bound to this provider's file name and
+// vocabularies; `mergeConfig` below is the part that is Linear's — which keys
+// exist and how they nest.
+const { isObject, stringList, assign } = kitConfig
+const { mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages, mergeReleaseIgnorePaths, mergeKeyedFields } =
+  kitConfig.makeMergeHelpers({
+    configFile: CONFIG_FILE,
+    ownership: OWNERSHIP,
+    lifecycleBuckets: LIFECYCLE_BUCKETS,
+    phaseMappings: PHASE_MAPPINGS,
   })
-  base.stages = stages
-}
-
-// Merge (and validate) release.ignorePaths — the path prefixes whose commits are
-// bookkeeping. Loud on anything but an array of non-empty strings, like
-// release.stages above: a bad value that quietly fell back to the default would
-// let a project believe it had opted out and go on double-counting tickets.
-//
-// A BLANK entry is rejected rather than dropped. `""` is a prefix of every path,
-// so a stray empty string would silently ignore every commit in the range and
-// report a release as containing nothing — the loudest possible wrong answer,
-// arriving as silence.
-function mergeReleaseIgnorePaths(base, parsed) {
-  const value = parsed.ignorePaths
-  if (value === undefined) return
-  if (!Array.isArray(value)) {
-    throw new Error(
-      `Invalid ${CONFIG_FILE}: release.ignorePaths = ${JSON.stringify(value)} ` +
-        '(expected an array of repo-relative path prefixes)',
-    )
-  }
-  value.forEach((entry, i) => {
-    if (typeof entry !== 'string' || !entry.trim()) {
-      throw new Error(
-        `Invalid ${CONFIG_FILE}: release.ignorePaths[${i}] = ${JSON.stringify(entry)} ` +
-          '(expected a non-empty repo-relative path prefix, e.g. "specs/")',
-      )
-    }
-  })
-  base.ignorePaths = stringList(value)
-}
-
-// Merge (and validate) sync.keyedFields. Each value is the item's id property
-// name (a non-empty string); a field listed here is compared per item.
-function mergeKeyedFields(base, parsed) {
-  if (!isObject(parsed)) return
-  for (const [field, idKey] of Object.entries(parsed)) {
-    if (typeof idKey !== 'string' || !idKey.trim()) {
-      throw new Error(
-        `Invalid ${CONFIG_FILE}: sync.keyedFields.${field} = ${JSON.stringify(idKey)} ` +
-          '(expected the item id property name, a non-empty string)',
-      )
-    }
-    base[field] = idKey.trim()
-  }
-}
 
 /**
  * Merge a parsed config over the defaults. Only known keys are copied (unknown

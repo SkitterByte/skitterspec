@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@skitterbyte/skitterspec-common": "workspace:*",
-    "@skitterbyte/skitterspec-sync-core": "workspace:*"
+    "@skitterbyte/skitterspec-sync-core": "workspace:*",
+    "@skitterbyte/skitterspec-provider-kit": "workspace:*"
   },
   "engines": {
     "node": ">=22.13"
