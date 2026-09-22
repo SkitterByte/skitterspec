@@ -13,7 +13,8 @@
   "devDependencies": {
     "@skitterbyte/skittership": "^2.0.6",
     "@skitterbyte/skitterspec-provider-linear": "workspace:*",
-    "@skitterbyte/skitterspec-provider-kit": "workspace:*"
+    "@skitterbyte/skitterspec-provider-kit": "workspace:*",
+    "@skitterbyte/skitterspec-provider-jira": "workspace:*"
   },
   "scripts": {
     "test": "node --test",

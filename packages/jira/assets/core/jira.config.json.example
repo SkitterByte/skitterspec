@@ -1,0 +1,18 @@
+{
+  "jira": {
+    "siteUrl": "https://your-site.atlassian.net",
+    "projectKey": "PROJ",
+    "issueType": "Task",
+    "subtaskType": "Subtask"
+  },
+  "states": {
+    "backlog": "To Do",
+    "in-progress": "In Progress",
+    "complete": "Done",
+    "cancelled": "Done"
+  },
+  "auth": {
+    "emailEnv": "JIRA_EMAIL",
+    "tokenEnv": "JIRA_API_TOKEN"
+  }
+}

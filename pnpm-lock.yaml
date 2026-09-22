@@ -169,6 +169,9 @@ importers:
       '@skitterbyte/skittership':
         specifier: ^2.0.6
         version: 2.0.6
+      '@skitterbyte/skitterspec-provider-jira':
+        specifier: workspace:*
+        version: link:packages/jira
       '@skitterbyte/skitterspec-provider-kit':
         specifier: workspace:*
         version: link:packages/provider-kit
@@ -181,6 +184,18 @@ importers:
       prompts:
         specifier: ^2.4.2
         version: 2.4.2
+
+  packages/jira:
+    dependencies:
+      '@skitterbyte/skitterspec-common':
+        specifier: workspace:*
+        version: link:../common
+      '@skitterbyte/skitterspec-provider-kit':
+        specifier: workspace:*
+        version: link:../provider-kit
+      '@skitterbyte/skitterspec-sync-core':
+        specifier: workspace:*
+        version: link:../sync-core
 
   packages/linear:
     dependencies:

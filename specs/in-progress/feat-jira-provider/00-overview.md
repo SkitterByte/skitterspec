@@ -142,7 +142,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | De-Linearise sync-core & common | ✅ | [01-sync-core-neutrality.md](01-sync-core-neutrality.md) |
 | 2 | Extract provider-kit, rewire linear | ✅ | [02-provider-kit.md](02-provider-kit.md) |
-| 3 | Jira adapter core (client, ADF, transitions) | ⬜ | [03-jira-adapter.md](03-jira-adapter.md) |
+| 3 | Jira adapter core (client, ADF, transitions) | ✅ | [03-jira-adapter.md](03-jira-adapter.md) |
 | 4 | Jira CLI, skills, seams | ⬜ | [04-jira-cli-skills.md](04-jira-cli-skills.md) |
 | 5 | Distribution + release wiring | ⬜ | [05-distribution-release.md](05-distribution-release.md) |
 | 6 | Docs, live smoke, first release | ⬜ | [06-docs-smoke.md](06-docs-smoke.md) |
@@ -172,3 +172,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   credentials command layer deferred to phase 4 (second-consumer rule); merge
   helpers hoisted instead of a full loader factory. Release inputs for
   provider-kit wired now.
+- 2026-09-22 — Phase 3 built. ADF stays inside the adapter (no remote hooks
+  needed); nested-table flattening and the compare reduction hoisted to the kit
+  as shared dialect pieces; jira's `skitterspec` bin alias moved to the phase-5
+  distribution after a stale shim broke the workspace engine.

@@ -19,7 +19,7 @@
  * Everything here is pure string → string.
  */
 
-const { fenceMask } = require('@skitterbyte/skitterspec-sync-core/src/task-block.js')
+const { flattenNestedTables, splitCells } = require('@skitterbyte/skitterspec-provider-kit/src/md-tables.js')
 
 // Linear mangles inline emphasis whose markers straddle a hard line break: it
 // terminates the run at end-of-line and restarts it at the next, so `**a\nb**`
@@ -155,108 +155,10 @@ function canonicalizeMarkdown(text) {
     .trim()
 }
 
-// A table row: optional indent, then a `|`-delimited line. We only ever act on
-// indented ones — a column-0 table (the `## Phases` index, every Impact map) is
-// rendered correctly by Linear and must project byte-identically.
-const ROW_RE = /^([ \t]+)\|(.*)\|[ \t]*$/
-// The separator under the header — `|---|:--:|`. Its presence is what makes the
-// block a table rather than prose that happens to contain pipes.
-const SEPARATOR_RE = /^[ \t]+\|[\s:|-]+\|[ \t]*$/
+// Linear reserialises markdown on save; the reduction that makes those
+// transforms invisible is shared with the ADF dialect and lives in the kit.
+const { markdownCanonicalForCompare: canonicalForCompare } = require('@skitterbyte/skitterspec-provider-kit/src/md-compare.js')
 
-// Split a row into cells on pipes that are OUTSIDE an inline-code span, so a
-// documented `` `a | b` `` alternation stays one cell instead of splitting.
-function splitCells(body) {
-  const cells = []
-  let cur = ''
-  let code = false
-  for (const ch of body) {
-    if (ch === '`') code = !code
-    if (ch === '|' && !code) {
-      cells.push(cur.trim())
-      cur = ''
-      continue
-    }
-    cur += ch
-  }
-  cells.push(cur.trim())
-  return cells
-}
-
-/**
- * Rewrite every indented table in `md`. Returns the text unchanged when there is
- * nothing nested to flatten.
- * @param {string} md
- * @returns {string}
- */
-function flattenNestedTables(md) {
-  if (md == null) return md
-  const lines = String(md).split('\n')
-  const inFence = fenceMask(lines)
-  const out = []
-
-  for (let i = 0; i < lines.length; i++) {
-    const header = ROW_RE.exec(lines[i])
-    // A table shown as an EXAMPLE inside a ``` block is documentation — often of
-    // this very bug — so it is left exactly as written.
-    if (!header || inFence[i] || !SEPARATOR_RE.test(lines[i + 1] || '')) {
-      out.push(lines[i])
-      continue
-    }
-
-    const indent = header[1]
-    const rows = [splitCells(header[2])]
-    const raw = [lines[i], lines[i + 1]]
-    let j = i + 2
-    for (; j < lines.length && !inFence[j]; j++) {
-      const row = ROW_RE.exec(lines[j])
-      if (!row) break
-      rows.push(splitCells(row[2]))
-      raw.push(lines[j])
-    }
-
-    if (rows[0].length === 2) {
-      // Header first, bolded: dropping it would lose content and inventing a
-      // caption would invent it.
-      out.push(`${indent}- **${rows[0][0]}** — **${rows[0][1]}**`)
-      for (const r of rows.slice(1)) out.push(`${indent}- ${r[0]} — ${r[1]}`)
-    } else {
-      out.push(`${indent}\`\`\``, ...raw, `${indent}\`\`\``)
-    }
-    i = j - 1
-  }
-  return out.join('\n')
-}
-
-
-// Linear reserialises markdown on save. These transforms are all observed and
-// all harmless, so they are normalised away BEFORE comparing — otherwise every
-// push would report a false divergence (see sync-core `src/verify.js`, which
-// takes this via the dialect).
-function canonicalForCompare(text) {
-  return String(text == null ? '' : text)
-    .replace(/\r\n/g, '\n')
-    .split('\n')
-    .map((line) =>
-      line
-        // Ordered-list markers → a placeholder. Linear renumbers lists, and the
-        // digits it rewrites are alphanumeric, so a naive alphanumeric compare
-        // would flag its own benign reformat as data loss. Normalising the
-        // marker keeps digits significant EVERYWHERE ELSE — a port, a version, a
-        // key length still count.
-        .replace(/^(\s*)\d+\.(\s)/, '$1#.$2')
-        // Unordered markers unify (`-`/`+` come back as `*`).
-        .replace(/^(\s*)[*+-](\s)/, '$1-$2')
-        // Checkbox marks case-fold. Targeted rather than lowercasing the whole
-        // text, so a genuine case corruption in prose is still caught.
-        .replace(/^(\s*-\s*\[)[xX](\])/, '$1x$2')
-        // Table separator rows collapse (`|-------|` → `| -- |`).
-        .replace(/^\s*\|[\s:|-]+\|\s*$/, '|--|')
-        .replace(/[ \t]+$/, ''),
-    )
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
 
 // The dialect object the config loader attaches (`config.dialect`).
 const dialect = Object.freeze({
