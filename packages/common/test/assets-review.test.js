@@ -517,7 +517,12 @@ function fixture(overrides = {}) {
   for (let i = 1; i <= 60; i++) body.push(` line ${i}`)
   body.push('-line 61 old', '+line 61 new')
   for (let i = 62; i <= 100; i++) body.push(` line ${i}`)
-  const patch = ['--- a/src/app.js', '+++ b/src/app.js', '@@ -1,100 +1,100 @@', ...body].join('\n')
+  const patch = ['--- a/lib/app.js', '+++ b/lib/app.js', '@@ -1,100 +1,100 @@', ...body].join('\n')
+  // LISTED IN TREE ORDER, and `lib/` rather than `src/` for that reason alone:
+  // the page lays the panes out the way the sidebar lists them, so `specs/`
+  // would come first and every `accepts(dom)[0]` below would be addressing the
+  // bookkeeping file. The scrambled fixture above is where the reordering
+  // itself is tested.
   return {
     spec: 'feat-x',
     title: 'feat-x',
@@ -528,7 +533,7 @@ function fixture(overrides = {}) {
     totals: { files: 2, additions: 1, deletions: 1 },
     review: null,
     files: [
-      { path: 'src/app.js', status: 'modified', additions: 1, deletions: 1, whole: true, noise: false, binary: false, patch },
+      { path: 'lib/app.js', status: 'modified', additions: 1, deletions: 1, whole: true, noise: false, binary: false, patch },
       {
         path: 'specs/in-progress/feat-x/00-overview.md',
         status: 'modified', additions: 1, deletions: 0, whole: true, noise: true, binary: false,
@@ -598,9 +603,61 @@ test('clicking a hidden file in the tree turns the filter on and opens it', () =
   assert.strictEqual(noiseDetails.open, true)
 })
 
+// --- one order, two columns -------------------------------------------------
+
+// A jumbled emission: git hands the engine tracked changes and untracked files
+// as two runs, so `data.files` arrives in no order the tree would ever produce.
+// Every leaf is distinct, because a tree row shows the leaf and nothing else.
+const SCRAMBLED = ['README.md', 'src/zz.js', 'packages/b/x.js', 'lib/app.js', 'packages/a/y.js']
+const IN_TREE_ORDER = ['lib/app.js', 'packages/a/y.js', 'packages/b/x.js', 'src/zz.js', 'README.md']
+
+function listing(paths) {
+  const patch = ['--- a/x', '+++ b/x', '@@ -1,1 +1,2 @@', ' # x', '+more'].join('\n')
+  return fixture({
+    totals: { files: paths.length, additions: paths.length, deletions: 0 },
+    files: paths.map((path) => ({
+      path, status: 'modified', additions: 1, deletions: 0,
+      whole: true, noise: false, binary: false, patch,
+    })),
+  })
+}
+
+// The leaf each tree row shows, in the order the sidebar lists them.
+const treeLeaves = (dom) =>
+  findAll(dom.byId.tree, 'tree-file').map((e) => e.childNodes[0].textContent)
+const panelPaths = (dom) =>
+  findAll(dom.byId.files, 'file').map((d) => d.getAttribute('data-path'))
+
+test('the tree decides the order the files are shown in', () => {
+  const dom = runPage(listing(SCRAMBLED))
+  assert.deepStrictEqual(
+    panelPaths(dom),
+    IN_TREE_ORDER,
+    'the panes follow the tree: directories first, each sorted, then root files',
+  )
+  assert.deepStrictEqual(
+    treeLeaves(dom),
+    IN_TREE_ORDER.map((p) => p.split('/').pop()),
+    'and the two columns cannot disagree',
+  )
+})
+
+// STAYS SILENT. Reordering must be a no-op on a review that already arrives in
+// tree order, or every ordinary render quietly reshuffles itself. The shared
+// fixture is one such review, which is what the positional assertions further
+// down this file rest on.
+test('an already-ordered review is left exactly as it came', () => {
+  assert.deepStrictEqual(panelPaths(runPage(listing(IN_TREE_ORDER))), IN_TREE_ORDER)
+  assert.deepStrictEqual(
+    panelPaths(runPage(fixture())),
+    ['lib/app.js', 'specs/in-progress/feat-x/00-overview.md'],
+  )
+})
+
+
 // --- which file am I reading ------------------------------------------------
 
-const CODE = 'src/app.js'
+const CODE = 'lib/app.js'
 const NOISE = 'specs/in-progress/feat-x/00-overview.md'
 const row = (dom, name) =>
   findAll(dom.byId.tree, 'tree-file').find((e) => e.textContent.includes(name))
@@ -707,7 +764,7 @@ test('a decided page points at nothing, since its diff is hidden', async () => {
 
 test('the noise filter hides bookkeeping and leaves real code alone', () => {
   const dom = runPage(fixture())
-  const code = dom.byId['f-' + encodeURIComponent('src/app.js')]
+  const code = dom.byId['f-' + encodeURIComponent('lib/app.js')]
   const noise = dom.byId['f-' + encodeURIComponent('specs/in-progress/feat-x/00-overview.md')]
   assert.strictEqual(code.hidden, false)
   assert.strictEqual(noise.hidden, true)
@@ -828,7 +885,7 @@ test('ticking accept sends the file and the hash it was read at', () => {
 
   const blob = copyBlob(dom)
   accepted(blob)
-  assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
+  assert.deepStrictEqual(blob.accepted, [{ path: 'lib/app.js', hash: 'h-lib/app.js' }])
   assert.deepStrictEqual(blob.unaccepted, [])
 })
 
@@ -844,7 +901,7 @@ test('an accept already recorded says nothing; withdrawing it is explicit', () =
   const blob = copyBlob(dom)
   accepted(blob)
   assert.deepStrictEqual(blob.accepted, [], 'no re-send of what is already stored')
-  assert.deepStrictEqual(blob.unaccepted, ['src/app.js'], 'withdrawal cannot be expressed by absence')
+  assert.deepStrictEqual(blob.unaccepted, ['lib/app.js'], 'withdrawal cannot be expressed by absence')
 })
 
 test('a lapsed accept is shown as lapsed, and re-ticking re-sends the new hash', () => {
@@ -861,7 +918,7 @@ test('a lapsed accept is shown as lapsed, and re-ticking re-sends the new hash',
   accepts(dom)[0].dispatch('click')
   const blob = copyBlob(dom)
   accepted(blob)
-  assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
+  assert.deepStrictEqual(blob.accepted, [{ path: 'lib/app.js', hash: 'h-lib/app.js' }])
 })
 
 test('a comment from the gutter carries the line and the line it was about', () => {
@@ -874,7 +931,7 @@ test('a comment from the gutter carries the line and the line it was about', () 
   accepted(blob)
   assert.strictEqual(blob.comments.length, 1)
   const c = blob.comments[0]
-  assert.strictEqual(c.file, 'src/app.js')
+  assert.strictEqual(c.file, 'lib/app.js')
   assert.strictEqual(c.line, 61)
   assert.strictEqual(c.lineText, 'line 61 new', 'the text travels, so the note survives the line moving')
   assert.match(c.id, /^2020-01-01T00:00:00\.000Z-/, 'ids are minted from the render, so a re-paste merges')
@@ -889,14 +946,14 @@ test('a note about the whole file carries no line', () => {
   const blob = copyBlob(dom)
   accepted(blob)
   assert.strictEqual(blob.comments[0].line, null)
-  assert.strictEqual(blob.comments[0].file, 'src/app.js')
+  assert.strictEqual(blob.comments[0].file, 'lib/app.js')
 })
 
 test('a stored comment renders at its line, and the band hiding it is opened', () => {
   const data = marked()
   // Line 20 sits deep inside the collapsed run above the change.
   data.files[0].comments = [
-    { id: 'c1', file: 'src/app.js', line: 20, lineText: ' line 20', check: null, note: 'why this order?', raisedAt: 'T', resolved: null },
+    { id: 'c1', file: 'lib/app.js', line: 20, lineText: ' line 20', check: null, note: 'why this order?', raisedAt: 'T', resolved: null },
   ]
   const dom = runPage(data)
   const notes = findAll(dom.byId.files, 'note-row')
@@ -911,7 +968,7 @@ test('a stored comment renders at its line, and the band hiding it is opened', (
 test('a resolved comment is struck through and shows what was done', () => {
   const data = marked()
   data.files[0].comments = [
-    { id: 'c1', file: 'src/app.js', line: 61, lineText: 'line 61 new', check: null, note: 'hash this', raisedAt: 'T', resolved: { at: 'T2', note: 'keyed on the blob sha' } },
+    { id: 'c1', file: 'lib/app.js', line: 61, lineText: 'line 61 new', check: null, note: 'hash this', raisedAt: 'T', resolved: { at: 'T2', note: 'keyed on the blob sha' } },
   ]
   const dom = runPage(data)
   const resolved = findAll(dom.byId.files, 'is-resolved')
@@ -920,7 +977,7 @@ test('a resolved comment is struck through and shows what was done', () => {
 })
 
 test('answering a check rides back tagged with the check and its file', () => {
-  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'src/app.js' }] })
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'lib/app.js' }] })
   const li = dom.document.querySelector('.check[data-check="k0"]')
   assert.ok(li, 'the reply box found the check')
   li.querySelector('.reply').childNodes[0].dispatch('click')
@@ -930,7 +987,7 @@ test('answering a check rides back tagged with the check and its file', () => {
   accepted(blob)
   const reply = blob.comments.find((c) => c.check === 'k0')
   assert.ok(reply, 'the answer is a comment carrying the check id')
-  assert.strictEqual(reply.file, 'src/app.js')
+  assert.strictEqual(reply.file, 'lib/app.js')
   assert.strictEqual(reply.note, 'yes — deliberate')
 })
 
@@ -952,7 +1009,7 @@ test('what the page emits is what the engine stores', () => {
 
   const blob = copyBlob(dom)
   const notes = mergeNotes(emptyNotes('feat-x'), accepted(blob), 'T1')
-  assert.deepStrictEqual(notes.files['src/app.js'], { acceptedHash: 'h-src/app.js', acceptedAt: 'T1' })
+  assert.deepStrictEqual(notes.files['lib/app.js'], { acceptedHash: 'h-lib/app.js', acceptedAt: 'T1' })
   assert.strictEqual(notes.comments.length, 1)
   assert.strictEqual(notes.comments[0].line, 61)
 })
@@ -972,7 +1029,7 @@ test('the pass is autosaved, and storage that throws does not break the page', (
   const dom = runPage(marked())
   accepts(dom)[0].dispatch('click')
   const saved = JSON.parse(dom.store.get('skitterspec-review:feat-x:2020-01-01T00:00:00.000Z'))
-  assert.strictEqual(saved.accepts['src/app.js'], true, 'a tab switch mid-review costs nothing')
+  assert.strictEqual(saved.accepts['lib/app.js'], true, 'a tab switch mid-review costs nothing')
 
   // Safari on file:// THROWS rather than returning null. A page that failed to
   // render because it could not autosave would be the worse bug by far.
@@ -1003,8 +1060,8 @@ test('a page with no marks at all emits nothing and says nothing', () => {
 test('a resolved comment is history, not an outstanding ask', () => {
   const data = marked()
   data.files[0].comments = [
-    { id: 'c1', file: 'src/app.js', line: 61, lineText: 'line 61 new', check: null, note: 'hash this', raisedAt: 'T', resolved: { at: 'T2', note: 'keyed on the blob sha' } },
-    { id: 'c2', file: 'src/app.js', line: null, lineText: null, check: null, note: 'still open', raisedAt: 'T', resolved: null },
+    { id: 'c1', file: 'lib/app.js', line: 61, lineText: 'line 61 new', check: null, note: 'hash this', raisedAt: 'T', resolved: { at: 'T2', note: 'keyed on the blob sha' } },
+    { id: 'c2', file: 'lib/app.js', line: null, lineText: null, check: null, note: 'still open', raisedAt: 'T', resolved: null },
   ]
   const dom = runPage(data)
   // Neither counts: both were already sent. The count is what YOU have written
@@ -1040,7 +1097,7 @@ test('a verdict travels with the marks it was reached on', () => {
   accepts(dom)[0].dispatch('click')
   const blob = copyBlob(dom, 'commit')
   assert.strictEqual(accepted(blob).verdict, 'commit', 'the engine reads the page word as the action')
-  assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
+  assert.deepStrictEqual(blob.accepted, [{ path: 'lib/app.js', hash: 'h-lib/app.js' }])
   accepted(blob)
 })
 
@@ -1085,7 +1142,7 @@ test('removing the last note re-enables committing, live', () => {
 test('a stored comment the agent has not answered blocks committing too', () => {
   const data = marked()
   data.files[0].comments = [
-    { id: 'c1', file: 'src/app.js', line: null, lineText: null, check: null, note: 'still open', raisedAt: 'T', resolved: null },
+    { id: 'c1', file: 'lib/app.js', line: null, lineText: null, check: null, note: 'still open', raisedAt: 'T', resolved: null },
   ]
   data.notes.totals.unresolved = 1
   const dom = runPage(data)
@@ -1096,7 +1153,7 @@ test('a stored comment the agent has not answered blocks committing too', () => 
 test('a comment the agent resolved does not block committing', () => {
   const data = marked()
   data.files[0].comments = [
-    { id: 'c1', file: 'src/app.js', line: null, lineText: null, check: null, note: 'done', raisedAt: 'T', resolved: { at: 'T2', note: 'fixed' } },
+    { id: 'c1', file: 'lib/app.js', line: null, lineText: null, check: null, note: 'done', raisedAt: 'T', resolved: { at: 'T2', note: 'fixed' } },
   ]
   data.notes.totals.resolved = 1
   const dom = runPage(data)
@@ -1213,7 +1270,7 @@ test('a served page posts the pass to its own URL', () => {
   const blob = JSON.parse(sent.body)
   accepted(blob)
   assert.strictEqual(blob.verdict, 'commit')
-  assert.deepStrictEqual(blob.accepted, [{ path: 'src/app.js', hash: 'h-src/app.js' }])
+  assert.deepStrictEqual(blob.accepted, [{ path: 'lib/app.js', hash: 'h-lib/app.js' }])
 })
 
 test('the command is handed over where the verdict was pressed', async () => {
@@ -2950,12 +3007,12 @@ test('the page invents no disable action of its own', () => {
  * ========================================================================== */
 
 test('pressing a check with a line opens its file and marks the line', () => {
-  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'flag', file: 'src/app.js', line: 61 }] })
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'flag', file: 'lib/app.js', line: 61 }] })
   const btn = dom.document.querySelector('[data-goto]')
   assert.ok(btn, 'the check rendered a jump button')
   btn.dispatch('click')
 
-  const details = dom.byId['f-' + encodeURIComponent('src/app.js')]
+  const details = dom.byId['f-' + encodeURIComponent('lib/app.js')]
   assert.strictEqual(details.open, true, 'the file was opened')
   const hit = dom.document.querySelector('[data-n="61"]')
   assert.ok(hit, 'the row is on screen — the band hiding it was dropped')
@@ -2965,9 +3022,9 @@ test('pressing a check with a line opens its file and marks the line', () => {
 test('stays silent: a check naming a line that is not in the diff jumps nowhere', () => {
   // A reviewer's finding can name a line that has since moved. Revealing the
   // file is right; scrolling to an arbitrary row would be worse than nothing.
-  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'flag', file: 'src/app.js', line: 99999 }] })
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'flag', file: 'lib/app.js', line: 99999 }] })
   dom.document.querySelector('[data-goto]').dispatch('click')
-  assert.strictEqual(dom.byId['f-' + encodeURIComponent('src/app.js')].open, true)
+  assert.strictEqual(dom.byId['f-' + encodeURIComponent('lib/app.js')].open, true)
   assert.strictEqual(dom.document.querySelector('[data-n="99999"]'), null)
 })
 
@@ -2978,21 +3035,21 @@ test('stays silent: a check naming a file that is not in the diff does nothing',
 })
 
 test('a check with no line still reveals its file', () => {
-  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'src/app.js' }] })
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'lib/app.js' }] })
   dom.document.querySelector('[data-goto]').dispatch('click')
-  assert.strictEqual(dom.byId['f-' + encodeURIComponent('src/app.js')].open, true)
+  assert.strictEqual(dom.byId['f-' + encodeURIComponent('lib/app.js')].open, true)
 })
 
 test('answering a check still works when the check carries a jump button', () => {
   // The button is appended to the same <li> the reply box is, so the reply
   // wiring must not have been displaced by it.
-  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'src/app.js', line: 61 }] })
+  const dom = runPage(marked(), { checks: [{ id: 'k0', level: 'confirm', file: 'lib/app.js', line: 61 }] })
   const li = dom.document.querySelector('[data-check="k0"]')
   li.querySelector('.reply').childNodes[0].dispatch('click')
   writeNote(li.querySelector('.note-input'), 'looked at it')
   const reply = copyBlob(dom).comments.find((c) => c.check === 'k0')
   assert.ok(reply)
-  assert.strictEqual(reply.file, 'src/app.js')
+  assert.strictEqual(reply.file, 'lib/app.js')
 })
 
 // --- a note survives being written ------------------------------------------

@@ -1044,10 +1044,43 @@ a.ticket:hover { border-color: var(--accent); }
     return bands
   }
 
+  // --- one order, for both columns -----------------------------------------
+  // The sidebar and the panes are two views of one list, and they must be the
+  // SAME list in the same order — a reader scrolling the panes watches the
+  // current-file mark walk the sidebar, and a mark that walks backwards is the
+  // whole reason this exists.
+  //
+  // The emitted order cannot be it. `review.js` collects tracked changes and
+  // untracked files in two passes, so a new file is appended after everything
+  // else however its path sorts; git's own order is not the tree's either.
+  //
+  // So the tree's order is the one order, settled here and used by both. It is
+  // expressed as a comparator rather than derived from the built tree because
+  // the panes are built long before the tree is, and a second traversal that
+  // had to agree with the first is the thing that went wrong.
+  function treeOrder(a, b) {
+    var A = a.split('/')
+    var B = b.split('/')
+    var n = Math.min(A.length, B.length)
+    for (var i = 0; i < n; i++) {
+      // A segment with anything after it is a directory. `renderTree` walks
+      // every directory at a level — label and subtree — before that level's
+      // files, so a directory sorts ahead of a file it ties with by name.
+      var aDir = i < A.length - 1
+      var bDir = i < B.length - 1
+      if (aDir !== bDir) return aDir ? -1 : 1
+      if (A[i] !== B[i]) return A[i].localeCompare(B[i])
+    }
+    return 0
+  }
+
+  // A copy: `data` is the emitted review, and the page is a view of it.
+  var files = data.files.slice().sort(function (a, b) { return treeOrder(a.path, b.path) })
+
   // --- per-file page state -------------------------------------------------
   // Band state lives HERE, never in the emitted data: the page is a view of an
   // immutable review, and expanding context is a property of this reading of it.
-  var state = data.files.map(function (f) {
+  var state = files.map(function (f) {
     var rows = parsePatch(f.patch)
     var st = {
       file: f,
@@ -1717,7 +1750,16 @@ a.ticket:hover { border-color: var(--accent); }
   function renderTree(node) {
     var ul = el('ul')
     ;(function walk(n, depth) {
-      Object.keys(n.dirs).sort().forEach(function (name) {
+      // `treeOrder` above is the authority and these two sorts must match it,
+      // which is why the directories sort by `localeCompare` rather than by the
+      // default `.sort()`: that compares UTF-16 code units, so it puts every
+      // capitalised name ahead of every lowercase one and the panes would drift
+      // from the sidebar again on the first `README/` in a diff.
+      //
+      // Insertion order would be free — the list arrives sorted — but a key
+      // that looks like an array index (`2024/`) is enumerated first whatever
+      // order it was inserted in, and a dated directory is not exotic.
+      Object.keys(n.dirs).sort(function (a, b) { return a.localeCompare(b) }).forEach(function (name) {
         var li = el('li')
         li.appendChild(indent(el('span', 'dir', name + '/'), depth, 0.6))
         ul.appendChild(li)
@@ -1750,9 +1792,9 @@ a.ticket:hover { border-color: var(--accent); }
   }
 
   var tree = document.getElementById('tree')
-  tree.appendChild(renderTree(buildTree(data.files)))
+  tree.appendChild(renderTree(buildTree(files)))
   document.getElementById('tree-summary').textContent =
-    'Files (' + data.files.length + ')'
+    'Files (' + files.length + ')'
   if (window.matchMedia && !window.matchMedia('(min-width: 60rem)').matches) {
     document.getElementById('tree-wrap').open = false
   }
