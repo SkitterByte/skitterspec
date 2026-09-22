@@ -2,7 +2,7 @@
 
 > **Type:** Bug
 > **Name:** bug-review-file-order (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-09-22)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-22
@@ -75,6 +75,7 @@ review must not be reshuffled by the fix.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-09-22 | In Progress | in-progress | Reuben Greaves |
+| 2026-09-22 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -87,3 +88,4 @@ review must not be reshuffled by the fix.
   `accepts(dom)[0]` in the file silently addressed the bookkeeping file. The
   rename makes the fixture's own two files agree, which is what those
   positional assertions were always assuming.
+- 2026-09-22 — Completed; all phases done, tests green.
