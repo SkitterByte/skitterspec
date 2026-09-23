@@ -145,7 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | Jira adapter core (client, ADF, transitions) | ✅ | [03-jira-adapter.md](03-jira-adapter.md) |
 | 4 | Jira CLI, skills, seams | ✅ | [04-jira-cli-skills.md](04-jira-cli-skills.md) |
 | 5 | Distribution + release wiring | ✅ | [05-distribution-release.md](05-distribution-release.md) |
-| 6 | Docs, live smoke, first release | ⬜ | [06-docs-smoke.md](06-docs-smoke.md) |
+| 6 | Docs, live smoke, first release | 🔄 | [06-docs-smoke.md](06-docs-smoke.md) |
 
 ## Open questions
 
@@ -182,3 +182,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-22 — Phase 5 built. buildProvider parameterisation; three tag series
   wired end to end; the dev-link "unknown distribution" example was
   skitterspec-jira itself and moved.
+- 2026-09-23 — Phase 6 repo half built (docs page, links, SETUP + smoke
+  checklist). Live smoke and the 1.0.0 release are operator steps, the release
+  necessarily post-landing.

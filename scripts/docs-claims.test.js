@@ -27,11 +27,15 @@ const SURFACES = [
   'README.md',
   'docs/index.html',
   'docs/linear.html',
+  'docs/jira.html',
   'packages/skitterspec-linear/README.md',
+  'packages/skitterspec-jira/README.md',
   'packages/skitterspec/README.md',
   'packages/common/README.md',
   'packages/linear/assets/core/linear.config.md',
   'packages/linear/assets/core/SETUP.md',
+  'packages/jira/assets/core/jira.config.md',
+  'packages/jira/assets/core/SETUP.md',
 ]
 
 // Retired claims, as phrases a human would actually write.
@@ -130,7 +134,7 @@ test('the guard leaves the still-true framing sayable', () => {
 // cross-page link, and a dead one fails silently: the browser just does nothing.
 // Nothing else checks the site, so this does.
 
-const PAGES = ['docs/index.html', 'docs/review.html', 'docs/reference.html', 'docs/linear.html']
+const PAGES = ['docs/index.html', 'docs/review.html', 'docs/reference.html', 'docs/linear.html', 'docs/jira.html']
 
 const idsOf = (html) => new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))
 const readPage = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -202,6 +206,7 @@ test('each page carries its own canonical og:url', () => {
   const urls = PAGES.map((rel) => /og:url" content="([^"]+)"/.exec(readPage(rel))[1])
   assert.strictEqual(new Set(urls).size, urls.length, `og:url must differ per page, got ${JSON.stringify(urls)}`)
   assert.ok(urls.some((u) => u.endsWith('/linear.html')), 'the Linear page points at itself')
+  assert.ok(urls.some((u) => u.endsWith('/jira.html')), 'the Jira page points at itself')
   assert.ok(urls.some((u) => u.endsWith('/reference.html')), 'the reference page points at itself')
   assert.ok(urls.some((u) => u.endsWith('/review.html')), 'the review page points at itself')
 })
@@ -239,7 +244,7 @@ test('every spec-sync verb shown on the site is a real subcommand', () => {
 
 test('every skill named on the site is a skill that ships', () => {
   const shipped = new Set()
-  for (const pkg of ['common', 'linear']) {
+  for (const pkg of ['common', 'linear', 'jira']) {
     const dir = path.join(ROOT, 'packages', pkg, 'assets', 'skills')
     if (!fs.existsSync(dir)) continue
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -280,9 +285,12 @@ test('every skill named on the site is a skill that ships', () => {
 // installed `.claude/skills/` also holds whatever other tools put there, so it
 // is not a figure the docs could ever state.
 
-function shippedCounts() {
+// Per DISTRIBUTION: a superset ships common's skills plus its own provider's —
+// never the other provider's — so a page's quoted count is checked against the
+// distribution that page documents.
+function shippedCounts(provider = 'linear') {
   const kinds = { skills: new Set(), commands: new Set() }
-  for (const pkg of ['common', 'linear']) {
+  for (const pkg of ['common', provider]) {
     const skills = path.join(ROOT, 'packages', pkg, 'assets', 'skills')
     if (fs.existsSync(skills)) {
       for (const e of fs.readdirSync(skills, { withFileTypes: true })) {
@@ -306,15 +314,16 @@ test('the shipped catalogue is countable at all', () => {
 })
 
 test('every "N skills installed" the site quotes matches the shipped count', () => {
-  const { skills } = shippedCounts()
   let quoted = 0
   for (const rel of PAGES) {
+    const provider = rel.includes('jira') ? 'jira' : 'linear'
+    const { skills } = shippedCounts(provider)
     for (const m of textOf(rel).matchAll(/(\d+)\s+skills installed/g)) {
       quoted++
       assert.strictEqual(
         Number(m[1]),
         skills,
-        `${rel} quotes "${m[1]} skills installed"; the distribution ships ${skills}`,
+        `${rel} quotes "${m[1]} skills installed"; that distribution ships ${skills}`,
       )
     }
   }
@@ -368,6 +377,23 @@ const ENGINES = {
       // NOT appear in the command table — documenting a retired name advertises
       // it as available, which is the opposite of retiring it.
       push: 'retired in v13; dispatched only to point at `spec-sync plan`',
+    },
+  },
+  'spec-sync (jira)': {
+    source: 'packages/jira/src/cli-sync.js',
+    // Two dispatch forms, like linear's: the switch, plus the two pre-config
+    // subcommands dispatched with `sub ===` (init-config, doctor).
+    verbs: (src) =>
+      new Set([
+        ...[...src.matchAll(/case '([a-z][a-z-]*)':/g)].map((m) => m[1]),
+        ...[...src.matchAll(/sub === '([a-z][a-z-]*)'/g)].map((m) => m[1]),
+      ]),
+    page: 'docs/jira.html',
+    undocumented: {
+      // Both run before a config exists, so the page documents them in its
+      // Set up / Check sections — deliberately outside the push-path table.
+      doctor: 'documented in the Check section, not the push-path verb table',
+      'init-config': 'documented in the Set up section, not the push-path verb table',
     },
   },
 }

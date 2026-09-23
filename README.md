@@ -13,6 +13,7 @@ Install exactly **one** — the Linear package is a strict superset of the base.
 |---------|--------------|--------|
 | [`@skitterbyte/skitterspec`](packages/skitterspec/README.md) | The base, tracker-free filesystem workflow. | [readme](packages/skitterspec/README.md) |
 | [`@skitterbyte/skitterspec-linear`](packages/skitterspec-linear/README.md) | Everything in the base **plus** Linear hybrid-sync. | [readme](packages/skitterspec-linear/README.md) |
+| [`@skitterbyte/skitterspec-jira`](packages/skitterspec-jira/README.md) | Everything in the base **plus** one-way Jira Cloud sync. | [readme](packages/skitterspec-jira/README.md) |
 
 `packages/common` is private shared source, vendored into each distribution at
 build time — not published on its own.
