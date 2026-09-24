@@ -705,9 +705,16 @@ async function specSyncPreserve(dir, config, specArg, flags, out) {
 // prompts — the email visibly (it is not a secret; it appears on every
 // issue), the token hidden; `unset` removes the site's entry.
 async function specSyncCredentials(dir, config, action, flags, out) {
-  const site = config.jira.siteUrl
+  // The store is USER-LEVEL — a machine credential must be storable before any
+  // repo is configured — so the site (the store's scope key) may come from the
+  // flag as well as the config. SETUP.md's ordering depends on this.
+  const site = (flags.siteUrl || (config.jira && config.jira.siteUrl) || '').replace(/\/+$/, '')
   if (!site) {
-    out.write(`${PROGRAM} credentials: no jira.siteUrl configured — fix ${CONFIG_FILE}\n`)
+    out.write(
+      `${PROGRAM} credentials: no site to key the entry by — pass --site-url\n` +
+        `  https://<your-site>.atlassian.net, or configure ${CONFIG_FILE} first\n` +
+        '  (/spec-jira-setup, or spec-sync init-config).\n',
+    )
     return 1
   }
   const env = flags.env || process.env
@@ -831,7 +838,7 @@ async function specSyncCredentials(dir, config, action, flags, out) {
 }
 
 // ---------------------------------------------------------------------------
-function specSyncInitConfig(dir, flags, out) {
+async function specSyncInitConfig(dir, flags, out) {
   const file = path.join(dir, CONFIG_FILE)
   if (fs.existsSync(file) && !flags.force) {
     out.write(`${PROGRAM} init-config: ${CONFIG_FILE} already exists — pass --force to overwrite\n`)
@@ -858,15 +865,65 @@ function specSyncInitConfig(dir, flags, out) {
     }
     parsed.states = flags.stateNames
   }
+  let merged
   try {
-    mergeConfig(defaults(), parsed)
+    merged = mergeConfig(defaults(), parsed)
   } catch (error) {
     out.write(`${PROGRAM} init-config: ${error.message}\n`)
     return 1
   }
+
+  // Validate the states map against the project's REAL statuses whenever the
+  // credentials can reach it — a map this command could have checked must not
+  // sail through to fail at doctor or, worse, at the first half-applied push.
+  // Refuses with per-bucket suggestions and writes NOTHING; it never picks a
+  // mapping itself, because "Done -> On Live" is a judgment only the operator
+  // can make (`/spec-jira-setup` is the surface that asks). Unreachable or
+  // credential-less is a cannot-tell: the config is still written, with one
+  // line saying what was not checked.
+  const probe = { jira: { siteUrl: merged.jira.siteUrl }, auth: merged.auth }
+  const cred = flags.adapter
+    ? { ok: true }
+    : resolveCredential(probe, flags.env || process.env)
+  if (cred.ok) {
+    const adapter =
+      flags.adapter ||
+      makeApiAdapter({ siteUrl: merged.jira.siteUrl, email: cred.email, token: cred.token, fetch: flags.fetch })
+    let names = null
+    try {
+      names = (await adapter.listIssueStates(merged.jira.projectKey)).map((st) => st.name)
+    } catch (error) {
+      out.write(`${PROGRAM} init-config: could not check the project's statuses (${String(error.message).split('\n')[0]}) — doctor --check-remote will\n`)
+    }
+    if (names) {
+      const missing = [...new Set(validateStates(merged, names))]
+      if (missing.length) {
+        const lines = [`${PROGRAM} init-config: refusing — nothing written`, '']
+        for (const { label, configured, suggestion } of stateSuggestions(merged, names)) {
+          lines.push(`  ${label}: "${configured}" is not a status in ${merged.jira.projectKey}`)
+          if (suggestion) lines.push(`    try --state ${label}="${suggestion}"`)
+        }
+        lines.push(
+          '',
+          `  available: ${names.join(', ')}`,
+          '  Map every lifecycle bucket to one of those with --state <bucket>=<name>,',
+          '  or run /spec-jira-setup to be walked through it.',
+        )
+        out.write(lines.join('\n') + '\n')
+        return 1
+      }
+    }
+  } else {
+    out.write(`${PROGRAM} init-config: states not checked against the project (no credentials) — doctor --check-remote will\n`)
+  }
+
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, JSON.stringify(parsed, null, 2) + '\n')
   out.write(`${PROGRAM} init-config: wrote ${CONFIG_FILE}\n`)
+  // A worktree forks from a COMMIT, so an uncommitted config is invisible in
+  // every spec worktree — where the sync skills actually run. Say so here,
+  // once, rather than letting each worktree report "Jira sync is off".
+  out.write(`  commit it — spec worktrees fork from commits, and sync is off wherever this file is absent\n`)
   return 0
 }
 
@@ -897,6 +954,38 @@ async function specSyncDoctor(dir, flags, out) {
       checks.push(row('tracker', 'Jira config', 'broken', 'siteUrl or projectKey is empty', `fix ${CONFIG_FILE}`))
     } else {
       checks.push(row('tracker', 'Jira config', 'ok', `${loaded.config.jira.projectKey} @ ${loaded.config.jira.siteUrl}`))
+      // A worktree forks from a COMMIT, so a config that exists only in the
+      // working tree is invisible in every spec worktree — where the sync
+      // skills actually run — and sync there reports itself off with no clue
+      // pointing back here. The positive signal is git tracking the file;
+      // every cannot-tell (no git repo, no git binary, a crashed call) stays
+      // silent rather than accusing a healthy setup (negative-checks rule 4).
+      // WHAT WOULD FOOL THIS: tracked-but-modified — worktrees then see the
+      // last committed mapping, not this one. Lesser and not warned on.
+      try {
+        const { execFileSync } = require('node:child_process')
+        const tracked = execFileSync('git', ['-C', dir, 'ls-files', '--', CONFIG_FILE], {
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim()
+        const inRepo = execFileSync('git', ['-C', dir, 'rev-parse', '--is-inside-work-tree'], {
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim()
+        if (inRepo === 'true' && !tracked) {
+          checks.push(
+            row(
+              'tracker',
+              'Config committed',
+              'warn',
+              `${CONFIG_FILE} is untracked — invisible in spec worktrees, sync is off there`,
+              `git add -- ${CONFIG_FILE} && git commit`,
+            ),
+          )
+        }
+      } catch {
+        // cannot tell — say nothing
+      }
     }
   }
   const config = loaded && loaded.present ? loaded.config : null
@@ -915,7 +1004,9 @@ async function specSyncDoctor(dir, flags, out) {
         const viewer = await adapter.readViewer()
         checks.push(row('remote', 'Jira reachable', 'ok', viewer ? `as ${viewer.name || viewer.id}` : 'yes'))
         const states = await adapter.listIssueStates(config.jira.projectKey)
-        const missing = validateStates(config, states.map((s) => s.name))
+        // Deduped: complete and cancelled both map to one status by default,
+        // and "not in the project: Done, Done" reads as a stutter, not a fact.
+        const missing = [...new Set(validateStates(config, states.map((s) => s.name)))]
         checks.push(
           missing.length
             ? row(
@@ -1005,6 +1096,10 @@ async function specSync(rest, io = {}) {
     out.write(`${PROGRAM}: ${error.message}\n`)
     return 1
   }
+  // Credentials are user-level, not repo-level: storing or checking them must
+  // work before the repo opts in, or setup has a circular order (the smoke
+  // found exactly this — `credentials set` refused on a fresh repo).
+  if (sub === 'credentials') return specSyncCredentials(dir, loaded.config, positional[0], flags, out)
   if (!loaded.present) {
     // Opt-out, not an error: a repo with no jira config has nothing to sync.
     out.write(`${PROGRAM}: ${CONFIG_FILE} not present — Jira sync is off for this repo\n`)

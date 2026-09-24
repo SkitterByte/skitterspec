@@ -45,10 +45,13 @@ Store the pair in the user-level credentials store (outside every repo,
 `0600`), **in your own terminal — not through an assistant**:
 
 ```sh
-pnpm exec skitterspec-jira spec-sync credentials set
+pnpm exec skitterspec-jira spec-sync credentials set --site-url https://<site>.atlassian.net
 # Jira account email for https://<site>.atlassian.net: you@example.com
 # Jira API token for you@example.com (hidden): ●●●●●●●●
 ```
+
+(`--site-url` keys the store entry before the repo has a config; once
+`jira.config.json` exists it can be omitted.)
 
 Or export `JIRA_EMAIL` and `JIRA_API_TOKEN` (both — an email without a token
 authenticates nothing). The environment wins over the store.
@@ -79,10 +82,21 @@ pnpm exec skitterspec-jira spec-sync init-config \
   --state complete=Done
 ```
 
+**Commit the file it writes.** Spec worktrees fork from commits, so an
+uncommitted `jira.config.json` is invisible inside every worktree — which is
+where the sync skills actually run — and sync reports itself off there.
+
 `jira.config.md` (installed beside this file) is the full field reference.
 Two defaults worth knowing: the issue type is `Task` and the subtask type
 `Subtask` — site admins rename these, so check yours; and `cancelled` maps to
 `Done` because default Jira workflows carry no Cancelled status.
+
+**Map buckets to work statuses, not deployment stages.** The buckets mirror
+the repo's work lifecycle, so To Do / In Progress / Done translate honestly —
+On Test / On Live do not: a finished phase would show as deployed before
+anything was released. A workflow that encodes a pipeline has standard outs
+(a separate subtask workflow, fix versions, the deployments panel) —
+`jira.config.md` → **Choosing your status map** carries the reasoning.
 
 ## 4. Check — `spec-sync doctor`
 

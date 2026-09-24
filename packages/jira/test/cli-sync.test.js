@@ -381,6 +381,9 @@ test('init-config writes only what was set, and validates through the loader', a
     jira: { siteUrl: SITE, projectKey: 'PROJ' },
     states: { complete: 'Shipped' },
   })
+  // Spec worktrees fork from commits, so a written-but-uncommitted config is
+  // invisible exactly where the sync skills run — the write must say so.
+  assert.match(r.out, /commit it/)
   const again = await run(['init-config', '--site-url', SITE, '--project-key', 'PROJ'], dir)
   assert.strictEqual(again.code, 1)
   assert.match(again.out, /--force/)
@@ -453,4 +456,104 @@ test('linked lists every spec with its link state, offline', async () => {
   const r = await run(['linked', '--json'], dir)
   assert.strictEqual(r.code, 0)
   assert.deepStrictEqual(JSON.parse(r.out), [{ spec: 'feat-demo', bucket: 'in-progress', identifier: 'PROJ-7' }])
+})
+
+// The smoke's first finding: credentials are USER-level, so they must be
+// storable and checkable before the repo has any config at all.
+test('credentials works before the repo opts in, keyed by --site-url', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-precfg-'))
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-prehome-'))
+  const bare = await run(['credentials', 'status'], dir, { env: { XDG_CONFIG_HOME: home } })
+  assert.strictEqual(bare.code, 1)
+  assert.match(bare.out, /pass --site-url/)
+
+  const status = await run(['credentials', 'status', '--site-url', SITE], dir, {
+    env: { XDG_CONFIG_HOME: home, JIRA_EMAIL: 'a@b.c', JIRA_API_TOKEN: 'tok' },
+  })
+  assert.strictEqual(status.code, 0, status.out)
+  assert.match(status.out, new RegExp(SITE.replace(/[/.]/g, '\\$&')))
+})
+
+// init-config checks the map against the project when it can — the smoke's
+// second finding: a bad default sailed through to fail at doctor instead.
+test('init-config refuses a map the project cannot express, naming the choices', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-initval-'))
+  const adapter = {
+    async listIssueStates() {
+      return [{ id: '1', name: 'To Do' }, { id: '2', name: 'In Progress' }, { id: '5', name: 'On Live' }]
+    },
+  }
+  const r = await run(['init-config', '--site-url', SITE, '--project-key', 'ERQ'], dir, { adapter })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /refusing — nothing written/)
+  assert.match(r.out, /"Done" is not a status in ERQ/)
+  assert.match(r.out, /available: To Do, In Progress, On Live/)
+  assert.strictEqual(fs.existsSync(path.join(dir, CONFIG_FILE)), false)
+
+  const fixed = await run(
+    ['init-config', '--site-url', SITE, '--project-key', 'ERQ', '--state', 'complete=On Live', '--state', 'cancelled=On Live'],
+    dir,
+    { adapter },
+  )
+  assert.strictEqual(fixed.code, 0, fixed.out)
+  assert.match(fixed.out, /wrote/)
+})
+
+test('init-config stays usable with no credentials — written, with one honest line', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-initnocred-'))
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-inithome-'))
+  const r = await run(['init-config', '--site-url', SITE, '--project-key', 'PROJ'], dir, {
+    env: { XDG_CONFIG_HOME: home },
+  })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /states not checked against the project/)
+  assert.ok(fs.existsSync(path.join(dir, CONFIG_FILE)))
+})
+
+// The uncommitted-config trap: worktrees fork from commits, so a config that
+// exists only in the working tree turns sync off in every spec worktree with
+// no clue pointing back. Doctor warns on the positive signal (git tracks the
+// file) and stays silent on every cannot-tell (negative-checks rule 3).
+test('doctor warns on an untracked config, and stays silent once committed', async () => {
+  const { execFileSync } = require('node:child_process')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-doc-git-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ jira: { siteUrl: SITE, projectKey: 'PROJ' } }),
+  )
+  const git = (...args) => execFileSync('git', ['-C', dir, ...args], { stdio: 'ignore' })
+  git('init')
+
+  const untracked = await run(['doctor', '--json'], dir)
+  assert.strictEqual(untracked.code, 0, 'a warn never fails the run')
+  const warnRow = JSON.parse(untracked.out).checks.find((c) => c.label === 'Config committed')
+  assert.ok(warnRow, 'untracked config gets a row')
+  assert.strictEqual(warnRow.state, 'warn')
+  assert.match(warnRow.detail, /untracked/)
+
+  git('add', '--', 'specs/.core/jira.config.json')
+  git('-c', 'user.email=t@t.t', '-c', 'user.name=t', 'commit', '-m', 'config')
+  const committed = await run(['doctor', '--json'], dir)
+  assert.strictEqual(
+    JSON.parse(committed.out).checks.find((c) => c.label === 'Config committed'),
+    undefined,
+    'a committed config earns silence, not an ok row',
+  )
+})
+
+test('doctor says nothing about committing outside a git repo', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-doc-nogit-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ jira: { siteUrl: SITE, projectKey: 'PROJ' } }),
+  )
+  const r = await run(['doctor', '--json'], dir)
+  assert.strictEqual(r.code, 0)
+  assert.strictEqual(
+    JSON.parse(r.out).checks.find((c) => c.label === 'Config committed'),
+    undefined,
+    'no git is a cannot-tell, not an accusation',
+  )
 })
