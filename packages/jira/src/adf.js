@@ -66,7 +66,15 @@ function inlineNodes(src, marks = []) {
         break
       }
       const body = rest.slice(1, close)
-      if (body) out.push(text(body, [...marks, { type: 'code' }]))
+      // ADF puts `code` in an exclusion group: Jira rejects the WHOLE document
+      // when a text node carries `code` beside strong/em (or any mark other
+      // than `link`, the one companion the schema allows). So inherited
+      // emphasis is DROPPED here rather than merged — `**x `+'`'+`y`+'`'+` z**`
+      // renders y as plain code, exactly as Jira's own editor treats the same
+      // markdown — which loses emphasis, never words (fidelity is word-level
+      // by design; see the module header).
+      const kept = marks.filter((m) => m.type === 'link')
+      if (body) out.push(text(body, [...kept, { type: 'code' }]))
       rest = rest.slice(close + 1)
     } else if (kind === 'strong') {
       const close = rest.indexOf('**', 2)

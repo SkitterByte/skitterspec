@@ -108,3 +108,51 @@ test('the taskLists:false fallback renders checklists as bullets, words intact',
   assert.match(back, /\[ \] open/)
   assert.match(back, /\[x\] done/)
 })
+
+// --- the `code` mark exclusion group -----------------------------------------
+// Jira's ADF schema lets `code` coexist ONLY with `link`; a text node carrying
+// `code` beside strong/em is rejected — and the rejection is the WHOLE
+// document, so one `**x `+'`'+`y`+'`'+` z**` in a spec makes it unpushable.
+
+const textNodes = (node, out = []) => {
+  if (node && node.type === 'text') out.push(node)
+  for (const child of (node && node.content) || []) textNodes(child, out)
+  return out
+}
+const markTypes = (node) => (node.marks || []).map((m) => m.type).sort()
+const nodeFor = (md, word) => {
+  const found = textNodes(mdToAdf(md)).find((n) => n.text.includes(word))
+  assert.ok(found, `no text node containing "${word}" in mdToAdf(${JSON.stringify(md)})`)
+  return found
+}
+
+test('inline code inside emphasis drops the emphasis, never merges it', () => {
+  assert.deepStrictEqual(markTypes(nodeFor('**x `y` z**', 'y')), ['code'])
+  assert.deepStrictEqual(markTypes(nodeFor('*x `y` z*', 'y')), ['code'])
+  assert.deepStrictEqual(markTypes(nodeFor('**a *b `c` d* e**', 'c')), ['code'])
+})
+
+test('no document ever carries code beside a mark Jira excludes', () => {
+  const nasty = 'Top **bold `one`** and *em `two`* and **outer *inner `three`* tail**.'
+  for (const node of textNodes(mdToAdf(nasty))) {
+    const types = (node.marks || []).map((m) => m.type)
+    if (!types.includes('code')) continue
+    const others = types.filter((t) => t !== 'code' && t !== 'link')
+    assert.deepStrictEqual(others, [], `"${node.text}" carries code beside ${others.join('+')}`)
+  }
+})
+
+// The stays-silent half (negative-checks rule 3): every combination that was
+// always legal must ride through untouched — the fix must not start stripping.
+test('legal mark combinations are left exactly as they were', () => {
+  assert.deepStrictEqual(markTypes(nodeFor('plain `y` here', 'y')), ['code'])
+  assert.deepStrictEqual(markTypes(nodeFor('**y**', 'y')), ['strong'])
+  assert.deepStrictEqual(markTypes(nodeFor('**a *y* b**', 'y')), ['em', 'strong'])
+  assert.deepStrictEqual(markTypes(nodeFor('[`y`](https://x.y)', 'y')), ['code', 'link'])
+  assert.deepStrictEqual(markTypes(nodeFor('[**y**](https://x.y)', 'y')), ['link', 'strong'])
+})
+
+test('bold-wrapped inline code still round-trips word-perfect', () => {
+  const md = 'Before **x `y` z** after, and *em `q` tail*.'
+  assert.strictEqual(roundTrip(md), stream(md))
+})
