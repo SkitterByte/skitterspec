@@ -185,3 +185,32 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-09-23 — Phase 6 repo half built (docs page, links, SETUP + smoke
   checklist). Live smoke and the 1.0.0 release are operator steps, the release
   necessarily post-landing.
+- 2026-09-23 — Smoke finding, fixed: mdToAdf merged inherited strong/em onto
+  `code` marks, and ADF's exclusion group makes Jira reject the whole document
+  (verified against the live API: only `link` may accompany `code`). Inherited
+  marks are now filtered to link-only at the code branch of inlineNodes —
+  emphasis lost, words kept, per the module's word-level contract. Red→green
+  with both test halves (packages/jira/test/adf.test.js). Diagnosis oracle
+  worth keeping: a create POST with summary omitted always 400s and creates
+  nothing, but still validates the description — a free ADF validator.
+- 2026-09-23 — Follow-up surfaced: adfToText nests emphasis fences around a
+  code span (`**x **`…`** z**` shapes) — word stream intact so the contract
+  holds; cosmetic read-side twin of the exclusion blind spot. Not in scope.
+- 2026-09-23 — Follow-up surfaced: `spec-env up <name> --docs` in a repo with
+  an unborn HEAD (zero commits) crashes with a null "to" argument AFTER
+  printing the plan, leaving an orphan worktree. Base-branch resolution needs
+  a positive check; wants its own spec. Not in scope here.
+- 2026-09-23 — Smoke finding, fixed: nothing in the flow ever drove the
+  scaffolding/config to a commit — every lifecycle commit is bounded by
+  pathspec (correctly), so `jira.config.json` stayed untracked and every spec
+  worktree (forked from a commit) saw no config and reported sync off.
+  init-config's write now says "commit it", SETUP.md warns, and doctor gained
+  a `warn` row on an untracked config (positive signal: git tracks the file;
+  no-git and other cannot-tells stay silent).
+- 2026-09-23 — Smoke finding, documented: a deployment-pipeline workflow (On
+  Test/On Live) makes finished phase subtasks read as deployed — status was
+  carrying two state machines. Guidance added: jira.config.md "Choosing your
+  status map" (work statuses, not pipeline stages; subtask workflows, fix
+  versions, deployments panel as the standard outs) with a pointer from the
+  states table row and SETUP.md step 3. The pipeline walk itself stays
+  release.stages ladder territory, deferred from v1.
