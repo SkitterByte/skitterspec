@@ -45,7 +45,8 @@ the map honest:
   Jira lets you say so structurally.
 - **Track "which release contains this" with fix versions** — the Releases
   hub, the analogue of what `spec-sync released` computes from `Refs:`
-  trailers.
+  trailers. (Available on every plan; in the current "Spaces" UI it is not a
+  Features toggle but a **tab** — add it with `+` in the space's tab bar.)
 - **Let CI/CD integrations stamp environment position** (the deployments
   panel), so it never needs to be a status at all.
 
