@@ -253,7 +253,14 @@ function makeApiAdapter({ siteUrl, email, token, fetch: fetchImpl, sleep, maxRet
       for (const type of raw || []) {
         for (const status of type.statuses || []) {
           if (status && status.name && !names.has(status.name)) {
-            names.set(status.name, { id: String(status.id), name: status.name })
+            names.set(status.name, {
+              id: String(status.id),
+              name: status.name,
+              // The status CATEGORY (To Do / In Progress / Done) is what boards
+              // and reports key off — a different axis from the name, and worth
+              // surfacing wherever the names are listed.
+              category: (status.statusCategory && status.statusCategory.name) || null,
+            })
           }
         }
       }

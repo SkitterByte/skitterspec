@@ -226,3 +226,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the next worktree push, but silent). A one-line "reading: <tree> @ <branch>"
   or a warn when the spec has a provisioned worktree elsewhere would name it —
   both providers. Not in scope here.
+- 2026-09-25 — Smoke finding, built: the bucket→status wiring was invisible
+  between init-config runs, and Jira's third state axis (backlog/sprint
+  membership vs status vs column) made a correct transition look wrong on the
+  board. `spec-sync states` now renders the bucket map — per-row verdicts with
+  status categories, closest match on a miss, one-line remap — and the
+  adapter carries statusCategory through. Board/sprint membership stays
+  deliberately untouched: sync mirrors spec state, never team ceremony.

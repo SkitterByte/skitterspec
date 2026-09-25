@@ -83,7 +83,10 @@ pnpm exec skitterspec-jira spec-sync states [--via api|mcp] [--json]
   issue, say so — those are the ones a push would mint.
 - **`states`** reaches the project. It also reports the **transport** (`api`
   when credentials resolve, else `mcp`), which is the honest way to answer "how
-  is this talking to Jira?".
+  is this talking to Jira?". Its non-JSON output ends with the **bucket map** —
+  every lifecycle bucket against the project's real statuses, a verdict per
+  row — which is the answer to relay when the user asks whether the mapping is
+  right.
 - **`list`** is the read side of the mirror: every spec issue Jira holds,
   joined to the local spec folder that owns it. Unlike `linked`, it asks JIRA
   what exists rather than the repo — which is the only way to see a spec started

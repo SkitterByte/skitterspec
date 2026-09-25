@@ -50,6 +50,12 @@ the map honest:
 - **Let CI/CD integrations stamp environment position** (the deployments
   panel), so it never needs to be a status at all.
 
+**Seeing the map is one command:** `spec-sync states` renders every bucket
+against the live project — the configured status, a verdict per row with the
+status's board category, the closest match when one is missing, and the
+one-line remap. Run it whenever the wiring feels uncertain; it changes
+nothing.
+
 Walking the parent through pipeline stages at *release* time is the
 `release.stages` ladder — deferred in this provider's v1 — not a job for the
 lifecycle skills.

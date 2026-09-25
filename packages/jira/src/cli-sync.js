@@ -483,7 +483,30 @@ async function specSyncStates(dir, config, flags, out) {
     out.write(JSON.stringify(names, null, 2) + '\n')
     return 0
   }
-  out.write([`${PROGRAM} states: ${config.jira.projectKey}`, ...names.map((n) => `  ${n}`)].join('\n') + '\n')
+  const catOf = new Map(states.map((s) => [s.name, s.category || null]))
+  const lines = [
+    `${PROGRAM} states: ${config.jira.projectKey}`,
+    ...names.map((n) => `  ${n}${catOf.get(n) ? `  [${catOf.get(n)}]` : ''}`),
+  ]
+  // The bucket map — the one visual answer to "is skitterspec wired to what
+  // this project actually has?". Every bucket gets a row and a verdict, a
+  // missing status names its closest match, and the remap is one command.
+  const suggestions = new Map(stateSuggestions(config, names).map((x) => [x.bucket, x.suggestion]))
+  const buckets = Object.entries(config.states)
+  const bw = Math.max(...buckets.map(([b]) => b.length))
+  const nw = Math.max(...buckets.map(([, n]) => String(n).length))
+  lines.push('', '  map: lifecycle bucket -> Jira status')
+  const missing = []
+  for (const [bucket, name] of buckets) {
+    const ok = names.includes(name)
+    if (!ok) missing.push(bucket)
+    const tail = ok
+      ? `ok${catOf.get(name) ? ` [${catOf.get(name)}]` : ''}`
+      : `MISSING from the project${suggestions.get(bucket) ? ` — closest: "${suggestions.get(bucket)}"` : ''}`
+    lines.push(`  ${bucket.padEnd(bw)} -> ${String(name).padEnd(nw)}  ${tail}`)
+  }
+  if (missing.length) lines.push(`  remap: ${PROGRAM} init-config --force --state <bucket>="<status>"`)
+  out.write(lines.join('\n') + '\n')
   return 0
 }
 

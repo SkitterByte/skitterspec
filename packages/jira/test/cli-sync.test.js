@@ -111,7 +111,11 @@ function fakeAdapter() {
       return []
     },
     async listIssueStates() {
-      return [{ id: '1', name: 'To Do' }, { id: '2', name: 'In Progress' }, { id: '3', name: 'Done' }]
+      return [
+        { id: '1', name: 'To Do', category: 'To Do' },
+        { id: '2', name: 'In Progress', category: 'In Progress' },
+        { id: '3', name: 'Done', category: 'Done' },
+      ]
     },
     async listComments(keyOrId) {
       calls.push(['listComments', keyOrId])
@@ -556,4 +560,34 @@ test('doctor says nothing about committing outside a git repo', async () => {
     undefined,
     'no git is a cannot-tell, not an accusation',
   )
+})
+
+
+// --- the bucket map ----------------------------------------------------------
+// "How is skitterspec wired to what this project actually has?" gets one
+// visual answer: `states` renders every bucket with a verdict. Both halves per
+// negative-checks rule 3 — a broken map accuses, a healthy one stays quiet.
+test('states renders the bucket map, naming the miss and its closest match', async () => {
+  const dir = repoWithSpec({ config: { states: { complete: 'Shipped' } } })
+  const r = await run(['states'], dir, { adapter: fakeAdapter() })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /map: lifecycle bucket -> Jira status/)
+  assert.match(r.out, /backlog\s+-> To Do\s+ok \[To Do\]/)
+  assert.match(r.out, /complete\s+-> Shipped\s+MISSING from the project — closest: "Done"/)
+  assert.match(r.out, /remap: spec-sync init-config --force --state/)
+})
+
+test('a fully-mapped project earns ok rows and no remap line', async () => {
+  const dir = repoWithSpec({ config: { states: { complete: 'Done', cancelled: 'Done' } } })
+  const r = await run(['states'], dir, { adapter: fakeAdapter() })
+  assert.strictEqual(r.code, 0)
+  assert.doesNotMatch(r.out, /MISSING/)
+  assert.doesNotMatch(r.out, /remap:/)
+  assert.match(r.out, /complete\s+-> Done\s+ok \[Done\]/)
+})
+
+test('states --json stays the bare array --workspace-states consumes', async () => {
+  const dir = repoWithSpec()
+  const r = await run(['states', '--json'], dir, { adapter: fakeAdapter() })
+  assert.deepStrictEqual(JSON.parse(r.out), ['To Do', 'In Progress', 'Done'])
 })
