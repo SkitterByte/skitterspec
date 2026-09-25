@@ -214,3 +214,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   versions, deployments panel as the standard outs) with a pointer from the
   states table row and SETUP.md step 3. The pipeline walk itself stays
   release.stages ladder territory, deferred from v1.
+- 2026-09-25 — Smoke finding, fixed: /spec-sync reported ⚠️ for a branch-local
+  bucket (an in-flight spec reading `backlog` from the primary checkout) — the
+  normal case of worktree mode, misclassified because the skill's ⚠️ bullet
+  invited it and its field list had no Notes row to carry the fact. Both
+  providers' spec-sync skills now name the case ✅-with-Notes and gain the
+  Notes field.
+- 2026-09-25 — Follow-up surfaced: spec-sync plan/apply read the tree they run
+  in, so a run from the primary checkout while the spec is in flight in a
+  worktree pushes the stale base-branch view over the mirror (self-healing on
+  the next worktree push, but silent). A one-line "reading: <tree> @ <branch>"
+  or a warn when the spec has a provisioned worktree elsewhere would name it —
+  both providers. Not in scope here.

@@ -230,7 +230,16 @@ the shape; this section carries only what is specific here.
 - `⏸` — it refused: no config, an unvalidated state list, a bad argument.
   Nothing was written.
 
-**Fields:** `Tracker` · `Follow-ups` · `Next`
+**A branch-local bucket is the normal case, never the caveat.** `linked`
+reads the checkout it runs in, and an in-flight spec's move to
+`in-progress` lives on its own unlanded branch — so from the primary
+checkout the spec still reads `backlog` while the tracker (pushed from
+the worktree) is ahead. That is worktree mode working as designed:
+report it `✅` with the fact in `Notes`. Spending `⚠️` on the normal
+case is how the verdict stops meaning anything — the same argument
+`spec-reports.md` makes for `Untouched`.
+
+**Fields:** `Tracker` · `Notes` · `Follow-ups` · `Next`
 
 `Tracker` says what changed in Linear **and that the repo is unchanged** — it is
 the source of truth either way, and a report that omits the second half reads as
