@@ -233,3 +233,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   status categories, closest match on a miss, one-line remap — and the
   adapter carries statusCategory through. Board/sprint membership stays
   deliberately untouched: sync mirrors spec state, never team ceremony.
+- 2026-10-13 — Smoke finding, fixed: a stamp of a key Jira does not hold
+  (ERQ-9 for ERQ-8) wrote silently and failed one command later in preserve —
+  the wrong-id duplicate trap the stamp docs warn about, caught only by lucky
+  ordering. stamp now reads each key when credentials resolve: a positive
+  "no such issue" refuses writing nothing, a verified stamp says so, and every
+  cannot-tell (offline, unreachable) stamps exactly as before.

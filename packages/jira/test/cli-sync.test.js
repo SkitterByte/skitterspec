@@ -591,3 +591,40 @@ test('states --json stays the bare array --workspace-states consumes', async () 
   const r = await run(['states', '--json'], dir, { adapter: fakeAdapter() })
   assert.deepStrictEqual(JSON.parse(r.out), ['To Do', 'In Progress', 'Done'])
 })
+
+// --- stamp's live check -------------------------------------------------------
+// A wrong stamp mints a duplicate on the NEXT push, far from the typo, so when
+// credentials resolve stamp refuses a key Jira positively lacks. Both halves
+// per negative-checks rule 3: the refusal fires, and every cannot-tell —
+// offline, unreachable — stamps exactly as before.
+test('stamp refuses a key Jira says does not exist, writing nothing', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter() // holds no issues at all
+  const r = await run(['stamp', 'feat-demo', '--issue', 'PROJ-99'], dir, { adapter })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /PROJ-99: Jira has no such issue/)
+  const overview = fs.readFileSync(path.join(dir, 'specs', 'in-progress', 'feat-demo', '00-overview.md'), 'utf-8')
+  assert.doesNotMatch(overview, /jira_identifier/)
+})
+
+test('stamp verifies the key when it can, and says so', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  const made = await adapter.createIssue({ title: 'Hand-filed', description: 'PM text' })
+  const r = await run(['stamp', 'feat-demo', '--issue', made.identifier], dir, { adapter })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /verified against Jira/)
+})
+
+test('an unreachable Jira stamps anyway, saying it could not check', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  adapter.readIssue = async () => {
+    throw new Error('getaddrinfo ENOTFOUND')
+  }
+  const r = await run(['stamp', 'feat-demo', '--issue', 'PROJ-7'], dir, { adapter })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /could not check the key\(s\) against Jira — stamping anyway/)
+  assert.match(r.out, /PROJ-7 stamped onto feat-demo/)
+  assert.doesNotMatch(r.out, /verified against Jira/)
+})

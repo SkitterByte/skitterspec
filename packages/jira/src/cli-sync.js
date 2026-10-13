@@ -307,7 +307,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
   }
 }
 
-function specSyncStamp(dir, config, specArg, flags, out) {
+async function specSyncStamp(dir, config, specArg, flags, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return 1
   // Validate EVERYTHING before writing ANYTHING: a half-stamped spec mints
@@ -327,6 +327,30 @@ function specSyncStamp(dir, config, specArg, flags, out) {
     else if (!ID_RE.test(id)) problems.push(`--sub ${pair}: ${id || '(empty)'} is not an issue key`)
     else subs.push({ file, id })
   }
+  // The live half of the same promise: when credentials resolve, a key Jira
+  // positively answers "no such issue" to is refused — a wrong stamp's whole
+  // failure mode is a duplicate minted LATER, far from the typo, so catching
+  // it here is worth one read per key. Offline use stays first-class: no
+  // credentials, or a Jira that cannot be reached, is a cannot-tell and stamps
+  // exactly as before (negative-checks rule 4) — a thrown read says it could
+  // not check rather than implying it did.
+  let verified = false
+  if (!problems.length) {
+    const cred = apiAdapterFor(config, flags)
+    if (cred.ok) {
+      try {
+        const keys = [[flags.issue, '--issue'], ...subs.map((sub) => [sub.id, `--sub ${path.basename(sub.file)}`])]
+        for (const [id, label] of keys) {
+          if ((await cred.adapter.readIssue(id)) == null) {
+            problems.push(`${label} ${id}: Jira has no such issue — check the key in the browser URL`)
+          }
+        }
+        verified = !problems.length
+      } catch {
+        out.write(`${PROGRAM} stamp: could not check the key(s) against Jira — stamping anyway\n`)
+      }
+    }
+  }
   if (problems.length) {
     out.write([`${PROGRAM} stamp: refusing — nothing written`, ...problems.map((p) => `  ${p}`)].join('\n') + '\n')
     return 1
@@ -340,7 +364,8 @@ function specSyncStamp(dir, config, specArg, flags, out) {
   })
   for (const { file, id } of subs) stampSubIssueId(snapshotDir, file, id, config)
   out.write(
-    `${PROGRAM} stamp: ${flags.issue} stamped onto ${path.basename(snapshotDir)} (+${subs.length} subtask stamp(s))\n`,
+    `${PROGRAM} stamp: ${flags.issue} stamped onto ${path.basename(snapshotDir)} (+${subs.length} subtask stamp(s))` +
+      `${verified ? ' — verified against Jira' : ''}\n`,
   )
   return 0
 }
