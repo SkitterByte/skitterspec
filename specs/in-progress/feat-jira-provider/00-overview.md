@@ -239,3 +239,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   ordering. stamp now reads each key when credentials resolve: a positive
   "no such issue" refuses writing nothing, a verified stamp says so, and every
   cannot-tell (offline, unreachable) stamps exactly as before.
+- 2026-10-16 — Smoke finding, fixed in docs: step 6's read-back shape says
+  `subIssues: { "<ref>": "<text>" }` without defining a ref. Keyed by the
+  phase file's full basename (`01-date-logic.md`) verify reports every
+  sub-issue as a stale ref — the projection's ref strips `.md`
+  (normalize.js `file.replace(/\.md$/, '')`). SETUP.md now says so. Steps
+  5–7 (report half) otherwise passed live against ERQ-8/9/10: preserve
+  comment survived the linking apply, 3 descriptions round-tripped intact,
+  released counted 4 ERQ-5 commits + 2 unreferenced + 3 ignored.

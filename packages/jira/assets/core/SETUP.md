@@ -164,7 +164,9 @@ apply path. `states.json` below is the project's status names.
    a second `preserve` reports "already preserved".
 
 6. **Verify** — save a read-back (`{ "issue": "<description text>",
-   "subIssues": { "<ref>": "<text>" } }`) and:
+   "subIssues": { "<ref>": "<text>" } }`; a ref is the phase file's basename
+   without `.md`, e.g. `01-date-logic` — keyed with the extension it reports
+   every sub-issue as a stale ref) and:
 
    ```sh
    pnpm exec skitterspec-jira spec-sync verify <spec> --stored readback.json
