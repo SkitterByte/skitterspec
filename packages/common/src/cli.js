@@ -1097,20 +1097,19 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   out.push('')
   out.push('  to provision, run:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
-  // Seed files first (setup may depend on them), then the setup commands —
-  // both run in the worktree, under one heading.
-  const worktreeSteps = [...plan.seedCommands, ...plan.setupCommands]
+  // Everything after the fork runs in the worktree, under one heading, in the
+  // order each step depends on the last: seeds (the env file may be one), the
+  // env file, setup (which may derive values into it), and only then the stack.
+  const worktreeSteps = [
+    ...plan.seedCommands,
+    ...(plan.envCommands || []),
+    ...plan.setupCommands,
+    ...(plan.dockerCommands || []),
+  ]
   if (worktreeSteps.length) {
     out.push('')
     out.push('  then, in the worktree, run:')
     for (const cmd of worktreeSteps) out.push(`    ${cmd}`)
-  }
-  if (plan.envContents) {
-    out.push('')
-    out.push(`  write ${config.docker.envFile} in the worktree:`)
-    for (const line of plan.envContents.replace(/\n$/, '').split('\n')) {
-      out.push(`    ${line}`)
-    }
   }
   process.stdout.write(out.join('\n') + '\n')
 }

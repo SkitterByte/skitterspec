@@ -91,7 +91,7 @@ run from the primary checkout before any worktree step. It never passes
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Reorder the plan, emit the env file as a command, pass `--env-file` | ⬜ | [01-reorder-and-env-file.md](01-reorder-and-env-file.md) |
+| 1 | Reorder the plan, emit the env file as a command, pass `--env-file` | ✅ | [01-reorder-and-env-file.md](01-reorder-and-env-file.md) |
 
 ## Open questions
 
@@ -111,3 +111,12 @@ run from the primary checkout before any worktree step. It never passes
   rather than through `/spec-bug`'s test-first flow, because the session that
   found it couldn't edit this repo (`/add-dir` is unavailable over Remote
   Control). Phase 1 starts by writing the failing test.
+- 2026-10-18 — Phase 1 built. Decision 5's `--json` half has no surface:
+  `spec-env up` has no `--json`, so `envCommands` / `dockerCommands` are on
+  the `planUp` result only. The CLI test lives in
+  `cli-spec-env-up-docs.test.js`, which already scaffolds a docker spec.
+  Consequence worth a release-note line: a docker project that seeds its
+  `envFile` as a symlink (the shipped example seeds `.env` and defaults
+  `envFile` to `.env`) now gets a refusal at the env-file step where it
+  used to write the primary checkout's file. Documented in `env.config.md`.
+  Release left unticked: it is the operator's call (`RELEASING.md`).

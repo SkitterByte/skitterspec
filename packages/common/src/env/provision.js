@@ -4,8 +4,8 @@
  * Pure provisioning planner for `spec-env up`.
  *
  * Given a resolved spec and its allocated slot, `planUp` returns the exact
- * side-effecting commands the `/spec-env` skill runs (`git worktree add`,
- * `docker compose up`) and the rendered `.env` contents — but performs no side
+ * side-effecting commands the `/spec-env` skill runs (`git worktree add`, the
+ * env file, `docker compose up`) and the rendered `.env` contents — but performs no side
  * effects itself. The caller (the CLI) reads/allocates the
  * registry and passes the slot; this stays deterministic and unit-testable with
  * no live git/docker.
@@ -72,6 +72,50 @@ function seedCommandFor(file, mode) {
   )
 }
 
+
+// Single-quote a value for POSIX sh: the only character that needs escaping
+// inside single quotes is the single quote itself.
+function shq(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`
+}
+
+/**
+ * Build one idempotent POSIX-sh command that writes the spec's env file in the
+ * current worktree (the cwd when the skill runs it).
+ *
+ * It was prose once — "write <envFile> in the worktree:" — which left the write
+ * to whoever read the plan, and a secrets guard that blocks any tool call naming
+ * `.env` refused it. As a command it is one more step the plan runs.
+ *
+ * Idempotent and additive: it `touch`es the file and appends each key only when
+ * no line already sets it, so a re-run changes nothing and a file `setup` has
+ * already written to keeps every value it holds — including a deliberate
+ * `PORT_OFFSET` of its own.
+ *
+ * A SYMLINK IS REFUSED, loudly. Seeding links gitignored files from the primary
+ * checkout, so a seeded env file is the primary checkout's own; appending
+ * through it would write this spec's port block into the main stack's
+ * configuration. It runs after the seeds precisely so that collision is caught
+ * rather than hidden. The fix is a `docker.envFile` naming a file of its own.
+ */
+function envFileCommandFor(envFile, projectName, offset) {
+  const f = shq(envFile)
+  const ensure = (key, value) =>
+    `{ grep -q '^${key}=' ${f} || echo ${shq(`${key}=${value}`)} >> ${f}; }`
+  return (
+    `if [ -L ${f} ]; then echo ${shq(
+      `env file ${envFile} is a symlink — docker.envFile must name a file of its ` +
+        "own, not a seeded one; refusing to write this spec's port block through it",
+    )} >&2; exit 1; fi; ` +
+    `touch ${f} && ` +
+    // A file without a trailing newline would glue the first appended key onto
+    // its last line.
+    `{ [ ! -s ${f} ] || [ -z "$(tail -c 1 ${f})" ] || echo >> ${f}; } && ` +
+    `${ensure('COMPOSE_PROJECT_NAME', projectName)} && ` +
+    `${ensure('PORT_OFFSET', offset)} && ` +
+    `echo ${shq(`env file ${envFile}: ready`)}`
+  )
+}
 
 // Cap a path list in a message: enough to recognise, not a wall of text.
 function listPaths(paths) {
@@ -294,8 +338,10 @@ function resolveStack(spec, config, { docs = false, composeFilePresent } = {}) {
  * @param {object} config normalised env config.
  * @param {object} opts  { docs } — documents mode (see below). Optional.
  * @returns {object} { worktreePath, branch, projectName, slot, portOffset,
- *                     envContents, commands, seedCommands,
- *                     setupCommands, docs, attached }
+ *                     envContents, commands, seedCommands, envCommands,
+ *                     setupCommands, dockerCommands, docs, attached }
+ *
+ * The worktree steps run in that order: seeds, env file, setup, compose.
  */
 function planUp(spec, alloc, config, ctx, opts = {}) {
   const { slot, attached } = alloc
@@ -367,12 +413,24 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
       ? `git worktree add ${spec.worktreePath} ${spec.branch}`
       : `git worktree add ${spec.worktreePath} -b ${spec.branch}${forkPoint}`,
   )
-  if (wantsDocker) {
-    commands.push(
-      `docker compose${composeFileArg(config, ctx ? ctx.composeFilePresent : undefined)}` +
-        ` --project-name ${spec.projectName} up -d`,
-    )
-  }
+  // The stack comes up LAST, in the worktree: after the seeds, after the env
+  // file, after `setup` — which may derive values into that file. It once ran
+  // from the primary checkout before the worktree existed, so compose read the
+  // primary checkout's env file, fell back to its defaults and collided with the
+  // main stack. `--env-file` is always passed: with the default `.env` it is what
+  // compose would have found anyway, and with any other name it is the only way
+  // compose finds it.
+  const envFile = (config.docker && config.docker.envFile) || '.env'
+  const envCommands = wantsDocker
+    ? [`${guard}; ${envFileCommandFor(envFile, spec.projectName, offset)}`]
+    : []
+  const dockerCommands = wantsDocker
+    ? [
+        `${guard}; docker compose` +
+          composeFileArg(config, ctx ? ctx.composeFilePresent : undefined) +
+          ` --env-file ${shq(envFile)} --project-name ${spec.projectName} up -d`,
+      ]
+    : []
 
   // The tree gate. A worktree forks from the base branch's tree, so an
   // uncommitted spec would produce a branch missing the spec it is for — this is
@@ -398,11 +456,13 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
     envContents,
     commands: gate.blocked ? [] : [...gate.commands, ...commands],
     seedCommands: gate.blocked ? [] : seedCommands,
+    envCommands: gate.blocked ? [] : envCommands,
     // Documents mode drops these, and keeps the seed commands above. The two are
     // not the same kind of thing: seeding links the gitignored files a worktree
     // has none of — cheap, and a spec author may well want `.env` present —
     // while `setup` is the expensive half that exists to make the tree run.
     setupCommands: gate.blocked || docs ? [] : setupCommands,
+    dockerCommands: gate.blocked ? [] : dockerCommands,
     // Reported so a caller reading `--json` can tell a documents worktree from a
     // full one POSITIVELY, rather than inferring it from what is missing. An
     // empty `setupCommands` also describes a project that configured no setup
@@ -481,6 +541,7 @@ module.exports = {
   planCheckoutUp,
   planSpecCommit,
   seedCommandFor,
+  envFileCommandFor,
   worktreeCd,
   resolveStack,
   composeFileArg,

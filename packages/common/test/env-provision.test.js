@@ -55,9 +55,9 @@ test('fresh spec → -b branch form + docker up, correct port offset', () => {
   const plan = planUp(spec(), { slot: 1, attached: false }, config(), HAS_COMPOSE)
   assert.strictEqual(plan.attached, false)
   assert.strictEqual(plan.portOffset, 3010) // 3000 + 1*10
-  assert.deepStrictEqual(plan.commands, [
-    'git worktree add /wt/thing -b feat/thing',
-    'docker compose -f docker-compose.yml --project-name app_thing up -d',
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+  assert.deepStrictEqual(payloads(plan.dockerCommands), [
+    "docker compose -f docker-compose.yml --env-file '.env' --project-name app_thing up -d",
   ])
   assert.strictEqual(plan.envContents, 'COMPOSE_PROJECT_NAME=app_thing\nPORT_OFFSET=3010\n')
 })
@@ -128,9 +128,8 @@ test('worktree-only still expands the opener (empty portOffset token)', () => {
 
 test('stack:docker emits the docker command when the master switch is on', () => {
   const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE)
-  assert.deepStrictEqual(plan.commands, [
-    'git worktree add /wt/thing -b feat/thing',
-    'docker compose -f docker-compose.yml --project-name app_thing up -d',
+  assert.deepStrictEqual(payloads(plan.dockerCommands), [
+    "docker compose -f docker-compose.yml --env-file '.env' --project-name app_thing up -d",
   ])
 })
 
@@ -142,8 +141,8 @@ test('stack:docker emits the docker command when the master switch is on', () =>
 
 test('a header-less spec with a compose file present still inherits docker', () => {
   const plan = planUp(spec(), { slot: 1, attached: false }, config(), HAS_COMPOSE)
-  assert.ok(
-    plan.commands.some((c) => c.startsWith('docker compose')),
+  assert.strictEqual(
+    plan.dockerCommands.length, 1,
     'the legacy fallback still works where there is a stack to bring up',
   )
 })
@@ -171,8 +170,8 @@ test('stays silent: an explicit docker header is never downgraded by a missing c
     config(),
     { composeFilePresent: false },
   )
-  assert.ok(
-    plan.commands.some((c) => c.startsWith('docker compose')),
+  assert.strictEqual(
+    plan.dockerCommands.length, 1,
     'the header wins; the gate never sees this spec',
   )
 })
@@ -182,7 +181,7 @@ test('stays silent: an explicit docker header is never downgraded by a missing c
 // names a file it does not have.
 test('stays silent: no -f is passed when the compose file was not found', () => {
   const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config())
-  const cmd = plan.commands.find((c) => c.startsWith('docker compose'))
+  const [cmd] = payloads(plan.dockerCommands)
   assert.doesNotMatch(cmd, /-f /, 'docker discovery is left exactly as it was')
 })
 
@@ -432,4 +431,159 @@ test('unreadable git provisions a worktree rather than accusing a healthy repo',
   assert.strictEqual(plan.blocked, false)
   assert.strictEqual(plan.specCommit, null)
   assert.strictEqual(plan.commands[0], 'git worktree add /wt/thing -b feat/thing')
+})
+
+// --- compose after setup, from the worktree (bug-compose-before-env) ---------
+//
+// Compose used to sit in `commands`, run from the primary checkout before the
+// worktree existed — so it read the primary checkout's env file and collided
+// with the main stack. It is now the last worktree step, after the env file and
+// setup, and it is told which env file to read.
+
+const { envFileCommandFor } = require('../src/env/provision.js')
+
+test('compose is never planned from the primary checkout', () => {
+  const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE)
+  assert.ok(
+    !plan.commands.some((c) => c.startsWith('docker compose')),
+    'no primary-checkout command brings a stack up',
+  )
+})
+
+test('dockerCommands: guarded compose up, with --env-file .env by default', () => {
+  const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE)
+  assert.deepStrictEqual(payloads(plan.dockerCommands), [
+    "docker compose -f docker-compose.yml --env-file '.env' --project-name app_thing up -d",
+  ])
+})
+
+test('dockerCommands: a configured envFile reaches compose', () => {
+  const plan = planUp(
+    spec({ stack: 'docker' }),
+    { slot: 1, attached: false },
+    config({ docker: { envFile: '.worktree.env' } }),
+    HAS_COMPOSE,
+  )
+  assert.match(plan.dockerCommands[0], /--env-file '\.worktree\.env' /)
+})
+
+test('envCommands: one guarded command writing the configured env file', () => {
+  const plan = planUp(
+    spec({ stack: 'docker' }),
+    { slot: 1, attached: false },
+    config({ docker: { envFile: '.worktree.env' } }),
+    HAS_COMPOSE,
+  )
+  assert.deepStrictEqual(payloads(plan.envCommands), [
+    envFileCommandFor('.worktree.env', 'app_thing', 3010),
+  ])
+  assert.strictEqual(plan.envContents, 'COMPOSE_PROJECT_NAME=app_thing\nPORT_OFFSET=3010\n')
+})
+
+// STAYS SILENT: a spec with no stack writes no env file and starts nothing.
+test('stays silent: worktree-only and --docs plan no env file and no compose', () => {
+  const wt = planUp(spec({ stack: 'worktree' }), { slot: null, attached: false }, config())
+  assert.deepStrictEqual(wt.envCommands, [])
+  assert.deepStrictEqual(wt.dockerCommands, [])
+  const docs = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE, {
+    docs: true,
+  })
+  assert.deepStrictEqual(docs.envCommands, [])
+  assert.deepStrictEqual(docs.dockerCommands, [])
+})
+
+test('a blocked plan carries no env or docker commands', () => {
+  const plan = planUp(
+    { ...spec({ stack: 'docker' }), bucket: 'backlog' },
+    { slot: 1, attached: false },
+    config(),
+    { ...HAS_COMPOSE, dirtyPaths: [], specOnFork: false, specFoundOn: 'feat/other', forkRef: 'main' },
+  )
+  assert.strictEqual(plan.blocked, true)
+  assert.deepStrictEqual(plan.envCommands, [])
+  assert.deepStrictEqual(plan.dockerCommands, [])
+})
+
+// --- envFileCommandFor, run for real under sh --------------------------------
+
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const { spawnSync } = require('node:child_process')
+
+function runIn(dir, cmd) {
+  return spawnSync('sh', ['-c', cmd], { cwd: dir, encoding: 'utf8' })
+}
+
+function tmp() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'envfile-'))
+}
+
+test('envFileCommandFor: a fresh file gets both keys', () => {
+  const dir = tmp()
+  try {
+    const r = runIn(dir, envFileCommandFor('.env', 'app_thing', 3010))
+    assert.strictEqual(r.status, 0, r.stderr)
+    assert.strictEqual(
+      fs.readFileSync(path.join(dir, '.env'), 'utf8'),
+      'COMPOSE_PROJECT_NAME=app_thing\nPORT_OFFSET=3010\n',
+    )
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('envFileCommandFor: a re-run is byte-identical', () => {
+  const dir = tmp()
+  try {
+    const cmd = envFileCommandFor('.env', 'app_thing', 3010)
+    runIn(dir, cmd)
+    const first = fs.readFileSync(path.join(dir, '.env'), 'utf8')
+    assert.strictEqual(runIn(dir, cmd).status, 0)
+    assert.strictEqual(fs.readFileSync(path.join(dir, '.env'), 'utf8'), first)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('envFileCommandFor: an existing file keeps its other keys and its own values', () => {
+  const dir = tmp()
+  try {
+    const file = path.join(dir, '.worktree.env')
+    fs.writeFileSync(file, 'TEST_DB_PORT=5433\nPORT_OFFSET=4000') // no trailing newline
+    const r = runIn(dir, envFileCommandFor('.worktree.env', 'app_thing', 3010))
+    assert.strictEqual(r.status, 0, r.stderr)
+    assert.strictEqual(
+      fs.readFileSync(file, 'utf8'),
+      'TEST_DB_PORT=5433\nPORT_OFFSET=4000\nCOMPOSE_PROJECT_NAME=app_thing\n',
+    )
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('envFileCommandFor: a symlinked env file is refused and its target untouched', () => {
+  const dir = tmp()
+  try {
+    const target = path.join(dir, 'main.env')
+    fs.writeFileSync(target, 'SECRET=1\n')
+    fs.symlinkSync(target, path.join(dir, '.env'))
+    const r = runIn(dir, envFileCommandFor('.env', 'app_thing', 3010))
+    assert.strictEqual(r.status, 1)
+    assert.match(r.stdout + r.stderr, /docker\.envFile/)
+    assert.strictEqual(fs.readFileSync(target, 'utf8'), 'SECRET=1\n')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('envFileCommandFor: a path with a quote is single-quoted safely', () => {
+  const dir = tmp()
+  try {
+    const r = runIn(dir, envFileCommandFor("it's.env", 'app_thing', 3010))
+    assert.strictEqual(r.status, 0, r.stderr)
+    assert.ok(fs.existsSync(path.join(dir, "it's.env")))
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })

@@ -94,6 +94,10 @@ function planDown(spec, config, flags, ctx) {
   }
 
   // --- docker compose down (drop volumes unless kept) ---
+  // Run from the primary checkout with no `--env-file`, unlike `up`, and on
+  // purpose: compose finds the stack's containers, networks and volumes by the
+  // project label `--project-name` gives it, so it needs nothing from the env
+  // file — which may already be gone with a half-removed worktree.
   if (wantsDocker) {
     const base =
       `docker compose${composeFileArg(config, ctx ? ctx.composeFilePresent : undefined)}` +

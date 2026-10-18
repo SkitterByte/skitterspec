@@ -140,8 +140,40 @@ test('a fresh docker spec still allocates its slot and brings the stack up', asy
   try {
     const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
     assert.match(out, /slot:\s+0\s+\(ports 3000-3009\)/)
-    assert.match(out, /docker compose --project-name \S+ up -d/)
+    assert.match(out, /docker compose --env-file '\.env' --project-name \S+ up -d/)
     assert.doesNotMatch(out, /docs:/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// bug-compose-before-env: compose is the LAST worktree step, never a
+// primary-checkout command, and the env file is a command rather than prose.
+test('a docker spec brings its stack up last, in the worktree, after setup', async () => {
+  const { dir, folder } = scaffold(
+    'f',
+    {
+      docker: { enabled: true, portBase: 3000, portsPerSpec: 10, envFile: '.worktree.env' },
+      seedFiles: ['.env'],
+      ...SETUP,
+    },
+    'worktree + docker',
+  )
+  try {
+    const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+    const [primary, worktree] = out.split('then, in the worktree, run:')
+    assert.doesNotMatch(primary, /docker compose/, 'nothing brings a stack up from the primary checkout')
+    const at = (re) => {
+      const i = worktree.search(re)
+      assert.ok(i >= 0, `missing ${re}`)
+      return i
+    }
+    const seed = at(/seed \.env/)
+    const env = at(/env file \.worktree\.env: ready/)
+    const setup = at(/pnpm install --frozen-lockfile/)
+    const up = at(/docker compose --env-file '\.worktree\.env' --project-name \S+ up -d/)
+    assert.ok(seed < env && env < setup && setup < up, 'seeds, env file, setup, compose')
+    assert.doesNotMatch(out, /write \S+ in the worktree:/, 'the prose block is gone')
   } finally {
     cleanup(dir)
   }

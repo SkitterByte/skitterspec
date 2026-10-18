@@ -87,6 +87,7 @@ test('--docs brings no docker up, even for a docker spec in a docker project', (
     { docs: true },
   )
   assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+  assert.deepStrictEqual(plan.dockerCommands, [])
   assert.strictEqual(plan.slot, null)
   assert.strictEqual(plan.portOffset, null)
   assert.strictEqual(plan.envContents, null)
@@ -95,10 +96,9 @@ test('--docs brings no docker up, even for a docker spec in a docker project', (
 test('the same docker spec without --docs still gets its stack', () => {
   // The pair above and below is the point: one flag is the only difference.
   const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config())
-  assert.deepStrictEqual(plan.commands, [
-    'git worktree add /wt/thing -b feat/thing',
-    'docker compose --project-name app_thing up -d',
-  ])
+  assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
+  assert.strictEqual(plan.dockerCommands.length, 1)
+  assert.match(plan.dockerCommands[0], /docker compose --env-file '\.env' --project-name app_thing up -d$/)
   assert.strictEqual(plan.portOffset, 3010)
 })
 

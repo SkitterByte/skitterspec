@@ -90,7 +90,17 @@ through to a documented conservative default; see the field notes below.
     "projectNamePattern": "{repoSlug}_{slug}", // → COMPOSE_PROJECT_NAME
     "portBase": 3000,          // first port of slot 0's block
     "portsPerSpec": 10,        // block width; slot n → portBase + n*portsPerSpec
-    "envFile": ".env",         // written into the worktree
+    // Written into the worktree, and passed to compose as `--env-file`. A
+    // Docker spec's worktree steps run in this order: seedFiles, this env file
+    // (COMPOSE_PROJECT_NAME and PORT_OFFSET appended only where missing, so a
+    // value `setup` or you put there is kept), `setup`, then
+    // `docker compose … up -d` — all from inside the worktree, so the stack
+    // reads this spec's values and not the primary checkout's.
+    // It must be a file of its OWN: if it is also in `seedFiles` as a symlink,
+    // the write is refused rather than send this spec's port block into the
+    // primary checkout's file. Name a different file here (".worktree.env")
+    // and have your compose file read the values from it.
+    "envFile": ".env",
     "backupCommand": ""        // optional pre-teardown backup (e.g. pg_dump);
                               // empty = no backup, volumes dropped directly.
   },
@@ -116,6 +126,8 @@ through to a documented conservative default; see the field notes below.
   // `local.settings.json`, `config/local.yml`.
   // Seeded files are gitignored, so they never make the worktree "dirty" and
   // never block teardown; they vanish with the worktree at `spec-env down`.
+  // On a Docker project, do not seed `docker.envFile` as a symlink — the env
+  // file step refuses to write through one (see `envFile` above).
   // [] (or absent) = seed nothing (current behaviour).
   "seedFiles": {
     "mode": "symlink",
