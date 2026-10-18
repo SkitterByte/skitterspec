@@ -81,7 +81,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine lists unpushed live specs, tested | ✅ | [01-engine-local-section.md](01-engine-local-section.md) |
-| 2 | `/spec-list` skill relays it on every path | ⬜ | [02-skill-relay.md](02-skill-relay.md) |
+| 2 | `/spec-list` skill relays it on every path | ✅ | [02-skill-relay.md](02-skill-relay.md) |
 
 ## Open questions
 
@@ -98,3 +98,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-10-18 — Spec created, prompted by `bug-compose-before-env` not appearing
   in `/spec-list`.
+- 2026-10-18 — Phase 2: allowlisted the local-only sample in
+  `assets-fences.test.js`; it is engine output the MCP path reproduces.

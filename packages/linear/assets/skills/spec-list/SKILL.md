@@ -147,6 +147,28 @@ That is `[{ spec, bucket, identifier }]`. Key it by `identifier` and attach each
 issue's local `spec` folder name. Format the rows exactly as the API path does
 (step 5), including the archived-exclusion line and the `showing N of M` count.
 
+**Then build the local-only section from the same output.** Entries with
+`identifier: null` are specs Linear has never seen. Keep only those in a live
+bucket the scope covers: `backlog` and `in-progress` by default, `backlog` alone
+under `--next`, `in-progress` alone under `--in-progress`. Never `complete` or
+`cancelled`, under any scope, because those hold specs from before Linear was
+adopted. Print them below the rows, outside the count and outside any `--next`
+cap, exactly as the API path does:
+
+```
+  local only — not linked on this branch (2)
+    bug-compose-before-env    backlog      /spec-push bug-compose-before-env
+```
+
+Say **"not linked on this branch"**, never "not in Linear". The identifier is
+read from this branch's copy of the file, so a spec pushed from its own worktree
+whose stamp has not landed here looks exactly the same.
+
+Under `--mine` or `--by`, leave the section out. These specs have no Linear
+assignee to match, so instead print one line:
+`N unpushed specs not filtered by assignee — the bare listing shows them`.
+When there are none, print nothing at all: no heading, and no line.
+
 ## 4. Degrade — never leave them with nothing
 
 Linear unreachable, no credential, no MCP tool, a Linear error: **do not stop**.
@@ -182,6 +204,11 @@ user reads:
 - **A row with no local match stays in**, marked `— (not linked here)`. It is not
   noise: a teammate's unlanded spec, or one authored inside another spec's
   worktree, is precisely what the repo could not have told them.
+- **The local-only section, when there is one** —
+  `local only — not linked on this branch (N)`, each row with its
+  `/spec-push <name>` hint, or the hidden-count line under `--mine` / `--by`.
+  It is the reverse of the row above: a spec this branch holds that Linear
+  cannot list. Leaving it out is how a written spec goes invisible.
 
 Finish with the hand-off, because every row carries the folder name for it —
 as a sentence, not a fenced block: say that `/spec-start <name>` starts any of
@@ -216,3 +243,5 @@ would have to pick one. The counts — `showing N of M` — and the archived
 exclusion belong to the listing above, where the engine already prints them.
 
 `Next` is the hand-off: `/spec-start <name>`, with a name copied from a row.
+When the only rows are local-only ones, `Next` is `/spec-push <name>` instead,
+because a spec Linear cannot see is linked before it is started.

@@ -56,6 +56,7 @@ const ALLOWED = {
   'linear/spec-list': [
     ['sortOrder is unavailable over MCP', 'the caveat line the skill must print verbatim'],
     ['Linear unreachable', 'the degradation banner, quoted so its wording is exact'],
+    ['local only — not linked', "the engine's local-only section, reproduced on the MCP path"],
   ],
   'linear/spec-linear-setup': [
     ['states.complete:', "a sample of the engine's refusal output"],
