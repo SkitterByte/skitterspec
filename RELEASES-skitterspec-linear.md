@@ -5,6 +5,14 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 17.4.0 — 18 Oct 2026
+
+### Env
+- **Fixed** — Specs with their own Docker stack now start it isolated: spec-env up brings the stack up last, from the spec's worktree, after setup has run, and docker.envFile can name any file. If your project seeds that env file as a symlink, the env-file step now refuses rather than writing into your main checkout's file; point docker.envFile at a file of its own.
+
+### List
+- **New** — /spec-list now also shows specs you have written but not yet pushed to Linear, with the command to push each one.
+
 ## 17.3.2 — 22 Sep 2026
 
 ### Env
