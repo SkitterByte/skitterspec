@@ -2,7 +2,7 @@
 
 > **Type:** Feature
 > **Name:** feat-list-unpushed-specs (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-18)
+> **Status:** Complete (2026-10-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-18
@@ -85,7 +85,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] None
+- [x] None
 
 ## State log
 
@@ -93,6 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-18 | Ready | backlog | Reuben Greaves |
 | 2026-10-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -100,3 +101,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   in `/spec-list`.
 - 2026-10-18 — Phase 2: allowlisted the local-only sample in
   `assets-fences.test.js`; it is engine output the MCP path reproduces.
+- 2026-10-18 — Completed; all phases done, tests green.
