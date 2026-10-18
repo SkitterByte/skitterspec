@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-387"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-387/bug-spec-env-up-starts-the-docker-stack-before-its-env-file-exists"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # Bug: `spec-env up` starts the Docker stack before its env file exists
 
 > **Type:** Bug
 > **Name:** bug-compose-before-env (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-18)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-17
 > **Area:** packages/common/src/env/provision.js, packages/common/src/cli.js, packages/common/src/env/teardown.js, packages/common/assets/core/env.config.md
 > **Stack:** worktree
@@ -100,6 +102,7 @@ run from the primary checkout before any worktree step. It never passes
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-17 | Ready | backlog | Reuben Greaves |
+| 2026-10-18 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
