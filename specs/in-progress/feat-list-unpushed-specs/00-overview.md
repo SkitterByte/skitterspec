@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-list-unpushed-specs (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-18)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-18
 > **Area:** packages/linear/src/cli-sync.js, packages/linear/test/cli-list.test.js, packages/linear/assets/skills/spec-list/SKILL.md
 > **Stack:** worktree
@@ -92,6 +92,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-18 | Ready | backlog | Reuben Greaves |
+| 2026-10-18 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
