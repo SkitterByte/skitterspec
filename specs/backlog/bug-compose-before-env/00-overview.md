@@ -1,3 +1,8 @@
+---
+linear_identifier: "SKS-387"
+linear_url: "https://linear.app/skitterbyte/issue/SKS-387/bug-spec-env-up-starts-the-docker-stack-before-its-env-file-exists"
+---
+
 # Bug: `spec-env up` starts the Docker stack before its env file exists
 
 > **Type:** Bug

@@ -1,0 +1,12 @@
+{
+  "issue": "f148d93d7ebe1bf93e2e381b13558670f015c67e",
+  "issueFields": {
+    "description": "17aef2cca56b20df7ec73cd9878ec84b4022f217",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833",
+    "descriptionStream": "22c319e97f3502adad5adce9f4507241e3cf1e3a"
+  },
+  "subIssues": {
+    "SKS-388": "dcbd749b3b9569e4502c0e32dc8dd04081802688"
+  }
+}
