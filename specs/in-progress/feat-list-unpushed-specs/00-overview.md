@@ -80,7 +80,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine lists unpushed live specs, tested | ⬜ | [01-engine-local-section.md](01-engine-local-section.md) |
+| 1 | Engine lists unpushed live specs, tested | ✅ | [01-engine-local-section.md](01-engine-local-section.md) |
 | 2 | `/spec-list` skill relays it on every path | ⬜ | [02-skill-relay.md](02-skill-relay.md) |
 
 ## Open questions

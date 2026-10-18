@@ -768,3 +768,134 @@ test('--json carries who it filtered to, and null when it did not', async () => 
   const plain = await run(['list', '--json'], dir, { adapter: fakeLinear([issue('SKS-1', 'x', 'Backlog')]) })
   assert.strictEqual(JSON.parse(plain.out).assignedTo, null)
 })
+
+// --- local specs Linear has never seen (feat-list-unpushed-specs) -------------
+//
+// The fixture carries `feat-unlinked` in backlog/ with no identifier. These
+// add an unlinked in-progress spec and unlinked finished ones, so every bucket
+// rule is exercised from one repo.
+
+function fixtureWithUnlinked() {
+  const dir = fixtureRepo()
+  for (const [bucket, name] of [
+    ['in-progress', 'feat-wip-unlinked'],
+    ['complete', 'feat-old-unlinked'],
+    ['cancelled', 'feat-dropped-unlinked'],
+  ]) {
+    const folder = path.join(dir, 'specs', bucket, name)
+    fs.mkdirSync(folder, { recursive: true })
+    fs.writeFileSync(path.join(folder, '00-overview.md'), `# ${name}\n`, 'utf-8')
+  }
+  return dir
+}
+
+test('an unlinked live spec is listed in its own section, with a push hint', async () => {
+  const dir = fixtureWithUnlinked()
+  const r = await run(['list'], dir, { adapter: fakeLinear([issue('SKS-1', 'Linked', 'In Progress')]) })
+
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /local only — not linked on this branch \(2\)/)
+  assert.match(r.out, /feat-unlinked {2,}backlog {2,}\/spec-push feat-unlinked/)
+  assert.match(r.out, /feat-wip-unlinked {2}in-progress {2}\/spec-push feat-wip-unlinked/)
+})
+
+test('the local section does not change the count of Linear rows', async () => {
+  const dir = fixtureWithUnlinked()
+  const r = await run(['list'], dir, { adapter: fakeLinear([issue('SKS-1', 'Linked', 'In Progress')]) })
+
+  assert.match(r.out, /showing 1 of 1\n/)
+})
+
+test('--json carries the unlinked live specs as local[]', async () => {
+  const dir = fixtureWithUnlinked()
+  const r = await run(['list', '--json'], dir, { adapter: fakeLinear([]) })
+  const json = JSON.parse(r.out)
+
+  assert.deepStrictEqual(json.local, [
+    { spec: 'feat-unlinked', bucket: 'backlog' },
+    { spec: 'feat-wip-unlinked', bucket: 'in-progress' },
+  ])
+  assert.strictEqual(json.total, 0)
+  assert.strictEqual('localHidden' in json, false)
+})
+
+test('an empty Linear listing still shows the local section', async () => {
+  const dir = fixtureWithUnlinked()
+  const r = await run(['list'], dir, { adapter: fakeLinear([]) })
+
+  assert.match(r.out, /no spec issues in scope/)
+  assert.match(r.out, /local only — not linked on this branch \(2\)/)
+})
+
+test('--in-progress shows only unlinked in-progress specs', async () => {
+  const dir = fixtureWithUnlinked()
+  const r = await run(['list', '--in-progress', '--json'], dir, { adapter: fakeLinear([]) })
+
+  assert.deepStrictEqual(JSON.parse(r.out).local, [{ spec: 'feat-wip-unlinked', bucket: 'in-progress' }])
+})
+
+test('--next shows only unlinked backlog specs, outside its cap', async () => {
+  const dir = fixtureWithUnlinked()
+  const many = Array.from({ length: 3 }, (_, i) => issue(`SKS-${10 + i}`, `n${i}`, 'Backlog'))
+  const r = await run(['list', '--next', '1'], dir, { adapter: fakeLinear(many) })
+
+  assert.match(r.out, /showing 1 of 3 in backlog/)
+  assert.match(r.out, /local only — not linked on this branch \(1\)/)
+  assert.match(r.out, /feat-unlinked/)
+  assert.doesNotMatch(r.out, /feat-wip-unlinked/)
+})
+
+test('--mine hides the local section and says how many it hid', async () => {
+  const dir = fixtureWithUnlinked()
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Mine', 'In Progress', { assignee: JANE })], {
+    viewer: JANE,
+  })
+  const r = await run(['list', '--mine'], dir, { adapter: linear, env: isolatedEnv(dir) })
+
+  assert.match(r.out, /2 unpushed specs not filtered by assignee — the bare listing shows them/)
+  assert.doesNotMatch(r.out, /local only/)
+  assert.doesNotMatch(r.out, /feat-unlinked/)
+})
+
+test('--by hides the local section, and --json carries localHidden instead', async () => {
+  const dir = fixtureWithUnlinked()
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Hers', 'In Progress', { assignee: JANE })], {
+    users: [JANE],
+  })
+  const r = await run(['list', '--by', 'jane', '--json'], dir, { adapter: linear, env: isolatedEnv(dir) })
+  const json = JSON.parse(r.out)
+
+  assert.strictEqual(json.localHidden, 2)
+  assert.strictEqual('local' in json, false)
+})
+
+// Stays-silent (.claude/rules/negative-checks.md rule 3): specs from before
+// Linear was adopted sit unlinked in complete/ and cancelled/ by the dozen.
+test('stays silent: unlinked complete and cancelled specs never appear, even under --all', async () => {
+  const dir = fixtureWithUnlinked()
+  for (const argv of [['list'], ['list', '--all'], ['list', '--state', 'Done']]) {
+    const r = await run(argv, dir, { adapter: fakeLinear([]) })
+    assert.doesNotMatch(r.out, /feat-old-unlinked|feat-dropped-unlinked/, argv.join(' '))
+  }
+})
+
+test('stays silent: with every live spec linked there is no section and no heading', async () => {
+  const dir = fixtureRepo()
+  fs.rmSync(path.join(dir, 'specs', 'backlog', 'feat-unlinked'), { recursive: true })
+  const r = await run(['list'], dir, { adapter: fakeLinear([issue('SKS-1', 'Linked', 'In Progress')]) })
+  const json = JSON.parse((await run(['list', '--json'], dir, { adapter: fakeLinear([]) })).out)
+
+  assert.doesNotMatch(r.out, /local only|not linked on this branch|\/spec-push/)
+  assert.deepStrictEqual(json.local, [])
+})
+
+test('stays silent: --mine with nothing unlinked prints no hidden-count line', async () => {
+  const dir = fixtureRepo()
+  fs.rmSync(path.join(dir, 'specs', 'backlog', 'feat-unlinked'), { recursive: true })
+  const linear = fakeLinearWithUsers([issue('SKS-1', 'Mine', 'In Progress', { assignee: JANE })], {
+    viewer: JANE,
+  })
+  const r = await run(['list', '--mine'], dir, { adapter: linear, env: isolatedEnv(dir) })
+
+  assert.doesNotMatch(r.out, /unpushed/)
+})

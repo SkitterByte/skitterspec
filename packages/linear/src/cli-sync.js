@@ -2372,11 +2372,31 @@ async function specSyncList(dir, config, flags, out) {
   // is what every existing caller already reads.
   const ordered = next === null ? issues : issues.slice().sort(backlogOrder)
 
+  const localSpecs = listSpecs(dir, config)
   const byIdentifier = new Map(
-    listSpecs(dir, config)
+    localSpecs
       .filter((s) => s.identifier)
       .map((s) => [s.identifier, s]),
   )
+  // Specs Linear has never seen: no identifier, in a live bucket the scope
+  // covers. Only the live buckets, under every scope — complete/ holds specs
+  // from before Linear was adopted, never pushed and never going to be.
+  //
+  // WHAT WOULD FOOL THIS: the identifier is read from THIS branch's copy of the
+  // file. A spec pushed from its own worktree whose stamp has not landed here
+  // reads exactly like one never pushed — which is why the section says "not
+  // linked on this branch" and never "not in Linear".
+  const localBuckets = next !== null
+    ? ['backlog']
+    : flags.inProgress === true
+      ? ['in-progress']
+      : ['backlog', 'in-progress']
+  const unlinked = localSpecs
+    .filter((s) => !s.identifier && localBuckets.includes(s.bucket))
+    .map((s) => ({ spec: s.spec, bucket: s.bucket }))
+  // An assignee filter cannot be applied to a spec with no Linear assignee, so
+  // the section is withheld under one — counted, never silently dropped.
+  const localHidden = assignee ? unlinked.length : null
   // Identifier → Linear uuid, for the phase lookup below. Kept beside the rows
   // rather than on them, so the --json shape stays exactly what it prints.
   const uuidOf = new Map(ordered.map((i) => [i.identifier, i.id]))
@@ -2483,6 +2503,7 @@ async function specSyncList(dir, config, flags, out) {
           ...(next !== null ? { unprioritised } : {}),
           assignedTo: assignee,
           specs: shown,
+          ...(localHidden === null ? { local: unlinked } : { localHidden }),
         },
         null,
         2,
@@ -2516,6 +2537,11 @@ async function specSyncList(dir, config, flags, out) {
       `  ! could not read the phases of ${phaseFailures.join(', ')} — those rows show no phase`,
     )
   }
+  if (localHidden) {
+    lines.push(
+      `  ${localHidden} unpushed spec${localHidden === 1 ? '' : 's'} not filtered by assignee — the bare listing shows them`,
+    )
+  }
   lines.push('')
   if (!shown.length) {
     lines.push('  no spec issues in scope')
@@ -2536,6 +2562,17 @@ async function specSyncList(dir, config, flags, out) {
       )
       if (row.title) lines.push(`  ${pad}${row.title}`)
     }
+  }
+  if (localHidden === null && unlinked.length) {
+    const nameW = Math.max(...unlinked.map((s) => s.spec.length))
+    const bucketW = Math.max(...unlinked.map((s) => s.bucket.length))
+    lines.push('')
+    lines.push(`  local only — not linked on this branch (${unlinked.length})`)
+    for (const s of unlinked) {
+      lines.push(`    ${s.spec.padEnd(nameW)}  ${s.bucket.padEnd(bucketW)}  /spec-push ${s.spec}`)
+    }
+  }
+  if (shown.length) {
     lines.push('')
     lines.push('  start one with: /spec-start <name>')
   }
