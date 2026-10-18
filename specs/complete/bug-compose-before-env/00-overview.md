@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-compose-before-env (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-18)
+> **Status:** Complete (2026-10-18)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-17
@@ -103,6 +103,7 @@ run from the primary checkout before any worktree step. It never passes
 |------|--------|--------|----|
 | 2026-10-17 | Ready | backlog | Reuben Greaves |
 | 2026-10-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-18 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -120,3 +121,5 @@ run from the primary checkout before any worktree step. It never passes
   `envFile` to `.env`) now gets a refusal at the env-file step where it
   used to write the primary checkout's file. Documented in `env.config.md`.
   Release left unticked: it is the operator's call (`RELEASING.md`).
+- 2026-10-18 — Released as skitterspec@22.4.0 and skitterspec-linear@17.4.0.
+- 2026-10-18 — Completed; all phases done, tests green.

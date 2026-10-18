@@ -50,7 +50,7 @@ worktree. Proven by `env-provision` and `cli-spec-env-up` tests, red first.
 - [x] Run `pnpm test`, plus
       `docker run --rm --init -v "$PWD":/app -w /app node:22 node --test`, until
       green.
-- [ ] Release both distributions (`RELEASING.md`): base first, then linear, as
+- [x] Release both distributions (`RELEASING.md`): base first, then linear, as
       minor bumps.
 
 ## Notes
