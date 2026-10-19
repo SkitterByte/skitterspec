@@ -31,6 +31,17 @@ function copyDistOut(distDir, tag) {
   return out
 }
 
+// A distribution built into a throwaway directory, never into `packages/<dist>/`
+// — see 'no test in this file builds into the real checkout'. The manifest is
+// copied in because `copyDistOut` carries it and the bins read it.
+function scratchDist(dist) {
+  const out = tmpDir(`dist-${dist}`)
+  fs.copyFileSync(path.join(PKGS, dist, 'package.json'), path.join(out, 'package.json'))
+  return out
+}
+const builtBase = () => buildBase(scratchDist('skitterspec'))
+const builtLinear = () => buildLinear(scratchDist('skitterspec-linear'))
+
 const listSkills = (proj) => fs.readdirSync(path.join(proj, '.claude', 'skills')).sort()
 const read = (...p) => fs.readFileSync(path.join(...p), 'utf8')
 
@@ -70,10 +81,36 @@ test('a clean tree passes the guard', () => {
   assert.doesNotThrow(() => guardNoWorkspaceRequires(dir))
 })
 
+// --- the suite never builds into the real checkout --------------------------
+
+// `node --test` runs every test FILE in its own process, at the same time. These
+// tests used to build into `packages/<dist>/` itself, which deletes and
+// re-creates `assets/`, `bin/` and `src/` there while other files read them —
+// `assets-review.test.js` saw `assets/` present and `review/page.html` not yet
+// written, and failed a release's suite on a healthy tree. So a build takes an
+// output directory, and every build in this file names a throwaway one.
+test('a build given an output directory writes there and leaves the real distribution alone', () => {
+  for (const [dist, build] of [['skitterspec', buildBase], ['skitterspec-linear', buildLinear]]) {
+    const real = path.join(PKGS, dist, 'assets')
+    const before = fs.existsSync(real) ? fs.statSync(real).ino : null
+    const out = tmpDir(`out-${dist}`)
+    assert.strictEqual(build(out), out, `${dist} returns the directory it was given`)
+    assert.ok(fs.existsSync(path.join(out, 'assets', 'review', 'page.html')), `${dist} built into it`)
+    const after = fs.existsSync(real) ? fs.statSync(real).ino : null
+    assert.strictEqual(after, before, `${dist}: the real assets/ was not deleted and re-created`)
+  }
+})
+
+test('no test in this file builds into the real checkout', () => {
+  const self = fs.readFileSync(__filename, 'utf8')
+  const bare = self.match(/\bbuild(?:Base|Linear)\(\)/g) || []
+  assert.deepStrictEqual(bare, [], 'every build names a throwaway output directory')
+})
+
 // --- base distribution ------------------------------------------------------
 
 test('base build is tracker-free, self-contained, and installs the base skill set', () => {
-  const dist = buildBase() // throws if the guard finds any workspace require
+  const dist = builtBase() // throws if the guard finds any workspace require
 
   // no sync skills / seams / Linear in the composed base assets
   const skillsDir = path.join(dist, 'assets', 'skills')
@@ -112,7 +149,7 @@ test('base build is tracker-free, self-contained, and installs the base skill se
 // --- superset distribution --------------------------------------------------
 
 test('superset build fills the seams, ships sync, and runs the engine self-contained', () => {
-  const dist = buildLinear() // throws if any workspace require survives the vendor rewrite
+  const dist = builtLinear() // throws if any workspace require survives the vendor rewrite
 
   // composed /spec now carries the Linear fragment, no dangling marker
   const specSkill = read(dist, 'assets', 'skills', 'spec', 'SKILL.md')
@@ -203,7 +240,7 @@ test('every seam referenced by a skill has a fragment to fill it', () => {
 // The base check used to look at /spec alone, which only caught a dangling marker
 // in the one skill that had them. Seams now sit in six skills.
 test('no base skill ships a dangling seam marker', () => {
-  const dist = buildBase()
+  const dist = builtBase()
   const skillsDir = path.join(dist, 'assets', 'skills')
   const offenders = []
   for (const skill of fs.readdirSync(skillsDir)) {
@@ -222,7 +259,7 @@ test('no base skill ships a dangling seam marker', () => {
 // /spec-hotfix pointed at it and did not, so an agent following either one
 // literally hit a dead end — silently, since composing succeeds either way.
 test('no composed skill points at a section it does not define', () => {
-  const dist = buildLinear()
+  const dist = builtLinear()
   const skillsDir = path.join(dist, 'assets', 'skills')
   // "run the picker in **Name** below" / "see **Name** below" — a cross-reference
   // to a section of this same file, which must therefore have that heading.
@@ -241,8 +278,8 @@ test('no composed skill points at a section it does not define', () => {
 })
 
 test('the terminal skills carry the tracker step in the superset and not in the base', () => {
-  const linear = buildLinear()
-  const base = buildBase()
+  const linear = builtLinear()
+  const base = builtBase()
   for (const skill of ['spec-complete', 'spec-cancel']) {
     const withProvider = read(linear, 'assets', 'skills', skill, 'SKILL.md')
     assert.match(withProvider, /Refresh the mirror now/, `${skill} syncs in the superset`)
@@ -304,7 +341,7 @@ for (const [dist, binFile] of [
   ['skitterspec-linear', 'skitterspec-linear.js'],
 ]) {
   test(`${dist} composes an executable bin`, () => {
-    const out = dist === 'skitterspec' ? buildBase() : buildLinear()
+    const out = dist === 'skitterspec' ? builtBase() : builtLinear()
     const mode = fs.statSync(path.join(out, 'bin', binFile)).mode
     assert.ok(mode & 0o100, `${binFile} is owner-executable (got ${(mode & 0o777).toString(8)})`)
   })
@@ -315,7 +352,7 @@ for (const [dist, binFile] of [
 // same way copyFileSync does. Pinning both ends stops a future "just chmod the
 // bin" patch from re-opening the hole for anything else that needs a mode.
 test('the require-rewriting copy preserves modes, executable or not', () => {
-  const out = buildLinear()
+  const out = builtLinear()
   const exec = fs.statSync(path.join(out, 'bin', 'skitterspec-linear.js')).mode & 0o777
   const plain = fs.statSync(path.join(out, 'src', 'cli.js')).mode & 0o777
   const srcExec = fs.statSync(path.join(PKGS, 'linear', 'bin', 'skitterspec-linear.js')).mode & 0o777
@@ -330,7 +367,7 @@ test('the require-rewriting copy preserves modes, executable or not', () => {
 // had already configured it, telling you to set up what was already set up. The
 // base must still say nothing at all, having no provider to name.
 test('init reports tracker sync as ON once its config exists', () => {
-  const outside = copyDistOut(buildLinear(), 'tracker-note')
+  const outside = copyDistOut(builtLinear(), 'tracker-note')
   const proj = tmpDir('tracker-proj')
   const bin = path.join(outside, 'bin', 'skitterspec-linear.js')
   const init = () =>
@@ -349,7 +386,7 @@ test('init reports tracker sync as ON once its config exists', () => {
 })
 
 test('the base names no tracker at all, configured or not', () => {
-  const outside = copyDistOut(buildBase(), 'tracker-note-base')
+  const outside = copyDistOut(builtBase(), 'tracker-note-base')
   const proj = tmpDir('tracker-proj-base')
   const bin = path.join(outside, 'bin', 'skitterspec.js')
   spawnSync(process.execPath, [bin, 'init', proj, '--yes', '--no-claude-md'], { encoding: 'utf8' })
@@ -374,7 +411,7 @@ test('the base names no tracker at all, configured or not', () => {
 // installed. Nothing failed. These pin the overlay in both directions.
 
 test('a provider rule reaches the superset and is installed by init', () => {
-  const dist = buildLinear()
+  const dist = builtLinear()
   const rules = fs.readdirSync(path.join(dist, 'assets', 'rules'))
   assert.ok(rules.includes('commit-trailers.md'), `superset must ship the provider rule, got ${rules}`)
 
@@ -399,7 +436,7 @@ test('a provider rule reaches the superset and is installed by init', () => {
 })
 
 test('the tracker-free base ships no provider rule', () => {
-  const rules = fs.readdirSync(path.join(buildBase(), 'assets', 'rules'))
+  const rules = fs.readdirSync(path.join(builtBase(), 'assets', 'rules'))
   assert.ok(!rules.includes('commit-trailers.md'), 'the base must stay tracker-free')
   assert.ok(rules.includes('spec-planning.md'), 'but it still ships the common rules')
 })
@@ -429,7 +466,7 @@ const exampleOf = (dist) =>
   JSON.parse(read(dist, 'assets', 'core', 'env.config.json.example'))
 
 test('the superset declares the two isolation keys its own snapshot needs', () => {
-  const example = exampleOf(buildLinear())
+  const example = exampleOf(builtLinear())
   assert.strictEqual(
     example.branch.identifierField,
     'linear_identifier',
@@ -443,7 +480,7 @@ test('the companion pattern is derived from where the snapshot is actually writt
   // directory is decided, and a pattern typed out beside it is free to drift
   // from it silently — the config would stay valid and own nothing.
   const { DEFAULT_CONFIG } = require('../packages/linear/src/config.js')
-  const [pattern] = exampleOf(buildLinear()).spec.companionPaths
+  const [pattern] = exampleOf(builtLinear()).spec.companionPaths
   assert.strictEqual(path.posix.dirname(pattern), DEFAULT_CONFIG.sync.baseDir)
 })
 
@@ -451,7 +488,7 @@ test('the tracker-free base declares neither key', () => {
   // The base knows nothing about any tracker, so it has no companion to name —
   // and a base that shipped Linear's would point every install at a directory
   // nothing writes.
-  const example = exampleOf(buildBase())
+  const example = exampleOf(builtBase())
   assert.strictEqual(example.branch.identifierField, '')
   assert.deepStrictEqual(example.spec.companionPaths, [])
 })
@@ -461,8 +498,8 @@ test('the superset keeps every other key the base example ships', () => {
   // replace would be invisible here and catastrophic there: the example is
   // copied verbatim into a new project, so a dropped key opts every fresh
   // install out of whatever it configured.
-  const base = exampleOf(buildBase())
-  const superset = exampleOf(buildLinear())
+  const base = exampleOf(builtBase())
+  const superset = exampleOf(builtLinear())
   for (const key of Object.keys(base)) {
     assert.ok(key in superset, `superset example dropped ${key}`)
   }
@@ -522,7 +559,7 @@ test("a fresh superset install owns a spec's own Linear snapshot", () => {
   // and this call — that is the whole defect: the install was the thing that
   // had to be corrected by hand, seven times on one spec in the repo that
   // reported it.
-  const bin = path.join(copyDistOut(buildLinear(), 'companion-out'), 'bin', 'skitterspec-linear.js')
+  const bin = path.join(copyDistOut(builtLinear(), 'companion-out'), 'bin', 'skitterspec-linear.js')
   const { proj } = installedRepo(bin, 'companion-proj')
   const r = staged(bin, proj)
   assert.deepStrictEqual(r.owned, ['specs/.core/linear-base/ERQ-545.base.json'])
@@ -538,7 +575,7 @@ test('the two keys are one fix — companionPaths alone owns nothing', () => {
   // cannot tell a fix that set both keys from one that set either. If THIS
   // test ever fails, the pattern stopped depending on the field and the pair
   // is no longer being proved to have arrived together.
-  const bin = path.join(copyDistOut(buildLinear(), 'one-key-out'), 'bin', 'skitterspec-linear.js')
+  const bin = path.join(copyDistOut(builtLinear(), 'one-key-out'), 'bin', 'skitterspec-linear.js')
   const { proj } = installedRepo(bin, 'one-key-proj', {
     patch: (cfg) => {
       cfg.branch.identifierField = ''
@@ -556,7 +593,7 @@ test("another spec's snapshot, and an unrelated core file, stay foreign", () => 
   // by name must not become "anything under linear-base/", which would hand one
   // spec another spec's snapshot — and `specs/.core/` holds the project's own
   // files, which belong to no spec at all.
-  const bin = path.join(copyDistOut(buildLinear(), 'foreign-out'), 'bin', 'skitterspec-linear.js')
+  const bin = path.join(copyDistOut(builtLinear(), 'foreign-out'), 'bin', 'skitterspec-linear.js')
   const { proj } = installedRepo(bin, 'foreign-proj')
   fs.writeFileSync(path.join(proj, 'specs', '.core', 'linear-base', 'ERQ-999.base.json'), '{}\n')
   fs.appendFileSync(path.join(proj, 'specs', '.core', 'env.config.md'), '\nedited\n')
@@ -573,7 +610,7 @@ test('a spec with no identifier claims nothing extra, and does not error', () =>
   // An ordinary state, not a broken one: a spec never pushed to Linear has no
   // `linear_identifier`, so the pattern expands to nothing and matches nothing.
   // Setting `identifierField` must not turn that into a failure.
-  const bin = path.join(copyDistOut(buildLinear(), 'unlinked-out'), 'bin', 'skitterspec-linear.js')
+  const bin = path.join(copyDistOut(builtLinear(), 'unlinked-out'), 'bin', 'skitterspec-linear.js')
   const { proj } = installedRepo(bin, 'unlinked-proj')
   const overview = path.join(proj, 'specs', 'in-progress', 'feat-alpha', '00-overview.md')
   fs.writeFileSync(overview, '# X\n\n> **Stack:** worktree\n')
@@ -593,7 +630,7 @@ test('declaring identifierField does not change branch names', () => {
   // `{identifier}`, and the shipped pattern is `{type}/{slug}` — so a spec with
   // an identifier and one without must produce the same shape of branch name.
   const { branchFor } = require('../packages/common/src/env/resolve.js')
-  const example = exampleOf(buildLinear())
+  const example = exampleOf(builtLinear())
   const spec = { slug: 'alpha', type: 'feat', folder: 'feat-alpha', path: null }
   assert.strictEqual(
     branchFor(spec, example),
@@ -607,7 +644,7 @@ test('an install that already chose its own keys is left alone', () => {
   // is being adopted, and `copyAsset` declines to overwrite one that exists.
   // A project that set a different companion — or deliberately set none — must
   // survive a re-init and an update untouched.
-  const bin = path.join(copyDistOut(buildLinear(), 'keep-out'), 'bin', 'skitterspec-linear.js')
+  const bin = path.join(copyDistOut(builtLinear(), 'keep-out'), 'bin', 'skitterspec-linear.js')
   const proj = tmpDir('keep-proj')
   fs.mkdirSync(path.join(proj, 'specs', '.core'), { recursive: true })
   const cfgPath = path.join(proj, 'specs', '.core', 'env.config.json')

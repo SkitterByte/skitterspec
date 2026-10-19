@@ -176,8 +176,11 @@ function guardNoWorkspaceRequires(dir) {
 
 // --- distributions ----------------------------------------------------------
 
-function buildBase() {
-  const out = path.join(PKGS, 'skitterspec')
+// `out` defaults to the distribution's own package, which is what `prepare` and
+// a release build. A test passes a throwaway directory instead: `node --test`
+// runs files concurrently, and rebuilding the real tree deletes files another
+// test file is reading at that moment.
+function buildBase(out = path.join(PKGS, 'skitterspec')) {
   const common = path.join(PKGS, 'common')
   for (const d of BUILT_DIRS) rmDir(path.join(out, d))
 
@@ -194,8 +197,7 @@ function buildBase() {
   return out
 }
 
-function buildLinear() {
-  const out = path.join(PKGS, 'skitterspec-linear')
+function buildLinear(out = path.join(PKGS, 'skitterspec-linear')) {
   const common = path.join(PKGS, 'common')
   const linear = path.join(PKGS, 'linear')
   const syncCore = path.join(PKGS, 'sync-core')
