@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-build-dist-test-race (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-10-19)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-18
@@ -72,6 +72,7 @@ _No external surface changes — internal refactor only._
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-18 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-19 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -81,3 +82,4 @@ _No external surface changes — internal refactor only._
 - 2026-10-18 — Follow-up surfaced: `env-supervise.test.js:56` failed once
   in 9 full-suite runs. Its health check timed out after 5.1s under load. It
   is a separate timing flake, not in scope here.
+- 2026-10-19 — Completed; all phases done, tests green.
