@@ -90,8 +90,9 @@ through to a documented conservative default; see the field notes below.
     "projectNamePattern": "{repoSlug}_{slug}", // → COMPOSE_PROJECT_NAME
     "portBase": 3000,          // first port of slot 0's block
     "portsPerSpec": 10,        // block width; slot n → portBase + n*portsPerSpec
-    // Written into the worktree, and passed to compose as `--env-file`. A
-    // Docker spec's worktree steps run in this order: seedFiles, this env file
+    // Written into the worktree by `spec-env bootstrap`, and passed to compose
+    // as `--env-file`. A Docker spec's worktree steps run in this order:
+    // seedFiles, this env file
     // (COMPOSE_PROJECT_NAME and PORT_OFFSET appended only where missing, so a
     // value `setup` or you put there is kept), `setup`, then
     // `docker compose … up -d` — all from inside the worktree, so the stack
@@ -106,7 +107,7 @@ through to a documented conservative default; see the field notes below.
   },
 
   // Gitignored files seeded from the primary checkout into a fresh worktree by
-  // `spec-env up`, right after `git worktree add` and BEFORE `setup` runs — so a
+  // `spec-env bootstrap`, after `git worktree add` and BEFORE `setup` runs — so a
   // fresh linked worktree (which starts with none of the repo's gitignored files)
   // has the .env / local secret overrides / local config that setup steps and
   // git hooks depend on. Without this any setup step that reads .env — a schema
@@ -116,9 +117,9 @@ through to a documented conservative default; see the field notes below.
   //          stays in sync; "copy" makes an independent copy.
   //   files  repo-relative paths to seed. A source absent in main is a printed
   //          no-op (not an error); a target that already exists is left untouched
-  //          (idempotent — safe when `spec-env up` re-attaches an existing
-  //          worktree). The main checkout is resolved robustly at run time via
-  //          `git rev-parse --git-common-dir` — no hardcoded repo name or path.
+  //          (idempotent — safe to re-run `spec-env bootstrap` over an existing
+  //          worktree). Seeding is done by the engine itself, never printed as
+  //          shell, so no command line ever names one of these files.
   // Shorthand: `"seedFiles": [".env", …]` == `{ "mode": "symlink", "files": […] }`.
   // `.env` is an ILLUSTRATION, not an expectation — skitterspec never reads any
   // of these files, it only links or copies them. Name whatever your stack keeps
@@ -134,12 +135,12 @@ through to a documented conservative default; see the field notes below.
     "files": [".env"]
   },
 
-  // Bootstrap commands `spec-env up <spec>` runs IN the worktree, right after
-  // `git worktree add` (before Docker/dev), on every provision including
+  // Bootstrap commands `spec-env bootstrap <spec>` runs IN the worktree, after
+  // the seeds and the env file and before the stack, on every provision including
   // re-attach — so a fresh worktree's dependencies exist and git hooks,
   // typechecks, builds and tests work immediately instead of failing on a
-  // missing node_modules. An array, run in order; [] = none. Each string is a
-  // shell command; {slug}/{branch}/{worktreePath}/{projectName}/{portOffset}
+  // missing node_modules. An array, run in order, stopping at the first that
+  // exits non-zero; [] = none. Each string is a shell command; {slug}/{branch}/{worktreePath}/{projectName}/{portOffset}
   // expand (the cwd is already the worktree, so {worktreePath} is usually
   // redundant). Example: ["pnpm install --frozen-lockfile"].
   "setup": [],

@@ -79,7 +79,9 @@ through to `git worktree add`, which refuses far more loudly than a planner
 guessing from an absence.
 
 Run what it prints — the `git worktree add … -b hotfix/<slug> <tag>` is checked
-out **at the tag**, not at `main` — then move this session into the worktree
+out **at the tag**, not at `main`, and the
+`skitterspec spec-env bootstrap hotfix-<name> --docs` under `then, run:` where
+there is one — then move this session into the worktree
 with a plain `cd`; the Bash working directory persists between calls, so from
 here on the test, the fix and the spec are all written on the hotfix's own
 branch. Confirm the move landed rather than reading silence as success
@@ -100,7 +102,15 @@ to: §4 runs the project's suite in this same tree, and
 **a tree that cannot run the suite cannot go red**.
 The flagless re-run re-attaches the worktree that now exists (no second `-b`
 fork, and no fork point — the branch is already on the tag's line) and prints
-the bootstrap steps the flag deferred.
+`skitterspec spec-env bootstrap hotfix-<name>` — run it, and it runs the steps
+the flag deferred.
+
+**The worktree steps are the engine's to run, never yours.** Seeding the
+gitignored files, the env file, `setup` and the stack all happen inside
+`skitterspec spec-env bootstrap <name>` — one call that names no file. Do not
+reconstruct them as shell: they used to be printed that way, an agent's copy was
+never faithful, and a project's secrets hook refused every rewrite that named a
+`.env` path. `bootstrap --plan` says what it would do, for reading only.
 
 **Why nothing is seeded on the base branch, and nothing is moved.** This step
 used to write `specs/in-progress/hotfix-<name>/00-overview.md` in the primary

@@ -179,7 +179,10 @@ move, header edits, the code) happens on the spec's branch in the worktree; `mai
 changes only when it merges. Teardown is folded into `/spec-complete` ·
 `/spec-cancel`. Beneath the skills, `skitterspec spec-env
 <up|bootstrap|nospec|main|down|prune|dev|connect|integrate|hotfix|live|review|stage|status|resolve>` is the CLI
-engine. **Omit the spec name anywhere and it uses the worktree you are standing in**,
+engine. `up` plans the fork;
+**`bootstrap` then runs the worktree's own steps itself** — seeding the gitignored files, the env file, `setup`, the stack — so
+the command a skill runs names no file, and a secrets hook that refuses any
+`.env` path has nothing to refuse. **Omit the spec name anywhere and it uses the worktree you are standing in**,
 else the sole provisioned spec — with no exceptions left: a bare
 `/spec-connect` connects, and a bare `/spec-live` takes, where both once meant
 `main`. Teardown drops

@@ -82,10 +82,11 @@ nothing to commit" as a sign something was skipped: it means the landing worked.
 
 **And the worktree may already exist**, because `Commit & Start` keeps it. That
 is a re-attach, not a clash: `spec-env up` plans the attach form rather than a
-second `-b` fork, and its `then, in the worktree, run:` step is where the
-`setup` commands `--docs` deliberately skipped finally run. So run the plan as
-printed — the install belongs to this moment, the first at which the tree is
-used for code — and report a re-attach rather than a fresh provision.
+second `-b` fork, and its `then, run:` line — `spec-env bootstrap <name>`,
+without `--docs` — is where the `setup` commands `--docs` deliberately skipped
+finally run. So run it — the install belongs to this moment, the first at which
+the tree is used for code — and report a re-attach rather than a fresh
+provision.
 
 ## 2. Identify the spec
 
@@ -164,12 +165,22 @@ render says so. On **`--plan`** this step does not run at all.
    spec on its own:
 
    ```
-   cd "<worktreePath>" && <the planner's "then, in the worktree, run:" steps>
+   cd "<worktreePath>" && skitterspec spec-env bootstrap <name>
    ```
 
-   Run the seeding steps before `setup`: a fresh worktree has no dependencies and
-   none of the repo's gitignored files, so hooks, typechecks and tests fail until
-   both have happened.
+   That is the planner's `then, run:` line, with the `cd` in front. It seeds
+   the gitignored files before `setup` itself — a fresh worktree has neither, so
+   hooks, typechecks and tests fail until both have happened — and stops at the
+   first step that fails, naming it. Relay its step lines; a non-zero exit is a
+   failure to report at the moment it happens, not a reason to run the steps by
+   hand.
+
+   **The worktree steps are the engine's to run, never yours.** Seeding the
+   gitignored files, the env file, `setup` and the stack all happen inside
+   `skitterspec spec-env bootstrap <name>` — one call that names no file. Do not
+   reconstruct them as shell: they used to be printed that way, an agent's copy was
+   never faithful, and a project's secrets hook refused every rewrite that named a
+   `.env` path. `bootstrap --plan` says what it would do, for reading only.
 
    **Then confirm the move landed — never assume it.** Ask for a positive signal
    rather than reading silence as success (`.claude/rules/negative-checks.md`

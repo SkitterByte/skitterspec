@@ -46,9 +46,23 @@ skitterspec spec-env nospec <name>
 ```
 
 It records the name as a **specless branch** and prints the plan. Run the
-commands it prints, then move this session into the worktree with a plain `cd`
-— the Bash working directory persists between calls, so from here on the work
-happens on its own branch.
+`git worktree add` it prints, then move this session into the worktree with a
+plain `cd` and run the `then, run:` line where there is one:
+
+```
+cd "<worktreePath>" && skitterspec spec-env bootstrap <name>
+```
+
+That runs the project's `setup` in the worktree and stops at the first failing
+command, naming it. The Bash working directory persists between calls, so from
+here on the work happens on its own branch.
+
+**The worktree steps are the engine's to run, never yours.** Seeding the
+gitignored files, the env file, `setup` and the stack all happen inside
+`skitterspec spec-env bootstrap <name>` — one call that names no file. Do not
+reconstruct them as shell: they used to be printed that way, an agent's copy was
+never faithful, and a project's secrets hook refused every rewrite that named a
+`.env` path. `bootstrap --plan` says what it would do, for reading only.
 
 **Confirm the move landed** rather than reading silence as success
 (`.claude/rules/negative-checks.md` rule 1): `skitterspec spec-env resolve` with

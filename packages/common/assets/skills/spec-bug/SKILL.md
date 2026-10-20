@@ -59,8 +59,9 @@ skitterspec spec-env up bug-<name> --docs
 **The spec does not exist yet, and that is the lane.** `up` opens its authoring
 branch on exactly three signals — a spec it could not find, `--docs`, and a name
 shaped `bug-<something>` — records the branch so the name resolves from here on,
-and prints a `git worktree add … -b bug/<name>` forked from `main`. Run what it
-prints, then move this session into the worktree with a plain `cd`; the Bash
+and prints a `git worktree add … -b bug/<name>` forked from `main`. Run it, and
+the `skitterspec spec-env bootstrap bug-<name> --docs` under `then, run:` where
+there is one, then move this session into the worktree with a plain `cd`; the Bash
 working directory persists between calls, so from here on the test, the fix and
 the spec are all written on the bug's own branch. Confirm the move landed rather
 than reading silence as success (`.claude/rules/negative-checks.md` rule 1):
@@ -80,7 +81,15 @@ tree *runnable* — because provisioning somewhere to write markdown should cost
 steps from here, in this same tree, and
 **a tree that cannot run the suite cannot go red**.
 The flagless re-run re-attaches the worktree that now exists
-(no second `-b` fork) and prints the bootstrap steps the flag deferred.
+(no second `-b` fork) and prints `skitterspec spec-env bootstrap bug-<name>` —
+run it, and it runs the steps the flag deferred.
+
+**The worktree steps are the engine's to run, never yours.** Seeding the
+gitignored files, the env file, `setup` and the stack all happen inside
+`skitterspec spec-env bootstrap <name>` — one call that names no file. Do not
+reconstruct them as shell: they used to be printed that way, an agent's copy was
+never faithful, and a project's secrets hook refused every rewrite that named a
+`.env` path. `bootstrap --plan` says what it would do, for reading only.
 
 **Why the stub is no longer seeded on the base branch.** This step used to open
 by writing `specs/in-progress/bug-<name>/00-overview.md` in the primary checkout

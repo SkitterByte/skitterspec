@@ -87,9 +87,11 @@ a worktree costs nothing to obtain and everything is still ahead of it:
 skitterspec spec-env up <name> --docs
 ```
 
-Run the commands it prints, then move this session into the worktree with a
-plain `cd` — the Bash working directory persists between calls, so from here on
-the spec is written on its own branch. Confirm the move landed rather than
+Run the commands it prints under `to provision, run:`, and the
+`skitterspec spec-env bootstrap <name> --docs` under `then, run:` where there is
+one (it seeds the gitignored files, nothing more). Then move this session into
+the worktree with a plain `cd` — the Bash working directory persists between
+calls, so from here on the spec is written on its own branch. Confirm the move landed rather than
 reading silence as success (`.claude/rules/negative-checks.md` rule 1):
 `skitterspec spec-env resolve` with no argument must name this spec. If it does
 not, say so and write the spec where you are standing instead; a spec in the
@@ -370,7 +372,7 @@ get the land through.
 
 **The worktree lifetime follows the verdict, and the asymmetry is deliberate.**
 `commit-start` keeps it because you are carrying straight on, and `/spec-start`
-re-runs `up` over it without `--docs` — which is where the setup commands
+re-runs `up` and `bootstrap` over it without `--docs`, which is where the setup commands
 Phase B skipped finally run. Plain `commit` tears it down with
 `skitterspec spec-env down <name>`, because a spec parked in the backlog should
 hold no worktree and no `node_modules`; `/spec-start` provisions from scratch

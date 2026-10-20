@@ -114,7 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `bootstrap` engine and verb | ✅ | [01-bootstrap-verb.md](01-bootstrap-verb.md) |
 | 2 | `up` / `nospec` print the verb, not the shell | ✅ | [02-planner-output.md](02-planner-output.md) |
-| 3 | Skills call `bootstrap`; docs | ⬜ | [03-skills-and-docs.md](03-skills-and-docs.md) |
+| 3 | Skills call `bootstrap`; docs | ✅ | [03-skills-and-docs.md](03-skills-and-docs.md) |
 
 ## Open questions
 
@@ -146,3 +146,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and refuses a missing one, so the `cd` guard has nothing left to guard.
   Its shell-level tests in `env-seed.test.js` went with it; the seed tests
   there now drive `runBootstrap` in a real linked worktree.
+- 2026-10-20 — Phase 3: each provisioning skill carries the same short
+  "the worktree steps are the engine's to run, never yours" paragraph, so
+  the reason sits beside the instruction an agent would otherwise improvise.
