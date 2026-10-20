@@ -85,8 +85,8 @@ test('it keeps the setup commands — /no-spec work is code', async () => {
   const dir = scaffold(SETUP)
   try {
     const out = await runQuiet(['spec-env', 'nospec', 'bump-deps', '--dir', dir])
-    assert.match(out, /then, in the worktree, run:/)
-    assert.match(out, /pnpm install --frozen-lockfile/)
+    assert.match(out, /then, run:\n\s+skitterspec spec-env bootstrap bump-deps\n/)
+    assert.doesNotMatch(out, /pnpm install/, 'the setup itself is bootstrap\'s to run')
     assert.doesNotMatch(out, /docs:/)
   } finally {
     cleanup(dir)

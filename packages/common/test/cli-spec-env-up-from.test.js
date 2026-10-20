@@ -149,8 +149,7 @@ test('the flagless re-run over an authoring worktree plans the setup commands', 
     const out = await runQuiet(['spec-env', 'up', 'bug-null-total', '--dir', dir])
     assert.match(out, /will attach/, 'the existing worktree is re-attached, never re-forked')
     assert.doesNotMatch(out, /-b bug\/null-total/, 'no second fork of a branch that exists')
-    assert.match(out, /then, in the worktree, run:/, 'the setup step the flag deferred')
-    assert.match(out, /pnpm install --frozen-lockfile/)
+    assert.match(out, /spec-env bootstrap bug-null-total\n/, 'the setup step the flag deferred')
   } finally {
     cleanup(dir)
   }

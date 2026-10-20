@@ -3,18 +3,13 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { planUp, seedCommandFor, worktreeCd, resolveStack } = require('../src/env/provision.js')
+const { planUp, resolveStack } = require('../src/env/provision.js')
 
-// Every "in the worktree" command is prefixed with the cwd guard. These tests are
-// about the payload (token expansion, mode), so strip the guard and assert the rest;
-// the guard itself is covered by its own tests below.
-function payloads(commands, worktreePath = '/wt/thing') {
-  const prefix = `${worktreeCd(worktreePath)}; `
-  return commands.map((cmd) => {
-    assert.ok(cmd.startsWith(prefix), `missing worktree guard: ${cmd}`)
-    return cmd.slice(prefix.length)
-  })
-}
+// The worktree steps `spec-env bootstrap` runs, by kind. They are data now, so
+// these tests assert on fields rather than on a shell string's text.
+const of = (plan, kind) => plan.steps.filter((s) => s.kind === kind)
+const dockerLine = (plan) => of(plan, 'docker').map((s) => s.argv.join(' '))
+const setupOf = (plan) => of(plan, 'setup').map((s) => s.command)
 
 // A resolved-spec stand-in (planUp only reads these fields).
 function spec(overrides = {}) {
@@ -56,8 +51,8 @@ test('fresh spec → -b branch form + docker up, correct port offset', () => {
   assert.strictEqual(plan.attached, false)
   assert.strictEqual(plan.portOffset, 3010) // 3000 + 1*10
   assert.deepStrictEqual(plan.commands, ['git worktree add /wt/thing -b feat/thing'])
-  assert.deepStrictEqual(payloads(plan.dockerCommands), [
-    "docker compose -f docker-compose.yml --env-file '.env' --project-name app_thing up -d",
+  assert.deepStrictEqual(dockerLine(plan), [
+    "docker compose -f docker-compose.yml --env-file .env --project-name app_thing up -d",
   ])
   assert.strictEqual(plan.envContents, 'COMPOSE_PROJECT_NAME=app_thing\nPORT_OFFSET=3010\n')
 })
@@ -128,8 +123,8 @@ test('worktree-only still expands the opener (empty portOffset token)', () => {
 
 test('stack:docker emits the docker command when the master switch is on', () => {
   const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE)
-  assert.deepStrictEqual(payloads(plan.dockerCommands), [
-    "docker compose -f docker-compose.yml --env-file '.env' --project-name app_thing up -d",
+  assert.deepStrictEqual(dockerLine(plan), [
+    "docker compose -f docker-compose.yml --env-file .env --project-name app_thing up -d",
   ])
 })
 
@@ -142,7 +137,7 @@ test('stack:docker emits the docker command when the master switch is on', () =>
 test('a header-less spec with a compose file present still inherits docker', () => {
   const plan = planUp(spec(), { slot: 1, attached: false }, config(), HAS_COMPOSE)
   assert.strictEqual(
-    plan.dockerCommands.length, 1,
+    of(plan, 'docker').length, 1,
     'the legacy fallback still works where there is a stack to bring up',
   )
 })
@@ -171,7 +166,7 @@ test('stays silent: an explicit docker header is never downgraded by a missing c
     { composeFilePresent: false },
   )
   assert.strictEqual(
-    plan.dockerCommands.length, 1,
+    of(plan, 'docker').length, 1,
     'the header wins; the gate never sees this spec',
   )
 })
@@ -181,7 +176,7 @@ test('stays silent: an explicit docker header is never downgraded by a missing c
 // names a file it does not have.
 test('stays silent: no -f is passed when the compose file was not found', () => {
   const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config())
-  const [cmd] = payloads(plan.dockerCommands)
+  const [cmd] = dockerLine(plan)
   assert.doesNotMatch(cmd, /-f /, 'docker discovery is left exactly as it was')
 })
 
@@ -212,95 +207,95 @@ test('port offset scales with the slot', () => {
   assert.strictEqual(planUp(spec(), { slot: 5, attached: false }, config(), HAS_COMPOSE).portOffset, 3050)
 })
 
-test('setupCommands defaults to empty when none configured', () => {
+test('setup steps defaults to empty when none configured', () => {
   const plan = planUp(spec(), { slot: 0, attached: false }, config())
-  assert.deepStrictEqual(plan.setupCommands, [])
+  assert.deepStrictEqual(setupOf(plan), [])
 })
 
-test('setupCommands expand tokens (slug/branch/worktreePath/portOffset)', () => {
+test('setup steps expand tokens (slug/branch/worktreePath/portOffset)', () => {
   const plan = planUp(
     spec(),
     { slot: 2, attached: false },
     config({ setup: ['pnpm install', 'echo {slug} {branch} {worktreePath} {portOffset}'] }),
     HAS_COMPOSE,
   )
-  assert.deepStrictEqual(payloads(plan.setupCommands), [
+  assert.deepStrictEqual(setupOf(plan), [
     'pnpm install',
     'echo thing feat/thing /wt/thing 3020',
   ])
 })
 
-test('setupCommands are emitted on re-attach too', () => {
+test('setup steps are emitted on re-attach too', () => {
   const plan = planUp(spec(), { slot: 0, attached: true }, config({ setup: ['pnpm install'] }), HAS_COMPOSE)
-  assert.deepStrictEqual(payloads(plan.setupCommands), ['pnpm install'])
+  assert.deepStrictEqual(setupOf(plan), ['pnpm install'])
 })
 
-test('setupCommands are emitted on a worktree-only spec (empty portOffset token)', () => {
+test('setup steps are emitted on a worktree-only spec (empty portOffset token)', () => {
   const plan = planUp(
     spec({ stack: 'worktree' }),
     { slot: null, attached: false },
     config({ setup: ['pnpm install # {portOffset}'] }),
   )
-  assert.deepStrictEqual(payloads(plan.setupCommands), ['pnpm install # '])
+  assert.deepStrictEqual(setupOf(plan), ['pnpm install # '])
 })
 
 // --- seedFiles ---
 
-test('seedCommands defaults to empty when no seedFiles configured', () => {
+test('no seed steps when no seedFiles configured', () => {
   const plan = planUp(spec(), { slot: 0, attached: false }, config())
-  assert.deepStrictEqual(plan.seedCommands, [])
+  assert.deepStrictEqual(of(plan, 'seed'), [])
 })
 
-test('seedCommands: one idempotent, git-common-dir-anchored command per file', () => {
+test('one seed step per file, in order, carrying its mode', () => {
   const plan = planUp(
     spec(),
     { slot: 0, attached: false },
     config({ seedFiles: { mode: 'symlink', files: ['.env', '.local-secrets.jsonc'] } }),
   )
-  assert.strictEqual(plan.seedCommands.length, 2)
-  for (const cmd of plan.seedCommands) {
-    // resolves the main checkout from inside the worktree — never a hardcoded hop
-    assert.match(cmd, /m="\$\(dirname "\$\(git rev-parse --git-common-dir\)"\)"/)
-    assert.match(cmd, /not in main — skipped/) // missing-source no-op
-    assert.match(cmd, /exists — skipped/) // target-exists idempotency
-  }
-  assert.match(plan.seedCommands[0], /ln -s "\$m\/\.env" "\.env"/)
-  assert.match(plan.seedCommands[0], /seeded \.env → \$m\/\.env/)
+  assert.deepStrictEqual(of(plan, 'seed'), [
+    { kind: 'seed', file: '.env', mode: 'symlink' },
+    { kind: 'seed', file: '.local-secrets.jsonc', mode: 'symlink' },
+  ])
 })
 
-test('seedCommands: copy mode uses cp, not ln -s', () => {
+test('seed steps: copy mode is carried through', () => {
   const plan = planUp(
     spec(),
     { slot: 0, attached: false },
     config({ seedFiles: { mode: 'copy', files: ['.env'] } }),
   )
-  assert.match(plan.seedCommands[0], /cp "\$m\/\.env" "\.env"/)
-  assert.doesNotMatch(plan.seedCommands[0], /ln -s/)
+  assert.strictEqual(of(plan, 'seed')[0].mode, 'copy')
 })
 
-test('seedCommands: array shorthand defaults to symlink mode', () => {
+test('seed steps: an unknown mode falls back to symlink', () => {
   const plan = planUp(
     spec(),
     { slot: 0, attached: false },
-    config({ seedFiles: { mode: 'symlink', files: ['.env'] } }),
+    config({ seedFiles: { mode: 'weird', files: ['.env'] } }),
   )
-  assert.match(plan.seedCommands[0], /ln -s /)
+  assert.strictEqual(of(plan, 'seed')[0].mode, 'symlink')
 })
 
-test('seedCommands are emitted on re-attach too (idempotent seeding)', () => {
+test('seed steps are planned on re-attach too (idempotent seeding)', () => {
   const plan = planUp(
     spec(),
     { slot: 0, attached: true },
     config({ seedFiles: { mode: 'symlink', files: ['.env'] } }),
   )
-  assert.strictEqual(plan.seedCommands.length, 1)
+  assert.strictEqual(of(plan, 'seed').length, 1)
 })
 
-test('seedCommandFor: symlink vs copy op selection', () => {
-  assert.match(seedCommandFor('.env', 'symlink'), /ln -s "\$m\/\.env" "\.env"/)
-  assert.match(seedCommandFor('.env', 'copy'), /cp "\$m\/\.env" "\.env"/)
-  // unknown mode falls back to symlink
-  assert.match(seedCommandFor('.env', 'weird'), /ln -s /)
+test('stays silent: the plan carries no shell for a caller to copy', () => {
+  const plan = planUp(
+    spec({ stack: 'docker' }),
+    { slot: 1, attached: false },
+    config({ seedFiles: { mode: 'symlink', files: ['.env'] }, setup: ['pnpm install'] }),
+    HAS_COMPOSE,
+  )
+  for (const gone of ['seedCommands', 'envCommands', 'setupCommands', 'dockerCommands']) {
+    assert.ok(!(gone in plan), `${gone} is gone`)
+  }
+  assert.ok(!plan.commands.some((c) => /\.env|ln -s|rev-parse/.test(c)))
 })
 
 // --- the tree gate ---------------------------------------------------------
@@ -440,8 +435,6 @@ test('unreadable git provisions a worktree rather than accusing a healthy repo',
 // with the main stack. It is now the last worktree step, after the env file and
 // setup, and it is told which env file to read.
 
-const { envFileCommandFor } = require('../src/env/provision.js')
-
 test('compose is never planned from the primary checkout', () => {
   const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE)
   assert.ok(
@@ -450,49 +443,59 @@ test('compose is never planned from the primary checkout', () => {
   )
 })
 
-test('dockerCommands: guarded compose up, with --env-file .env by default', () => {
+test('the docker step: compose up, with --env-file .env by default', () => {
   const plan = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE)
-  assert.deepStrictEqual(payloads(plan.dockerCommands), [
-    "docker compose -f docker-compose.yml --env-file '.env' --project-name app_thing up -d",
+  assert.deepStrictEqual(dockerLine(plan), [
+    "docker compose -f docker-compose.yml --env-file .env --project-name app_thing up -d",
   ])
 })
 
-test('dockerCommands: a configured envFile reaches compose', () => {
+test('the docker step: a configured envFile reaches compose', () => {
   const plan = planUp(
     spec({ stack: 'docker' }),
     { slot: 1, attached: false },
     config({ docker: { envFile: '.worktree.env' } }),
     HAS_COMPOSE,
   )
-  assert.match(plan.dockerCommands[0], /--env-file '\.worktree\.env' /)
+  assert.match(dockerLine(plan)[0], /--env-file \.worktree\.env /)
 })
 
-test('envCommands: one guarded command writing the configured env file', () => {
+test('the env file step names the configured file, project and offset', () => {
   const plan = planUp(
     spec({ stack: 'docker' }),
     { slot: 1, attached: false },
     config({ docker: { envFile: '.worktree.env' } }),
     HAS_COMPOSE,
   )
-  assert.deepStrictEqual(payloads(plan.envCommands), [
-    envFileCommandFor('.worktree.env', 'app_thing', 3010),
+  assert.deepStrictEqual(of(plan, 'envFile'), [
+    { kind: 'envFile', file: '.worktree.env', projectName: 'app_thing', offset: 3010 },
   ])
   assert.strictEqual(plan.envContents, 'COMPOSE_PROJECT_NAME=app_thing\nPORT_OFFSET=3010\n')
+})
+
+test('the steps run seeds, env file, setup, then the stack', () => {
+  const plan = planUp(
+    spec({ stack: 'docker' }),
+    { slot: 1, attached: false },
+    config({ seedFiles: { mode: 'symlink', files: ['.env'] }, setup: ['pnpm install'] }),
+    HAS_COMPOSE,
+  )
+  assert.deepStrictEqual(plan.steps.map((s) => s.kind), ['seed', 'envFile', 'setup', 'docker'])
 })
 
 // STAYS SILENT: a spec with no stack writes no env file and starts nothing.
 test('stays silent: worktree-only and --docs plan no env file and no compose', () => {
   const wt = planUp(spec({ stack: 'worktree' }), { slot: null, attached: false }, config())
-  assert.deepStrictEqual(wt.envCommands, [])
-  assert.deepStrictEqual(wt.dockerCommands, [])
+  assert.deepStrictEqual(of(wt, 'envFile'), [])
+  assert.deepStrictEqual(of(wt, 'docker'), [])
   const docs = planUp(spec({ stack: 'docker' }), { slot: 1, attached: false }, config(), HAS_COMPOSE, {
     docs: true,
   })
-  assert.deepStrictEqual(docs.envCommands, [])
-  assert.deepStrictEqual(docs.dockerCommands, [])
+  assert.deepStrictEqual(of(docs, 'envFile'), [])
+  assert.deepStrictEqual(of(docs, 'docker'), [])
 })
 
-test('a blocked plan carries no env or docker commands', () => {
+test('a blocked plan carries no steps', () => {
   const plan = planUp(
     { ...spec({ stack: 'docker' }), bucket: 'backlog' },
     { slot: 1, attached: false },
@@ -500,90 +503,8 @@ test('a blocked plan carries no env or docker commands', () => {
     { ...HAS_COMPOSE, dirtyPaths: [], specOnFork: false, specFoundOn: 'feat/other', forkRef: 'main' },
   )
   assert.strictEqual(plan.blocked, true)
-  assert.deepStrictEqual(plan.envCommands, [])
-  assert.deepStrictEqual(plan.dockerCommands, [])
+  assert.deepStrictEqual(plan.steps, [])
 })
 
-// --- envFileCommandFor, run for real under sh --------------------------------
-
-const fs = require('node:fs')
-const os = require('node:os')
-const path = require('node:path')
-const { spawnSync } = require('node:child_process')
-
-function runIn(dir, cmd) {
-  return spawnSync('sh', ['-c', cmd], { cwd: dir, encoding: 'utf8' })
-}
-
-function tmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'envfile-'))
-}
-
-test('envFileCommandFor: a fresh file gets both keys', () => {
-  const dir = tmp()
-  try {
-    const r = runIn(dir, envFileCommandFor('.env', 'app_thing', 3010))
-    assert.strictEqual(r.status, 0, r.stderr)
-    assert.strictEqual(
-      fs.readFileSync(path.join(dir, '.env'), 'utf8'),
-      'COMPOSE_PROJECT_NAME=app_thing\nPORT_OFFSET=3010\n',
-    )
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true })
-  }
-})
-
-test('envFileCommandFor: a re-run is byte-identical', () => {
-  const dir = tmp()
-  try {
-    const cmd = envFileCommandFor('.env', 'app_thing', 3010)
-    runIn(dir, cmd)
-    const first = fs.readFileSync(path.join(dir, '.env'), 'utf8')
-    assert.strictEqual(runIn(dir, cmd).status, 0)
-    assert.strictEqual(fs.readFileSync(path.join(dir, '.env'), 'utf8'), first)
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true })
-  }
-})
-
-test('envFileCommandFor: an existing file keeps its other keys and its own values', () => {
-  const dir = tmp()
-  try {
-    const file = path.join(dir, '.worktree.env')
-    fs.writeFileSync(file, 'TEST_DB_PORT=5433\nPORT_OFFSET=4000') // no trailing newline
-    const r = runIn(dir, envFileCommandFor('.worktree.env', 'app_thing', 3010))
-    assert.strictEqual(r.status, 0, r.stderr)
-    assert.strictEqual(
-      fs.readFileSync(file, 'utf8'),
-      'TEST_DB_PORT=5433\nPORT_OFFSET=4000\nCOMPOSE_PROJECT_NAME=app_thing\n',
-    )
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true })
-  }
-})
-
-test('envFileCommandFor: a symlinked env file is refused and its target untouched', () => {
-  const dir = tmp()
-  try {
-    const target = path.join(dir, 'main.env')
-    fs.writeFileSync(target, 'SECRET=1\n')
-    fs.symlinkSync(target, path.join(dir, '.env'))
-    const r = runIn(dir, envFileCommandFor('.env', 'app_thing', 3010))
-    assert.strictEqual(r.status, 1)
-    assert.match(r.stdout + r.stderr, /docker\.envFile/)
-    assert.strictEqual(fs.readFileSync(target, 'utf8'), 'SECRET=1\n')
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true })
-  }
-})
-
-test('envFileCommandFor: a path with a quote is single-quoted safely', () => {
-  const dir = tmp()
-  try {
-    const r = runIn(dir, envFileCommandFor("it's.env", 'app_thing', 3010))
-    assert.strictEqual(r.status, 0, r.stderr)
-    assert.ok(fs.existsSync(path.join(dir, "it's.env")))
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true })
-  }
-})
+// The env file's behaviour on disk — fresh, re-run, kept values, a refused
+// symlink — is pinned where it now runs: `env-bootstrap.test.js`.

@@ -139,35 +139,27 @@ test('a second spec-env up is a no-op for the trusted root', async () => {
   assert.match(out, /already in \.claude\/settings\.local\.json/, 'reports already-trusted')
 })
 
-test('spec-env up prints configured setup commands under an in-the-worktree head', async () => {
+test('spec-env up hands the worktree steps to bootstrap in one line', async () => {
   const { dir, folder } = scaffold('y', { setup: ['pnpm install', 'echo {slug}'] })
   const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
-  assert.match(out, /in the worktree, run:/, 'prints the setup heading')
-  assert.match(out, /pnpm install/, 'lists the setup command')
-  assert.match(out, /echo y/, 'expands tokens in setup commands')
+  assert.match(out, /then, run:\n\s+skitterspec spec-env bootstrap feat-y\n/)
+  assert.doesNotMatch(out, /pnpm install|echo y/, 'the steps are bootstrap\'s, not printed')
 })
 
-test('spec-env up omits the setup head when no setup is configured', async () => {
+test('spec-env up omits the hand-off when nothing is configured to run', async () => {
   const { dir, folder } = scaffold()
   const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
-  assert.doesNotMatch(out, /in the worktree, run:/, 'no setup heading without config')
+  assert.doesNotMatch(out, /then, run:/, 'no hand-off without steps')
 })
 
-test('spec-env up prints seed commands under the in-the-worktree head', async () => {
-  const { dir, folder } = scaffold('z', { seedFiles: ['.env'] })
+// STAYS SILENT for a secrets hook: the reason the verb exists is that the
+// printed plan named `.env` paths in shell an agent then rewrote.
+test('spec-env up names no seeded file and prints no seed shell', async () => {
+  const { dir, folder } = scaffold('z', { seedFiles: ['.env', 'apps/web/.env'] })
   const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
-  assert.match(out, /in the worktree, run:/, 'prints the worktree heading')
-  assert.match(out, /git rev-parse --git-common-dir/, 'emits the anchored seed command')
-  assert.match(out, /seeded \.env →/, 'the seed command reports what it seeds')
-})
-
-test('spec-env up seeds before running setup (files exist before setup uses them)', async () => {
-  const { dir, folder } = scaffold('w', { seedFiles: ['.env'], setup: ['pnpm install'] })
-  const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
-  const seedAt = out.indexOf('git rev-parse --git-common-dir')
-  const setupAt = out.indexOf('pnpm install')
-  assert.ok(seedAt !== -1 && setupAt !== -1, 'both steps present')
-  assert.ok(seedAt < setupAt, 'seed command is printed before the setup command')
+  assert.doesNotMatch(out, /\.env\b/)
+  assert.doesNotMatch(out, /ln -s|cp "|git rev-parse/)
+  assert.match(out, /skitterspec spec-env bootstrap feat-z\n/)
 })
 
 test('spec-env up refuses when the spec is live in the primary checkout', async () => {

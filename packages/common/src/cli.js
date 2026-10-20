@@ -148,7 +148,7 @@ const {
   cacheHit,
   asCached,
 } = require('./env/reviewers.js')
-const { planUp, planCheckoutUp, worktreeCd, resolveStack, worktreeSteps } = require('./env/provision.js')
+const { planUp, planCheckoutUp, resolveStack, worktreeSteps } = require('./env/provision.js')
 const { runBootstrap, describeStep } = require('./env/bootstrap.js')
 const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
@@ -811,9 +811,6 @@ function specEnvNospec(dir, config, name, flags = {}) {
   const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs)
   const attached = fs.existsSync(spec.worktreePath)
 
-  const guard = worktreeCd(spec.worktreePath)
-  const setupCommands = (config.setup || []).map((cmd) => `${guard}; ${cmd}`)
-
   const out = [
     `spec-env nospec: ${name} ` +
       (attached ? '(plan — worktree exists; will attach)' : '(plan — nothing created yet)'),
@@ -841,11 +838,7 @@ function specEnvNospec(dir, config, name, flags = {}) {
       ? `    git worktree add ${spec.worktreePath} ${spec.branch}`
       : `    git worktree add ${spec.worktreePath} -b ${spec.branch}`,
   )
-  if (setupCommands.length) {
-    out.push('')
-    out.push('  then, in the worktree, run:')
-    for (const cmd of setupCommands) out.push(`    ${cmd}`)
-  }
+  if ((config.setup || []).length) out.push(...bootstrapLines(name))
   if (flags.json) {
     process.stdout.write(
       JSON.stringify(
@@ -1106,27 +1099,16 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   out.push('')
   out.push('  to provision, run:')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
-  // Everything after the fork runs in the worktree, under one heading, in the
-  // order each step depends on the last: seeds (the env file may be one), the
-  // env file, setup (which may derive values into it), and only then the stack.
-  const worktreeSteps = [
-    ...plan.seedCommands,
-    ...(plan.envCommands || []),
-    ...plan.setupCommands,
-    ...(plan.dockerCommands || []),
-  ]
-  if (worktreeSteps.length) {
-    out.push('')
-    out.push('  then, in the worktree, run:')
-    for (const cmd of worktreeSteps) out.push(`    ${cmd}`)
-  }
+  // Everything after the fork runs in the worktree, and the engine runs it: one
+  // line naming the verb, never the steps as shell (see `specEnvBootstrap`).
+  if (plan.steps.length) out.push(...bootstrapLines(spec.folder, { docs }))
   process.stdout.write(out.join('\n') + '\n')
 }
 
 /**
  * `spec-env bootstrap [<spec>]` — bring a provisioned worktree to ready.
  *
- * Runs the steps `up` used to print under "then, in the worktree, run:" —
+ * Runs the steps `up` once printed as shell for the caller to copy —
  * seeds, the env file, `setup`, the stack — itself, with the worktree as cwd.
  * The caller's command line is `skitterspec spec-env bootstrap <name>` and
  * nothing more, so no `.env` path ever appears in it: there is nothing for a
@@ -1271,6 +1253,25 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
     )
   }
   if (!result.ok) process.exitCode = 1
+}
+
+/**
+ * The hand-off from a planner to `spec-env bootstrap`: the one command a caller
+ * runs once the worktree exists.
+ *
+ * ONE LINE, AND NO SHELL. The worktree steps used to be printed here as
+ * POSIX-sh one-liners, and an agent copying them rewrote them — merged two seeds
+ * into a loop, reworded the echo text — at which point a consumer's secrets hook
+ * refused the `.env` paths in the rewrite. This line names no file at all, so it
+ * has nothing to rewrite and nothing to refuse. `bootstrap --plan` is where the
+ * steps can still be read.
+ */
+function bootstrapLines(name, { docs = false } = {}) {
+  return [
+    '',
+    '  then, run:',
+    `    skitterspec spec-env bootstrap ${name}${docs ? ' --docs' : ''}`,
+  ]
 }
 
 // Two spellings of one directory — `/tmp` and `/private/tmp` on macOS — are

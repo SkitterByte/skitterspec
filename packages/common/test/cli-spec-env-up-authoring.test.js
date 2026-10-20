@@ -85,7 +85,7 @@ test('up --docs on an unwritten spec plans an authoring worktree instead of refu
     assert.match(out, /authoring/i, 'says the spec is not written yet, positively')
     assert.doesNotMatch(out, /git commit/, 'nothing exists, so nothing is committed')
     assert.doesNotMatch(out, /blocked/, 'the fork-point gate has no spec to demand')
-    assert.doesNotMatch(out, /then, in the worktree, run:/, 'docs mode still skips setup')
+    assert.doesNotMatch(out, /pnpm install/, 'docs mode still skips setup')
   } finally {
     cleanup(dir)
   }

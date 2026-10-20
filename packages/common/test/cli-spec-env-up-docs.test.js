@@ -64,7 +64,7 @@ test('--docs reports documents mode and prints no worktree setup step', async ()
   try {
     const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir, '--docs'])
     assert.match(out, /docs:\s+documents only/, 'says which mode it is, positively')
-    assert.doesNotMatch(out, /then, in the worktree, run:/, 'no setup step')
+    assert.doesNotMatch(out, /spec-env bootstrap/, 'nothing to bootstrap without seeds')
     assert.doesNotMatch(out, /pnpm install/, 'and no install command anywhere')
     assert.match(out, /to provision, run:/, 'but still a worktree to create')
   } finally {
@@ -76,8 +76,7 @@ test('the same spec without --docs keeps its setup step and says nothing about d
   const { dir, folder } = scaffold('b', SETUP)
   try {
     const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
-    assert.match(out, /then, in the worktree, run:/)
-    assert.match(out, /pnpm install --frozen-lockfile/)
+    assert.match(out, /then, run:\n\s+skitterspec spec-env bootstrap feat-b\n/)
     assert.doesNotMatch(out, /docs:/, 'no line about a mode nobody asked for')
   } finally {
     cleanup(dir)
@@ -109,7 +108,7 @@ test('a docker spec provisioned with --docs re-runs as an attach, not a re-fork'
     const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
     assert.match(out, /will attach/, 'recognised the existing worktree')
     assert.doesNotMatch(out, /worktree add \S+ -b /, 'did not plan a second fork')
-    assert.match(out, /pnpm install --frozen-lockfile/, 'and now runs the deferred setup')
+    assert.match(out, /spec-env bootstrap feat-c\n/, 'and now hands off the deferred setup')
   } finally {
     cleanup(dir)
   }
@@ -140,7 +139,7 @@ test('a fresh docker spec still allocates its slot and brings the stack up', asy
   try {
     const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
     assert.match(out, /slot:\s+0\s+\(ports 3000-3009\)/)
-    assert.match(out, /docker compose --env-file '\.env' --project-name \S+ up -d/)
+    assert.match(out, /spec-env bootstrap feat-e\n/)
     assert.doesNotMatch(out, /docs:/)
   } finally {
     cleanup(dir)
@@ -148,8 +147,10 @@ test('a fresh docker spec still allocates its slot and brings the stack up', asy
 })
 
 // bug-compose-before-env: compose is the LAST worktree step, never a
-// primary-checkout command, and the env file is a command rather than prose.
-test('a docker spec brings its stack up last, in the worktree, after setup', async () => {
+// primary-checkout command. The order itself is `worktreeSteps`' (pinned in
+// env-provision.test.js); what `up` owes is that it runs none of it and prints
+// none of it as shell — only the hand-off to `bootstrap`.
+test('a docker spec plans its stack in bootstrap, never from the primary checkout', async () => {
   const { dir, folder } = scaffold(
     'f',
     {
@@ -161,19 +162,9 @@ test('a docker spec brings its stack up last, in the worktree, after setup', asy
   )
   try {
     const out = await runQuiet(['spec-env', 'up', folder, '--dir', dir])
-    const [primary, worktree] = out.split('then, in the worktree, run:')
-    assert.doesNotMatch(primary, /docker compose/, 'nothing brings a stack up from the primary checkout')
-    const at = (re) => {
-      const i = worktree.search(re)
-      assert.ok(i >= 0, `missing ${re}`)
-      return i
-    }
-    const seed = at(/seed \.env/)
-    const env = at(/env file \.worktree\.env: ready/)
-    const setup = at(/pnpm install --frozen-lockfile/)
-    const up = at(/docker compose --env-file '\.worktree\.env' --project-name \S+ up -d/)
-    assert.ok(seed < env && env < setup && setup < up, 'seeds, env file, setup, compose')
-    assert.doesNotMatch(out, /write \S+ in the worktree:/, 'the prose block is gone')
+    assert.doesNotMatch(out, /docker compose/, 'nothing brings a stack up from the plan')
+    assert.doesNotMatch(out, /\.worktree\.env|ln -s|git rev-parse/, 'no env-file shell to copy')
+    assert.match(out, /then, run:\n\s+skitterspec spec-env bootstrap feat-f\n/)
   } finally {
     cleanup(dir)
   }

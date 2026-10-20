@@ -113,7 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `bootstrap` engine and verb | ✅ | [01-bootstrap-verb.md](01-bootstrap-verb.md) |
-| 2 | `up` / `nospec` print the verb, not the shell | ⬜ | [02-planner-output.md](02-planner-output.md) |
+| 2 | `up` / `nospec` print the verb, not the shell | ✅ | [02-planner-output.md](02-planner-output.md) |
 | 3 | Skills call `bootstrap`; docs | ⬜ | [03-skills-and-docs.md](03-skills-and-docs.md) |
 
 ## Open questions
@@ -141,3 +141,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   lists in `env.config.md`, `spec-planning.md` and `docs/reference.html` took
   `bootstrap` now rather than in phase 3 — the verb-list tests require every
   dispatched verb to be documented the moment it exists.
+- 2026-10-20 — Phase 2: `worktreeCd` is removed too, not kept — `nospec`
+  was its last user, and `bootstrap` takes the worktree as an explicit cwd
+  and refuses a missing one, so the `cd` guard has nothing left to guard.
+  Its shell-level tests in `env-seed.test.js` went with it; the seed tests
+  there now drive `runBootstrap` in a real linked worktree.

@@ -3,10 +3,10 @@
 /**
  * Pure provisioning planner for `spec-env up`.
  *
- * Given a resolved spec and its allocated slot, `planUp` returns the exact
- * side-effecting commands the `/spec-env` skill runs (`git worktree add`, the
- * env file, `docker compose up`) and the rendered `.env` contents — but performs no side
- * effects itself. The caller (the CLI) reads/allocates the
+ * Given a resolved spec and its allocated slot, `planUp` returns the commands
+ * the caller runs from the primary checkout (the spec commit, `git worktree
+ * add`) and the worktree steps `spec-env bootstrap` runs afterwards (seeds, the
+ * env file, `setup`, the stack) — but performs no side effects itself. The caller (the CLI) reads/allocates the
  * registry and passes the slot; this stays deterministic and unit-testable with
  * no live git/docker.
  */
@@ -15,107 +15,6 @@ const { classifyDirtyTree } = require('./classify.js')
 const { portOffset } = require('./registry.js')
 const { renderEnvFile } = require('./render.js')
 const { expandTokens } = require('./resolve.js')
-
-/**
- * Build the POSIX-sh prefix that puts a command in the spec's worktree, or stops.
- *
- * Every command under the "then, in the worktree, run:" heading carries this.
- * Without it those commands stay silent when run from the wrong place: in the
- * primary checkout `$m` resolves to the checkout itself, so a seed's source and
- * target are the same path and it prints `exists — skipped` — indistinguishable
- * from a correctly-provisioned re-run — while a setup command like an install
- * runs against the main checkout and "succeeds" too. Three layers then agree that
- * nothing is wrong, and the caller carries on committing to `main`.
- *
- * A `cd` is deliberately chosen over comparing `git rev-parse --show-toplevel`
- * against `worktreePath`: the planned path is a lexical `path.resolve` while git
- * reports the symlink-resolved one (`/tmp` vs `/private/tmp` on macOS), so a
- * string compare would refuse a perfectly good worktree. `cd` sidesteps that, and
- * does better than refusing — it *positions* the command, so a caller who is in
- * the wrong directory still gets correct behaviour. When the worktree was never
- * created — the reported case — the `cd` fails and takes the whole command with
- * it, non-zero and loud.
- *
- * Per-command, not once at the top of the block: a single leading `cd` only
- * protects the sequence if the caller chains it with `&&`, and the reported
- * failure is precisely a caller that ran the steps as separate statements.
- */
-function worktreeCd(worktreePath) {
-  return (
-    `cd "${worktreePath}" 2>/dev/null || ` +
-    `{ echo "no worktree at ${worktreePath} — run the provisioning commands first"; exit 1; }`
-  )
-}
-
-/**
- * Build one idempotent POSIX-sh command that seeds a gitignored file from the
- * main checkout into the current worktree (the cwd when the skill runs it).
- *
- * The main checkout is resolved at run time from inside the worktree via
- * `git rev-parse --git-common-dir` (absolute `<main>/.git` in a linked worktree)
- * and its dirname — never a hardcoded repo name or a `../..` hop. The command is
- * safe to re-run: a source absent in main is a printed no-op, an already-seeded
- * target (real file or symlink) is left untouched, and only a genuinely missing
- * target is created. `mode` is 'symlink' (points at main, stays in sync) or
- * 'copy' (an independent copy). Output mirrors the setup style: `seeded <f> → …`.
- */
-function seedCommandFor(file, mode) {
-  const op =
-    mode === 'copy'
-      ? `cp "$m/${file}" "${file}"`
-      : `ln -s "$m/${file}" "${file}"`
-  return (
-    'm="$(dirname "$(git rev-parse --git-common-dir)")"; ' +
-    `if [ ! -e "$m/${file}" ]; then echo "seed ${file}: not in main — skipped"; ` +
-    `elif [ -e "${file}" ] || [ -L "${file}" ]; then echo "seed ${file}: exists — skipped"; ` +
-    `else mkdir -p "$(dirname "${file}")" && ${op} && echo "seeded ${file} → $m/${file}"; fi`
-  )
-}
-
-
-// Single-quote a value for POSIX sh: the only character that needs escaping
-// inside single quotes is the single quote itself.
-function shq(value) {
-  return `'${String(value).replace(/'/g, `'\\''`)}'`
-}
-
-/**
- * Build one idempotent POSIX-sh command that writes the spec's env file in the
- * current worktree (the cwd when the skill runs it).
- *
- * It was prose once — "write <envFile> in the worktree:" — which left the write
- * to whoever read the plan, and a secrets guard that blocks any tool call naming
- * `.env` refused it. As a command it is one more step the plan runs.
- *
- * Idempotent and additive: it `touch`es the file and appends each key only when
- * no line already sets it, so a re-run changes nothing and a file `setup` has
- * already written to keeps every value it holds — including a deliberate
- * `PORT_OFFSET` of its own.
- *
- * A SYMLINK IS REFUSED, loudly. Seeding links gitignored files from the primary
- * checkout, so a seeded env file is the primary checkout's own; appending
- * through it would write this spec's port block into the main stack's
- * configuration. It runs after the seeds precisely so that collision is caught
- * rather than hidden. The fix is a `docker.envFile` naming a file of its own.
- */
-function envFileCommandFor(envFile, projectName, offset) {
-  const f = shq(envFile)
-  const ensure = (key, value) =>
-    `{ grep -q '^${key}=' ${f} || echo ${shq(`${key}=${value}`)} >> ${f}; }`
-  return (
-    `if [ -L ${f} ]; then echo ${shq(
-      `env file ${envFile} is a symlink — docker.envFile must name a file of its ` +
-        "own, not a seeded one; refusing to write this spec's port block through it",
-    )} >&2; exit 1; fi; ` +
-    `touch ${f} && ` +
-    // A file without a trailing newline would glue the first appended key onto
-    // its last line.
-    `{ [ ! -s ${f} ] || [ -z "$(tail -c 1 ${f})" ] || echo >> ${f}; } && ` +
-    `${ensure('COMPOSE_PROJECT_NAME', projectName)} && ` +
-    `${ensure('PORT_OFFSET', offset)} && ` +
-    `echo ${shq(`env file ${envFile}: ready`)}`
-  )
-}
 
 // Cap a path list in a message: enough to recognise, not a wall of text.
 function listPaths(paths) {
@@ -403,10 +302,10 @@ function worktreeSteps(spec, offset, config, opts = {}) {
  * @param {object} config normalised env config.
  * @param {object} opts  { docs } — documents mode (see below). Optional.
  * @returns {object} { worktreePath, branch, projectName, slot, portOffset,
- *                     envContents, commands, seedCommands, envCommands,
- *                     setupCommands, dockerCommands, docs, attached }
+ *                     envContents, commands, steps, docs, attached }
  *
- * The worktree steps run in that order: seeds, env file, setup, compose.
+ * `commands` run from the primary checkout (the spec commit, the fork); `steps`
+ * are what `spec-env bootstrap` runs in the worktree afterwards.
  */
 function planUp(spec, alloc, config, ctx, opts = {}) {
   const { slot, attached } = alloc
@@ -439,38 +338,13 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
     ? renderEnvFile({ projectName: spec.projectName, portOffset: offset })
     : null
 
-  const tokens = {
-    worktreePath: spec.worktreePath,
-    slug: spec.slug,
-    branch: spec.branch,
-    projectName: spec.projectName,
-    portOffset: offset === null ? '' : String(offset),
-  }
-
-
-  // File seeding runs *in the worktree* after `git worktree add`, before the
-  // setup commands (which may depend on the seeded .env). Each entry becomes an
-  // idempotent shell command resolving the main checkout at run time. Absent
-  // config ⇒ no commands ⇒ current behaviour.
-  const seed = config.seedFiles || { mode: 'symlink', files: [] }
-  const seedMode = seed.mode === 'copy' ? 'copy' : 'symlink'
+  // Everything after the fork runs in the worktree, and `spec-env bootstrap`
+  // runs it — the steps are data, not shell for a caller to copy.
   const steps = worktreeSteps(spec, offset, config, {
     docs,
     wantsDocker,
     composeFilePresent: ctx ? ctx.composeFilePresent : undefined,
   })
-  const guard = worktreeCd(spec.worktreePath)
-  const seedCommands = (seed.files || []).map(
-    (file) => `${guard}; ${seedCommandFor(file, seedMode)}`,
-  )
-
-  // Bootstrap commands run *in the worktree* after `git worktree add` (before
-  // Docker/dev), on every provision including re-attach — deps must exist for
-  // the worktree to be usable. Kept separate from `commands` (run from the
-  // primary checkout root); the CLI prints them under an "in the worktree" head.
-  const setupCommands = (config.setup || []).map(
-    (cmd) => `${guard}; ${expandTokens(cmd, tokens)}`,
-  )
 
   const commands = []
   // Fresh branch → -b; attach an existing branch/slot → plain form (never clobber).
@@ -483,25 +357,6 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
       ? `git worktree add ${spec.worktreePath} ${spec.branch}`
       : `git worktree add ${spec.worktreePath} -b ${spec.branch}${forkPoint}`,
   )
-  // The stack comes up LAST, in the worktree: after the seeds, after the env
-  // file, after `setup` — which may derive values into that file. It once ran
-  // from the primary checkout before the worktree existed, so compose read the
-  // primary checkout's env file, fell back to its defaults and collided with the
-  // main stack. `--env-file` is always passed: with the default `.env` it is what
-  // compose would have found anyway, and with any other name it is the only way
-  // compose finds it.
-  const envFile = (config.docker && config.docker.envFile) || '.env'
-  const envCommands = wantsDocker
-    ? [`${guard}; ${envFileCommandFor(envFile, spec.projectName, offset)}`]
-    : []
-  const dockerCommands = wantsDocker
-    ? [
-        `${guard}; docker compose` +
-          composeFileArg(config, ctx ? ctx.composeFilePresent : undefined) +
-          ` --env-file ${shq(envFile)} --project-name ${spec.projectName} up -d`,
-      ]
-    : []
-
   // The tree gate. A worktree forks from the base branch's tree, so an
   // uncommitted spec would produce a branch missing the spec it is for — this is
   // where that gets committed, or refused. Worktree mode had NO clean gate before
@@ -525,21 +380,13 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
     portOffset: offset,
     envContents,
     commands: gate.blocked ? [] : [...gate.commands, ...commands],
-    seedCommands: gate.blocked ? [] : seedCommands,
-    envCommands: gate.blocked ? [] : envCommands,
-    // Documents mode drops these, and keeps the seed commands above. The two are
-    // not the same kind of thing: seeding links the gitignored files a worktree
-    // has none of — cheap, and a spec author may well want `.env` present —
-    // while `setup` is the expensive half that exists to make the tree run.
-    setupCommands: gate.blocked || docs ? [] : setupCommands,
-    dockerCommands: gate.blocked ? [] : dockerCommands,
-    // The same worktree steps as data, for `spec-env bootstrap` to run. The
-    // string fields above are the printed form of exactly this list.
+    // The worktree steps, in the order `spec-env bootstrap` runs them. Documents
+    // mode drops `setup` and the stack and keeps the seeds (`worktreeSteps`).
     steps: gate.blocked ? [] : steps,
     // Reported so a caller reading `--json` can tell a documents worktree from a
-    // full one POSITIVELY, rather than inferring it from what is missing. An
-    // empty `setupCommands` also describes a project that configured no setup
-    // at all, and those two must not read alike.
+    // full one POSITIVELY, rather than inferring it from what is missing. A step
+    // list with no `setup` also describes a project that configured none, and
+    // those two must not read alike.
     docs,
     attached,
   }
@@ -614,9 +461,6 @@ module.exports = {
   planCheckoutUp,
   planSpecCommit,
   worktreeSteps,
-  seedCommandFor,
-  envFileCommandFor,
-  worktreeCd,
   resolveStack,
   composeFileArg,
 }
