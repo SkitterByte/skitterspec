@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-engine-bootstrap (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-20)
+> **Status:** Complete (2026-10-20)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-20
@@ -126,6 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-20 | Ready | backlog | Reuben Greaves |
 | 2026-10-20 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-20 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -149,3 +150,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-20 — Phase 3: each provisioning skill carries the same short
   "the worktree steps are the engine's to run, never yours" paragraph, so
   the reason sits beside the instruction an agent would otherwise improvise.
+- 2026-10-20 — Completed; all phases done, tests green.
