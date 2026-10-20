@@ -15,28 +15,32 @@
  * hands back — so the planner never needs to reason about conflicts.
  *
  * @param {object} spec  resolved spec: { branch, worktreePath, folder, ... }
- * @param {object} config normalised env config (unused today; kept for symmetry).
+ * @param {object} config normalised env config (reads `afterLand`).
  * In CHECKOUT mode there is no worktree: the branch is already checked out in the
  * primary checkout, so landing is a rebase in place, a switch to base, and the
  * fast-forward. `planIntegrateCheckout` below covers that; the shape of what it
  * returns is identical so callers need no second code path.
  *
  * @param {object} ctx   { worktreeState: { dirty }, base, aheadOfBase, mainRepoPath }
- * @returns {object} { blocked, noop, reason, commands, base, branch }
+ * @returns {object} { blocked, noop, reason, commands, afterLand, base, branch }
  */
 function planIntegrate(spec, config, ctx) {
   const { worktreeState = {}, base, aheadOfBase, mainRepoPath } = ctx || {}
   const branch = spec.branch
-  const result = { blocked: false, noop: false, reason: null, commands: [], base, branch }
+  const result = {
+    blocked: false, noop: false, reason: null, commands: [], afterLand: noAfterLand(), base, branch,
+  }
 
   // The completion edits must be committed first — never rebase a dirty tree.
   if (worktreeState.dirty) {
     return { ...result, blocked: true, reason: 'worktree has uncommitted changes — commit the completion first' }
   }
 
-  // Nothing on the branch that isn't already on base → already landed.
+  // Nothing on the branch that isn't already on base → already landed. The
+  // after-land commands still apply: the land may have happened on another
+  // machine or in an earlier session, leaving them pending in THIS checkout.
   if (!aheadOfBase) {
-    return { ...result, noop: true }
+    return { ...result, noop: true, afterLand: afterLandFor(config, mainRepoPath) }
   }
 
   return {
@@ -45,6 +49,7 @@ function planIntegrate(spec, config, ctx) {
       `git -C ${spec.worktreePath} rebase ${base}`,
       `git -C ${mainRepoPath} merge --ff-only ${branch}`,
     ],
+    afterLand: afterLandFor(config, mainRepoPath),
   }
 }
 
@@ -65,7 +70,9 @@ function planIntegrate(spec, config, ctx) {
 function planIntegrateCheckout(spec, config, ctx) {
   const { dirty, base, aheadOfBase, checkoutPath, onBranch } = ctx || {}
   const branch = spec.branch
-  const result = { blocked: false, noop: false, reason: null, commands: [], base, branch }
+  const result = {
+    blocked: false, noop: false, reason: null, commands: [], afterLand: noAfterLand(), base, branch,
+  }
 
   // "Already landed" is answered FIRST, before any refusal. A landed spec needs
   // no action wherever the checkout happens to be standing — and after a
@@ -73,7 +80,7 @@ function planIntegrateCheckout(spec, config, ctx) {
   // would refuse the very spec this just finished landing. /spec-complete calls
   // integrate again on exactly that state.
   if (!aheadOfBase) {
-    return { ...result, noop: true }
+    return { ...result, noop: true, afterLand: afterLandFor(config, checkoutPath) }
   }
   if (dirty) {
     return {
@@ -100,7 +107,20 @@ function planIntegrateCheckout(spec, config, ctx) {
       `git -C ${checkoutPath} switch ${base}`,
       `git -C ${checkoutPath} merge --ff-only ${branch}`,
     ],
+    afterLand: afterLandFor(config, checkoutPath),
   }
 }
 
-module.exports = { planIntegrate, planIntegrateCheckout }
+// The after-land half of a plan: `config.afterLand`, to run in `cwd` (the
+// primary checkout, standing on base) once the land commands have succeeded.
+// A blocked plan carries the empty form — nothing landed, so nothing follows.
+function afterLandFor(config, cwd) {
+  const commands = (config && Array.isArray(config.afterLand)) ? [...config.afterLand] : []
+  return { cwd: commands.length ? cwd : null, commands }
+}
+
+function noAfterLand() {
+  return { cwd: null, commands: [] }
+}
+
+module.exports = { planIntegrate, planIntegrateCheckout, afterLandFor }

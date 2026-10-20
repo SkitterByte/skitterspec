@@ -1732,7 +1732,8 @@ function specEnvIntegrate(dir, config, specArg) {
     }
     if (cplan.noop) {
       process.stdout.write(
-        `spec-env integrate: ${spec.folder} already landed on ${base} — nothing to integrate.\n`,
+        `spec-env integrate: ${spec.folder} already landed on ${base} — nothing to integrate.\n` +
+          afterLandSection(cplan.afterLand),
       )
       return
     }
@@ -1740,7 +1741,7 @@ function specEnvIntegrate(dir, config, specArg) {
                   `  base:      ${base}`, `  branch:    ${cplan.branch}`, '',
                   '  run these (abort the rebase on conflict):']
     for (const cmd of cplan.commands) cout.push(`    ${cmd}`)
-    process.stdout.write(cout.join('\n') + '\n')
+    process.stdout.write(cout.join('\n') + '\n' + afterLandSection(cplan.afterLand))
     return
   }
 
@@ -1829,7 +1830,8 @@ function specEnvIntegrate(dir, config, specArg) {
   }
   if (plan.noop) {
     process.stdout.write(
-      `spec-env integrate: ${spec.folder} already landed on ${base} — nothing to integrate.\n`,
+      `spec-env integrate: ${spec.folder} already landed on ${base} — nothing to integrate.\n` +
+        afterLandSection(plan.afterLand),
     )
     return
   }
@@ -1843,7 +1845,17 @@ function specEnvIntegrate(dir, config, specArg) {
   out.push('')
   out.push('  run these (abort the rebase on conflict):')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
-  process.stdout.write(out.join('\n') + '\n')
+  process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
+}
+
+// The `afterLand` commands, as a section printed after a land plan — or after
+// integrate's already-landed line. Empty string when none apply, so a project
+// without the key sees exactly the output it always has.
+function afterLandSection(afterLand) {
+  if (!afterLand || !afterLand.commands || afterLand.commands.length === 0) return ''
+  const out = ['', `  then, in the primary checkout (${afterLand.cwd}), run (stop at the first failure):`]
+  for (const cmd of afterLand.commands) out.push(`    ${cmd}`)
+  return out.join('\n') + '\n'
 }
 
 // Land a hotfix: tag the branch with the patch-bumped base tag (the prod deploy
@@ -1931,7 +1943,7 @@ function specEnvHotfix(dir, config, positional, flags) {
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   out.push('')
   out.push(`  then push the deploy tag yourself:  git push origin ${plan.prodTag}`)
-  process.stdout.write(out.join('\n') + '\n')
+  process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
 }
 
 // What the primary checkout has GAINED right now, by content. `dir` is already

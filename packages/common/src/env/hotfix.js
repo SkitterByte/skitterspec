@@ -21,6 +21,7 @@
  */
 
 const path = require('node:path')
+const { afterLandFor } = require('./integrate.js')
 
 /**
  * Parse a semver-ish tag and return it with its PATCH bumped by one. Preserves any
@@ -50,7 +51,7 @@ function tagSlug(tag) {
  * @param {object} config normalised env config (reads `config.hotfix`).
  * @param {object} ctx   { worktreeState:{dirty}, aheadOfBase, fixRange, mainRepoPath,
  *                          base, extraTargets: string[], existingTags: string[] }
- * @returns {object} { blocked, noop, reason, commands, prodTag, targets, branch, base }
+ * @returns {object} { blocked, noop, reason, commands, afterLand, prodTag, targets, branch, base }
  */
 function planHotfixLand(spec, config, ctx) {
   const c = ctx || {}
@@ -62,6 +63,7 @@ function planHotfixLand(spec, config, ctx) {
     noop: false,
     reason: null,
     commands: [],
+    afterLand: afterLandFor(null),
     prodTag: null,
     targets: [],
     branch,
@@ -122,12 +124,16 @@ function planHotfixLand(spec, config, ctx) {
   }
 
   // 3. Cherry-pick the fix onto the base branch (main) for the next release.
+  //    Only then does the primary checkout gain anything, so only then do the
+  //    after-land commands apply — a prod-only land leaves main untouched.
+  let afterLand = result.afterLand
   if (hotfixCfg.cherryPickMain !== false) {
     commands.push(`git -C ${c.mainRepoPath} cherry-pick ${fixRange}`)
     targets.push({ kind: 'main', base: c.base })
+    afterLand = afterLandFor(config, c.mainRepoPath)
   }
 
-  return { ...result, commands, prodTag, targets, fixRange }
+  return { ...result, commands, afterLand, prodTag, targets, fixRange }
 }
 
 module.exports = { bumpPatch, tagSlug, planHotfixLand }

@@ -128,3 +128,28 @@ test('blocks a spec with no Base version (not a hotfix)', () => {
   assert.strictEqual(plan.blocked, true)
   assert.match(plan.reason, /no Base version/)
 })
+
+// --- afterLand -------------------------------------------------------------
+
+const AFTER = { ...CONFIG, afterLand: ['pnpm db:data-migration'] }
+const NO_AFTER = { cwd: null, commands: [] }
+
+test('afterLand: planned after the main cherry-pick, in the primary checkout', () => {
+  const plan = planHotfixLand(spec(), AFTER, ctx())
+  assert.deepStrictEqual(plan.afterLand, { cwd: '/repo', commands: ['pnpm db:data-migration'] })
+})
+
+test('afterLand: none when cherryPickMain is off — main gained nothing', () => {
+  const config = { ...AFTER, hotfix: { ...CONFIG.hotfix, cherryPickMain: false } }
+  assert.deepStrictEqual(planHotfixLand(spec(), config, ctx()).afterLand, NO_AFTER)
+})
+
+test('afterLand: none on the no-op and on a blocked plan', () => {
+  assert.deepStrictEqual(planHotfixLand(spec(), AFTER, ctx({ aheadOfBase: false })).afterLand, NO_AFTER)
+  assert.deepStrictEqual(
+    planHotfixLand(spec(), AFTER, ctx({ worktreeState: { dirty: true } })).afterLand, NO_AFTER)
+})
+
+test('afterLand stays silent when the key is absent', () => {
+  assert.deepStrictEqual(planHotfixLand(spec(), CONFIG, ctx()).afterLand, NO_AFTER)
+})

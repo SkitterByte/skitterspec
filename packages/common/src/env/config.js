@@ -24,6 +24,9 @@
  *               // setup runs (mode: "symlink" default | "copy"); empty = none
  *     setup:    [ "cmd", ... ],  // bootstrap commands run in the worktree right
  *               // after `git worktree add` (e.g. install deps); empty = none
+ *     afterLand:[ "cmd", ... ],  // commands run in the PRIMARY checkout after a
+ *               // land (integrate's ff, hotfix land's main cherry-pick), e.g. a
+ *               // data migration; literal, no token expansion; empty = none
  *     dev:      [ { name, command, portVar, health?, frontPort? } ],  // host dev
  *               // servers started on the spec's port block (empty = none)
  *     proxy:    { enabled, host },  // bundled front-door proxy (spec-env connect)
@@ -166,6 +169,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // `git worktree add` (before Docker/dev), on every provision. Array of shell
   // strings (e.g. "pnpm install"); {slug}/{branch}/… expand. Default: none.
   setup: Object.freeze([]),
+  // Commands run in the primary checkout after a land, printed by `spec-env
+  // integrate` (including its already-landed no-op) and by `hotfix land` when
+  // it cherry-picks onto the base branch. The skill runs them; the engine only
+  // plans. Literal strings — no {slug}/{port} tokens, since they run on the base
+  // branch where a spec's tokens mean nothing. Default: none.
+  afterLand: Object.freeze([]),
   // Host dev servers started on the spec's port block by `spec-env dev up`.
   // Each: { name, command, portVar, health?, frontPort? }. Default: none.
   dev: Object.freeze([]),
@@ -332,6 +341,7 @@ function defaults() {
     docker: { ...DEFAULT_CONFIG.docker },
     seedFiles: { mode: DEFAULT_CONFIG.seedFiles.mode, files: [] },
     setup: [],
+    afterLand: [],
     dev: [],
     proxy: { ...DEFAULT_CONFIG.proxy },
     registry: DEFAULT_CONFIG.registry,
@@ -540,6 +550,11 @@ function mergeConfig(base, parsed) {
 
   if (Array.isArray(parsed.setup)) {
     base.setup = normalizeSetup(parsed.setup)
+  }
+
+  // Same rule as `setup`: a stray entry is dropped, never thrown on.
+  if (Array.isArray(parsed.afterLand)) {
+    base.afterLand = normalizeSetup(parsed.afterLand)
   }
 
   if (Array.isArray(parsed.dev)) {

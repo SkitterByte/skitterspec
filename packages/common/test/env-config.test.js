@@ -363,3 +363,29 @@ test('a non-array spec.companionPaths is ignored, not fatal', () => {
   writeEnvConfig(dir, { spec: { companionPaths: 'specs/.core/x.json' } })
   assert.deepStrictEqual(loadEnvConfig(dir).config.spec.companionPaths, [])
 })
+
+test('afterLand defaults to an empty array (absent → opt-out)', () => {
+  const dir = tmpDir()
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [])
+})
+
+test('afterLand keeps trimmed non-empty strings, dropping blanks/non-strings', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    afterLand: ['  pnpm db:data-migration  ', '', 7, null, { cmd: 'x' }, 'pnpm build'],
+  })
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.afterLand, ['pnpm db:data-migration', 'pnpm build'])
+})
+
+test('afterLand of the wrong type is ignored (keeps the default [])', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { afterLand: 'pnpm db:data-migration' })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [])
+})
+
+test('afterLand is literal — tokens are not expanded', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { afterLand: ['echo {slug}'] })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, ['echo {slug}'])
+})

@@ -59,3 +59,43 @@ test('targets the resolved base and mainRepoPath, not hardcoded values', () => {
     'git -C /primary merge --ff-only bug/x',
   ])
 })
+
+// --- afterLand -------------------------------------------------------------
+
+const { planIntegrateCheckout } = require('../src/env/integrate.js')
+const AFTER = { afterLand: ['pnpm db:data-migration'] }
+const NONE = { cwd: null, commands: [] }
+
+test('afterLand: a landing plan carries the commands, to run in the primary checkout', () => {
+  const p = planIntegrate(spec(), AFTER, CTX())
+  assert.deepStrictEqual(p.afterLand, { cwd: '/repo', commands: ['pnpm db:data-migration'] })
+})
+
+test('afterLand: the already-landed no-op still carries them (landed elsewhere)', () => {
+  const p = planIntegrate(spec(), AFTER, CTX({ aheadOfBase: false }))
+  assert.strictEqual(p.noop, true)
+  assert.deepStrictEqual(p.afterLand.commands, ['pnpm db:data-migration'])
+})
+
+test('afterLand: a blocked plan carries none — nothing landed', () => {
+  const p = planIntegrate(spec(), AFTER, CTX({ worktreeState: { dirty: true } }))
+  assert.deepStrictEqual(p.afterLand, NONE)
+})
+
+test('afterLand: checkout mode runs them in the checkout, on land and on no-op', () => {
+  const ctx = { dirty: false, base: 'main', aheadOfBase: true, checkoutPath: '/co', onBranch: true }
+  assert.deepStrictEqual(planIntegrateCheckout(spec(), AFTER, ctx).afterLand,
+    { cwd: '/co', commands: ['pnpm db:data-migration'] })
+  assert.deepStrictEqual(planIntegrateCheckout(spec(), AFTER, { ...ctx, aheadOfBase: false }).afterLand,
+    { cwd: '/co', commands: ['pnpm db:data-migration'] })
+  assert.deepStrictEqual(planIntegrateCheckout(spec(), AFTER, { ...ctx, onBranch: false }).afterLand, NONE)
+})
+
+test('afterLand stays silent when the key is absent — every plan shape', () => {
+  for (const config of [{}, undefined, { afterLand: [] }]) {
+    assert.deepStrictEqual(planIntegrate(spec(), config, CTX()).afterLand, NONE)
+    assert.deepStrictEqual(planIntegrate(spec(), config, CTX({ aheadOfBase: false })).afterLand, NONE)
+    const ctx = { dirty: false, base: 'main', aheadOfBase: false, checkoutPath: '/co', onBranch: true }
+    assert.deepStrictEqual(planIntegrateCheckout(spec(), config, ctx).afterLand, NONE)
+  }
+})

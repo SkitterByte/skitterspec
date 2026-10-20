@@ -144,6 +144,23 @@ through to a documented conservative default; see the field notes below.
   // redundant). Example: ["pnpm install --frozen-lockfile"].
   "setup": [],
 
+  // Commands to run in the PRIMARY checkout after a land — the counterpart of
+  // `setup`, for whatever landed code needs before the base branch is usable
+  // locally (e.g. ["pnpm db:data-migration"] for imperative data migrations
+  // your deploy runs and nothing runs on your dev DB). An array, run in order;
+  // [] (or absent) = none, and every plan prints exactly what it always did.
+  //   `spec-env integrate` prints them after the fast-forward (worktree and
+  //   checkout mode), and also after "already landed" — a land on another
+  //   machine leaves them pending here. `spec-env hotfix land` prints them
+  //   after the cherry-pick onto the base branch, and not at all when
+  //   `hotfix.cherryPickMain` is false, since the base gained nothing.
+  // The engine only plans: /spec-complete, /spec-to-main and /no-spec run
+  // them (a /spec documents-only land does not). They stop at the first
+  // failure, report it as a caveat, and never undo the land or block
+  // teardown. Literal strings — tokens are NOT expanded, because they run on
+  // the base branch where a spec's {slug} or {portOffset} mean nothing.
+  "afterLand": [],
+
   // Host dev servers `spec-env dev up <spec>` starts on the spec's port block
   // (for apps that run via `pnpm dev` on the host, not inside the Docker stack).
   // An array so UI + API (or more) are supervised independently; [] = none.

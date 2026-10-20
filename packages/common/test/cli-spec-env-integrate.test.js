@@ -40,7 +40,7 @@ async function runQuiet(argv) {
 
 // Build a primary checkout on `main` with an isolated spec, plus a real worktree
 // on the spec's branch holding one commit ahead of main (so integrate has work).
-function scaffoldRepoWithWorktree() {
+function scaffoldRepoWithWorktree(extraConfig = {}) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-int-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
@@ -49,7 +49,7 @@ function scaffoldRepoWithWorktree() {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
+    JSON.stringify({ baseBranch: 'main', docker: { enabled: false }, ...extraConfig }, null, 2),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n') // ignore runtime state
   const specDir = path.join(dir, 'specs', 'in-progress', 'feat-x')
@@ -198,6 +198,50 @@ test('integrate lands fixes committed on the branch while live (commit-in-primar
     assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
     assert.strictEqual(git(worktree, 'symbolic-ref', '--short', 'HEAD'), 'feat/x')
     assert.match(git(worktree, 'log', '--oneline'), /live fix/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// --- afterLand ---------------------------------------------------------------
+
+test('integrate prints afterLand after the land commands, in the primary checkout', async () => {
+  const { dir } = scaffoldRepoWithWorktree({ afterLand: ['pnpm db:data-migration'] })
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    const ff = out.indexOf('merge --ff-only feat/x')
+    const after = out.indexOf(`then, in the primary checkout (${dir}), run`)
+    assert.ok(ff > 0 && after > ff, 'the section follows the fast-forward')
+    assert.match(out.slice(after), /\n    pnpm db:data-migration\n/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate still prints afterLand when the spec already landed', async () => {
+  const { dir } = scaffoldRepoWithWorktree({ afterLand: ['pnpm db:data-migration'] })
+  try {
+    git(dir, 'merge', '-q', '--ff-only', 'feat/x')
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /already landed on main/)
+    assert.match(out, /then, in the primary checkout .*\n    pnpm db:data-migration\n/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate says nothing about afterLand when the key is absent', async () => {
+  const { dir } = scaffoldRepoWithWorktree()
+  try {
+    const landing = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.doesNotMatch(landing, /then, in the primary checkout/)
+    git(dir, 'merge', '-q', '--ff-only', 'feat/x')
+    const noop = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.strictEqual(
+      noop,
+      'spec-env integrate: feat-x already landed on main — nothing to integrate.\n',
+      'the no-op line is byte-identical to the output before afterLand existed',
+    )
   } finally {
     cleanup(dir)
   }
