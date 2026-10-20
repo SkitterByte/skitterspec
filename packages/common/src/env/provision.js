@@ -329,6 +329,71 @@ function resolveStack(spec, config, { docs = false, composeFilePresent } = {}) {
 }
 
 /**
+ * The steps that bring a fresh worktree to ready, as data — the list
+ * `spec-env bootstrap` runs. In the order each depends on the last: seeds (the
+ * env file may be one), the env file, `setup` (which may derive values into
+ * it), and only then the stack.
+ *
+ * DATA AND NOT SHELL, and that is the reason the verb exists. These steps were
+ * printed as POSIX-sh one-liners for the agent to copy, and the copy was never
+ * faithful: merged into a loop, its echo text reworded, two steps glued into one
+ * call. A consumer's secrets hook — which refuses any Bash call naming a `.env`
+ * file and makes an exception only for the exact printed shape — then refused
+ * the rewrite, and bootstrap stopped with the user running it by hand. A step
+ * the engine runs itself has no text for anything to rewrite or refuse.
+ *
+ * `setup` entries stay shell strings: they are the project's own commands,
+ * written by the project. The docker step is an argv, run without a shell.
+ *
+ * Pure: `offset` is the spec's port offset (null without a stack), and every
+ * filesystem fact arrives in `opts`.
+ */
+function worktreeSteps(spec, offset, config, opts = {}) {
+  const { docs = false, wantsDocker = false, composeFilePresent: compose } = opts
+  const seed = config.seedFiles || { mode: 'symlink', files: [] }
+  const mode = seed.mode === 'copy' ? 'copy' : 'symlink'
+  const tokens = {
+    worktreePath: spec.worktreePath,
+    slug: spec.slug,
+    branch: spec.branch,
+    projectName: spec.projectName,
+    portOffset: offset === null || offset === undefined ? '' : String(offset),
+  }
+  const envFile = (config.docker && config.docker.envFile) || '.env'
+  const steps = (seed.files || []).map((file) => ({ kind: 'seed', file, mode }))
+  if (wantsDocker) {
+    steps.push({ kind: 'envFile', file: envFile, projectName: spec.projectName, offset })
+  }
+  // Documents mode drops `setup` and nothing else: seeding is cheap and a spec
+  // author may well want the gitignored files present, while `setup` is the
+  // expensive half that exists to make the tree run. `wantsDocker` is already
+  // false under `--docs` (`resolveStack`), so the stack drops with it.
+  if (!docs) {
+    for (const cmd of config.setup || []) {
+      steps.push({ kind: 'setup', command: expandTokens(cmd, tokens) })
+    }
+  }
+  if (wantsDocker) {
+    const file = composeFileArg(config, compose).trim().split(/\s+/).filter(Boolean)
+    steps.push({
+      kind: 'docker',
+      argv: [
+        'docker',
+        'compose',
+        ...file,
+        '--env-file',
+        envFile,
+        '--project-name',
+        spec.projectName,
+        'up',
+        '-d',
+      ],
+    })
+  }
+  return steps
+}
+
+/**
  * Plan a provisioning run.
  *
  * @param {object} spec  resolved spec (from resolveSpec): { slug, type, branch,
@@ -389,6 +454,11 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
   // config ⇒ no commands ⇒ current behaviour.
   const seed = config.seedFiles || { mode: 'symlink', files: [] }
   const seedMode = seed.mode === 'copy' ? 'copy' : 'symlink'
+  const steps = worktreeSteps(spec, offset, config, {
+    docs,
+    wantsDocker,
+    composeFilePresent: ctx ? ctx.composeFilePresent : undefined,
+  })
   const guard = worktreeCd(spec.worktreePath)
   const seedCommands = (seed.files || []).map(
     (file) => `${guard}; ${seedCommandFor(file, seedMode)}`,
@@ -463,6 +533,9 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
     // while `setup` is the expensive half that exists to make the tree run.
     setupCommands: gate.blocked || docs ? [] : setupCommands,
     dockerCommands: gate.blocked ? [] : dockerCommands,
+    // The same worktree steps as data, for `spec-env bootstrap` to run. The
+    // string fields above are the printed form of exactly this list.
+    steps: gate.blocked ? [] : steps,
     // Reported so a caller reading `--json` can tell a documents worktree from a
     // full one POSITIVELY, rather than inferring it from what is missing. An
     // empty `setupCommands` also describes a project that configured no setup
@@ -540,6 +613,7 @@ module.exports = {
   planUp,
   planCheckoutUp,
   planSpecCommit,
+  worktreeSteps,
   seedCommandFor,
   envFileCommandFor,
   worktreeCd,

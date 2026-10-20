@@ -29,6 +29,7 @@ const ENV_CONFIG_LABEL = 'env.config.json'
 // their own lines below.
 const SPEC_ENV_VERBS = Object.freeze([
   'up',
+  'bootstrap',
   'down',
   'prune',
   'dev',
@@ -147,7 +148,8 @@ const {
   cacheHit,
   asCached,
 } = require('./env/reviewers.js')
-const { planUp, planCheckoutUp, worktreeCd, resolveStack } = require('./env/provision.js')
+const { planUp, planCheckoutUp, worktreeCd, resolveStack, worktreeSteps } = require('./env/provision.js')
+const { runBootstrap, describeStep } = require('./env/bootstrap.js')
 const { classifyDirtyTree, dirtyPaths, specDocsIn } = require('./env/classify.js')
 const { isGitCommit } = require('./env/commitcmd.js')
 const { planDown, planDownCheckout } = require('./env/teardown.js')
@@ -213,6 +215,10 @@ Usage:
                                                   Docker stack (prints commands; creates nothing)
                                                   --docs: a tree to write documents in — no
                                                   setup commands, no Docker
+                                bootstrap [spec]  run the worktree's seeds, env file, setup
+                                                  and stack itself, in the worktree — after
+                                                  \`up\`'s worktree add (--docs: seeds only;
+                                                  --plan: describe, run nothing; --json)
                                 nospec <name>     record a branch with no spec document
                                                   (/no-spec work) and print its plan
                                 main <check|allow|status>
@@ -1115,6 +1121,166 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     for (const cmd of worktreeSteps) out.push(`    ${cmd}`)
   }
   process.stdout.write(out.join('\n') + '\n')
+}
+
+/**
+ * `spec-env bootstrap [<spec>]` — bring a provisioned worktree to ready.
+ *
+ * Runs the steps `up` used to print under "then, in the worktree, run:" —
+ * seeds, the env file, `setup`, the stack — itself, with the worktree as cwd.
+ * The caller's command line is `skitterspec spec-env bootstrap <name>` and
+ * nothing more, so no `.env` path ever appears in it: there is nothing for a
+ * secrets hook to refuse, and nothing for an agent to rewrite on the way.
+ *
+ * IT DOES NOT FORK. `git worktree add` and the spec's own commit stay `up`'s,
+ * printed and run as before; this verb starts where they finish, so re-running
+ * one step later — `setup` after a lockfile change — costs no re-plan.
+ *
+ * Refuses BEFORE ACTING, non-zero, when there is nothing to bootstrap yet: no
+ * worktree on disk, or a docker spec with no registry slot (its port block
+ * would be derived from nothing). Both name `spec-env up`.
+ *
+ * Specless (`/no-spec`) work runs `setup` only — `nospec` has never seeded and
+ * still does not. Checkout mode has no worktree and says so, exit 0: the
+ * primary checkout already has its dependencies.
+ */
+function specEnvBootstrap(dir, config, specArg, flags = {}) {
+  const docs = flags.docs === true
+  const json = flags.json === true
+  const say = (line) => process.stdout.write(line + '\n')
+  const refuse = (msg) => {
+    if (json) say(JSON.stringify({ ok: false, refused: msg }, null, 2))
+    else say(`spec-env bootstrap: ${msg}`)
+    process.exitCode = 1
+  }
+
+  if (config.mode === 'checkout') {
+    say(
+      'spec-env bootstrap: checkout mode has no worktree to bootstrap — the primary ' +
+        'checkout already has its dependencies.',
+    )
+    return
+  }
+
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+  const name = spec.folder
+
+  if (!fs.existsSync(spec.worktreePath)) {
+    refuse(
+      `no worktree at ${spec.worktreePath} — run \`skitterspec spec-env up ${name}\` ` +
+        'and the worktree add it prints first.',
+    )
+    return
+  }
+  // The primary checkout answering as the worktree would seed every file onto
+  // itself and report `exists — skipped`, indistinguishable from a healthy
+  // re-run, while `setup` ran against the base branch.
+  if (sameDir(spec.worktreePath, dir)) {
+    refuse(`${spec.worktreePath} is the primary checkout, not ${name}'s worktree.`)
+    return
+  }
+
+  let steps
+  // A `/no-spec` record — not the authoring record `up --docs` writes for a
+  // spec not yet on disk, which is a spec and plans like one.
+  if (spec.specless && !spec.unwritten) {
+    steps = docs ? [] : (config.setup || []).map((command) => ({ kind: 'setup', command }))
+  } else {
+    const compose = composeFilePresent(dir, config)
+    const { wantsDocker } = resolveStack(spec, config, { docs, composeFilePresent: compose })
+    let offset = null
+    if (wantsDocker) {
+      const slots = readRegistry(dir, config).slots || {}
+      if (!Object.prototype.hasOwnProperty.call(slots, name)) {
+        refuse(
+          `${name} wants a Docker stack and has no slot yet — run ` +
+            `\`skitterspec spec-env up ${name}\` first.`,
+        )
+        return
+      }
+      offset = portOffset(slots[name], config)
+    }
+    steps = worktreeSteps(spec, offset, config, {
+      docs,
+      wantsDocker,
+      composeFilePresent: compose,
+    })
+  }
+
+  if (flags.plan) {
+    if (json) {
+      say(
+        JSON.stringify(
+          { spec: name, worktree: spec.worktreePath, docs, planned: true, steps },
+          null,
+          2,
+        ),
+      )
+      return
+    }
+    say(`spec-env bootstrap: ${name} (plan — nothing run)`)
+    say('')
+    say(`  worktree:  ${spec.worktreePath}`)
+    if (!steps.length) say('  steps:     none — nothing configured to run')
+    else steps.forEach((st, i) => say(`  ${i + 1}. ${describeStep(st)}`))
+    return
+  }
+
+  if (!json) {
+    say(`spec-env bootstrap: ${name}`)
+    say(`  worktree:  ${spec.worktreePath}`)
+  }
+  const result = runBootstrap(steps, {
+    cwd: spec.worktreePath,
+    mainRoot: dir,
+    // Report lines go to stdout as plain text; under --json they are carried in
+    // the payload instead, and spawned output is moved to stderr with them.
+    write: json ? () => {} : (line) => say(`  ${line}`),
+    childStdout: json ? process.stderr : 'inherit',
+  })
+
+  if (json) {
+    say(
+      JSON.stringify(
+        {
+          spec: name,
+          worktree: spec.worktreePath,
+          docs,
+          planned: false,
+          ok: result.ok,
+          failedAt: result.failedAt,
+          steps: result.results.map((r) => ({ ...r.step, outcome: r.outcome, line: r.line })),
+          remaining: steps.slice(result.results.length),
+        },
+        null,
+        2,
+      ),
+    )
+  } else if (result.ok) {
+    say(
+      steps.length
+        ? `spec-env bootstrap: ${name} ready (${steps.length} step${steps.length === 1 ? '' : 's'})`
+        : `spec-env bootstrap: ${name} — nothing to do (no seedFiles, setup or stack configured)`,
+    )
+  } else {
+    const failed = result.results[result.results.length - 1]
+    process.stderr.write(`  ${failed.line}\n`)
+    say(
+      `spec-env bootstrap: stopped at step ${result.failedAt} of ${steps.length} ` +
+        `(${describeStep(failed.step)}) — nothing after it ran.`,
+    )
+  }
+  if (!result.ok) process.exitCode = 1
+}
+
+// Two spellings of one directory — `/tmp` and `/private/tmp` on macOS — are
+// the same directory. Cannot-tell (either missing) is "not the same".
+function sameDir(a, b) {
+  try {
+    return fs.realpathSync(a) === fs.realpathSync(b)
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -5164,6 +5330,7 @@ async function specEnv(rest) {
     else if (args[i] === '--phase') flags.phase = args[++i]
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--docs') flags.docs = true
+    else if (args[i] === '--plan') flags.plan = true
     else if (args[i] === '--from') flags.from = args[++i]
     else if (args[i] === '--session') flags.session = args[++i]
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
@@ -5237,6 +5404,9 @@ async function specEnv(rest) {
   switch (sub) {
     case 'up':
       specEnvUp(dir, config, positional[0], flags)
+      break
+    case 'bootstrap':
+      specEnvBootstrap(dir, config, positional[0], flags)
       break
     case 'nospec':
       specEnvNospec(dir, config, positional[0], flags)

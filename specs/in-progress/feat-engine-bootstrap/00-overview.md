@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `bootstrap` engine and verb | ⬜ | [01-bootstrap-verb.md](01-bootstrap-verb.md) |
+| 1 | `bootstrap` engine and verb | ✅ | [01-bootstrap-verb.md](01-bootstrap-verb.md) |
 | 2 | `up` / `nospec` print the verb, not the shell | ⬜ | [02-planner-output.md](02-planner-output.md) |
 | 3 | Skills call `bootstrap`; docs | ⬜ | [03-skills-and-docs.md](03-skills-and-docs.md) |
 
@@ -136,3 +136,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-20 — Follow-up surfaced: skitterload's `protect-secrets.cjs`
   can drop its `VALUE_FREE`/`SYMLINK` exception once it runs a skitterspec
   with `bootstrap`; skitterload-side, not shipped by skitterspec.
+- 2026-10-20 — Phase 1: the docker step is an argv run without a shell;
+  `setup` stays a shell string (the project's own command line). The verb
+  lists in `env.config.md`, `spec-planning.md` and `docs/reference.html` took
+  `bootstrap` now rather than in phase 3 — the verb-list tests require every
+  dispatched verb to be documented the moment it exists.

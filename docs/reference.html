@@ -576,6 +576,7 @@
         <tbody>
           <tr class="grp-row"><td colspan="3">Planners — they print commands; the skill executes them</td></tr>
           <tr><td class="cmd">spec-env up &lt;spec&gt;</td><td>Plan a worktree (and a Docker stack, if the spec's <span class="mono">Stack</span> asks for one). Creates nothing.</td><td class="folder">/spec-start</td></tr>
+          <tr><td class="cmd">spec-env bootstrap [&lt;spec&gt;]</td><td>The one verb here that acts: after <span class="mono">up</span>'s worktree add, it runs the worktree's seeds, env file, <span class="mono">setup</span> and stack itself, with the worktree as its cwd — so no <span class="mono">.env</span> path ever appears in a command line. <span class="mono">--plan</span> describes the steps and runs nothing.</td><td class="folder">/spec-start · /spec · /no-spec</td></tr>
           <tr><td class="cmd">spec-env nospec &lt;name&gt;</td><td>Record a branch with no spec document — <span class="mono">/no-spec</span> work — and plan its worktree. The record is what makes a name with nothing under <span class="mono">specs/**</span> resolvable.</td><td class="folder">/no-spec</td></tr>
           <tr><td class="cmd">spec-env down &lt;spec&gt;</td><td>Plan teardown — remove the worktree, delete the branch, drop the stack.</td><td class="folder">/spec-complete · /spec-cancel</td></tr>
           <tr><td class="cmd">spec-env integrate &lt;spec&gt;</td><td>Plan the landing: rebase onto base, then fast-forward. Live-aware.</td><td class="folder">/spec-complete · /spec-to-main</td></tr>
