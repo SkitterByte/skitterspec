@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-391"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-391/afterland-commands-run-in-the-primary-checkout-after-a-land"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # afterLand — commands run in the primary checkout after a land
 
 > **Type:** Feature
 > **Name:** feat-after-land-hook (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-20)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-20
 > **Area:** packages/common/src/env/config.js, env/integrate.js, env/hotfix.js, src/cli.js, assets/core/env.config.md, assets/skills/{spec-complete,spec-to-main,no-spec}
 > **Stack:** worktree
@@ -101,6 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-20 | Ready | backlog | Reuben Greaves |
+| 2026-10-20 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
