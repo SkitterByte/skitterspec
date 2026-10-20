@@ -5,6 +5,16 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.0.0 — 20 Oct 2026
+
+### Env
+- **Action required** — spec-env up now prints a single bootstrap command in place of the worktree shell steps, so there is no .env path to copy.
+- **New** — A new spec-env bootstrap command seeds, configures and sets up a spec's worktree in one call, with no .env path in the command for a secrets guard to refuse.
+- **Fixed** — The main-branch guard no longer blocks writes outside the repo, such as a scratch file, and now catches a write into the primary checkout made from a worktree.
+
+### Skills
+- **New** — Starting a spec, a bug or a hotfix no longer stalls on a secrets guard: the skills set the worktree up with one engine call that names no .env file.
+
 ## 22.5.0 — 20 Oct 2026
 
 ### Env
