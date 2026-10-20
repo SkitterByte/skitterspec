@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-remote-review-toggle (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-10-20)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-20
@@ -108,6 +108,7 @@ Run it with `node --test test/env-review-remote-per-spec.test.js` from
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-20 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-20 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -124,3 +125,4 @@ Run it with `node --test test/env-review-remote-per-spec.test.js` from
   so typed from the primary checkout with several specs provisioned it refuses
   and changes nothing. It no longer falls back to the project-wide write.
 - 2026-10-20 — Fixed: remote permission is a per-spec sidecar and the toggle names a waiting page to publish; test green (3593 pass).
+- 2026-10-20 — Completed; all phases done, tests green.
