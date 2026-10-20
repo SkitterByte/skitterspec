@@ -1,5 +1,41 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v22 → v23 (the engine runs the worktree bootstrap)
+
+### Breaking change — `spec-env up` no longer prints the worktree steps
+
+`spec-env up` (and `spec-env nospec`) used to end with a
+`then, in the worktree, run:` block of shell commands: one per seeded file, the
+env-file write, each `setup` command, and `docker compose … up -d`. They now end
+with one line instead:
+
+```
+  then, run:
+    skitterspec spec-env bootstrap <name>
+```
+
+**`spec-env bootstrap [<spec>]` runs those steps itself**, with the worktree
+as its cwd: it seeds the gitignored files, writes `docker.envFile`, runs `setup`
+and brings the stack up, in that order. The behaviour is the same as before: it
+is idempotent, prints `seeded …` / `exists — skipped` / `not in main — skipped`
+per seed, refuses to write through a symlinked env file, and stops at the first
+failing step, naming it. `--docs` seeds only. `--plan` describes the steps
+without running them, and `--json` reports each step and its outcome.
+
+**Why.** The printed commands had to be copied word for word, and agents did
+not copy them faithfully. A project's secrets hook refused any Bash call naming
+a `.env` file, so every rewritten seed command was blocked and bootstrap stopped
+half-way. The new command line names no file.
+
+**What to change.** The shipped skills already call `bootstrap`; run
+`skitterspec update` to take them. Anything of your own that ran the printed
+block (a script, or a skill you edited) should run
+`skitterspec spec-env bootstrap <name>` after the `git worktree add` instead.
+Nothing in `env.config.json` changes.
+
+**If you added a secrets-hook exception for the printed seed commands**, you
+can remove it now. Nothing shipped prints them any more.
+
 ## `@skitterbyte/skitterspec` v21 → v22 (a review port per repo, and every render serves)
 
 ### Breaking change 1 — `review.serveOnRemote` is now `review.serve`
@@ -126,6 +162,12 @@ can run it.
 **It writes `specs/.core/env.config.json` in the primary checkout** — a
 committed file, so it changes for everyone who pulls and leaves that tree dirty.
 The engine says so when it does.
+
+## `@skitterbyte/skitterspec-linear` v17 → v18 (the engine runs the worktree bootstrap)
+
+The same change as `@skitterbyte/skitterspec` v22 → v23 above — this
+distribution composes the same engine. Read that entry; nothing here is
+Linear-specific.
 
 ## `@skitterbyte/skitterspec-linear` v16 → v17 (a review port per repo, and every render serves)
 
