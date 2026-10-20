@@ -87,6 +87,16 @@ nothing else.
 On a **no-op** ("already landed on `<base>` — nothing to integrate"), just say so
 and continue — the branch has no commits base doesn't already have.
 
+**Then run the after-land commands.** Where the plan ends with a
+`then, in the primary checkout (<path>), run:` section — the project's
+`afterLand`, such as a data migration — run those commands in that directory,
+in order, after the fast-forward and **before** the re-test below, which may
+need them. Run them on the no-op too: the engine prints them there because a
+land made elsewhere leaves them pending here.
+**Stop at the first non-zero exit**, and carry on with §5: a failure makes the run `⚠️`, naming the command
+that failed and the ones that did not run, and it **never undoes the land**.
+No section, nothing to run, and nothing to say about it.
+
 ## 5. Re-test on base, then report
 
 - Run the project's test command **from the primary checkout** — base must be
@@ -111,12 +121,17 @@ the shape; this section carries only what is specific here.
 **Verdicts**
 
 - `✅` — the branch is on the base and the base is green.
-- `⚠️` — landed, with something worth knowing.
+- `⚠️` — landed, with something worth knowing — an after-land command that
+  failed, for one.
 - `❌` — the rebase conflicted, or the base went red after the fast-forward.
   Quote it; the repo is mid-something and that is what the reader needs.
 - `⏸` — a dirty worktree, red tests, or no spec to land. Nothing moved.
 
-**Fields:** `Branch` · `Tests` · `Landed` · `Follow-ups` · `Next`
+**Fields:** `Branch` · `Tests` · `Notes` · `Landed` · `Follow-ups` · `Next`
+
+`Notes` carries the after-land commands §4 ran, and where — or the one that
+failed and the ones that did not run. Nothing about it when none are
+configured.
 
 **No `Spec` field, deliberately.** This skill changes no status and moves no
 folder, and a `Spec` line here would read as though it had. The spec stays

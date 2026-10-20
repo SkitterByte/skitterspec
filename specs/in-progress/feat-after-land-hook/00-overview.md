@@ -92,7 +92,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Parse `afterLand` and print it in the land plans | ✅ | [01-engine.md](01-engine.md) |
-| 2 | Skills run it and report it | ⬜ | [02-skills.md](02-skills.md) |
+| 2 | Skills run it and report it | ✅ | [02-skills.md](02-skills.md) |
 
 ## Open questions
 

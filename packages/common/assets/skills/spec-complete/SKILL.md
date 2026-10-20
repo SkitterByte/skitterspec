@@ -113,15 +113,20 @@ the shape; this section carries only what is specific here.
 
 - `✅` — every phase done, tests green, landed, torn down.
 - `⚠️` — finished, with something worth knowing: teardown declined, a tracker
-  refresh that failed, a hotfix tag still waiting to be pushed.
+  refresh that failed, a hotfix tag still waiting to be pushed, an after-land
+  command that failed.
 - `❌` — it acted and stopped part-way — a conflicted rebase, a failed
   cherry-pick, a red base after landing. Say what state the repo is in and quote
   the failure; there is a mess to clear and the reader needs to know where.
 - `⏸` — phases are unfinished, tests are red, or the tree is dirty. Nothing
   moved.
 
-**Fields:** `Tracker` · `Spec` · `Tests` · `Landed` · `Worktree` ·
+**Fields:** `Tracker` · `Spec` · `Tests` · `Notes` · `Landed` · `Worktree` ·
 `Follow-ups` · `Next`
+
+`Notes` carries the after-land commands step 6 ran, and where — or, on a
+failure, the command that failed and the ones that did not run. A project with
+no `afterLand` says nothing about it.
 
 **Report this spec and no other.** A completion is the moment it is most
 tempting to survey what is left — what else is in flight, what is in the
@@ -167,8 +172,12 @@ Use the hotfix landing instead of the integrate steps below:
    cherry-pick --abort` there, relay the conflict, and **stop** — don't offer
    teardown.
    On a **no-op** ("nothing to land"), say so and continue.
-3. **Re-test on `main`** after the cherry-pick — it must be **green**.
-4. **Report** the deploy tag(s) and the `main` cherry-pick. It **never pushes** —
+3. **Run the after-land commands** when the plan ends with a
+   `then, in the primary checkout (<path>), run:` section — exactly as step 3
+   of 6-feature/bug below says. `hotfix land` prints it only when it
+   cherry-picks onto `main`, so a prod-only land or a no-op has none.
+4. **Re-test on `main`** after the cherry-pick — it must be **green**.
+5. **Report** the deploy tag(s) and the `main` cherry-pick. It **never pushes** —
    remind the user to `git push origin <deploy-tag>` to deploy. Then teardown
    (step 7) applies: a tagged hotfix branch tears down with **no `--force`**.
 
@@ -207,9 +216,20 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
    `git -C <worktree> rebase --abort`, relay the conflict, and **stop** — leave it
    to the user; do not tear anything down.
    On a **no-op** ("already landed"), just say so and continue.
-3. **Re-test on base.** Run the project's test command from the primary checkout;
+3. **Run the after-land commands.** Where the plan ends with a
+   `then, in the primary checkout (<path>), run:` section — the project's
+   `afterLand`, such as a data migration — run those commands in that
+   directory, in order, after the fast-forward succeeds. **Also on the no-op**:
+   the engine prints them there deliberately, because a land made on another
+   machine leaves them pending here. **Stop at the first non-zero exit** — a
+   later command may depend on it — and carry on with the rest of the skill:
+   a failure makes the run `⚠️`, naming the command that failed and the ones
+   that did not run, and it
+   **never undoes the land and never blocks teardown** (step 7). The land is correct; catching up is the operator's.
+   No section, nothing to run, and nothing to say about it.
+4. **Re-test on base.** Run the project's test command from the primary checkout;
    it must be **green** before you call the landing done.
-4. **Report** the landing (base branch, fast-forward result). It **never pushes** —
+5. **Report** the landing (base branch, fast-forward result). It **never pushes** —
    mention the user can `git push` the base branch themselves.
 
 ## 7. Tear down the environment (opt-in, only if configured)
@@ -221,7 +241,9 @@ teardown is folded in here).
 
 **The precondition is that the work actually landed.** Only tear down when step 6
 completed: it landed (or reported "already landed") **and** the base suite came
-back green. A rebase conflict, a work-loss abort or a red suite means step 6 told
+back green. A failed after-land command is **not** a reason to stop here — the
+land stands, and the command is the operator's to re-run from the primary
+checkout, which teardown does not touch. A rebase conflict, a work-loss abort or a red suite means step 6 told
 you to stop — tear nothing down, because the worktree is where the user picks the
 problem up. That precondition is what makes a confirmation redundant: by the time
 you get here the branch is an ancestor of base and the engine's guards have

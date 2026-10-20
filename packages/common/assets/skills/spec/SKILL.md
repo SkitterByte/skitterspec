@@ -355,6 +355,12 @@ It plans a rebase onto the base branch in the worktree, then a
 refuses on a dirty tree, which is correct here: the commit ran first, so anything
 still uncommitted at this point is not this spec's and the land must not proceed.
 
+**Do not run its after-land section.** Where the plan ends with
+`then, in the primary checkout (<path>), run:`, those are the project's
+`afterLand` commands — a data migration, an install — and they exist for code
+that landed. This land is documents only, so it changes nothing they would
+catch up on; `/spec-complete`, `/spec-to-main` and `/no-spec` run them.
+
 **If the rebase conflicts, stop and say so.** It is unlikely on a
 documents-only branch and not impossible — two specs authored at once can both
 touch `specs/.core/`. Run `git rebase --abort`, leave the commit sitting on the
