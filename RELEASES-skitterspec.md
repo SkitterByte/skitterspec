@@ -5,6 +5,17 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 22.5.0 — 20 Oct 2026
+
+### Env
+- **New** — A new afterLand setting in env.config.json lists commands, such as a data migration, to run in your main checkout after a spec lands, so local state catches up with what was just merged.
+
+### Review
+- **Fixed** — Turning on remote review from a worktree no longer edits the shared config on your main branch. It applies only to that spec, and if a review is waiting it publishes the page and shows you the remote link straight away.
+
+### Skills
+- **New** — /spec-complete, /spec-to-main and /no-spec now run your afterLand commands once a land succeeds, so a pending data migration runs on your dev database instead of being forgotten.
+
 ## 22.4.0 — 18 Oct 2026
 
 ### Env
