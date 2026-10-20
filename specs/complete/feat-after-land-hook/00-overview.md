@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-after-land-hook (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-20)
+> **Status:** Complete (2026-10-20)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-20
@@ -104,7 +104,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-20 | Ready | backlog | Reuben Greaves |
 | 2026-10-20 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-20 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-10-20 — Spec created from the ereqs handoff.
+- 2026-10-20 — Added `Notes` to `/spec-complete` and `/spec-to-main` report fields (neither had one) so the after-land outcome has a row.
+- 2026-10-20 — Completed; all phases done, tests green.
