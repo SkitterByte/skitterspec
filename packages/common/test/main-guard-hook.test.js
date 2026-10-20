@@ -22,9 +22,11 @@ const os = require('node:os')
 const path = require('node:path')
 const { execFileSync, spawnSync } = require('node:child_process')
 
-const ROOT = path.join(__dirname, '..', '..', '..')
 const HOOK = path.join(__dirname, '..', 'assets', 'hooks', 'main-guard.cjs')
-const ENGINE = path.join(ROOT, 'node_modules', '.bin', 'skitterspec')
+// The SOURCE engine, not `node_modules/.bin`: that resolves to a composed
+// distribution built at install time, so a test of a source change would run
+// yesterday's engine and pass or fail for reasons unrelated to the diff.
+const ENGINE = path.join(__dirname, '..', 'bin', 'skitterspec.js')
 
 const git = (cwd, ...args) =>
   execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -112,6 +114,54 @@ test('every write tool is covered, and nothing else is', () => {
     for (const tool of ['Bash', 'Read', 'Grep', 'Glob']) {
       assert.strictEqual(fire({ ...edit(dir), tool_name: tool }).out, '', tool)
     }
+  } finally {
+    cleanup(dir)
+  }
+})
+
+// --- the WRITE's location decides, not the session's cwd ----------------------
+//
+// bug-main-guard-judges-cwd: the hook judged `payload.cwd`, so a session standing
+// in the primary checkout on main was refused every write ANYWHERE — the
+// harness's own scratchpad under /tmp included — while a session standing in a
+// worktree could write straight into the primary checkout unguarded.
+
+const write = (cwd, file) => ({ tool_name: 'Write', tool_input: { file_path: file }, cwd })
+
+test('STAYS SILENT: a write outside the repo, from the primary checkout on main', () => {
+  const dir = repo()
+  const scratch = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-scratch-')))
+  try {
+    assert.strictEqual(fire(write(dir, path.join(scratch, 'notes.md'))).out, '')
+    assert.strictEqual(fire(write(dir, path.join(scratch, 'new', 'deep', 'x.md'))).out, '')
+  } finally {
+    cleanup(dir)
+    fs.rmSync(scratch, { recursive: true, force: true })
+  }
+})
+
+test('STAYS SILENT: a write into a worktree, from the primary checkout on main', () => {
+  const dir = repo()
+  try {
+    const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'thing')
+    git(dir, 'worktree', 'add', '-q', '-b', 'feat/thing', wt)
+    assert.strictEqual(fire(write(dir, path.join(wt, 'README.md'))).out, '')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a write into the primary checkout on main is denied, wherever the session stands', () => {
+  const dir = repo()
+  try {
+    const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'thing')
+    git(dir, 'worktree', 'add', '-q', '-b', 'feat/thing', wt)
+    assert.strictEqual(fire(write(wt, path.join(dir, 'README.md'))).decision, 'deny')
+    assert.strictEqual(
+      fire(write(dir, path.join(dir, 'brand', 'new', 'file.md'))).decision,
+      'deny',
+      'a file in a folder that does not exist yet is still inside the checkout',
+    )
   } finally {
     cleanup(dir)
   }

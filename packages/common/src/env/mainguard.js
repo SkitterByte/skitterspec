@@ -140,11 +140,60 @@ function judgeMainWrite(ctx) {
 }
 
 /**
+ * The checkout a path lives in: the `--show-toplevel` of its nearest existing
+ * ancestor, or null when that is in no git repo at all.
+ *
+ * NEAREST EXISTING ANCESTOR, because a `Write` usually creates its file and
+ * often its folder too — `git -C` on a directory that does not exist yet fails,
+ * and reading that failure as "not in a repo" would wave through exactly the
+ * new file the guard exists for.
+ */
+function checkoutOf(target, gitAt) {
+  let at = path.resolve(target)
+  while (!fs.existsSync(at)) {
+    const up = path.dirname(at)
+    if (up === at) return null
+    at = up
+  }
+  if (!fs.statSync(at).isDirectory()) at = path.dirname(at)
+  return gitAt(at)(['rev-parse', '--show-toplevel'])
+}
+
+// Two spellings of one directory — `/tmp` and `/private/tmp` on macOS — are
+// the same directory. Cannot-tell is "not the same", the branch that allows.
+function sameDir(a, b) {
+  try {
+    return fs.realpathSync(a) === fs.realpathSync(b)
+  } catch {
+    return false
+  }
+}
+
+const ALLOWS = { refuse: false, reason: null, branch: null, baseBranch: null }
+
+/**
  * Gather the facts and judge. The only IO in the module's hot path.
  *
  * `git` is an injected reader, as everywhere in this package: the caller owns
  * the child-process boundary, which is what keeps `judgeMainWrite` testable
  * without one.
+ *
+ * `opts.target` is the path being written, and when it is given IT decides
+ * where the write lands — not `dir`, which is only where the session stands.
+ * Judging the session's directory refused every write a session on the base
+ * branch made anywhere, its own scratchpad under /tmp included, while a session
+ * standing in a worktree could write into the primary checkout unseen
+ * (bug-main-guard-judges-cwd). `opts.gitAt(dir)` makes a reader for another
+ * directory; it is required alongside `target`.
+ *
+ * This reads the write's LOCATION, never its name, so it is not the exception
+ * list `judgeMainWrite` refuses to grow: a path inside the primary checkout is
+ * judged exactly as before, whatever it is called.
+ *
+ * WHAT WOULD FOOL THIS: a target in ANOTHER configured repo is judged against
+ * this session's repo, so it is allowed — that repo's guard is its own sessions'
+ * business. And without `target` (an older hook, a tool with no path) the
+ * session's directory is judged as it always was.
  */
 function checkMainWrite(dir, config, git, opts = {}) {
   // `present` from `loadEnvConfig` — the caller has it and this module must not
@@ -159,27 +208,37 @@ function checkMainWrite(dir, config, git, opts = {}) {
   // looking for the absence of a worktree marker.
   let isPrimary = false
   let primary = null
+  // Which checkout's HEAD decides "on the base branch". With a target that is
+  // the primary checkout's own, wherever the session is standing.
+  let branchGit = git
   try {
     primary = resolvePrimaryCheckout(dir, git)
-    isPrimary = Boolean(primary) && path.resolve(primary) === path.resolve(dir)
+    if (opts.target && typeof opts.gitAt === 'function') {
+      const top = checkoutOf(opts.target, opts.gitAt)
+      isPrimary = Boolean(top) && Boolean(primary) && sameDir(top, primary)
+      if (!isPrimary) return ALLOWS
+      branchGit = opts.gitAt(primary)
+    } else {
+      isPrimary = Boolean(primary) && path.resolve(primary) === path.resolve(dir)
+    }
   } catch {
     // Not a git repo, or git unreadable. Cannot tell → allow.
-    return { refuse: false, reason: null, branch: null, baseBranch: null }
+    return ALLOWS
   }
 
   let onBase = false
   let branch = null
   let baseBranch = null
   try {
-    const state = assertPrimaryOnMain(config, git)
+    const state = assertPrimaryOnMain(config, branchGit)
     onBase = state.onBase
     branch = state.branch
     baseBranch = state.baseBranch
   } catch {
-    return { refuse: false, reason: null, branch: null, baseBranch: null }
+    return ALLOWS
   }
 
-  const root = isPrimary ? dir : primary || dir
+  const root = primary || dir
   const verdict = judgeMainWrite({
     configured,
     enabled,

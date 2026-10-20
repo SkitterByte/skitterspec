@@ -107,19 +107,36 @@ function findEngine(projectDir) {
 // skills carry the rule for everything this matcher cannot see.
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'MultiEdit'])
 
+// The path a write tool names: `file_path` for Edit, Write and MultiEdit,
+// `notebook_path` for NotebookEdit. Anything else is no path at all.
+function writeTarget(input) {
+  if (!input || typeof input !== 'object') return null
+  for (const key of ['file_path', 'notebook_path']) {
+    if (typeof input[key] === 'string' && input[key]) return input[key]
+  }
+  return null
+}
+
 function main() {
   const payload = readPayload()
   if (!payload) allow()
 
   if (!WRITE_TOOLS.has(payload.tool_name)) allow()
 
-  // The write's own directory decides the answer — a worktree is its own
-  // checkout, and only the primary one is this guard's business.
+  // A worktree is its own checkout, and only the primary one is this guard's
+  // business. `cwd` is where the session stands; the target below is where the
+  // write lands, and the engine prefers it.
   const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd()
   const session = typeof payload.session_id === 'string' ? payload.session_id : ''
 
   const argv = ['spec-env', 'main', 'check', '--dir', cwd]
   if (session) argv.push('--session', session)
+  // The FILE decides where the write lands, not the session's directory. Judged
+  // on `cwd` alone, a session on the base branch was refused its own scratchpad
+  // under /tmp, and a session in a worktree could write into the primary
+  // checkout unseen. No path in the payload → the engine judges `cwd`, as before.
+  const target = writeTarget(payload.tool_input)
+  if (target) argv.push('--path', target)
 
   const result = spawnSync(findEngine(cwd), argv, { cwd, encoding: 'utf8', timeout: 8000 })
 
@@ -142,4 +159,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { findEngine, WRITE_TOOLS }
+module.exports = { findEngine, WRITE_TOOLS, writeTarget }

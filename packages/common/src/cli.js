@@ -675,8 +675,17 @@ function specEnvMain(dir, config, positional, flags = {}, present = true, invoke
     // checkout before it runs, so asking `dir` whether it is the primary
     // checkout always answers yes — and the guard would fire on a write inside
     // somebody's worktree, which is the one place it must never fire.
+    //
+    // `--path` is the file being written, and where it is given it decides: a
+    // write outside the primary checkout is none of this guard's business,
+    // whichever directory the session happens to be standing in.
     const from = invokedFrom || dir
-    const verdict = checkMainWrite(from, config, gitReader(from), { sessionId, present })
+    const verdict = checkMainWrite(from, config, gitReader(from), {
+      sessionId,
+      present,
+      target: flags.path ? path.resolve(from, flags.path) : null,
+      gitAt: gitReader,
+    })
     if (!verdict.refuse) return
     process.stdout.write(`spec-env main: ${verdict.reason}\n`)
     process.exitCode = 1
@@ -5334,6 +5343,7 @@ async function specEnv(rest) {
     else if (args[i] === '--plan') flags.plan = true
     else if (args[i] === '--from') flags.from = args[++i]
     else if (args[i] === '--session') flags.session = args[++i]
+    else if (args[i] === '--path') flags.path = args[++i]
     else if (args[i] === '--assert-primary-clean') flags.assertPrimaryClean = true
     else positional.push(args[i])
   }
