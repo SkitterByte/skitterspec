@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-main-guard-judges-cwd (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fix green, awaiting review
+> **Status:** Complete (2026-10-20)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-20
@@ -71,6 +71,7 @@ question is "does this write land on main?".
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-20 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-20 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -82,3 +83,4 @@ question is "does this write land on main?".
   its own sessions.
 - 2026-10-20 — Consumer projects get the fixed hook on `skitterspec update`.
   Until then they keep the old cwd-based check.
+- 2026-10-20 — Completed; all phases done, tests green.
