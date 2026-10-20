@@ -113,7 +113,7 @@ test('spec-planning points at it beside the guard it argues with', () => {
 test('STAYS SILENT: the commands keep their verbatim-relay contract', () => {
   // Widening these was considered and rejected: it reintroduces judgment to the
   // surface the skills-vs-commands split exists to keep free of it.
-  for (const name of ['spec-connect.md', 'spec-live.md', 'spec-remote-review.md']) {
+  for (const name of ['spec-connect.md', 'spec-live.md']) {
     const text = read('commands', name)
     assert.match(
       text,
@@ -122,6 +122,14 @@ test('STAYS SILENT: the commands keep their verbatim-relay contract', () => {
     )
     assert.doesNotMatch(text, /offered-unblocks/, `${name} raises no picker`)
   }
+  // ONE NARROW EXCEPTION, from bug-remote-review-toggle: `/spec-remote-review`
+  // still relays verbatim, and does one more thing only when the ENGINE names a
+  // page to publish — the judgment of whether there is one stays in the engine.
+  const remote = read('commands', 'spec-remote-review.md')
+  assert.match(remote, /Relay the engine output above verbatim\. Add nothing to it\./)
+  assert.match(remote, /only when the engine asked for it/)
+  assert.match(remote, /With no `publish:` line, run nothing else/)
+  assert.doesNotMatch(remote, /offered-unblocks/, 'spec-remote-review.md raises no picker')
 })
 
 test('STAYS SILENT: the commands keep their narrow allowed-tools', () => {

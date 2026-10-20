@@ -124,10 +124,12 @@ test('allow network --off writes the key, and back on again', async () => {
 test('allow remote permits publishing, and publishes nothing', async () => {
   const dir = repo()
   try {
-    const out = await allow(dir, 'remote')
+    // `--project`: the committed, every-spec form. Per spec is the default
+    // now — `env-review-remote-per-spec.test.js` covers it.
+    const out = await allow(dir, 'remote', '--project')
     assert.strictEqual(cfg(dir).review.allowRemote, true)
     assert.match(out, /PERMITS publishing; it publishes nothing/)
-    assert.match(out, /cannot be\n\s*deleted by skitterspec/)
+    assert.match(out, /cannot be\s+deleted by skitterspec/)
     assert.match(out, /needs \/spec-reviewed/)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
@@ -205,7 +207,7 @@ test('a config it cannot parse is left alone rather than overwritten', async () 
 test('setting a tier to what it already is says so rather than pretending to change it', async () => {
   const dir = repo({ allowRemote: true })
   try {
-    const out = await allow(dir, 'remote')
+    const out = await allow(dir, 'remote', '--project')
     assert.match(out, /\(unchanged\)/)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })

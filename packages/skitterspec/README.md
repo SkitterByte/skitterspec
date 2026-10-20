@@ -164,7 +164,8 @@ live:    off — /spec-live to put it live
 `local` and `network` are two doors into one room — the same server, the same
 waiting verdict — so the wait covers both. `remote` is a published page, which
 is a separate store: a verdict there needs `/spec-reviewed`, and it is off until
-you type `/spec-remote-review`. The `live:` line is the other way to judge a
+you type `/spec-remote-review`, which permits **that spec** to publish, publishes
+the waiting page and re-shows the links. The `live:` line is the other way to judge a
 change: whether it is also **running**, and the page has a button to put it
 there.
 
@@ -182,7 +183,7 @@ All optional, in `specs/.core/env.config.json`:
 |-----|---------|------|
 | `review.serve` | `"always"` | whether a render stands the local server up. `"never"` gives you a `file://` page, whose buttons copy a command instead of sending |
 | `review.allowNetwork` | `true` | whether that server binds every interface, so the page opens on your phone |
-| `review.allowRemote` | `false` | whether publishing is permitted at all. `/spec-remote-review` toggles it; it permits publishing, it does not publish |
+| `review.allowRemote` | `false` | whether publishing is permitted for every spec — the project default. `/spec-remote-review` permits one spec at a time in a gitignored sidecar and never edits this key (`review allow remote --project` does) |
 | `review.required` | `true` | whether a finished phase owes a verdict |
 | `review.commitWith` | `"/commit"` | the skill a committing verdict hands off to |
 | `review.reader` | `"detect"` | where you are reading — `local`, `remote`, or detect it |

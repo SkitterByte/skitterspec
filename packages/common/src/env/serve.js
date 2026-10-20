@@ -46,6 +46,7 @@ const {
   renderReviewPage,
   renderReviewBlock,
   reviewOutPath,
+  withSpecRemote,
   validateNotesBlob,
   readPending,
   passState: readPassState,
@@ -595,7 +596,9 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     receipt: null,
     worktreeExists: Boolean(spec.worktreePath && fs.existsSync(spec.worktreePath)),
   })
-  const tiers = pageTiers(config)
+  // This spec's own remote permission, read per request so a toggle shows on
+  // the next refresh without restarting the server.
+  const tiers = pageTiers(withSpecRemote(config, out))
 
   let data = collectReview({
     spec,

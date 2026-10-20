@@ -668,7 +668,13 @@ function surfacesFor({ live, tiers, buttons = null }) {
       // the primary checkout — changing behaviour for everyone who pulls and
       // leaving that tree dirty. A setting change of that reach must not land
       // because someone tapped a button labelled only `Allow remote`.
-      note: t.note || 'writes env.config.json — committed, and shared',
+      // `remote` is per spec now (bug-remote-review-toggle): a gitignored
+      // sidecar, so the base branch is untouched and no other spec may publish.
+      note:
+        t.note ||
+        (t.tier === 'remote'
+          ? 'this spec only — nothing committed'
+          : 'writes env.config.json — committed, and shared'),
       // The same thing from a terminal, for the reader who is nowhere near the
       // page. Only `remote` has a command of its own: `network` is ON by
       // default, so turning it off is a rare deliberate act and a slash command
@@ -2391,6 +2397,46 @@ function readReviewUrl(outPath) {
   }
 }
 
+/**
+ * Whether ONE SPEC may publish, beside its page in the gitignored store.
+ *
+ * WHY PER SPEC. `review.allowRemote` in the committed config permits every
+ * spec in the repo at once, and writing it from a worktree dirtied the base
+ * branch (bug-remote-review-toggle). Publishing sends a diff to a third party,
+ * so what may generate an artifact is decided per worktree; the committed key
+ * stays as the project default beneath it.
+ */
+function reviewRemotePath(outPath) {
+  return outPath.replace(/\.html$/, '') + '.remote.json'
+}
+
+// true / false when the sidecar says so, null for every cannot-tell — absent,
+// unreadable, a non-boolean — so the committed default stands
+// (`.claude/rules/negative-checks.md` rule 4: a typo must not permit a publish).
+function readRemoteAllow(outPath) {
+  try {
+    const v = JSON.parse(fs.readFileSync(reviewRemotePath(outPath), 'utf8')).allowRemote
+    return typeof v === 'boolean' ? v : null
+  } catch {
+    return null
+  }
+}
+
+function writeRemoteAllow(outPath, on, at = new Date().toISOString()) {
+  const file = reviewRemotePath(outPath)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify({ allowRemote: on, at }, null, 2) + '\n')
+  return file
+}
+
+// The config one spec's render reads: the project's, with this spec's own
+// remote permission over it. A new object — the caller's config is shared.
+function withSpecRemote(config, outPath) {
+  const own = readRemoteAllow(outPath)
+  if (own === null) return config
+  return { ...config, review: { ...config.review, allowRemote: own } }
+}
+
 // Default output path for a spec's page, under the gitignored `.spec-env/`.
 function reviewOutPath(dir, specFolder, out) {
   if (out) return path.resolve(dir, out)
@@ -2512,6 +2558,10 @@ module.exports = {
   reviewUrlPath,
   reviewPublishPath,
   readReviewUrl,
+  reviewRemotePath,
+  readRemoteAllow,
+  writeRemoteAllow,
+  withSpecRemote,
   publishedPageNotice,
   reviewServerNotice,
   fragmentTemplate,

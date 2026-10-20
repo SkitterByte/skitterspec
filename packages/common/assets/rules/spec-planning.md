@@ -29,8 +29,12 @@ finding one. They are marked `disable-model-invocation`, meaning
 **only you can run them** — a skill that wants one will tell you to type it
 rather than invoking it.
 
-**`/spec-remote-review`** is the newest and the smallest: it toggles
-`review.allowRemote`, and takes `on`/`off` when you would rather say which.
+**`/spec-remote-review`** is the newest and the smallest: it toggles whether
+**this spec** may publish, and takes `on`/`off` when you would rather say which.
+The permission is per worktree, kept in the gitignored review store, so the base
+branch is never dirtied and no other spec gains it; `review.allowRemote` in the
+committed config is the project default beneath it. Turned on beside a page
+that already exists, it is the ask to publish that page and re-show the stack.
 It exists because a render's `remote:` line has to name something a person can
 act on, and `skitterspec spec-env review allow remote` is not what anyone
 reconstructs from a page they are reading on a phone. Making the line

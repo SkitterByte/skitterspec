@@ -363,7 +363,7 @@ still has a decision in front of them and has not made it.
 |--------|----|------|
 | `live-on` | commit first (below), then `skitterspec spec-env live take <spec>` | re-render `--branch`, wait again |
 | `allow-network` | `skitterspec spec-env review allow network` | re-render, wait again |
-| `allow-remote` | `skitterspec spec-env review allow remote --set on` | re-render, wait again |
+| `allow-remote` | `skitterspec spec-env review allow remote <spec> --set on` | publish (§6), re-render, wait again |
 
 **THERE IS NO `live-off`, and its absence is deliberate.** Putting *this* change
 live is about the diff on screen; handing the whole instance back to `main` is a
@@ -420,18 +420,22 @@ text, and do not infer an offer that is not there — the boundary that keeps
 another spec's workbench out of this lives in that field rather than in prose
 here.
 
-**`allow` writes a committed file, and that is worth a sentence.** It edits
-`specs/.core/env.config.json` in the **primary checkout**, so it changes
-behaviour for everyone who pulls and leaves that tree dirty — unlike the live
-actions, which move a branch and write a gitignored receipt. The engine prints
-the absolute path and whose tree it dirtied; relay that rather than letting a
-shared setting change land silently. And it is **enable-only**: there is no
+**`allow network` writes a committed file, and that is worth a sentence.** It
+edits `specs/.core/env.config.json` in the **primary checkout**, so it changes
+behaviour for everyone who pulls and leaves that tree dirty — one server binds
+for every spec, so the bind cannot be narrower. The engine prints the absolute
+path; relay that rather than letting a shared setting change land silently.
+**`allow remote` is per spec** and writes only a gitignored sidecar beside the
+page, so the base branch stays clean and no other spec may publish. And it is **enable-only**: there is no
 action that turns a tier off, because turning `network` off from a page reached
 over the network kills the page doing the turning.
 
-**`allow remote` permits publishing. It does not publish.** Publishing stays an
-explicit ask in every case (§6), because the page it leaves behind is one this
-tooling cannot remove.
+**`allow remote` permits publishing. It does not publish by itself.**
+Publishing stays an explicit ask (§6), because the page it leaves behind is one
+this tooling cannot remove. A reader who presses `Allow remote` on the page, or
+types `/spec-remote-review` beside a waiting review, **has** asked: the engine
+names the page on its `review:`/`publish:` lines, and that page is published
+and the stack re-shown. Nothing it does not name is published.
 
 ## 3. Gate it on nothing
 

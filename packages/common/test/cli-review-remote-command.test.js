@@ -66,8 +66,10 @@ const allowRemote = (dir) => {
   const c = JSON.parse(fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), 'utf8'))
   return c.review && c.review.allowRemote
 }
+// `--project` throughout: these exercise the committed, every-spec write. The
+// per-spec default is `env-review-remote-per-spec.test.js`'s.
 const set = (dir, ...extra) =>
-  runQuiet(['spec-env', 'review', 'allow', 'remote', '--set', ...extra, '--dir', dir])
+  runQuiet(['spec-env', 'review', 'allow', 'remote', '--project', '--set', ...extra, '--dir', dir])
 
 // --- the toggle -----------------------------------------------------------
 
@@ -131,9 +133,9 @@ test('an unknown state is refused by name, and writes nothing', async () => {
 test('STAYS SILENT: bare allow and --off are untouched by --set existing', async () => {
   const dir = repo({ allowRemote: false })
   try {
-    await runQuiet(['spec-env', 'review', 'allow', 'remote', '--dir', dir])
+    await runQuiet(['spec-env', 'review', 'allow', 'remote', '--project', '--dir', dir])
     assert.strictEqual(allowRemote(dir), true, 'bare still means ON')
-    await runQuiet(['spec-env', 'review', 'allow', 'remote', '--off', '--dir', dir])
+    await runQuiet(['spec-env', 'review', 'allow', 'remote', '--project', '--off', '--dir', dir])
     assert.strictEqual(allowRemote(dir), false, '--off still means OFF')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
@@ -160,14 +162,17 @@ test('the argument is quoted, so bare reaches the engine as the empty form', () 
   assert.match(text, /--set "\$ARGUMENTS"/, 'quoted, or bare loses the empty argument')
 })
 
-test('the command says permitting is not publishing', () => {
+// bug-remote-review-toggle: it publishes ONLY when the engine names a page,
+// and the permission is per spec — the committed config is the opt-in form.
+test('the command publishes only a page the engine names, and is per spec', () => {
   const text = fs.readFileSync(COMMAND, 'utf8')
-  assert.match(text, /permits publishing; it publishes nothing/)
+  assert.match(text, /only when the engine asked for it/)
+  assert.match(text, /`review:` and a `publish:` line/)
+  assert.match(text, /With no `publish:` line, run nothing else/)
+  assert.match(text, /do not restart it or the server/)
   assert.match(text, /skitterspec cannot delete/)
-  // And that it writes a shared, committed file — the one consequence a reader
-  // would not guess from the name.
-  assert.match(text, /COMMITTED file|committed file/)
-  assert.match(text, /primary\s*\n?checkout/)
+  assert.match(text, /\*\*It is per spec\.\*\*/)
+  assert.match(text, /allow remote --project/)
 })
 
 // Only `remote` gets one. `network` is ON by default, so turning it off is a

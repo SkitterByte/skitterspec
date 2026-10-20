@@ -358,10 +358,14 @@ through to a documented conservative default; see the field notes below.
   //                    page opens on your phone, or loopback only. THIS IS WHAT
   //                    CHOOSES THE BIND; `reader` no longer does. Default: true,
   //                    which matches what the engine already did.
-  //   `allowRemote`  — whether PUBLISHING is permitted at all. It permits it; it
-  //                    publishes nothing. Default: FALSE, because a published
-  //                    page is one skitterspec cannot delete, so it must never
-  //                    happen unasked.
+  //   `allowRemote`  — whether PUBLISHING is permitted for EVERY spec. It
+  //                    permits it; it publishes nothing. Default: FALSE,
+  //                    because a published page is one skitterspec cannot
+  //                    delete, so it must never happen unasked. This is the
+  //                    PROJECT DEFAULT: `/spec-remote-review` permits one spec
+  //                    at a time, in a gitignored sidecar beside its page, and
+  //                    never edits this file — `review allow remote --project`
+  //                    is what does.
   //
   // `local` and `network` are two doors into ONE ROOM — the page POSTs to
   // `location.pathname`, so both reach the same server and the same waiting

@@ -223,11 +223,11 @@ test('STAYS SILENT: a permitted tier with no address is no row', () => {
   assert.strictEqual(rows, null)
 })
 
-// SAID BEFORE THE PRESS. `allow` edits a COMMITTED file in the primary
-// checkout — behaviour for everyone who pulls, and a dirty tree — where the
-// live actions touch no tracked file at all. A reader tapping a button labelled
-// only `Allow remote` must not discover that afterwards.
-test('an enable row warns that it writes a committed, shared file', () => {
+// SAID BEFORE THE PRESS. `allow network` edits a COMMITTED file in the primary
+// checkout — behaviour for everyone who pulls, and a dirty tree. `allow remote`
+// is per spec since bug-remote-review-toggle, and says that instead. A reader
+// tapping a button must not discover either afterwards.
+test('an enable row says what it writes', () => {
   const rows = surfacesFor({
     live: null,
     tiers: [
@@ -235,9 +235,9 @@ test('an enable row warns that it writes a committed, shared file', () => {
       { tier: 'remote', off: true },
     ],
   })
-  for (const row of rows) {
-    assert.match(row.note, /committed, and shared/, `${row.tier} says what it writes`)
-  }
+  const note = (tier) => rows.find((r) => r.tier === tier).note
+  assert.match(note('network'), /committed, and shared/)
+  assert.match(note('remote'), /this spec only — nothing committed/)
 })
 
 // The live rows carry no such warning, because there is nothing to warn about:
