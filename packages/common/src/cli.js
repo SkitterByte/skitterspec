@@ -161,7 +161,7 @@ const {
 } = require('./env/mainguard.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
-const { planHotfixLand } = require('./env/hotfix.js')
+const { planHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
@@ -233,7 +233,11 @@ Usage:
                                 dev down <spec>   stop the spec's host dev servers
                                 connect <spec>    expose a spec on the canonical ports (main = off)
                                 integrate <spec>  plan rebase + fast-forward onto the base branch
-                                hotfix land <spec>  release, push, cherry-pick a hotfix (--push, --plan)
+                                hotfix land <spec>
+                                                  release, push (--push), carry a hotfix to
+                                                  the base branch (--plan, --also <tag>)
+                                hotfix finish <spec>
+                                                  tear a landed hotfix down once it deployed
                                 live <spec>       check a spec out in the primary checkout so
                                                   the running dev server serves it (take |
                                                   release | abort | status; main hands it back)
@@ -2121,6 +2125,87 @@ function hotfixCarry(dir, spec, base, wtGit, released) {
   return { fixCommits, carry }
 }
 
+// `hotfix finish`: tear a landed hotfix down once its deploy is out. The guards
+// live in `planHotfixFinish`; this gathers the facts, refuses from inside the
+// worktree it is about to remove, and runs the two git commands itself.
+function hotfixFinish(dir, config, specArg, flags) {
+  const json = flags.json === true
+  const say = (line) => process.stdout.write(line + '\n')
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+  const refuse = (reasons) => {
+    if (json) say(JSON.stringify({ ok: false, spec: spec.folder, refused: reasons }, null, 2))
+    else {
+      say(`spec-env hotfix finish: ${spec.folder} — refused, nothing removed:`)
+      for (const r of reasons) say(`  - ${r}`)
+    }
+    process.exitCode = 1
+  }
+  if (spec.type !== 'hotfix') {
+    refuse([`${spec.folder} is not a hotfix — \`spec-env down\` tears it down`])
+    return
+  }
+  if (!fs.existsSync(spec.worktreePath)) {
+    if (json) say(JSON.stringify({ ok: true, spec: spec.folder, noop: true }, null, 2))
+    else say(`spec-env hotfix finish: ${spec.folder} has no worktree — nothing to do.`)
+    return
+  }
+  // Removing the tree a shell is standing in succeeds, and then every command
+  // after it fails with "Unable to read current working directory".
+  const cwd = process.cwd()
+  const inside = (() => {
+    try {
+      const rel = path.relative(fs.realpathSync(spec.worktreePath), fs.realpathSync(cwd))
+      return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
+    } catch {
+      return false
+    }
+  })()
+  if (inside) {
+    refuse([`this shell is inside the worktree — \`cd ${dir}\` first, then re-run`])
+    return
+  }
+
+  const wtGit = gitReader(spec.worktreePath)
+  const status = wtGit(['status', '--porcelain'])
+  const head = wtGit(['rev-parse', 'HEAD'])
+  const remote = 'origin'
+  // `ls-remote` exits 0 with nothing on stdout when the branch is absent, and
+  // non-zero when the remote cannot be asked — two different answers.
+  const lsRemote = wtGit(['ls-remote', '--heads', remote, `refs/heads/${spec.branch}`])
+  const remoteHead = lsRemote === null ? undefined : lsRemote ? lsRemote.split(/\s+/)[0] : null
+  const registry = readRegistry(dir, config)
+  const plan = planHotfixFinish(spec, {
+    dirty: status === null || status.length > 0,
+    tagsAtHead: (wtGit(['tag', '--points-at', 'HEAD']) || '').split('\n').filter(Boolean),
+    head,
+    remoteHead,
+    remote,
+    mainRepoPath: dir,
+    hasSlot: Object.prototype.hasOwnProperty.call(registry.slots, spec.folder),
+  })
+  if (plan.blocked) {
+    refuse(plan.reasons)
+    return
+  }
+  const git = gitReader(dir)
+  for (const argv of plan.argvs) {
+    if (git(argv) === null) {
+      refuse([`git ${argv.join(' ')} failed — nothing after it ran`])
+      return
+    }
+  }
+  fs.rmSync(hotfixRecordPath(dir, config, spec.folder), { force: true })
+  if (json) {
+    say(JSON.stringify({ ok: true, spec: spec.folder, releaseTag: plan.releaseTag, removed: spec.worktreePath, branchDeleted: spec.branch }, null, 2))
+    return
+  }
+  say(`spec-env hotfix finish: ${spec.folder}`)
+  say('')
+  say(`  release:   ${plan.releaseTag} (on ${remote} with ${spec.branch})`)
+  say(`  removed:   ${spec.worktreePath}`)
+  say(`  deleted:   ${spec.branch} (local; ${remote} keeps it)`)
+}
+
 function specEnvHotfix(dir, config, positional, flags) {
   const action = positional[0]
   const specArg = positional[1]
@@ -2132,9 +2217,14 @@ function specEnvHotfix(dir, config, positional, flags) {
     process.exitCode = 1
   }
   // The action must be named; the spec may be omitted (resolved from the registry).
+  if (action === 'finish') {
+    hotfixFinish(dir, config, specArg, flags)
+    return
+  }
   if (action !== 'land') {
     process.stdout.write(
-      'Usage: skitterspec spec-env hotfix land [spec] [--push] [--plan] [--json] [--also <tag>]...\n',
+      'Usage: skitterspec spec-env hotfix land [spec] [--push] [--plan] [--json] [--also <tag>]...\n' +
+        '       skitterspec spec-env hotfix finish [spec] [--json]\n',
     )
     return
   }

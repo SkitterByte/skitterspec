@@ -153,7 +153,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | `hotfix land` executes: release step + `releaseWith` seam | ✅ | [02-release-step.md](02-release-step.md) |
 | 3 | Push behind consent, resumable | ✅ | [03-push.md](03-push.md) |
 | 4 | Carry to main without the version commit | ✅ | [04-carry.md](04-carry.md) |
-| 5 | `hotfix finish` and the end-to-end test | ⬜ | [05-finish.md](05-finish.md) |
+| 5 | `hotfix finish` and the end-to-end test | ✅ | [05-finish.md](05-finish.md) |
 | 6 | Skills, docs, MIGRATION | ⬜ | [06-skills-and-docs.md](06-skills-and-docs.md) |
 
 ## Open questions
@@ -191,3 +191,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   conflict names its commit. A dirty base checkout is refused at the carry step, after
   the release and push, not before them: prod still gets its fix, and a re-run carries
   once the checkout is clean. A `git cherry` that cannot answer excludes nothing.
+- 2026-10-21 — Phase 5: `hotfix finish` runs its two git commands itself, as `land` does.
+  Its push guard is stronger than "branch on origin": `origin/<branch>` must be at HEAD,
+  and an unreachable remote refuses. It refuses from inside the worktree it would remove,
+  and sends a spec holding a Docker slot to `spec-env down`.

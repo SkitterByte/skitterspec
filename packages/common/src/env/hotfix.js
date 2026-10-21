@@ -313,4 +313,73 @@ function planHotfixLand(spec, config, ctx) {
   return { ...result, commands, steps, afterLand, prodTag, targets, fixRange }
 }
 
-module.exports = { bumpPatch, compareTags, nextHotfixTag, nextTag, BUMPS, tagSlug, planHotfixLand }
+/**
+ * Plan `spec-env hotfix finish`: the teardown a hotfix waits for until its
+ * deploy is out.
+ *
+ * A hotfix branch is needed until the release it cut is confirmed — a failed
+ * deploy cuts the next `-hotfix.N` from the same branch — so `/spec-complete`
+ * lands and keeps the worktree, and this is the later step that removes it.
+ *
+ * THREE GUARDS, every one a positive signal, and every failing one named:
+ *   - a clean tree — anything uncommitted would go with the worktree;
+ *   - a release tag at HEAD — the land actually released what is here;
+ *   - the branch on the remote at HEAD — a copy exists after `branch -D`.
+ *     A remote that cannot be asked is "cannot tell", which refuses: deleting
+ *     the only copy of a deployed fix is not the safe way to be wrong.
+ *
+ * DELIBERATELY NO "MERGED INTO MAIN" GUARD: the version commit never reaches
+ * main, so the branch is never an ancestor of it and `-d` would always refuse.
+ * And DELIBERATELY NO `--force` — the guards are the point of the verb, and
+ * `spec-env down --force` already exists for anyone who means to override them.
+ *
+ * state: { dirty, tagsAtHead: string[], head, remoteHead: string|null|undefined,
+ *          remote, mainRepoPath, hasSlot }
+ *   remoteHead: the branch's sha on the remote; null = not there;
+ *               undefined = the remote could not be asked.
+ */
+function planHotfixFinish(spec, state) {
+  const s = state || {}
+  const remote = s.remote || 'origin'
+  const reasons = []
+  if (s.dirty) reasons.push('the worktree has uncommitted changes')
+  const releaseTag = (s.tagsAtHead || []).find((t) => parseTag(t) !== null) || null
+  if (!releaseTag) {
+    reasons.push('no release tag at HEAD — run `spec-env hotfix land` first')
+  }
+  if (s.remoteHead === undefined) {
+    reasons.push(`cannot tell whether ${spec.branch} is on ${remote} — the remote did not answer`)
+  } else if (s.remoteHead === null) {
+    reasons.push(`${spec.branch} is not on ${remote} — push it (\`hotfix land --push\`)`)
+  } else if (s.head && s.remoteHead !== s.head) {
+    reasons.push(`${remote}/${spec.branch} is not at HEAD — push the branch first`)
+  }
+  // A Docker stack has volumes and a slot that only `down` knows how to free.
+  if (s.hasSlot) {
+    reasons.push(`${spec.folder} holds a Docker stack — tear it down with \`spec-env down\``)
+  }
+  if (reasons.length) return { blocked: true, reasons, releaseTag, argvs: [] }
+  const root = s.mainRepoPath
+  return {
+    blocked: false,
+    reasons: [],
+    releaseTag,
+    argvs: [
+      ['-C', root, 'worktree', 'remove', spec.worktreePath],
+      // -D, not -d: the branch is never merged into main (see above), and its
+      // commits are on the remote and under the release tag.
+      ['-C', root, 'branch', '-D', spec.branch],
+    ],
+  }
+}
+
+module.exports = {
+  bumpPatch,
+  compareTags,
+  nextHotfixTag,
+  nextTag,
+  BUMPS,
+  tagSlug,
+  planHotfixLand,
+  planHotfixFinish,
+}

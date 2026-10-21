@@ -91,6 +91,23 @@ function scaffold(hotfix = {}) {
   return { root, dir, wt, remote }
 }
 
+async function hotfix(dir, verb, ...extra) {
+  const orig = process.stdout.write
+  const origErr = process.stderr.write
+  let out = ''
+  process.stdout.write = (c) => ((out += c), true)
+  process.stderr.write = (c) => ((out += c), true)
+  try {
+    await run(['spec-env', 'hotfix', verb, 'hotfix-login', '--dir', dir, ...extra])
+  } finally {
+    process.stdout.write = orig
+    process.stderr.write = origErr
+  }
+  const code = process.exitCode || 0
+  process.exitCode = 0
+  return { out, code }
+}
+
 async function land(dir, ...extra) {
   const orig = process.stdout.write
   const origErr = process.stderr.write
@@ -320,6 +337,74 @@ test('a conflicting carry is aborted, names the commit, and leaves main where it
     assert.match(out, new RegExp(`cherry-pick ${fix} onto main conflicted — aborted`))
     assert.strictEqual(git(env.dir, 'rev-parse', 'HEAD'), head)
     assert.strictEqual(git(env.dir, 'status', '--porcelain'), '', 'no half-applied pick left behind')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+// --- finish -------------------------------------------------------------------
+
+test('end to end: finish refuses until the branch is on origin, then tears down', async () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const stub = writeStub(root)
+  const env = scaffold({ releaseWith: stub.command })
+  try {
+    // Released but held: nothing on origin yet.
+    assert.strictEqual((await land(env.dir)).code, 0)
+    const early = await hotfix(env.dir, 'finish')
+    assert.strictEqual(early.code, 1)
+    assert.match(early.out, /hotfix\/login is not on origin/)
+    assert.ok(fs.existsSync(env.wt), 'nothing removed')
+
+    // Pushed and carried: now it may go.
+    assert.strictEqual((await land(env.dir, '--push')).code, 0)
+    const done = await hotfix(env.dir, 'finish')
+    assert.strictEqual(done.code, 0, done.out)
+    assert.match(done.out, /release:\s+v1\.0\.0-hotfix\.1/)
+    assert.ok(!fs.existsSync(env.wt), 'worktree removed')
+    assert.strictEqual(git(env.dir, 'branch', '--list', 'hotfix/login'), '', 'local branch deleted')
+    assert.ok(onRemote(env, 'refs/heads/hotfix/login'), 'origin keeps the branch')
+    assert.ok(onRemote(env, 'refs/tags/v1.0.0-hotfix.1'), 'and the tag')
+    assert.ok(!fs.existsSync(record(env.dir)), 'the release record is forgotten')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('finish refuses from inside the worktree it would remove', async () => {
+  const env = scaffold()
+  const cwd = process.cwd()
+  try {
+    assert.strictEqual((await land(env.dir, '--push')).code, 0)
+    process.chdir(env.wt)
+    const { out, code } = await hotfix(env.dir, 'finish')
+    process.chdir(cwd)
+    assert.strictEqual(code, 1)
+    assert.match(out, /inside the worktree — `cd \S+` first/)
+    assert.ok(fs.existsSync(env.wt))
+  } finally {
+    process.chdir(cwd)
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+test('stays silent: spec-env down on a landed hotfix plans exactly what it did before', async () => {
+  const env = scaffold()
+  try {
+    assert.strictEqual((await land(env.dir, '--push')).code, 0)
+    const orig = process.stdout.write
+    let out = ''
+    process.stdout.write = (c) => ((out += c), true)
+    try {
+      await run(['spec-env', 'down', 'hotfix-login', '--dir', env.dir])
+    } finally {
+      process.stdout.write = orig
+    }
+    assert.doesNotMatch(out, /blocked/)
+    assert.match(out, /git worktree remove \S+\/wt\/login/)
+    assert.match(out, /git branch -D hotfix\/login/)
+    assert.ok(fs.existsSync(env.wt), 'down only plans; it removed nothing')
   } finally {
     fs.rmSync(env.root, { recursive: true, force: true })
   }

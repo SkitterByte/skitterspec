@@ -10,6 +10,7 @@ const {
   nextTag,
   tagSlug,
   planHotfixLand,
+  planHotfixFinish,
 } = require('../src/env/hotfix.js')
 
 // --- bumpPatch ------------------------------------------------------------
@@ -280,4 +281,75 @@ test('a Base version header may be a hotfix tag', () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
+})
+
+// --- planHotfixFinish ----------------------------------------------------------
+
+const FINISHED = {
+  dirty: false,
+  tagsAtHead: ['v33.16.4-hotfix.1'],
+  head: 'abc',
+  remoteHead: 'abc',
+  remote: 'origin',
+  mainRepoPath: '/repo',
+  hasSlot: false,
+}
+
+test('finish: every guard holding removes the worktree and -D deletes the branch', () => {
+  const plan = planHotfixFinish(spec(), FINISHED)
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.releaseTag, 'v33.16.4-hotfix.1')
+  assert.deepStrictEqual(plan.argvs, [
+    ['-C', '/repo', 'worktree', 'remove', '/wt/login'],
+    ['-C', '/repo', 'branch', '-D', 'hotfix/login'],
+  ])
+})
+
+test('finish: each failing guard is named, all at once', () => {
+  const plan = planHotfixFinish(spec(), {
+    ...FINISHED,
+    dirty: true,
+    tagsAtHead: ['not-a-release'],
+    remoteHead: null,
+  })
+  assert.strictEqual(plan.blocked, true)
+  assert.deepStrictEqual(plan.argvs, [])
+  assert.strictEqual(plan.reasons.length, 3)
+  assert.match(plan.reasons[0], /uncommitted changes/)
+  assert.match(plan.reasons[1], /no release tag at HEAD/)
+  assert.match(plan.reasons[2], /hotfix\/login is not on origin/)
+})
+
+test('finish: a remote branch behind HEAD refuses', () => {
+  const plan = planHotfixFinish(spec(), { ...FINISHED, remoteHead: 'old' })
+  assert.match(plan.reasons[0], /origin\/hotfix\/login is not at HEAD/)
+})
+
+test('finish: a remote that cannot be asked is cannot-tell, and refuses', () => {
+  const plan = planHotfixFinish(spec(), { ...FINISHED, remoteHead: undefined })
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reasons[0], /cannot tell whether hotfix\/login is on origin/)
+})
+
+test('finish: a plain patch tag at HEAD is a release tag too', () => {
+  assert.strictEqual(planHotfixFinish(spec(), { ...FINISHED, tagsAtHead: ['v33.16.5'] }).blocked, false)
+})
+
+test('finish: a Docker stack is sent to spec-env down', () => {
+  assert.match(planHotfixFinish(spec(), { ...FINISHED, hasSlot: true }).reasons[0], /spec-env down/)
+})
+
+test('finish has no force: the guards are not overridable from here', () => {
+  // A forcing key is simply not read — the plan is the same with or without it.
+  const plan = planHotfixFinish(spec(), { ...FINISHED, dirty: true, force: true })
+  assert.strictEqual(plan.blocked, true)
+})
+
+test('the default branch.pattern gives a hotfix spec hotfix/<slug> (skittership\'s branchPrefix)', () => {
+  const { branchFor } = require('../src/env/resolve.js')
+  assert.strictEqual(branchFor({ type: 'hotfix', slug: 'login', path: null }, {}), 'hotfix/login')
+  assert.strictEqual(
+    branchFor({ type: 'hotfix', slug: 'login', path: null }, { branch: { pattern: '{type}/{slug}' } }),
+    'hotfix/login',
+  )
 })
