@@ -93,6 +93,26 @@ test('it keeps the setup commands — /no-spec work is code', async () => {
   }
 })
 
+test('seeds alone still earn the bootstrap line — no setup needed', async () => {
+  const dir = scaffold({ seedFiles: ['.env'] })
+  try {
+    const out = await runQuiet(['spec-env', 'nospec', 'bump-deps', '--dir', dir])
+    assert.match(out, /then, run:\n\s+skitterspec spec-env bootstrap bump-deps\n/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: no seeds and no setup prints no bootstrap line', async () => {
+  const dir = scaffold()
+  try {
+    const out = await runQuiet(['spec-env', 'nospec', 'bump-deps', '--dir', dir])
+    assert.doesNotMatch(out, /bootstrap/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('re-running is idempotent and says the record was already there', async () => {
   const dir = scaffold()
   try {

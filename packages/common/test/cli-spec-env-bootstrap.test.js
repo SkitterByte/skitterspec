@@ -181,16 +181,65 @@ test('a docker spec with no slot is refused before anything runs', async () => {
   }
 })
 
-test('specless (/no-spec) work runs setup only', async () => {
-  const env = scaffold({ config: { ...SEEDS, setup: ['touch setup-ran'] }, worktree: false, mainFiles: { 'packages/api/.env': 'A=1\n' } })
+// A `/no-spec` worktree needs the gitignored files as much as a spec's does:
+// a `setup` that reads `.env` (a Prisma generate, say) fails without it. What
+// it never gets is a stack — the record has no slot, no envFile and no docker.
+function speclessEnv(config) {
+  const env = scaffold({ config, worktree: false, mainFiles: { 'packages/api/.env': 'A=1\n' } })
+  return env
+}
+
+async function nospecWorktree(env) {
+  await runQuiet(['spec-env', 'nospec', 'bump-deps', '--dir', env.dir])
+  const wt = path.resolve(env.dir, `../${path.basename(env.dir)}-wt`, 'bump-deps')
+  fs.mkdirSync(wt, { recursive: true })
+  return wt
+}
+
+test('specless (/no-spec) work seeds the gitignored files, then runs setup', async () => {
+  const env = speclessEnv({ ...SEEDS, setup: ['test -f packages/api/.env && touch setup-ran'] })
   try {
-    await runQuiet(['spec-env', 'nospec', 'bump-deps', '--dir', env.dir])
-    const wt = path.resolve(env.dir, `../${path.basename(env.dir)}-wt`, 'bump-deps')
-    fs.mkdirSync(wt, { recursive: true })
+    const wt = await nospecWorktree(env)
     const { out, code } = await runQuiet(['spec-env', 'bootstrap', 'bump-deps', '--dir', env.dir])
     assert.strictEqual(code, 0, out)
-    assert.ok(fs.existsSync(path.join(wt, 'setup-ran')))
-    assert.ok(!fs.existsSync(path.join(wt, 'packages')), 'nospec seeds nothing')
+    assert.ok(fs.existsSync(path.join(wt, 'packages/api/.env')), 'the seed landed')
+    assert.ok(fs.existsSync(path.join(wt, 'setup-ran')), 'setup saw the seeded file')
+  } finally {
+    cleanup(env.dir)
+  }
+})
+
+test('specless plan orders seed before setup, with no envFile or docker step', async () => {
+  const env = speclessEnv({ ...SEEDS, setup: ['touch setup-ran'], docker: { envFile: '.env' } })
+  try {
+    await nospecWorktree(env)
+    const { out } = await runQuiet(['spec-env', 'bootstrap', 'bump-deps', '--dir', env.dir, '--plan', '--json'])
+    assert.deepStrictEqual(JSON.parse(out).steps.map((s) => s.kind), ['seed', 'seed', 'setup'])
+  } finally {
+    cleanup(env.dir)
+  }
+})
+
+test('specless --docs seeds and skips setup, as a spec does', async () => {
+  const env = speclessEnv({ ...SEEDS, setup: ['touch setup-ran'] })
+  try {
+    await nospecWorktree(env)
+    const { out } = await runQuiet(['spec-env', 'bootstrap', 'bump-deps', '--dir', env.dir, '--docs', '--plan', '--json'])
+    assert.deepStrictEqual(JSON.parse(out).steps.map((s) => s.kind), ['seed', 'seed'])
+  } finally {
+    cleanup(env.dir)
+  }
+})
+
+test('stays silent: specless with no seedFiles plans exactly its setup', async () => {
+  const env = speclessEnv({ setup: ['touch a', 'touch b'] })
+  try {
+    await nospecWorktree(env)
+    const { out } = await runQuiet(['spec-env', 'bootstrap', 'bump-deps', '--dir', env.dir, '--plan', '--json'])
+    assert.deepStrictEqual(
+      JSON.parse(out).steps.map((s) => [s.kind, s.command]),
+      [['setup', 'touch a'], ['setup', 'touch b']],
+    )
   } finally {
     cleanup(env.dir)
   }

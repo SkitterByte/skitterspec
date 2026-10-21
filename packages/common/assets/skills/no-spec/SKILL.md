@@ -53,8 +53,9 @@ plain `cd` and run the `then, run:` line where there is one:
 cd "<worktreePath>" && skitterspec spec-env bootstrap <name>
 ```
 
-That runs the project's `setup` in the worktree and stops at the first failing
-command, naming it. The Bash working directory persists between calls, so from
+That seeds the project's gitignored files into the worktree, then runs its
+`setup`, and stops at the first failing step, naming it. There is no stack: a
+specless branch never gets an env file or Docker. The Bash working directory persists between calls, so from
 here on the work happens on its own branch.
 
 **The worktree steps are the engine's to run, never yours.** Seeding the

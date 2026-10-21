@@ -847,7 +847,8 @@ function specEnvNospec(dir, config, name, flags = {}) {
       ? `    git worktree add ${spec.worktreePath} ${spec.branch}`
       : `    git worktree add ${spec.worktreePath} -b ${spec.branch}`,
   )
-  if ((config.setup || []).length) out.push(...bootstrapLines(name))
+  const seeds = (config.seedFiles && config.seedFiles.files) || []
+  if (seeds.length || (config.setup || []).length) out.push(...bootstrapLines(name))
   if (flags.json) {
     process.stdout.write(
       JSON.stringify(
@@ -1173,9 +1174,11 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
 
   let steps
   // A `/no-spec` record — not the authoring record `up --docs` writes for a
-  // spec not yet on disk, which is a spec and plans like one.
+  // spec not yet on disk, which is a spec and plans like one. It seeds and runs
+  // `setup` exactly as a spec does, since a `setup` that reads a seeded `.env`
+  // fails without it; what it never has is a stack, so no slot is consulted.
   if (spec.specless && !spec.unwritten) {
-    steps = docs ? [] : (config.setup || []).map((command) => ({ kind: 'setup', command }))
+    steps = worktreeSteps(spec, null, config, { docs, wantsDocker: false })
   } else {
     const compose = composeFilePresent(dir, config)
     const { wantsDocker } = resolveStack(spec, config, { docs, composeFilePresent: compose })
