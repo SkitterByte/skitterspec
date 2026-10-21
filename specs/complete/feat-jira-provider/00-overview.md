@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-jira-provider (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-09-22)
+> **Status:** Complete (2026-10-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-09-21
@@ -145,7 +145,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | Jira adapter core (client, ADF, transitions) | ✅ | [03-jira-adapter.md](03-jira-adapter.md) |
 | 4 | Jira CLI, skills, seams | ✅ | [04-jira-cli-skills.md](04-jira-cli-skills.md) |
 | 5 | Distribution + release wiring | ✅ | [05-distribution-release.md](05-distribution-release.md) |
-| 6 | Docs, live smoke, first release | 🔄 | [06-docs-smoke.md](06-docs-smoke.md) |
+| 6 | Docs, live smoke, first release | ✅ | [06-docs-smoke.md](06-docs-smoke.md) |
 
 ## Open questions
 
@@ -157,6 +157,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-09-21 | Ready | backlog | Reuben Greaves |
 | 2026-09-22 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -258,3 +259,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   edit detected, next apply replaced it loudly, round-trip intact. The
   apply-side warning was never affected — it reads the adapter's
   normalized shape.
+- 2026-10-21 — Completed; all phases done, live smoke 8/8 against a real
+  Jira Cloud site, full workspace suite green. Consciously deferred: the
+  `skitterspec-jira@1.0.0` cut (release.js on the landed base branch, tag
+  push, npm trusted publisher + 2FA approve) — an operator step that can
+  only follow the land, per phase 6's notes.

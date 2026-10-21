@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-376"
 ---
 
-# Phase 6 — Docs, live smoke, first release 🔄
+# Phase 6 — Docs, live smoke, first release ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the provider is documented, verified against a real Jira Cloud site,
 and `skitterspec-jira@1.0.0` is staged through CI.
