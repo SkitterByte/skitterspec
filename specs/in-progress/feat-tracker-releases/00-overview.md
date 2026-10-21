@@ -2,9 +2,9 @@
 
 > **Type:** Feature
 > **Name:** feat-tracker-releases (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-21)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-21
 > **Area:** packages/provider-kit/src/{adapter,released,releases}.js, packages/linear/src/{api,config,cli-sync,doctor}.js, packages/linear/assets/skills/spec-linear-setup/SKILL.md, packages/linear/assets/core/{linear.config.md,ci-stages.md}, .github/workflows/release.yml, scripts/approve-release.cjs, specs/.core/linear.config.json
 > **Stack:** worktree
@@ -144,6 +144,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-21 | Ready | backlog | Reuben Greaves |
+| 2026-10-21 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
