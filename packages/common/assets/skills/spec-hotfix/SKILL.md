@@ -1,9 +1,9 @@
 ---
 name: spec-hotfix
-description: Fix a production bug on the exact released version — fork a worktree from a release tag, drive it red→green, then land it by tagging a new patch for CI/CD and cherry-picking the fix onto main. ALWAYS starts from a base tag and works on the hotfix's own branch, never on main. Use when the user says "/spec-hotfix", "hotfix <tag>", "prod is broken on <version>", "patch the released version", or needs a fix shipped against a tagged release rather than main.
+description: Fix a production bug on the exact released version — fork a worktree from a release tag, drive it red→green, then land it by cutting the release, pushing it on consent, and carrying the fix onto main. ALWAYS starts from a base tag and works on the hotfix's own branch, never on main. Use when the user says "/spec-hotfix", "hotfix <tag>", "prod is broken on <version>", "patch the released version", or needs a fix shipped against a tagged release rather than main.
 ---
 
-# /spec-hotfix — fix a released version, tag it, cherry-pick back to main
+# /spec-hotfix — fix a released version, release it, carry it back to main
 
 > Stay silent while this runs — speak only to ask something you cannot answer
 > yourself, or to report a failure at the moment it happens. Read
@@ -43,6 +43,9 @@ If isolation is absent, say so and stop; there is no in-place path.
   usually names
   the version they *saw* the bug on, which is not necessarily what is deployed,
   and a hotfix forked from the wrong tag fails late.
+  **A hotfix tag is a valid base**: prod may be running `v36.4.0-hotfix.2`, and a
+  hotfix on it continues that line (`-hotfix.3` under `hotfix.bump:
+  "hotfix-suffix"` or skittership's release).
 - **Verify the tag exists** before anything else:
   `git rev-parse --verify <tag>^{commit}`. If it doesn't resolve, stop and ask.
 
@@ -123,8 +126,8 @@ and a step whose documented opening the repo will not perform is not a step. The
 spec is written in the worktree at §5, on the branch it belongs to.
 
 **§5 records the same tag you passed to `--from`**, on the spec's
-`> **Base version:**` header. That is not bookkeeping: `/spec-complete` tags the
-new patch and cherry-picks off the header, so a worktree forked from one ref and
+`> **Base version:**` header. That is not bookkeeping: `/spec-complete` cuts the
+release and carries the fix off the header, so a worktree forked from one ref and
 a header naming another is this whole bug again with the halves swapped.
 
 <!-- seam:worktree-bootstrap -->
@@ -202,9 +205,12 @@ place of the table when the spec touches no external surface.>
 
 ## Landing
 
-- [ ] Deploy tag (patch bump of the base version) created at `/spec-complete`
-      and pushed **by you** to trigger CI/CD.
-- [ ] Fix cherry-picked onto `main` (and any `--also` release lines).
+- [ ] Release cut at `/spec-complete` (`hotfix.releaseWith`, else the
+      `hotfix.bump` tag) and pushed — branch, then tag — on your say-so, which
+      triggers CI/CD.
+- [ ] Fix carried onto `main` without the version commit (and tagged onto any
+      `--also` release lines).
+- [ ] Deploy confirmed, then `/spec-complete` again to run `hotfix finish`.
 
 ## State log
 
@@ -358,10 +364,14 @@ prod is theirs to trigger. The spec stays in `in-progress`.
 - **`/spec-live` is refused for a hotfix** — its branch is built on an old tag, so
   hot-reloading it onto the running dev server could break the shared instance.
   To test it, the user runs `/spec-connect` (its own isolated stack).
-- `Next` points at **`/spec-complete`** to land it: it patch-bumps the base tag,
-  tags the hotfix branch **locally** (you push it to deploy), and cherry-picks the
-  fix onto `main`. Add `--also <tag>` at completion to also patch other release
-  lines (test/demo on their own versions).
+- `Next` points at **`/spec-complete`** to land it. That cuts the configured
+  release — `hotfix.releaseWith` (e.g. skittership's
+  `node scripts/release-hotfix.cjs --json`) or the built-in tagger's `hotfix.bump`
+  tag — asks before pushing the branch and then the tag, and carries the fix onto
+  `main` without the version commit. The worktree stays until the deploy is
+  confirmed; a second `/spec-complete` then runs `spec-env hotfix finish`. Add
+  `--also <tag>` at completion to also tag other release lines (test/demo,
+  tag-only).
 
 End with the block defined in `.claude/rules/spec-reports.md`. That file carries
 the shape; this section carries only what is specific here.

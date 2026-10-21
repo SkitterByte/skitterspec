@@ -272,7 +272,7 @@ function assertComposedAssets() {
 const SPEC_MARKER_START = '<!-- skitterspec:start -->'
 const SPEC_MARKER_END = '<!-- skitterspec:end -->'
 
-const report = { created: [], updated: [], skipped: [], refused: [], removed: [], customized: [], adopted: [], healed: [], warnings: [] }
+const report = { created: [], updated: [], skipped: [], refused: [], removed: [], customized: [], adopted: [], healed: [], warnings: [], suggestions: [] }
 
 function resetReport() {
   for (const k of Object.keys(report)) report[k].length = 0
@@ -905,6 +905,7 @@ function resync(dir, { force = false, claudeMd = true, diff = false } = {}) {
   // asserts over the entry points rather than over this call.
   registerReviewGateHook(dir)
   if (claudeMd) installClaudeMd(dir, { mode: 'update' })
+  suggestReleaseWith(dir)
   flushManifest(dir)
   printReport(dir, 'resync', { diff })
 }
@@ -1003,6 +1004,10 @@ function printReport(dir, mode, { diff = false } = {}) {
         '  (rm <path>, then re-run), or leave it linked and edit the asset.\n',
     )
   }
+  if (report.suggestions.length) {
+    process.stdout.write('\nsuggestions:\n')
+    for (const x of report.suggestions) process.stdout.write(`  - ${x}\n`)
+  }
   if (report.warnings.length) {
     process.stdout.write('\nwarnings:\n')
     for (const w of report.warnings) process.stdout.write(`  ! ${w}\n`)
@@ -1066,6 +1071,32 @@ function printReport(dir, mode, { diff = false } = {}) {
 // `mode` here is the INSTALL mode ('init' | 'update'), long-standing and
 // unrelated to the config's own `mode` key — which arrives as `workspaceMode`
 // precisely so the two cannot be confused at a call site.
+/**
+ * Suggest `hotfix.releaseWith` where skittership's hotfix release is installed
+ * and nothing is configured yet. SUGGESTED, NEVER WRITTEN: it changes what a
+ * hotfix land does — a version commit and the project's own tag scheme — and
+ * that is the project's decision, not something an install makes for it.
+ *
+ * Silent unless both signals are present: the script on disk, and an
+ * isolation config that leaves `releaseWith` empty. A config that cannot be
+ * read is cannot-tell, and says nothing.
+ */
+function suggestReleaseWith(dir) {
+  if (!fs.existsSync(path.join(dir, 'scripts', 'release-hotfix.cjs'))) return
+  let loaded
+  try {
+    loaded = require('./env/config.js').loadEnvConfig(dir)
+  } catch {
+    return
+  }
+  if (!loaded || !loaded.present || loaded.config.hotfix.releaseWith) return
+  report.suggestions.push(
+    'scripts/release-hotfix.cjs is installed — to have hotfix land cut its release, set ' +
+      '"hotfix": { "releaseWith": "node scripts/release-hotfix.cjs --json" } in ' +
+      'specs/.core/env.config.json',
+  )
+}
+
 async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
@@ -1081,6 +1112,7 @@ async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gati
   if (mode !== 'update') installIsolation(dir, { enabled: isolation, workspaceMode }, { force })
   if (mode !== 'update') installGating(dir, { enabled: gating }, { force })
   if (claudeMd) installClaudeMd(dir, { mode })
+  suggestReleaseWith(dir)
 
   // Record what we wrote (and migrate a pre-manifest repo) so a later resync can
   // tell our files from the user's.

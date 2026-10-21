@@ -1,5 +1,69 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec` v23 → v24 (hotfix land runs the release itself)
+
+### Breaking change 1 — `spec-env hotfix land` runs its steps, and holds before the carry
+
+`hotfix land` used to print a plan: a `git tag` for the patch-bumped base tag,
+the `--also` cherry-picks, and a `git cherry-pick <base>..<branch>` onto main.
+The skill ran it by hand, and you pushed the tag yourself.
+**It now runs the land itself**, stopping at the first step that fails:
+
+1. **release** — `hotfix.releaseWith` when it is set (see below), otherwise the
+   built-in tagger. The release is recorded in `.spec-env/hotfix/<spec>.json`,
+   so a re-run reuses it rather than cutting a second one.
+2. **push** — the branch, then the tag, to `origin`, **only with `--push`**.
+   Without it the run **holds** here: exit 0, both push commands printed, and
+   nothing carried. A re-run after you push by hand finds the tag on the remote
+   and carries on.
+3. **carry** — the branch's commits onto main, **minus the version commit** and
+   anything main already has, so the spec's completion commits arrive and main's
+   version line does not move. It runs in place when main is checked out and
+   clean, through a throwaway worktree when it isn't checked out, and is
+   **refused** with the command to run later when main is checked out and dirty.
+   A conflict is aborted and names the commit.
+
+`--plan` describes the steps and runs nothing; `--json` reports each step's
+outcome. Refusals and failures now exit 1.
+
+**What to change.** Run `skitterspec update` to take the new `/spec-complete`
+and `/spec-hotfix`. `/spec-complete` asks before passing `--push`. Anything of
+your own that ran `hotfix land`'s printed commands should run the verb itself,
+with `--push` once you have decided to deploy.
+
+### Breaking change 2 — a hotfix's worktree waits for `spec-env hotfix finish`
+
+`/spec-complete` used to tear a hotfix down as soon as it had tagged. The branch
+is now kept until the deploy is confirmed, because a failed deploy cuts the next
+release from the same branch. Run `/spec-complete` again on the landed hotfix,
+or `skitterspec spec-env hotfix finish <spec>` directly. It removes the worktree
+and deletes the branch only when the tree is clean, a release tag is at HEAD,
+and `origin/<branch>` is at HEAD. It names every check that fails, and has no
+`--force`.
+
+### New — `hotfix.releaseWith` and a real `hotfix.bump`
+
+- **`hotfix.releaseWith`** is a command run in the hotfix worktree. It cuts the
+  release (a version commit and a tag) and prints one JSON line:
+  `{"tag","version","baseTag","branch","versionCommit","pushed"}`. skittership
+  2.1+ ships one:
+
+  ```jsonc
+  "hotfix": { "releaseWith": "node scripts/release-hotfix.cjs --json" }
+  ```
+
+  Call node directly, not `pnpm run`, so no run banner reaches stdout. Anything
+  but the JSON line is a refusal. Add `--allow-postversion` yourself if your
+  package.json has a `postversion` script. `init` and `update` suggest this when
+  the script is present, and never write it.
+- **`hotfix.bump`** was parsed and ignored; it is now read. `"patch"` (the
+  default) is the old behaviour. `"hotfix-suffix"` cuts `X.Y.Z-hotfix.N`,
+  continues a base that is already a hotfix tag, and is not blocked by a later
+  `X.Y.(Z+1)`. Any other value is refused when `hotfix land` runs.
+
+Extra targets (`hotfix.targets` / `--also`) stay tag-only: they never go through
+`releaseWith` and are not pushed.
+
 ## `@skitterbyte/skitterspec` v22 → v23 (the engine runs the worktree bootstrap)
 
 ### Breaking change — `spec-env up` no longer prints the worktree steps
@@ -173,6 +237,12 @@ can run it.
 **It writes `specs/.core/env.config.json` in the primary checkout** — a
 committed file, so it changes for everyone who pulls and leaves that tree dirty.
 The engine says so when it does.
+
+## `@skitterbyte/skitterspec-linear` v18 → v19 (hotfix land runs the release itself)
+
+The same change as `@skitterbyte/skitterspec` v23 → v24 above — this
+distribution composes the same engine. Read that entry; nothing here is
+Linear-specific.
 
 ## `@skitterbyte/skitterspec-linear` v17 → v18 (the engine runs the worktree bootstrap)
 

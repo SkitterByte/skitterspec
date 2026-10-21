@@ -190,8 +190,10 @@ the finished spec's own test-DB volume; `spec-env prune` additionally reaps
 **orphaned** volumes left by declined/aborted teardowns, so `/spec-complete` and
 `/spec-cancel` also sweep orphans (confirm-first). A **hotfix** is the one
 exception to "fork from `main`": `/spec-hotfix` forks the worktree from a release
-tag and `/spec-complete` lands it via `spec-env hotfix land` (tag + cherry-pick),
-not a fast-forward. Isolation is **orthogonal to lifecycle status** and inactive
+tag and `/spec-complete` lands it via `spec-env hotfix land` (release, push on
+consent, carry to `main` without the version commit), not a fast-forward; its
+worktree stays until the deploy is out and a second `/spec-complete` runs
+`spec-env hotfix finish`. Isolation is **orthogonal to lifecycle status** and inactive
 when `env.config.json` is absent — every skill then behaves as it does today.
 
 **Live overlay (`/spec-live`, a command) — the light way to test a spec.** `/spec-connect`

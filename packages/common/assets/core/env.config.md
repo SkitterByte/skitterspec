@@ -153,8 +153,8 @@ through to a documented conservative default; see the field notes below.
   //   `spec-env integrate` prints them after the fast-forward (worktree and
   //   checkout mode), and also after "already landed" — a land on another
   //   machine leaves them pending here. `spec-env hotfix land` prints them
-  //   after the cherry-pick onto the base branch, and not at all when
-  //   `hotfix.cherryPickMain` is false, since the base gained nothing.
+  //   after a carry that moved the base branch, and not at all when it moved
+  //   nothing (held, already carried, or `hotfix.cherryPickMain` false).
   // The engine only plans: /spec-complete, /spec-to-main and /no-spec run
   // them (a /spec documents-only land does not). They stop at the first
   // failure, report it as a caveat, and never undo the land or block
@@ -267,14 +267,38 @@ through to a documented conservative default; see the field notes below.
   },
 
   // Hotfix landing (`spec-env hotfix land` / `/spec-complete` on a Type: Hotfix
-  // spec). A hotfix forks from a release tag and lands by tag + cherry-pick, not
-  // fast-forward. `bump` is the version-bump strategy for the new deploy tag (only
-  // "patch" today: v33.16.4 -> v33.16.5). `cherryPickMain` also cherry-picks the
-  // fix onto the base branch for the next release (default true). `targets` is an
-  // optional default list of extra base tags to also patch (test/demo lines);
-  // `--also <tag>` adds more at run time. Nothing is ever pushed — you push the
-  // deploy tag to trigger CI/CD. Default: patch, main, none.
+  // spec). A hotfix forks from a release tag and lands by release + push + carry,
+  // not fast-forward; `hotfix land` runs those steps itself, in that order.
+  //
+  // `releaseWith` is a command run IN THE HOTFIX WORKTREE that cuts the release —
+  // its version commit and its tag — and prints ONE JSON line on stdout:
+  // {"tag","version","baseTag","branch","versionCommit","pushed"}. skittership
+  // 2.1+ ships one: "node scripts/release-hotfix.cjs --json" (call node directly
+  // rather than through `pnpm run`, so no run banner reaches stdout; anything but
+  // the JSON line is a refusal). skitterspec never passes it `--push`, since it
+  // owns the push. skittership refuses a branch outside its `hotfix.branchPrefix`
+  // (default `hotfix/`) — the default `branch.pattern` already gives
+  // `hotfix/<slug>` — and refuses a package.json with a `postversion` script
+  // unless the command says `--allow-postversion`; add that yourself if you have
+  // one. Empty (the default) = the built-in tagger.
+  //
+  // `bump` is the built-in tagger's strategy: "patch" (v33.16.4 -> v33.16.5) or
+  // "hotfix-suffix" (v33.16.4 -> v33.16.4-hotfix.1, then -hotfix.2, ...; a base
+  // that is already a hotfix tag continues its line). Any other value is refused
+  // when `hotfix land` runs. Tags order X.Y.Z-rc.N < X.Y.Z < X.Y.Z-hotfix.N <
+  // X.Y.(Z+1), the same as skittership.
+  //
+  // `cherryPickMain` carries the fix onto the base branch for the next release
+  // (default true) — its commits minus the version commit and minus anything the
+  // base already has. `targets` is an optional default list of extra base tags to
+  // also patch (test/demo lines); `--also <tag>` adds more at run time. Targets
+  // are TAG-ONLY: they get the built-in tagger, never `releaseWith`, and are not
+  // pushed. The prod release is pushed (branch, then tag, to origin) only on
+  // `hotfix land --push`; without it the land holds before the carry. The
+  // worktree stays until `spec-env hotfix finish`. Default: built-in patch tag,
+  // carry to main, no targets.
   "hotfix": {
+    "releaseWith": "",
     "bump": "patch",
     "cherryPickMain": true,
     "targets": []
