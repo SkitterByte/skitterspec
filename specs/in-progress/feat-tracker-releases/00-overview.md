@@ -88,15 +88,19 @@ deployed, so nobody drags cards around to say "this shipped".
 ## Solution overview
 
 ```jsonc
-// linear.config.json
-"releases": {
-  "keyEnv": "LINEAR_RELEASE_KEY",          // CI secret name; never the value
+// linear.config.json — beside the existing ladder (`stages`) and `ignorePaths`
+"release": {
   "pipelines": [
     { "tagPrefix": "skitterspec@", "pipelineId": "<uuid>",
-      "envs": { "staged": "Staged", "published": "Published" } }
+      "envs": [{ "key": "staged", "stage": "Staged" },
+               { "key": "published", "stage": "Released" }],
+      "initialEnv": "staged" }
   ]
 }
 ```
+
+The key is the existing `auth.keyEnv` personal key. In CI that is a secret of
+that name.
 
 ```sh
 # host CI, on tag push
@@ -111,8 +115,8 @@ skitterspec spec-sync release complete 1.4.0 --apply
 | Surface | Change | Detail |
 |---------|--------|--------|
 | CLI command | add | `spec-sync release create\|deployed\|complete` (`--apply`, `--json`) |
-| Domain object | add | provider-kit release seam: optional `release*` adapter ops |
-| Config key | add | `linear.config.json` → `releases.{keyEnv,pipelines[]}` |
+| Domain object | add | provider-kit release seam: optional `releaseFind/Sync/Stage/Complete` ops |
+| Config key | add | `linear.config.json` → `release.pipelines[]` |
 | Service | update | Linear API adapter: release GraphQL ops |
 | CLI command | update | `spec-sync doctor`: pipelines exist, stage names valid, ladder + releases both set |
 | CLI command | update | `spec-sync init-config`: `--release-pipeline` flags |
@@ -128,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Spike Linear's release API and linear-release | ✅ | [01-spike-release-api.md](01-spike-release-api.md) |
-| 2 | Release seam + config + Linear adapter ops | ⬜ | [02-seam-and-config.md](02-seam-and-config.md) |
+| 2 | Release seam + config + Linear adapter ops | ✅ | [02-seam-and-config.md](02-seam-and-config.md) |
 | 3 | `release create <tag>` | ⬜ | [03-release-create.md](03-release-create.md) |
 | 4 | `release deployed` / `release complete` | ⬜ | [04-deployed-complete.md](04-deployed-complete.md) |
 | 5 | Setup step, CI wiring offer, doctor | ⬜ | [05-setup-and-doctor.md](05-setup-and-doctor.md) |
@@ -156,3 +160,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   unresolvable refs silently, so attaches are read back. The initial stage must
   be explicit. `linear-release` was not adopted; the reasons are in phase 1's
   Notes. A personal key writes releases.
+- 2026-10-21 — Phase 2: the config lives under the existing `release` block as
+  `release.pipelines`, not a new top-level `releases`. One block now holds the
+  ladder, the bookkeeping filter and the pipelines. `envs` is an ordered array
+  (like the ladder) so a backwards move can warn. A new `initialEnv` key exists
+  because Linear otherwise lands a release on its first started stage.
+  `releases.keyEnv` was dropped: releases use the existing `auth.keyEnv`
+  personal key, which phase 1 proved can write them. Pipeline access keys
+  (`…ByAccessKey`) are deferred. The seam's ops are find/sync/stage/complete;
+  there is no separate attach.

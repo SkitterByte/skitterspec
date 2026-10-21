@@ -20,7 +20,8 @@
  *     intake:   { label, bugLabels, hotfixLabels, preserveOriginal },
  *     mapping:  { specFolder, phases, tasks },
  *     states:   { backlog, "in-progress", complete, cancelled },
- *     release:  { stages: [{ key, state }] },
+ *     release:  { stages: [{ key, state }], ignorePaths,
+ *                 pipelines: [{ tagPrefix, pipelineId, envs: [{ key, stage }], initialEnv }] },
  *     snapshot: { overviewFile },
  *     branch:   { pattern },
  *     sync: {
@@ -119,6 +120,12 @@ const DEFAULT_RELEASE_STAGES = Object.freeze([])
 // elsewhere names its own directories here.
 const DEFAULT_RELEASE_IGNORE_PATHS = Object.freeze(['specs/'])
 
+// Linear release pipelines a tag series files into (`spec-sync release`). Empty
+// = releases are not used, and every `release` verb refuses cleanly — the same
+// opt-in shape as the ladder. The two are independent: a workspace without
+// Linear Releases keeps the ladder, and doctor warns when both are declared.
+const DEFAULT_RELEASE_PIPELINES = Object.freeze([])
+
 const DEFAULT_CONFIG = Object.freeze({
   // `projectId` is the project picker's DEFAULT, not a mandate: `/spec` and the
   // first `/spec-push` offer the team's projects and pre-select this one; empty
@@ -184,7 +191,11 @@ const DEFAULT_CONFIG = Object.freeze({
   // rollback from test and a hotfix going straight to prod are both legitimate.
   // `ignorePaths` (see DEFAULT_RELEASE_IGNORE_PATHS) is what `released`/`stage`
   // treat as bookkeeping rather than shipped work.
-  release: Object.freeze({ stages: DEFAULT_RELEASE_STAGES, ignorePaths: DEFAULT_RELEASE_IGNORE_PATHS }),
+  release: Object.freeze({
+    stages: DEFAULT_RELEASE_STAGES,
+    ignorePaths: DEFAULT_RELEASE_IGNORE_PATHS,
+    pipelines: DEFAULT_RELEASE_PIPELINES,
+  }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // `keyEnv` names the env var holding the personal API key. It is a NAME, not a
   // key: putting the secret itself here would commit it.
@@ -294,6 +305,7 @@ function defaults() {
     release: {
       stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })),
       ignorePaths: [...DEFAULT_CONFIG.release.ignorePaths],
+      pipelines: DEFAULT_CONFIG.release.pipelines.map((p) => ({ ...p })),
     },
     branch: { ...DEFAULT_CONFIG.branch },
     auth: { ...DEFAULT_CONFIG.auth },
@@ -312,7 +324,14 @@ function defaults() {
 // vocabularies; `mergeConfig` below is the part that is Linear's — which keys
 // exist and how they nest.
 const { isObject, stringList, assign } = kitConfig
-const { mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages, mergeReleaseIgnorePaths, mergeKeyedFields } =
+const {
+  mergeFieldOwnership,
+  mergePhaseMapping,
+  mergeReleaseStages,
+  mergeReleaseIgnorePaths,
+  mergeReleasePipelines,
+  mergeKeyedFields,
+} =
   kitConfig.makeMergeHelpers({
     configFile: CONFIG_FILE,
     ownership: OWNERSHIP,
@@ -374,6 +393,7 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.release)) {
     mergeReleaseStages(base.release, parsed.release)
     mergeReleaseIgnorePaths(base.release, parsed.release)
+    mergeReleasePipelines(base.release, parsed.release)
   }
 
   if (isObject(parsed.branch)) {
@@ -482,9 +502,20 @@ function releaseIgnorePaths(config) {
   return Array.isArray(paths) ? paths : [...DEFAULT_RELEASE_IGNORE_PATHS]
 }
 
+/**
+ * The declared release pipelines, always an array (empty = releases unused).
+ * Callers read this rather than reaching into the config, so an older config
+ * object without the field cannot throw.
+ */
+function releasePipelines(config) {
+  const pipelines = config && config.release && config.release.pipelines
+  return Array.isArray(pipelines) ? pipelines : []
+}
+
 module.exports = {
   loadLinearConfig,
   releaseStages,
+  releasePipelines,
   releaseIgnorePaths,
   stageFor,
   mergeConfig,

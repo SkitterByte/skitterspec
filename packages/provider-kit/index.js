@@ -24,6 +24,7 @@ const prompt = require('./src/prompt.js')
 const args = require('./src/args.js')
 const adapter = require('./src/adapter.js')
 const apply = require('./src/apply.js')
+const releases = require('./src/releases.js')
 
 module.exports = {
   ...config,
@@ -38,4 +39,5 @@ module.exports = {
   ...args,
   ...adapter,
   ...apply,
+  ...releases,
 }

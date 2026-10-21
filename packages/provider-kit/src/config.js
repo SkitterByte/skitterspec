@@ -186,11 +186,89 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
     }
   }
 
+  // Merge (and validate) release.pipelines — the tracker release pipelines a
+  // tag series files into. Each entry is
+  //   { tagPrefix, pipelineId, envs: [{ key, stage }], initialEnv? }
+  // and loud on every malformation, for the same reason as `stages`: a pipeline
+  // entry that quietly dropped out would make `release create` report a tag as
+  // "not a tracked series" — a healthy-looking no-op standing in for a typo.
+  //
+  // `envs` is ORDERED (deployment order), which is what lets a backwards move
+  // warn. `initialEnv` names the stage a new release lands on: without it the
+  // tracker picks (Linear: the first `started` stage by position, which is not a
+  // custom stage the team added — phase 1 of feat-tracker-releases).
+  //
+  // A prefix that is a prefix of ANOTHER is refused, not resolved: `app@` and
+  // `app@beta-` would both claim `app@beta-1`, and whichever the reader assumes
+  // wins is a guess the config should not leave them to make.
+  function mergeReleasePipelines(base, parsed) {
+    const value = parsed.pipelines
+    if (value === undefined) return
+    const where = (i, field) => `release.pipelines[${i}]${field ? `.${field}` : ''}`
+    const bad = (at, v, expected) =>
+      new Error(`Invalid ${configFile}: ${at} = ${JSON.stringify(v)} (${expected})`)
+    if (!Array.isArray(value)) {
+      throw bad('release.pipelines', value, 'expected an array of { tagPrefix, pipelineId, envs }')
+    }
+    const pipelines = value.map((entry, i) => {
+      if (!isObject(entry)) throw bad(where(i), entry, 'expected { tagPrefix, pipelineId, envs }')
+      for (const field of ['tagPrefix', 'pipelineId']) {
+        if (typeof entry[field] !== 'string' || !entry[field].trim()) {
+          throw bad(where(i, field), entry[field], 'expected a non-empty string')
+        }
+      }
+      const envsIn = entry.envs === undefined ? [] : entry.envs
+      if (!Array.isArray(envsIn)) throw bad(where(i, 'envs'), envsIn, 'expected an array of { key, stage }')
+      const seen = new Set()
+      const envs = envsIn.map((env, j) => {
+        if (!isObject(env)) throw bad(where(i, `envs[${j}]`), env, 'expected { key, stage }')
+        for (const field of ['key', 'stage']) {
+          if (typeof env[field] !== 'string' || !env[field].trim()) {
+            throw bad(where(i, `envs[${j}].${field}`), env[field], 'expected a non-empty string')
+          }
+        }
+        const key = env.key.trim()
+        if (seen.has(key)) {
+          throw bad(where(i, `envs[${j}].key`), key, 'a duplicate — CI names the environment by its key')
+        }
+        seen.add(key)
+        return { key, stage: env.stage.trim() }
+      })
+      const pipeline = { tagPrefix: entry.tagPrefix.trim(), pipelineId: entry.pipelineId.trim(), envs }
+      if (entry.initialEnv !== undefined) {
+        const initial = typeof entry.initialEnv === 'string' ? entry.initialEnv.trim() : ''
+        if (!seen.has(initial)) {
+          const keys = [...seen].join(', ') || '(none declared)'
+          throw bad(where(i, 'initialEnv'), entry.initialEnv, `expected one of this pipeline's env keys: ${keys}`)
+        }
+        pipeline.initialEnv = initial
+      }
+      return pipeline
+    })
+    pipelines.forEach((a, i) => {
+      pipelines.forEach((b, j) => {
+        if (i === j) return
+        if (a.tagPrefix === b.tagPrefix && i < j) {
+          throw bad(where(j, 'tagPrefix'), b.tagPrefix, 'a duplicate — a tag can belong to one pipeline')
+        }
+        if (a.tagPrefix !== b.tagPrefix && b.tagPrefix.startsWith(a.tagPrefix)) {
+          throw bad(
+            where(j, 'tagPrefix'),
+            b.tagPrefix,
+            `overlaps release.pipelines[${i}].tagPrefix ${JSON.stringify(a.tagPrefix)} — a tag starting with it would match both`,
+          )
+        }
+      })
+    })
+    base.pipelines = pipelines
+  }
+
   return {
     mergeFieldOwnership,
     mergePhaseMapping,
     mergeReleaseStages,
     mergeReleaseIgnorePaths,
+    mergeReleasePipelines,
     mergeKeyedFields,
   }
 }

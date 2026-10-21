@@ -8,8 +8,9 @@
 ## Tasks
 
 - [ ] `init-config`: repeatable `--release-pipeline <prefix>=<pipelineId>`
-      and `--release-env <prefix>:<env>=<stage>`, plus `--release-key-env`,
-      validated against the listed pipelines.
+      and `--release-env <prefix>:<env>=<stage>`, plus
+      `--release-initial <prefix>=<env>`, validated against the listed
+      pipelines and their stages.
 - [ ] Add a `spec-sync release pipelines --json` listing, used by setup.
       "Unavailable (plan/permission)" degrades to the ladder offer and never
       fails setup.
@@ -18,8 +19,8 @@
       config offers this step alone, without the whole interview.
 - [ ] CI offer: show the diff of the `release create` step for the
       tag-triggered workflow, and write it only on a yes. Name the secret
-      (`keyEnv`) for the user to add themselves.
-- [ ] Doctor: configured pipelines exist, stage names valid, `keyEnv` declared.
+      (`auth.keyEnv`) for the user to add themselves.
+- [ ] Doctor: configured pipelines exist, stage names valid, key has release scope.
       Warn when the ladder and releases are both set. Cannot-tell stays silent.
 - [ ] Update `linear.config.md` and `ci-stages.md`: Releases first, the
       ladder as the fallback.

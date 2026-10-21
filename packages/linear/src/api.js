@@ -234,7 +234,26 @@ function makeClient({ apiKey, fetch: fetchImpl, endpoint = ENDPOINT, sleep, maxR
         { retryable: true },
       )
     }
-    if (!res.ok) throw new Error(`Linear API returned HTTP ${res.status}`)
+    if (!res.ok) {
+      // A malformed query is answered with HTTP 400 AND a GraphQL `errors`
+      // payload naming the field at fault. Dropping that body made a typo in a
+      // release query read as `HTTP 400 ""` (phase 1 of feat-tracker-releases),
+      // which no one can diagnose from a CI log — so read it when it is there.
+      // An unreadable body keeps the old message: cannot tell is not evidence.
+      let errors = null
+      try {
+        const failed = await res.json()
+        if (failed && Array.isArray(failed.errors) && failed.errors.length) errors = failed.errors
+      } catch {
+        errors = null
+      }
+      if (errors) {
+        const refusal = refusalFrom(errors)
+        refusal.message = `Linear API returned HTTP ${res.status}: ${refusal.message.replace(/^Linear API error: /, '')}`
+        throw refusal
+      }
+      throw new Error(`Linear API returned HTTP ${res.status}`)
+    }
     const body = await res.json()
     if (body && Array.isArray(body.errors) && body.errors.length) {
       // NOT RETRIED, when Linear says it cannot succeed. The retry loop exists
@@ -244,6 +263,50 @@ function makeClient({ apiKey, fetch: fetchImpl, endpoint = ENDPOINT, sleep, maxR
     }
     return body && body.data
   }
+}
+
+// The fields every release op reads back. `issues` is flattened to identifiers
+// by `releaseFrom`, because what a caller checks is which tickets the release
+// actually holds — Linear drops a ref it cannot resolve while still answering
+// `success: true`, so the read-back is the only evidence (phase 1).
+//
+// `first: 250` is Linear's page ceiling. A release attaching more than that is
+// read back short, and `unattachedRefs` would then name the overflow as
+// dropped — noisy, never silent, which is the safe way round.
+const RELEASE_FIELDS = `id name version url completedAt
+  stage { name type }
+  issues(first: 250) { nodes { identifier } }`
+
+function releaseFrom(node) {
+  if (!node) return null
+  return {
+    id: node.id,
+    name: node.name,
+    version: node.version,
+    url: node.url || null,
+    completedAt: node.completedAt || null,
+    stage: node.stage ? { name: node.stage.name, type: node.stage.type } : null,
+    issues: node.issues && Array.isArray(node.issues.nodes) ? node.issues.nodes.map((n) => n.identifier) : undefined,
+  }
+}
+
+/**
+ * What a refusal from a release op MEANS, so callers can say it in words.
+ *
+ *   - `unavailable` — the workspace does not have Linear Releases (plan or
+ *     feature toggle). Linear sends `Not allowed to access feature
+ *     'releaseManagement'`; reads meanwhile succeed and return `[]`, which is
+ *     exactly why this must never be read as an empty workspace.
+ *   - `scope` — the key lacks the permission (`Access denied`; creating a
+ *     pipeline needed the key's Admin scope in phase 1).
+ *   - `null` — anything else. Not a verdict: the caller relays the message.
+ */
+function releaseRefusalKind(error) {
+  const message = String((error && error.message) || '')
+  const code = error && error.code
+  if (/releaseManagement/.test(message) || code === 'FEATURE_NOT_ACCESSIBLE') return 'unavailable'
+  if (/\bAccess denied\b/i.test(message)) return 'scope'
+  return null
 }
 
 /**
@@ -481,6 +544,54 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
       )
       return (data && data.commentCreate && data.commentCreate.comment) || null
     },
+    // --- tracker releases (feat-tracker-releases) ----------------------------
+    //
+    // The provider-kit release contract (`provider-kit/src/releases.js`). API-
+    // only: the MCP adapter has no release tools, and `releaseSupport` is what
+    // tells a caller so rather than a missing method throwing mid-run.
+    async releaseFind({ pipelineId, version }) {
+      const data = await call(
+        `query($v: String!, $p: ID!) {
+           releases(filter: { version: { eq: $v }, pipeline: { id: { eq: $p } } }) { nodes { ${RELEASE_FIELDS} } } }`,
+        { v: version, p: pipelineId },
+      )
+      const nodes = (data && data.releases && data.releases.nodes) || []
+      return releaseFrom(nodes[0])
+    },
+    // Create-or-update keyed by version, attaching `refs` in the same call:
+    // re-syncing a version returns the same release (phase 1), so a CI retry on
+    // one tag is not a duplicate. `refs` are `{ identifier, commitSha }`.
+    async releaseSync({ pipelineId, version, name, commitSha, refs = [], links = [], notes = null }) {
+      const input = { pipelineId, version, commitSha, issueReferences: refs }
+      if (name) input.name = name
+      if (links.length) input.links = links
+      if (notes) input.releaseNotes = { content: notes }
+      const data = await call(
+        `mutation($i: ReleaseSyncInput!) { releaseSync(input: $i) { success release { ${RELEASE_FIELDS} } } }`,
+        { i: input },
+      )
+      return releaseFrom(data && data.releaseSync && data.releaseSync.release)
+    },
+    // Linear matches `stage` by name, exact first and then case-insensitively.
+    async releaseStage({ pipelineId, version, stage }) {
+      const data = await call(
+        `mutation($i: ReleaseUpdateByPipelineInput!) {
+           releaseUpdateByPipeline(input: $i) { success release { ${RELEASE_FIELDS} } } }`,
+        { i: { pipelineId, version, stage } },
+      )
+      return releaseFrom(data && data.releaseUpdateByPipeline && data.releaseUpdateByPipeline.release)
+    },
+    // Idempotent: completing twice keeps the first `completedAt` (phase 1).
+    async releaseComplete({ pipelineId, version, links = [], notes = null }) {
+      const input = { pipelineId, version }
+      if (links.length) input.links = links
+      if (notes) input.releaseNotes = { content: notes }
+      const data = await call(
+        `mutation($i: ReleaseCompleteInput!) { releaseComplete(input: $i) { success release { ${RELEASE_FIELDS} } } }`,
+        { i: input },
+      )
+      return releaseFrom(data && data.releaseComplete && data.releaseComplete.release)
+    },
   }
 }
 
@@ -526,4 +637,5 @@ module.exports = {
   makeApiAdapter,
   fetchWorkspaceStates,
   stateIdFor,
+  releaseRefusalKind,
 }
