@@ -131,7 +131,8 @@ function tagSlug(tag) {
  * @param {object} spec  resolved hotfix spec: { slug, branch, worktreePath, baseRef, ... }
  * @param {object} config normalised env config (reads `config.hotfix`).
  * @param {object} ctx   { worktreeState:{dirty}, aheadOfBase, fixRange, mainRepoPath,
- *                          base, extraTargets: string[], existingTags: string[] }
+ *                          base, extraTargets: string[], existingTags: string[],
+ *                          released?, push?: boolean, pushed?: boolean, remote? }
  * @returns {object} { blocked, noop, reason, commands, afterLand, prodTag, targets, branch, base }
  */
 function planHotfixLand(spec, config, ctx) {
@@ -212,7 +213,22 @@ function planHotfixLand(spec, config, ctx) {
   }
   targets.push({ kind: 'prod', base: baseRef, tag: prodTag })
 
-  // 2. Extra targets: cherry-pick the fix onto a throwaway worktree at each tag,
+  // 2. Publish the prod line: the branch first, then the tag, because the tag
+  //    push is what starts the deploy. BEFORE anything is carried to main, so a
+  //    declined or failed push never leaves main carrying a fix whose tag was
+  //    never published. Three cases: the tag is already on the remote (a
+  //    hand-run push, honoured on its positive signal); the operator consented
+  //    (`--push`); or neither, and the run holds here with the commands printed.
+  const remote = c.remote || 'origin'
+  if (c.pushed) {
+    steps.push({ kind: 'push', via: 'remote', remote, branch, cwd: spec.worktreePath })
+  } else if (c.push) {
+    steps.push({ kind: 'push', via: 'push', remote, branch, cwd: spec.worktreePath })
+  } else {
+    steps.push({ kind: 'push', via: 'hold', remote, branch, cwd: spec.worktreePath })
+  }
+
+  // 3. Extra targets: cherry-pick the fix onto a throwaway worktree at each tag,
   //    re-tag with its own bump, then remove the worktree + temp branch (the
   //    commits survive under the new tag, so `-D` is safe for the throwaway branch).
   //    TAG-ONLY, deliberately: `releaseWith` is the prod line's. Running a
@@ -254,7 +270,7 @@ function planHotfixLand(spec, config, ctx) {
     targets.push({ kind: 'extra', base: t, tag, worktreePath: tmpPath })
   }
 
-  // 3. Cherry-pick the fix onto the base branch (main) for the next release.
+  // 4. Cherry-pick the fix onto the base branch (main) for the next release.
   //    Only then does the primary checkout gain anything, so only then do the
   //    after-land commands apply — a prod-only land leaves main untouched.
   let afterLand = result.afterLand

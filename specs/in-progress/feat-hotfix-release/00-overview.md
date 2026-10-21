@@ -151,7 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Tag order, bump strategies, hotfix-suffixed bases | ✅ | [01-tags-and-bump.md](01-tags-and-bump.md) |
 | 2 | `hotfix land` executes: release step + `releaseWith` seam | ✅ | [02-release-step.md](02-release-step.md) |
-| 3 | Push behind consent, resumable | ⬜ | [03-push.md](03-push.md) |
+| 3 | Push behind consent, resumable | ✅ | [03-push.md](03-push.md) |
 | 4 | Carry to main without the version commit | ⬜ | [04-carry.md](04-carry.md) |
 | 5 | `hotfix finish` and the end-to-end test | ⬜ | [05-finish.md](05-finish.md) |
 | 6 | Skills, docs, MIGRATION | ⬜ | [06-skills-and-docs.md](06-skills-and-docs.md) |
@@ -184,3 +184,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-21 — Phase 2: until phase 4, the carry and the extra targets still cherry-pick
   `baseRef..branch`, which includes the version commit. Phase 4 now carries a task for
   the targets as well.
+- 2026-10-21 — Phase 3: the remote is `origin`, with no config key; ask for one when a
+  project needs another. Extra-target tags stay local and are not pushed, as before.
+  A land held for consent exits 0, because a held land is not a failure.

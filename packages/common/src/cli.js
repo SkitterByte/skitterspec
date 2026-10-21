@@ -233,7 +233,7 @@ Usage:
                                 dev down <spec>   stop the spec's host dev servers
                                 connect <spec>    expose a spec on the canonical ports (main = off)
                                 integrate <spec>  plan rebase + fast-forward onto the base branch
-                                hotfix land <spec>  release + cherry-pick a hotfix (--plan, --also <tag>)
+                                hotfix land <spec>  release, push, cherry-pick a hotfix (--push, --plan)
                                 live <spec>       check a spec out in the primary checkout so
                                                   the running dev server serves it (take |
                                                   release | abort | status; main hands it back)
@@ -2085,7 +2085,7 @@ function specEnvHotfix(dir, config, positional, flags) {
   // The action must be named; the spec may be omitted (resolved from the registry).
   if (action !== 'land') {
     process.stdout.write(
-      'Usage: skitterspec spec-env hotfix land [spec] [--plan] [--json] [--also <tag>]...\n',
+      'Usage: skitterspec spec-env hotfix land [spec] [--push] [--plan] [--json] [--also <tag>]...\n',
     )
     return
   }
@@ -2116,6 +2116,14 @@ function specEnvHotfix(dir, config, positional, flags) {
   const record = readHotfixRecord(dir, config, spec.folder)
   const atHead = (wtGit(['tag', '--points-at', 'HEAD']) || '').split('\n').map((s) => s.trim())
   const released = record && record.tag && atHead.includes(record.tag) ? record : null
+  // Already published? Asked of the remote itself, for the one tag that could
+  // be there. Only a non-empty answer counts: an unreachable remote is "cannot
+  // tell", and cannot-tell holds rather than carrying a fix whose deploy tag
+  // may not be public (`.claude/rules/negative-checks.md` rule 4).
+  const remote = 'origin'
+  const pushed =
+    released !== null &&
+    Boolean(wtGit(['ls-remote', '--tags', remote, `refs/tags/${released.tag}`]))
 
   // Extra targets: --also flags first, then any config defaults; drop blanks, the
   // base tag itself, and duplicates.
@@ -2139,6 +2147,9 @@ function specEnvHotfix(dir, config, positional, flags) {
       extraTargets,
       existingTags,
       released,
+      push: flags.push === true,
+      pushed,
+      remote,
     })
   } catch (error) {
     refuse(`${error.message}.`)
@@ -2192,6 +2203,7 @@ function specEnvHotfix(dir, config, positional, flags) {
           spec: spec.folder,
           planned: false,
           ok: result.ok,
+          held: result.held === true,
           failedAt: result.failedAt,
           release: result.release,
           steps: result.results.map((r) => ({ ...r.step, outcome: r.outcome, line: r.line })),
@@ -2201,12 +2213,18 @@ function specEnvHotfix(dir, config, positional, flags) {
         2,
       ),
     )
+  } else if (result.held) {
+    // Stopped for want of consent. Both ways on are named: the engine pushes
+    // on `--push`, or a push run by hand is found on the remote next time.
+    say('')
+    say(`  prod tag:  ${tag}  (cut locally — not pushed, nothing carried yet)`)
+    say(`  to deploy, push the branch, then the tag — re-run with --push, or run:`)
+    say(`    git -C ${spec.worktreePath} push ${remote} ${spec.branch}`)
+    say(`    git -C ${spec.worktreePath} push ${remote} ${tag}`)
+    say(`  then re-run \`skitterspec spec-env hotfix land ${spec.folder}\` to carry the fix.`)
   } else if (result.ok) {
     say('')
-    say(`  prod tag:  ${tag}  (created locally — push to deploy)`)
-    say(`  then push the branch, then the deploy tag:`)
-    say(`    git -C ${spec.worktreePath} push origin ${spec.branch}`)
-    say(`    git -C ${spec.worktreePath} push origin ${tag}`)
+    say(`  prod tag:  ${tag}  (pushed to ${remote})`)
     process.stdout.write(afterLandSection(plan.afterLand))
   } else {
     const failed = result.results[result.results.length - 1]
@@ -5436,6 +5454,7 @@ async function specEnv(rest) {
     else if (args[i] === '--record-primary') flags.recordPrimary = true
     else if (args[i] === '--docs') flags.docs = true
     else if (args[i] === '--plan') flags.plan = true
+    else if (args[i] === '--push') flags.push = true
     else if (args[i] === '--from') flags.from = args[++i]
     else if (args[i] === '--session') flags.session = args[++i]
     else if (args[i] === '--path') flags.path = args[++i]

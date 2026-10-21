@@ -71,6 +71,10 @@ function describeStep(step) {
       if (step.via === 'command') return `release: ${step.command}`
       if (step.via === 'recorded') return `release: ${step.tag} (cut earlier — not re-run)`
       return `release: git tag ${step.tag}`
+    case 'push':
+      if (step.via === 'remote') return `push: ${step.tag || 'the tag'} is already on ${step.remote}`
+      if (step.via === 'hold') return `push: held — no consent to push to ${step.remote}`
+      return `push: ${step.branch}, then ${step.tag || 'the tag'}, to ${step.remote}`
     case 'target':
       return `target: ${step.base} -> ${step.tag} (cherry-pick, tag)`
     case 'carry':
@@ -135,6 +139,25 @@ function runRelease(step, ctx) {
   return { outcome: 'released', line: `released ${parsed.release.tag}`, release: parsed.release }
 }
 
+// Publish the release. The tag is the release's, known only once it has run,
+// so the argvs are built here rather than in the plan. `hold` is not a failure:
+// it is the operator not having said yes, and it stops the run so nothing after
+// it is carried before the deploy tag is public.
+function runPush(step, release, ctx) {
+  const s = { ...step, tag: release ? release.tag : null }
+  if (s.via === 'remote') return { outcome: 'skipped', line: describeStep(s) }
+  if (s.via === 'hold') return { outcome: 'held', line: describeStep(s) }
+  if (!release) return { outcome: 'failed', line: `${describeStep(s)} — no release to push` }
+  for (const ref of [s.branch, s.tag]) {
+    const argv = ['-C', s.cwd, 'push', s.remote, ref]
+    const res = ctx.spawn('git', argv, { stdio: ['ignore', ctx.childStdout, 'pipe'], encoding: 'utf8' })
+    if (res.error || res.status !== 0) {
+      return { outcome: 'failed', line: `push ${ref} to ${s.remote} — ${lastLine(res.stderr) || why(res)}` }
+    }
+  }
+  return { outcome: 'pushed', line: `pushed ${s.branch}, then ${s.tag}, to ${s.remote}` }
+}
+
 // A step that is a list of git argvs run in order — a target's worktree,
 // cherry-pick, tag and cleanup, or the carry's cherry-pick.
 function runArgvs(step, ctx) {
@@ -157,8 +180,10 @@ function runArgvs(step, ctx) {
  *   - `write(line)` receives every report line as it happens
  *   - `record(release)` is called once, as soon as a release succeeds
  *
- * Returns { ok, results, failedAt, release } — `release` is what the release
- * step cut (or found recorded), or null if it never got that far.
+ * Returns { ok, held, results, failedAt, release } — `release` is what the
+ * release step cut (or found recorded), or null if it never got that far.
+ * `held` is a run that stopped at the push for want of consent: not a failure,
+ * and nothing after it ran.
  */
 function runHotfixLand(steps, io = {}) {
   const ctx = {
@@ -174,6 +199,7 @@ function runHotfixLand(steps, io = {}) {
     let r
     try {
       if (step.kind === 'release') r = runRelease(step, ctx)
+      else if (step.kind === 'push') r = runPush(step, release, ctx)
       else if (step.kind === 'target' || step.kind === 'carry') {
         // A project's release command can cut a tag the built-in tagger also
         // planned for a target on the same root. Refuse rather than collide.
@@ -189,12 +215,20 @@ function runHotfixLand(steps, io = {}) {
       release = r.release
       if (r.outcome === 'released' && io.record) io.record(release)
     }
+    if (r.outcome === 'pushed' && release) {
+      release = { ...release, pushed: true }
+      if (io.record) io.record(release)
+    }
+    if (r.outcome === 'held') {
+      if (r.line) write(r.line)
+      return { ok: true, held: true, results, failedAt: null, release }
+    }
     if (r.outcome === 'failed' || r.outcome === 'refused') {
       return { ok: false, results, failedAt: i + 1, release }
     }
     if (r.line) write(r.line)
   }
-  return { ok: true, results, failedAt: null, release }
+  return { ok: true, held: false, results, failedAt: null, release }
 }
 
 module.exports = { parseRelease, runHotfixLand, describeStep, RELEASE_FIELDS }

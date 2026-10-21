@@ -68,6 +68,10 @@ function scaffold(hotfix = {}) {
   git(dir, 'commit', '-q', '-m', 'release')
   git(dir, 'branch', '-M', 'main')
   git(dir, 'tag', 'v1.0.0')
+  // A bare remote, so a push has somewhere real to go.
+  const remote = path.join(root, 'remote.git')
+  execFileSync('git', ['init', '-q', '--bare', remote])
+  git(dir, 'remote', 'add', 'origin', remote)
   fs.writeFileSync(path.join(dir, 'other.js'), 'main moved on\n')
   git(dir, 'add', '-A')
   git(dir, 'commit', '-q', '-m', 'later on main')
@@ -84,7 +88,7 @@ function scaffold(hotfix = {}) {
   )
   git(wt, 'add', '-A')
   git(wt, 'commit', '-q', '-m', 'chore(spec): complete hotfix-login')
-  return { root, dir, wt }
+  return { root, dir, wt, remote }
 }
 
 async function land(dir, ...extra) {
@@ -106,15 +110,26 @@ async function land(dir, ...extra) {
 
 const record = (dir) => path.join(dir, '.spec-env', 'hotfix', 'hotfix-login.json')
 
-test('releaseWith: the engine runs it, uses its tag, records it, and carries', async () => {
+const onRemote = (env, ref) => {
+  try {
+    return git(env.remote, 'rev-parse', '--verify', '--quiet', ref)
+  } catch {
+    return null
+  }
+}
+
+test('releaseWith + --push: released, branch then tag pushed, then carried', async () => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
   const stub = writeStub(root)
   const env = scaffold({ releaseWith: stub.command })
   try {
-    const { out, code } = await land(env.dir)
+    const { out, code } = await land(env.dir, '--push')
     assert.strictEqual(code, 0, out)
     assert.match(out, /released v1\.0\.0-hotfix\.1/)
-    assert.match(out, /push origin v1\.0\.0-hotfix\.1/)
+    assert.match(out, /pushed hotfix\/login, then v1\.0\.0-hotfix\.1, to origin/)
+    assert.ok(onRemote(env, 'refs/heads/hotfix/login'), 'the branch reached the remote')
+    assert.ok(onRemote(env, 'refs/tags/v1.0.0-hotfix.1'), 'and so did the tag')
+    assert.strictEqual(JSON.parse(fs.readFileSync(record(env.dir), 'utf8')).pushed, true)
     assert.strictEqual(git(env.wt, 'tag', '--points-at', 'HEAD'), 'v1.0.0-hotfix.1')
     assert.strictEqual(JSON.parse(fs.readFileSync(record(env.dir), 'utf8')).tag, 'v1.0.0-hotfix.1')
     assert.match(fs.readFileSync(path.join(env.dir, 'app.js'), 'utf8'), /fixed/, 'main gained the fix')
@@ -166,20 +181,56 @@ test('--plan describes the steps and runs nothing', async () => {
     assert.strictEqual(code, 0, out)
     assert.match(out, /plan — nothing run/)
     assert.match(out, /1\. release: node nowhere\.js --json/)
-    assert.match(out, /2\. carry: cherry-pick onto main/)
+    assert.match(out, /2\. push: held — no consent to push to origin/)
+    assert.match(out, /3\. carry: cherry-pick onto main/)
     assert.strictEqual(git(env.wt, 'tag', '--points-at', 'HEAD'), '')
   } finally {
     fs.rmSync(env.root, { recursive: true, force: true })
   }
 })
 
-test('stays silent: with no releaseWith the built-in tagger cuts the next patch', async () => {
+test('without --push the land holds: tagged, nothing pushed, main untouched', async () => {
   const env = scaffold()
   try {
+    const mainBefore = git(env.dir, 'rev-parse', 'HEAD')
     const { out, code } = await land(env.dir)
     assert.strictEqual(code, 0, out)
     assert.strictEqual(git(env.wt, 'tag', '--points-at', 'HEAD'), 'v1.0.1')
     assert.match(out, /tagged v1\.0\.1/)
+    assert.match(out, /push origin hotfix\/login\n.*push origin v1\.0\.1/s)
+    assert.strictEqual(git(env.dir, 'rev-parse', 'HEAD'), mainBefore, 'nothing carried')
+    assert.strictEqual(onRemote(env, 'refs/tags/v1.0.1'), null, 'nothing pushed')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+test('a push run by hand is found on the remote, and the re-run carries', async () => {
+  const env = scaffold()
+  try {
+    assert.strictEqual((await land(env.dir)).code, 0)
+    git(env.wt, 'push', '-q', 'origin', 'hotfix/login')
+    git(env.wt, 'push', '-q', 'origin', 'v1.0.1')
+    const { out, code } = await land(env.dir)
+    assert.strictEqual(code, 0, out)
+    assert.match(out, /cut earlier — not re-run/)
+    assert.match(out, /already on origin/)
+    assert.match(fs.readFileSync(path.join(env.dir, 'app.js'), 'utf8'), /fixed/, 'main gained the fix')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+test('stays silent: an unreachable remote is cannot-tell, so the re-run holds', async () => {
+  const env = scaffold()
+  try {
+    assert.strictEqual((await land(env.dir)).code, 0)
+    git(env.dir, 'remote', 'set-url', 'origin', path.join(env.root, 'nowhere.git'))
+    const mainBefore = git(env.dir, 'rev-parse', 'HEAD')
+    const { out, code } = await land(env.dir)
+    assert.strictEqual(code, 0, out)
+    assert.match(out, /held — no consent/)
+    assert.strictEqual(git(env.dir, 'rev-parse', 'HEAD'), mainBefore, 'nothing carried')
   } finally {
     fs.rmSync(env.root, { recursive: true, force: true })
   }

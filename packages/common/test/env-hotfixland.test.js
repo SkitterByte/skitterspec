@@ -85,6 +85,9 @@ function ctx(over = {}) {
     base: 'main',
     extraTargets: [],
     existingTags: ['v37.2.0'],
+    // Not about the push unless a test says so: the tag is already published,
+    // so the run goes straight on to the carry.
+    pushed: true,
     ...over,
   }
 }
@@ -111,10 +114,15 @@ test('a release recorded at HEAD is reused, never re-cut — whatever cut it', (
   assert.strictEqual(plan.prodTag, GOOD.tag)
 })
 
-test('stays silent: the default config plans the built-in tag, then the carry', () => {
-  const plan = planHotfixLand(spec(), { hotfix: { bump: 'patch', cherryPickMain: true, targets: [] } }, ctx())
+test('stays silent: the default config plans the built-in tag, a held push, the carry', () => {
+  const plan = planHotfixLand(
+    spec(),
+    { hotfix: { bump: 'patch', cherryPickMain: true, targets: [] } },
+    ctx({ pushed: false }),
+  )
   assert.deepStrictEqual(plan.steps.map((s) => [s.kind, s.via || null]), [
     ['release', 'tag'],
+    ['push', 'hold'],
     ['carry', null],
   ])
   assert.strictEqual(plan.steps[0].tag, 'v37.2.1')
@@ -178,9 +186,9 @@ test('a carry that fails stops the run but keeps the release it cut', () => {
   const plan = planHotfixLand(spec(), RELEASE_WITH, ctx())
   const r = runHotfixLand(plan.steps, io(spawn))
   assert.strictEqual(r.ok, false)
-  assert.strictEqual(r.failedAt, 2)
+  assert.strictEqual(r.failedAt, 3)
   assert.strictEqual(r.release.tag, GOOD.tag)
-  assert.match(r.results[1].line, /could not apply abc123/)
+  assert.match(r.results[2].line, /could not apply abc123/)
 })
 
 test('a target the release already tagged is refused rather than colliding', () => {
@@ -193,7 +201,7 @@ test('a target the release already tagged is refused rather than colliding', () 
   // The planner could not know the command's tag; the runner catches it.
   const r = runHotfixLand(plan.steps, io(spawn))
   assert.strictEqual(r.ok, false)
-  assert.match(r.results[1].line, /already cut v37\.2\.0-hotfix\.1/)
+  assert.match(r.results[2].line, /already cut v37\.2\.0-hotfix\.1/)
   assert.strictEqual(calls.length, 1)
 })
 
@@ -206,4 +214,58 @@ test('the built-in tagger tags HEAD and records a release with no version commit
   assert.deepStrictEqual(calls[0].args, ['-C', '/wt/login', 'tag', 'v37.2.0-hotfix.1'])
   assert.strictEqual(recorded[0].versionCommit, null)
   assert.strictEqual(recorded[0].tag, 'v37.2.0-hotfix.1')
+})
+
+// --- the push ----------------------------------------------------------------
+
+const ok = (stdout = '') => ({ status: 0, stdout, stderr: '' })
+
+test('--push publishes the branch, then the tag, before anything is carried', () => {
+  const { spawn, calls } = fakeSpawn([ok(JSON.stringify(GOOD)), ok(), ok(), ok()])
+  const recorded = []
+  const plan = planHotfixLand(spec(), RELEASE_WITH, ctx({ pushed: false, push: true }))
+  const r = runHotfixLand(plan.steps, io(spawn, { record: (x) => recorded.push(x) }))
+  assert.strictEqual(r.ok, true)
+  assert.deepStrictEqual(
+    calls.slice(1).map((c) => c.args),
+    [
+      ['-C', '/wt/login', 'push', 'origin', 'hotfix/login'],
+      ['-C', '/wt/login', 'push', 'origin', 'v37.2.0-hotfix.1'],
+      ['-C', '/repo', 'cherry-pick', 'v37.2.0..hotfix/login'],
+    ],
+  )
+  assert.strictEqual(recorded[recorded.length - 1].pushed, true, 'the record learns it was pushed')
+})
+
+test('no consent: the run holds after the release and carries nothing', () => {
+  const { spawn, calls } = fakeSpawn([ok(JSON.stringify(GOOD))])
+  const plan = planHotfixLand(spec(), RELEASE_WITH, ctx({ pushed: false }))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.strictEqual(r.ok, true)
+  assert.strictEqual(r.held, true)
+  assert.strictEqual(r.release.tag, GOOD.tag)
+  assert.strictEqual(calls.length, 1, 'no push, no carry')
+})
+
+test('a failed push stops the run before the carry', () => {
+  const { spawn, calls } = fakeSpawn([
+    ok(JSON.stringify(GOOD)),
+    ok(),
+    { status: 1, stdout: '', stderr: 'remote: permission denied\n' },
+  ])
+  const plan = planHotfixLand(spec(), RELEASE_WITH, ctx({ pushed: false, push: true }))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.strictEqual(r.ok, false)
+  assert.strictEqual(r.failedAt, 2)
+  assert.match(r.results[1].line, /push v37\.2\.0-hotfix\.1 to origin — remote: permission denied/)
+  assert.strictEqual(calls.length, 3, 'branch push, tag push, and no carry')
+})
+
+test('a tag already on the remote is honoured: no push runs, the carry does', () => {
+  const { spawn, calls } = fakeSpawn()
+  const plan = planHotfixLand(spec(), RELEASE_WITH, ctx({ released: GOOD, pushed: true }))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.strictEqual(r.ok, true)
+  assert.match(r.results[1].line, /already on origin/)
+  assert.deepStrictEqual(calls.map((c) => c.args[2]), ['cherry-pick'])
 })
