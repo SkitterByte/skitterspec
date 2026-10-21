@@ -127,7 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Spike Linear's release API and linear-release | ⬜ | [01-spike-release-api.md](01-spike-release-api.md) |
+| 1 | Spike Linear's release API and linear-release | ✅ | [01-spike-release-api.md](01-spike-release-api.md) |
 | 2 | Release seam + config + Linear adapter ops | ⬜ | [02-seam-and-config.md](02-seam-and-config.md) |
 | 3 | `release create <tag>` | ⬜ | [03-release-create.md](03-release-create.md) |
 | 4 | `release deployed` / `release complete` | ⬜ | [04-deployed-complete.md](04-deployed-complete.md) |
@@ -136,8 +136,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] Can a personal API key write releases, or only a pipeline access key?
-      Phase 1 answers this, and Decision 12's approve path follows from it.
+- [x] Can a personal API key write releases, or only a pipeline access key?
+      Phase 1: yes, a personal key writes releases (tested with Admin scope).
+      Decision 12's local approve path stands.
 
 ## State log
 
@@ -149,3 +150,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-10-21 — Spec created.
+- 2026-10-21 — Phase 1 spike: `releaseSync` with explicit `issueReferences`
+  is idempotent per version, so it is the create-or-update call (Decision 4's
+  lookup stays for read-back and for `deployed`/`complete`). Linear drops
+  unresolvable refs silently, so attaches are read back. The initial stage must
+  be explicit. `linear-release` was not adopted; the reasons are in phase 1's
+  Notes. A personal key writes releases.

@@ -12,8 +12,10 @@ release's tickets, and running it again on the same tag changes nothing.
       explicitly.
 - [ ] Partition the tickets with `ticketsInRange` + `partitionStageMoves`.
       Attach movable + unfinished, and report foreign and unlinked (Decision 6).
-- [ ] Find-or-create by pipeline + version. Update on a match, and refuse on a
-      failed lookup (Decision 4).
+- [ ] Create-or-update with one `releaseSync` (idempotent per version, phase 1),
+      then read the release's issues back. Report every sent ref that did not
+      attach; Linear drops unresolvable refs with `success: true`. Refuse when
+      the sync itself fails (Decision 4).
 - [ ] Flags: `--notes <file>`, repeatable `--link <url>[=label]`, `--stage <env>`
       for the initial stage, `--apply`, `--json`. Without `--apply`, print the
       plan and write nothing.

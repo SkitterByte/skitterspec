@@ -1,0 +1,102 @@
+{
+  "_observed": "2026-10-21, SKS workspace, personal API key with Admin scope, against a throwaway scheduled pipeline since deleted. Responses trimmed to the fields requested. See specs/in-progress/feat-tracker-releases/01-spike-release-api.md.",
+  "pipelineCreate": {
+    "releasePipelineCreate": {
+      "success": true,
+      "releasePipeline": {
+        "id": "edbe61d7-d842-4f0b-9c65-7679ad26114f",
+        "slugId": "skitterspec-spike",
+        "type": "scheduled",
+        "stages": {
+          "nodes": [
+            { "id": "e00cf0b5-01ca-4f68-9c69-a0cf1b03ec62", "name": "In Progress", "type": "started", "position": 0 },
+            { "id": "82c85f41-c1d5-4058-98bc-ee72a366fd99", "name": "Canceled", "type": "canceled", "position": 0 },
+            { "id": "60ceb965-7829-4c0b-8d41-872d0637ea0b", "name": "Released", "type": "completed", "position": 0 },
+            { "id": "3becce8b-7212-4de9-a83f-2ee7bc9ab56e", "name": "Planned", "type": "planned", "position": 0 }
+          ]
+        }
+      }
+    }
+  },
+  "syncFirstVersion": {
+    "releaseSync": {
+      "success": true,
+      "release": {
+        "id": "d13b5bcd-3759-4d18-9e99-4d0d0815c1bc",
+        "name": "spike@0.0.1-spike",
+        "version": "0.0.1-spike",
+        "stage": { "name": "In Progress", "type": "started" },
+        "issues": { "nodes": [] }
+      }
+    }
+  },
+  "syncSecondVersion": {
+    "releaseSync": {
+      "success": true,
+      "release": {
+        "id": "15403347-1ddd-4fd1-9c0d-9cecd2f69489",
+        "name": "spike@0.0.2-spike",
+        "version": "0.0.2-spike",
+        "stage": { "name": "In Progress", "type": "started" },
+        "issues": { "nodes": [] }
+      }
+    }
+  },
+  "syncRetrySameVersion": {
+    "releaseSync": {
+      "success": true,
+      "release": { "id": "d13b5bcd-3759-4d18-9e99-4d0d0815c1bc", "version": "0.0.1-spike", "issues": { "nodes": [] } }
+    }
+  },
+  "syncUnresolvableRef": {
+    "_sent": { "issueReferences": [{ "identifier": "SKS-41" }] },
+    "releaseSync": {
+      "success": true,
+      "release": { "id": "d13b5bcd-3759-4d18-9e99-4d0d0815c1bc", "version": "0.0.1-spike", "issues": { "nodes": [] } }
+    }
+  },
+  "syncResolvableRef": {
+    "_sent": { "issueReferences": [{ "identifier": "SKS-401" }] },
+    "releaseSync": {
+      "success": true,
+      "release": { "id": "15403347-1ddd-4fd1-9c0d-9cecd2f69489", "issues": { "nodes": [{ "identifier": "SKS-401" }] } }
+    }
+  },
+  "updateByPipelineStage": {
+    "_sent": { "stage": "staged" },
+    "releaseUpdateByPipeline": {
+      "success": true,
+      "release": { "version": "0.0.1-spike", "stage": { "name": "Staged", "type": "started" } }
+    }
+  },
+  "complete": {
+    "releaseComplete": {
+      "success": true,
+      "release": {
+        "version": "0.0.1-spike",
+        "stage": { "name": "Released", "type": "completed" },
+        "completedAt": "2026-10-21T15:36:09.277Z"
+      }
+    }
+  },
+  "findByVersion": {
+    "releases": {
+      "nodes": [
+        {
+          "id": "d13b5bcd-3759-4d18-9e99-4d0d0815c1bc",
+          "version": "0.0.1-spike",
+          "stage": { "name": "Released" },
+          "links": { "nodes": [{ "url": "https://www.npmjs.com/package/@skitterbyte/skitterspec", "label": "npm" }] }
+        }
+      ]
+    }
+  },
+  "findByVersionMissing": { "releases": { "nodes": [] } },
+  "errors": {
+    "featureOff": "Not allowed to access feature 'releaseManagement'",
+    "noAdminScope": "Access denied",
+    "unknownStage": "stage not found",
+    "unknownVersion": "not found",
+    "unknownIssueOnAttach": "issue not found"
+  }
+}

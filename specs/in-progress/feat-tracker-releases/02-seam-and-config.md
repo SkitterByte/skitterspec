@@ -19,6 +19,10 @@ fixtures.
       prefix of another, and malformed env maps. An absent block is the opt-out.
 - [ ] Resolve a tag to its pipeline by the longest matching `tagPrefix`, and
       treat no match as "not a tracked series" rather than an error.
+- [ ] Surface the GraphQL error body on HTTP 400 in `makeClient` (it read as
+      `HTTP 400 ""` in the spike). Map `Not allowed to access feature
+      'releaseManagement'` to "Releases unavailable" and `Access denied` to
+      "key lacks scope". Neither may read as an empty workspace.
 - [ ] Stays-silent tests: a config with no `releases` block; a tag that matches
       no prefix.
 - [ ] Add/extend tests covering this phase; run `pnpm test`
