@@ -5,6 +5,11 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 18.0.1 — 21 Oct 2026
+
+### Env
+- **Fixed** — spec-env bootstrap now seeds the gitignored files into a /no-spec worktree before running setup, so a setup that needs .env works.
+
 ## 18.0.0 — 20 Oct 2026
 
 ### Env
