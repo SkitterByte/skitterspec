@@ -15,6 +15,7 @@ const { join } = require('node:path')
 
 const kitConfig = require('@skitterbyte/skitterspec-provider-kit/src/config.js')
 const { dialect } = require('./dialect.js')
+const { adfToText } = require('./adf.js')
 
 const CONFIG_FILE = 'specs/.core/jira.config.json'
 
@@ -214,6 +215,34 @@ function withRuntime(config) {
     teamKey: (config.jira && config.jira.projectKey) || '',
     configFile: CONFIG_FILE,
     teamKeyJsonField: 'projectKey',
+  }
+  // How sync-core reads a REMOTE issue this provider hands it. `--remote` is
+  // documented as "fetch the issue JSON", which is the raw REST shape —
+  // everything under `fields`, the description as ADF — where the default
+  // readers expect the flat Linear-like shape. Without these hooks every
+  // drift check routes to its silent cannot-tell branch, so `status
+  // --remote` can never report anything. Each hook falls back to the flat
+  // shape, so a pre-reduced payload keeps working.
+  config.remote = {
+    stateName(issue) {
+      const st = issue && issue.fields && issue.fields.status
+      if (st && typeof st === 'object' && st.name != null) return st.name
+      const flat = issue && (issue.state != null ? issue.state : issue.status)
+      if (flat == null) return null
+      if (typeof flat === 'object') return flat.name != null ? flat.name : flat.type != null ? flat.type : null
+      return flat
+    },
+    description(issue) {
+      const fields = issue && issue.fields
+      if (fields && typeof fields === 'object' && 'description' in fields) {
+        // null IS an answer on this branch: Jira returns it when the field
+        // was fetched and the description is genuinely empty — clearing a
+        // description on Jira is an edit, not a cannot-tell.
+        const d = fields.description
+        return d == null ? '' : typeof d === 'string' ? d : adfToText(d)
+      }
+      return issue && typeof issue.description === 'string' ? issue.description : undefined
+    },
   }
   return config
 }

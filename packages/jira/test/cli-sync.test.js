@@ -13,6 +13,7 @@ const { execFileSync } = require('node:child_process')
 
 const { specSync } = require('../src/cli-sync.js')
 const { CONFIG_FILE } = require('../src/config.js')
+const { mdToAdf } = require('../src/adf.js')
 
 const SITE = 'https://acme.atlassian.net'
 
@@ -270,6 +271,75 @@ test('status reports drift only on a positive answer', async () => {
   const r = await run(['status', 'feat-demo', '--remote', remote], dir)
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /drift: Jira says "complete", the repo says "in-progress"/)
+})
+
+// --remote is documented as "fetch the issue JSON", which is the raw REST
+// shape: everything under `fields`, the description as ADF. The default
+// readers expect the flat shape, so without the provider hooks every check
+// below routes to its silent cannot-tell branch and step 8 of the smoke
+// checklist can never report anything.
+
+test('status --remote reads the status drift off a raw Jira issue', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-7' })
+  await run(['record', 'feat-demo'], dir)
+  const remote = path.join(dir, 'remote.json')
+  fs.writeFileSync(remote, JSON.stringify({ key: 'PROJ-7', fields: { status: { name: 'Done' } } }))
+  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /drift: Jira says "complete", the repo says "in-progress"/)
+})
+
+test('status --remote reports a raw Jira description edited since the push', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-7' })
+  await run(['record', 'feat-demo'], dir)
+  const remote = path.join(dir, 'remote.json')
+  fs.writeFileSync(
+    remote,
+    JSON.stringify({
+      key: 'PROJ-7',
+      fields: { status: { name: 'In Progress' }, description: mdToAdf('entirely different words') },
+    }),
+  )
+  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /description was edited on Jira/)
+  assert.match(r.out, /drift: none — Jira agrees with the repo/)
+})
+
+test('status --remote stays silent on the description the repo itself pushed', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-7' })
+  // The projection's own text, exactly as a push renders it to ADF — the
+  // round-trip contract makes its stream hash the recorded one.
+  const states = path.join(dir, 'states.json')
+  fs.writeFileSync(states, JSON.stringify(['To Do', 'In Progress', 'Done']))
+  const plan = await run(['plan', 'feat-demo', '--workspace-states', states, '--json'], dir)
+  const description = JSON.parse(plan.out).issue.description
+  await run(['record', 'feat-demo'], dir)
+  const remote = path.join(dir, 'remote.json')
+  fs.writeFileSync(
+    remote,
+    JSON.stringify({ key: 'PROJ-7', fields: { status: { name: 'In Progress' }, description: mdToAdf(description) } }),
+  )
+  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.strictEqual(r.code, 0)
+  assert.doesNotMatch(r.out, /description was edited/)
+  assert.match(r.out, /drift: none — Jira agrees with the repo/)
+})
+
+test('status --remote says nothing about fields the payload never carried', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-7' })
+  await run(['record', 'feat-demo'], dir)
+  const remote = path.join(dir, 'remote.json')
+  // Status fetched, description not asked for: its absence is not an edit.
+  fs.writeFileSync(remote, JSON.stringify({ key: 'PROJ-7', fields: { status: { name: 'In Progress' } } }))
+  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.strictEqual(r.code, 0)
+  assert.doesNotMatch(r.out, /description was edited/)
+  // Nothing recognisable at all: both checks stay silent rather than accuse.
+  fs.writeFileSync(remote, JSON.stringify({ key: 'PROJ-7' }))
+  const bare = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.strictEqual(bare.code, 0)
+  assert.doesNotMatch(bare.out, /drift/)
 })
 
 test('verify refuses a .base.json passed as --stored', async () => {

@@ -16,13 +16,13 @@ and `skitterspec-jira@1.0.0` is staged through CI.
       surfaces to cover it and the dist README.
 - [x] `assets/core/SETUP.md` for jira (API token creation, site URL, project
       key, status mapping) and the root README's provider table.
-- [ ] Set up a free Jira Cloud site; record its URL in this phase's notes.
+- [x] Set up a free Jira Cloud site; record its URL in this phase's notes.
 - [x] Manual smoke checklist (written into `packages/jira/assets/core/SETUP.md`
       so users can re-run it): mint a spec issue + subtasks, push an update,
       adopt + preserve an existing issue, bucket move → transition, `verify`
       read-back clean, `released` scan on a test range, ADF task-list rendering
       (flip the phase-3 fallback if Jira drops it).
-- [ ] Fix what the smoke surfaces; record each fix in the Changelog.
+- [x] Fix what the smoke surfaces; record each fix in the Changelog.
 - [ ] Cut `skitterspec-jira@1.0.0` via `scripts/release.js`, push the tag, and
       `npm run approve` it per RELEASING.md.
 - [x] Full workspace suite green.
@@ -41,3 +41,7 @@ and `skitterspec-jira@1.0.0` is staged through CI.
   registry and the 2FA approve.
 - The docs-adaptation agent hit a session limit mid-run; the page it left was
   complete and passed every guard once the test surfaces were wired.
+- Live smoke ran 2026-10-13 → 2026-10-21 against https://skitterbyte.atlassian.net
+  (throwaway project ERQ) from a test repo: all eight checklist steps passed.
+  Every finding was fixed on this branch as it surfaced — see the Changelog
+  entries dated 2026-10-13 through 2026-10-21. The release cut remains.

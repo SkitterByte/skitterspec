@@ -247,3 +247,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   5–7 (report half) otherwise passed live against ERQ-8/9/10: preserve
   comment survived the linking apply, 3 descriptions round-tripped intact,
   released counted 4 ERQ-5 commits + 2 unreferenced + 3 ignored.
+- 2026-10-21 — Smoke finding, fixed: `status --remote` was inert on the raw
+  Jira issue JSON the checklist says to fetch — sync-core's default remote
+  readers expect the flat Linear-like shape (`state.name`, `description` as
+  text), so `fields.status` / ADF `fields.description` both routed to the
+  silent cannot-tell branch and step 8 could never report drift. The provider
+  now supplies the `config.remote` hooks the mechanism always offered
+  (stateName via `fields.status.name`, description via adfToText, both
+  falling back to the flat shape). Step 8 then passed end-to-end live:
+  edit detected, next apply replaced it loudly, round-trip intact. The
+  apply-side warning was never affected — it reads the adapter's
+  normalized shape.
