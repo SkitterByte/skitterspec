@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-nospec-bootstrap-seeds (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (green)
+> **Status:** Complete (2026-10-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-21
@@ -82,8 +82,10 @@ told to bootstrap.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-10-21 — Bug reproduced from the ereqs handoff; failing tests added (red).
 - 2026-10-21 — Fixed: specless bootstrap goes through `worktreeSteps` with no stack, and the nospec hand-off counts seeds; tests green.
+- 2026-10-21 — Completed; all phases done, tests green.
