@@ -288,7 +288,15 @@ const DEFAULT_CONFIG = Object.freeze({
   // the fix onto the base branch for the next release (default true). `targets` is
   // an optional default list of extra base tags to also patch (test/demo lines);
   // `--also <tag>` on the command adds more at run time. Default: patch, main, none.
-  hotfix: Object.freeze({ bump: 'patch', cherryPickMain: true, targets: Object.freeze([]) }),
+  // `releaseWith` is a project's own release command, run in the hotfix
+  // worktree in place of the built-in tagger — e.g. skittership's
+  // `node scripts/release-hotfix.cjs --json`. Empty (the default) = built-in.
+  hotfix: Object.freeze({
+    bump: 'patch',
+    cherryPickMain: true,
+    targets: Object.freeze([]),
+    releaseWith: '',
+  }),
 })
 
 function isObject(value) {
@@ -678,6 +686,7 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.hotfix)) {
     assign(base.hotfix, parsed.hotfix, 'bump', 'string')
     assign(base.hotfix, parsed.hotfix, 'cherryPickMain', 'boolean')
+    assign(base.hotfix, parsed.hotfix, 'releaseWith', 'string')
     if (Array.isArray(parsed.hotfix.targets)) {
       base.hotfix.targets = normalizeFileList(parsed.hotfix.targets)
     }

@@ -144,6 +144,7 @@ function planHotfixLand(spec, config, ctx) {
     noop: false,
     reason: null,
     commands: [],
+    steps: [],
     afterLand: afterLandFor(null),
     prodTag: null,
     targets: [],
@@ -171,20 +172,52 @@ function planHotfixLand(spec, config, ctx) {
   const fixRange = c.fixRange
   const commands = []
   const targets = []
-
-  // 1. Prod line: tag the hotfix branch head (already baseRef + fix). No push.
+  // What the engine runs (hotfixland.js). `commands` stays beside it as the
+  // human-readable spelling of the same thing, for `--plan` and the tests.
+  const steps = []
   const bump = hotfixCfg.bump || 'patch'
-  const prodTag = nextTag(baseRef, c.existingTags, bump)
-  if (taken.has(prodTag)) {
-    return block(`tag ${prodTag} already exists — bump the base version or delete the stale tag`)
+  const releaseWith = String(hotfixCfg.releaseWith || '').trim()
+
+  // 1. Prod line: release the hotfix branch head (already baseRef + fix). No push.
+  //    Three ways, decided here so the runner never has to: a release already
+  //    cut on an earlier run and still at HEAD is reused, never re-cut; a
+  //    project's `releaseWith` command cuts it and says which tag it made; or
+  //    the built-in tagger tags HEAD with the `hotfix.bump` strategy's tag.
+  let prodTag = null
+  if (c.released && c.released.tag) {
+    prodTag = c.released.tag
+    taken.add(prodTag)
+    steps.push({ kind: 'release', via: 'recorded', tag: prodTag, release: c.released })
+  } else if (releaseWith) {
+    // The tag is the command's to choose and is unknown until it has run, so
+    // there is nothing to check a collision against here — the command refuses
+    // a tag that exists, and the runner refuses one a target also planned.
+    commands.push(`(cd ${spec.worktreePath} && ${releaseWith})`)
+    steps.push({ kind: 'release', via: 'command', command: releaseWith, cwd: spec.worktreePath })
+  } else {
+    prodTag = nextTag(baseRef, c.existingTags, bump)
+    if (taken.has(prodTag)) {
+      return block(`tag ${prodTag} already exists — bump the base version or delete the stale tag`)
+    }
+    taken.add(prodTag)
+    commands.push(`git -C ${spec.worktreePath} tag ${prodTag}`)
+    steps.push({
+      kind: 'release',
+      via: 'tag',
+      tag: prodTag,
+      cwd: spec.worktreePath,
+      baseTag: baseRef,
+      branch,
+    })
   }
-  taken.add(prodTag)
-  commands.push(`git -C ${spec.worktreePath} tag ${prodTag}`)
   targets.push({ kind: 'prod', base: baseRef, tag: prodTag })
 
   // 2. Extra targets: cherry-pick the fix onto a throwaway worktree at each tag,
-  //    re-tag with its own patch bump, then remove the worktree + temp branch (the
+  //    re-tag with its own bump, then remove the worktree + temp branch (the
   //    commits survive under the new tag, so `-D` is safe for the throwaway branch).
+  //    TAG-ONLY, deliberately: `releaseWith` is the prod line's. Running a
+  //    project's release per target would need a hotfix/ branch and a clean
+  //    tree for each one, and one failing half-way leaves a line half-released.
   const wtRoot = path.dirname(spec.worktreePath)
   for (const t of c.extraTargets || []) {
     // Counted against `taken`, so two targets on one root get successive
@@ -204,6 +237,20 @@ function planHotfixLand(spec, config, ctx) {
       `git worktree remove ${tmpPath}`,
       `git branch -D ${tmpBranch}`,
     )
+    const root = c.mainRepoPath
+    steps.push({
+      kind: 'target',
+      base: t,
+      tag,
+      worktreePath: tmpPath,
+      argvs: [
+        ['-C', root, 'worktree', 'add', tmpPath, '-b', tmpBranch, t],
+        ['-C', tmpPath, 'cherry-pick', fixRange],
+        ['-C', tmpPath, 'tag', tag],
+        ['-C', root, 'worktree', 'remove', tmpPath],
+        ['-C', root, 'branch', '-D', tmpBranch],
+      ],
+    })
     targets.push({ kind: 'extra', base: t, tag, worktreePath: tmpPath })
   }
 
@@ -213,11 +260,12 @@ function planHotfixLand(spec, config, ctx) {
   let afterLand = result.afterLand
   if (hotfixCfg.cherryPickMain !== false) {
     commands.push(`git -C ${c.mainRepoPath} cherry-pick ${fixRange}`)
+    steps.push({ kind: 'carry', base: c.base, argvs: [['-C', c.mainRepoPath, 'cherry-pick', fixRange]] })
     targets.push({ kind: 'main', base: c.base })
     afterLand = afterLandFor(config, c.mainRepoPath)
   }
 
-  return { ...result, commands, afterLand, prodTag, targets, fixRange }
+  return { ...result, commands, steps, afterLand, prodTag, targets, fixRange }
 }
 
 module.exports = { bumpPatch, compareTags, nextHotfixTag, nextTag, BUMPS, tagSlug, planHotfixLand }

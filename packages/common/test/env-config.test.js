@@ -238,10 +238,15 @@ test('live.migrations defaults to [] and normalizes a parsed glob list', () => {
   assert.deepStrictEqual(config.live.migrations, ['**/migrations/**', 'prisma/**'])
 })
 
-test('hotfix block defaults to patch/main/none', () => {
+test('hotfix block defaults to patch/main/none, built-in release', () => {
   const dir = tmpDir()
   const { config } = loadEnvConfig(dir)
-  assert.deepStrictEqual(config.hotfix, { bump: 'patch', cherryPickMain: true, targets: [] })
+  assert.deepStrictEqual(config.hotfix, {
+    bump: 'patch',
+    cherryPickMain: true,
+    targets: [],
+    releaseWith: '',
+  })
   assert.deepStrictEqual(DEFAULT_CONFIG.hotfix.targets, [])
 })
 
@@ -254,6 +259,14 @@ test('hotfix block merges bump/cherryPickMain and normalizes targets', () => {
   assert.strictEqual(config.hotfix.cherryPickMain, false)
   assert.strictEqual(config.hotfix.bump, 'patch') // untouched default
   assert.deepStrictEqual(config.hotfix.targets, ['v30.2.1', 'v29.0.0'])
+})
+
+test('hotfix.releaseWith is read as a string, and a non-string is ignored', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { hotfix: { releaseWith: 'node scripts/release-hotfix.cjs --json' } })
+  assert.strictEqual(loadEnvConfig(dir).config.hotfix.releaseWith, 'node scripts/release-hotfix.cjs --json')
+  writeEnvConfig(dir, { hotfix: { releaseWith: true } })
+  assert.strictEqual(loadEnvConfig(dir).config.hotfix.releaseWith, '')
 })
 
 test('teardown block defaults to prompt', () => {

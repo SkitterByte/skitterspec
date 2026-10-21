@@ -23,6 +23,8 @@ commit.
 - [ ] Afterwards run `afterLand` in the primary checkout, as today, only when main gained
   commits.
 - [ ] Keep `hotfix.cherryPickMain: false` meaning no carry.
+- [ ] Extra targets cherry-pick the same carry set, not `baseRef..branch`. Today they still
+  pick the whole range, version commit included.
 - [ ] Tests:
   - the version commit is excluded;
   - `git cherry` duplicates are excluded;

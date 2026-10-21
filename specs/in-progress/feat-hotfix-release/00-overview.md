@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Tag order, bump strategies, hotfix-suffixed bases | ✅ | [01-tags-and-bump.md](01-tags-and-bump.md) |
-| 2 | `hotfix land` executes: release step + `releaseWith` seam | ⬜ | [02-release-step.md](02-release-step.md) |
+| 2 | `hotfix land` executes: release step + `releaseWith` seam | ✅ | [02-release-step.md](02-release-step.md) |
 | 3 | Push behind consent, resumable | ⬜ | [03-push.md](03-push.md) |
 | 4 | Carry to main without the version commit | ⬜ | [04-carry.md](04-carry.md) |
 | 5 | `hotfix finish` and the end-to-end test | ⬜ | [05-finish.md](05-finish.md) |
@@ -177,3 +177,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   would break every verb over a key that only one verb reads.
 - 2026-10-21 — Phase 1: `up --from` and `Base version` already accepted `-hotfix.N` tags.
   Their regexes were free-form, so the only change was tests pinning it.
+- 2026-10-21 — Phase 2: the release record lives in `.spec-env/hotfix/<spec>.json`, not the
+  registry. Every registry helper rebuilds the whole object, so a third key there could be
+  dropped by any slot write. The record only counts while HEAD carries its tag; a fix
+  committed after a failed deploy moves HEAD, so the next run cuts a new release.
+- 2026-10-21 — Phase 2: until phase 4, the carry and the extra targets still cherry-pick
+  `baseRef..branch`, which includes the version commit. Phase 4 now carries a task for
+  the targets as well.

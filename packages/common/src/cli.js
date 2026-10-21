@@ -162,6 +162,7 @@ const {
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
 const { planHotfixLand } = require('./env/hotfix.js')
+const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
 const { renderRoutes, portsInUse, portsInUseOn, waitListening } = require('./env/proxy.js')
@@ -232,7 +233,7 @@ Usage:
                                 dev down <spec>   stop the spec's host dev servers
                                 connect <spec>    expose a spec on the canonical ports (main = off)
                                 integrate <spec>  plan rebase + fast-forward onto the base branch
-                                hotfix land <spec>  tag + cherry-pick a hotfix (--also <tag>)
+                                hotfix land <spec>  release + cherry-pick a hotfix (--plan, --also <tag>)
                                 live <spec>       check a spec out in the primary checkout so
                                                   the running dev server serves it (take |
                                                   release | abort | status; main hands it back)
@@ -2042,30 +2043,61 @@ function afterLandSection(afterLand) {
   return out.join('\n') + '\n'
 }
 
-// Land a hotfix: tag the branch with the patch-bumped base tag (the prod deploy
-// tag), cherry-pick the fix onto any extra base tags (test/demo lines) and onto
-// the base branch for the next release. Queries git for the facts, prints the plan
-// / block / no-op. The /spec-complete skill runs the printed commands (aborting a
-// cherry-pick on conflict). NEVER pushes — pushing the deploy tag is the operator's.
+// Land a hotfix: release the branch (the project's `hotfix.releaseWith`, else
+// the built-in tagger), cherry-pick the fix onto any extra base tags (test/demo
+// lines) and onto the base branch for the next release.
+//
+// THE ENGINE RUNS IT, the way `bootstrap` runs a worktree's steps. It used to
+// print a plan for the skill to run, and a project's own release command broke
+// that: the prod tag is only known once the command has said what it cut. So
+// this probes git, plans (hotfix.js), runs (hotfixland.js), and records the
+// release beside the review store the moment it is cut, so a land that stops
+// later resumes without cutting a second one. `--plan` describes it and runs
+// nothing. NEVER pushes — pushing the deploy tag is the operator's.
+function hotfixRecordPath(dir, config, name) {
+  return path.join(path.dirname(path.resolve(dir, config.registry)), 'hotfix', `${name}.json`)
+}
+
+function readHotfixRecord(dir, config, name) {
+  try {
+    return JSON.parse(fs.readFileSync(hotfixRecordPath(dir, config, name), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function writeHotfixRecord(dir, config, name, record) {
+  const file = hotfixRecordPath(dir, config, name)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(record, null, 2) + '\n')
+}
+
 function specEnvHotfix(dir, config, positional, flags) {
   const action = positional[0]
   const specArg = positional[1]
+  const json = flags.json === true
+  const say = (line) => process.stdout.write(line + '\n')
+  const refuse = (msg, extra = {}) => {
+    if (json) say(JSON.stringify({ ok: false, refused: msg, ...extra }, null, 2))
+    else say(`spec-env hotfix land: ${msg}`)
+    process.exitCode = 1
+  }
   // The action must be named; the spec may be omitted (resolved from the registry).
   if (action !== 'land') {
-    process.stdout.write('Usage: skitterspec spec-env hotfix land [spec] [--also <tag>]...\n')
+    process.stdout.write(
+      'Usage: skitterspec spec-env hotfix land [spec] [--plan] [--json] [--also <tag>]...\n',
+    )
     return
   }
 
   // A hotfix may be authored entirely on its branch, so fall back to its worktree.
   const spec = resolveSpecWithWorktree(dir, config, specArg)
   if (spec.type !== 'hotfix') {
-    process.stdout.write(
-      `spec-env hotfix land: ${spec.folder} is not a hotfix — needs Type: Hotfix / a hotfix- prefix.\n`,
-    )
+    refuse(`${spec.folder} is not a hotfix — needs Type: Hotfix / a hotfix- prefix.`)
     return
   }
   if (!fs.existsSync(spec.worktreePath)) {
-    process.stdout.write(`spec-env hotfix land: ${spec.folder} has no worktree — nothing to land.\n`)
+    refuse(`${spec.folder} has no worktree — nothing to land.`)
     return
   }
 
@@ -2077,6 +2109,13 @@ function specEnvHotfix(dir, config, positional, flags) {
   const aheadOfBase = ahead !== null && Number(ahead) > 0
   const tagList = wtGit(['tag', '--list'])
   const existingTags = tagList ? tagList.split('\n').map((s) => s.trim()).filter(Boolean) : []
+
+  // A release cut on an earlier run counts only while HEAD still carries its
+  // tag — the positive signal that nothing has been committed since. A fix
+  // added after a failed deploy moves HEAD, and the next run cuts a new one.
+  const record = readHotfixRecord(dir, config, spec.folder)
+  const atHead = (wtGit(['tag', '--points-at', 'HEAD']) || '').split('\n').map((s) => s.trim())
+  const released = record && record.tag && atHead.includes(record.tag) ? record : null
 
   // Extra targets: --also flags first, then any config defaults; drop blanks, the
   // base tag itself, and duplicates.
@@ -2090,6 +2129,8 @@ function specEnvHotfix(dir, config, positional, flags) {
   let plan
   try {
     plan = planHotfixLand(spec, config, {
+      // A recorded release leaves HEAD tagged and the tree clean; neither
+      // `dirty` nor `aheadOfBase` changes because of it.
       worktreeState: { dirty },
       aheadOfBase,
       fixRange: `${spec.baseRef}..${spec.branch}`,
@@ -2097,37 +2138,86 @@ function specEnvHotfix(dir, config, positional, flags) {
       base,
       extraTargets,
       existingTags,
+      released,
     })
   } catch (error) {
-    process.stdout.write(`spec-env hotfix land: ${error.message}.\n`)
+    refuse(`${error.message}.`)
     return
   }
 
   if (plan.blocked) {
-    process.stdout.write(`spec-env hotfix land: blocked — ${plan.reason}.\n`)
+    refuse(`blocked — ${plan.reason}.`)
     return
   }
   if (plan.noop) {
-    process.stdout.write(`spec-env hotfix land: ${plan.reason}.\n`)
+    if (json) say(JSON.stringify({ ok: true, noop: true, reason: plan.reason }, null, 2))
+    else say(`spec-env hotfix land: ${plan.reason}.`)
     return
   }
 
-  const out = []
-  out.push(`spec-env hotfix land: ${spec.folder}`)
-  out.push('')
-  out.push(`  base tag:  ${spec.baseRef}`)
-  out.push(`  branch:    ${spec.branch}`)
-  out.push(`  prod tag:  ${plan.prodTag}  (created locally — push to deploy)`)
-  for (const t of plan.targets) {
-    if (t.kind === 'extra') out.push(`  target:    ${t.base} -> ${t.tag}`)
-    if (t.kind === 'main') out.push(`  next rel:  cherry-pick onto ${t.base}`)
+  const header = () => {
+    say(`spec-env hotfix land: ${spec.folder}${flags.plan ? ' (plan — nothing run)' : ''}`)
+    say('')
+    say(`  base tag:  ${spec.baseRef}`)
+    say(`  branch:    ${spec.branch}`)
   }
-  out.push('')
-  out.push('  run these (abort a cherry-pick on conflict, resolve, then re-run):')
-  for (const cmd of plan.commands) out.push(`    ${cmd}`)
-  out.push('')
-  out.push(`  then push the deploy tag yourself:  git push origin ${plan.prodTag}`)
-  process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
+
+  if (flags.plan) {
+    if (json) {
+      say(JSON.stringify({ spec: spec.folder, planned: true, steps: plan.steps }, null, 2))
+      return
+    }
+    header()
+    say('')
+    plan.steps.forEach((st, i) => say(`  ${i + 1}. ${describeHotfixStep(st)}`))
+    return
+  }
+
+  if (!json) {
+    header()
+    say('')
+  }
+  const result = runHotfixLand(plan.steps, {
+    write: json ? () => {} : (line) => say(`  ${line}`),
+    childStdout: json ? process.stderr : 'inherit',
+    record: (release) =>
+      writeHotfixRecord(dir, config, spec.folder, { ...release, at: new Date().toISOString() }),
+  })
+  const tag = result.release ? result.release.tag : null
+
+  if (json) {
+    say(
+      JSON.stringify(
+        {
+          spec: spec.folder,
+          planned: false,
+          ok: result.ok,
+          failedAt: result.failedAt,
+          release: result.release,
+          steps: result.results.map((r) => ({ ...r.step, outcome: r.outcome, line: r.line })),
+          remaining: plan.steps.slice(result.results.length),
+        },
+        null,
+        2,
+      ),
+    )
+  } else if (result.ok) {
+    say('')
+    say(`  prod tag:  ${tag}  (created locally — push to deploy)`)
+    say(`  then push the branch, then the deploy tag:`)
+    say(`    git -C ${spec.worktreePath} push origin ${spec.branch}`)
+    say(`    git -C ${spec.worktreePath} push origin ${tag}`)
+    process.stdout.write(afterLandSection(plan.afterLand))
+  } else {
+    const failed = result.results[result.results.length - 1]
+    process.stderr.write(`  ${failed.line}\n`)
+    say(
+      `spec-env hotfix land: stopped at step ${result.failedAt} of ${plan.steps.length} ` +
+        `(${describeHotfixStep(failed.step)}) — nothing after it ran.`,
+    )
+    if (tag) say(`  ${tag} was cut and is recorded — a re-run carries on from it.`)
+  }
+  if (!result.ok) process.exitCode = 1
 }
 
 // What the primary checkout has GAINED right now, by content. `dir` is already
