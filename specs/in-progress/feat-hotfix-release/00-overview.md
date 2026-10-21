@@ -152,7 +152,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Tag order, bump strategies, hotfix-suffixed bases | ✅ | [01-tags-and-bump.md](01-tags-and-bump.md) |
 | 2 | `hotfix land` executes: release step + `releaseWith` seam | ✅ | [02-release-step.md](02-release-step.md) |
 | 3 | Push behind consent, resumable | ✅ | [03-push.md](03-push.md) |
-| 4 | Carry to main without the version commit | ⬜ | [04-carry.md](04-carry.md) |
+| 4 | Carry to main without the version commit | ✅ | [04-carry.md](04-carry.md) |
 | 5 | `hotfix finish` and the end-to-end test | ⬜ | [05-finish.md](05-finish.md) |
 | 6 | Skills, docs, MIGRATION | ⬜ | [06-skills-and-docs.md](06-skills-and-docs.md) |
 
@@ -187,3 +187,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-21 — Phase 3: the remote is `origin`, with no config key; ask for one when a
   project needs another. Extra-target tags stay local and are not pushed, as before.
   A land held for consent exits 0, because a held land is not a failure.
+- 2026-10-21 — Phase 4: the carry is a list of shas, cherry-picked one at a time so a
+  conflict names its commit. A dirty base checkout is refused at the carry step, after
+  the release and push, not before them: prod still gets its fix, and a re-run carries
+  once the checkout is clean. A `git cherry` that cannot answer excludes nothing.

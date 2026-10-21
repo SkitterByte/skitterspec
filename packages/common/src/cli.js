@@ -2072,6 +2072,55 @@ function writeHotfixRecord(dir, config, name, record) {
   fs.writeFileSync(file, JSON.stringify(record, null, 2) + '\n')
 }
 
+/**
+ * What `hotfix land` carries to the base branch, and how.
+ *
+ * The fix commits are `baseRef..branch` in order, minus the version commit a
+ * recorded release left on the branch — it holds package.json, CHANGELOG and
+ * RELEASES, and main's version line never moves on a hotfix. The carry is that
+ * list minus whatever `git cherry` says the base branch already has, so a
+ * re-run after a partial carry picks up where it stopped. A `git cherry` that
+ * cannot answer excludes nothing: a duplicate then fails as an empty
+ * cherry-pick, loudly, which is the safe direction to be wrong in.
+ *
+ * Where the base branch is decides the strategy: checked out and clean → in
+ * place; checked out and dirty → refuse; not checked out → a throwaway worktree.
+ */
+function hotfixCarry(dir, spec, base, wtGit, released) {
+  const version = released && released.versionCommit
+  const listed = wtGit(['rev-list', '--reverse', `${spec.baseRef}..${spec.branch}`])
+  const fixCommits = (listed ? listed.split('\n') : [])
+    .map((x) => x.trim())
+    .filter((sha) => sha && sha !== version)
+  const git = gitReader(dir)
+  const cherry = git(['cherry', base, spec.branch])
+  const already = new Set(
+    (cherry ? cherry.split('\n') : [])
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('- '))
+      .map((l) => l.slice(2).trim()),
+  )
+  const commits = fixCommits.filter((sha) => !already.has(sha))
+
+  // Which checkout, if any, has the base branch checked out.
+  const list = git(['worktree', 'list', '--porcelain']) || ''
+  let where = null
+  let current = null
+  for (const line of list.split('\n')) {
+    if (line.startsWith('worktree ')) current = line.slice('worktree '.length)
+    else if (line === `branch refs/heads/${base}`) where = current
+  }
+  let carry
+  if (where) {
+    const st = gitReader(where)(['status', '--porcelain'])
+    carry = { strategy: st ? 'dirty' : 'inplace', path: where, commits }
+  } else {
+    const tmpPath = path.join(path.dirname(spec.worktreePath), `${spec.slug}-carry-${base}`)
+    carry = { strategy: 'worktree', path: dir, tmpPath, commits }
+  }
+  return { fixCommits, carry }
+}
+
 function specEnvHotfix(dir, config, positional, flags) {
   const action = positional[0]
   const specArg = positional[1]
@@ -2125,6 +2174,8 @@ function specEnvHotfix(dir, config, positional, flags) {
     released !== null &&
     Boolean(wtGit(['ls-remote', '--tags', remote, `refs/tags/${released.tag}`]))
 
+  const carry = hotfixCarry(dir, spec, base, wtGit, released)
+
   // Extra targets: --also flags first, then any config defaults; drop blanks, the
   // base tag itself, and duplicates.
   const seen = new Set()
@@ -2150,6 +2201,8 @@ function specEnvHotfix(dir, config, positional, flags) {
       push: flags.push === true,
       pushed,
       remote,
+      fixCommits: carry.fixCommits,
+      carry: carry.carry,
     })
   } catch (error) {
     refuse(`${error.message}.`)
@@ -2225,7 +2278,8 @@ function specEnvHotfix(dir, config, positional, flags) {
   } else if (result.ok) {
     say('')
     say(`  prod tag:  ${tag}  (pushed to ${remote})`)
-    process.stdout.write(afterLandSection(plan.afterLand))
+    // Only a carry that moved the base branch leaves anything to catch up on.
+    if (result.carried) process.stdout.write(afterLandSection(plan.afterLand))
   } else {
     const failed = result.results[result.results.length - 1]
     process.stderr.write(`  ${failed.line}\n`)

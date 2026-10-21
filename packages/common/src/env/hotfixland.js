@@ -77,8 +77,12 @@ function describeStep(step) {
       return `push: ${step.branch}, then ${step.tag || 'the tag'}, to ${step.remote}`
     case 'target':
       return `target: ${step.base} -> ${step.tag} (cherry-pick, tag)`
-    case 'carry':
-      return `carry: cherry-pick onto ${step.base}`
+    case 'carry': {
+      const n = Array.isArray(step.commits) ? step.commits.length : 0
+      const what = n === 1 ? '1 commit' : `${n} commits`
+      if (step.strategy === 'worktree') return `carry: cherry-pick ${what} onto ${step.base} (throwaway worktree)`
+      return `carry: cherry-pick ${what} onto ${step.base}`
+    }
     default:
       return `unknown step ${step.kind}`
   }
@@ -158,6 +162,67 @@ function runPush(step, release, ctx) {
   return { outcome: 'pushed', line: `pushed ${s.branch}, then ${s.tag}, to ${s.remote}` }
 }
 
+/**
+ * Carry the fix onto the base branch, one commit at a time so a conflict can
+ * name the commit that caused it.
+ *
+ * Three strategies, chosen by the caller from where the base branch is:
+ *   inplace  — checked out and clean: cherry-pick there.
+ *   worktree — not checked out anywhere: a throwaway worktree on it, removed
+ *              afterwards, so the branch moves without anyone's checkout moving.
+ *   dirty    — checked out with uncommitted work: refuse, and print the command
+ *              to run by hand once it is clean. Somebody's work is in that tree.
+ * On a conflict the cherry-pick is aborted, which leaves the base branch where
+ * it was before that commit, and the hotfix branch and its record untouched —
+ * so a re-run tries the carry again.
+ */
+function runCarry(step, release, ctx) {
+  const version = release && release.versionCommit
+  // The version commit cannot be in a list made before the release cut it,
+  // but a re-run lists the branch after — so it is left out here as well.
+  const commits = (step.commits || []).filter((sha) => !version || sha !== version)
+  if (!commits.length) {
+    return { outcome: 'skipped', line: `carry: nothing to carry — ${step.base} already has the fix`, carried: 0 }
+  }
+  if (step.strategy === 'dirty') {
+    return {
+      outcome: 'refused',
+      line:
+        `carry: ${step.cwd} has uncommitted changes on ${step.base} — commit or stash them, ` +
+        `then run: git -C ${step.cwd} cherry-pick ${commits.join(' ')}`,
+    }
+  }
+  const git = (argv) =>
+    ctx.spawn('git', argv, { stdio: ['ignore', ctx.childStdout, 'pipe'], encoding: 'utf8' })
+  let cwd = step.cwd
+  if (step.strategy === 'worktree') {
+    cwd = step.tmpPath
+    const res = git(['-C', step.root, 'worktree', 'add', cwd, step.base])
+    if (res.error || res.status !== 0) {
+      return { outcome: 'failed', line: `carry: worktree add ${cwd} — ${lastLine(res.stderr) || why(res)}` }
+    }
+  }
+  const cleanup = () => {
+    if (step.strategy === 'worktree') git(['-C', step.root, 'worktree', 'remove', '--force', cwd])
+  }
+  for (const sha of commits) {
+    const res = git(['-C', cwd, 'cherry-pick', sha])
+    if (res.error || res.status !== 0) {
+      git(['-C', cwd, 'cherry-pick', '--abort'])
+      cleanup()
+      return {
+        outcome: 'failed',
+        line:
+          `carry: cherry-pick ${sha} onto ${step.base} conflicted — aborted; ` +
+          `${lastLine(res.stderr) || why(res)}`,
+      }
+    }
+  }
+  cleanup()
+  const what = commits.length === 1 ? '1 commit' : `${commits.length} commits`
+  return { outcome: 'ran', line: `carried ${what} onto ${step.base}`, carried: commits.length }
+}
+
 // A step that is a list of git argvs run in order — a target's worktree,
 // cherry-pick, tag and cleanup, or the carry's cherry-pick.
 function runArgvs(step, ctx) {
@@ -194,13 +259,15 @@ function runHotfixLand(steps, io = {}) {
   const write = io.write || (() => {})
   const results = []
   let release = null
+  let carried = null
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i]
     let r
     try {
       if (step.kind === 'release') r = runRelease(step, ctx)
       else if (step.kind === 'push') r = runPush(step, release, ctx)
-      else if (step.kind === 'target' || step.kind === 'carry') {
+      else if (step.kind === 'carry') r = runCarry(step, release, ctx)
+      else if (step.kind === 'target') {
         // A project's release command can cut a tag the built-in tagger also
         // planned for a target on the same root. Refuse rather than collide.
         if (step.kind === 'target' && release && release.tag === step.tag) {
@@ -211,6 +278,7 @@ function runHotfixLand(steps, io = {}) {
       r = { outcome: 'failed', line: `${describeStep(step)} — ${err.message}` }
     }
     results.push({ step, outcome: r.outcome, line: r.line })
+    if (typeof r.carried === 'number') carried = r.carried
     if (r.release) {
       release = r.release
       if (r.outcome === 'released' && io.record) io.record(release)
@@ -221,14 +289,14 @@ function runHotfixLand(steps, io = {}) {
     }
     if (r.outcome === 'held') {
       if (r.line) write(r.line)
-      return { ok: true, held: true, results, failedAt: null, release }
+      return { ok: true, held: true, results, failedAt: null, release, carried }
     }
     if (r.outcome === 'failed' || r.outcome === 'refused') {
-      return { ok: false, results, failedAt: i + 1, release }
+      return { ok: false, results, failedAt: i + 1, release, carried }
     }
     if (r.line) write(r.line)
   }
-  return { ok: true, held: false, results, failedAt: null, release }
+  return { ok: true, held: false, results, failedAt: null, release, carried }
 }
 
 module.exports = { parseRelease, runHotfixLand, describeStep, RELEASE_FIELDS }

@@ -269,3 +269,82 @@ test('a tag already on the remote is honoured: no push runs, the carry does', ()
   assert.match(r.results[1].line, /already on origin/)
   assert.deepStrictEqual(calls.map((c) => c.args[2]), ['cherry-pick'])
 })
+
+// --- the carry -----------------------------------------------------------------
+
+const V = GOOD.versionCommit
+const carryCtx = (strategy, commits, over = {}) =>
+  ctx({
+    carry: { strategy, path: '/repo', tmpPath: '/wt/login-carry-main', commits },
+    ...over,
+  })
+
+test('the carry leaves out the version commit the release reports', () => {
+  const { spawn, calls } = fakeSpawn([ok(JSON.stringify(GOOD))])
+  // A list made after the release (a re-run) can hold the version commit.
+  const plan = planHotfixLand(spec(), RELEASE_WITH, carryCtx('inplace', ['f1', V, 's1']))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.strictEqual(r.ok, true)
+  assert.deepStrictEqual(
+    calls.slice(1).map((c) => c.args.slice(2)),
+    [['cherry-pick', 'f1'], ['cherry-pick', 's1']],
+  )
+  assert.strictEqual(r.carried, 2)
+})
+
+test('an empty carry is a reported no-op, not an error', () => {
+  const { spawn, calls } = fakeSpawn()
+  const plan = planHotfixLand(spec(), RELEASE_WITH, carryCtx('inplace', [], { released: GOOD }))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.strictEqual(r.ok, true)
+  assert.match(r.results[2].line, /nothing to carry/)
+  assert.strictEqual(r.carried, 0)
+  assert.strictEqual(calls.length, 0)
+})
+
+test('a dirty base checkout refuses with the command to run by hand', () => {
+  const { spawn, calls } = fakeSpawn()
+  const plan = planHotfixLand(spec(), RELEASE_WITH, carryCtx('dirty', ['f1', 's1'], { released: GOOD }))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.strictEqual(r.ok, false)
+  assert.match(r.results[2].line, /uncommitted changes on main — .*git -C \/repo cherry-pick f1 s1/)
+  assert.strictEqual(calls.length, 0)
+})
+
+test('a base branch nobody has checked out is carried through a throwaway worktree', () => {
+  const { spawn, calls } = fakeSpawn()
+  const plan = planHotfixLand(spec(), RELEASE_WITH, carryCtx('worktree', ['f1'], { released: GOOD }))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.strictEqual(r.ok, true)
+  assert.deepStrictEqual(calls.map((c) => c.args), [
+    ['-C', '/repo', 'worktree', 'add', '/wt/login-carry-main', 'main'],
+    ['-C', '/wt/login-carry-main', 'cherry-pick', 'f1'],
+    ['-C', '/repo', 'worktree', 'remove', '--force', '/wt/login-carry-main'],
+  ])
+})
+
+test('a conflict aborts the cherry-pick, names the commit, and cleans up', () => {
+  const { spawn, calls } = fakeSpawn([
+    ok(),
+    ok(),
+    { status: 1, stdout: '', stderr: 'CONFLICT (content): app.js\n' },
+  ])
+  const plan = planHotfixLand(spec(), RELEASE_WITH, carryCtx('worktree', ['f1', 'f2'], { released: GOOD }))
+  const r = runHotfixLand(plan.steps, io(spawn))
+  assert.strictEqual(r.ok, false)
+  assert.match(r.results[2].line, /cherry-pick f2 onto main conflicted — aborted; CONFLICT/)
+  assert.deepStrictEqual(calls.slice(3).map((c) => c.args), [
+    ['-C', '/wt/login-carry-main', 'cherry-pick', '--abort'],
+    ['-C', '/repo', 'worktree', 'remove', '--force', '/wt/login-carry-main'],
+  ])
+})
+
+test('extra targets cherry-pick the listed fix commits, not the whole range', () => {
+  const plan = planHotfixLand(
+    spec(),
+    { hotfix: { bump: 'hotfix-suffix', cherryPickMain: false, targets: [] } },
+    ctx({ fixCommits: ['f1', 's1'], extraTargets: ['v36.4.0'] }),
+  )
+  const target = plan.steps.find((s) => s.kind === 'target')
+  assert.deepStrictEqual(target.argvs[1], ['-C', target.worktreePath, 'cherry-pick', 'f1', 's1'])
+})

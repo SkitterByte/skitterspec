@@ -132,7 +132,10 @@ function tagSlug(tag) {
  * @param {object} config normalised env config (reads `config.hotfix`).
  * @param {object} ctx   { worktreeState:{dirty}, aheadOfBase, fixRange, mainRepoPath,
  *                          base, extraTargets: string[], existingTags: string[],
- *                          released?, push?: boolean, pushed?: boolean, remote? }
+ *                          released?, push?: boolean, pushed?: boolean, remote?,
+ *                          fixCommits?: string[],
+ *                          carry?: { strategy: 'inplace'|'worktree'|'dirty', path,
+ *                                    tmpPath?, commits: string[] } }
  * @returns {object} { blocked, noop, reason, commands, afterLand, prodTag, targets, branch, base }
  */
 function planHotfixLand(spec, config, ctx) {
@@ -171,6 +174,11 @@ function planHotfixLand(spec, config, ctx) {
   // between the prod tag and a target tag).
   const taken = new Set(c.existingTags || [])
   const fixRange = c.fixRange
+  // What a target cherry-picks: the fix commits by sha when the caller listed
+  // them (the version commit already left out), else the bare range. The
+  // range form is what this planner always emitted and what pure callers that
+  // list nothing still get.
+  const fixPick = Array.isArray(c.fixCommits) && c.fixCommits.length ? c.fixCommits : [fixRange]
   const commands = []
   const targets = []
   // What the engine runs (hotfixland.js). `commands` stays beside it as the
@@ -248,7 +256,7 @@ function planHotfixLand(spec, config, ctx) {
     const tmpPath = path.join(wtRoot, slug)
     commands.push(
       `git worktree add ${tmpPath} -b ${tmpBranch} ${t}`,
-      `git -C ${tmpPath} cherry-pick ${fixRange}`,
+      `git -C ${tmpPath} cherry-pick ${fixPick.join(' ')}`,
       `git -C ${tmpPath} tag ${tag}`,
       `git worktree remove ${tmpPath}`,
       `git branch -D ${tmpBranch}`,
@@ -261,7 +269,7 @@ function planHotfixLand(spec, config, ctx) {
       worktreePath: tmpPath,
       argvs: [
         ['-C', root, 'worktree', 'add', tmpPath, '-b', tmpBranch, t],
-        ['-C', tmpPath, 'cherry-pick', fixRange],
+        ['-C', tmpPath, 'cherry-pick', ...fixPick],
         ['-C', tmpPath, 'tag', tag],
         ['-C', root, 'worktree', 'remove', tmpPath],
         ['-C', root, 'branch', '-D', tmpBranch],
@@ -275,8 +283,29 @@ function planHotfixLand(spec, config, ctx) {
   //    after-land commands apply — a prod-only land leaves main untouched.
   let afterLand = result.afterLand
   if (hotfixCfg.cherryPickMain !== false) {
-    commands.push(`git -C ${c.mainRepoPath} cherry-pick ${fixRange}`)
-    steps.push({ kind: 'carry', base: c.base, argvs: [['-C', c.mainRepoPath, 'cherry-pick', fixRange]] })
+    // THE CARRY IS A LIST OF COMMITS, NOT A RANGE. A releasing command leaves
+    // a version commit on the branch (package.json, CHANGELOG, RELEASES), and
+    // main's version line never moves on a hotfix — so the caller hands over
+    // `baseRef..branch` minus that commit and minus what `git cherry` says main
+    // already has. The spec's own completion commits stay in it: that is how
+    // the completed spec reaches main. Without a list (pure callers), the old
+    // range form, run in place.
+    const carry = c.carry || { strategy: 'inplace', path: c.mainRepoPath, commits: null }
+    const picks = carry.commits || [fixRange]
+    commands.push(
+      carry.strategy === 'worktree'
+        ? `git worktree add ${carry.tmpPath} ${c.base} && git -C ${carry.tmpPath} cherry-pick ${picks.join(' ')}`
+        : `git -C ${carry.path} cherry-pick ${picks.join(' ')}`,
+    )
+    steps.push({
+      kind: 'carry',
+      base: c.base,
+      strategy: carry.strategy,
+      cwd: carry.path || c.mainRepoPath,
+      root: c.mainRepoPath,
+      tmpPath: carry.tmpPath || null,
+      commits: picks,
+    })
     targets.push({ kind: 'main', base: c.base })
     afterLand = afterLandFor(config, c.mainRepoPath)
   }

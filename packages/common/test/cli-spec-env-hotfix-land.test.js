@@ -182,7 +182,7 @@ test('--plan describes the steps and runs nothing', async () => {
     assert.match(out, /plan — nothing run/)
     assert.match(out, /1\. release: node nowhere\.js --json/)
     assert.match(out, /2\. push: held — no consent to push to origin/)
-    assert.match(out, /3\. carry: cherry-pick onto main/)
+    assert.match(out, /3\. carry: cherry-pick 2 commits onto main/)
     assert.strictEqual(git(env.wt, 'tag', '--points-at', 'HEAD'), '')
   } finally {
     fs.rmSync(env.root, { recursive: true, force: true })
@@ -231,6 +231,95 @@ test('stays silent: an unreachable remote is cannot-tell, so the re-run holds', 
     assert.strictEqual(code, 0, out)
     assert.match(out, /held — no consent/)
     assert.strictEqual(git(env.dir, 'rev-parse', 'HEAD'), mainBefore, 'nothing carried')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+// --- the carry -----------------------------------------------------------------
+
+const subjects = (cwd, range) => git(cwd, 'log', '--format=%s', range).split('\n').filter(Boolean)
+
+test('main gains the fix and the spec commits, and never the version commit', async () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const stub = writeStub(root)
+  const env = scaffold({ releaseWith: stub.command })
+  try {
+    const before = git(env.dir, 'rev-parse', 'HEAD')
+    const { out, code } = await land(env.dir, '--push')
+    assert.strictEqual(code, 0, out)
+    assert.deepStrictEqual(subjects(env.dir, `${before}..HEAD`), [
+      'chore(spec): complete hotfix-login',
+      'fix: login',
+    ])
+    assert.match(fs.readFileSync(path.join(env.dir, 'package.json'), 'utf8'), /"1\.0\.0"/, 'main keeps its version')
+    assert.ok(fs.existsSync(path.join(env.dir, 'specs', 'complete', 'hotfix-login', '00-overview.md')))
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a re-run after the carry finds nothing left to carry', async () => {
+  const env = scaffold()
+  try {
+    assert.strictEqual((await land(env.dir, '--push')).code, 0)
+    const head = git(env.dir, 'rev-parse', 'HEAD')
+    const { out, code } = await land(env.dir)
+    assert.strictEqual(code, 0, out)
+    assert.match(out, /nothing to carry — main already has the fix/)
+    assert.strictEqual(git(env.dir, 'rev-parse', 'HEAD'), head)
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+test('main not checked out: carried through a throwaway worktree, then removed', async () => {
+  const env = scaffold()
+  try {
+    git(env.dir, 'checkout', '-q', '-b', 'elsewhere')
+    const { out, code } = await land(env.dir, '--push')
+    assert.strictEqual(code, 0, out)
+    assert.match(out, /carried 2 commits onto main/)
+    assert.deepStrictEqual(subjects(env.dir, 'elsewhere..main'), [
+      'chore(spec): complete hotfix-login',
+      'fix: login',
+    ])
+    assert.ok(!fs.existsSync(path.join(env.root, 'wt', 'login-carry-main')), 'throwaway removed')
+    assert.strictEqual(git(env.dir, 'rev-parse', '--abbrev-ref', 'HEAD'), 'elsewhere', 'checkout untouched')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+test('main checked out and dirty: the carry refuses and prints the command', async () => {
+  const env = scaffold()
+  try {
+    fs.writeFileSync(path.join(env.dir, 'other.js'), 'someone is mid-edit\n')
+    const head = git(env.dir, 'rev-parse', 'HEAD')
+    const { out, code } = await land(env.dir, '--push')
+    assert.strictEqual(code, 1)
+    assert.match(out, /has uncommitted changes on main — .*then run: git -C \S+ cherry-pick [0-9a-f]{40} [0-9a-f]{40}/)
+    assert.strictEqual(git(env.dir, 'rev-parse', 'HEAD'), head, 'main did not move')
+    assert.match(fs.readFileSync(path.join(env.dir, 'other.js'), 'utf8'), /mid-edit/, 'their work is intact')
+    assert.ok(onRemote(env, 'refs/tags/v1.0.1'), 'the release and push still happened')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+  }
+})
+
+test('a conflicting carry is aborted, names the commit, and leaves main where it was', async () => {
+  const env = scaffold()
+  try {
+    fs.writeFileSync(path.join(env.dir, 'app.js'), 'main rewrote this line\n')
+    git(env.dir, 'commit', '-q', '-am', 'main edits app.js')
+    const head = git(env.dir, 'rev-parse', 'HEAD')
+    const fix = git(env.wt, 'rev-parse', 'HEAD~1')
+    const { out, code } = await land(env.dir, '--push')
+    assert.strictEqual(code, 1)
+    assert.match(out, new RegExp(`cherry-pick ${fix} onto main conflicted — aborted`))
+    assert.strictEqual(git(env.dir, 'rev-parse', 'HEAD'), head)
+    assert.strictEqual(git(env.dir, 'status', '--porcelain'), '', 'no half-applied pick left behind')
   } finally {
     fs.rmSync(env.root, { recursive: true, force: true })
   }
