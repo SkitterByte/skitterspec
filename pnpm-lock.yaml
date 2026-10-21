@@ -167,8 +167,8 @@ importers:
   .:
     devDependencies:
       '@skitterbyte/skittership':
-        specifier: ^2.0.6
-        version: 2.0.6
+        specifier: ^2.1.0
+        version: 2.1.0
       '@skitterbyte/skitterspec-provider-jira':
         specifier: workspace:*
         version: link:packages/jira
@@ -240,8 +240,8 @@ importers:
 
 packages:
 
-  '@skitterbyte/skittership@2.0.6':
-    resolution: {integrity: sha512-l00gfiBMfI08H5A0AG0GVAy5kfgb4thzJLDPW4XPnkmxVPZPzHbEAIDo7gHWcSJzzOKlGKTME8QIZoFIQM7Umg==}
+  '@skitterbyte/skittership@2.1.0':
+    resolution: {integrity: sha512-MIEFI1jMzq293bfm3fh3pfqRb0Ae5EHusE/wK/8+3j8wWU5JOtdS53O6vZ/oqBp9EtDx8ijSD5M5nY0+LVejuA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -258,7 +258,7 @@ packages:
 
 snapshots:
 
-  '@skitterbyte/skittership@2.0.6':
+  '@skitterbyte/skittership@2.1.0':
     dependencies:
       prompts: 2.4.2
 

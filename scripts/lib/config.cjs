@@ -13,9 +13,19 @@
  *     "version": 1,
  *     "changelog": { "enabled": true, "file": "CHANGELOG.md" },
  *     "releases":  { "enabled": true, "file": "RELEASES.md",
- *                    "productName": "<repo name>", "scopeAreas": {} },
- *     "versionHook": true
+ *                    "productName": "<repo name>", "scopeAreas": {},
+ *                    "emptyRelease": true },
+ *     "versionHook": true,
+ *     "hotfix":    { "branchPrefix": "hotfix/" }
  *   }
+ *
+ * `releases.emptyRelease` is what a release with no user-facing notes says in
+ * RELEASES.md: `true` (or absent) for the built-in text, a string for your own,
+ * `false` to write no section at all. Normalised here to the text, or `null`
+ * when disabled.
+ *
+ * `hotfix.branchPrefix` is the branch prefix `release-hotfix.cjs` requires
+ * before it will cut a `-hotfix.N` version.
  */
 
 const { readFileSync } = require('node:fs')
@@ -23,6 +33,7 @@ const { basename, join } = require('node:path')
 
 const SCHEMA_VERSION = 1
 const CONFIG_FILE = 'skittership.config.json'
+const DEFAULT_EMPTY_RELEASE = 'No user-facing changes in this release.'
 
 // Static template (productName is derived from the repo dir when blank).
 const DEFAULT_CONFIG = Object.freeze({
@@ -33,8 +44,10 @@ const DEFAULT_CONFIG = Object.freeze({
     file: 'RELEASES.md',
     productName: '',
     scopeAreas: Object.freeze({}),
+    emptyRelease: DEFAULT_EMPTY_RELEASE,
   }),
   versionHook: true,
+  hotfix: Object.freeze({ branchPrefix: 'hotfix/' }),
 })
 
 function isObject(value) {
@@ -50,8 +63,10 @@ function defaultsFor(dir) {
       file: 'RELEASES.md',
       productName: basename(dir),
       scopeAreas: {},
+      emptyRelease: DEFAULT_EMPTY_RELEASE,
     },
     versionHook: true,
+    hotfix: { branchPrefix: 'hotfix/' },
   }
 }
 
@@ -88,6 +103,21 @@ function mergeConfig(base, parsed) {
     if (isObject(parsed.releases.scopeAreas)) {
       base.releases.scopeAreas = { ...parsed.releases.scopeAreas }
     }
+    // Only an explicit `false` turns the placeholder off. Anything else that is
+    // not usable text keeps the default, so a typo cannot silently bring back
+    // the gap in RELEASES.md this key exists to close.
+    const empty = parsed.releases.emptyRelease
+    if (empty === false) {
+      base.releases.emptyRelease = null
+    } else if (typeof empty === 'string' && empty.trim()) {
+      base.releases.emptyRelease = empty.trim()
+    }
+  }
+
+  if (isObject(parsed.hotfix)) {
+    if (typeof parsed.hotfix.branchPrefix === 'string' && parsed.hotfix.branchPrefix.trim()) {
+      base.hotfix.branchPrefix = parsed.hotfix.branchPrefix.trim()
+    }
   }
 
   return base
@@ -122,6 +152,7 @@ function loadConfig(dir = process.cwd()) {
 module.exports = {
   loadConfig,
   DEFAULT_CONFIG,
+  DEFAULT_EMPTY_RELEASE,
   SCHEMA_VERSION,
   CONFIG_FILE,
 }
