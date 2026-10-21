@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-hotfix-release (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-21)
+> **Status:** Complete (2026-10-21)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-21
@@ -166,6 +166,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-21 | Ready | backlog | Reuben Greaves |
 | 2026-10-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-21 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -200,3 +201,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   not a fault. `/spec-complete` §1 sends a landed hotfix whose worktree still stands
   straight to §7's `hotfix finish`. MIGRATION entries are skitterspec v23 → v24 and
   linear v18 → v19.
+- 2026-10-21 — Completed; all phases done, tests green.

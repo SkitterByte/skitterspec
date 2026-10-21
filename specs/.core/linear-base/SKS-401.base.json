@@ -1,17 +1,17 @@
 {
-  "issue": "3db76524bcbfb70454dcc56c0ec67a6e3fd6ee98",
+  "issue": "ffafecfff4c7fc78fe7242f1cf4031da77265fda",
   "issueFields": {
     "description": "a81e96aac334805de7ddd896ef9d5c4cc92741d0",
-    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
-    "assignee": "46f9da98cdf4bd363761b569600549b081b0ae45",
+    "state": "fa32c7d6527007678c2c15959b3841700962f662",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833",
     "descriptionStream": "4f3afe455655d10121d48ae2fd5994b38d105a95"
   },
   "subIssues": {
-    "SKS-402": "b9fc6b8da8e6a2497a04b19269680c1bb19c16f0",
-    "SKS-403": "cf53154e2ca6457b515602f085164a9d5574c36b",
-    "SKS-404": "719569634f83a876b1c2e2ac16b1ee1107acc963",
-    "SKS-405": "75607f213e3da337f97fb930c2a4e68962f63627",
-    "SKS-406": "3420ef69cb58edc58c9d3b1baaa9bb59b8c4031e",
-    "SKS-407": "5a85ef618264589a6b24608b3dd44791368f76c8"
+    "SKS-402": "ce151838e6d0613cde859fbe2cd8568008c0d40a",
+    "SKS-403": "70d3cf12ff09fd8e0f472dbd3639f98101f45c68",
+    "SKS-404": "d0ae6fa6a09ac22e46d1595e1611c1b219b0a47b",
+    "SKS-405": "7a46161e59c2c48d7c97d6921c2ca81b13bfc9d5",
+    "SKS-406": "fa19e50571efbd3a4d2d1e6c9ac2ad0513fba671",
+    "SKS-407": "13b969fb93226c49a09719b4de32360d622ba925"
   }
 }
