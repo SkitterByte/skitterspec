@@ -15,9 +15,8 @@ flow is proven in a temp repo.
   - a clean tree;
   - a release tag at HEAD (`reachableFromTag`, including `-hotfix.N`);
   - the branch on the remote.
-
-  Each failing guard is named. Then it runs worktree remove and `branch -D`, and forgets
-  the record. There is no `--force` and no merged-into-main guard.
+  - Each failing guard is named. Then it runs worktree remove and `branch -D`, and
+    forgets the record. There is no `--force` and no merged-into-main guard.
 - [ ] `finish` is the only teardown `/spec-complete` uses for a hotfix. `spec-env down`
   is left as it is, an explicit operator verb whose guards already treat a tagged HEAD as
   landed. Add a test pinning that `down` is unchanged.

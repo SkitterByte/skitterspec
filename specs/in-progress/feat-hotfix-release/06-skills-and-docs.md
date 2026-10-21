@@ -17,9 +17,8 @@ exclusion and the deferred teardown, and an upgrader knows what changed.
   - run `hotfix land` after the §4 commit;
   - ask the operator before passing `--push`;
   - the `Landed` row names the tag and whether it was pushed;
-  - the worktree is kept.
-
-  §7 for a hotfix: running `/spec-complete` again routes to `hotfix finish`.
+  - the worktree is kept;
+  - §7 for a hotfix: running `/spec-complete` again routes to `hotfix finish`.
 - [ ] `env.config.md`: document `hotfix.releaseWith` and `hotfix.bump`. Include the
   `--allow-postversion` note, the `branchPrefix` note, and that extra targets are
   tag-only.

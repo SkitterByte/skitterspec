@@ -3,7 +3,14 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { bumpPatch, tagSlug, planHotfixLand } = require('../src/env/hotfix.js')
+const {
+  bumpPatch,
+  compareTags,
+  nextHotfixTag,
+  nextTag,
+  tagSlug,
+  planHotfixLand,
+} = require('../src/env/hotfix.js')
 
 // --- bumpPatch ------------------------------------------------------------
 
@@ -152,4 +159,125 @@ test('afterLand: none on the no-op and on a blocked plan', () => {
 
 test('afterLand stays silent when the key is absent', () => {
   assert.deepStrictEqual(planHotfixLand(spec(), CONFIG, ctx()).afterLand, NO_AFTER)
+})
+
+// --- tag order and the hotfix-suffix strategy ------------------------------
+
+test('compareTags: rc < release < hotfix.N < next patch, hotfix numbers numeric', () => {
+  const sorted = [
+    'v37.2.1',
+    'v37.2.0-hotfix.10',
+    'v37.2.0',
+    'v37.2.0-hotfix.2',
+    'v37.2.0-rc.1',
+    'v37.1.9',
+    'v37.2.0-hotfix.9',
+  ].sort(compareTags)
+  assert.deepStrictEqual(sorted, [
+    'v37.1.9',
+    'v37.2.0-rc.1',
+    'v37.2.0',
+    'v37.2.0-hotfix.2',
+    'v37.2.0-hotfix.9',
+    'v37.2.0-hotfix.10',
+    'v37.2.1',
+  ])
+})
+
+test('compareTags: an unparseable tag never sorts as the newest', () => {
+  assert.ok(compareTags('latest', 'v1.0.0') < 0)
+  assert.ok(compareTags('v1.0.0', 'latest') > 0)
+})
+
+test('nextHotfixTag: a fresh base gives -hotfix.1', () => {
+  assert.strictEqual(nextHotfixTag('v37.2.0', ['v37.2.0']), 'v37.2.0-hotfix.1')
+  assert.strictEqual(nextHotfixTag('1.4.0', []), '1.4.0-hotfix.1')
+})
+
+test('nextHotfixTag: one above the highest existing hotfix on that root', () => {
+  const tags = ['v37.2.0', 'v37.2.0-hotfix.1', 'v37.2.0-hotfix.2', 'v36.4.0-hotfix.7']
+  assert.strictEqual(nextHotfixTag('v37.2.0', tags), 'v37.2.0-hotfix.3')
+})
+
+test('nextHotfixTag: a hotfix base continues its own line', () => {
+  assert.strictEqual(
+    nextHotfixTag('v36.4.0-hotfix.2', ['v36.4.0', 'v36.4.0-hotfix.1', 'v36.4.0-hotfix.2']),
+    'v36.4.0-hotfix.3',
+  )
+  // The base itself counts even when the tag list was not fetched.
+  assert.strictEqual(nextHotfixTag('v36.4.0-hotfix.2', []), 'v36.4.0-hotfix.3')
+})
+
+test('nextHotfixTag: a later X.Y.(Z+1) is neither a collision nor counted', () => {
+  assert.strictEqual(nextHotfixTag('v37.2.0', ['v37.2.0', 'v37.2.1']), 'v37.2.0-hotfix.1')
+})
+
+test('nextHotfixTag: refuses a pre-release base and a tag with no core', () => {
+  assert.throws(() => nextHotfixTag('v37.2.0-rc.1', []), /pre-release/)
+  assert.throws(() => nextHotfixTag('latest', []), /MAJOR.MINOR.PATCH/)
+})
+
+test('nextTag: an unknown bump is refused, never treated as patch', () => {
+  assert.strictEqual(nextTag('v1.2.3', [], 'patch'), 'v1.2.4')
+  assert.strictEqual(nextTag('v1.2.3', [], 'hotfix-suffix'), 'v1.2.3-hotfix.1')
+  assert.throws(() => nextTag('v1.2.3', [], 'hotfix'), /unknown hotfix.bump "hotfix"/)
+})
+
+const SUFFIX = { hotfix: { bump: 'hotfix-suffix', cherryPickMain: true, targets: [] } }
+
+test('hotfix-suffix: not blocked by an existing next patch', () => {
+  const plan = planHotfixLand(
+    spec({ baseRef: 'v37.2.0' }),
+    SUFFIX,
+    ctx({ fixRange: 'v37.2.0..hotfix/login', existingTags: ['v37.2.0', 'v37.2.1'] }),
+  )
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.prodTag, 'v37.2.0-hotfix.1')
+  assert.strictEqual(plan.commands[0], 'git -C /wt/login tag v37.2.0-hotfix.1')
+})
+
+test('hotfix-suffix: two targets on one root get successive numbers', () => {
+  const plan = planHotfixLand(
+    spec({ baseRef: 'v37.2.0' }),
+    SUFFIX,
+    ctx({ extraTargets: ['v37.2.0-hotfix.1'], existingTags: ['v37.2.0', 'v37.2.0-hotfix.1'] }),
+  )
+  assert.strictEqual(plan.blocked, false)
+  assert.deepStrictEqual(
+    plan.targets.filter((t) => t.tag).map((t) => t.tag),
+    ['v37.2.0-hotfix.2', 'v37.2.0-hotfix.3'],
+  )
+})
+
+test('an unknown bump throws out of the planner rather than tagging', () => {
+  assert.throws(
+    () => planHotfixLand(spec(), { hotfix: { bump: 'minor', targets: [] } }, ctx()),
+    /unknown hotfix.bump "minor"/,
+  )
+})
+
+test('stays silent: the default config plans exactly the patch tag and commands', () => {
+  const plan = planHotfixLand(spec(), CONFIG, ctx({ existingTags: ['v33.16.4'] }))
+  assert.strictEqual(plan.prodTag, 'v33.16.5')
+  assert.deepStrictEqual(plan.commands, [
+    'git -C /wt/login tag v33.16.5',
+    'git -C /repo cherry-pick v33.16.4..hotfix/login',
+  ])
+  // And a config with no hotfix block at all is the same patch default.
+  assert.strictEqual(planHotfixLand(spec(), {}, ctx()).prodTag, 'v33.16.5')
+})
+
+test('a Base version header may be a hotfix tag', () => {
+  const fs = require('node:fs')
+  const os = require('node:os')
+  const path = require('node:path')
+  const { readBaseVersionField } = require('../src/env/resolve.js')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-basever-'))
+  try {
+    const file = path.join(dir, '00-overview.md')
+    fs.writeFileSync(file, '# H\n\n> **Type:** Hotfix\n> **Base version:** v36.4.0-hotfix.2\n')
+    assert.strictEqual(readBaseVersionField(dir), 'v36.4.0-hotfix.2')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })

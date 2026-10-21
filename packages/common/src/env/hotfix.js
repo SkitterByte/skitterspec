@@ -39,6 +39,87 @@ function bumpPatch(tag) {
   return `${prefix}${major}.${minor}.${Number(patch) + 1}`
 }
 
+// A release tag's parts: `<prefix><major>.<minor>.<patch>[-<suffix>]`. A
+// `hotfix.N` suffix is kept apart from every other one, because the two sort on
+// opposite sides of their base (see compareTags). Null for anything else.
+const TAG = /^(\D*)(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/
+function parseTag(tag) {
+  const m = TAG.exec(String(tag || '').trim())
+  if (!m) return null
+  const [, prefix, major, minor, patch, suffix = null] = m
+  const hotfix = suffix && /^hotfix\.(\d+)$/.exec(suffix)
+  return {
+    prefix,
+    core: [Number(major), Number(minor), Number(patch)],
+    root: `${prefix}${major}.${minor}.${patch}`,
+    hotfix: hotfix ? Number(hotfix[1]) : null,
+    suffix: hotfix ? null : suffix,
+  }
+}
+
+/**
+ * Order two release tags: X.Y.Z-rc.N < X.Y.Z < X.Y.Z-hotfix.N < X.Y.(Z+1).
+ *
+ * This is skittership's rule and git's `version:refname` with a hotfix suffix
+ * configured to sort after its base, so the two tools never disagree about
+ * which tag is newer. A hotfix is a later build OF X.Y.Z; every other suffix is
+ * a pre-release BEFORE it, as in semver. Hotfix numbers compare numerically
+ * (`-hotfix.10` after `-hotfix.9`); other suffixes compare as strings. An
+ * unparseable tag sorts first, so it can never be mistaken for the newest.
+ */
+function compareTags(a, b) {
+  const x = parseTag(a)
+  const y = parseTag(b)
+  if (!x || !y) return (x ? 1 : 0) - (y ? 1 : 0)
+  for (let i = 0; i < 3; i++) {
+    if (x.core[i] !== y.core[i]) return x.core[i] - y.core[i]
+  }
+  // Rank within one core: pre-release (0) < the release itself (1) < hotfix (2).
+  const rank = (t) => (t.suffix ? 0 : t.hotfix === null ? 1 : 2)
+  if (rank(x) !== rank(y)) return rank(x) - rank(y)
+  if (x.hotfix !== null) return x.hotfix - y.hotfix
+  if (x.suffix) return x.suffix < y.suffix ? -1 : x.suffix > y.suffix ? 1 : 0
+  return 0
+}
+
+/**
+ * The next `<root>-hotfix.<N>` for a base tag: N is one above the highest
+ * `<root>-hotfix.*` among `existingTags`, else 1. The root is the base with any
+ * hotfix suffix stripped, so a hotfix on `v36.4.0-hotfix.2` continues that
+ * line. A later `X.Y.(Z+1)` is neither a collision nor counted — it is another
+ * release line entirely. Same rule as skittership's release-hotfix.
+ */
+function nextHotfixTag(baseTag, existingTags) {
+  const base = parseTag(baseTag)
+  if (!base) {
+    throw new Error(
+      `hotfix: cannot derive a hotfix tag from "${baseTag}" — need <prefix>MAJOR.MINOR.PATCH`,
+    )
+  }
+  if (base.suffix) {
+    throw new Error(
+      `hotfix: base tag "${baseTag}" is a pre-release — a hotfix needs a released version`,
+    )
+  }
+  let n = base.hotfix || 0
+  for (const t of existingTags || []) {
+    const p = parseTag(t)
+    if (p && p.root === base.root && p.hotfix !== null && p.hotfix > n) n = p.hotfix
+  }
+  return `${base.root}-hotfix.${n + 1}`
+}
+
+const BUMPS = ['patch', 'hotfix-suffix']
+
+// The tag `hotfix.bump` asks for. An unknown strategy throws rather than
+// falling back to `patch`: a typo there would otherwise cut the wrong release
+// line and say nothing.
+function nextTag(baseTag, existingTags, bump = 'patch') {
+  if (bump === 'patch') return bumpPatch(baseTag)
+  if (bump === 'hotfix-suffix') return nextHotfixTag(baseTag, existingTags)
+  throw new Error(`unknown hotfix.bump "${bump}" — use one of: ${BUMPS.join(', ')}`)
+}
+
 // A filesystem/branch-safe slug derived from a tag (`v30.2.1` → `v30-2-1`).
 function tagSlug(tag) {
   return String(tag)
@@ -92,7 +173,8 @@ function planHotfixLand(spec, config, ctx) {
   const targets = []
 
   // 1. Prod line: tag the hotfix branch head (already baseRef + fix). No push.
-  const prodTag = bumpPatch(baseRef)
+  const bump = hotfixCfg.bump || 'patch'
+  const prodTag = nextTag(baseRef, c.existingTags, bump)
   if (taken.has(prodTag)) {
     return block(`tag ${prodTag} already exists — bump the base version or delete the stale tag`)
   }
@@ -105,7 +187,9 @@ function planHotfixLand(spec, config, ctx) {
   //    commits survive under the new tag, so `-D` is safe for the throwaway branch).
   const wtRoot = path.dirname(spec.worktreePath)
   for (const t of c.extraTargets || []) {
-    const tag = bumpPatch(t)
+    // Counted against `taken`, so two targets on one root get successive
+    // hotfix numbers rather than colliding on the same one.
+    const tag = nextTag(t, [...taken], bump)
     if (taken.has(tag)) {
       return block(`tag ${tag} (for target ${t}) already exists — resolve it before landing`)
     }
@@ -136,4 +220,4 @@ function planHotfixLand(spec, config, ctx) {
   return { ...result, commands, afterLand, prodTag, targets, fixRange }
 }
 
-module.exports = { bumpPatch, tagSlug, planHotfixLand }
+module.exports = { bumpPatch, compareTags, nextHotfixTag, nextTag, BUMPS, tagSlug, planHotfixLand }

@@ -281,7 +281,10 @@ const DEFAULT_CONFIG = Object.freeze({
   // `live take` refuses it (code-only v1). Default: none (nothing is stateful).
   live: Object.freeze({ migrations: Object.freeze([]) }),
   // Hotfix landing (`spec-env hotfix land`). `bump` is the version-bump strategy
-  // for the new deploy tag (only "patch" today). `cherryPickMain` also cherry-picks
+  // for the new deploy tag: "patch" (X.Y.Z -> X.Y.(Z+1)) or "hotfix-suffix"
+  // (X.Y.Z -> X.Y.Z-hotfix.N). The loader keeps whatever string it is given and
+  // `nextTag` refuses an unknown one at land time — a loader that threw would
+  // break every verb over a key only one of them reads. `cherryPickMain` also cherry-picks
   // the fix onto the base branch for the next release (default true). `targets` is
   // an optional default list of extra base tags to also patch (test/demo lines);
   // `--also <tag>` on the command adds more at run time. Default: patch, main, none.

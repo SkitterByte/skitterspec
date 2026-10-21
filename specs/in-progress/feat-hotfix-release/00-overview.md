@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Tag order, bump strategies, hotfix-suffixed bases | ⬜ | [01-tags-and-bump.md](01-tags-and-bump.md) |
+| 1 | Tag order, bump strategies, hotfix-suffixed bases | ✅ | [01-tags-and-bump.md](01-tags-and-bump.md) |
 | 2 | `hotfix land` executes: release step + `releaseWith` seam | ⬜ | [02-release-step.md](02-release-step.md) |
 | 3 | Push behind consent, resumable | ⬜ | [03-push.md](03-push.md) |
 | 4 | Carry to main without the version commit | ⬜ | [04-carry.md](04-carry.md) |
@@ -172,3 +172,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-21 — Spec created from the ereqs/skittership handoff (2 of 2). Its
   "What skittership 2.1.0 actually shipped" section was taken as authoritative. Line
   references were re-checked against 23.0.1.
+- 2026-10-21 — Phase 1: an unknown `hotfix.bump` is refused by `nextTag` when `hotfix land`
+  runs, not by the config loader. The loader never throws on a value, and a throw there
+  would break every verb over a key that only one verb reads.
+- 2026-10-21 — Phase 1: `up --from` and `Base version` already accepted `-hotfix.N` tags.
+  Their regexes were free-form, so the only change was tests pinning it.

@@ -111,6 +111,20 @@ test('--from puts the ref on the fork, so the worktree is the released line', as
   }
 })
 
+test('--from takes a hotfix tag as the fork point — prod may run -hotfix.N', async () => {
+  const dir = scaffoldRepo()
+  try {
+    git(dir, 'tag', 'v1.0.0-hotfix.2', 'v1.0.0')
+    const out = await runQuiet([
+      'spec-env', 'up', 'hotfix-null-total', '--dir', dir, '--docs', '--from', 'v1.0.0-hotfix.2',
+    ])
+    assert.match(out, /-b hotfix\/null-total v1\.0\.0-hotfix\.2/)
+    assert.doesNotMatch(out, /does not know that ref/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('without --from the same command forks from base, unchanged', async () => {
   const dir = scaffoldRepo()
   try {
