@@ -5,6 +5,11 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 1.0.1 — 22 Oct 2026
+
+### Env
+- **Fixed** — Landing a hotfix whose base is already a hotfix tag now cuts the next hotfix on that line (v36.2.3-hotfix.4 to -hotfix.5) instead of taking the mainline's next patch, and a tag collision now names the free tag rather than suggesting you delete one.
+
 ## 1.0.0 — 22 Oct 2026
 
 **Highlights:**
