@@ -38,6 +38,34 @@ Two things are set up once, and one is needed each time you approve:
   >= 11.15.0 locally (`npm stage` does not exist before that). An `E401` from
   `npm stage list` means you are not logged in, not that the release failed.
 
+### A brand-new package bootstraps from your machine, once
+
+A trusted publisher can only be configured on a package that **already
+exists** — the per-package publish-settings page is not there until the first
+publish, and npm has no PyPI-style "pending publisher"
+([npm/cli#8544](https://github.com/npm/cli/issues/8544)). So the first release
+of a new distribution runs the normal flow up to the tag push, CI then fails at
+**Stage the release** with nothing to authenticate as, and the version is
+staged locally instead — still behind the 2FA approval, never a raw
+`npm publish`:
+
+```
+cd packages/<package>
+npm stage publish --access public
+cd ../..
+npm run approve <package> <version>
+```
+
+`prepack` runs `build-dist.js` either way, so the tarball is the one CI would
+have built; the only thing the first version loses is the provenance
+attestation, which a local publish cannot mint. Once it is live, add the
+trusted publisher under the package's own publish settings
+(`npmjs.com/package/@skitterbyte/<package>/access`) with the exact fields
+above. The failed CI run stays failed — the version is already on the
+registry and the tag already matches it — and every release after carries
+provenance as usual. `skitterspec-jira@1.0.0` bootstrapped this way
+(2026-10-22).
+
 ## The flow
 
 ```
