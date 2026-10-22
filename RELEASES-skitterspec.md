@@ -5,6 +5,17 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.1.0 — 22 Oct 2026
+
+**Highlights:** spec-env hotfix land now runs the land itself, and hotfix.releaseWith lets a project's own release command (such as skittership's release-hotfix) cut the version commit and tag.
+
+### Env
+- **New** — spec-env hotfix finish removes a hotfix's worktree and branch once its release tag is at HEAD and the branch is on origin, so a failed deploy keeps the branch to cut the next hotfix from.
+- **New** — A hotfix's carry to main now leaves out its version commit and anything main already has, and works when main is not checked out; a dirty main is refused with the command to run later.
+- **New** — spec-env hotfix land --push now publishes the hotfix branch and then its deploy tag before carrying the fix to main; without --push it stops before the carry and prints the push commands.
+- **New** — spec-env hotfix land now runs the land itself, and hotfix.releaseWith lets a project's own release command (such as skittership's release-hotfix) cut the version commit and tag.
+- **New** — Setting hotfix.bump to "hotfix-suffix" now cuts hotfixes as X.Y.Z-hotfix.N, continuing from a hotfix base, and a later patch release no longer blocks the land.
+
 ## 23.0.1 — 21 Oct 2026
 
 ### Env
