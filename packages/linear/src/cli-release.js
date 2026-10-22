@@ -23,7 +23,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const { refsInBody, onlyIgnoredPaths, ticketsInRange, partitionStageMoves, stageOrderWarning } = require('./released.js')
-const { releasePipelines, releaseIgnorePaths, CONFIG_FILE } = require('./config.js')
+const { releasePipelines, releaseIgnorePaths, releaseStages, mergeConfig, defaults: configDefaults, CONFIG_FILE } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, releaseRefusalKind } = require('./api.js')
 const { resolveTransport } = require('@skitterbyte/skitterspec-provider-kit/src/transport.js')
 const {
@@ -39,7 +39,10 @@ const USAGE =
   '                    [--link [label=]<url> …] [--apply] [--json]\n' +
   '       skitterspec spec-sync release deployed <version> <env> [--series <prefix>] [--apply] [--json]\n' +
   '       skitterspec spec-sync release complete <version> [--series <prefix>] [--notes <file>]\n' +
-  '                    [--link [label=]<url> …] [--apply] [--json]\n'
+  '                    [--link [label=]<url> …] [--apply] [--json]\n' +
+  '       skitterspec spec-sync release pipelines [--json]\n' +
+  '       skitterspec spec-sync release link --release-pipeline <prefix>=<id> …\n' +
+  '                    [--release-env <prefix>:<env>=<stage> …] [--release-initial <prefix>=<env> …] [--json]\n'
 
 function gitIn(dir) {
   return (argv) => {
@@ -522,6 +525,219 @@ async function releaseCompleteVerb(dir, config, positional, flags, out) {
   return 0
 }
 
+// --- setup: `release pipelines` / `release link` (phase 5) --------------------
+
+// The adapter setup and doctor READ through. Unlike `releaseAdapter` this never
+// refuses: no key is an ordinary state for a repo that pushes over MCP, and
+// setup degrades to the ladder rather than failing.
+function readAdapter(config, flags) {
+  if (flags.adapter) return { adapter: flags.adapter }
+  const key = resolveApiKey(config, flags.env || process.env)
+  if (!key.ok) return { reason: 'no-key', message: key.error || 'no Linear API key' }
+  return { adapter: makeApiAdapter({ apiKey: key.key, fetch: flags.fetch }) }
+}
+
+/**
+ * `release pipelines` — the workspace's release pipelines and their stages, and
+ * which tag series each is linked to here. What `/spec-linear-setup` offers.
+ *
+ * ALWAYS EXITS 0. It answers a question for setup, and every "no" — no key,
+ * Releases off for the plan, no pipelines yet — routes setup to the ladder
+ * offer rather than failing it. `available` says which:
+ *
+ *   - `true`     pipelines were listed.
+ *   - `false`    Linear REFUSED (feature off, or a key without the scope) — a
+ *                positive signal, said in words.
+ *   - `unknown`  no key, an unreachable API, or an empty list. EMPTY IS NOT
+ *                "Releases is off": Linear answers a read with `[]` when the
+ *                feature is off (phase 1), and also when nobody made a pipeline.
+ */
+async function releasePipelinesVerb(dir, config, flags, out) {
+  const linked = new Map(releasePipelines(config).map((p) => [p.pipelineId, p.tagPrefix]))
+  const emit = (body, lines) => {
+    if (flags.json) out.write(JSON.stringify(body, null, 2) + '\n')
+    else out.write(lines.join('\n') + '\n')
+    return 0
+  }
+  const verb = 'spec-sync release pipelines'
+  const got = readAdapter(config, flags)
+  if (!got.adapter) {
+    return emit({ ok: true, available: 'unknown', reason: got.reason, message: got.message, pipelines: [] }, [
+      `${verb}: cannot list — ${got.message}`,
+      '  Releases are written over the API only; the ladder (release.stages) works without a key.',
+    ])
+  }
+  if (typeof got.adapter.releasePipelines !== 'function') {
+    return emit({ ok: true, available: 'unknown', reason: 'unsupported', pipelines: [] }, [
+      `${verb}: this transport cannot list release pipelines.`,
+    ])
+  }
+  let list
+  try {
+    list = await got.adapter.releasePipelines()
+  } catch (error) {
+    const kind = releaseRefusalKind(error)
+    if (kind) {
+      return emit({ ok: true, available: false, reason: kind, message: error.message, pipelines: [] }, [
+        `${verb}: ${describeReleaseRefusal(error).join('\n')}`,
+      ])
+    }
+    return emit({ ok: true, available: 'unknown', reason: 'unreachable', message: error.message, pipelines: [] }, [
+      `${verb}: could not reach Linear — ${error.message}`,
+    ])
+  }
+  const live = list.filter((p) => p && !p.archivedAt)
+  const pipelines = live.map((p) => ({ ...p, linkedTo: linked.get(p.id) || null }))
+  if (!pipelines.length) {
+    return emit({ ok: true, available: 'unknown', reason: 'empty', pipelines: [] }, [
+      `${verb}: Linear listed no release pipelines.`,
+      '  Create one in Linear (Settings → Releases), then re-run. If Releases is not',
+      '  on your plan, Linear answers this same empty list — the ladder still works.',
+    ])
+  }
+  const lines = [`${verb}: ${pipelines.length} pipeline(s)`]
+  for (const p of pipelines) {
+    lines.push('', `  ${p.name}  (${p.type || 'pipeline'}) ${p.id}${p.linkedTo ? `  ← ${p.linkedTo}` : ''}`)
+    lines.push(`    stages: ${p.stages.map((st) => `${st.name} [${st.type}]`).join(' → ') || '(none)'}`)
+  }
+  return emit({ ok: true, available: true, pipelines }, lines)
+}
+
+// `<prefix>=<value>`, split at the LAST `=` so a prefix may hold one; the value
+// (a UUID, an env key) never does.
+function splitPair(raw) {
+  const value = String(raw || '')
+  const at = value.lastIndexOf('=')
+  if (at <= 0 || at === value.length - 1) return null
+  return [value.slice(0, at).trim(), value.slice(at + 1).trim()]
+}
+
+/**
+ * `release link` — write `release.pipelines` into an EXISTING config.
+ *
+ * This is the post-connection path: `init-config` refuses a config that exists
+ * (re-running setup is a check, not a rewrite), and adopting Releases on a repo
+ * already syncing must not cost it its other settings. So this touches
+ * `release.pipelines` alone, replaces an entry by tag prefix, keeps the rest,
+ * and runs the loader's own merge before writing a byte.
+ *
+ * Each pipeline id and stage name is checked against Linear when a key is
+ * available — a stage Linear does not know fails the first deploy, and a
+ * deleted pipeline still resolves by id (with `archivedAt` set). Without a key
+ * it writes and says loudly that nothing was checked, exactly as `init-config`
+ * does without `--states`.
+ */
+async function releaseLink(dir, config, flags, out) {
+  const verb = 'spec-sync release link'
+  const file = path.join(dir, CONFIG_FILE)
+  let raw
+  try {
+    raw = JSON.parse(fs.readFileSync(file, 'utf-8'))
+  } catch (error) {
+    return refusal(out, flags, [`${verb}: cannot read ${CONFIG_FILE} — run /spec-linear-setup first (${error.message}).`])
+  }
+
+  const entries = new Map()
+  for (const pair of flags.releasePipelines || []) {
+    const split = splitPair(pair)
+    if (!split) return refusal(out, flags, [`${verb}: --release-pipeline ${JSON.stringify(pair)} is not <prefix>=<pipelineId>.`])
+    const [tagPrefix, pipelineId] = split
+    if (entries.has(tagPrefix)) return refusal(out, flags, [`${verb}: --release-pipeline ${tagPrefix} given twice.`])
+    entries.set(tagPrefix, { tagPrefix, pipelineId, envs: [] })
+  }
+  if (!entries.size) {
+    return refusal(out, flags, [`${verb}: nothing to link — pass --release-pipeline <prefix>=<pipelineId>.`, USAGE.trimEnd()])
+  }
+  const owner = (prefix, flag) =>
+    entries.get(prefix) || { error: [`${verb}: ${flag} names ${JSON.stringify(prefix)}, which no --release-pipeline links.`] }
+  for (const pair of flags.releaseEnvs || []) {
+    const split = splitPair(pair)
+    const colon = split ? split[0].lastIndexOf(':') : -1
+    if (!split || colon <= 0) return refusal(out, flags, [`${verb}: --release-env ${JSON.stringify(pair)} is not <prefix>:<env>=<stage>.`])
+    const entry = owner(split[0].slice(0, colon), '--release-env')
+    if (entry.error) return refusal(out, flags, entry.error)
+    entry.envs.push({ key: split[0].slice(colon + 1).trim(), stage: split[1] })
+  }
+  for (const pair of flags.releaseInitials || []) {
+    const split = splitPair(pair)
+    if (!split) return refusal(out, flags, [`${verb}: --release-initial ${JSON.stringify(pair)} is not <prefix>=<env>.`])
+    const entry = owner(split[0], '--release-initial')
+    if (entry.error) return refusal(out, flags, entry.error)
+    entry.initialEnv = split[1]
+  }
+
+  // Replace by prefix, keep every other series, in their original order.
+  const before = Array.isArray(raw.release && raw.release.pipelines) ? raw.release.pipelines : []
+  const kept = before.filter((p) => !(p && entries.has(p.tagPrefix)))
+  const pipelines = [...kept, ...entries.values()]
+  const next = { ...raw, release: { ...(raw.release || {}), pipelines } }
+  try {
+    mergeConfig(configDefaults(), next)
+  } catch (error) {
+    return refusal(out, flags, [`${verb}: refusing — ${error.message}`])
+  }
+
+  // Against Linear, when we can ask. Each id is READ, never looked for in a
+  // listing, so a miss is Linear's answer rather than a short page.
+  let validated = false
+  let why = null
+  const got = readAdapter(config, flags)
+  if (got.adapter && typeof got.adapter.releasePipelineRead === 'function') {
+    const problems = []
+    try {
+      for (const entry of entries.values()) {
+        const found = await got.adapter.releasePipelineRead(entry.pipelineId)
+        if (!found) {
+          problems.push(`  ${entry.tagPrefix}: no pipeline ${entry.pipelineId} in this workspace`)
+          continue
+        }
+        if (found.archivedAt) {
+          problems.push(`  ${entry.tagPrefix}: pipeline "${found.name}" was deleted (${found.archivedAt})`)
+          continue
+        }
+        const names = new Map(found.stages.map((st) => [st.name.toLowerCase().trim(), st.name]))
+        for (const env of entry.envs) {
+          if (!names.has(env.stage.toLowerCase().trim())) {
+            problems.push(
+              `  ${entry.tagPrefix}:${env.key} → "${env.stage}" is not a stage of "${found.name}"` +
+                ` (stages: ${found.stages.map((st) => st.name).join(', ') || 'none'})`,
+            )
+          }
+        }
+      }
+    } catch (error) {
+      const kind = releaseRefusalKind(error)
+      if (kind) return refusal(out, flags, [`${verb}: Linear refused — ${describeReleaseRefusal(error).join('\n')}`])
+      // Unreachable: nothing was checked, which is not the same as wrong.
+      why = `could not reach Linear (${error.message})`
+    }
+    if (problems.length) {
+      return refusal(out, flags, [`${verb}: refusing — not what Linear holds:`, ...problems], { problems })
+    }
+    if (!why) validated = true
+  } else {
+    why = got.message || 'this transport cannot read pipelines'
+  }
+
+  fs.writeFileSync(file, JSON.stringify(next, null, 2) + '\n', 'utf-8')
+
+  const ladder = releaseStages(mergeConfig(configDefaults(), next)).length > 0
+  if (flags.json) {
+    out.write(JSON.stringify({ ok: true, file: CONFIG_FILE, linked: [...entries.values()], validated, unvalidatedWhy: why, ladderAlsoSet: ladder }, null, 2) + '\n')
+    return 0
+  }
+  const lines = [`${verb}: wrote release.pipelines in ${CONFIG_FILE}`]
+  for (const entry of entries.values()) {
+    const envs = entry.envs.map((e) => `${e.key}="${e.stage}"`).join(', ') || '(no envs)'
+    lines.push(`  ${entry.tagPrefix} → ${entry.pipelineId}  ${envs}${entry.initialEnv ? `  initial: ${entry.initialEnv}` : ''}`)
+  }
+  if (kept.length) lines.push(`  kept ${kept.length} other series: ${kept.map((p) => p.tagPrefix).join(', ')}`)
+  lines.push(validated ? '  checked against Linear — pipelines and stages all present' : `  NOT checked against Linear — ${why}`)
+  if (ladder) lines.push('  note: release.stages (the ladder) is also set — `spec-sync stage` still uses it')
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
 async function specSyncRelease(dir, config, positional, flags, out, deps) {
   const [verb, ...rest] = positional
   switch (verb) {
@@ -531,10 +747,14 @@ async function specSyncRelease(dir, config, positional, flags, out, deps) {
       return releaseDeployed(dir, config, rest, flags, out)
     case 'complete':
       return releaseCompleteVerb(dir, config, rest, flags, out)
+    case 'pipelines':
+      return releasePipelinesVerb(dir, config, flags, out)
+    case 'link':
+      return releaseLink(dir, config, flags, out)
     default:
       out.write(USAGE)
       return verb ? 1 : 0
   }
 }
 
-module.exports = { specSyncRelease, parseLink, previousTag, refShas, resolveTarget, USAGE }
+module.exports = { specSyncRelease, parseLink, previousTag, refShas, resolveTarget, splitPair, USAGE }

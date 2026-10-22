@@ -1,13 +1,68 @@
 # Wiring a deploy pipeline to Linear
 
-How a CI/CD pipeline moves a release's tickets along the ladder declared in
-`linear.config.json` → `release.stages`. Read `linear.config.md` → "The
-deployment ladder" first for the config itself; this page is the pipeline half.
+How a CI/CD pipeline tells Linear what it released and where it is running.
+There are two ways, and a project uses one:
 
-Nothing here applies until a ladder is declared. Without one, `spec-sync stage`
+- **Linear Releases** (`release.pipelines`) — preferred where the workspace has
+  it. CI creates a release per tag, and moves the release, not the tickets.
+- **The ladder** (`release.stages`) — the fallback. CI moves the tickets
+  themselves through issue states.
+
+Read `linear.config.md` for the config of either; this page is the pipeline half.
+
+## Linear Releases
+
+Three verbs, each a dry run unless `--apply`:
+
+```sh
+# On tag push: create the release and attach the tickets it contains
+skitterspec spec-sync release create <tag> --apply [--env <key>] [--notes <file>] [--link [label=]<url> …]
+
+# After each deploy: move the release to that env's stage
+skitterspec spec-sync release deployed <version> <env> --apply
+
+# When it is finished: complete it (a no-op if it already is)
+skitterspec spec-sync release complete <version> --apply [--notes <file>] [--link …]
+```
+
+- **The range is the series' own**: the previous tag with the same prefix up to
+  this one. `--from <ref>` overrides it. A tag no pipeline claims exits 0 with
+  "not a tracked series", so a workflow that runs on every tag is safe.
+- **`<version>` may be the full tag** (`app@1.2.0`). A bare version is refused
+  when more than one pipeline is declared, unless `--series <prefix>` names it.
+- **A ref Linear silently drops** (an issue it cannot find) is named as a
+  WARNING. Linear itself answers `success` either way.
+- **Full history is required** (`fetch-depth: 0`). On a shallow clone with no
+  earlier tag visible, `create` refuses rather than guess the range.
+
+### GitHub Actions
+
+```yaml
+on:
+  push:
+    tags: ['app@*']
+
+jobs:
+  linear-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: npx skitterspec spec-sync release create "${GITHUB_REF_NAME}" --apply
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+```
+
+Add `release deployed <version> <env> --apply` to each deploy job, and
+`release complete` to whatever step finishes a release.
+
+## The ladder (fallback)
+
+Nothing below applies until a ladder is declared. Without one, `spec-sync stage`
 refuses and every other command behaves as it always has.
 
-## The model
+### The model
 
 A spec's lifecycle ends at `complete`. Everything after that is a fact about an
 **environment**, which no folder under `specs/` can derive — so the repo hands
@@ -23,7 +78,7 @@ Once a spec is complete, pushes stop re-asserting its workflow state, so the
 pipeline is the only writer. Editing a finished spec's prose still updates the
 mirror's description; it will not drag the ticket back out of the pipeline.
 
-## What a stage step runs
+### What a stage step runs
 
 ```sh
 skitterspec spec-sync stage <key> <previous-tag>..<this-tag> --apply
@@ -44,7 +99,7 @@ The tickets come from `Refs:` trailers on the commits in the range (see the
 `commit-trailers` rule). A commit with no trailer is counted and reported, never
 guessed at.
 
-## Setup
+### Setup
 
 1. **A ladder in `linear.config.json`** — via `/spec-linear-setup`, or
    `spec-sync init-config --stage test="On Test" --stage prod="Done"`.
@@ -61,7 +116,7 @@ guessed at.
    ladder's rungs against the workspace and warns if the last rung never closes
    an issue.
 
-### Azure Pipelines
+#### Azure Pipelines
 
 ```yaml
 - task: Bash@3
@@ -79,7 +134,7 @@ Repeat per environment with a different `<key>`: a post-deploy step on the test
 stage runs `stage test`, the demo approval gate runs `stage demo`, the production
 deploy runs `stage prod`.
 
-## Why not call the API directly
+### Why not call the API directly
 
 A hand-rolled `curl` to Linear's GraphQL endpoint loses three things this command
 has, and the loss is silent in all three cases:
@@ -93,7 +148,7 @@ has, and the loss is silent in all three cases:
 - **Retries and error classification.** The adapter retries transient failures;
   a bare `curl` reports a 500 as success if you forget to check.
 
-## What it will not move, and why
+### What it will not move, and why
 
 Every skipped ref is named in the output with its reason — a silent exclusion and
 a successful move look identical in a pipeline log.

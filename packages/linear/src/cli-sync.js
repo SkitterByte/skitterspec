@@ -65,10 +65,11 @@ const {
   CONFIG_FILE,
   LIFECYCLE_BUCKETS,
   releaseStages,
+  releasePipelines,
   releaseIgnorePaths,
   stageFor,
 } = require('./config.js')
-const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
+const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates, releaseRefusalKind } = require('./api.js')
 const { runChecks } = require('./doctor.js')
 const { specSyncRelease } = require('./cli-release.js')
 const {
@@ -708,6 +709,7 @@ async function specSyncDoctor(dir, flags, out) {
   }
   if (flags.remoteCheck) state.remote = await checkRemote(state, flags)
   if (state.remote && state.remote.issueStates) state.ladder.workspaceStates = state.remote.issueStates
+  if (state.remote && state.remote.releases) state.releases.remote = state.remote.releases
 
   const report = runChecks(state)
 
@@ -830,7 +832,30 @@ async function checkRemote(state, flags) {
     }
   }
 
-  return { checked: true, ok: true, teamKey: team.key, teamId: team.id, organization, recordedKey: state.tracker.teamKey, project, issueStates }
+  // Release pipelines, each READ by id — never searched for in a listing, since
+  // a workspace without Releases answers a listing with `[]` (phase 1).
+  let releases = null
+  const declared = releasePipelines(state._config)
+  if (declared.length && typeof adapter.releasePipelineRead === 'function') {
+    try {
+      const pipelines = []
+      for (const p of declared) {
+        const found = await adapter.releasePipelineRead(p.pipelineId)
+        pipelines.push(
+          found
+            ? { pipelineId: p.pipelineId, found: true, name: found.name, archivedAt: found.archivedAt, stages: found.stages }
+            : { pipelineId: p.pipelineId, found: false },
+        )
+      }
+      releases = { pipelines }
+    } catch (error) {
+      // A refusal is an answer; anything else left them unexamined.
+      const kind = releaseRefusalKind(error)
+      releases = kind ? { refused: kind } : null
+    }
+  }
+
+  return { checked: true, ok: true, teamKey: team.key, teamId: team.id, organization, recordedKey: state.tracker.teamKey, project, issueStates, releases }
 }
 
 /**
@@ -973,6 +998,8 @@ function gatherState(dir, flags) {
   // Declared here, checked only if `--check-remote` fetches the state TYPES the
   // shape check needs (see `ladderCheck`). Offline, the row stays `skipped`.
   state.ladder = { stages: releaseStages(config) }
+  // Same split for Releases: declared here, read only by `--check-remote`.
+  state.releases = { pipelines: releasePipelines(config), ladder: releaseStages(config).length > 0 }
   return state
 }
 
@@ -3672,7 +3699,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false, text: null, links: [] }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false, text: null, links: [], releasePipelines: [], releaseEnvs: [], releaseInitials: [] }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -3760,6 +3787,9 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--notes') flags.notesFile = String(args[++i] || '').trim()
     else if (args[i] === '--link') flags.links.push(String(args[++i] || '').trim())
     else if (args[i] === '--series') flags.series = String(args[++i] || '').trim()
+    else if (args[i] === '--release-pipeline') flags.releasePipelines.push(String(args[++i] || '').trim())
+    else if (args[i] === '--release-env') flags.releaseEnvs.push(String(args[++i] || '').trim())
+    else if (args[i] === '--release-initial') flags.releaseInitials.push(String(args[++i] || '').trim())
     else if (args[i].startsWith('--')) unknownFlags.push(args[i])
     else positional.push(args[i])
   }
@@ -3901,6 +3931,9 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync release deployed <version> <env> [--series <prefix>] [--apply] [--json]\n' +
         '       skitterspec spec-sync release complete <version> [--series <prefix>] [--notes <file>]\n' +
         '                    [--link [label=]<url> …] [--apply] [--json]\n' +
+        '       skitterspec spec-sync release pipelines [--json]\n' +
+        '       skitterspec spec-sync release link --release-pipeline <prefix>=<id> …\n' +
+        '                    [--release-env <prefix>:<env>=<stage> …] [--release-initial <prefix>=<env> …] [--json]\n' +
         '       skitterspec spec-sync reattach <spec> [--to <ISSUE-REF>] [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
         '       skitterspec spec-sync doctor [--check-remote] [--mcp <file>] [--json]\n' +

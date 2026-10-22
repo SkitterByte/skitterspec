@@ -187,7 +187,7 @@ test('--json parses, carries every row, and leaks no key', async () => {
   const r = await run(['doctor', '--json'], configuredRepo(), { LINEAR_API_KEY: SECRET })
   const got = JSON.parse(r.out)
   assert.strictEqual(got.ok, true)
-  assert.deepEqual(got.checks.map((c) => c.id), ['scaffold', 'isolation', 'tracker', 'project', 'key', 'identity', 'remote', 'ladder', 'mcp'])
+  assert.deepEqual(got.checks.map((c) => c.id), ['scaffold', 'isolation', 'tracker', 'project', 'key', 'identity', 'remote', 'ladder', 'releases', 'mcp'])
   assert.ok(!r.out.includes(SECRET), 'not in the machine payload either')
 })
 
@@ -562,4 +562,51 @@ test('an --mcp file that is a JSON array is refused with the shape it wants', as
   const r = await run(['doctor', '--mcp', file], dir)
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /workspace \/ team \/ project/)
+})
+
+// --- releases (feat-tracker-releases phase 5) --------------------------------
+
+test('--check-remote reads each declared pipeline by id, and a deleted one is broken', async () => {
+  const dir = configuredRepo({
+    trackerJson: JSON.stringify({
+      linear: { teamId: 'T1', teamKey: 'SKS' },
+      release: { pipelines: [{ tagPrefix: 'app@', pipelineId: 'p1', envs: [{ key: 'staged', stage: 'Staged' }] }] },
+    }),
+  })
+  const read = []
+  const adapter = (archivedAt) => ({
+    async readTeam(id) {
+      return { id, key: 'SKS' }
+    },
+    async releasePipelineRead(id) {
+      read.push(id)
+      return { id, name: 'App', archivedAt, stages: [{ name: 'Staged', type: 'started' }] }
+    },
+  })
+  const ok = await run(['doctor', '--check-remote', '--json'], dir, { LINEAR_API_KEY: SECRET }, { adapter: adapter(null) })
+  const row = JSON.parse(ok.out).checks.find((c) => c.id === 'releases')
+  assert.strictEqual(row.state, 'ok')
+  assert.deepStrictEqual(read, ['p1'])
+
+  const gone = await run(['doctor', '--check-remote', '--json'], dir, { LINEAR_API_KEY: SECRET }, { adapter: adapter('2026-10-21T00:00:00Z') })
+  assert.strictEqual(JSON.parse(gone.out).checks.find((c) => c.id === 'releases').state, 'broken')
+  assert.strictEqual(gone.code, 1)
+})
+
+// STAYS SILENT: a transport failure on the pipeline read leaves it unexamined.
+test('--check-remote: a pipeline read that never answers is skipped, not broken', async () => {
+  const dir = configuredRepo({
+    trackerJson: JSON.stringify({ linear: { teamId: 'T1', teamKey: 'SKS' }, release: { pipelines: [{ tagPrefix: 'app@', pipelineId: 'p1' }] } }),
+  })
+  const adapter = {
+    async readTeam(id) {
+      return { id, key: 'SKS' }
+    },
+    async releasePipelineRead() {
+      throw new Error('fetch failed')
+    },
+  }
+  const r = await run(['doctor', '--check-remote', '--json'], dir, { LINEAR_API_KEY: SECRET }, { adapter })
+  assert.strictEqual(JSON.parse(r.out).checks.find((c) => c.id === 'releases').state, 'skipped')
+  assert.strictEqual(r.code, 0)
 })

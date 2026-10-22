@@ -57,6 +57,7 @@ function runChecks(state = {}) {
     identityCheck(state.identity, state.tracker),
     remoteCheck(state.remote),
     ladderCheck(state.ladder, state.tracker),
+    releasesCheck(state.releases, state.tracker),
     mcpCheck(state.mcp, state.tracker, state.project, state.remote),
   ]
   return combineDoctorChecks(checks)
@@ -121,6 +122,74 @@ function ladderCheck(s = {}, tracker = {}) {
     )
   }
   return row('ladder', 'ladder', 'ok', `${stages.length} rung(s): ${summary}`)
+}
+
+/**
+ * Linear Releases wiring (`release.pipelines`), when declared.
+ *
+ * `s.pipelines` is the config; `s.remote` is what `--check-remote` read, one
+ * entry per pipeline id — `{ found, archivedAt, name, stages }` — or
+ * `{ refused: 'unavailable'|'scope' }`, or absent when nothing was asked.
+ *
+ * WHAT COULD FOOL THIS CHECK:
+ *   - A DELETED pipeline still resolves by id. So "found" alone proves nothing;
+ *     `archivedAt` is the positive signal, and it is what makes `broken` here.
+ *   - An unreachable API, or no key, reads nothing. That is `skipped`, never an
+ *     accusation — the same rule `remoteCheck` follows.
+ *   - Write permission is NOT checked: only a write would prove it, and doctor
+ *     writes nothing. The detail says so rather than implying it.
+ */
+function releasesCheck(s = {}, tracker = {}) {
+  if (!tracker.present) return row('releases', 'releases', 'skipped', 'no tracker configured')
+  const pipelines = Array.isArray(s.pipelines) ? s.pipelines : []
+  if (!pipelines.length) return row('releases', 'releases', 'skipped', 'no release pipelines declared')
+  const summary = pipelines.map((p) => p.tagPrefix).join(', ')
+
+  const remote = s.remote
+  if (remote && remote.refused) {
+    const why =
+      remote.refused === 'unavailable'
+        ? 'Linear Releases is not available to this workspace (plan or feature toggle)'
+        : 'the key lacks the permission to read releases'
+    return row('releases', 'releases', 'broken', `${pipelines.length} pipeline(s) declared, but ${why}`, '/spec-linear-setup')
+  }
+  if (!remote || !Array.isArray(remote.pipelines)) {
+    return row('releases', 'releases', 'skipped', `${pipelines.length} pipeline(s), unchecked: ${summary}`)
+  }
+
+  const byId = new Map(remote.pipelines.map((r) => [r.pipelineId, r]))
+  const problems = []
+  for (const p of pipelines) {
+    const r = byId.get(p.pipelineId)
+    if (!r) continue // not read (the lookup failed for it) — unexamined, not wrong
+    if (!r.found) {
+      problems.push(`${p.tagPrefix} → no pipeline ${p.pipelineId}`)
+      continue
+    }
+    if (r.archivedAt) {
+      problems.push(`${p.tagPrefix} → pipeline "${r.name}" was deleted`)
+      continue
+    }
+    const names = new Set((r.stages || []).map((st) => String(st.name).toLowerCase().trim()))
+    for (const env of p.envs || []) {
+      if (!names.has(String(env.stage).toLowerCase().trim())) {
+        problems.push(`${p.tagPrefix}:${env.key} → "${env.stage}" is not a stage of "${r.name}"`)
+      }
+    }
+  }
+  if (problems.length) {
+    return row('releases', 'releases', 'broken', `${problems.join('; ')} — a release or deploy would fail`, '/spec-linear-setup')
+  }
+  if (s.ladder) {
+    return row(
+      'releases',
+      'releases',
+      'warn',
+      `${summary} linked to Linear Releases, and a ladder (release.stages) is also declared — ` +
+        'CI should report deploys with one of them, not both',
+    )
+  }
+  return row('releases', 'releases', 'ok', `${summary} — pipelines and stages present (write permission not checked)`)
 }
 
 function scaffoldCheck(s = {}) {

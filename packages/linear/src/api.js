@@ -290,6 +290,36 @@ function releaseFrom(node) {
   }
 }
 
+// A release pipeline and its stages, for setup's listing and doctor's check.
+// `archivedAt` is load-bearing: a DELETED pipeline still resolves by id (with
+// no stages), so "it resolved" alone would pass a pipeline nobody can release
+// into (observed live, phase 5).
+const PIPELINE_FIELDS = `id name slugId type archivedAt
+  stages(first: 25) { nodes { name type position } }`
+
+// Linear's stage types in lifecycle order. `position` is 0 on every stage of a
+// fresh pipeline (phase 1), so it only breaks ties within a type.
+const STAGE_TYPE_ORDER = ['planned', 'started', 'completed', 'canceled']
+
+function pipelineFrom(node) {
+  if (!node) return null
+  const rank = (t) => {
+    const i = STAGE_TYPE_ORDER.indexOf(t)
+    return i < 0 ? STAGE_TYPE_ORDER.length : i
+  }
+  const stages = ((node.stages && node.stages.nodes) || [])
+    .map((st) => ({ name: st.name, type: st.type, position: st.position }))
+    .sort((a, b) => rank(a.type) - rank(b.type) || (a.position || 0) - (b.position || 0))
+  return {
+    id: node.id,
+    name: node.name,
+    slugId: node.slugId || null,
+    type: node.type || null,
+    archivedAt: node.archivedAt || null,
+    stages,
+  }
+}
+
 /**
  * What a refusal from a release op MEANS, so callers can say it in words.
  *
@@ -580,6 +610,25 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
         { i: { pipelineId, version, stage } },
       )
       return releaseFrom(data && data.releaseUpdateByPipeline && data.releaseUpdateByPipeline.release)
+    },
+    // Every live pipeline, for setup to offer. NOT a release op — `releaseSupport`
+    // does not require it — and an EMPTY answer is cannot-tell: a workspace
+    // without Releases answers reads with `[]` rather than refusing (phase 1).
+    async releasePipelines() {
+      const data = await call(`{ releasePipelines(first: 50) { nodes { ${PIPELINE_FIELDS} } } }`)
+      return ((data && data.releasePipelines && data.releasePipelines.nodes) || []).map(pipelineFrom)
+    },
+    // One pipeline by id, or null when Linear says it does not exist. Asked by
+    // id rather than found in the listing, so a miss is an answer, not a page
+    // that was too short. An archived pipeline comes back WITH `archivedAt`.
+    async releasePipelineRead(id) {
+      try {
+        const data = await call(`query($id: String!) { releasePipeline(id: $id) { ${PIPELINE_FIELDS} } }`, { id })
+        return pipelineFrom(data && data.releasePipeline)
+      } catch (error) {
+        if (/Entity not found/i.test(String(error && error.message))) return null
+        throw error
+      }
     },
     // Idempotent: completing twice keeps the first `completedAt` (phase 1).
     async releaseComplete({ pipelineId, version, links = [], notes = null }) {

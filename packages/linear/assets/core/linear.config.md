@@ -90,13 +90,16 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push|none` is a hard 
     "overviewFile": "00-overview.md"
   },
 
-  // The project's OWN deployment ladder — where a ticket goes AFTER its spec is
-  // complete. Empty (the default) means no ladder is declared and every
-  // stage-aware path is unused. See "The deployment ladder" below.
+  // Where a release goes after it is cut. `pipelines` links each tag series to
+  // a Linear Releases pipeline (preferred — see "Linear Releases" below);
+  // `stages` is the issue-state ladder, the fallback for a workspace without
+  // Releases. Both empty (the default) means neither is used.
   //
-  // `ignorePaths` is what `released`/`stage` treat as BOOKKEEPING rather than
-  // shipped work — see "Bookkeeping commits" below. `[]` opts out.
+  // `ignorePaths` is what `released`/`stage`/`release create` treat as
+  // BOOKKEEPING rather than shipped work — see "Bookkeeping commits" below.
+  // `[]` opts out.
   "release": {
+    "pipelines": [],
     "stages": [],
     "ignorePaths": ["specs/"]
   },
@@ -201,7 +204,56 @@ reusing the identity above rather than a second copy of it. It writes nothing,
 and it says what it did not show — the count, the archived exclusion, and any
 cap — rather than implying a completeness it never checked.
 
+## Linear Releases (`release.pipelines`)
+
+Where the workspace has **Linear Releases**, a release is a first-class object:
+CI creates one per tag, attaches the tickets it contains, and moves it through
+the pipeline's stages as it deploys. Tickets keep their own workflow state, and
+the release says where the code is running.
+
+```jsonc
+"release": {
+  "pipelines": [
+    {
+      "tagPrefix": "skitterspec@",
+      "pipelineId": "<Linear release pipeline id>",
+      "envs": [
+        { "key": "staged", "stage": "Staged" },
+        { "key": "published", "stage": "Released" }
+      ],
+      "initialEnv": "staged"
+    }
+  ]
+}
+```
+
+- **`tagPrefix`** is the tag series this pipeline releases: a tag that starts
+  with it is a release, and everything after the prefix is its version. A
+  monorepo declares one entry per series. Prefixes may not overlap.
+- **`pipelineId`** is the Linear pipeline. Create pipelines in Linear's UI;
+  `/spec-linear-setup` lists them and links them here (`spec-sync release link`).
+- **`envs`** are the host's deploy targets in deploy order. The **`key`** is what
+  CI names (`release deployed 1.2.0 prod`); the **`stage`** is the Linear stage
+  name, matched case-insensitively as Linear matches it.
+- **`initialEnv`** is the stage a new release lands on. Without it Linear picks
+  the pipeline's first started stage, which is rarely what you meant.
+- **What a release contains is decided here, not by Linear**: the `Refs:`
+  trailers between the previous tag in the series and this one, partitioned the
+  same way `spec-sync stage` partitions them. Another team's refs and refs no
+  spec claims are named and left out.
+- **Releases are API-only.** `--apply` needs a key (`auth.keyEnv`); the dry run
+  needs none.
+
+`spec-sync doctor --check-remote` reads each pipeline by id and checks its stage
+names. A deleted pipeline still resolves by id, so doctor checks for that
+explicitly. It warns when a ladder is declared as well, since CI should report
+deploys through one of them. `ci-stages.md` covers the pipeline side.
+
 ## The deployment ladder (`release.stages`)
+
+**The fallback**, for a workspace without Linear Releases: CI moves the tickets
+themselves through issue states, and no release object exists.
+
 
 A spec's lifecycle stops at `complete`. Where a ticket goes **after** that —
 deployed to test, approved for demo, live in prod — is a fact about an

@@ -142,3 +142,27 @@ test('a refusal is classified as unavailable, scope, or nothing at all', () => {
   assert.strictEqual(releaseRefusalKind(new Error(`Linear API error: ${fx.errors.unknownStage}`)), null)
   assert.strictEqual(releaseRefusalKind(null), null)
 })
+
+// --- pipelines (phase 5) -------------------------------------------------------
+
+test('releasePipelines lists pipelines with stages in lifecycle order', async () => {
+  const fetch = fakeFetch({ data: { releasePipelines: { nodes: [fx.pipelineCreate.releasePipelineCreate.releasePipeline] } } })
+  const [p] = await adapterWith(fetch).releasePipelines()
+  assert.strictEqual(p.id, 'edbe61d7-d842-4f0b-9c65-7679ad26114f')
+  assert.strictEqual(p.archivedAt, null)
+  // Every position is 0 on a fresh pipeline, so the type orders them.
+  assert.deepStrictEqual(p.stages.map((st) => st.name), ['Planned', 'In Progress', 'Released', 'Canceled'])
+})
+
+test('releasePipelineRead carries archivedAt, and "Entity not found" is null', async () => {
+  // A deleted pipeline still resolves by id — observed live in phase 5.
+  const archived = { id: 'p', name: 'gone', type: 'scheduled', archivedAt: '2026-10-21T15:37:32.816Z', stages: { nodes: [] } }
+  const read = await adapterWith(fakeFetch({ data: { releasePipeline: archived } })).releasePipelineRead('p')
+  assert.strictEqual(read.archivedAt, '2026-10-21T15:37:32.816Z')
+
+  const missing = adapterWith(fakeFetch({ errors: [{ message: 'Entity not found: ReleasePipeline' }] }))
+  assert.strictEqual(await missing.releasePipelineRead('x'), null)
+
+  const other = adapterWith(fakeFetch({ errors: [{ message: "Not allowed to access feature 'releaseManagement'" }] }))
+  await assert.rejects(other.releasePipelineRead('x'), /releaseManagement/)
+})

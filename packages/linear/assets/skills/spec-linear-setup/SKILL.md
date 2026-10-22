@@ -34,6 +34,14 @@ Read `specs/.core/linear.config.json`.
   intake label that's gone). That is the most useful thing a re-run can do. Only
   write when the user asks for it, and then pass `--force`.
 
+  **Then offer Releases alone, when it is not set up yet.** A repo connected
+  before Linear Releases existed, or before the workspace had it, has no
+  `release.pipelines`. Offer exactly that step, in one line, and on a yes run
+  **step 7a and step 8a only**. Do not run the rest of the interview, and do not
+  pass `--force` anywhere: `release link` edits that one key of the existing
+  config and leaves the rest alone. This is how a repo adopts Releases after it
+  was connected.
+
 Then confirm MCP is reachable by making the first discovery call in step 2.
 **Degrade, never block:** if Linear isn't connected or the tools are missing, say
 so in one line — *"Linear MCP not connected — can't discover the workspace"* —
@@ -147,7 +155,43 @@ never apply one they didn't agree to), and re-run with the `--state` flags. If i
 made no suggestion for a bucket, **ask** which state means "finished" here rather
 than guessing.
 
+## 7a. Does this repo cut releases? Linear Releases (optional)
+
+**Prefer this to the ladder in step 7** where the workspace has Linear Releases.
+CI creates a release per tag, attaches the tickets it contains, and moves the
+release through its stages as it deploys, so no ticket is dragged between
+columns.
+
+```
+skitterspec spec-sync release pipelines --json
+```
+
+Route on `available`:
+
+- **`true`** — offer the listed pipelines. Pipelines are **created in Linear's UI**,
+  never by setup. For each tag series this repo releases (ask; a monorepo
+  has one per package, e.g. `app@` and `lib@`), settle:
+  - which pipeline it files into;
+  - its envs **in deploy order**, each an env key the host's CI uses mapped to
+    one of that pipeline's stage names as listed. Ask for the key, offer the
+    stages, and never invent either;
+  - `initialEnv`, the env a new release lands on. Without it Linear picks the
+    first started stage.
+- **`false`** — Linear refused (plan or permission). Relay its line, and offer
+  the ladder (step 7) instead.
+- **`unknown`** — no key, unreachable, or **an empty list**. An empty list is
+  cannot-tell: Linear answers `[]` both when Releases is off and when nobody
+  has made a pipeline yet. Say both readings in one line, then offer the ladder.
+  Releases can be adopted later by re-running this skill.
+
+**Never fail setup over this step.** Every answer except `true` degrades to the
+ladder offer.
+
 ## 7. Does this repo deploy through stages? (optional)
+
+**The fallback to step 7a**: offer it when Releases is unavailable or declined,
+and not alongside a linked pipeline. Doctor warns when both are declared.
+
 
 A spec's lifecycle ends at `complete`. Where a ticket goes **after** that —
 deployed to test, approved for demo, live in production — is a fact about an
@@ -236,6 +280,40 @@ project's own, so ask rather than guess.
 "team only"), the intake labels, and how many state names were checked against
 the workspace — that report is the evidence the setup is right, so don't
 paraphrase it into "done".
+
+## 8a. Link the release pipelines, then offer the CI step
+
+**Only when step 7a settled at least one pipeline.** `init-config` has written
+the config by now, or one already existed, so this edits it:
+
+```
+skitterspec spec-sync release link \
+  --release-pipeline <prefix>=<pipelineId> \
+  [--release-env <prefix>:<env>=<stage> …] [--release-initial <prefix>=<env>] [--json]
+```
+
+It writes `release.pipelines` alone, replacing an entry for the same prefix and
+keeping everything else. When a key is available it checks each pipeline and
+stage name against Linear first, and refuses a deleted pipeline or a stage the
+pipeline lacks. Relay its report as printed, **including a "NOT checked" line**.
+
+**Then offer the CI step. Never write it unasked.** Find the workflow that runs
+on a tag push (`.github/workflows/*.yml` with `on: push: tags`, or the
+project's equivalent). Show the change as a diff: one step after checkout
+that runs `release create` on the pushed tag, shaped as the GitHub Actions
+example in `ci-stages.md`, with the env var `auth.keyEnv` names (default
+`LINEAR_API_KEY`) mapped from a CI secret. Also check
+that the checkout uses `fetch-depth: 0`, since `release create` refuses a
+shallow range. Write the change **only on a yes**. A file that matches nothing
+here gets the snippet and `ci-stages.md` pointed at, not a guessed edit.
+
+**Name the secret; never set it.** The user adds `LINEAR_API_KEY` to the CI
+provider's secrets themselves. The same rule as step 9: a key never passes
+through this conversation.
+
+`release deployed` and `release complete` belong in the host's own deploy
+jobs. Name them and point at `ci-stages.md`, rather than editing pipelines this
+skill cannot see the whole of.
 
 ## 8b. Let `/spec-start` commit the snapshot with its spec
 
@@ -330,6 +408,9 @@ be logged — moving where a key is stored is pointless if it travels through th
 conversation to get there. Your job is to confirm the setup is ready and name
 the command; the value is theirs alone. The key is optional: without one,
 pushes go over MCP.
+
+A `releases` row from `doctor --check-remote` covers the pipelines step 8a
+linked. Relay it like any other row.
 
 Mention what setup did **not** configure, so the defaults aren't mistaken for
 decisions: phase mapping (`mapping.phases` — sub-issue per phase by default) and

@@ -503,3 +503,157 @@ test('a Linear refusal on deployed is relayed in words', async () => {
   assert.strictEqual(got.code, 1)
   assert.match(got.out, /Linear Releases is not available to this workspace/)
 })
+
+// --- release pipelines / release link (phase 5) --------------------------------
+
+const LIVE = [
+  { id: 'p-core', name: 'Core', type: 'scheduled', archivedAt: null, stages: [{ name: 'In Progress', type: 'started' }, { name: 'Staged', type: 'started' }, { name: 'Released', type: 'completed' }] },
+  { id: 'p-old', name: 'Old', type: 'scheduled', archivedAt: '2026-10-21T00:00:00Z', stages: [] },
+]
+function pipelineReader({ list = LIVE, refuse = null, unreachable = false } = {}) {
+  return {
+    ...fakeLinear(),
+    async releasePipelines() {
+      if (refuse) throw new Error(refuse)
+      if (unreachable) throw new Error('fetch failed')
+      return list
+    },
+    async releasePipelineRead(id) {
+      if (refuse) throw new Error(refuse)
+      if (unreachable) throw new Error('fetch failed')
+      return list.find((p) => p.id === id) || null
+    },
+  }
+}
+const readConfig = (dir) => JSON.parse(fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8'))
+
+test('pipelines lists live pipelines, drops deleted ones, and marks what is linked', async () => {
+  const r = repo()
+  const got = await json(['release', 'pipelines'], r.dir, { adapter: pipelineReader() })
+  assert.strictEqual(got.code, 0)
+  assert.strictEqual(got.body.available, true)
+  assert.deepStrictEqual(got.body.pipelines.map((p) => p.id), ['p-core'])
+  assert.strictEqual(got.body.pipelines[0].linkedTo, 'skitterspec@')
+})
+
+// CANNOT TELL: Linear answers `[]` when Releases is off AND when nobody made a
+// pipeline, so empty is `unknown` — and it never fails setup.
+test('pipelines: an empty list is unknown, not unavailable, and exits 0', async () => {
+  const r = repo()
+  const got = await json(['release', 'pipelines'], r.dir, { adapter: pipelineReader({ list: [] }) })
+  assert.strictEqual(got.code, 0)
+  assert.strictEqual(got.body.available, 'unknown')
+  assert.strictEqual(got.body.reason, 'empty')
+})
+
+test('pipelines: a refusal is unavailable, and no key is unknown — both exit 0', async () => {
+  const r = repo()
+  const off = await json(['release', 'pipelines'], r.dir, {
+    adapter: pipelineReader({ refuse: "Linear API error: Not allowed to access feature 'releaseManagement'" }),
+  })
+  assert.strictEqual(off.code, 0)
+  assert.strictEqual(off.body.available, false)
+  assert.strictEqual(off.body.reason, 'unavailable')
+
+  const nokey = await json(['release', 'pipelines'], r.dir, { env: {} })
+  assert.strictEqual(nokey.code, 0)
+  assert.strictEqual(nokey.body.available, 'unknown')
+  assert.strictEqual(nokey.body.reason, 'no-key')
+})
+
+test('link writes release.pipelines into an existing config and keeps the rest', async () => {
+  const r = repo({ pipelines: [{ tagPrefix: 'skitterspec-linear@', pipelineId: 'p-linear' }] })
+  const got = await run(
+    [
+      'release', 'link',
+      '--release-pipeline', 'skitterspec@=p-core',
+      '--release-env', 'skitterspec@:staged=Staged',
+      '--release-env', 'skitterspec@:published=released',
+      '--release-initial', 'skitterspec@=staged',
+    ],
+    r.dir,
+    { adapter: pipelineReader() },
+  )
+  assert.strictEqual(got.code, 0, got.out)
+  assert.match(got.out, /checked against Linear — pipelines and stages all present/)
+  assert.match(got.out, /kept 1 other series: skitterspec-linear@/)
+  const written = readConfig(r.dir)
+  assert.deepStrictEqual(written.linear, { teamId: 'T1', teamKey: 'SKS' })
+  assert.deepStrictEqual(written.release.pipelines, [
+    { tagPrefix: 'skitterspec-linear@', pipelineId: 'p-linear' },
+    {
+      tagPrefix: 'skitterspec@',
+      pipelineId: 'p-core',
+      envs: [
+        { key: 'staged', stage: 'Staged' },
+        { key: 'published', stage: 'released' },
+      ],
+      initialEnv: 'staged',
+    },
+  ])
+})
+
+test('link replaces an entry for the same series rather than duplicating it', async () => {
+  const r = repo()
+  const got = await run(['release', 'link', '--release-pipeline', 'skitterspec@=p-core'], r.dir, { adapter: pipelineReader() })
+  assert.strictEqual(got.code, 0, got.out)
+  assert.deepStrictEqual(readConfig(r.dir).release.pipelines, [{ tagPrefix: 'skitterspec@', pipelineId: 'p-core', envs: [] }])
+})
+
+test('link refuses a deleted pipeline, an unknown one, and a stage Linear lacks — writing nothing', async () => {
+  for (const [argv, pattern] of [
+    [['--release-pipeline', 'app@=p-old'], /pipeline "Old" was deleted/],
+    [['--release-pipeline', 'app@=p-none'], /no pipeline p-none in this workspace/],
+    [['--release-pipeline', 'app@=p-core', '--release-env', 'app@:prod=Production'], /app@:prod → "Production" is not a stage of "Core" \(stages: In Progress, Staged, Released\)/],
+  ]) {
+    const r = repo({ pipelines: null })
+    const before = fs.readFileSync(path.join(r.dir, CONFIG_FILE), 'utf-8')
+    const got = await run(['release', 'link', ...argv], r.dir, { adapter: pipelineReader() })
+    assert.strictEqual(got.code, 1)
+    assert.match(got.out, pattern)
+    assert.strictEqual(fs.readFileSync(path.join(r.dir, CONFIG_FILE), 'utf-8'), before)
+  }
+})
+
+test('link refuses a malformed flag, an env for an unlinked series, and a bad initialEnv', async () => {
+  const r = repo({ pipelines: null })
+  const cases = [
+    [['--release-pipeline', 'nope'], /is not <prefix>=<pipelineId>/],
+    [['--release-pipeline', 'app@=p-core', '--release-env', 'lib@:test=Staged'], /names "lib@", which no --release-pipeline links/],
+    [['--release-pipeline', 'app@=p-core', '--release-env', 'app@:staged=Staged', '--release-initial', 'app@=prod'], /initialEnv = "prod"/],
+    [[], /nothing to link/],
+  ]
+  for (const [argv, pattern] of cases) {
+    const got = await run(['release', 'link', ...argv], r.dir, { adapter: pipelineReader() })
+    assert.strictEqual(got.code, 1, argv.join(' '))
+    assert.match(got.out, pattern)
+  }
+})
+
+// STAYS SILENT on the network: without a key nothing could be checked, which
+// is said aloud — and the write still happens, as init-config does without
+// --states.
+test('link without a key writes and says nothing was checked', async () => {
+  const r = repo({ pipelines: null })
+  const got = await run(['release', 'link', '--release-pipeline', 'app@=p-core'], r.dir, { env: {} })
+  assert.strictEqual(got.code, 0, got.out)
+  assert.match(got.out, /NOT checked against Linear/)
+  assert.strictEqual(readConfig(r.dir).release.pipelines[0].pipelineId, 'p-core')
+})
+
+test('link notes a ladder that is also set', async () => {
+  const r = repo({ pipelines: null })
+  const cfg = readConfig(r.dir)
+  cfg.release = { stages: [{ key: 'test', state: 'On Test' }] }
+  fs.writeFileSync(path.join(r.dir, CONFIG_FILE), JSON.stringify(cfg))
+  const got = await run(['release', 'link', '--release-pipeline', 'app@=p-core'], r.dir, { adapter: pipelineReader() })
+  assert.match(got.out, /release\.stages \(the ladder\) is also set/)
+  assert.deepStrictEqual(readConfig(r.dir).release.stages, [{ key: 'test', state: 'On Test' }])
+})
+
+test('splitPair splits at the last =', () => {
+  const { splitPair } = require('../src/cli-release.js')
+  assert.deepStrictEqual(splitPair('app@=p1'), ['app@', 'p1'])
+  assert.strictEqual(splitPair('=p1'), null)
+  assert.strictEqual(splitPair('app@='), null)
+})

@@ -35,7 +35,7 @@ test('a fully configured project is ok, with every layer reported', () => {
   assert.strictEqual(r.ok, true)
   assert.deepEqual(
     r.checks.map((c) => c.id),
-    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'identity', 'remote', 'ladder', 'mcp'],
+    ['scaffold', 'isolation', 'tracker', 'project', 'key', 'identity', 'remote', 'ladder', 'releases', 'mcp'],
     'all four layers, plus project, identity, remote and the cross-transport row',
   )
   for (const c of r.checks) assert.ok(STATES.includes(c.state), `${c.id} has a known state`)
@@ -237,7 +237,7 @@ test('every branch of the matrix yields a known state', () => {
   ]
   for (const v of variants) {
     const r = withState(v)
-    assert.strictEqual(r.checks.length, 9, `${JSON.stringify(v)} still reports every layer`)
+    assert.strictEqual(r.checks.length, 10, `${JSON.stringify(v)} still reports every layer`)
     for (const c of r.checks) {
       assert.ok(STATES.includes(c.state), `${c.id} → ${c.state} for ${JSON.stringify(v)}`)
       assert.ok(typeof c.detail === 'string' && c.detail, `${c.id} explains itself`)
@@ -250,7 +250,7 @@ test('runChecks tolerates being handed nothing at all', () => {
   // A caller that failed to gather state must get a report saying so, not a
   // crash — this is the command a skill runs to find out what is wrong.
   const r = runChecks()
-  assert.strictEqual(r.checks.length, 9)
+  assert.strictEqual(r.checks.length, 10)
   assert.strictEqual(find(r, 'scaffold').state, 'missing')
   assert.strictEqual(r.ok, true, 'nothing configured is nothing broken')
 })
@@ -489,4 +489,75 @@ test('identity never fails the run, however it lands', () => {
     assert.notStrictEqual(find(r, 'identity').state, 'broken')
     assert.strictEqual(r.ok, true)
   }
+})
+
+// --- releases (feat-tracker-releases phase 5) --------------------------------
+
+const PIPE = { tagPrefix: 'app@', pipelineId: 'p1', envs: [{ key: 'staged', stage: 'Staged' }] }
+const STAGES = [{ name: 'In Progress', type: 'started' }, { name: 'Staged', type: 'started' }, { name: 'Released', type: 'completed' }]
+const releases = (s) => find(withState({ releases: s }), 'releases')
+
+test('releases: none declared is skipped and keeps the run ok', () => {
+  const r = withState({ releases: { pipelines: [] } })
+  assert.strictEqual(find(r, 'releases').state, 'skipped')
+  assert.strictEqual(r.ok, true)
+})
+
+// STAYS SILENT: no --check-remote, or a Linear that never answered.
+test('releases: declared but unread is skipped, never an accusation', () => {
+  const c = releases({ pipelines: [PIPE] })
+  assert.strictEqual(c.state, 'skipped')
+  assert.match(c.detail, /1 pipeline\(s\), unchecked: app@/)
+})
+
+test('releases: every pipeline and stage present is ok, and says write permission is unchecked', () => {
+  const c = releases({ pipelines: [PIPE], remote: { pipelines: [{ pipelineId: 'p1', found: true, name: 'App', stages: STAGES }] } })
+  assert.strictEqual(c.state, 'ok')
+  assert.match(c.detail, /write permission not checked/)
+})
+
+test('releases: stage names match case-insensitively, as Linear matches them', () => {
+  const pipe = { ...PIPE, envs: [{ key: 'staged', stage: 'staged' }] }
+  const c = releases({ pipelines: [pipe], remote: { pipelines: [{ pipelineId: 'p1', found: true, name: 'App', stages: STAGES }] } })
+  assert.strictEqual(c.state, 'ok')
+})
+
+test('releases: a missing pipeline, a deleted one, and an unknown stage are broken', () => {
+  const missing = releases({ pipelines: [PIPE], remote: { pipelines: [{ pipelineId: 'p1', found: false }] } })
+  assert.strictEqual(missing.state, 'broken')
+  assert.match(missing.detail, /app@ → no pipeline p1/)
+
+  const deleted = releases({
+    pipelines: [PIPE],
+    remote: { pipelines: [{ pipelineId: 'p1', found: true, name: 'App', archivedAt: '2026-10-21T00:00:00Z', stages: [] }] },
+  })
+  assert.strictEqual(deleted.state, 'broken')
+  assert.match(deleted.detail, /pipeline "App" was deleted/)
+
+  const pipe = { ...PIPE, envs: [{ key: 'prod', stage: 'Production' }] }
+  const stage = releases({ pipelines: [pipe], remote: { pipelines: [{ pipelineId: 'p1', found: true, name: 'App', stages: STAGES }] } })
+  assert.strictEqual(stage.state, 'broken')
+  assert.match(stage.detail, /app@:prod → "Production" is not a stage of "App"/)
+  assert.strictEqual(stage.fix, '/spec-linear-setup')
+})
+
+test('releases: a refusal from Linear is broken and says which', () => {
+  const c = releases({ pipelines: [PIPE], remote: { refused: 'unavailable' } })
+  assert.strictEqual(c.state, 'broken')
+  assert.match(c.detail, /not available to this workspace/)
+})
+
+test('releases: a ladder declared beside pipelines warns without failing', () => {
+  const r = withState({
+    releases: { pipelines: [PIPE], ladder: true, remote: { pipelines: [{ pipelineId: 'p1', found: true, name: 'App', stages: STAGES }] } },
+  })
+  assert.strictEqual(find(r, 'releases').state, 'warn')
+  assert.strictEqual(r.ok, true)
+})
+
+// STAYS SILENT: a pipeline whose read failed is absent from remote.pipelines,
+// and that is unexamined — not "no such pipeline".
+test('releases: a pipeline that was not read is not accused', () => {
+  const c = releases({ pipelines: [PIPE, { tagPrefix: 'lib@', pipelineId: 'p2', envs: [] }], remote: { pipelines: [{ pipelineId: 'p1', found: true, name: 'App', stages: STAGES }] } })
+  assert.strictEqual(c.state, 'ok')
 })

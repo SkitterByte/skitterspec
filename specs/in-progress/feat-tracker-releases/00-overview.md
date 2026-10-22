@@ -135,7 +135,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Release seam + config + Linear adapter ops | ✅ | [02-seam-and-config.md](02-seam-and-config.md) |
 | 3 | `release create <tag>` | ✅ | [03-release-create.md](03-release-create.md) |
 | 4 | `release deployed` / `release complete` | ✅ | [04-deployed-complete.md](04-deployed-complete.md) |
-| 5 | Setup step, CI wiring offer, doctor | ⬜ | [05-setup-and-doctor.md](05-setup-and-doctor.md) |
+| 5 | Setup step, CI wiring offer, doctor | ✅ | [05-setup-and-doctor.md](05-setup-and-doctor.md) |
 | 6 | Dogfood in this repo | ⬜ | [06-dogfood.md](06-dogfood.md) |
 
 ## Open questions
@@ -183,3 +183,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   first. A missing release refuses and names the `create` to run. An already
   complete release is reported and nothing is re-sent, so `--link`/`--notes`
   on a repeat are not applied (said aloud).
+- 2026-10-22 — Phase 5: the pipeline flags live on a new `release link`, not
+  on `init-config`. `init-config` refuses an existing config, and adopting
+  Releases after connecting is the case this spec exists for. `link` edits
+  `release.pipelines` alone, replaces an entry by prefix, and keeps the rest of
+  the config. Setup runs it in both the first-time and re-run paths.
+- 2026-10-22 — Phase 5: doctor does not check the key's release write scope.
+  Only a write proves it, and doctor writes nothing; the `releases` row says
+  so. Found live: a deleted pipeline still resolves by id, with `archivedAt`
+  set, so doctor and `link` check `archivedAt`, and "Entity not found" is the
+  other positive signal. The listing query is capped (`first: 50`, stages 25)
+  because `first: 100` is "Query too complex".
