@@ -16,32 +16,34 @@ this step changes.
 **Refresh the mirror now, without asking.** Run `/spec-push`. The repo has just
 become the truth about this spec's state, and the tracker is a generated mirror
 of it — leaving them to diverge until someone remembers to push by hand is the
-gap this exists to close. It costs one engine call and no model tokens when
-GitHub credentials are set (see `apply.transport` in `github.config.md`).
+gap this exists to close. It costs one engine call and no model tokens when a
+GitHub token is set (see `apply.transport` in `github.config.md`).
 
-- **Never mint.** An unlinked spec is skipped, not created. An issue born `Done`
-  is tracker noise, and a spec kept deliberately local should stay that way —
-  `/spec-push` is how someone opts in.
-- **Never fatal.** If the push fails — offline, no credentials, a GitHub error —
-  say so and **finish the operation anyway**. The spec is
-  complete/cancelled/reviewed in the repo regardless; the mirror is disposable
-  and the next push repairs it. Do not roll anything back, and do not stop to
-  ask.
+- **Never mint.** An unlinked spec is skipped, not created. An issue born closed
+  is tracker noise, and a spec kept deliberately local should stay
+  that way — `/spec-push` is how someone opts in.
+- **Never fatal.** If the push fails — offline, no token, a GitHub error — say so
+  and **finish the operation anyway**. The spec is complete/cancelled/reviewed in
+  the repo regardless; the mirror is disposable and the next push repairs it.
+  Do not roll anything back, and do not stop to ask.
 - **Say what happened** in the skill's report: mirror updated, skipped as
   unlinked, or failed with the reason.
-- **There is no assignment to release here.** Assignment sync is not yet
-  supported by the GitHub provider; the `> **Developer:**` header stays put as the
-  repo's own record of who actioned the work.
+- **There is no unassign step, and that is not an omission.** Where the repo owns
+  `assignee`, the projection derives it from the spec's lifecycle
+  bucket — so moving the folder to `complete`/`cancelled` is *itself* what
+  releases the issue, and the push above carries it like any other field. The
+  `github_assignee_id` stamp and the `> **Developer:**` header both stay put:
+  they record who actioned the work, which outlives who is holding it.
 
 ### Why it sits here
 
 In `/spec-complete` and `/spec-cancel` this step is deliberately pinned
 **after the `git mv` and before the commit**, and both halves matter:
 
-- **After the move**, because the projection reads a spec's workflow status from
+- **After the move**, because the projection reads a spec's workflow state from
   its folder bucket. Push while the folder is still in `in-progress/` and the
-  issue is set to the status the spec is *leaving*.
-- **Before the commit**, because the push stamps keys into the spec and writes a
+  issue is set to the state the spec is *leaving*.
+- **Before the commit**, because the push stamps ids into the spec and writes a
   snapshot under `specs/.core/`. Push after the commit instead and both are left
   uncommitted, which makes `spec-env integrate` refuse to land the branch.
 

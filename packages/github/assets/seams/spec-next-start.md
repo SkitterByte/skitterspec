@@ -6,7 +6,7 @@ base distribution leaves the seam empty.
 
 Placement is load-bearing. This fragment used to sit in step 3b, BEFORE the phase
 was marked 🔄, so the push it describes mirrored the state the phase was leaving
-— every sub-issue sat in To Do for the whole build. See the placement tests in
+— every sub-issue sat in Backlog for the whole build. See the placement tests in
 packages/common/test/assets.test.js.
 -->
 
@@ -15,26 +15,35 @@ packages/common/test/assets.test.js.
 
 - **No pull.** GitHub is a generated mirror in one-way sync, so there is nothing
   to bring down before building — the repo is already the source of truth. (A
-  status a teammate moved in GitHub is advisory only; `/spec-status` surfaces it.
-  It is overwritten on the next push.)
+  workflow-state a teammate moved in GitHub is advisory only; `/spec-status`
+  surfaces it. It is overwritten on the next push.)
 - **Refresh the mirror now, without asking.** Run `/spec-push`. The spec has just
   moved to `in-progress` and its phase to `🔄` — both real state changes, and the
   tracker is a generated mirror of them. This holds under **both**
   `mapping.phases` modes, for different reasons:
   - `"subissue"` (the default) — the phase sub-issues already exist, and this
-    push is what moves the current one into its in-progress status. Skip it and
-    every sub-issue sits in To Do until the spec completes.
+    push is what moves the current one into its in-progress state. Skip it and
+    every sub-issue sits in Backlog until the spec completes.
   - `"deferred"` — the sub-issues do not exist yet, and this push is what mints
     them. Skip it and a started spec stays mirrored as a phase-less issue.
 - **Never mint the spec issue.** An unlinked spec is skipped, not created —
   `/spec-push` is how someone opts in.
-- **No assignee to backfill.** Assignment sync is not yet supported by the GitHub
-  provider — there is nothing to stamp and nothing to ask, mid-build or ever.
-- **Never fatal.** If the push fails — offline, no credentials, a GitHub error —
-  say so and **carry on with the build**. The repo is correct regardless; the
-  mirror is disposable and the next push repairs it.
+- **Backfill a missing assignee silently; never ask.** Only when the repo owns
+  `assignee` (it does by default; `"none"` declines it). If the spec records nobody and
+  `skitterspec spec-sync whoami --json` answers, stamp it with
+  `skitterspec spec-sync assign <spec> --to <id> --name "<name>"` and let the
+  push above carry it. If identity is unknown, skip it in silence.
+  **Do not prompt**: an assignment question in the middle of a build is an
+  interruption with no deadline, and `/spec-claim` answers it whenever the
+  operator likes.
+- **A spec assigned to someone else is left alone.** Say so once
+  (`assigned to <name> — /spec-claim to take it`) and change nothing. Picking up
+  a colleague's spec is a decision, not a side effect of running the next phase.
+- **Never fatal.** If the push fails — offline, no token, a GitHub error — say so
+  and **carry on with the build**. The repo is correct regardless; the mirror is
+  disposable and the next push repairs it.
 - **Expect a dirty `specs/.core/` afterwards.** The push writes a base snapshot
-  and stamps any new keys, and `/spec-next` does not commit. The next `/commit`
+  and stamps any new ids, and `/spec-next` does not commit. The next `/commit`
   sweeps it up with the phase's own work.
 - A board's built-in workflows (item closed → Done, PR merged → Done) may move a
   Status off the branch/PR you pushed in step 2; that's expected and the repo

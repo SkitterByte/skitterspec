@@ -50,9 +50,10 @@ In a project that installs the GitHub superset the binary is
 | "set my GitHub credentials", "am I authenticated?" | `credentials <status\|set\|unset>` |
 | push one spec, or "what would push?" | **defer** — see below |
 
-The Linear provider's `retarget`, `reattach`, `stage`, `whoami`, `users`,
-`assign` and `sanitise` are **not yet shipped for the GitHub provider** — say so
-when one is asked for, rather than improvising an equivalent.
+The Linear provider's `retarget`, `reattach`, `stage` and `sanitise` are **not
+yet shipped for the GitHub provider** — say so when one is asked for, rather
+than improvising an equivalent. Assignment (`assign`, `whoami`, `users`) is
+`/spec-claim`'s — hand over to it.
 
 **With no argument, run `linked`.** It is the repo-wide overview, it is
 read-only, and it is what a bare "run spec-sync" means.

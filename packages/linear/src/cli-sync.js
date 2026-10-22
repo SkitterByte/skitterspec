@@ -83,7 +83,40 @@ const {
   removeUser,
 } = require('./credentials.js')
 const { resolveIdentity, displayNameOf } = require('./identity.js')
+const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 const { resolveTransport } = require('@skitterbyte/skitterspec-provider-kit/src/transport.js')
+
+// `assign`, `whoami` and `users` are the kit's (`provider-kit/src/assignment.js`),
+// hoisted when the GitHub provider became their second consumer. What is
+// Linear's is the binding: the team-keyed store, the API key and the wording.
+const assignment = makeAssignmentCommands({
+  tracker: 'Linear',
+  configFile: 'specs/.core/linear.config.json',
+  bin: 'skitterspec',
+  idHint: '<linear-user-id>',
+  scopeOf: (config) => {
+    const teamId = (config.linear && config.linear.teamId) || ''
+    const teamKey = (config.linear && config.linear.teamKey) || ''
+    return {
+      id: teamId,
+      label: teamKey ? `${teamId} (${teamKey})` : teamId,
+      missing:
+        'spec-sync whoami: no linear.teamId in specs/.core/linear.config.json.\n' +
+        '  Identity is stored per team — run `spec-sync init-config` first.',
+    }
+  },
+  storePath: (env) => storePath(env),
+  writeUser: (file, scope, user, deps) => writeUser(file, scope, user, deps),
+  removeUser: (file, scope, deps) => removeUser(file, scope, deps),
+  resolveIdentity: (config, env, deps) => resolveIdentity(config, env, deps),
+  resolveCredential: (config, env) => resolveApiKey(config, env),
+  makeAdapter: (config, key, flags) => makeApiAdapter({ apiKey: key.key, fetch: flags.fetch }),
+  displayNameOf: (u) => displayNameOf(u),
+  usersOverMcp: 'search the workspace over MCP with the user-list tool',
+})
+const specSyncAssign = (dir, config, specArg, flags, out) => assignment.assign(dir, config, specArg, flags, out)
+const specSyncWhoami = (dir, config, flags, out) => assignment.whoami(dir, config, flags, out)
+const specSyncUsers = (dir, config, query, flags, out) => assignment.users(dir, config, query, flags, out)
 const { readAllStdin, promptHidden } = require('@skitterbyte/skitterspec-provider-kit/src/prompt.js')
 const { applySpecPlan } = require('@skitterbyte/skitterspec-provider-kit/src/apply.js')
 
@@ -375,100 +408,6 @@ function specSyncStamp(dir, config, specArg, flags, out) {
   return 0
 }
 
-/**
- * `spec-sync assign <spec> [--to <id> [--name <n>]] [--release] [--json]`
- *
- * Record — or release — who owns a spec, by stamping `linear_assignee_id` /
- * `linear_assignee_name` into the overview frontmatter. The counterpart to
- * `spec-sync stamp`, which does the same job for issue ids.
- *
- * **It writes the repo and nothing else.** Pushing is the caller's next step,
- * deliberately: the repo is the source of truth, so ownership changes here and
- * the mirror catches up like any other edit. Splitting it that way also means a
- * failed push leaves the claim recorded rather than lost.
- *
- * **Stamping is explicit, and never inferred by a push.** Only this verb (and
- * the skills that call it) writes the field. A push that resolved identity for
- * itself would quietly re-assign a spec to whoever happened to run it — which is
- * how a teammate pushing someone else's branch would steal their work.
- *
- * **And it refuses where the write could not travel.** Two preconditions, for
- * one reason: an unlinked spec has no issue, and a repo that does not own
- * `assignee` has no field. In either case the stamp would sit in the file doing
- * nothing while this command's success line promised `next: push it, so Linear
- * agrees`. The failure mode being guarded is not a silent skip — it is a true-
- * sounding sentence, which is worse, because nothing later contradicts it.
- */
-function specSyncAssign(dir, config, specArg, flags, out) {
-  const snapshotDir = resolveOrExit(specArg, dir, out)
-  if (!snapshotDir) return 1
-
-  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
-  const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
-  const rel = path.relative(dir, snapshotDir)
-
-  const problems = []
-  if (flags.release && flags.to) problems.push('--release and --to are opposites — pass one')
-  if (!flags.release && !flags.to) problems.push('nothing to do — pass --to <user-id> or --release')
-  // An unlinked spec has no issue to assign. Refusing beats stamping a field
-  // that would sit in the file doing nothing until someone noticed.
-  if (!identifier) problems.push(`${rel} is not linked to Linear — /spec-push it first`)
-  // AND THE SAME REASONING FOR THE FIELD ITSELF. `toFieldSet` drops a field the
-  // repo does not own, so a stamp written here would never reach the tracker —
-  // while this command's success line says `next: push it, so Linear agrees`.
-  // That is not a silent skip, it is an assertion that is untrue, and the cost
-  // is someone believing a spec is assigned for as long as it takes them to
-  // look. `/spec-claim` already refuses on this; the engine beneath it did not.
-  //
-  // Applies to `--release` too. Nothing it could clear was ever pushed, so
-  // releasing is inert here as well, and one command in this function acting on
-  // a field the repo declares it does not own is the inconsistency that would
-  // teach the next reader the check is optional.
-  if (!ownsField(config, 'assignee')) {
-    problems.push(
-      'this repo does not own the assignee field — set sync.fieldOwnership.assignee ' +
-        `to "push" in ${CONFIG_FILE}`,
-    )
-  }
-
-  if (problems.length) {
-    out.write(
-      ['spec-sync assign: refusing to write — nothing was changed', ...problems.map((p) => `  ${p}`)].join('\n') + '\n',
-    )
-    return 1
-  }
-
-  if (flags.release) {
-    const removed = deleteFrontmatter(snapshotDir, config, ['linear_assignee_id', 'linear_assignee_name'])
-    if (flags.json) {
-      out.write(JSON.stringify({ spec: rel, issue: identifier, released: removed.length > 0 }, null, 2) + '\n')
-      return 0
-    }
-    out.write(
-      (removed.length
-        ? `spec-sync assign: ${rel} released (${identifier})\n`
-        : `spec-sync assign: ${rel} records no assignee — nothing to release\n`) +
-        '  next: push it, so Linear is unassigned too\n',
-    )
-    return 0
-  }
-
-  writeFrontmatter(snapshotDir, config, {
-    linear_assignee_id: flags.to,
-    // Display only — the projection never sends it. It exists so a reader (and
-    // `/spec-claim`) can name the person without a Linear round trip.
-    linear_assignee_name: flags.name || null,
-  })
-  if (flags.json) {
-    out.write(
-      JSON.stringify({ spec: rel, issue: identifier, id: flags.to, name: flags.name || null }, null, 2) + '\n',
-    )
-    return 0
-  }
-  const who = flags.name ? `${flags.name} (${flags.to})` : flags.to
-  out.write(`spec-sync assign: ${rel} assigned to ${who} (${identifier})\n  next: push it, so Linear agrees\n`)
-  return 0
-}
 
 // `spec-sync record <spec>` — write the last-pushed snapshot from the CURRENT
 // files. The skill calls this AFTER applying the plan and stamping new ids.
@@ -2568,195 +2507,6 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
   return applySpecPlan({ dir, config, snapshotDir, plan, adapter, ops, forceNew })
 }
 
-/**
- * `spec-sync whoami [--json] [--set <id> [--name <n>]] [--unset]`
- *
- * Report — and cache — who the operator is in Linear, which is the fact
- * assignment rests on. See `identity.js` for why it is derived rather than
- * configured.
- *
- * **Exit code 0 even when the answer is "unknown".** This deliberately differs
- * from `credentials status`, which exits 1 with no key: that command is a
- * READINESS check, and a missing key means the thing you asked about cannot
- * work. This one answers a question, and "nobody is identified here" is a valid
- * answer — a shared key, an offline machine, a repo mid-setup. Exiting non-zero
- * would make every caller treat an ordinary state as a fault, which is how an
- * advisory check turns into one that accuses.
- *
- * A successful DERIVE is cached; a read from the cache is not re-written. The
- * caching lives here rather than in `resolveIdentity` so that asking the
- * question never has a side effect — see that module's header.
- */
-async function specSyncWhoami(dir, config, flags, out) {
-  const env = flags.env || process.env
-  const file = storePath(env)
-  const teamId = (config.linear && config.linear.teamId) || ''
-  const teamKey = (config.linear && config.linear.teamKey) || ''
-  const label = teamKey ? `${teamId} (${teamKey})` : teamId
-
-  // The store is keyed by team, so without one there is nowhere to read from or
-  // write to. That IS a broken config rather than an ordinary unknown, so unlike
-  // the rest of this command it exits non-zero.
-  if (!teamId) {
-    out.write(
-      'spec-sync whoami: no linear.teamId in specs/.core/linear.config.json.\n' +
-        '  Identity is stored per team — run `spec-sync init-config` first.\n',
-    )
-    return 1
-  }
-
-  if (flags.unset) {
-    const r = removeUser(file, teamId, {})
-    if (!r.ok) {
-      out.write(`spec-sync whoami: ${r.reason}\n`)
-      return 1
-    }
-    out.write(
-      r.removed
-        ? `spec-sync whoami: forgot the identity for ${label} (the API key is untouched)\n`
-        : `spec-sync whoami: no identity stored for ${label} — nothing to forget\n`,
-    )
-    return 0
-  }
-
-  if (flags.set) {
-    const r = writeUser(file, teamId, { id: flags.set, name: flags.name }, {})
-    if (!r.ok) {
-      out.write(`spec-sync whoami: ${r.reason}\n`)
-      return 1
-    }
-    if (flags.json) {
-      out.write(
-        JSON.stringify({ id: flags.set, name: flags.name || null, source: 'set', store: r.path }, null, 2) + '\n',
-      )
-      return 0
-    }
-    const shown = flags.name ? `${flags.name} (${flags.set})` : flags.set
-    out.write(`spec-sync whoami: identity for ${label} set to ${shown} in ${r.path} (600)\n`)
-    return 0
-  }
-
-  const identity = await resolveIdentity(config, env, { adapter: flags.adapter, fetch: flags.fetch })
-
-  if (identity.ok && identity.source === 'viewer') {
-    // Cache what the network just told us, so the next `/spec-start` costs no
-    // call. A failed write is not fatal: we HAVE the answer, and re-deriving it
-    // next time is a slower success, not a wrong one.
-    const cached = writeUser(file, teamId, { id: identity.id, name: identity.name }, {})
-    if (!cached.ok) identity.cacheWarning = cached.reason
-  }
-
-  if (flags.json) {
-    out.write(
-      JSON.stringify(
-        {
-          team: label,
-          store: file,
-          ok: identity.ok,
-          id: identity.id || null,
-          name: identity.name || null,
-          source: identity.source,
-          reason: identity.ok ? null : identity.reason || null,
-        },
-        null,
-        2,
-      ) + '\n',
-    )
-    return 0
-  }
-
-  if (!identity.ok) {
-    out.write(
-      [
-        'spec-sync whoami: unknown — no identity for this workspace',
-        `  ${identity.reason}`,
-        '  Set one by hand:',
-        '    skitterspec spec-sync whoami --set <linear-user-id> --name "<your name>"',
-        '  Find the id with: skitterspec spec-sync users <name-or-email>',
-      ].join('\n') + '\n',
-    )
-    return 0
-  }
-
-  const where = identity.source === 'store' ? `cached in ${file}` : 'derived from the API key'
-  const lines = [
-    `spec-sync whoami: ${identity.name || '(unnamed)'} <${identity.id}>`,
-    `  team:   ${label}`,
-    `  source: ${where}`,
-  ]
-  if (identity.cacheWarning) lines.push(`  note:   not cached — ${identity.cacheWarning}`)
-  out.write(lines.join('\n') + '\n')
-  return 0
-}
-
-/**
- * `spec-sync users [<query>] [--json] [--limit N] [--cursor C]`
- *
- * Find a person by name or email. Both halves matter: search is what makes this
- * usable in a workspace of hundreds, and the bare listing is what answers "show
- * me everyone" in one of five. Linear's user query does both, so this is one
- * command rather than a `users` and a `search-users`.
- *
- * The engine answers on the API path and steps aside on the MCP path — the same
- * contract `states` and `projects` follow.
- */
-async function specSyncUsers(dir, config, query, flags, out) {
-  const key = resolveApiKey(config, flags.env || process.env)
-  const transport = resolveTransport(flags, config, key.ok)
-
-  if (transport === 'mcp') {
-    if (flags.json) {
-      out.write(
-        JSON.stringify({ transport: 'mcp', reason: key.ok ? 'requested' : key.error, users: null }, null, 2) + '\n',
-      )
-      return 0
-    }
-    out.write(
-      [
-        'spec-sync users: transport = mcp',
-        `  ${key.ok ? '--via mcp was requested' : key.error}`,
-        '  search the workspace over MCP with the user-list tool',
-      ].join('\n') + '\n',
-    )
-    return 0
-  }
-  if (!key.ok) {
-    out.write(`spec-sync users: refusing — ${key.error}\n`)
-    return 1
-  }
-
-  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
-  let page
-  try {
-    page = await adapter.searchUsers(query || '', { limit: flags.limit || 50, cursor: flags.cursor || null })
-  } catch (error) {
-    out.write(`spec-sync users: ${error.message}\n`)
-    return 1
-  }
-
-  const users = (page && page.users) || []
-  if (flags.json) {
-    out.write(
-      JSON.stringify({ transport: 'api', users, nextCursor: (page && page.nextCursor) || null }, null, 2) + '\n',
-    )
-    return 0
-  }
-  if (!users.length) {
-    out.write(`spec-sync users: no match for ${JSON.stringify(query || '')}\n`)
-    return 0
-  }
-  const lines = [`spec-sync users: ${users.length} match(es)`]
-  for (const u of users) {
-    // A deactivated user still resolves by id and can still be assigned, so the
-    // marker is the difference between a valid pick and a silently dead one.
-    const inactive = u && u.active === false ? '  [deactivated]' : ''
-    const email = u && u.email ? `  ${u.email}` : ''
-    lines.push(`  ${displayNameOf(u) || '(unnamed)'} <${u && u.id}>${email}${inactive}`)
-  }
-  if (page && page.nextCursor) lines.push(`  … more — re-run with --cursor ${page.nextCursor}`)
-  out.write(lines.join('\n') + '\n')
-  return 0
-}
 
 /**
  * `spec-sync apply <spec> --plan <file> [--via api|mcp] [--project <id>]`

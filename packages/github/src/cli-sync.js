@@ -47,9 +47,21 @@ const {
   CONFIG_FILE,
   LIFECYCLE_BUCKETS,
 } = require('./config.js')
-const { resolveCredential, writeCredential, removeCredential, storePath, storeMode, fingerprint, scopeOf } = require('./credentials.js')
+const {
+  resolveCredential,
+  writeCredential,
+  removeCredential,
+  storePath,
+  storeMode,
+  fingerprint,
+  scopeOf,
+  writeUser,
+  removeUser,
+} = require('./credentials.js')
 const { makeApiAdapter } = require('./api.js')
 const { APPLY_OVER_MCP } = require('./mcp.js')
+const { resolveIdentity, displayNameOf } = require('./identity.js')
+const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 
 const PROGRAM = 'spec-sync'
 const BIN = 'skitterspec-github'
@@ -208,6 +220,53 @@ function apiAdapterFor(config, flags) {
   if (gap) return { ok: false, error: gap }
   return { ok: true, adapter: makeApiAdapter({ ...adapterOptions(config), token: cred.token, fetch: flags.fetch }) }
 }
+
+// ---------------------------------------------------------------------------
+// Assignment: `assign`, `whoami` and `users` are the kit's
+// (`provider-kit/src/assignment.js`); this is GitHub's binding. The id is a
+// LOGIN, the store scope the owner, and the user list the repo's assignees —
+// the only people GitHub will let an issue be assigned to.
+const assignment = makeAssignmentCommands({
+  tracker: 'GitHub',
+  configFile: CONFIG_FILE,
+  bin: BIN,
+  idHint: '<login>',
+  credentialNoun: 'token',
+  scopeJsonKey: 'owner',
+  scopeLineLabel: 'owner:',
+  scopeOf: (config) => {
+    const id = scopeOf(config)
+    return {
+      id,
+      label: id,
+      missing: `spec-sync whoami: no github.owner in ${CONFIG_FILE}.\n  Identity is stored per owner — run \`spec-sync init-config\` first.`,
+    }
+  },
+  storePath: (env) => storePath(env),
+  writeUser: (file, scope, user, deps) => writeUser(file, scope, user, deps),
+  removeUser: (file, scope, deps) => removeUser(file, scope, deps),
+  resolveIdentity: (config, env, deps) => resolveIdentity(config, env, deps),
+  resolveCredential: (config, env) => resolveCredential(config, env),
+  makeAdapter: (config, cred, flags) => makeApiAdapter({ ...adapterOptions(config), token: cred.token, fetch: flags.fetch }),
+  displayNameOf: (u) => displayNameOf(u),
+  usersOverMcp: 'list the repo\'s assignees over MCP, or read them off the repo\'s settings',
+  // GitHub refuses to assign anyone who is not a collaborator, and refuses it
+  // at PUSH time, after the stamp has been committed. Checked here instead —
+  // but only on a positive answer: no token, or a check that could not run, is
+  // a cannot-tell and the stamp proceeds exactly as before (negative-checks).
+  validateAssignee: async (config, login, flags) => {
+    const cred = apiAdapterFor(config, flags)
+    if (!cred.ok || !cred.adapter.checkAssignable) return null
+    try {
+      const ok = await cred.adapter.checkAssignable(login)
+      return ok === false
+        ? `${login} cannot be assigned in ${repoLabel(config)} — only collaborators can (\`spec-sync users\` lists them)`
+        : null
+    } catch {
+      return null
+    }
+  },
+})
 
 // ---------------------------------------------------------------------------
 // Subcommands. Each returns an exit code and writes only to the streams it is
@@ -1210,6 +1269,9 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     issues a commit range contains
   preserve <spec> [--text <f>]           keep an adopted issue's original report
+  assign <spec> --to <login> | --release  stamp who is building it
+  whoami [--set <login>] [--unset]       who you are on GitHub (cached)
+  users [<query>]                        the repo's assignable people
   credentials <status|set|unset>         the GitHub token (user-level)
   init-config --owner … --repo … --project N   write the config
   doctor [--check-remote] [--json]       readiness report
@@ -1288,6 +1350,12 @@ async function specSync(rest, io = {}) {
       return specSyncReleased(dir, config, positional[0], flags, out)
     case 'preserve':
       return specSyncPreserve(dir, config, positional[0], flags, out)
+    case 'assign':
+      return assignment.assign(dir, config, positional[0], flags, out)
+    case 'whoami':
+      return assignment.whoami(dir, config, flags, out)
+    case 'users':
+      return assignment.users(dir, config, positional[0], flags, out)
     default:
       out.write(USAGE)
       return sub ? 1 : 0
@@ -1329,6 +1397,12 @@ function parseArgs(args, sub) {
     '--repo': { kind: 'string' },
     '--project': { kind: 'string' },
     '--status-field': { kind: 'string', name: 'statusField' },
+    '--to': { kind: 'string' },
+    '--name': { kind: 'value' },
+    '--release': { kind: 'boolean' },
+    '--set': { kind: 'string' },
+    '--unset': { kind: 'boolean' },
+    '--cursor': { kind: 'string' },
     '--state': {
       kind: 'custom',
       handle: (flags, value) => {

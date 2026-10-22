@@ -162,7 +162,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Spike GitHub APIs + kit neutrality (ref pattern) | ✅ | [01-spike-and-ref-pattern.md](01-spike-and-ref-pattern.md) |
 | 2 | GitHub adapter core (REST, GraphQL board, dialect) | ✅ | [02-github-adapter.md](02-github-adapter.md) |
 | 3 | CLI, MCP, skills, seams, intake | ✅ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
-| 4 | Assignment hoisted to the kit + `/spec-claim` | ⬜ | [04-assignment.md](04-assignment.md) |
+| 4 | Assignment hoisted to the kit + `/spec-claim` | ✅ | [04-assignment.md](04-assignment.md) |
 | 5 | Release seam + GitHub releases | ⬜ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ⬜ | [06-distribution-release.md](06-distribution-release.md) |
 | 7 | Docs, live smoke, dogfood swap, first release | ⬜ | [07-docs-smoke-dogfood.md](07-docs-smoke-dogfood.md) |
@@ -202,3 +202,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   packages/jira/src/cli-sync.js:606 is passed a path, not a git reader), so the
   commit-trailers rule's default form is broken for Jira users. Its tests only
   cover the named form. Not in scope here; wants a `/spec-bug`.
+- 2026-10-22 — Phase 4 built. Assignment commands hoisted to the kit with an
+  optional `validateAssignee` hook; GitHub refuses a non-collaborator before
+  the stamp rather than at push.

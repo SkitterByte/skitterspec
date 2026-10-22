@@ -632,6 +632,36 @@ function makeApiAdapter({
       }
     },
 
+    /**
+     * People who can be ASSIGNED in this repo — GitHub's `assignees` list, which
+     * is the right set rather than "everyone": assigning anyone else is refused.
+     * Filtered here by login, case-insensitively; GitHub's endpoint takes no
+     * query. Shaped like the Linear provider's page (`{ users, nextCursor }`).
+     */
+    async searchUsers(query = '', { limit = 50 } = {}) {
+      const raw = await restAll(`${repoPath}/assignees`)
+      const want = String(query || '').toLowerCase().trim()
+      const users = raw
+        .filter((u) => u && u.login)
+        .filter((u) => !want || String(u.login).toLowerCase().includes(want))
+        .slice(0, limit)
+        .map((u) => ({ id: u.login, login: u.login, name: u.login, email: null, active: true }))
+      return { users, nextCursor: null }
+    },
+
+    /**
+     * Can `login` be assigned in this repo? GitHub answers 204 for yes and 404
+     * for no — a POSITIVE answer either way — so `true` / `false`. Anything
+     * else (a 5xx, the network) is a cannot-tell and throws, for the caller to
+     * route to the harmless branch.
+     */
+    async checkAssignable(login) {
+      const res = await send('GET', `${base}${repoPath}/assignees/${encodeURIComponent(login)}`)
+      if (res.status === 204) return true
+      if (res.status === 404) return false
+      throw new GitHubRefusal(`GitHub answered ${res.status} when asked whether ${login} is assignable`, { status: res.status })
+    },
+
     async listLabels() {
       const raw = await restAll(`${repoPath}/labels`)
       return raw.map((l) => ({ name: l.name, color: l.color || null }))
