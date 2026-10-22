@@ -514,6 +514,7 @@
       <a href="reference.html">Reference</a>
       <a href="linear.html">Linear</a>
       <a href="jira.html">Jira</a>
+      <a href="github.html">GitHub</a>
       <a class="pkg pill" href="#quickstart">Get started</a>
       <button class="theme-btn" id="themeToggle" aria-label="Toggle colour theme">◐</button>
     </nav>
@@ -848,18 +849,22 @@
       <p class="sub">Opt in with one config file. Your repo stays canonical; the tracker mirrors it.</p>
     </div>
     <p class="reveal">
-      Two supersets carry everything on this page plus one-way sync — install exactly one.
+      Three supersets carry everything on this page plus one-way sync — install exactly one.
       The <span class="mono">@skitterbyte/skitterspec-linear</span> superset mirrors a spec as a
       Linear issue and each phase as a sub-issue; the
       <span class="mono">@skitterbyte/skitterspec-jira</span> superset mirrors them as a Jira Cloud
-      issue and its subtasks, with statuses moved by workflow transition. Both are pushed from the
-      repo and never read back, and both are opt-in — until the provider's
+      issue and its subtasks, with statuses moved by workflow transition; and the
+      <span class="mono">@skitterbyte/skitterspec-github</span> superset mirrors them as GitHub issues
+      and sub-issues on a Projects board, free on a personal account, with GitHub Releases. All are
+      pushed from the repo and never read back, and all are opt-in — until the provider's
       <span class="mono">specs/.core/*.config.json</span> exists, nothing changes.
     </p>
     <p class="reveal">
       <a class="pkg pill" href="linear.html">Linear: set it up, check it, fix it →</a>
       &nbsp;
       <a class="pkg pill" href="jira.html">Jira: set it up, check it →</a>
+      &nbsp;
+      <a class="pkg pill" href="github.html">GitHub: set it up, check it →</a>
     </p>
   </div>
 </section>
@@ -940,6 +945,7 @@ npx @skitterbyte/skitterspec <span class="p">init</span>
     <div class="cta-row reveal">
       <a class="btn btn-primary" href="linear.html">Want it mirrored in Linear? →</a>
       <a class="btn btn-primary" href="jira.html">Or in Jira? →</a>
+      <a class="btn btn-primary" href="github.html">Or on GitHub? →</a>
     </div>
   </div>
 </section>

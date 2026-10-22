@@ -165,7 +165,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 4 | Assignment hoisted to the kit + `/spec-claim` | ✅ | [04-assignment.md](04-assignment.md) |
 | 5 | Release seam + GitHub releases | ✅ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ✅ | [06-distribution-release.md](06-distribution-release.md) |
-| 7 | Docs, live smoke, dogfood swap, first release | ⬜ | [07-docs-smoke-dogfood.md](07-docs-smoke-dogfood.md) |
+| 7 | Docs, live smoke, dogfood swap, first release | 🔄 | [07-docs-smoke-dogfood.md](07-docs-smoke-dogfood.md) |
 
 ## Open questions
 

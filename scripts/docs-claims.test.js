@@ -28,14 +28,18 @@ const SURFACES = [
   'docs/index.html',
   'docs/linear.html',
   'docs/jira.html',
+  'docs/github.html',
   'packages/skitterspec-linear/README.md',
   'packages/skitterspec-jira/README.md',
+  'packages/skitterspec-github/README.md',
   'packages/skitterspec/README.md',
   'packages/common/README.md',
   'packages/linear/assets/core/linear.config.md',
   'packages/linear/assets/core/SETUP.md',
   'packages/jira/assets/core/jira.config.md',
   'packages/jira/assets/core/SETUP.md',
+  'packages/github/assets/core/github.config.md',
+  'packages/github/assets/core/SETUP.md',
 ]
 
 // Retired claims, as phrases a human would actually write.
@@ -134,7 +138,7 @@ test('the guard leaves the still-true framing sayable', () => {
 // cross-page link, and a dead one fails silently: the browser just does nothing.
 // Nothing else checks the site, so this does.
 
-const PAGES = ['docs/index.html', 'docs/review.html', 'docs/reference.html', 'docs/linear.html', 'docs/jira.html']
+const PAGES = ['docs/index.html', 'docs/review.html', 'docs/reference.html', 'docs/linear.html', 'docs/jira.html', 'docs/github.html']
 
 const idsOf = (html) => new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))
 const readPage = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -207,6 +211,7 @@ test('each page carries its own canonical og:url', () => {
   assert.strictEqual(new Set(urls).size, urls.length, `og:url must differ per page, got ${JSON.stringify(urls)}`)
   assert.ok(urls.some((u) => u.endsWith('/linear.html')), 'the Linear page points at itself')
   assert.ok(urls.some((u) => u.endsWith('/jira.html')), 'the Jira page points at itself')
+  assert.ok(urls.some((u) => u.endsWith('/github.html')), 'the GitHub page points at itself')
   assert.ok(urls.some((u) => u.endsWith('/reference.html')), 'the reference page points at itself')
   assert.ok(urls.some((u) => u.endsWith('/review.html')), 'the review page points at itself')
 })
@@ -244,7 +249,7 @@ test('every spec-sync verb shown on the site is a real subcommand', () => {
 
 test('every skill named on the site is a skill that ships', () => {
   const shipped = new Set()
-  for (const pkg of ['common', 'linear', 'jira']) {
+  for (const pkg of ['common', 'linear', 'jira', 'github']) {
     const dir = path.join(ROOT, 'packages', pkg, 'assets', 'skills')
     if (!fs.existsSync(dir)) continue
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -316,7 +321,7 @@ test('the shipped catalogue is countable at all', () => {
 test('every "N skills installed" the site quotes matches the shipped count', () => {
   let quoted = 0
   for (const rel of PAGES) {
-    const provider = rel.includes('jira') ? 'jira' : 'linear'
+    const provider = rel.includes('jira') ? 'jira' : rel.includes('github') ? 'github' : 'linear'
     const { skills } = shippedCounts(provider)
     for (const m of textOf(rel).matchAll(/(\d+)\s+skills installed/g)) {
       quoted++
@@ -392,6 +397,20 @@ const ENGINES = {
     undocumented: {
       // Both run before a config exists, so the page documents them in its
       // Set up / Check sections — deliberately outside the push-path table.
+      doctor: 'documented in the Check section, not the push-path verb table',
+      'init-config': 'documented in the Set up section, not the push-path verb table',
+    },
+  },
+  'spec-sync (github)': {
+    source: 'packages/github/src/cli-sync.js',
+    // Same two dispatch forms as jira's.
+    verbs: (src) =>
+      new Set([
+        ...[...src.matchAll(/case '([a-z][a-z-]*)':/g)].map((m) => m[1]),
+        ...[...src.matchAll(/sub === '([a-z][a-z-]*)'/g)].map((m) => m[1]),
+      ]),
+    page: 'docs/github.html',
+    undocumented: {
       doctor: 'documented in the Check section, not the push-path verb table',
       'init-config': 'documented in the Set up section, not the push-path verb table',
     },

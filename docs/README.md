@@ -1,7 +1,7 @@
 # docs/
 
-Marketing + docs site for **skitterspec** and the **skitterspec-linear** and
-**skitterspec-jira** supersets.
+Marketing + docs site for **skitterspec** and the **skitterspec-linear**,
+**skitterspec-jira** and **skitterspec-github** supersets.
 
 Four pages, each self-contained — no build step, no dependencies, all CSS/JS and
 the favicon inlined:
@@ -12,6 +12,7 @@ the favicon inlined:
 | `review.html` | The **review system** in full (arrives with the restructure's phase 2): the page, the verdicts, the local/network/remote tiers, and the pass-back. |
 | `reference.html` | The **command reference**, whole on one page: every lifecycle skill and every `spec-env` engine verb, so one page still answers "what are all the commands?". |
 | `linear.html` | The **Linear superset**, end to end: a new team, `/spec-linear-setup`, the API key, checking with `spec-sync doctor`, and repairing a renamed team with `spec-sync retarget`. |
+| `github.html` | The **GitHub superset**, end to end: the Projects v2 board that carries workflow state, the classic token, `/spec-github-setup`, `spec-sync doctor`, and CI-driven GitHub Releases. |
 | `jira.html` | The **Jira Cloud superset**, end to end: `/spec-jira-setup`, the email + API-token pair, statuses moved by workflow transition, and checking with `spec-sync doctor`. |
 
 The pages share one nav (Home · Review · Reference · Linear). Two sibling assets support link previews: `og.png` (the 1200×630 social
