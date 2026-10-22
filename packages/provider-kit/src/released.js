@@ -7,16 +7,25 @@
  * names never reach it. A commit's `Refs:` trailer is therefore the only place
  * the ticket survives into the range a release scans — see the
  * `commit-trailers` rule. Nothing here is tracker-specific: the identifier
- * shape (`KEY-123`) and the team-key prefix are common to the trackers this
- * scans for, which is why the module lives in the kit.
+ * shape defaults to `KEY-123` (Linear, Jira), and a provider whose refs look
+ * different (GitHub's `#123`) passes its own `refPattern`.
  *
  * The parsing half is pure and takes commits as data, so the rules below are
  * testable without git. Reading the range, and enriching refs with issue titles,
  * belong to the caller.
  */
 
-// An issue identifier: uppercase team key, dash, number.
+// An issue identifier: uppercase team key, dash, number. The default, used
+// whenever a caller passes no `refPattern`.
 const IDENTIFIER_RE = /\b[A-Z][A-Z0-9]*-\d+\b/g
+// A GitHub issue ref in the same repo: `#123`.
+//
+// WHAT WOULD FOOL IT: `#` is also how a commit says "issue number" in prose and
+// how `owner/repo#123` names ANOTHER repo's issue. Prose is excluded by the
+// trailer anchor (only a `Refs:` line is scanned); the cross-repo form is
+// excluded by the lookbehind, so a ref into some other repo never lands on this
+// one's release — the GitHub twin of `partitionStageMoves`' foreign team key.
+const GITHUB_REF_RE = /(?<![\w/.-])#\d+\b/g
 // A `Refs:` trailer line. Anchored, so it is a line of its own — never prose
 // that happens to mention the word.
 const TRAILER_RE = /^Refs:[ \t]*(.+?)[ \t]*$/
@@ -34,7 +43,8 @@ const TRAILER_RE = /^Refs:[ \t]*(.+?)[ \t]*$/
  * which is worse than missing a ticket: the missing one is noticed when someone
  * looks for it, the invented one never is.
  */
-function refsInBody(body) {
+function refsInBody(body, refPattern) {
+  const pattern = asGlobal(refPattern) || IDENTIFIER_RE
   const found = []
   let fenced = false
   for (const raw of String(body || '').split('\n')) {
@@ -48,9 +58,17 @@ function refsInBody(body) {
     if (/^ {4,}|\t/.test(line)) continue
     const m = TRAILER_RE.exec(line.trim() === line ? line : line.trimStart())
     if (!m) continue
-    for (const id of m[1].match(IDENTIFIER_RE) || []) found.push(id)
+    for (const id of m[1].match(pattern) || []) found.push(id)
   }
   return found
+}
+
+// `String.prototype.match` only returns every hit for a GLOBAL regex; a
+// provider passing `/#\d+/` would otherwise get its first ref and lose the rest
+// in silence. Anything that is not a RegExp is no pattern at all.
+function asGlobal(pattern) {
+  if (!(pattern instanceof RegExp)) return null
+  return pattern.global ? pattern : new RegExp(pattern.source, `${pattern.flags}g`)
 }
 
 /**
@@ -103,10 +121,18 @@ function onlyIgnoredPaths(paths, ignorePaths) {
  * Fold commits into the report a release needs.
  *
  * @param {Array<{sha?:string, subject?:string, body?:string, paths?:string[]}>} commits
- * @param {{ignorePaths?:string[]}} [options] `ignorePaths` marks bookkeeping —
- *   see `onlyIgnoredPaths`. Omitted (or empty) means nothing is ignored, so the
- *   report is what it was before the filter existed.
- * @returns {{tickets: Array<{ref:string, commits:number}>, unreferenced:number, ignored:number, total:number}}
+ * @param {{ignorePaths?:string[], refPattern?:RegExp, foreignPatterns?:RegExp[]}} [options]
+ *   `ignorePaths` marks bookkeeping — see `onlyIgnoredPaths`. Omitted (or
+ *   empty) means nothing is ignored, so the report is what it was before the
+ *   filter existed. `refPattern` is this provider's ref shape (see
+ *   `refsInBody`). `foreignPatterns` are OTHER trackers' ref shapes this repo
+ *   used before — a repo that moved from Linear to GitHub still has
+ *   `Refs: SKS-29` all through its history, and those commits were referenced,
+ *   just not to this tracker. They are counted as `historical` rather than
+ *   `unreferenced`, which exists to surface a MISSED trailer.
+ * @returns {{tickets: Array<{ref:string, commits:number}>, unreferenced:number, ignored:number, total:number, historical?:number}}
+ *   `historical` is present only when `foreignPatterns` was given, so a
+ *   provider that never moved trackers sees exactly the shape it always did.
  *   `tickets` is deduped in FIRST-SEEN order: a ticket touched by eight commits
  *   is listed once, where it first appears, not eight times. `ignored` is
  *   reported rather than merely subtracted — a filter that removes commits in
@@ -114,9 +140,12 @@ function onlyIgnoredPaths(paths, ignorePaths) {
  */
 function ticketsInRange(commits, options = {}) {
   const ignorePaths = (options && options.ignorePaths) || []
+  const refPattern = options && options.refPattern
+  const foreign = ((options && options.foreignPatterns) || []).map(asGlobal).filter(Boolean)
   const seen = new Map()
   let unreferenced = 0
   let ignored = 0
+  let historical = 0
   for (const commit of commits || []) {
     if (onlyIgnoredPaths(commit && commit.paths, ignorePaths)) {
       // Not counted as unreferenced either: that number exists to surface a
@@ -124,19 +153,25 @@ function ticketsInRange(commits, options = {}) {
       ignored++
       continue
     }
-    const refs = [...new Set(refsInBody(commit && commit.body))]
+    const refs = [...new Set(refsInBody(commit && commit.body, refPattern))]
     if (!refs.length) {
-      unreferenced++
+      // A POSITIVE signal, never an absence: only a trailer that actually
+      // carries an older tracker's ref makes a commit historical. A commit with
+      // no trailer at all is still the gap `unreferenced` is there to name.
+      if (foreign.some((p) => refsInBody(commit && commit.body, p).length)) historical++
+      else unreferenced++
       continue
     }
     for (const ref of refs) seen.set(ref, (seen.get(ref) || 0) + 1)
   }
-  return {
+  const report = {
     tickets: [...seen.entries()].map(([ref, count]) => ({ ref, commits: count })),
     unreferenced,
     ignored,
     total: (commits || []).length,
   }
+  if (foreign.length) report.historical = historical
+  return report
 }
 
 /**
@@ -223,4 +258,12 @@ function stageOrderWarning(stages, fromState, toKey, lifecycleStates = []) {
   return null
 }
 
-module.exports = { ticketsInRange, refsInBody, onlyIgnoredPaths, partitionStageMoves, stageOrderWarning }
+module.exports = {
+  ticketsInRange,
+  refsInBody,
+  onlyIgnoredPaths,
+  partitionStageMoves,
+  stageOrderWarning,
+  IDENTIFIER_RE,
+  GITHUB_REF_RE,
+}

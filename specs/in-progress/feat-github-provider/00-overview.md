@@ -157,7 +157,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Spike GitHub APIs + kit neutrality (ref pattern) | ⬜ | [01-spike-and-ref-pattern.md](01-spike-and-ref-pattern.md) |
+| 1 | Spike GitHub APIs + kit neutrality (ref pattern) | 🔄 | [01-spike-and-ref-pattern.md](01-spike-and-ref-pattern.md) |
 | 2 | GitHub adapter core (REST, GraphQL board, dialect) | ⬜ | [02-github-adapter.md](02-github-adapter.md) |
 | 3 | CLI, MCP, skills, seams, intake | ⬜ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment hoisted to the kit + `/spec-claim` | ⬜ | [04-assignment.md](04-assignment.md) |
