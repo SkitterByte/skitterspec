@@ -9,7 +9,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-hotfix-prerelease-bump (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (green), awaiting review
+> **Status:** Complete (2026-10-22)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-22
@@ -84,6 +84,7 @@ Red: `ℹ fail 4` — `actual: 'v36.2.4', expected: 'v36.2.3-hotfix.5'`.
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-22 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-22 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -93,3 +94,5 @@ Red: `ℹ fail 4` — `actual: 'v36.2.4', expected: 'v36.2.3-hotfix.5'`.
   this bug.
 - 2026-10-22 — Fixed: `patch` continues a `-hotfix.N` base's line, and a
   collision names the free hotfix tag; 3849 tests green.
+- 2026-10-22 — Completed; fix green (3849 tests). Deferred: criterion 5
+  (skip the main cherry-pick when the fix is already on main).
