@@ -70,6 +70,7 @@ const {
 } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
 const { runChecks } = require('./doctor.js')
+const { specSyncRelease } = require('./cli-release.js')
 const {
   storePath,
   storeMode,
@@ -3671,7 +3672,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false, text: null }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false, text: null, links: [] }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -3751,6 +3752,13 @@ async function specSync(rest, io = {}) {
       const [key, ...rest] = String(args[++i] || '').split('=')
       flags.stages.push({ key: String(key).trim(), state: rest.join('=').trim() })
     } else if (args[i] === '--states') flags.statesFile = path.resolve(args[++i])
+    // `release create`. `--env` is the env KEY a new release lands on, held as
+    // `releaseEnv` because `flags.env` is the process environment (the key
+    // lookup's injection seam) and must never be shadowed by a flag.
+    else if (args[i] === '--from') flags.from = String(args[++i] || '').trim()
+    else if (args[i] === '--env') flags.releaseEnv = String(args[++i] || '').trim()
+    else if (args[i] === '--notes') flags.notesFile = String(args[++i] || '').trim()
+    else if (args[i] === '--link') flags.links.push(String(args[++i] || '').trim())
     else if (args[i].startsWith('--')) unknownFlags.push(args[i])
     else positional.push(args[i])
   }
@@ -3851,6 +3859,8 @@ async function specSync(rest, io = {}) {
       return (await specSyncReleased(dir, config, positional[0], flags, out)) || 0
     case 'stage':
       return (await specSyncStage(dir, config, positional[0], positional[1], flags, out)) || 0
+    case 'release':
+      return (await specSyncRelease(dir, config, positional, flags, out, { readCommitRange, listSpecs })) || 0
     case 'ref':
       return specSyncRef(dir, config, positional[0], flags, out, err) || 0
     case 'retarget':
@@ -3885,6 +3895,8 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +
         '       skitterspec spec-sync stage <key> [<range>] [--apply] [--json]\n' +
+        '       skitterspec spec-sync release create <tag> [--from <ref>] [--env <key>] [--notes <file>]\n' +
+        '                    [--link [label=]<url> …] [--apply] [--json]\n' +
         '       skitterspec spec-sync reattach <spec> [--to <ISSUE-REF>] [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
         '       skitterspec spec-sync doctor [--check-remote] [--mcp <file>] [--json]\n' +

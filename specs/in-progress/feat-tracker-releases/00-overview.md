@@ -122,7 +122,7 @@ skitterspec spec-sync release complete 1.4.0 --apply
 | CLI command | update | `spec-sync init-config`: `--release-pipeline` flags |
 | Skill/rule | update | `/spec-linear-setup`: Releases step, re-run offers it alone, CI diff offer |
 | Config | update | this repo: `.github/workflows/release.yml`, `scripts/approve-release.cjs`, `linear.config.json` |
-| Docs | update | `linear.config.md`, `ci-stages.md` (Releases vs ladder) |
+| Docs | update | `linear.config.md`, `ci-stages.md` (Releases vs ladder), `docs/linear.html` (command table) |
 
 ## Phases
 
@@ -133,7 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Spike Linear's release API and linear-release | ✅ | [01-spike-release-api.md](01-spike-release-api.md) |
 | 2 | Release seam + config + Linear adapter ops | ✅ | [02-seam-and-config.md](02-seam-and-config.md) |
-| 3 | `release create <tag>` | ⬜ | [03-release-create.md](03-release-create.md) |
+| 3 | `release create <tag>` | ✅ | [03-release-create.md](03-release-create.md) |
 | 4 | `release deployed` / `release complete` | ⬜ | [04-deployed-complete.md](04-deployed-complete.md) |
 | 5 | Setup step, CI wiring offer, doctor | ⬜ | [05-setup-and-doctor.md](05-setup-and-doctor.md) |
 | 6 | Dogfood in this repo | ⬜ | [06-dogfood.md](06-dogfood.md) |
@@ -169,3 +169,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   personal key, which phase 1 proved can write them. Pipeline access keys
   (`…ByAccessKey`) are deferred. The seam's ops are find/sync/stage/complete;
   there is no separate attach.
+- 2026-10-21 — Phase 3: the initial-stage flag is `--env`, not `--stage`
+  (`--stage` already belongs to init-config's ladder). Added `--from` and a
+  shallow-clone refusal. A dropped ref warns and does not fail CI.
+- 2026-10-21 — Follow-up surfaced: monorepo series are not filtered by package
+  path, so a commit counts toward every pipeline whose tag range contains it.
+  Linear pipelines carry `includePathPatterns` for this. A per-pipeline `paths`
+  key is not in scope here.
