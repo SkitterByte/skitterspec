@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-424"
+github_issue_id: "#16"
 ---
 
 # Phase 7 — Docs, live smoke, ereqs migration path ⬜

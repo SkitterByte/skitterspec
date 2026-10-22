@@ -1,3 +1,7 @@
+---
+github_issue_id: "#30"
+---
+
 # Phase 6 — Dogfood in this repo ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started

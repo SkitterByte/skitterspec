@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-173"
+github_issue_id: "#21"
 ---
 
 # Phase 1 — Read a spec's real state from its worktree ⬜

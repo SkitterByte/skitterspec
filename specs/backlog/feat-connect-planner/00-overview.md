@@ -1,6 +1,8 @@
 ---
 linear_identifier: "SKS-154"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-154/a-planner-for-connect-and-tests-for-what-it-decides"
+github_identifier: "#17"
+github_url: "https://github.com/SkitterByte/skitterspec/issues/17"
 ---
 
 # A planner for connect, and tests for what it decides

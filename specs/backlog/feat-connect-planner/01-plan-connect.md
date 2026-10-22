@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-155"
+github_issue_id: "#18"
 ---
 
 # Phase 1 — extract `planConnect`, and test what it decides ⬜

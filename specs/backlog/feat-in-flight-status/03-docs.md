@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-175"
+github_issue_id: "#23"
 ---
 
 # Phase 3 — Point people at it ⬜

@@ -1,3 +1,7 @@
+---
+github_issue_id: "#29"
+---
+
 # Phase 5 — Setup step, CI wiring offer, doctor ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started

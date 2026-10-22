@@ -1,3 +1,7 @@
+---
+github_issue_id: "#26"
+---
+
 # Phase 2 — Release seam + config + Linear adapter ops ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started

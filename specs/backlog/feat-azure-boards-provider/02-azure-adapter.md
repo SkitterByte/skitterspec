@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-419"
+github_issue_id: "#11"
 ---
 
 # Phase 2 — Azure adapter core (REST, dialect, states) ⬜

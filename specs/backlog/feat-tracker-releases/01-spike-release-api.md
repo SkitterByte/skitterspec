@@ -1,3 +1,7 @@
+---
+github_issue_id: "#25"
+---
+
 # Phase 1 — Spike Linear's release API and linear-release ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started

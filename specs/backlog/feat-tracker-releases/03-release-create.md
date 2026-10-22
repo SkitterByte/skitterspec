@@ -1,3 +1,7 @@
+---
+github_issue_id: "#27"
+---
+
 # Phase 3 — `release create <tag>` ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started

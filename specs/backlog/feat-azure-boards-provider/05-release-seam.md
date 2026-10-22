@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-422"
+github_issue_id: "#14"
 ---
 
 # Phase 5 — Release work item on the release seam ⬜

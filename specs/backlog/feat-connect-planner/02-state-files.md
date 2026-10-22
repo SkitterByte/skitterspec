@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-156"
+github_issue_id: "#19"
 ---
 
 # Phase 2 — pin the state files `/spec-complete` depends on ⬜

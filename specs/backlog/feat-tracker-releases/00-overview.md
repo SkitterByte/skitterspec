@@ -1,3 +1,8 @@
+---
+github_identifier: "#24"
+github_url: "https://github.com/SkitterByte/skitterspec/issues/24"
+---
+
 # Tracker releases: create the release, attach its tickets, follow its deploys
 
 > **Type:** Feature

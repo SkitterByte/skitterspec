@@ -1,6 +1,8 @@
 ---
 linear_identifier: "SKS-172"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-172/what-is-in-flight-a-status-view-that-reads-the-worktrees"
+github_identifier: "#20"
+github_url: "https://github.com/SkitterByte/skitterspec/issues/20"
 ---
 
 # What is in flight — a status view that reads the worktrees

@@ -1,0 +1,11 @@
+{
+  "github": { "owner": "SkitterByte", "repo": "skitterspec", "project": 2 },
+  "releases": {
+    "series": [
+      { "tagPrefix": "skitterspec@", "envs": { "staged": "Staged", "published": "Published" } },
+      { "tagPrefix": "skitterspec-linear@", "envs": { "staged": "Staged", "published": "Published" } },
+      { "tagPrefix": "skitterspec-jira@", "envs": { "staged": "Staged", "published": "Published" } },
+      { "tagPrefix": "skitterspec-github@", "envs": { "staged": "Staged", "published": "Published" } }
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-174"
+github_issue_id: "#22"
 ---
 
 # Phase 2 — `skitterspec status` ⬜

@@ -1,3 +1,7 @@
+---
+github_issue_id: "#28"
+---
+
 # Phase 4 — `release deployed` / `release complete` ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started

@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-418"
+github_issue_id: "#10"
 ---
 
 # Phase 1 — Spike Azure DevOps APIs ⬜

@@ -1,6 +1,8 @@
 ---
 linear_identifier: "SKS-417"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-417/skitterspec-azure-boards-an-azure-devops-boards-ticketing-provider"
+github_identifier: "#9"
+github_url: "https://github.com/SkitterByte/skitterspec/issues/9"
 ---
 
 # skitterspec-azure-boards — an Azure DevOps Boards ticketing provider

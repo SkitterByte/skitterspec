@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-421"
+github_issue_id: "#13"
 ---
 
 # Phase 4 — Assignment on the kit seam ⬜
