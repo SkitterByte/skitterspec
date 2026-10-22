@@ -3,15 +3,17 @@ linear_identifier: "SKS-417"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-417/skitterspec-azure-boards-an-azure-devops-boards-ticketing-provider"
 github_identifier: "#9"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/9"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # skitterspec-azure-boards — an Azure DevOps Boards ticketing provider
 
 > **Type:** Feature
 > **Name:** feat-azure-boards-provider (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-22)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-22
 > **Area:** packages/provider-kit (consumes the ref-pattern, assignment and
 > release seams `feat-github-provider` builds), new packages/azure-boards, new
@@ -178,6 +180,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-22 | Ready | backlog | Reuben Greaves |
+| 2026-10-22 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
