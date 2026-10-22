@@ -49,7 +49,12 @@ deployed, so nobody drags cards around to say "this shipped".
    rather than creating (negative-checks rule 4).
 5. **Range = previous tag in the same series → this tag.** It is resolved with
    `git describe --tags --abbrev=0 --match '<prefix>*' <tag>^`, so a hotfix tag
-   (`feat-hotfix-release`) ranges from its base tag. A first release with no
+   ranges from its base tag. Both shapes `spec-env hotfix land` now cuts —
+   `<root>-hotfix.N` and a next patch under `hotfix.bump: patch`
+   (`packages/common/src/env/hotfix.js`) — keep the series prefix, so the
+   `--match` sees them; and because the hotfix's fix is cherry-picked onto the
+   base branch, its ticket legitimately appears in the next mainline range too
+   (the fix ships in both). A first release with no
    previous tag is reported as "no previous release: N commits from root" and
    never fails silently. CI needs `fetch-depth: 0`, and the engine says so when
    the history is shallow.
@@ -65,7 +70,9 @@ deployed, so nobody drags cards around to say "this shipped".
    The release ops (`releaseFind`, `releaseCreate`, `releaseAttach`,
    `releaseStage`, `releaseComplete`) are optional adapter ops, feature-detected
    like the other extras. A provider without them makes the verbs refuse with
-   one line. Jira (fix versions) is a follow-up, not this spec.
+   one line — live behaviour from day one, since the Jira provider now ships
+   (`skitterspec-jira@1.0.x`). Jira (fix versions) stays a follow-up, not this
+   spec.
 9. **Pipelines are created by a person in Linear's UI. Setup links them.**
    `/spec-linear-setup` lists the pipelines and maps each one to a tag prefix
    (and its env→stage map). This holds whether or not the API can create
@@ -79,7 +86,8 @@ deployed, so nobody drags cards around to say "this shipped".
     Releases. Setup offers Releases where the workspace has them and the ladder
     otherwise, and doctor warns when both are configured.
 12. **This repo dogfoods it:** one pipeline per package (`skitterspec@`,
-    `skitterspec-linear@`), stages `staged → published`. `release.yml` creates
+    `skitterspec-linear@`, `skitterspec-jira@` — `release.yml` already carries
+    all three tag prefixes), stages `staged → published`. `release.yml` creates
     the release at `staged`, and `npm run approve` completes it as `published`.
     That completion runs locally with the user's personal key, if Phase 1 shows a
     personal key can write releases. Otherwise approve prints the CI dispatch to
@@ -148,3 +156,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-10-21 — Spec created.
+- 2026-10-22 — Reviewed vs codebase: `skitterspec-jira` now ships (third tag
+  series in `release.yml`), so Decision 12 and Phase 6 cover three pipelines;
+  `feat-hotfix-release` landed after writing, so Decision 5 cites the real tag
+  shapes (`<root>-hotfix.N` / `hotfix.bump: patch`) and Phase 3 tests the
+  cherry-picked ref reappearing in the next mainline range. All referenced
+  symbols verified present (`ticketsInRange`, `partitionStageMoves`,
+  `stageOrderWarning`, `readCommitRange`, `missingOps`, setup step 7).

@@ -7,7 +7,8 @@ tickets at `staged`, and `npm run approve` moves it to `published`.
 
 ## Tasks
 
-- [ ] Create the two pipelines in Linear's UI (user), then re-run
+- [ ] Create the three pipelines in Linear's UI (user) — `skitterspec@`,
+      `skitterspec-linear@`, `skitterspec-jira@` — then re-run
       `/spec-linear-setup` to link them and write the config.
 - [ ] Add the `release create` step to `release.yml` after staging succeeds,
       with `fetch-depth: 0`. The user adds the secret.

@@ -19,7 +19,10 @@ release's tickets, and running it again on the same tag changes nothing.
       plan and write nothing.
 - [ ] Wire `release` into `cli-sync.js` dispatch and `--help`. Refuse with one
       line on a provider without the seam.
-- [ ] Tests: a hotfix tag ranging from its base; a re-run producing no change;
-      bookkeeping-only commits ignored; a foreign ref never attached.
+- [ ] Tests: a hotfix tag ranging from its base — both shapes `spec-env hotfix
+      land` cuts, `<root>-hotfix.N` and a `hotfix.bump: patch` next patch; a
+      cherry-picked hotfix ref attaching again in the next mainline range (the
+      fix ships in both); a re-run producing no change; bookkeeping-only commits
+      ignored; a foreign ref never attached.
 - [ ] Add/extend tests covering this phase; run `pnpm test`
       (see `.claude/rules/spec-planning.md`) — green before the phase is done.
