@@ -143,21 +143,30 @@ query($owner: String!, $repo: String!, $number: Int!, $status: String!) {
   }
 }`
 
-const BOARD_ITEMS = `
-query($owner: String!, $number: Int!, $status: String!, $after: String) {
-  repositoryOwner(login: $owner) {
-    ... on User { projectV2(number: $number) { ...Items } }
-    ... on Organization { projectV2(number: $number) { ...Items } }
-  }
-}
-fragment Items on ProjectV2 {
-  items(first: 100, after: $after) {
+// This repo's issues WITH their board item, by search rather than by the
+// board's own `items` connection. On the first live run of this provider that
+// connection read totalCount 0 for over an hour — during a GitHub incident
+// degrading Issues — while every item was readable by id and from
+// `issue.projectItems`, and it recovered on its own. GitHub also has an open
+// report of the same symptom outside an incident (community discussion
+// #188487). Reading each issue's own `projectItems` is the side that stayed
+// correct throughout.
+const REPO_ISSUES = `
+query($q: String!, $status: String!, $after: String) {
+  search(query: $q, type: ISSUE, first: 100, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
-      fieldValueByName(name: $status) { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-      content {
-        __typename
-        ... on Issue { number title url state repository { nameWithOwner } parent { number } }
+      ... on Issue {
+        number title url state
+        repository { nameWithOwner }
+        parent { number }
+        projectItems(first: 20) {
+          nodes {
+            id
+            project { number owner { __typename ... on User { login } ... on Organization { login } } }
+            fieldValueByName(name: $status) { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+          }
+        }
       }
     }
   }
@@ -515,40 +524,43 @@ function makeApiAdapter({
     resolveBoard,
 
     /**
-     * Every issue on the board that belongs to THIS repo, with its Status —
-     * the listing `spec-sync list` shows. A board can hold other repos'
-     * issues, draft items and PRs; all three are dropped here, by a positive
-     * check on the content's repository rather than an absence.
+     * Every issue of THIS repo that is on the board, with its Status — the
+     * listing `spec-sync list` shows. Found by search and each issue's own
+     * board item (see `REPO_ISSUES` for why not the board's `items`), so an
+     * issue off the board is simply absent, and other repos' items, drafts and
+     * PRs never appear at all. `label` narrows the search (the spec label).
+     *
+     * BLIND SPOT: search is eventually consistent, so an issue created seconds
+     * ago may be missing from one listing. A listing is a convenience; nothing
+     * decides on it.
      */
-    async listBoardItems() {
+    async listBoardItems({ label = '' } = {}) {
       if (!project) throw new GitHubRefusal('no board configured — set github.project to the board number from its URL')
+      const q = [`repo:${owner}/${repo}`, 'is:issue', label ? `label:"${String(label).replace(/"/g, '')}"` : null].filter(Boolean).join(' ')
       const out = []
       let after = null
       for (let page = 0; page < MAX_PAGES; page++) {
-        const data = await graphql(BOARD_ITEMS, { owner, number: project, status: statusField, after })
-        const board = data.repositoryOwner && data.repositoryOwner.projectV2
-        if (!board) {
-          throw new GitHubRefusal(`no board ${project} owned by ${owner} that this token can see — check github.project`)
-        }
-        const items = board.items || { nodes: [], pageInfo: {} }
-        for (const n of items.nodes || []) {
-          const c = n && n.content
-          if (!c || c.__typename !== 'Issue' || c.number == null) continue
+        const data = await graphql(REPO_ISSUES, { q, status: statusField, after })
+        const res = data.search || { nodes: [], pageInfo: {} }
+        for (const c of res.nodes || []) {
+          if (!c || c.number == null) continue
           if (!c.repository || !sameLogin(c.repository.nameWithOwner, `${owner}/${repo}`)) continue
+          const item = boardItemOf(c)
+          if (!item) continue
           out.push({
             id: String(c.number),
             identifier: identifierOf(c.number),
             title: c.title != null ? c.title : null,
             url: c.url || null,
             open: c.state === 'OPEN',
-            state: n.fieldValueByName && n.fieldValueByName.name != null ? { name: n.fieldValueByName.name } : null,
+            state: item.fieldValueByName && item.fieldValueByName.name != null ? { name: item.fieldValueByName.name } : null,
             parent: c.parent && c.parent.number != null ? { id: String(c.parent.number), identifier: identifierOf(c.parent.number) } : null,
           })
         }
-        if (!items.pageInfo || !items.pageInfo.hasNextPage) break
-        after = items.pageInfo.endCursor
+        if (!res.pageInfo || !res.pageInfo.hasNextPage) break
+        after = res.pageInfo.endCursor
       }
-      return out
+      return out.sort((a, b) => Number(a.id) - Number(b.id))
     },
 
     /**

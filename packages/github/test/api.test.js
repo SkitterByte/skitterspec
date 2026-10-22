@@ -450,3 +450,34 @@ test('releaseStage refuses an unknown Deployed option before any write', async (
   await assert.rejects(a.releaseStage({ tag: 't' }, 'Prod', [{ ref: '#1' }]), /"Deployed" field has no option "Prod"/)
   assert.ok(calls.every((c) => gqlKind(c) === 'board'))
 })
+
+// --- listing (by search, because ProjectV2.items can omit live items) -------------
+
+test('listBoardItems lists this repo\'s issues on OUR board, by search, sorted', async () => {
+  const node = (number, { repo = 'SkitterByte/skitterspec', board = 7, owner = 'SkitterByte', status = 'In Progress', parent = null } = {}) => ({
+    number,
+    title: `T${number}`,
+    url: `u${number}`,
+    state: 'OPEN',
+    repository: { nameWithOwner: repo },
+    parent: parent ? { number: parent } : null,
+    projectItems: { nodes: board ? [{ id: `I${number}`, project: { number: board, owner: { login: owner } }, fieldValueByName: { name: status } }] : [] },
+  })
+  const { a, calls } = adapter(() =>
+    res({
+      data: {
+        search: {
+          pageInfo: { hasNextPage: false },
+          nodes: [node(9), node(3, { parent: 1 }), node(4, { repo: 'SkitterByte/other' }), node(5, { board: null }), node(6, { owner: 'someone' })],
+        },
+      },
+    }),
+  )
+  const got = await a.listBoardItems({ label: 'spec' })
+  assert.deepStrictEqual(got.map((i) => [i.identifier, i.state && i.state.name, i.parent && i.parent.identifier]), [
+    ['#3', 'In Progress', '#1'],
+    ['#9', 'In Progress', null],
+  ])
+  assert.strictEqual(calls[0].body.variables.q, 'repo:SkitterByte/skitterspec is:issue label:"spec"')
+  assert.doesNotMatch(calls[0].body.query, /items\(first/, 'never the board\'s own items connection')
+})

@@ -214,6 +214,32 @@ test('a first apply mints the spec and its phases, labelled, on the board, and s
   assert.match(phase, /github_issue_id: "#102"/)
 })
 
+// A phase's task list renders as clickable boxes on GitHub, so a tick there is
+// an edit the next push replaces — reported, never refused.
+async function pushedThenPhaseEdited({ tamper }) {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  await run(['apply', 'feat-demo', '--plan', await planFile(dir)], dir, { adapter })
+  if (tamper) adapter.issues.get('102').description += '\n\n- [x] ticked on GitHub'
+  const phase = path.join(dir, 'specs', 'in-progress', 'feat-demo', '01-outbox.md')
+  fs.writeFileSync(phase, fs.readFileSync(phase, 'utf-8').replace('a durable place', 'a durable, ordered place'))
+  return run(['apply', 'feat-demo', '--plan', await planFile(dir)], dir, { adapter })
+}
+
+test('a phase sub-issue edited on GitHub is warned about before it is replaced', async () => {
+  const r = await pushedThenPhaseEdited({ tamper: true })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /!! #102's body was edited on GitHub since the last push/)
+  assert.match(r.out, /sub-issue updated: #102/)
+})
+
+test('an untouched phase sub-issue updates in silence', async () => {
+  const r = await pushedThenPhaseEdited({ tamper: false })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.doesNotMatch(r.out, /!!/)
+  assert.match(r.out, /sub-issue updated: #102/)
+})
+
 test('a complete spec is set Done on the board AND closed as completed', async () => {
   const dir = repoWithSpec({ bucket: 'complete', phaseEmoji: '✅' })
   const adapter = fakeAdapter()
@@ -510,4 +536,44 @@ test('the releases config validates its series', () => {
   assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ envs: {} }] } }), /releases\.series\[0\]/)
   assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ tagPrefix: 'a@' }, { tagPrefix: 'a@' }] } }), /not already listed/)
   assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ tagPrefix: 'a@', envs: { 'bad key': 'X' } }] } }), /envs\.bad key/)
+})
+
+// --- found live, on the first real board ------------------------------------------
+
+test('a board that auto-closes on Done is not fought: no second close, no failure', async () => {
+  const dir = repoWithSpec({ bucket: 'complete', phaseEmoji: '✅' })
+  const adapter = fakeAdapter()
+  const setStatus = adapter.setStatus
+  adapter.setStatus = async (issueOrRef, name) => {
+    const r = await setStatus(issueOrRef, name)
+    const i = adapter.issues.get(String(issueOrRef.id || issueOrRef).replace(/^#/, ''))
+    if (name === 'Done') i.open = false // the board's own workflow
+    return r
+  }
+  const r = await run(['apply', 'feat-demo', '--plan', await planFile(dir)], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.ok(!adapter.calls.some((c) => c[0] === 'setIssueOpen'), 'already closed by the board')
+})
+
+test('losing that race late is accepted once a re-read shows the issue closed', async () => {
+  const dir = repoWithSpec({ bucket: 'complete', phaseEmoji: '✅' })
+  const adapter = fakeAdapter()
+  adapter.setIssueOpen = async (ref) => {
+    adapter.issues.get(String(ref)).open = false
+    throw new Error('GitHub refused the request: This issue was closed by another request.')
+  }
+  const r = await run(['apply', 'feat-demo', '--plan', await planFile(dir)], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+})
+
+test('a settle that fails after a create names the created issue', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  adapter.setStatus = async (issueOrRef) => {
+    if (String(issueOrRef.id || issueOrRef) === '102') throw new Error('Status write refused')
+    return { changed: true }
+  }
+  const r = await run(['apply', 'feat-demo', '--plan', await planFile(dir)], dir, { adapter })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /created but not stamped: #102/)
 })

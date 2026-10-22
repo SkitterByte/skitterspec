@@ -213,6 +213,9 @@ function makeReleaseCommands(p) {
     if (t.parts.foreign.length) lines.push(`  foreign:  ${t.parts.foreign.map((x) => x.ref).join(', ')} — not attached`)
     if (t.parts.unlinked.length) lines.push(`  unlinked: ${t.parts.unlinked.map((x) => x.ref).join(', ')} — no spec claims them, not attached`)
     lines.push(`  ${t.report.unreferenced} commit(s) carry no Refs: trailer${t.report.ignored ? `, ${t.report.ignored} bookkeeping ignored` : ''}`)
+    // Without this line a range from before a tracker move reads as mostly
+    // missing: those commits are neither unreferenced nor attached.
+    if (t.report.historical) lines.push(`  ${t.report.historical} commit(s) reference an earlier tracker — not attached`)
     return lines
   }
 

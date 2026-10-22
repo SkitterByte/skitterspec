@@ -149,10 +149,38 @@ function applyOps({ adapter, config }) {
     if (!bucket) return
     const issue = issueOrRef && issueOrRef.nodeId ? issueOrRef : await adapter.readIssue(issueOrRef)
     if (!issue) throw new Error(`no GitHub issue found for ${issueOrRef}`)
-    await adapter.setStatus(issue, statusFor(bucket))
+    const changed = await adapter.setStatus(issue, statusFor(bucket))
     const reason = closeReasonForBucket(bucket)
     const wantOpen = !reason
-    if (issue.open !== wantOpen) await adapter.setIssueOpen(issue.id, { open: wantOpen, reason })
+    if (issue.open === wantOpen) return
+    // A BOARD MAY HAVE GOT THERE FIRST. Projects ship an "auto-close issue"
+    // workflow that closes an issue the moment its Status becomes Done, so the
+    // Status write above can itself close it — and GitHub then refuses our close
+    // as "closed by another request". Re-read after a Status change and act only
+    // on what is still wrong: the positive signal is the issue's own state.
+    let now = issue
+    if (changed && changed.changed !== false) now = (await adapter.readIssue(issue.id)) || issue
+    if (now.open === wantOpen) return
+    try {
+      await adapter.setIssueOpen(issue.id, { open: wantOpen, reason })
+    } catch (error) {
+      // The same race, lost later: re-read once, and accept the refusal only
+      // when the issue is now where we wanted it. Anything else is real.
+      const after = await adapter.readIssue(issue.id).catch(() => null)
+      if (!after || after.open !== wantOpen) throw error
+    }
+  }
+  // A create that lands and a settle that then fails leaves a real issue the
+  // kit has not stamped — it records a create only once the op returns. Name it
+  // on the error, as the adapter does for a failed sub-issue link, so the
+  // refusal says what to stamp before anyone re-runs and mints a twin.
+  const withOrphan = async (created, fn) => {
+    try {
+      await fn()
+    } catch (error) {
+      if (error && typeof error === 'object' && !error.orphan) error.orphan = created
+      throw error
+    }
   }
   const spec = markersFor(config, 'spec')
   const phase = markersFor(config, 'phase')
@@ -176,7 +204,7 @@ function applyOps({ adapter, config }) {
         labels: spec.labels,
         type: spec.type,
       })
-      await settle(created.id, issue && issue.state)
+      await withOrphan(created, () => settle(created.id, issue && issue.state))
       return created
     },
     updateIssue: async (existing, issue) => {
@@ -195,7 +223,7 @@ function applyOps({ adapter, config }) {
         labels: phase.labels,
         type: phase.type,
       })
-      await settle(created.id, sub.state)
+      await withOrphan(created, () => settle(created.id, sub.state))
       return created
     },
     updateSubIssue: async (sub) => {
@@ -664,7 +692,7 @@ async function specSyncList(dir, config, flags, out) {
   }
   let issues
   try {
-    issues = await cred.adapter.listBoardItems()
+    issues = await cred.adapter.listBoardItems({ label: markersFor(config, 'spec').labels[0] || '' })
     const stateNames = flags.stateArgs || []
     if (stateNames.length) {
       const want = new Set(stateNames.map((s) => s.toLowerCase()))

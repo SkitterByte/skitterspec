@@ -139,6 +139,7 @@ test('create is a dry run by default: the plan, nothing written', async () => {
   assert.match(r.out, /attach:\s+#1, #2/)
   assert.match(r.out, /in flight: #2/)
   assert.match(r.out, /unlinked: #9/)
+  assert.match(r.out, /1 commit\(s\) reference an earlier tracker/, 'the SKS-12 commit is counted, not dropped')
   assert.match(r.out, /would create the release/)
   assert.strictEqual(a.calls.length, 0)
 })
