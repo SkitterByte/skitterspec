@@ -1,15 +1,17 @@
 ---
 linear_identifier: "SKS-408"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-408/skitterspec-github-a-github-issues-projects-ticketing-provider"
+linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
+linear_assignee_name: "Skitter Byte"
 ---
 
 # skitterspec-github — a GitHub Issues + Projects ticketing provider
 
 > **Type:** Feature
 > **Name:** feat-github-provider (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-22)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-22
 > **Area:** packages/provider-kit (released.js ref pattern, assignment +
 > release seams), new packages/github, new packages/skitterspec-github,
@@ -173,6 +175,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-22 | Ready | backlog | Reuben Greaves |
+| 2026-10-22 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
