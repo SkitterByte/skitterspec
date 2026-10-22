@@ -205,3 +205,53 @@ test('a punctuation-only edit is invisible, and that is the accepted trade', () 
   const repunctuated = DESCRIPTION.replace('Exports time out on large accounts.', 'Exports time out on large accounts!!')
   assert.strictEqual(remoteDescriptionEdited(snap, { description: repunctuated }, CFG), false)
 })
+
+// --- phase sub-issues ---------------------------------------------------------
+//
+// The same question for a phase body. GitHub renders a phase's task list as
+// clickable boxes, so a tick on the issue is the common case of this edit.
+
+const { remoteSubIssueEdited } = require('../index.js')
+
+const PHASE = ['**Goal:** ship it.', '', '## Tasks', '', '- [ ] build it', '- [ ] test it'].join('\n')
+const phaseSnapshot = (goal) =>
+  snapshotOf({ description: DESCRIPTION, status: 'in-progress', subIssues: [{ id: '#8', ref: '01-a', name: 'A', goal, state: 'in-progress' }] }, CFG)
+
+test('a box ticked on a phase sub-issue is reported', () => {
+  const snap = phaseSnapshot(PHASE)
+  const ticked = PHASE.replace('- [ ] build it', '- [x] build it')
+  assert.strictEqual(remoteSubIssueEdited(snap, '#8', { description: ticked }, CFG), true)
+})
+
+test('an unchanged phase body is not', () => {
+  const snap = phaseSnapshot(PHASE)
+  assert.strictEqual(remoteSubIssueEdited(snap, '#8', { description: PHASE }, CFG), false)
+})
+
+test('a tracker reserialising the phase list is NOT an edit', () => {
+  const snap = phaseSnapshot(PHASE)
+  const reserialised = PHASE.replace(/^- /gm, '* ').replace('**Goal:**', '__Goal:__')
+  assert.strictEqual(remoteSubIssueEdited(snap, '#8', { description: reserialised }, CFG), false)
+})
+
+test('a snapshot written before sub-issue streams existed is cannot-tell', () => {
+  const snap = phaseSnapshot(PHASE)
+  delete snap.subIssueStreams
+  assert.strictEqual(remoteSubIssueEdited(snap, '#8', { description: 'anything' }, CFG), null)
+})
+
+test('an id the snapshot never recorded is cannot-tell', () => {
+  const snap = phaseSnapshot(PHASE)
+  assert.strictEqual(remoteSubIssueEdited(snap, '#99', { description: 'anything' }, CFG), null)
+})
+
+test('a phase whose body was never sent records nothing to accuse with', () => {
+  const snap = phaseSnapshot(null)
+  assert.deepStrictEqual(snap.subIssueStreams, {})
+  assert.strictEqual(remoteSubIssueEdited(snap, '#8', { description: 'anything' }, CFG), null)
+})
+
+test('recording sub-issue streams cannot make a push pending', () => {
+  const projection = { description: DESCRIPTION, status: 'in-progress', subIssues: [{ id: '#8', ref: '01-a', name: 'A', goal: PHASE, state: 'in-progress' }] }
+  assert.ok(isEmptyPlan(planChanges(projection, snapshotOf(projection, CFG))))
+})

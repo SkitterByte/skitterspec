@@ -147,7 +147,9 @@ configured repo, on the configured board.
 ## 4a. Apply it yourself — the MCP path (order matters)
 
 **First, check whether you are about to overwrite someone.** On the API path
-`apply` does this for itself, off the read-back it already makes. On the MCP
+`apply` does this for itself, off the read-back it already makes — for the spec
+issue and for every phase sub-issue it is about to update, so a box ticked on a
+phase issue prints `!! #N's body was edited on GitHub`. On the MCP
 path nothing has read the issue yet, so ask before you write:
 
 ```

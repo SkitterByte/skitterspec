@@ -49,6 +49,7 @@ const {
   stampSubIssueId,
   fieldsOf,
   remoteDescriptionEdited,
+  remoteSubIssueEdited,
   listPhaseFiles,
 } = require('@skitterbyte/skitterspec-sync-core')
 const { makeSpecHelpers } = require('./specs.js')
@@ -162,7 +163,16 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
   for (const s of projectionOf(snapshotDir, config).subIssues || []) {
     if (s.id != null) refById.set(String(s.id), s.ref)
   }
+  // A phase body edited on the tracker gets the same warning as the spec
+  // issue. The read is spent only where the snapshot recorded something to
+  // compare against, so an old snapshot costs no extra calls.
+  const base = readBase(dir, identifier, config)
   for (const sub of (plan.subIssues && plan.subIssues.update) || []) {
+    const streams = base && base.subIssueStreams
+    if (sub.goal != null && streams && streams[String(sub.id)]) {
+      const before = await adapter.readIssue(sub.id)
+      if (remoteSubIssueEdited(base, sub.id, before, config) === true) lines.push(ops.remoteEditedLine(sub.id))
+    }
     await ops.updateSubIssue(sub)
     result.subIssues[sub.ref || refById.get(String(sub.id)) || sub.id] = sub.id
     lines.push(`  sub-issue updated: ${sub.id}`)

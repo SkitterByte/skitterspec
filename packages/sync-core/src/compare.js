@@ -137,6 +137,30 @@ function remoteDescriptionEdited(snapshot, remote, config) {
 
   return hashField(stream(text, config)) !== recorded
 }
+
+/**
+ * The same question for one phase SUB-ISSUE: has its body been edited on the
+ * tracker since the last push? It matters most where the tracker renders a
+ * phase's task list as clickable boxes — GitHub does — because ticking one
+ * there is an edit the next push replaces.
+ *
+ * The same three answers and the same cannot-tells as above, plus one of its
+ * own: no `subIssueStreams` in the snapshot, or none for this id. Every
+ * snapshot written before this existed lacks it, and a phase whose body was
+ * never sent (no goal) has nothing recorded.
+ *
+ * @param {object|null} snapshot  the committed last-pushed snapshot
+ * @param {string} id             the sub-issue's id as the snapshot keys it
+ * @param {object|null} remote    what the tracker currently holds for it
+ * @returns {boolean|null}
+ */
+function remoteSubIssueEdited(snapshot, id, remote, config) {
+  const streams = snapshot && snapshot.subIssueStreams
+  if (!streams || typeof streams !== 'object' || Array.isArray(streams)) return null
+  const recorded = streams[String(id)]
+  if (typeof recorded !== 'string' || !recorded) return null
+  return remoteDescriptionEdited({ issueFields: { descriptionStream: recorded } }, remote, config)
+}
 // A phase SUB-ISSUE: its name, goal and state (all repo-owned).
 const subIssueHash = (s) => hashField({ name: s.name ?? null, goal: s.goal ?? null, state: s.state ?? null })
 
@@ -160,6 +184,13 @@ function snapshotOf(projection, config) {
     issue: specIssueHash(p),
     issueFields: specIssueFieldHashes(p, config),
     subIssues: byId(p.subIssues, subIssueHash),
+    // Recorded and never planned on, like `descriptionStream`: `planChanges`
+    // reads `subIssues` by name, so this key cannot make a push pending. Only a
+    // phase whose body is actually sent (a string goal) gets one.
+    subIssueStreams: byId(
+      (p.subIssues || []).filter((s) => s && typeof s.goal === 'string'),
+      (s) => hashField(stream(s.goal, config)),
+    ),
   }
 }
 
@@ -295,6 +326,7 @@ function isEmptyPlan(plan) {
 module.exports = {
   planChanges,
   remoteDescriptionEdited,
+  remoteSubIssueEdited,
   issueChanges,
   specIssueFieldHashes,
   snapshotOf,

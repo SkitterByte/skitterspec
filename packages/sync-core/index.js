@@ -14,7 +14,7 @@
  */
 
 const { ownsField, normalizeLocal, LIFECYCLE_BUCKETS, lintPhases, readSnapshot, parseFrontmatter, remoteWorkflowState, titleFromText, validateStates, stateSuggestions, stageForState, remoteStage, phaseModeFor, LADDER_ORIGIN_BUCKET } = require('./src/normalize.js')
-const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify, remoteDescriptionEdited } = require('./src/compare.js')
+const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify, remoteDescriptionEdited, remoteSubIssueEdited } = require('./src/compare.js')
 const { readBase, writeBase } = require('./src/base.js')
 const { push, recordPush, projectionOf } = require('./src/push.js')
 const { writeFrontmatter, deleteFrontmatter, stampSubIssueId, stampIssueId, findPhaseFileByTitle, listPhaseFiles } = require('./src/write.js')
@@ -66,6 +66,7 @@ module.exports = {
   // Did someone else edit the tracker's description since the last push?
   // Three-valued; `null` is cannot-tell and must never be reported as drift.
   remoteDescriptionEdited,
+  remoteSubIssueEdited,
   // Provider seams: the frontmatter field vocabulary and the markdown dialect
   // a provider's config supplies (`config.fields` / `config.dialect`).
   fieldsOf,
