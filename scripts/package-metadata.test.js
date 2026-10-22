@@ -132,7 +132,7 @@ test('the published packages carry a repository field at all', () => {
   // The check above skips a manifest with no `repository`, and the two packages
   // that matter must never reach that branch: a published tarball with no
   // repository has nothing for npm to validate provenance against.
-  for (const rel of ['packages/skitterspec/package.json', 'packages/skitterspec-linear/package.json', 'packages/skitterspec-jira/package.json']) {
+  for (const rel of ['packages/skitterspec/package.json', 'packages/skitterspec-linear/package.json', 'packages/skitterspec-jira/package.json', 'packages/skitterspec-github/package.json']) {
     const pkg = readJson(path.join(ROOT, rel))
     assert.ok(pkg.repository && pkg.repository.url, `${rel} has no repository.url`)
   }

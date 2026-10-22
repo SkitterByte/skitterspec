@@ -1,0 +1,43 @@
+{
+  "name": "@skitterbyte/skitterspec-github",
+  "version": "0.0.0",
+  "description": "Spec-driven development for Claude Code, with one-way GitHub sync — a superset of @skitterbyte/skitterspec: the base filesystem workflow plus /spec-status · /spec-push · /spec-claim and the spec-sync CLI, mirroring specs to GitHub Issues, sub-issues and a Projects v2 board, with GitHub Releases. The repo is canonical; GitHub is a generated mirror. Install this OR the base OR one other superset — exactly one.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "spec-driven-development",
+    "sdd",
+    "skills",
+    "scaffold",
+    "github",
+    "github-projects"
+  ],
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "bin": {
+    "skitterspec-github": "bin/skitterspec-github.js",
+    "skitterspec": "bin/skitterspec-github.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "assets",
+    "MIGRATION.md"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2"
+  },
+  "scripts": {
+    "prepare": "node ../../scripts/build-dist.js skitterspec-github",
+    "prepack": "node ../../scripts/build-dist.js skitterspec-github"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkitterByte/skitterspec.git",
+    "directory": "packages/skitterspec-github"
+  }
+}

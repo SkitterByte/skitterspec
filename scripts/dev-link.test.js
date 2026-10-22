@@ -46,10 +46,10 @@ test('a directory with no package.json is refused', () => {
 test('an unknown distribution is refused, and the valid ones are named', () => {
   const dir = tmpDir('consumer')
   fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"c","version":"1.0.0"}')
-  const r = run([dir, 'skitterspec-github'])
+  const r = run([dir, 'skitterspec-nonesuch'])
   assert.strictEqual(r.status, 1)
   assert.match(r.stderr, /unknown distribution/)
-  assert.match(r.stderr, /skitterspec, skitterspec-linear, skitterspec-jira/)
+  assert.match(r.stderr, /skitterspec, skitterspec-linear, skitterspec-jira, skitterspec-github/)
 })
 
 test('the script builds before it links — the ordering the whole thing is for', () => {

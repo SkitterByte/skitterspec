@@ -21,7 +21,7 @@ const MESSAGE = `
 
       node scripts/release.js <package> <patch|minor|major|x.y.z> [--publish]
 
-  Packages: skitterspec, skitterspec-linear, skitterspec-jira
+  Packages: skitterspec, skitterspec-linear, skitterspec-jira, skitterspec-github
   See RELEASING.md for the full flow.
 `
 

@@ -171,6 +171,7 @@ test('release.yml triggers on both packages\' tags', () => {
   assert.match(yaml, /'skitterspec@\*'/)
   assert.match(yaml, /'skitterspec-linear@\*'/)
   assert.match(yaml, /'skitterspec-jira@\*'/)
+  assert.match(yaml, /'skitterspec-github@\*'/)
   assert.match(yaml, /workflow_dispatch:/, 'the recovery path')
 })
 

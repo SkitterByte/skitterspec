@@ -25,17 +25,18 @@ const path = require('node:path')
 
 const ROOT = path.join(__dirname, '..')
 
-const PACKAGES = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira']
+const PACKAGES = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github']
 
 // Which distributions a source package ships in. Derived from build-dist.js's
 // VENDOR list; keep them in step. Paths under the generated dist dirs attribute
 // to nothing — they are build output, gitignored, and never hand-edited.
 const FEEDS = [
   { prefix: 'packages/common/', packages: PACKAGES },
-  { prefix: 'packages/sync-core/', packages: ['skitterspec-linear', 'skitterspec-jira'] },
-  { prefix: 'packages/provider-kit/', packages: ['skitterspec-linear', 'skitterspec-jira'] },
+  { prefix: 'packages/sync-core/', packages: ['skitterspec-linear', 'skitterspec-jira', 'skitterspec-github'] },
+  { prefix: 'packages/provider-kit/', packages: ['skitterspec-linear', 'skitterspec-jira', 'skitterspec-github'] },
   { prefix: 'packages/linear/', packages: ['skitterspec-linear'] },
   { prefix: 'packages/jira/', packages: ['skitterspec-jira'] },
+  { prefix: 'packages/github/', packages: ['skitterspec-github'] },
 ]
 
 function git(args, cwd = ROOT) {

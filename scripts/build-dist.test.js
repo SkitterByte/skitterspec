@@ -94,6 +94,7 @@ test('a build given an output directory writes there and leaves the real distrib
     ['skitterspec', buildBase],
     ['skitterspec-linear', (out) => buildProvider('linear', 'skitterspec-linear', out)],
     ['skitterspec-jira', (out) => buildProvider('jira', 'skitterspec-jira', out)],
+    ['skitterspec-github', (out) => buildProvider('github', 'skitterspec-github', out)],
   ]) {
     const real = path.join(PKGS, dist, 'assets')
     const before = fs.existsSync(real) ? fs.statSync(real).ino : null

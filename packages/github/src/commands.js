@@ -20,7 +20,7 @@ const PROVIDER_COMMANDS = {
     run: specSync,
     usage: 'skitterspec spec-sync <cmd>',
     summary:
-      'One-way sync to GitHub Issues + a Projects board (repo -> tracker; opt-in, needs\n' +
+      'One-way sync to GitHub (repo -> tracker; opt-in, needs\n' +
       'specs/.core/github.config.json). Run it with no args to\n' +
       'list its subcommands.',
   },

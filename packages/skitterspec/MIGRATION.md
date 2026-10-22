@@ -100,6 +100,24 @@ Nothing in `env.config.json` changes.
 **If you added a secrets-hook exception for the printed seed commands**, you
 can remove it now. Nothing shipped prints them any more.
 
+## `@skitterbyte/skitterspec-github` v0 → v1 (first release)
+
+Nothing to migrate: this is the distribution's first release. It is a superset
+of `@skitterbyte/skitterspec` — install exactly one of the base or one
+superset. Coming from the base, run `npx @skitterbyte/skitterspec-github
+update`, make a Projects v2 board for the repo, and run `/spec-github-setup`
+(or `skitterspec-github spec-sync init-config --owner … --repo … --project N`).
+
+**Coming from `@skitterbyte/skitterspec-linear` or `-jira`** — a repo moving
+trackers: swap the distribution, configure GitHub as above, then push each
+backlog and in-progress spec (`/spec-push`, or `spec-sync apply --all
+in-progress` and `--all backlog`) to link it to a new issue. Finished specs keep
+their old stamps (`linear_identifier`, …) as history; nothing rewrites them.
+Old `Refs: SKS-12` trailers stay in the log, and `spec-sync released` counts
+them as `historical` rather than as missing a ref. New commits carry
+`Refs: #N`. Delete the old `linear.config.json` / `jira.config.json` once the
+open specs are linked.
+
 ## `@skitterbyte/skitterspec-jira` v0 → v1 (first release)
 
 Nothing to migrate: this is the distribution's first release. It is a superset

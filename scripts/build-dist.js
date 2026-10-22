@@ -62,6 +62,7 @@ const VENDOR = [
   { from: '@skitterbyte/skitterspec-provider-kit', to: (srcRoot) => path.join(srcRoot, 'vendor', 'provider-kit') },
   { from: '@skitterbyte/skitterspec-provider-linear/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'linear') },
   { from: '@skitterbyte/skitterspec-provider-jira/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'jira') },
+  { from: '@skitterbyte/skitterspec-provider-github/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'github') },
 ]
 
 // Any bare `@skitterbyte/skitterspec-*` require — the set the guard forbids in
@@ -253,6 +254,7 @@ const DISTS = {
   skitterspec: buildBase,
   'skitterspec-linear': () => buildProvider('linear', 'skitterspec-linear'),
   'skitterspec-jira': () => buildProvider('jira', 'skitterspec-jira'),
+  'skitterspec-github': () => buildProvider('github', 'skitterspec-github'),
 }
 
 function buildDist(name) {

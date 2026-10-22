@@ -164,7 +164,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | CLI, MCP, skills, seams, intake | ✅ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment hoisted to the kit + `/spec-claim` | ✅ | [04-assignment.md](04-assignment.md) |
 | 5 | Release seam + GitHub releases | ✅ | [05-release-seam.md](05-release-seam.md) |
-| 6 | Distribution + release wiring | ⬜ | [06-distribution-release.md](06-distribution-release.md) |
+| 6 | Distribution + release wiring | ✅ | [06-distribution-release.md](06-distribution-release.md) |
 | 7 | Docs, live smoke, dogfood swap, first release | ⬜ | [07-docs-smoke-dogfood.md](07-docs-smoke-dogfood.md) |
 
 ## Open questions
@@ -209,3 +209,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   version only with one series); the seam gained `releaseUpdate` and an
   optional `releaseTagExists`. `feat-tracker-releases` re-scoped to the Linear
   adapter, pending a `/spec-review`.
+- 2026-10-22 — Phase 6 built. Fourth distribution wired end to end; the
+  MIGRATION section is the move-trackers guide.

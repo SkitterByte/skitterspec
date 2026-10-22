@@ -26,7 +26,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const ROOT = path.join(__dirname, '..')
-const DISTS = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira']
+const DISTS = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github']
 const SCOPE = '@skitterbyte'
 
 function fail(message) {

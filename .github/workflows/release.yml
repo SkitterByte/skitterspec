@@ -51,13 +51,14 @@ on:
       - 'skitterspec@*'
       - 'skitterspec-linear@*'
       - 'skitterspec-jira@*'
+      - 'skitterspec-github@*'
   workflow_dispatch:
     inputs:
       package:
         description: Package to stage
         required: true
         type: choice
-        options: [skitterspec, skitterspec-linear, skitterspec-jira]
+        options: [skitterspec, skitterspec-linear, skitterspec-jira, skitterspec-github]
       version:
         description: Version it must already be at (e.g. 19.0.0)
         required: true
@@ -97,7 +98,7 @@ jobs:
             version="${TAG##*@}"   # everything after it
           fi
           case "$pkg" in
-            skitterspec|skitterspec-linear|skitterspec-jira) ;;
+            skitterspec|skitterspec-linear|skitterspec-jira|skitterspec-github) ;;
             *) echo "::error::refusing unknown package '$pkg'"; exit 1 ;;
           esac
           case "$version" in
