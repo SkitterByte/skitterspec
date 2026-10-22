@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-415"
+github_issue_id: "#8"
 ---
 
 # Phase 7 — Docs, live smoke, dogfood swap, first release 🔄
@@ -54,3 +55,37 @@ skittership and skitterload over is the same swap, done in those repos.
   repo's own board and the dogfood swap; then the 1.0.0 cut after landing, with
   the npm trusted publisher configured first. Tokens are set in your terminal
   (`spec-sync credentials set`), never through the assistant.
+- **Live run 1 — 2026-10-22, against SkitterByte/skitterspec, board 2** (the
+  smoke target moved from a throwaway repo to this repo, which is also the
+  dogfood; config still uncommitted while it runs). Confirmed live: a classic
+  PAT `repo`+`project` works on a user-owned board; doctor's scope, board-state
+  and Deployed-field checks; the board/field GraphQL shapes; mint of #1 + #2–#8
+  as linked, labelled sub-issues with Status and close reasons; 8 bodies
+  round-tripped; `released` over 179 real commits counting 66 `SKS-N` trailers
+  as historical; Linear still reads its key after the store went v1 → v2.
+- **Found and fixed live:** (1) the board's built-in *auto-close on Done*
+  closed the phase issue before our own close, and GitHub refused ours as
+  "closed by another request" — settle now re-reads after a Status change and
+  accepts that refusal once a re-read shows the issue closed; (2) a settle
+  failure after a create did not name the created issue — `orphan` is now
+  attached, so the refusal says what to stamp. Recovered with
+  `stamp --sub 01-…=#2` and a resumed apply. (3) Items added by
+  `addProjectV2ItemById` existed (by id, and in `issue.projectItems`) but were
+  missing from `ProjectV2.items`, the board view and the repo issue list for
+  over an hour. First blamed on GitHub bug #188487; it was a GitHub incident
+  (Issues degraded, 2026-10-22) and cleared by itself — all 8 items then read
+  back with the right Status. `list` stays on search plus each issue's own
+  board item, which was correct throughout. Sync sets fields by item id and
+  was unaffected.
+- **Live run 2 — after the incident cleared:** board and repo issue list read
+  all 8 items with the right Status. Spec-issue drift works: an edit to #1's
+  body on GitHub is reported by `status --remote`, and was reverted after. A
+  box ticked on phase issue #8 was replaced by the next push WITHOUT a warning
+  — sub-issue bodies carry no description hash (kit-wide; see Changelog).
+  `release create` dry runs over real tags: ranges right, and the report now
+  counts commits carrying an earlier tracker's ref (24 `SKS-` in 23.1.0) where
+  it used to drop them silently.
+- **Fixed in this spec:** phase sub-issues now get the same `!!` edit warning
+  as the spec issue — the snapshot records a word-stream hash per phase body
+  (`subIssueStreams`), and apply reads a sub-issue before replacing it only
+  where one is recorded.

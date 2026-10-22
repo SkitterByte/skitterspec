@@ -13,6 +13,15 @@
     "SKS-412": "183309b2a54b89e2bef7eedd38d090ab4e5a950c",
     "SKS-413": "18c9d6d5876ac6c9e558e6468e2e052d8fe3abdb",
     "SKS-414": "a551398e7699cd632d778bb53ad397eb49b9dc17",
-    "SKS-415": "ba24fc1d4873468db4dfaa522a0eeb6298a93638"
+    "SKS-415": "bc99ec5f6f73798a6c5403d6453137ee35c643be"
+  },
+  "subIssueStreams": {
+    "SKS-409": "77aec7dbaa5648865ee0d3da3d682761eac6dcdb",
+    "SKS-410": "51319e6c7aa0dadc68c4196456563d69790401fa",
+    "SKS-411": "c476aef013cab5d9b3147729a4479e223f319330",
+    "SKS-412": "06c9fe895a719d6611ac3845e89a860d573939e9",
+    "SKS-413": "070aa80bf600bcd6d1c9f04da73fbcbc443439f3",
+    "SKS-414": "a78419d85a4837de4527106c1b83bc07c3bdd206",
+    "SKS-415": "ec7a08f566a97e626396e88dbafa8ec0a3d17588"
   }
 }

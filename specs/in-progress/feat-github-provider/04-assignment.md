@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-412"
+github_issue_id: "#5"
 ---
 
 # Phase 4 — Assignment hoisted to the kit + `/spec-claim` ✅

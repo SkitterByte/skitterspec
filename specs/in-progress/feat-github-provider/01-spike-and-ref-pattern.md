@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-409"
+github_issue_id: "#2"
 ---
 
 # Phase 1 — Spike GitHub APIs + kit neutrality (ref pattern) ✅

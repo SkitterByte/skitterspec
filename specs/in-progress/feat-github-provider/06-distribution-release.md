@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-414"
+github_issue_id: "#7"
 ---
 
 # Phase 6 — Distribution + release wiring ✅

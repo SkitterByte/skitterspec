@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-410"
+github_issue_id: "#3"
 ---
 
 # Phase 2 — GitHub adapter core (REST, GraphQL board, dialect) ✅

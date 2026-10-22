@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-411"
+github_issue_id: "#4"
 ---
 
 # Phase 3 — CLI, MCP, skills, seams, intake ✅

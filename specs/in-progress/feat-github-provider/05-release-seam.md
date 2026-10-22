@@ -1,5 +1,6 @@
 ---
 linear_issue_id: "SKS-413"
+github_issue_id: "#6"
 ---
 
 # Phase 5 — Release seam + GitHub releases ✅

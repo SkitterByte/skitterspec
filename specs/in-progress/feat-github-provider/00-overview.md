@@ -3,6 +3,8 @@ linear_identifier: "SKS-408"
 linear_url: "https://linear.app/skitterbyte/issue/SKS-408/skitterspec-github-a-github-issues-projects-ticketing-provider"
 linear_assignee_id: "f41dfb0a-797a-4710-bf94-fcde2781539f"
 linear_assignee_name: "Skitter Byte"
+github_identifier: "#1"
+github_url: "https://github.com/SkitterByte/skitterspec/issues/1"
 ---
 
 # skitterspec-github — a GitHub Issues + Projects ticketing provider
@@ -211,3 +213,18 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   adapter, pending a `/spec-review`.
 - 2026-10-22 — Phase 6 built. Fourth distribution wired end to end; the
   MIGRATION section is the move-trackers guide.
+- 2026-10-22 — Live run 1 on this repo's own board (#1–#8 minted). Fixed: the
+  board's auto-close racing our close; an unnamed orphan after a failed settle;
+  `list` moved off `ProjectV2.items`, which read empty for over an hour. That
+  was a GitHub incident degrading Issues, not the open bug (#188487) first
+  blamed: the board and issue list recovered on their own. `list` stays on
+  search, which never depended on the board's item list.
+- 2026-10-22 — Live run 2 found that a phase sub-issue edited on GitHub is
+  replaced WITHOUT the `!!` warning: the snapshot hashes only the spec issue's
+  description, in every provider. It matters more on GitHub, where a phase's
+  checkboxes are clickable on the issue. Fixed here, in the shared kit: a
+  per-phase `subIssueStreams` hash and `remoteSubIssueEdited`, so Linear and
+  Jira get the warning too. Older snapshots are cannot-tell until next push.
+- 2026-10-22 — Follow-up surfaced: the GitHub base snapshot is named
+  `#1.base.json` — legal, but `#` in a filename is awkward in shells and URLs.
+  Wants a provider hook for a filesystem-safe snapshot name. Not in scope here.
