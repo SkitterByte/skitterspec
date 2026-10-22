@@ -163,7 +163,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | GitHub adapter core (REST, GraphQL board, dialect) | ✅ | [02-github-adapter.md](02-github-adapter.md) |
 | 3 | CLI, MCP, skills, seams, intake | ✅ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment hoisted to the kit + `/spec-claim` | ✅ | [04-assignment.md](04-assignment.md) |
-| 5 | Release seam + GitHub releases | ⬜ | [05-release-seam.md](05-release-seam.md) |
+| 5 | Release seam + GitHub releases | ✅ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ⬜ | [06-distribution-release.md](06-distribution-release.md) |
 | 7 | Docs, live smoke, dogfood swap, first release | ⬜ | [07-docs-smoke-dogfood.md](07-docs-smoke-dogfood.md) |
 
@@ -205,3 +205,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-22 — Phase 4 built. Assignment commands hoisted to the kit with an
   optional `validateAssignee` hook; GitHub refuses a non-collaborator before
   the stamp rather than at push.
+- 2026-10-22 — Phase 5 built. `deployed`/`complete` take a tag (a bare
+  version only with one series); the seam gained `releaseUpdate` and an
+  optional `releaseTagExists`. `feat-tracker-releases` re-scoped to the Linear
+  adapter, pending a `/spec-review`.

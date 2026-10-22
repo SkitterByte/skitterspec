@@ -82,6 +82,11 @@ const DEFAULT_CONFIG = Object.freeze({
   }),
   intake: Object.freeze({ label: '', bugLabels: Object.freeze(['bug']), hotfixLabels: Object.freeze([]) }),
   release: Object.freeze({ stages: Object.freeze([]), ignorePaths: Object.freeze(['specs/', 'CHANGELOG.md', 'RELEASES.md']) }),
+  // GitHub Releases, created by CI on a tag push (`spec-sync release …`). Each
+  // series names a tag prefix and its deploy envs, keyed by what CI says
+  // (`deployed <tag> test`) and valued by the option of `deployedField` — a
+  // second single-select on the board, never a Status option.
+  releases: Object.freeze({ deployedField: 'Deployed', series: Object.freeze([]) }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // An env-var NAME, not a value. A classic PAT with `repo` + `project`: the
   // fine-grained kind is documented only for org-owned boards.
@@ -132,6 +137,7 @@ function defaults() {
       stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })),
       ignorePaths: [...DEFAULT_CONFIG.release.ignorePaths],
     },
+    releases: { deployedField: DEFAULT_CONFIG.releases.deployedField, series: [] },
     branch: { ...DEFAULT_CONFIG.branch },
     auth: { ...DEFAULT_CONFIG.auth },
     apply: { ...DEFAULT_CONFIG.apply },
@@ -216,6 +222,33 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.release)) {
     mergeReleaseStages(base.release, parsed.release)
     mergeReleaseIgnorePaths(base.release, parsed.release)
+  }
+
+  if (isObject(parsed.releases)) {
+    assign(base.releases, parsed.releases, 'deployedField', 'string')
+    if (parsed.releases.series !== undefined) {
+      if (!Array.isArray(parsed.releases.series)) throw invalid('releases.series', parsed.releases.series, 'an array of { tagPrefix, envs }')
+      const seen = new Set()
+      base.releases.series = parsed.releases.series.map((entry, i) => {
+        if (!isObject(entry) || typeof entry.tagPrefix !== 'string' || !entry.tagPrefix.trim()) {
+          throw invalid(`releases.series[${i}]`, entry, '{ tagPrefix: "pkg@", envs: { key: "Option" } }')
+        }
+        const tagPrefix = entry.tagPrefix.trim()
+        if (seen.has(tagPrefix)) throw invalid(`releases.series[${i}].tagPrefix`, tagPrefix, 'a prefix not already listed')
+        seen.add(tagPrefix)
+        const envs = {}
+        if (entry.envs !== undefined) {
+          if (!isObject(entry.envs)) throw invalid(`releases.series[${i}].envs`, entry.envs, 'an object of { key: "Option" }')
+          for (const [key, option] of Object.entries(entry.envs)) {
+            if (!/^[A-Za-z0-9_.-]+$/.test(key) || typeof option !== 'string' || !option.trim()) {
+              throw invalid(`releases.series[${i}].envs.${key}`, option, 'a key of letters/digits and a non-empty option name')
+            }
+            envs[key] = option.trim()
+          }
+        }
+        return { tagPrefix, envs }
+      })
+    }
   }
 
   if (isObject(parsed.branch)) {

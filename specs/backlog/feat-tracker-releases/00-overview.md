@@ -73,6 +73,14 @@ deployed, so nobody drags cards around to say "this shipped".
    one line — live behaviour from day one, since the Jira provider now ships
    (`skitterspec-jira@1.0.x`). Jira (fix versions) stays a follow-up, not this
    spec.
+   **Amended 2026-10-22:** the seam now exists —
+   `feat-github-provider` phase 5 built it (`provider-kit/src/releases.js`,
+   verbs `create`/`deployed`/`complete` taking a tag, plus `releaseUpdate` and
+   an optional `releaseTagExists`) with GitHub as the first implementation.
+   This spec is re-scoped to the **Linear adapter ops** for that seam: phases
+   2–4 shrink to implementing the ops and binding `makeReleaseCommands`, and
+   phase 6's dogfood moved to GitHub with this repo (Decision 12 superseded).
+   Run `/spec-review` before starting it to cut the phase files to match.
 9. **Pipelines are created by a person in Linear's UI. Setup links them.**
    `/spec-linear-setup` lists the pipelines and maps each one to a tag prefix
    (and its env→stage map). This holds whether or not the API can create
@@ -163,3 +171,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   cherry-picked ref reappearing in the next mainline range. All referenced
   symbols verified present (`ticketsInRange`, `partitionStageMoves`,
   `stageOrderWarning`, `readCommitRange`, `missingOps`, setup step 7).
+- 2026-10-22 — Re-scoped by `feat-github-provider` phase 5: the neutral
+  release seam was built there, GitHub-first. What remains here is the Linear
+  adapter for it (ereqs is the Linear user left); Decision 12's dogfood moved
+  to GitHub. Needs a `/spec-review` pass on the phase files before `/spec-start`.

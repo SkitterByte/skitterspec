@@ -487,3 +487,27 @@ test('doctor on a repo with no config reports sync off, not broken', async () =>
   const row = JSON.parse(r.out).checks[0]
   assert.strictEqual(row.state, 'missing')
 })
+
+test('doctor checks the Deployed field only where a release series is configured', async () => {
+  const board = { fields: [{ name: 'Status', options: [{ name: 'Done' }] }, { name: 'Deployed', options: [{ name: 'Test' }] }] }
+  const env = { GITHUB_TOKEN: 'tok' }
+  const without = repoWithSpec()
+  const a = fakeAdapter()
+  a.resolveBoard = async () => board
+  const r0 = await run(['doctor', '--check-remote', '--json'], without, { adapter: a, env })
+  assert.ok(!JSON.parse(r0.out).checks.some((c) => c.label === 'Deployed field'), 'no series, no row')
+  const withSeries = repoWithSpec({ config: { releases: { series: [{ tagPrefix: 'demo@', envs: { test: 'Test', prod: 'Prod' } }] } } })
+  const r1 = await run(['doctor', '--check-remote', '--json'], withSeries, { adapter: a, env })
+  const row = JSON.parse(r1.out).checks.find((c) => c.label === 'Deployed field')
+  assert.strictEqual(row.state, 'broken')
+  assert.match(row.detail, /lacks: Prod/)
+})
+
+test('the releases config validates its series', () => {
+  const { mergeConfig, defaults } = require('../src/config.js')
+  const ok = mergeConfig(defaults(), { releases: { series: [{ tagPrefix: 'a@', envs: { test: 'Test' } }] } })
+  assert.deepStrictEqual(ok.releases, { deployedField: 'Deployed', series: [{ tagPrefix: 'a@', envs: { test: 'Test' } }] })
+  assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ envs: {} }] } }), /releases\.series\[0\]/)
+  assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ tagPrefix: 'a@' }, { tagPrefix: 'a@' }] } }), /not already listed/)
+  assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ tagPrefix: 'a@', envs: { 'bad key': 'X' } }] } }), /envs\.bad key/)
+})

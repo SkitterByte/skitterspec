@@ -402,3 +402,51 @@ test('isLimited: a 429, or a 403 that says it is a limit — nothing else', () =
   assert.ok(!isLimited(res({}, 403, { 'x-ratelimit-remaining': '12' })))
   assert.ok(!isLimited(res({}, 500)))
 })
+
+// --- releases ---------------------------------------------------------------------
+
+test('releaseTagExists: 200 yes, 404 no, anything else throws', async () => {
+  assert.strictEqual(await adapter(() => res({ ref: 'refs/tags/x' })).a.releaseTagExists('x'), true)
+  assert.strictEqual(await adapter(() => res({}, 404)).a.releaseTagExists('x'), false)
+  await assert.rejects(adapter(() => res({}, 500)).a.releaseTagExists('x'), /answered 500/)
+})
+
+test('releaseFind: a 404 is a positive "none"; a found release is normalised', async () => {
+  assert.strictEqual(await adapter(() => res({ message: 'Not Found' }, 404)).a.releaseFind('demo@1'), null)
+  const { a, calls } = adapter(() => res({ id: 5, tag_name: 'demo@1', html_url: 'https://x/5', body: null, prerelease: true }))
+  assert.deepStrictEqual(await a.releaseFind('demo@1'), { id: 5, tag: 'demo@1', url: 'https://x/5', body: '', prerelease: true })
+  assert.match(calls[0].url, /\/releases\/tags\/demo%401$/)
+})
+
+test('releaseCreate stages as a prerelease that is not Latest', async () => {
+  const { a, calls } = adapter(() => res({ id: 6, tag_name: 't', body: 'b', prerelease: true }, 201))
+  await a.releaseCreate({ tag: 't', name: 't', body: 'b' })
+  assert.deepStrictEqual(calls[0].body, { tag_name: 't', name: 't', body: 'b', prerelease: true, make_latest: 'false' })
+})
+
+test('releaseComplete clears prerelease and makes it Latest', async () => {
+  const { a, calls } = adapter(() => res({ id: 6, tag_name: 't', prerelease: false }))
+  await a.releaseComplete({ id: 6, tag: 't' })
+  assert.deepStrictEqual(calls[0].body, { prerelease: false, make_latest: 'true' })
+})
+
+test('releaseAttach comments once per issue, found again by its marker', async () => {
+  const posted = []
+  const { a } = adapter((call) => {
+    if (call.method === 'POST') {
+      posted.push(call.url)
+      return res({ id: 1 }, 201)
+    }
+    return res(/issues\/1\/comments/.test(call.url) ? [{ id: 9, body: 'Shipped\n\n<!-- skitterspec:released t@1 -->' }] : [])
+  })
+  const got = await a.releaseAttach({ tag: 't@1', url: 'https://x' }, [{ ref: '#1' }, { ref: '#2' }])
+  assert.deepStrictEqual(got, { attached: 1, already: 1 })
+  assert.strictEqual(posted.length, 1)
+  assert.match(posted[0], /issues\/2\/comments$/)
+})
+
+test('releaseStage refuses an unknown Deployed option before any write', async () => {
+  const { a, calls } = adapter(() => res(BOARD))
+  await assert.rejects(a.releaseStage({ tag: 't' }, 'Prod', [{ ref: '#1' }]), /"Deployed" field has no option "Prod"/)
+  assert.ok(calls.every((c) => gqlKind(c) === 'board'))
+})
