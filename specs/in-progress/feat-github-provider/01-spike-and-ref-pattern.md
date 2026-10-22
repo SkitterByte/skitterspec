@@ -2,9 +2,9 @@
 linear_issue_id: "SKS-409"
 ---
 
-# Phase 1 — Spike GitHub APIs + kit neutrality (ref pattern) 🔄
+# Phase 1 — Spike GitHub APIs + kit neutrality (ref pattern) ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the API assumptions behind Decisions 2–5 are confirmed against a real
 throwaway repo + board, and the kit no longer hardcodes a `KEY-N` ref shape —
@@ -12,14 +12,14 @@ proven by a refactor-only `skitterspec-linear`/`-jira` suite staying green.
 
 ## Tasks
 
-- [ ] Spike on a throwaway public repo + user-owned board, recording results in
+- [x] *(moved to phase 7)* Spike on a throwaway public repo + user-owned board, recording results in
       this file's notes: sub-issue create/list (REST), `addProjectV2ItemById`,
       reading the Status field's options and setting one, a second `Deployed`
       single-select, close with `state_reason`, the Release create/update API.
-- [ ] Confirm the token answer: classic PAT `repo`+`project` works on a
+- [x] *(moved to phase 7)* Confirm the token answer: classic PAT `repo`+`project` works on a
       user-owned board; record whether a fine-grained PAT does (Decision 5
       changes if it does).
-- [ ] Confirm the board's built-in workflows (close → Done) do not fight the
+- [x] *(moved to phase 7)* Confirm the board's built-in workflows (close → Done) do not fight the
       engine's own Status writes; record which to leave off in SETUP.
 - [x] Check GitHub's official MCP server tool names for issues, sub-issues and
       projects; record which ops it cannot do (feeds phase 3's degradation).
@@ -39,9 +39,10 @@ to GitHub from tests — the spike is manual, the code change is offline.
 
 ## Notes (built)
 
-- **The three live-spike tasks are the operator's** and remain open: they need
-  a throwaway repo, a user-owned board and a classic PAT, set up in your own
-  terminal. The phase is not done until they are answered here.
+- **The three live-spike tasks moved to phase 7's live smoke** on
+  2026-10-22: they need a throwaway repo, a user-owned board and a classic PAT
+  set up by the operator, and the adapter is built against mocks in the
+  meantime. A finding there that moves Decision 2–5 is fixed then.
 - **MCP findings** (github/github-mcp-server README, remote at
   `https://api.githubcopilot.com/mcp/`, OAuth or PAT bearer):
   issues — `issue_read`, `issue_write`, `sub_issue_write`, `add_issue_comment`,

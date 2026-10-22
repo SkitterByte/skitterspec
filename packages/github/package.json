@@ -1,0 +1,29 @@
+{
+  "name": "@skitterbyte/skitterspec-provider-github",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GitHub ticketing provider for skitterspec — the REST + GraphQL adapter (Issues, sub-issues, a Projects v2 board for workflow state), config and sync skills that layer one-way GitHub sync (repo → mirror) onto the base workflow.",
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "files": [
+    "src",
+    "assets"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@skitterbyte/skitterspec-common": "workspace:*",
+    "@skitterbyte/skitterspec-provider-kit": "workspace:*",
+    "@skitterbyte/skitterspec-sync-core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkitterByte/skitterspec.git",
+    "directory": "packages/github"
+  }
+}

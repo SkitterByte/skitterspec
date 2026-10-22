@@ -65,7 +65,9 @@ proven by two providers, a third costs an adapter, not an architecture.
    then the kit's v2 store namespaced `github`. Doctor names the scope that is
    missing (positive signal: the `X-OAuth-Scopes` header). Never via chat.
 6. **Per-provider frontmatter: `github_identifier` (`#123`), `github_url`,
-   `github_issue_id`** (the node id GraphQL needs). Linear stamps are untouched.
+   `github_issue_id`** (a phase's `#N`, as `jira_issue_id` holds a key). Node
+   and database ids are resolved at run time, never stamped. Linear stamps are
+   untouched.
 7. **Trailer `Refs: #123`.** Inert — not a GitHub closing keyword
    (close/fix/resolve and their forms stay banned). The kit's hardcoded
    `IDENTIFIER_RE` (`released.js:19`) becomes provider-supplied so `released`
@@ -157,8 +159,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Spike GitHub APIs + kit neutrality (ref pattern) | 🔄 | [01-spike-and-ref-pattern.md](01-spike-and-ref-pattern.md) |
-| 2 | GitHub adapter core (REST, GraphQL board, dialect) | ⬜ | [02-github-adapter.md](02-github-adapter.md) |
+| 1 | Spike GitHub APIs + kit neutrality (ref pattern) | ✅ | [01-spike-and-ref-pattern.md](01-spike-and-ref-pattern.md) |
+| 2 | GitHub adapter core (REST, GraphQL board, dialect) | ✅ | [02-github-adapter.md](02-github-adapter.md) |
 | 3 | CLI, MCP, skills, seams, intake | ⬜ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment hoisted to the kit + `/spec-claim` | ⬜ | [04-assignment.md](04-assignment.md) |
 | 5 | Release seam + GitHub releases | ⬜ | [05-release-seam.md](05-release-seam.md) |
@@ -185,3 +187,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (Azure DevOps-hosted; Boards ships free with the client's Azure DevOps and
   has an official remote MCP server). It is what lets Linear be cancelled
   outright. Not in scope here; spec it when the client decides on Boards.
+- 2026-10-22 — Phase 1 built (code half). The three live-spike tasks moved to
+  phase 7's live smoke: they need operator-held GitHub setup, and the adapter
+  can be built against mocks meanwhile. MCP has no release write tool, so
+  `release create` over MCP refuses (phase 5).
+- 2026-10-22 — Phase 2 built. Decision 6 corrected: `github_issue_id` stamps
+  the phase's `#N` (the sync-core vocabulary stamps identifiers there), not a
+  node id. Kit retry gained an `isLimited` hook and `X-RateLimit-Reset`
+  support, defaults unchanged for the other providers.

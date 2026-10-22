@@ -185,6 +185,18 @@ importers:
         specifier: ^2.4.2
         version: 2.4.2
 
+  packages/github:
+    dependencies:
+      '@skitterbyte/skitterspec-common':
+        specifier: workspace:*
+        version: link:../common
+      '@skitterbyte/skitterspec-provider-kit':
+        specifier: workspace:*
+        version: link:../provider-kit
+      '@skitterbyte/skitterspec-sync-core':
+        specifier: workspace:*
+        version: link:../sync-core
+
   packages/jira:
     dependencies:
       '@skitterbyte/skitterspec-common':

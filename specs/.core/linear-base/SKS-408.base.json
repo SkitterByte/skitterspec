@@ -1,18 +1,18 @@
 {
-  "issue": "7b85ba6eed256e2cc90947b3ee64e2842955eec1",
+  "issue": "ccaadc96351826c5143415c33a636409029e9ab7",
   "issueFields": {
-    "description": "06abee2f18229ba3101eb424ffcd4120354e96ba",
+    "description": "9b1fa9a7652f0f3c8354070fe0bca9d95b2ace86",
     "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
     "assignee": "46f9da98cdf4bd363761b569600549b081b0ae45",
-    "descriptionStream": "361e1d2af71604b25cfd14cd6c70b9d55c46327d"
+    "descriptionStream": "36b650cddbbc7161af2dd488fc619c31ff72ae94"
   },
   "subIssues": {
-    "SKS-409": "65747ba66e9c0a4de7b78ed50b1a9fa2dab46cfe",
-    "SKS-410": "850388a60a1435ba5c65eaf84d07c584132d11dd",
+    "SKS-409": "6508838a011ae79d49dd5cb56fa1da55ce8ff174",
+    "SKS-410": "230eeadf6797227c55a16dd1f0e55bb1d380711e",
     "SKS-411": "0b858251ca70b5ddfbba9f1c699e3561ad1a183d",
     "SKS-412": "4b91265d922764dd22a2ac22e1b2205d4fc35dbf",
     "SKS-413": "499f61f295c09dbcc6c870f67d4c947e3e58ea1e",
     "SKS-414": "a27445f53624054a6145e6592e1953cd7b04a29c",
-    "SKS-415": "28773afe72279b0949f3d4c49363c7ee0fb7ca89"
+    "SKS-415": "06c45bf823da3c6d6d1c3825b55cd2c208064ebc"
   }
 }

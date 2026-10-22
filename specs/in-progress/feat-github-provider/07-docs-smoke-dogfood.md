@@ -16,6 +16,13 @@ and `skitterspec-github@1.0.0` is staged through CI.
 - [ ] `assets/core/SETUP.md`: classic PAT creation (scopes), board creation with
       Status + Deployed fields, which built-in board workflows to switch off,
       labels, and a re-runnable smoke checklist.
+- [ ] Spike tasks moved from phase 1, first: confirm a classic PAT
+      `repo`+`project` works on a user-owned board (and whether a fine-grained
+      one does — Decision 5 changes if so); confirm the board's built-in
+      workflows do not fight the engine's Status writes; confirm the GraphQL
+      shapes the adapter assumes (`projectItems.fieldValueByName`,
+      `addProjectV2ItemById`, `updateProjectV2ItemFieldValue`, sub-issue
+      REST) against the live API.
 - [ ] Live smoke on a throwaway repo + board: mint spec + phase sub-issues,
       bucket moves → Status + close reason, adopt + preserve, verify clean,
       ticked-box drift reported then replaced, `released` on a test range,
