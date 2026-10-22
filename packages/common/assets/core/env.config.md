@@ -283,8 +283,11 @@ through to a documented conservative default; see the field notes below.
   // one. Empty (the default) = the built-in tagger.
   //
   // `bump` is the built-in tagger's strategy: "patch" (v33.16.4 -> v33.16.5) or
-  // "hotfix-suffix" (v33.16.4 -> v33.16.4-hotfix.1, then -hotfix.2, ...; a base
-  // that is already a hotfix tag continues its line). Any other value is refused
+  // "hotfix-suffix" (v33.16.4 -> v33.16.4-hotfix.1, then -hotfix.2, ...). Under
+  // either, a base that is already a hotfix tag continues its line
+  // (v36.2.3-hotfix.4 -> v36.2.3-hotfix.5), so "patch" never takes a number the
+  // mainline owns. When the patch tag already exists, the refusal names the
+  // free hotfix tag that "hotfix-suffix" would cut. Any other value is refused
   // when `hotfix land` runs. Tags order X.Y.Z-rc.N < X.Y.Z < X.Y.Z-hotfix.N <
   // X.Y.(Z+1), the same as skittership.
   //

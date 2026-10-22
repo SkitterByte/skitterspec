@@ -114,10 +114,36 @@ const BUMPS = ['patch', 'hotfix-suffix']
 // The tag `hotfix.bump` asks for. An unknown strategy throws rather than
 // falling back to `patch`: a typo there would otherwise cut the wrong release
 // line and say nothing.
+//
+// Under `patch`, a base that is ITSELF a `-hotfix.N` tag continues that line.
+// Bumping its patch takes X.Y.(Z+1), a number the mainline owns: refused when
+// the mainline already cut it, and minted silently when it had not. Only a
+// parsed hotfix suffix routes here; an rc or any other suffix keeps the patch
+// bump, so a base we cannot read as a hotfix line is never treated as one.
 function nextTag(baseTag, existingTags, bump = 'patch') {
-  if (bump === 'patch') return bumpPatch(baseTag)
+  if (bump === 'patch') {
+    const base = parseTag(baseTag)
+    if (base && base.hotfix !== null) return nextHotfixTag(baseTag, existingTags)
+    return bumpPatch(baseTag)
+  }
   if (bump === 'hotfix-suffix') return nextHotfixTag(baseTag, existingTags)
   throw new Error(`unknown hotfix.bump "${bump}" — use one of: ${BUMPS.join(', ')}`)
+}
+
+// What a collision refusal offers: the free tag on the same base's hotfix
+// line, which is never taken by a mainline release. Never a deletion and never
+// another base — the first destroys a released tag, the second forks from a
+// version prod is not running. Empty where the suffix line cannot be derived
+// (an rc base) or is already the strategy, so the refusal just names the tag.
+function freeTagHint(baseTag, existingTags, bump) {
+  if (bump !== 'patch') return ''
+  let free
+  try {
+    free = nextHotfixTag(baseTag, existingTags)
+  } catch {
+    return ''
+  }
+  return ` — set hotfix.bump "hotfix-suffix" in env.config.json to cut ${free} instead`
 }
 
 // A filesystem/branch-safe slug derived from a tag (`v30.2.1` → `v30-2-1`).
@@ -206,7 +232,7 @@ function planHotfixLand(spec, config, ctx) {
   } else {
     prodTag = nextTag(baseRef, c.existingTags, bump)
     if (taken.has(prodTag)) {
-      return block(`tag ${prodTag} already exists — bump the base version or delete the stale tag`)
+      return block(`tag ${prodTag} already exists${freeTagHint(baseRef, c.existingTags, bump)}`)
     }
     taken.add(prodTag)
     commands.push(`git -C ${spec.worktreePath} tag ${prodTag}`)
@@ -248,7 +274,7 @@ function planHotfixLand(spec, config, ctx) {
     // hotfix numbers rather than colliding on the same one.
     const tag = nextTag(t, [...taken], bump)
     if (taken.has(tag)) {
-      return block(`tag ${tag} (for target ${t}) already exists — resolve it before landing`)
+      return block(`tag ${tag} (for target ${t}) already exists${freeTagHint(t, [...taken], bump)}`)
     }
     taken.add(tag)
     const slug = `${spec.slug}-onto-${tagSlug(t)}`

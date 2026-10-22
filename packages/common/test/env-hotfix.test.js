@@ -268,6 +268,55 @@ test('stays silent: the default config plans exactly the patch tag and commands'
   assert.strictEqual(planHotfixLand(spec(), {}, ctx()).prodTag, 'v33.16.5')
 })
 
+// A base that is itself a hotfix tag is on a hotfix line, so `patch` continues
+// that line. Bumping its patch took a number the mainline owns — and minted it
+// silently whenever the mainline had not reached it yet.
+test('patch: a hotfix base continues its line; a plain or rc base bumps the patch', () => {
+  const taken = ['v36.2.3', 'v36.2.3-hotfix.4', 'v36.2.4']
+  assert.strictEqual(nextTag('v36.2.3-hotfix.4', taken, 'patch'), 'v36.2.3-hotfix.5')
+  assert.strictEqual(nextTag('v36.2.3', [], 'patch'), 'v36.2.4')
+  assert.strictEqual(nextTag('v36.2.3-rc1', [], 'patch'), 'v36.2.4')
+})
+
+test('patch: a hotfix base is not blocked by the mainline next patch', () => {
+  const plan = planHotfixLand(
+    spec({ baseRef: 'v36.2.3-hotfix.4' }),
+    CONFIG,
+    ctx({ fixRange: 'v36.2.3-hotfix.4..hotfix/login', existingTags: ['v36.2.3-hotfix.4', 'v36.2.4'] }),
+  )
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.prodTag, 'v36.2.3-hotfix.5')
+  assert.strictEqual(plan.commands[0], 'git -C /wt/login tag v36.2.3-hotfix.5')
+})
+
+test('patch: a hotfix target continues its own line, a plain target bumps', () => {
+  const plan = planHotfixLand(
+    spec(),
+    CONFIG,
+    ctx({ extraTargets: ['v30.2.1-hotfix.2', 'v31.0.0'], existingTags: ['v30.2.1-hotfix.2', 'v30.2.2'] }),
+  )
+  assert.strictEqual(plan.blocked, false)
+  assert.deepStrictEqual(
+    plan.targets.filter((t) => t.tag).map((t) => t.tag),
+    ['v33.16.5', 'v30.2.1-hotfix.3', 'v31.0.1'],
+  )
+})
+
+test('a patch collision names the free hotfix tag and never suggests a delete', () => {
+  const plan = planHotfixLand(spec(), CONFIG, ctx({ existingTags: ['v33.16.4', 'v33.16.5'] }))
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /v33\.16\.5 already exists/)
+  assert.match(plan.reason, /hotfix\.bump "hotfix-suffix"/)
+  assert.match(plan.reason, /v33\.16\.4-hotfix\.1/)
+  assert.doesNotMatch(plan.reason, /delete|bump the base/)
+  assert.deepStrictEqual(plan.commands, [])
+
+  const target = planHotfixLand(spec(), CONFIG, ctx({ extraTargets: ['v30.2.1'], existingTags: ['v30.2.2'] }))
+  assert.strictEqual(target.blocked, true)
+  assert.match(target.reason, /v30\.2\.1-hotfix\.1/)
+  assert.deepStrictEqual(target.commands, [])
+})
+
 test('a Base version header may be a hotfix tag', () => {
   const fs = require('node:fs')
   const os = require('node:os')
