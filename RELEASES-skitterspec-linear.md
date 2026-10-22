@@ -5,6 +5,11 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 18.1.1 — 22 Oct 2026
+
+### Env
+- **Fixed** — Landing a hotfix whose base is already a hotfix tag now cuts the next hotfix on that line (v36.2.3-hotfix.4 to -hotfix.5) instead of taking the mainline's next patch, and a tag collision now names the free tag rather than suggesting you delete one.
+
 ## 18.1.0 — 22 Oct 2026
 
 **Highlights:** spec-env hotfix land now runs the land itself, and hotfix.releaseWith lets a project's own release command (such as skittership's release-hotfix) cut the version commit and tag.
