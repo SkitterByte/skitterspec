@@ -1,0 +1,41 @@
+<!--
+Seam fragment for the "spec-next-start" seam in the shared /spec-next skill, injected
+where the skill has just marked the phase in progress. The build injects this
+body (comment stripped) when composing the skitterspec-github distribution; the
+base distribution leaves the seam empty.
+
+Placement is load-bearing. This fragment used to sit in step 3b, BEFORE the phase
+was marked 🔄, so the push it describes mirrored the state the phase was leaving
+— every sub-issue sat in To Do for the whole build. See the placement tests in
+packages/common/test/assets.test.js.
+-->
+
+**Only when `specs/.core/github.config.json` exists** and the spec carries a
+`github_identifier`. Otherwise skip this step — no config means zero change.
+
+- **No pull.** GitHub is a generated mirror in one-way sync, so there is nothing
+  to bring down before building — the repo is already the source of truth. (A
+  status a teammate moved in GitHub is advisory only; `/spec-status` surfaces it.
+  It is overwritten on the next push.)
+- **Refresh the mirror now, without asking.** Run `/spec-push`. The spec has just
+  moved to `in-progress` and its phase to `🔄` — both real state changes, and the
+  tracker is a generated mirror of them. This holds under **both**
+  `mapping.phases` modes, for different reasons:
+  - `"subissue"` (the default) — the phase sub-issues already exist, and this
+    push is what moves the current one into its in-progress status. Skip it and
+    every sub-issue sits in To Do until the spec completes.
+  - `"deferred"` — the sub-issues do not exist yet, and this push is what mints
+    them. Skip it and a started spec stays mirrored as a phase-less issue.
+- **Never mint the spec issue.** An unlinked spec is skipped, not created —
+  `/spec-push` is how someone opts in.
+- **No assignee to backfill.** Assignment sync is not yet supported by the GitHub
+  provider — there is nothing to stamp and nothing to ask, mid-build or ever.
+- **Never fatal.** If the push fails — offline, no credentials, a GitHub error —
+  say so and **carry on with the build**. The repo is correct regardless; the
+  mirror is disposable and the next push repairs it.
+- **Expect a dirty `specs/.core/` afterwards.** The push writes a base snapshot
+  and stamps any new keys, and `/spec-next` does not commit. The next `/commit`
+  sweeps it up with the phase's own work.
+- A board's built-in workflows (item closed → Done, PR merged → Done) may move a
+  Status off the branch/PR you pushed in step 2; that's expected and the repo
+  still wins on the next `/spec-push`.

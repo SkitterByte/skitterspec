@@ -210,7 +210,7 @@ test('a link that fails after the create names the orphan it left', async () => 
   await assert.rejects(a.createSubIssue(12, { title: 'Phase 2' }), (err) => {
     assert.ok(err instanceof GitHubRefusal)
     assert.match(err.message, /created #22 but could not link it under #12/)
-    assert.strictEqual(err.created.identifier, '#22')
+    assert.strictEqual(err.orphan.identifier, '#22')
     return true
   })
 })

@@ -46,15 +46,16 @@ const MAX_PAGES = 10
 // GraphQL `errors` — kept apart from transport failures so callers can report
 // cause, not symptom.
 class GitHubRefusal extends Error {
-  constructor(message, { status = null, retryable = false, errors = null, created = null } = {}) {
+  constructor(message, { status = null, retryable = false, errors = null, orphan = null } = {}) {
     super(message)
     this.name = 'GitHubRefusal'
     this.status = status
     this.retryable = retryable
     this.errors = errors
     // Set on a refusal that came AFTER something was created (a sub-issue that
-    // could not be linked) — the orphan the caller must name.
-    this.created = created
+    // could not be linked) — the orphan the caller must name. Not `created`:
+    // the kit's apply accounting writes that name onto every error it sees.
+    this.orphan = orphan
   }
 }
 
@@ -137,6 +138,26 @@ query($owner: String!, $repo: String!, $number: Int!, $status: String!) {
           project { id number owner { __typename ... on User { login } ... on Organization { login } } }
           fieldValueByName(name: $status) { ... on ProjectV2ItemFieldSingleSelectValue { name optionId } }
         }
+      }
+    }
+  }
+}`
+
+const BOARD_ITEMS = `
+query($owner: String!, $number: Int!, $status: String!, $after: String) {
+  repositoryOwner(login: $owner) {
+    ... on User { projectV2(number: $number) { ...Items } }
+    ... on Organization { projectV2(number: $number) { ...Items } }
+  }
+}
+fragment Items on ProjectV2 {
+  items(first: 100, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      fieldValueByName(name: $status) { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+      content {
+        __typename
+        ... on Issue { number title url state repository { nameWithOwner } parent { number } }
       }
     }
   }
@@ -421,7 +442,7 @@ function makeApiAdapter({
      * Create an issue and link it under `parentRef` as a sub-issue — two
      * calls, because GitHub has no create-as-child. A link that fails AFTER
      * the create leaves a real, unlinked issue behind, so the refusal carries
-     * it as `created` and names it: a silent orphan is exactly what a re-run
+     * it as `orphan` and names it: a silent orphan is exactly what a re-run
      * would mint a twin of.
      */
     async createSubIssue(parentRef, { title, description, assigneeId, labels, type }) {
@@ -434,7 +455,7 @@ function makeApiAdapter({
         throw new GitHubRefusal(
           `created ${child.identifier} but could not link it under ${identifierOf(numberOf(parentRef))}: ` +
             `${error && error.message ? error.message : error}. Link it by hand (or close it) before pushing again.`,
-          { status: error && error.status, created: child },
+          { status: error && error.status, orphan: child },
         )
       }
       return child
@@ -486,6 +507,64 @@ function makeApiAdapter({
     },
 
     resolveBoard,
+
+    /**
+     * Every issue on the board that belongs to THIS repo, with its Status —
+     * the listing `spec-sync list` shows. A board can hold other repos'
+     * issues, draft items and PRs; all three are dropped here, by a positive
+     * check on the content's repository rather than an absence.
+     */
+    async listBoardItems() {
+      if (!project) throw new GitHubRefusal('no board configured — set github.project to the board number from its URL')
+      const out = []
+      let after = null
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const data = await graphql(BOARD_ITEMS, { owner, number: project, status: statusField, after })
+        const board = data.repositoryOwner && data.repositoryOwner.projectV2
+        if (!board) {
+          throw new GitHubRefusal(`no board ${project} owned by ${owner} that this token can see — check github.project`)
+        }
+        const items = board.items || { nodes: [], pageInfo: {} }
+        for (const n of items.nodes || []) {
+          const c = n && n.content
+          if (!c || c.__typename !== 'Issue' || c.number == null) continue
+          if (!c.repository || !sameLogin(c.repository.nameWithOwner, `${owner}/${repo}`)) continue
+          out.push({
+            id: String(c.number),
+            identifier: identifierOf(c.number),
+            title: c.title != null ? c.title : null,
+            url: c.url || null,
+            open: c.state === 'OPEN',
+            state: n.fieldValueByName && n.fieldValueByName.name != null ? { name: n.fieldValueByName.name } : null,
+            parent: c.parent && c.parent.number != null ? { id: String(c.parent.number), identifier: identifierOf(c.parent.number) } : null,
+          })
+        }
+        if (!items.pageInfo || !items.pageInfo.hasNextPage) break
+        after = items.pageInfo.endCursor
+      }
+      return out
+    },
+
+    /**
+     * Open issues in this repo carrying every label in `labels` — the intake
+     * inbox. Pull requests come back from this endpoint too and are dropped.
+     */
+    async listIssues({ labels = [], state = 'open' } = {}) {
+      const query = { state }
+      if (labels.length) query.labels = labels.join(',')
+      const raw = await restAll(`${repoPath}/issues`, query)
+      return raw
+        .filter((i) => i && !i.pull_request)
+        .map((i) => ({
+          id: String(i.number),
+          identifier: identifierOf(i.number),
+          title: i.title != null ? i.title : null,
+          url: i.html_url || null,
+          open: i.state === 'open',
+          labels: (i.labels || []).map((l) => (typeof l === 'string' ? l : l && l.name)).filter(Boolean),
+          author: i.user && i.user.login ? i.user.login : null,
+        }))
+    },
 
     /**
      * The Status field's option names — what `states` validation checks the

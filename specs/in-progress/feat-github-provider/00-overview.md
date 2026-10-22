@@ -161,7 +161,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Spike GitHub APIs + kit neutrality (ref pattern) | ✅ | [01-spike-and-ref-pattern.md](01-spike-and-ref-pattern.md) |
 | 2 | GitHub adapter core (REST, GraphQL board, dialect) | ✅ | [02-github-adapter.md](02-github-adapter.md) |
-| 3 | CLI, MCP, skills, seams, intake | ⬜ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
+| 3 | CLI, MCP, skills, seams, intake | ✅ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment hoisted to the kit + `/spec-claim` | ⬜ | [04-assignment.md](04-assignment.md) |
 | 5 | Release seam + GitHub releases | ⬜ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ⬜ | [06-distribution-release.md](06-distribution-release.md) |
@@ -195,3 +195,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the phase's `#N` (the sync-core vocabulary stamps identifiers there), not a
   node id. Kit retry gained an `isLimited` hook and `X-RateLimit-Reset`
   support, defaults unchanged for the other providers.
+- 2026-10-22 — Phase 3 built. Intake became an engine command
+  (`spec-sync intake`) rather than an MCP-only seam step; `list` reads the board.
+- 2026-10-22 — Follow-up surfaced: `skitterspec-jira spec-sync ref` with no
+  argument crashes ("git is not a function" — `currentBranch(dir)` in
+  packages/jira/src/cli-sync.js:606 is passed a path, not a git reader), so the
+  commit-trailers rule's default form is broken for Jira users. Its tests only
+  cover the named form. Not in scope here; wants a `/spec-bug`.
