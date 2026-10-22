@@ -67,10 +67,9 @@ function repo({ pipelines = [CORE], specs = {} } = {}) {
 // A stand-in Linear release store, recording every call. `drop` names refs it
 // accepts and silently does not attach — what Linear does with an issue it
 // cannot find (phase 1).
-function fakeLinear({ drop = [], refuse = null } = {}) {
+function fakeLinear({ drop = [], refuse = null, seed = [] } = {}) {
   const calls = []
-  const releases = new Map()
-  const stageOf = new Map()
+  const releases = new Map(seed.map((r) => [r.version, { id: `r-${r.version}`, url: `https://linear.app/r/${r.version}`, issues: [], completedAt: null, ...r }]))
   return {
     calls,
     async readIssue() {
@@ -89,12 +88,16 @@ function fakeLinear({ drop = [], refuse = null } = {}) {
     },
     async releaseStage(input) {
       calls.push({ op: 'releaseStage', input })
-      stageOf.set(input.version, input.stage)
-      return { ...releases.get(input.version), stage: { name: input.stage, type: 'started' } }
+      const moved = { ...releases.get(input.version), stage: { name: input.stage, type: 'started' } }
+      releases.set(input.version, moved)
+      return moved
     },
     async releaseComplete(input) {
       calls.push({ op: 'releaseComplete', input })
-      return releases.get(input.version)
+      const release = releases.get(input.version)
+      // Linear keeps the FIRST completedAt on a repeat (phase 1).
+      if (!release.completedAt) release.completedAt = '2026-10-22T09:00:00.000Z'
+      return release
     },
   }
 }
@@ -353,4 +356,150 @@ test('a link is a URL, or label=URL; a query string is never split', () => {
   assert.deepStrictEqual(parseLink('CI run=https://a.example/1'), { url: 'https://a.example/1', label: 'CI run' })
   assert.strictEqual(parseLink('not a link'), null)
   assert.strictEqual(parseLink(''), null)
+})
+
+// --- release deployed / complete (phase 4) -------------------------------------
+
+const TWO_SERIES = [CORE, { tagPrefix: 'skitterspec-linear@', pipelineId: 'p-linear', envs: [{ key: 'published', stage: 'Released' }] }]
+const staged = (version, stage = 'Staged') => ({ version, stage: { name: stage, type: 'started' } })
+
+test('deployed maps the env key to its stage and moves the release', async () => {
+  const r = repo()
+  const linear = fakeLinear({ seed: [staged('1.1.0')] })
+  const got = await json(['release', 'deployed', '1.1.0', 'published', '--apply'], r.dir, { adapter: linear })
+  assert.strictEqual(got.code, 0)
+  assert.deepStrictEqual(linear.calls.map((c) => c.op), ['releaseStage'])
+  assert.deepStrictEqual(linear.calls[0].input, { pipelineId: 'p-core', version: '1.1.0', stage: 'Released' })
+  assert.strictEqual(got.body.release.from.name, 'Staged')
+  assert.strictEqual(got.body.release.stage.name, 'Released')
+  assert.strictEqual(got.body.warning, null)
+})
+
+test('deployed without --apply is a dry run and calls nothing', async () => {
+  const r = repo()
+  const linear = fakeLinear({ seed: [staged('1.1.0')] })
+  const got = await run(['release', 'deployed', 'skitterspec@1.1.0', 'staged'], r.dir, { adapter: linear })
+  assert.strictEqual(got.code, 0)
+  assert.match(got.out, /skitterspec@1\.1\.0 → staged \("Staged"\)/)
+  assert.match(got.out, /dry run/)
+  assert.deepStrictEqual(linear.calls, [])
+})
+
+test('an unknown env refuses and names the configured keys', async () => {
+  const r = repo()
+  const linear = fakeLinear({ seed: [staged('1.1.0')] })
+  const got = await run(['release', 'deployed', '1.1.0', 'prod', '--apply'], r.dir, { adapter: linear })
+  assert.strictEqual(got.code, 1)
+  assert.match(got.out, /no env named "prod" on skitterspec@/)
+  assert.match(got.out, /Declared: staged, published/)
+  assert.deepStrictEqual(linear.calls, [])
+})
+
+test('a bare version is ambiguous across two pipelines, and --series or the full tag settles it', async () => {
+  const r = repo({ pipelines: TWO_SERIES })
+  const bare = await run(['release', 'deployed', '1.1.0', 'published'], r.dir)
+  assert.strictEqual(bare.code, 1)
+  assert.match(bare.out, /"1\.1\.0" is ambiguous — 2 release pipelines are declared/)
+  assert.match(bare.out, /--series <skitterspec@\|skitterspec-linear@>/)
+
+  const series = await json(['release', 'deployed', '1.1.0', 'published', '--series', 'skitterspec-linear@'], r.dir)
+  assert.strictEqual(series.body.pipeline.pipelineId, 'p-linear')
+  const tag = await json(['release', 'deployed', 'skitterspec-linear@1.1.0', 'published'], r.dir)
+  assert.strictEqual(tag.body.pipeline.pipelineId, 'p-linear')
+  assert.strictEqual(tag.body.version, '1.1.0')
+})
+
+test('an unknown --series refuses and names the declared ones', async () => {
+  const r = repo({ pipelines: TWO_SERIES })
+  const got = await run(['release', 'complete', '1.1.0', '--series', 'app@'], r.dir)
+  assert.strictEqual(got.code, 1)
+  assert.match(got.out, /no pipeline has the series "app@"/)
+  assert.match(got.out, /Declared: skitterspec@, skitterspec-linear@/)
+})
+
+// STAYS SILENT: a deploy job that runs for every tag is a healthy repo.
+test('a tag of an untracked series is a no-op for deployed and complete', async () => {
+  const r = repo()
+  const linear = fakeLinear()
+  // `other@9.9.9` is a tag of some other series. A bare `v9.9.9` is not —
+  // with one pipeline it reads as that pipeline's version, and an apply then
+  // refuses when Linear has no such release.
+  for (const argv of [['deployed', 'other@9.9.9', 'staged'], ['complete', 'other@9.9.9']]) {
+    const got = await run(['release', ...argv, '--apply'], r.dir, { adapter: linear })
+    assert.strictEqual(got.code, 0)
+    assert.match(got.out, /other@9\.9\.9 is not a tracked series/)
+  }
+  assert.deepStrictEqual(linear.calls, [])
+})
+
+test('a backwards move warns and still applies', async () => {
+  const r = repo()
+  const linear = fakeLinear({ seed: [staged('1.1.0', 'Released')] })
+  const got = await run(['release', 'deployed', '1.1.0', 'staged', '--apply'], r.dir, { adapter: linear })
+  assert.strictEqual(got.code, 0)
+  assert.match(got.out, /moved: "Released" → "Staged"/)
+  assert.match(got.out, /WARNING moves back from "published" — applied anyway/)
+  assert.deepStrictEqual(linear.calls.map((c) => c.op), ['releaseStage'])
+})
+
+// STAYS SILENT: a release on a stage no env names (the pipeline's own first
+// stage, or one renamed in Linear) is cannot-tell, not a backwards move.
+test('a stage no env names produces no warning', async () => {
+  const r = repo()
+  const linear = fakeLinear({ seed: [staged('1.1.0', 'In Progress')] })
+  const got = await json(['release', 'deployed', '1.1.0', 'staged', '--apply'], r.dir, { adapter: linear })
+  assert.strictEqual(got.body.warning, null)
+})
+
+test('deployed and complete refuse a version Linear has no release for', async () => {
+  const r = repo()
+  for (const argv of [['deployed', '2.0.0', 'staged'], ['complete', '2.0.0']]) {
+    const linear = fakeLinear()
+    const got = await run(['release', ...argv, '--apply'], r.dir, { adapter: linear })
+    assert.strictEqual(got.code, 1)
+    assert.match(got.out, /Linear has no release 2\.0\.0 on skitterspec@/)
+    assert.match(got.out, /release create skitterspec@2\.0\.0 --apply/)
+    assert.deepStrictEqual(linear.calls, [])
+  }
+})
+
+test('complete finishes the release with its links and notes', async () => {
+  const r = repo()
+  fs.writeFileSync(path.join(r.dir, 'notes.md'), 'shipped')
+  const linear = fakeLinear({ seed: [staged('1.1.0', 'Released')] })
+  const got = await json(
+    ['release', 'complete', '1.1.0', '--notes', 'notes.md', '--link', 'npm=https://www.npmjs.com/package/x', '--apply'],
+    r.dir,
+    { adapter: linear },
+  )
+  assert.strictEqual(got.code, 0)
+  assert.deepStrictEqual(linear.calls[0].input, {
+    pipelineId: 'p-core',
+    version: '1.1.0',
+    links: [{ url: 'https://www.npmjs.com/package/x', label: 'npm' }],
+    notes: 'shipped',
+  })
+  assert.strictEqual(got.body.release.completedAt, '2026-10-22T09:00:00.000Z')
+  assert.strictEqual(got.body.release.already, false)
+})
+
+test('a second complete is a no-op that says so', async () => {
+  const r = repo()
+  const linear = fakeLinear({ seed: [staged('1.1.0', 'Released')] })
+  assert.strictEqual((await run(['release', 'complete', '1.1.0', '--apply'], r.dir, { adapter: linear })).code, 0)
+  const again = await run(['release', 'complete', '1.1.0', '--apply'], r.dir, { adapter: linear })
+  assert.strictEqual(again.code, 0)
+  assert.match(again.out, /already complete \(2026-10-22T09:00:00\.000Z\) — nothing sent/)
+  assert.deepStrictEqual(linear.calls.map((c) => c.op), ['releaseComplete'])
+})
+
+test('a Linear refusal on deployed is relayed in words', async () => {
+  const r = repo()
+  const linear = fakeLinear({ seed: [staged('1.1.0')] })
+  linear.releaseStage = async () => {
+    throw new Error("Linear API error: Not allowed to access feature 'releaseManagement'")
+  }
+  const got = await run(['release', 'deployed', '1.1.0', 'published', '--apply'], r.dir, { adapter: linear })
+  assert.strictEqual(got.code, 1)
+  assert.match(got.out, /Linear Releases is not available to this workspace/)
 })

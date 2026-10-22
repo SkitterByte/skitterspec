@@ -3759,6 +3759,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--env') flags.releaseEnv = String(args[++i] || '').trim()
     else if (args[i] === '--notes') flags.notesFile = String(args[++i] || '').trim()
     else if (args[i] === '--link') flags.links.push(String(args[++i] || '').trim())
+    else if (args[i] === '--series') flags.series = String(args[++i] || '').trim()
     else if (args[i].startsWith('--')) unknownFlags.push(args[i])
     else positional.push(args[i])
   }
@@ -3896,6 +3897,9 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync released [<range>] [--json]\n' +
         '       skitterspec spec-sync stage <key> [<range>] [--apply] [--json]\n' +
         '       skitterspec spec-sync release create <tag> [--from <ref>] [--env <key>] [--notes <file>]\n' +
+        '                    [--link [label=]<url> …] [--apply] [--json]\n' +
+        '       skitterspec spec-sync release deployed <version> <env> [--series <prefix>] [--apply] [--json]\n' +
+        '       skitterspec spec-sync release complete <version> [--series <prefix>] [--notes <file>]\n' +
         '                    [--link [label=]<url> …] [--apply] [--json]\n' +
         '       skitterspec spec-sync reattach <spec> [--to <ISSUE-REF>] [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +

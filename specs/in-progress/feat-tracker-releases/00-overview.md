@@ -134,7 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Spike Linear's release API and linear-release | ✅ | [01-spike-release-api.md](01-spike-release-api.md) |
 | 2 | Release seam + config + Linear adapter ops | ✅ | [02-seam-and-config.md](02-seam-and-config.md) |
 | 3 | `release create <tag>` | ✅ | [03-release-create.md](03-release-create.md) |
-| 4 | `release deployed` / `release complete` | ⬜ | [04-deployed-complete.md](04-deployed-complete.md) |
+| 4 | `release deployed` / `release complete` | ✅ | [04-deployed-complete.md](04-deployed-complete.md) |
 | 5 | Setup step, CI wiring offer, doctor | ⬜ | [05-setup-and-doctor.md](05-setup-and-doctor.md) |
 | 6 | Dogfood in this repo | ⬜ | [06-dogfood.md](06-dogfood.md) |
 
@@ -176,3 +176,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   path, so a commit counts toward every pipeline whose tag range contains it.
   Linear pipelines carry `includePathPatterns` for this. A per-pipeline `paths`
   key is not in scope here.
+- 2026-10-22 — Phase 4: `deployed`/`complete` take a full tag or a bare
+  version. A bare version is ambiguous only when more than one pipeline is
+  declared, and that is decided from config alone, never by asking Linear
+  which series holds it, so a dry run stays offline. Both look the release up
+  first. A missing release refuses and names the `create` to run. An already
+  complete release is reported and nothing is re-sent, so `--link`/`--notes`
+  on a repeat are not applied (said aloud).
