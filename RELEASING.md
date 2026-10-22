@@ -40,8 +40,8 @@ Two things are set up once, and one is needed each time you approve:
 
 ### A brand-new package bootstraps from your machine, once
 
-A trusted publisher can only be configured on a package that **already
-exists** — the per-package publish-settings page is not there until the first
+A trusted publisher can only be configured on a package that **already exists**
+— the per-package publish-settings page is not there until the first
 publish, and npm has no PyPI-style "pending publisher"
 ([npm/cli#8544](https://github.com/npm/cli/issues/8544)). So the first release
 of a new distribution runs the normal flow up to the tag push, CI then fails at
