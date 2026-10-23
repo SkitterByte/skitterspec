@@ -1,0 +1,35 @@
+{
+  "azure": {
+    "orgUrl": "https://dev.azure.com/your-org",
+    "project": "your-project",
+    "workItemType": "Issue",
+    "childType": "Task",
+    "areaPath": ""
+  },
+  "states": {
+    "backlog": "To Do",
+    "in-progress": "Doing",
+    "complete": "Done",
+    "cancelled": "Done"
+  },
+  "intake": {
+    "tag": "",
+    "bugTags": ["bug"],
+    "hotfixTags": []
+  },
+  "auth": {
+    "tokenEnv": "AZURE_DEVOPS_EXT_PAT"
+  },
+  "refs": {
+    "foreignPatterns": []
+  },
+  "releases": {
+    "workItemType": "Release",
+    "series": [
+      {
+        "tagPrefix": "v",
+        "envs": { "staged": "Staged", "published": "Published" }
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@skitterbyte/skitterspec-provider-azure-boards",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Azure DevOps Boards ticketing provider for skitterspec — the REST 7.1 adapter, markdown dialect, config and sync skills that layer one-way Boards sync (repo → mirror) onto the base workflow.",
+  "license": "MIT",
+  "author": "Reuben Greaves",
+  "type": "commonjs",
+  "files": [
+    "bin",
+    "src",
+    "assets"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@skitterbyte/skitterspec-common": "workspace:*",
+    "@skitterbyte/skitterspec-provider-kit": "workspace:*",
+    "@skitterbyte/skitterspec-sync-core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkitterByte/skitterspec.git",
+    "directory": "packages/azure-boards"
+  }
+}

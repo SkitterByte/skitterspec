@@ -163,7 +163,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Spike Azure DevOps APIs | ✅ | [01-spike-azure-apis.md](01-spike-azure-apis.md) |
-| 2 | Azure adapter core (REST, dialect, states) | ⬜ | [02-azure-adapter.md](02-azure-adapter.md) |
+| 2 | Azure adapter core (REST, dialect, states) | ✅ | [02-azure-adapter.md](02-azure-adapter.md) |
 | 3 | CLI, MCP, skills, seams, intake | ⬜ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment on the kit seam | ⬜ | [04-assignment.md](04-assignment.md) |
 | 5 | Release work item on the release seam | ⬜ | [05-release-seam.md](05-release-seam.md) |
@@ -193,3 +193,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   comments via `?format=markdown`), so phase 2 drops the HTML write path.
   Doctor's narrow-token probe is identity search (401 without Identity Read);
   Work Items R&W covers everything else including AssignedTo-by-email.
+- 2026-10-23 — Phase 2: `commands.js` deferred to phase 3 beside the
+  `cli-sync.js` it routes to. The op contract drops `listTransitions` (no
+  transition API on Azure); HTTP 203 is treated as a credential rejection
+  (Azure's bad-PAT shape).

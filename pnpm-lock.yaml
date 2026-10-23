@@ -182,6 +182,18 @@ importers:
         specifier: workspace:*
         version: link:packages/linear
 
+  packages/azure-boards:
+    dependencies:
+      '@skitterbyte/skitterspec-common':
+        specifier: workspace:*
+        version: link:../common
+      '@skitterbyte/skitterspec-provider-kit':
+        specifier: workspace:*
+        version: link:../provider-kit
+      '@skitterbyte/skitterspec-sync-core':
+        specifier: workspace:*
+        version: link:../sync-core
+
   packages/common:
     dependencies:
       prompts:
