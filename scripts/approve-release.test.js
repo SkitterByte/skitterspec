@@ -129,3 +129,23 @@ test('UUID matching is strict enough to reject a package spec', () => {
   assert.ok(!UUID.test('19.0.0'))
   assert.ok(!UUID.test('097ace7b131c48d1aa2d1aed8243a758'), 'no hyphens is not a UUID')
 })
+
+// After an approve, the GitHub mirror follows: Published, then out of
+// prerelease. Opt-in by config, and skipped when no tag can be named.
+const { trackerCommands } = require('./approve-release.cjs')
+
+test('an approve with a version moves the release to published, then completes it', () => {
+  const cmds = trackerCommands('skitterspec-github', '1.0.0', { configExists: true })
+  assert.deepStrictEqual(cmds.map((c) => c.slice(1)), [
+    ['spec-sync', 'release', 'deployed', 'skitterspec-github@1.0.0', 'published', '--apply'],
+    ['spec-sync', 'release', 'complete', 'skitterspec-github@1.0.0', '--apply'],
+  ])
+})
+
+test('no GitHub config means no tracker step — mirroring is opt-in', () => {
+  assert.deepStrictEqual(trackerCommands('skitterspec', '23.1.1', { configExists: false }), [])
+})
+
+test('a bare stage-id names no tag, so the tracker is left alone', () => {
+  assert.deepStrictEqual(trackerCommands('skitterspec', null, { configExists: true }), [])
+})

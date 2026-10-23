@@ -38,6 +38,22 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // --- pure helpers -----------------------------------------------------------
 
+const GITHUB_CONFIG = path.join('specs', '.core', 'github.config.json')
+const GITHUB_BIN = path.join('packages', 'github', 'bin', 'skitterspec-github.js')
+
+// What approving does to this repo's GitHub mirror: the release's issues move
+// to Published, then the release stops being a prerelease. Empty — nothing to
+// run — without the config (tracker mirroring is opt-in), or without a version
+// (a bare stage-id names no tag).
+function trackerCommands(npmShort, version, { configExists }) {
+  if (!configExists || !version) return []
+  const tag = `${npmShort}@${version}`
+  return [
+    [GITHUB_BIN, 'spec-sync', 'release', 'deployed', tag, 'published', '--apply'],
+    [GITHUB_BIN, 'spec-sync', 'release', 'complete', tag, '--apply'],
+  ]
+}
+
 function parseArgs(argv) {
   const args = argv.slice(2)
   const action = args.includes('--reject') ? 'reject' : 'approve'
@@ -213,6 +229,25 @@ function main(argv) {
     console.log(`\n✅ ${what} approved. Confirm it actually published:`)
     console.log(`    npm view ${resolved.npm} dist-tags`)
     console.log(`    npm view ${what} dist.attestations\n`)
+    // NEVER FATAL: the package is live, and the tracker is a mirror the same
+    // verbs repair when re-run by hand.
+    const root = path.join(__dirname, '..')
+    const configExists = (() => {
+      try {
+        readFileSync(path.join(root, GITHUB_CONFIG))
+        return true
+      } catch {
+        return false
+      }
+    })()
+    for (const args of trackerCommands(pkg, version, { configExists })) {
+      try {
+        execFileSync(process.execPath, args, { cwd: root, stdio: 'inherit' })
+      } catch {
+        console.error(`⚠ tracker mirror: \`node ${args.join(' ')}\` failed — re-run it by hand`)
+        break
+      }
+    }
   } else {
     console.log(`\n✅ ${what} rejected and discarded.\n`)
   }
@@ -220,4 +255,4 @@ function main(argv) {
 
 if (require.main === module) main(process.argv)
 
-module.exports = { parseArgs, tooOld, normaliseEntries, resolveStageId, resolvePackage, UUID }
+module.exports = { parseArgs, tooOld, normaliseEntries, resolveStageId, resolvePackage, trackerCommands, UUID }

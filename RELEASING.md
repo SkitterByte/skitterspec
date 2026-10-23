@@ -114,6 +114,20 @@ happened to go through it. There is no `--publish` flag any more.
 workflow's `workflow_dispatch` trigger with the package and version — no second
 tag needed.
 
+**The GitHub board follows the release.** This repo's tickets are GitHub issues
+on board 2 (`specs/.core/github.config.json`). After staging, the workflow
+creates a prerelease GitHub Release listing the issues the tag's range carries
+and sets their **Deployed** field to `Staged`; `npm run approve` then sets it to
+`Published` and lifts the prerelease flag. Both are **never fatal** — the
+package is the release, the board is its mirror — and re-running
+`spec-sync release deployed|complete <tag> --apply` repairs either.
+
+CI needs a token the Actions `GITHUB_TOKEN` cannot be: a user-owned Projects
+board accepts only a personal token. Create a **classic** PAT with `repo` and
+`project` and add it as the repo secret **`SKITTERSPEC_GITHUB_TOKEN`**. Without
+it the step prints a notice and skips. Approving uses your own token, the one
+`spec-sync credentials set` stored.
+
 **Don't trust a green workflow.** Staging is not publishing. After approving:
 
 ```

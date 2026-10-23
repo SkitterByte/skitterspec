@@ -72,7 +72,12 @@ jobs:
   stage:
     runs-on: ubuntu-latest
     steps:
+      # Full history and tags: the tracker step below ranges from the previous
+      # tag in the series, and `release create` refuses a shallow clone rather
+      # than report a range it cannot see.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # Resolve which package and version this run is for, and refuse anything
       # that is not one of the two publishable distributions.
@@ -158,6 +163,29 @@ jobs:
       - name: Stage the release
         working-directory: ${{ steps.target.outputs.dir }}
         run: npm stage publish --access public
+
+      # Mirror the release on this repo's GitHub board: a prerelease listing the
+      # issues the range contains, and their Deployed field set to Staged.
+      #
+      # NEVER FATAL. The package is already staged and the tracker is a
+      # generated mirror, so a failure here warns and the run stays green; the
+      # same verbs re-run by hand repair it. The token is a classic PAT
+      # (repo + project) in the SKITTERSPEC_GITHUB_TOKEN secret — the Actions
+      # GITHUB_TOKEN cannot write a user-owned Projects board. With no secret
+      # the step says so and skips.
+      - name: Mirror the release on GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.SKITTERSPEC_GITHUB_TOKEN }}
+          TAG: ${{ steps.target.outputs.package }}@${{ steps.target.outputs.version }}
+        run: |
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "::notice::no SKITTERSPEC_GITHUB_TOKEN secret — tracker mirror skipped"
+            exit 0
+          fi
+          bin=packages/github/bin/skitterspec-github.js
+          node "$bin" spec-sync release create "$TAG" --stage staged --apply \
+            && node "$bin" spec-sync release deployed "$TAG" staged --apply \
+            || echo "::warning::tracker mirror failed for $TAG — re-run the release verbs by hand"
 
       - name: How to finish it
         env:
