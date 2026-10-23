@@ -11,7 +11,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/1"
 
 > **Type:** Feature
 > **Name:** feat-github-provider (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-22)
+> **Status:** In Progress — Phase 7 (started 2026-10-22)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-22
@@ -235,6 +235,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   fixed: unfinished phases of a cancelled spec stayed open (sync-core now
   projects them `cancelled`, so Linear and Jira close them too), and an
   adopted issue never got the `spec` label `list` reads by.
+- 2026-10-23 — Landed intermediate work onto main so `skitterspec-github`
+  can be cut and published from main; spec stays In Progress for the cut and
+  the switch of this repo's installed tracker.
 - 2026-10-22 — Follow-up surfaced: the GitHub base snapshot is named
   `#1.base.json` — legal, but `#` in a filename is awkward in shells and URLs.
   Wants a provider hook for a filesystem-safe snapshot name. Not in scope here.
