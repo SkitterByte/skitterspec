@@ -162,7 +162,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Spike Azure DevOps APIs | ⬜ | [01-spike-azure-apis.md](01-spike-azure-apis.md) |
+| 1 | Spike Azure DevOps APIs | ✅ | [01-spike-azure-apis.md](01-spike-azure-apis.md) |
 | 2 | Azure adapter core (REST, dialect, states) | ⬜ | [02-azure-adapter.md](02-azure-adapter.md) |
 | 3 | CLI, MCP, skills, seams, intake | ⬜ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment on the kit seam | ⬜ | [04-assignment.md](04-assignment.md) |
@@ -188,3 +188,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `feat-github-provider` (Azure Boards for ereqs; what lets Linear be
   cancelled). Scope set to github-v1 parity; release carrier chosen as a
   release work item over a per-ticket Deployed field or tags.
+- 2026-10-23 — Phase 1 spike: Decision 6's open half resolved — the dialect
+  leads with **markdown** (`multilineFieldsFormat`, byte-identical round-trip;
+  comments via `?format=markdown`), so phase 2 drops the HTML write path.
+  Doctor's narrow-token probe is identity search (401 without Identity Read);
+  Work Items R&W covers everything else including AssignedTo-by-email.
