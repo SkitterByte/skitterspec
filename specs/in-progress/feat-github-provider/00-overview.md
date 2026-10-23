@@ -225,6 +225,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   checkboxes are clickable on the issue. Fixed here, in the shared kit: a
   per-phase `subIssueStreams` hash and `remoteSubIssueEdited`, so Linear and
   Jira get the warning too. Older snapshots are cannot-tell until next push.
+- 2026-10-22 — Dogfood swap, part 1: the four backlog specs minted as
+  #9–#30 on board 2. Release CI mirrors via a classic-PAT repo secret
+  (`SKITTERSPEC_GITHUB_TOKEN`) because the Actions token cannot write a
+  user-owned board; never fatal. Linear stays the installed tracker until
+  `skitterspec-github@1.0.0` is published — the swap's second half is a task
+  after the cut.
 - 2026-10-22 — Follow-up surfaced: the GitHub base snapshot is named
   `#1.base.json` — legal, but `#` in a filename is awkward in shells and URLs.
   Wants a provider hook for a filesystem-safe snapshot name. Not in scope here.
