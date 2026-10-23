@@ -570,6 +570,15 @@ const UNSTARTED_BUCKETS = ['backlog', 'cancelled']
 // Buckets where a spec is FINISHED, and so has nobody working on it.
 const TERMINAL_BUCKETS = ['complete', 'cancelled']
 
+// A phase's state once its SPEC's bucket has a say. Cancelling a spec abandons
+// every phase not already done — left alone, those sub-issues stay open in
+// Backlog under a closed parent, which reads as work still owed. A phase that
+// was finished keeps `complete`: it shipped before the spec was dropped.
+function phaseStateUnder(workflowState, phaseState) {
+  if (workflowState === 'cancelled' && phaseState !== 'complete') return 'cancelled'
+  return phaseState
+}
+
 /**
  * The Linear user this spec is assigned to, AS PROJECTED — which is not simply
  * what the frontmatter records.
@@ -714,7 +723,7 @@ function normalizeLocal(snapshotDir, config) {
       ref: p.phase,
       name: p.name,
       goal: subIssueBody(p, tasksMode, config.sync.localOnlySections, dialect),
-      state: p.state,
+      state: phaseStateUnder(workflowState, p.state),
     })),
     workflowState,
     // Who is building this. `toFieldSet` drops it unless the repo listed
