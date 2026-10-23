@@ -213,6 +213,15 @@ function applyOps({ adapter, config }) {
       // Null is meaningful here — it is how an issue is unassigned — so the
       // key is forwarded whenever the plan carries it, never truthiness-tested.
       if ('assignee' in issue) updates.assigneeId = issue.assignee ?? null
+      // An ADOPTED issue was filed by a person and carries none of our markers,
+      // and `list` finds specs by the spec label. A PATCH replaces the whole
+      // label set, so the issue's own labels go along — and only when they were
+      // read: an unknown set is left alone rather than overwritten.
+      if (Array.isArray(existing.labels)) {
+        const have = new Set(existing.labels.map((l) => String(l).toLowerCase()))
+        const missing = spec.labels.filter((l) => !have.has(String(l).toLowerCase()))
+        if (missing.length) updates.labels = [...existing.labels, ...missing]
+      }
       if (Object.keys(updates).length) await adapter.updateIssue(existing.id, updates)
       await settle(existing, issue.state)
     },

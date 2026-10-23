@@ -240,6 +240,30 @@ test('an untouched phase sub-issue updates in silence', async () => {
   assert.match(r.out, /sub-issue updated: #102/)
 })
 
+// An adopted issue was filed by a person: the linking push adds the spec label
+// (which `list` searches by) and keeps the reporter's own labels.
+async function adoptWith(labels) {
+  const dir = repoWithSpec({ identifier: '#101' })
+  const adapter = fakeAdapter()
+  const issue = adapter.make('Reported', 'the original report')
+  issue.labels = labels
+  const r = await run(['apply', 'feat-demo', '--plan', await planFile(dir)], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  return adapter.calls.find((c) => c[0] === 'updateIssue' && c[1] === '101')[2]
+}
+
+test('adopting an issue adds the spec label and keeps the reporter\'s labels', async () => {
+  assert.deepStrictEqual((await adoptWith(['bug'])).labels, ['bug', 'spec'])
+})
+
+test('an issue already labelled spec has its labels left alone', async () => {
+  assert.ok(!('labels' in (await adoptWith(['Spec', 'bug']))))
+})
+
+test('labels that were never read are never overwritten', async () => {
+  assert.ok(!('labels' in (await adoptWith(undefined))))
+})
+
 test('a complete spec is set Done on the board AND closed as completed', async () => {
   const dir = repoWithSpec({ bucket: 'complete', phaseEmoji: '✅' })
   const adapter = fakeAdapter()
