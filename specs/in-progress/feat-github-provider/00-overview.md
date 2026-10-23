@@ -231,6 +231,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   user-owned board; never fatal. Linear stays the installed tracker until
   `skitterspec-github@1.0.0` is published — the swap's second half is a task
   after the cut.
+- 2026-10-23 — Live run 3 (adopt + preserve) passed and found two bugs, both
+  fixed: unfinished phases of a cancelled spec stayed open (sync-core now
+  projects them `cancelled`, so Linear and Jira close them too), and an
+  adopted issue never got the `spec` label `list` reads by.
 - 2026-10-22 — Follow-up surfaced: the GitHub base snapshot is named
   `#1.base.json` — legal, but `#` in a filename is awkward in shells and URLs.
   Wants a provider hook for a filesystem-safe snapshot name. Not in scope here.

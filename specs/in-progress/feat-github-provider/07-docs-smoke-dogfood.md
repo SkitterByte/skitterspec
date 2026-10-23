@@ -26,11 +26,12 @@ and `skitterspec-github@1.0.0` is staged through CI.
       REST) against the live API. *(Classic PAT confirmed; fine-grained not
       tried — Decision 5 stands. The board's auto-close on Done does race the
       engine's close; settle now accepts it.)*
-- [ ] Live smoke on a throwaway repo + board: mint spec + phase sub-issues,
+- [x] Live smoke on a throwaway repo + board: mint spec + phase sub-issues,
       bucket moves → Status + close reason, adopt + preserve, verify clean,
       ticked-box drift reported then replaced, `released` on a test range,
       `release create`/`deployed`/`complete`. Fix what surfaces; Changelog
-      each fix.
+      each fix. *(Run on this repo instead. Release verbs dry-run only; the
+      real write is the 1.0.0 tag itself.)*
 - [ ] Dogfood swap in this repo: create the board, `github.config.json`
       replaces `linear.config.json`, push every backlog + in-progress spec
       (Decision 11), `release.yml` calls `release create` on tag push,
@@ -94,6 +95,14 @@ skittership and skitterload over is the same swap, done in those repos.
   `release create` dry runs over real tags: ranges right, and the report now
   counts commits carrying an earlier tracker's ref (24 `SKS-` in 23.1.0) where
   it used to drop them silently.
+- **Live run 3 — adopt:** a hand-filed #31 listed by `intake` (after a
+  short REST listing lag — the first read said nothing waiting), adopted by a
+  throwaway spec: `preserve` posted the original as a comment and was a no-op
+  the second time, the linking push replaced the body and minted #32, and
+  cancelling closed #31 as not planned. Two fixes: #32 stayed open in Backlog
+  under its cancelled parent (now projected cancelled, kit-wide), and #31
+  never got the `spec` label `list` searches by (now added on update). The
+  throwaway spec was deleted uncommitted; #31/#32 stay closed.
 - **Fixed in this spec:** phase sub-issues now get the same `!!` edit warning
   as the spec issue — the snapshot records a word-stream hash per phase body
   (`subIssueStreams`), and apply reads a sub-issue before replacing it only
