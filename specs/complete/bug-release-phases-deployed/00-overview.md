@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Bug
 > **Name:** bug-release-phases-deployed (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-10-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-26
@@ -68,9 +68,11 @@ Run: `node --test packages/github/test/api.test.js`. Red before the fix:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-26 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-10-26 — Bug reproduced; failing test added (red).
 - 2026-10-26 — Fixed: closed phase sub-issues now take the release's Deployed
   option with their spec; test green.
+- 2026-10-26 — Completed; all phases done, tests green.
