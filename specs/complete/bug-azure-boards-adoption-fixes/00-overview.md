@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Bug
 > **Name:** bug-azure-boards-adoption-fixes
-> **Status:** In Progress — fixed, tests green; awaiting review + commit
+> **Status:** Complete (2026-10-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-26
@@ -109,6 +109,7 @@ all under `the adoption handoff fixes` section markers. Run:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-26 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -126,3 +127,4 @@ all under `the adoption handoff fixes` section markers. Run:
 - 2026-10-26 — Follow-up surfaced: the apply-side companion-coverage note
   exists only in this provider; github/jira/linear have the same silent gap
   when a project sets another provider's isolation keys. Not in scope here.
+- 2026-10-26 — Completed; all phases done, tests green (4171).
