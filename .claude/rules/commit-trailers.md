@@ -1,1 +1,1 @@
-../../packages/linear/assets/rules/commit-trailers.md
+../../packages/github/assets/rules/commit-trailers.md

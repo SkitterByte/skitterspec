@@ -22,11 +22,25 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert')
+const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const { execFile } = require('node:child_process')
 
 const BIN = path.join(__dirname, '..', 'bin', 'skitterspec-linear.js')
-const REPO = path.join(__dirname, '..', '..', '..')
+
+// A repo of its own, opted in to Linear. These once ran against this monorepo
+// and leaned on ITS linear.config.json — which went the day the repo moved its
+// own tracker to GitHub, and every verb then stopped at "not enabled".
+const REPO = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-rename-repo-'))
+fs.mkdirSync(path.join(REPO, 'specs', '.core'), { recursive: true })
+fs.writeFileSync(
+  path.join(REPO, 'specs', '.core', 'linear.config.json'),
+  JSON.stringify({ linear: { teamKey: 'AAA', teamId: 'team-1' } }),
+)
+const SPEC = path.join(REPO, 'specs', 'backlog', 'feat-no-branch-autopush')
+fs.mkdirSync(SPEC, { recursive: true })
+fs.writeFileSync(path.join(SPEC, '00-overview.md'), '# No branch autopush\n\n> **Status:** Ready\n')
 
 function run(args, cwd = REPO) {
   return new Promise((resolve) => {

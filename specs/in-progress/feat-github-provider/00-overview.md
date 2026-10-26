@@ -241,3 +241,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-22 — Follow-up surfaced: the GitHub base snapshot is named
   `#1.base.json` — legal, but `#` in a filename is awkward in shells and URLs.
   Wants a provider hook for a filesystem-safe snapshot name. Not in scope here.
+- 2026-10-26 — Cut and approved `skitterspec-github@1.0.0`, then moved this
+  repo's own tracker to GitHub: skills and the trailer rule now link the
+  GitHub dist, `skitterspec` resolves to the GitHub provider, and
+  `linear.config.json` is gone. `linear-base/` snapshots are left as history.
+  `cli-plan-rename.test.js` had leaned on this repo's Linear config and now
+  builds its own fixture.
+- 2026-10-26 — Follow-up surfaced: `init` would also install the main-guard
+  and review-gate hooks, three commands and `offered-unblocks.md`, which this
+  repo has never carried. Not taken here — adopting them changes how the repo
+  is worked in, not which tracker it mirrors to.

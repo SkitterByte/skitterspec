@@ -32,7 +32,7 @@ and `skitterspec-github@1.0.0` is staged through CI.
       `release create`/`deployed`/`complete`. Fix what surfaces; Changelog
       each fix. *(Run on this repo instead. Release verbs dry-run only; the
       real write is the 1.0.0 tag itself.)*
-- [ ] Dogfood swap in this repo: create the board, `github.config.json`
+- [x] Dogfood swap in this repo: create the board, `github.config.json`
       replaces `linear.config.json`, push every backlog + in-progress spec
       (Decision 11), `release.yml` calls `release create` on tag push,
       `approve-release.cjs` calls `release complete`. *(Board 2 created and
@@ -40,12 +40,21 @@ and `skitterspec-github@1.0.0` is staged through CI.
       on the `SKITTERSPEC_GITHUB_TOKEN` secret; approve runs `deployed
       published` + `complete`. Retiring `linear.config.json` waits for the
       1.0.0 cut — the repo's skills come from the installed Linear dist.)*
-- [ ] After the cut: install `skitterspec-github` here, remove
+- [x] After the cut: install `skitterspec-github` here, remove
       `linear.config.json`, re-run init, and switch the `Refs:` trailer to
-      `#N`.
-- [ ] Cut `skitterspec-github@1.0.0` via `scripts/release.js`, push the tag,
-      `npm run approve` per RELEASING.md.
-- [ ] Full workspace suite green.
+      `#N`. *(`.claude/skills` and `commit-trailers.md` relinked to the GitHub
+      dist; the `skitterspec` bin alias moved from `packages/linear` to
+      `packages/github`; the Linear config and its docs removed, the GitHub
+      config docs added. `init` was run on a scratch copy first: only its
+      tracker files were taken — its hooks and new commands are a separate
+      decision. `spec-sync ref` now answers `#1`.)*
+- [x] Cut `skitterspec-github@1.0.0` via `scripts/release.js`, push the tag,
+      `npm run approve` per RELEASING.md. *(First publish bootstrapped from the
+      operator's machine, as `skitterspec-jira@1.0.0` was — no trusted
+      publisher can exist before the package does. The board half of approve
+      did not land; `release deployed … published` + `release complete` were
+      re-run by hand and the release is no longer a prerelease.)*
+- [x] Full workspace suite green. *(4011 passed.)*
 
 ## Notes
 

@@ -28,6 +28,7 @@
     "directory": "packages/github"
   },
   "bin": {
-    "skitterspec-github": "bin/skitterspec-github.js"
+    "skitterspec-github": "bin/skitterspec-github.js",
+    "skitterspec": "bin/skitterspec-github.js"
   }
 }
