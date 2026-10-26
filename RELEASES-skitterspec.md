@@ -5,6 +5,11 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.1.2 — 26 Oct 2026
+
+### Env
+- **Fixed** — spec-env live take now finds a dev server listening on every address (such as Vite with host: true) on macOS, and spec-env connect no longer takes over localhost while that server still answers on the network.
+
 ## 23.1.1 — 22 Oct 2026
 
 ### Env
