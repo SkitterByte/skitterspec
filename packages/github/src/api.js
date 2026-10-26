@@ -746,13 +746,27 @@ function makeApiAdapter({
      * Set the board's Deployed option on every issue the release carries. The
      * option is resolved before the first write, so an unknown name refuses
      * with nothing changed.
+     *
+     * A commit's `Refs:` names the spec issue, never a phase, so the phases are
+     * reached through their parent — and only the CLOSED ones. An open phase of
+     * a spec landed mid-way (/spec-to-main) has not shipped, and marking it so
+     * would be a false Deployed on the board.
      */
     async releaseStage(release, optionName, tickets) {
       await optionFor(deployedField, optionName)
+      const seen = new Set()
       let set = 0
-      for (const t of tickets) {
-        const r = await adapter.setFieldOption(t.ref, deployedField, optionName)
+      const stage = async (ref) => {
+        if (seen.has(ref)) return
+        seen.add(ref)
+        const r = await adapter.setFieldOption(ref, deployedField, optionName)
         if (r && r.changed !== false) set++
+      }
+      for (const t of tickets) {
+        await stage(t.ref)
+        for (const sub of await adapter.listSubIssues(t.ref)) {
+          if (!sub.open) await stage(sub.identifier)
+        }
       }
       return { set }
     },

@@ -451,6 +451,50 @@ test('releaseStage refuses an unknown Deployed option before any write', async (
   assert.ok(calls.every((c) => gqlKind(c) === 'board'))
 })
 
+// A commit's `Refs:` names the spec issue, never a phase — so a release reaches
+// the phases only through their parent. CLOSED ones follow it; an open phase of
+// a spec landed mid-way (/spec-to-main) has not shipped, and must stay unset.
+function stageWith(subs) {
+  const { a } = adapter(() => res(BOARD))
+  const set = []
+  a.setFieldOption = async (ref, field, option) => {
+    set.push(`${ref}=${option}`)
+    return { changed: true }
+  }
+  a.listSubIssues = async (ref) => subs[ref] || []
+  return { a, set }
+}
+
+test('releaseStage carries the Deployed option onto the closed phases of each issue', async () => {
+  const { a, set } = stageWith({
+    '#1': [
+      { id: '2', identifier: '#2', open: false },
+      { id: '3', identifier: '#3', open: false },
+    ],
+  })
+  const got = await a.releaseStage({ tag: 't' }, 'Test', [{ ref: '#1' }])
+  assert.deepStrictEqual(set, ['#1=Test', '#2=Test', '#3=Test'])
+  assert.deepStrictEqual(got, { set: 3 })
+})
+
+test('STAYS SILENT: an open phase is not marked shipped with its spec', async () => {
+  const { a, set } = stageWith({
+    '#1': [
+      { id: '2', identifier: '#2', open: false },
+      { id: '3', identifier: '#3', open: true },
+    ],
+  })
+  await a.releaseStage({ tag: 't' }, 'Test', [{ ref: '#1' }])
+  assert.deepStrictEqual(set, ['#1=Test', '#2=Test'])
+})
+
+test('STAYS SILENT: an issue with no phases stages exactly itself', async () => {
+  const { a, set } = stageWith({})
+  const got = await a.releaseStage({ tag: 't' }, 'Test', [{ ref: '#5' }])
+  assert.deepStrictEqual(set, ['#5=Test'])
+  assert.deepStrictEqual(got, { set: 1 })
+})
+
 // --- listing (by search, because ProjectV2.items can omit live items) -------------
 
 test('listBoardItems lists this repo\'s issues on OUR board, by search, sorted', async () => {
