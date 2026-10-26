@@ -31,26 +31,32 @@ Then:
    description, tags, reporter, URL. If Azure isn't connected, say so and offer
    to carry on without it — a spec written from the user's own description is
    still a spec.
-3. **Route the item to the right skill.** Match the item's TAGS
-   (case-insensitively — Boards has tags, not labels) against two lists,
-   **checking `hotfixTags` first**:
+3. **Route the item to the right skill.** Match the item's work item **TYPE**
+   against `intake.hotfixTypes`/`intake.bugTypes` and its **TAGS**
+   (case-insensitively — Boards has tags, not labels) against
+   `intake.hotfixTags`/`intake.bugTags`, **checking the hotfix lists first**.
+   A match on *either* axis routes; the type check exists because in the
+   Agile, Scrum and CMMI processes a bug is a **type**, not a tag, so a
+   support-filed `Bug` with no tags at all still belongs in `/spec-bug`:
 
-   - **`intake.hotfixTags`** → this is broken in **production**, so it needs a
-     fix against the released version, not `main`. Say so, name the matching
-     tag, and tell the user to run **`/spec-hotfix <ITEM-REF>`** — then stop.
-   - **`intake.bugTags`** → a bug report, not a feature request. Say so, name
-     the tag, and tell the user to run **`/spec-bug <ITEM-REF>`** — then stop,
-     without authoring a Feature spec.
+   - **`intake.hotfixTypes` or `intake.hotfixTags`** → this is broken in
+     **production**, so it needs a fix against the released version, not
+     `main`. Say so, name the matching type or tag, and tell the user to run
+     **`/spec-hotfix <ITEM-REF>`** — then stop.
+   - **`intake.bugTypes` or `intake.bugTags`** → a bug report, not a feature
+     request. Say so, name the matching type or tag, and tell the user to run
+     **`/spec-bug <ITEM-REF>`** — then stop, without authoring a Feature spec.
 
-   **Hotfix wins when an item carries both**, and deliberately: production is the
+   **Hotfix wins when an item matches both**, and deliberately: production is the
    more specific destination, and the two mistakes are not equally costly. Routing
    a prod issue to `/spec-bug` produces a fix that lands on `main` and never
    reaches the running version — discovered only when someone asks why it hasn't
    shipped. The reverse is a hotfix branch for something that could have waited,
    which is merely wasteful.
 
-   With a list unset, nothing routes through it; with both unset every item is
-   treated as a feature request, exactly as before.
+   `bugTypes` defaults to `["Bug"]`; an explicit empty list opts type routing
+   out. With a tag list unset, nothing routes through it; with every list
+   empty, each item is treated as a feature request, exactly as before.
 
    **Which checks run depends on where you are**, because a skip is about not
    bouncing someone to the skill they are already in — not about ignoring an

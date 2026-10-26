@@ -3,6 +3,7 @@
     "orgUrl": "https://dev.azure.com/your-org",
     "project": "your-project",
     "workItemType": "Issue",
+    "workItemTypeByKind": {},
     "childType": "Task",
     "areaPath": ""
   },
@@ -15,7 +16,9 @@
   "intake": {
     "tag": "",
     "bugTags": ["bug"],
-    "hotfixTags": []
+    "hotfixTags": [],
+    "bugTypes": ["Bug"],
+    "hotfixTypes": []
   },
   "auth": {
     "tokenEnv": "AZURE_DEVOPS_EXT_PAT"

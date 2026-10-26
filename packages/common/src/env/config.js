@@ -759,6 +759,48 @@ function mergeConfig(base, parsed) {
  * It is advisory in the strongest sense: nothing here acts on it, and a config
  * full of strays loads exactly as it always did.
  */
+// The isolation keys a ticketing provider needs a project to declare — set
+// once per process by a provider superset's bin, beneath whatever the
+// project's own env.config.json says. They used to reach only the
+// `env.config.json.example` composed at build time, which left every project
+// that adopted a provider over an EXISTING isolation config (or skipped the
+// example) with a `spec.companionPaths` that never claims the provider's
+// snapshot sidecar — `spec-env stage` then classifies the spec's own
+// `<baseDir>/<identifier>.base.json` as foreign and `/commit` leaves it
+// behind. The base distribution registers nothing and behaves as before.
+let providerEnvDefaults = null
+function setProviderEnvDefaults(overrides) {
+  providerEnvDefaults = overrides || null
+}
+
+// Fill ONLY the keys the project's file does not mention: a key the file sets —
+// including explicitly to '' or [] — is the project's decision and stands
+// ("the two keys are one fix" in scripts/build-dist.test.js is the contract:
+// blanking identifierField must keep disabling the companion expansion).
+function applyProviderEnvDefaults(config, parsed) {
+  if (!providerEnvDefaults) return config
+  const d = providerEnvDefaults
+  const pBranch = parsed && typeof parsed.branch === 'object' && parsed.branch !== null ? parsed.branch : null
+  if (
+    d.branch &&
+    typeof d.branch.identifierField === 'string' &&
+    !(pBranch && 'identifierField' in pBranch) &&
+    !config.branch.identifierField
+  ) {
+    config.branch.identifierField = d.branch.identifierField
+  }
+  const pSpec = parsed && typeof parsed.spec === 'object' && parsed.spec !== null ? parsed.spec : null
+  if (
+    d.spec &&
+    Array.isArray(d.spec.companionPaths) &&
+    !(pSpec && 'companionPaths' in pSpec) &&
+    !config.spec.companionPaths.length
+  ) {
+    config.spec.companionPaths = [...d.spec.companionPaths]
+  }
+  return config
+}
+
 function loadEnvConfig(dir = process.cwd()) {
   const base = defaults()
   const file = join(dir, CONFIG_FILE)
@@ -767,7 +809,9 @@ function loadEnvConfig(dir = process.cwd()) {
   try {
     raw = readFileSync(file, 'utf-8')
   } catch (error) {
-    if (error.code === 'ENOENT') return { config: base, present: false, unknown: [], badReviewers: [] }
+    if (error.code === 'ENOENT') {
+      return { config: applyProviderEnvDefaults(base, null), present: false, unknown: [], badReviewers: [] }
+    }
     throw error
   }
 
@@ -779,7 +823,7 @@ function loadEnvConfig(dir = process.cwd()) {
   }
 
   return {
-    config: mergeConfig(base, parsed),
+    config: applyProviderEnvDefaults(mergeConfig(base, parsed), parsed),
     present: true,
     unknown: collectUnknownKeys(parsed),
     badReviewers: collectBadReviewers(parsed),
@@ -788,6 +832,7 @@ function loadEnvConfig(dir = process.cwd()) {
 
 module.exports = {
   loadEnvConfig,
+  setProviderEnvDefaults,
   resolveServePort,
   derivedServePort,
   servePortRoot,

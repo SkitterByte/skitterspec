@@ -41,6 +41,12 @@ const DEFAULT_CONFIG = Object.freeze({
     workItemType: 'Issue',
     childType: 'Task',
     areaPath: '',
+    // The mint type per SPEC KIND (`feature`/`bug`/`hotfix`, from the spec
+    // folder's prefix), falling back to `workItemType`. In Agile, Scrum and
+    // CMMI a bug is a work item TYPE, so `/spec-bug` minting a User Story
+    // files it in the wrong backlog; `{ "bug": "Bug", "hotfix": "Bug" }` is
+    // the usual shape there. Empty means one type for everything, as before.
+    workItemTypeByKind: Object.freeze({}),
   }),
   // A spec is a WORK ITEM; each phase a CHILD work item under a hierarchy
   // link. `tasks` selects how the phase's checkboxes reach that child's
@@ -59,10 +65,19 @@ const DEFAULT_CONFIG = Object.freeze({
     complete: 'Done',
     cancelled: 'Done',
   }),
-  // Intake routes an adopted work item by its TAGS (Boards has tags, not
-  // labels): `tag` is the inbox filter, the other two route to /spec-bug and
-  // /spec-hotfix. Empty lists route nothing.
-  intake: Object.freeze({ tag: '', bugTags: Object.freeze(['bug']), hotfixTags: Object.freeze([]) }),
+  // Intake routes an adopted work item by its work item TYPE and its TAGS
+  // (Boards has tags, not labels): `tag` is the inbox filter, the type and tag
+  // lists route to /spec-bug and /spec-hotfix, and hotfix wins over bug.
+  // `bugTypes` defaults to Agile/Scrum/CMMI's literal `Bug` type because there
+  // a bug IS a type — an explicit empty list opts type routing out. Empty tag
+  // lists route nothing, as before.
+  intake: Object.freeze({
+    tag: '',
+    bugTags: Object.freeze(['bug']),
+    hotfixTags: Object.freeze([]),
+    bugTypes: Object.freeze(['Bug']),
+    hotfixTypes: Object.freeze([]),
+  }),
   snapshot: Object.freeze({ overviewFile: '00-overview.md' }),
   // The frontmatter FIELD VOCABULARY this provider stamps into spec files
   // (sync-core `src/fields.js`). No legacy keys: this provider has no pre-9.0
@@ -130,6 +145,8 @@ function defaults() {
       tag: DEFAULT_CONFIG.intake.tag,
       bugTags: [...DEFAULT_CONFIG.intake.bugTags],
       hotfixTags: [...DEFAULT_CONFIG.intake.hotfixTags],
+      bugTypes: [...DEFAULT_CONFIG.intake.bugTypes],
+      hotfixTypes: [...DEFAULT_CONFIG.intake.hotfixTypes],
     },
     snapshot: { ...DEFAULT_CONFIG.snapshot },
     fields: { ...DEFAULT_CONFIG.fields },
@@ -193,6 +210,16 @@ function mergeConfig(base, parsed) {
     assign(base.azure, parsed.azure, 'workItemType', 'string')
     assign(base.azure, parsed.azure, 'childType', 'string')
     assign(base.azure, parsed.azure, 'areaPath', 'string?')
+    if (isObject(parsed.azure.workItemTypeByKind)) {
+      // Only the kinds a spec folder can actually be — an unknown key is
+      // dropped rather than carried into `states` validation it can never pass.
+      const byKind = {}
+      for (const kind of ['feature', 'bug', 'hotfix']) {
+        const value = parsed.azure.workItemTypeByKind[kind]
+        if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
+      }
+      base.azure.workItemTypeByKind = byKind
+    }
     // A trailing slash on the org would double up in every composed URL.
     if (base.azure.orgUrl) base.azure.orgUrl = base.azure.orgUrl.replace(/\/+$/, '')
   }
@@ -219,6 +246,8 @@ function mergeConfig(base, parsed) {
     assign(base.intake, parsed.intake, 'tag', 'string?')
     if (Array.isArray(parsed.intake.bugTags)) base.intake.bugTags = stringList(parsed.intake.bugTags)
     if (Array.isArray(parsed.intake.hotfixTags)) base.intake.hotfixTags = stringList(parsed.intake.hotfixTags)
+    if (Array.isArray(parsed.intake.bugTypes)) base.intake.bugTypes = stringList(parsed.intake.bugTypes)
+    if (Array.isArray(parsed.intake.hotfixTypes)) base.intake.hotfixTypes = stringList(parsed.intake.hotfixTypes)
   }
 
   if (isObject(parsed.snapshot)) {

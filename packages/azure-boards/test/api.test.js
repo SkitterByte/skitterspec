@@ -215,7 +215,9 @@ test('readViewer reads connectionData at the org level', async () => {
     }),
   )
   const me = await a.readViewer()
-  assert.deepStrictEqual(me, { id: 'id-1', name: 'Jane Dev', email: 'jane@acme.test' })
+  // The id slot carries the assignable uniqueName, not the GUID — see
+  // `readViewer answers with the assignable identity first` below.
+  assert.deepStrictEqual(me, { id: 'jane@acme.test', name: 'Jane Dev', email: 'jane@acme.test' })
   assert.match(calls[0].url, /^https:\/\/dev\.azure\.com\/acme\/_apis\/connectionData/)
 })
 
@@ -230,7 +232,7 @@ test('searchUsers returns the kit page shape', async () => {
   )
   const page = await a.searchUsers('sam')
   assert.deepStrictEqual(page, {
-    users: [{ id: 'id-2', name: 'Sam', email: 's@a.t', active: true }],
+    users: [{ id: 's@a.t', name: 'Sam', email: 's@a.t', active: true }],
     nextCursor: null,
   })
   assert.match(calls[0].url, /^https:\/\/vssps\.dev\.azure\.com\/acme\/_apis\/identities/)
@@ -352,4 +354,59 @@ test('releaseComplete moves the item to the Completed-category state, or refuses
     return jsonRes({})
   })
   await assert.rejects(() => bare.a.releaseComplete({ id: '50', type: 'Release' }), /no Completed-category state/)
+})
+
+// --- the adoption handoff fixes (bug-azure-boards-adoption-fixes) -------------
+
+test('a markdown description reads back entity-decoded', async () => {
+  // Azure stores markdown with stray specials HTML-entity-encoded (observed
+  // live: `>` → `&gt;`, `"` → `&quot;`); the read is the inverse of the store.
+  const raw = {
+    ...RAW_ITEM,
+    fields: {
+      ...RAW_ITEM.fields,
+      'System.Description': '&gt; quote a &lt; b &amp; c &quot;d&quot; &#39;e&#39;',
+    },
+  }
+  const { a } = adapter(() => jsonRes({ ...raw, relations: [] }))
+  const item = await a.readIssue('7')
+  assert.strictEqual(item.description, '> quote a < b & c "d" \'e\'')
+})
+
+test('searchUsers surfaces the assignable identity, not the vssps GUID', async () => {
+  // `System.AssignedTo` refuses the identity GUID (live repro); the uniqueName
+  // (account email) is what Azure accepts, so that is what `users` must print
+  // for `--to` to stamp something writable.
+  const { a } = adapter(() =>
+    jsonRes({
+      value: [
+        {
+          id: '45635853-aaaa-bbbb-cccc-121212121212',
+          providerDisplayName: 'Jane Dev',
+          properties: { Account: { $value: 'jane@acme.test' } },
+        },
+        // No account property: the GUID is the only handle there is, so it stays.
+        { id: 'deadbeef-0000-0000-0000-000000000000', providerDisplayName: 'Build Bot' },
+      ],
+    }),
+  )
+  const { users } = await a.searchUsers('jane')
+  assert.strictEqual(users[0].id, 'jane@acme.test')
+  assert.strictEqual(users[0].email, 'jane@acme.test')
+  assert.strictEqual(users[1].id, 'deadbeef-0000-0000-0000-000000000000')
+})
+
+test('readViewer answers with the assignable identity first', async () => {
+  const { a } = adapter(() =>
+    jsonRes({
+      authenticatedUser: {
+        id: '45635853-aaaa-bbbb-cccc-121212121212',
+        providerDisplayName: 'Jane Dev',
+        properties: { Account: { $value: 'jane@acme.test' } },
+      },
+    }),
+  )
+  const viewer = await a.readViewer()
+  assert.strictEqual(viewer.id, 'jane@acme.test', 'the id slot carries what System.AssignedTo accepts')
+  assert.strictEqual(viewer.email, 'jane@acme.test')
 })

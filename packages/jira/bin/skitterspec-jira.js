@@ -20,6 +20,13 @@ if (!existsSync(join(__dirname, '..', 'src'))) {
 }
 
 const { run, HELP } = require('@skitterbyte/skitterspec-common/src/cli.js')
+
+// The provider's isolation defaults, registered beneath the project's own
+// env.config.json so `spec-env stage` claims this provider's snapshot sidecar
+// without a hand edit (see common src/env/config.js, setProviderEnvDefaults).
+require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderEnvDefaults(
+  require('@skitterbyte/skitterspec-provider-jira/src/config.js').ENV_CONFIG_DEFAULTS,
+)
 const {
   PROVIDER_COMMANDS,
   providerHelpSection,

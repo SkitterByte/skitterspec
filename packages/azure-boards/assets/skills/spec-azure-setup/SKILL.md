@@ -92,6 +92,15 @@ these are config rather than constants:
   Basic process's); an Agile project usually wants `User Story`.
 - **`azure.childType`** — the type a phase mints as, created as a hierarchy
   child. Default **Task**.
+- **`azure.workItemTypeByKind`** — the mint type per spec kind, falling back
+  to `workItemType`. Ask it wherever the process HAS a `Bug` type (Agile,
+  Scrum, CMMI): a `/spec-bug` or `/spec-hotfix` minting a `User Story` files
+  the bug in the wrong backlog, and `{ "bug": "Bug", "hotfix": "Bug" }` is the
+  usual answer there. On Basic (no Bug type) say nothing and leave it empty.
+- **`intake.bugTypes`** / **`intake.hotfixTypes`** — the same processes route
+  intake by TYPE as well as tag: `bugTypes` defaults to `["Bug"]`, so an
+  untagged Bug-type item reaches `/spec-bug` without anyone remembering a tag
+  convention. Confirm the default; an explicit `[]` opts type routing out.
 
 Offer the defaults and take yes for an answer — this is a confirmation, not an
 interrogation.
@@ -130,6 +139,7 @@ flag in step 6.
 skitterspec spec-sync init-config \
   --org-url https://dev.azure.com/<org> --project <project> \
   [--work-item-type Issue] [--child-type Task] \
+  [--kind-type <kind>=<Type> …] [--bug-type <Type> …] [--hotfix-type <Type> …] \
   [--state <bucket>=<name> …] [--force] [--json]
 ```
 
@@ -147,11 +157,14 @@ right, so don't paraphrase it into "done".
 **Only when `specs/.core/env.config.json` exists** (per-spec isolation is on).
 If it is absent, skip this — there is nothing to configure.
 
-**Check before you write — a fresh install may already have this.** When this
+**Check before you write — most projects need nothing here.** When this
 superset's `init --isolation` wrote the `env.config.json`, both keys below are
-seeded; this step is the **retrofit** for a project that adopted isolation
-before installing the Azure Boards provider, or ran `/spec-azure-setup` before
-adopting it.
+seeded — and even where they are absent, the superset binary now defaults them
+at runtime, so an `env.config.json` that simply omits them already claims the
+snapshot. The one case left is a file that sets them **explicitly to another
+provider's values** (a migration — Linear-era `linear-base`/`linear_identifier`
+is the live example); `spec-sync apply` prints a note naming the exact keys
+whenever the snapshot it wrote is not claimed, so follow that note.
 
 `/spec-start` commits an uncommitted spec for you, but only the paths it can
 prove belong to that spec. Its own folder always does; this repo's per-spec

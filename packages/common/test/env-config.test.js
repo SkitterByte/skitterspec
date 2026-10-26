@@ -479,3 +479,55 @@ test('afterLand is literal — tokens are not expanded', () => {
   writeEnvConfig(dir, { afterLand: ['echo {slug}'] })
   assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [{ run: 'echo {slug}', when: null }])
 })
+
+// --- provider env defaults (bug-azure-boards-adoption-fixes) ------------------
+
+test('provider env defaults fill unset isolation keys, and the project file wins', (t) => {
+  const { setProviderEnvDefaults } = require('../src/env/config.js')
+  t.after(() => setProviderEnvDefaults(null))
+
+  setProviderEnvDefaults({
+    branch: { identifierField: 'azure_identifier' },
+    spec: { companionPaths: ['specs/.core/azure-base/{identifier}.base.json'] },
+  })
+
+  // No env.config.json: the provider defaults apply, so the superset's stage
+  // claims the provider's snapshot sidecar out of the box.
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'env-defaults-'))
+  const filled = loadEnvConfig(bare).config
+  assert.strictEqual(filled.branch.identifierField, 'azure_identifier')
+  assert.deepStrictEqual(filled.spec.companionPaths, ['specs/.core/azure-base/{identifier}.base.json'])
+
+  // The project's own values stay authoritative — defaults sit BENEATH them.
+  const own = fs.mkdtempSync(path.join(os.tmpdir(), 'env-defaults-'))
+  fs.mkdirSync(path.join(own, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(own, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({
+      branch: { identifierField: 'linear_identifier' },
+      spec: { companionPaths: ['specs/.core/linear-base/{identifier}.base.json'] },
+    }),
+  )
+  const kept = loadEnvConfig(own).config
+  assert.strictEqual(kept.branch.identifierField, 'linear_identifier')
+  assert.deepStrictEqual(kept.spec.companionPaths, ['specs/.core/linear-base/{identifier}.base.json'])
+
+  // An EXPLICIT empty value is the project's decision, not a gap to fill:
+  // blanking identifierField disables companion expansion and must stay
+  // disabled (the "two keys are one fix" contract in build-dist.test.js).
+  const blanked = fs.mkdtempSync(path.join(os.tmpdir(), 'env-defaults-'))
+  fs.mkdirSync(path.join(blanked, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(blanked, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({ branch: { identifierField: '' }, spec: { companionPaths: [] } }),
+  )
+  const optedOut = loadEnvConfig(blanked).config
+  assert.strictEqual(optedOut.branch.identifierField, '')
+  assert.deepStrictEqual(optedOut.spec.companionPaths, [])
+
+  // Unregistered (the base distribution): the defaults are the base's empties.
+  setProviderEnvDefaults(null)
+  const base = loadEnvConfig(bare).config
+  assert.strictEqual(base.branch.identifierField, '')
+  assert.deepStrictEqual(base.spec.companionPaths, [])
+})

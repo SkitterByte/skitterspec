@@ -146,7 +146,21 @@ function stateCheckFailure(config, flags) {
 // Apply ops: the kit orchestration with Azure's tracker calls. State is moved
 // by a direct `System.State` write after the create/update, and `transitionTo`
 // is idempotent when the item already sits on the target.
-function applyOps({ adapter, config }) {
+// A spec's KIND, read off its folder prefix — the same convention the
+// lifecycle skills stamp into `> **Type:**`, but greppable with no file read.
+function specKindOf(snapshotDir) {
+  const name = path.basename(String(snapshotDir || ''))
+  if (name.startsWith('bug-')) return 'bug'
+  if (name.startsWith('hotfix-')) return 'hotfix'
+  return 'feature'
+}
+
+function applyOps({ adapter, config, out, kind = 'feature' }) {
+  // The mint type for THIS spec's kind (its folder prefix), falling back to
+  // the one configured type. The twin search uses the same type, so a bug
+  // never refuses over a feature that happens to share its title.
+  const mintType =
+    (config.azure.workItemTypeByKind && config.azure.workItemTypeByKind[kind]) || config.azure.workItemType
   const stateFor = (bucket) => {
     const name = config.states && config.states[bucket]
     if (!name) {
@@ -158,11 +172,29 @@ function applyOps({ adapter, config }) {
     if (!bucket) return
     await adapter.transitionTo(apiId(idOrIdentifier), stateFor(bucket))
   }
+  // Azure refuses the WHOLE patch over one bad `System.AssignedTo` value
+  // ("… is an unknown identity", live repro), which used to take the
+  // description and state down with it. A refused assignee is a cosmetic gap
+  // `/spec-claim` closes later; the rest of the push is not — so retry the
+  // same write once without the assignee and say so. Only that exact refusal
+  // is retried: any other error still fails the apply.
+  const skippingRefusedAssignee = async (input, send) => {
+    const assignee = 'assigneeId' in input ? input.assigneeId : undefined
+    try {
+      return await send(input)
+    } catch (error) {
+      if (assignee === undefined || !/unknown identity/i.test(String(error && error.message))) throw error
+      const { assigneeId, ...rest } = input
+      const result = await send(rest)
+      if (out) out.write(`  !! assignee skipped: Azure refused '${assignee}' for Assigned To — the rest of the push landed\n`)
+      return result
+    }
+  }
   return {
     prevalidateStates: (buckets) => {
       for (const bucket of buckets) stateFor(bucket)
     },
-    searchTwin: (title) => adapter.searchIssues({ query: title, workItemType: config.azure.workItemType }),
+    searchTwin: (title) => adapter.searchIssues({ query: title, workItemType: mintType }),
     twinAdvice: (twin, wanted, specName) =>
       `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +
       `stamp it onto the spec with \`spec-sync stamp ${specName} --issue ${twin.identifier}\`, ` +
@@ -171,13 +203,16 @@ function applyOps({ adapter, config }) {
     remoteEditedLine: (identifier) =>
       `  !! ${identifier}'s description was edited on Azure Boards since the last push — this replaces it`,
     mintIssue: async ({ title, issue }) => {
-      const created = await adapter.createIssue({
-        title,
-        description: issue && issue.description != null ? issue.description : undefined,
-        assigneeId: issue && issue.assignee ? issue.assignee : undefined,
-        workItemType: config.azure.workItemType,
-        areaPath: config.azure.areaPath || undefined,
-      })
+      const created = await skippingRefusedAssignee(
+        {
+          title,
+          description: issue && issue.description != null ? issue.description : undefined,
+          assigneeId: issue && issue.assignee ? issue.assignee : undefined,
+          workItemType: mintType,
+          areaPath: config.azure.areaPath || undefined,
+        },
+        (input) => adapter.createIssue(input),
+      )
       await settle(created.id, issue && issue.state)
       return created
     },
@@ -187,7 +222,9 @@ function applyOps({ adapter, config }) {
       // Null is meaningful here — it is how Boards unassigns — so the key is
       // forwarded whenever the plan carries it, never truthiness-tested.
       if ('assignee' in issue) updates.assigneeId = issue.assignee ?? null
-      if (Object.keys(updates).length) await adapter.updateIssue(apiId(existing.identifier), updates)
+      if (Object.keys(updates).length) {
+        await skippingRefusedAssignee(updates, (input) => adapter.updateIssue(apiId(existing.identifier), input))
+      }
       await settle(existing.identifier, issue.state)
     },
     mintSubIssue: async (parentId, sub) => {
@@ -356,11 +393,21 @@ const assignment = makeAssignmentCommands({
   usersOverMcp: 'search identities with core_get_identity_ids over MCP, or read them off the org\'s Users page',
 })
 
-// The state names BOTH configured types can hold, deduped — one map serves the
+// The state names EVERY configured type can hold, deduped — one map serves the
 // spec item and its children, so a name only has to exist on one of them to be
-// writable somewhere, and validation checks against the union.
+// writable somewhere, and validation checks against the union. The per-kind
+// mint types are in the union too, so a `workItemTypeByKind` entry's states
+// are validated before the first write, exactly like the base pair.
 async function unionStates(adapter, config) {
-  const types = [...new Set([config.azure.workItemType, config.azure.childType].filter(Boolean))]
+  const types = [
+    ...new Set(
+      [
+        config.azure.workItemType,
+        config.azure.childType,
+        ...Object.values(config.azure.workItemTypeByKind || {}),
+      ].filter(Boolean),
+    ),
+  ]
   const byName = new Map()
   for (const type of types) {
     for (const s of await adapter.listIssueStates(type)) {
@@ -410,6 +457,52 @@ function specSyncPlan(dir, config, specArg, flags, out, err) {
   return 0
 }
 
+// Does the project's OWN env.config.json claim the snapshot this apply just
+// wrote? If not, `spec-env stage` classifies `<baseDir>/<id>.base.json` as
+// another spec's and `/commit` leaves it behind — found live on a project that
+// adopted this provider over a Linear-era isolation config. One line, after a
+// successful apply, naming the exact keys to set.
+//
+// Fires only on POSITIVE signals: env.config.json present and parseable, the
+// identifier stamped, and an explicit pattern set that provably misses the
+// file. A key the project leaves unset is covered by the provider's runtime
+// env defaults (common src/env/config.js), so absence stays silent — as does
+// a project with no isolation at all (`.claude/rules/negative-checks.md`).
+function companionCoverageNote(dir, config, snapshotDir, out) {
+  let parsed
+  try {
+    parsed = JSON.parse(fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), 'utf-8'))
+  } catch {
+    return
+  }
+  if (!parsed || typeof parsed !== 'object') return
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const identifier = specHelpers.linkedIdentifier(path.join(snapshotDir, overviewFile), config)
+  if (!identifier) return
+
+  const defaultPattern = `${config.sync.baseDir}/{identifier}.base.json`
+  const rawPatterns = parsed.spec && parsed.spec.companionPaths
+  const patterns = Array.isArray(rawPatterns) ? rawPatterns : [defaultPattern]
+  const rawField = parsed.branch && parsed.branch.identifierField
+  const field = typeof rawField === 'string' && rawField ? rawField : config.fields.identifier
+
+  const slug = path.basename(snapshotDir).replace(/^(feat|bug|hotfix)-/, '')
+  const basePath = `${config.sync.baseDir}/${identifier}.base.json`
+  const claimed = patterns.some((p) => {
+    if (typeof p !== 'string') return false
+    const expanded = p.split('{identifier}').join(identifier).split('{slug}').join(slug)
+    if (expanded !== basePath) return false
+    // Stage reads `{identifier}` through branch.identifierField, so a pattern
+    // that names the right file through the wrong field still claims nothing.
+    return !p.includes('{identifier}') || field === config.fields.identifier
+  })
+  if (claimed) return
+  out.write(
+    `  note: ${basePath} is not claimed by env.config.json — spec-env stage and /commit will treat it as another spec's.\n` +
+      `        set branch.identifierField: "${config.fields.identifier}" and add "${defaultPattern}" to spec.companionPaths\n`,
+  )
+}
+
 async function specSyncApply(dir, config, specArg, flags, out, err) {
   if (!flags.plan && !flags.all) {
     out.write(`${PROGRAM} apply: pass --plan <file> (from \`plan --json\`), or --all <bucket>\n`)
@@ -442,7 +535,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
       snapshotDir,
       plan,
       adapter: cred.adapter,
-      ops: applyOps({ adapter: cred.adapter, config }),
+      ops: applyOps({ adapter: cred.adapter, config, out, kind: specKindOf(snapshotDir) }),
       forceNew: !!flags.forceNew,
       program: PROGRAM,
     })
@@ -464,6 +557,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
       try {
         const applied = await applyOne(snapshotDir, r.plan)
         out.write(applied.lines.join('\n') + '\n')
+        companionCoverageNote(dir, config, snapshotDir, out)
       } catch (error) {
         failed++
         out.write(`  !! ${error.message}\n`)
@@ -494,6 +588,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
   try {
     const applied = await applyOne(snapshotDir, plan)
     out.write(applied.lines.join('\n') + '\n')
+    companionCoverageNote(dir, config, snapshotDir, out)
     return 0
   } catch (error) {
     out.write(`${PROGRAM} apply: ${error.message}\n`)
@@ -814,7 +909,16 @@ function specSyncRef(dir, config, specArg, flags, out, err) {
       return 1
     }
   } else {
-    const branch = currentBranch(dir)
+    // `currentBranch` takes a git READER bound to the checkout, not a path.
+    const { execFileSync } = require('node:child_process')
+    const git = (argv) => {
+      try {
+        return execFileSync('git', ['-C', dir, ...argv], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+      } catch {
+        return null
+      }
+    }
+    const branch = currentBranch(git)
     if (!branch) {
       err.write(`${PROGRAM} ref: not on a branch\n`)
       return 1
@@ -1033,6 +1137,12 @@ async function specSyncInitConfig(dir, flags, out) {
   const parsed = { azure: { orgUrl: flags.orgUrl, project: flags.project } }
   if (flags.workItemType) parsed.azure.workItemType = flags.workItemType
   if (flags.childType) parsed.azure.childType = flags.childType
+  if (flags.kindTypes && Object.keys(flags.kindTypes).length) parsed.azure.workItemTypeByKind = flags.kindTypes
+  if (flags.bugTypes || flags.hotfixTypes) {
+    parsed.intake = {}
+    if (flags.bugTypes) parsed.intake.bugTypes = flags.bugTypes
+    if (flags.hotfixTypes) parsed.intake.hotfixTypes = flags.hotfixTypes
+  }
   if (flags.stateNames && Object.keys(flags.stateNames).length) {
     for (const bucket of Object.keys(flags.stateNames)) {
       if (!LIFECYCLE_BUCKETS.includes(bucket)) {
@@ -1398,6 +1508,19 @@ function parseArgs(args, sub) {
     '--project': { kind: 'string', name: 'project' },
     '--work-item-type': { kind: 'string', name: 'workItemType' },
     '--child-type': { kind: 'string', name: 'childType' },
+    // `--kind-type bug=Bug`, repeatable — azure.workItemTypeByKind for init-config.
+    '--kind-type': {
+      kind: 'custom',
+      handle: (flags, value) => {
+        const raw = String(value || '').trim()
+        const [kind, ...rest] = raw.split('=')
+        if (rest.length) {
+          flags.kindTypes = { ...(flags.kindTypes || {}), [kind.trim()]: rest.join('=').trim() }
+        }
+      },
+    },
+    '--bug-type': { kind: 'list', name: 'bugTypes' },
+    '--hotfix-type': { kind: 'list', name: 'hotfixTypes' },
     '--state': {
       kind: 'custom',
       handle: (flags, value) => {

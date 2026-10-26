@@ -89,12 +89,29 @@ function htmlToText(html) {
     .trim()
 }
 
+// Azure's storage transform, observed live (phase: bug-azure-boards-adoption-
+// fixes): a markdown description comes back with stray HTML specials
+// entity-encoded, and TAG-SHAPED TOKENS STRIPPED ENTIRELY — `<bucket>` and
+// `<name>` vanish from `specs/<bucket>/<name>/…` even inside a backtick code
+// span. Both transforms are applied to BOTH sides here, so an intact mirror
+// compares clean: decoding is symmetric noise on already-decoded text, and
+// stripping the sent side's tokens matches the sanitiser's deletions.
+//
+// BLIND SPOT, named deliberately: a Boards-side edit that only adds or removes
+// a tag-shaped token is invisible to the compare — the same trade the
+// word-character stream already makes for punctuation, and the same safe
+// direction (`.claude/rules/negative-checks.md` rule 4).
+function azureCanonicalForCompare(text) {
+  const decoded = decodeEntities(String(text == null ? '' : text))
+  return markdownCanonicalForCompare(decoded.replace(/<\/?[a-zA-Z][a-zA-Z0-9-]*>/g, ''))
+}
+
 const dialect = Object.freeze({
   canonicalize: canonicalizeMarkdown,
   // See the header: markdown is stored verbatim, so there is nothing to
   // reshape for. The hook stays so sync-core can call it unconditionally.
   flattenTables: (text) => text,
-  canonicalForCompare: markdownCanonicalForCompare,
+  canonicalForCompare: azureCanonicalForCompare,
 })
 
-module.exports = { dialect, canonicalizeMarkdown, htmlToText, looksLikeHtml }
+module.exports = { dialect, canonicalizeMarkdown, htmlToText, looksLikeHtml, decodeEntities }

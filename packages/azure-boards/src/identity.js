@@ -7,9 +7,11 @@
  *
  * The answer is DERIVED from the PAT: a Personal Access Token belongs to a
  * person, and `connectionData` names them without any scope beyond the token
- * being valid (phase 1 spike). The id is the IDENTITY id (a GUID) —
- * `System.AssignedTo` also accepts the uniqueName/email, but the GUID is the
- * one value that survives a display-name change.
+ * being valid (phase 1 spike). The id is the uniqueName/email — the one form
+ * `System.AssignedTo` accepts. The identity GUID was cached here once, on the
+ * belief Azure took both; a live write refused it as an "unknown identity"
+ * (bug-azure-boards-adoption-fixes), so the GUID survives only for an
+ * identity with no account property at all.
  */
 
 const { resolveIdentity: kitResolveIdentity, defaultDisplayName } = require('@skitterbyte/skitterspec-provider-kit/src/identity.js')

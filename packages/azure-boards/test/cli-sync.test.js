@@ -117,7 +117,9 @@ function fakeAdapter() {
       ]
     },
     async readViewer() {
-      return { id: 'id-1', name: 'Jane', email: 'jane@acme.test' }
+      // The contract after the adoption fixes: `id` is the ASSIGNABLE value
+      // (uniqueName/email), because `System.AssignedTo` refuses the GUID.
+      return { id: 'jane@acme.test', name: 'Jane', email: 'jane@acme.test' }
     },
     async searchUsers(query, opts) {
       calls.push(['searchUsers', query, opts])
@@ -747,7 +749,9 @@ test('whoami derives from the PAT via connectionData and caches it', async () =>
   assert.strictEqual(r.code, 0, r.out)
   const got = JSON.parse(r.out)
   assert.strictEqual(got.ok, true)
-  assert.strictEqual(got.id, 'id-1')
+  // The cached value is the one `System.AssignedTo` accepts — the account
+  // email — never the connectionData GUID Azure refuses.
+  assert.strictEqual(got.id, 'jane@acme.test')
   assert.strictEqual(got.source, 'viewer')
   // The derive was cached: a second ask answers from the store, no adapter.
   const again = await run(['whoami', '--json'], dir, { env: { XDG_CONFIG_HOME: home } })
@@ -885,4 +889,166 @@ test('release deployed refuses an env the series does not configure', async () =
   const r = await run(['release', 'deployed', 'v1.1.0', 'mars', '--apply'], dir, { adapter })
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /pass an env of v: staged, published/)
+})
+
+// --- the adoption handoff fixes (bug-azure-boards-adoption-fixes) -------------
+// Live repros against an Agile-process project; each test here is one of the
+// five reported defects, red before its fix.
+
+function gitRepo(dir) {
+  const { execFileSync } = require('node:child_process')
+  const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf-8' })
+  git('init', '-q', '-b', 'main')
+  git('config', 'user.email', 't@t.t')
+  git('config', 'user.name', 'T')
+  git('config', 'commit.gpgsign', 'false')
+  return git
+}
+
+test('a bare ref answers from the branch, and only on success', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const git = gitRepo(dir)
+  git('add', '-A')
+  git('commit', '-qm', 'init')
+  git('switch', '-qc', 'feat/demo')
+  const r = await run(['ref'], dir)
+  assert.deepStrictEqual([r.code, r.out], [0, 'AB#7\n'], r.err)
+
+  // The stays-silent case: on the base branch there is no spec to answer with,
+  // so stderr names the real reason and stdout stays empty for `$(…)` callers.
+  git('switch', '-q', 'main')
+  const r2 = await run(['ref'], dir)
+  assert.strictEqual(r2.code, 1)
+  assert.strictEqual(r2.out, '')
+  assert.match(r2.err, /no spec matches branch|not on a branch/)
+})
+
+test('an assignee the tracker refuses is skipped and reported; the apply still lands', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const adapter = fakeAdapter()
+  const item = {
+    id: '7', identifier: 'AB#7', url: `${ORG}/${PROJECT}/_workitems/edit/7`,
+    title: 'Demo', description: 'old', state: { name: 'To Do' }, type: 'Issue',
+  }
+  // The real adapter strips AB# itself; the fake is keyed by whatever the
+  // caller passes, so seed both spellings of the one item.
+  adapter.items.set('7', item)
+  adapter.items.set('AB#7', item)
+  const GUID = '45635853-aaaa-bbbb-cccc-121212121212'
+  const updates = []
+  adapter.updateIssue = async (id, input) => {
+    updates.push(input)
+    if (input.assigneeId && /^[0-9a-f-]{36}$/i.test(input.assigneeId)) {
+      throw new Error(`Azure DevOps refused the request: The identity value '${input.assigneeId}' for field 'Assigned To' is an unknown identity.`)
+    }
+    const item = adapter.items.get(String(id))
+    if (input.description !== undefined) item.description = input.description
+    return item
+  }
+  const planFile = path.join(dir, 'plan.json')
+  fs.writeFileSync(planFile, JSON.stringify({
+    issue: { description: 'new body', state: 'in-progress', assignee: GUID },
+    subIssues: { create: [], update: [] },
+  }))
+  const r = await run(['apply', 'feat-demo', '--plan', planFile], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /issue updated: AB#7/)
+  assert.match(r.out, /assignee .*skipped|skipped.* assignee/i)
+  assert.ok(updates.some((u) => u.description === 'new body' && u.assigneeId === undefined),
+    'the description still lands, in a write carrying no assignee')
+})
+
+function repoWithBugSpec({ config = {} } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'azure-cli-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ azure: { orgUrl: ORG, project: PROJECT }, ...config }),
+  )
+  const spec = path.join(dir, 'specs', 'in-progress', 'bug-demo')
+  fs.mkdirSync(spec, { recursive: true })
+  fs.writeFileSync(path.join(spec, '00-overview.md'), '# Bug demo\n\n## Symptom\n\nIt breaks.\n')
+  fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** stop it breaking.\n')
+  return dir
+}
+
+test('a bug spec mints with azure.workItemTypeByKind, a feature falls back to workItemType', async () => {
+  const byKind = { azure: { orgUrl: ORG, project: PROJECT, workItemType: 'User Story', workItemTypeByKind: { bug: 'Bug' } } }
+
+  const bugDir = repoWithBugSpec({ config: byKind })
+  const bugAdapter = fakeAdapter()
+  const minted = []
+  const mint = (a) => {
+    const original = a.createIssue.bind(a)
+    a.createIssue = async (input) => { minted.push(input.workItemType); return original(input) }
+  }
+  mint(bugAdapter)
+  let plan = await run(['plan', 'bug-demo', '--skip-state-check', '--json'], bugDir)
+  fs.writeFileSync(path.join(bugDir, 'plan.json'), plan.out)
+  let r = await run(['apply', 'bug-demo', '--plan', path.join(bugDir, 'plan.json')], bugDir, { adapter: bugAdapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(minted[0], 'Bug')
+
+  // The stays-silent half: without workItemTypeByKind a bug spec mints exactly
+  // as 1.1.0 did — the single configured type.
+  const plainDir = repoWithBugSpec()
+  const plainAdapter = fakeAdapter()
+  minted.length = 0
+  mint(plainAdapter)
+  plan = await run(['plan', 'bug-demo', '--skip-state-check', '--json'], plainDir)
+  fs.writeFileSync(path.join(plainDir, 'plan.json'), plan.out)
+  r = await run(['apply', 'bug-demo', '--plan', path.join(plainDir, 'plan.json')], plainDir, { adapter: plainAdapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(minted[0], require('../src/config.js').loadAzureConfig(plainDir).config.azure.workItemType)
+})
+
+test('states asks every configured type once, workItemTypeByKind included', async () => {
+  const dir = repoWithSpec({
+    config: { azure: { orgUrl: ORG, project: PROJECT, workItemType: 'User Story', childType: 'Task', workItemTypeByKind: { bug: 'Bug', hotfix: 'Bug' } } },
+  })
+  const adapter = fakeAdapter()
+  const r = await run(['states', '--json'], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  const asked = adapter.calls.filter(([op]) => op === 'listIssueStates').map(([, t]) => t)
+  assert.deepStrictEqual(asked.sort(), ['Bug', 'Task', 'User Story'])
+})
+
+test('apply warns when env.config.json does not claim the snapshot it wrote', async () => {
+  const dir = repoWithSpec()
+  // A project that adopted Azure Boards over a Linear-era isolation config: the
+  // engine writes azure-base/… while stage only claims linear-base/….
+  fs.writeFileSync(
+    path.join(dir, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({
+      branch: { identifierField: 'linear_identifier' },
+      spec: { companionPaths: ['specs/.core/linear-base/{identifier}.base.json'] },
+    }),
+  )
+  const adapter = fakeAdapter()
+  const plan = await run(['plan', 'feat-demo', '--skip-state-check', '--json'], dir)
+  fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+  const r = await run(['apply', 'feat-demo', '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /spec\.companionPaths/)
+  assert.match(r.out, /azure-base\/\{identifier\}\.base\.json/)
+})
+
+test('apply stays silent about companions when env.config claims the snapshot, or is absent', async () => {
+  // Correctly configured isolation: no note.
+  const configured = repoWithSpec()
+  fs.writeFileSync(
+    path.join(configured, 'specs', '.core', 'env.config.json'),
+    JSON.stringify({
+      branch: { identifierField: 'azure_identifier' },
+      spec: { companionPaths: ['specs/.core/azure-base/{identifier}.base.json'] },
+    }),
+  )
+  for (const dir of [configured, repoWithSpec()]) {
+    const adapter = fakeAdapter()
+    const plan = await run(['plan', 'feat-demo', '--skip-state-check', '--json'], dir)
+    fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+    const r = await run(['apply', 'feat-demo', '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+    assert.strictEqual(r.code, 0, r.out)
+    assert.doesNotMatch(r.out, /companionPaths/)
+  }
 })

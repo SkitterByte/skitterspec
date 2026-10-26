@@ -37,3 +37,43 @@ test('looksLikeHtml fires on tags and stays silent on markdown', () => {
   assert.ok(!looksLikeHtml('## Heading\n\n- [ ] a < b and b > c\n`<not-a-known-tag>`'))
   assert.ok(!looksLikeHtml('plain text with a > quote'))
 })
+
+// --- the adoption handoff fixes (bug-azure-boards-adoption-fixes) -------------
+
+// What Azure DevOps actually does to a stored markdown description, observed
+// live (AB#57, AB#194): tag-shaped tokens are stripped — even inside backtick
+// code spans — and stray HTML specials are entity-encoded.
+function azureStores(text) {
+  return text
+    .replace(/<\/?[a-zA-Z][a-zA-Z0-9-]*>/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+const { compareStored } = require('@skitterbyte/skitterspec-sync-core')
+
+const SENT = [
+  '# A body with every special Azure rewrites',
+  '',
+  '> a blockquote line',
+  '',
+  'It is "quoted", a < b, fish & chips, the user\'s own words,',
+  'and a `specs/<bucket>/<name>/00-overview.md` path.',
+  '',
+  '```js',
+  'if (a < b && c > d) say("both")',
+  '```',
+].join('\n')
+
+test('a stored round-trip through Azure\'s encoding verifies clean', () => {
+  const r = compareStored(SENT, azureStores(SENT), { dialect })
+  assert.strictEqual(r.ok, true, `first difference at ${r.at}: ${r.sentContext} vs ${r.storedContext}`)
+})
+
+test('a real Boards-side edit is still reported', () => {
+  const edited = azureStores(SENT).replace('chips', 'chipolatas')
+  const r = compareStored(SENT, edited, { dialect })
+  assert.strictEqual(r.ok, false)
+})

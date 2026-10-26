@@ -25,7 +25,7 @@
  */
 
 const { withRateLimitRetry, MAX_RETRIES } = require('@skitterbyte/skitterspec-provider-kit/src/http.js')
-const { htmlToText, looksLikeHtml } = require('./dialect.js')
+const { htmlToText, looksLikeHtml, decodeEntities } = require('./dialect.js')
 const { authHeader } = require('./credentials.js')
 
 const API_VERSION = '7.1'
@@ -151,16 +151,18 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
     return m ? m[1] : null
   }
 
-  // Text at the boundary: a markdown-format description passes through
-  // verbatim, an HTML-era one is reduced to text, and the format map is the
-  // positive signal that decides — the tag sniff only covers items too old to
-  // carry one.
+  // Text at the boundary: a markdown-format description is entity-DECODED —
+  // Azure encodes stray HTML specials on store (`>` → `&gt;`, `"` → `&quot;`,
+  // observed live), so the decode is the inverse of the store, and what comes
+  // out is the author's text. An HTML-era one is reduced to text, and the
+  // format map is the positive signal that decides — the tag sniff only covers
+  // items too old to carry one.
   function descriptionText(raw) {
     const d = raw.fields && raw.fields['System.Description']
     if (d == null) return null
     const text = String(d)
     const fmt = raw.multilineFieldsFormat && raw.multilineFieldsFormat['System.Description']
-    if (fmt && String(fmt).toLowerCase() === 'markdown') return text
+    if (fmt && String(fmt).toLowerCase() === 'markdown') return decodeEntities(text)
     return looksLikeHtml(text) ? htmlToText(text) : text
   }
 
@@ -379,7 +381,11 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
       const u = raw && raw.authenticatedUser
       if (!u || !u.id) return null
       const email = (u.properties && u.properties.Account && u.properties.Account.$value) || null
-      return { id: u.id, name: u.providerDisplayName || null, email }
+      // The id slot carries the uniqueName/email, because that is what
+      // `System.AssignedTo` accepts — Azure refuses the connectionData GUID as
+      // an "unknown identity" (live repro, bug-azure-boards-adoption-fixes).
+      // The GUID survives only where no account property exists at all.
+      return { id: email || u.id, name: u.providerDisplayName || null, email }
     },
 
     /**
@@ -407,14 +413,21 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
         }
         throw error
       }
-      const users = ((raw && raw.value) || []).slice(0, limit).map((u) => ({
-        id: u.id,
-        name: u.providerDisplayName || null,
-        email: (u.properties && u.properties.Account && u.properties.Account.$value) || null,
-        // `isActive` is a positive marker where present; absence is not
-        // deactivation, so the default is active.
-        active: u.isActive === false ? false : true,
-      }))
+      const users = ((raw && raw.value) || []).slice(0, limit).map((u) => {
+        const email = (u.properties && u.properties.Account && u.properties.Account.$value) || null
+        return {
+          // The assignable value first: `System.AssignedTo` accepts the
+          // uniqueName/email and refuses the vssps GUID, and this id is what
+          // `/spec-claim --to` stamps. The GUID remains the fallback for an
+          // identity with no account property (a group, a service identity).
+          id: email || u.id,
+          name: u.providerDisplayName || null,
+          email,
+          // `isActive` is a positive marker where present; absence is not
+          // deactivation, so the default is active.
+          active: u.isActive === false ? false : true,
+        }
+      })
       return { users, nextCursor: null }
     },
 

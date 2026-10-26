@@ -104,3 +104,38 @@ test('remote hooks read the raw REST shape, format-aware, and fall back to flat'
   assert.strictEqual(config.remote.description({ description: 'flat' }), 'flat')
   assert.strictEqual(config.remote.description({}), undefined)
 })
+
+// --- the adoption handoff fixes (bug-azure-boards-adoption-fixes) -------------
+
+test('intake routes by work item type as well as tag: bugTypes/hotfixTypes defaults', () => {
+  const { config } = loadAzureConfig(tmpRepo(JSON.stringify({ azure: { orgUrl: 'https://dev.azure.com/a', project: 'p' } })))
+  // In Agile/Scrum/CMMI a bug is a TYPE, not a tag — the default routes it.
+  assert.deepStrictEqual(config.intake.bugTypes, ['Bug'])
+  assert.deepStrictEqual(config.intake.hotfixTypes, [])
+})
+
+test('intake type lists merge, and an explicit empty list switches type routing off', () => {
+  const { config } = loadAzureConfig(
+    tmpRepo(
+      JSON.stringify({
+        azure: { orgUrl: 'https://dev.azure.com/a', project: 'p' },
+        intake: { bugTypes: [], hotfixTypes: ['Incident'] },
+      }),
+    ),
+  )
+  assert.deepStrictEqual(config.intake.bugTypes, [])
+  assert.deepStrictEqual(config.intake.hotfixTypes, ['Incident'])
+})
+
+test('azure.workItemTypeByKind merges and defaults empty', () => {
+  const plain = loadAzureConfig(tmpRepo(JSON.stringify({ azure: { orgUrl: 'https://dev.azure.com/a', project: 'p' } }))).config
+  assert.deepStrictEqual(plain.azure.workItemTypeByKind, {})
+  const { config } = loadAzureConfig(
+    tmpRepo(
+      JSON.stringify({
+        azure: { orgUrl: 'https://dev.azure.com/a', project: 'p', workItemTypeByKind: { bug: 'Bug', hotfix: 'Bug', mystery: 'X' } },
+      }),
+    ),
+  )
+  assert.deepStrictEqual(config.azure.workItemTypeByKind, { bug: 'Bug', hotfix: 'Bug' })
+})
