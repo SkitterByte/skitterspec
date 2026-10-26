@@ -3,9 +3,9 @@ linear_issue_id: "SKS-424"
 github_issue_id: "#16"
 ---
 
-# Phase 7 — Docs, live smoke, ereqs migration path 🔄
+# Phase 7 — Docs, live smoke, ereqs migration path ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done (2026-10-26)
 
 **Goal:** the provider is documented, smoke-tested live against the throwaway
 org end to end, and ereqs has a written migration path off Linear — the last
@@ -29,7 +29,9 @@ blocker to cancelling the subscription is the client running it.
       swap CI release calls — ending at "Linear can be cancelled"
       (MIGRATION.md's azure-boards section, shipped in every dist).
 - [ ] First release: cut `skitterspec-azure-boards@1.0.0` via the normal tag
-      push + `npm run approve` flow.
+      push + `npm run approve` flow. **Deferred at completion** — the tag is
+      cut from main after this spec lands, on operator consent to the push
+      (Changelog 2026-10-26).
 - [x] Tests green: full workspace suite (`pnpm test`); smoke results recorded
       in this file's notes.
 

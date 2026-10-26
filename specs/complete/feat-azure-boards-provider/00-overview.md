@@ -11,7 +11,7 @@ linear_assignee_name: "Skitter Byte"
 
 > **Type:** Feature
 > **Name:** feat-azure-boards-provider (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-22)
+> **Status:** Complete (2026-10-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-22
@@ -168,7 +168,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 4 | Assignment on the kit seam | ✅ | [04-assignment.md](04-assignment.md) |
 | 5 | Release work item on the release seam | ✅ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ✅ | [06-distribution-release.md](06-distribution-release.md) |
-| 7 | Docs, live smoke, ereqs migration path | 🔄 | [07-docs-smoke-migration.md](07-docs-smoke-migration.md) |
+| 7 | Docs, live smoke, ereqs migration path | ✅ | [07-docs-smoke-migration.md](07-docs-smoke-migration.md) |
 
 ## Open questions
 
@@ -181,6 +181,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-22 | Ready | backlog | Reuben Greaves |
 | 2026-10-22 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -224,3 +225,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   preview resource; adapter ops accept `AB#n` ids). Migration path ships as
   MIGRATION.md's azure-boards section. The first release remains: it follows
   the land, and the tag push is the operator's.
+- 2026-10-26 — Completed; all phases done, tests green (4121). Deferred:
+  first release (`skitterspec-azure-boards@1.0.0`) — cut from main after
+  this land, tag pushed on operator consent, finished with
+  `npm run approve`.
