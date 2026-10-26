@@ -5,6 +5,11 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.3.0 — 26 Oct 2026
+
+### Azure Boards
+- **Fixed** — Azure Boards sync no longer flags intact work items as edited on every push, assigns work items reliably from a fresh machine, routes Bug-type items to /spec-bug and mints bugs as your process's Bug type, and commits a spec's sync snapshot alongside it without hand-editing env.config.json.
+
 ## 23.2.0 — 26 Oct 2026
 
 ### Env
