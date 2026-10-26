@@ -221,15 +221,18 @@ test('readViewer reads connectionData at the org level', async () => {
 
 test('searchUsers hits the vssps host and names the missing scope on 401', async () => {
   const { a } = adapter(() => jsonRes({}, 401))
-  await assert.rejects(() => a.searchUsers({ query: 'jane' }), /Identity \(Read\)/)
+  await assert.rejects(() => a.searchUsers('jane'), /Identity \(Read\)/)
 })
 
-test('searchUsers normalises identities on success', async () => {
+test('searchUsers returns the kit page shape', async () => {
   const { a, calls } = adapter(() =>
     jsonRes({ value: [{ id: 'id-2', providerDisplayName: 'Sam', properties: { Account: { $value: 's@a.t' } } }] }),
   )
-  const users = await a.searchUsers({ query: 'sam' })
-  assert.deepStrictEqual(users, [{ id: 'id-2', name: 'Sam', email: 's@a.t' }])
+  const page = await a.searchUsers('sam')
+  assert.deepStrictEqual(page, {
+    users: [{ id: 'id-2', name: 'Sam', email: 's@a.t', active: true }],
+    nextCursor: null,
+  })
   assert.match(calls[0].url, /^https:\/\/vssps\.dev\.azure\.com\/acme\/_apis\/identities/)
 })
 

@@ -29,9 +29,10 @@ PAT is set (see `apply.transport` in `azure-boards.config.md`).
   ask.
 - **Say what happened** in the skill's report: mirror updated, skipped as
   unlinked, or failed with the reason.
-- **There is no assignment to release here.** Assignment sync is not yet wired
-  for the Azure Boards provider; the `> **Developer:**` header stays put as the
-  repo's own record of who actioned the work.
+- **There is no unassign step here.** The projection derives the assignee from
+  the spec's lifecycle bucket, so the push this step already makes is what
+  releases the work item; the `> **Developer:**` header stays put as the repo's
+  own record of who actioned the work.
 
 ### Why it sits here
 

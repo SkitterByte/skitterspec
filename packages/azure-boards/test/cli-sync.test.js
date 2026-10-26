@@ -119,9 +119,9 @@ function fakeAdapter() {
     async readViewer() {
       return { id: 'id-1', name: 'Jane', email: 'jane@acme.test' }
     },
-    async searchUsers() {
-      calls.push(['searchUsers'])
-      return [{ id: 'id-1', name: 'Jane', email: 'jane@acme.test' }]
+    async searchUsers(query, opts) {
+      calls.push(['searchUsers', query, opts])
+      return { users: [{ id: 'id-1', name: 'Jane', email: 'jane@acme.test', active: true }], nextCursor: null }
     },
     async listComments(id) {
       calls.push(['listComments', id])
@@ -713,4 +713,67 @@ test('an unreachable Azure stamps anyway, saying it could not check', async () =
   assert.match(r.out, /could not check the id\(s\) against Azure — stamping anyway/)
   assert.match(r.out, /AB#7 stamped onto feat-demo/)
   assert.doesNotMatch(r.out, /verified against Azure/)
+})
+
+// --- assignment (the kit seam, Azure's binding) -------------------------------
+
+test('assign stamps the assignee fields and names the next step', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const r = await run(['assign', 'feat-demo', '--to', 'id-1', '--name', 'Jane Dev'], dir)
+  assert.strictEqual(r.code, 0, r.out)
+  const overview = fs.readFileSync(path.join(dir, 'specs', 'in-progress', 'feat-demo', '00-overview.md'), 'utf-8')
+  assert.match(overview, /azure_assignee_id: "id-1"/)
+  assert.match(overview, /azure_assignee_name: "Jane Dev"/)
+  assert.match(r.out, /assigned to Jane Dev \(id-1\)/)
+  assert.match(r.out, /push it, so Azure Boards agrees/)
+})
+
+test('assign refuses an unlinked spec, writing nothing', async () => {
+  const dir = repoWithSpec()
+  const r = await run(['assign', 'feat-demo', '--to', 'id-1'], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /not linked to Azure Boards/)
+  const overview = fs.readFileSync(path.join(dir, 'specs', 'in-progress', 'feat-demo', '00-overview.md'), 'utf-8')
+  assert.doesNotMatch(overview, /azure_assignee_id/)
+})
+
+test('assign --release clears the stamp', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  await run(['assign', 'feat-demo', '--to', 'id-1', '--name', 'Jane'], dir)
+  const r = await run(['assign', 'feat-demo', '--release'], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /released \(AB#7\)/)
+  const overview = fs.readFileSync(path.join(dir, 'specs', 'in-progress', 'feat-demo', '00-overview.md'), 'utf-8')
+  assert.doesNotMatch(overview, /azure_assignee_id/)
+})
+
+test('whoami derives from the PAT via connectionData and caches it', async () => {
+  const dir = repoWithSpec()
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'azure-whoami-'))
+  const adapter = fakeAdapter()
+  const r = await run(['whoami', '--json'], dir, { adapter, env: { XDG_CONFIG_HOME: home } })
+  assert.strictEqual(r.code, 0, r.out)
+  const got = JSON.parse(r.out)
+  assert.strictEqual(got.ok, true)
+  assert.strictEqual(got.id, 'id-1')
+  assert.strictEqual(got.source, 'viewer')
+  // The derive was cached: a second ask answers from the store, no adapter.
+  const again = await run(['whoami', '--json'], dir, { env: { XDG_CONFIG_HOME: home } })
+  assert.strictEqual(JSON.parse(again.out).source, 'store')
+})
+
+test('whoami with no org configured names the gap', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'azure-noorg-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ azure: {} }))
+  const r = await run(['whoami'], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /no azure\.orgUrl/)
+})
+
+test('users lists identities through the adapter page', async () => {
+  const dir = repoWithSpec()
+  const r = await run(['users', 'jane'], dir, { adapter: fakeAdapter() })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /Jane <id-1>\s+jane@acme\.test/)
 })

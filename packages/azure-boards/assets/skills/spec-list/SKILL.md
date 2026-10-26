@@ -42,9 +42,9 @@ everything: in a project with any history, Done dwarfs the rows anyone wanted.
 rather than letting one win silently.
 
 The Linear provider's `--mine`, `--by` and `--next` filters are
-**not yet shipped for the Azure Boards provider** — assignee filtering and
-backlog ordering wait on phase 4's assignment support. Say so when one is asked
-for, rather than approximating it.
+**not yet shipped for the Azure Boards provider** — the listing does not filter
+by assignee or order the backlog. Say so when one is asked for, rather than
+approximating it.
 
 ## 2. Run the engine
 

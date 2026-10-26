@@ -376,11 +376,12 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
     },
 
     /**
-     * Identity search, on the vssps host. This is the op that fails first on
-     * a narrow token (phase 1 spike): a PAT without Identity (Read) gets 401
-     * here while every work item op succeeds, so the refusal names the scope.
+     * Identity search, on the vssps host — the kit's assignment page shape
+     * (`{ users, nextCursor }`). This is the op that fails first on a narrow
+     * token (phase 1 spike): a PAT without Identity (Read) gets 401 here while
+     * every work item op succeeds, so the refusal names the scope.
      */
-    async searchUsers({ query, limit = 20 }) {
+    async searchUsers(query = '', { limit = 50 } = {}) {
       const vssps = vsspsUrlOf(org)
       if (!vssps) {
         throw new Error(`cannot derive the identity host from ${org} — only dev.azure.com and *.visualstudio.com are known`)
@@ -399,11 +400,15 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
         }
         throw error
       }
-      return ((raw && raw.value) || []).slice(0, limit).map((u) => ({
+      const users = ((raw && raw.value) || []).slice(0, limit).map((u) => ({
         id: u.id,
         name: u.providerDisplayName || null,
         email: (u.properties && u.properties.Account && u.properties.Account.$value) || null,
+        // `isActive` is a positive marker where present; absence is not
+        // deactivation, so the default is active.
+        active: u.isActive === false ? false : true,
       }))
+      return { users, nextCursor: null }
     },
 
     async listComments(id) {

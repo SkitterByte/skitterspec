@@ -200,8 +200,9 @@ Then name the next step:
 Mention what setup did **not** configure, so the defaults aren't mistaken for
 decisions: phase mapping (`mapping.phases` — child item per phase by default),
 field ownership, intake tags (`intake.bugTags`/`hotfixTags`) and the release
-carrier (`releases.*`). Point at `azure-boards.config.md` for those. Assignment
-sync is not yet wired for this provider, so there is no identity to settle here.
+carrier (`releases.*`). Point at `azure-boards.config.md` for those. Identity
+is settled lazily — `spec-sync whoami` derives it from the PAT on first use and
+caches it, so there is nothing to configure here.
 
 End with the block defined in `.claude/rules/spec-reports.md`. That file carries
 the shape; this section carries only what is specific here.

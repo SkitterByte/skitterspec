@@ -29,9 +29,17 @@ change.
     them. Skip it and a started spec stays mirrored as a phase-less item.
 - **Never mint the spec item.** An unlinked spec is skipped, not created —
   `/spec-push` is how someone opts in.
-- **No assignee to backfill.** Assignment sync is not yet wired for the Azure
-  Boards provider — there is nothing to stamp and nothing to ask, mid-build or
-  ever (phase 4 of feat-azure-boards-provider changes this).
+- **Backfill a missing assignee silently; never ask.** Only when the repo owns
+  `assignee` (it does by default; `"none"` declines it). If the spec records
+  nobody and `skitterspec spec-sync whoami --json` answers, stamp it with
+  `skitterspec spec-sync assign <spec> --to <id> --name "<name>"` and let the
+  push above carry it. If identity is unknown, skip it in silence.
+  **Do not prompt**: an assignment question in the middle of a build is an
+  interruption with no deadline, and `/spec-claim` answers it whenever the
+  operator likes.
+- **A spec assigned to someone else is left alone.** Say so once
+  (`assigned to <name> — /spec-claim to take it`) and change nothing. Picking up
+  a colleague's spec is a decision, not a side effect of running the next phase.
 - **Never fatal.** If the push fails — offline, no credentials, an Azure
   error — say so and **carry on with the build**. The repo is correct
   regardless; the mirror is disposable and the next push repairs it.

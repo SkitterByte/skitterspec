@@ -19,10 +19,9 @@ overview carries an `azure_identifier`. Either missing → **skip**, in one line
 else in this step changes.
 
 **Refresh the mirror now, without asking.** Run `/spec-push`. The spec has just
-moved to `in-progress/` — a real state change, and the tracker is a generated
-mirror of it. (The developer stamped beside it stays a repo-side record:
-assignment sync is not yet wired for the Azure Boards provider.) It costs one
-engine call and no model tokens when a PAT is set (see `apply.transport` in
+moved to `in-progress/` and been stamped with a developer — two real state
+changes, and the tracker is a generated mirror of them. It costs one engine
+call and no model tokens when a PAT is set (see `apply.transport` in
 `azure-boards.config.md`).
 
 - **Never mint.** An unlinked spec is skipped, not created. A spec kept

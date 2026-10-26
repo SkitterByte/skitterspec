@@ -44,9 +44,24 @@ const {
 const kit = require('@skitterbyte/skitterspec-provider-kit')
 const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 
+const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
+
 const { loadAzureConfig, mergeConfig, defaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
-const { resolveCredential, writeCredential, removeCredential, storePath, storeMode, fingerprint } = require('./credentials.js')
+const {
+  resolveCredential,
+  writeCredential,
+  removeCredential,
+  storePath,
+  storeMode,
+  fingerprint,
+  writeUser,
+  removeUser,
+  orgOf,
+} = require('./credentials.js')
+const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeApiAdapter } = require('./api.js')
+
+const BIN = 'skitterspec-azure-boards'
 
 const PROGRAM = 'spec-sync'
 const specHelpers = kit.makeSpecHelpers({ program: PROGRAM })
@@ -184,6 +199,40 @@ function apiAdapterFor(config, flags) {
     }),
   }
 }
+
+// ---------------------------------------------------------------------------
+// Assignment: `assign`, `whoami` and `users` are the kit's
+// (`provider-kit/src/assignment.js`); this is Azure's binding. The id is the
+// IDENTITY GUID (System.AssignedTo also takes a uniqueName, but the GUID
+// survives renames), the store scope the org URL, and the user list the org's
+// identities. No `validateAssignee` hook: Azure validates the identity at
+// write time and the push relays its refusal — the Linear behaviour.
+const assignment = makeAssignmentCommands({
+  tracker: 'Azure Boards',
+  configFile: CONFIG_FILE,
+  bin: BIN,
+  idHint: '<identity-id-or-email>',
+  credentialNoun: 'PAT',
+  scopeJsonKey: 'org',
+  scopeLineLabel: 'org:',
+  scopeOf: (config) => {
+    const id = orgOf(config)
+    return {
+      id,
+      label: id,
+      missing: `spec-sync whoami: no azure.orgUrl in ${CONFIG_FILE}.\n  Identity is stored per org — run \`spec-sync init-config\` first.`,
+    }
+  },
+  storePath: (env) => storePath(env),
+  writeUser: (file, scope, user, deps) => writeUser(file, scope, user, deps),
+  removeUser: (file, scope, deps) => removeUser(file, scope, deps),
+  resolveIdentity: (config, env, deps) => resolveIdentity(config, env, deps),
+  resolveCredential: (config, env) => resolveCredential(config, env),
+  makeAdapter: (config, cred, flags) =>
+    makeApiAdapter({ orgUrl: config.azure.orgUrl, project: config.azure.project, token: cred.token, fetch: flags.fetch }),
+  displayNameOf: (u) => displayNameOf(u),
+  usersOverMcp: 'search identities with core_get_identity_ids over MCP, or read them off the org\'s Users page',
+})
 
 // The state names BOTH configured types can hold, deduped — one map serves the
 // spec item and its children, so a name only has to exist on one of them to be
@@ -1030,7 +1079,7 @@ async function specSyncDoctor(dir, flags, out) {
         // broken — work item sync is whole without it; only `users` search
         // (phase 4) degrades.
         try {
-          await adapter.searchUsers({ query: 'skitterspec-probe', limit: 1 })
+          await adapter.searchUsers('skitterspec-probe', { limit: 1 })
           checks.push(row('identity', 'Identity search', 'ok', 'PAT can search identities'))
         } catch (error) {
           const msg = String(error.message)
@@ -1077,14 +1126,16 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   linked [--json]                        specs and their linked items (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
   preserve <spec> [--text <f>]           keep an adopted item's original report
+  assign <spec> --to <id> | --release    stamp who is building it
+  whoami [--set <id>] [--unset]          who you are on Azure (cached)
+  users [<query>]                        search the org's identities
   credentials <status|set|unset>         the PAT (user-level)
   init-config --org-url … --project …    write the config
   doctor [--check-remote] [--json]       readiness report
 
-Not yet shipped for Azure Boards: released (needs the kit's provider-supplied
-ref pattern — lands with feat-github-provider), assign/whoami/users (phase 4),
-release create|deployed|complete (phase 5), stage, retarget, reattach,
-sanitise.
+Not yet shipped for Azure Boards: released (needs the AB#n ref pattern wired
+into the kit scan — phase 5), release create|deployed|complete (phase 5),
+stage, retarget, reattach, sanitise.
 `
 
 async function specSync(rest, io = {}) {
@@ -1163,6 +1214,12 @@ async function specSync(rest, io = {}) {
       return 1
     case 'preserve':
       return specSyncPreserve(dir, config, positional[0], flags, out)
+    case 'assign':
+      return assignment.assign(dir, config, positional[0], flags, out)
+    case 'whoami':
+      return assignment.whoami(dir, config, flags, out)
+    case 'users':
+      return assignment.users(dir, config, positional[0], flags, out)
     case 'credentials':
       return specSyncCredentials(dir, config, positional[0], flags, out)
     default:
@@ -1200,6 +1257,12 @@ function parseArgs(args, sub) {
     '--url': { kind: 'value' },
     '--sub': { kind: 'list', name: 'subs' },
     '--limit': { kind: 'number' },
+    '--cursor': { kind: 'string' },
+    '--to': { kind: 'string' },
+    '--name': { kind: 'string' },
+    '--release': { kind: 'boolean' },
+    '--set': { kind: 'string' },
+    '--unset': { kind: 'boolean' },
     '--stdin': { kind: 'boolean' },
     '--check-remote': { kind: 'boolean', name: 'remoteCheck' },
     '--org-url': { kind: 'string', name: 'orgUrl' },

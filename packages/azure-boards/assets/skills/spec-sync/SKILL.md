@@ -49,9 +49,10 @@ bare `spec-sync …` as if the user could type it.
 | "set my Azure PAT", "am I authenticated?" | `credentials <status\|set\|unset>` |
 | push one spec, or "what would push?" | **defer** — see below |
 
-The Linear provider's `retarget`, `reattach`, `stage`, `whoami`, `users`,
-`assign` and `sanitise` are **not yet shipped for the Azure Boards provider** —
-say so when one is asked for, rather than improvising an equivalent.
+The Linear provider's `retarget`, `reattach`, `stage` and `sanitise` are
+**not yet shipped for the Azure Boards provider** — say so when one is asked
+for, rather than improvising an equivalent. (`assign`, `whoami` and `users` ARE
+shipped — `/spec-claim` is their front door.)
 **`released` is in the same list for now**: it needs the kit's
 provider-supplied ref pattern (landing with `feat-github-provider`), and the
 engine refuses it with exactly that explanation rather than mis-scanning

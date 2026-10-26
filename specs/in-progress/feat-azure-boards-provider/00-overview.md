@@ -165,7 +165,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Spike Azure DevOps APIs | ✅ | [01-spike-azure-apis.md](01-spike-azure-apis.md) |
 | 2 | Azure adapter core (REST, dialect, states) | ✅ | [02-azure-adapter.md](02-azure-adapter.md) |
 | 3 | CLI, MCP, skills, seams, intake | ✅ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
-| 4 | Assignment on the kit seam | ⬜ | [04-assignment.md](04-assignment.md) |
+| 4 | Assignment on the kit seam | ✅ | [04-assignment.md](04-assignment.md) |
 | 5 | Release work item on the release seam | ⬜ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ⬜ | [06-distribution-release.md](06-distribution-release.md) |
 | 7 | Docs, live smoke, ereqs migration path | ⬜ | [07-docs-smoke-migration.md](07-docs-smoke-migration.md) |
@@ -203,3 +203,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   task, blocked on `feat-github-provider`. State validation runs against the
   UNION of both configured types' states, since one `states` map serves parent
   and child items. Setup skill named `/spec-azure-setup`.
+- 2026-10-26 — `feat-github-provider` landed on main (all seven phases,
+  `skitterspec-github@1.0.0`), so the branch was rebased onto it: Decision 2's
+  sequencing satisfied. The dogfood swap also re-linked this spec to GitHub
+  (`github_identifier: "#9"` beside the Linear stamps). Phase 4 built on the
+  kit's new assignment seam — no `validateAssignee` hook, since Azure refuses
+  an invalid identity at write time and the push relays it.
