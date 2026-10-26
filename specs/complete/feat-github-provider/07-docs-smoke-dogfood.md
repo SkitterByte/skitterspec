@@ -3,9 +3,9 @@ linear_issue_id: "SKS-415"
 github_issue_id: "#8"
 ---
 
-# Phase 7 — Docs, live smoke, dogfood swap, first release 🔄
+# Phase 7 — Docs, live smoke, dogfood swap, first release ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the provider is documented, smoke-tested live, this repo runs on it,
 and `skitterspec-github@1.0.0` is staged through CI.

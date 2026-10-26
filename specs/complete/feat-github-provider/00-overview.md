@@ -11,7 +11,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/1"
 
 > **Type:** Feature
 > **Name:** feat-github-provider (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 7 (started 2026-10-22)
+> **Status:** Complete (2026-10-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-22
@@ -167,7 +167,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 4 | Assignment hoisted to the kit + `/spec-claim` | ✅ | [04-assignment.md](04-assignment.md) |
 | 5 | Release seam + GitHub releases | ✅ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ✅ | [06-distribution-release.md](06-distribution-release.md) |
-| 7 | Docs, live smoke, dogfood swap, first release | 🔄 | [07-docs-smoke-dogfood.md](07-docs-smoke-dogfood.md) |
+| 7 | Docs, live smoke, dogfood swap, first release | ✅ | [07-docs-smoke-dogfood.md](07-docs-smoke-dogfood.md) |
 
 ## Open questions
 
@@ -180,6 +180,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-22 | Ready | backlog | Reuben Greaves |
 | 2026-10-22 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -251,3 +252,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and review-gate hooks, three commands and `offered-unblocks.md`, which this
   repo has never carried. Not taken here — adopting them changes how the repo
   is worked in, not which tracker it mirrors to.
+- 2026-10-26 — Completed; all phases done, tests green.
