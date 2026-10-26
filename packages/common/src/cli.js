@@ -165,7 +165,13 @@ const { planHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
-const { renderRoutes, portsInUse, portsInUseOn, waitListening } = require('./env/proxy.js')
+const {
+  renderRoutes,
+  portsHeld,
+  portsAnswering,
+  portsInUseOn,
+  waitListening,
+} = require('./env/proxy.js')
 const {
   mintToken,
   servableSpecs,
@@ -4988,7 +4994,7 @@ async function specEnvConnect(dir, config, specArg) {
   // Stop any proxy we already run (a previous connect), freeing the canonical
   // ports, then refuse if the primary checkout still holds one of them.
   await stopProcess(proxyProc, { rootDir: dir })
-  const busy = await portsInUse(routes.map((r) => r.frontPort), config.proxy.host)
+  const busy = await portsHeld(routes.map((r) => r.frontPort), config.proxy.host)
   if (busy.length) {
     process.stdout.write(
       `spec-connect: canonical port(s) ${busy.join(', ')} are in use (your main dev server?).\n` +
@@ -5199,7 +5205,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   const canonicalPorts = config.dev.map((d) => d.frontPort).filter((p) => typeof p === 'number')
   let serverUp = null
   if (canonicalPorts.length) {
-    const up = await portsInUse(canonicalPorts, config.proxy.host)
+    const up = await portsAnswering(canonicalPorts, config.proxy.host)
     serverUp = up.length === canonicalPorts.length
   }
 

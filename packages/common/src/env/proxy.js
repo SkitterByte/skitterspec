@@ -167,12 +167,45 @@ async function portsInUseOn(port, hosts, probe = portsInUse) {
   return [...new Set(busy)]
 }
 
+/**
+ * Which of `ports` accept a connection on `host` — "is a dev server running?".
+ *
+ * CONNECTS, never binds. A bind probe on 127.0.0.1 SUCCEEDS on macOS beside a
+ * server listening on every address (Vite `host: true`, Fastify `0.0.0.0`),
+ * because BSD lets the two coexist, so it read a running phone-on-wifi dev
+ * server as absent. Linux refuses the second bind, which is why CI never saw
+ * it. A server that answers is running on any OS. What could still fool it: a
+ * server bound only to a non-loopback address, which `host` does not reach.
+ */
+async function portsAnswering(ports, host = '127.0.0.1') {
+  const results = await Promise.all(ports.map((p) => checkListening(p, host)))
+  return ports.filter((_, i) => results[i])
+}
+
+/**
+ * Which of `ports` are taken for a new listener on `host` — "may the proxy
+ * have these?". Busy when the bind fails OR something already answers.
+ *
+ * The bind alone is not enough on macOS: beside a wildcard listener it
+ * succeeds, and the proxy would then own `localhost` while LAN clients still
+ * reach the old server — two apps behind one port number. The connect catches
+ * that. SEQUENTIAL, bind first: the bind probe's own listener is closed before
+ * the connect runs, so the connect can never find the probe itself.
+ */
+async function portsHeld(ports, host = '127.0.0.1') {
+  const bound = await portsInUse(ports, host)
+  const answering = await portsAnswering(ports, host)
+  return ports.filter((p) => bound.includes(p) || answering.includes(p))
+}
+
 module.exports = {
   renderRoutes,
   createRouteServer,
   startProxy,
   portsInUse,
   portsInUseOn,
+  portsAnswering,
+  portsHeld,
   waitListening,
 }
 

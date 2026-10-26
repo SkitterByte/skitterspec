@@ -5,7 +5,14 @@ const assert = require('node:assert')
 const http = require('node:http')
 const net = require('node:net')
 
-const { renderRoutes, startProxy, portsInUse, waitListening } = require('../src/env/proxy.js')
+const {
+  renderRoutes,
+  startProxy,
+  portsInUse,
+  portsAnswering,
+  portsHeld,
+  waitListening,
+} = require('../src/env/proxy.js')
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -143,4 +150,56 @@ test('portsInUse reports bound ports and ignores free ones', async () => {
   } finally {
     await closeServer(holder)
   }
+})
+
+// A dev server started for phone-on-wifi testing listens on EVERY address
+// (Vite `host: true`, Fastify `0.0.0.0`). BSD lets a probe bind 127.0.0.1
+// beside it, so a bind-based probe read such a server as absent on macOS
+// while Linux, where the two binds conflict, never showed the bug. These
+// tests hold on both: the wildcard listener must be seen either way.
+function listenAll(server, port) {
+  return new Promise((resolve) => server.listen(port, '0.0.0.0', resolve))
+}
+
+test('portsAnswering sees a server listening on every address', async () => {
+  const port = await freePort()
+  const server = net.createServer()
+  await listenAll(server, port)
+  try {
+    assert.deepStrictEqual(await portsAnswering([port], '127.0.0.1'), [port])
+  } finally {
+    await closeServer(server)
+  }
+})
+
+test('portsAnswering stays silent on a free port', async () => {
+  const port = await freePort()
+  assert.deepStrictEqual(await portsAnswering([port], '127.0.0.1'), [])
+})
+
+test('portsHeld reports a port a wildcard server holds as busy', async () => {
+  const port = await freePort()
+  const server = net.createServer()
+  await listenAll(server, port)
+  try {
+    assert.deepStrictEqual(await portsHeld([port], '127.0.0.1'), [port])
+  } finally {
+    await closeServer(server)
+  }
+})
+
+test('portsHeld still reports a loopback-bound port as busy', async () => {
+  const port = await freePort()
+  const server = net.createServer()
+  await listen(server, port)
+  try {
+    assert.deepStrictEqual(await portsHeld([port], '127.0.0.1'), [port])
+  } finally {
+    await closeServer(server)
+  }
+})
+
+test('portsHeld stays silent on a free port', async () => {
+  const port = await freePort()
+  assert.deepStrictEqual(await portsHeld([port], '127.0.0.1'), [])
 })
