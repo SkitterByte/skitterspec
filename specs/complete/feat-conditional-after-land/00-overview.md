@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-conditional-after-land (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-26)
+> **Status:** Complete (2026-10-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-26
@@ -131,6 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-26 | Ready | backlog | Reuben Greaves |
 | 2026-10-26 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -150,3 +151,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   is the installed copy, already several releases behind the asset and
   missing unrelated sections. Patching one section by hand would make it a
   mix of versions; `skitterspec update` is what refreshes it.
+- 2026-10-26 — Completed; all phases done, tests green.
