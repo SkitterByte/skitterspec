@@ -5,6 +5,11 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 1.1.0 — 26 Oct 2026
+
+### Env
+- **New** — afterLand commands in env.config.json can now run only when a land changes the files they depend on, e.g. regenerate the Prisma client when the schema changed or reinstall when the lockfile did, so the main checkout no longer goes red after a land.
+
 ## 1.0.2 — 26 Oct 2026
 
 ### Env
