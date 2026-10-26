@@ -278,3 +278,78 @@ test('vsspsUrlOf knows both hosted shapes and refuses the rest', () => {
   assert.strictEqual(vsspsUrlOf('https://acme.visualstudio.com'), 'https://acme.vssps.visualstudio.com')
   assert.strictEqual(vsspsUrlOf('https://ado.internal.example'), null)
 })
+
+// --- the release carrier (kit release seam, Azure work item impl) --------------
+
+function releaseAdapter(handler) {
+  const calls = []
+  const fetch = async (url, init) => {
+    calls.push({ url, init, method: (init && init.method) || 'GET' })
+    return handler(url, init, calls)
+  }
+  const a = makeApiAdapter({ orgUrl: ORG, project: PROJECT, token: 'pat', releaseType: 'Release', fetch, sleep: async () => {} })
+  return { a, calls }
+}
+
+test('releaseFind looks up by exact title under the release type', async () => {
+  const { a, calls } = releaseAdapter((url, init) => {
+    if (url.includes('/wiql')) return jsonRes({ workItems: [{ id: 50 }] })
+    if (url.includes('workitemsbatch')) return jsonRes({ value: [] })
+    return jsonRes({ id: 50, fields: { 'System.Title': 'v1.2.0', 'System.State': 'To Do', 'System.WorkItemType': 'Release', 'System.Description': 'notes' }, multilineFieldsFormat: { 'System.Description': 'markdown' } })
+  })
+  const release = await a.releaseFind("v1.2.0")
+  assert.strictEqual(release.id, '50')
+  assert.strictEqual(release.body, 'notes')
+  const wiql = JSON.parse(calls[0].init.body).query
+  assert.match(wiql, /\[System\.WorkItemType\] = 'Release'/)
+  assert.match(wiql, /\[System\.Title\] = 'v1\.2\.0'/)
+})
+
+test('releaseFind returns null on none and throws on two', async () => {
+  const none = releaseAdapter(() => jsonRes({ workItems: [] }))
+  assert.strictEqual(await none.a.releaseFind('v9'), null)
+  const two = releaseAdapter(() => jsonRes({ workItems: [{ id: 1 }, { id: 2 }] }))
+  await assert.rejects(() => two.a.releaseFind('v9'), /cannot tell which is the release/)
+})
+
+test('releaseAttach links only the missing tickets and comments once each', async () => {
+  const { a, calls } = releaseAdapter((url, init) => {
+    const method = (init && init.method) || 'GET'
+    if (url.includes('%24expand=relations') || url.includes('$expand=relations')) {
+      return jsonRes({
+        id: 50,
+        fields: { 'System.Title': 'v1.2.0' },
+        relations: [{ rel: 'System.LinkTypes.Related', url: 'https://dev.azure.com/acme/_apis/wit/workItems/7' }],
+      })
+    }
+    if (method === 'PATCH') return jsonRes({ id: 50 })
+    if (method === 'POST') return jsonRes({ id: 99 })
+    return jsonRes({})
+  })
+  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }, { ref: 'AB#8' }])
+  assert.deepStrictEqual(got, { attached: 1, already: 1 })
+  const patch = calls.find((c) => c.method === 'PATCH')
+  const rel = JSON.parse(patch.init.body)[0]
+  assert.strictEqual(rel.value.url, 'https://dev.azure.com/acme/_apis/wit/workItems/8')
+  const comment = calls.find((c) => c.method === 'POST' && c.url.includes('/comments'))
+  assert.ok(comment, 'the newly attached ticket got a comment')
+  assert.match(comment.url, /workItems\/8\/comments/)
+})
+
+test('releaseComplete moves the item to the Completed-category state, or refuses by name', async () => {
+  const { a } = releaseAdapter((url, init) => {
+    if (url.includes('/states')) {
+      return jsonRes({ value: [{ name: 'To Do', category: 'Proposed' }, { name: 'Shipped', category: 'Completed' }] })
+    }
+    if (url.includes('workitemsbatch')) return jsonRes({ value: [] })
+    if ((init && init.method) === 'PATCH') return jsonRes({ id: 50 })
+    return jsonRes({ id: 50, fields: { 'System.State': 'Staged', 'System.WorkItemType': 'Release' } })
+  })
+  await a.releaseComplete({ id: '50', type: 'Release' })
+
+  const bare = releaseAdapter((url) => {
+    if (url.includes('/states')) return jsonRes({ value: [{ name: 'To Do', category: 'Proposed' }] })
+    return jsonRes({})
+  })
+  await assert.rejects(() => bare.a.releaseComplete({ id: '50', type: 'Release' }), /no Completed-category state/)
+})

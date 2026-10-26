@@ -166,7 +166,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Azure adapter core (REST, dialect, states) | ✅ | [02-azure-adapter.md](02-azure-adapter.md) |
 | 3 | CLI, MCP, skills, seams, intake | ✅ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment on the kit seam | ✅ | [04-assignment.md](04-assignment.md) |
-| 5 | Release work item on the release seam | ⬜ | [05-release-seam.md](05-release-seam.md) |
+| 5 | Release work item on the release seam | ✅ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ⬜ | [06-distribution-release.md](06-distribution-release.md) |
 | 7 | Docs, live smoke, ereqs migration path | ⬜ | [07-docs-smoke-migration.md](07-docs-smoke-migration.md) |
 
@@ -209,3 +209,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (`github_identifier: "#9"` beside the Linear stamps). Phase 4 built on the
   kit's new assignment seam — no `validateAssignee` hook, since Azure refuses
   an invalid identity at write time and the push relays it.
+- 2026-10-26 — Phase 5: `released` unblocked (the kit's provider ref pattern
+  landed with feat-github-provider) — `AB#\d+` wired in with foreignPatterns
+  classifying earlier-tracker history. Release verbs carried by the work item
+  per Decision 12; `deployed` moves the item's state (set: 1), `complete`
+  resolves the type's Completed-category state at run time. `readCommitRange`
+  ported with literal NUL separators — the jira source's NUL bytes render as
+  spaces when read, which the phase 3 port had copied as spaces.

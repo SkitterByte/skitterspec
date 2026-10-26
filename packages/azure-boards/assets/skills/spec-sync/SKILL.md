@@ -44,15 +44,16 @@ bare `spec-sync …` as if the user could type it.
 | "link this spec to AB#1 by hand" | `stamp <spec> --issue AB#1` |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
 | "what ticket am I on?", writing a commit | `ref` |
-| "what shipped in this release?" | `released` — **not yet shipped**, see below |
+| "what shipped in this release?" | `released` |
 | "is any of this wired up?", "why isn't sync working?" | `doctor` — scaffold, isolation, tracker and credentials in one |
 | "set my Azure PAT", "am I authenticated?" | `credentials <status\|set\|unset>` |
 | push one spec, or "what would push?" | **defer** — see below |
 
 The Linear provider's `retarget`, `reattach`, `stage` and `sanitise` are
 **not yet shipped for the Azure Boards provider** — say so when one is asked
-for, rather than improvising an equivalent. (`assign`, `whoami` and `users` ARE
-shipped — `/spec-claim` is their front door.)
+for, rather than improvising an equivalent. (`assign`, `whoami`, `users`,
+`released` and the `release` verbs ARE shipped — `/spec-claim` fronts the first
+three, and the release verbs are CI commands.)
 **`released` is in the same list for now**: it needs the kit's
 provider-supplied ref pattern (landing with `feat-github-provider`), and the
 engine refuses it with exactly that explanation rather than mis-scanning
@@ -161,10 +162,11 @@ its object exists, so an interrupted run continues rather than duplicating.
 
 `--all` refuses over MCP by design — bulk goes through the API path.
 
-## 7. `ref` — the ticket in a commit
+## 7. `ref` and `released` — tickets in commits
 
 ```
 pnpm exec skitterspec-azure-boards spec-sync ref [--json]
+pnpm exec skitterspec-azure-boards spec-sync released [<range>] [--json]
 ```
 
 `ref` prints the ticket for the branch you are on, so a commit can carry
@@ -173,9 +175,18 @@ pnpm exec skitterspec-azure-boards spec-sync ref [--json]
 That is the correct answer, not an error to work around: do not invent a ref,
 and never write `Refs: none`.
 
-`released` — the range report those trailers feed — is **not yet shipped** for
-this provider (see the routing table). The trailers written now are still the
-record; the report starts reading them the release the kit seam lands.
+`released` reports the tickets in a commit range. It is **read-only**: it does
+not move anything in Boards. Relay the **unreferenced count** even when it is
+zero, and the **historical count** when it is not — a repo migrated off another
+tracker still carries `Refs: KEY-N` trailers through its history, and those
+commits were referenced, just not to this tracker (`refs.foreignPatterns` is
+what classifies them). Bookkeeping commits (paths all under
+`release.ignorePaths`) are excluded and the ignored count reported.
+
+The `release create|deployed|complete <tag>` verbs are the CI side: one work
+item of `releases.workItemType` per release, tickets attached as Related links,
+`deployed` moving the item's state through `releases.series[].envs`. Every verb
+is a dry run unless `--apply`.
 
 ## 8. Report
 

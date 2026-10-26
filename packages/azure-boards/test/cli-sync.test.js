@@ -393,14 +393,6 @@ test('ref on an unlinked spec is stderr + exit 1, stdout empty', async () => {
 // count every AB#n ref as unreferenced — an accusation against a healthy repo.
 // The refusal names the dependency rather than mis-scanning.
 
-test('released refuses, naming the kit dependency', async () => {
-  const dir = repoWithSpec()
-  const r = await run(['released', 'HEAD'], dir)
-  assert.strictEqual(r.code, 1)
-  assert.match(r.out, /not shipped for Azure Boards yet/)
-  assert.match(r.out, /feat-github-provider/)
-})
-
 // --- preserve ---------------------------------------------------------------
 
 test('preserve posts the original once, marked, and is idempotent', async () => {
@@ -776,4 +768,121 @@ test('users lists identities through the adapter page', async () => {
   const r = await run(['users', 'jane'], dir, { adapter: fakeAdapter() })
   assert.strictEqual(r.code, 0, r.out)
   assert.match(r.out, /Jane <id-1>\s+jane@acme\.test/)
+})
+
+// --- released (AB#n trailers, foreign history) ---------------------------------
+
+const { execFileSync } = require('node:child_process')
+
+function gitRepo(dir) {
+  const git = (...args) => execFileSync('git', ['-C', dir, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
+  git('init', '-q')
+  git('config', 'user.email', 't@e.st')
+  git('config', 'user.name', 'T')
+  return git
+}
+
+test('released reads AB#n trailers and counts an earlier tracker as historical', async () => {
+  const dir = repoWithSpec()
+  const git = gitRepo(dir)
+  fs.writeFileSync(path.join(dir, 'a.txt'), 'a')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'feat(x): thing\n\nRefs: AB#7')
+  fs.writeFileSync(path.join(dir, 'b.txt'), 'b')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'fix(y): older era\n\nRefs: SKS-12')
+  fs.writeFileSync(path.join(dir, 'c.txt'), 'c')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'chore: no trailer here')
+  const r = await run(['released', 'HEAD', '--json'], dir)
+  assert.strictEqual(r.code, 0, r.out)
+  const report = JSON.parse(r.out)
+  assert.deepStrictEqual(report.tickets, [{ ref: 'AB#7', commits: 1 }])
+  assert.strictEqual(report.historical, 1)
+  assert.strictEqual(report.unreferenced, 1)
+})
+
+test('released refuses an invalid refs.foreignPatterns entry by name', async () => {
+  const dir = repoWithSpec({ config: { refs: { foreignPatterns: ['[oops'] } } })
+  gitRepo(dir)
+  const r = await run(['released', 'HEAD'], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /invalid pattern\(s\): \[oops/)
+})
+
+// --- the release verbs (kit seam over the work item carrier) -------------------
+
+function releaseFakes() {
+  const adapter = fakeAdapter()
+  const store = { release: null }
+  adapter.releaseFind = async () => store.release
+  adapter.releaseCreate = async ({ tag, body }) => {
+    store.release = { id: '50', url: `${ORG}/${PROJECT}/_workitems/edit/50`, body }
+    return store.release
+  }
+  adapter.releaseUpdate = async (release, { body }) => {
+    store.release = { ...release, body }
+    return store.release
+  }
+  adapter.releaseAttach = async (release, tickets) => ({ attached: tickets.length, already: 0 })
+  adapter.releaseStage = async () => ({ set: 1 })
+  adapter.releaseComplete = async (release) => release
+  return { adapter, store }
+}
+
+function releaseRepo() {
+  const dir = repoWithSpec({
+    identifier: 'AB#7',
+    config: {
+      azure: { orgUrl: ORG, project: PROJECT },
+      releases: { workItemType: 'Release', series: [{ tagPrefix: 'v', envs: { staged: 'Staged', published: 'Published' } }] },
+    },
+  })
+  const git = gitRepo(dir)
+  git('add', '-A')
+  git('commit', '-q', '-m', 'feat(x): thing\n\nRefs: AB#7')
+  git('tag', 'v1.0.0')
+  fs.writeFileSync(path.join(dir, 'z.txt'), 'z')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'feat(z): more\n\nRefs: AB#7')
+  git('tag', 'v1.1.0')
+  return dir
+}
+
+test('release create is a dry run by default and writes with --apply', async () => {
+  const dir = releaseRepo()
+  const { adapter, store } = releaseFakes()
+  const dry = await run(['release', 'create', 'v1.1.0'], dir, { adapter })
+  assert.strictEqual(dry.code, 0, dry.out)
+  assert.match(dry.out, /dry run — pass --apply/)
+  assert.match(dry.out, /range: {4}v1\.0\.0\.\.v1\.1\.0/)
+  assert.strictEqual(store.release, null, 'a dry run writes nothing')
+
+  const wet = await run(['release', 'create', 'v1.1.0', '--apply'], dir, { adapter })
+  assert.strictEqual(wet.code, 0, wet.out)
+  assert.match(wet.out, /created:/)
+  assert.ok(store.release, 'the release item exists')
+  assert.match(store.release.body, /skitterspec:release v1 stage=staged/)
+})
+
+test('release deployed moves the release item and complete closes it', async () => {
+  const dir = releaseRepo()
+  const { adapter, store } = releaseFakes()
+  await run(['release', 'create', 'v1.1.0', '--apply'], dir, { adapter })
+  const dep = await run(['release', 'deployed', 'v1.1.0', 'published', '--apply'], dir, { adapter })
+  assert.strictEqual(dep.code, 0, dep.out)
+  assert.match(dep.out, /set: {6}1 issue\(s\)/)
+  assert.match(store.release.body, /stage=published/)
+  const done = await run(['release', 'complete', 'v1.1.0', '--apply'], dir, { adapter })
+  assert.strictEqual(done.code, 0, done.out)
+  assert.match(done.out, /completed:/)
+})
+
+test('release deployed refuses an env the series does not configure', async () => {
+  const dir = releaseRepo()
+  const { adapter } = releaseFakes()
+  await run(['release', 'create', 'v1.1.0', '--apply'], dir, { adapter })
+  const r = await run(['release', 'deployed', 'v1.1.0', 'mars', '--apply'], dir, { adapter })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /pass an env of v: staged, published/)
 })

@@ -181,7 +181,30 @@ types' state names.
 
    "round-tripped intact", exit 0.
 
-7. **Drift** — edit the item's description **in Boards**, fetch the item JSON,
+7. **Released** — over a range with `Refs:` trailers:
+
+   ```sh
+   pnpm exec skitterspec-azure-boards spec-sync released <tag>..HEAD
+   ```
+
+   Tickets counted, unreferenced commits reported, an earlier tracker's
+   trailers counted as historical, bookkeeping ignored.
+
+8. **Release carrier** — with a `releases.series` configured and a tag pushed:
+
+   ```sh
+   pnpm exec skitterspec-azure-boards spec-sync release create <tag>
+   pnpm exec skitterspec-azure-boards spec-sync release create <tag> --apply
+   pnpm exec skitterspec-azure-boards spec-sync release deployed <tag> staged --apply
+   pnpm exec skitterspec-azure-boards spec-sync release complete <tag> --apply
+   ```
+
+   In Boards: one `releases.workItemType` item titled by the tag, the range's
+   tickets Related-linked with one comment each, the item's state moving
+   through the envs and closing on complete. A retry of `create --apply`
+   reports "unchanged", never a duplicate.
+
+9. **Drift** — edit the item's description **in Boards**, fetch the item JSON,
    and:
 
    ```sh
@@ -189,7 +212,3 @@ types' state names.
    ```
 
    The edit is reported; the next apply replaces it and says so loudly.
-
-(`released` joins this checklist when the kit's provider-supplied ref pattern
-lands — the engine currently refuses it for this provider, naming that
-dependency.)

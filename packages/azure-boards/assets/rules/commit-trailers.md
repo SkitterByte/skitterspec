@@ -91,8 +91,7 @@ and it is cancelled along with it.
 The repo lands specs with `merge --ff-only`, so history is linear and branch
 names never reach it. The commit message is the only artefact that survives into
 the range a release scans, which is what lets
-`spec-sync released <range>` report the tickets a release contains (shipping for
-Azure Boards with the kit's provider-supplied ref pattern — until then the
-trailers are still the record, scanned once that lands). A ref that names the
-wrong ticket does not merely lose information — it moves a commit onto another
-ticket's release report, which is worse than the gap it was meant to close.
+`spec-sync released <range>` report the tickets a release contains. A ref that
+names the wrong ticket does not merely lose information — it moves a commit onto
+another ticket's release report, which is worse than the gap it was meant to
+close.

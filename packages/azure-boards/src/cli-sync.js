@@ -45,6 +45,8 @@ const kit = require('@skitterbyte/skitterspec-provider-kit')
 const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
+const { makeReleaseCommands } = require('@skitterbyte/skitterspec-provider-kit/src/releases.js')
+const { IDENTIFIER_RE } = require('@skitterbyte/skitterspec-provider-kit/src/released.js')
 
 const { loadAzureConfig, mergeConfig, defaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
 const {
@@ -72,6 +74,29 @@ const { resolveSnapshotDir, specIdentifier, listSpecs, resolveOrExit, warnToErr,
 // browser URL (which shows only the number).
 const ID_RE = /^AB#\d+$/
 const BARE_ID_RE = /^\d+$/
+
+// The ref shape a `Refs:` trailer carries for this provider — the pattern the
+// kit's trailer scan takes (the AB#n wiring phase 3 refused without). `\b`
+// before the A keeps "LAB#1" from reading as a ref.
+const AZURE_REF_RE = /\bAB#\d+\b/g
+
+// `refs.foreignPatterns` compiled, with the kit's `KEY-N` shape always
+// included: a repo migrating off Linear or Jira has those trailers all through
+// its history, and they are referenced — just not to this tracker. A pattern
+// that does not compile is a config error named up front, never silently
+// dropped (dropping one would re-count its history as unreferenced).
+function foreignPatternsOf(config) {
+  const patterns = [IDENTIFIER_RE]
+  const bad = []
+  for (const raw of (config.refs && config.refs.foreignPatterns) || []) {
+    try {
+      patterns.push(new RegExp(raw, 'g'))
+    } catch {
+      bad.push(raw)
+    }
+  }
+  return { patterns, bad }
+}
 
 // What the API adapter actually takes: the numeric id behind an identifier.
 const apiId = (idOrIdentifier) => String(idOrIdentifier).replace(/^AB#/, '')
@@ -195,10 +220,107 @@ function apiAdapterFor(config, flags) {
       orgUrl: config.azure.orgUrl,
       project: config.azure.project,
       token: cred.token,
+      releaseType: (config.releases && config.releases.workItemType) || 'Release',
       fetch: flags.fetch,
     }),
   }
 }
+
+// ---------------------------------------------------------------------------
+// `released [<range>]` — which tickets a commit range contains, off the
+// `Refs:` trailers (kit `src/released.js` owns the parsing rules). Refs are
+// `AB#n`; `KEY-N` trailers from an earlier tracker count as historical.
+function readCommitRange(dir, range) {
+  const { execFileSync } = require('node:child_process')
+  const SEP = '\x00SKITTERSPEC\x00'
+  let raw
+  try {
+    raw = execFileSync('git', ['-C', dir, 'log', `--format=%x00SKITTERSPEC%x00%H%n%B%x00END%x00`, '--name-only', range], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
+  } catch (error) {
+    const detail = (error.stderr || '').toString().trim().split('\n')[0] || error.message
+    return { ok: false, error: detail }
+  }
+  const commits = []
+  for (const chunk of raw.split(SEP)) {
+    if (!chunk.trim()) continue
+    const endAt = chunk.indexOf('\x00END\x00')
+    if (endAt < 0) continue
+    const head = chunk.slice(0, endAt)
+    const paths = chunk
+      .slice(endAt + ' END '.length)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+    const nl = head.indexOf('\n')
+    const sha = head.slice(0, nl < 0 ? head.length : nl).trim()
+    const body = nl < 0 ? '' : head.slice(nl + 1)
+    commits.push({ sha, subject: body.split('\n')[0] || '', body, paths })
+  }
+  return { ok: true, commits }
+}
+
+function specSyncReleased(dir, config, rangeArg, flags, out) {
+  const range = rangeArg || 'HEAD'
+  const foreign = foreignPatternsOf(config)
+  if (foreign.bad.length) {
+    out.write(`${PROGRAM} released: refs.foreignPatterns has invalid pattern(s): ${foreign.bad.join(', ')} — fix ${CONFIG_FILE}\n`)
+    return 1
+  }
+  const read = readCommitRange(dir, range)
+  if (!read.ok) {
+    out.write(`${PROGRAM} released: ${read.error}\n`)
+    return 1
+  }
+  const report = kit.ticketsInRange(read.commits, {
+    ignorePaths: (config.release && config.release.ignorePaths) || [],
+    refPattern: AZURE_REF_RE,
+    foreignPatterns: foreign.patterns,
+  })
+  if (flags.json) {
+    out.write(JSON.stringify(report, null, 2) + '\n')
+    return 0
+  }
+  const lines = [`${PROGRAM} released: ${range} — ${report.total} commit(s)`]
+  for (const t of report.tickets) lines.push(`  ${t.ref}  (${t.commits} commit(s))`)
+  if (!report.tickets.length) lines.push('  no referenced tickets')
+  if (report.unreferenced) lines.push(`  ${report.unreferenced} commit(s) carry no Refs: trailer`)
+  if (report.historical) lines.push(`  ${report.historical} commit(s) reference an earlier tracker`)
+  if (report.ignored) lines.push(`  ${report.ignored} bookkeeping commit(s) ignored`)
+  out.write(lines.join('\n') + '\n')
+  return 0
+}
+
+// ---------------------------------------------------------------------------
+// `release create | deployed | complete` — the kit's release seam
+// (`provider-kit/src/releases.js`), carried by a work item of
+// `releases.workItemType` (spec Decision 12): skitterspec decides the ticket
+// set, the item holds it, `deployed` moves the ITEM's state, `complete`
+// closes it.
+const releases = makeReleaseCommands({
+  tracker: 'Azure Boards',
+  program: PROGRAM,
+  readCommits: (dir, range) => readCommitRange(dir, range),
+  ticketOptions: (config) => ({
+    ignorePaths: (config.release && config.release.ignorePaths) || [],
+    refPattern: AZURE_REF_RE,
+    foreignPatterns: foreignPatternsOf(config).patterns,
+  }),
+  teamKey: () => '',
+  listSpecs: (dir, config) => listSpecs(dir, config),
+  series: (config) => (config.releases && config.releases.series) || [],
+  adapterFor: (config, flags) => apiAdapterFor(config, flags),
+  describe: (t) => `${t.ref}${t.title ? ` ${t.title}` : ''}`,
+  // The release verbs are CI commands and the engine never calls MCP tools —
+  // so over MCP this is impossible, not merely slower, and says so (exit 1).
+  impossibleOverMcp: (config, flags) =>
+    kit.resolveTransport(flags, config, true) === 'mcp'
+      ? 'transport = mcp — the release verbs write over the API; set a PAT (CI: a pipeline secret) and re-run'
+      : null,
+})
 
 // ---------------------------------------------------------------------------
 // Assignment: `assign`, `whoami` and `users` are the kit's
@@ -1125,6 +1247,8 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   list [--all | --state NAME]            tracker listing for the project
   linked [--json]                        specs and their linked items (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
+  released [<range>]                     tickets a commit range contains
+  release create|deployed|complete <tag> the release work item (CI; --apply)
   preserve <spec> [--text <f>]           keep an adopted item's original report
   assign <spec> --to <id> | --release    stamp who is building it
   whoami [--set <id>] [--unset]          who you are on Azure (cached)
@@ -1133,9 +1257,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   init-config --org-url … --project …    write the config
   doctor [--check-remote] [--json]       readiness report
 
-Not yet shipped for Azure Boards: released (needs the AB#n ref pattern wired
-into the kit scan — phase 5), release create|deployed|complete (phase 5),
-stage, retarget, reattach, sanitise.
+Not yet shipped for Azure Boards: stage, retarget, reattach, sanitise.
 `
 
 async function specSync(rest, io = {}) {
@@ -1204,14 +1326,17 @@ async function specSync(rest, io = {}) {
     case 'ref':
       return specSyncRef(dir, config, positional[0], flags, out, err)
     case 'released':
-      // Refusing is deliberate (see the module header): the kit scans KEY-N
-      // and would count every AB#n ref as unreferenced — an accusation
-      // against a healthy repo is worse than a named gap.
-      out.write(
-        `${PROGRAM} released: not shipped for Azure Boards yet — the trailer scan needs the\n` +
-          "  kit's provider-supplied ref pattern (lands with feat-github-provider).\n",
-      )
-      return 1
+      return specSyncReleased(dir, config, positional[0], flags, out)
+    case 'release': {
+      // A bad foreign pattern is refused HERE, before the kit runs: dropping
+      // one silently would re-count that tracker's history as unreferenced.
+      const foreign = foreignPatternsOf(config)
+      if (foreign.bad.length) {
+        out.write(`${PROGRAM} release: refs.foreignPatterns has invalid pattern(s): ${foreign.bad.join(', ')} — fix ${CONFIG_FILE}\n`)
+        return 1
+      }
+      return releases.run(dir, config, positional, flags, out)
+    }
     case 'preserve':
       return specSyncPreserve(dir, config, positional[0], flags, out)
     case 'assign':
@@ -1258,6 +1383,10 @@ function parseArgs(args, sub) {
     '--sub': { kind: 'list', name: 'subs' },
     '--limit': { kind: 'number' },
     '--cursor': { kind: 'string' },
+    '--notes': { kind: 'path' },
+    '--link': { kind: 'list', name: 'links' },
+    '--stage': { kind: 'string' },
+    '--apply': { kind: 'boolean' },
     '--to': { kind: 'string' },
     '--name': { kind: 'string' },
     '--release': { kind: 'boolean' },
