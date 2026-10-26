@@ -14,6 +14,12 @@ carrier — dry-run unless `--apply`, idempotent by lookup.
 
 ## Tasks
 
+- [ ] **First, and blocked on `feat-github-provider`:** supply `AB#\d+` as the
+      kit's provider ref pattern and wire `refs.foreignPatterns` into
+      `released`, replacing phase 3's named refusal — `ticketsInRange` is what
+      `release create` decides contents with, so this phase cannot start
+      without it.
+
 - [ ] `release create <tag>`: resolve the range (previous tag in the series),
       find-or-create the release work item by WIQL title lookup under
       `releases.workItemType` — a failed lookup is *cannot tell* and refuses

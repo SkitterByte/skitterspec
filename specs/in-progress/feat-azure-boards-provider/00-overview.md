@@ -164,7 +164,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Spike Azure DevOps APIs | ✅ | [01-spike-azure-apis.md](01-spike-azure-apis.md) |
 | 2 | Azure adapter core (REST, dialect, states) | ✅ | [02-azure-adapter.md](02-azure-adapter.md) |
-| 3 | CLI, MCP, skills, seams, intake | ⬜ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
+| 3 | CLI, MCP, skills, seams, intake | ✅ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment on the kit seam | ⬜ | [04-assignment.md](04-assignment.md) |
 | 5 | Release work item on the release seam | ⬜ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ⬜ | [06-distribution-release.md](06-distribution-release.md) |
@@ -197,3 +197,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `cli-sync.js` it routes to. The op contract drops `listTransitions` (no
   transition API on Azure); HTTP 203 is treated as a credential rejection
   (Azure's bad-PAT shape).
+- 2026-10-23 — Phase 3: `released` ships as a NAMED REFUSAL rather than a
+  mis-scan — the kit's trailer scan hardcodes `KEY-N`, and Decision 2 forbids
+  hoisting the provider-pattern seam here. The wiring moves to phase 5's first
+  task, blocked on `feat-github-provider`. State validation runs against the
+  UNION of both configured types' states, since one `states` map serves parent
+  and child items. Setup skill named `/spec-azure-setup`.

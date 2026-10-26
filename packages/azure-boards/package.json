@@ -6,6 +6,9 @@
   "license": "MIT",
   "author": "Reuben Greaves",
   "type": "commonjs",
+  "bin": {
+    "skitterspec-azure-boards": "bin/skitterspec-azure-boards.js"
+  },
   "files": [
     "bin",
     "src",
