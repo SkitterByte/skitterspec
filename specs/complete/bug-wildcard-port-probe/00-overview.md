@@ -7,7 +7,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/34"
 
 > **Type:** Bug
 > **Name:** bug-wildcard-port-probe
-> **Status:** In Progress — fixed, awaiting review
+> **Status:** Complete (2026-10-26)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-26
@@ -83,8 +83,10 @@ Run: `node --test packages/common/test/env-proxy.test.js`
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-26 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-26 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-10-26 — Bug reproduced on macOS for `live take` and `connect`; review server confirmed unaffected; failing tests added (red).
 - 2026-10-26 — Fixed: split the bind probe into `portsAnswering` (connect) and `portsHeld` (bind + connect); tests green on macOS and Linux.
+- 2026-10-26 — Completed; all tasks done, tests green.
