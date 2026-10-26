@@ -5,6 +5,14 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 1.0.1 — 26 Oct 2026
+
+### Env
+- **Fixed** — spec-env live take now finds a dev server listening on every address (such as Vite with host: true) on macOS, and spec-env connect no longer takes over localhost while that server still answers on the network.
+
+### Github
+- **Fixed** — A release now marks a spec's finished phases as Staged or Published on the board along with the spec itself, instead of leaving them under No Deployed.
+
 ## 1.0.0 — 26 Oct 2026
 
 **Highlights:**
