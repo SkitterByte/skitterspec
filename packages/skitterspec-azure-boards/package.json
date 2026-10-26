@@ -1,6 +1,6 @@
 {
   "name": "@skitterbyte/skitterspec-azure-boards",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Spec-driven development for Claude Code, with one-way Azure Boards sync — a superset of @skitterbyte/skitterspec: the base filesystem workflow plus /spec-status · /spec-push · /spec-claim and the spec-sync CLI, mirroring specs to Azure DevOps work items with parent/child hierarchy, assignment and a release work item per tag. The repo is canonical; Boards is a generated mirror. Install this OR the base OR one other superset — exactly one.",
   "keywords": [
     "claude",
