@@ -5,6 +5,15 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 1.0.2 — 26 Oct 2026
+
+### Env
+- **Fixed** — spec-env live take now finds a dev server listening on every address (such as Vite with host: true) on macOS, and spec-env connect no longer takes over localhost while that server still answers on the network.
+
+### Sync
+- **Fixed** — Cancelling a spec now closes its unfinished phase tickets too, instead of leaving them open in the backlog.
+- **Fixed** — A push now warns when a phase ticket was edited in the tracker since the last push, before it replaces that edit, as it already did for the spec ticket.
+
 ## 1.0.1 — 22 Oct 2026
 
 ### Env
