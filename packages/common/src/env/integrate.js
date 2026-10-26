@@ -115,8 +115,14 @@ function planIntegrateCheckout(spec, config, ctx) {
 // primary checkout, standing on base) once the land commands have succeeded.
 // A blocked plan carries the empty form — nothing landed, so nothing follows.
 function afterLandFor(config, cwd) {
-  const commands = (config && Array.isArray(config.afterLand)) ? [...config.afterLand] : []
+  const commands = (config && Array.isArray(config.afterLand)) ? config.afterLand.map(runOf) : []
   return { cwd: commands.length ? cwd : null, commands }
+}
+
+// Normalised config holds `{ run, when }`; a pure caller may still hand over
+// the plain string an entry is written as.
+function runOf(entry) {
+  return typeof entry === 'string' ? entry : entry.run
 }
 
 function noAfterLand() {

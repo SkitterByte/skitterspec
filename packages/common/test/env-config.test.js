@@ -382,13 +382,90 @@ test('afterLand defaults to an empty array (absent → opt-out)', () => {
   assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [])
 })
 
-test('afterLand keeps trimmed non-empty strings, dropping blanks/non-strings', () => {
+test('afterLand keeps trimmed non-empty strings as always-run entries, dropping blanks/junk', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, {
     afterLand: ['  pnpm db:data-migration  ', '', 7, null, { cmd: 'x' }, 'pnpm build'],
   })
   const { config } = loadEnvConfig(dir)
-  assert.deepStrictEqual(config.afterLand, ['pnpm db:data-migration', 'pnpm build'])
+  assert.deepStrictEqual(config.afterLand, [
+    { run: 'pnpm db:data-migration', when: null },
+    { run: 'pnpm build', when: null },
+  ])
+})
+
+test('afterLand keeps { run, when } entries, coercing a string when to a list', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    afterLand: [
+      { run: ' pnpm run db:generate ', when: 'prisma/schema.prisma' },
+      { run: 'pnpm install --frozen-lockfile', when: ['pnpm-lock.yaml', ' **/package.json ', ''] },
+      { run: 'pnpm build' },
+    ],
+  })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [
+    { run: 'pnpm run db:generate', when: ['prisma/schema.prisma'] },
+    { run: 'pnpm install --frozen-lockfile', when: ['pnpm-lock.yaml', '**/package.json'] },
+    { run: 'pnpm build', when: null },
+  ])
+})
+
+test('afterLand drops an entry whose when is unusable, never widening it to always-run', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    afterLand: [
+      { run: 'a', when: [] },
+      { run: 'b', when: [7, ''] },
+      { run: 'c', when: 7 },
+      { run: '  ', when: ['x'] },
+      'kept',
+    ],
+  })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [{ run: 'kept', when: null }])
+})
+
+test('setup accepts { run, when }: setup stays strings, triggered entries become setupTriggers', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    setup: [
+      { run: 'pnpm install --frozen-lockfile', when: ['pnpm-lock.yaml'] },
+      'pnpm build',
+      { run: 'pnpm run db:generate', when: 'prisma/schema.prisma' },
+      { run: 'skip me', when: [] },
+    ],
+  })
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.setup, ['pnpm install --frozen-lockfile', 'pnpm build', 'pnpm run db:generate'])
+  assert.deepStrictEqual(config.setupTriggers, [
+    { run: 'pnpm install --frozen-lockfile', when: ['pnpm-lock.yaml'] },
+    { run: 'pnpm run db:generate', when: ['prisma/schema.prisma'] },
+  ])
+})
+
+test('afterLand { setup: true } expands in place to the triggered setup entries', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    setup: [
+      { run: 'pnpm install --frozen-lockfile', when: ['pnpm-lock.yaml'] },
+      'pnpm build',
+      { run: 'pnpm run db:generate', when: ['prisma/schema.prisma'] },
+    ],
+    afterLand: ['first', { setup: true }, 'pnpm db:data-migration'],
+  })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [
+    { run: 'first', when: null },
+    { run: 'pnpm install --frozen-lockfile', when: ['pnpm-lock.yaml'] },
+    { run: 'pnpm run db:generate', when: ['prisma/schema.prisma'] },
+    { run: 'pnpm db:data-migration', when: null },
+  ])
+})
+
+test('afterLand { setup: true } with no triggered setup entries expands to nothing', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, { setup: ['pnpm install'], afterLand: [{ setup: true }, 'x'] })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [{ run: 'x', when: null }])
+  writeEnvConfig(dir, { afterLand: [{ setup: true }] })
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [])
 })
 
 test('afterLand of the wrong type is ignored (keeps the default [])', () => {
@@ -400,5 +477,5 @@ test('afterLand of the wrong type is ignored (keeps the default [])', () => {
 test('afterLand is literal — tokens are not expanded', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, { afterLand: ['echo {slug}'] })
-  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, ['echo {slug}'])
+  assert.deepStrictEqual(loadEnvConfig(dir).config.afterLand, [{ run: 'echo {slug}', when: null }])
 })

@@ -22,11 +22,16 @@
  *     seedFiles:{ mode, files } | [ ".env", ... ],  // gitignored files copied/
  *               // symlinked from the main checkout into a fresh worktree before
  *               // setup runs (mode: "symlink" default | "copy"); empty = none
- *     setup:    [ "cmd", ... ],  // bootstrap commands run in the worktree right
- *               // after `git worktree add` (e.g. install deps); empty = none
- *     afterLand:[ "cmd", ... ],  // commands run in the PRIMARY checkout after a
- *               // land (integrate's ff, hotfix land's main cherry-pick), e.g. a
- *               // data migration; literal, no token expansion; empty = none
+ *     setup:    [ "cmd" | { run, when }, ... ],  // bootstrap commands run in
+ *               // the worktree right after `git worktree add` (e.g. install
+ *               // deps); `when` is ignored there — normalised to strings, with
+ *               // the triggered entries also kept as `setupTriggers`
+ *     afterLand:[ "cmd" | { run, when } | { setup: true }, ... ],  // commands
+ *               // run in the PRIMARY checkout after a land (integrate's ff,
+ *               // hotfix land's main cherry-pick), e.g. a data migration;
+ *               // `when` globs gate an entry on the land's changed files, and
+ *               // `{ setup: true }` expands to `setupTriggers`; literal, no
+ *               // token expansion; normalised to `{ run, when }`; empty = none
  *     dev:      [ { name, command, portVar, health?, frontPort? } ],  // host dev
  *               // servers started on the spec's port block (empty = none)
  *     proxy:    { enabled, host },  // bundled front-door proxy (spec-env connect)
@@ -169,11 +174,16 @@ const DEFAULT_CONFIG = Object.freeze({
   // `git worktree add` (before Docker/dev), on every provision. Array of shell
   // strings (e.g. "pnpm install"); {slug}/{branch}/… expand. Default: none.
   setup: Object.freeze([]),
+  // The `setup` entries that declared `when` globs, as `{ run, when }`. Derived
+  // at load, never configured directly: `afterLand`'s `{ setup: true }` expands
+  // to these, so a setup step can re-run after a land that changes its inputs.
+  setupTriggers: Object.freeze([]),
   // Commands run in the primary checkout after a land, printed by `spec-env
   // integrate` (including its already-landed no-op) and by `hotfix land` when
   // it cherry-picks onto the base branch. The skill runs them; the engine only
   // plans. Literal strings — no {slug}/{port} tokens, since they run on the base
-  // branch where a spec's tokens mean nothing. Default: none.
+  // branch where a spec's tokens mean nothing. Normalised to `{ run, when }`,
+  // `when` null for an always-run entry. Default: none.
   afterLand: Object.freeze([]),
   // Host dev servers started on the spec's port block by `spec-env dev up`.
   // Each: { name, command, portVar, health?, frontPort? }. Default: none.
@@ -352,6 +362,7 @@ function defaults() {
     docker: { ...DEFAULT_CONFIG.docker },
     seedFiles: { mode: DEFAULT_CONFIG.seedFiles.mode, files: [] },
     setup: [],
+    setupTriggers: [],
     afterLand: [],
     dev: [],
     proxy: { ...DEFAULT_CONFIG.proxy },
@@ -524,11 +535,49 @@ function normalizeSeedFiles(parsed) {
  * stray entry can't crash provisioning.
  */
 function normalizeSetup(parsed) {
+  return normalizeCommands(parsed).map((e) => e.run)
+}
+
+/**
+ * Normalise a list of command entries into `{ run, when }`. A string is an
+ * always-run entry (`when: null`); `{ run, when }` keeps its trigger globs, with
+ * a string `when` coerced to a one-item list. An object whose `run` is blank, or
+ * whose `when` holds no usable glob, is dropped rather than demoted to
+ * always-run — a malformed trigger must not quietly widen into "every time".
+ */
+function normalizeCommands(parsed) {
   const out = []
   for (const raw of parsed) {
-    if (typeof raw !== 'string') continue
-    const cmd = raw.trim()
-    if (cmd) out.push(cmd)
+    if (typeof raw === 'string') {
+      const run = raw.trim()
+      if (run) out.push({ run, when: null })
+      continue
+    }
+    if (!isObject(raw) || typeof raw.run !== 'string') continue
+    const run = raw.run.trim()
+    if (!run) continue
+    if (raw.when === undefined) {
+      out.push({ run, when: null })
+      continue
+    }
+    const globs = typeof raw.when === 'string' ? [raw.when] : Array.isArray(raw.when) ? raw.when : []
+    const when = normalizeFileList(globs)
+    if (when.length) out.push({ run, when })
+  }
+  return out
+}
+
+// `afterLand` entries: `normalizeCommands`, plus `{ setup: true }` expanded in
+// place to the triggered setup entries. With none declared it expands to
+// nothing — the shorthand names a set, and an empty set is a valid one.
+function normalizeAfterLand(parsed, setupTriggers) {
+  const out = []
+  for (const raw of parsed) {
+    if (isObject(raw) && raw.setup === true) {
+      for (const t of setupTriggers) out.push({ run: t.run, when: [...t.when] })
+      continue
+    }
+    out.push(...normalizeCommands([raw]))
   }
   return out
 }
@@ -560,12 +609,15 @@ function mergeConfig(base, parsed) {
   }
 
   if (Array.isArray(parsed.setup)) {
-    base.setup = normalizeSetup(parsed.setup)
+    const entries = normalizeCommands(parsed.setup)
+    base.setup = entries.map((e) => e.run)
+    base.setupTriggers = entries.filter((e) => e.when)
   }
 
-  // Same rule as `setup`: a stray entry is dropped, never thrown on.
+  // Same rule as `setup`: a stray entry is dropped, never thrown on. Read after
+  // `setup`, which `{ setup: true }` expands from.
   if (Array.isArray(parsed.afterLand)) {
-    base.afterLand = normalizeSetup(parsed.afterLand)
+    base.afterLand = normalizeAfterLand(parsed.afterLand, base.setupTriggers)
   }
 
   if (Array.isArray(parsed.dev)) {

@@ -14,6 +14,9 @@ lockfile example, and the three landing skills run only the run list.
 - [ ] `assets/core/env.config.md`: `afterLand` and `setup` field reference —
       string vs `{ run, when }`, `{ setup: true }`, the range each land uses,
       unknown → run, and the Prisma + lockfile example from the overview
+- [ ] Note that `{ setup: true }` copies `run` literally: `afterLand` expands
+      no tokens, so a setup step that uses `{slug}`-style tokens is a poor
+      candidate for reuse
 - [ ] Sync `specs/.core/env.config.md` in this repo
 - [ ] `/spec-complete`, `/spec-to-main`, `/no-spec`: one line each — run the
       listed commands; the `skipped` block is informational; `Notes` carries

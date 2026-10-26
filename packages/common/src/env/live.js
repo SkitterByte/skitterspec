@@ -18,6 +18,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const { globToRegExp } = require('./glob.js')
 
 const REQUIRED = ['spec', 'branch', 'holder', 'heldSince', 'baseMainCommit']
 
@@ -178,32 +179,6 @@ function liveStateLine(live) {
 }
 
 // --- stateful detection (glob matching) -----------------------------------
-
-// Translate a restricted glob into an anchored RegExp: `**` matches across path
-// separators (with an optional trailing `/`), `*` matches within a segment, `?`
-// a single non-separator char. Enough for migration-path globs, no dependency.
-function globToRegExp(glob) {
-  let re = ''
-  for (let i = 0; i < glob.length; i++) {
-    const ch = glob[i]
-    if (ch === '*') {
-      if (glob[i + 1] === '*') {
-        re += '.*'
-        i++
-        if (glob[i + 1] === '/') i++ // consume the `/` in `**/`
-      } else {
-        re += '[^/]*'
-      }
-    } else if (ch === '?') {
-      re += '[^/]'
-    } else if ('.+^${}()|[]\\/'.includes(ch)) {
-      re += '\\' + ch
-    } else {
-      re += ch
-    }
-  }
-  return new RegExp('^' + re + '$')
-}
 
 // True when any file path matches any of the migration globs. Empty patterns or
 // no files → false (nothing configured / nothing changed).

@@ -117,7 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Config: conditional entries and the setup shorthand | ⬜ | [01-config.md](01-config.md) |
+| 1 | Config: conditional entries and the setup shorthand | ✅ | [01-config.md](01-config.md) |
 | 2 | Planners and CLI: decide per entry against the land's range | ⬜ | [02-plan-and-print.md](02-plan-and-print.md) |
 | 3 | Docs and skills | ⬜ | [03-docs-and-skills.md](03-docs-and-skills.md) |
 
@@ -135,3 +135,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-10-26 — Spec created from the ereqs handoff (stale Prisma client after a land).
+- 2026-10-26 — Phase 1: a `{ run, when }` whose `when` is unusable is dropped,
+  not demoted to always-run. `{ run }` with no `when` is always-run, and setup
+  objects (dropped before) are now kept. `{ setup: true }` copies `run`
+  literally, so a setup step with `{slug}` tokens is not expanded after a land
+  (phase 3 documents this).

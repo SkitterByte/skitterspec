@@ -82,6 +82,20 @@ test('one call seeds the worktree and runs setup in it', async () => {
   }
 })
 
+test('a setup entry with when still runs at bootstrap — a fresh worktree always needs it', async () => {
+  const env = scaffold({
+    config: { setup: [{ run: 'touch gen-ran', when: ['prisma/schema.prisma'] }, 'touch plain-ran'] },
+  })
+  try {
+    const { out, code } = await runQuiet(['spec-env', 'bootstrap', env.folder, '--dir', env.dir])
+    assert.strictEqual(code, 0, out)
+    assert.ok(fs.existsSync(path.join(env.wt, 'gen-ran')), 'the triggered entry ran')
+    assert.ok(fs.existsSync(path.join(env.wt, 'plain-ran')), 'and so did the plain one')
+  } finally {
+    cleanup(env.dir)
+  }
+})
+
 test('a second run changes nothing', async () => {
   const env = scaffold({ config: SEEDS, mainFiles: { 'packages/api/.env': 'A=1\n' } })
   try {
