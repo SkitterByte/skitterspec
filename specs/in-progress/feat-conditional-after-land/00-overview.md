@@ -1,15 +1,17 @@
 ---
 github_identifier: "#35"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/35"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Conditional afterLand entries
 
 > **Type:** Feature
 > **Name:** feat-conditional-after-land (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-26)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-26
 > **Area:** packages/common/src/env/{config,integrate,hotfix}.js, packages/common/src/cli.js, packages/common/assets/core/env.config.md, assets/skills/{spec-complete,spec-to-main,no-spec}
 > **Stack:** worktree
@@ -128,6 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-26 | Ready | backlog | Reuben Greaves |
+| 2026-10-26 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
