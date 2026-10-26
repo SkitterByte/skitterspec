@@ -32,6 +32,24 @@ for (const name of ['spec-complete', 'spec-to-main', 'no-spec']) {
   })
 }
 
+for (const name of ['spec-complete', 'spec-to-main', 'no-spec']) {
+  test(`/${name} runs only the run list — a skipped block is never commands`, () => {
+    const text = skillText(name)
+    assert.match(text, /Run only the\s+lines under that\s+heading/)
+    assert.match(text, /`skipped \(nothing in the land matched\):` block/)
+    assert.match(text, /information, never\s+commands/)
+    assert.match(text, /skipped/, 'Notes carries what was skipped')
+  })
+}
+
+test('env.config.md documents conditional entries with the Prisma and lockfile example', () => {
+  const doc = fs.readFileSync(path.join(ASSETS, 'core', 'env.config.md'), 'utf8')
+  assert.ok(doc.includes('{ "run": "pnpm run db:generate", "when": ["prisma/schema.prisma"] }'))
+  assert.ok(doc.includes('"when": ["pnpm-lock.yaml", "**/package.json"]'))
+  assert.match(doc, /the conditional entries RUN/, 'unknown range runs them')
+  assert.match(doc, /\{ "setup": true \}/)
+})
+
 test('/spec-complete: an after-land failure is ⚠️, lands in Notes, and never blocks teardown', () => {
   const text = skillText('spec-complete')
   assert.match(text, /an after-land\s+command that failed/)

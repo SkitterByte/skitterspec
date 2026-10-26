@@ -127,8 +127,8 @@ the shape; this section carries only what is specific here.
 **Fields:** `Tracker` · `Spec` · `Tests` · `Notes` · `Landed` · `Worktree` ·
 `Follow-ups` · `Next`
 
-`Notes` carries the after-land commands step 6 ran, and where — or, on a
-failure, the command that failed and the ones that did not run. A project with
+`Notes` carries the after-land commands step 6 ran, and where, and any it
+skipped because the land matched no `when` — or, on a failure, the command that failed and the ones that did not run. A project with
 no `afterLand` says nothing about it.
 
 **Report this spec and no other.** A completion is the moment it is most
@@ -245,7 +245,10 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
 3. **Run the after-land commands.** Where the plan ends with a
    `then, in the primary checkout (<path>), run:` section — the project's
    `afterLand`, such as a data migration — run those commands in that
-   directory, in order, after the fast-forward succeeds. **Also on the no-op**:
+   directory, in order, after the fast-forward succeeds. Run only the lines under that
+   heading; a `skipped (nothing in the land matched):` block lists conditional
+   entries this land did not need, and is information, never commands.
+   **Also on the no-op**:
    the engine prints them there deliberately, because a land made on another
    machine leaves them pending here. **Stop at the first non-zero exit** — a
    later command may depend on it — and carry on with the rest of the skill:

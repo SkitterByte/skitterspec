@@ -119,7 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Config: conditional entries and the setup shorthand | ✅ | [01-config.md](01-config.md) |
 | 2 | Planners and CLI: decide per entry against the land's range | ✅ | [02-plan-and-print.md](02-plan-and-print.md) |
-| 3 | Docs and skills | ⬜ | [03-docs-and-skills.md](03-docs-and-skills.md) |
+| 3 | Docs and skills | ✅ | [03-docs-and-skills.md](03-docs-and-skills.md) |
 
 ## Open questions
 
@@ -146,3 +146,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   When every entry is skipped, the plan prints `nothing to run` and keeps
   the skipped list. `hotfix land`'s range is every fix commit except the
   version commit, so a resumed carry still sees what earlier picks changed.
+- 2026-10-26 — Phase 3: `specs/.core/env.config.md` was not hand-synced. It
+  is the installed copy, already several releases behind the asset and
+  missing unrelated sections. Patching one section by hand would make it a
+  mix of versions; `skitterspec update` is what refreshes it.

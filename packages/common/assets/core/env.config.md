@@ -143,6 +143,10 @@ through to a documented conservative default; see the field notes below.
   // exits non-zero; [] = none. Each string is a shell command; {slug}/{branch}/{worktreePath}/{projectName}/{portOffset}
   // expand (the cwd is already the worktree, so {worktreePath} is usually
   // redundant). Example: ["pnpm install --frozen-lockfile"].
+  // An entry may also be { "run": "<cmd>", "when": ["<glob>", ...] }. `when` is
+  // IGNORED here — a fresh worktree always runs every setup step — and exists
+  // so `afterLand` can re-run that step after a land that changes its inputs
+  // (`{ "setup": true }`, below).
   "setup": [],
 
   // Commands to run in the PRIMARY checkout after a land — the counterpart of
@@ -160,6 +164,51 @@ through to a documented conservative default; see the field notes below.
   // failure, report it as a caveat, and never undo the land or block
   // teardown. Literal strings — tokens are NOT expanded, because they run on
   // the base branch where a spec's {slug} or {portOffset} mean nothing.
+  //
+  // CONDITIONAL ENTRIES. A plain string always runs. An entry may instead be
+  // { "run": "<cmd>", "when": ["<glob>", ...] } (a single string `when` is
+  // fine), which runs only when the land changes a file one of its globs
+  // matches — so a generate or an install costs nothing on a land that does
+  // not need it, and is not forgotten on one that does:
+  //
+  //   "afterLand": [
+  //     { "run": "pnpm install --frozen-lockfile", "when": ["pnpm-lock.yaml", "**/package.json"] },
+  //     { "run": "pnpm run db:generate", "when": ["prisma/schema.prisma"] },
+  //     "pnpm db:data-migration"
+  //   ]
+  //
+  // Globs are repo-relative: `*` stays within a directory, `**` crosses them
+  // (`**/package.json` matches the root one too), `?` is one character. An
+  // entry whose `when` holds no usable glob is DROPPED, never widened to
+  // always-run.
+  //   The changed files are what the land brings into the base branch:
+  //   `base...branch` for `integrate` (read before the rebase, so it is the
+  //   branch's own changes), and the carried fix commits — minus the release's
+  //   version commit — for `hotfix land`.
+  //   When that cannot be known, the conditional entries RUN. That is the
+  //   "already landed" plan (the land happened elsewhere, so its range is not
+  //   here) and any diff git would not answer. A redundant generate costs
+  //   seconds; a skipped one leaves the base red with nothing pointing at why.
+  //   A land that changed no files is known, not unknown, and skips them.
+  // The plan says why for every entry: a matched one ends in
+  // `# <path> changed`, an unknown one in `# range unknown` with a line saying
+  // so, and the rest are listed under `skipped (nothing in the land matched):`
+  // with their globs. The reason is a shell comment, so a line run as printed
+  // stays one command. Skipped lines are information — run only the list
+  // under `then, … run`.
+  //
+  // REUSING A SETUP STEP. `{ "setup": true }` expands, in place, to every
+  // `setup` entry that declares `when`, so the trigger lives in one list:
+  //
+  //   "setup": [
+  //     { "run": "pnpm install --frozen-lockfile", "when": ["pnpm-lock.yaml", "**/package.json"] },
+  //     { "run": "pnpm run db:generate", "when": ["prisma/schema.prisma"] }
+  //   ],
+  //   "afterLand": [{ "setup": true }, "pnpm db:data-migration"]
+  //
+  // Plain setup strings carry no trigger and are never pulled in. The command
+  // is copied literally — afterLand expands no tokens — so a setup step that
+  // relies on {slug}-style tokens is a poor one to reuse.
   "afterLand": [],
 
   // Host dev servers `spec-env dev up <spec>` starts on the spec's port block
