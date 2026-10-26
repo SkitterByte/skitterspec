@@ -191,7 +191,7 @@ const pkg = require('../package.json')
 // supersets the hand-off names both where both ship the command, and the one
 // that does where only one does.
 const PROVIDER_COMMANDS = {
-  'spec-sync': '@skitterbyte/skitterspec-linear, @skitterbyte/skitterspec-jira or @skitterbyte/skitterspec-github',
+  'spec-sync': '@skitterbyte/skitterspec-linear, @skitterbyte/skitterspec-jira, @skitterbyte/skitterspec-github or @skitterbyte/skitterspec-azure-boards',
   'spec-sanitise': '@skitterbyte/skitterspec-linear',
 }
 

@@ -58,7 +58,7 @@ test('previousTagFor ignores malformed versions rather than throwing', () => {
 test('packagesFor sends a common change to both distributions', () => {
   assert.deepStrictEqual(
     [...packagesFor(['packages/common/src/cli.js'])].sort(),
-    ['skitterspec', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'],
+    ['skitterspec', 'skitterspec-azure-boards', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'],
   )
 })
 
@@ -66,9 +66,10 @@ test('packagesFor keeps provider-only changes out of the base', () => {
   assert.deepStrictEqual([...packagesFor(['packages/linear/src/api.js'])], ['skitterspec-linear'])
   assert.deepStrictEqual([...packagesFor(['packages/jira/src/api.js'])], ['skitterspec-jira'])
   assert.deepStrictEqual([...packagesFor(['packages/github/src/api.js'])], ['skitterspec-github'])
+  assert.deepStrictEqual([...packagesFor(['packages/azure-boards/src/api.js'])], ['skitterspec-azure-boards'])
   assert.deepStrictEqual(
     [...packagesFor(['packages/sync-core/index.js'])].sort(),
-    ['skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'],
+    ['skitterspec-azure-boards', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'],
     'the shared engine ships in both supersets',
   )
 })
@@ -93,10 +94,11 @@ test('the FEEDS map stays in step with the build', () => {
   assert.match(build, /skitterspec-provider-kit/, 'provider-kit is vendored')
   assert.match(build, /skitterspec-provider-linear\/src/, 'linear is vendored')
   assert.match(build, /skitterspec-provider-jira\/src/, 'jira is vendored')
+  assert.match(build, /skitterspec-provider-azure-boards\/src/, 'azure-boards is vendored')
   assert.match(build, /skitterspec-provider-github\/src/, 'github is vendored')
   assert.deepStrictEqual(
     FEEDS.map((f) => f.prefix),
-    ['packages/common/', 'packages/sync-core/', 'packages/provider-kit/', 'packages/linear/', 'packages/jira/', 'packages/github/'],
+    ['packages/common/', 'packages/sync-core/', 'packages/provider-kit/', 'packages/linear/', 'packages/jira/', 'packages/github/', 'packages/azure-boards/'],
   )
 })
 

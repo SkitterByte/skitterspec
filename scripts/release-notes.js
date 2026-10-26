@@ -25,18 +25,19 @@ const path = require('node:path')
 
 const ROOT = path.join(__dirname, '..')
 
-const PACKAGES = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github']
+const PACKAGES = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']
 
 // Which distributions a source package ships in. Derived from build-dist.js's
 // VENDOR list; keep them in step. Paths under the generated dist dirs attribute
 // to nothing — they are build output, gitignored, and never hand-edited.
 const FEEDS = [
   { prefix: 'packages/common/', packages: PACKAGES },
-  { prefix: 'packages/sync-core/', packages: ['skitterspec-linear', 'skitterspec-jira', 'skitterspec-github'] },
-  { prefix: 'packages/provider-kit/', packages: ['skitterspec-linear', 'skitterspec-jira', 'skitterspec-github'] },
+  { prefix: 'packages/sync-core/', packages: ['skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards'] },
+  { prefix: 'packages/provider-kit/', packages: ['skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards'] },
   { prefix: 'packages/linear/', packages: ['skitterspec-linear'] },
   { prefix: 'packages/jira/', packages: ['skitterspec-jira'] },
   { prefix: 'packages/github/', packages: ['skitterspec-github'] },
+  { prefix: 'packages/azure-boards/', packages: ['skitterspec-azure-boards'] },
 ]
 
 function git(args, cwd = ROOT) {

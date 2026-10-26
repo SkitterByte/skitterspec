@@ -18,6 +18,9 @@ node_modules/
 /packages/skitterspec-github/assets/
 /packages/skitterspec-github/bin/
 /packages/skitterspec-github/src/
+/packages/skitterspec-azure-boards/assets/
+/packages/skitterspec-azure-boards/bin/
+/packages/skitterspec-azure-boards/src/
 
 # Per-spec isolation: machine-local slot registry + volume backups (never committed)
 /.spec-env/

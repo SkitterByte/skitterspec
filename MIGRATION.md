@@ -100,6 +100,25 @@ Nothing in `env.config.json` changes.
 **If you added a secrets-hook exception for the printed seed commands**, you
 can remove it now. Nothing shipped prints them any more.
 
+## `@skitterbyte/skitterspec-azure-boards` v0 → v1 (first release)
+
+Nothing to migrate: this is the distribution's first release. It is a superset
+of `@skitterbyte/skitterspec` — install exactly one of the base or one
+superset. Coming from the base, run `npx @skitterbyte/skitterspec-azure-boards
+update` and run `/spec-azure-setup`
+(or `skitterspec-azure-boards spec-sync init-config --org-url … --project …`).
+
+**Coming from `@skitterbyte/skitterspec-linear` or `-jira`** — a repo moving
+trackers: swap the distribution, configure Azure as above, set
+`refs.foreignPatterns` to the old team key (e.g. `"ERQ-\\d+"`), then push each
+backlog and in-progress spec (`/spec-push`, or `spec-sync apply --all
+in-progress` and `--all backlog`) to link it to a new work item. Finished specs
+keep their old stamps (`linear_identifier`, …) as history; nothing rewrites
+them. Old `Refs: ERQ-12` trailers stay in the log, and `spec-sync released`
+counts them as `historical` rather than as missing a ref. New commits carry
+`Refs: AB#n`. Delete the old `linear.config.json` / `jira.config.json` once the
+open specs are linked.
+
 ## `@skitterbyte/skitterspec-github` v0 → v1 (first release)
 
 Nothing to migrate: this is the distribution's first release. It is a superset

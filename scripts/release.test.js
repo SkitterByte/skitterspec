@@ -328,8 +328,8 @@ test('parseArgs derives package, bump, and the escalating level flags', () => {
 })
 
 // PACKAGES is the small, closed registry the rest keys off.
-test('PACKAGES holds exactly the three publishable distributions', () => {
-  assert.deepStrictEqual(Object.keys(PACKAGES).sort(), ['skitterspec', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'])
+test('PACKAGES holds exactly the five publishable distributions', () => {
+  assert.deepStrictEqual(Object.keys(PACKAGES).sort(), ['skitterspec', 'skitterspec-azure-boards', 'skitterspec-github', 'skitterspec-jira', 'skitterspec-linear'])
 })
 
 // A tag cut BEFORE the publish asserts a release npm may not have. `sh` throws on

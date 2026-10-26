@@ -125,7 +125,7 @@ function detectPackageManager(dir) {
 
 // The bin names a distribution may expose. A provider superset ships its own
 // name alongside `skitterspec`, and either proves the engine is reachable.
-const ENGINE_BINS = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github']
+const ENGINE_BINS = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']
 
 function binNames() {
   return process.platform === 'win32'
@@ -914,8 +914,8 @@ function resync(dir, { force = false, claudeMd = true, diff = false } = {}) {
 // never delete spec content or active config (defense-in-depth — the manifest
 // never lists these, but a tampered/foreign entry must still be refused).
 const PROTECTED_SPEC_BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
-const PROTECTED_CONFIG = ['env.config.json', 'linear.config.json', 'jira.config.json', 'github.config.json']
-const PROTECTED_DIRS = ['linear-base', 'linear-backups', 'jira-base', 'jira-backups', 'github-base', 'github-backups']
+const PROTECTED_CONFIG = ['env.config.json', 'linear.config.json', 'jira.config.json', 'github.config.json', 'azure-boards.config.json']
+const PROTECTED_DIRS = ['linear-base', 'linear-backups', 'jira-base', 'jira-backups', 'github-base', 'github-backups', 'azure-base', 'azure-backups']
 
 function assertSafeToDelete(relPath, managedSet) {
   const norm = relPath.split(path.sep).join('/')

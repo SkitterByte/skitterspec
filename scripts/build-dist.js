@@ -63,6 +63,7 @@ const VENDOR = [
   { from: '@skitterbyte/skitterspec-provider-linear/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'linear') },
   { from: '@skitterbyte/skitterspec-provider-jira/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'jira') },
   { from: '@skitterbyte/skitterspec-provider-github/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'github') },
+  { from: '@skitterbyte/skitterspec-provider-azure-boards/src', to: (srcRoot) => path.join(srcRoot, 'vendor', 'azure-boards') },
 ]
 
 // Any bare `@skitterbyte/skitterspec-*` require — the set the guard forbids in
@@ -255,6 +256,7 @@ const DISTS = {
   'skitterspec-linear': () => buildProvider('linear', 'skitterspec-linear'),
   'skitterspec-jira': () => buildProvider('jira', 'skitterspec-jira'),
   'skitterspec-github': () => buildProvider('github', 'skitterspec-github'),
+  'skitterspec-azure-boards': () => buildProvider('azure-boards', 'skitterspec-azure-boards'),
 }
 
 function buildDist(name) {

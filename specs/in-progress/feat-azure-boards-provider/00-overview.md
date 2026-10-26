@@ -167,7 +167,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | CLI, MCP, skills, seams, intake | ✅ | [03-cli-skills-seams.md](03-cli-skills-seams.md) |
 | 4 | Assignment on the kit seam | ✅ | [04-assignment.md](04-assignment.md) |
 | 5 | Release work item on the release seam | ✅ | [05-release-seam.md](05-release-seam.md) |
-| 6 | Distribution + release wiring | ⬜ | [06-distribution-release.md](06-distribution-release.md) |
+| 6 | Distribution + release wiring | ✅ | [06-distribution-release.md](06-distribution-release.md) |
 | 7 | Docs, live smoke, ereqs migration path | ⬜ | [07-docs-smoke-migration.md](07-docs-smoke-migration.md) |
 
 ## Open questions
@@ -216,3 +216,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   resolves the type's Completed-category state at run time. `readCommitRange`
   ported with literal NUL separators — the jira source's NUL bytes render as
   spaces when read, which the phase 3 port had copied as spaces.
+- 2026-10-26 — Phase 6: fifth distribution wired everywhere the fourth was
+  (one commit's worth of touchpoints, replayed); dist starts at 0.0.0 and the
+  first release bumps it.

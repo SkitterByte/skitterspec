@@ -10,6 +10,7 @@ workspaces. Two distributions publish independently, each on its own cadence:
 | `skitterspec-linear` | `@skitterbyte/skitterspec-linear` | `packages/skitterspec-linear` |
 | `skitterspec-jira` | `@skitterbyte/skitterspec-jira` | `packages/skitterspec-jira` |
 | `skitterspec-github` | `@skitterbyte/skitterspec-github` | `packages/skitterspec-github` |
+| `skitterspec-azure-boards` | `@skitterbyte/skitterspec-azure-boards` | `packages/skitterspec-azure-boards` |
 
 All releasing goes through **`scripts/release.js`**. Do **not** version the root
 package directly — it bumps the private root package (it once misfired

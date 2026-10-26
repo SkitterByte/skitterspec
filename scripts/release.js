@@ -53,6 +53,10 @@ const PACKAGES = {
     dir: 'packages/skitterspec-github',
     npm: '@skitterbyte/skitterspec-github',
   },
+  'skitterspec-azure-boards': {
+    dir: 'packages/skitterspec-azure-boards',
+    npm: '@skitterbyte/skitterspec-azure-boards',
+  },
 }
 
 // What actually goes into each distribution's tarball, as git-visible paths.
@@ -83,6 +87,13 @@ const TARBALL_INPUTS = {
     'packages/provider-kit',
     'packages/sync-core',
     'packages/skitterspec-github',
+  ],
+  'skitterspec-azure-boards': [
+    'packages/common',
+    'packages/azure-boards',
+    'packages/provider-kit',
+    'packages/sync-core',
+    'packages/skitterspec-azure-boards',
   ],
 }
 
