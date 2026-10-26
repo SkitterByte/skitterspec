@@ -136,6 +136,9 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
     return parsed
   }
 
+  // Ops accept the identifier as well as the bare number: the kit hands back
+  // whatever was stamped ("AB#4"), and the REST paths want the digits.
+  const numId = (v) => String(v).replace(/^AB#/, '')
   const urlOf = (id) => `${org}/${encodeURIComponent(proj)}/_workitems/edit/${id}`
   const identifierOf = (id) => `AB#${id}`
   const itemApiUrl = (id) => `${org}/_apis/wit/workItems/${id}`
@@ -225,7 +228,7 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
     async readIssue(id) {
       // $expand=relations cannot be combined with a fields list — Azure
       // refuses the pair — so the full item comes back and normalize picks.
-      const raw = await request('GET', `${projectBase}/wit/workitems/${encodeURIComponent(id)}`, {
+      const raw = await request('GET', `${projectBase}/wit/workitems/${encodeURIComponent(numId(id))}`, {
         query: { $expand: 'relations' },
         allow404: true,
       })
@@ -260,7 +263,7 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
       ops.push({
         op: 'add',
         path: '/relations/-',
-        value: { rel: PARENT_REL, url: itemApiUrl(parentId) },
+        value: { rel: PARENT_REL, url: itemApiUrl(numId(parentId)) },
       })
       const created = await request(
         'POST',
@@ -274,7 +277,7 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
     async updateIssue(id, updates) {
       const ops = itemPatch(updates)
       if (!ops.length) return {}
-      return request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(id)}`, {
+      return request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(numId(id))}`, {
         body: ops,
         patch: true,
       })
@@ -292,7 +295,7 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
       const at = current && current.state ? current.state.name : null
       if (at && String(at).toLowerCase().trim() === want) return { moved: false, already: true }
       try {
-        await request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(id)}`, {
+        await request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(numId(id))}`, {
           body: [{ op: 'add', path: '/fields/System.State', value: targetState }],
           patch: true,
         })
@@ -367,8 +370,12 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
 
     // The authenticated user, from connectionData — the one identity read
     // that needs no scope beyond the PAT being valid (phase 1 spike).
+    // A PREVIEW resource: plain 7.1 is refused ("the -preview flag must be
+    // supplied"), found live in the phase 7 smoke.
     async readViewer() {
-      const raw = await request('GET', `${org}/_apis/connectionData`)
+      const raw = await request('GET', `${org}/_apis/connectionData`, {
+        query: { 'api-version': '7.1-preview.1' },
+      })
       const u = raw && raw.authenticatedUser
       if (!u || !u.id) return null
       const email = (u.properties && u.properties.Account && u.properties.Account.$value) || null
@@ -412,7 +419,7 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
     },
 
     async listComments(id) {
-      const raw = await request('GET', `${projectBase}/wit/workItems/${encodeURIComponent(id)}/comments`, {
+      const raw = await request('GET', `${projectBase}/wit/workItems/${encodeURIComponent(numId(id))}/comments`, {
         query: { 'api-version': COMMENTS_API_VERSION },
       })
       return ((raw && raw.comments) || []).map((c) => ({
@@ -424,7 +431,7 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
     },
 
     async createComment(id, mdBody) {
-      const raw = await request('POST', `${projectBase}/wit/workItems/${encodeURIComponent(id)}/comments`, {
+      const raw = await request('POST', `${projectBase}/wit/workItems/${encodeURIComponent(numId(id))}/comments`, {
         query: { 'api-version': COMMENTS_API_VERSION, format: 'markdown' },
         body: { text: mdBody },
       })

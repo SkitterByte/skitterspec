@@ -168,7 +168,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 4 | Assignment on the kit seam | ✅ | [04-assignment.md](04-assignment.md) |
 | 5 | Release work item on the release seam | ✅ | [05-release-seam.md](05-release-seam.md) |
 | 6 | Distribution + release wiring | ✅ | [06-distribution-release.md](06-distribution-release.md) |
-| 7 | Docs, live smoke, ereqs migration path | ⬜ | [07-docs-smoke-migration.md](07-docs-smoke-migration.md) |
+| 7 | Docs, live smoke, ereqs migration path | 🔄 | [07-docs-smoke-migration.md](07-docs-smoke-migration.md) |
 
 ## Open questions
 
@@ -219,3 +219,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-26 — Phase 6: fifth distribution wired everywhere the fourth was
   (one commit's worth of touchpoints, replayed); dist starts at 0.0.0 and the
   first release bumps it.
+- 2026-10-26 — Phase 7: docs page + index links shipped; live smoke against
+  `rjgreaves/spike` green end to end, surfacing two fixes (connectionData is a
+  preview resource; adapter ops accept `AB#n` ids). Migration path ships as
+  MIGRATION.md's azure-boards section. The first release remains: it follows
+  the land, and the tag push is the operator's.

@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@skitterbyte/skittership": "^2.1.0",
+    "@skitterbyte/skitterspec-provider-azure-boards": "workspace:*",
     "@skitterbyte/skitterspec-provider-github": "workspace:*",
     "@skitterbyte/skitterspec-provider-jira": "workspace:*",
     "@skitterbyte/skitterspec-provider-kit": "workspace:*",
