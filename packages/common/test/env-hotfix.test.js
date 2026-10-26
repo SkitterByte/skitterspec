@@ -140,11 +140,37 @@ test('blocks a spec with no Base version (not a hotfix)', () => {
 // --- afterLand -------------------------------------------------------------
 
 const AFTER = { ...CONFIG, afterLand: ['pnpm db:data-migration'] }
-const NO_AFTER = { cwd: null, commands: [] }
+const NO_AFTER = { cwd: null, commands: [], entries: [], range: null }
 
 test('afterLand: planned after the main cherry-pick, in the primary checkout', () => {
   const plan = planHotfixLand(spec(), AFTER, ctx())
-  assert.deepStrictEqual(plan.afterLand, { cwd: '/repo', commands: ['pnpm db:data-migration'] })
+  assert.strictEqual(plan.afterLand.cwd, '/repo')
+  assert.deepStrictEqual(plan.afterLand.commands, ['pnpm db:data-migration'])
+})
+
+const GENERATE = { ...CONFIG, afterLand: [{ run: 'pnpm run db:generate', when: ['prisma/schema.prisma'] }] }
+const carrying = (files) => ctx({ carry: { strategy: 'inplace', path: '/repo', commits: ['abc'], files } })
+
+test('afterLand: the carried commits are the range — a fix touching the schema runs generate', () => {
+  const plan = planHotfixLand(spec(), GENERATE, carrying(['prisma/schema.prisma']))
+  assert.deepStrictEqual(plan.afterLand.commands, ['pnpm run db:generate'])
+  assert.strictEqual(plan.afterLand.entries[0].matched, 'prisma/schema.prisma')
+})
+
+test('afterLand: a fix touching only src/ skips it', () => {
+  const plan = planHotfixLand(spec(), GENERATE, carrying(['src/login.ts']))
+  assert.deepStrictEqual(plan.afterLand.commands, [])
+  assert.strictEqual(plan.afterLand.entries[0].decision, 'skipped')
+})
+
+test('afterLand: carried files unknown (null, or no carry list) → generate runs', () => {
+  assert.strictEqual(planHotfixLand(spec(), GENERATE, carrying(null)).afterLand.entries[0].decision, 'unknown')
+  assert.strictEqual(planHotfixLand(spec(), GENERATE, ctx()).afterLand.entries[0].decision, 'unknown')
+})
+
+test('afterLand: a prod-only land plans nothing, conditional or not', () => {
+  const config = { ...GENERATE, hotfix: { ...CONFIG.hotfix, cherryPickMain: false } }
+  assert.deepStrictEqual(planHotfixLand(spec(), config, carrying(['prisma/schema.prisma'])).afterLand, NO_AFTER)
 })
 
 test('afterLand: none when cherryPickMain is off — main gained nothing', () => {

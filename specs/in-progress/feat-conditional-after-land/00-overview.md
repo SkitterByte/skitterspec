@@ -89,8 +89,8 @@ A land touching only `src/` prints:
   then, in the primary checkout (/repo), run (stop at the first failure):
     pnpm db:data-migration
   skipped (nothing in the land matched):
-    pnpm install --frozen-lockfile   — when pnpm-lock.yaml, **/package.json
-    pnpm run db:generate             — when prisma/schema.prisma
+    pnpm install --frozen-lockfile   # when pnpm-lock.yaml, **/package.json
+    pnpm run db:generate             # when prisma/schema.prisma
 ```
 
 The plan object's `afterLand` grows from `{ cwd, commands }` to
@@ -118,7 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Config: conditional entries and the setup shorthand | ✅ | [01-config.md](01-config.md) |
-| 2 | Planners and CLI: decide per entry against the land's range | ⬜ | [02-plan-and-print.md](02-plan-and-print.md) |
+| 2 | Planners and CLI: decide per entry against the land's range | ✅ | [02-plan-and-print.md](02-plan-and-print.md) |
 | 3 | Docs and skills | ⬜ | [03-docs-and-skills.md](03-docs-and-skills.md) |
 
 ## Open questions
@@ -140,3 +140,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   objects (dropped before) are now kept. `{ setup: true }` copies `run`
   literally, so a setup step with `{slug}` tokens is not expanded after a land
   (phase 3 documents this).
+- 2026-10-26 — Phase 2: the reason on each printed line is a shell comment
+  (`cmd   # prisma/schema.prisma changed`), not `— reason`. The skills run
+  these lines as printed, and a dash would have passed two stray arguments.
+  When every entry is skipped, the plan prints `nothing to run` and keeps
+  the skipped list. `hotfix land`'s range is every fix commit except the
+  version commit, so a resumed carry still sees what earlier picks changed.

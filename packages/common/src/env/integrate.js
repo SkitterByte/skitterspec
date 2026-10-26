@@ -1,5 +1,7 @@
 'use strict'
 
+const { globToRegExp } = require('./glob.js')
+
 /**
  * Pure integrate planner for `spec-env integrate`.
  *
@@ -21,7 +23,9 @@
  * fast-forward. `planIntegrateCheckout` below covers that; the shape of what it
  * returns is identical so callers need no second code path.
  *
- * @param {object} ctx   { worktreeState: { dirty }, base, aheadOfBase, mainRepoPath }
+ * @param {object} ctx   { worktreeState: { dirty }, base, aheadOfBase, mainRepoPath,
+ *                        changedFiles } — `changedFiles` is what the land brings
+ *                        in (`base...branch`), or null when it could not be read
  * @returns {object} { blocked, noop, reason, commands, afterLand, base, branch }
  */
 function planIntegrate(spec, config, ctx) {
@@ -39,8 +43,9 @@ function planIntegrate(spec, config, ctx) {
   // Nothing on the branch that isn't already on base → already landed. The
   // after-land commands still apply: the land may have happened on another
   // machine or in an earlier session, leaving them pending in THIS checkout.
+  // That earlier land's range is unknown here, so the range is null.
   if (!aheadOfBase) {
-    return { ...result, noop: true, afterLand: afterLandFor(config, mainRepoPath) }
+    return { ...result, noop: true, afterLand: afterLandFor(config, mainRepoPath, null) }
   }
 
   return {
@@ -49,7 +54,7 @@ function planIntegrate(spec, config, ctx) {
       `git -C ${spec.worktreePath} rebase ${base}`,
       `git -C ${mainRepoPath} merge --ff-only ${branch}`,
     ],
-    afterLand: afterLandFor(config, mainRepoPath),
+    afterLand: afterLandFor(config, mainRepoPath, rangeOf(ctx)),
   }
 }
 
@@ -65,7 +70,7 @@ function planIntegrate(spec, config, ctx) {
  * another spec's branch") for a spec that is finished, and the operator would
  * have to know to switch back by hand.
  *
- * ctx: { dirty, base, aheadOfBase, checkoutPath, onBranch }
+ * ctx: { dirty, base, aheadOfBase, checkoutPath, onBranch, changedFiles }
  */
 function planIntegrateCheckout(spec, config, ctx) {
   const { dirty, base, aheadOfBase, checkoutPath, onBranch } = ctx || {}
@@ -80,7 +85,7 @@ function planIntegrateCheckout(spec, config, ctx) {
   // would refuse the very spec this just finished landing. /spec-complete calls
   // integrate again on exactly that state.
   if (!aheadOfBase) {
-    return { ...result, noop: true, afterLand: afterLandFor(config, checkoutPath) }
+    return { ...result, noop: true, afterLand: afterLandFor(config, checkoutPath, null) }
   }
   if (dirty) {
     return {
@@ -107,26 +112,56 @@ function planIntegrateCheckout(spec, config, ctx) {
       `git -C ${checkoutPath} switch ${base}`,
       `git -C ${checkoutPath} merge --ff-only ${branch}`,
     ],
-    afterLand: afterLandFor(config, checkoutPath),
+    afterLand: afterLandFor(config, checkoutPath, rangeOf(ctx)),
   }
 }
 
 // The after-land half of a plan: `config.afterLand`, to run in `cwd` (the
 // primary checkout, standing on base) once the land commands have succeeded.
 // A blocked plan carries the empty form — nothing landed, so nothing follows.
-function afterLandFor(config, cwd) {
-  const commands = (config && Array.isArray(config.afterLand)) ? config.afterLand.map(runOf) : []
-  return { cwd: commands.length ? cwd : null, commands }
+//
+// `range` is the files the land changes: a list (possibly empty) when known,
+// null when it is not. Each entry gets a decision — `always` (no `when`),
+// `matched` (with the first path that hit), `skipped`, or `unknown` — and
+// `commands` is every entry but the skipped ones, in config order.
+//
+// AN UNKNOWN RANGE RUNS THE CONDITIONAL ENTRIES. A land made elsewhere, or a
+// diff git would not answer, says nothing about what changed, and only one
+// reading is harmless: a redundant generate costs seconds, a skipped one leaves
+// the base red with nothing pointing at why (`.claude/rules/negative-checks.md`
+// rule 4). An EMPTY known range is not unknown — a land whose commits touch no
+// files is healthy, and it skips them.
+function afterLandFor(config, cwd, range = null) {
+  const raw = (config && Array.isArray(config.afterLand)) ? config.afterLand : []
+  const entries = raw.map((e) => decide(asEntry(e), range))
+  const commands = entries.filter((e) => e.decision !== 'skipped').map((e) => e.run)
+  return { cwd: entries.length ? cwd : null, commands, entries, range }
+}
+
+function decide(entry, range) {
+  if (!entry.when) return { ...entry, decision: 'always', matched: null }
+  if (range === null) return { ...entry, decision: 'unknown', matched: null }
+  const res = entry.when.map(globToRegExp)
+  const matched = range.find((f) => res.some((r) => r.test(f)))
+  return matched === undefined
+    ? { ...entry, decision: 'skipped', matched: null }
+    : { ...entry, decision: 'matched', matched }
 }
 
 // Normalised config holds `{ run, when }`; a pure caller may still hand over
 // the plain string an entry is written as.
-function runOf(entry) {
-  return typeof entry === 'string' ? entry : entry.run
+function asEntry(entry) {
+  return typeof entry === 'string' ? { run: entry, when: null } : { run: entry.run, when: entry.when || null }
+}
+
+// `changedFiles` from a planner's ctx, with anything that is not a list read as
+// unknown — a caller that did not supply it said nothing about the range.
+function rangeOf(ctx) {
+  return Array.isArray(ctx && ctx.changedFiles) ? ctx.changedFiles : null
 }
 
 function noAfterLand() {
-  return { cwd: null, commands: [] }
+  return { cwd: null, commands: [], entries: [], range: null }
 }
 
-module.exports = { planIntegrate, planIntegrateCheckout, afterLandFor }
+module.exports = { planIntegrate, planIntegrateCheckout, afterLandFor, rangeOf }

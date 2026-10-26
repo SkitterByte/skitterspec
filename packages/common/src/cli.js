@@ -1920,6 +1920,7 @@ function specEnvIntegrate(dir, config, specArg) {
       aheadOfBase: cahead !== null && Number(cahead) > 0,
       checkoutPath: dir,
       onBranch: cgit(['rev-parse', '--abbrev-ref', 'HEAD']) === spec.branch,
+      changedFiles: landRange(cgit, base, spec.branch),
     })
     if (cplan.blocked) {
       process.stdout.write(`spec-env integrate: blocked — ${cplan.reason}.\n`)
@@ -2017,6 +2018,7 @@ function specEnvIntegrate(dir, config, specArg) {
     base,
     aheadOfBase,
     mainRepoPath: dir,
+    changedFiles: landRange(gitReader(dir), base, spec.branch),
   })
 
   if (plan.blocked) {
@@ -2043,13 +2045,47 @@ function specEnvIntegrate(dir, config, specArg) {
   process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
 }
 
+// The files a land brings into the base branch: `base...branch`, merge-base to
+// the branch tip. Read before the rebase runs, so it is the branch's own
+// changes — `base..branch` would also list what the base gained meanwhile and
+// over-match. A diff git would not answer is null: unknown, never empty.
+function landRange(git, base, branch) {
+  const out = git(['diff', '--name-only', `${base}...${branch}`])
+  if (out === null) return null
+  return out.split('\n').map((l) => l.trim()).filter(Boolean)
+}
+
 // The `afterLand` commands, as a section printed after a land plan — or after
 // integrate's already-landed line. Empty string when none apply, so a project
-// without the key sees exactly the output it always has.
+// without the key sees exactly the output it always has, and one of plain
+// strings sees exactly what it saw before entries could be conditional.
 function afterLandSection(afterLand) {
-  if (!afterLand || !afterLand.commands || afterLand.commands.length === 0) return ''
-  const out = ['', `  then, in the primary checkout (${afterLand.cwd}), run (stop at the first failure):`]
-  for (const cmd of afterLand.commands) out.push(`    ${cmd}`)
+  if (!afterLand || !afterLand.entries || afterLand.entries.length === 0) return ''
+  const entries = afterLand.entries
+  const ran = entries.filter((e) => e.decision !== 'skipped')
+  const skipped = entries.filter((e) => e.decision === 'skipped')
+  const width = Math.max(...entries.map((e) => e.run.length))
+  const out = ['']
+  if (ran.length) {
+    out.push(`  then, in the primary checkout (${afterLand.cwd}), run (stop at the first failure):`)
+    for (const e of ran) {
+      // The reason is a shell COMMENT, not prose after a dash: these lines are
+      // run as printed, and `cmd — path changed` would hand the command two
+      // stray arguments.
+      if (e.decision === 'matched') out.push(`    ${e.run.padEnd(width)}   # ${e.matched} changed`)
+      else if (e.decision === 'unknown') out.push(`    ${e.run.padEnd(width)}   # range unknown`)
+      else out.push(`    ${e.run}`)
+    }
+  } else {
+    out.push(`  after-land, in the primary checkout (${afterLand.cwd}): nothing to run.`)
+  }
+  if (ran.some((e) => e.decision === 'unknown')) {
+    out.push("  the land's changed files are unknown here, so the conditional entries run.")
+  }
+  if (skipped.length) {
+    out.push('  skipped (nothing in the land matched):')
+    for (const e of skipped) out.push(`    ${e.run.padEnd(width)}   # when ${e.when.join(', ')}`)
+  }
   return out.join('\n') + '\n'
 }
 
@@ -2111,6 +2147,12 @@ function hotfixCarry(dir, spec, base, wtGit, released) {
       .map((l) => l.slice(2).trim()),
   )
   const commits = fixCommits.filter((sha) => !already.has(sha))
+  // What main gains from the whole fix, for afterLand's `when` — taken from
+  // every fix commit rather than the remaining ones, so a carry resumed after a
+  // partial run still sees what the earlier picks changed. A commit git would
+  // not describe makes the range unknown (null), which runs the conditional
+  // entries rather than skipping them.
+  const files = carryFiles(wtGit, fixCommits)
 
   // Which checkout, if any, has the base branch checked out.
   const list = git(['worktree', 'list', '--porcelain']) || ''
@@ -2123,12 +2165,22 @@ function hotfixCarry(dir, spec, base, wtGit, released) {
   let carry
   if (where) {
     const st = gitReader(where)(['status', '--porcelain'])
-    carry = { strategy: st ? 'dirty' : 'inplace', path: where, commits }
+    carry = { strategy: st ? 'dirty' : 'inplace', path: where, commits, files }
   } else {
     const tmpPath = path.join(path.dirname(spec.worktreePath), `${spec.slug}-carry-${base}`)
-    carry = { strategy: 'worktree', path: dir, tmpPath, commits }
+    carry = { strategy: 'worktree', path: dir, tmpPath, commits, files }
   }
   return { fixCommits, carry }
+}
+
+function carryFiles(git, commits) {
+  const files = new Set()
+  for (const sha of commits) {
+    const out = git(['diff-tree', '--no-commit-id', '--name-only', '-r', sha])
+    if (out === null) return null
+    for (const line of out.split('\n')) if (line.trim()) files.add(line.trim())
+  }
+  return [...files]
 }
 
 // `hotfix finish`: tear a landed hotfix down once its deploy is out. The guards

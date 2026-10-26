@@ -49,7 +49,7 @@ process.stdout.write(JSON.stringify({ tag, version: '1.0.0-hotfix.1', baseTag: '
   return { command: `node ${stub}`, calls }
 }
 
-function scaffold(hotfix = {}) {
+function scaffold(hotfix = {}, extra = {}) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-')))
   const dir = path.join(root, 'repo')
   fs.mkdirSync(dir)
@@ -59,7 +59,7 @@ function scaffold(hotfix = {}) {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ worktree: { root: '../wt', folderPattern: '{slug}' }, hotfix }, null, 2),
+    JSON.stringify({ worktree: { root: '../wt', folderPattern: '{slug}' }, hotfix, ...extra }, null, 2),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ version: '1.0.0' }) + '\n')
@@ -151,6 +151,27 @@ test('releaseWith + --push: released, branch then tag pushed, then carried', asy
     assert.strictEqual(JSON.parse(fs.readFileSync(record(env.dir), 'utf8')).tag, 'v1.0.0-hotfix.1')
     assert.match(fs.readFileSync(path.join(env.dir, 'app.js'), 'utf8'), /fixed/, 'main gained the fix')
     assert.ok(!git(env.dir, 'tag', '--list').split('\n').includes('v1.0.1'), 'no built-in tag')
+  } finally {
+    fs.rmSync(env.root, { recursive: true, force: true })
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('afterLand: the carried fix is the range — the version commit is not in it', async () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const stub = writeStub(root)
+  const env = scaffold({ releaseWith: stub.command }, {
+    afterLand: [
+      { run: 'echo app', when: ['app.js'] },
+      { run: 'echo install', when: ['package.json'] },
+    ],
+  })
+  try {
+    const { out, code } = await land(env.dir, '--push')
+    assert.strictEqual(code, 0, out)
+    assert.match(out, /\n    echo app +# app\.js changed\n/)
+    assert.match(out, /skipped \(nothing in the land matched\):\n    echo install +# when package\.json\n/,
+      'the release bumped package.json on the branch, but main never gains that commit')
   } finally {
     fs.rmSync(env.root, { recursive: true, force: true })
     fs.rmSync(root, { recursive: true, force: true })

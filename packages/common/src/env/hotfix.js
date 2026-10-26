@@ -21,7 +21,7 @@
  */
 
 const path = require('node:path')
-const { afterLandFor } = require('./integrate.js')
+const { afterLandFor, rangeOf } = require('./integrate.js')
 
 /**
  * Parse a semver-ish tag and return it with its PATCH bumped by one. Preserves any
@@ -333,7 +333,9 @@ function planHotfixLand(spec, config, ctx) {
       commits: picks,
     })
     targets.push({ kind: 'main', base: c.base })
-    afterLand = afterLandFor(config, c.mainRepoPath)
+    // The range is the files the carried fix touches — `carry.files`, read by
+    // the caller from the fix commits; absent or unreadable → unknown → run.
+    afterLand = afterLandFor(config, c.mainRepoPath, rangeOf({ changedFiles: carry.files }))
   }
 
   return { ...result, commands, steps, afterLand, prodTag, targets, fixRange }

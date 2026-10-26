@@ -230,6 +230,71 @@ test('integrate still prints afterLand when the spec already landed', async () =
   }
 })
 
+const CONDITIONAL = {
+  afterLand: [
+    { run: 'pnpm run db:generate', when: ['prisma/schema.prisma'] },
+    'pnpm db:data-migration',
+  ],
+}
+
+function commitIn(worktree, rel) {
+  fs.mkdirSync(path.dirname(path.join(worktree, rel)), { recursive: true })
+  fs.writeFileSync(path.join(worktree, rel), 'x\n')
+  git(worktree, 'add', '-A')
+  git(worktree, 'commit', '-q', '-m', `touch ${rel}`)
+}
+
+test('integrate: a land touching prisma/schema.prisma runs generate, and says why', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree(CONDITIONAL)
+  try {
+    commitIn(worktree, 'prisma/schema.prisma')
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /\n    pnpm run db:generate +# prisma\/schema\.prisma changed\n    pnpm db:data-migration\n/)
+    assert.doesNotMatch(out, /skipped/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate: a land touching only src/ skips generate and lists it as skipped', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree(CONDITIONAL)
+  try {
+    commitIn(worktree, 'src/a.ts')
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    const run = out.slice(out.indexOf('then, in the primary checkout'), out.indexOf('skipped'))
+    assert.doesNotMatch(run, /db:generate/)
+    assert.match(out, /skipped \(nothing in the land matched\):\n    pnpm run db:generate +# when prisma\/schema\.prisma\n/)
+    assert.doesNotMatch(out, /unknown/, 'a known range accuses nothing of being unknown')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate: already landed, the range is unknown — generate runs, and the plan says so', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree(CONDITIONAL)
+  try {
+    commitIn(worktree, 'src/a.ts')
+    git(dir, 'merge', '-q', '--ff-only', 'feat/x')
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /already landed on main/)
+    assert.match(out, /\n    pnpm run db:generate +# range unknown\n/)
+    assert.match(out, /changed files are unknown here, so the conditional entries run/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('integrate: every entry skipped still names the checkout and runs nothing', async () => {
+  const { dir } = scaffoldRepoWithWorktree({ afterLand: [CONDITIONAL.afterLand[0]] })
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /after-land, in the primary checkout \(.*\): nothing to run\./)
+    assert.doesNotMatch(out, /then, in the primary checkout/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('integrate says nothing about afterLand when the key is absent', async () => {
   const { dir } = scaffoldRepoWithWorktree()
   try {
