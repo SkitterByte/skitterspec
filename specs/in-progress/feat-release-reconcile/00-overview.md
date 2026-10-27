@@ -1,15 +1,17 @@
 ---
 github_identifier: "#46"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/46"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Self-healing release mirror — `release reconcile`
 
 > **Type:** Feature
 > **Name:** feat-release-reconcile
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-27)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-27
 > **Area:** packages/provider-kit/src/releases.js, packages/github/src/api.js, packages/github/src/cli-sync.js, packages/github/assets/core/, .github/workflows/
 > **Stack:** worktree
@@ -124,6 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-27 | Ready | backlog | Reuben Greaves |
+| 2026-10-27 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
