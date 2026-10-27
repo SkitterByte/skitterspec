@@ -705,6 +705,16 @@ function makeApiAdapter({
       return raw ? releaseOf(raw) : null
     },
 
+    /**
+     * Every release in the repo, for `release reconcile`. Hand-made releases
+     * ride through here too — the caller filters to the ones carrying the
+     * skitterspec marker and must leave the rest alone.
+     */
+    async releaseList() {
+      const raw = await restAll(`${repoPath}/releases`)
+      return raw.map(releaseOf).filter(Boolean)
+    },
+
     async releaseCreate({ tag, name, body, prerelease = true }) {
       assertBodyFits(body, `the ${tag} release`)
       // `make_latest: false` while staged: a release still on its way through
@@ -771,8 +781,13 @@ function makeApiAdapter({
       return { set }
     },
 
-    async releaseComplete(release) {
-      const raw = await rest('PATCH', `${repoPath}/releases/${release.id}`, { body: { prerelease: false, make_latest: 'true' } })
+    /**
+     * `latest: false` completes without taking GitHub's "Latest" badge — what
+     * reconcile passes for every release but a series' newest, so a backfilled
+     * old version cannot steal it from the one that actually is.
+     */
+    async releaseComplete(release, { latest = true } = {}) {
+      const raw = await rest('PATCH', `${repoPath}/releases/${release.id}`, { body: { prerelease: false, make_latest: latest ? 'true' : 'false' } })
       Object.assign(release, releaseOf(raw) || {})
       return release
     },

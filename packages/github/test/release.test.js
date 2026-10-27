@@ -25,7 +25,7 @@ function spec(dir, name, bucket, identifier) {
 // History: #1 complete, #2 in flight, a #9 nobody claims, a foreign repo's ref,
 // a bookkeeping commit, and an older tracker's trailer. Tags demo@1.0.0 then
 // demo@1.1.0, plus a hotfix demo@1.0.1 cut from 1.0.0.
-function repo() {
+function repo(series = SERIES) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-rel-'))
   const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf-8' }).trim()
   git('init', '-q', '-b', 'main')
@@ -33,7 +33,7 @@ function repo() {
   git('config', 'user.name', 'T')
   git('config', 'commit.gpgsign', 'false')
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: { owner: 'o', repo: 'r', project: 7 }, releases: { series: SERIES } }))
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: { owner: 'o', repo: 'r', project: 7 }, releases: { series } }))
   spec(dir, 'feat-one', 'complete', '#1')
   spec(dir, 'feat-two', 'in-progress', '#2')
   const commit = (file, msg) => {
@@ -64,9 +64,9 @@ class Sink {
     this.text += s
   }
 }
-async function run(args, dir, adapter) {
+async function run(args, dir, adapter, fetch) {
   const out = new Sink()
-  const code = await specSync(args, { cwd: dir, out, err: new Sink(), adapter, env: {} })
+  const code = await specSync(args, { cwd: dir, out, err: new Sink(), adapter, fetch, env: {} })
   return { code, out: out.text }
 }
 
@@ -121,10 +121,13 @@ function fakeAdapter({ tagOnRemote = true, findThrows = false } = {}) {
       for (const t of tickets) fields.set(t.ref, option)
       return { set: tickets.length }
     },
-    async releaseComplete(release) {
-      calls.push(['complete', release.tag])
+    async releaseComplete(release, { latest = true } = {}) {
+      calls.push(['complete', release.tag, latest])
       releases.get(release.tag).prerelease = false
       return release
+    },
+    async releaseList() {
+      return [...releases.values()].map((r) => ({ ...r }))
     },
   }
 }
@@ -257,6 +260,170 @@ test('a provider adapter without the release ops refuses in one line', async () 
   const r = await run(['release', 'create', 'demo@1.1.0'], repo(), { readIssue: async () => null })
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /has no release support/)
+})
+
+// --- reconcile: the self-healing half of the mirror ---------------------------
+//
+// Approvals that happen outside `release deployed` — the npm website, a missed
+// CI run — are caught by `release reconcile`: it probes the registry and moves
+// every marked release whose version is live (or contained in a newer live one)
+// to the series' FINAL env. All registry reads go through the injected fetch.
+
+const NPM_SERIES = [{ tagPrefix: 'demo@', envs: { staged: 'Staged', test: 'Test', prod: 'Prod' }, npm: 'demo-pkg' }]
+
+// name → versions[] (live), or { status } for a registry that answers badly.
+function fakeRegistry(map) {
+  return async (url) => {
+    const name = decodeURIComponent(url.slice(url.lastIndexOf('/') + 1))
+    const entry = map[name]
+    if (!entry) return { ok: false, status: 404, json: async () => ({}) }
+    if (entry.status) return { ok: false, status: entry.status, json: async () => ({}) }
+    return { ok: true, status: 200, json: async () => ({ versions: Object.fromEntries(entry.map((v) => [v, {}])) }) }
+  }
+}
+
+test('reconcile is a dry run by default: the plan, nothing written', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  const before = a.calls.length
+  const r = await run(['release', 'reconcile'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /dry run/)
+  assert.match(r.out, /demo@1\.1\.0: would move to prod and complete \(latest\)/)
+  assert.strictEqual(a.calls.length, before, 'nothing written on a dry run')
+})
+
+test('reconcile --apply moves a live release to the final env and completes it as latest', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /demo@1\.1\.0: moved to prod and completed \(latest\) — 2 issue\(s\)/)
+  assert.deepStrictEqual([...a.fields.entries()], [['#1', 'Prod'], ['#2', 'Prod']])
+  const rel = a.releases.get('demo@1.1.0')
+  assert.strictEqual(stageOf(rel.body), 'prod')
+  assert.strictEqual(rel.prerelease, false)
+  assert.deepStrictEqual(a.calls.at(-1), ['complete', 'demo@1.1.0', true])
+})
+
+test('containment: a superseded release moves when a NEWER version is live, and never takes latest', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.0.1', '--apply'], dir, a)
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  // Only 1.1.0 was ever approved on npm; 1.0.1's commits shipped inside it.
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  const completes = a.calls.filter((c) => c[0] === 'complete')
+  assert.deepStrictEqual(completes, [['complete', 'demo@1.0.1', false], ['complete', 'demo@1.1.0', true]], 'ascending, latest only on the newest')
+  assert.strictEqual(stageOf(a.releases.get('demo@1.0.1').body), 'prod')
+})
+
+test('an older release reconciled beside an already-final newer one never takes latest', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.0.1', '--apply'], dir, a)
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  await run(['release', 'deployed', 'demo@1.1.0', 'prod', '--apply'], dir, a)
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(a.calls.filter((c) => c[0] === 'complete'), [['complete', 'demo@1.0.1', false]])
+})
+
+test('STAYS SILENT: a version the registry has not got yet is kept, and nothing is written', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  const before = a.calls.length
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.0.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /demo@1\.1\.0: kept — not on npm yet/)
+  assert.strictEqual(a.calls.length, before)
+})
+
+test('STAYS SILENT: a package the registry answers 404 for moves nothing and exits 0', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({}))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /not on the public registry/)
+  assert.strictEqual(stageOf(a.releases.get('demo@1.1.0').body), 'staged')
+})
+
+test('STAYS SILENT: an unreachable registry moves nothing and exits 0', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, async () => {
+    throw new Error('ENOTFOUND registry.npmjs.org')
+  })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /registry unreachable/)
+  assert.strictEqual(stageOf(a.releases.get('demo@1.1.0').body), 'staged')
+})
+
+test('STAYS SILENT: a series with no npm name is skipped with the reason named', async () => {
+  const dir = repo(SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /no "npm" name to probe/)
+  assert.strictEqual(stageOf(a.releases.get('demo@1.1.0').body), 'staged')
+})
+
+test('STAYS SILENT: a hand-made release without the marker is never read or written', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  a.releases.set('demo@0.9.0', { id: 99, tag: 'demo@0.9.0', url: null, body: 'hand-written notes', prerelease: false })
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['0.9.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /nothing to reconcile/)
+  assert.strictEqual(a.releases.get('demo@0.9.0').body, 'hand-written notes')
+})
+
+test('STAYS SILENT: a release already at the final env owes nothing', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  await run(['release', 'deployed', 'demo@1.1.0', 'prod', '--apply'], dir, a)
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /nothing to reconcile/)
+})
+
+test('reconcile --json carries the plan', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.1.0', '--apply'], dir, a)
+  const r = await run(['release', 'reconcile', '--json'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  const parsed = JSON.parse(r.out)
+  assert.strictEqual(parsed.apply, false)
+  assert.strictEqual(parsed.releases.length, 1)
+  assert.strictEqual(parsed.releases[0].tag, 'demo@1.1.0')
+})
+
+test('a listing that failed refuses loudly — a cannot-tell about every release at once', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  a.releaseList = async () => {
+    throw new Error('502 Bad Gateway')
+  }
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /could not list releases/)
+})
+
+test('an adapter without releaseList refuses in one line', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  delete a.releaseList
+  const r = await run(['release', 'reconcile'], dir, a)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /no reconcile support \(releaseList\)/)
 })
 
 // --- the kit's pure pieces ----------------------------------------------------

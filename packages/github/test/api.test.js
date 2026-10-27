@@ -430,6 +430,23 @@ test('releaseComplete clears prerelease and makes it Latest', async () => {
   assert.deepStrictEqual(calls[0].body, { prerelease: false, make_latest: 'true' })
 })
 
+test('releaseComplete with latest: false completes without taking Latest', async () => {
+  const { a, calls } = adapter(() => res({ id: 6, tag_name: 't', prerelease: false }))
+  await a.releaseComplete({ id: 6, tag: 't' }, { latest: false })
+  assert.deepStrictEqual(calls[0].body, { prerelease: false, make_latest: 'false' })
+})
+
+test('releaseList pages through every release and normalises each', async () => {
+  const page = (n, count) =>
+    Array.from({ length: count }, (_, i) => ({ id: n * 1000 + i, tag_name: `demo@${n}.${i}.0`, html_url: null, body: 'b', prerelease: true }))
+  const { a, calls } = adapter((call, i) => res(i === 1 ? page(1, 100) : page(2, 3)))
+  const got = await a.releaseList()
+  assert.strictEqual(got.length, 103)
+  assert.deepStrictEqual(got[0], { id: 1000, tag: 'demo@1.0.0', url: null, body: 'b', prerelease: true })
+  assert.strictEqual(calls.length, 2)
+  assert.match(calls[0].url, /\/releases\?per_page=100&page=1$/)
+})
+
 test('releaseAttach comments once per issue, found again by its marker', async () => {
   const posted = []
   const { a } = adapter((call) => {

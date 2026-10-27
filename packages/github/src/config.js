@@ -246,7 +246,16 @@ function mergeConfig(base, parsed) {
             envs[key] = option.trim()
           }
         }
-        return { tagPrefix, envs }
+        // `npm` is the series' registry name, probed by `release reconcile`.
+        // Optional: a series without one is simply never reconciled.
+        let npm = null
+        if (entry.npm !== undefined) {
+          if (typeof entry.npm !== 'string' || !entry.npm.trim()) {
+            throw invalid(`releases.series[${i}].npm`, entry.npm, 'the package\'s npm name, e.g. "@scope/name"')
+          }
+          npm = entry.npm.trim()
+        }
+        return npm ? { tagPrefix, envs, npm } : { tagPrefix, envs }
       })
     }
   }

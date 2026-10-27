@@ -125,6 +125,59 @@ function composeBody({ notes, tickets, links, stage, describe }) {
   return withStage(parts.join('\n\n'), stage)
 }
 
+/**
+ * Parse an `x.y.z[-suffix]` version for ordering. A bare version outranks a
+ * suffixed one at the same triplet (so `1.0.0` > `1.0.0-stage`), which is all
+ * the precedence these tags need: the release workflow validates them to
+ * `x.y.z`, and suffixes only appear on registry placeholders.
+ */
+function parseVersion(v) {
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(String(v || ''))
+  return m ? { n: [Number(m[1]), Number(m[2]), Number(m[3])], bare: !/[-+]/.test(v) } : null
+}
+
+/** -1 / 0 / 1 over parseVersion; an unparseable version sorts below everything. */
+function compareVersions(a, b) {
+  const pa = parseVersion(a)
+  const pb = parseVersion(b)
+  if (!pa || !pb) return (pa ? 1 : 0) - (pb ? 1 : 0)
+  for (let i = 0; i < 3; i++) {
+    if (pa.n[i] !== pb.n[i]) return pa.n[i] < pb.n[i] ? -1 : 1
+  }
+  if (pa.bare !== pb.bare) return pa.bare ? 1 : -1
+  return 0
+}
+
+/**
+ * The versions of `name` that are live on the npm registry, as a Set.
+ *
+ * ABSENCE IS NOT FAILURE, in either direction. A version missing from the set
+ * means "not published yet" — the registry is eventually consistent, so a
+ * just-approved version can be minutes away. A 404 on the whole package means
+ * "unpublished, private, or too new", three states this unauthenticated read
+ * cannot tell apart — so the caller treats every `ok: false` as a cannot-tell
+ * and moves nothing (`.claude/rules/negative-checks.md` rule 4).
+ */
+async function npmLiveVersions(name, fetchImpl) {
+  const url = `https://registry.npmjs.org/${encodeURIComponent(String(name))}`
+  let res
+  try {
+    res = await fetchImpl(url, { headers: { accept: 'application/json' } })
+  } catch (error) {
+    return { ok: false, reason: `registry unreachable (${String(error.message).split('\n')[0]})` }
+  }
+  if (res.status === 404) return { ok: false, reason: 'not on the public registry (unpublished, private, or not settled yet)' }
+  if (!res.ok) return { ok: false, reason: `registry answered ${res.status}` }
+  let doc
+  try {
+    doc = await res.json()
+  } catch {
+    return { ok: false, reason: 'unreadable registry answer' }
+  }
+  const versions = doc && doc.versions && typeof doc.versions === 'object' ? Object.keys(doc.versions) : []
+  return { ok: true, versions: new Set(versions) }
+}
+
 // `--link <url>[=label]`, repeatable. http(s) only: this lands in a body a
 // tracker renders as a link, and a `javascript:` url there is script.
 function parseLinks(raw) {
@@ -337,6 +390,106 @@ function makeReleaseCommands(p) {
     return emit(out, flags, lines, { tag, apply: true })
   }
 
+  /**
+   * `reconcile` — move every marked release whose version is live on npm (or
+   * contained in a newer live version of its series) to the series' final env,
+   * then complete it. The self-healing half of the mirror: approvals that
+   * happen outside `release deployed` — the npm website, a missed CI run — are
+   * caught here on the next run. Dry by default, like every other verb.
+   *
+   * Only releases carrying the skitterspec stage marker are considered, so a
+   * hand-made release is never read or written. A release already at the final
+   * env owes nothing and is skipped in silence.
+   */
+  async function reconcile(dir, config, flags, out) {
+    const series = p.series(config)
+    if (!series.length) return refuse(out, `no releases.series configured — add one to the ${p.tracker} config`)
+    if (p.impossibleOverMcp) {
+      const why = p.impossibleOverMcp(config, flags)
+      if (why) return refuse(out, why)
+    }
+    const got = p.adapterFor(config, flags)
+    if (!got.ok) return refuse(out, got.error)
+    const adapter = got.adapter
+    const missing = [...REQUIRED_OPS, 'releaseList'].filter((op) => typeof adapter[op] !== 'function')
+    if (missing.length) return refuse(out, `the ${p.tracker} provider has no reconcile support (${missing.join(', ')})`)
+
+    let all
+    try {
+      all = await adapter.releaseList()
+    } catch (error) {
+      // A listing that failed is a cannot-tell about every release at once:
+      // refuse loudly (a scheduled run should go red) and write nothing.
+      return refuse(out, `could not list releases (${String(error.message).split('\n')[0]}) — nothing reconciled`)
+    }
+    const marked = all.filter((r) => stageOf(r.body) != null)
+
+    const fetchImpl = flags.fetch || p.fetch || globalThis.fetch
+    const lines = [`${prog} reconcile:${flags.apply ? '' : ' (dry run — pass --apply to write)'}`]
+    const result = { apply: !!flags.apply, releases: [] }
+    const note = (tag, action, reason) => {
+      lines.push(`  ${tag}: ${action}${reason ? ` — ${reason}` : ''}`)
+      result.releases.push({ tag, action, ...(reason ? { reason } : {}) })
+    }
+
+    for (const s of series) {
+      const envKeys = Object.keys(s.envs || {})
+      const finalEnv = envKeys[envKeys.length - 1]
+      const mine = marked.filter((r) => seriesFor(series, r.tag) === s)
+      const version = (r) => r.tag.slice(s.tagPrefix.length)
+      const open = mine.filter((r) => stageOf(r.body) !== finalEnv).sort((a, b) => compareVersions(version(a), version(b)))
+      if (!finalEnv || !open.length) continue
+      if (!s.npm) {
+        note(`${s.tagPrefix}*`, 'skipped', `${open.length} release(s) short of ${finalEnv}, but the series has no "npm" name to probe`)
+        continue
+      }
+      const live = await npmLiveVersions(s.npm, fetchImpl)
+      if (!live.ok) {
+        // Cannot tell is not "not published": keep every release where it is.
+        note(`${s.tagPrefix}*`, 'skipped', `npm ${s.npm}: ${live.reason}`)
+        continue
+      }
+      const newestLive = [...live.versions].sort(compareVersions).pop() || null
+      // A release already at the final env bounds `make_latest`: a reconciled
+      // older version must never steal Latest from it.
+      const newestFinal = mine
+        .filter((r) => stageOf(r.body) === finalEnv)
+        .map(version)
+        .sort(compareVersions)
+        .pop()
+      const movable = open.filter((r) => {
+        const v = version(r)
+        // Live itself, or contained: a NEWER live version in the same series
+        // carries this tag's commits, so its issues shipped.
+        return live.versions.has(v) || (newestLive && compareVersions(newestLive, v) > 0)
+      })
+      const latestTag = movable.length ? movable[movable.length - 1].tag : null
+      for (const r of open) {
+        const v = version(r)
+        if (!movable.includes(r)) {
+          note(r.tag, 'kept', `not on npm yet (${s.npm})`)
+          continue
+        }
+        const latest = r.tag === latestTag && (!newestFinal || compareVersions(v, newestFinal) > 0)
+        if (!flags.apply) {
+          note(r.tag, `would move to ${finalEnv} and complete${latest ? ' (latest)' : ''}`)
+          continue
+        }
+        const t = ticketsOf(dir, config, r.tag, s)
+        if (!t.ok) {
+          note(r.tag, 'skipped', t.error)
+          continue
+        }
+        await adapter.releaseStage(r, s.envs[finalEnv], t.attach)
+        await adapter.releaseUpdate(r, { name: r.tag, body: withStage(r.body, finalEnv) })
+        await adapter.releaseComplete(r, { latest })
+        note(r.tag, `moved to ${finalEnv} and completed${latest ? ' (latest)' : ''}`, `${t.attach.length} issue(s)`)
+      }
+    }
+    if (lines.length === 1) lines.push('  nothing to reconcile')
+    return emit(out, flags, lines, result)
+  }
+
   // Titles for the body, best-effort: a ticket the tracker cannot read is
   // still listed, by ref. The body is information, not a gate.
   async function describeAll(adapter, tickets) {
@@ -366,15 +519,17 @@ function makeReleaseCommands(p) {
     if (verb === 'create') return create(dir, config, tag, flags, out)
     if (verb === 'deployed') return deployed(dir, config, tag, env, flags, out)
     if (verb === 'complete') return complete(dir, config, tag, flags, out)
+    if (verb === 'reconcile') return reconcile(dir, config, flags, out)
     out.write(
       `Usage: ${prog} create <tag> [--notes <f>] [--link <url>[=label]] [--stage <env>] [--apply] [--json]\n` +
         `       ${prog} deployed <tag> <env> [--apply] [--json]\n` +
-        `       ${prog} complete <tag> [--apply] [--json]\n`,
+        `       ${prog} complete <tag> [--apply] [--json]\n` +
+        `       ${prog} reconcile [--apply] [--json]\n`,
     )
     return verb ? 1 : 0
   }
 
-  return { run, create, deployed, complete }
+  return { run, create, deployed, complete, reconcile }
 }
 
-module.exports = { makeReleaseCommands, resolveRange, seriesFor, composeBody, stageOf, withStage, parseLinks, REQUIRED_OPS }
+module.exports = { makeReleaseCommands, resolveRange, seriesFor, composeBody, stageOf, withStage, parseLinks, parseVersion, compareVersions, npmLiveVersions, REQUIRED_OPS }

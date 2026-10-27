@@ -113,7 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Reconcile verb — move staged releases that are live on npm | ⬜ | [01-reconcile-verb.md](01-reconcile-verb.md) |
+| 1 | Reconcile verb — move staged releases that are live on npm | ✅ | [01-reconcile-verb.md](01-reconcile-verb.md) |
 | 2 | Backfill missing releases for pushed tags | ⬜ | [02-backfill-missing-releases.md](02-backfill-missing-releases.md) |
 | 3 | Workflow + docs; clear this repo's backlog | ⬜ | [03-workflow-and-docs.md](03-workflow-and-docs.md) |
 
@@ -131,3 +131,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-10-27 — Spec created.
+- 2026-10-27 — Phase 1: `releases.series[].npm` needed explicit validation in
+  `packages/github/src/config.js` — the loader normalises series entries, so an
+  undeclared key was silently stripped. Added as a task and done.
+- 2026-10-27 — Phase 1: reconcile's behavioural tests live in
+  `packages/github/test/release.test.js` (the established end-to-end harness —
+  real repo, fake adapter, injected fetch); the kit's new
+  `test/releases.test.js` covers the pure pieces. Slight re-split from the
+  plan, same coverage.
+- 2026-10-27 — Noted in passing: `env-review-reader.test.js` › "the alternates
+  are real alternatives" failed repeatedly in this worktree, then passed in the
+  same worktree later — environment-dependent (LAN/tailnet address ranking),
+  not related to this spec.
