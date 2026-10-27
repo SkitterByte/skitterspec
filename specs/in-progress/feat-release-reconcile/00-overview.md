@@ -114,7 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Reconcile verb — move staged releases that are live on npm | ✅ | [01-reconcile-verb.md](01-reconcile-verb.md) |
-| 2 | Backfill missing releases for pushed tags | ⬜ | [02-backfill-missing-releases.md](02-backfill-missing-releases.md) |
+| 2 | Backfill missing releases for pushed tags | ✅ | [02-backfill-missing-releases.md](02-backfill-missing-releases.md) |
 | 3 | Workflow + docs; clear this repo's backlog | ⬜ | [03-workflow-and-docs.md](03-workflow-and-docs.md) |
 
 ## Open questions
@@ -139,6 +139,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   real repo, fake adapter, injected fetch); the kit's new
   `test/releases.test.js` covers the pure pieces. Slight re-split from the
   plan, same coverage.
+- 2026-10-27 — Phase 2: a series without an `npm` name skips backfill too, not
+  just the move — reconcile's per-series opt-in is the `npm` key, and creating
+  releases it can never probe would leave them stranded by design. Also: the
+  backfill candidate set excludes any tag with an existing release (marked or
+  not), so a hand-made release's tag is never recreated.
 - 2026-10-27 — Noted in passing: `env-review-reader.test.js` › "the alternates
   are real alternatives" failed repeatedly in this worktree, then passed in the
   same worktree later — environment-dependent (LAN/tailnet address ranking),

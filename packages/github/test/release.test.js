@@ -379,10 +379,87 @@ test('STAYS SILENT: a hand-made release without the marker is never read or writ
   const dir = repo(NPM_SERIES)
   const a = fakeAdapter()
   a.releases.set('demo@0.9.0', { id: 99, tag: 'demo@0.9.0', url: null, body: 'hand-written notes', prerelease: false })
+  a.releases.set('demo@1.0.0', { id: 98, tag: 'demo@1.0.0', url: null, body: withStage('', 'prod'), prerelease: false })
+  a.releases.set('demo@1.0.1', { id: 97, tag: 'demo@1.0.1', url: null, body: withStage('', 'prod'), prerelease: false })
+  a.releases.set('demo@1.1.0', { id: 96, tag: 'demo@1.1.0', url: null, body: withStage('', 'prod'), prerelease: false })
   const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['0.9.0'] }))
   assert.strictEqual(r.code, 0, r.out)
   assert.match(r.out, /nothing to reconcile/)
   assert.strictEqual(a.releases.get('demo@0.9.0').body, 'hand-written notes')
+})
+
+// --- reconcile: backfilling tags no workflow ever mirrored ---------------------
+
+test('backfill: a tag with no release is created, then moved in the same pass when live', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.0.0', '--apply'], dir, a)
+  // 1.0.1 and 1.1.0 were pushed in a batch and no workflow ran; only 1.1.0 was
+  // ever approved on npm.
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /demo@1\.0\.1: created, moved to prod and completed — 1 issue\(s\)/)
+  assert.match(r.out, /demo@1\.1\.0: created, moved to prod and completed \(latest\)/)
+  const completes = a.calls.filter((c) => c[0] === 'complete')
+  assert.deepStrictEqual(completes, [
+    ['complete', 'demo@1.0.0', false],
+    ['complete', 'demo@1.0.1', false],
+    ['complete', 'demo@1.1.0', true],
+  ])
+  assert.strictEqual(stageOf(a.releases.get('demo@1.1.0').body), 'prod')
+})
+
+test('backfill: a created tag that is not live yet stays at the first env', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  await run(['release', 'create', 'demo@1.0.0', '--apply'], dir, a)
+  await run(['release', 'deployed', 'demo@1.0.0', 'prod', '--apply'], dir, a)
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.0.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /demo@1\.0\.1: created at staged — 1 issue\(s\)/)
+  assert.match(r.out, /demo@1\.1\.0: created at staged — 2 issue\(s\)/)
+  assert.strictEqual(stageOf(a.releases.get('demo@1.1.0').body), 'staged')
+  assert.strictEqual(a.releases.get('demo@1.1.0').prerelease, true)
+})
+
+test('STAYS SILENT: a series with no releases backfills only its newest tag', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /demo@1\.1\.0: created, moved to prod and completed \(latest\)/)
+  assert.doesNotMatch(r.out, /demo@1\.0\.0|demo@1\.0\.1/, 'older unmirrored tags are history, not candidates')
+  assert.strictEqual(a.releases.size, 1)
+})
+
+test('backfill is dry by default too', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter()
+  const r = await run(['release', 'reconcile'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /demo@1\.1\.0: would create, move to prod and complete \(latest\) — no release yet/)
+  assert.strictEqual(a.releases.size, 0)
+  assert.strictEqual(a.calls.length, 0)
+})
+
+test('backfill refuses a tag the remote has not got, and only that tag', async () => {
+  const dir = repo(NPM_SERIES)
+  const a = fakeAdapter({ tagOnRemote: false })
+  const r = await run(['release', 'reconcile', '--apply'], dir, a, fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /demo@1\.1\.0: skipped — not on the GitHub remote yet — push the tag first/)
+  assert.strictEqual(a.releases.size, 0)
+})
+
+test('a shallow clone is refused before any range is read', async () => {
+  const dir = repo(NPM_SERIES)
+  const shallow = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-rel-shallow-'))
+  execFileSync('git', ['clone', '-q', '--depth', '1', `file://${dir}`, path.join(shallow, 'clone')], { stdio: 'ignore' })
+  fs.mkdirSync(path.join(shallow, 'clone', 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(shallow, 'clone', CONFIG_FILE), JSON.stringify({ github: { owner: 'o', repo: 'r', project: 7 }, releases: { series: NPM_SERIES } }))
+  const r = await run(['release', 'reconcile'], path.join(shallow, 'clone'), fakeAdapter(), fakeRegistry({ 'demo-pkg': ['1.1.0'] }))
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /shallow.*fetch-depth: 0/)
 })
 
 test('STAYS SILENT: a release already at the final env owes nothing', async () => {

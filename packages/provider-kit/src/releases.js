@@ -424,6 +424,14 @@ function makeReleaseCommands(p) {
     }
     const marked = all.filter((r) => stageOf(r.body) != null)
 
+    const git = gitReader(dir)
+    // Same refusal as `create`: `describe` in a shallow clone finds no previous
+    // tag and a range silently becomes "everything".
+    if (git(['rev-parse', '--is-shallow-repository']) === 'true') {
+      return refuse(out, 'this clone is shallow, so tag ranges cannot be resolved — check out with fetch-depth: 0')
+    }
+    const existingTags = new Set(all.map((r) => r.tag))
+
     const fetchImpl = flags.fetch || p.fetch || globalThis.fetch
     const lines = [`${prog} reconcile:${flags.apply ? '' : ' (dry run — pass --apply to write)'}`]
     const result = { apply: !!flags.apply, releases: [] }
@@ -434,13 +442,31 @@ function makeReleaseCommands(p) {
 
     for (const s of series) {
       const envKeys = Object.keys(s.envs || {})
+      const firstEnv = envKeys[0]
       const finalEnv = envKeys[envKeys.length - 1]
       const mine = marked.filter((r) => seriesFor(series, r.tag) === s)
-      const version = (r) => r.tag.slice(s.tagPrefix.length)
-      const open = mine.filter((r) => stageOf(r.body) !== finalEnv).sort((a, b) => compareVersions(version(a), version(b)))
+      const tailOf = (tag) => tag.slice(s.tagPrefix.length)
+
+      // Backfill: pushed tags with NO release at all — the batched-push case,
+      // where no workflow ran. Bounded so history never floods the releases
+      // page: only tags newer than the series' newest marked release, and the
+      // newest tag alone where the series has none — OLDER UNMIRRORED TAGS ARE
+      // DELIBERATELY LEFT AS HISTORY. A tag whose release exists but carries
+      // no marker is hand-made, so `existingTags` (not `mine`) excludes it.
+      const newestKnown = mine.map((r) => tailOf(r.tag)).sort(compareVersions).pop() || null
+      let missing = (git(['tag', '--list', `${s.tagPrefix}*`]) || '')
+        .split('\n')
+        .filter((t) => t && !existingTags.has(t))
+        .sort((a, b) => compareVersions(tailOf(a), tailOf(b)))
+      missing = newestKnown ? missing.filter((t) => compareVersions(tailOf(t), newestKnown) > 0) : missing.slice(-1)
+
+      const open = [
+        ...mine.filter((r) => stageOf(r.body) !== finalEnv).map((r) => ({ tag: r.tag, release: r })),
+        ...missing.map((tag) => ({ tag, release: null })),
+      ].sort((a, b) => compareVersions(tailOf(a.tag), tailOf(b.tag)))
       if (!finalEnv || !open.length) continue
       if (!s.npm) {
-        note(`${s.tagPrefix}*`, 'skipped', `${open.length} release(s) short of ${finalEnv}, but the series has no "npm" name to probe`)
+        note(`${s.tagPrefix}*`, 'skipped', `${open.length} release(s) owe a move or a backfill, but the series has no "npm" name to probe`)
         continue
       }
       const live = await npmLiveVersions(s.npm, fetchImpl)
@@ -454,36 +480,67 @@ function makeReleaseCommands(p) {
       // older version must never steal Latest from it.
       const newestFinal = mine
         .filter((r) => stageOf(r.body) === finalEnv)
-        .map(version)
+        .map((r) => tailOf(r.tag))
         .sort(compareVersions)
         .pop()
-      const movable = open.filter((r) => {
-        const v = version(r)
+      const movable = open.filter((entry) => {
+        const v = tailOf(entry.tag)
         // Live itself, or contained: a NEWER live version in the same series
         // carries this tag's commits, so its issues shipped.
         return live.versions.has(v) || (newestLive && compareVersions(newestLive, v) > 0)
       })
       const latestTag = movable.length ? movable[movable.length - 1].tag : null
-      for (const r of open) {
-        const v = version(r)
-        if (!movable.includes(r)) {
-          note(r.tag, 'kept', `not on npm yet (${s.npm})`)
-          continue
-        }
-        const latest = r.tag === latestTag && (!newestFinal || compareVersions(v, newestFinal) > 0)
+      for (const entry of open) {
+        const v = tailOf(entry.tag)
+        const mov = movable.includes(entry)
+        const latest = mov && entry.tag === latestTag && (!newestFinal || compareVersions(v, newestFinal) > 0)
         if (!flags.apply) {
-          note(r.tag, `would move to ${finalEnv} and complete${latest ? ' (latest)' : ''}`)
+          if (!entry.release) note(entry.tag, mov ? `would create, move to ${finalEnv} and complete${latest ? ' (latest)' : ''}` : `would create at ${firstEnv}`, 'no release yet')
+          else if (!mov) note(entry.tag, 'kept', `not on npm yet (${s.npm})`)
+          else note(entry.tag, `would move to ${finalEnv} and complete${latest ? ' (latest)' : ''}`)
           continue
         }
-        const t = ticketsOf(dir, config, r.tag, s)
-        if (!t.ok) {
-          note(r.tag, 'skipped', t.error)
+        if (entry.release && !mov) {
+          note(entry.tag, 'kept', `not on npm yet (${s.npm})`)
           continue
+        }
+        const t = ticketsOf(dir, config, entry.tag, s)
+        if (!t.ok) {
+          note(entry.tag, 'skipped', t.error)
+          continue
+        }
+        let r = entry.release
+        let created = false
+        if (!r) {
+          // The same guard `create` carries: a tracker handed a tag it lacks
+          // CREATES it at the default branch's head. `false` refuses this tag;
+          // a throw is a cannot-tell and the create goes ahead.
+          if (adapter.releaseTagExists) {
+            let exists = null
+            try {
+              exists = await adapter.releaseTagExists(entry.tag)
+            } catch {
+              exists = null
+            }
+            if (exists === false) {
+              note(entry.tag, 'skipped', `not on the ${p.tracker} remote yet — push the tag first`)
+              continue
+            }
+          }
+          const body = composeBody({ notes: null, tickets: await describeAll(adapter, t.attach), links: [], stage: firstEnv, describe: p.describe })
+          r = await adapter.releaseCreate({ tag: entry.tag, name: entry.tag, body, prerelease: true })
+          await adapter.releaseAttach(r, t.attach)
+          await adapter.releaseStage(r, s.envs[firstEnv], t.attach)
+          created = true
+          if (!mov) {
+            note(entry.tag, `created at ${firstEnv}`, `${t.attach.length} issue(s)`)
+            continue
+          }
         }
         await adapter.releaseStage(r, s.envs[finalEnv], t.attach)
-        await adapter.releaseUpdate(r, { name: r.tag, body: withStage(r.body, finalEnv) })
+        await adapter.releaseUpdate(r, { name: entry.tag, body: withStage(r.body, finalEnv) })
         await adapter.releaseComplete(r, { latest })
-        note(r.tag, `moved to ${finalEnv} and completed${latest ? ' (latest)' : ''}`, `${t.attach.length} issue(s)`)
+        note(entry.tag, `${created ? 'created, ' : ''}moved to ${finalEnv} and completed${latest ? ' (latest)' : ''}`, `${t.attach.length} issue(s)`)
       }
     }
     if (lines.length === 1) lines.push('  nothing to reconcile')
