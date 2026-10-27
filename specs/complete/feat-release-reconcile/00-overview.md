@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-release-reconcile
-> **Status:** In Progress — Phase 1 (started 2026-10-27)
+> **Status:** Complete (2026-10-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-27
@@ -127,6 +127,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-27 | Ready | backlog | Reuben Greaves |
 | 2026-10-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -156,3 +157,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   are real alternatives" failed repeatedly in this worktree, then passed in the
   same worktree later — environment-dependent (LAN/tailnet address ranking),
   not related to this spec.
+- 2026-10-27 — Completed; all phases done, tests green (4206), the live board
+  repaired by the phase 3 acceptance run.
