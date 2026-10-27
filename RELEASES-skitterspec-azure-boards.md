@@ -5,6 +5,11 @@ What's new for users of skitterspec-azure-boards. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 1.2.1 — 27 Oct 2026
+
+### Review
+- **Fixed** — The review page now offers a Tailscale link, so you can open a review from your phone while away from your home network.
+
 ## 1.2.0 — 26 Oct 2026
 
 ### Azure Boards
