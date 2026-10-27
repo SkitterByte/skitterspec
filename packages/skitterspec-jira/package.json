@@ -1,6 +1,6 @@
 {
   "name": "@skitterbyte/skitterspec-jira",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Spec-driven development for Claude Code, with one-way Jira Cloud sync — a superset of @skitterbyte/skitterspec: the base filesystem workflow plus /spec-status · /spec-push and the spec-sync CLI. The repo is canonical; Jira is a generated mirror. Install this OR the base OR the Linear superset — exactly one.",
   "keywords": [
     "claude",
