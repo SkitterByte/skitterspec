@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Bug
 > **Name:** bug-review-tailnet-address
-> **Status:** In Progress — fixed (green), awaiting review
+> **Status:** Complete (2026-10-27)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-27
@@ -61,8 +61,10 @@ TypeError: tailnetLabel is not a function
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-27 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-27 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-10-27 — Bug reproduced; failing test added (red).
 - 2026-10-27 — Fixed: keep 100.64.0.0/10 on virtual adapters, after the LAN, labelled `(tailnet)`; test green (4174 pass)
+- 2026-10-27 — Completed; all phases done, tests green.
