@@ -560,7 +560,9 @@ test('the alternates are real alternatives to the offered link', async () => {
     // among them at all.
     const open = out.match(/^ {2}network: +(\S+)$/m)
     assert.ok(open, 'a network link was offered')
-    const also = [...out.matchAll(/^ {4}also: +(\S+)$/gm)].map((m) => m[1])
+    // A tailnet alternate carries a ` (tailnet)` label after its URL, so the
+    // line does not end at the URL on a machine running Tailscale.
+    const also = [...out.matchAll(/^ {4}also: +(\S+)(?: \(tailnet\))?$/gm)].map((m) => m[1])
     const served = JSON.parse(review(dir, '--json')).served
     assert.strictEqual(also.length, served.alternates.length, 'text and --json agree')
     for (const url of also) {
