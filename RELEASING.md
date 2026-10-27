@@ -123,6 +123,15 @@ and sets their **Deployed** field to `Staged`; `npm run approve` then sets it to
 package is the release, the board is its mirror — and re-running
 `spec-sync release deployed|complete <tag> --apply` repairs either.
 
+**Approving on the npm website is fine.** The hourly
+`reconcile-releases.yml` workflow runs
+`spec-sync release reconcile --apply`: it asks the registry which versions are
+live and moves their issues to `Published` itself — superseded staged versions
+included — and backfills a release for any pushed tag whose workflow never ran
+(a batch of tags fires no events). `npm run approve`'s own mirror step just
+makes the board instant instead of within the hour; dispatch the workflow by
+hand for the same effect.
+
 CI needs a token the Actions `GITHUB_TOKEN` cannot be: a user-owned Projects
 board accepts only a personal token. Create a **classic** PAT with `repo` and
 `project` and add it as the repo secret **`SKITTERSPEC_GITHUB_TOKEN`**. Without

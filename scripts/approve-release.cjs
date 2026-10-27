@@ -45,6 +45,11 @@ const GITHUB_BIN = path.join('packages', 'github', 'bin', 'skitterspec-github.js
 // to Published, then the release stops being a prerelease. Empty — nothing to
 // run — without the config (tracker mirroring is opt-in), or without a version
 // (a bare stage-id names no tag).
+//
+// This step is the INSTANT path, not the only one: the hourly
+// reconcile-releases.yml workflow runs `spec-sync release reconcile --apply`,
+// which repairs the mirror for approvals made on the npm website (or anywhere
+// else this script never ran). A failure here heals within the hour.
 function trackerCommands(npmShort, version, { configExists }) {
   if (!configExists || !version) return []
   const tag = `${npmShort}@${version}`

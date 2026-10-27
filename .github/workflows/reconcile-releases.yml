@@ -1,0 +1,62 @@
+# Reconcile the release mirror — the self-healing half.
+#
+# `release.yml` marks a staged release's issues Staged, and `npm run approve`
+# moves them to Published — but only when the approval goes through that script.
+# An approval on the npm website, or a batched tag push that fired no workflow
+# (more than ~3 tags in one push creates no events), leaves the board behind.
+# This run asks the npm registry which versions are actually live and repairs
+# the mirror: `spec-sync release reconcile` moves every marked release whose
+# version is live (or contained in a newer live version of its series) to
+# Published, completes it, and backfills a release for a pushed tag that never
+# got one — bounded, so old history stays untouched.
+#
+# Everything it writes is idempotent and dry-runnable: the same command without
+# `--apply` prints the plan. A version the registry has not got yet is "not
+# yet", never a failure, so a quiet hour exits green with nothing to do.
+#
+# NOTE: `actions/setup-node` is used WITHOUT `registry-url` — see release.yml's
+# header for why that option breaks publishes; it is kept out of every workflow
+# so it cannot be copied from a file where it looked harmless.
+
+name: Reconcile releases
+
+on:
+  schedule:
+    # Hourly, off the top of the hour (GitHub thins the :00 crowd).
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history and tags: reconcile ranges each tag from the previous one
+      # in its series, and refuses a shallow clone rather than misread a range.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The token is a classic PAT (repo + project) in the
+      # SKITTERSPEC_GITHUB_TOKEN secret — the Actions GITHUB_TOKEN cannot write
+      # a user-owned Projects board. With no secret the run says so and skips.
+      - name: Reconcile the mirror
+        env:
+          GITHUB_TOKEN: ${{ secrets.SKITTERSPEC_GITHUB_TOKEN }}
+        run: |
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "::notice::no SKITTERSPEC_GITHUB_TOKEN secret — reconcile skipped"
+            exit 0
+          fi
+          node packages/github/bin/skitterspec-github.js spec-sync release reconcile --apply

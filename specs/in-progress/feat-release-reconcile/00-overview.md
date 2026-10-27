@@ -115,7 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Reconcile verb — move staged releases that are live on npm | ✅ | [01-reconcile-verb.md](01-reconcile-verb.md) |
 | 2 | Backfill missing releases for pushed tags | ✅ | [02-backfill-missing-releases.md](02-backfill-missing-releases.md) |
-| 3 | Workflow + docs; clear this repo's backlog | ⬜ | [03-workflow-and-docs.md](03-workflow-and-docs.md) |
+| 3 | Workflow + docs; clear this repo's backlog | ✅ | [03-workflow-and-docs.md](03-workflow-and-docs.md) |
 
 ## Open questions
 
@@ -144,6 +144,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   releases it can never probe would leave them stranded by design. Also: the
   backfill candidate set excludes any tag with an existing release (marked or
   not), so a hand-made release's tag is never recreated.
+- 2026-10-27 — Phase 3: the config was missing a `skitterspec-azure-boards@`
+  series entirely — added with its envs and npm name. The repo's "Latest"
+  release badge is last-write-wins across series (GitHub has one badge per
+  repo, this repo has five series); within a series reconcile orders it
+  correctly, and nothing more is possible.
+- 2026-10-27 — Phase 3 acceptance doubled as the live fix: 13 stuck releases
+  moved to Published, azure-boards@1.2.1 backfilled and published,
+  jira@1.2.1 backfilled and honestly kept at Staged (never approved on npm).
 - 2026-10-27 — Noted in passing: `env-review-reader.test.js` › "the alternates
   are real alternatives" failed repeatedly in this worktree, then passed in the
   same worktree later — environment-dependent (LAN/tailnet address ranking),

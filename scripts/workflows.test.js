@@ -204,6 +204,42 @@ test('the filename npm is configured against is the one on disk', () => {
   assert.match(RELEASE(), /Workflow `release\.yml`/, 'the header should say so too')
 })
 
+// --- reconcile-releases.yml ---------------------------------------------------
+//
+// The self-healing mirror run. Each assertion is a way the run silently stops
+// healing: no cron and nobody notices, a shallow checkout and every range is
+// refused, a missing secret guard and the run goes red every hour instead of
+// skipping.
+
+const RECONCILE = () => fs.readFileSync(path.join(WORKFLOWS, 'reconcile-releases.yml'), 'utf8')
+
+test('reconcile-releases.yml runs on a schedule, with a manual recovery path', () => {
+  const yaml = withoutComments(RECONCILE())
+  assert.match(yaml, /schedule:/)
+  assert.match(yaml, /cron:/)
+  assert.match(yaml, /workflow_dispatch:/)
+})
+
+test('reconcile-releases.yml checks out full history', () => {
+  // reconcile ranges each tag from the previous one in its series and refuses
+  // a shallow clone, so fetch-depth 0 is what keeps the run useful at all.
+  assert.match(withoutComments(RECONCILE()), /fetch-depth:\s*0/)
+})
+
+test('reconcile-releases.yml skips without the PAT secret rather than failing', () => {
+  const yaml = withoutComments(RECONCILE())
+  assert.match(yaml, /SKITTERSPEC_GITHUB_TOKEN/)
+  assert.match(yaml, /reconcile skipped/, 'no secret is a notice, not a red run every hour')
+})
+
+test('reconcile-releases.yml applies the reconcile verb', () => {
+  assert.match(withoutComments(RECONCILE()), /spec-sync release reconcile --apply/)
+})
+
+test('reconcile-releases.yml does not set registry-url', () => {
+  assert.strictEqual(setsRegistryUrl(RECONCILE()), false)
+})
+
 // --- and it stays silent ----------------------------------------------------
 
 test('release.yml mentioning `npm publish` in prose is not an accusation', () => {
