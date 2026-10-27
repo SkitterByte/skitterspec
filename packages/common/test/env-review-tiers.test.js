@@ -380,6 +380,35 @@ test('virtual adapters are never offered as alternatives', () => {
   // way offers one dud where the opposite hides the only address that works.
 })
 
+test('a tailnet address on a utun adapter is offered, after the LAN', () => {
+  // macOS puts Tailscale on `utunN`, which the virtual filter drops — so a phone
+  // on the tailnet but off the wifi was never handed a link it could open.
+  // 100.64.0.0/10 is the CGNAT range Tailscale assigns from, and is the signal.
+  const { offerableLanAddresses } = require('../src/cli.js')
+  const nets = {
+    utun4: [{ family: 'IPv4', internal: false, address: '100.101.7.42' }],
+    en0: [{ family: 'IPv4', internal: false, address: '192.168.0.10' }],
+    utun3: [{ family: 'IPv4', internal: false, address: '10.37.129.2' }],
+  }
+  assert.deepStrictEqual(offerableLanAddresses(nets), ['192.168.0.10', '100.101.7.42'])
+})
+
+test('STAYS SILENT: an address just outside 100.64.0.0/10 on utun is still dropped', () => {
+  const { offerableLanAddresses } = require('../src/cli.js')
+  const nets = {
+    en0: [{ family: 'IPv4', internal: false, address: '192.168.0.10' }],
+    utun5: [{ family: 'IPv4', internal: false, address: '100.128.0.1' }],
+    utun6: [{ family: 'IPv4', internal: false, address: '100.63.255.1' }],
+  }
+  assert.deepStrictEqual(offerableLanAddresses(nets), ['192.168.0.10'])
+})
+
+test('a tailnet alternate is labelled so it reads apart from the LAN one', () => {
+  const { tailnetLabel } = require('../src/cli.js')
+  assert.strictEqual(tailnetLabel('http://100.101.7.42:7760/tok/bug-x'), ' (tailnet)')
+  assert.strictEqual(tailnetLabel('http://192.168.0.10:7760/tok/bug-x'), '')
+})
+
 test('STAYS SILENT: a machine with no network address reports it, not an error', async () => {
   const { dir } = repoWithSpec({ allowNetwork: false }, await freePort())
   try {
