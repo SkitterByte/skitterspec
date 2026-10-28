@@ -88,6 +88,8 @@ const {
   collectReview,
   reviewTierStack,
   reviewTierLine,
+  isTailnetAddress,
+  tailnetLabel,
   renderReviewPage,
   renderReviewBlock,
   reviewOutPath,
@@ -4258,6 +4260,10 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       // use, and the engine cannot know — that guess failed three separate ways
       // in one day. Now every tier is listed, labelled, and either a URL or the
       // one command that turns it on.
+      // The runners-up print as `also:` lines inside the network tier's own
+      // rendering — `reviewTierLine` carries them, which is what puts them
+      // under `network:` rather than dangling after the stack (they used to
+      // print below `remote:`, against the comment that placed them).
       reviewTierStack({
         served,
         fileUrl: reviewFileUrl(out),
@@ -4266,11 +4272,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       })
         .map((t) => reviewTierLine(t) + '\n')
         .join('') +
-      // The runners-up sit UNDER the network tier, because that is what they are
-      // alternatives to — and virtual adapters are gone from them entirely.
-      (served && !served.loopback && (served.alternates || []).length
-        ? served.alternates.map((u) => `    also:  ${u}${tailnetLabel(u)}\n`).join('')
-        : '') +
       // WHICH TIERS THE WAIT COVERS, once, next to the stack. `local` and
       // `network` are two doors into one room — the page POSTs to
       // `location.pathname`, so both reach this server and this pending store.
@@ -4581,26 +4582,6 @@ function offerableLanAddresses(nets = require('node:os').networkInterfaces()) {
     .filter((e) => !VIRTUAL_IFACE.test(e.iface))
     .concat(tailnet)
     .map((e) => e.address)
-}
-
-// 100.64.0.0/10 — the CGNAT range Tailscale assigns from.
-//
-// WHAT WOULD FOOL THIS: a carrier-grade NAT or another overlay network using
-// the same range on a utun adapter is offered too. That costs one dud `also:`
-// line, where filtering it hides the only link a reader off the wifi can open.
-function isTailnetAddress(address) {
-  const m = /^100\.(\d+)\./.exec(address)
-  return !!m && Number(m[1]) >= 64 && Number(m[1]) <= 127
-}
-
-// The suffix on an `also:` line whose host is a tailnet address, so it reads
-// apart from the LAN one — a reader off the wifi needs to know which to tap.
-function tailnetLabel(url) {
-  let host = ''
-  try {
-    host = new URL(url).hostname
-  } catch {}
-  return isTailnetAddress(host) ? ' (tailnet)' : ''
 }
 
 /**

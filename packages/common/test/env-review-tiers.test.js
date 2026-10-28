@@ -409,6 +409,91 @@ test('a tailnet alternate is labelled so it reads apart from the LAN one', () =>
   assert.strictEqual(tailnetLabel('http://192.168.0.10:7760/tok/bug-x'), '')
 })
 
+// --- the alternates belong to the network tier -------------------------------
+//
+// The `also:` lines used to be appended AFTER the whole stack — below `remote:`
+// — and the tiers carried them as bare strings, so a skill copying the stack
+// from `--json` had no label to copy and no place the contract let it put one.
+// The tailnet link the engine had found never reached the banner a reader saw.
+
+test('a tailnet alternate reaches the tiers labelled, under network', () => {
+  // The full path a real render takes: fake adapters → ranked offers → served
+  // URLs → the stack. en0 is the best guess; utun4 is the tailnet runner-up.
+  const { offerableLanAddresses, reviewServedUrls } = require('../src/cli.js')
+  const nets = {
+    en0: [{ family: 'IPv4', internal: false, address: '192.168.0.10' }],
+    utun4: [{ family: 'IPv4', internal: false, address: '100.101.7.42' }],
+  }
+  const served = reviewServedUrls(
+    { port: 7760, token: 'tok', loopback: false },
+    offerableLanAddresses(nets),
+    'bug-x',
+  )
+  const stack = reviewTierStack({
+    served,
+    fileUrl: 'file:///x',
+    publishedUrl: null,
+    config: { review: { allowNetwork: true, allowRemote: false } },
+  })
+  const network = stack.find((t) => t.tier === 'network')
+  assert.deepStrictEqual(network.alternates, [
+    { url: 'http://100.101.7.42:7760/tok/bug-x', label: 'tailnet' },
+  ])
+})
+
+test('the also: line renders under the network tier, inside its line', () => {
+  // One line per tier was the shape; an alternate is PART of the network tier,
+  // so its line carries it — which is what puts it above `remote:` rather than
+  // dangling after the stack.
+  const line = reviewTierLine({
+    tier: 'network',
+    url: 'http://192.168.0.10:7760/tok/bug-x',
+    alternates: [{ url: 'http://100.101.7.42:7760/tok/bug-x', label: 'tailnet' }],
+  })
+  assert.strictEqual(
+    line,
+    '  network: http://192.168.0.10:7760/tok/bug-x\n' +
+      '    also:  http://100.101.7.42:7760/tok/bug-x (tailnet)',
+  )
+})
+
+test('STAYS SILENT: a LAN alternate carries no label, and no alternates means one line', () => {
+  const lan = reviewTierLine({
+    tier: 'network',
+    url: 'http://192.168.0.10:7760/tok/bug-x',
+    alternates: [{ url: 'http://192.168.1.20:7760/tok/bug-x' }],
+  })
+  assert.strictEqual(
+    lan,
+    '  network: http://192.168.0.10:7760/tok/bug-x\n    also:  http://192.168.1.20:7760/tok/bug-x',
+  )
+  const bare = reviewTierLine({ tier: 'network', url: 'http://192.168.0.10:7760/tok/bug-x', alternates: [] })
+  assert.strictEqual(bare, '  network: http://192.168.0.10:7760/tok/bug-x')
+})
+
+test('STAYS SILENT: virtual adapters still never reach the tiers', () => {
+  // bridge100 and 10.211.55.2 are Parallels; utun3 at 10.37.129.2 is a utun
+  // that is NOT in the tailnet range. None of them may become an `also:` line.
+  const { offerableLanAddresses, reviewServedUrls } = require('../src/cli.js')
+  const nets = {
+    en0: [{ family: 'IPv4', internal: false, address: '192.168.0.10' }],
+    bridge100: [{ family: 'IPv4', internal: false, address: '10.211.55.2' }],
+    utun3: [{ family: 'IPv4', internal: false, address: '10.37.129.2' }],
+  }
+  const served = reviewServedUrls(
+    { port: 7760, token: 'tok', loopback: false },
+    offerableLanAddresses(nets),
+    'bug-x',
+  )
+  const stack = reviewTierStack({
+    served,
+    fileUrl: 'file:///x',
+    publishedUrl: null,
+    config: { review: { allowNetwork: true, allowRemote: false } },
+  })
+  assert.deepStrictEqual(stack.find((t) => t.tier === 'network').alternates, [])
+})
+
 test('STAYS SILENT: a machine with no network address reports it, not an error', async () => {
   const { dir } = repoWithSpec({ allowNetwork: false }, await freePort())
   try {

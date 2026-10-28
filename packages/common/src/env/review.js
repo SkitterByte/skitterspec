@@ -715,7 +715,21 @@ function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
   if (!config.review.allowNetwork) {
     tiers.push({ tier: 'network', off: true, enable: 'skitterspec spec-env review allow network' })
   } else if (served && !served.loopback && served.url) {
-    tiers.push({ tier: 'network', url: served.url, alternates: served.alternates || [] })
+    // LABELLED HERE, not by the renderer: `--json`'s `tiers` is the stack a
+    // skill copies, and an unlabelled alternate made the `(tailnet)` suffix a
+    // fact only the text render knew — so the one link a reader off the wifi
+    // could open reached the JSON indistinguishable from a second LAN address.
+    tiers.push({
+      tier: 'network',
+      url: served.url,
+      alternates: (served.alternates || []).map((u) => {
+        let host = ''
+        try {
+          host = new URL(u).hostname
+        } catch {}
+        return isTailnetAddress(host) ? { url: u, label: 'tailnet' } : { url: u }
+      }),
+    })
   } else {
     // Permitted, but there is no address to offer — a machine with no network,
     // or a server that could not take one. Not a problem to report as an error.
@@ -738,11 +752,40 @@ function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
 }
 
 // One tier as a line, padded so the labels form a column the eye can run down.
+// A tier with alternates renders them as indented `also:` lines of its own —
+// they are PART of the tier, which is what puts them under `network:` rather
+// than dangling after the stack (they used to print below `remote:`, against
+// the comment that placed them).
 function reviewTierLine(t) {
   const label = `  ${t.tier}:`.padEnd(11)
-  if (t.url) return `${label}${t.url}${t.note ? `   (${t.note})` : ''}`
+  if (t.url) {
+    return [
+      `${label}${t.url}${t.note ? `   (${t.note})` : ''}`,
+      ...(t.alternates || []).map((a) => `    also:  ${a.url}${a.label ? ` (${a.label})` : ''}`),
+    ].join('\n')
+  }
   if (t.off) return `${label}off — turn on with: ${t.enable}`
   return `${label}—   (${t.note})`
+}
+
+// 100.64.0.0/10 — the CGNAT range Tailscale assigns from.
+//
+// WHAT WOULD FOOL THIS: a carrier-grade NAT or another overlay network using
+// the same range on a utun adapter is offered too. That costs one dud `also:`
+// line, where filtering it hides the only link a reader off the wifi can open.
+function isTailnetAddress(address) {
+  const m = /^100\.(\d+)\./.exec(address)
+  return !!m && Number(m[1]) >= 64 && Number(m[1]) <= 127
+}
+
+// The suffix on an `also:` line whose host is a tailnet address, so it reads
+// apart from the LAN one — a reader off the wifi needs to know which to tap.
+function tailnetLabel(url) {
+  let host = ''
+  try {
+    host = new URL(url).hostname
+  } catch {}
+  return isTailnetAddress(host) ? ' (tailnet)' : ''
 }
 
 
@@ -2482,6 +2525,8 @@ module.exports = {
   surfacesFor,
   reviewTierStack,
   reviewTierLine,
+  isTailnetAddress,
+  tailnetLabel,
   COMMITTING,
   BUTTON_SETS,
   DEFAULT_BUTTON_SET,
