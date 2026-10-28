@@ -5,6 +5,15 @@ What's new for users of skitterspec-azure-boards. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 1.3.0 — 28 Oct 2026
+
+### Azure Boards
+- **New** — Azure Boards stories can now show which environment their release is deployed to, so the board tells you at a glance what is on test, on demo or live.
+- **New** — Azure Boards stories now carry their release as a tag, so you can see on the card which release shipped them and filter the board by release.
+
+### Review
+- **Fixed** — The review banner and Review row now carry the Tailscale `also:` link under the network tier, so you can open a review from your phone while away from your home network.
+
 ## 1.2.1 — 27 Oct 2026
 
 ### Review
