@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Bug
 > **Name:** bug-tailnet-in-banner
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-10-28)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-28
@@ -91,7 +91,8 @@ run `node --test packages/common/test/env-review-tiers.test.js`:
       contract (spec-diff's table row already did).
 - [x] Failing tests now pass (GREEN); `node --test` at the repo root: 4210
       pass, 0 fail (dists re-synced via `scripts/build-dist.js all`).
-- [ ] Follow-up hardening: the review-gate/main-guard hooks read engine exit
+- [x] Follow-up hardening: deferred to its own spec, recorded in the
+      Changelog — the review-gate/main-guard hooks read engine exit
       status 1 as a refusal, so an engine that *crashes* (exit 1, reason on
       stderr) denies every tool call with an empty reason — including the
       edit that would fix the crash. Needs a positive refusal signal; its own
@@ -111,6 +112,7 @@ run `node --test packages/common/test/env-review-tiers.test.js`:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-28 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-28 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -125,3 +127,6 @@ run `node --test packages/common/test/env-review-tiers.test.js`:
   crashed engine (exit 1, stderr-only) bricks every tool call with an empty
   reason and blocks its own fix; wants a positive refusal signal. Not in
   scope here.
+- 2026-10-28 — Completed; fix committed on the verdict (25de280c), tests
+  green (4210). Hook-hardening follow-up deliberately deferred to its own
+  spec.
