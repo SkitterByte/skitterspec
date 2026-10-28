@@ -5,6 +5,11 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 1.2.2 — 28 Oct 2026
+
+### Review
+- **Fixed** — The review banner and Review row now carry the Tailscale `also:` link under the network tier, so you can open a review from your phone while away from your home network.
+
 ## 1.2.1 — 27 Oct 2026
 
 ### Review
