@@ -1,15 +1,17 @@
 ---
 github_identifier: "#50"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/50"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Azure Boards: release tag and Deployed field on story cards
 
 > **Type:** Feature
 > **Name:** feat-azure-release-card-fields (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-28)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-28
 > **Area:** packages/azure-boards/src/api.js, packages/azure-boards/src/config.js, packages/azure-boards/src/cli-sync.js, packages/azure-boards/assets/core
 > **Stack:** worktree
@@ -105,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-28 | Ready | backlog | Reuben Greaves |
+| 2026-10-28 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
