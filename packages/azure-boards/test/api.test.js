@@ -403,6 +403,80 @@ test('releaseAttach writes no tags when ticketTag is off', async () => {
   assert.ok(!calls.some((c) => c.url.includes('workitemsbatch')), 'no tag read either')
 })
 
+// Release item 50 at "On Test"; `items` maps a ticket id to its type and its
+// current Custom.Deployed value; `allowed` maps a type to its allowed values
+// (absent = the type has no such field, a 404).
+function stageAdapter({ items, allowed, deployedField = 'Custom.Deployed' }) {
+  const calls = []
+  const fetch = async (url, init) => {
+    const method = (init && init.method) || 'GET'
+    calls.push({ url, init, method })
+    if (url.includes('workitemsbatch')) {
+      const ids = JSON.parse(init.body).ids
+      return jsonRes({
+        value: ids.map((id) => ({
+          id,
+          fields: { 'System.WorkItemType': items[id].type, ...(items[id].value ? { 'Custom.Deployed': items[id].value } : {}) },
+        })),
+      })
+    }
+    const field = url.match(/workitemtypes\/([^/]+)\/fields\//)
+    if (field) {
+      const type = decodeURIComponent(field[1])
+      return type in allowed ? jsonRes({ referenceName: 'Custom.Deployed', allowedValues: allowed[type] }) : jsonRes({ message: 'nope' }, 404)
+    }
+    if (method === 'GET' && url.includes('/workitems/50')) {
+      return jsonRes({ id: 50, fields: { 'System.State': 'On Test', 'System.WorkItemType': 'Release' } })
+    }
+    if (method === 'PATCH') return jsonRes({ id: 1 })
+    return jsonRes({})
+  }
+  const a = makeApiAdapter({ orgUrl: ORG, project: PROJECT, token: 'pat', releaseType: 'Release', deployedField, fetch, sleep: async () => {} })
+  return { a, calls }
+}
+
+const patches = (calls) =>
+  calls.filter((c) => c.method === 'PATCH').map((c) => ({ url: c.url, op: JSON.parse(c.init.body)[0] }))
+
+const VALUES = ['On Test', 'On Demo', 'Released']
+
+test('releaseStage sets the Deployed field on each ticket, skipping ones already there', async () => {
+  const { a, calls } = stageAdapter({
+    items: { 7: { type: 'User Story' }, 8: { type: 'Bug', value: 'On Demo' }, 9: { type: 'User Story', value: 'On Test' } },
+    allowed: { 'User Story': VALUES, Bug: VALUES },
+  })
+  const got = await a.releaseStage({ id: '50' }, 'On Demo', [{ ref: 'AB#7' }, { ref: 'AB#8' }, { ref: 'AB#9' }])
+  assert.deepStrictEqual(got, { set: 3 })
+  const writes = patches(calls)
+  assert.deepStrictEqual(writes.map((w) => w.op.path), ['/fields/System.State', '/fields/Custom.Deployed', '/fields/Custom.Deployed'])
+  assert.match(writes[1].url, /workitems\/7\b/)
+  assert.match(writes[2].url, /workitems\/9\b/)
+  assert.ok(writes.slice(1).every((w) => w.op.value === 'On Demo'))
+})
+
+test('releaseStage refuses a value the field does not allow, writing nothing', async () => {
+  const { a, calls } = stageAdapter({ items: { 7: { type: 'User Story' } }, allowed: { 'User Story': VALUES } })
+  await assert.rejects(
+    () => a.releaseStage({ id: '50' }, 'on demo', [{ ref: 'AB#7' }]),
+    /"on demo" is not an allowed value of Custom\.Deployed on "User Story" \(allows: "On Test", "On Demo", "Released"\)/,
+  )
+  assert.strictEqual(patches(calls).length, 0, 'not even the release item moved')
+})
+
+test('releaseStage refuses a ticket type without the field, writing nothing', async () => {
+  const { a, calls } = stageAdapter({ items: { 7: { type: 'User Story' }, 8: { type: 'Bug' } }, allowed: { 'User Story': VALUES } })
+  await assert.rejects(() => a.releaseStage({ id: '50' }, 'On Demo', [{ ref: 'AB#7' }, { ref: 'AB#8' }]), /the "Bug" type has no field "Custom\.Deployed"/)
+  assert.strictEqual(patches(calls).length, 0)
+})
+
+test('releaseStage without deployedField only moves the release item', async () => {
+  const { a, calls } = stageAdapter({ items: { 7: { type: 'User Story' } }, allowed: {}, deployedField: '' })
+  const got = await a.releaseStage({ id: '50' }, 'On Demo', [{ ref: 'AB#7' }])
+  assert.deepStrictEqual(got, { set: 1 })
+  assert.deepStrictEqual(patches(calls).map((w) => w.op.path), ['/fields/System.State'])
+  assert.ok(!calls.some((c) => c.url.includes('workitemsbatch') || c.url.includes('/fields/')), 'no ticket reads either')
+})
+
 test('releaseComplete moves the item to the Completed-category state, or refuses by name', async () => {
   const { a } = releaseAdapter((url, init) => {
     if (url.includes('/states')) {

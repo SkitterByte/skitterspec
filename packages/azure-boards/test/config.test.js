@@ -62,6 +62,11 @@ test('releases.ticketTag defaults on, and false opts out', () => {
   assert.strictEqual(mergeConfig(defaults(), { releases: { ticketTag: 'no' } }).releases.ticketTag, true)
 })
 
+test('releases.deployedField defaults empty and takes a field reference', () => {
+  assert.strictEqual(defaults().releases.deployedField, '')
+  assert.strictEqual(mergeConfig(defaults(), { releases: { deployedField: 'Custom.Deployed' } }).releases.deployedField, 'Custom.Deployed')
+})
+
 test('a releases.series that is not a list of objects is a named config error', () => {
   assert.throws(
     () => mergeConfig(defaults(), { releases: { series: ['v1'] } }),

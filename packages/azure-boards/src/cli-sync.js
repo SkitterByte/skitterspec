@@ -259,6 +259,7 @@ function apiAdapterFor(config, flags) {
       token: cred.token,
       releaseType: (config.releases && config.releases.workItemType) || 'Release',
       ticketTag: !config.releases || config.releases.ticketTag !== false,
+      deployedField: (config.releases && config.releases.deployedField) || '',
       fetch: flags.fetch,
     }),
   }

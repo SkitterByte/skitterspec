@@ -103,7 +103,10 @@ const DEFAULT_CONFIG = Object.freeze({
   // through `series[].envs`. Phase 5 implements the verbs; the config shape
   // lives here so setup writes one file. `ticketTag` tags each attached ticket
   // with the release tag, so a story card shows which release carried it.
-  releases: Object.freeze({ workItemType: 'Release', series: Object.freeze([]), ticketTag: true }),
+  // `deployedField` is a field reference (e.g. `Custom.Deployed`) that
+  // `deployed <env>` sets on each attached ticket to the env's value; empty
+  // writes none, since the field has to be added to the process first.
+  releases: Object.freeze({ workItemType: 'Release', series: Object.freeze([]), ticketTag: true, deployedField: '' }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // An env-var NAME, not a value — the official CLI's, so a machine already
   // set up for `az boards` needs nothing new.
@@ -160,6 +163,7 @@ function defaults() {
       workItemType: DEFAULT_CONFIG.releases.workItemType,
       series: DEFAULT_CONFIG.releases.series.map((s) => ({ ...s })),
       ticketTag: DEFAULT_CONFIG.releases.ticketTag,
+      deployedField: DEFAULT_CONFIG.releases.deployedField,
     },
     branch: { ...DEFAULT_CONFIG.branch },
     auth: { ...DEFAULT_CONFIG.auth },
@@ -270,6 +274,7 @@ function mergeConfig(base, parsed) {
   if (isObject(parsed.releases)) {
     assign(base.releases, parsed.releases, 'workItemType', 'string')
     assign(base.releases, parsed.releases, 'ticketTag', 'boolean')
+    assign(base.releases, parsed.releases, 'deployedField', 'string?')
     mergeReleaseSeries(base.releases, parsed.releases)
   }
 

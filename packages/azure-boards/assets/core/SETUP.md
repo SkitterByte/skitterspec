@@ -115,6 +115,31 @@ is an opt-in not taken (fine); `broken` is configured-but-wrong (exit 1).
 configured state exists on the types, and whether the PAT can search
 identities (a warn, never broken — only user search degrades without it).
 
+## 4b. Optional — see releases on the board
+
+The release carrier is a work item per release, so it can have a board of its
+own, and the stories it carries can show where they are. Everything here is a
+process or team setting, and needs **Edit process** on the inherited process
+plus **team administrator** — nothing in this package does it for you.
+
+- **A Releases board.** Process → Backlog levels → add a portfolio level
+  holding the `Release` type, then Team settings → Backlogs → tick it. The
+  board's level picker then offers **Releases**, one column per state. Put
+  each env state in the *In Progress* category, or every card stacks in the
+  first column.
+- **The release on each story** is a tag (`releases.ticketTag`, on by
+  default). Show tags on the card and filter the board by one.
+- **Where each story is deployed.** Add a picklist field to every type
+  tickets are minted as (User Story, Bug…) holding exactly the `envs` values
+  (`On Test`, `On Demo`, `Released`…), and set its reference name as
+  `releases.deployedField` (e.g. `Custom.Deployed`). `release deployed <env>`
+  then sets it on each story the release carries, leaving the story's State
+  alone. Show it on the card, and add a card style rule per value to colour
+  cards by it.
+- **Releases with their stories in one list.** A *Work items and direct
+  links* query — top level `Release` in the env states, linked `Related`
+  stories — shows each release with its stories under it.
+
 ## 5. Push a spec
 
 `/spec-push <spec>` computes the plan, applies it, stamps the returned ids

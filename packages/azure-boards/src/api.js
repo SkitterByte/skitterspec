@@ -68,7 +68,7 @@ function vsspsUrlOf(orgUrl) {
  * Wrap credential + org/project into the typed ops the engine uses. Injected
  * `fetch` and `sleep` make every op testable offline.
  */
-function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true, fetch: fetchImpl, sleep, maxRetries = MAX_RETRIES }) {
+function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true, deployedField = '', fetch: fetchImpl, sleep, maxRetries = MAX_RETRIES }) {
   const doFetch = fetchImpl || globalThis.fetch
   if (typeof doFetch !== 'function') {
     throw new Error('no fetch available — Node 18+ is required for the API transport')
@@ -377,6 +377,20 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true,
      * what `states` validation checks the config against, and what an
      * unknown-state refusal lists.
      */
+    /**
+     * The allowed values of `fieldRef` on `workItemType`: `[]` for a field
+     * with no picklist (any value goes), null when the type has no such field.
+     */
+    async fieldAllowedValues(workItemType, fieldRef) {
+      const raw = await request(
+        'GET',
+        `${projectBase}/wit/workitemtypes/${encodeURIComponent(workItemType)}/fields/${encodeURIComponent(fieldRef)}`,
+        { query: { $expand: 'allowedValues' }, allow404: true },
+      )
+      if (!raw) return null
+      return (raw.allowedValues || []).map(String)
+    },
+
     async listIssueStates(workItemType) {
       const raw = await request(
         'GET',
@@ -575,11 +589,48 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true,
     /**
      * `deployed <env>`: the RELEASE ITEM's state moves to the env's configured
      * state — never each ticket's, which is the two-state-machines trap the
-     * per-ticket mapping exists to avoid. `set` is therefore 1.
+     * per-ticket mapping exists to avoid.
+     *
+     * With `deployedField` set, each attached ticket's field takes the same
+     * value, so a story card shows where its release is. The value is checked
+     * against every ticket type's allowed values BEFORE anything is written,
+     * the release move included: an unknown value or a type without the field
+     * refuses with nothing changed. Phase Tasks are never reached — the
+     * tickets are the spec items `Refs:` names. `set` is 1 + tickets changed.
      */
-    async releaseStage(release, stateName) {
+    async releaseStage(release, stateName, tickets) {
+      const ids = (tickets || [])
+        .map((t) => String(t.ref || '').replace(/^AB#/, ''))
+        .filter((id) => /^\d+$/.test(id))
+      let pending = []
+      if (deployedField && ids.length) {
+        const raw = await request('POST', `${projectBase}/wit/workitemsbatch`, {
+          body: { ids: ids.map(Number), fields: ['System.WorkItemType', deployedField] },
+        })
+        const items = (raw && raw.value) || []
+        const types = [...new Set(items.map((i) => (i.fields || {})['System.WorkItemType']).filter(Boolean))]
+        for (const type of types) {
+          const allowed = await this.fieldAllowedValues(type, deployedField)
+          if (allowed == null) {
+            throw new AzureRefusal(`the "${type}" type has no field "${deployedField}" (releases.deployedField) — nothing written`, { status: null })
+          }
+          if (allowed.length && !allowed.includes(stateName)) {
+            throw new AzureRefusal(
+              `"${stateName}" is not an allowed value of ${deployedField} on "${type}" (allows: ${allowed.map((v) => `"${v}"`).join(', ')}) — nothing written`,
+              { status: null },
+            )
+          }
+        }
+        pending = items.filter((i) => (i.fields || {})[deployedField] !== stateName).map((i) => String(i.id))
+      }
       await this.transitionTo(release.id, stateName)
-      return { set: 1 }
+      for (const id of pending) {
+        await request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(id)}`, {
+          body: [{ op: 'add', path: `/fields/${deployedField}`, value: stateName }],
+          patch: true,
+        })
+      }
+      return { set: 1 + pending.length }
     },
 
     /**
