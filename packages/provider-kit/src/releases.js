@@ -341,7 +341,10 @@ function makeReleaseCommands(p) {
       header.push(`  unchanged: ${release.url || release.id}`)
     }
     const attached = await adapter.releaseAttach(release, t.attach)
-    header.push(`  issues:   ${attached.attached} noted, ${attached.already} already noted`)
+    header.push(
+      `  issues:   ${attached.attached} noted, ${attached.already} already noted` +
+        (attached.tagged != null ? `, ${attached.tagged} tagged` : ''),
+    )
     return emit(out, flags, header, { tag, range: t.range.range, attach: t.attach.map((x) => x.ref), apply: true, url: release.url || null })
   }
 

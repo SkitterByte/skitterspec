@@ -68,7 +68,7 @@ function vsspsUrlOf(orgUrl) {
  * Wrap credential + org/project into the typed ops the engine uses. Injected
  * `fetch` and `sleep` make every op testable offline.
  */
-function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl, sleep, maxRetries = MAX_RETRIES }) {
+function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true, fetch: fetchImpl, sleep, maxRetries = MAX_RETRIES }) {
   const doFetch = fetchImpl || globalThis.fetch
   if (typeof doFetch !== 'function') {
     throw new Error('no fetch available — Node 18+ is required for the API transport')
@@ -224,6 +224,27 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
       body: { ids: ids.map(Number), fields },
     })
     return ((raw && raw.value) || []).map((item) => normalizeItem(item)).filter(Boolean)
+  }
+
+  /**
+   * Add `tag` to each work item that lacks it; returns how many were written.
+   * An `add` on System.Tags REPLACES the whole value, so the write is the
+   * item's existing tags plus the new one. Azure compares tags
+   * case-insensitively, so the presence check does too.
+   */
+  async function tagTickets(ids, tag) {
+    const items = await batchRead(ids, ['System.Tags'])
+    const want = String(tag).toLowerCase()
+    let tagged = 0
+    for (const item of items) {
+      if (item.tags.some((t) => t.toLowerCase() === want)) continue
+      await request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(item.id)}`, {
+        body: [{ op: 'add', path: '/fields/System.Tags', value: [...item.tags, tag].join('; ') }],
+        patch: true,
+      })
+      tagged++
+    }
+    return tagged
   }
 
   return {
@@ -507,6 +528,11 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
      * Attach each ticket to the release item as a Related link, commenting
      * once on each NEWLY attached ticket. An existing link counts as
      * `already`, which is what makes a CI retry additive rather than noisy.
+     *
+     * Then tag each ticket with the release's title (its tag), so the story
+     * card shows which release carried it. The tag is checked per ticket,
+     * independently of the link, so re-running `create` backfills a release
+     * cut before tagging existed — without a second comment.
      */
     async releaseAttach(release, tickets) {
       const raw = await request('GET', `${projectBase}/wit/workitems/${encodeURIComponent(release.id)}`, {
@@ -520,9 +546,11 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
       )
       let attached = 0
       let already = 0
+      const ids = []
       for (const ticket of tickets || []) {
         const ticketId = String(ticket.ref || '').replace(/^AB#/, '')
         if (!/^\d+$/.test(ticketId)) continue
+        ids.push(ticketId)
         if (linked.has(ticketId)) {
           already++
           continue
@@ -538,7 +566,10 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, fetch: fetchImpl,
         )
         attached++
       }
-      return { attached, already }
+      if (!ticketTag) return { attached, already }
+      const tag = raw && raw.fields ? raw.fields['System.Title'] : null
+      const tagged = tag ? await tagTickets(ids, tag) : 0
+      return { attached, already, tagged }
     },
 
     /**

@@ -56,6 +56,12 @@ test('merge copies known keys, ignores unknown ones, strips the org trailing sla
   assert.deepStrictEqual(merged.releases.series, [{ tagPrefix: 'v', envs: { staged: 'Staged' } }])
 })
 
+test('releases.ticketTag defaults on, and false opts out', () => {
+  assert.strictEqual(defaults().releases.ticketTag, true)
+  assert.strictEqual(mergeConfig(defaults(), { releases: { ticketTag: false } }).releases.ticketTag, false)
+  assert.strictEqual(mergeConfig(defaults(), { releases: { ticketTag: 'no' } }).releases.ticketTag, true)
+})
+
 test('a releases.series that is not a list of objects is a named config error', () => {
   assert.throws(
     () => mergeConfig(defaults(), { releases: { series: ['v1'] } }),

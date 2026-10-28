@@ -869,6 +869,15 @@ test('release create is a dry run by default and writes with --apply', async () 
   assert.match(store.release.body, /skitterspec:release v1 stage=staged/)
 })
 
+test('release create reports how many tickets it tagged', async () => {
+  const dir = releaseRepo()
+  const { adapter } = releaseFakes()
+  adapter.releaseAttach = async () => ({ attached: 1, already: 0, tagged: 1 })
+  const wet = await run(['release', 'create', 'v1.1.0', '--apply'], dir, { adapter })
+  assert.strictEqual(wet.code, 0, wet.out)
+  assert.match(wet.out, /issues: {3}1 noted, 0 already noted, 1 tagged/)
+})
+
 test('release deployed moves the release item and complete closes it', async () => {
   const dir = releaseRepo()
   const { adapter, store } = releaseFakes()

@@ -258,6 +258,7 @@ function apiAdapterFor(config, flags) {
       project: config.azure.project,
       token: cred.token,
       releaseType: (config.releases && config.releases.workItemType) || 'Release',
+      ticketTag: !config.releases || config.releases.ticketTag !== false,
       fetch: flags.fetch,
     }),
   }

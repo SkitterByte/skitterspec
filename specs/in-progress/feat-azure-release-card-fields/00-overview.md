@@ -95,7 +95,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Release tag on attach | ⬜ | [01-release-tag.md](01-release-tag.md) |
+| 1 | Release tag on attach | ✅ | [01-release-tag.md](01-release-tag.md) |
 | 2 | Deployed field on stage | ⬜ | [02-deployed-field.md](02-deployed-field.md) |
 
 ## Open questions
@@ -113,3 +113,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-10-28 — Spec created, prompted by the ereqs Stories board having no
   deployment signal on Closed cards.
+- 2026-10-28 — Phase 1: the `tagged` count reaches the `create` output
+  through the shared kit line (`provider-kit/src/releases.js`), printed only
+  when an adapter returns it, so the other providers' output is unchanged.

@@ -329,13 +329,78 @@ test('releaseAttach links only the missing tickets and comments once each', asyn
     return jsonRes({})
   })
   const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }, { ref: 'AB#8' }])
-  assert.deepStrictEqual(got, { attached: 1, already: 1 })
+  assert.deepStrictEqual(got, { attached: 1, already: 1, tagged: 0 })
   const patch = calls.find((c) => c.method === 'PATCH')
   const rel = JSON.parse(patch.init.body)[0]
   assert.strictEqual(rel.value.url, 'https://dev.azure.com/acme/_apis/wit/workItems/8')
   const comment = calls.find((c) => c.method === 'POST' && c.url.includes('/comments'))
   assert.ok(comment, 'the newly attached ticket got a comment')
   assert.match(comment.url, /workItems\/8\/comments/)
+})
+
+// A release item titled v1.2.0 with ticket 7 already linked; `tags` maps a
+// ticket id to the System.Tags value the batch read returns for it.
+function tagAdapter(tags, opts = {}) {
+  const calls = []
+  const fetch = async (url, init) => {
+    const method = (init && init.method) || 'GET'
+    calls.push({ url, init, method })
+    if (url.includes('$expand=relations') || url.includes('%24expand=relations')) {
+      return jsonRes({
+        id: 50,
+        fields: { 'System.Title': 'v1.2.0' },
+        relations: [{ rel: 'System.LinkTypes.Related', url: 'https://dev.azure.com/acme/_apis/wit/workItems/7' }],
+      })
+    }
+    if (url.includes('workitemsbatch')) {
+      const ids = JSON.parse(init.body).ids
+      return jsonRes({ value: ids.map((id) => ({ id, fields: tags[id] ? { 'System.Tags': tags[id] } : {} })) })
+    }
+    if (method === 'PATCH') return jsonRes({ id: 1 })
+    if (method === 'POST') return jsonRes({ id: 99 })
+    return jsonRes({})
+  }
+  const a = makeApiAdapter({ orgUrl: ORG, project: PROJECT, token: 'pat', releaseType: 'Release', fetch, sleep: async () => {}, ...opts })
+  return { a, calls }
+}
+
+const tagWrites = (calls) =>
+  calls
+    .filter((c) => c.method === 'PATCH')
+    .map((c) => ({ url: c.url, op: JSON.parse(c.init.body)[0] }))
+    .filter((w) => w.op.path === '/fields/System.Tags')
+
+test('releaseAttach tags each ticket with the release, keeping the tags it has', async () => {
+  const { a, calls } = tagAdapter({ 8: 'bug; triage' })
+  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#8' }])
+  assert.deepStrictEqual(got, { attached: 1, already: 0, tagged: 1 })
+  const writes = tagWrites(calls)
+  assert.strictEqual(writes.length, 1)
+  assert.match(writes[0].url, /workitems\/8\b/)
+  assert.strictEqual(writes[0].op.value, 'bug; triage; v1.2.0')
+})
+
+test('releaseAttach backfills the tag on an already-linked ticket without a second comment', async () => {
+  const { a, calls } = tagAdapter({})
+  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }])
+  assert.deepStrictEqual(got, { attached: 0, already: 1, tagged: 1 })
+  assert.strictEqual(tagWrites(calls)[0].op.value, 'v1.2.0')
+  assert.ok(!calls.some((c) => c.url.includes('/comments')), 'no comment on a ticket already linked')
+})
+
+test('releaseAttach leaves a ticket that already carries the tag alone, in any case', async () => {
+  const { a, calls } = tagAdapter({ 7: 'V1.2.0; bug' })
+  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }])
+  assert.deepStrictEqual(got, { attached: 0, already: 1, tagged: 0 })
+  assert.strictEqual(tagWrites(calls).length, 0)
+})
+
+test('releaseAttach writes no tags when ticketTag is off', async () => {
+  const { a, calls } = tagAdapter({}, { ticketTag: false })
+  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }, { ref: 'AB#8' }])
+  assert.deepStrictEqual(got, { attached: 1, already: 1 })
+  assert.strictEqual(tagWrites(calls).length, 0)
+  assert.ok(!calls.some((c) => c.url.includes('workitemsbatch')), 'no tag read either')
 })
 
 test('releaseComplete moves the item to the Completed-category state, or refuses by name', async () => {

@@ -19,6 +19,7 @@ env-var NAMES — never a credential. Credentials live in the user-level store
 | `auth.tokenEnv` | The env-var NAME for the PAT — the official CLI's by default, so a machine set up for `az boards` needs nothing new. Work Items (Read & Write) covers everything but identity search, which wants Identity (Read). | `AZURE_DEVOPS_EXT_PAT` |
 | `refs.foreignPatterns` | Ref shapes that are KNOWN HISTORY rather than unreferenced commits — a repo migrating off another tracker lists its old key here (e.g. `"ERQ-\\d+"`). | `[]` |
 | `releases.workItemType` / `releases.series` | The release seam's carrier: one work item of this type per release, found by title, its state moved through each series' `envs` map by `release deployed`. | `"Release"` / `[]` |
+| `releases.ticketTag` | Tag each ticket `release create` attaches with the release tag (`v37.7.0`), so a story card shows which release carried it and the board filters by it. Existing tags are kept. The tag is checked per ticket, separately from the link, so re-running `release create <tag> --apply` backfills a release cut before this existed — without a second comment. `false` opts out. | `true` |
 | `apply.transport` | `api` \| `mcp`, or empty for "api when credentials resolve, mcp when they don't". | `""` |
 | `sync.baseDir` | Where last-pushed snapshots live. | `specs/.core/azure-base` |
 | `sync.fieldOwnership` | Which projection fields push (`description`, `subIssues`, `workflowState`, `assignee`; `"none"` declines one). | all `push` |

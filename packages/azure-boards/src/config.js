@@ -101,8 +101,9 @@ const DEFAULT_CONFIG = Object.freeze({
   // The release seam's Azure carrier (spec Decision 12): one work item of
   // `workItemType` per release, found by WIQL title lookup, its state moved
   // through `series[].envs`. Phase 5 implements the verbs; the config shape
-  // lives here so setup writes one file.
-  releases: Object.freeze({ workItemType: 'Release', series: Object.freeze([]) }),
+  // lives here so setup writes one file. `ticketTag` tags each attached ticket
+  // with the release tag, so a story card shows which release carried it.
+  releases: Object.freeze({ workItemType: 'Release', series: Object.freeze([]), ticketTag: true }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // An env-var NAME, not a value — the official CLI's, so a machine already
   // set up for `az boards` needs nothing new.
@@ -158,6 +159,7 @@ function defaults() {
     releases: {
       workItemType: DEFAULT_CONFIG.releases.workItemType,
       series: DEFAULT_CONFIG.releases.series.map((s) => ({ ...s })),
+      ticketTag: DEFAULT_CONFIG.releases.ticketTag,
     },
     branch: { ...DEFAULT_CONFIG.branch },
     auth: { ...DEFAULT_CONFIG.auth },
@@ -267,6 +269,7 @@ function mergeConfig(base, parsed) {
 
   if (isObject(parsed.releases)) {
     assign(base.releases, parsed.releases, 'workItemType', 'string')
+    assign(base.releases, parsed.releases, 'ticketTag', 'boolean')
     mergeReleaseSeries(base.releases, parsed.releases)
   }
 
