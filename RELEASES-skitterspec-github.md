@@ -5,6 +5,16 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 1.3.0 — 28 Oct 2026
+
+### Release
+- **New** — The GitHub provider's release verbs are now documented end to end, including a copy-paste scheduled workflow that keeps board badges honest when releases are approved on the npm website.
+- **New** — Tags that never got a GitHub release — a batched push that fired no workflow — are now backfilled onto the board by spec-sync release reconcile, bounded so old history stays untouched.
+- **New** — Releases approved outside the repo's own approve command — on the npm website, or after a missed CI run — are now caught by spec-sync release reconcile, which moves their issues to Published on the board automatically.
+
+### Review
+- **Fixed** — The review banner and Review row now carry the Tailscale `also:` link under the network tier, so you can open a review from your phone while away from your home network.
+
 ## 1.2.1 — 27 Oct 2026
 
 ### Review
