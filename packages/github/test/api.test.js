@@ -542,3 +542,48 @@ test('listBoardItems lists this repo\'s issues on OUR board, by search, sorted',
   assert.strictEqual(calls[0].body.variables.q, 'repo:SkitterByte/skitterspec is:issue label:"spec"')
   assert.doesNotMatch(calls[0].body.query, /items\(first/, 'never the board\'s own items connection')
 })
+
+// --- the board add races the board's own auto-add (bug-board-add-race) --------
+//
+// A board with "auto-add sub-issues" puts a new child on the board itself once
+// it is linked under a parent already there. Our add then lands second, and
+// GitHub refuses it — `addProjectV2ItemById` is idempotent only when it runs
+// after the auto-add has settled, not alongside it.
+
+const ALREADY = { errors: [{ type: 'UNPROCESSABLE', message: 'Content already exists in this project' }] }
+const fresh = { identifier: '#12', number: 12, nodeId: 'I_12', boardItemId: null }
+
+test('a board add that loses the race to auto-add uses the item already there', async () => {
+  const { a, calls } = adapter((call) => res(gqlKind(call) === 'board' ? BOARD : gqlKind(call) === 'add' ? ALREADY : issueData(rawIssue())))
+  assert.deepStrictEqual(await a.addToBoard(fresh), { itemId: 'PVTI_12', added: false })
+  assert.strictEqual(calls.filter((c) => gqlKind(c) === 'add').length, 1, 'one add, never a retry of it')
+})
+
+test('setting Status on a just-created, just-auto-added issue completes', async () => {
+  const { a, calls } = adapter((call) => res(gqlKind(call) === 'board' ? BOARD : gqlKind(call) === 'add' ? ALREADY : gqlKind(call) === 'set' ? { data: {} } : issueData(rawIssue())))
+  await a.setFieldOption(fresh, 'Status', 'Backlog')
+  assert.strictEqual(calls.find((c) => gqlKind(c) === 'set').body.variables.item, 'PVTI_12')
+})
+
+test('the auto-added item is waited for while GitHub has not shown it yet', async () => {
+  let reads = 0
+  const { a } = adapter((call) => {
+    if (gqlKind(call) === 'board') return res(BOARD)
+    if (gqlKind(call) === 'add') return res(ALREADY)
+    reads++
+    return res(issueData(rawIssue({ onBoard: reads >= 3 })))
+  })
+  assert.deepStrictEqual(await a.addToBoard(fresh), { itemId: 'PVTI_12', added: false })
+})
+
+test('STAYS LOUD: an item that never appears re-raises the refusal, unguessed', async () => {
+  const { a } = adapter((call) => res(gqlKind(call) === 'board' ? BOARD : gqlKind(call) === 'add' ? ALREADY : issueData(rawIssue({ onBoard: false }))))
+  await assert.rejects(a.addToBoard(fresh), /Content already exists in this project/)
+})
+
+test('STAYS LOUD: any other add refusal is not read as already-there', async () => {
+  const other = { errors: [{ type: 'FORBIDDEN', message: 'Resource not accessible by personal access token' }] }
+  const { a, calls } = adapter((call) => res(gqlKind(call) === 'board' ? BOARD : gqlKind(call) === 'add' ? other : issueData(rawIssue())))
+  await assert.rejects(a.addToBoard(fresh), /not accessible/)
+  assert.ok(!calls.some((c) => gqlKind(c) === 'issue'), 'no re-read on a refusal that says nothing about the board')
+})

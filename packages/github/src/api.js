@@ -450,6 +450,25 @@ function makeApiAdapter({
     return { board, field, option }
   }
 
+  // The one add refusal that means "it is there already". Matched on GitHub's
+  // message, because the error carries no type of its own for this case.
+  const alreadyOnBoard = (error) =>
+    Boolean(error && Array.isArray(error.errors) && error.errors.some((e) => e && /already exists in this project/i.test(e.message || '')))
+
+  const pause = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)))
+
+  // Read the issue until its board item shows, briefly: the auto-add that beat
+  // us has written it, but the read side may not show it on the first ask.
+  // Null when it never appears.
+  async function awaitBoardItem(issue, delays = [0, 500, 1500, 3000]) {
+    for (const ms of delays) {
+      if (ms) await pause(ms)
+      const fresh = await adapter.readIssue(issue.number != null ? issue.number : issue.identifier)
+      if (fresh && fresh.boardItemId) return fresh.boardItemId
+    }
+    return null
+  }
+
   async function readRaw(ref) {
     const data = await graphql(ISSUE_QUERY, { owner, repo, number: numberOf(ref), status: statusField }, { allowMissing: true })
     return (data.repository && data.repository.issue) || null
@@ -643,15 +662,29 @@ function makeApiAdapter({
 
     /**
      * Put the issue on the board. `addProjectV2ItemById` returns the EXISTING
-     * item when the issue is already there, so this is idempotent by GitHub's
-     * own contract — no read is needed to avoid a duplicate.
+     * item when the issue was already there before the call — but not when the
+     * board's own "auto-add sub-issues" workflow is adding it at the same
+     * moment, which is exactly when a just-linked child is pushed. That loses
+     * the race with `Content already exists in this project`, so on THAT
+     * refusal the item is read back rather than the push failing.
      */
     async addToBoard(issueOrRef) {
       const issue = issueOrRef && issueOrRef.nodeId ? issueOrRef : await adapter.readIssue(issueOrRef)
       if (!issue || !issue.nodeId) throw new GitHubRefusal(`no issue ${JSON.stringify(issueOrRef)} to add to the board`)
       if (issue.boardItemId) return { itemId: issue.boardItemId, added: false }
       const board = await resolveBoard()
-      const data = await graphql(ADD_ITEM, { project: board.id, content: issue.nodeId })
+      let data
+      try {
+        data = await graphql(ADD_ITEM, { project: board.id, content: issue.nodeId })
+      } catch (error) {
+        if (!alreadyOnBoard(error)) throw error
+        const itemId = await awaitBoardItem(issue)
+        // WHAT WOULD FOOL THIS: GitHub's read side lagging its write side for
+        // longer than the backoff. That is a cannot-tell, so the original
+        // refusal is re-raised rather than an item id guessed at.
+        if (!itemId) throw error
+        return { itemId, added: false }
+      }
       const item = data.addProjectV2ItemById && data.addProjectV2ItemById.item
       if (!item || !item.id) throw new GitHubRefusal(`GitHub did not return a board item for ${issue.identifier}`)
       return { itemId: item.id, added: true }
