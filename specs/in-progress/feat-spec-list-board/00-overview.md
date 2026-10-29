@@ -1,15 +1,17 @@
 ---
 github_identifier: "#59"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/59"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # `/spec-list` as the board in the terminal: state aliases, assignee, `--mine`, `--next`
 
 > **Type:** Feature
 > **Name:** feat-spec-list-board (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-29)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
 > **Area:** packages/sync-core/src/normalize.js, packages/{azure-boards,github,linear,jira}/src/config.js, packages/{azure-boards,github,linear}/src/cli-sync.js, packages/azure-boards/src/api.js, packages/github/src/api.js, .claude skills spec-list (per provider), provider config docs
 > **Stack:** worktree
@@ -117,6 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-29 | Ready | backlog | Reuben Greaves |
+| 2026-10-29 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
