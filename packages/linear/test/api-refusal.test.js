@@ -181,3 +181,36 @@ test('a throttle and a refusal are distinguishable', async () => {
   assert.strictEqual(refused.retryable, false, 'waiting will not help')
   assert.strictEqual(throttled.retryable, true, 'waiting is the whole answer')
 })
+
+// --- a non-2xx response that carries an `errors` body (bug-linear-http-error-body)
+//
+// A malformed query is answered with HTTP 400 AND a GraphQL `errors` payload
+// naming the field at fault. Reading only the status turned that into
+// `Linear API returned HTTP 400`, which nobody can diagnose from a CI log.
+
+const BAD_FIELD = {
+  message: 'Cannot query field "stagez" on type "ReleasePipeline". Did you mean "stages"?',
+  extensions: { code: 'GRAPHQL_VALIDATION_FAILED', userError: false },
+}
+
+test('an HTTP 400 with an errors body names what Linear said, and keeps the status', async () => {
+  const err = await refusal(erroringFetch([BAD_FIELD], { status: 400 }))
+  assert.match(err.message, /^Linear API returned HTTP 400: /)
+  assert.match(err.message, /Cannot query field "stagez"/)
+  assert.strictEqual(err.code, 'GRAPHQL_VALIDATION_FAILED', 'the extensions travel with it too')
+})
+
+test('STAYS PLAIN: a non-2xx with no readable errors body keeps the bare status line', async () => {
+  const unreadable = async () => ({
+    ok: false,
+    status: 502,
+    headers: new Map(),
+    async json() {
+      throw new SyntaxError('Unexpected token < in JSON')
+    },
+  })
+  const err = await refusal(unreadable)
+  assert.strictEqual(err.message, 'Linear API returned HTTP 502')
+  const empty = await refusal(erroringFetch([], { status: 500 }))
+  assert.strictEqual(empty.message, 'Linear API returned HTTP 500')
+})

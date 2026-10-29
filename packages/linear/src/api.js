@@ -234,7 +234,26 @@ function makeClient({ apiKey, fetch: fetchImpl, endpoint = ENDPOINT, sleep, maxR
         { retryable: true },
       )
     }
-    if (!res.ok) throw new Error(`Linear API returned HTTP ${res.status}`)
+    if (!res.ok) {
+      // A malformed query is answered with HTTP 400 AND a GraphQL `errors`
+      // payload naming the field at fault. Dropping that body turned a typo
+      // into a bare `HTTP 400` no CI log could diagnose, so read it when it is
+      // there. An unreadable or empty body keeps the old line: cannot tell is
+      // not evidence.
+      let errors = null
+      try {
+        const failed = await res.json()
+        if (failed && Array.isArray(failed.errors) && failed.errors.length) errors = failed.errors
+      } catch {
+        errors = null
+      }
+      if (errors) {
+        const refusal = refusalFrom(errors)
+        refusal.message = `Linear API returned HTTP ${res.status}: ${refusal.message.replace(/^Linear API error: /, '')}`
+        throw refusal
+      }
+      throw new Error(`Linear API returned HTTP ${res.status}`)
+    }
     const body = await res.json()
     if (body && Array.isArray(body.errors) && body.errors.length) {
       // NOT RETRIED, when Linear says it cannot succeed. The retry loop exists
