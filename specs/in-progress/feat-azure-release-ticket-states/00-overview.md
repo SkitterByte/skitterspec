@@ -1,15 +1,17 @@
 ---
 github_identifier: "#55"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/55"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Azure Boards: release-driven ticket states, and state-map edits that reach the board
 
 > **Type:** Feature
 > **Name:** feat-azure-release-ticket-states (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-29)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
 > **Area:** packages/sync-core/src/compare.js, packages/provider-kit/src/releases.js, packages/provider-kit/src/released.js, packages/azure-boards/src/config.js, packages/azure-boards/src/api.js, packages/azure-boards/src/cli-sync.js, packages/azure-boards/assets/core, SETUP.md
 > **Stack:** worktree
@@ -113,6 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-29 | Ready | backlog | Reuben Greaves |
+| 2026-10-29 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
