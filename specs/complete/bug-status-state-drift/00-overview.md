@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Bug
 > **Name:** bug-status-state-drift (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-10-29)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
@@ -95,6 +95,7 @@ AssertionError: The input did not match /state: Azure has it in "Blocked", a sta
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-29 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-29 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -109,3 +110,4 @@ AssertionError: The input did not match /state: Azure has it in "Blocked", a sta
 - 2026-10-29 — Follow-up surfaced: the description-drift line also says "repo
   wins on next push". It likely has the same false premise (description resends
   only when the spec's text changes). Not verified here.
+- 2026-10-29 — Completed; fix done, tests green. Both follow-ups above deferred.
