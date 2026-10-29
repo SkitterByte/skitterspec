@@ -5,6 +5,18 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.0.0 — 29 Oct 2026
+
+### Sync
+- **Action required** — spec-status no longer reports a ticket whose status was moved on the tracker. Skitterspec tells the tracker about its own changes and leaves everything else on the tracker alone.
+- **Action required** — spec-sync no longer moves tickets through a deployment ladder. The stage command and the release.stages setting are gone; list a release's tickets with `spec-sync released <range> --json`.
+- **Action required** — spec-sync no longer creates releases or writes deploy state. Use `spec-sync released <range> --json` to list a release's tickets and set what you need with your tracker's own tools.
+- **New** — spec-sync released now names the spec and ticket url behind every ref in a range, so a CI script can act on a release without a second lookup.
+- **New** — /spec-list now shows each ticket's spec status beside its board state, flags where they disagree, lists the top of the backlog in the board's own order with --next, and takes --state in-progress.
+- **New** — /spec-list on Azure Boards and GitHub now shows who each ticket is assigned to, marks tickets no spec has adopted, and takes --mine or --by <person> to see one person's work.
+- **New** — A lifecycle state can now map to several board states, so a ticket in Blocked or Released reads as in progress or complete rather than unmapped, and finished states drop out of the live listing.
+- **Fixed** — spec-sync status no longer accuses a ticket in a state skitterspec does not map (such as Blocked) of drifting, and no longer claims the next push will move a ticket back when it will not.
+
 ## 1.2.2 — 28 Oct 2026
 
 ### Review
