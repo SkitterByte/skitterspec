@@ -30,9 +30,9 @@ Option names must match the field's options exactly (case aside). An unknown
 name is refused and the refusal lists the options the field does have.
 
 **Map work states, not pipeline stages.** "On Test" is where a *release* is,
-not where a spec's work is. Keep it on a second single-select (`Deployed`)
-that releases set — never as a Status option, or a finished phase will read as
-deployed.
+not where a spec's work is. If you track deploys on the board, keep them on a
+field of your own that your CI sets — never as a Status option, or a finished
+phase will read as deployed. See "Releases and deploys" below.
 
 ## Fields
 
@@ -51,8 +51,6 @@ deployed.
 | `apply.transport` | — | `api` or `mcp`; unset = API when a token resolves. |
 | `sync.baseDir` | `specs/.core/github-base` | Last-pushed snapshots. Commit them. |
 | `sync.fieldOwnership` | all `push` | Per-field ownership; `"none"` declines one (e.g. `assignee`). |
-| `releases.deployedField` | `Deployed` | The second single-select the release verbs set. |
-| `releases.series` | `[]` | One entry per tag series: `{ tagPrefix, envs, npm }` — see below. |
 
 ## More than one name per bucket — read-only aliases
 
@@ -68,84 +66,41 @@ Sprint", "Released". A bucket's value may be an **array** instead of a string:
 
 - **The first name is the only one push writes**, and only when the spec
   itself moves. The rest are never written.
-- **The rest are read as that bucket** wherever a tracker state is
-  interpreted: `spec-sync status` reports no drift for them, the live
-  `spec-sync list` hides every `complete` / `cancelled` name, and
-  `spec-sync states` lists each alias under its bucket.
+- **The rest are read as that bucket** by the listing: the live
+  `spec-sync list` hides every `complete` / `cancelled` name, `--state <bucket>`
+  matches all of them, and `spec-sync states` lists each alias under its
+  bucket.
 - **Nothing is pulled.** An alias changes what the report *says* about a
   ticket, never the spec.
 - A plain string works exactly as before. An alias that also names another
   bucket is refused at load. An alias the tracker lacks is reported by
   `spec-sync states` but never blocks a push, because it is never written.
-- A state in no bucket at all is still reported by `spec-sync status`, as
-  "a state skitterspec does not map — left alone", never as drift.
+- `spec-sync status` never reads an issue's Status at all, aliased or not:
+  skitterspec tells the board about its own transitions and nothing else.
 
-## Releases — the mirror of what shipped
+## Releases and deploys — the host project's to write
 
-The `spec-sync release` verbs write a release onto GitHub and move its issues'
-`Deployed` field: `create <tag> --stage <env>` mints a prerelease listing the
-tickets the tag's range contains, `deployed <tag> <env>` sets the field on
-every one of them, `complete <tag>` clears the prerelease flag. Every verb is a
-dry run unless `--apply`. A series declares its envs in order:
+Skitterspec moves an issue's Status only at its own transitions, and it writes
+nothing about releases or deployments. What a project records about a release
+— a GitHub Release, a `Deployed` field, a comment — is its own CI's to write.
 
-```json
-"releases": {
-  "series": [
-    { "tagPrefix": "myapp@",
-      "envs": { "staged": "Staged", "published": "Published" },
-      "npm": "@scope/myapp" }
-  ]
-}
+The one release question skitterspec answers is
+**which issues a range contains**, because only the `Refs: #N` trailers know:
+
+```sh
+skitterspec-github spec-sync released "<previous-tag>..<tag>" --json
 ```
 
-**`reconcile` is the self-healing verb**, for the approvals that happen where
-no verb runs — the npm website, a batched tag push that fired no workflow. It
-asks the npm registry which versions of `npm` are live and repairs the mirror:
+Each row carries the `ref`, its commit count, the `spec` that stamped it and its
+`url` — `null` for a ref no spec has linked, never a guess. The checkout needs
+`fetch-depth: 0` so the previous tag is visible. Pipe the list into `gh`, the
+GraphQL API or anything else. This repo's own `scripts/mirror-deployed.cjs` is
+a worked example: it sets the board's `Deployed` field on a tag push, on
+approval, and hourly for approvals made elsewhere.
 
-- A marked release whose version is live — **or contained in a newer live
-  version of its series**, since that version carries its commits — moves to
-  the series' **final** env and is completed. Ascending, and only the newest
-  takes GitHub's "Latest".
-- A pushed tag with **no release at all** is backfilled at the first env, then
-  probed like the rest — bounded to tags newer than the series' newest
-  release (the newest tag alone where the series has none), so old history is
-  never flooded onto the releases page.
-- **Absence is never failure**: a version the registry lacks is "not yet" and
-  the release is kept; an unreachable registry, a 404 package, or a series
-  with no `npm` key skips that series in one line and exits 0. Only a release
-  listing that could not be read refuses.
-- Only releases carrying the skitterspec marker are touched — a hand-made
-  release is never read or written.
-
-Run it hourly from a scheduled workflow (plus `workflow_dispatch` for an
-instant run after an approval). The checkout needs `fetch-depth: 0` — tag
-ranges are refused on a shallow clone — and the token must be a classic PAT
-(`repo` + `project`) in a secret: the Actions `GITHUB_TOKEN` cannot write a
-user-owned Projects board.
-
-```yaml
-on:
-  schedule:
-    - cron: '17 * * * *'
-  workflow_dispatch:
-permissions:
-  contents: read
-jobs:
-  reconcile:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      # …install your toolchain…
-      - env:
-          GITHUB_TOKEN: ${{ secrets.YOUR_PAT_SECRET }}
-        run: |
-          if [ -z "$GITHUB_TOKEN" ]; then
-            echo "::notice::no PAT secret — reconcile skipped"; exit 0
-          fi
-          skitterspec-github spec-sync release reconcile --apply
-```
+The `releases` block and the `spec-sync release` verbs are **retired**:
+`release` exits 1 naming `released --json`, and `spec-sync doctor` flags a
+leftover `releases` block as unused config (a warning, never a failure).
 
 ## The token
 

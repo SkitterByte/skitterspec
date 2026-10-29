@@ -44,20 +44,16 @@ bare `spec-sync …` as if the user could type it.
 | "link this spec to AB#1 by hand" | `stamp <spec> --issue AB#1` |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
 | "what ticket am I on?", writing a commit | `ref` |
-| "what shipped in this release?" | `released` |
+| "what shipped in this release?", "which tickets does CI mark deployed?" | `released` — `--json` for a script; recording deploys is the project's own |
 | "is any of this wired up?", "why isn't sync working?" | `doctor` — scaffold, isolation, tracker and credentials in one |
 | "set my Azure PAT", "am I authenticated?" | `credentials <status\|set\|unset>` |
 | push one spec, or "what would push?" | **defer** — see below |
 
-The Linear provider's `retarget`, `reattach`, `stage` and `sanitise` are
+The Linear provider's `retarget`, `reattach` and `sanitise` are
 **not yet shipped for the Azure Boards provider** — say so when one is asked
-for, rather than improvising an equivalent. (`assign`, `whoami`, `users`,
-`released` and the `release` verbs ARE shipped — `/spec-claim` fronts the first
-three, and the release verbs are CI commands.)
-**`released` is in the same list for now**: it needs the kit's
-provider-supplied ref pattern (landing with `feat-github-provider`), and the
-engine refuses it with exactly that explanation rather than mis-scanning
-`AB#n` refs as unreferenced.
+for, rather than improvising an equivalent. (`assign`, `whoami`, `users` and
+`released` ARE shipped — `/spec-claim` fronts the first three.) The `release`
+verbs are retired on every provider; see §7.
 
 **With no argument, run `linked`.** It is the repo-wide overview, it is
 read-only, and it is what a bare "run spec-sync" means.
@@ -72,7 +68,7 @@ Two front doors to one write path is worse than none:
 
 - **Push one spec** → `/spec-push`. It owns the transport choice, the
   state-name gate, the plan, the apply, the stamping and the snapshot.
-- **Per-spec drift** ("is this spec in sync?", "what would push?") →
+- **Per-spec status** ("is this spec in sync?", "what would push?") →
   `/spec-status`.
 
 Say which skill you're handing to and stop; don't reimplement either.
@@ -183,10 +179,11 @@ commits were referenced, just not to this tracker (`refs.foreignPatterns` is
 what classifies them). Bookkeeping commits (paths all under
 `release.ignorePaths`) are excluded and the ignored count reported.
 
-The `release create|deployed|complete <tag>` verbs are the CI side: one work
-item of `releases.workItemType` per release, tickets attached as Related links,
-`deployed` moving the item's state through `releases.series[].envs`. Every verb
-is a dry run unless `--apply`.
+Each ticket row names the `spec` and `url` behind it (`null` when no spec
+linked the ref), so `--json` is what a project's CI pipes into its own tooling
+to record a release or a deploy. That recording is the project's job: the
+`release` verbs are **retired** and exit 1 naming `released --json`. Do not
+re-create them out of `az` calls on the user's behalf.
 
 ## 8. Report
 

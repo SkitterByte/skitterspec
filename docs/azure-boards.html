@@ -544,7 +544,7 @@ verified: 2e840b2813e6
       <div class="icard">
         <span class="k">HOW IT'S SAFE</span>
         <h3>The repo always wins</h3>
-        <p>One direction, so nothing is ever read back or clobbered. A state moved in Boards is surfaced by <span class="mono" style="font-size:.85em">/spec-status</span> as drift, and a description edited there is reported <em>loudly</em> — then both are overwritten on the next push. The mirror can't fight the source.</p>
+        <p>One direction, so nothing is ever read back or clobbered. Skitterspec tells Boards about its own transitions and nothing else, so a state someone moves there is left alone. A description edited there is reported <em>loudly</em> before the next push overwrites it. The mirror can't fight the source.</p>
       </div>
     </div>
 
@@ -588,8 +588,8 @@ verified: 2e840b2813e6
         <p>Priority, iterations, area moves, tags, discussion. The PM's to set in Boards; one-way sync neither pushes nor reads them, so it never fights the PM for them.</p>
       </div>
       <div class="own-card own-both">
-        <div class="oh"><span class="d"></span>drift · surfaced, not merged</div>
-        <p>Move an item in Boards, or edit its description there, and <span class="mono">/spec-status</span> says so — advisory only. The repo wins on the next push; there's nothing to reconcile.</p>
+        <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>
+        <p>Edit an item's description in Boards and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved item is never reported — skitterspec doesn't read state back, so there's nothing to reconcile.</p>
       </div>
     </div>
   </div>
@@ -730,7 +730,7 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
     <div class="cards-3 reveal">
       <div class="icard">
         <h3><span class="mono">/spec-status</span></h3>
-        <p>Read-only. What the next push would create or update, whether Boards' state has drifted — and whether someone edited the item's description over there, which the next push will replace. Writes nothing.</p>
+        <p>Read-only. What the next push would create or update, and whether someone edited the item's description over there, which the next push will replace. Writes nothing.</p>
       </div>
       <div class="icard">
         <h3><span class="mono">/spec-push</span></h3>
@@ -757,9 +757,9 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
 
     <p class="reveal">Every lifecycle skill already refreshes the mirror as it goes, so in practice you rarely push by hand. These six are what the superset <em>adds</em>; the base's own fifteen — the lifecycle, the review loop, isolation — are listed on <a href="index.html#loop">the base page</a>, and installing this package gives you all of them.</p>
 
-    <p class="reveal" style="margin-top:18px; color:var(--ink-soft); font-size:.95rem; max-width:70ch;"><strong>Releases ride a work item.</strong> Boards has no Releases object, so <span class="mono">spec-sync release create &lt;tag&gt;</span> mints one work item per release — titled by the tag, holding exactly the tickets that tag contains by their <span class="mono">Refs: AB#n</span> trailers as Related links, with one comment on each. <span class="mono">release deployed &lt;tag&gt; &lt;env&gt;</span> moves the <em>release item's</em> state through your configured envs — never each ticket's, which is the two-state-machines trap the design exists to avoid — and <span class="mono">release complete</span> closes it. Every verb is a dry run unless <span class="mono">--apply</span>; CI passes it.</p>
+    <p class="reveal" style="margin-top:18px; color:var(--ink-soft); font-size:.95rem; max-width:70ch;"><strong>Releases and deploys are yours to record.</strong> Skitterspec answers one release question — which tickets a range contains — with <span class="mono">spec-sync released &lt;range&gt; --json</span>, each row carrying its spec and url. Your pipeline pipes that into the Azure CLI or REST API to set whatever field, tag or work item your process uses.</p>
 
-    <p class="reveal" style="margin-top:18px; color:var(--ink-soft); font-size:.95rem; max-width:70ch;"><strong>Not yet shipped for Azure Boards</strong> (the Linear provider has them): <span class="mono">retarget</span>, <span class="mono">reattach</span>, <span class="mono">stage</span>, and the <span class="mono">sanitise</span> pass. The engine's own usage text says so too, so the CLI and this page cannot disagree about it.</p>
+    <p class="reveal" style="margin-top:18px; color:var(--ink-soft); font-size:.95rem; max-width:70ch;"><strong>Not yet shipped for Azure Boards</strong> (the Linear provider has them): <span class="mono">retarget</span>, <span class="mono">reattach</span>, and the <span class="mono">sanitise</span> pass. The engine's own usage text says so too, so the CLI and this page cannot disagree about it.</p>
   </div>
 </section>
 
@@ -780,11 +780,11 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync (azure) plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing — and refuses until the types' state names have been checked (<span class="mono">--workspace-states</span>).</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (azure) apply &lt;spec&gt;</td><td>Apply a plan over the API — create/update as JSON Patch, then set the state — and stamp the returned ids. On the MCP transport it writes nothing and names the tools that apply it instead.</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync (azure) status &lt;spec&gt;</td><td>Drift report — what would push, whether Boards' state moved, and whether the description was edited on Boards since the last push.</td><td class="folder">/spec-status</td></tr>
+          <tr><td class="cmd">spec-sync (azure) status &lt;spec&gt;</td><td>What would push, and whether the description was edited on Boards since the last push. Never reads the item's state.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (azure) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent — markdown is stored verbatim, so this is normally byte-identical; an HTML-era item reduces to text first. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (azure) preserve &lt;spec&gt;</td><td>Post the item's current description as a comment headed <b>Original report</b>, before the linking push replaces it with the spec. How a reporter's original words survive adoption. Idempotent, and never fatal — it exits 0 on everything it cannot do.</td><td class="folder">/spec · /spec-bug · /spec-hotfix</td></tr>
           <tr><td class="cmd">spec-sync (azure) stamp &lt;spec&gt;</td><td>Write item ids into a spec's frontmatter (<span class="mono">--issue AB#123</span>, <span class="mono">--sub ref=n</span>) — verified against Azure when a PAT resolves. The MCP path's last step — or a manual link.</td><td class="folder">/spec-push · you</td></tr>
-          <tr><td class="cmd">spec-sync (azure) record &lt;spec&gt;</td><td>Record the base snapshot that later drift is measured against.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync (azure) record &lt;spec&gt;</td><td>Record the base snapshot that later pushes diff against.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (azure) normalize &lt;spec&gt;</td><td>Print the spec's local projection as JSON, the way the mirror will store it.</td><td class="folder">internal</td></tr>
           <tr><td class="cmd">spec-sync (azure) states</td><td>The configured types' state names, with the bucket map — <span class="mono">--json</span> prints the bare array <span class="mono">--workspace-states</span> consumes.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (azure) list</td><td>Every spec item the project holds — id, state, title and the local spec name to paste into <span class="mono">/spec-start</span>. Read-only.</td><td class="folder">/spec-list · you</td></tr>
@@ -797,11 +797,10 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Setup &amp; health</td></tr>
           <tr><td class="cmd">spec-sync (azure) credentials</td><td>Store, show or clear the PAT without putting it in a shell history. <a href="#setup">See above</a>.</td><td class="folder">you</td></tr>
 
-          <tr class="grp-row"><td colspan="3">Reporting &amp; releases</td></tr>
+          <tr class="grp-row"><td colspan="3">Reporting</td></tr>
           <tr><td class="cmd">spec-sync (azure) linked</td><td>Every spec and the item it is linked to — how much of the repo is mirrored. Offline.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync (azure) ref</td><td>The ticket for the commit you are writing, answered from the branch. Bare id on stdout only on success, so a substitution cannot splice an error into a commit body.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-sync (azure) released</td><td>The tickets a release contains, scanned from a commit range's <span class="mono">Refs: AB#n</span> trailers — an earlier tracker's <span class="mono">KEY-N</span> trailers count as historical, never as missing.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-sync (azure) release …</td><td><span class="mono">create &lt;tag&gt;</span> · <span class="mono">deployed &lt;tag&gt; &lt;env&gt;</span> · <span class="mono">complete &lt;tag&gt;</span> — the release work item. Dry run unless <span class="mono">--apply</span>; idempotent by lookup.</td><td class="folder">CI</td></tr>
+          <tr><td class="cmd">spec-sync (azure) released</td><td>The tickets a release contains, scanned from a commit range's <span class="mono">Refs: AB#n</span> trailers — an earlier tracker's <span class="mono">KEY-N</span> trailers count as historical, never as missing. <span class="mono">--json</span> names each ticket's spec and url, for your CI.</td><td class="folder">you · CI</td></tr>
         </tbody>
       </table>
     </div>

@@ -16,7 +16,7 @@ NAMES — never a credential. Credentials live in the user-level store
 | `apply.transport` | `api` \| `mcp`, or empty for "api when credentials resolve, mcp when they don't". | `""` |
 | `sync.baseDir` | Where last-pushed snapshots live. | `specs/.core/jira-base` |
 | `sync.fieldOwnership` | Which projection fields push (`description`, `subIssues`, `workflowState`, `assignee`; `"none"` declines one). | all `push` |
-| `release.stages` / `release.ignorePaths` | The deployment ladder and bookkeeping path prefixes, exactly as the Linear provider defines them. | `[]` / `specs/`, changelogs |
+| `release.ignorePaths` | Bookkeeping path prefixes `released` ignores, exactly as the Linear provider defines them. | `specs/`, changelogs |
 
 Descriptions are stored as ADF (Atlassian Document Format): the adapter
 renders markdown to ADF on push and reduces ADF back to text on read-back, so
@@ -38,9 +38,11 @@ Sprint", "Released". A bucket's value may be an **array** instead of a string:
 
 - **The first name is the only one push writes**, and only when the spec
   itself moves. The rest are never written.
-- **The rest are read as that bucket** wherever a tracker status is
-  interpreted. The array is parsed and validated like every other provider's,
-  so one config shape works across all of them.
+- **The rest are read as that bucket** wherever a listing interprets a status.
+  The array is parsed and validated like every other provider's, so one config
+  shape works across all of them. `spec-sync status` never reads a ticket's
+  status at all: skitterspec tells Jira about its own transitions and nothing
+  else.
 - **Nothing is pulled.** An alias changes what the report *says* about a
   ticket, never the spec.
 - A plain string works exactly as before. An alias that also names another
@@ -67,8 +69,9 @@ the map honest:
   type keeps the pipeline — subtasks genuinely have no delivery lifecycle, and
   Jira lets you say so structurally.
 - **Track "which release contains this" with fix versions** — the Releases
-  hub, the analogue of what `spec-sync released` computes from `Refs:`
-  trailers. (Available on every plan; in the current "Spaces" UI it is not a
+  hub. Your CI can fill it from `spec-sync released "<prev>..<tag>" --json`,
+  which lists the tickets a range contains from their `Refs:` trailers, each
+  with its spec and url. (Available on every plan; in the current "Spaces" UI it is not a
   Features toggle but a **tab** — add it with `+` in the space's tab bar.)
 - **Let CI/CD integrations stamp environment position** (the deployments
   panel), so it never needs to be a status at all.
@@ -79,6 +82,7 @@ status's board category, the closest match when one is missing, and the
 one-line remap. Run it whenever the wiring feels uncertain; it changes
 nothing.
 
-Walking the parent through pipeline stages at *release* time is the
-`release.stages` ladder — deferred in this provider's v1 — not a job for the
-lifecycle skills.
+Walking the parent through pipeline stages at *release* time is the host
+project's job, not skitterspec's: it writes nothing about releases or
+deployments on any provider. A leftover `release.stages` is flagged by
+`spec-sync doctor` as unused config.

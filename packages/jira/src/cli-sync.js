@@ -670,12 +670,13 @@ function specSyncReleased(dir, config, rangeArg, flags, out) {
   const report = kit.ticketsInRange(read.commits, {
     ignorePaths: (config.release && config.release.ignorePaths) || [],
   })
+  report.tickets = kit.nameTickets(report.tickets, listSpecs(dir, config, { urls: true }))
   if (flags.json) {
     out.write(JSON.stringify(report, null, 2) + '\n')
     return 0
   }
   const lines = [`${PROGRAM} released: ${range} — ${report.total} commit(s)`]
-  for (const t of report.tickets) lines.push(`  ${t.ref}  (${t.commits} commit(s))`)
+  for (const t of report.tickets) lines.push(`  ${t.ref}  (${t.commits} commit(s))${t.spec ? `  ${t.spec}` : ''}`)
   if (!report.tickets.length) lines.push('  no referenced tickets')
   if (report.unreferenced) lines.push(`  ${report.unreferenced} commit(s) carry no Refs: trailer`)
   if (report.ignored) lines.push(`  ${report.ignored} bookkeeping commit(s) ignored`)

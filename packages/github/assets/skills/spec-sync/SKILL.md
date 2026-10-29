@@ -45,7 +45,7 @@ In a project that installs the GitHub superset the binary is
 | "link this spec to #1 by hand" | `stamp <spec> --issue #1` |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
 | "what ticket am I on?", writing a commit | `ref` |
-| "what shipped in this release?" | `released` |
+| "what shipped in this release?", "which issues does CI mark deployed?" | `released` — `--json` for a script; recording deploys is the project's own |
 | "is any of this wired up?", "why isn't sync working?" | `doctor` — scaffold, isolation, tracker and credentials in one |
 | "set my GitHub credentials", "am I authenticated?" | `credentials <status\|set\|unset>` |
 | push one spec, or "what would push?" | **defer** — see below |
@@ -68,7 +68,7 @@ Two front doors to one write path is worse than none:
 
 - **Push one spec** → `/spec-push`. It owns the transport choice, the
   status-name gate, the plan, the apply, the stamping and the snapshot.
-- **Per-spec drift** ("is this spec in sync?", "what would push?") →
+- **Per-spec status** ("is this spec in sync?", "what would push?") →
   `/spec-status`.
 
 Say which skill you're handing to and stop; don't reimplement either.
@@ -178,8 +178,10 @@ and never write `Refs: none`.
 
 `released` reports the tickets in a commit range — by default since the most
 recent tag, and it always prints the range it chose so a wrong default is
-visible. It is **read-only**: it does not move anything in GitHub. A release can
-be cut and never deployed, so moving a Status stays a deliberate act.
+visible. It is **read-only**: it does not move anything in GitHub. Each issue
+row names the `spec` and `url` behind it (`null` when no spec linked the ref),
+so `--json` is what a project's CI pipes into its own tooling to record a
+release or a deploy. Recording those is the project's job, not skitterspec's.
 
 Relay the **unreferenced count** even when it is zero. A chore commit
 legitimately carries no ticket and a *missed* trailer looks identical, so
@@ -193,30 +195,12 @@ A commit whose changed paths are **all** under `release.ignorePaths` (default
 file still counts. Relay the **ignored count** whenever it is non-zero — that is
 the report saying which commits it set aside.
 
-## 7b. `release` — mirror what shipped onto GitHub Releases and the board
+## 7b. `release` is retired
 
-```
-pnpm exec skitterspec-github spec-sync release create <tag> --stage <env> [--apply]
-pnpm exec skitterspec-github spec-sync release deployed <tag> <env> [--apply]
-pnpm exec skitterspec-github spec-sync release complete <tag> [--apply]
-pnpm exec skitterspec-github spec-sync release reconcile [--apply] [--json]
-```
-
-These need `releases.series` in the config — `github.config.md` → "Releases"
-carries the field reference and semantics. Every verb is a **dry run without
-`--apply`**, so relay the plan rather than re-deriving it. `create` mints a
-prerelease listing the tag's tickets, `deployed` sets the board's Deployed
-option on them, `complete` clears the prerelease flag. They are CI's verbs
-first — run by the host project's pipeline on a tag — and re-run by hand to
-repair the mirror.
-
-`reconcile` is the self-healing one: it probes the npm registry for each
-series' live versions and moves every marked release that shipped — including
-one superseded by a newer live version — to the series' final env, backfilling
-a release for a pushed tag that never got one. It is schedule-friendly: a
-version the registry lacks is "not yet" and exits 0, so relay its per-release
-lines verbatim and never read a `kept` as a failure. It refuses over MCP and on
-a shallow clone, exactly as `create` does.
+`spec-sync release` exits 1 naming `released --json`. Recording a release or a
+deploy is the host project's job: point the user at `released --json` (§7) and
+`github.config.md` → "Releases and deploys". Do not re-create the old verbs out
+of `gh` calls on their behalf.
 
 ## 8. Report
 

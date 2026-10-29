@@ -414,8 +414,8 @@ test('states over MCP degrades to instructions, exit 0', async () => {
 
 // --- released ---------------------------------------------------------------
 
-test('released reads Refs: trailers out of a real range', async () => {
-  const dir = repoWithSpec()
+test('released reads Refs: trailers out of a real range, naming the spec behind each', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-7' })
   const git = (...args) => execFileSync('git', ['-C', dir, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
   git('init', '-q')
   git('config', 'user.email', 't@e.st')
@@ -426,10 +426,16 @@ test('released reads Refs: trailers out of a real range', async () => {
   fs.writeFileSync(path.join(dir, 'b.txt'), 'b')
   git('add', '-A')
   git('commit', '-q', '-m', 'chore: no trailer here')
+  fs.writeFileSync(path.join(dir, 'c.txt'), 'c')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'fix(y): other\n\nRefs: PROJ-8')
   const r = await run(['released', 'HEAD', '--json'], dir)
   assert.strictEqual(r.code, 0, r.out)
   const report = JSON.parse(r.out)
-  assert.deepStrictEqual(report.tickets, [{ ref: 'PROJ-7', commits: 1 }])
+  assert.deepStrictEqual(report.tickets, [
+    { ref: 'PROJ-8', commits: 1, spec: null, url: null },
+    { ref: 'PROJ-7', commits: 1, spec: 'feat-demo', url: `${SITE}/browse/PROJ-7` },
+  ])
   assert.strictEqual(report.unreferenced, 1)
 })
 

@@ -11,7 +11,7 @@ Run this **only when minting a spec issue** — creating it for the first time. 
 an update the issue already has a project (or deliberately has none), and that
 placement is **Linear's to own**: never send `project` on an update, and never
 record the choice in the spec file or the snapshot. A PM re-homing a spec issue
-must not show up as drift or be overwritten on the next push.
+must not be reported or overwritten on the next push.
 
 1. **List the candidates.** Ask the engine:
    `skitterspec spec-sync projects --json`. On the API path it returns the team's

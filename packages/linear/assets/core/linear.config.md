@@ -7,7 +7,7 @@ a Linear issue and each phase a sub-issue; a phase's tasks ride along inside
 that sub-issue's description as a read-only checklist. Content is
 pushed up and never read back or merged — `/spec-push` diffs the spec against a
 committed **last-pushed snapshot** and applies only what changed; `/spec-status`
-is a read-only drift report. The `sync.fieldOwnership` map now just selects the
+is a read-only report of what would push. The `sync.fieldOwnership` map now just selects the
 projection field set (every field is repo-owned and pushed).
 
 **Every Linear step is gated on this file.** While `specs/.core/linear.config.json`
@@ -90,14 +90,9 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push|none` is a hard 
     "overviewFile": "00-overview.md"
   },
 
-  // The project's OWN deployment ladder — where a ticket goes AFTER its spec is
-  // complete. Empty (the default) means no ladder is declared and every
-  // stage-aware path is unused. See "The deployment ladder" below.
-  //
-  // `ignorePaths` is what `released`/`stage` treat as BOOKKEEPING rather than
-  // shipped work — see "Bookkeeping commits" below. `[]` opts out.
+  // `ignorePaths` is what `released` treats as BOOKKEEPING rather than shipped
+  // work — see "Bookkeeping commits" below. `[]` opts out.
   "release": {
-    "stages": [],
     "ignorePaths": ["specs/"]
   },
 
@@ -153,17 +148,17 @@ Sprint", "Released". A bucket's value may be an **array** instead of a string:
 
 - **The first name is the only one push writes**, and only when the spec
   itself moves. The rest are never written.
-- **The rest are read as that bucket** wherever a tracker state is
-  interpreted: `spec-sync status` reports no drift for them, the live
-  `spec-sync list` hides every `complete` / `cancelled` name, and
-  `spec-sync states` lists each alias under its bucket.
+- **The rest are read as that bucket** by the listing: the live
+  `spec-sync list` hides every `complete` / `cancelled` name, `--state <bucket>`
+  matches all of them, and `spec-sync states` lists each alias under its
+  bucket.
 - **Nothing is pulled.** An alias changes what the report *says* about a
   ticket, never the spec.
 - A plain string works exactly as before. An alias that also names another
   bucket is refused at load. An alias the tracker lacks is reported by
   `spec-sync states` but never blocks a push, because it is never written.
-- A state in no bucket at all is still reported by `spec-sync status`, as
-  "a state skitterspec does not map — left alone", never as drift.
+- `spec-sync status` never reads a ticket's state at all, aliased or not —
+  see "One direction" below.
 
 ## Assignment (`sync.fieldOwnership.assignee`)
 
@@ -227,54 +222,37 @@ reusing the identity above rather than a second copy of it. It writes nothing,
 and it says what it did not show — the count, the archived exclusion, and any
 cap — rather than implying a completeness it never checked.
 
-## The deployment ladder (`release.stages`)
+## Releases and deploys — the host project's to write
 
-A spec's lifecycle stops at `complete`. Where a ticket goes **after** that —
-deployed to test, approved for demo, live in prod — is a fact about an
-**environment**, and nothing under `specs/` can derive it. `release.stages` is
-where a project declares that ladder in its own vocabulary:
+Skitterspec tells Linear about **its own** transitions: a spec starting,
+a phase finishing, a spec completing or being cancelled. It never reads a
+ticket's state back, and it writes nothing about releases or deployments. Where
+a ticket goes after its spec is `complete` — on test, in prod — belongs to the
+environment, and the project's own CI or scripts record it however they like.
 
-```jsonc
-"release": {
-  "stages": [
-    { "key": "test", "state": "On Test" },
-    { "key": "demo", "state": "Ready for Demo" },
-    { "key": "prod", "state": "Done" }
-  ]
-}
+The one release question skitterspec answers is
+**which tickets a range contains**, because only the `Refs:` trailers know:
+
+```sh
+skitterspec spec-sync released "<previous-tag>..<tag>" --json
 ```
 
-- **`key`** is what CI names (`spec-sync stage test …`); **`state`** is the
-  Linear issue state it moves to. Pipelines reference the *key*, never the state
-  name, so renaming a Linear column is one edit here rather than a hunt through
-  pipeline YAML.
-- **Every `state` is checked against the workspace** alongside `states`, at push
-  and setup time. Linear **silently ignores** an unknown issue state, so an
-  unchecked typo would deploy cleanly and move nothing, forever.
-- **Order is recorded, not enforced.** It drives reporting and the doctor check;
-  a rollback from test, or a hotfix going straight to prod, is legitimate and is
-  never refused.
-- **Keys must be unique**, and a malformed entry is a hard error at load — the
-  same treatment `sync.fieldOwnership` and `mapping.phases` get.
-- **Absent or empty = the opt-out.** Nothing about the ladder affects a project
-  that has not declared one.
+Each row carries the `ref`, its commit count, the `spec` that stamped it and its
+`url` — `null` for a ref no spec has linked, never a guess. Pipe that into the
+Linear API or CLI to set whatever field, label or state your process uses.
 
-Unlike `states` and `mapping.phases`, this is **not** keyed by lifecycle bucket:
-the buckets are a closed set the repo derives, and a deployment stage never is.
-
-Run `skitterspec spec-sync states` to see the whole configured vocabulary — the
-bucket map and the ladder — against what the workspace actually has.
-
+`release.stages` and the `spec-sync stage` command are **retired**: `stage`
+exits 1 naming `released --json`, and `spec-sync doctor` flags a leftover
+`release.stages` as unused config (a warning, never a failure).
 
 ## Bookkeeping commits (`release.ignorePaths`)
 
-`spec-sync released` and `spec-sync stage` answer "what did this release
-contain?" from the `Refs:` trailers in the range. Left alone, that over-answers:
+`spec-sync released` answers "what did this release contain?" from the
+`Refs:` trailers in the range. Left alone, that over-answers:
 a spec's `chore(spec): complete <name>` commit carries the **same ref** as the
 code it describes, but lands **after** the tag that shipped that code — so the
 ticket turns up in two consecutive release ranges, once for its code and once
-for its paperwork. Downstream, a deployment ladder then drags an issue that had
-already reached the top back down a rung.
+for its paperwork, and anything downstream acting on the list acts twice.
 
 `release.ignorePaths` names the repo-relative prefixes that are paperwork:
 
@@ -689,8 +667,10 @@ most specific destination. Leave a list empty and nothing routes through it.
 The repo owns the spec and pushes it; there is no pull. `/spec-push` diffs the
 current spec against the committed **last-pushed snapshot** and sends only what
 changed — creates for unlinked items, updates for changed ones. A workflow-state a
-teammate moves in Linear is surfaced by `/spec-status` as **drift** (advisory) and
-overwritten on the next push. Priority, labels, cycles and comments are
+teammate moves in Linear is **not skitterspec's business**: it is never read
+back or reported, and push resends State only when the spec itself moves. A
+**description** someone edited there is reported by `/spec-status`, because
+the next push replaces it. Priority, labels, cycles and comments are
 Linear-native triage and are never touched. No base merge, no conflicts, no
 `--force`.
 

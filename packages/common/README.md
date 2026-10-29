@@ -338,8 +338,8 @@ issue + a sub-issue per phase and writes the linking frontmatter into
 **Which Project** the spec issue belongs to is asked once, when the issue is first
 created: a filterable list of the team's projects, defaulting to
 `linear.projectId`, always offering *None*. It's sent on the create call only and
-never stored — so moving a spec issue between projects in Linear sticks, and never
-reads as drift.
+never stored — so moving a spec issue between projects in Linear sticks, and is
+never reported.
 
 **Starting from an issue** (opt-in via `intake`): `/spec SKI-123` adopts an
 existing Linear issue, and `/spec --from-issue [query]` browses the ones labelled
@@ -350,8 +350,8 @@ spec's issue, so the reporter's thread survives and nothing is duplicated;
 **The lifecycle:**
 
 ```
-/spec-status          # read-only drift report — what the next push would create /
-                      #   update, plus any workflow-state drift. Changes nothing.
+/spec-status          # read-only — what the next push would create / update,
+                      #   plus any description edited in Linear. Changes nothing.
    …author & refine the spec locally (the repo is the source of truth)…
 /spec-push            # repo → Linear, one way. Diffs against a committed last-
                       #   pushed snapshot and applies only what changed; stamps ids.
@@ -361,8 +361,10 @@ spec's issue, so the reporter's thread survives and nothing is duplicated;
 and the workflow state — and pushes it. Priority, labels, cycles and comments are
 **Linear-native triage**, the PM's to set in Linear; one-way sync neither pushes
 nor reads them, so a PM's triage is never clobbered. A workflow-state moved in
-Linear is surfaced by `/spec-status` as drift and overwritten on the next push —
-there's nothing to reconcile.
+Linear is left alone — skitterspec tells Linear about its own transitions and
+never reads state back, so there's nothing to reconcile. Releases and deploys
+are the project's own to record: `spec-sync released <range> --json` lists the
+tickets a range contains for its CI to act on.
 
 **Last-pushed snapshots** (`sync.baseDir`, default `specs/.core/linear-base/`) are
 **committed** content hashes of the last push — each worktree carries its own, so

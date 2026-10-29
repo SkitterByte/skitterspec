@@ -382,6 +382,7 @@ const ENGINES = {
       // NOT appear in the command table — documenting a retired name advertises
       // it as available, which is the opposite of retiring it.
       push: 'retired in v13; dispatched only to point at `spec-sync plan`',
+      stage: 'retired with the deploy ladder; dispatched only to point at `released --json`',
     },
   },
   'spec-sync (jira)': {
@@ -413,6 +414,7 @@ const ENGINES = {
     undocumented: {
       doctor: 'documented in the Check section, not the push-path verb table',
       'init-config': 'documented in the Set up section, not the push-path verb table',
+      release: 'retired; dispatched only to point at `released --json`',
     },
   },
 }

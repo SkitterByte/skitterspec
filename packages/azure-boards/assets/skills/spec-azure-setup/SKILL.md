@@ -207,7 +207,8 @@ Then name the next step:
 
 - `/spec` — write a spec; with Boards configured it creates the linked work
   item in the configured project and stamps the id.
-- `/spec-status` — read-only drift report, the safe way to prove the link works.
+- `/spec-status` — read-only report of what would push, the safe way to prove
+  the link works.
 - `/spec-push` — send a spec up.
 
 Mention what setup did **not** configure, so the defaults aren't mistaken for

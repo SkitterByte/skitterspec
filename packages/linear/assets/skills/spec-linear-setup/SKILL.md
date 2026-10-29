@@ -147,36 +147,14 @@ never apply one they didn't agree to), and re-run with the `--state` flags. If i
 made no suggestion for a bucket, **ask** which state means "finished" here rather
 than guessing.
 
-## 7. Does this repo deploy through stages? (optional)
+## 7. Deploys are the project's own to record
 
-A spec's lifecycle ends at `complete`. Where a ticket goes **after** that —
-deployed to test, approved for demo, live in production — is a fact about an
-environment, and nothing in the repo can derive it. If the team runs a deploy
-pipeline, it can declare that ladder here and CI moves tickets along it with
-`spec-sync stage`.
-
-**Ask, do not assume.** Most projects have no ladder, and an invented one is
-worse than none: `spec-sync stage` refuses cleanly when none is declared, whereas
-a wrong ladder is a pipeline quietly moving tickets to the wrong column. If the
-user does not raise deployment, offer it once in a line and take "no" for an
-answer.
-
-If they do want one, ask for the stages **in deployment order**, and map each to
-a state from the `list_issue_statuses` names you already have:
-
-```
---stage test="On Test" --stage demo="Ready for Demo" --stage prod="Done"
-```
-
-- The **key** (`test`) is what a pipeline names; the **state** is the Linear
-  column. Pipelines reference the key, so renaming the column later is one edit
-  here.
-- Order is recorded, not enforced — a rollback and a hotfix straight to prod are
-  both legitimate and are never refused.
-- **Ask what closes an issue.** If the last rung is not a completed-type state,
-  tickets that finish the ladder never reach Done. That is fine when Linear
-  automation closes them and a problem otherwise — `spec-sync doctor` warns about
-  it either way, so say which it is.
+Nothing to ask here. Skitterspec moves a Linear issue only at its own
+transitions, and a spec's lifecycle ends at `complete`. Where a ticket goes
+after that is the host project's: its CI can list a release's tickets with
+`skitterspec spec-sync released "<previous-tag>..<tag>" --json` and set whatever
+Linear state or label it likes. If the user asks about deploy tracking, say that
+in one line and point at "Releases and deploys" in `linear.config.md`.
 
 ## 7b. Assignment is on — does this team want it off?
 
@@ -226,11 +204,6 @@ The engine writes **only the keys that differ from the defaults**, so the file
 shows this repo's choices and keeps inheriting everything else. `--force` is
 required to replace an existing config — never pass it without the user having
 asked for a rewrite in step 1.
-
-Every `--stage` state is checked against the workspace exactly like a bucket
-state, and a bad one is refused the same way — as `release.stages[test]` rather
-than `states.complete`. There is no suggestion for a rung: the vocabulary is the
-project's own, so ask rather than guess.
 
 **Relay the engine's report as printed.** It names the team, the project (or
 "team only"), the intake labels, and how many state names were checked against
@@ -312,7 +285,8 @@ Then name the next step:
 
 - `/spec` — write a spec; with Linear configured it offers the project picker,
   creates the linked issue and stamps the id.
-- `/spec-status` — read-only drift report, the safe way to prove the link works.
+- `/spec-status` — read-only report of what would push, the safe way to prove
+  the link works.
 - `/spec-push` — send a spec up.
 
 **Never ask for the API key.** `doctor`'s `key` row already reports whether one

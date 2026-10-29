@@ -23,12 +23,13 @@ npx @skitterbyte/skitterspec-azure-boards init
 - **Work item types and states are the project's own.** The process template
   (Basic, Agile, custom) decides them, so the config names the types and the
   bucket→state map, validated against the process at run time.
-- **One-way**: nothing is read back into the repo. A body edited in Boards is
-  reported and replaced on the next push, loudly.
-- **Releases**: CI runs `spec-sync release create <tag>` on a tag push. It
-  mints one work item of `releases.workItemType` per release, holding exactly
-  the tickets that tag contains by their `Refs: AB#n` trailers;
-  `release deployed <tag> <env>` moves that item's state through your envs.
+- **One-way**: nothing is read back into the repo, and skitterspec tells
+  Boards only about its own transitions — an item moved by hand is left alone.
+  A body edited in Boards is reported and replaced on the next push, loudly.
+- **Releases are yours to record**: `spec-sync released <range> --json` lists
+  exactly the tickets a range contains, by their `Refs: AB#n` trailers, each
+  with its spec and url. Your CI pipes that into whatever records a release or
+  a deploy; skitterspec writes neither.
 - **Assignment**: `/spec-start` assigns the work item to you; `/spec-claim`
   hands it on. Identity derives from the PAT (`spec-sync whoami`).
 - **Intake**: adopt a PM-filed work item as a spec's own, routed to `/spec`,

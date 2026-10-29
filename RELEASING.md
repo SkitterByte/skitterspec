@@ -116,27 +116,31 @@ workflow's `workflow_dispatch` trigger with the package and version — no secon
 tag needed.
 
 **The GitHub board follows the release.** This repo's tickets are GitHub issues
-on board 2 (`specs/.core/github.config.json`). After staging, the workflow
-creates a prerelease GitHub Release listing the issues the tag's range carries
-and sets their **Deployed** field to `Staged`; `npm run approve` then sets it to
-`Published` and lifts the prerelease flag. Both are **never fatal** — the
-package is the release, the board is its mirror — and re-running
-`spec-sync release deployed|complete <tag> --apply` repairs either.
+on board 2 (`specs/.core/github.config.json`), and the board's **Deployed**
+field is kept by this repo's own `scripts/mirror-deployed.cjs` — not by
+skitterspec, which records nothing about releases. The script asks
+`spec-sync released <range> --json` which issues the tag's range carries, then
+sets their Deployed field: to `Staged` from the workflow after staging, and to
+`Published` from `npm run approve`. Both are **never fatal** — the package is
+the release, the board is its mirror — and re-running
+`node scripts/mirror-deployed.cjs <package>@<version> <Staged|Published>`
+repairs either.
 
 **Approving on the npm website is fine.** The hourly
-`reconcile-releases.yml` workflow runs
-`spec-sync release reconcile --apply`: it asks the registry which versions are
-live and moves their issues to `Published` itself — superseded staged versions
-included — and backfills a release for any pushed tag whose workflow never ran
-(a batch of tags fires no events). `npm run approve`'s own mirror step just
+`reconcile-releases.yml` workflow runs `mirror-deployed.cjs --reconcile`: for
+each package it asks the registry whether the newest tag is live and, if so,
+marks that release's issues `Published`. It writes only what differs, so a
+quiet hour writes nothing. Only the newest tag is checked, so a release a newer
+one superseded stays wherever it was left. `npm run approve`'s own step just
 makes the board instant instead of within the hour; dispatch the workflow by
 hand for the same effect.
 
 CI needs a token the Actions `GITHUB_TOKEN` cannot be: a user-owned Projects
 board accepts only a personal token. Create a **classic** PAT with `repo` and
 `project` and add it as the repo secret **`SKITTERSPEC_GITHUB_TOKEN`**. Without
-it the step prints a notice and skips. Approving uses your own token, the one
-`spec-sync credentials set` stored.
+it the script prints a notice and skips. Approving uses your own token, the one
+`spec-sync credentials set` stored, which the script reads the same way
+`spec-sync` does.
 
 **Don't trust a green workflow.** Staging is not publishing. After approving:
 

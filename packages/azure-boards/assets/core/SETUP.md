@@ -99,9 +99,9 @@ state (Agile's `Removed` is an honest override).
 **Map buckets to work states, not deployment stages.** The buckets mirror the
 repo's work lifecycle, so To Do / Doing / Done translate honestly — On Test /
 On Live do not: a finished phase would show as deployed before anything was
-released. Deployment position belongs to the release carrier
-(`releases.series[].envs`, moving the release work item) —
-`azure-boards.config.md` → **Choosing your state map** carries the reasoning.
+released. Deployment position belongs to the project's own release tooling —
+`azure-boards.config.md` → **Choosing your state map** and **Releases and
+deploys** carry the reasoning.
 
 ## 4. Check — `spec-sync doctor`
 
@@ -115,37 +115,12 @@ is an opt-in not taken (fine); `broken` is configured-but-wrong (exit 1).
 configured state exists on the types, and whether the PAT can search
 identities (a warn, never broken — only user search degrades without it).
 
-## 4b. Optional — see releases on the board
-
-The release carrier is a work item per release, so it can have a board of its
-own, and the stories it carries can show where they are. Everything here is a
-process or team setting, and needs **Edit process** on the inherited process
-plus **team administrator** — nothing in this package does it for you.
-
-- **A Releases board.** Process → Backlog levels → add a portfolio level
-  holding the `Release` type, then Team settings → Backlogs → tick it. The
-  board's level picker then offers **Releases**, one column per state. Put
-  each env state in the *In Progress* category, or every card stacks in the
-  first column.
-- **The release on each story** is a tag (`releases.ticketTag`, on by
-  default). Show tags on the card and filter the board by one.
-- **Where each story is deployed.** Add a picklist field to every type
-  tickets are minted as (User Story, Bug…) holding exactly the `envs` values
-  (`On Test`, `On Demo`, `Released`…), and set its reference name as
-  `releases.deployedField` (e.g. `Custom.Deployed`). `release deployed <env>`
-  then sets it on each story the release carries, leaving the story's State
-  alone. Show it on the card, and add a card style rule per value to colour
-  cards by it.
-- **Releases with their stories in one list.** A *Work items and direct
-  links* query — top level `Release` in the env states, linked `Related`
-  stories — shows each release with its stories under it.
-
 ## 5. Push a spec
 
 `/spec-push <spec>` computes the plan, applies it, stamps the returned ids
 into the spec's frontmatter (`azure_identifier` / `azure_url` /
 `azure_item_id`), verifies the round-trip by words, and records the snapshot
-later drift is measured against. From then on the lifecycle skills keep the
+later pushes diff against. From then on the lifecycle skills keep the
 mirror fresh on their own.
 
 ---
@@ -213,23 +188,11 @@ types' state names.
    ```
 
    Tickets counted, unreferenced commits reported, an earlier tracker's
-   trailers counted as historical, bookkeeping ignored.
+   trailers counted as historical, bookkeeping ignored. With `--json`, each
+   ticket names the spec and url behind it — what your CI uses to record a
+   release.
 
-8. **Release carrier** — with a `releases.series` configured and a tag pushed:
-
-   ```sh
-   pnpm exec skitterspec-azure-boards spec-sync release create <tag>
-   pnpm exec skitterspec-azure-boards spec-sync release create <tag> --apply
-   pnpm exec skitterspec-azure-boards spec-sync release deployed <tag> staged --apply
-   pnpm exec skitterspec-azure-boards spec-sync release complete <tag> --apply
-   ```
-
-   In Boards: one `releases.workItemType` item titled by the tag, the range's
-   tickets Related-linked with one comment each, the item's state moving
-   through the envs and closing on complete. A retry of `create --apply`
-   reports "unchanged", never a duplicate.
-
-9. **Drift** — edit the item's description **in Boards**, fetch the item JSON,
+8. **Edited description** — edit the item's description **in Boards**, fetch the item JSON,
    and:
 
    ```sh

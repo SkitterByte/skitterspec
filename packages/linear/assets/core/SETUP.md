@@ -70,7 +70,7 @@ claude mcp list
 ```
 
 > Read-only trial: use `https://mcp.linear.app/mcp/readonly` to exercise
-> `/spec-status` (drift report) without granting write access. `/spec-push`
+> `/spec-status` (read-only report) without granting write access. `/spec-push`
 > needs the full (writable) endpoint.
 
 ## 3. Configure — run `/spec-linear-setup`
@@ -200,7 +200,7 @@ Two ways to get there:
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
-| `/spec-status` | — | Read-only drift report: what would push (create/update), and whether Linear's workflow-state drifted from the spec. Writes nothing. |
+| `/spec-status` | — | Read-only report: what would push (create/update), and whether the issue's description was edited in Linear since the last push. Writes nothing. |
 | `/spec-push`   | repo → Linear | Computes a create/update plan vs the last-pushed snapshot and applies it (issue description/state, phase sub-issues), stamping new ids back into the spec. |
 | `/spec-claim`  | repo → Linear | Take a spec over, `--release` it, or hand it `--to` a teammate. Records the owner in the spec, then pushes. Needs assignment enabled (below). |
 | `/spec-list`   | Linear → you | Read-only listing of every spec Linear holds — id, title, state, who holds it and the local spec name to start it by. Filters by state, backlog order, or assignee. Writes nothing. |
@@ -221,8 +221,8 @@ have not got.
 
 Tasks, priority, labels, cycles and comments are **Linear-native triage** (or
 repo-only) — never pushed, so they're never clobbered. A workflow-state a teammate
-moves in Linear is surfaced by `/spec-status` as drift and overwritten on the next
-push.
+moves in Linear is left alone: skitterspec never reads state back, and push
+resends it only when the spec itself moves.
 
 The spec is one issue and each phase a **sub-issue** (`parentId` = the spec
 issue). The link ids live in frontmatter — `linear_identifier` on the overview,

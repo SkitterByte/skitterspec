@@ -543,7 +543,7 @@ verified: 2e840b2813e6
       <div class="icard">
         <span class="k">HOW IT'S SAFE</span>
         <h3>The repo always wins</h3>
-        <p>One direction, so nothing is ever read back or clobbered. A status moved in Jira is surfaced by <span class="mono" style="font-size:.85em">/spec-status</span> as drift, and a description edited there is reported <em>loudly</em> — then both are overwritten on the next push. The mirror can't fight the source.</p>
+        <p>One direction, so nothing is ever read back or clobbered. Skitterspec tells Jira about its own transitions and nothing else, so a status someone moves there is left alone. A description edited there is reported <em>loudly</em> before the next push overwrites it. The mirror can't fight the source.</p>
       </div>
     </div>
 
@@ -587,8 +587,8 @@ verified: 2e840b2813e6
         <p>Priority, labels, sprints, discussion. The PM's to set in Jira; one-way sync neither pushes nor reads them, so it never fights the PM for them.</p>
       </div>
       <div class="own-card own-both">
-        <div class="oh"><span class="d"></span>drift · surfaced, not merged</div>
-        <p>Move an issue in Jira, or edit its description there, and <span class="mono">/spec-status</span> says so — advisory only. The repo wins on the next push; there's nothing to reconcile.</p>
+        <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>
+        <p>Edit an issue's description in Jira and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved issue is never reported — skitterspec doesn't read status back, so there's nothing to reconcile.</p>
       </div>
     </div>
   </div>
@@ -728,7 +728,7 @@ skitterspec-jira spec-sync <span class="p">credentials set</span></div>
     <div class="cards-3 reveal">
       <div class="icard">
         <h3><span class="mono">/spec-status</span></h3>
-        <p>Read-only. What the next push would create or update, whether Jira's status has drifted — and whether someone edited the issue's description over there, which the next push will replace. Writes nothing.</p>
+        <p>Read-only. What the next push would create or update, and whether someone edited the issue's description over there, which the next push will replace. Writes nothing.</p>
       </div>
       <div class="icard">
         <h3><span class="mono">/spec-push</span></h3>
@@ -751,7 +751,7 @@ skitterspec-jira spec-sync <span class="p">credentials set</span></div>
 
     <p class="reveal">Every lifecycle skill already refreshes the mirror as it goes, so in practice you rarely push by hand. These five are what the superset <em>adds</em>; the base's own fifteen — the lifecycle, the review loop, isolation — are listed on <a href="index.html#loop">the base page</a>, and installing this package gives you all twenty.</p>
 
-    <p class="reveal" style="margin-top:18px; color:var(--ink-soft); font-size:.95rem; max-width:70ch;"><strong>Not yet shipped for Jira</strong> (the Linear provider has them): assignment and <span class="mono">/spec-claim</span>, the release-stage ladder, <span class="mono">retarget</span>, <span class="mono">reattach</span>, and the <span class="mono">sanitise</span> pass. The engine's own usage text says so too, so the CLI and this page cannot disagree about it.</p>
+    <p class="reveal" style="margin-top:18px; color:var(--ink-soft); font-size:.95rem; max-width:70ch;"><strong>Not yet shipped for Jira</strong> (the Linear provider has them): assignment and <span class="mono">/spec-claim</span>, <span class="mono">retarget</span>, <span class="mono">reattach</span>, and the <span class="mono">sanitise</span> pass. The engine's own usage text says so too, so the CLI and this page cannot disagree about it.</p>
   </div>
 </section>
 
@@ -772,11 +772,11 @@ skitterspec-jira spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync (jira) plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing — and refuses until the project's status names have been checked (<span class="mono">--workspace-states</span>).</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (jira) apply &lt;spec&gt;</td><td>Apply a plan over the API — create/update, then transition — and stamp the returned keys. On the MCP transport it writes nothing and names the tools that apply it instead.</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync (jira) status &lt;spec&gt;</td><td>Drift report — what would push, whether Jira's status moved, and whether the description was edited on Jira since the last push.</td><td class="folder">/spec-status</td></tr>
+          <tr><td class="cmd">spec-sync (jira) status &lt;spec&gt;</td><td>What would push, and whether the description was edited on Jira since the last push. Never reads the issue's status.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (jira) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent — by words, not bytes, because ADF has no canonical byte form. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (jira) preserve &lt;spec&gt;</td><td>Post the issue's current description as a comment headed <b>Original report</b>, before the linking push replaces it with the spec. How a reporter's original words survive adoption. Idempotent, and never fatal — it exits 0 on everything it cannot do.</td><td class="folder">/spec · /spec-bug · /spec-hotfix</td></tr>
           <tr><td class="cmd">spec-sync (jira) stamp &lt;spec&gt;</td><td>Write issue keys into a spec's frontmatter (<span class="mono">--issue PROJ-123</span>, <span class="mono">--sub ref=KEY</span>). The MCP path's last step — or a manual link.</td><td class="folder">/spec-push · you</td></tr>
-          <tr><td class="cmd">spec-sync (jira) record &lt;spec&gt;</td><td>Record the base snapshot that later drift is measured against.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync (jira) record &lt;spec&gt;</td><td>Record the base snapshot that later pushes diff against.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (jira) normalize &lt;spec&gt;</td><td>Print the spec's local projection as JSON, the way the mirror will store it.</td><td class="folder">internal</td></tr>
           <tr><td class="cmd">spec-sync (jira) states</td><td>The project's status names — <span class="mono">--json</span> prints the bare array <span class="mono">--workspace-states</span> consumes.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (jira) list</td><td>Every spec issue the project holds — key, status, title and the local spec name to paste into <span class="mono">/spec-start</span>. Read-only.</td><td class="folder">/spec-list · you</td></tr>
@@ -787,7 +787,7 @@ skitterspec-jira spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Reporting — the ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-sync (jira) linked</td><td>Every spec and the issue it is linked to — how much of the repo is mirrored. Offline.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync (jira) ref</td><td>The ticket for the commit you are writing, answered from the branch. Bare key on stdout only on success, so a substitution cannot splice an error into a commit body.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-sync (jira) released</td><td>The tickets a release contains, scanned from a commit range's <span class="mono">Refs:</span> trailers.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync (jira) released</td><td>The tickets a release contains, scanned from a commit range's <span class="mono">Refs:</span> trailers — each with its spec and url, so <span class="mono">--json</span> is what your CI pipes into its own tooling to record a release or a deploy.</td><td class="folder">you · CI</td></tr>
         </tbody>
       </table>
     </div>

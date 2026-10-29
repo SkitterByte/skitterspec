@@ -712,12 +712,12 @@ verified: 2e840b2813e6
         <div class="step-rail"><div class="step-num">5</div><div class="step-line"></div></div>
         <div class="step-body">
           <h3><span class="cmd">/spec-status</span> See what would push <span class="step-where term-w">terminal</span></h3>
-          <p>A read-only drift report. It shows what the next push would create or update, and flags if Linear's workflow-state drifted from the spec (a card someone moved). It changes nothing — you always know what a push would move before you run it.</p>
+          <p>A read-only report. It shows what the next push would create or update, and flags a description someone edited in Linear since the last push — the next push would replace it. A card someone moved is left alone: skitterspec never reads state back. It changes nothing — you always know what a push would move before you run it.</p>
           <div class="mini-term">
 <div class="l"><span style="color:var(--accent)">›</span> /spec-status</div>
 <div class="l"><span style="color:var(--st-complete)">  ↑ pending</span>   2 sub-issues to update · issue changed</div>
-<div class="l"><span style="color:var(--st-progress)">  ~ drift</span>     Linear state "Todo" · spec "in-progress"</div>
-<div class="l"><span style="color:var(--ink-faint)">  repo wins on the next push</span></div>
+<div class="l"><span style="color:var(--st-progress)">  ~ edited</span>    SKS-57's description was edited on Linear</div>
+<div class="l"><span style="color:var(--ink-faint)">  read it before pushing — the repo wins</span></div>
           </div>
         </div>
       </div>
@@ -843,7 +843,7 @@ verified: 2e840b2813e6
     <div class="bridge reveal">
       <div class="b-cmds">
         <span class="chip"><b>/spec-push</b> repo → Linear</span>
-        <span class="chip"><b>/spec-status</b> what would push · drift</span>
+        <span class="chip"><b>/spec-status</b> what would push · edits</span>
       </div>
       <p><b>One way: the repo is canonical, Linear is a generated mirror.</b> Push publishes structure &amp; content and the workflow state; Linear-native triage — priority, labels, cycles, comments — is the PM's and is left untouched. Nothing is read back or merged, so there's nothing to clobber.</p>
     </div>
@@ -865,7 +865,7 @@ verified: 2e840b2813e6
       <span class="mono">@skitterbyte/skitterspec-jira</span> superset mirrors them as a Jira Cloud
       issue and its subtasks, with statuses moved by workflow transition; and the
       <span class="mono">@skitterbyte/skitterspec-github</span> superset mirrors them as GitHub issues
-      and sub-issues on a Projects board, free on a personal account, with GitHub Releases. All are
+      and sub-issues on a Projects board, free on a personal account. All are
       pushed from the repo and never read back, and all are opt-in — until the provider's
       <span class="mono">specs/.core/*.config.json</span> exists, nothing changes.
     </p>

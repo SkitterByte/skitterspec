@@ -852,28 +852,14 @@ test('the rule says to omit the trailer rather than invent one', () => {
   assert.match(text, /Refs: none/, 'and rules out the fake-value escape hatch by name')
 })
 
-test('the CI wiring guide ships, and points at commands that exist', () => {
-  const file = path.join(ASSETS, 'core', 'ci-stages.md')
-  assert.ok(fs.existsSync(file), 'ci-stages.md shipped')
-  const text = fs.readFileSync(file, 'utf8')
-  // Every `spec-sync <verb>` the page instructs someone to run must be a verb
-  // the CLI dispatches. A page confidently naming a renamed command is worse
-  // than no page — see scripts/docs-claims.test.js for the same rule on the site.
-  const cli = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli-sync.js'), 'utf8')
-  // Two dispatch shapes: the switch, and the handful checked BEFORE the config
-  // load (`init-config`, `doctor`) so they can report a malformed config.
-  const verbs = new Set([
-    ...[...cli.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]),
-    ...[...cli.matchAll(/sub === '([a-z-]+)'/g)].map((m) => m[1]),
-  ])
-  const named = new Set([...text.matchAll(/spec-sync ([a-z-]+)/g)].map((m) => m[1]))
-  for (const verb of named) {
-    assert.ok(verbs.has(verb), `ci-stages.md names "spec-sync ${verb}", which the CLI does not dispatch`)
-  }
-  assert.ok(named.has('stage'), 'the page is about the stage verb')
-  // The env var it tells people to set must be the one the loader reads.
-  const { DEFAULT_KEY_ENV } = require('../src/config.js')
-  assert.match(text, new RegExp(DEFAULT_KEY_ENV))
+test('the CI guide is retired: releases point at released --json, not a stage verb', () => {
+  // `ci-stages.md` taught the deployment ladder, which is gone. What CI still
+  // gets from skitterspec is the ticket list, so the config doc must say that
+  // — and the retired page must not ship to be copied into a pipeline.
+  assert.ok(!fs.existsSync(path.join(ASSETS, 'core', 'ci-stages.md')), 'ci-stages.md is not shipped')
+  const text = fs.readFileSync(path.join(ASSETS, 'core', 'linear.config.md'), 'utf8')
+  assert.match(text, /spec-sync released "<previous-tag>\.\.<tag>" --json/)
+  assert.doesNotMatch(text, /"stages":/, 'no ladder example left to copy')
 })
 
 // --- /spec-claim -------------------------------------------------------------
@@ -1125,7 +1111,7 @@ test('the routing table is findable, or the checks below mean nothing', () => {
 // /spec-sync has to be able to reach it. All four shipped routed nowhere.
 test('every user-facing spec-sync verb is reachable from the skill', () => {
   const table = routingTable()
-  for (const verb of ['credentials', 'whoami', 'users', 'stage', 'list', 'linked']) {
+  for (const verb of ['credentials', 'whoami', 'users', 'list', 'linked']) {
     assert.match(table, new RegExp(`\`${verb}[ \`<]`), `the routing table reaches \`${verb}\``)
   }
 })
@@ -1137,7 +1123,7 @@ test('the rows say what the user would say, not just the verb name', () => {
   assert.match(table, /who am I in Linear/i)
   assert.match(table, /find Jane's user id/i)
   assert.match(table, /am I authenticated/i)
-  assert.match(table, /what's on test/i)
+  assert.match(table, /which tickets does CI mark deployed/i)
 })
 
 // Decision 3: deferral is a legitimate answer and must stay expressible. A row

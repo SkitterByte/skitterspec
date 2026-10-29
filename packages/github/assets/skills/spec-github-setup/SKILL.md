@@ -93,9 +93,10 @@ automations are theirs to choose.
   merged → Done" workflows**, or leave them knowingly: the engine sets Status
   itself, and a board automation moving it too is a second writer the next push
   overrides.
-- **A second single-select, `Deployed`**, is where release stages belong
-  (Test, Demo, Prod) — never as Status options, or a finished phase reads as
-  deployed. Mention it; releases set it, and setup does not need it.
+- **Release stages never go on Status** (Test, Demo, Prod), or a finished
+  phase reads as deployed. If the user tracks deploys, that is a field of their
+  own that their CI sets from `spec-sync released --json` — setup does not need
+  it, and skitterspec never writes it.
 
 ## 5. Check the Status options
 
@@ -203,7 +204,8 @@ Then name the next step:
 
 - `/spec` — write a spec; with GitHub configured it creates the linked issue in
   the configured repo, puts it on the board and stamps its number.
-- `/spec-status` — read-only drift report, the safe way to prove the link works.
+- `/spec-status` — read-only report of what would push, the safe way to prove
+  the link works.
 - `/spec-push` — send a spec up.
 
 Mention what setup did **not** configure, so the defaults aren't mistaken for

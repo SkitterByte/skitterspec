@@ -231,7 +231,7 @@ test('reconcile-releases.yml skips without the PAT secret rather than failing', 
   // callers too: no token is a notice and exit 0, never a red run every hour.
   assert.match(withoutComments(RECONCILE()), /SKITTERSPEC_GITHUB_TOKEN/)
   const script = fs.readFileSync(path.join(__dirname, 'mirror-deployed.cjs'), 'utf8')
-  assert.match(script, /no GITHUB_TOKEN — skipped'\)\n\s*return 0/)
+  assert.match(script, /no GitHub token — skipped'\)\n\s*return 0/)
 })
 
 test('reconcile-releases.yml runs the board reconcile', () => {

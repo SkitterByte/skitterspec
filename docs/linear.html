@@ -542,7 +542,7 @@ verified: 2e840b2813e6
       <div class="icard">
         <span class="k">HOW IT'S SAFE</span>
         <h3>The repo always wins</h3>
-        <p>One direction, so nothing is ever read back or clobbered. A card moved in Linear is surfaced by <span class="mono" style="font-size:.85em">/spec-status</span> as drift and overwritten on the next push — the mirror can't fight the source.</p>
+        <p>One direction, so nothing is ever read back or clobbered. Skitterspec tells Linear about its own transitions and nothing else — a card someone moves in Linear is theirs to have moved, and push only resends state when the spec itself moves.</p>
       </div>
     </div>
 
@@ -584,8 +584,8 @@ verified: 2e840b2813e6
         <p>Priority, labels, cycles, discussion. The PM's to set in Linear; one-way sync neither pushes nor reads them, so it never fights the PM for them.</p>
       </div>
       <div class="own-card own-both">
-        <div class="oh"><span class="d"></span>drift · surfaced, not merged</div>
-        <p>Move a card in Linear and <span class="mono">/spec-status</span> flags the workflow-state drift — advisory only. The repo wins on the next push; there's nothing to reconcile.</p>
+        <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>
+        <p>Edit an issue's description in Linear and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved card is never reported — skitterspec doesn't read state back, so there's nothing to reconcile.</p>
       </div>
     </div>
   </div>
@@ -797,7 +797,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
     <div class="cards-3 reveal">
       <div class="icard">
         <h3><span class="mono">/spec-status</span></h3>
-        <p>Read-only. What the next push would create or update, whether Linear's workflow-state has drifted, and whether a phase's status markers disagree with each other. Writes nothing.</p>
+        <p>Read-only. What the next push would create or update, whether the issue's description was edited in Linear since the last push, and whether a phase's status markers disagree with each other. Writes nothing.</p>
       </div>
       <div class="icard">
         <h3><span class="mono">/spec-push</span></h3>
@@ -843,12 +843,12 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing. (Named <code>push</code> before v13.)</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync apply &lt;spec&gt;</td><td>Apply a plan, stamp the returned ids into the spec, and record the snapshot.</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync status &lt;spec&gt;</td><td>Drift report — what would push, and whether Linear's workflow-state moved.</td><td class="folder">/spec-status</td></tr>
+          <tr><td class="cmd">spec-sync status &lt;spec&gt;</td><td>What would push, and whether the description was edited in Linear since the last push. Never reads the issue's workflow-state.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync verify &lt;spec&gt;</td><td>Read back what Linear stored and compare it to what was sent.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync preserve &lt;spec&gt;</td><td>Post the issue's current description as a comment, before the linking push replaces it with the spec. How a reporter's original words survive adoption. Idempotent, and never fatal — it exits 0 on everything it cannot do.</td><td class="folder">/spec · /spec-bug · /spec-hotfix</td></tr>
           <tr><td class="cmd">spec-sync reattach &lt;spec&gt; [--to &lt;ref&gt;]</td><td>Point a spec back at the issue it already has, when its link was lost. Stamps the one unclaimed issue whose title matches exactly — and refuses rather than choosing when several do.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync stamp &lt;spec&gt;</td><td>Write issue ids into a spec's frontmatter. The MCP path's last step — or a manual link.</td><td class="folder">/spec-push · you</td></tr>
-          <tr><td class="cmd">spec-sync record &lt;spec&gt;</td><td>Record the base snapshot that later drift is measured against.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync record &lt;spec&gt;</td><td>Record the base snapshot that later pushes diff against.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync assign &lt;spec&gt;</td><td>Record who owns a spec, or <span class="mono">--release</span> it. Writes the repo; the push that follows tells Linear.</td><td class="folder">/spec-claim · /spec-start</td></tr>
           <tr><td class="cmd">spec-sync normalize &lt;spec&gt;</td><td>Normalise a spec's markdown the way the mirror will store it.</td><td class="folder">internal</td></tr>
           <tr><td class="cmd">spec-sync states</td><td>The workspace's issue workflow-state names — used to validate your config.</td><td class="folder">/spec-push · you</td></tr>
@@ -866,8 +866,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Reporting — the ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-sync linked</td><td>Every spec and the issue it is linked to — how much of the repo is mirrored.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync ref</td><td>The ticket for the commit you are writing, answered from the branch.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-sync released</td><td>The tickets a release contains, scanned from a commit range.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-sync stage</td><td>Move a release's tickets onto a deployment stage.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync released</td><td>The tickets a release contains, scanned from a commit range — each with its spec and url. <span class="mono">--json</span> is what your CI pipes into its own tooling to record a release or a deploy.</td><td class="folder">you · CI</td></tr>
         </tbody>
       </table>
     </div>

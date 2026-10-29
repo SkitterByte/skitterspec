@@ -34,16 +34,13 @@ its number from the URL (`…/projects/7` → `7`).
 - Under the board's **Workflows**, turn off *Item closed* and *Pull request
   merged* (both set Done): the engine sets Status itself, and a second writer
   is one the next push overrides.
-- Optional, for releases: a second single-select field, **Deployed**, with
-  options such as `Test`, `Demo`, `Prod` (or `Staged`, `Published` for an npm
-  package). Keep release stages out of Status — otherwise a finished phase
-  reads as deployed. Declare the matching `releases.series` in the config, and
-  give each series its `npm` name so a scheduled
-  `spec-sync release reconcile --apply` run can repair the mirror when an
-  approval happens outside your pipeline — `github.config.md` → "Releases" has
-  the semantics and a copy-paste workflow. The workflow's secret must be a
-  classic PAT (`repo` + `project`): the Actions `GITHUB_TOKEN` cannot write a
-  user-owned Projects board.
+- Deploy tracking is yours to add, not skitterspec's. If you want it on the
+  board, give it a field of its own (a `Deployed` single-select, say) and set
+  it from your CI using `spec-sync released <range> --json` — keep release
+  stages out of Status, or a finished phase reads as deployed.
+  `github.config.md` → "Releases and deploys" has the details. A CI secret for
+  this must be a classic PAT (`repo` + `project`): the Actions `GITHUB_TOKEN`
+  cannot write a user-owned Projects board.
 
 ## 3. The token
 
@@ -111,9 +108,10 @@ provider.
 6. **Verify** — save a read-back (`{ "issue": "<body>", "subIssues": { "<ref>":
    "<body>" } }`, keyed by the phase file's basename **without** `.md`) and run
    `spec-sync verify`: every body round-trips intact.
-7. **Drift** — tick a task box on GitHub, then `spec-sync status --remote`
+7. **Edited body** — tick a task box on GitHub, then `spec-sync status --remote`
    reports the body edited; the next push replaces it and says so.
 8. **Released** — over a range with `Refs: #N` trailers and an older
-   `Refs: KEY-N` one: tickets listed, the old one counted as historical.
+   `Refs: KEY-N` one: tickets listed, the old one counted as historical. With
+   `--json`, each linked ticket names its spec and url.
 9. **Intake** — label an issue with `intake.label` (and one with a bug label):
    `spec-sync intake` lists both, routed to `/spec` and `/spec-bug`.

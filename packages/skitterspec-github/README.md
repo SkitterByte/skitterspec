@@ -21,12 +21,14 @@ npx @skitterbyte/skitterspec-github init
   closed, so each lifecycle bucket maps to an option of the board's `Status`
   field; `complete` and `cancelled` also close the issue (`completed` /
   `not_planned`). The board is required — one per repo.
-- **One-way**: nothing is read back into the repo. A body edited on GitHub —
-  a ticked box included — is reported and replaced on the next push, loudly.
-- **Releases**: CI runs `spec-sync release create <tag>` on a tag push. It makes
-  a GitHub Release listing exactly the issues that tag contains, by their
-  `Refs: #N` trailers. `release deployed <tag> <env>` then sets a second board
-  field, `Deployed`, so release stages never mix into the work state.
+- **One-way**: nothing is read back into the repo, and skitterspec tells the
+  board only about its own transitions — a card moved by hand is left alone. A
+  body edited on GitHub — a ticked box included — is reported and replaced on
+  the next push, loudly.
+- **Releases are yours to record**: `spec-sync released <range> --json` lists
+  exactly the issues a range contains, by their `Refs: #N` trailers, each with
+  its spec and url. Your CI pipes that into whatever records a release or a
+  deploy; skitterspec writes neither.
 - **Assignment**: `/spec-start` assigns the issue to your login; `/spec-claim`
   hands it on. Only collaborators can be assigned, and that is checked before
   anything is written.

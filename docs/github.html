@@ -512,8 +512,8 @@ verified: 2e840b2813e6
     <p class="eyebrow reveal">@skitterbyte/skitterspec-github</p>
     <h1 class="reveal">Set it up. Prove it works.</h1>
     <p class="lede reveal">
-      The GitHub superset is the base plus one-way sync to GitHub Issues, a Projects board and
-      GitHub Releases — all free on a personal account. Everything below is opt-in: until
+      The GitHub superset is the base plus one-way sync to GitHub Issues and a Projects
+      board — both free on a personal account. Everything below is opt-in: until
       <span class="mono">specs/.core/github.config.json</span> exists, every command is a plain
       filesystem workflow. New here? Start with <a href="index.html">the base</a>. Your tracker is
       Linear or Jira? Those supersets have <a href="linear.html">their</a> <a href="jira.html">own pages</a>.
@@ -544,7 +544,7 @@ verified: 2e840b2813e6
       <div class="icard">
         <span class="k">HOW IT'S SAFE</span>
         <h3>The repo always wins</h3>
-        <p>One direction, so nothing is ever read back or clobbered. A Status moved on the board is surfaced by <span class="mono" style="font-size:.85em">/spec-status</span> as drift, and a body edited on GitHub — a ticked box included — is reported <em>loudly</em>, then both are overwritten on the next push.</p>
+        <p>One direction, so nothing is ever read back or clobbered. Skitterspec tells the board about its own transitions and nothing else, so a card someone moves is left alone. A body edited on GitHub — a ticked box included — is reported <em>loudly</em> before the next push overwrites it.</p>
       </div>
     </div>
 
@@ -585,8 +585,8 @@ verified: 2e840b2813e6
         <p>Milestones, other labels, the board's other fields, discussion. Yours to set on GitHub; one-way sync neither pushes nor reads them.</p>
       </div>
       <div class="own-card own-both">
-        <div class="oh"><span class="d"></span>drift · surfaced, not merged</div>
-        <p>Move a card on the board, or edit a body on GitHub, and <span class="mono">/spec-status</span> says so — advisory only. The repo wins on the next push.</p>
+        <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>
+        <p>Edit a body on GitHub and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved card is never reported — skitterspec doesn't read Status back.</p>
       </div>
     </div>
   </div>
@@ -615,7 +615,6 @@ verified: 2e840b2813e6
 
     <p class="reveal" style="margin-top:22px;">Options are set by <strong>name</strong>, and a name the board lacks is refused before anything is written: GitHub rejects an unknown option only at the field write, after the body has already landed, so an unchecked push would half-apply. <span class="mono">plan</span> therefore refuses until the configured names have been checked against the board's real ones — <span class="mono">skitterspec-github spec-sync states --json</span> prints exactly the array it wants, and <span class="mono">/spec-push</span> fetches it for you.</p>
 
-    <p class="reveal"><strong>Keep release stages off the Status field.</strong> "On Test" is where a <em>release</em> is, not where a spec's work is. A second single-select, <span class="mono">Deployed</span>, carries it — set by CI, never by push — so a finished phase never reads as deployed.</p>
   </div>
 </section>
 
@@ -632,7 +631,6 @@ verified: 2e840b2813e6
       <div class="qbox">
         <h3><span class="q-badge">1</span> A board</h3>
         <p>On GitHub: <strong>Projects → New project → Board</strong>, owned by the repo's owner. Note its number from the URL — <span class="mono">…/projects/7</span> is <span class="mono">7</span>. Add <span class="mono">Backlog</span> and <span class="mono">Cancelled</span> to the Status field it starts with (or map <span class="mono">backlog</span> to <span class="mono">Todo</span>), and turn off its built-in <em>Item closed</em> and <em>Pull request merged</em> workflows — the engine sets Status itself.</p>
-        <p>For releases, add a second single-select, <span class="mono">Deployed</span>, with your stages.</p>
       </div>
 
       <div class="qbox">
@@ -705,7 +703,7 @@ skitterspec-github spec-sync <span class="p">credentials set</span> --owner &lt;
     <div class="cards-3 reveal">
       <div class="icard">
         <h3><span class="mono">/spec-status</span></h3>
-        <p>Read-only. What the next push would create or update, whether the board's Status has drifted, and whether someone edited the issue's body on GitHub. Writes nothing.</p>
+        <p>Read-only. What the next push would create or update, and whether someone edited the issue's body on GitHub since the last push. Writes nothing.</p>
       </div>
       <div class="icard">
         <h3><span class="mono">/spec-push</span></h3>
@@ -741,20 +739,18 @@ skitterspec-github spec-sync <span class="p">credentials set</span> --owner &lt;
   <div class="wrap">
     <div class="section-head reveal">
       <div class="eyebrow">Releases</div>
-      <h2>A tag becomes a GitHub Release that holds exactly its issues.</h2>
-      <p class="lede">skitterspec decides what a release contains — the <span class="mono">Refs: #N</span> trailers between the previous tag in the series and this one, bookkeeping commits ignored — and your CI writes it down where people look. Every verb is a dry run unless <span class="mono">--apply</span>.</p>
+      <h2>skitterspec says what a release contains. Your CI writes it down.</h2>
+      <p class="lede">The one release question only skitterspec can answer is which issues a range contains — the <span class="mono">Refs: #N</span> trailers between two tags, bookkeeping commits ignored. Each row carries the spec and url behind the ref. What your process does with that — a GitHub Release, a board field, a deploy record — is yours to script.</p>
     </div>
 
     <div class="reveal">
       <div class="code"><span class="c"># in CI, on a tag push (needs fetch-depth: 0)</span>
-$ skitterspec-github spec-sync <span class="p">release create</span> "$TAG" --notes RELEASES.md --link "$RUN_URL=CI run" --apply
-<span class="c"># after each deploy — sets the board's Deployed field on every issue in it</span>
-$ skitterspec-github spec-sync <span class="p">release deployed</span> "$TAG" test --apply
-<span class="c"># when it is out</span>
-$ skitterspec-github spec-sync <span class="p">release complete</span> "$TAG" --apply</div>
+$ skitterspec-github spec-sync <span class="p">released</span> "$PREV..$TAG" --json \
+    | jq -r '.tickets[] | select(.spec) | .ref'
+<span class="c"># → #63, #69 … pipe into gh, the GraphQL API, or whatever records your deploys</span></div>
     </div>
 
-    <p class="reveal">A staged release is a <strong>pre-release</strong>, never shown as Latest until <span class="mono">complete</span>. Each issue it carries gets one comment saying where it shipped. A CI retry on the same tag changes nothing — the release is found by its tag and updated, never minted twice — and a lookup that fails refuses rather than risk a duplicate. A tag GitHub has not got is refused too: GitHub would otherwise create it at the default branch's head. Over MCP every release verb exits 1, because GitHub's MCP server has no release write tool.</p>
+    <p class="reveal">This repo dogfoods it: <span class="mono">scripts/mirror-deployed.cjs</span> reads that list and sets its board's <span class="mono">Deployed</span> field on a tag push and on approval — a short script that is the host project's own code, not skitterspec's. The <span class="mono">release</span> verbs and the <span class="mono">releases</span> config that used to do this inside skitterspec are retired: <span class="mono">release</span> exits 1 naming <span class="mono">released --json</span>, and <span class="mono">doctor</span> flags a leftover <span class="mono">releases</span> block.</p>
   </div>
 </section>
 
@@ -775,11 +771,11 @@ $ skitterspec-github spec-sync <span class="p">release complete</span> "$TAG" --
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync (github) plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing — and refuses until the board's options have been checked (<span class="mono">--workspace-states</span>).</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (github) apply &lt;spec&gt;</td><td>Apply a plan over the API — create or update, link sub-issues, set the board Status, open or close — and stamp the returned numbers. On the MCP transport it writes nothing and names the tools instead.</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync (github) status &lt;spec&gt;</td><td>Drift report — what would push, whether the board's Status moved, and whether the body was edited on GitHub.</td><td class="folder">/spec-status</td></tr>
+          <tr><td class="cmd">spec-sync (github) status &lt;spec&gt;</td><td>What would push, and whether the body was edited on GitHub since the last push. Never reads the board's Status.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (github) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (github) preserve &lt;spec&gt;</td><td>Post an adopted issue's original body as a comment headed <b>Original report</b>, before the linking push replaces it. Idempotent, and exits 0 on everything it cannot do.</td><td class="folder">/spec · /spec-bug · /spec-hotfix</td></tr>
           <tr><td class="cmd">spec-sync (github) stamp &lt;spec&gt;</td><td>Write issue numbers into a spec (<span class="mono">--issue #123</span>, <span class="mono">--sub ref=#124</span>), checked against GitHub when a token resolves.</td><td class="folder">/spec-push · you</td></tr>
-          <tr><td class="cmd">spec-sync (github) record &lt;spec&gt;</td><td>Record the base snapshot that later drift is measured against.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync (github) record &lt;spec&gt;</td><td>Record the base snapshot that later pushes diff against.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (github) normalize &lt;spec&gt;</td><td>Print the spec's local projection as JSON.</td><td class="folder">internal</td></tr>
           <tr><td class="cmd">spec-sync (github) states</td><td>The board's Status options and the bucket map — <span class="mono">--json</span> prints the array <span class="mono">--workspace-states</span> consumes.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (github) list</td><td>This repo's issues on the board — number, Status, title and the local spec name. Read-only.</td><td class="folder">/spec-list · you</td></tr>
@@ -790,8 +786,6 @@ $ skitterspec-github spec-sync <span class="p">release complete</span> "$TAG" --
           <tr><td class="cmd">spec-sync (github) whoami</td><td>Who your token is on GitHub, cached per owner.</td><td class="folder">/spec-start · you</td></tr>
           <tr><td class="cmd">spec-sync (github) users [query]</td><td>The repo's assignable people.</td><td class="folder">/spec-claim · you</td></tr>
 
-          <tr class="grp-row"><td colspan="3">Releases — run by CI</td></tr>
-          <tr><td class="cmd">spec-sync (github) release create|deployed|complete &lt;tag&gt;</td><td>Create the GitHub Release for a tag with its issues, move it through the Deployed field, finish it. <a href="#releases">See above</a>.</td><td class="folder">CI</td></tr>
 
           <tr class="grp-row"><td colspan="3">Setup &amp; health</td></tr>
           <tr><td class="cmd">spec-sync (github) credentials</td><td>Store, show or clear the token without putting it in a shell history.</td><td class="folder">you</td></tr>
@@ -799,7 +793,7 @@ $ skitterspec-github spec-sync <span class="p">release complete</span> "$TAG" --
           <tr class="grp-row"><td colspan="3">Reporting — the ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-sync (github) linked</td><td>Every spec and the issue it is linked to. Offline.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync (github) ref</td><td>The issue for the commit you are writing — <span class="mono">#N</span> on stdout only on success.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-sync (github) released</td><td>The issues a commit range contains. An older tracker's <span class="mono">Refs: SKS-12</span> counts as history, never as a missing trailer.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync (github) released</td><td>The issues a commit range contains, each with its spec and url. An older tracker's <span class="mono">Refs: SKS-12</span> counts as history, never as a missing trailer. <a href="#releases">See above</a>.</td><td class="folder">you · CI</td></tr>
         </tbody>
       </table>
     </div>

@@ -96,7 +96,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Dogfood script, then remove release objects | ✅ | [02-remove-release-objects.md](02-remove-release-objects.md) |
 | 3 | Remove the stage ladder | ✅ | [03-remove-stage-ladder.md](03-remove-stage-ladder.md) |
 | 4 | Remove state drift | ✅ | [04-remove-state-drift.md](04-remove-state-drift.md) |
-| 5 | Docs and dist | ⬜ | [05-docs-and-dist.md](05-docs-and-dist.md) |
+| 5 | Docs and dist | 🔄 | [05-docs-and-dist.md](05-docs-and-dist.md) |
 
 ## Open questions
 
@@ -133,3 +133,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   The Linear `/spec-status` now says so.
 - 2026-10-29 — Phase 5 widened at the user's request to every doc surface,
   with a final grep for the removed terms.
+- 2026-10-29 — Phase 5: phase 1 had missed Jira's `released`. An earlier
+  grep had skipped the file as binary. It now names the spec and url like the
+  others. `mirror-deployed.cjs` now resolves its token the way `spec-sync` does,
+  so `npm run approve` on a laptop keeps marking Published. This repo's
+  `specs/.core` was Linear-era (Linear SETUP, the ladder guide) and is now
+  resynced from the GitHub package. The final sweep leaves only deliberate
+  "retired" notes and the `docs-claims` allowlist reasons.

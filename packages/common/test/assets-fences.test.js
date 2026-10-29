@@ -60,7 +60,6 @@ const ALLOWED = {
   ],
   'linear/spec-linear-setup': [
     ['states.complete:', "a sample of the engine's refusal output"],
-    ['--stage test=', 'CLI flags, which are copied rather than read'],
     ['"spec": {', 'a config fragment the user pastes'],
   ],
   'linear/spec-sync': [['apply --all backlog would:', 'a sample of the plan the engine prints']],

@@ -492,9 +492,19 @@ missing alias.
 Sync is **one-way**: the repo is the source of truth and the tracker is a
 **generated mirror**. It ships `/spec-push` (repo→tracker; computes a create/update plan
 against a committed last-pushed snapshot and applies it) and `/spec-status`
-(read-only drift report — what would push, and whether the tracker's
-workflow-state drifted), backed by a `spec-sync` CLI. There is no content pull —
-the tracker is never read back or merged.
+(read-only — what would push, and whether someone edited a description there),
+backed by a `spec-sync` CLI. There is no content pull — the tracker is never
+read back or merged.
+
+**It tells, it doesn't track.** Skitterspec sends the tracker its own
+transitions — a spec starting, a phase finishing, a spec completing or being
+cancelled — and nothing else. A status someone changes on the tracker is
+theirs to have changed: it is never read back, never reported, and only
+overwritten when the spec itself next moves. Releases and deployments are the
+host project's to record. The one release question skitterspec answers is which
+tickets a commit range contains (`spec-sync released <range> --json`, each row
+with its spec and url), because only the `Refs:` trailers know. What the
+project's CI does with that list is its own business.
 
 **One-way means the repo wins, and it now wins *loudly*.** Those are different
 claims and only the first was ever in doubt. A ticket's description is generated

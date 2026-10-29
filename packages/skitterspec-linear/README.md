@@ -93,7 +93,7 @@ them. Your `specs/` content and live `.core` config are never touched.
 | `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
 | `/spec-push` | Repo → Linear, one-way |
-| `/spec-status` | Read-only drift report |
+| `/spec-status` | Read-only report: what would push, and any edited description |
 | `/spec-list` | What the tracker holds, with each spec's folder name |
 | `/spec-claim` | Take a spec, hand it back, or hand it to a teammate |
 | `/spec-sync` | The `spec-sync` engine, for CI and local runs |
@@ -109,9 +109,10 @@ what the Linear half adds on top.
 
 On top of the base skills (`/spec`, `/spec-start`, `/spec-next`, isolation, …):
 
-- **`/spec-status`** — read-only drift report: what the next push would create /
-  update, any workflow-state drift, and any phase whose status signals disagree
-  (see **Phase status** below). Changes nothing.
+- **`/spec-status`** — read-only report: what the next push would create /
+  update, a description someone edited in Linear since the last push, and any
+  phase whose status signals disagree (see **Phase status** below). It never
+  reads a ticket's state back. Changes nothing.
 - **`/spec-push`** — repo → Linear, one-way. Diffs the spec against a committed
   last-pushed snapshot and applies only what changed (issue description + state,
   phase sub-issues), stamping the returned ids back into the spec.
@@ -198,8 +199,9 @@ description as a read-only checklist (`mapping.tasks: "checklist"`, the default;
 `"none"` keeps the Goal line alone) — no issue is created per task, and a box
 ticked in Linear is overwritten by the next push. Priority, labels, cycles and comments are **Linear-native triage** — the
 PM's to set in Linear; one-way sync neither pushes nor reads them, so they're
-never clobbered. A workflow-state a teammate moves in Linear is surfaced by
-`/spec-status` as drift and overwritten on the next push. **Last-pushed snapshots**
+never clobbered. A workflow-state a teammate moves in Linear is left alone —
+skitterspec never reads state back, and push resends it only when the spec
+itself moves. **Last-pushed snapshots**
 (`specs/.core/linear-base/`, content hashes) are committed so push sends only what
 changed.
 
@@ -240,7 +242,7 @@ sub-issue. `/spec-push` and `/spec-status` print the mode that resolved. See
 **Which Project a spec lands in** is asked once, when the issue is first created
 — a filterable list of your team's projects, defaulting to `linear.projectId` and
 always offering *None*. It's passed on the create call only and never stored, so
-re-homing a spec issue in Linear sticks: it won't read as drift and won't be moved
+re-homing a spec issue in Linear sticks: it isn't reported and won't be moved
 back on the next push.
 
 **Starting from an issue** (the `intake` block in the config): `/spec SKI-123`

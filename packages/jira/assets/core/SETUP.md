@@ -114,7 +114,7 @@ every configured status exists in the project's workflows.
 `/spec-push <spec>` computes the plan, applies it, stamps the returned keys
 into the spec's frontmatter (`jira_identifier` / `jira_url` /
 `jira_issue_id`), verifies the round-trip by words, and records the snapshot
-later drift is measured against. From then on the lifecycle skills keep the
+later pushes diff against. From then on the lifecycle skills keep the
 mirror fresh on their own.
 
 ---

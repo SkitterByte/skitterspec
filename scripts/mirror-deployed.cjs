@@ -149,13 +149,27 @@ async function mirror(tag, value, { graphql, github, log }) {
   log(`mirror-deployed: ${tag} (${range}) — ${set} issue(s) set to ${option.name}`)
 }
 
+// The same token `spec-sync` uses: GITHUB_TOKEN / GH_TOKEN in CI, else the one
+// `spec-sync credentials set` stored, which is what `npm run approve` has on a
+// laptop. An unreadable store is a skip, never a failed release.
+function tokenFor(config) {
+  try {
+    const { resolveCredential } = require(path.join(ROOT, 'packages', 'github', 'src', 'credentials.js'))
+    const got = resolveCredential(config, process.env)
+    return got.ok ? got.token : null
+  } catch {
+    return process.env.GITHUB_TOKEN || process.env.GH_TOKEN || null
+  }
+}
+
 async function main(argv) {
-  const token = process.env.GITHUB_TOKEN
+  const config = JSON.parse(fs.readFileSync(CONFIG, 'utf8'))
+  const token = tokenFor(config)
   if (!token) {
-    console.log('mirror-deployed: no GITHUB_TOKEN — skipped')
+    console.log('mirror-deployed: no GitHub token — skipped')
     return 0
   }
-  const { github } = JSON.parse(fs.readFileSync(CONFIG, 'utf8'))
+  const { github } = config
   const io = { graphql: makeGraphql(token), github, log: console.log }
 
   if (argv[0] === '--reconcile') {

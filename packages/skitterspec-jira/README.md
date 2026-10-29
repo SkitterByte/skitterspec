@@ -37,7 +37,9 @@ skitterspec-jira spec-sync credentials set
 every layer.
 
 Not yet shipped for Jira (the Linear superset has them): assignment/`/spec-claim`,
-the release-stage ladder, `retarget`, `reattach`, `spec-sanitise`.
+`retarget`, `reattach`, `spec-sanitise`. Releases and deploys are the host
+project's to record on every provider: `spec-sync released <range> --json`
+lists a range's tickets for its CI to act on.
 
 This package's `bin/`, `src/` and `assets/` are composed at build time from the
 skitterspec monorepo — see the repo for sources and development.

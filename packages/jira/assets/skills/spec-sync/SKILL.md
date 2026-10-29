@@ -44,7 +44,7 @@ In a project that installs the Jira superset the binary is
 | "link this spec to PROJ-1 by hand" | `stamp <spec> --issue PROJ-1` |
 | "mirror the whole backlog / every complete spec" | `apply --all <bucket>` — **confirm first** |
 | "what ticket am I on?", writing a commit | `ref` |
-| "what shipped in this release?" | `released` |
+| "what shipped in this release?", "which tickets does CI mark deployed?" | `released` — `--json` for a script; recording deploys is the project's own |
 | "is any of this wired up?", "why isn't sync working?" | `doctor` — scaffold, isolation, tracker and credentials in one |
 | "set my Jira credentials", "am I authenticated?" | `credentials <status\|set\|unset>` |
 | push one spec, or "what would push?" | **defer** — see below |
@@ -66,7 +66,7 @@ Two front doors to one write path is worse than none:
 
 - **Push one spec** → `/spec-push`. It owns the transport choice, the
   status-name gate, the plan, the apply, the stamping and the snapshot.
-- **Per-spec drift** ("is this spec in sync?", "what would push?") →
+- **Per-spec status** ("is this spec in sync?", "what would push?") →
   `/spec-status`.
 
 Say which skill you're handing to and stop; don't reimplement either.
@@ -170,8 +170,10 @@ and never write `Refs: none`.
 
 `released` reports the tickets in a commit range — by default since the most
 recent tag, and it always prints the range it chose so a wrong default is
-visible. It is **read-only**: it does not move anything in Jira. A release can
-be cut and never deployed, so transitioning tickets stays a deliberate act.
+visible. It is **read-only**: it does not move anything in Jira. Each ticket
+row names the `spec` and `url` behind it (`null` when no spec linked the ref),
+so `--json` is what a project's CI pipes into its own tooling to record a
+release or a deploy. Recording those is the project's job, not skitterspec's.
 
 Relay the **unreferenced count** even when it is zero. A chore commit
 legitimately carries no ticket and a *missed* trailer looks identical, so
