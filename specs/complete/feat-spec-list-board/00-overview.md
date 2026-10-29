@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-spec-list-board (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-29)
+> **Status:** Complete (2026-10-29)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
@@ -120,6 +120,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-29 | Ready | backlog | Reuben Greaves |
 | 2026-10-29 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-29 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -145,3 +146,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   - A spec found only in some other spec's worktree is listed with
     `source: other-tree`.
   - Jira's `/spec-list` is unchanged: no listing engine there.
+- 2026-10-29 — Docs aligned: the four `/spec-status` skills dropped "the repo
+  wins on the next push" for state drift, and the Azure and GitHub READMEs now
+  list `/spec-list`.
+- 2026-10-29 — Follow-up surfaced: the description-drift line still promises
+  the next push replaces a board-side edit. That is probably false for the same
+  reason, but unverified. Jira has no listing, so its `/spec-list` is
+  unchanged. Not in scope here.
+- 2026-10-29 — Completed; all phases done, tests green.
