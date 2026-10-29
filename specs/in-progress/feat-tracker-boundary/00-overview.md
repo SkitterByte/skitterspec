@@ -1,15 +1,17 @@
 ---
 github_identifier: "#63"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/63"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Tracker boundary: tell, don't track
 
 > **Type:** Feature
 > **Name:** feat-tracker-boundary (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-29)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
 > **Area:** packages/provider-kit/src/{released,releases,doctor}.js, packages/sync-core/src/normalize.js, packages/{github,linear,azure-boards,jira}/src/{cli-sync,config,api}.js, packages/*/assets/{core,skills/spec-status,skills/spec-sync}, packages/linear/assets/core/ci-stages.md, .github/workflows/release.yml, scripts/, RELEASING.md, docs/*.html
 > **Stack:** worktree
@@ -105,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-29 | Ready | backlog | Reuben Greaves |
+| 2026-10-29 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
