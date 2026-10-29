@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Bug
 > **Name:** bug-linear-http-error-body (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (green)
+> **Status:** Complete (2026-10-29)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
@@ -69,6 +69,7 @@ _No external surface changes — internal refactor only._
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-29 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-29 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -76,3 +77,4 @@ _No external surface changes — internal refactor only._
   cancelled `feat-tracker-releases` branch (`origin/feat/tracker-releases`).
 - 2026-10-29 — Fixed: a non-2xx with a GraphQL `errors` body throws the refusal,
   prefixed with the HTTP status; tests green (4270 passed).
+- 2026-10-29 — Completed; fix green, the red test now passes.
