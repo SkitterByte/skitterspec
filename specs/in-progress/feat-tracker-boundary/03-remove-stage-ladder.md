@@ -2,25 +2,28 @@
 github_issue_id: "#66"
 ---
 
-# Phase 3 — Remove the stage ladder ⬜
+# Phase 3 — Remove the stage ladder ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** nothing in skitterspec moves a ticket's state past `complete`.
 
 ## Tasks
 
-- [ ] Remove Linear's `stage` verb, `partitionStageMoves`, `stageOrderWarning`
+- [x] Remove Linear's `stage` verb, `partitionStageMoves`, `stageOrderWarning`
       and the ladder wiring in `cli-sync.js`
-- [ ] `stage` refuses: exit 1, one line naming `released --json`
-- [ ] Remove `release.stages`, `releaseStages` and `stageFor` from all four
+- [x] `stage` refuses: exit 1, one line naming `released --json`
+- [x] Remove `release.stages`, `releaseStages` and `stageFor` from all four
       `config.js`; keep `release.ignorePaths`
-- [ ] Remove the `release.stages` read in `sync-core/src/normalize.js` and the
+- [x] Remove the `release.stages` read in `sync-core/src/normalize.js` and the
       ladder lines in `doctor`; `doctor` names leftover `release.stages` as
       unused
-- [ ] Delete `cli-stage`, `cli-status-stage`, `sync-stage-not-drift` tests;
-      add a refusal test
-- [ ] Run typecheck + tests — green
+- [x] Delete `cli-stage`, `cli-status-stage`, `sync-stage-not-drift` and
+      `cli-states-vocabulary` tests; add a refusal test
+- [x] Remove the ladder from sync-core (`stageForState`, `remoteStage`,
+      `LADDER_ORIGIN_BUCKET`), Linear's `--stage` init flag, `states` output
+      and doctor `ladder` row
+- [x] Run typecheck + tests — green
 
 ## Notes
 

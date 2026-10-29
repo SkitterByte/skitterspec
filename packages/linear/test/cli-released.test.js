@@ -328,3 +328,21 @@ test('a ticket a spec stamped carries that spec and its url; the rest stay null'
   const human = await run(['released', 'v1.0.0..HEAD'], r.dir)
   assert.match(human.out, /SKS-1 {2}\(feat-shipped\)/)
 })
+
+test('stage is removed: it refuses and names released --json, moving nothing', async () => {
+  const r = repo()
+  r.commit('chore: base')
+  const got = await run(['stage', 'test', 'HEAD', '--apply'], r.dir)
+  assert.strictEqual(got.code, 1, 'a pipeline still calling it must not read success')
+  assert.match(got.out, /stage: removed/)
+  assert.match(got.out, /released <range> --json/)
+})
+
+test('doctor names a leftover release.stages as retired', async () => {
+  const r = repo()
+  configure(r, { release: { stages: [{ key: 'test', state: 'On Test' }] } })
+  const got = await run(['doctor', '--json'], r.dir)
+  const row = JSON.parse(got.out).checks.find((c) => c.id === 'retired')
+  assert.strictEqual(row.state, 'warn')
+  assert.match(row.detail, /release\.stages/)
+})

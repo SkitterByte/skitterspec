@@ -99,7 +99,6 @@ const DEFAULT_CONFIG = Object.freeze({
   // accuses.
   refs: Object.freeze({ foreignPatterns: Object.freeze([]) }),
   release: Object.freeze({
-    stages: Object.freeze([]),
     ignorePaths: Object.freeze(['specs/', 'CHANGELOG.md', 'RELEASES.md']),
   }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
@@ -152,7 +151,6 @@ function defaults() {
     fields: { ...DEFAULT_CONFIG.fields },
     refs: { foreignPatterns: [...DEFAULT_CONFIG.refs.foreignPatterns] },
     release: {
-      stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })),
       ignorePaths: [...DEFAULT_CONFIG.release.ignorePaths],
     },
     branch: { ...DEFAULT_CONFIG.branch },
@@ -169,7 +167,7 @@ function defaults() {
 }
 
 const { isObject, stringList, assign } = kitConfig
-const { mergeStates, mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages, mergeReleaseIgnorePaths, mergeKeyedFields } =
+const { mergeStates, mergeFieldOwnership, mergePhaseMapping, mergeReleaseIgnorePaths, mergeKeyedFields } =
   kitConfig.makeMergeHelpers({
     configFile: CONFIG_FILE,
     ownership: OWNERSHIP,
@@ -238,7 +236,6 @@ function mergeConfig(base, parsed) {
   }
 
   if (isObject(parsed.release)) {
-    mergeReleaseStages(base.release, parsed.release)
     mergeReleaseIgnorePaths(base.release, parsed.release)
   }
 
@@ -341,18 +338,13 @@ function loadAzureConfig(dir = process.cwd()) {
   return { config: withRuntime(mergeConfig(base, parsed)), present: true }
 }
 
-// The declared deployment ladder (possibly empty) and its rungs — same
-// accessors the other providers expose, reading this provider's config.
-const releaseStages = (config) => (config.release && config.release.stages) || []
-const stageFor = (config, key) => releaseStages(config).find((s) => s.key === key) || null
+// The bookkeeping path prefixes `released` ignores.
 const releaseIgnorePaths = (config) => (config.release && config.release.ignorePaths) || []
 
 module.exports = {
   loadAzureConfig,
   mergeConfig,
   defaults,
-  releaseStages,
-  stageFor,
   releaseIgnorePaths,
   DEFAULT_CONFIG,
   CONFIG_FILE,

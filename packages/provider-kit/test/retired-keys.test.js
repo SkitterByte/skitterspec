@@ -17,6 +17,7 @@ function file(json) {
 
 test('a config still carrying releases names it', () => {
   assert.deepStrictEqual(retiredKeys({ releases: { series: [] } }), ['releases'])
+  assert.deepStrictEqual(retiredKeys({ release: { stages: [], ignorePaths: [] } }), ['release.stages'])
   const row = retiredKeysRow(file({ releases: {} }), 'x.json', doctorRow)
   assert.strictEqual(row.state, 'warn', 'stale, not broken')
   assert.match(row.fix, /remove releases from x\.json/)

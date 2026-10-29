@@ -751,21 +751,6 @@ function phasesWithheld(snapshotDir, config) {
 
 // --- remote projection ------------------------------------------------------
 
-// The lifecycle bucket a deployment ladder descends FROM. A spec is handed over
-// to the deploy pipeline once it is finished, so every rung sits downstream of
-// `complete` — a ticket on "On Test" is a completed spec that has been deployed,
-// not a spec that moved somewhere else.
-const LADDER_ORIGIN_BUCKET = 'complete'
-
-// The declared ladder rung with this state name, or null.
-function stageForState(state, config) {
-  if (state == null) return null
-  const want = String(state).toLowerCase().trim()
-  const stages = (config && config.release && config.release.stages) || []
-  if (!Array.isArray(stages)) return null
-  return stages.find((s) => s && typeof s.state === 'string' && s.state.toLowerCase().trim() === want) || null
-}
-
 // Every tracker state NAME that means this bucket: the one push writes
 // (`states[bucket]`) first, then its read-only aliases (`stateAliases[bucket]`,
 // from the array form of `states`). Readers use the whole list; writers only
@@ -780,12 +765,6 @@ function stateNamesFor(bucket, config) {
 // vocabulary `spec_status` uses) via config.states, so local and remote
 // workflowState hash equal when semantically equal. Falls back to a lowercased
 // raw value when the state isn't one of the configured names.
-//
-// A DECLARED DEPLOYMENT STAGE reads as `complete`, deliberately. Without this
-// the fallback lowercases it — "On Test" becomes "on test", which equals no
-// bucket — and every deployed spec reports as drifted forever, for the whole
-// time it sits in the pipeline. The project told us these states are downstream
-// of a finished spec, so they are not a disagreement about where the spec is.
 function bucketForState(state, config) {
   if (state == null) return null
   const states = (config && config.states) || {}
@@ -793,7 +772,6 @@ function bucketForState(state, config) {
   for (const bucket of Object.keys(states)) {
     if (stateNamesFor(bucket, config).some((name) => name.toLowerCase().trim() === want)) return bucket
   }
-  if (stageForState(state, config)) return LADDER_ORIGIN_BUCKET
   return want
 }
 
@@ -836,20 +814,12 @@ function remoteWorkflowState(issue, config) {
 // never names ("Blocked", "Next Sprint"), and a ticket a person moved into one
 // is not wrong about the spec — it is somewhere push does not manage, and push
 // will not move it until the spec itself moves. `mapped` is what lets a report
-// say that rather than accuse it. A declared ladder rung counts as mapped: it
-// reads as `complete` (see `bucketForState`).
+// say that rather than accuse it.
 function remoteStateReading(issue, config) {
   const name = remoteStateName(issue || {}, config)
   if (name == null) return null
   const bucket = bucketForState(name, config)
   return { name: String(name), bucket, mapped: LIFECYCLE_BUCKETS.includes(bucket) }
-}
-
-// The declared ladder rung a remote issue is currently sitting on, or null.
-// Pairs with `remoteWorkflowState`: that says which bucket the issue maps to,
-// this says whether it got there by being deployed. Read-only.
-function remoteStage(issue, config) {
-  return stageForState(remoteStateName(issue || {}, config), config)
 }
 
 // A Linear issue title is plain text, so markdown emphasis is noise there — and
@@ -924,26 +894,16 @@ function titleFromText(text, max = 100) {
   return stripTitleMarkup(title)
 }
 
-// Every state NAME the config points at: the lifecycle bucket map, plus the
-// project's deployment ladder when it declares one. Both reach Linear the same
-// way and fail the same way, so both are checked by the same lookup.
+// Every state NAME the config points at: the lifecycle bucket map.
 function configuredStateNames(config) {
   // The WRITTEN names only. An alias is never written, so one the workspace
   // lacks cannot strand a push; `stateSuggestions` still names it in reports.
-  const names = Object.values((config && config.states) || {}).filter((v) => typeof v === 'string')
-  const stages = (config && config.release && config.release.stages) || []
-  for (const stage of Array.isArray(stages) ? stages : []) {
-    if (stage && typeof stage.state === 'string') names.push(stage.state)
-  }
-  return names
+  return Object.values((config && config.states) || {}).filter((v) => typeof v === 'string')
 }
 
 // Which configured state NAMES are absent from the live workspace. The skill
 // fetches the workspace's project-status names over MCP and passes them here;
 // a non-empty result means a typo/rename that Linear would silently no-op.
-//
-// A project with no `release.stages` contributes nothing here, so the ladder
-// cannot make this accuse a config that was fine before it existed.
 function validateStates(config, workspaceStates) {
   const configured = configuredStateNames(config)
   const have = new Set((workspaceStates || []).map((s) => String(s).toLowerCase().trim()))
@@ -982,21 +942,6 @@ function stateSuggestions(config, workspaceStates) {
     const suggestion = names.find((n) => words.includes(n.toLowerCase().trim())) || null
     out.push({ bucket, configured, suggestion, label: `states.${bucket}` })
   }
-  // Deployment-ladder rungs, reported the same way. No suggestion is offered:
-  // BUCKET_WORDS describes lifecycle vocabulary, and a stage name is the
-  // project's own — guessing "On Test" meant "In Progress" would be worse than
-  // saying nothing.
-  const stages = (config && config.release && config.release.stages) || []
-  for (const stage of Array.isArray(stages) ? stages : []) {
-    if (!stage || typeof stage.state !== 'string') continue
-    if (have.has(stage.state.toLowerCase().trim())) continue
-    out.push({
-      bucket: null,
-      configured: stage.state,
-      suggestion: null,
-      label: `release.stages[${stage.key}]`,
-    })
-  }
   return out
 }
 
@@ -1020,10 +965,7 @@ module.exports = {
   canonicalRemoteStatus,
   bucketForState,
   LIFECYCLE_BUCKETS,
-  stageForState,
-  remoteStage,
   remoteWorkflowState,
   remoteStateReading,
   stateNamesFor,
-  LADDER_ORIGIN_BUCKET,
 }

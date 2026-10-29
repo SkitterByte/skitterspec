@@ -58,12 +58,12 @@ function specIssueHash(p) {
 
 // Per-field hashes of the same two values.
 //
-// They are hashed SEPARATELY because they have different owners once a spec is
-// finished. The repo owns the description forever, but the workflow state is
-// handed off: a deploy pipeline (see `release.stages`) moves the issue past
-// `complete`, and welding the two meant any prose edit re-emitted the state and
-// dragged the issue back. Diffing them apart is what lets a push touch the
-// description without re-asserting a state someone else now owns.
+// They are hashed SEPARATELY because skitterspec tells the tracker about its
+// own transitions and nothing else. The description is resent whenever it
+// changes; the state only when the spec itself moves. Welding the two meant any
+// prose edit re-emitted the state and dragged back an issue someone had moved
+// on the tracker — which is theirs to do. Diffing them apart is what lets a
+// push touch the description without re-asserting a state.
 function specIssueFieldHashes(p, config) {
   const hashes = {
     description: hashField(p.description ?? null),

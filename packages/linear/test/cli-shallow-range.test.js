@@ -99,21 +99,6 @@ test('released refuses rather than undercount when the base is outside a shallow
   assert.ok(!/ticket\(s\) in /.test(r.out), 'no confident count is printed')
 })
 
-test('stage refuses too — it would move only the tickets it happened to see', async () => {
-  const repo = clone(origin(), 2)
-  fs.writeFileSync(
-    path.join(repo, CONFIG_FILE),
-    JSON.stringify({
-      linear: { teamId: 'T1', teamKey: 'SKS' },
-      release: { stages: [{ key: 'test', state: 'On Test' }] },
-    }),
-    'utf-8',
-  )
-  const r = await run(['stage', 'test', 'v1.0.0..HEAD'], repo)
-  assert.strictEqual(r.code, 1)
-  assert.match(r.out, /shallow/i)
-})
-
 // The STAYS-SILENT case, and the reason the check is not "is this repo shallow?":
 // a shallow clone deep enough to contain the base has a COMPLETE range, and must
 // behave exactly like a full one.

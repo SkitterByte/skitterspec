@@ -1,12 +1,7 @@
 {
-  "github": { "owner": "SkitterByte", "repo": "skitterspec", "project": 2 },
-  "releases": {
-    "series": [
-      { "tagPrefix": "skitterspec@", "envs": { "staged": "Staged", "published": "Published" }, "npm": "@skitterbyte/skitterspec" },
-      { "tagPrefix": "skitterspec-linear@", "envs": { "staged": "Staged", "published": "Published" }, "npm": "@skitterbyte/skitterspec-linear" },
-      { "tagPrefix": "skitterspec-jira@", "envs": { "staged": "Staged", "published": "Published" }, "npm": "@skitterbyte/skitterspec-jira" },
-      { "tagPrefix": "skitterspec-github@", "envs": { "staged": "Staged", "published": "Published" }, "npm": "@skitterbyte/skitterspec-github" },
-      { "tagPrefix": "skitterspec-azure-boards@", "envs": { "staged": "Staged", "published": "Published" }, "npm": "@skitterbyte/skitterspec-azure-boards" }
-    ]
+  "github": {
+    "owner": "SkitterByte",
+    "repo": "skitterspec",
+    "project": 2
   }
 }

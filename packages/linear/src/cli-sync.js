@@ -25,7 +25,9 @@ const path = require('node:path')
 
 const { BUCKETS, findSpecFolder, branchFor, splitPrefix, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
-const { ticketsInRange, nameTickets, partitionStageMoves, stageOrderWarning } = require('./released.js')
+const { ticketsInRange, nameTickets, refuseRemovedVerb } = require('./released.js')
+const { retiredKeysRow } = require('@skitterbyte/skitterspec-provider-kit/src/config.js')
+const { doctorRow } = require('@skitterbyte/skitterspec-provider-kit/src/doctor.js')
 const { execFileSync } = require('node:child_process')
 const {
   normalizeLocal,
@@ -39,8 +41,6 @@ const {
   isEmptyPlan,
   remoteStateReading,
   stateNamesFor,
-  remoteStage,
-  LADDER_ORIGIN_BUCKET,
   validateStates,
   stateSuggestions,
   lintPhases,
@@ -65,9 +65,7 @@ const {
   defaults: configDefaults,
   CONFIG_FILE,
   LIFECYCLE_BUCKETS,
-  releaseStages,
   releaseIgnorePaths,
-  stageFor,
 } = require('./config.js')
 const { resolveApiKey, makeApiAdapter, stateIdFor, fetchWorkspaceStates } = require('./api.js')
 const { runChecks } = require('./doctor.js')
@@ -465,17 +463,11 @@ function specSyncStatus(dir, config, specArg, flags, out) {
     const remote = JSON.parse(fs.readFileSync(flags.remote, 'utf-8'))
     const seen = remoteStateReading(remote, config)
     const lState = projection.status
-    // A declared deployment stage is POSITION, not disagreement: the spec is
-    // complete and the pipeline has moved it on. Reporting that as drift would
-    // accuse every deployed spec, for as long as it sits in the pipeline. A
-    // state that maps to no bucket at all ("Blocked") is position for the same
-    // reason. And no state line says "repo wins on next push": push resends
-    // State only when the spec's own state changes (see compare.js
+    // A state that maps to no bucket at all ("Blocked") is position, not
+    // disagreement. And no state line says "repo wins on next push": push
+    // resends State only when the spec's own state changes (see compare.js
     // `issueChanges`), so a moved issue stays put until then.
-    const stage = remoteStage(remote, config)
-    if (stage) {
-      lines.push(`  stage: Linear is at "${stage.state}" (release stage "${stage.key}", past ${lState})`)
-    } else if (seen && !seen.mapped) {
+    if (seen && !seen.mapped) {
       lines.push(`  state: Linear has it in "${seen.name}", a state skitterspec does not map — left alone`)
     } else if (seen && lState && seen.bucket !== lState) {
       lines.push(`  drift: Linear workflow-state is "${seen.bucket}" but the spec is "${lState}" (push resends State only when the spec moves)`)
@@ -651,7 +643,6 @@ async function specSyncDoctor(dir, flags, out) {
     state.mcp = read.facts
   }
   if (flags.remoteCheck) state.remote = await checkRemote(state, flags)
-  if (state.remote && state.remote.issueStates) state.ladder.workspaceStates = state.remote.issueStates
 
   const report = runChecks(state)
 
@@ -761,20 +752,7 @@ async function checkRemote(state, flags) {
     }
   }
 
-  // Only fetched when a ladder is declared: the rows that do not need state
-  // types must not pay for a call that answers a question nobody asked.
-  let issueStates = null
-  if (releaseStages(state._config).length && typeof adapter.listIssueStates === 'function') {
-    try {
-      issueStates = await adapter.listIssueStates(state.tracker.teamId)
-    } catch {
-      // Unexamined, on the same rule as the project read: a transport failure is
-      // not evidence about the ladder's shape.
-      issueStates = null
-    }
-  }
-
-  return { checked: true, ok: true, teamKey: team.key, teamId: team.id, organization, recordedKey: state.tracker.teamKey, project, issueStates }
+  return { checked: true, ok: true, teamKey: team.key, teamId: team.id, organization, recordedKey: state.tracker.teamKey, project }
 }
 
 /**
@@ -914,9 +892,7 @@ function gatherState(dir, flags) {
   }
 
   state._config = config
-  // Declared here, checked only if `--check-remote` fetches the state TYPES the
-  // shape check needs (see `ladderCheck`). Offline, the row stays `skipped`.
-  state.ladder = { stages: releaseStages(config) }
+  state.retired = retiredKeysRow(path.join(dir, CONFIG_FILE), CONFIG_FILE, doctorRow)
   return state
 }
 
@@ -1145,198 +1121,6 @@ async function specSyncReleased(dir, config, rangeArg, flags, out) {
   }
   out.write(lines.join('\n') + '\n')
   return 0
-}
-
-/**
- * `spec-sync stage <key> [<range>] [--apply] [--json]` — move a release's
- * tickets onto a declared deployment rung.
- *
- * The counterpart to `released`, which reports and cannot write. This is the
- * write, and it is deliberately a separate verb: someone typing `released` in a
- * terminal should never be able to move anything.
- *
- * **Dry run is the default.** `--apply` is required to touch Linear, and the
- * resolved range, the target state and the full plan print either way — a wrong
- * range is then visible before it is acted on rather than after.
- *
- * What it refuses to move is as important as what it moves: see
- * `partitionStageMoves`. Every excluded ref is named with its reason, because a
- * silent exclusion and a successful move look identical in a pipeline log.
- */
-async function specSyncStage(dir, config, stageKey, rangeArg, flags, out) {
-  const stages = releaseStages(config)
-  if (!stages.length) {
-    out.write(
-      'spec-sync stage: no deployment ladder is declared.\n' +
-        `  Add release.stages to ${CONFIG_FILE} — see its docs for the shape.\n`,
-    )
-    return 1
-  }
-  if (!stageKey) {
-    out.write(`spec-sync stage: no stage given. Declared: ${stages.map((s) => s.key).join(', ')}\n`)
-    return 1
-  }
-  const stage = stageFor(config, stageKey)
-  if (!stage) {
-    out.write(
-      `spec-sync stage: no stage named ${JSON.stringify(stageKey)}.\n` +
-        `  Declared: ${stages.map((s) => s.key).join(', ')}\n`,
-    )
-    return 1
-  }
-
-  const read = readCommitRange(dir, rangeArg, 'stage')
-  if (read.error) {
-    out.write(read.error.join('\n') + '\n')
-    return 1
-  }
-  const { range, commits } = read
-
-  const report = ticketsInRange(commits, { ignorePaths: releaseIgnorePaths(config) })
-  const teamKey = (config.linear && config.linear.teamKey) || ''
-  const parts = partitionStageMoves({
-    tickets: report.tickets,
-    teamKey,
-    specs: listSpecs(dir, config),
-    cededBucket: LADDER_ORIGIN_BUCKET,
-  })
-
-  const key = resolveApiKey(config, flags.env || process.env)
-  const transport = resolveTransport(flags, config, key.ok)
-  const applying = Boolean(flags.apply)
-
-  if (applying && transport !== 'api') {
-    out.write(
-      `spec-sync stage: refusing to apply over ${transport}.\n` +
-        `  ${key.ok ? '--via api is required' : key.error}\n` +
-        '  Re-run without --apply for the plan.\n',
-    )
-    return 1
-  }
-
-  // Read each movable issue BEFORE any write: it yields the id the update needs,
-  // its title for the report, and its current state for the order warning. A ref
-  // that cannot be read is dropped from the move rather than guessed at.
-  const adapter = transport === 'api' && key.ok ? flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch }) : null
-  const moves = []
-  const unreadable = []
-  for (const ticket of parts.movable) {
-    if (!adapter) {
-      moves.push({ ...ticket, title: null, from: null, warning: null })
-      continue
-    }
-    let issue = null
-    try {
-      issue = await adapter.readIssue(ticket.ref)
-    } catch {
-      issue = null
-    }
-    if (!issue || !issue.id) {
-      unreadable.push(ticket)
-      continue
-    }
-    const from = issue.state && issue.state.name ? issue.state.name : null
-    moves.push({
-      ...ticket,
-      id: issue.id,
-      title: issue.title || null,
-      from,
-      warning: stageOrderWarning(stages, from, stage.key, Object.values(config.states || {})),
-    })
-  }
-
-  let moved = []
-  let failed = []
-  if (applying && moves.length) {
-    let states
-    try {
-      states = await adapter.listIssueStates((config.linear && config.linear.teamId) || null)
-    } catch (error) {
-      out.write(`spec-sync stage: could not read the workspace states — ${error.message}\n`)
-      return 1
-    }
-    // Resolve the target id BEFORE the first write, mirroring `apply`: a state
-    // name the workspace lacks must fail with nothing moved, not halfway through.
-    const target = states.find((st) => st && st.name && st.name.toLowerCase().trim() === stage.state.toLowerCase().trim())
-    if (!target) {
-      out.write(
-        `spec-sync stage: refusing — no issue state named ${JSON.stringify(stage.state)} in this workspace.\n` +
-          `  available: ${states.map((st) => st.name).join(', ') || '(none reported)'}\n` +
-          '  Linear silently ignores an unknown state, so this would have moved nothing.\n',
-      )
-      return 1
-    }
-    for (const move of moves) {
-      try {
-        await adapter.updateIssue(move.id, { stateId: target.id })
-        moved.push(move)
-      } catch (error) {
-        failed.push({ ...move, error: error.message })
-      }
-    }
-  }
-
-  if (flags.json) {
-    out.write(
-      JSON.stringify(
-        {
-          range,
-          stage: { key: stage.key, state: stage.state },
-          applied: applying,
-          moves: moves.map((m) => ({ ref: m.ref, title: m.title, from: m.from, warning: m.warning })),
-          moved: moved.map((m) => m.ref),
-          failed: failed.map((m) => ({ ref: m.ref, error: m.error })),
-          skipped: {
-            foreign: parts.foreign.map((t) => t.ref),
-            unlinked: parts.unlinked.map((t) => t.ref),
-            unfinished: parts.unfinished.map((t) => ({ ref: t.ref, bucket: t.bucket })),
-            unreadable: unreadable.map((t) => t.ref),
-          },
-          unreferencedCommits: report.unreferenced,
-          ignoredCommits: report.ignored,
-          totalCommits: report.total,
-        },
-        null,
-        2,
-      ) + '\n',
-    )
-    return failed.length ? 1 : 0
-  }
-
-  const lines = [`spec-sync stage: ${stage.key} -> "${stage.state}"  (${range})`, '']
-  if (!moves.length) {
-    lines.push(applying ? '  moved nothing' : '  would move nothing')
-  } else {
-    lines.push(`  ${applying ? 'moved' : 'would move'} ${applying ? moved.length : moves.length} ticket(s)`)
-    for (const m of moves) {
-      const title = m.title ? `  ${m.title}` : ''
-      lines.push(`    ${m.ref}${title}`)
-      if (m.warning) lines.push(`      warning: ${m.warning}`)
-    }
-  }
-  for (const { label, items } of [
-    { label: 'not team ' + (teamKey || '(unset)'), items: parts.foreign.map((t) => t.ref) },
-    { label: 'no spec in this repo claims it', items: parts.unlinked.map((t) => t.ref) },
-    {
-      label: 'spec not complete — push still owns its state',
-      items: parts.unfinished.map((t) => `${t.ref} (${t.bucket})`),
-    },
-    { label: 'could not be read from Linear', items: unreadable.map((t) => t.ref) },
-  ]) {
-    if (items.length) lines.push(`  skipped ${items.length} — ${label}: ${items.join(', ')}`)
-  }
-  for (const f of failed) lines.push(`  FAILED ${f.ref}: ${f.error}`)
-  lines.push('')
-  // Said even when zero, for the reason `released` says it: a chore commit
-  // legitimately carries no ref and a MISSED trailer looks identical, so silence
-  // would read as "every commit is accounted for".
-  lines.push(`  ${report.unreferenced} commit(s) carry no ref, of ${report.total}`)
-  if (report.ignored) {
-    lines.push(`  ${report.ignored} commit(s) ignored as bookkeeping (release.ignorePaths)`)
-  }
-  if (!applying) lines.push('  dry run — pass --apply to move them')
-  out.write(lines.join('\n') + '\n')
-  return failed.length ? 1 : 0
 }
 
 /**
@@ -1672,9 +1456,8 @@ async function specSyncStates(dir, config, flags, out) {
 }
 
 // The state names this project's config points at, shown against what the
-// workspace actually has — the bucket map, then the deployment ladder in its
-// declared order. One command then shows the whole vocabulary, instead of the
-// ladder living only in a file nobody re-reads.
+// workspace actually has — the bucket map and its aliases, so one command
+// shows the whole vocabulary.
 //
 // A name the workspace lacks is flagged here but nothing is refused: `states`
 // is a report. The push path is where that is fatal.
@@ -1687,13 +1470,6 @@ function configuredVocabularyLines(config, names) {
     for (const alias of stateNamesFor(bucket, config).slice(1)) {
       lines.push(`      also reads as ${bucket}: ${alias}${mark(alias)}`)
     }
-  }
-  const stages = releaseStages(config)
-  if (stages.length) {
-    lines.push(`    release.stages: ${stages.length} rung(s), in order`)
-    stages.forEach((stage, i) => {
-      lines.push(`      ${i + 1}. ${stage.key} -> ${stage.state}${mark(stage.state)}`)
-    })
   }
   return lines
 }
@@ -2832,10 +2608,6 @@ function specSyncInitConfig(dir, flags, out) {
   if (flags.hotfixLabels.length) intake.hotfixLabels = flags.hotfixLabels
   if (Object.keys(intake).length) draft.intake = intake
   if (Object.keys(flags.stateNames).length) draft.states = { ...flags.stateNames }
-  // The ladder, in the order given. `mergeConfig` below is what validates the
-  // shape — a blank key or a duplicate fails there, in one place, rather than
-  // being re-checked here and drifting from the loader.
-  if (flags.stages.length) draft.release = { stages: flags.stages }
   // Assignment ships ON, so the flag is the OPT-OUT and it writes `none`. The
   // previous `--assign` is gone rather than kept as a no-op: a flag whose meaning
   // the default flip inverted, still accepted and doing nothing, is the
@@ -2888,8 +2660,6 @@ function specSyncInitConfig(dir, flags, out) {
       const lines = ['spec-sync init-config: refusing — configured state name(s) not in the workspace', '']
       for (const { bucket, label, configured, suggestion } of stateSuggestions(effective, workspace)) {
         lines.push(`  ${label}: "${configured}" is not an issue state in this workspace`)
-        // `--state <bucket>=<name>` only addresses the bucket map; a ladder rung
-        // is edited in the config, and never carries a suggestion anyway.
         if (suggestion && bucket) lines.push(`    pass --state ${bucket}="${suggestion}"`)
       }
       lines.push(
@@ -3437,7 +3207,7 @@ async function specSync(rest, io = {}) {
   // after the loop.
   const unknownFlags = []
   const flags = { json: false, remote: null, workspaceStates: null, skipStateCheck: false, issue: null, url: null, subs: [], stored: null, plan: null, via: null, project: null, all: null,
-    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, stages: [], limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false, text: null }
+    mcp: null, force: false, yes: false, apply: false, remoteCheck: false, teamId: '', teamKey: '', projectId: '', intakeLabel: '', bugLabels: [], hotfixLabels: [], stateNames: {}, stateArgs: [], statesFile: null, limit: null, next: null, archived: false, noAssign: false, mine: false, by: null, inProgress: false, text: null }
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dir = path.resolve(args[++i])
     else if (args[i] === '--json') flags.json = true
@@ -3511,11 +3281,6 @@ async function specSync(rest, io = {}) {
       const [bucket, ...rest] = raw.split('=')
       flags.stateNames[String(bucket).trim()] = rest.join('=').trim()
       if (raw) flags.stateArgs.push(raw)
-    } else if (args[i] === '--stage') {
-      // `--stage test="On Test"`, repeatable. Order matters and is the order
-      // given, so the ladder is written exactly as the operator listed it.
-      const [key, ...rest] = String(args[++i] || '').split('=')
-      flags.stages.push({ key: String(key).trim(), state: rest.join('=').trim() })
     } else if (args[i] === '--states') flags.statesFile = path.resolve(args[++i])
     else if (args[i].startsWith('--')) unknownFlags.push(args[i])
     else positional.push(args[i])
@@ -3616,7 +3381,7 @@ async function specSync(rest, io = {}) {
     case 'released':
       return (await specSyncReleased(dir, config, positional[0], flags, out)) || 0
     case 'stage':
-      return (await specSyncStage(dir, config, positional[0], positional[1], flags, out)) || 0
+      return refuseRemovedVerb(out, 'spec-sync', 'stage')
     case 'ref':
       return specSyncRef(dir, config, positional[0], flags, out, err) || 0
     case 'retarget':
@@ -3650,7 +3415,6 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +
-        '       skitterspec spec-sync stage <key> [<range>] [--apply] [--json]\n' +
         '       skitterspec spec-sync reattach <spec> [--to <ISSUE-REF>] [--json]\n' +
         '       skitterspec spec-sync retarget [--yes]\n' +
         '       skitterspec spec-sync doctor [--check-remote] [--mcp <file>] [--json]\n' +

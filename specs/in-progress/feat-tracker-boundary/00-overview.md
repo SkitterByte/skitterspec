@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `released --json` names the spec | ✅ | [01-released-names-spec.md](01-released-names-spec.md) |
 | 2 | Dogfood script, then remove release objects | ✅ | [02-remove-release-objects.md](02-remove-release-objects.md) |
-| 3 | Remove the stage ladder | ⬜ | [03-remove-stage-ladder.md](03-remove-stage-ladder.md) |
+| 3 | Remove the stage ladder | ✅ | [03-remove-stage-ladder.md](03-remove-stage-ladder.md) |
 | 4 | Remove state drift | ⬜ | [04-remove-state-drift.md](04-remove-state-drift.md) |
 | 5 | Docs and dist | ⬜ | [05-docs-and-dist.md](05-docs-and-dist.md) |
 
@@ -123,3 +123,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   phase 5. It changes another spec, so it runs once this one lands.
 - 2026-10-29 — Phase 2: also removed Azure's `fieldAllowedValues` and GitHub's
   `IMPOSSIBLE_OVER_MCP`, both used only by the release verbs.
+- 2026-10-29 — Phase 3: a tracker state that was a ladder rung now reads as
+  unmapped, which is position and not drift. A project that wants it read as
+  `complete` lists it as a `states.complete` alias, which `feat-spec-list-board`
+  already supports. Also removed `releases` from this repo's own
+  `github.config.json`, which phase 2 left behind.

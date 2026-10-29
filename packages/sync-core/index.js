@@ -13,7 +13,7 @@
  * stored matches what was sent — it merges nothing (see `src/verify.js`).
  */
 
-const { ownsField, normalizeLocal, LIFECYCLE_BUCKETS, lintPhases, readSnapshot, parseFrontmatter, remoteWorkflowState, remoteStateReading, stateNamesFor, titleFromText, validateStates, stateSuggestions, stageForState, remoteStage, phaseModeFor, LADDER_ORIGIN_BUCKET } = require('./src/normalize.js')
+const { ownsField, normalizeLocal, LIFECYCLE_BUCKETS, lintPhases, readSnapshot, parseFrontmatter, remoteWorkflowState, remoteStateReading, stateNamesFor, titleFromText, validateStates, stateSuggestions, phaseModeFor } = require('./src/normalize.js')
 const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify, remoteDescriptionEdited, remoteSubIssueEdited } = require('./src/compare.js')
 const { readBase, writeBase } = require('./src/base.js')
 const { push, recordPush, projectionOf } = require('./src/push.js')
@@ -46,9 +46,6 @@ module.exports = {
   titleFromText,
   validateStates,
   stateSuggestions,
-  stageForState,
-  remoteStage,
-  LADDER_ORIGIN_BUCKET,
   hashField,
   stableStringify,
   readBase,

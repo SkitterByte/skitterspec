@@ -80,9 +80,9 @@ test('every spec-sync subcommand it routes is named in its usage', async () => {
   // help said did not exist.
   //
   // RETIRED names are the one exemption, and naming them here is what keeps the
-  // exemption honest — `push` is still recognised so it can tell the caller what
+  // exemption honest — `push` and `stage` are still recognised so each can tell the caller what
   // replaced it, and advertising it would undo that.
-  const RETIRED = new Set(['push'])
+  const RETIRED = new Set(['push', 'stage'])
 
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'cli-sync.js'), 'utf-8')
   const routed = [...src.matchAll(/^\s*case '([a-z-]+)':/gm)].map((m) => m[1]).filter((c) => !RETIRED.has(c))

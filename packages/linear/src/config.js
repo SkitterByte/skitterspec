@@ -20,7 +20,7 @@
  *     intake:   { label, bugLabels, hotfixLabels, preserveOriginal },
  *     mapping:  { specFolder, phases, tasks },
  *     states:   { backlog, "in-progress", complete, cancelled },
- *     release:  { stages: [{ key, state }] },
+ *     release:  { ignorePaths },
  *     snapshot: { overviewFile },
  *     branch:   { pattern },
  *     sync: {
@@ -88,19 +88,6 @@ const TRANSPORTS = Object.freeze(['api', 'mcp'])
 // `auth.keyEnv` names another. The config names the VARIABLE, never the key —
 // nothing secret is ever written to the repo.
 const DEFAULT_KEY_ENV = 'LINEAR_API_KEY'
-
-// The project's OWN deployment ladder: where a ticket goes AFTER its spec is
-// complete — deployed to test, approved for demo, live in prod. Deliberately an
-// open, ORDERED list in the project's vocabulary rather than a fixed set: one
-// team's `On Test`/`Ready for Demo` is another's `staging`, and most projects
-// have none at all. Empty (the default) means the project declared no ladder,
-// and every stage-aware path is simply unused.
-//
-// It is NOT keyed by lifecycle bucket, unlike `states` and `mapping.phases`.
-// A deployment stage is a fact about an ENVIRONMENT, and no folder under
-// `specs/` can ever derive one — which is why it must not join
-// LIFECYCLE_BUCKETS.
-const DEFAULT_RELEASE_STAGES = Object.freeze([])
 
 // Repo-relative path prefixes whose commits are BOOKKEEPING, not shipped work.
 //
@@ -179,12 +166,9 @@ const DEFAULT_CONFIG = Object.freeze({
     legacyIdentifier: 'linear_project_id',
     legacyIssueId: 'linear_milestone_id',
   }),
-  // See DEFAULT_RELEASE_STAGES above. `stages` is ordered: the order is recorded
-  // for reporting and doctor's ladder check, and deliberately NOT enforced — a
-  // rollback from test and a hotfix going straight to prod are both legitimate.
-  // `ignorePaths` (see DEFAULT_RELEASE_IGNORE_PATHS) is what `released`/`stage`
-  // treat as bookkeeping rather than shipped work.
-  release: Object.freeze({ stages: DEFAULT_RELEASE_STAGES, ignorePaths: DEFAULT_RELEASE_IGNORE_PATHS }),
+  // `ignorePaths` (see DEFAULT_RELEASE_IGNORE_PATHS) is what `released` treats
+  // as bookkeeping rather than shipped work.
+  release: Object.freeze({ ignorePaths: DEFAULT_RELEASE_IGNORE_PATHS }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // `keyEnv` names the env var holding the personal API key. It is a NAME, not a
   // key: putting the secret itself here would commit it.
@@ -293,7 +277,6 @@ function defaults() {
     snapshot: { ...DEFAULT_CONFIG.snapshot },
     fields: { ...DEFAULT_CONFIG.fields },
     release: {
-      stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })),
       ignorePaths: [...DEFAULT_CONFIG.release.ignorePaths],
     },
     branch: { ...DEFAULT_CONFIG.branch },
@@ -313,7 +296,7 @@ function defaults() {
 // vocabularies; `mergeConfig` below is the part that is Linear's — which keys
 // exist and how they nest.
 const { isObject, stringList, assign } = kitConfig
-const { mergeStates, mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages, mergeReleaseIgnorePaths, mergeKeyedFields } =
+const { mergeStates, mergeFieldOwnership, mergePhaseMapping, mergeReleaseIgnorePaths, mergeKeyedFields } =
   kitConfig.makeMergeHelpers({
     configFile: CONFIG_FILE,
     ownership: OWNERSHIP,
@@ -369,7 +352,6 @@ function mergeConfig(base, parsed) {
   }
 
   if (isObject(parsed.release)) {
-    mergeReleaseStages(base.release, parsed.release)
     mergeReleaseIgnorePaths(base.release, parsed.release)
   }
 
@@ -411,8 +393,7 @@ function mergeConfig(base, parsed) {
  * Returns `{ config, present }`:
  *   - missing file → `{ config: defaults, present: false }` (opt-out; never throws)
  *   - present      → `{ config: merged,   present: true }`
- * Malformed JSON, a bad `fieldOwnership` enum, or a malformed `release.stages`
- * entry → throws a clear Error.
+ * Malformed JSON or a bad `fieldOwnership` enum → throws a clear Error.
  */
 // Attach the parts of the provider contract that are code, not JSON: the
 // markdown dialect (sync-core calls its hooks wherever it used to hardcode
@@ -452,21 +433,6 @@ function loadLinearConfig(dir = process.cwd()) {
 }
 
 /**
- * The project's declared deployment ladder, always an array (empty = none
- * declared). Callers read this rather than reaching into the config, so an
- * older config object without a `release` block cannot throw.
- */
-function releaseStages(config) {
-  const stages = config && config.release && config.release.stages
-  return Array.isArray(stages) ? stages : []
-}
-
-/** The ladder rung with this key, or null. */
-function stageFor(config, key) {
-  return releaseStages(config).find((s) => s.key === key) || null
-}
-
-/**
  * The path prefixes whose commits are bookkeeping, always an array.
  *
  * A config object that predates the field gets the DEFAULT — the list
@@ -481,9 +447,7 @@ function releaseIgnorePaths(config) {
 
 module.exports = {
   loadLinearConfig,
-  releaseStages,
   releaseIgnorePaths,
-  stageFor,
   mergeConfig,
   defaults,
   DEFAULT_CONFIG,

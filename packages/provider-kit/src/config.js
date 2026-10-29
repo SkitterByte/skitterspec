@@ -98,52 +98,6 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
     }
   }
 
-  // Merge (and validate) `release.stages` — the project's deployment ladder.
-  //
-  // Loud on a malformed entry: this list names tracker states, and a tracker
-  // that silently ignores an unknown state would let a half-typed ladder push
-  // clean and move nothing — so a bad shape fails here, at load, rather than at
-  // the first deploy nobody is watching. An ABSENT `release` block is not an
-  // error: it is the opt-out, and the whole feature is unused without it.
-  function mergeReleaseStages(base, parsed) {
-    const value = parsed.stages
-    if (value === undefined) return
-    if (!Array.isArray(value)) {
-      throw new Error(
-        `Invalid ${configFile}: release.stages = ${JSON.stringify(value)} ` +
-          '(expected an array of { key, state })',
-      )
-    }
-    const stages = []
-    const seen = new Set()
-    value.forEach((entry, i) => {
-      if (!isObject(entry)) {
-        throw new Error(
-          `Invalid ${configFile}: release.stages[${i}] = ${JSON.stringify(entry)} ` +
-            '(expected { key, state })',
-        )
-      }
-      for (const field of ['key', 'state']) {
-        if (typeof entry[field] !== 'string' || !entry[field].trim()) {
-          throw new Error(
-            `Invalid ${configFile}: release.stages[${i}].${field} = ${JSON.stringify(entry[field])} ` +
-              '(expected a non-empty string)',
-          )
-        }
-      }
-      const key = entry.key.trim()
-      if (seen.has(key)) {
-        throw new Error(
-          `Invalid ${configFile}: release.stages[${i}].key = ${JSON.stringify(key)} is a duplicate ` +
-            '(a stage key is how CI names the rung, so it must be unique)',
-        )
-      }
-      seen.add(key)
-      stages.push({ key, state: entry.state.trim() })
-    })
-    base.stages = stages
-  }
-
   // Merge (and validate) release.ignorePaths — the path prefixes whose commits
   // are bookkeeping. Loud on anything but an array of non-empty strings: a bad
   // value that quietly fell back would let a project believe it had opted out
@@ -243,7 +197,6 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
     mergeStates,
     mergeFieldOwnership,
     mergePhaseMapping,
-    mergeReleaseStages,
     mergeReleaseIgnorePaths,
     mergeKeyedFields,
   }
@@ -255,7 +208,10 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
 //
 // WHAT WOULD FOOL THIS: it reads the committed file, so a key set only in a
 // working-tree edit is still reported — which is the file a person would edit.
-const RETIRED_KEYS = Object.freeze([{ path: ['releases'], name: 'releases' }])
+const RETIRED_KEYS = Object.freeze([
+  { path: ['releases'], name: 'releases' },
+  { path: ['release', 'stages'], name: 'release.stages' },
+])
 
 // The retired keys present in a parsed config. Not an object, or none present,
 // is `[]`: nothing to say is the safe answer to every cannot-tell.
