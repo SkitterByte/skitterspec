@@ -1,14 +1,14 @@
 {
-  "issue": "5f41bb39f5ba6e8dfd027dc22fb9be1d0df4c1f3",
+  "issue": "2052cd1855cb9e0f43f921f35e6e530208628b11",
   "issueFields": {
     "description": "8c3ed58c4354cc32007a158320e29219efbd365e",
-    "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
-    "assignee": "1ffacc006b2608594bdae1c981be93f9eac09e00",
+    "state": "32fd35c2acdce9c0e61628435e1b18efd7f4dea1",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833",
     "descriptionStream": "b1950e872e797f8eaae2eaf91cb59b77d2cecd2b"
   },
   "subIssues": {
-    "#56": "b6c1058c6a7abb5aa04c54df379827fb764b05dd",
-    "#57": "1bf333f7d7140ae90b669bde369c3d0c9651e36e"
+    "#56": "47e445b13e4da0049cd40ac52f4dd7deb2bea6ff",
+    "#57": "760a952c8bb21cbd6253d508de6bbf4920f0733f"
   },
   "subIssueStreams": {
     "#56": "62e38e9e1e65bbcb96f992570e32f5bc8b1e7084",

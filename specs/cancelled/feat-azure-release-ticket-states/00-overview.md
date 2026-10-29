@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-azure-release-ticket-states (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-29)
+> **Status:** Cancelled (2026-10-29) — deploy position is not skitterspec's responsibility (CI and the tracker own it), and the state-map backfill is not worth an engine change; superseded by a bug spec for unmapped tracker states reported as drift
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
@@ -116,6 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-29 | Ready | backlog | Reuben Greaves |
 | 2026-10-29 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-29 | Cancelled | cancelled | Reuben Greaves |
 
 ## Changelog
 
@@ -125,3 +126,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   again here, on #55, and on #50 before). It needs a hand `stamp` and a
   re-apply, so `apply` should treat "already on the board" as success. Not in
   scope here.
+- 2026-10-29 — Cancelled: deploy position is not skitterspec's responsibility (CI and the tracker own it), and the state-map backfill is not worth an engine change; superseded by a bug spec for unmapped tracker states reported as drift. Nothing was built.
