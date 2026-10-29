@@ -16,8 +16,9 @@ Read-only. Reports two things and writes nothing:
 1. **Pending push** — has the spec changed since the last push (is there an issue
    description/state or any phase subtask to create or update)?
 2. **State drift** — does Jira's issue status differ from the spec's status?
-   (The repo wins on the next push; this is just a heads-up, e.g. a card moved
-   on the board.)
+   (Push resends State only when the spec itself moves, so a card moved by
+   hand stays where it was put until then. This is a heads-up, not a pending
+   change.)
 
 The repo is the source of truth; Jira is a generated mirror, so there is no
 per-field "conflict" — only "what would the next push send" and "did the mirror
@@ -90,7 +91,7 @@ the shape; this section carries only what is specific here.
 - `✅` — in sync; nothing would push.
 - `⚠️` — drift: N objects would push, Jira's status was moved by hand, or the
   issue's **description** was edited on Jira since the last push. None is an
-  error — the repo wins on the next push — but all are the reason someone ran
+  error, but all are the reason someone ran
   this. **Say which**, since the three call for different things: a pending push
   is routine, a moved status is usually someone else's automation, and an edited
   description means a person wrote something that the next push replaces.

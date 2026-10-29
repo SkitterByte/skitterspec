@@ -2,7 +2,7 @@
 
 Spec-driven development for Claude Code, with **one-way Azure Boards sync** — a
 superset of [`@skitterbyte/skitterspec`](https://www.npmjs.com/package/@skitterbyte/skitterspec):
-the base filesystem workflow plus `/spec-push` · `/spec-status` · `/spec-claim`
+the base filesystem workflow plus `/spec-push` · `/spec-status` · `/spec-list` · `/spec-claim`
 and the `spec-sync` CLI. The repo is canonical; Azure Boards is a generated
 mirror.
 

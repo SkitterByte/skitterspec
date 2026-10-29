@@ -2,7 +2,7 @@
 
 Spec-driven development for Claude Code, with **one-way GitHub sync** — a
 superset of [`@skitterbyte/skitterspec`](https://www.npmjs.com/package/@skitterbyte/skitterspec):
-the base filesystem workflow plus `/spec-push` · `/spec-status` · `/spec-claim`
+the base filesystem workflow plus `/spec-push` · `/spec-status` · `/spec-list` · `/spec-claim`
 and the `spec-sync` CLI. The repo is canonical; GitHub is a generated mirror.
 
 Install exactly one distribution — this, the base, or one other superset —

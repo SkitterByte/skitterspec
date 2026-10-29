@@ -16,8 +16,11 @@ Read-only. Reports two things and writes nothing:
 1. **Pending push** — has the spec changed since the last push (is there an issue
    description/state or any phase sub-issue to create or update)?
 2. **State drift** — does Linear's issue workflow-state differ from the spec's
-   status? (The repo wins on the next push; this is just a heads-up, e.g. a card
-   moved in Linear.)
+   status? (Push resends State only when the spec itself moves, so a card moved by
+   hand stays where it was put until then. This is a heads-up, not a pending
+   change.) A state skitterspec does not map is reported as
+   `state: … left alone`, never as drift, and a `states` alias reads as its
+   bucket.
 
 The repo is the source of truth; Linear is a generated mirror, so there is no
 per-field "conflict" — only "what would the next push send" and "did the mirror
@@ -59,7 +62,8 @@ skitterspec spec-sync status <spec> [--remote <issuefile>] [--workspace-states <
 
 - Reports `push: pending — N to create, M to update` or `up to date`.
 - With `--remote`, adds a `drift:` line comparing Linear's issue workflow-state
-  to the spec's status.
+  to the spec's status. A state that maps to no bucket gets a `state:` line
+  instead — position, not drift.
 - With `--workspace-states`, fails loudly if a configured state name isn't in the
   workspace (Linear would silently no-op it).
 
@@ -93,8 +97,8 @@ the shape; this section carries only what is specific here.
 
 - `✅` — in sync; nothing would push.
 - `⚠️` — drift: N objects would push, Linear's workflow state was moved by hand,
-  or the issue's **description** was edited on Linear since the last push. None
-  is an error — the repo wins on the next push — but all are the reason someone
+  or the issue's **description** was edited on Linear since the last push. None is an
+  error, but all are the reason someone
   ran this. **Say which**, since the three call for different things: a pending
   push is routine, a moved state is usually someone else's automation, and an
   edited description means a person wrote something that the next push replaces.
