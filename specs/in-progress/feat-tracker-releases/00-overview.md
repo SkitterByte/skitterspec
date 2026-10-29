@@ -136,7 +136,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | `release create <tag>` | ✅ | [03-release-create.md](03-release-create.md) |
 | 4 | `release deployed` / `release complete` | ✅ | [04-deployed-complete.md](04-deployed-complete.md) |
 | 5 | Setup step, CI wiring offer, doctor | ✅ | [05-setup-and-doctor.md](05-setup-and-doctor.md) |
-| 6 | Dogfood in this repo | ⬜ | [06-dogfood.md](06-dogfood.md) |
+| 6 | Dogfood in this repo | 🔄 | [06-dogfood.md](06-dogfood.md) |
 
 ## Open questions
 
@@ -194,3 +194,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   set, so doctor and `link` check `archivedAt`, and "Entity not found" is the
   other positive signal. The listing query is capped (`first: 50`, stages 25)
   because `first: 100` is "Query too complex".
+- 2026-10-22 — Phase 6: added a pipeline setup walkthrough (`SETUP.md` §9,
+  `docs/linear.html#releases`). Linear's own docs do not describe stage
+  editing, so the walkthrough maps envs onto the four default stages
+  (`Planned`, `In Progress`, `Released`, `Canceled`) and treats renaming as
+  optional. It recommends turning off "Move open issues to the next release",
+  since the repo decides what a release contains.

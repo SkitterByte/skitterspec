@@ -683,6 +683,53 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
   </div>
 </section>
 
+<!-- ============ RELEASES ============ -->
+<section id="releases" class="quick">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Releases</div>
+      <h2>A Linear release for every tag, built by CI.</h2>
+      <p class="lede">Optional, and it needs a plan with Linear Releases. CI creates a release per version tag, attaches the tickets that shipped in it, and moves it through stages as it deploys. Your repo decides what is in it; Linear is told.</p>
+    </div>
+
+    <div class="quick-grid reveal">
+      <div class="qbox">
+        <h3><span class="q-badge">1</span> Create a pipeline per series</h3>
+        <p>In Linear, <strong>Settings → Releases</strong>. One pipeline per tag series: <span class="mono">app@</span> and <span class="mono">lib@</span> in a monorepo are two. Choose <strong>Scheduled</strong>, set the team, and keep the default stages. Once it exists, turn <strong>Move open issues to the next release</strong> off in its settings, because the repo decides what a release contains.</p>
+        <p>Skip path filters and the access key. Skitterspec sends the ticket list itself and uses your API key.</p>
+      </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">2</span> Map your envs to its stages</h3>
+        <p>A new pipeline has <span class="mono">Planned</span>, <span class="mono">In Progress</span>, <span class="mono">Released</span> and <span class="mono">Canceled</span>. Map each of your env keys to one, in deploy order: <span class="mono">test</span> → In Progress, <span class="mono">prod</span> → Released. Rename stages first if you like, but never freeze one a release lands on: Linear won't add issues to a frozen stage.</p>
+      </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">3</span> Link it</h3>
+        <p>Re-run <span class="mono">/spec-linear-setup</span>. On a connected repo it offers just this step, checks every id and stage name against Linear, and leaves the rest of your config alone.</p>
+        <div class="code"><span class="c"># or by hand</span>
+skitterspec spec-sync <span class="p">release pipelines</span>
+skitterspec spec-sync <span class="p">release link</span> \
+  --release-pipeline app@=&lt;id&gt; \
+  --release-env app@:test="In Progress" \
+  --release-env app@:prod=Released</div>
+      </div>
+
+      <div class="qbox">
+        <h3><span class="q-badge">4</span> Wire CI</h3>
+        <p>Add the key as a CI secret yourself. Then add three steps, each a dry run unless <span class="mono">--apply</span>:</p>
+        <div class="code"><span class="c"># on tag push (needs fetch-depth: 0)</span>
+spec-sync <span class="p">release create</span> "$TAG" --apply
+<span class="c"># after each deploy</span>
+spec-sync <span class="p">release deployed</span> 1.2.0 prod --apply
+<span class="c"># when it is done</span>
+spec-sync <span class="p">release complete</span> 1.2.0 --apply</div>
+        <p class="hero-note">Full walkthrough: <span class="mono">specs/.core/SETUP.md</span> §9, shipped in the package.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ CHECK ============ -->
 <section id="check" class="scenario">
   <div class="wrap">

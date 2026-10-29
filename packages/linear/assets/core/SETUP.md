@@ -280,6 +280,105 @@ Then, with a linked spec, confirm push end-to-end:
 4. Edit a phase goal locally, `/spec-push` → the matching sub-issue updates;
    `/spec-status` returns to **up to date**.
 
+## 9. Linear Releases (optional)
+
+With Releases, CI creates a Linear **release** for every version tag, attaches
+the tickets that shipped in it, and moves it through stages as it deploys.
+Tickets keep their own workflow state; the release says where the code is
+running. Skip this section and nothing changes. Without Releases, the ladder in
+`ci-stages.md` is the fallback.
+
+**You need:** a Linear plan that includes Releases (Business or Enterprise),
+and a workspace admin to turn it on and create pipelines. Skitterspec never
+creates pipelines. You make them in Linear and setup links them.
+
+### 9.1 Decide your series
+
+A **series** is a tag prefix: everything after it is the version. A
+single-package repo tagging `v1.2.0` has one series (`v`). A monorepo tagging
+`app@1.2.0` and `lib@0.4.1` has two (`app@`, `lib@`), and wants one pipeline
+each. List them with `git tag --list`.
+
+Then decide your **env keys**, the words your CI uses for where a release is
+running (`test`, `demo`, `prod`), in deploy order. They are yours; Linear never
+sees them.
+
+### 9.2 Create a pipeline per series in Linear
+
+In Linear: **Settings → Releases**, then create a pipeline. The form asks for:
+
+| Field | Choose | Why |
+|-------|--------|-----|
+| Name | the package or product, e.g. `app` | shown on every release |
+| Teams | the team in `linear.teamKey` | ownership and Linear's own suggestions; it does not limit what can be attached |
+| Production | on for a series that ships to production | Linear's own marker; skitterspec does not read it |
+| Type | **Scheduled** | a release per version tag, named by its version. Skitterspec's create-or-update was verified against scheduled pipelines. |
+| Stages | leave the defaults (see 9.3) | |
+
+A few more settings appear on the pipeline after it is created:
+
+- **Move open issues to the next release:** turn it **off**. Skitterspec
+  decides what a release contains, and with this on, Linear carries
+  unfinished issues forward on its own.
+- **Path filters:** leave them empty. Skitterspec sends the ticket list
+  itself.
+- **Access key:** you don't need one. Skitterspec uses your API key
+  (`auth.keyEnv`).
+
+### 9.3 Settle the stages
+
+A new pipeline comes with four stages: **Planned**, **In Progress**,
+**Released** and **Canceled**. Map each env key to one. You can use them as
+they are, or rename them. The **+** beside the *Started* group adds another
+started stage.
+
+**Do not freeze a stage an env lands on.** Linear will not add issues to a
+frozen stage, and a new release starts on the initial env's stage.
+
+| Env key (yours) | Stage (Linear) |
+|-----------------|----------------|
+| `test` | In Progress |
+| `prod` | Released |
+
+- Names are matched case-insensitively, as Linear matches them.
+- Set an **initial env**, where a new release lands. Without one, Linear puts
+  it on the pipeline's first started stage.
+- Rename a stage later and `doctor --check-remote` reports the mapping as
+  broken until you re-link.
+
+### 9.4 Link it
+
+On a repo that is already connected, re-run `/spec-linear-setup`. It offers
+the Releases step on its own and leaves the rest of the config alone. By hand:
+
+```
+skitterspec spec-sync release pipelines          # ids and stage names
+skitterspec spec-sync release link \
+  --release-pipeline app@=<pipeline id> \
+  --release-env app@:test="In Progress" --release-env app@:prod=Released \
+  --release-initial app@=test
+```
+
+`link` checks the id and every stage name against Linear before writing, and
+refuses a deleted pipeline. Then confirm:
+
+```
+skitterspec spec-sync doctor --check-remote      # releases row: ok
+skitterspec spec-sync release create <your latest tag>   # dry run, writes nothing
+```
+
+The dry run prints the range, the tickets it would attach, and the ones it
+would leave out, with the reason for each.
+
+### 9.5 Wire CI
+
+Add the API key to your CI provider's secrets yourself, under the name
+`auth.keyEnv` gives (default `LINEAR_API_KEY`). Then add `release create` to the
+workflow that runs on a tag push, `release deployed` to each deploy job, and
+`release complete` to whatever finishes a release. `ci-stages.md` has the
+commands and a GitHub Actions example. `/spec-linear-setup` offers the
+tag-push step as a diff and writes it only if you say yes.
+
 ## Troubleshooting
 
 - **"connect the `linear` MCP server"** — the server isn't connected/authed for
