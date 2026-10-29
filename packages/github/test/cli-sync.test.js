@@ -625,3 +625,16 @@ test('status reports a mapped disagreement without promising a resend', async ()
   assert.doesNotMatch(r.out, /repo wins on next push/)
   assert.match(r.out, /push resends State only when the spec moves/)
 })
+
+test('the live list hides an open item whose Status is a complete alias', async () => {
+  const dir = repoWithSpec({ identifier: '#7', config: { states: { complete: ['Done', 'Released'] } } })
+  const adapter = fakeAdapter()
+  adapter.listBoardItems = async () => [
+    { identifier: '#7', title: 'Live', open: true, state: { name: 'In Progress' } },
+    { identifier: '#8', title: 'Shipped', open: true, state: { name: 'Released' } },
+  ]
+  const r = await run(['list'], dir, { adapter })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /#7/)
+  assert.doesNotMatch(r.out, /#8/)
+})

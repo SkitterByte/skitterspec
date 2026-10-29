@@ -1077,3 +1077,54 @@ test('apply stays silent about companions when env.config claims the snapshot, o
     assert.doesNotMatch(r.out, /companionPaths/)
   }
 })
+
+// --- state aliases ------------------------------------------------------------
+
+const ALIASED = {
+  states: { 'in-progress': ['Doing', 'Blocked'], complete: ['Done', 'Released'] },
+}
+
+test('an aliased states entry loads its first name as the written state', () => {
+  const dir = repoWithSpec({ config: ALIASED })
+  const { config } = require('../src/config.js').loadAzureConfig(dir)
+  assert.strictEqual(config.states['in-progress'], 'Doing')
+  assert.deepStrictEqual(config.stateAliases['in-progress'], ['Blocked'])
+})
+
+test('status reads an aliased state as its bucket — no drift, no unmapped line', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7', config: ALIASED })
+  await run(['record', 'feat-demo'], dir)
+  const remote = path.join(dir, 'remote.json')
+  fs.writeFileSync(remote, JSON.stringify({ id: 7, fields: { 'System.State': 'Blocked' } }))
+  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /drift: none — Azure agrees with the repo/)
+  assert.doesNotMatch(r.out, /does not map/)
+})
+
+test('the live list hides a state aliased to complete', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7', config: ALIASED })
+  const adapter = fakeAdapter()
+  adapter.searchIssues = async () => [
+    { identifier: 'AB#7', title: 'Live', state: { name: 'Blocked' } },
+    { identifier: 'AB#8', title: 'Shipped', state: { name: 'Released' } },
+  ]
+  const r = await run(['list'], dir, { adapter })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /AB#7/)
+  assert.doesNotMatch(r.out, /AB#8/, 'a Released item is finished work')
+})
+
+test('states shows each alias under its bucket', async () => {
+  const dir = repoWithSpec({ config: ALIASED })
+  const adapter = fakeAdapter()
+  adapter.listIssueStates = async () => [
+    { name: 'To Do', category: 'Proposed' },
+    { name: 'Doing', category: 'InProgress' },
+    { name: 'Blocked', category: 'InProgress' },
+    { name: 'Done', category: 'Completed' },
+  ]
+  const r = await run(['states'], dir, { adapter })
+  assert.match(r.out, /Blocked\s+also reads as in-progress/)
+  assert.match(r.out, /Released\s+alias MISSING — reads as nothing/)
+})

@@ -35,6 +35,7 @@ const {
   validateStates,
   stateSuggestions,
   remoteStateReading,
+  stateNamesFor,
   remoteDescriptionEdited,
   writeFrontmatter,
   stampSubIssueId,
@@ -837,6 +838,12 @@ async function specSyncStates(dir, config, flags, out) {
       ? `ok${catOf.get(name) ? ` [${catOf.get(name)}]` : ''}`
       : `MISSING from these types${suggestions.get(bucket) ? ` — closest: "${suggestions.get(bucket)}"` : ''}`
     lines.push(`  ${bucket.padEnd(bw)} -> ${String(name).padEnd(nw)}  ${tail}`)
+    // Aliases are read-only, so a missing one never blocks a push — but it
+    // reads as nothing, so it is still named.
+    for (const alias of stateNamesFor(bucket, config).slice(1)) {
+      const here = names.includes(alias)
+      lines.push(`  ${''.padEnd(bw)}    ${String(alias).padEnd(nw)}  ${here ? 'also reads as ' + bucket : 'alias MISSING — reads as nothing'}`)
+    }
   }
   if (missing.length) lines.push(`  remap: ${PROGRAM} init-config --force --state <bucket>="<state>"`)
   out.write(lines.join('\n') + '\n')
@@ -869,7 +876,7 @@ async function specSyncList(dir, config, flags, out) {
       items = items.filter((i) => i.state && want.has(String(i.state.name).toLowerCase()))
     } else if (!flags.all) {
       const terminal = new Set(
-        [config.states.complete, config.states.cancelled].filter(Boolean).map((s) => s.toLowerCase()),
+        [...stateNamesFor('complete', config), ...stateNamesFor('cancelled', config)].map((s) => s.toLowerCase()),
       )
       items = items.filter((i) => !i.state || !terminal.has(String(i.state.name).toLowerCase()))
     }

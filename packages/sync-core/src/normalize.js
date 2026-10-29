@@ -766,6 +766,16 @@ function stageForState(state, config) {
   return stages.find((s) => s && typeof s.state === 'string' && s.state.toLowerCase().trim() === want) || null
 }
 
+// Every tracker state NAME that means this bucket: the one push writes
+// (`states[bucket]`) first, then its read-only aliases (`stateAliases[bucket]`,
+// from the array form of `states`). Readers use the whole list; writers only
+// ever use `states[bucket]`, so an alias can never be written.
+function stateNamesFor(bucket, config) {
+  const primary = config && config.states && config.states[bucket]
+  const aliases = (config && config.stateAliases && config.stateAliases[bucket]) || []
+  return [primary, ...(Array.isArray(aliases) ? aliases : [])].filter((n) => typeof n === 'string' && n)
+}
+
 // Map a remote workflow-state name back to the local lifecycle bucket (the
 // vocabulary `spec_status` uses) via config.states, so local and remote
 // workflowState hash equal when semantically equal. Falls back to a lowercased
@@ -780,8 +790,8 @@ function bucketForState(state, config) {
   if (state == null) return null
   const states = (config && config.states) || {}
   const want = String(state).toLowerCase().trim()
-  for (const [bucket, name] of Object.entries(states)) {
-    if (typeof name === 'string' && name.toLowerCase().trim() === want) return bucket
+  for (const bucket of Object.keys(states)) {
+    if (stateNamesFor(bucket, config).some((name) => name.toLowerCase().trim() === want)) return bucket
   }
   if (stageForState(state, config)) return LADDER_ORIGIN_BUCKET
   return want
@@ -918,6 +928,8 @@ function titleFromText(text, max = 100) {
 // project's deployment ladder when it declares one. Both reach Linear the same
 // way and fail the same way, so both are checked by the same lookup.
 function configuredStateNames(config) {
+  // The WRITTEN names only. An alias is never written, so one the workspace
+  // lacks cannot strand a push; `stateSuggestions` still names it in reports.
   const names = Object.values((config && config.states) || {}).filter((v) => typeof v === 'string')
   const stages = (config && config.release && config.release.stages) || []
   for (const stage of Array.isArray(stages) ? stages : []) {
@@ -1012,5 +1024,6 @@ module.exports = {
   remoteStage,
   remoteWorkflowState,
   remoteStateReading,
+  stateNamesFor,
   LADDER_ORIGIN_BUCKET,
 }

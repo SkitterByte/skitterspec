@@ -186,7 +186,61 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
     }
   }
 
+  // Merge (and validate) `states`. A bucket's value is a string — the one state
+  // push writes, exactly as it always was — or a non-empty array whose FIRST
+  // name is the one push writes and whose rest are read-only aliases: tracker
+  // states that also mean this bucket ("Blocked" for in-progress). The first
+  // name lands in `states[bucket]`, so every writer is unchanged; the rest go
+  // to `stateAliases[bucket]`, read only by code that interprets a remote state.
+  //
+  // An ALIAS in two buckets is refused: it would make a remote state mean two
+  // things, and which one won would be an accident of iteration order. Two
+  // buckets sharing one written name stays legal, as it always was — a tracker
+  // with no Cancelled state maps cancelled to "Done" — so only a name that an
+  // alias contributes is checked.
+  function mergeStates(base, parsed) {
+    const value = parsed.states
+    if (!isObject(value)) return
+    const aliases = {}
+    for (const bucket of Object.keys(base.states)) {
+      const entry = value[bucket]
+      if (entry === undefined) continue
+      if (typeof entry === 'string') {
+        if (entry.trim()) base.states[bucket] = entry.trim()
+        continue
+      }
+      if (!Array.isArray(entry) || !entry.length || entry.some((n) => typeof n !== 'string' || !n.trim())) {
+        throw new Error(
+          `Invalid ${configFile}: states.${bucket} = ${JSON.stringify(entry)} ` +
+            '(expected a state name, or a non-empty array of them — the first is what push writes)',
+        )
+      }
+      const names = entry.map((n) => n.trim())
+      base.states[bucket] = names[0]
+      aliases[bucket] = names.slice(1)
+    }
+    const owner = new Map()
+    for (const bucket of Object.keys(base.states)) {
+      const key = base.states[bucket].toLowerCase()
+      if (!owner.has(key)) owner.set(key, bucket)
+    }
+    for (const bucket of Object.keys(aliases)) {
+      for (const name of aliases[bucket]) {
+        const key = name.toLowerCase()
+        if (owner.has(key) && owner.get(key) !== bucket) {
+          throw new Error(
+            `Invalid ${configFile}: states name ${JSON.stringify(name)} is in both ` +
+              `${owner.get(key)} and ${bucket} (a tracker state can mean only one bucket)`,
+          )
+        }
+        owner.set(key, bucket)
+      }
+    }
+    base.stateAliases = aliases
+  }
+
   return {
+    mergeStates,
     mergeFieldOwnership,
     mergePhaseMapping,
     mergeReleaseStages,

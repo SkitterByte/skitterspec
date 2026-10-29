@@ -102,6 +102,7 @@ function defaults() {
     jira: { ...DEFAULT_CONFIG.jira },
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
+    stateAliases: {},
     snapshot: { ...DEFAULT_CONFIG.snapshot },
     fields: { ...DEFAULT_CONFIG.fields },
     release: {
@@ -122,7 +123,7 @@ function defaults() {
 }
 
 const { isObject, stringList, assign } = kitConfig
-const { mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages, mergeReleaseIgnorePaths, mergeKeyedFields } =
+const { mergeStates, mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages, mergeReleaseIgnorePaths, mergeKeyedFields } =
   kitConfig.makeMergeHelpers({
     configFile: CONFIG_FILE,
     ownership: OWNERSHIP,
@@ -158,11 +159,7 @@ function mergeConfig(base, parsed) {
     mergePhaseMapping(base.mapping, parsed.mapping)
   }
 
-  if (isObject(parsed.states)) {
-    for (const key of Object.keys(base.states)) {
-      assign(base.states, parsed.states, key, 'string')
-    }
-  }
+  mergeStates(base, parsed)
 
   if (isObject(parsed.snapshot)) {
     assign(base.snapshot, parsed.snapshot, 'overviewFile', 'string')

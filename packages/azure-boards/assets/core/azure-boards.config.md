@@ -45,3 +45,29 @@ same rule the Jira reference explains at length. The repo learns where work
 pipeline state driven from the spec lifecycle is wrong the moment it moves.
 Deployment position belongs to the release seam (`releases.series[].envs`,
 moving the release work item), not to each ticket's state.
+
+### More than one name per bucket — read-only aliases
+
+A board usually has more states than the four buckets: "Blocked", "Next
+Sprint", "Released". A bucket's value may be an **array** instead of a string:
+
+```jsonc
+"states": {
+  "in-progress": ["Active", "Blocked"],
+  "complete": ["Closed", "Released"]
+}
+```
+
+- **The first name is the only one push writes**, and only when the spec
+  itself moves. The rest are never written.
+- **The rest are read as that bucket** wherever a tracker state is
+  interpreted: `spec-sync status` reports no drift for them, the live
+  `spec-sync list` hides every `complete` / `cancelled` name, and
+  `spec-sync states` lists each alias under its bucket.
+- **Nothing is pulled.** An alias changes what the report *says* about a
+  ticket, never the spec.
+- A plain string works exactly as before. An alias that also names another
+  bucket is refused at load. An alias the tracker lacks is reported by
+  `spec-sync states` but never blocks a push, because it is never written.
+- A state in no bucket at all is still reported by `spec-sync status`, as
+  "a state skitterspec does not map — left alone", never as drift.

@@ -145,6 +145,7 @@ function defaults() {
     azure: { ...DEFAULT_CONFIG.azure },
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
+    stateAliases: {},
     intake: {
       tag: DEFAULT_CONFIG.intake.tag,
       bugTags: [...DEFAULT_CONFIG.intake.bugTags],
@@ -179,7 +180,7 @@ function defaults() {
 }
 
 const { isObject, stringList, assign } = kitConfig
-const { mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages, mergeReleaseIgnorePaths, mergeKeyedFields } =
+const { mergeStates, mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages, mergeReleaseIgnorePaths, mergeKeyedFields } =
   kitConfig.makeMergeHelpers({
     configFile: CONFIG_FILE,
     ownership: OWNERSHIP,
@@ -242,11 +243,7 @@ function mergeConfig(base, parsed) {
     mergePhaseMapping(base.mapping, parsed.mapping)
   }
 
-  if (isObject(parsed.states)) {
-    for (const key of Object.keys(base.states)) {
-      assign(base.states, parsed.states, key, 'string')
-    }
-  }
+  mergeStates(base, parsed)
 
   if (isObject(parsed.intake)) {
     assign(base.intake, parsed.intake, 'tag', 'string?')

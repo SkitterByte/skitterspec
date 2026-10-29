@@ -106,7 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Read-side state aliases | ⬜ | [01-state-aliases.md](01-state-aliases.md) |
+| 1 | Read-side state aliases | ✅ | [01-state-aliases.md](01-state-aliases.md) |
 | 2 | Assignee, `--mine`, `--by` on Azure and GitHub | ⬜ | [02-assignee-filters.md](02-assignee-filters.md) |
 | 3 | `--next`, `--state <bucket>`, spec-status column | ⬜ | [03-next-and-spec-column.md](03-next-and-spec-column.md) |
 
@@ -124,3 +124,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-10-29 — Spec created.
+- 2026-10-29 — Phase 1: aliases are split at load. `states[bucket]` keeps the
+  written name and `stateAliases[bucket]` holds the rest, so the ~25 writers
+  needed no change (planned: route each through `primaryState`). Two buckets
+  sharing one written name stays legal (Jira maps cancelled to "Done"); only
+  an alias naming another bucket is refused. Missing aliases are reported by
+  `states` but excluded from push-time validation.

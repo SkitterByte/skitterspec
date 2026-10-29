@@ -28,6 +28,7 @@ const {
   validateStates,
   stateSuggestions,
   remoteStateReading,
+  stateNamesFor,
   remoteDescriptionEdited,
   writeFrontmatter,
   stampSubIssueId,
@@ -681,6 +682,12 @@ async function specSyncStates(dir, config, flags, out) {
       ? `ok · ${issue}`
       : `MISSING from the board${suggestions.get(bucket) ? ` — closest: "${suggestions.get(bucket)}"` : ''}`
     lines.push(`  ${bucket.padEnd(bw)} -> ${String(name).padEnd(nw)}  ${tail}`)
+    // Aliases are read-only, so a missing one never blocks a push — but it
+    // reads as nothing, so it is still named.
+    for (const alias of stateNamesFor(bucket, config).slice(1)) {
+      const here = names.includes(alias)
+      lines.push(`  ${''.padEnd(bw)}    ${String(alias).padEnd(nw)}  ${here ? 'also reads as ' + bucket : 'alias MISSING — reads as nothing'}`)
+    }
   }
   if (missing.length) {
     lines.push(`  remap: ${PROGRAM} init-config --force … --state <bucket>="<option>", or add the option on the board`)
@@ -711,7 +718,12 @@ async function specSyncList(dir, config, flags, out) {
       const want = new Set(stateNames.map((s) => s.toLowerCase()))
       issues = issues.filter((i) => i.state && want.has(String(i.state.name).toLowerCase()))
     } else if (!flags.all) {
-      issues = issues.filter((i) => i.open)
+      // Open issues, minus any whose Status is a finished bucket's name — an
+      // alias such as "Released" is finished work on an issue nobody closed.
+      const terminal = new Set(
+        [...stateNamesFor('complete', config), ...stateNamesFor('cancelled', config)].map((s) => s.toLowerCase()),
+      )
+      issues = issues.filter((i) => i.open && !(i.state && terminal.has(String(i.state.name).toLowerCase())))
     }
   } catch (error) {
     out.write(`${PROGRAM} list: ${error.message}\n`)

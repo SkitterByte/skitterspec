@@ -38,6 +38,7 @@ const {
   planChanges,
   isEmptyPlan,
   remoteStateReading,
+  stateNamesFor,
   remoteStage,
   LADDER_ORIGIN_BUCKET,
   validateStates,
@@ -1681,6 +1682,9 @@ function configuredVocabularyLines(config, names) {
   const lines = ['', '  configured:']
   for (const [bucket, name] of Object.entries((config && config.states) || {})) {
     lines.push(`    states.${bucket}: ${name}${mark(name)}`)
+    for (const alias of stateNamesFor(bucket, config).slice(1)) {
+      lines.push(`      also reads as ${bucket}: ${alias}${mark(alias)}`)
+    }
   }
   const stages = releaseStages(config)
   if (stages.length) {
@@ -2062,15 +2066,16 @@ async function specSyncList(dir, config, flags, out) {
   // The scope. `--all` drops the state filter; `--state` names states directly;
   // the default reads the two live buckets out of `config.states` rather than
   // restating them, so a workspace that renamed "Backlog" needs no second edit.
+  // Every name of a bucket counts, aliases included (`stateNamesFor`).
   const wantedNames = next !== null
-    ? [config.states.backlog]
+    ? stateNamesFor('backlog', config)
     : flags.inProgress === true
-      ? [config.states['in-progress']]
+      ? stateNamesFor('in-progress', config)
       : flags.all === true
         ? null
         : flags.stateArgs.length
           ? flags.stateArgs
-          : [config.states.backlog, config.states['in-progress']]
+          : [...stateNamesFor('backlog', config), ...stateNamesFor('in-progress', config)]
 
   let stateIds = null
   if (wantedNames) {
@@ -2269,10 +2274,10 @@ async function specSyncList(dir, config, flags, out) {
   // One extra Linear call per in-progress row, and NONE for any other — a
   // backlog listing costs exactly what it did before. Run over `shown`, not
   // `rows`, so a capped listing does not pay for phases it will not print.
-  const inProgressState = config.states['in-progress']
+  const inProgressStates = stateNamesFor('in-progress', config)
   const phaseFailures = []
   for (const row of shown) {
-    if (!sameState(row.state, inProgressState)) continue
+    if (!inProgressStates.some((name) => sameState(row.state, name))) continue
     // An `inline`-mode spec keeps its phases in the issue DESCRIPTION, so there
     // are no children to read. Asking anyway would report "no phase in progress"
     // for a spec that is mid-build — an absence that means nothing. The bucket
@@ -2293,7 +2298,7 @@ async function specSyncList(dir, config, flags, out) {
       continue
     }
     const phases = (children || []).slice().sort(phaseOrder)
-    const live = phases.filter((c) => c && sameState(c.state && c.state.name, inProgressState))
+    const live = phases.filter((c) => c && inProgressStates.some((name) => sameState(c.state && c.state.name, name)))
     if (!live.length) continue
     row.phase = {
       n: phases.indexOf(live[0]) + 1,
