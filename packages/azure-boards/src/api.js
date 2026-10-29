@@ -68,7 +68,7 @@ function vsspsUrlOf(orgUrl) {
  * Wrap credential + org/project into the typed ops the engine uses. Injected
  * `fetch` and `sleep` make every op testable offline.
  */
-function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true, deployedField = '', fetch: fetchImpl, sleep, maxRetries = MAX_RETRIES }) {
+function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRetries = MAX_RETRIES }) {
   const doFetch = fetchImpl || globalThis.fetch
   if (typeof doFetch !== 'function') {
     throw new Error('no fetch available — Node 18+ is required for the API transport')
@@ -390,20 +390,6 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true,
      * what `states` validation checks the config against, and what an
      * unknown-state refusal lists.
      */
-    /**
-     * The allowed values of `fieldRef` on `workItemType`: `[]` for a field
-     * with no picklist (any value goes), null when the type has no such field.
-     */
-    async fieldAllowedValues(workItemType, fieldRef) {
-      const raw = await request(
-        'GET',
-        `${projectBase}/wit/workitemtypes/${encodeURIComponent(workItemType)}/fields/${encodeURIComponent(fieldRef)}`,
-        { query: { $expand: 'allowedValues' }, allow404: true },
-      )
-      if (!raw) return null
-      return (raw.allowedValues || []).map(String)
-    },
-
     async listIssueStates(workItemType) {
       const raw = await request(
         'GET',
@@ -497,171 +483,6 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true,
         body: { text: mdBody },
       })
       return raw && raw.id != null ? { id: String(raw.id) } : null
-    },
-
-    // --- releases (the kit's release seam, `provider-kit/src/releases.js`) ---
-    // Boards has no Releases object, so the carrier is ONE WORK ITEM of
-    // `releases.workItemType` per release (spec Decision 12): found by exact
-    // title, tickets attached as Related links with one comment each,
-    // `deployed` moving the ITEM's state, `complete` closing it.
-
-    /**
-     * The release work item for a tag, or null. Found by exact-title WIQL
-     * under the configured type. TWO hits is a cannot-tell — someone minted a
-     * twin by hand — and throws rather than picking one (the kit refuses on a
-     * throw, which is the duplicate-safe branch).
-     */
-    async releaseFind(tag) {
-      const quotedTag = String(tag).replace(/'/g, "''")
-      const quotedType = String(releaseType || 'Release').replace(/'/g, "''")
-      const raw = await request('POST', `${projectBase}/wit/wiql`, {
-        body: {
-          query:
-            `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ` +
-            `AND [System.WorkItemType] = '${quotedType}' AND [System.Title] = '${quotedTag}'`,
-        },
-      })
-      const ids = ((raw && raw.workItems) || []).map((w) => w.id)
-      if (!ids.length) return null
-      if (ids.length > 1) {
-        throw new AzureRefusal(
-          `${ids.length} "${releaseType || 'Release'}" items are titled "${tag}" (${ids.map(identifierOf).join(', ')}) — cannot tell which is the release`,
-          { status: null },
-        )
-      }
-      const item = await this.readIssue(ids[0])
-      return item ? { id: item.id, url: item.url, body: item.description || '', state: item.state, type: item.type } : null
-    },
-
-    async releaseCreate({ tag, name, body }) {
-      const created = await this.createIssue({
-        title: name || tag,
-        description: body,
-        workItemType: releaseType || 'Release',
-      })
-      return { id: created.id, url: created.url, body: body || '' }
-    },
-
-    async releaseUpdate(release, { name, body }) {
-      const updates = {}
-      if (name != null) updates.title = name
-      if (body !== undefined) updates.description = body
-      if (Object.keys(updates).length) await this.updateIssue(release.id, updates)
-      release.body = body !== undefined ? body : release.body
-      return release
-    },
-
-    /**
-     * Attach each ticket to the release item as a Related link, commenting
-     * once on each NEWLY attached ticket. An existing link counts as
-     * `already`, which is what makes a CI retry additive rather than noisy.
-     *
-     * Then tag each ticket with the release's title (its tag), so the story
-     * card shows which release carried it. The tag is checked per ticket,
-     * independently of the link, so re-running `create` backfills a release
-     * cut before tagging existed — without a second comment.
-     */
-    async releaseAttach(release, tickets) {
-      const raw = await request('GET', `${projectBase}/wit/workitems/${encodeURIComponent(release.id)}`, {
-        query: { $expand: 'relations' },
-      })
-      const linked = new Set(
-        ((raw && raw.relations) || [])
-          .filter((r) => r && r.rel === 'System.LinkTypes.Related')
-          .map((r) => idFromRelationUrl(r.url))
-          .filter(Boolean),
-      )
-      let attached = 0
-      let already = 0
-      const ids = []
-      for (const ticket of tickets || []) {
-        const ticketId = String(ticket.ref || '').replace(/^AB#/, '')
-        if (!/^\d+$/.test(ticketId)) continue
-        ids.push(ticketId)
-        if (linked.has(ticketId)) {
-          already++
-          continue
-        }
-        await request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(release.id)}`, {
-          body: [{ op: 'add', path: '/relations/-', value: { rel: 'System.LinkTypes.Related', url: itemApiUrl(ticketId) } }],
-          patch: true,
-        })
-        await this.createComment(
-          ticketId,
-          `Included in release **${raw && raw.fields ? raw.fields['System.Title'] : release.id}**` +
-            (release.url ? ` — ${release.url}` : ''),
-        )
-        attached++
-      }
-      if (!ticketTag) return { attached, already }
-      const tag = raw && raw.fields ? raw.fields['System.Title'] : null
-      const tagged = tag ? await tagTickets(ids, tag) : 0
-      return { attached, already, tagged }
-    },
-
-    /**
-     * `deployed <env>`: the RELEASE ITEM's state moves to the env's configured
-     * state — never each ticket's, which is the two-state-machines trap the
-     * per-ticket mapping exists to avoid.
-     *
-     * With `deployedField` set, each attached ticket's field takes the same
-     * value, so a story card shows where its release is. The value is checked
-     * against every ticket type's allowed values BEFORE anything is written,
-     * the release move included: an unknown value or a type without the field
-     * refuses with nothing changed. Phase Tasks are never reached — the
-     * tickets are the spec items `Refs:` names. `set` is 1 + tickets changed.
-     */
-    async releaseStage(release, stateName, tickets) {
-      const ids = (tickets || [])
-        .map((t) => String(t.ref || '').replace(/^AB#/, ''))
-        .filter((id) => /^\d+$/.test(id))
-      let pending = []
-      if (deployedField && ids.length) {
-        const raw = await request('POST', `${projectBase}/wit/workitemsbatch`, {
-          body: { ids: ids.map(Number), fields: ['System.WorkItemType', deployedField] },
-        })
-        const items = (raw && raw.value) || []
-        const types = [...new Set(items.map((i) => (i.fields || {})['System.WorkItemType']).filter(Boolean))]
-        for (const type of types) {
-          const allowed = await this.fieldAllowedValues(type, deployedField)
-          if (allowed == null) {
-            throw new AzureRefusal(`the "${type}" type has no field "${deployedField}" (releases.deployedField) — nothing written`, { status: null })
-          }
-          if (allowed.length && !allowed.includes(stateName)) {
-            throw new AzureRefusal(
-              `"${stateName}" is not an allowed value of ${deployedField} on "${type}" (allows: ${allowed.map((v) => `"${v}"`).join(', ')}) — nothing written`,
-              { status: null },
-            )
-          }
-        }
-        pending = items.filter((i) => (i.fields || {})[deployedField] !== stateName).map((i) => String(i.id))
-      }
-      await this.transitionTo(release.id, stateName)
-      for (const id of pending) {
-        await request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(id)}`, {
-          body: [{ op: 'add', path: `/fields/${deployedField}`, value: stateName }],
-          patch: true,
-        })
-      }
-      return { set: 1 + pending.length }
-    },
-
-    /**
-     * Close the release item: the type's own Completed-category state, read at
-     * run time because a release type's workflow is process-defined like every
-     * other. No Completed state is a named refusal, never a guess.
-     */
-    async releaseComplete(release) {
-      const states = await this.listIssueStates(release.type || releaseType || 'Release')
-      const done = states.find((s) => s.category === 'Completed')
-      if (!done) {
-        throw new AzureRefusal(
-          `the "${release.type || releaseType || 'Release'}" type has no Completed-category state (has: ${states.map((s) => `"${s.name}"`).join(', ') || 'none'})`,
-          { status: null },
-        )
-      }
-      await this.transitionTo(release.id, done.name)
-      return release
     },
   }
 }

@@ -249,4 +249,47 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
   }
 }
 
-module.exports = { isObject, stringList, assign, makeMergeHelpers }
+// Keys no provider reads any more. The merge already ignores them, as it does
+// every unknown key — so a config still carrying one is a stale file, not a
+// broken one, and `doctor` says so as a `warn` without touching the exit code.
+//
+// WHAT WOULD FOOL THIS: it reads the committed file, so a key set only in a
+// working-tree edit is still reported — which is the file a person would edit.
+const RETIRED_KEYS = Object.freeze([{ path: ['releases'], name: 'releases' }])
+
+// The retired keys present in a parsed config. Not an object, or none present,
+// is `[]`: nothing to say is the safe answer to every cannot-tell.
+function retiredKeys(parsed) {
+  if (!isObject(parsed)) return []
+  return RETIRED_KEYS.filter(({ path }) => {
+    let node = parsed
+    for (const key of path) {
+      if (!isObject(node) || !(key in node)) return false
+      node = node[key]
+    }
+    return true
+  }).map((k) => k.name)
+}
+
+// A doctor row naming the retired keys in the config at `file`, or null when
+// there are none — or when the file cannot be read or parsed, which is the
+// loader's to report, not this row's.
+function retiredKeysRow(file, configFile, row) {
+  let parsed = null
+  try {
+    parsed = JSON.parse(require('node:fs').readFileSync(file, 'utf-8'))
+  } catch {
+    return null
+  }
+  const names = retiredKeys(parsed)
+  if (!names.length) return null
+  return row(
+    'retired',
+    'Retired config',
+    'warn',
+    `${names.join(', ')} in ${configFile} is no longer read — release and deploy state is the host project's to write (see \`spec-sync released --json\`)`,
+    `remove ${names.join(', ')} from ${configFile}`,
+  )
+}
+
+module.exports = { isObject, stringList, assign, makeMergeHelpers, retiredKeys, retiredKeysRow, RETIRED_KEYS }

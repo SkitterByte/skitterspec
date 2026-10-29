@@ -281,8 +281,20 @@ function nameTickets(tickets, specs) {
   })
 }
 
+// The answer a removed release verb gives (`release`, `stage`). Exit 1, not a
+// quiet 0: a pipeline still calling one must learn it no longer mirrors
+// anything, rather than go on believing it does.
+function refuseRemovedVerb(out, program, verb) {
+  out.write(
+    `${program} ${verb}: removed — skitterspec no longer writes release or deploy state; ` +
+      `\`${program} released <range> --json\` lists the tickets a range contains, for your own tooling to act on\n`,
+  )
+  return 1
+}
+
 module.exports = {
   ticketsInRange,
+  refuseRemovedVerb,
   nameTickets,
   refsInBody,
   onlyIgnoredPaths,

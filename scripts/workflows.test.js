@@ -227,13 +227,15 @@ test('reconcile-releases.yml checks out full history', () => {
 })
 
 test('reconcile-releases.yml skips without the PAT secret rather than failing', () => {
-  const yaml = withoutComments(RECONCILE())
-  assert.match(yaml, /SKITTERSPEC_GITHUB_TOKEN/)
-  assert.match(yaml, /reconcile skipped/, 'no secret is a notice, not a red run every hour')
+  // The skip lives in the script, so it holds for the release and approve
+  // callers too: no token is a notice and exit 0, never a red run every hour.
+  assert.match(withoutComments(RECONCILE()), /SKITTERSPEC_GITHUB_TOKEN/)
+  const script = fs.readFileSync(path.join(__dirname, 'mirror-deployed.cjs'), 'utf8')
+  assert.match(script, /no GITHUB_TOKEN — skipped'\)\n\s*return 0/)
 })
 
-test('reconcile-releases.yml applies the reconcile verb', () => {
-  assert.match(withoutComments(RECONCILE()), /spec-sync release reconcile --apply/)
+test('reconcile-releases.yml runs the board reconcile', () => {
+  assert.match(withoutComments(RECONCILE()), /node scripts\/mirror-deployed\.cjs --reconcile/)
 })
 
 test('reconcile-releases.yml does not set registry-url', () => {

@@ -210,7 +210,6 @@ function makeApiAdapter({
   repo,
   project,
   statusField = 'Status',
-  deployedField = 'Deployed',
   token,
   apiUrl = API_URL,
   fetch: fetchImpl,
@@ -391,11 +390,6 @@ function makeApiAdapter({
   })
 
   let boardCache = null
-
-  const releaseOf = (raw) =>
-    raw && raw.id != null
-      ? { id: raw.id, tag: raw.tag_name, url: raw.html_url || null, body: raw.body == null ? '' : String(raw.body), prerelease: !!raw.prerelease }
-      : null
 
   async function resolveBoard() {
     if (boardCache) return boardCache
@@ -759,118 +753,6 @@ function makeApiAdapter({
       if (res.status === 204) return true
       if (res.status === 404) return false
       throw new GitHubRefusal(`GitHub answered ${res.status} when asked whether ${login} is assignable`, { status: res.status })
-    },
-
-    // --- releases (the kit's release seam, `provider-kit/src/releases.js`) ---
-
-    /**
-     * Is the tag on GitHub? Asked before a create because GitHub, handed a
-     * `tag_name` it lacks, CREATES the tag at the default branch's head — a
-     * release pointing at a commit nobody tagged. 200 yes, 404 no; anything
-     * else throws (cannot tell).
-     */
-    async releaseTagExists(tag) {
-      const res = await send('GET', `${base}${repoPath}/git/ref/tags/${encodeURIComponent(tag)}`)
-      if (res.status === 200) return true
-      if (res.status === 404) return false
-      throw new GitHubRefusal(`GitHub answered ${res.status} when asked for tag ${tag}`, { status: res.status })
-    },
-
-    /**
-     * The release for a tag, or null. A 404 is GitHub positively answering
-     * "no release for this tag"; any other failure throws, and the kit refuses
-     * rather than create on a lookup it could not make.
-     */
-    async releaseFind(tag) {
-      const raw = await rest('GET', `${repoPath}/releases/tags/${encodeURIComponent(tag)}`, { allow404: true })
-      return raw ? releaseOf(raw) : null
-    },
-
-    /**
-     * Every release in the repo, for `release reconcile`. Hand-made releases
-     * ride through here too — the caller filters to the ones carrying the
-     * skitterspec marker and must leave the rest alone.
-     */
-    async releaseList() {
-      const raw = await restAll(`${repoPath}/releases`)
-      return raw.map(releaseOf).filter(Boolean)
-    },
-
-    async releaseCreate({ tag, name, body, prerelease = true }) {
-      assertBodyFits(body, `the ${tag} release`)
-      // `make_latest: false` while staged: a release still on its way through
-      // test must not become the one GitHub shows as Latest.
-      const raw = await rest('POST', `${repoPath}/releases`, {
-        body: { tag_name: tag, name, body, prerelease, make_latest: prerelease ? 'false' : 'true' },
-      })
-      return releaseOf(raw)
-    },
-
-    async releaseUpdate(release, { name, body }) {
-      assertBodyFits(body, `the ${release.tag} release`)
-      const raw = await rest('PATCH', `${repoPath}/releases/${release.id}`, { body: { name, body } })
-      Object.assign(release, releaseOf(raw) || {})
-      return release
-    },
-
-    /**
-     * Note the release on each issue it carries — one comment per issue, found
-     * again by its marker, so a CI retry adds nothing.
-     */
-    async releaseAttach(release, tickets) {
-      const marker = `<!-- skitterspec:released ${release.tag} -->`
-      let attached = 0
-      let already = 0
-      for (const t of tickets) {
-        const comments = await adapter.listComments(t.ref)
-        if (comments.some((c) => c.body.includes(marker))) {
-          already++
-          continue
-        }
-        await adapter.createComment(t.ref, `Shipped in [${release.tag}](${release.url || ''})\n\n${marker}`)
-        attached++
-      }
-      return { attached, already }
-    },
-
-    /**
-     * Set the board's Deployed option on every issue the release carries. The
-     * option is resolved before the first write, so an unknown name refuses
-     * with nothing changed.
-     *
-     * A commit's `Refs:` names the spec issue, never a phase, so the phases are
-     * reached through their parent — and only the CLOSED ones. An open phase of
-     * a spec landed mid-way (/spec-to-main) has not shipped, and marking it so
-     * would be a false Deployed on the board.
-     */
-    async releaseStage(release, optionName, tickets) {
-      await optionFor(deployedField, optionName)
-      const seen = new Set()
-      let set = 0
-      const stage = async (ref) => {
-        if (seen.has(ref)) return
-        seen.add(ref)
-        const r = await adapter.setFieldOption(ref, deployedField, optionName)
-        if (r && r.changed !== false) set++
-      }
-      for (const t of tickets) {
-        await stage(t.ref)
-        for (const sub of await adapter.listSubIssues(t.ref)) {
-          if (!sub.open) await stage(sub.identifier)
-        }
-      }
-      return { set }
-    },
-
-    /**
-     * `latest: false` completes without taking GitHub's "Latest" badge — what
-     * reconcile passes for every release but a series' newest, so a backfilled
-     * old version cannot steal it from the one that actually is.
-     */
-    async releaseComplete(release, { latest = true } = {}) {
-      const raw = await rest('PATCH', `${repoPath}/releases/${release.id}`, { body: { prerelease: false, make_latest: latest ? 'true' : 'false' } })
-      Object.assign(release, releaseOf(raw) || {})
-      return release
     },
 
     async listLabels() {

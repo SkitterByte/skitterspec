@@ -293,51 +293,6 @@ function releaseAdapter(handler) {
   return { a, calls }
 }
 
-test('releaseFind looks up by exact title under the release type', async () => {
-  const { a, calls } = releaseAdapter((url, init) => {
-    if (url.includes('/wiql')) return jsonRes({ workItems: [{ id: 50 }] })
-    if (url.includes('workitemsbatch')) return jsonRes({ value: [] })
-    return jsonRes({ id: 50, fields: { 'System.Title': 'v1.2.0', 'System.State': 'To Do', 'System.WorkItemType': 'Release', 'System.Description': 'notes' }, multilineFieldsFormat: { 'System.Description': 'markdown' } })
-  })
-  const release = await a.releaseFind("v1.2.0")
-  assert.strictEqual(release.id, '50')
-  assert.strictEqual(release.body, 'notes')
-  const wiql = JSON.parse(calls[0].init.body).query
-  assert.match(wiql, /\[System\.WorkItemType\] = 'Release'/)
-  assert.match(wiql, /\[System\.Title\] = 'v1\.2\.0'/)
-})
-
-test('releaseFind returns null on none and throws on two', async () => {
-  const none = releaseAdapter(() => jsonRes({ workItems: [] }))
-  assert.strictEqual(await none.a.releaseFind('v9'), null)
-  const two = releaseAdapter(() => jsonRes({ workItems: [{ id: 1 }, { id: 2 }] }))
-  await assert.rejects(() => two.a.releaseFind('v9'), /cannot tell which is the release/)
-})
-
-test('releaseAttach links only the missing tickets and comments once each', async () => {
-  const { a, calls } = releaseAdapter((url, init) => {
-    const method = (init && init.method) || 'GET'
-    if (url.includes('%24expand=relations') || url.includes('$expand=relations')) {
-      return jsonRes({
-        id: 50,
-        fields: { 'System.Title': 'v1.2.0' },
-        relations: [{ rel: 'System.LinkTypes.Related', url: 'https://dev.azure.com/acme/_apis/wit/workItems/7' }],
-      })
-    }
-    if (method === 'PATCH') return jsonRes({ id: 50 })
-    if (method === 'POST') return jsonRes({ id: 99 })
-    return jsonRes({})
-  })
-  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }, { ref: 'AB#8' }])
-  assert.deepStrictEqual(got, { attached: 1, already: 1, tagged: 0 })
-  const patch = calls.find((c) => c.method === 'PATCH')
-  const rel = JSON.parse(patch.init.body)[0]
-  assert.strictEqual(rel.value.url, 'https://dev.azure.com/acme/_apis/wit/workItems/8')
-  const comment = calls.find((c) => c.method === 'POST' && c.url.includes('/comments'))
-  assert.ok(comment, 'the newly attached ticket got a comment')
-  assert.match(comment.url, /workItems\/8\/comments/)
-})
-
 // A release item titled v1.2.0 with ticket 7 already linked; `tags` maps a
 // ticket id to the System.Tags value the batch read returns for it.
 function tagAdapter(tags, opts = {}) {
@@ -369,39 +324,6 @@ const tagWrites = (calls) =>
     .filter((c) => c.method === 'PATCH')
     .map((c) => ({ url: c.url, op: JSON.parse(c.init.body)[0] }))
     .filter((w) => w.op.path === '/fields/System.Tags')
-
-test('releaseAttach tags each ticket with the release, keeping the tags it has', async () => {
-  const { a, calls } = tagAdapter({ 8: 'bug; triage' })
-  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#8' }])
-  assert.deepStrictEqual(got, { attached: 1, already: 0, tagged: 1 })
-  const writes = tagWrites(calls)
-  assert.strictEqual(writes.length, 1)
-  assert.match(writes[0].url, /workitems\/8\b/)
-  assert.strictEqual(writes[0].op.value, 'bug; triage; v1.2.0')
-})
-
-test('releaseAttach backfills the tag on an already-linked ticket without a second comment', async () => {
-  const { a, calls } = tagAdapter({})
-  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }])
-  assert.deepStrictEqual(got, { attached: 0, already: 1, tagged: 1 })
-  assert.strictEqual(tagWrites(calls)[0].op.value, 'v1.2.0')
-  assert.ok(!calls.some((c) => c.url.includes('/comments')), 'no comment on a ticket already linked')
-})
-
-test('releaseAttach leaves a ticket that already carries the tag alone, in any case', async () => {
-  const { a, calls } = tagAdapter({ 7: 'V1.2.0; bug' })
-  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }])
-  assert.deepStrictEqual(got, { attached: 0, already: 1, tagged: 0 })
-  assert.strictEqual(tagWrites(calls).length, 0)
-})
-
-test('releaseAttach writes no tags when ticketTag is off', async () => {
-  const { a, calls } = tagAdapter({}, { ticketTag: false })
-  const got = await a.releaseAttach({ id: '50', url: 'u' }, [{ ref: 'AB#7' }, { ref: 'AB#8' }])
-  assert.deepStrictEqual(got, { attached: 1, already: 1 })
-  assert.strictEqual(tagWrites(calls).length, 0)
-  assert.ok(!calls.some((c) => c.url.includes('workitemsbatch')), 'no tag read either')
-})
 
 // Release item 50 at "On Test"; `items` maps a ticket id to its type and its
 // current Custom.Deployed value; `allowed` maps a type to its allowed values
@@ -439,61 +361,6 @@ const patches = (calls) =>
   calls.filter((c) => c.method === 'PATCH').map((c) => ({ url: c.url, op: JSON.parse(c.init.body)[0] }))
 
 const VALUES = ['On Test', 'On Demo', 'Released']
-
-test('releaseStage sets the Deployed field on each ticket, skipping ones already there', async () => {
-  const { a, calls } = stageAdapter({
-    items: { 7: { type: 'User Story' }, 8: { type: 'Bug', value: 'On Demo' }, 9: { type: 'User Story', value: 'On Test' } },
-    allowed: { 'User Story': VALUES, Bug: VALUES },
-  })
-  const got = await a.releaseStage({ id: '50' }, 'On Demo', [{ ref: 'AB#7' }, { ref: 'AB#8' }, { ref: 'AB#9' }])
-  assert.deepStrictEqual(got, { set: 3 })
-  const writes = patches(calls)
-  assert.deepStrictEqual(writes.map((w) => w.op.path), ['/fields/System.State', '/fields/Custom.Deployed', '/fields/Custom.Deployed'])
-  assert.match(writes[1].url, /workitems\/7\b/)
-  assert.match(writes[2].url, /workitems\/9\b/)
-  assert.ok(writes.slice(1).every((w) => w.op.value === 'On Demo'))
-})
-
-test('releaseStage refuses a value the field does not allow, writing nothing', async () => {
-  const { a, calls } = stageAdapter({ items: { 7: { type: 'User Story' } }, allowed: { 'User Story': VALUES } })
-  await assert.rejects(
-    () => a.releaseStage({ id: '50' }, 'on demo', [{ ref: 'AB#7' }]),
-    /"on demo" is not an allowed value of Custom\.Deployed on "User Story" \(allows: "On Test", "On Demo", "Released"\)/,
-  )
-  assert.strictEqual(patches(calls).length, 0, 'not even the release item moved')
-})
-
-test('releaseStage refuses a ticket type without the field, writing nothing', async () => {
-  const { a, calls } = stageAdapter({ items: { 7: { type: 'User Story' }, 8: { type: 'Bug' } }, allowed: { 'User Story': VALUES } })
-  await assert.rejects(() => a.releaseStage({ id: '50' }, 'On Demo', [{ ref: 'AB#7' }, { ref: 'AB#8' }]), /the "Bug" type has no field "Custom\.Deployed"/)
-  assert.strictEqual(patches(calls).length, 0)
-})
-
-test('releaseStage without deployedField only moves the release item', async () => {
-  const { a, calls } = stageAdapter({ items: { 7: { type: 'User Story' } }, allowed: {}, deployedField: '' })
-  const got = await a.releaseStage({ id: '50' }, 'On Demo', [{ ref: 'AB#7' }])
-  assert.deepStrictEqual(got, { set: 1 })
-  assert.deepStrictEqual(patches(calls).map((w) => w.op.path), ['/fields/System.State'])
-  assert.ok(!calls.some((c) => c.url.includes('workitemsbatch') || c.url.includes('/fields/')), 'no ticket reads either')
-})
-
-test('releaseComplete moves the item to the Completed-category state, or refuses by name', async () => {
-  const { a } = releaseAdapter((url, init) => {
-    if (url.includes('/states')) {
-      return jsonRes({ value: [{ name: 'To Do', category: 'Proposed' }, { name: 'Shipped', category: 'Completed' }] })
-    }
-    if (url.includes('workitemsbatch')) return jsonRes({ value: [] })
-    if ((init && init.method) === 'PATCH') return jsonRes({ id: 50 })
-    return jsonRes({ id: 50, fields: { 'System.State': 'Staged', 'System.WorkItemType': 'Release' } })
-  })
-  await a.releaseComplete({ id: '50', type: 'Release' })
-
-  const bare = releaseAdapter((url) => {
-    if (url.includes('/states')) return jsonRes({ value: [{ name: 'To Do', category: 'Proposed' }] })
-    return jsonRes({})
-  })
-  await assert.rejects(() => bare.a.releaseComplete({ id: '50', type: 'Release' }), /no Completed-category state/)
-})
 
 // --- the adoption handoff fixes (bug-azure-boards-adoption-fixes) -------------
 

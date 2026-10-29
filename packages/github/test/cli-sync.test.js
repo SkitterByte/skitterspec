@@ -560,28 +560,28 @@ test('doctor on a repo with no config reports sync off, not broken', async () =>
   assert.strictEqual(row.state, 'missing')
 })
 
-test('doctor checks the Deployed field only where a release series is configured', async () => {
-  const board = { fields: [{ name: 'Status', options: [{ name: 'Done' }] }, { name: 'Deployed', options: [{ name: 'Test' }] }] }
-  const env = { GITHUB_TOKEN: 'tok' }
-  const without = repoWithSpec()
-  const a = fakeAdapter()
-  a.resolveBoard = async () => board
-  const r0 = await run(['doctor', '--check-remote', '--json'], without, { adapter: a, env })
-  assert.ok(!JSON.parse(r0.out).checks.some((c) => c.label === 'Deployed field'), 'no series, no row')
-  const withSeries = repoWithSpec({ config: { releases: { series: [{ tagPrefix: 'demo@', envs: { test: 'Test', prod: 'Prod' } }] } } })
-  const r1 = await run(['doctor', '--check-remote', '--json'], withSeries, { adapter: a, env })
-  const row = JSON.parse(r1.out).checks.find((c) => c.label === 'Deployed field')
-  assert.strictEqual(row.state, 'broken')
-  assert.match(row.detail, /lacks: Prod/)
+test('release is removed: it refuses and names released --json, writing nothing', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  const r = await run(['release', 'create', 'pkg@1.0.0', '--apply'], dir, { adapter })
+  assert.strictEqual(r.code, 1, 'a pipeline still calling it must not read success')
+  assert.match(r.out, /release: removed/)
+  assert.match(r.out, /released <range> --json/)
 })
 
-test('the releases config validates its series', () => {
-  const { mergeConfig, defaults } = require('../src/config.js')
-  const ok = mergeConfig(defaults(), { releases: { series: [{ tagPrefix: 'a@', envs: { test: 'Test' } }] } })
-  assert.deepStrictEqual(ok.releases, { deployedField: 'Deployed', series: [{ tagPrefix: 'a@', envs: { test: 'Test' } }] })
-  assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ envs: {} }] } }), /releases\.series\[0\]/)
-  assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ tagPrefix: 'a@' }, { tagPrefix: 'a@' }] } }), /not already listed/)
-  assert.throws(() => mergeConfig(defaults(), { releases: { series: [{ tagPrefix: 'a@', envs: { 'bad key': 'X' } }] } }), /envs\.bad key/)
+test('doctor names a leftover releases block as retired, without failing', async () => {
+  const dir = repoWithSpec({ config: { releases: { deployedField: 'Deployed', series: [] } } })
+  const r = await run(['doctor', '--json'], dir)
+  const json = JSON.parse(r.out)
+  const row = json.checks.find((c) => c.id === 'retired')
+  assert.strictEqual(row.state, 'warn')
+  assert.match(row.detail, /releases in .* is no longer read/)
+  assert.strictEqual(json.ok, true)
+})
+
+test('STAYS SILENT: doctor on a config with no retired keys has no retired row', async () => {
+  const r = await run(['doctor', '--json'], repoWithSpec())
+  assert.ok(!JSON.parse(r.out).checks.some((c) => c.id === 'retired'))
 })
 
 // --- found live, on the first real board ------------------------------------------

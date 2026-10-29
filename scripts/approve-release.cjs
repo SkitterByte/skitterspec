@@ -39,24 +39,19 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // --- pure helpers -----------------------------------------------------------
 
 const GITHUB_CONFIG = path.join('specs', '.core', 'github.config.json')
-const GITHUB_BIN = path.join('packages', 'github', 'bin', 'skitterspec-github.js')
+const MIRROR = path.join('scripts', 'mirror-deployed.cjs')
 
-// What approving does to this repo's GitHub mirror: the release's issues move
-// to Published, then the release stops being a prerelease. Empty — nothing to
-// run — without the config (tracker mirroring is opt-in), or without a version
-// (a bare stage-id names no tag).
+// What approving does to this repo's GitHub board: the release's issues move
+// to Published. Empty — nothing to run — without the config (tracker
+// mirroring is opt-in), or without a version (a bare stage-id names no tag).
 //
 // This step is the INSTANT path, not the only one: the hourly
-// reconcile-releases.yml workflow runs `spec-sync release reconcile --apply`,
-// which repairs the mirror for approvals made on the npm website (or anywhere
+// reconcile-releases.yml workflow runs `mirror-deployed.cjs --reconcile`,
+// which repairs the board for approvals made on the npm website (or anywhere
 // else this script never ran). A failure here heals within the hour.
 function trackerCommands(npmShort, version, { configExists }) {
   if (!configExists || !version) return []
-  const tag = `${npmShort}@${version}`
-  return [
-    [GITHUB_BIN, 'spec-sync', 'release', 'deployed', tag, 'published', '--apply'],
-    [GITHUB_BIN, 'spec-sync', 'release', 'complete', tag, '--apply'],
-  ]
+  return [[MIRROR, `${npmShort}@${version}`, 'Published']]
 }
 
 function parseArgs(argv) {

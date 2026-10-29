@@ -48,7 +48,6 @@ const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitter
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/src/list-assignee.js')
 const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
-const { makeReleaseCommands } = require('@skitterbyte/skitterspec-provider-kit/src/releases.js')
 const { IDENTIFIER_RE } = require('@skitterbyte/skitterspec-provider-kit/src/released.js')
 
 const { loadAzureConfig, mergeConfig, defaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
@@ -260,9 +259,6 @@ function apiAdapterFor(config, flags) {
       orgUrl: config.azure.orgUrl,
       project: config.azure.project,
       token: cred.token,
-      releaseType: (config.releases && config.releases.workItemType) || 'Release',
-      ticketTag: !config.releases || config.releases.ticketTag !== false,
-      deployedField: (config.releases && config.releases.deployedField) || '',
       fetch: flags.fetch,
     }),
   }
@@ -336,34 +332,6 @@ function specSyncReleased(dir, config, rangeArg, flags, out) {
   out.write(lines.join('\n') + '\n')
   return 0
 }
-
-// ---------------------------------------------------------------------------
-// `release create | deployed | complete` — the kit's release seam
-// (`provider-kit/src/releases.js`), carried by a work item of
-// `releases.workItemType` (spec Decision 12): skitterspec decides the ticket
-// set, the item holds it, `deployed` moves the ITEM's state, `complete`
-// closes it.
-const releases = makeReleaseCommands({
-  tracker: 'Azure Boards',
-  program: PROGRAM,
-  readCommits: (dir, range) => readCommitRange(dir, range),
-  ticketOptions: (config) => ({
-    ignorePaths: (config.release && config.release.ignorePaths) || [],
-    refPattern: AZURE_REF_RE,
-    foreignPatterns: foreignPatternsOf(config).patterns,
-  }),
-  teamKey: () => '',
-  listSpecs: (dir, config) => listSpecs(dir, config),
-  series: (config) => (config.releases && config.releases.series) || [],
-  adapterFor: (config, flags) => apiAdapterFor(config, flags),
-  describe: (t) => `${t.ref}${t.title ? ` ${t.title}` : ''}`,
-  // The release verbs are CI commands and the engine never calls MCP tools —
-  // so over MCP this is impossible, not merely slower, and says so (exit 1).
-  impossibleOverMcp: (config, flags) =>
-    kit.resolveTransport(flags, config, true) === 'mcp'
-      ? 'transport = mcp — the release verbs write over the API; set a PAT (CI: a pipeline secret) and re-run'
-      : null,
-})
 
 // ---------------------------------------------------------------------------
 // Assignment: `assign`, `whoami` and `users` are the kit's
@@ -1294,6 +1262,8 @@ async function specSyncDoctor(dir, flags, out) {
       checks.push(row('tracker', 'Azure config', 'broken', 'orgUrl or project is empty', `fix ${CONFIG_FILE}`))
     } else {
       checks.push(row('tracker', 'Azure config', 'ok', `${loaded.config.azure.project} @ ${loaded.config.azure.orgUrl}`))
+      const retired = kit.retiredKeysRow(path.join(dir, CONFIG_FILE), CONFIG_FILE, row)
+      if (retired) checks.push(retired)
       // A worktree forks from a COMMIT, so a config that exists only in the
       // working tree is invisible in every spec worktree — where the sync
       // skills actually run — and sync there reports itself off with no clue
@@ -1410,7 +1380,6 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   linked [--json]                        specs and their linked items (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     tickets a commit range contains
-  release create|deployed|complete <tag> the release work item (CI; --apply)
   preserve <spec> [--text <f>]           keep an adopted item's original report
   assign <spec> --to <id> | --release    stamp who is building it
   whoami [--set <id>] [--unset]          who you are on Azure (cached)
@@ -1489,16 +1458,8 @@ async function specSync(rest, io = {}) {
       return specSyncRef(dir, config, positional[0], flags, out, err)
     case 'released':
       return specSyncReleased(dir, config, positional[0], flags, out)
-    case 'release': {
-      // A bad foreign pattern is refused HERE, before the kit runs: dropping
-      // one silently would re-count that tracker's history as unreferenced.
-      const foreign = foreignPatternsOf(config)
-      if (foreign.bad.length) {
-        out.write(`${PROGRAM} release: refs.foreignPatterns has invalid pattern(s): ${foreign.bad.join(', ')} — fix ${CONFIG_FILE}\n`)
-        return 1
-      }
-      return releases.run(dir, config, positional, flags, out)
-    }
+    case 'release':
+      return kit.refuseRemovedVerb(out, PROGRAM, 'release')
     case 'preserve':
       return specSyncPreserve(dir, config, positional[0], flags, out)
     case 'assign':

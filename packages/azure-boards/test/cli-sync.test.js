@@ -830,90 +830,31 @@ test('released refuses an invalid refs.foreignPatterns entry by name', async () 
   assert.match(r.out, /invalid pattern\(s\): \[oops/)
 })
 
-// --- the release verbs (kit seam over the work item carrier) -------------------
+// --- the release verbs are removed (feat-tracker-boundary) ---------------------
 
-function releaseFakes() {
-  const adapter = fakeAdapter()
-  const store = { release: null }
-  adapter.releaseFind = async () => store.release
-  adapter.releaseCreate = async ({ tag, body }) => {
-    store.release = { id: '50', url: `${ORG}/${PROJECT}/_workitems/edit/50`, body }
-    return store.release
-  }
-  adapter.releaseUpdate = async (release, { body }) => {
-    store.release = { ...release, body }
-    return store.release
-  }
-  adapter.releaseAttach = async (release, tickets) => ({ attached: tickets.length, already: 0 })
-  adapter.releaseStage = async () => ({ set: 1 })
-  adapter.releaseComplete = async (release) => release
-  return { adapter, store }
-}
+test('release is removed: it refuses and names released --json', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const r = await run(['release', 'create', 'v1.0.0', '--apply'], dir, { adapter: fakeAdapter() })
+  assert.strictEqual(r.code, 1, 'a pipeline still calling it must not read success')
+  assert.match(r.out, /release: removed/)
+  assert.match(r.out, /released <range> --json/)
+})
 
-function releaseRepo() {
+test('doctor names a leftover releases block as retired, without failing', async () => {
   const dir = repoWithSpec({
-    identifier: 'AB#7',
-    config: {
-      azure: { orgUrl: ORG, project: PROJECT },
-      releases: { workItemType: 'Release', series: [{ tagPrefix: 'v', envs: { staged: 'Staged', published: 'Published' } }] },
-    },
+    config: { azure: { orgUrl: ORG, project: PROJECT }, releases: { workItemType: 'Release', series: [] } },
   })
-  const git = gitRepo(dir)
-  git('add', '-A')
-  git('commit', '-q', '-m', 'feat(x): thing\n\nRefs: AB#7')
-  git('tag', 'v1.0.0')
-  fs.writeFileSync(path.join(dir, 'z.txt'), 'z')
-  git('add', '-A')
-  git('commit', '-q', '-m', 'feat(z): more\n\nRefs: AB#7')
-  git('tag', 'v1.1.0')
-  return dir
-}
-
-test('release create is a dry run by default and writes with --apply', async () => {
-  const dir = releaseRepo()
-  const { adapter, store } = releaseFakes()
-  const dry = await run(['release', 'create', 'v1.1.0'], dir, { adapter })
-  assert.strictEqual(dry.code, 0, dry.out)
-  assert.match(dry.out, /dry run — pass --apply/)
-  assert.match(dry.out, /range: {4}v1\.0\.0\.\.v1\.1\.0/)
-  assert.strictEqual(store.release, null, 'a dry run writes nothing')
-
-  const wet = await run(['release', 'create', 'v1.1.0', '--apply'], dir, { adapter })
-  assert.strictEqual(wet.code, 0, wet.out)
-  assert.match(wet.out, /created:/)
-  assert.ok(store.release, 'the release item exists')
-  assert.match(store.release.body, /skitterspec:release v1 stage=staged/)
+  const json = JSON.parse((await run(['doctor', '--json'], dir)).out)
+  const row = json.checks.find((c) => c.id === 'retired')
+  assert.strictEqual(row.state, 'warn')
+  assert.match(row.detail, /releases in .* is no longer read/)
+  assert.ok(!json.checks.some((c) => c.state === 'broken' && c.id === 'retired'))
 })
 
-test('release create reports how many tickets it tagged', async () => {
-  const dir = releaseRepo()
-  const { adapter } = releaseFakes()
-  adapter.releaseAttach = async () => ({ attached: 1, already: 0, tagged: 1 })
-  const wet = await run(['release', 'create', 'v1.1.0', '--apply'], dir, { adapter })
-  assert.strictEqual(wet.code, 0, wet.out)
-  assert.match(wet.out, /issues: {3}1 noted, 0 already noted, 1 tagged/)
-})
-
-test('release deployed moves the release item and complete closes it', async () => {
-  const dir = releaseRepo()
-  const { adapter, store } = releaseFakes()
-  await run(['release', 'create', 'v1.1.0', '--apply'], dir, { adapter })
-  const dep = await run(['release', 'deployed', 'v1.1.0', 'published', '--apply'], dir, { adapter })
-  assert.strictEqual(dep.code, 0, dep.out)
-  assert.match(dep.out, /set: {6}1 issue\(s\)/)
-  assert.match(store.release.body, /stage=published/)
-  const done = await run(['release', 'complete', 'v1.1.0', '--apply'], dir, { adapter })
-  assert.strictEqual(done.code, 0, done.out)
-  assert.match(done.out, /completed:/)
-})
-
-test('release deployed refuses an env the series does not configure', async () => {
-  const dir = releaseRepo()
-  const { adapter } = releaseFakes()
-  await run(['release', 'create', 'v1.1.0', '--apply'], dir, { adapter })
-  const r = await run(['release', 'deployed', 'v1.1.0', 'mars', '--apply'], dir, { adapter })
-  assert.strictEqual(r.code, 1)
-  assert.match(r.out, /pass an env of v: staged, published/)
+test('STAYS SILENT: doctor on a config with no retired keys has no retired row', async () => {
+  const dir = repoWithSpec({ config: { azure: { orgUrl: ORG, project: PROJECT } } })
+  const json = JSON.parse((await run(['doctor', '--json'], dir)).out)
+  assert.ok(!json.checks.some((c) => c.id === 'retired'))
 })
 
 // --- the adoption handoff fixes (bug-azure-boards-adoption-fixes) -------------

@@ -65,7 +65,6 @@ const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/src/list-assignee.js')
 const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
-const { makeReleaseCommands } = require('@skitterbyte/skitterspec-provider-kit/src/releases.js')
 
 const PROGRAM = 'spec-sync'
 const BIN = 'skitterspec-github'
@@ -250,8 +249,7 @@ function applyOps({ adapter, config }) {
 
 function adapterOptions(config) {
   const g = config.github || {}
-  const deployedField = (config.releases && config.releases.deployedField) || 'Deployed'
-  return { owner: g.owner, repo: g.repo, project: g.project, statusField: g.statusField, deployedField }
+  return { owner: g.owner, repo: g.repo, project: g.project, statusField: g.statusField }
 }
 
 function apiAdapterFor(config, flags) {
@@ -967,37 +965,6 @@ function specSyncReleased(dir, config, rangeArg, flags, out) {
 }
 
 // ---------------------------------------------------------------------------
-// `release create | deployed | complete` — the kit's release seam
-// (`provider-kit/src/releases.js`) on GitHub Releases plus the board's
-// Deployed field. Run by CI on a tag push; dry unless `--apply`.
-const releases = makeReleaseCommands({
-  tracker: 'GitHub',
-  program: PROGRAM,
-  readCommits: (dir, range) => readCommitRange(dir, range),
-  ticketOptions: (config) => ({
-    ignorePaths: (config.release && config.release.ignorePaths) || [],
-    refPattern: GITHUB_REF_RE,
-    foreignPatterns: [IDENTIFIER_RE],
-  }),
-  teamKey: () => '',
-  listSpecs: (dir, config) => listSpecs(dir, config),
-  series: (config) => (config.releases && config.releases.series) || [],
-  adapterFor: (config, flags) => {
-    const got = apiAdapterFor(config, flags)
-    if (!got.ok) return got
-    const gap = flags.adapter ? null : configGap(config)
-    return gap ? { ok: false, error: gap } : got
-  },
-  describe: (t) => `${t.ref}${t.title ? ` ${t.title}` : ''}`,
-  // GitHub's MCP server can READ releases and cannot write one — so over MCP
-  // this is impossible, not merely slower, and says so (exit 1).
-  impossibleOverMcp: (config, flags) =>
-    kit.resolveTransport(flags, config, true) === 'mcp'
-      ? "transport = mcp — GitHub's MCP server has no release write tool; set a token (CI: a repo secret) and re-run"
-      : null,
-})
-
-// ---------------------------------------------------------------------------
 // `preserve <spec>` — post the issue's current body back onto the issue as a
 // comment BEFORE the linking push replaces it. Every cannot-tell exits 0: a
 // missing link, an unreachable GitHub, an issue with no body, and an
@@ -1283,6 +1250,8 @@ async function specSyncDoctor(dir, flags, out) {
       checks.push(row('tracker', 'GitHub config', 'broken', configGap(loaded.config), `fix ${CONFIG_FILE}`))
     } else {
       checks.push(row('tracker', 'GitHub config', 'ok', `${repoLabel(loaded.config)} · board ${loaded.config.github.project}`))
+      const retired = kit.retiredKeysRow(path.join(dir, CONFIG_FILE), CONFIG_FILE, row)
+      if (retired) checks.push(retired)
       // A worktree forks from a COMMIT, so a config that exists only in the
       // working tree is invisible in every spec worktree — where the sync
       // skills actually run. The positive signal is git tracking the file;
@@ -1354,26 +1323,6 @@ async function specSyncDoctor(dir, flags, out) {
               )
             : row('states', 'Board states', 'ok', `every configured state is a "${config.github.statusField}" option`),
         )
-        // Releases: the Deployed field and every env option a series names. Only
-        // when a series is configured — a repo that never adopted releases has
-        // nothing to be told about here.
-        const series = (config.releases && config.releases.series) || []
-        if (series.length && adapter.resolveBoard) {
-          const field = config.releases.deployedField
-          const board = await adapter.resolveBoard()
-          const f = board.fields.find((x) => String(x.name).toLowerCase() === String(field).toLowerCase() && x.options)
-          if (!f) {
-            checks.push(row('releases', 'Deployed field', 'broken', `the board has no single-select "${field}"`, `add it on the board, or set releases.deployedField`))
-          } else {
-            const have = new Set(f.options.map((o) => o.name.toLowerCase()))
-            const absent = series.flatMap((s) => Object.values(s.envs || {})).filter((o) => !have.has(o.toLowerCase()))
-            checks.push(
-              absent.length
-                ? row('releases', 'Deployed field', 'broken', `"${field}" lacks: ${[...new Set(absent)].join(', ')}`, 'add the options on the board, or fix releases.series envs')
-                : row('releases', 'Deployed field', 'ok', `"${field}" has every env option`),
-            )
-          }
-        }
         if (adapter.listLabels) {
           const have = new Set((await adapter.listLabels()).map((l) => String(l.name).toLowerCase()))
           const want = ['spec', 'phase'].flatMap((k) => markersFor(config, k).labels)
@@ -1422,7 +1371,6 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   linked [--json]                        specs and their linked issues (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     issues a commit range contains
-  release create|deployed|complete <tag> GitHub Release + Deployed field (CI; --apply)
   preserve <spec> [--text <f>]           keep an adopted issue's original report
   assign <spec> --to <login> | --release  stamp who is building it
   whoami [--set <login>] [--unset]       who you are on GitHub (cached)
@@ -1506,7 +1454,7 @@ async function specSync(rest, io = {}) {
     case 'preserve':
       return specSyncPreserve(dir, config, positional[0], flags, out)
     case 'release':
-      return releases.run(dir, config, positional, flags, out)
+      return kit.refuseRemovedVerb(out, PROGRAM, 'release')
     case 'assign':
       return assignment.assign(dir, config, positional[0], flags, out)
     case 'whoami':

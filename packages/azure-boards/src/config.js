@@ -102,15 +102,6 @@ const DEFAULT_CONFIG = Object.freeze({
     stages: Object.freeze([]),
     ignorePaths: Object.freeze(['specs/', 'CHANGELOG.md', 'RELEASES.md']),
   }),
-  // The release seam's Azure carrier (spec Decision 12): one work item of
-  // `workItemType` per release, found by WIQL title lookup, its state moved
-  // through `series[].envs`. Phase 5 implements the verbs; the config shape
-  // lives here so setup writes one file. `ticketTag` tags each attached ticket
-  // with the release tag, so a story card shows which release carried it.
-  // `deployedField` is a field reference (e.g. `Custom.Deployed`) that
-  // `deployed <env>` sets on each attached ticket to the env's value; empty
-  // writes none, since the field has to be added to the process first.
-  releases: Object.freeze({ workItemType: 'Release', series: Object.freeze([]), ticketTag: true, deployedField: '' }),
   branch: Object.freeze({ pattern: '{type}/{slug}' }),
   // An env-var NAME, not a value — the official CLI's, so a machine already
   // set up for `az boards` needs nothing new.
@@ -164,12 +155,6 @@ function defaults() {
       stages: DEFAULT_CONFIG.release.stages.map((s) => ({ ...s })),
       ignorePaths: [...DEFAULT_CONFIG.release.ignorePaths],
     },
-    releases: {
-      workItemType: DEFAULT_CONFIG.releases.workItemType,
-      series: DEFAULT_CONFIG.releases.series.map((s) => ({ ...s })),
-      ticketTag: DEFAULT_CONFIG.releases.ticketTag,
-      deployedField: DEFAULT_CONFIG.releases.deployedField,
-    },
     branch: { ...DEFAULT_CONFIG.branch },
     auth: { ...DEFAULT_CONFIG.auth },
     apply: { ...DEFAULT_CONFIG.apply },
@@ -191,22 +176,6 @@ const { mergeStates, mergeFieldOwnership, mergePhaseMapping, mergeReleaseStages,
     lifecycleBuckets: LIFECYCLE_BUCKETS,
     phaseMappings: PHASE_MAPPINGS,
   })
-
-// A release series entry carries the tag prefix it scans and the state each
-// env moves the release item to. Lenient on extras, strict on shape: a series
-// that is not a list of objects is a config error worth naming now.
-function mergeReleaseSeries(base, parsed) {
-  if (parsed.series === undefined) return
-  if (!Array.isArray(parsed.series) || parsed.series.some((s) => !isObject(s))) {
-    throw new Error(`Invalid ${CONFIG_FILE}: releases.series must be a list of objects`)
-  }
-  base.series = parsed.series.map((s) => ({
-    tagPrefix: typeof s.tagPrefix === 'string' ? s.tagPrefix : '',
-    envs: isObject(s.envs)
-      ? Object.fromEntries(Object.entries(s.envs).filter(([, v]) => typeof v === 'string'))
-      : {},
-  }))
-}
 
 /**
  * Merge a parsed config over the defaults. Only known keys are copied (unknown
@@ -273,12 +242,6 @@ function mergeConfig(base, parsed) {
     mergeReleaseIgnorePaths(base.release, parsed.release)
   }
 
-  if (isObject(parsed.releases)) {
-    assign(base.releases, parsed.releases, 'workItemType', 'string')
-    assign(base.releases, parsed.releases, 'ticketTag', 'boolean')
-    assign(base.releases, parsed.releases, 'deployedField', 'string?')
-    mergeReleaseSeries(base.releases, parsed.releases)
-  }
 
   if (isObject(parsed.branch)) {
     assign(base.branch, parsed.branch, 'pattern', 'string')

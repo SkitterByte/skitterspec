@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 
-const { discoverGithub, REQUIRED, IMPOSSIBLE_OVER_MCP } = require('../src/mcp.js')
+const { discoverGithub, REQUIRED } = require('../src/mcp.js')
 
 const OFFICIAL = [
   'issue_read', 'issue_write', 'sub_issue_write', 'add_issue_comment', 'list_issues',
@@ -38,7 +38,3 @@ test('missing the required pair names it', () => {
   assert.match(got.error, new RegExp(REQUIRED.join(' and ')))
 })
 
-test('releases are named as impossible over MCP — the server has no release write tool', () => {
-  assert.ok(!OFFICIAL.some((t) => /release/.test(t) && !/^get_/.test(t)))
-  assert.deepStrictEqual([...IMPOSSIBLE_OVER_MCP], ['release create', 'release complete'])
-})

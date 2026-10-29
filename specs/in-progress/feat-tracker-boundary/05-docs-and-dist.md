@@ -20,4 +20,5 @@ match the source.
 - [ ] Update `RELEASING.md` for the new mirror step
 - [ ] Rebuild the `skitterspec-*` dist packages (`scripts/build-dist.js`)
 - [ ] Note the major bump and the removed verbs in each provider's release notes
+- [ ] `/spec-cancel feat-tracker-releases` — superseded by this spec
 - [ ] Run typecheck + tests — green

@@ -93,7 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `released --json` names the spec | ✅ | [01-released-names-spec.md](01-released-names-spec.md) |
-| 2 | Dogfood script, then remove release objects | ⬜ | [02-remove-release-objects.md](02-remove-release-objects.md) |
+| 2 | Dogfood script, then remove release objects | ✅ | [02-remove-release-objects.md](02-remove-release-objects.md) |
 | 3 | Remove the stage ladder | ⬜ | [03-remove-stage-ladder.md](03-remove-stage-ladder.md) |
 | 4 | Remove state drift | ⬜ | [04-remove-state-drift.md](04-remove-state-drift.md) |
 | 5 | Docs and dist | ⬜ | [05-docs-and-dist.md](05-docs-and-dist.md) |
@@ -114,3 +114,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-29 — Spec created. Supersedes `feat-tracker-releases`.
 - 2026-10-29 — Phase 1: `listSpecs` takes `{ urls: true }` rather than always
   carrying `url`, so `linked --json` and every other listing keep their shape.
+- 2026-10-29 — Phase 2: the release verbs had two more callers than the spec
+  named — `approve-release.cjs` and the hourly `reconcile-releases.yml`. The
+  script gained `--reconcile` (newest tag per package, Published when live on
+  npm) to keep both. It writes the board over GraphQL rather than
+  `gh project item-edit`, which needs three ids looked up first.
+- 2026-10-29 — Phase 2: the `/spec-cancel feat-tracker-releases` task moved to
+  phase 5. It changes another spec, so it runs once this one lands.
+- 2026-10-29 — Phase 2: also removed Azure's `fieldAllowedValues` and GitHub's
+  `IMPOSSIBLE_OVER_MCP`, both used only by the release verbs.

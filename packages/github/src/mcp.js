@@ -39,10 +39,6 @@ const MATCHERS = {
 // all: reading an issue and writing one. Everything else degrades per command.
 const REQUIRED = ['issueRead', 'issueWrite']
 
-// Ops the official server cannot express at all — named so a refusal can say
-// so rather than imply a missing connection.
-const IMPOSSIBLE_OVER_MCP = Object.freeze(['release create', 'release complete'])
-
 /**
  * Match the advertised tool list against the matchers.
  * @param {string[]} toolNames what the connected server advertises
@@ -82,4 +78,4 @@ const APPLY_OVER_MCP =
   '  (completed / not_planned). Then stamp the returned #numbers with\n' +
   '  `spec-sync stamp` and record with `spec-sync record`.'
 
-module.exports = { discoverGithub, MATCHERS, REQUIRED, IMPOSSIBLE_OVER_MCP, APPLY_OVER_MCP }
+module.exports = { discoverGithub, MATCHERS, REQUIRED, APPLY_OVER_MCP }
