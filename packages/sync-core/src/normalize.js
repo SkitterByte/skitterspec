@@ -818,6 +818,23 @@ function remoteWorkflowState(issue, config) {
   return name != null ? bucketForState(name, config) : null
 }
 
+// What the drift report needs to know about a remote issue's state: its name,
+// the bucket it maps to, and whether it maps to one at all. Null when the
+// payload carried no state — a cannot-tell, never an answer.
+//
+// AN UNMAPPED STATE IS NOT A DISAGREEMENT. A tracker grows states skitterspec
+// never names ("Blocked", "Next Sprint"), and a ticket a person moved into one
+// is not wrong about the spec — it is somewhere push does not manage, and push
+// will not move it until the spec itself moves. `mapped` is what lets a report
+// say that rather than accuse it. A declared ladder rung counts as mapped: it
+// reads as `complete` (see `bucketForState`).
+function remoteStateReading(issue, config) {
+  const name = remoteStateName(issue || {}, config)
+  if (name == null) return null
+  const bucket = bucketForState(name, config)
+  return { name: String(name), bucket, mapped: LIFECYCLE_BUCKETS.includes(bucket) }
+}
+
 // The declared ladder rung a remote issue is currently sitting on, or null.
 // Pairs with `remoteWorkflowState`: that says which bucket the issue maps to,
 // this says whether it got there by being deployed. Read-only.
@@ -994,5 +1011,6 @@ module.exports = {
   stageForState,
   remoteStage,
   remoteWorkflowState,
+  remoteStateReading,
   LADDER_ORIGIN_BUCKET,
 }

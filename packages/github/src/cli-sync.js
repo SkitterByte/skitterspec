@@ -27,7 +27,7 @@ const {
   isEmptyPlan,
   validateStates,
   stateSuggestions,
-  remoteWorkflowState,
+  remoteStateReading,
   remoteDescriptionEdited,
   writeFrontmatter,
   stampSubIssueId,
@@ -555,11 +555,15 @@ function specSyncStatus(dir, config, specArg, flags, out, err) {
       out.write(`${PROGRAM} status: cannot read --remote: ${error.message}\n`)
       return 1
     }
-    const bucket = remoteWorkflowState(remote, config)
+    // NEVER "repo wins on next push": push resends State only when the spec's
+    // own state changes, so a moved item stays where it was put until then.
+    const seen = remoteStateReading(remote, config)
     const local = r.projection.status
-    if (bucket && local && bucket !== local) {
-      lines.push(`  drift: the board says "${bucket}", the repo says "${local}" (repo wins on next push)`)
-    } else if (bucket) {
+    if (seen && !seen.mapped) {
+      lines.push(`  state: the board has it in "${seen.name}", a state skitterspec does not map — left alone`)
+    } else if (seen && local && seen.bucket !== local) {
+      lines.push(`  drift: the board says "${seen.bucket}", the repo says "${local}" (push resends State only when the spec moves)`)
+    } else if (seen) {
       lines.push('  drift: none — the board agrees with the repo')
     }
     // SILENT ON EVERYTHING EXCEPT A POSITIVE ANSWER: `remoteDescriptionEdited`

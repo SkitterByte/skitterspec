@@ -601,3 +601,27 @@ test('a settle that fails after a create names the created issue', async () => {
   assert.strictEqual(r.code, 1)
   assert.match(r.out, /created but not stamped: #102/)
 })
+
+// --- status: state drift ----------------------------------------------------
+
+test('status reports a Status option skitterspec does not map as position, not drift', async () => {
+  const dir = repoWithSpec({ identifier: '#7' })
+  await run(['record', 'feat-demo'], dir)
+  const remote = path.join(dir, 'remote.json')
+  fs.writeFileSync(remote, JSON.stringify({ state: { name: 'Blocked' } }))
+  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /state: the board has it in "Blocked", a state skitterspec does not map — left alone/)
+  assert.doesNotMatch(r.out, /drift: the board says/)
+})
+
+test('status reports a mapped disagreement without promising a resend', async () => {
+  const dir = repoWithSpec({ identifier: '#7' })
+  await run(['record', 'feat-demo'], dir)
+  const remote = path.join(dir, 'remote.json')
+  fs.writeFileSync(remote, JSON.stringify({ state: { name: 'Done' } }))
+  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.match(r.out, /drift: the board says "complete", the repo says "in-progress"/)
+  assert.doesNotMatch(r.out, /repo wins on next push/)
+  assert.match(r.out, /push resends State only when the spec moves/)
+})

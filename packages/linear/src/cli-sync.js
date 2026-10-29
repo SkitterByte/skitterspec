@@ -37,7 +37,7 @@ const {
   projectionOf,
   planChanges,
   isEmptyPlan,
-  remoteWorkflowState,
+  remoteStateReading,
   remoteStage,
   LADDER_ORIGIN_BUCKET,
   validateStates,
@@ -461,18 +461,22 @@ function specSyncStatus(dir, config, specArg, flags, out) {
 
   if (flags.remote && fs.existsSync(flags.remote)) {
     const remote = JSON.parse(fs.readFileSync(flags.remote, 'utf-8'))
-    const rState = remoteWorkflowState(remote, config)
+    const seen = remoteStateReading(remote, config)
     const lState = projection.status
     // A declared deployment stage is POSITION, not disagreement: the spec is
     // complete and the pipeline has moved it on. Reporting that as drift would
-    // accuse every deployed spec, for as long as it sits in the pipeline — and
-    // "repo wins on next push" would be a lie, since a finished spec's state no
-    // longer re-pushes (see compare.js `issueChanges`).
+    // accuse every deployed spec, for as long as it sits in the pipeline. A
+    // state that maps to no bucket at all ("Blocked") is position for the same
+    // reason. And no state line says "repo wins on next push": push resends
+    // State only when the spec's own state changes (see compare.js
+    // `issueChanges`), so a moved issue stays put until then.
     const stage = remoteStage(remote, config)
     if (stage) {
       lines.push(`  stage: Linear is at "${stage.state}" (release stage "${stage.key}", past ${lState})`)
-    } else if (rState && lState && rState !== lState) {
-      lines.push(`  drift: Linear workflow-state is "${rState}" but the spec is "${lState}" (repo wins on next push)`)
+    } else if (seen && !seen.mapped) {
+      lines.push(`  state: Linear has it in "${seen.name}", a state skitterspec does not map — left alone`)
+    } else if (seen && lState && seen.bucket !== lState) {
+      lines.push(`  drift: Linear workflow-state is "${seen.bucket}" but the spec is "${lState}" (push resends State only when the spec moves)`)
     } else {
       lines.push('  drift: none — Linear workflow-state matches the spec')
     }

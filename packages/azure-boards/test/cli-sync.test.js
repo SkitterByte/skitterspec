@@ -280,6 +280,22 @@ test('status reports drift only on a positive answer', async () => {
   const r = await run(['status', 'feat-demo', '--remote', remote], dir)
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /drift: Azure says "complete", the repo says "in-progress"/)
+  // Push resends State only when the spec's own state changes, so promising the
+  // repo wins on the next push is a promise the engine does not keep.
+  const stateLine = r.out.split('\n').find((l) => /drift: Azure says/.test(l))
+  assert.doesNotMatch(stateLine, /repo wins on next push/)
+  assert.match(stateLine, /push resends State only when the spec moves/)
+})
+
+test('status reports a state skitterspec does not map as position, not drift', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  await run(['record', 'feat-demo'], dir)
+  const remote = path.join(dir, 'remote.json')
+  fs.writeFileSync(remote, JSON.stringify({ id: 7, fields: { 'System.State': 'Blocked' } }))
+  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /state: Azure has it in "Blocked", a state skitterspec does not map — left alone/)
+  assert.doesNotMatch(r.out, /drift: Azure says/, 'an unmapped state is not a disagreement')
 })
 
 // --remote is documented as "fetch the work item JSON", which is the raw REST

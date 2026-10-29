@@ -74,10 +74,21 @@ test('a later rung reports too', async () => {
 
 // The STAYS-SILENT case runs both ways round: a genuinely wrong state must still
 // be reported, or this would have replaced an over-eager check with a blind one.
-test('a state on no rung is still reported as drift', async () => {
+// A state on no rung and in no bucket is still REPORTED — silence would make
+// this check blind — but as position: it maps to nothing, so it cannot disagree.
+test('a state on no rung and in no bucket is reported, not accused', async () => {
   const dir = fixtureRepo({ stages: LADDER })
   const r = await run(['status', 'feat-shipped', '--remote', remoteFile(dir, 'Blocked')], dir)
-  assert.match(r.out, /drift: Linear workflow-state is "blocked"/)
+  assert.match(r.out, /state: Linear has it in "Blocked", a state skitterspec does not map — left alone/)
+  assert.ok(!/drift: Linear workflow-state/.test(r.out))
+})
+
+test('a mapped state that disagrees is drift, without promising a resend', async () => {
+  const dir = fixtureRepo({ stages: LADDER })
+  const r = await run(['status', 'feat-shipped', '--remote', remoteFile(dir, 'In Progress')], dir)
+  assert.match(r.out, /drift: Linear workflow-state is "in-progress" but the spec is "complete"/)
+  assert.ok(!/repo wins on next push/.test(r.out.split('\n').find((l) => /workflow-state/.test(l))))
+  assert.match(r.out, /push resends State only when the spec moves/)
 })
 
 test('a matching state still reports no drift', async () => {
@@ -86,9 +97,9 @@ test('a matching state still reports no drift', async () => {
   assert.match(r.out, /drift: none/)
 })
 
-test('with no ladder declared, the same state reports as drift exactly as before', async () => {
+test('with no ladder declared, the same state is an unmapped one', async () => {
   const dir = fixtureRepo()
   const r = await run(['status', 'feat-shipped', '--remote', remoteFile(dir, 'On Test')], dir)
-  assert.match(r.out, /drift: Linear workflow-state is "on test"/)
+  assert.match(r.out, /state: Linear has it in "On Test", a state skitterspec does not map/)
   assert.ok(!/stage:/.test(r.out))
 })
