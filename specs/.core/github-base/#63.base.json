@@ -1,0 +1,23 @@
+{
+  "issue": "78abd29c559580cd4166e40e75d09d2ff1b0d963",
+  "issueFields": {
+    "description": "1f71faba1a1dc5d93cf93a2c3a175d0047a45417",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "assignee": "2be88ca4242c76e8253ac62474851065032d6833",
+    "descriptionStream": "dd950aa17b27491f80a2e102524084911360c399"
+  },
+  "subIssues": {
+    "#64": "511d2db1ceb88f0a2704f6558e3139caab87d0e4",
+    "#65": "121f029c3cc3850f13596010f188e8a764f842e3",
+    "#66": "f2819414900b676ed39501498d7b03584dcfb31f",
+    "#67": "b5e25d3b29f716717f1e4c193e25d1302da3ea88",
+    "#68": "8162cb4a4b84c5e3de8a6347893095161851d840"
+  },
+  "subIssueStreams": {
+    "#64": "4ec9e704d6455a11e319184de424899ec17ce824",
+    "#65": "4f2673347bb0691f3addceeebd8fd0e40bd71172",
+    "#66": "ab3eb6d8861a713745d42cdae85ab27201f73468",
+    "#67": "588d8092fce8f708d3a4620f849b8f70f27ff347",
+    "#68": "9d2271983b157de4d165bc373b34cee12ddded2c"
+  }
+}
