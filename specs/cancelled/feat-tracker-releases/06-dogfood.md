@@ -2,17 +2,18 @@
 github_issue_id: "#30"
 ---
 
-# Phase 6 — Dogfood in this repo ⬜
+# Phase 6 — Dogfood in this repo 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** the next `skitterspec@` tag push creates a Linear release holding its
 tickets at `staged`, and `npm run approve` moves it to `published`.
 
 ## Tasks
 
-- [ ] Create the three pipelines in Linear's UI (user) — `skitterspec@`,
-      `skitterspec-linear@`, `skitterspec-jira@` — then re-run
+- [x] Write the pipeline setup walkthrough: `SETUP.md` §9 and a Releases
+      section in `docs/linear.html` (asked for while setting this repo up).
+- [ ] Create the two pipelines in Linear's UI (user), then re-run
       `/spec-linear-setup` to link them and write the config.
 - [ ] Add the `release create` step to `release.yml` after staging succeeds,
       with `fetch-depth: 0`. The user adds the secret.

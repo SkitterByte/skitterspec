@@ -7,9 +7,9 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/24"
 
 > **Type:** Feature
 > **Name:** feat-tracker-releases (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** Cancelled (2026-10-29) — superseded by feat-tracker-boundary: skitterspec no longer creates releases or moves deploy state; consumers record those from `spec-sync released --json`
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-21
 > **Area:** packages/provider-kit/src/{adapter,released,releases}.js, packages/linear/src/{api,config,cli-sync,doctor}.js, packages/linear/assets/skills/spec-linear-setup/SKILL.md, packages/linear/assets/core/{linear.config.md,ci-stages.md}, .github/workflows/release.yml, scripts/approve-release.cjs, specs/.core/linear.config.json
 > **Stack:** worktree
@@ -54,12 +54,7 @@ deployed, so nobody drags cards around to say "this shipped".
    rather than creating (negative-checks rule 4).
 5. **Range = previous tag in the same series → this tag.** It is resolved with
    `git describe --tags --abbrev=0 --match '<prefix>*' <tag>^`, so a hotfix tag
-   ranges from its base tag. Both shapes `spec-env hotfix land` now cuts —
-   `<root>-hotfix.N` and a next patch under `hotfix.bump: patch`
-   (`packages/common/src/env/hotfix.js`) — keep the series prefix, so the
-   `--match` sees them; and because the hotfix's fix is cherry-picked onto the
-   base branch, its ticket legitimately appears in the next mainline range too
-   (the fix ships in both). A first release with no
+   (`feat-hotfix-release`) ranges from its base tag. A first release with no
    previous tag is reported as "no previous release: N commits from root" and
    never fails silently. CI needs `fetch-depth: 0`, and the engine says so when
    the history is shallow.
@@ -75,17 +70,7 @@ deployed, so nobody drags cards around to say "this shipped".
    The release ops (`releaseFind`, `releaseCreate`, `releaseAttach`,
    `releaseStage`, `releaseComplete`) are optional adapter ops, feature-detected
    like the other extras. A provider without them makes the verbs refuse with
-   one line — live behaviour from day one, since the Jira provider now ships
-   (`skitterspec-jira@1.0.x`). Jira (fix versions) stays a follow-up, not this
-   spec.
-   **Amended 2026-10-22:** the seam now exists —
-   `feat-github-provider` phase 5 built it (`provider-kit/src/releases.js`,
-   verbs `create`/`deployed`/`complete` taking a tag, plus `releaseUpdate` and
-   an optional `releaseTagExists`) with GitHub as the first implementation.
-   This spec is re-scoped to the **Linear adapter ops** for that seam: phases
-   2–4 shrink to implementing the ops and binding `makeReleaseCommands`, and
-   phase 6's dogfood moved to GitHub with this repo (Decision 12 superseded).
-   Run `/spec-review` before starting it to cut the phase files to match.
+   one line. Jira (fix versions) is a follow-up, not this spec.
 9. **Pipelines are created by a person in Linear's UI. Setup links them.**
    `/spec-linear-setup` lists the pipelines and maps each one to a tag prefix
    (and its env→stage map). This holds whether or not the API can create
@@ -99,8 +84,7 @@ deployed, so nobody drags cards around to say "this shipped".
     Releases. Setup offers Releases where the workspace has them and the ladder
     otherwise, and doctor warns when both are configured.
 12. **This repo dogfoods it:** one pipeline per package (`skitterspec@`,
-    `skitterspec-linear@`, `skitterspec-jira@` — `release.yml` already carries
-    all three tag prefixes), stages `staged → published`. `release.yml` creates
+    `skitterspec-linear@`), stages `staged → published`. `release.yml` creates
     the release at `staged`, and `npm run approve` completes it as `published`.
     That completion runs locally with the user's personal key, if Phase 1 shows a
     personal key can write releases. Otherwise approve prints the CI dispatch to
@@ -109,15 +93,19 @@ deployed, so nobody drags cards around to say "this shipped".
 ## Solution overview
 
 ```jsonc
-// linear.config.json
-"releases": {
-  "keyEnv": "LINEAR_RELEASE_KEY",          // CI secret name; never the value
+// linear.config.json — beside the existing ladder (`stages`) and `ignorePaths`
+"release": {
   "pipelines": [
     { "tagPrefix": "skitterspec@", "pipelineId": "<uuid>",
-      "envs": { "staged": "Staged", "published": "Published" } }
+      "envs": [{ "key": "staged", "stage": "Staged" },
+               { "key": "published", "stage": "Released" }],
+      "initialEnv": "staged" }
   ]
 }
 ```
+
+The key is the existing `auth.keyEnv` personal key. In CI that is a secret of
+that name.
 
 ```sh
 # host CI, on tag push
@@ -132,14 +120,14 @@ skitterspec spec-sync release complete 1.4.0 --apply
 | Surface | Change | Detail |
 |---------|--------|--------|
 | CLI command | add | `spec-sync release create\|deployed\|complete` (`--apply`, `--json`) |
-| Domain object | add | provider-kit release seam: optional `release*` adapter ops |
-| Config key | add | `linear.config.json` → `releases.{keyEnv,pipelines[]}` |
+| Domain object | add | provider-kit release seam: optional `releaseFind/Sync/Stage/Complete` ops |
+| Config key | add | `linear.config.json` → `release.pipelines[]` |
 | Service | update | Linear API adapter: release GraphQL ops |
 | CLI command | update | `spec-sync doctor`: pipelines exist, stage names valid, ladder + releases both set |
 | CLI command | update | `spec-sync init-config`: `--release-pipeline` flags |
 | Skill/rule | update | `/spec-linear-setup`: Releases step, re-run offers it alone, CI diff offer |
 | Config | update | this repo: `.github/workflows/release.yml`, `scripts/approve-release.cjs`, `linear.config.json` |
-| Docs | update | `linear.config.md`, `ci-stages.md` (Releases vs ladder) |
+| Docs | update | `linear.config.md`, `ci-stages.md` (Releases vs ladder), `docs/linear.html` (command table) |
 
 ## Phases
 
@@ -148,35 +136,82 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Spike Linear's release API and linear-release | ⬜ | [01-spike-release-api.md](01-spike-release-api.md) |
-| 2 | Release seam + config + Linear adapter ops | ⬜ | [02-seam-and-config.md](02-seam-and-config.md) |
-| 3 | `release create <tag>` | ⬜ | [03-release-create.md](03-release-create.md) |
-| 4 | `release deployed` / `release complete` | ⬜ | [04-deployed-complete.md](04-deployed-complete.md) |
-| 5 | Setup step, CI wiring offer, doctor | ⬜ | [05-setup-and-doctor.md](05-setup-and-doctor.md) |
-| 6 | Dogfood in this repo | ⬜ | [06-dogfood.md](06-dogfood.md) |
+| 1 | Spike Linear's release API and linear-release | ✅ | [01-spike-release-api.md](01-spike-release-api.md) |
+| 2 | Release seam + config + Linear adapter ops | ✅ | [02-seam-and-config.md](02-seam-and-config.md) |
+| 3 | `release create <tag>` | ✅ | [03-release-create.md](03-release-create.md) |
+| 4 | `release deployed` / `release complete` | ✅ | [04-deployed-complete.md](04-deployed-complete.md) |
+| 5 | Setup step, CI wiring offer, doctor | ✅ | [05-setup-and-doctor.md](05-setup-and-doctor.md) |
+| 6 | Dogfood in this repo | 🔄 | [06-dogfood.md](06-dogfood.md) |
 
 ## Open questions
 
-- [ ] Can a personal API key write releases, or only a pipeline access key?
-      Phase 1 answers this, and Decision 12's approve path follows from it.
+- [x] Can a personal API key write releases, or only a pipeline access key?
+      Phase 1: yes, a personal key writes releases (tested with Admin scope).
+      Decision 12's local approve path stands.
 
 ## State log
 
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-21 | Ready | backlog | Reuben Greaves |
+| 2026-10-21 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-29 | Cancelled | cancelled | Reuben Greaves |
 
 ## Changelog
 
 - 2026-10-21 — Spec created.
-- 2026-10-22 — Reviewed vs codebase: `skitterspec-jira` now ships (third tag
-  series in `release.yml`), so Decision 12 and Phase 6 cover three pipelines;
-  `feat-hotfix-release` landed after writing, so Decision 5 cites the real tag
-  shapes (`<root>-hotfix.N` / `hotfix.bump: patch`) and Phase 3 tests the
-  cherry-picked ref reappearing in the next mainline range. All referenced
-  symbols verified present (`ticketsInRange`, `partitionStageMoves`,
-  `stageOrderWarning`, `readCommitRange`, `missingOps`, setup step 7).
-- 2026-10-22 — Re-scoped by `feat-github-provider` phase 5: the neutral
-  release seam was built there, GitHub-first. What remains here is the Linear
-  adapter for it (ereqs is the Linear user left); Decision 12's dogfood moved
-  to GitHub. Needs a `/spec-review` pass on the phase files before `/spec-start`.
+- 2026-10-21 — Phase 1 spike: `releaseSync` with explicit `issueReferences`
+  is idempotent per version, so it is the create-or-update call (Decision 4's
+  lookup stays for read-back and for `deployed`/`complete`). Linear drops
+  unresolvable refs silently, so attaches are read back. The initial stage must
+  be explicit. `linear-release` was not adopted; the reasons are in phase 1's
+  Notes. A personal key writes releases.
+- 2026-10-21 — Phase 2: the config lives under the existing `release` block as
+  `release.pipelines`, not a new top-level `releases`. One block now holds the
+  ladder, the bookkeeping filter and the pipelines. `envs` is an ordered array
+  (like the ladder) so a backwards move can warn. A new `initialEnv` key exists
+  because Linear otherwise lands a release on its first started stage.
+  `releases.keyEnv` was dropped: releases use the existing `auth.keyEnv`
+  personal key, which phase 1 proved can write them. Pipeline access keys
+  (`…ByAccessKey`) are deferred. The seam's ops are find/sync/stage/complete;
+  there is no separate attach.
+- 2026-10-21 — Phase 3: the initial-stage flag is `--env`, not `--stage`
+  (`--stage` already belongs to init-config's ladder). Added `--from` and a
+  shallow-clone refusal. A dropped ref warns and does not fail CI.
+- 2026-10-21 — Follow-up surfaced: monorepo series are not filtered by package
+  path, so a commit counts toward every pipeline whose tag range contains it.
+  Linear pipelines carry `includePathPatterns` for this. A per-pipeline `paths`
+  key is not in scope here.
+- 2026-10-22 — Phase 4: `deployed`/`complete` take a full tag or a bare
+  version. A bare version is ambiguous only when more than one pipeline is
+  declared, and that is decided from config alone, never by asking Linear
+  which series holds it, so a dry run stays offline. Both look the release up
+  first. A missing release refuses and names the `create` to run. An already
+  complete release is reported and nothing is re-sent, so `--link`/`--notes`
+  on a repeat are not applied (said aloud).
+- 2026-10-22 — Phase 5: the pipeline flags live on a new `release link`, not
+  on `init-config`. `init-config` refuses an existing config, and adopting
+  Releases after connecting is the case this spec exists for. `link` edits
+  `release.pipelines` alone, replaces an entry by prefix, and keeps the rest of
+  the config. Setup runs it in both the first-time and re-run paths.
+- 2026-10-22 — Phase 5: doctor does not check the key's release write scope.
+  Only a write proves it, and doctor writes nothing; the `releases` row says
+  so. Found live: a deleted pipeline still resolves by id, with `archivedAt`
+  set, so doctor and `link` check `archivedAt`, and "Entity not found" is the
+  other positive signal. The listing query is capped (`first: 50`, stages 25)
+  because `first: 100` is "Query too complex".
+- 2026-10-22 — Phase 6: added a pipeline setup walkthrough (`SETUP.md` §9,
+  `docs/linear.html#releases`). Linear's own docs do not describe stage
+  editing, so the walkthrough maps envs onto the four default stages
+  (`Planned`, `In Progress`, `Released`, `Canceled`) and treats renaming as
+  optional. It recommends turning off "Move open issues to the next release",
+  since the repo decides what a release contains.
+- 2026-10-29 — Cancelled: superseded by feat-tracker-boundary, which removes
+  the release verbs, the release seam and release config on every provider.
+  Phases 1–5 were built on `feat/tracker-releases` and never landed. The branch
+  is pushed to origin as the record (last commit 27af7482); phase 6 was
+  part-way. Phase 1's spike notes are kept here as a reference for any consumer
+  recipe that feeds Linear Releases from `released --json`.
+- 2026-10-29 — Follow-up surfaced: the branch's `api.js` change that keeps a
+  non-2xx GraphQL body (so an HTTP 400 names the field at fault) is not
+  release-specific; it is re-done on main as its own bug.
