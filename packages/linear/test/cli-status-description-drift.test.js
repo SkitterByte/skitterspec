@@ -110,9 +110,8 @@ test('it reports that it changed, never what it now says', async () => {
   assert.doesNotMatch(text, new RegExp(secret), 'the edited text stays on Linear')
 })
 
-test('it is its own line, not folded into the workflow-state drift', async () => {
-  // Two independent facts about one issue; welding them lets either hide the
-  // other.
+test('it is reported with no workflow-state line beside it', async () => {
+  // The description is content the repo owns; the state is not read at all.
   const dir = repo()
   const pushed = await pushedDescription(dir)
   recordSnapshot(dir, pushed)
@@ -123,7 +122,7 @@ test('it is its own line, not folded into the workflow-state drift', async () =>
   })
 
   const text = await status(dir, ['--remote', file])
-  assert.match(text, /drift: none — Linear workflow-state matches/, 'the state line still says its piece')
+  assert.doesNotMatch(text, /workflow-state/, 'skitterspec never reads the state back')
   assert.match(text, /description was edited/, 'and the description line says its own')
 })
 

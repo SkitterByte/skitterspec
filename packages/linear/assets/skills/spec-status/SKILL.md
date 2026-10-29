@@ -1,10 +1,10 @@
 ---
 name: spec-status
-description: Show a spec's one-way sync status against Linear — a read-only drift report naming what would push, and whether the tracker's workflow-state has drifted from the spec's. Changes nothing. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-status", "is this spec in sync with Linear", "what would push", or "show spec sync status".
+description: Show a spec's one-way sync status against Linear — a read-only report naming what would push, and whether someone edited the issue's description since the last push. Changes nothing. Opt-in — needs specs/.core/linear.config.json. Use when the user says "/spec-status", "is this spec in sync with Linear", "what would push", or "show spec sync status".
 disable-model-invocation: true
 ---
 
-# /spec-status — one-way sync drift report
+# /spec-status — one-way sync report
 
 > Stay silent while this runs — speak only to ask something you cannot answer
 > yourself, or to report a failure at the moment it happens. Read
@@ -15,16 +15,17 @@ Read-only. Reports two things and writes nothing:
 
 1. **Pending push** — has the spec changed since the last push (is there an issue
    description/state or any phase sub-issue to create or update)?
-2. **State drift** — does Linear's issue workflow-state differ from the spec's
-   status? (Push resends State only when the spec itself moves, so a card moved by
-   hand stays where it was put until then. This is a heads-up, not a pending
-   change.) A state skitterspec does not map is reported as
-   `state: … left alone`, never as drift, and a `states` alias reads as its
-   bucket.
+2. **Description edited** — did someone edit the issue's description on Linear
+   since the last push? The next push replaces it, so this is worth reading
+   first.
+
+**Status is not compared, deliberately.** Skitterspec tells Linear about its
+own transitions and never reads a status back: a card someone moved by hand is
+theirs to have moved, and push resends State only when the spec itself moves.
 
 The repo is the source of truth; Linear is a generated mirror, so there is no
-per-field "conflict" — only "what would the next push send" and "did the mirror
-drift".
+per-field "conflict" — only "what would the next push send" and "did someone
+write over the mirror's text".
 
 **Opt-in**: only runs when `specs/.core/linear.config.json` exists. If absent,
 tell the user how to enable Linear sync and stop.
@@ -33,18 +34,16 @@ tell the user how to enable Linear sync and stop.
 
 Use the argument, else the spec in context; ask if unclear.
 
-## 2. Fetch the Linear issue (optional, for drift)
+## 2. Fetch the Linear issue (optional, for the description check)
 
 If the spec has a `linear_identifier`, discover the Linear MCP read tool
-(`get_issue`) and write the issue JSON to a temp file. If Linear isn't connected,
-skip the drift lines (still report pending-push).
+(`get_issue`) and write the issue JSON to a temp file. If Linear isn't
+connected, skip the description check (still report pending-push).
 
-**Write the whole issue, including its `description`.** The engine reports two
-independent kinds of drift off that one file: the workflow-state someone moved,
-and the **description someone edited**. Write only the state fields and the
-second check has nothing to look at — and it says nothing rather than guessing,
-so the loss is silent. Keep `url` too: it is what the description line points
-the reader at.
+**Write the whole issue, including its `description`.** That is the field the
+check reads; without it the check has nothing to look at — and it says nothing
+rather than guessing, so the loss is silent. Keep `url` too: it is what the
+description line points the reader at.
 
 **The description itself never enters the conversation.** The engine hashes it
 and compares hashes; what it prints is *that* the text changed, plus where to
@@ -61,9 +60,9 @@ skitterspec spec-sync status <spec> [--remote <issuefile>] [--workspace-states <
 ```
 
 - Reports `push: pending — N to create, M to update` or `up to date`.
-- With `--remote`, adds a `drift:` line comparing Linear's issue workflow-state
-  to the spec's status. A state that maps to no bucket gets a `state:` line
-  instead — position, not drift.
+- With `--remote`, adds a `drift:` line when the issue's description was
+  edited on Linear since the last push, and nothing otherwise. It never
+  reports the issue's state.
 - With `--workspace-states`, fails loudly if a configured state name isn't in the
   workspace (Linear would silently no-op it).
 
@@ -96,18 +95,19 @@ the shape; this section carries only what is specific here.
 **Verdicts**
 
 - `✅` — in sync; nothing would push.
-- `⚠️` — drift: N objects would push, Linear's workflow state was moved by hand,
-  or the issue's **description** was edited on Linear since the last push. None is an
-  error, but all are the reason someone
-  ran this. **Say which**, since the three call for different things: a pending
-  push is routine, a moved state is usually someone else's automation, and an
-  edited description means a person wrote something that the next push replaces.
+- `⚠️` — N objects would push, or the issue's **description** was edited on
+  Linear since the last push. Neither is an error, but both are the reason
+  someone ran this. **Say which**, since they call for different things: a
+  pending push is routine, and an edited description means a person wrote
+  something that the next push replaces.
+  An `assignee` drift line is the third case: the assignee is a field the repo
+  owns, so the next push restores the spec's record.
 - `⏸` — no config, or the spec is not linked. Nothing to compare.
 
 **Fields:** `Tracker` · `Follow-ups` · `Next`
 
-`Tracker` is the drift in one line — what would push, and whether the tracker's
-state diverged. `Next` is `/spec-push` when a push is pending, and nothing to do
+`Tracker` is the answer in one line — what would push, and whether the
+description was edited. `Next` is `/spec-push` when a push is pending, and nothing to do
 when it is not.
 
 A **`phases: <mode>`** line names the phase mode that resolved for this spec's

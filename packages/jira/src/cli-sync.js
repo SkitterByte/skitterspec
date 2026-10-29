@@ -26,7 +26,6 @@ const {
   isEmptyPlan,
   validateStates,
   stateSuggestions,
-  remoteWorkflowState,
   remoteDescriptionEdited,
   writeFrontmatter,
   stampSubIssueId,
@@ -410,13 +409,9 @@ function specSyncStatus(dir, config, specArg, flags, out, err) {
       out.write(`${PROGRAM} status: cannot read --remote: ${error.message}\n`)
       return 1
     }
-    const bucket = remoteWorkflowState(remote, config)
-    const local = r.projection.status
-    if (bucket && local && bucket !== local) {
-      lines.push(`  drift: Jira says "${bucket}", the repo says "${local}" (repo wins on next push)`)
-    } else if (bucket) {
-      lines.push('  drift: none — Jira agrees with the repo')
-    }
+    // NO STATE LINE, deliberately: skitterspec tells the tracker about its own
+    // transitions and never reads a status back. A ticket someone moved there
+    // is theirs to have moved, and push resends State only when the spec does.
     // SILENT ON EVERYTHING EXCEPT A POSITIVE ANSWER: `remoteDescriptionEdited`
     // returns null for every cannot-tell, and none of those is evidence.
     if (remoteDescriptionEdited(readBase(dir, identifier, config), remote, config) === true) {

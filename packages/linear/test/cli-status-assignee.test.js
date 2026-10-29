@@ -123,11 +123,11 @@ test('a repo that says nothing DOES get an assignee line — the default owns it
   assert.match(r.out, /assignee/i, 'silence is not an opt-out any more')
 })
 
-test('the workflow-state drift line is untouched by any of this', async () => {
+test('STAYS SILENT: a moved workflow state adds no line beside the assignee', async () => {
   const dir = fixtureRepo({ assignee: 'user-1' })
   const remote = remoteFile(dir, { state: 'Backlog', assignee: { id: 'user-1', name: 'Jane Dev' } })
   const r = await run(['status', 'feat-owned', '--remote', remote], dir)
-  assert.match(r.out, /drift: Linear workflow-state is "backlog" but the spec is "in-progress"/)
+  assert.doesNotMatch(r.out, /workflow-state/)
 })
 
 test('a repo that DECLINED the field sees no trace of it either', async () => {

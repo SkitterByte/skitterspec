@@ -39,7 +39,6 @@ const {
   projectionOf,
   planChanges,
   isEmptyPlan,
-  remoteStateReading,
   stateNamesFor,
   validateStates,
   stateSuggestions,
@@ -461,19 +460,9 @@ function specSyncStatus(dir, config, specArg, flags, out) {
 
   if (flags.remote && fs.existsSync(flags.remote)) {
     const remote = JSON.parse(fs.readFileSync(flags.remote, 'utf-8'))
-    const seen = remoteStateReading(remote, config)
-    const lState = projection.status
-    // A state that maps to no bucket at all ("Blocked") is position, not
-    // disagreement. And no state line says "repo wins on next push": push
-    // resends State only when the spec's own state changes (see compare.js
-    // `issueChanges`), so a moved issue stays put until then.
-    if (seen && !seen.mapped) {
-      lines.push(`  state: Linear has it in "${seen.name}", a state skitterspec does not map — left alone`)
-    } else if (seen && lState && seen.bucket !== lState) {
-      lines.push(`  drift: Linear workflow-state is "${seen.bucket}" but the spec is "${lState}" (push resends State only when the spec moves)`)
-    } else {
-      lines.push('  drift: none — Linear workflow-state matches the spec')
-    }
+    // NO STATE LINE, deliberately: skitterspec tells the tracker about its own
+    // transitions and never reads a status back. A ticket someone moved there
+    // is theirs to have moved, and push resends State only when the spec does.
     lines.push(...assigneeLines(remote, projection, plan))
     lines.push(...descriptionDriftLines(remote, snapshot, identifier, config))
   }

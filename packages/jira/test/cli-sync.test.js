@@ -263,14 +263,18 @@ test('stamp writes identifier, derived url and subtask stamps', async () => {
 
 // --- status / verify --------------------------------------------------------
 
-test('status reports drift only on a positive answer', async () => {
+test('STAYS SILENT: an issue moved on Jira says nothing about its state', async () => {
+  // skitterspec tells the tracker about its own transitions and never reads a
+  // status back — in the flat shape or the raw REST one.
   const dir = repoWithSpec({ identifier: 'PROJ-7' })
   await run(['record', 'feat-demo'], dir)
   const remote = path.join(dir, 'remote.json')
-  fs.writeFileSync(remote, JSON.stringify({ state: { name: 'Done' }, description: 'whatever' }))
-  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
-  assert.strictEqual(r.code, 0)
-  assert.match(r.out, /drift: Jira says "complete", the repo says "in-progress"/)
+  for (const shape of [{ state: { name: 'Done' } }, { key: 'PROJ-7', fields: { status: { name: 'Done' } } }]) {
+    fs.writeFileSync(remote, JSON.stringify(shape))
+    const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+    assert.strictEqual(r.code, 0)
+    assert.doesNotMatch(r.out, /Jira says|agrees with the repo/)
+  }
 })
 
 // --remote is documented as "fetch the issue JSON", which is the raw REST
@@ -278,16 +282,6 @@ test('status reports drift only on a positive answer', async () => {
 // readers expect the flat shape, so without the provider hooks every check
 // below routes to its silent cannot-tell branch and step 8 of the smoke
 // checklist can never report anything.
-
-test('status --remote reads the status drift off a raw Jira issue', async () => {
-  const dir = repoWithSpec({ identifier: 'PROJ-7' })
-  await run(['record', 'feat-demo'], dir)
-  const remote = path.join(dir, 'remote.json')
-  fs.writeFileSync(remote, JSON.stringify({ key: 'PROJ-7', fields: { status: { name: 'Done' } } }))
-  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
-  assert.strictEqual(r.code, 0)
-  assert.match(r.out, /drift: Jira says "complete", the repo says "in-progress"/)
-})
 
 test('status --remote reports a raw Jira description edited since the push', async () => {
   const dir = repoWithSpec({ identifier: 'PROJ-7' })
@@ -303,7 +297,6 @@ test('status --remote reports a raw Jira description edited since the push', asy
   const r = await run(['status', 'feat-demo', '--remote', remote], dir)
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /description was edited on Jira/)
-  assert.match(r.out, /drift: none — Jira agrees with the repo/)
 })
 
 test('status --remote stays silent on the description the repo itself pushed', async () => {
@@ -323,7 +316,6 @@ test('status --remote stays silent on the description the repo itself pushed', a
   const r = await run(['status', 'feat-demo', '--remote', remote], dir)
   assert.strictEqual(r.code, 0)
   assert.doesNotMatch(r.out, /description was edited/)
-  assert.match(r.out, /drift: none — Jira agrees with the repo/)
 })
 
 test('status --remote says nothing about fields the payload never carried', async () => {
@@ -631,7 +623,6 @@ test('doctor says nothing about committing outside a git repo', async () => {
     'no git is a cannot-tell, not an accusation',
   )
 })
-
 
 // --- the bucket map ----------------------------------------------------------
 // "How is skitterspec wired to what this project actually has?" gets one

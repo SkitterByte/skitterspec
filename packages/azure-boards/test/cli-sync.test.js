@@ -272,46 +272,24 @@ test('stamp writes identifier, derived url and child stamps — bare numbers nor
 
 // --- status / verify --------------------------------------------------------
 
-test('status reports drift only on a positive answer', async () => {
+test('STAYS SILENT: a ticket moved on Azure says nothing about its state', async () => {
+  // skitterspec tells the tracker about its own transitions and never reads a
+  // status back, so a ticket someone moved is not a finding.
   const dir = repoWithSpec({ identifier: 'AB#7' })
   await run(['record', 'feat-demo'], dir)
-  const remote = path.join(dir, 'remote.json')
-  fs.writeFileSync(remote, JSON.stringify({ state: { name: 'Done' }, description: 'whatever' }))
-  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
-  assert.strictEqual(r.code, 0)
-  assert.match(r.out, /drift: Azure says "complete", the repo says "in-progress"/)
-  // Push resends State only when the spec's own state changes, so promising the
-  // repo wins on the next push is a promise the engine does not keep.
-  const stateLine = r.out.split('\n').find((l) => /drift: Azure says/.test(l))
-  assert.doesNotMatch(stateLine, /repo wins on next push/)
-  assert.match(stateLine, /push resends State only when the spec moves/)
-})
-
-test('status reports a state skitterspec does not map as position, not drift', async () => {
-  const dir = repoWithSpec({ identifier: 'AB#7' })
-  await run(['record', 'feat-demo'], dir)
-  const remote = path.join(dir, 'remote.json')
-  fs.writeFileSync(remote, JSON.stringify({ id: 7, fields: { 'System.State': 'Blocked' } }))
-  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
-  assert.strictEqual(r.code, 0)
-  assert.match(r.out, /state: Azure has it in "Blocked", a state skitterspec does not map — left alone/)
-  assert.doesNotMatch(r.out, /drift: Azure says/, 'an unmapped state is not a disagreement')
+  for (const state of ['Done', 'Blocked']) {
+    const remote = path.join(dir, 'remote.json')
+    fs.writeFileSync(remote, JSON.stringify({ id: 7, fields: { 'System.State': state } }))
+    const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+    assert.strictEqual(r.code, 0)
+    assert.doesNotMatch(r.out, /Azure says|Azure has it in|agrees with the repo/, state)
+  }
 })
 
 // --remote is documented as "fetch the work item JSON", which is the raw REST
 // shape: everything under `fields`. The default readers expect the flat shape,
 // so without the provider hooks every check below routes to its silent
 // cannot-tell branch.
-
-test('status --remote reads the state drift off a raw work item', async () => {
-  const dir = repoWithSpec({ identifier: 'AB#7' })
-  await run(['record', 'feat-demo'], dir)
-  const remote = path.join(dir, 'remote.json')
-  fs.writeFileSync(remote, JSON.stringify({ id: 7, fields: { 'System.State': 'Done' } }))
-  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
-  assert.strictEqual(r.code, 0)
-  assert.match(r.out, /drift: Azure says "complete", the repo says "in-progress"/)
-})
 
 test('status --remote reports a raw description edited since the push', async () => {
   const dir = repoWithSpec({ identifier: 'AB#7' })
@@ -328,7 +306,6 @@ test('status --remote reports a raw description edited since the push', async ()
   const r = await run(['status', 'feat-demo', '--remote', remote], dir)
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /description was edited on Azure Boards/)
-  assert.match(r.out, /drift: none — Azure agrees with the repo/)
 })
 
 test('status --remote stays silent on the description the repo itself pushed', async () => {
@@ -352,7 +329,6 @@ test('status --remote stays silent on the description the repo itself pushed', a
   const r = await run(['status', 'feat-demo', '--remote', remote], dir)
   assert.strictEqual(r.code, 0)
   assert.doesNotMatch(r.out, /description was edited/)
-  assert.match(r.out, /drift: none — Azure agrees with the repo/)
 })
 
 test('status --remote says nothing about fields the payload never carried', async () => {
@@ -1030,17 +1006,6 @@ test('an aliased states entry loads its first name as the written state', () => 
   const { config } = require('../src/config.js').loadAzureConfig(dir)
   assert.strictEqual(config.states['in-progress'], 'Doing')
   assert.deepStrictEqual(config.stateAliases['in-progress'], ['Blocked'])
-})
-
-test('status reads an aliased state as its bucket — no drift, no unmapped line', async () => {
-  const dir = repoWithSpec({ identifier: 'AB#7', config: ALIASED })
-  await run(['record', 'feat-demo'], dir)
-  const remote = path.join(dir, 'remote.json')
-  fs.writeFileSync(remote, JSON.stringify({ id: 7, fields: { 'System.State': 'Blocked' } }))
-  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
-  assert.strictEqual(r.code, 0)
-  assert.match(r.out, /drift: none — Azure agrees with the repo/)
-  assert.doesNotMatch(r.out, /does not map/)
 })
 
 test('the live list hides a state aliased to complete', async () => {

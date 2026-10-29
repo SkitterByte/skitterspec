@@ -27,7 +27,6 @@ const {
   isEmptyPlan,
   validateStates,
   stateSuggestions,
-  remoteStateReading,
   stateNamesFor,
   remoteDescriptionEdited,
   writeFrontmatter,
@@ -556,17 +555,9 @@ function specSyncStatus(dir, config, specArg, flags, out, err) {
       out.write(`${PROGRAM} status: cannot read --remote: ${error.message}\n`)
       return 1
     }
-    // NEVER "repo wins on next push": push resends State only when the spec's
-    // own state changes, so a moved item stays where it was put until then.
-    const seen = remoteStateReading(remote, config)
-    const local = r.projection.status
-    if (seen && !seen.mapped) {
-      lines.push(`  state: the board has it in "${seen.name}", a state skitterspec does not map — left alone`)
-    } else if (seen && local && seen.bucket !== local) {
-      lines.push(`  drift: the board says "${seen.bucket}", the repo says "${local}" (push resends State only when the spec moves)`)
-    } else if (seen) {
-      lines.push('  drift: none — the board agrees with the repo')
-    }
+    // NO STATE LINE, deliberately: skitterspec tells the tracker about its own
+    // transitions and never reads a status back. A ticket someone moved there
+    // is theirs to have moved, and push resends State only when the spec does.
     // SILENT ON EVERYTHING EXCEPT A POSITIVE ANSWER: `remoteDescriptionEdited`
     // returns null for every cannot-tell, and none of those is evidence.
     if (remoteDescriptionEdited(readBase(dir, identifier, config), remote, config) === true) {

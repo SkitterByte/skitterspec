@@ -626,26 +626,18 @@ test('a settle that fails after a create names the created issue', async () => {
 
 // --- status: state drift ----------------------------------------------------
 
-test('status reports a Status option skitterspec does not map as position, not drift', async () => {
+test('STAYS SILENT: an issue moved on the board says nothing about its state', async () => {
+  // skitterspec tells the tracker about its own transitions and never reads a
+  // status back, so neither a mapped nor an unmapped Status is a finding.
   const dir = repoWithSpec({ identifier: '#7' })
   await run(['record', 'feat-demo'], dir)
   const remote = path.join(dir, 'remote.json')
-  fs.writeFileSync(remote, JSON.stringify({ state: { name: 'Blocked' } }))
-  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
-  assert.strictEqual(r.code, 0)
-  assert.match(r.out, /state: the board has it in "Blocked", a state skitterspec does not map — left alone/)
-  assert.doesNotMatch(r.out, /drift: the board says/)
-})
-
-test('status reports a mapped disagreement without promising a resend', async () => {
-  const dir = repoWithSpec({ identifier: '#7' })
-  await run(['record', 'feat-demo'], dir)
-  const remote = path.join(dir, 'remote.json')
-  fs.writeFileSync(remote, JSON.stringify({ state: { name: 'Done' } }))
-  const r = await run(['status', 'feat-demo', '--remote', remote], dir)
-  assert.match(r.out, /drift: the board says "complete", the repo says "in-progress"/)
-  assert.doesNotMatch(r.out, /repo wins on next push/)
-  assert.match(r.out, /push resends State only when the spec moves/)
+  for (const name of ['Done', 'Blocked']) {
+    fs.writeFileSync(remote, JSON.stringify({ state: { name } }))
+    const r = await run(['status', 'feat-demo', '--remote', remote], dir)
+    assert.strictEqual(r.code, 0)
+    assert.doesNotMatch(r.out, /the board says|the board has it in|agrees with the repo/, name)
+  }
 })
 
 test('the live list hides an open item whose Status is a complete alias', async () => {

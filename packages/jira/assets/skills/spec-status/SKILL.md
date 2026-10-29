@@ -1,10 +1,10 @@
 ---
 name: spec-status
-description: Show a spec's one-way sync status against Jira — a read-only drift report naming what would push, and whether the tracker's status has drifted from the spec's. Changes nothing. Opt-in — needs specs/.core/jira.config.json. Use when the user says "/spec-status", "is this spec in sync with Jira", "what would push", or "show spec sync status".
+description: Show a spec's one-way sync status against Jira — a read-only report naming what would push, and whether someone edited the issue's description since the last push. Changes nothing. Opt-in — needs specs/.core/jira.config.json. Use when the user says "/spec-status", "is this spec in sync with Jira", "what would push", or "show spec sync status".
 disable-model-invocation: true
 ---
 
-# /spec-status — one-way sync drift report
+# /spec-status — one-way sync report
 
 > Stay silent while this runs — speak only to ask something you cannot answer
 > yourself, or to report a failure at the moment it happens. Read
@@ -15,14 +15,17 @@ Read-only. Reports two things and writes nothing:
 
 1. **Pending push** — has the spec changed since the last push (is there an issue
    description/state or any phase subtask to create or update)?
-2. **State drift** — does Jira's issue status differ from the spec's status?
-   (Push resends State only when the spec itself moves, so a card moved by
-   hand stays where it was put until then. This is a heads-up, not a pending
-   change.)
+2. **Description edited** — did someone edit the issue's description on Jira
+   since the last push? The next push replaces it, so this is worth reading
+   first.
+
+**Status is not compared, deliberately.** Skitterspec tells Jira about its
+own transitions and never reads a status back: a card someone moved by hand is
+theirs to have moved, and push resends State only when the spec itself moves.
 
 The repo is the source of truth; Jira is a generated mirror, so there is no
-per-field "conflict" — only "what would the next push send" and "did the mirror
-drift".
+per-field "conflict" — only "what would the next push send" and "did someone
+write over the mirror's text".
 
 **Opt-in**: only runs when `specs/.core/jira.config.json` exists. If absent,
 tell the user how to enable Jira sync and stop.
@@ -31,18 +34,16 @@ tell the user how to enable Jira sync and stop.
 
 Use the argument, else the spec in context; ask if unclear.
 
-## 2. Fetch the Jira issue (optional, for drift)
+## 2. Fetch the Jira issue (optional, for the description check)
 
 If the spec has a `jira_identifier`, discover the Jira MCP read tool
 (`getJiraIssue`) and write the issue JSON to a temp file. If Jira isn't
-connected, skip the drift lines (still report pending-push).
+connected, skip the description check (still report pending-push).
 
-**Write the whole issue, including its `description`.** The engine reports two
-independent kinds of drift off that one file: the status someone moved, and the
-**description someone edited**. Write only the status fields and the second
-check has nothing to look at — and it says nothing rather than guessing, so the
-loss is silent. Keep `url` too: it is what the description line points the
-reader at.
+**Write the whole issue, including its `description`.** That is the field the
+check reads; without it the check has nothing to look at — and it says nothing
+rather than guessing, so the loss is silent. Keep `url` too: it is what the
+description line points the reader at.
 
 **The description itself never enters the conversation.** The engine hashes it
 and compares hashes; what it prints is *that* the text changed, plus where to
@@ -59,8 +60,9 @@ skitterspec spec-sync status <spec> [--remote <issuefile>] [--workspace-states <
 ```
 
 - Reports `push: pending — N to create, M to update` or `up to date`.
-- With `--remote`, adds a `drift:` line comparing Jira's issue status to the
-  spec's status.
+- With `--remote`, adds a `drift:` line when the issue's description was
+  edited on Jira since the last push, and nothing otherwise. It never
+  reports the issue's state.
 - With `--workspace-states`, fails loudly if a configured status name isn't in
   the project (no workflow transition could ever reach it, so the push would
   refuse at apply time).
@@ -89,18 +91,17 @@ the shape; this section carries only what is specific here.
 **Verdicts**
 
 - `✅` — in sync; nothing would push.
-- `⚠️` — drift: N objects would push, Jira's status was moved by hand, or the
-  issue's **description** was edited on Jira since the last push. None is an
-  error, but all are the reason someone ran
-  this. **Say which**, since the three call for different things: a pending push
-  is routine, a moved status is usually someone else's automation, and an edited
-  description means a person wrote something that the next push replaces.
+- `⚠️` — N objects would push, or the issue's **description** was edited on
+  Jira since the last push. Neither is an error, but both are the reason
+  someone ran this. **Say which**, since they call for different things: a
+  pending push is routine, and an edited description means a person wrote
+  something that the next push replaces.
 - `⏸` — no config, or the spec is not linked. Nothing to compare.
 
 **Fields:** `Tracker` · `Follow-ups` · `Next`
 
-`Tracker` is the drift in one line — what would push, and whether the tracker's
-status diverged. `Next` is `/spec-push` when a push is pending, and nothing to
+`Tracker` is the answer in one line — what would push, and whether the
+description was edited. `Next` is `/spec-push` when a push is pending, and nothing to
 do when it is not.
 
 A **`phases: <mode>`** line names the phase mode that resolved for this spec's
