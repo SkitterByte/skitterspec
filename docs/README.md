@@ -1,10 +1,11 @@
 # docs/
 
 Marketing + docs site for **skitterspec** and the **skitterspec-linear**,
-**skitterspec-jira** and **skitterspec-github** supersets.
+**skitterspec-jira**, **skitterspec-github** and **skitterspec-azure-boards**
+supersets.
 
-Four pages, each self-contained — no build step, no dependencies, all CSS/JS and
-the favicon inlined:
+Seven pages, each self-contained — no build step, no dependencies, all CSS/JS
+and the favicon inlined:
 
 | Page | Owns |
 |------|------|
@@ -14,6 +15,7 @@ the favicon inlined:
 | `linear.html` | The **Linear superset**, end to end: a new team, `/spec-linear-setup`, the API key, checking with `spec-sync doctor`, and repairing a renamed team with `spec-sync retarget`. |
 | `github.html` | The **GitHub superset**, end to end: the Projects v2 board that carries workflow state, the classic token, `/spec-github-setup`, `spec-sync doctor`, and CI-driven GitHub Releases. |
 | `jira.html` | The **Jira Cloud superset**, end to end: `/spec-jira-setup`, the email + API-token pair, statuses moved by workflow transition, and checking with `spec-sync doctor`. |
+| `azure-boards.html` | The **Azure Boards superset**, end to end: `/spec-azure-boards-setup`, the PAT, and checking with `spec-sync doctor`. |
 
 The pages share one nav (Home · Review · Reference · Linear). Two sibling assets support link previews: `og.png` (the 1200×630 social
 card, referenced by absolute URL because scrapers require a real raster image)
@@ -77,3 +79,20 @@ used to read "verified against v13 / v6" long after both had moved on.
 Two things the tests cannot check, so check them yourself when editing: that the
 prose is still true, and that the pasted command output still matches what the
 command prints.
+
+**When to re-check is answered by git, via each page's coverage block.** Every
+page opens with a `<!-- coverage -->` comment: `covers`, the repo-relative globs
+of the code the page describes, and `verified`, the commit someone last read the
+page against. `node scripts/docs-freshness.js stale` (run as part of
+`scripts/release.js`) lists pages whose covered code has commits since their
+`verified`; `impact [base]` lists pages a branch changed out from under. Both
+are advisory and always exit 0 — a hit means *re-read this page*, not *this page
+is wrong*. After re-reading, fix whatever moved and bump that page's `verified:`
+to the current HEAD.
+
+This does not reopen the no-version-notes rule above. That rejected a
+**displayed** claim, which rots visibly and helplessly; `verified` is
+machine-read input to the stale report, and its aging is precisely what makes
+the report fire. The one blocking check lives in `scripts/docs-freshness.test.js`:
+a `covers` glob matching no tracked file fails the build, because a dead glob
+would silence both reports for that page for good.

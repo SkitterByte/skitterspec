@@ -286,3 +286,64 @@ test('every subcommand exits 0, hit or miss or cannot-tell', () => {
 
   assert.match(runCli(root), /usage/)
 })
+
+// --- the validator: the real pages, and the one blocking check ------------------
+//
+// Everything above tests the machinery on fixtures. This section is the
+// BUILD-FAILING half of the feature, run against the repo's real docs pages:
+// a malformed block or a dead covers glob fails `node --test`, because a glob
+// matching no file silences `impact` and `stale` for that page for good —
+// code renamed out from under a page would otherwise go quiet instead of loud.
+
+const ROOT = path.join(__dirname, '..')
+const { listPages } = require('./docs-freshness.js')
+
+function trackedFiles() {
+  return execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })
+    .split('\n')
+    .filter(Boolean)
+}
+
+test('every docs page carries a well-formed coverage block', () => {
+  const pages = listPages(ROOT)
+  // Guards the blind spot of a scan over an empty set: a wrong DOCS_DIR would
+  // make every assertion below vacuously green.
+  assert.ok(pages.length >= 7, `expected the real docs pages, found ${pages.length}`)
+  const broken = pages.filter((p) => p.error).map((p) => `${p.name}: ${p.error}`)
+  assert.deepStrictEqual(broken, [], 'add a <!-- coverage --> block — see docs/README.md')
+  for (const p of pages) {
+    assert.match(
+      p.verified,
+      /^[0-9a-f]{7,40}$/,
+      `${p.name}: verified '${p.verified}' is not a commit SHA`,
+    )
+  }
+})
+
+test('every covers glob matches at least one tracked file', () => {
+  // THE ONE CHECK IN THIS FEATURE THAT BLOCKS. It asserts against the git
+  // index, not the working tree, so an untracked scratch file cannot keep a
+  // dying glob alive. WHAT WOULD FOOL IT: a glob that matches only files the
+  // page does not actually describe — aliveness is checkable, relevance is a
+  // review question.
+  const tracked = trackedFiles()
+  const dead = []
+  for (const p of listPages(ROOT)) {
+    for (const g of p.covers || []) {
+      if (!tracked.some((f) => matchesAny(f, [g]))) dead.push(`${p.name}: ${g}`)
+    }
+  }
+  assert.deepStrictEqual(
+    dead,
+    [],
+    'these covers match no tracked file — the code moved, so fix the glob and re-read the page:\n  ' +
+      dead.join('\n  '),
+  )
+})
+
+test('the dead-glob check can fire — it is not vacuously green', () => {
+  // The positive half: a glob naming nothing real must not slip through the
+  // matcher's own semantics.
+  const tracked = trackedFiles()
+  assert.ok(!tracked.some((f) => matchesAny(f, ['packages/no-such-package/**'])))
+})
