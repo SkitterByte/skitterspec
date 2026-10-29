@@ -125,7 +125,8 @@ const { applySpecPlan } = require('@skitterbyte/skitterspec-provider-kit/src/app
 // (`src/specs.js`), keyed by this provider's `config.fields`. `linkedIdentifier`
 // keeps a config-free arity below for its many local callers.
 const specHelpers = require('@skitterbyte/skitterspec-provider-kit/src/specs.js').makeSpecHelpers({ program: 'spec-sync' })
-const { resolveSnapshotDir, specIdentifier, listSpecs, resolveOrExit, warningLines, warnToErr } = specHelpers
+const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, resolveOrExit, warningLines, warnToErr } = specHelpers
+const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
 
 // The stamp key is fixed for this provider, so the config-free arity survives
 // for the call sites that predate the kit.
@@ -2074,7 +2075,7 @@ async function specSyncList(dir, config, flags, out) {
       : flags.all === true
         ? null
         : flags.stateArgs.length
-          ? flags.stateArgs
+          ? expandStateArgs(flags.stateArgs, config)
           : [...stateNamesFor('backlog', config), ...stateNamesFor('in-progress', config)]
 
   let stateIds = null
@@ -2192,7 +2193,9 @@ async function specSyncList(dir, config, flags, out) {
   // is what every existing caller already reads.
   const ordered = next === null ? issues : issues.slice().sort(backlogOrder)
 
-  const localSpecs = listSpecs(dir, config)
+  // Each spec's bucket from where it actually lives — its own worktree when it
+  // has one — since on the base branch an in-flight spec still reads backlog.
+  const localSpecs = listSpecsLive(dir, config)
   const byIdentifier = new Map(
     localSpecs
       .filter((s) => s.identifier)
@@ -2233,6 +2236,7 @@ async function specSyncList(dir, config, flags, out) {
       // close, so hiding it would defeat the command.
       spec: local ? local.spec : null,
       bucket: local ? local.bucket : null,
+      disagrees: specColumn((issue.state && issue.state.name) || null, local, config).disagrees,
       assignee: (issue.assignee && issue.assignee.name) || null,
       // Filled in below for in-progress rows only; `null` on every row that was
       // never looked up, so the shape does not vary by state.
@@ -2368,7 +2372,9 @@ async function specSyncList(dir, config, flags, out) {
   } else {
     const idW = Math.max(...shown.map((r) => r.identifier.length))
     const stW = Math.max(...shown.map((r) => r.state.length))
-    const pad = ' '.repeat(idW + stW + 4)
+    const cell = (r) => specCell({ specStatus: r.bucket, disagrees: r.disagrees })
+    const bkW = Math.max(...shown.map((r) => cell(r).length))
+    const pad = ' '.repeat(idW + stW + bkW + 6)
     const specW = Math.max(...shown.map((r) => (r.spec || UNLINKED).length))
     for (const row of shown) {
       // Who holds it, and where the work is — the two things the repo could not
@@ -2377,7 +2383,7 @@ async function specSyncList(dir, config, flags, out) {
       // nothing but width.
       const held = [row.assignee, phaseLabel(row.phase)].filter(Boolean).join(' · ')
       lines.push(
-        `  ${row.identifier.padEnd(idW)}  ${row.state.padEnd(stW)}  ` +
+        `  ${row.identifier.padEnd(idW)}  ${row.state.padEnd(stW)}  ${cell(row).padEnd(bkW)}  ` +
           (held ? `${(row.spec || UNLINKED).padEnd(specW)}  ${held}` : row.spec || UNLINKED),
       )
       if (row.title) lines.push(`  ${pad}${row.title}`)

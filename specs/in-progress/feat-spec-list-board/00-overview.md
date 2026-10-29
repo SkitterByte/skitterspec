@@ -108,7 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Read-side state aliases | ✅ | [01-state-aliases.md](01-state-aliases.md) |
 | 2 | Assignee, `--mine`, `--by` on Azure and GitHub | ✅ | [02-assignee-filters.md](02-assignee-filters.md) |
-| 3 | `--next`, `--state <bucket>`, spec-status column | ⬜ | [03-next-and-spec-column.md](03-next-and-spec-column.md) |
+| 3 | `--next`, `--state <bucket>`, spec-status column | ✅ | [03-next-and-spec-column.md](03-next-and-spec-column.md) |
 
 ## Open questions
 
@@ -135,3 +135,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   inline copy, unchanged. On GitHub a `--mine` / `--by` listing drops the spec
   label, so unspec'd issues are included, but only issues on the board
   (`listBoardItems`) are listed.
+- 2026-10-29 — Phase 3:
+  - Added `azure.backlogOrderField` (default StackRank; Scrum uses
+    BacklogPriority), so `--next` ranks by the process's own field.
+  - GitHub `--next` reads board position through a new `listBoardOrder` op
+    (ProjectV2 items ordered by POSITION).
+  - `listSpecsLive` compares real paths, because git reports worktrees
+    through symlinks.
+  - A spec found only in some other spec's worktree is listed with
+    `source: other-tree`.
+  - Jira's `/spec-list` is unchanged: no listing engine there.

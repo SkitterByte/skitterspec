@@ -1148,8 +1148,8 @@ test('list shows the assignee and marks a ticket with no spec', async () => {
   const dir = repoWithSpec({ identifier: 'AB#7' })
   const r = await run(['list'], dir, { adapter: listAdapter() })
   assert.strictEqual(r.code, 0)
-  assert.match(r.out, /AB#7\tDoing\tReuben Greaves\tSpecced  -> feat-demo/)
-  assert.match(r.out, /AB#9\tTo Do\tunassigned\tRaw intake  \(no spec\)/)
+  assert.match(r.out, /AB#7\tDoing\tin-progress\tReuben Greaves\tSpecced  -> feat-demo/)
+  assert.match(r.out, /AB#9\tTo Do\t—\tunassigned\tRaw intake  \(no spec\)/)
 })
 
 test('list --mine filters the query to who you are', async () => {
@@ -1181,4 +1181,53 @@ test('list --by resolves a name through the identity search', async () => {
   const r = await run(['list', '--by', 'priya'], dir, { adapter })
   assert.strictEqual(r.code, 0)
   assert.strictEqual(adapter.searchCalls[0].assignedTo, 'p@x.io')
+})
+
+// --- list: --next, --state <bucket>, spec column ----------------------------
+
+test('list --next asks for the backlog, ranked, capped', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7', config: { states: { backlog: ['To Do', 'Next Sprint'] } } })
+  const adapter = listAdapter()
+  const r = await run(['list', '--next', '3'], dir, { adapter })
+  assert.strictEqual(r.code, 0)
+  const q = adapter.searchCalls[0]
+  assert.deepStrictEqual(q.states, ['To Do', 'Next Sprint'])
+  assert.strictEqual(q.orderBy, 'Microsoft.VSTS.Common.StackRank')
+  assert.strictEqual(q.limit, 3)
+  assert.match(r.out, /next 3 by Microsoft\.VSTS\.Common\.StackRank/)
+})
+
+test('list --next with --state refuses before any call', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const adapter = listAdapter()
+  const r = await run(['list', '--next', '3', '--state', 'Doing'], dir, { adapter })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /--next and --state each pick the scope/)
+  assert.strictEqual(adapter.searchCalls.length, 0)
+})
+
+test('list --state <bucket> matches every alias of it', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7', config: { states: { 'in-progress': ['Doing', 'Blocked'] } } })
+  const adapter = listAdapter()
+  adapter.searchIssues = async () => [
+    { identifier: 'AB#7', title: 'A', state: { name: 'Doing' } },
+    { identifier: 'AB#8', title: 'B', state: { name: 'Blocked' } },
+    { identifier: 'AB#9', title: 'C', state: { name: 'To Do' } },
+  ]
+  const r = await run(['list', '--state', 'in-progress'], dir, { adapter })
+  assert.match(r.out, /AB#7/)
+  assert.match(r.out, /AB#8/)
+  assert.doesNotMatch(r.out, /AB#9/)
+})
+
+test('list marks a row whose board state disagrees with its spec', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const adapter = listAdapter()
+  adapter.searchIssues = async () => [{ identifier: 'AB#7', title: 'A', state: { name: 'To Do' } }]
+  const r = await run(['list', '--json'], dir, { adapter })
+  const [row] = JSON.parse(r.out)
+  assert.strictEqual(row.specStatus, 'in-progress')
+  assert.strictEqual(row.disagrees, true)
+  const text = await run(['list'], dir, { adapter })
+  assert.match(text.out, /AB#7\tTo Do\t≠ in-progress\t/)
 })

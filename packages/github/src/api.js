@@ -173,6 +173,20 @@ query($q: String!, $status: String!, $after: String) {
   }
 }`
 
+// The board's items in its own order — what a person drags on the board.
+// Only the position is wanted here; state and title come from `listBoardItems`.
+const BOARD_ORDER = `
+query($id: ID!, $after: String) {
+  node(id: $id) {
+    ... on ProjectV2 {
+      items(first: 100, after: $after, orderBy: { field: POSITION, direction: ASC }) {
+        pageInfo { hasNextPage endCursor }
+        nodes { content { ... on Issue { number repository { nameWithOwner } } } }
+      }
+    }
+  }
+}`
+
 const ADD_ITEM = `
 mutation($project: ID!, $content: ID!) {
   addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
@@ -572,6 +586,29 @@ function makeApiAdapter({
         after = res.pageInfo.endCursor
       }
       return out.sort((a, b) => Number(a.id) - Number(b.id))
+    },
+
+    /**
+     * This repo's issue numbers in board order (`list --next`). Pages like
+     * `listBoardItems`, under the same cap.
+     */
+    async listBoardOrder() {
+      const board = await resolveBoard()
+      const order = []
+      let after = null
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const data = await graphql(BOARD_ORDER, { id: board.id, after })
+        const items = (data.node && data.node.items) || { nodes: [], pageInfo: {} }
+        for (const n of items.nodes || []) {
+          const c = n && n.content
+          if (!c || c.number == null) continue
+          if (!c.repository || !sameLogin(c.repository.nameWithOwner, `${owner}/${repo}`)) continue
+          order.push(String(c.number))
+        }
+        if (!items.pageInfo || !items.pageInfo.hasNextPage) break
+        after = items.pageInfo.endCursor
+      }
+      return order
     },
 
     /**

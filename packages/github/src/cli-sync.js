@@ -64,12 +64,13 @@ const { APPLY_OVER_MCP } = require('./mcp.js')
 const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/src/list-assignee.js')
+const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
 const { makeReleaseCommands } = require('@skitterbyte/skitterspec-provider-kit/src/releases.js')
 
 const PROGRAM = 'spec-sync'
 const BIN = 'skitterspec-github'
 const specHelpers = kit.makeSpecHelpers({ program: PROGRAM })
-const { resolveSnapshotDir, specIdentifier, listSpecs, resolveOrExit, warnToErr, verifyLines } = specHelpers
+const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, resolveOrExit, warnToErr, verifyLines } = specHelpers
 
 // An issue reference as typed: `#123` or `123`. Stamped as `#123`.
 const ID_RE = /^#?\d+$/
@@ -698,6 +699,14 @@ async function specSyncStates(dir, config, flags, out) {
 }
 
 async function specSyncList(dir, config, flags, out) {
+  // `--next N` is the top of the backlog in BOARD order, so it fixes the scope
+  // itself; with --state or --all one would have to lose, silently.
+  const next = Number.isFinite(flags.next) && flags.next > 0 ? flags.next : null
+  const scopeFlags = [next !== null && '--next', flags.all === true && '--all', (flags.stateArgs || []).length > 0 && '--state'].filter(Boolean)
+  if (scopeFlags.length > 1) {
+    out.write(`${PROGRAM} list: ${scopeFlags.join(' and ')} each pick the scope, so they cannot be combined\n`)
+    return 1
+  }
   const cred = apiAdapterFor(config, flags)
   const transport = kit.resolveTransport(flags, config, cred.ok)
   if (transport === 'mcp' || !cred.ok) {
@@ -734,7 +743,7 @@ async function specSyncList(dir, config, flags, out) {
     issues = await cred.adapter.listBoardItems(
       assignee ? { assignee: assignee.id } : { label: markersFor(config, 'spec').labels[0] || '' },
     )
-    const stateNames = flags.stateArgs || []
+    const stateNames = next !== null ? stateNamesFor('backlog', config) : expandStateArgs(flags.stateArgs, config)
     if (stateNames.length) {
       const want = new Set(stateNames.map((s) => s.toLowerCase()))
       issues = issues.filter((i) => i.state && want.has(String(i.state.name).toLowerCase()))
@@ -746,21 +755,33 @@ async function specSyncList(dir, config, flags, out) {
       )
       issues = issues.filter((i) => i.open && !(i.state && terminal.has(String(i.state.name).toLowerCase())))
     }
+    if (next !== null) {
+      const order = await cred.adapter.listBoardOrder()
+      const rank = new Map(order.map((n, i) => [n, i]))
+      issues = issues
+        .filter((i) => i.open && rank.has(i.id))
+        .sort((a, b) => rank.get(a.id) - rank.get(b.id))
+    }
   } catch (error) {
     out.write(`${PROGRAM} list: ${error.message}\n`)
     return 1
   }
-  const linked = new Map(listSpecs(dir, config).filter((s) => s.identifier).map((s) => [s.identifier, s]))
+  const linked = new Map(listSpecsLive(dir, config).filter((s) => s.identifier).map((s) => [s.identifier, s]))
   const rows = issues
     .filter((i) => !i.parent)
-    .slice(0, flags.limit || Infinity)
-    .map((i) => ({
-      identifier: i.identifier,
-      title: i.title,
-      state: i.state ? i.state.name : null,
-      assignee: (i.assignees || []).map((a) => a.name || a.id).join(', ') || null,
-      spec: linked.has(i.identifier) ? linked.get(i.identifier).spec : null,
-    }))
+    .slice(0, next !== null ? next : flags.limit || Infinity)
+    .map((i) => {
+      const spec = linked.get(i.identifier) || null
+      const state = i.state ? i.state.name : null
+      return {
+        identifier: i.identifier,
+        title: i.title,
+        state,
+        ...specColumn(state, spec, config),
+        assignee: (i.assignees || []).map((a) => a.name || a.id).join(', ') || null,
+        spec: spec ? spec.spec : null,
+      }
+    })
   if (flags.json) {
     out.write(JSON.stringify(rows, null, 2) + '\n')
     return 0
@@ -769,10 +790,12 @@ async function specSyncList(dir, config, flags, out) {
     out.write(`${PROGRAM} list: nothing matched${assignee ? ` for ${assignee.name}` : ''}\n`)
     return 0
   }
-  const lines = [`${PROGRAM} list: ${repoLabel(config)} · board ${config.github.project}${assignee ? ` · assigned to ${assignee.name}` : ''}`]
+  const lines = [
+    `${PROGRAM} list: ${repoLabel(config)} · board ${config.github.project}${assignee ? ` · assigned to ${assignee.name}` : ''}${next !== null ? ` · next ${next} in board order` : ''}`,
+  ]
   for (const r of rows) {
     lines.push(
-      `  ${r.identifier}\t${r.state || '—'}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}`,
+      `  ${r.identifier}\t${r.state || '—'}\t${specCell(r)}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}`,
     )
   }
   out.write(lines.join('\n') + '\n')
@@ -1393,7 +1416,7 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   status <spec> [--remote <f>]           read-only drift report
   verify <spec> --stored <f>             compare a read-back against the repo
   states [--json]                        the board's Status options + bucket map
-  list [--all | --state NAME] [--mine | --by USER]  the board's issues for this repo
+  list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  the board's issues
   intake [query] [--json]                issues waiting to become specs
   linked [--json]                        specs and their linked issues (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
@@ -1534,6 +1557,7 @@ function parseArgs(args, sub) {
     '--name': { kind: 'value' },
     '--release': { kind: 'boolean' },
     '--mine': { kind: 'boolean' },
+    '--next': { kind: 'number' },
     '--by': { kind: 'string' },
     '--set': { kind: 'string' },
     '--unset': { kind: 'boolean' },

@@ -649,8 +649,8 @@ test('list shows assignees and marks an issue with no spec', async () => {
     { identifier: '#9', title: 'Raw', open: true, state: { name: 'Backlog' }, assignees: [] },
   ]
   const r = await run(['list'], dir, { adapter })
-  assert.match(r.out, /#7\tIn Progress\tReuben Greaves\tSpecced  -> feat-demo/)
-  assert.match(r.out, /#9\tBacklog\tunassigned\tRaw  \(no spec\)/)
+  assert.match(r.out, /#7\tIn Progress\tin-progress\tReuben Greaves\tSpecced  -> feat-demo/)
+  assert.match(r.out, /#9\tBacklog\t—\tunassigned\tRaw  \(no spec\)/)
 })
 
 test('list --by searches by login and drops the spec label', async () => {
@@ -666,4 +666,21 @@ test('list --by searches by login and drops the spec label', async () => {
   assert.strictEqual(r.code, 0)
   assert.deepStrictEqual(calls[0], { assignee: 'priya' })
   assert.match(r.out, /nothing matched for Priya/)
+})
+
+test('list --next orders the backlog by board position and caps it', async () => {
+  const dir = repoWithSpec({ identifier: '#7' })
+  const adapter = fakeAdapter()
+  adapter.listBoardItems = async () => [
+    { id: '7', identifier: '#7', title: 'Second', open: true, state: { name: 'Backlog' }, assignees: [] },
+    { id: '8', identifier: '#8', title: 'First', open: true, state: { name: 'Backlog' }, assignees: [] },
+    { id: '9', identifier: '#9', title: 'Busy', open: true, state: { name: 'In Progress' }, assignees: [] },
+    { id: '10', identifier: '#10', title: 'Third', open: true, state: { name: 'Backlog' }, assignees: [] },
+  ]
+  adapter.listBoardOrder = async () => ['8', '9', '7', '10']
+  const r = await run(['list', '--next', '2'], dir, { adapter })
+  assert.strictEqual(r.code, 0)
+  const ids = r.out.split('\n').filter((l) => /^ {2}#/.test(l)).map((l) => l.trim().split('\t')[0])
+  assert.deepStrictEqual(ids, ['#8', '#7'])
+  assert.match(r.out, /next 2 in board order/)
 })

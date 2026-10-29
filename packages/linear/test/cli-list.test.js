@@ -109,8 +109,8 @@ test('it lists live spec issues with the local spec name against each', async ()
 
   assert.strictEqual(r.code, 0)
   assert.match(r.out, /transport = api, live \(Backlog, In Progress\) — showing 2 of 2/)
-  assert.match(r.out, /SKS-1 {2}In Progress {2}feat-linked/)
-  assert.match(r.out, /SKS-2 {2}Backlog {6}feat-other/)
+  assert.match(r.out, /SKS-1 {2}In Progress {2}in-progress {2}feat-linked/)
+  assert.match(r.out, /SKS-2 {2}Backlog {6}backlog {6}feat-other/)
   assert.match(r.out, /The linked one/)
 })
 
@@ -146,6 +146,16 @@ test('--state names states directly and is repeatable', async () => {
   assert.strictEqual(JSON.parse(r.out).scope, 'states (Done, Canceled)')
 })
 
+test('--state takes a lifecycle bucket and expands it to its state name', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([])
+  const r = await run(['list', '--state', 'complete', '--json'], dir, { adapter: linear })
+
+  const call = linear.log.find((c) => c.op === 'listIssues')
+  assert.deepStrictEqual(call.args.stateIds, ['s-done'])
+  assert.strictEqual(JSON.parse(r.out).scope, 'states (Done)')
+})
+
 // --- what counts as a spec ---------------------------------------------------
 
 test('a phase sub-issue is excluded — it carries a parent, a spec issue does not', async () => {
@@ -175,7 +185,7 @@ test('an issue with no local spec is reported and marked, never hidden', async (
   const r = await run(['list'], dir, { adapter: linear })
 
   assert.match(r.out, /showing 2 of 2/)
-  assert.match(r.out, /SKS-99 {2}Backlog {6}— \(not linked here\)/)
+  assert.match(r.out, /SKS-99 {2}Backlog {6}— +— \(not linked here\)/)
   assert.match(r.out, /A teammate's unlanded spec/)
 })
 
@@ -239,6 +249,7 @@ test('--json carries the rows, the scope and both counts', async () => {
     state: 'In Progress',
     spec: 'feat-linked',
     bucket: 'in-progress',
+    disagrees: false,
     assignee: null,
     // Present and null rather than absent: the shape must not vary by state.
     phase: null,

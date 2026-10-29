@@ -33,6 +33,8 @@ The user asks in plain language; the engine takes flags. Map, then run:
 | "what specs are there", "/spec-list" | *(none — the live default)* |
 | "what's done", "everything" | `--all` |
 | "what's cancelled", a named state | `--state "<name>"` (repeatable) |
+| "what's next", "the next few in the backlog" | `--next N` |
+| "what's in progress", a lifecycle bucket | `--state in-progress` |
 | "what's mine", "what am I on" | `--mine` |
 | "what is Priya doing", a named person | `--by "<name or email>"` |
 
@@ -51,13 +53,26 @@ lists **nothing** and says why (`spec-sync whoami --set` fixes it); relay that
 rather than retrying without the filter. `--by` matching nobody or several
 people exits 1 and names them — relay it and ask which one.
 
-`--next` (backlog order) is **not yet shipped for the Azure Boards provider**. Say so
-when it is asked for, rather than approximating it.
+`--next N` is the top of the backlog in the tracker's own order, `azure.backlogOrderField` (StackRank by default; Scrum ranks by `BacklogPriority`). It picks the scope itself, so it does not combine with `--state`
+or `--all`; the engine refuses that pair rather than picking a winner. It does
+combine with `--mine` / `--by`.
+
+**Every row shows the board's state and the spec's own status side by side.**
+The spec status is read from the spec's **own worktree** when one exists, so an
+in-flight spec reads `in-progress` even on the base branch, where its folder
+still says `backlog`. `≠ <bucket>` marks a row whose board state maps to a
+different bucket than its spec; a state that maps to no bucket never gets one.
+`—` means the spec is not on this machine. Relay it as printed; never "correct"
+either column from the other. The board says where the ticket is, and the spec
+says where the work is.
+
+`--state` also takes a lifecycle bucket: `--state in-progress` matches every
+board state configured for it (`states` aliases included).
 
 ## 2. Run the engine
 
 ```
-skitterspec spec-sync list [--state <name> …|--all] [--mine | --by <user>] [--json]
+skitterspec spec-sync list [--state <name|bucket> …|--all|--next N] [--mine | --by <user>] [--json]
 ```
 
 - **`transport = api`** (a PAT resolves) → it queried Boards and printed the

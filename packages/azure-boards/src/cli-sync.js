@@ -47,6 +47,7 @@ const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitter
 
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/src/list-assignee.js')
+const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
 const { makeReleaseCommands } = require('@skitterbyte/skitterspec-provider-kit/src/releases.js')
 const { IDENTIFIER_RE } = require('@skitterbyte/skitterspec-provider-kit/src/released.js')
 
@@ -69,7 +70,7 @@ const BIN = 'skitterspec-azure-boards'
 
 const PROGRAM = 'spec-sync'
 const specHelpers = kit.makeSpecHelpers({ program: PROGRAM })
-const { resolveSnapshotDir, specIdentifier, listSpecs, resolveOrExit, warnToErr, verifyLines } = specHelpers
+const { resolveSnapshotDir, specIdentifier, listSpecs, listSpecsLive, resolveOrExit, warnToErr, verifyLines } = specHelpers
 
 // A work item identifier: the constant AB prefix and a number. A bare number
 // is accepted on input and normalised, so a stamp can be copied from the
@@ -852,6 +853,15 @@ async function specSyncStates(dir, config, flags, out) {
 }
 
 async function specSyncList(dir, config, flags, out) {
+  // `--next N` is the top of the BACKLOG in the backlog's own order, so it
+  // fixes the scope itself — combined with --state or --all one would have to
+  // lose, silently. Refused before any transport work, as Linear does.
+  const next = Number.isFinite(flags.next) && flags.next > 0 ? flags.next : null
+  const scopeFlags = [next !== null && '--next', flags.all === true && '--all', (flags.stateArgs || []).length > 0 && '--state'].filter(Boolean)
+  if (scopeFlags.length > 1) {
+    out.write(`${PROGRAM} list: ${scopeFlags.join(' and ')} each pick the scope, so they cannot be combined\n`)
+    return 1
+  }
   const cred = apiAdapterFor(config, flags)
   const transport = kit.resolveTransport(flags, config, cred.ok)
   if (transport === 'mcp' || !cred.ok) {
@@ -885,13 +895,15 @@ async function specSyncList(dir, config, flags, out) {
       query: '',
       workItemType: config.azure.workItemType,
       assignedTo: assignee ? assignee.id : null,
-      limit: flags.limit || 50,
+      states: next !== null ? stateNamesFor('backlog', config) : null,
+      orderBy: next !== null ? config.azure.backlogOrderField : null,
+      limit: next !== null ? next : flags.limit || 50,
     })
-    const stateNames = flags.stateArgs || []
+    const stateNames = expandStateArgs(flags.stateArgs, config)
     if (stateNames.length) {
       const want = new Set(stateNames.map((s) => s.toLowerCase()))
       items = items.filter((i) => i.state && want.has(String(i.state.name).toLowerCase()))
-    } else if (!flags.all) {
+    } else if (!flags.all && next === null) {
       const terminal = new Set(
         [...stateNamesFor('complete', config), ...stateNamesFor('cancelled', config)].map((s) => s.toLowerCase()),
       )
@@ -901,16 +913,21 @@ async function specSyncList(dir, config, flags, out) {
     out.write(`${PROGRAM} list: ${error.message}\n`)
     return 1
   }
-  const linked = new Map(listSpecs(dir, config).filter((s) => s.identifier).map((s) => [s.identifier, s]))
+  const linked = new Map(listSpecsLive(dir, config).filter((s) => s.identifier).map((s) => [s.identifier, s]))
   const rows = items
     .filter((i) => !i.parent)
-    .map((i) => ({
-      identifier: i.identifier,
-      title: i.title,
-      state: i.state ? i.state.name : null,
-      assignee: i.assignee ? i.assignee.name || i.assignee.email || i.assignee.id : null,
-      spec: linked.has(i.identifier) ? linked.get(i.identifier).spec : null,
-    }))
+    .map((i) => {
+      const spec = linked.get(i.identifier) || null
+      const state = i.state ? i.state.name : null
+      return {
+        identifier: i.identifier,
+        title: i.title,
+        state,
+        ...specColumn(state, spec, config),
+        assignee: i.assignee ? i.assignee.name || i.assignee.email || i.assignee.id : null,
+        spec: spec ? spec.spec : null,
+      }
+    })
   if (flags.json) {
     out.write(JSON.stringify(rows, null, 2) + '\n')
     return 0
@@ -919,10 +936,11 @@ async function specSyncList(dir, config, flags, out) {
     out.write(`${PROGRAM} list: nothing matched${assignee ? ` for ${assignee.name}` : ''}\n`)
     return 0
   }
-  const lines = [`${PROGRAM} list: ${config.azure.project}${assignee ? ` · assigned to ${assignee.name}` : ''}`]
+  const scope = next !== null ? ` · next ${next} by ${config.azure.backlogOrderField}` : ''
+  const lines = [`${PROGRAM} list: ${config.azure.project}${assignee ? ` · assigned to ${assignee.name}` : ''}${scope}`]
   for (const r of rows) {
     lines.push(
-      `  ${r.identifier}\t${r.state || '—'}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}`,
+      `  ${r.identifier}\t${r.state || '—'}\t${specCell(r)}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}`,
     )
   }
   out.write(lines.join('\n') + '\n')
@@ -1387,7 +1405,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   status <spec> [--remote <f>]           read-only drift report
   verify <spec> --stored <f>             compare a read-back against the repo
   states [--json]                        the configured types' state names
-  list [--all | --state NAME] [--mine | --by USER]  tracker listing for the project
+  list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  tracker listing
   linked [--json]                        specs and their linked items (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     tickets a commit range contains
@@ -1534,6 +1552,7 @@ function parseArgs(args, sub) {
     '--name': { kind: 'string' },
     '--release': { kind: 'boolean' },
     '--mine': { kind: 'boolean' },
+    '--next': { kind: 'number' },
     '--by': { kind: 'string' },
     '--set': { kind: 'string' },
     '--unset': { kind: 'boolean' },

@@ -14,7 +14,16 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { BUCKETS, findSpecFolder } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
+const { execFileSync } = require('node:child_process')
+
+const {
+  BUCKETS,
+  findSpecFolder,
+  resolveSpec,
+  liveWorktreePaths,
+  resolvePrimaryCheckout,
+} = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
+const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
 const { readSnapshot, parseFrontmatter, lintPhases, fieldsOf, projectionOf, compareStored } = require('@skitterbyte/skitterspec-sync-core')
 
 function makeSpecHelpers({ program = 'spec-sync' } = {}) {
@@ -89,6 +98,65 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
     return specs.sort((a, b) => a.spec.localeCompare(b.spec))
   }
 
+  // `listSpecs`, but each spec's BUCKET read from where that spec actually
+  // lives. `/spec-start` moves a spec to `in-progress/` on its own branch, so
+  // on the base branch an in-flight spec still reads `backlog` — and a spec
+  // authored in its own worktree and not yet landed is not here at all. Each
+  // live worktree is read too, and a spec found in ITS OWN worktree (the path
+  // `resolveSpec` names for it) wins over every other copy. `source` says
+  // which: `here`, `worktree`, or `other-tree` for a spec only some other
+  // worktree carries.
+  //
+  // WHAT WOULD FOOL THIS: a worktree left behind by a declined teardown is
+  // still live, so a finished spec can read from a stale tree. And with no
+  // `env.config.json` there is no worktree layout to resolve, so this is
+  // exactly `listSpecs` — the current tree's answer, as before.
+  function listSpecsLive(dir, config) {
+    const here = listSpecs(dir, config).map((s) => ({ ...s, source: 'here' }))
+    const git = (args) => {
+      try {
+        return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+      } catch {
+        return null
+      }
+    }
+    let primary
+    let env
+    try {
+      primary = resolvePrimaryCheckout(dir, git) || dir
+      env = loadEnvConfig(primary)
+    } catch {
+      return here
+    }
+    if (!env.present) return here
+    // Compared as REAL paths: git reports a worktree resolved through
+    // symlinks (macOS /var → /private/var) where `resolveSpec` does not.
+    const real = (p) => {
+      try {
+        return fs.realpathSync(p)
+      } catch {
+        return path.resolve(p)
+      }
+    }
+    const self = real(dir)
+    const byName = new Map(here.map((s) => [s.spec, s]))
+    for (const listed of liveWorktreePaths(git)) {
+      const tree = real(listed)
+      if (tree === self) continue
+      for (const s of listSpecs(tree, config)) {
+        let own = null
+        try {
+          own = real(resolveSpec(s.spec, primary, env.config, { searchDirs: [tree] }).worktreePath)
+        } catch {
+          own = null
+        }
+        if (own === tree) byName.set(s.spec, { ...s, source: 'worktree' })
+        else if (!byName.has(s.spec)) byName.set(s.spec, { ...s, source: 'other-tree' })
+      }
+    }
+    return [...byName.values()].sort((a, b) => a.spec.localeCompare(b.spec))
+  }
+
   // Resolve a spec argument to its folder, or null with a message on stdout.
   // EVERY failure path here must print and EVERY caller must return a non-zero
   // code: a push skill checks $? before it applies a plan, so a resolve failure
@@ -160,7 +228,7 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
     return lines
   }
 
-  return { resolveSnapshotDir, specIdentifier, linkedIdentifier, listSpecs, resolveOrExit, warningLines, warnToErr, verifyLines }
+  return { resolveSnapshotDir, specIdentifier, linkedIdentifier, listSpecs, listSpecsLive, resolveOrExit, warningLines, warnToErr, verifyLines }
 }
 
 module.exports = { makeSpecHelpers }

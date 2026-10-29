@@ -49,6 +49,18 @@ flags themselves (`--state`, `--all`, `--next`, `--in-progress`) are
 **alternatives**, and the engine refuses any two of them rather than letting one
 win silently.
 
+**Every row shows the board's state and the spec's own status side by side.**
+The spec status is read from the spec's **own worktree** when one exists, so an
+in-flight spec reads `in-progress` even on the base branch, where its folder
+still says `backlog`. `≠ <bucket>` marks a row whose board state maps to a
+different bucket than its spec; a state that maps to no bucket never gets one.
+`—` means the spec is not on this machine. Relay it as printed; never "correct"
+either column from the other. The board says where the ticket is, and the spec
+says where the work is.
+
+`--state` also takes a lifecycle bucket: `--state in-progress` matches every
+board state configured for it (`states` aliases included).
+
 `--next N` is **backlog-only and ordered**, so it does not combine with
 `--state` or `--all`; the engine refuses that pair rather than picking a winner.
 It reproduces Linear's own Backlog order — priority first, then the manual
@@ -58,7 +70,7 @@ then a person's arrangement rather than a ranking.
 ## 2. Run the engine
 
 ```
-skitterspec spec-sync list [--state <name> …|--all] [--limit N] [--archived] [--json]
+skitterspec spec-sync list [--state <name|bucket> …|--all] [--limit N] [--archived] [--json]
 ```
 
 - **`transport = api`** (a key is set) → it queried Linear and printed the

@@ -41,6 +41,10 @@ const DEFAULT_CONFIG = Object.freeze({
     workItemType: 'Issue',
     childType: 'Task',
     areaPath: '',
+    // The field `list --next` orders the backlog by. StackRank is the rank
+    // the Basic, Agile and CMMI backlogs drag-order; a Scrum process ranks by
+    // `Microsoft.VSTS.Common.BacklogPriority` instead.
+    backlogOrderField: 'Microsoft.VSTS.Common.StackRank',
     // The mint type per SPEC KIND (`feature`/`bug`/`hotfix`, from the spec
     // folder's prefix), falling back to `workItemType`. In Agile, Scrum and
     // CMMI a bug is a work item TYPE, so `/spec-bug` minting a User Story
@@ -217,6 +221,7 @@ function mergeConfig(base, parsed) {
     assign(base.azure, parsed.azure, 'workItemType', 'string')
     assign(base.azure, parsed.azure, 'childType', 'string')
     assign(base.azure, parsed.azure, 'areaPath', 'string?')
+    assign(base.azure, parsed.azure, 'backlogOrderField', 'string')
     if (isObject(parsed.azure.workItemTypeByKind)) {
       // Only the kinds a spec folder can actually be — an unknown key is
       // dropped rather than carried into `states` validation it can never pass.

@@ -352,20 +352,29 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true,
      */
     // `assignedTo` is the uniqueName/email `whoami` and `users` return — the
     // value `System.AssignedTo` itself accepts, so WIQL matches it directly.
-    async searchIssues({ query, workItemType, assignedTo = null, limit = 50 }) {
+    //
+    // `states` limits to those state names; `orderBy` is a field reference to
+    // sort by, ascending — `list --next` passes the backlog's rank field, and
+    // WIQL returns ids in that order, which `batchRead` is then made to keep.
+    async searchIssues({ query, workItemType, assignedTo = null, states = null, orderBy = null, limit = 50 }) {
+      const q = (v) => `'${String(v).replace(/'/g, "''")}'`
       const quoted = String(query || '').replace(/'/g, "''")
       const clauses = [
         '[System.TeamProject] = @project',
-        workItemType ? `[System.WorkItemType] = '${String(workItemType).replace(/'/g, "''")}'` : null,
+        workItemType ? `[System.WorkItemType] = ${q(workItemType)}` : null,
         quoted ? `[System.Title] CONTAINS '${quoted}'` : null,
-        assignedTo ? `[System.AssignedTo] = '${String(assignedTo).replace(/'/g, "''")}'` : null,
+        assignedTo ? `[System.AssignedTo] = ${q(assignedTo)}` : null,
+        states && states.length ? `[System.State] IN (${states.map(q).join(', ')})` : null,
       ].filter(Boolean)
+      const order = orderBy && /^[A-Za-z0-9_.]+$/.test(orderBy) ? ` ORDER BY [${orderBy}] ASC` : ''
       const raw = await request('POST', `${projectBase}/wit/wiql`, {
         query: { $top: limit },
-        body: { query: `SELECT [System.Id] FROM WorkItems WHERE ${clauses.join(' AND ')}` },
+        body: { query: `SELECT [System.Id] FROM WorkItems WHERE ${clauses.join(' AND ')}${order}` },
       })
       const ids = ((raw && raw.workItems) || []).map((w) => String(w.id))
-      const items = await batchRead(ids, ['System.Title', 'System.State', 'System.Parent', 'System.WorkItemType', 'System.AssignedTo'])
+      const read = await batchRead(ids, ['System.Title', 'System.State', 'System.Parent', 'System.WorkItemType', 'System.AssignedTo'])
+      const byId = new Map(read.map((i) => [i.id, i]))
+      const items = ids.map((id) => byId.get(id)).filter(Boolean)
       return items.map((i) => ({
         id: i.id,
         identifier: i.identifier,
