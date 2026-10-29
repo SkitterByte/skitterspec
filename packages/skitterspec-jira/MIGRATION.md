@@ -1,5 +1,104 @@
 # Migration guide
 
+## `@skitterbyte/skitterspec-github` v1 → v2 (tell, don't track)
+
+Skitterspec now tells GitHub about **its own** transitions and nothing
+else. It writes nothing about releases or deployments, and it never reads a
+ticket's state back.
+
+### Breaking change 1 — The `release create|deployed|complete|reconcile` verbs are removed
+
+They exit 1 with one line naming `spec-sync released <range> --json`. A pipeline
+still calling them goes red rather than silently believing it mirrors
+anything. **To migrate**, replace the step with your own script over the
+release's ticket list:
+
+```sh
+skitterspec-github spec-sync released "<previous-tag>..<tag>" --json
+```
+
+Each ticket row now carries `spec` and `url` (both `null` for a ref no spec has
+linked), so the script needs no second lookup. Set whatever GitHub field,
+state or release object your process uses from that list. The checkout needs
+`fetch-depth: 0` so the previous tag is visible.
+
+### Breaking change 2 — The `releases` block (`deployedField`, `series`) and `release.stages` are retired
+
+The keys are ignored, like any unknown key, so a config carrying them still
+loads. `spec-sync doctor` names them as unused config (a `warn`, never a
+failure). Delete them when you remove the CI step.
+
+### Breaking change 3 — no state drift
+
+`spec-sync status --remote` and `/spec-status` no longer compare the tracker's
+state with the spec's. A ticket someone moved on GitHub is not reported, and
+push still resends state only when the spec itself moves. The edited-description
+warning is unchanged.
+
+## `@skitterbyte/skitterspec-azure-boards` v1 → v2 (tell, don't track)
+
+Skitterspec now tells Azure Boards about **its own** transitions and nothing
+else. It writes nothing about releases or deployments, and it never reads a
+ticket's state back.
+
+### Breaking change 1 — The `release create|deployed|complete` verbs are removed
+
+They exit 1 with one line naming `spec-sync released <range> --json`. A pipeline
+still calling them goes red rather than silently believing it mirrors
+anything. **To migrate**, replace the step with your own script over the
+release's ticket list:
+
+```sh
+skitterspec-azure-boards spec-sync released "<previous-tag>..<tag>" --json
+```
+
+Each ticket row now carries `spec` and `url` (both `null` for a ref no spec has
+linked), so the script needs no second lookup. Set whatever Azure Boards field,
+state or release object your process uses from that list. The checkout needs
+`fetch-depth: 0` so the previous tag is visible.
+
+### Breaking change 2 — The `releases` block (`workItemType`, `series`, `ticketTag`, `deployedField`) and `release.stages` are retired
+
+The keys are ignored, like any unknown key, so a config carrying them still
+loads. `spec-sync doctor` names them as unused config (a `warn`, never a
+failure). Delete them when you remove the CI step.
+
+### Breaking change 3 — no state drift
+
+`spec-sync status --remote` and `/spec-status` no longer compare the tracker's
+state with the spec's. A ticket someone moved on Azure Boards is not reported, and
+push still resends state only when the spec itself moves. The edited-description
+warning is unchanged.
+
+## `@skitterbyte/skitterspec-jira` v1 → v2 (tell, don't track)
+
+Skitterspec now tells Jira about **its own** transitions and nothing else. It
+writes nothing about releases or deployments, and it never reads an issue's
+status back.
+
+### Breaking change 1 — no status drift
+
+`spec-sync status --remote` and `/spec-status` no longer compare Jira's status
+with the spec's. An issue someone moved on Jira is not reported, and push still
+transitions it only when the spec itself moves. The edited-description warning
+is unchanged.
+
+### Breaking change 2 — `release.stages` retired
+
+It was accepted and validated before, and never acted on. It is now ignored
+like any unknown key, and `spec-sync doctor` names it as unused config (a
+`warn`, never a failure). Delete it.
+
+### Also — `released --json` names the spec
+
+Each ticket row now carries `spec` and `url` (both `null` for a ref no spec has
+linked), so CI can record a release, for example as a fix version, without a
+second lookup:
+
+```sh
+skitterspec-jira spec-sync released "<previous-tag>..<tag>" --json
+```
+
 ## `@skitterbyte/skitterspec` v23 → v24 (hotfix land runs the release itself)
 
 ### Breaking change 1 — `spec-env hotfix land` runs its steps, and holds before the carry
@@ -275,7 +374,48 @@ can run it.
 committed file, so it changes for everyone who pulls and leaves that tree dirty.
 The engine says so when it does.
 
-## `@skitterbyte/skitterspec-linear` v18 → v19 (hotfix land runs the release itself)
+## `@skitterbyte/skitterspec-linear` v18 → v19 (tell, don't track; hotfix land runs the release itself)
+
+Skitterspec now tells Linear about **its own** transitions and nothing
+else. It writes nothing about releases or deployments, and it never reads a
+ticket's state back.
+
+### Breaking change 1 — The `spec-sync stage` verb is removed
+
+It exits 1 with one line naming `spec-sync released <range> --json`. A pipeline
+still calling it goes red rather than silently believing it mirrors
+anything. **To migrate**, replace the step with your own script over the
+release's ticket list:
+
+```sh
+skitterspec-linear spec-sync released "<previous-tag>..<tag>" --json
+```
+
+Each ticket row now carries `spec` and `url` (both `null` for a ref no spec has
+linked), so the script needs no second lookup. Set whatever Linear field,
+state or release object your process uses from that list. The checkout needs
+`fetch-depth: 0` so the previous tag is visible.
+
+### Breaking change 2 — `release.stages` (the deployment ladder) is retired
+
+The keys are ignored, like any unknown key, so a config carrying them still
+loads. `spec-sync doctor` names them as unused config (a `warn`, never a
+failure). Delete them when you remove the CI step.
+
+### Breaking change 3 — no state drift
+
+`spec-sync status --remote` and `/spec-status` no longer compare the tracker's
+state with the spec's. A ticket someone moved on Linear is not reported, and
+push still resends state only when the spec itself moves. The edited-description
+warning is unchanged.
+
+**A ladder rung no longer reads as `complete`.** Where a state was a
+`release.stages` rung, the live `spec-sync list` now shows it as unmapped. To
+keep it reading as finished, list it as an alias:
+`"complete": ["Done", "On Test"]`. `init-config --stage` is gone too, and is
+refused as an unknown flag.
+
+### Also — hotfix land runs the release itself
 
 The same change as `@skitterbyte/skitterspec` v23 → v24 above — this
 distribution composes the same engine. Read that entry; nothing here is
