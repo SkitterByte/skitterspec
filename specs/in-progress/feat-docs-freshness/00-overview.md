@@ -1,15 +1,17 @@
 ---
 github_identifier: "#70"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/70"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Docs freshness — covers/verified on the docs pages
 
 > **Type:** Feature
 > **Name:** feat-docs-freshness (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-29)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
 > **Area:** scripts/, docs/, .claude/rules/, CLAUDE.md, RELEASING.md
 > **Stack:** worktree
@@ -132,6 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-29 | Ready | backlog | Reuben Greaves |
+| 2026-10-29 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
