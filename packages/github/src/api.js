@@ -160,6 +160,7 @@ query($q: String!, $status: String!, $after: String) {
         number title url state
         repository { nameWithOwner }
         parent { number }
+        assignees(first: 10) { nodes { login name } }
         projectItems(first: 20) {
           nodes {
             id
@@ -534,9 +535,16 @@ function makeApiAdapter({
      * ago may be missing from one listing. A listing is a convenience; nothing
      * decides on it.
      */
-    async listBoardItems({ label = '' } = {}) {
+    // `assignee` narrows the search to one login — and is how `list --mine`
+    // reaches issues no spec has adopted yet, which carry no spec label.
+    async listBoardItems({ label = '', assignee = null } = {}) {
       if (!project) throw new GitHubRefusal('no board configured — set github.project to the board number from its URL')
-      const q = [`repo:${owner}/${repo}`, 'is:issue', label ? `label:"${String(label).replace(/"/g, '')}"` : null].filter(Boolean).join(' ')
+      const q = [
+        `repo:${owner}/${repo}`,
+        'is:issue',
+        label ? `label:"${String(label).replace(/"/g, '')}"` : null,
+        assignee ? `assignee:${String(assignee).replace(/[^A-Za-z0-9-]/g, '')}` : null,
+      ].filter(Boolean).join(' ')
       const out = []
       let after = null
       for (let page = 0; page < MAX_PAGES; page++) {
@@ -555,6 +563,9 @@ function makeApiAdapter({
             open: c.state === 'OPEN',
             state: item.fieldValueByName && item.fieldValueByName.name != null ? { name: item.fieldValueByName.name } : null,
             parent: c.parent && c.parent.number != null ? { id: String(c.parent.number), identifier: identifierOf(c.parent.number) } : null,
+            assignees: ((c.assignees && c.assignees.nodes) || [])
+              .filter((a) => a && a.login)
+              .map((a) => ({ id: a.login, name: a.name || a.login })),
           })
         }
         if (!res.pageInfo || !res.pageInfo.hasNextPage) break

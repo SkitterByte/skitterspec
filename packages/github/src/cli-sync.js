@@ -63,6 +63,7 @@ const { makeApiAdapter } = require('./api.js')
 const { APPLY_OVER_MCP } = require('./mcp.js')
 const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
+const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/src/list-assignee.js')
 const { makeReleaseCommands } = require('@skitterbyte/skitterspec-provider-kit/src/releases.js')
 
 const PROGRAM = 'spec-sync'
@@ -710,9 +711,29 @@ async function specSyncList(dir, config, flags, out) {
     out.write(`${PROGRAM} list: ${gap}\n`)
     return 1
   }
+  const who = await resolveListAssignee({
+    flags,
+    config,
+    env: flags.env || process.env,
+    adapter: cred.adapter,
+    resolveIdentity,
+    displayNameOf,
+    tracker: 'GitHub',
+    prog: PROGRAM,
+  })
+  if (who.code != null) {
+    out.write(who.lines.join('\n') + '\n')
+    return who.code
+  }
+  const assignee = who.assignee
   let issues
   try {
-    issues = await cred.adapter.listBoardItems({ label: markersFor(config, 'spec').labels[0] || '' })
+    // Filtered by assignee, the spec label is dropped: an issue assigned to
+    // someone that no spec has adopted yet carries no spec label, and it is
+    // exactly the "what's next" row `--mine` exists for.
+    issues = await cred.adapter.listBoardItems(
+      assignee ? { assignee: assignee.id } : { label: markersFor(config, 'spec').labels[0] || '' },
+    )
     const stateNames = flags.stateArgs || []
     if (stateNames.length) {
       const want = new Set(stateNames.map((s) => s.toLowerCase()))
@@ -737,6 +758,7 @@ async function specSyncList(dir, config, flags, out) {
       identifier: i.identifier,
       title: i.title,
       state: i.state ? i.state.name : null,
+      assignee: (i.assignees || []).map((a) => a.name || a.id).join(', ') || null,
       spec: linked.has(i.identifier) ? linked.get(i.identifier).spec : null,
     }))
   if (flags.json) {
@@ -744,12 +766,14 @@ async function specSyncList(dir, config, flags, out) {
     return 0
   }
   if (!rows.length) {
-    out.write(`${PROGRAM} list: nothing matched\n`)
+    out.write(`${PROGRAM} list: nothing matched${assignee ? ` for ${assignee.name}` : ''}\n`)
     return 0
   }
-  const lines = [`${PROGRAM} list: ${repoLabel(config)} · board ${config.github.project}`]
+  const lines = [`${PROGRAM} list: ${repoLabel(config)} · board ${config.github.project}${assignee ? ` · assigned to ${assignee.name}` : ''}`]
   for (const r of rows) {
-    lines.push(`  ${r.identifier}\t${r.state || '—'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : ''}`)
+    lines.push(
+      `  ${r.identifier}\t${r.state || '—'}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}`,
+    )
   }
   out.write(lines.join('\n') + '\n')
   return 0
@@ -1369,7 +1393,7 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   status <spec> [--remote <f>]           read-only drift report
   verify <spec> --stored <f>             compare a read-back against the repo
   states [--json]                        the board's Status options + bucket map
-  list [--all | --state NAME]            the board's issues for this repo
+  list [--all | --state NAME] [--mine | --by USER]  the board's issues for this repo
   intake [query] [--json]                issues waiting to become specs
   linked [--json]                        specs and their linked issues (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
@@ -1509,6 +1533,8 @@ function parseArgs(args, sub) {
     '--to': { kind: 'string' },
     '--name': { kind: 'value' },
     '--release': { kind: 'boolean' },
+    '--mine': { kind: 'boolean' },
+    '--by': { kind: 'string' },
     '--set': { kind: 'string' },
     '--unset': { kind: 'boolean' },
     '--cursor': { kind: 'string' },

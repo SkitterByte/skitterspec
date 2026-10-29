@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Read-side state aliases | ✅ | [01-state-aliases.md](01-state-aliases.md) |
-| 2 | Assignee, `--mine`, `--by` on Azure and GitHub | ⬜ | [02-assignee-filters.md](02-assignee-filters.md) |
+| 2 | Assignee, `--mine`, `--by` on Azure and GitHub | ✅ | [02-assignee-filters.md](02-assignee-filters.md) |
 | 3 | `--next`, `--state <bucket>`, spec-status column | ⬜ | [03-next-and-spec-column.md](03-next-and-spec-column.md) |
 
 ## Open questions
@@ -130,3 +130,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   sharing one written name stays legal (Jira maps cancelled to "Done"); only
   an alias naming another bucket is refused. Missing aliases are reported by
   `states` but excluded from push-time validation.
+- 2026-10-29 — Phase 2: the `--mine` / `--by` contract moved into
+  provider-kit (`list-assignee.js`) for Azure and GitHub. Linear keeps its own
+  inline copy, unchanged. On GitHub a `--mine` / `--by` listing drops the spec
+  label, so unspec'd issues are included, but only issues on the board
+  (`listBoardItems`) are listed.

@@ -350,25 +350,29 @@ function makeApiAdapter({ orgUrl, project, token, releaseType, ticketTag = true,
      * matches `readIssue`'s essentials (the twin-mint guard needs identifier +
      * title).
      */
-    async searchIssues({ query, workItemType, limit = 50 }) {
+    // `assignedTo` is the uniqueName/email `whoami` and `users` return — the
+    // value `System.AssignedTo` itself accepts, so WIQL matches it directly.
+    async searchIssues({ query, workItemType, assignedTo = null, limit = 50 }) {
       const quoted = String(query || '').replace(/'/g, "''")
       const clauses = [
         '[System.TeamProject] = @project',
         workItemType ? `[System.WorkItemType] = '${String(workItemType).replace(/'/g, "''")}'` : null,
         quoted ? `[System.Title] CONTAINS '${quoted}'` : null,
+        assignedTo ? `[System.AssignedTo] = '${String(assignedTo).replace(/'/g, "''")}'` : null,
       ].filter(Boolean)
       const raw = await request('POST', `${projectBase}/wit/wiql`, {
         query: { $top: limit },
         body: { query: `SELECT [System.Id] FROM WorkItems WHERE ${clauses.join(' AND ')}` },
       })
       const ids = ((raw && raw.workItems) || []).map((w) => String(w.id))
-      const items = await batchRead(ids, ['System.Title', 'System.State', 'System.Parent', 'System.WorkItemType'])
+      const items = await batchRead(ids, ['System.Title', 'System.State', 'System.Parent', 'System.WorkItemType', 'System.AssignedTo'])
       return items.map((i) => ({
         id: i.id,
         identifier: i.identifier,
         title: i.title,
         state: i.state,
         parent: i.parent,
+        assignee: i.assignee,
       }))
     },
 

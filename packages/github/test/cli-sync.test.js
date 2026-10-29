@@ -638,3 +638,32 @@ test('the live list hides an open item whose Status is a complete alias', async 
   assert.match(r.out, /#7/)
   assert.doesNotMatch(r.out, /#8/)
 })
+
+// --- list: assignee, --mine, --by ---------------------------------------------
+
+test('list shows assignees and marks an issue with no spec', async () => {
+  const dir = repoWithSpec({ identifier: '#7' })
+  const adapter = fakeAdapter()
+  adapter.listBoardItems = async () => [
+    { identifier: '#7', title: 'Specced', open: true, state: { name: 'In Progress' }, assignees: [{ id: 'skitterbyte', name: 'Reuben Greaves' }] },
+    { identifier: '#9', title: 'Raw', open: true, state: { name: 'Backlog' }, assignees: [] },
+  ]
+  const r = await run(['list'], dir, { adapter })
+  assert.match(r.out, /#7\tIn Progress\tReuben Greaves\tSpecced  -> feat-demo/)
+  assert.match(r.out, /#9\tBacklog\tunassigned\tRaw  \(no spec\)/)
+})
+
+test('list --by searches by login and drops the spec label', async () => {
+  const dir = repoWithSpec({ identifier: '#7' })
+  const adapter = fakeAdapter()
+  const calls = []
+  adapter.listBoardItems = async (q) => {
+    calls.push(q)
+    return []
+  }
+  adapter.searchUsers = async () => ({ users: [{ id: 'priya', name: 'Priya' }] })
+  const r = await run(['list', '--by', 'priya'], dir, { adapter })
+  assert.strictEqual(r.code, 0)
+  assert.deepStrictEqual(calls[0], { assignee: 'priya' })
+  assert.match(r.out, /nothing matched for Priya/)
+})

@@ -1128,3 +1128,57 @@ test('states shows each alias under its bucket', async () => {
   assert.match(r.out, /Blocked\s+also reads as in-progress/)
   assert.match(r.out, /Released\s+alias MISSING — reads as nothing/)
 })
+
+// --- list: assignee, --mine, --by ---------------------------------------------
+
+function listAdapter() {
+  const adapter = fakeAdapter()
+  adapter.searchCalls = []
+  adapter.searchIssues = async (q) => {
+    adapter.searchCalls.push(q)
+    return [
+      { identifier: 'AB#7', title: 'Specced', state: { name: 'Doing' }, assignee: { id: 'g1', name: 'Reuben Greaves', email: 'r@x.io' } },
+      { identifier: 'AB#9', title: 'Raw intake', state: { name: 'To Do' }, assignee: null },
+    ]
+  }
+  return adapter
+}
+
+test('list shows the assignee and marks a ticket with no spec', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const r = await run(['list'], dir, { adapter: listAdapter() })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /AB#7\tDoing\tReuben Greaves\tSpecced  -> feat-demo/)
+  assert.match(r.out, /AB#9\tTo Do\tunassigned\tRaw intake  \(no spec\)/)
+})
+
+test('list --mine filters the query to who you are', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const adapter = listAdapter()
+  adapter.readViewer = async () => ({ id: 'r@x.io', name: 'Reuben Greaves' })
+  const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'azure-xdg-'))
+  const r = await run(['list', '--mine'], dir, { adapter, env: { XDG_CONFIG_HOME: xdg, HOME: xdg } })
+  assert.strictEqual(r.code, 0)
+  assert.strictEqual(adapter.searchCalls[0].assignedTo, 'r@x.io')
+  assert.match(r.out, /assigned to Reuben Greaves/)
+})
+
+test('list --mine with no identity lists nothing', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const adapter = listAdapter()
+  adapter.readViewer = async () => null
+  const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'azure-xdg-'))
+  const r = await run(['list', '--mine'], dir, { adapter, env: { XDG_CONFIG_HOME: xdg, HOME: xdg } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /--mine needs to know who you are/)
+  assert.strictEqual(adapter.searchCalls.length, 0, 'never falls back to everyone')
+})
+
+test('list --by resolves a name through the identity search', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const adapter = listAdapter()
+  adapter.searchUsers = async () => ({ users: [{ id: 'p@x.io', name: 'Priya' }] })
+  const r = await run(['list', '--by', 'priya'], dir, { adapter })
+  assert.strictEqual(r.code, 0)
+  assert.strictEqual(adapter.searchCalls[0].assignedTo, 'p@x.io')
+})

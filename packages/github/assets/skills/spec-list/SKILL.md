@@ -32,6 +32,8 @@ The user asks in plain language; the engine takes flags. Map, then run:
 | "what specs are there", "/spec-list" | *(none — the live default)* |
 | "what's done", "everything" | `--all` |
 | "what's cancelled", a named status | `--state "<name>"` (repeatable) |
+| "what's mine", "what am I on" | `--mine` |
+| "what is Priya doing", a named person | `--by "<name or email>"` |
 
 The default scope is **live** — whatever `config.states` maps `backlog` and
 `in-progress` to. It is deliberately not everything: in a project with any
@@ -40,14 +42,21 @@ history, Done dwarfs the rows anyone wanted.
 `--state` and `--all` are **alternatives**, and the engine refuses the pair
 rather than letting one win silently.
 
-The Linear provider's `--mine`, `--by` and `--next` filters are
-**not yet shipped for the GitHub provider** — assignee filtering and backlog
-ordering wait on identity support. Say so when one is asked for, rather than approximating it.
+`--mine` and `--by` filter by **assignee** and combine with the scope; they
+cannot be combined with each other. Every row carries its assignee, and a
+ticket no spec has adopted yet is listed too, marked `(no spec)` — under
+`--mine` that is often exactly what is next. `--mine` with an unknown identity
+lists **nothing** and says why (`spec-sync whoami --set` fixes it); relay that
+rather than retrying without the filter. `--by` matching nobody or several
+people exits 1 and names them — relay it and ask which one.
+
+`--next` (backlog order) is **not yet shipped for the GitHub provider**. Say so
+when it is asked for, rather than approximating it.
 
 ## 2. Run the engine
 
 ```
-skitterspec spec-sync list [--state <name> …|--all] [--json]
+skitterspec spec-sync list [--state <name> …|--all] [--mine | --by <user>] [--json]
 ```
 
 - **`transport = api`** (credentials resolve) → it queried GitHub and printed the

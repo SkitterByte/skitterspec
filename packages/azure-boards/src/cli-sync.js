@@ -46,6 +46,7 @@ const kit = require('@skitterbyte/skitterspec-provider-kit')
 const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
+const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/src/list-assignee.js')
 const { makeReleaseCommands } = require('@skitterbyte/skitterspec-provider-kit/src/releases.js')
 const { IDENTIFIER_RE } = require('@skitterbyte/skitterspec-provider-kit/src/released.js')
 
@@ -863,11 +864,27 @@ async function specSyncList(dir, config, flags, out) {
     out.write(`${PROGRAM} list: no azure.project configured — fix ${CONFIG_FILE}\n`)
     return 1
   }
+  const who = await resolveListAssignee({
+    flags,
+    config,
+    env: flags.env || process.env,
+    adapter: cred.adapter,
+    resolveIdentity,
+    displayNameOf,
+    tracker: 'Azure DevOps',
+    prog: PROGRAM,
+  })
+  if (who.code != null) {
+    out.write(who.lines.join('\n') + '\n')
+    return who.code
+  }
+  const assignee = who.assignee
   let items
   try {
     items = await cred.adapter.searchIssues({
       query: '',
       workItemType: config.azure.workItemType,
+      assignedTo: assignee ? assignee.id : null,
       limit: flags.limit || 50,
     })
     const stateNames = flags.stateArgs || []
@@ -891,6 +908,7 @@ async function specSyncList(dir, config, flags, out) {
       identifier: i.identifier,
       title: i.title,
       state: i.state ? i.state.name : null,
+      assignee: i.assignee ? i.assignee.name || i.assignee.email || i.assignee.id : null,
       spec: linked.has(i.identifier) ? linked.get(i.identifier).spec : null,
     }))
   if (flags.json) {
@@ -898,12 +916,14 @@ async function specSyncList(dir, config, flags, out) {
     return 0
   }
   if (!rows.length) {
-    out.write(`${PROGRAM} list: nothing matched\n`)
+    out.write(`${PROGRAM} list: nothing matched${assignee ? ` for ${assignee.name}` : ''}\n`)
     return 0
   }
-  const lines = [`${PROGRAM} list: ${config.azure.project}`]
+  const lines = [`${PROGRAM} list: ${config.azure.project}${assignee ? ` · assigned to ${assignee.name}` : ''}`]
   for (const r of rows) {
-    lines.push(`  ${r.identifier}\t${r.state || '—'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : ''}`)
+    lines.push(
+      `  ${r.identifier}\t${r.state || '—'}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}`,
+    )
   }
   out.write(lines.join('\n') + '\n')
   return 0
@@ -1367,7 +1387,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   status <spec> [--remote <f>]           read-only drift report
   verify <spec> --stored <f>             compare a read-back against the repo
   states [--json]                        the configured types' state names
-  list [--all | --state NAME]            tracker listing for the project
+  list [--all | --state NAME] [--mine | --by USER]  tracker listing for the project
   linked [--json]                        specs and their linked items (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     tickets a commit range contains
@@ -1513,6 +1533,8 @@ function parseArgs(args, sub) {
     '--to': { kind: 'string' },
     '--name': { kind: 'string' },
     '--release': { kind: 'boolean' },
+    '--mine': { kind: 'boolean' },
+    '--by': { kind: 'string' },
     '--set': { kind: 'string' },
     '--unset': { kind: 'boolean' },
     '--stdin': { kind: 'boolean' },
