@@ -258,8 +258,32 @@ function stageOrderWarning(stages, fromState, toKey, lifecycleStates = []) {
   return null
 }
 
+/**
+ * Name the spec behind each ticket a range contains, so a consumer can act on
+ * a release without a second lookup.
+ *
+ * A ref no spec has stamped keeps `spec: null` and `url: null` — never a guess
+ * from a similar folder name. It may be tracker-only work, or a typo in a
+ * trailer, and a consumer acting on an invented match is worse than one told
+ * there was none.
+ *
+ * Pure: it takes the spec list as data (`listSpecs` rows), so it is testable
+ * without a repo.
+ */
+function nameTickets(tickets, specs) {
+  const byRef = new Map()
+  for (const s of specs || []) {
+    if (s && s.identifier && !byRef.has(s.identifier)) byRef.set(s.identifier, s)
+  }
+  return (tickets || []).map((t) => {
+    const s = byRef.get(t.ref)
+    return { ...t, spec: s ? s.spec : null, url: s ? s.url || null : null }
+  })
+}
+
 module.exports = {
   ticketsInRange,
+  nameTickets,
   refsInBody,
   onlyIgnoredPaths,
   partitionStageMoves,

@@ -25,7 +25,7 @@ const path = require('node:path')
 
 const { BUCKETS, findSpecFolder, branchFor, splitPrefix, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
-const { ticketsInRange, partitionStageMoves, stageOrderWarning } = require('./released.js')
+const { ticketsInRange, nameTickets, partitionStageMoves, stageOrderWarning } = require('./released.js')
 const { execFileSync } = require('node:child_process')
 const {
   normalizeLocal,
@@ -1094,6 +1094,7 @@ async function specSyncReleased(dir, config, rangeArg, flags, out) {
   const { range, commits } = read
 
   const report = ticketsInRange(commits, { ignorePaths: releaseIgnorePaths(config) })
+  report.tickets = nameTickets(report.tickets, listSpecs(dir, config, { urls: true }))
 
   // Titles are an ENRICHMENT: the scan itself is offline. No key, the MCP
   // transport, or a read failure degrades to bare refs — never a failure.
@@ -1127,7 +1128,7 @@ async function specSyncReleased(dir, config, rangeArg, flags, out) {
   if (!report.tickets.length) lines.push('  no ticket references found')
   for (const t of report.tickets) {
     const title = titles && titles[t.ref] ? `  ${titles[t.ref]}` : ''
-    lines.push(`  ${t.ref}${title}`)
+    lines.push(`  ${t.ref}${title}${t.spec ? `  (${t.spec})` : ''}`)
   }
   if (titleNote) lines.push(titleNote)
   lines.push('')

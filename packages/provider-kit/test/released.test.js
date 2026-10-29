@@ -7,7 +7,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const { refsInBody, ticketsInRange, IDENTIFIER_RE, GITHUB_REF_RE } = require('../src/released.js')
+const { refsInBody, ticketsInRange, nameTickets, IDENTIFIER_RE, GITHUB_REF_RE } = require('../src/released.js')
 
 // --- a provider's own ref pattern ---------------------------------------------
 
@@ -83,4 +83,30 @@ test('without foreignPatterns the report shape is unchanged', () => {
   const got = ticketsInRange([{ body: 'Refs: SKS-29' }], { refPattern: GITHUB_REF_RE })
   assert.deepEqual(got, { tickets: [], unreferenced: 1, ignored: 0, total: 1 })
   assert.ok(!('historical' in got))
+})
+
+// --- naming the spec behind each ref ------------------------------------------
+
+test('nameTickets pairs a ref with the spec that stamped it, and its url', () => {
+  const specs = [{ spec: 'feat-a', bucket: 'complete', identifier: 'SKS-1', url: 'https://t/SKS-1' }]
+  assert.deepEqual(nameTickets([{ ref: 'SKS-1', commits: 2 }], specs), [
+    { ref: 'SKS-1', commits: 2, spec: 'feat-a', url: 'https://t/SKS-1' },
+  ])
+})
+
+test('nameTickets leaves an unclaimed ref null, never matching a similar name', () => {
+  // A spec folder named after the ref is still not a stamp: only the
+  // frontmatter link counts, so nothing here may guess from `spec`.
+  const specs = [
+    { spec: 'SKS-2', bucket: 'backlog', identifier: null, url: null },
+    { spec: 'feat-b', bucket: 'complete', identifier: 'SKS-20', url: 'https://t/SKS-20' },
+  ]
+  assert.deepEqual(nameTickets([{ ref: 'SKS-2', commits: 1 }], specs), [
+    { ref: 'SKS-2', commits: 1, spec: null, url: null },
+  ])
+})
+
+test('nameTickets reports a stamped spec with no url as url null, not a built one', () => {
+  const specs = [{ spec: 'feat-c', bucket: 'complete', identifier: '#4' }]
+  assert.deepEqual(nameTickets([{ ref: '#4', commits: 1 }], specs), [{ ref: '#4', commits: 1, spec: 'feat-c', url: null }])
 })

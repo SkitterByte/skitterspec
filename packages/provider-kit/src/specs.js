@@ -54,22 +54,32 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
   // Read a spec's stamped identifier without throwing: an unlinked spec, an
   // unreadable file and a spec with no frontmatter all read as `null`.
   function linkedIdentifier(overviewPath, config) {
-    const field = fieldsOf(config).identifier
+    return linkedFields(overviewPath, config).identifier
+  }
+
+  // The stamped identifier AND url, each `null` when absent. The url is only
+  // ever what a push stamped — never built from the identifier, because a url
+  // constructed here would be a guess about a tracker's address scheme.
+  function linkedFields(overviewPath, config) {
+    const fields = fieldsOf(config)
     let raw
     try {
       raw = fs.readFileSync(overviewPath, 'utf-8')
     } catch {
-      return null
+      return { identifier: null, url: null }
     }
     const { data } = parseFrontmatter(raw)
-    return data[field] ? String(data[field]) : null
+    return {
+      identifier: data[fields.identifier] ? String(data[fields.identifier]) : null,
+      url: fields.url && data[fields.url] ? String(data[fields.url]) : null,
+    }
   }
 
   // Every spec under specs/<bucket>/, paired with the tracker issue it is
   // linked to (`null` when it has never been pushed). Folder specs read
   // `snapshot.overviewFile`; legacy bare `<name>.md` specs read the file
   // itself. Sorted for stable output.
-  function listSpecs(dir, config) {
+  function listSpecs(dir, config, options = {}) {
     const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
     const specs = []
     for (const bucket of BUCKETS) {
@@ -92,7 +102,11 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
         } else {
           continue
         }
-        specs.push({ spec: name, bucket, identifier: linkedIdentifier(overviewPath, config) })
+        const linked = linkedFields(overviewPath, config)
+        const row = { spec: name, bucket, identifier: linked.identifier }
+        // Opt-in, so every listing that never asked for a url keeps its shape.
+        if (options.urls) row.url = linked.url
+        specs.push(row)
       }
     }
     return specs.sort((a, b) => a.spec.localeCompare(b.spec))

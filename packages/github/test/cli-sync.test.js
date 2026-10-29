@@ -432,6 +432,28 @@ test('ref prints the bare #N for the branch spec, and only on success', async ()
   assert.match(r2.err, /omit the trailer/)
 })
 
+test('released names the spec and url behind each ref, from the stamped frontmatter', async () => {
+  // In `complete/`: a release is cut after a spec lands, so that is where a
+  // shipped spec lives by the time CI asks.
+  const dir = repoWithSpec({ identifier: '#5', bucket: 'complete' })
+  const git = gitRepo(dir)
+  const commit = (file, msg) => {
+    fs.writeFileSync(path.join(dir, file), msg)
+    git('add', '--', file)
+    git('commit', '-qm', msg)
+  }
+  commit('a.txt', 'feat: a\n\nRefs: #5')
+  commit('b.txt', 'feat: b\n\nRefs: #6')
+  const json = JSON.parse((await run(['released', 'HEAD', '--json'], dir)).out)
+  assert.deepStrictEqual(json.tickets, [
+    { ref: '#6', commits: 1, spec: null, url: null },
+    { ref: '#5', commits: 1, spec: 'feat-demo', url: 'https://github.com/SkitterByte/demo/issues/5' },
+  ])
+  const human = await run(['released', 'HEAD'], dir)
+  assert.match(human.out, /#5 {2}\(1 commit\(s\)\) {2}feat-demo/)
+  assert.doesNotMatch(human.out, /#6 .*feat-demo/, 'an unlinked ref is never matched to a spec')
+})
+
 test('released reads #N trailers and counts an older tracker as historical', async () => {
   const dir = repoWithSpec()
   const git = gitRepo(dir)
@@ -446,7 +468,7 @@ test('released reads #N trailers and counts an older tracker as historical', asy
   commit('d.txt', 'fix: d, see #9\n\nRefs: SkitterByte/other#3')
   const r = await run(['released', 'HEAD', '--json'], dir)
   const report = JSON.parse(r.out)
-  assert.deepStrictEqual(report.tickets, [{ ref: '#5', commits: 1 }])
+  assert.deepStrictEqual(report.tickets, [{ ref: '#5', commits: 1, spec: null, url: null }])
   assert.strictEqual(report.historical, 1)
   assert.strictEqual(report.unreferenced, 2, "the cross-repo trailer is not this repo's ref")
 })

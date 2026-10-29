@@ -87,8 +87,8 @@ test('it reports the tickets in a range, deduped, with the unreferenced count', 
   const json = JSON.parse(got.out)
   assert.strictEqual(got.code, 0)
   assert.deepEqual(json.tickets, [
-    { ref: 'SKS-2', commits: 1 },
-    { ref: 'SKS-1', commits: 2 },
+    { ref: 'SKS-2', commits: 1, spec: null, url: null },
+    { ref: 'SKS-1', commits: 2, spec: null, url: null },
   ], 'newest first, as git log orders them')
   assert.strictEqual(json.unreferenced, 1)
   assert.strictEqual(json.total, 4)
@@ -189,7 +189,7 @@ test('a multi-line body with a subject containing separators still parses', asyn
   r.commit('feat(a): handle a|pipe and a: colon\n\n- bullet one\n- bullet two\n\nRelease-Note: A thing.\n\nRefs: SKS-7')
 
   const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
-  assert.deepEqual(json.tickets, [{ ref: 'SKS-7', commits: 1 }])
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-7', commits: 1, spec: null, url: null }])
 })
 
 // --- bookkeeping commits, over real git --------------------------------------
@@ -227,7 +227,7 @@ test('a commit changing a spec AND code still contributes — it shipped code', 
   ])
 
   const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
-  assert.deepEqual(json.tickets, [{ ref: 'SKS-1', commits: 1 }])
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-1', commits: 1, spec: null, url: null }])
   assert.strictEqual(json.ignored, 0)
 })
 
@@ -245,8 +245,8 @@ test('an ordinary release of code commits is completely unaffected', async () =>
   const json = JSON.parse(got.out)
   assert.strictEqual(got.code, 0)
   assert.deepEqual(json.tickets, [
-    { ref: 'SKS-2', commits: 1 },
-    { ref: 'SKS-1', commits: 1 },
+    { ref: 'SKS-2', commits: 1, spec: null, url: null },
+    { ref: 'SKS-1', commits: 1, spec: null, url: null },
   ])
   assert.strictEqual(json.ignored, 0, 'nothing was filtered')
   assert.strictEqual(json.unreferenced, 1)
@@ -267,7 +267,7 @@ test('a merge commit, for which git lists no files at all, still counts', async 
   r.git('merge', '-q', '--no-ff', 'side', '-m', 'merge side\n\nRefs: SKS-5')
 
   const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
-  assert.deepEqual(json.tickets, [{ ref: 'SKS-5', commits: 1 }], 'no paths seen means unknown, never ignored')
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-5', commits: 1, spec: null, url: null }], 'no paths seen means unknown, never ignored')
   assert.strictEqual(json.ignored, 0)
 })
 
@@ -279,7 +279,7 @@ test('the filter is configurable — an empty list opts out entirely', async () 
   r.commitPaths('chore(spec): complete feat-a\n\nRefs: SKS-1', ['specs/complete/feat-a/00-overview.md'])
 
   const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
-  assert.deepEqual(json.tickets, [{ ref: 'SKS-1', commits: 1 }], 'opted out, so nothing is filtered')
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-1', commits: 1, spec: null, url: null }], 'opted out, so nothing is filtered')
   assert.strictEqual(json.ignored, 0)
 })
 
@@ -292,7 +292,7 @@ test('a project keeping its paperwork elsewhere names its own directories', asyn
   r.commitPaths('chore(spec): complete feat-b\n\nRefs: SKS-2', ['specs/complete/feat-b/00-overview.md'])
 
   const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
-  assert.deepEqual(json.tickets, [{ ref: 'SKS-2', commits: 1 }], 'specs/ is no longer ignored; the named dirs are')
+  assert.deepEqual(json.tickets, [{ ref: 'SKS-2', commits: 1, spec: null, url: null }], 'specs/ is no longer ignored; the named dirs are')
   assert.strictEqual(json.ignored, 1)
 })
 
@@ -305,4 +305,26 @@ test('the ignored count is disclosed in the text report, never silent', async ()
   const got = await run(['released', 'v1.0.0..HEAD'], r.dir)
   assert.match(got.out, /1 commit\(s\) ignored as bookkeeping/, 'a silent drop reads as "nothing was there"')
   assert.match(got.out, /release\.ignorePaths/, 'names the knob that did it')
+})
+
+test('a ticket a spec stamped carries that spec and its url; the rest stay null', async () => {
+  const r = repo()
+  const spec = path.join(r.dir, 'specs', 'complete', 'feat-shipped')
+  fs.mkdirSync(spec, { recursive: true })
+  fs.writeFileSync(
+    path.join(spec, '00-overview.md'),
+    '---\nlinear_identifier: "SKS-1"\nlinear_url: "https://linear.app/t/issue/SKS-1"\n---\n\n# Shipped\n',
+  )
+  r.commit('chore: base')
+  r.tag('v1.0.0')
+  r.commit('feat(a): one\n\nRefs: SKS-1')
+  r.commit('feat(b): two\n\nRefs: SKS-2')
+
+  const json = JSON.parse((await run(['released', 'v1.0.0..HEAD', '--json'], r.dir)).out)
+  assert.deepEqual(json.tickets, [
+    { ref: 'SKS-2', commits: 1, spec: null, url: null },
+    { ref: 'SKS-1', commits: 1, spec: 'feat-shipped', url: 'https://linear.app/t/issue/SKS-1' },
+  ])
+  const human = await run(['released', 'v1.0.0..HEAD'], r.dir)
+  assert.match(human.out, /SKS-1 {2}\(feat-shipped\)/)
 })

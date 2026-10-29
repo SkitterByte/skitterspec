@@ -817,7 +817,7 @@ test('released reads AB#n trailers and counts an earlier tracker as historical',
   const r = await run(['released', 'HEAD', '--json'], dir)
   assert.strictEqual(r.code, 0, r.out)
   const report = JSON.parse(r.out)
-  assert.deepStrictEqual(report.tickets, [{ ref: 'AB#7', commits: 1 }])
+  assert.deepStrictEqual(report.tickets, [{ ref: 'AB#7', commits: 1, spec: null, url: null }])
   assert.strictEqual(report.historical, 1)
   assert.strictEqual(report.unreferenced, 1)
 })

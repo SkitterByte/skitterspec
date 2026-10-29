@@ -92,7 +92,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `released --json` names the spec | ⬜ | [01-released-names-spec.md](01-released-names-spec.md) |
+| 1 | `released --json` names the spec | ✅ | [01-released-names-spec.md](01-released-names-spec.md) |
 | 2 | Dogfood script, then remove release objects | ⬜ | [02-remove-release-objects.md](02-remove-release-objects.md) |
 | 3 | Remove the stage ladder | ⬜ | [03-remove-stage-ladder.md](03-remove-stage-ladder.md) |
 | 4 | Remove state drift | ⬜ | [04-remove-state-drift.md](04-remove-state-drift.md) |
@@ -112,3 +112,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-10-29 — Spec created. Supersedes `feat-tracker-releases`.
+- 2026-10-29 — Phase 1: `listSpecs` takes `{ urls: true }` rather than always
+  carrying `url`, so `linked --json` and every other listing keep their shape.
