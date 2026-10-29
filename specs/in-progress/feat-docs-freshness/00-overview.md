@@ -123,7 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Script core — parser, check, impact, stale | ✅ | [01-script-core.md](01-script-core.md) |
 | 2 | Coverage blocks on every page + validator | ✅ | [02-page-coverage.md](02-page-coverage.md) |
-| 3 | Wiring — release.js, rules, docs | ⬜ | [03-wiring.md](03-wiring.md) |
+| 3 | Wiring — release.js, rules, docs | ✅ | [03-wiring.md](03-wiring.md) |
 
 ## Open questions
 

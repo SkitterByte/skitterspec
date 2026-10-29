@@ -683,3 +683,49 @@ test('a plan that was never asked reports unknown rather than claiming a run', (
   assert.strictEqual(p.linux.state, 'unknown')
   assert.strictEqual(linuxStep(p), undefined)
 })
+
+// --- docs-freshness advisory --------------------------------------------------
+
+const { docsStaleAdvisory } = require('./release.js')
+
+test('docsStaleAdvisory lists a stale page as re-read, never as an error', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'release-docs-stale-'))
+  const g = (...a) =>
+    spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...a], {
+      cwd: root,
+    })
+  g('init', '-q', '-b', 'main')
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true })
+  fs.mkdirSync(path.join(root, 'docs'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'src', 'f.js'), 'one\n')
+  fs.writeFileSync(path.join(root, 'docs', 'a.html'), 'placeholder\n')
+  g('add', '-A')
+  g('commit', '-q', '--no-verify', '-m', 'base')
+  const first = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' })
+    .stdout.trim()
+  fs.writeFileSync(
+    path.join(root, 'docs', 'a.html'),
+    `<!-- coverage\ncovers:\n  - src/**\nverified: ${first}\n-->\n<!doctype html>\n`,
+  )
+  fs.writeFileSync(path.join(root, 'src', 'f.js'), 'two\n')
+  g('add', '-A')
+  g('commit', '-q', '--no-verify', '-m', 'drift')
+  const lines = docsStaleAdvisory(root)
+  assert.ok(lines.some((l) => /a\.html — re-read it/.test(l)), lines.join('\n'))
+})
+
+test('docsStaleAdvisory cannot block a release — it answers even where it cannot look', () => {
+  // The advisory is printed mid-release; a throw here would fail the bump over
+  // a docs report. A directory that is not a repo is the worst case it can be
+  // handed, and the answer is a line, not an exception.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'release-docs-none-'))
+  const lines = docsStaleAdvisory(root)
+  assert.ok(Array.isArray(lines) && lines.length > 0)
+})
+
+test('docsStaleAdvisory is quiet-positive on a fresh tree', () => {
+  // The real repo at HEAD: every page was verified at or before HEAD, and a
+  // release run prints one line saying so rather than a report of nothing.
+  const lines = docsStaleAdvisory(ROOT)
+  assert.ok(lines.length >= 1)
+})

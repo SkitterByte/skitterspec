@@ -205,6 +205,14 @@ Before mutating anything, the tool fails closed on:
   is allowed (for a first release of a version already written to
   `package.json`); the bump/commit are skipped and the existing commit is tagged.
 
+One report prints with the plan and is deliberately **not** a guard: the
+docs-freshness stale list (`node scripts/docs-freshness.js stale`). A listed
+docs page has commits touching its covered code since someone last read it —
+re-read it, fix whatever moved, and bump its `verified:` to HEAD, in the same
+sitting as the release or deliberately not. It never blocks, and a page it
+cannot answer for (a shallow clone, a malformed block) prints `cannot tell`
+rather than passing as fresh. See `docs/README.md` for the coverage blocks.
+
 ## Publish order
 
 Versioning is independent — **publish only what changed.** When both go out

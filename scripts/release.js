@@ -618,6 +618,32 @@ function parseArgs(argv) {
   }
 }
 
+/**
+ * The docs-freshness stale report, as lines to print with the plan.
+ *
+ * ADVISORY, AND IT NEVER BLOCKS A RELEASE. A listed page means "re-read it,
+ * fix what moved, bump its verified: to HEAD" — lots of commits inside covered
+ * code leave the prose as it was. It runs here because "run stale before
+ * tagging" by memory is the exact forgetting the coverage blocks exist to
+ * catch. Any failure to answer — a missing script, a shallow clone, a page
+ * with no block — reports itself as cannot tell and the release carries on
+ * (.claude/rules/negative-checks.md rule 4).
+ */
+function docsStaleAdvisory(root = ROOT) {
+  try {
+    const { stale } = require('./docs-freshness.js')
+    const r = stale(root)
+    const lines = []
+    for (const c of r.cannotTell) lines.push(`  ${c.page} — cannot tell — ${c.reason}`)
+    for (const s of r.stale) lines.push(`  ${s.page} — re-read it: ${s.commits} commit(s) since ${s.verified}`)
+    if (lines.length === 0) return ['docs pages: all fresh at their verified commits']
+    lines.unshift('docs pages to re-read before tagging (advisory — see docs/README.md):')
+    return lines
+  } catch (err) {
+    return [`docs pages: cannot tell — ${String((err && err.message) || err).split('\n')[0]}`]
+  }
+}
+
 function main(argv) {
   const opts = parseArgs(argv)
   if (opts.help || !opts.pkg || !opts.bump) {
@@ -644,6 +670,8 @@ function main(argv) {
   })
 
   console.log(formatPlan(plan))
+  console.log('')
+  for (const line of docsStaleAdvisory()) console.log(line)
   console.log('')
 
   if (level === 'plan') {
@@ -678,6 +706,7 @@ module.exports = {
   formatPlan,
   verifyFailureMessage,
   parseArgs,
+  docsStaleAdvisory,
 }
 
 // Run the CLI only when invoked directly (keeps the helpers importable).
