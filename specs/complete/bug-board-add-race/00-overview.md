@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Bug
 > **Name:** bug-board-add-race (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixed (green)
+> **Status:** Complete (2026-10-29)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
@@ -75,9 +75,11 @@ _No external surface changes — internal refactor only._
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-29 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-29 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
 - 2026-10-29 — Bug reproduced; failing test added (red).
 - 2026-10-29 — Fixed: `addToBoard` reads the item back on `already exists`, with a
   short backoff, and re-raises if it never appears; tests green (4268 passed).
+- 2026-10-29 — Completed; fix green, no docs describe the board add.
