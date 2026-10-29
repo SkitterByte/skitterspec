@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-tracker-boundary (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-10-29)
+> **Status:** Complete (2026-10-29)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-29
@@ -96,7 +96,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Dogfood script, then remove release objects | ✅ | [02-remove-release-objects.md](02-remove-release-objects.md) |
 | 3 | Remove the stage ladder | ✅ | [03-remove-stage-ladder.md](03-remove-stage-ladder.md) |
 | 4 | Remove state drift | ✅ | [04-remove-state-drift.md](04-remove-state-drift.md) |
-| 5 | Docs and dist | 🔄 | [05-docs-and-dist.md](05-docs-and-dist.md) |
+| 5 | Docs and dist | ✅ | [05-docs-and-dist.md](05-docs-and-dist.md) |
 
 ## Open questions
 
@@ -108,6 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-29 | Ready | backlog | Reuben Greaves |
 | 2026-10-29 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-29 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -140,3 +141,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `specs/.core` was Linear-era (Linear SETUP, the ladder guide) and is now
   resynced from the GitHub package. The final sweep leaves only deliberate
   "retired" notes and the `docs-claims` allowlist reasons.
+- 2026-10-29 — `feat-tracker-releases` cancelled (8616a38f). Its branch is
+  pushed as the record; its one non-release fix landed as
+  `bug-linear-http-error-body`.
+- 2026-10-29 — Completed; all phases done, tests green. Known gap: the
+  `mirror-deployed.cjs` board write is unproven until the next tag push.

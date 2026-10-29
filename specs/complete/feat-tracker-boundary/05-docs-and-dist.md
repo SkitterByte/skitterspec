@@ -2,9 +2,9 @@
 github_issue_id: "#68"
 ---
 
-# Phase 5 — Docs and dist 🔄
+# Phase 5 — Docs and dist ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** In progress — one task left (the cancel)
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** every doc describes the boundary as built. Nothing anywhere still
 documents a release verb, the stage ladder, `releases`/`release.stages`
@@ -45,6 +45,6 @@ config, or state drift. The dist packages match the source.
 - [x] Note the major bump and the removed verbs in each provider's release notes
       (carried by the `feat(sync)!:` commits' `Release-Note:` footers, which
       `scripts/release-notes.js` turns into each package's notes)
-- [ ] `/spec-cancel feat-tracker-releases` — superseded by this spec. Runs
+- [x] `/spec-cancel feat-tracker-releases` — superseded by this spec. Runs
       after this phase commits: it changes another spec, so it is its own commit
 - [x] Run typecheck + tests — green
