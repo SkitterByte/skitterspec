@@ -452,8 +452,8 @@ reading — and that is the gap the whole gate exists to close.
 
 **A watch that dies is re-armed on the same window**, silently and bounded by
 the age of that window — `.claude/rules/spec-reports.md` carries the contract,
-including when to stop and what the banner says instead. Do not restate it
-here.
+including when to stop, what the banner says instead, and when the
+engine's `re-show:` brings the banner back. Do not restate it here.
 
    Then **end your turn**. Do not poll it and do not hold the turn open: the
    point is that the reader has the terminal back while they read.

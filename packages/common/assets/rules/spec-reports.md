@@ -231,8 +231,34 @@ again on the **same** `--since`. Not a fresh one — a pass that arrived during
 the gap is still inside the original window, and re-arming on a new timestamp
 would strand exactly that pass.
 
-**Say nothing when you do it.** Nothing happened and the window is unchanged; a
-line on every death turns a working loop into a stream of non-events.
+**Say as little as the harness allows when you do it.** Nothing happened and
+the window is unchanged; a line on every death turns a working loop into a
+stream of non-events. Where the harness lets a turn end on the tool call, the
+tool call is the whole turn. Where it insists on visible text — Claude Code
+does, after a monitor event — that text is one fixed line,
+`Still waiting for the verdict.`, and nothing else: not the spec, not the age,
+not the links. The wait's own start line arriving as an event is answered the
+same way.
+
+**Every fifth re-arm, show the banner again.** Even one line per re-arm adds
+up: over a long idle they push the verdict line and the banner's links out of
+sight, and a reader who comes back has to scroll for the URL that lets them
+answer. So `review wait` counts the starts on each window, and on every fifth
+re-arm its start line is followed by `re-show: banner (re-arm N)` and the stack.
+Relay that as the run's **verdict line** — copied from the block when it is
+still in context, dropped rather than reconstructed when it is not — and then
+**the banner** in its current state, with its stack copied from the `re-show:`
+lines. Not the table: that would be a second block.
+
+**A count here, not an age**, and the bound below is unaffected. What buries
+the banner is how many re-arms have scrolled past it, and a death every five
+minutes and one every forty-five push it up the same distance each. The age of
+the window still decides when to stop.
+
+**And it is not a third control after the block.** It is the banner this file
+already defines, repeated in whatever state it is in — past the bound, that is
+the degraded sentence below. No block is repeated, so nothing follows a second
+one, and nothing about the banner's shape changes.
 
 **An operator who stopped it is not a death** — re-arming over a deliberate
 stop makes the wait unstoppable, which is worse than a wait that stops. But a

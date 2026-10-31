@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-rearm-reshows-banner
-> **Status:** In Progress — Phase 1 (started 2026-10-31)
+> **Status:** In Progress — Phase 2 (started 2026-10-31)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-31
@@ -108,7 +108,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine counts re-arms and prints the stack on every 5th | ✅ | [01-engine-reshow.md](01-engine-reshow.md) |
-| 2 | Rule and skills relay the re-show; silence between | ⬜ | [02-rule-and-skills.md](02-rule-and-skills.md) |
+| 2 | Rule and skills relay the re-show; silence between | ✅ | [02-rule-and-skills.md](02-rule-and-skills.md) |
 
 ## Open questions
 
@@ -132,3 +132,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-10-31 — Observed while authoring: the harness requires visible text
   after a monitor event, so decision 4's "no text at all" may only be
   achievable as one fixed short line. Settle this in phase 2.
+- 2026-10-31 — Phase 2 done. Decision 4 settled: where the harness forces
+  visible text, a re-arm gets one fixed line ("Still waiting for the
+  verdict."), and otherwise the tool call is the whole turn. spec-diff has
+  no re-arm sentence, so it was left alone. `reference.html` gained a
+  `review wait` row, which it lacked.

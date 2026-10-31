@@ -38,9 +38,36 @@ test('it re-arms on the SAME window, never a fresh one', () => {
   assert.match(RULE, /would strand exactly that pass/)
 })
 
-test('it re-arms silently', () => {
-  assert.match(RULE, /Say nothing when you do it/)
+test('it re-arms as quietly as the harness allows', () => {
+  assert.match(RULE, /Say as little as the harness allows when you do it/)
   assert.match(RULE, /stream of non-events/)
+  assert.match(RULE, /the\ntool call is the whole turn/)
+  // Where text is forced, it is one fixed line — never a status that grows.
+  assert.match(RULE, /`Still waiting for the verdict\.`, and nothing else/)
+  assert.match(RULE, /not the spec, not the age,\nnot the links/)
+})
+
+test('every fifth re-arm brings the banner back, from the engine\'s stack', () => {
+  assert.match(RULE, /Every fifth re-arm, show the banner again/)
+  assert.match(RULE, /`re-show: banner \(re-arm N\)`/)
+  assert.match(RULE, /stack copied from the `re-show:`\nlines/)
+  // The verdict line, never reconstructed; never the table.
+  assert.match(RULE, /dropped rather than reconstructed/)
+  assert.match(RULE, /Not the table: that would be a second block/)
+})
+
+test('the re-show is a count, and the age bound is untouched by it', () => {
+  assert.match(RULE, /A count here, not an age/)
+  assert.match(RULE, /The age of\nthe window still decides when to stop/)
+})
+
+test('the re-show is the existing banner, not a third control', () => {
+  assert.match(RULE, /it is not a third control after the block/)
+})
+
+test('STAYS SILENT: the bare "say nothing" wording is gone', () => {
+  // It was read as permitting a status line per re-arm, which is what piled up.
+  assert.doesNotMatch(RULE, /Say nothing when you do it/)
 })
 
 test('a deliberate stop is not a death', () => {
@@ -103,6 +130,7 @@ test('every skill that waits points at the rule', () => {
     const text = read('skills', skill, 'SKILL.md')
     assert.match(text, /re-armed on the same window/, `${skill} names the behaviour`)
     assert.match(text, /spec-reports\.md` carries the contract/, `${skill} points at the rule`)
+    assert.match(text, /`re-show:` brings the banner back/, `${skill} names the re-show`)
   }
 })
 
@@ -119,6 +147,13 @@ test('STAYS SILENT: no skill restates the primitive — the example lives in the
   for (const skill of WAITERS) {
     const text = read('skills', skill, 'SKILL.md')
     assert.doesNotMatch(text, /persistent: true/, `${skill} defers the example to the rule`)
+  }
+})
+
+test('STAYS SILENT: no skill restates the re-show cadence', () => {
+  for (const skill of WAITERS) {
+    const text = read('skills', skill, 'SKILL.md')
+    assert.doesNotMatch(text, /fifth re-arm|every 5/i, `${skill} defers the cadence to the rule`)
   }
 })
 

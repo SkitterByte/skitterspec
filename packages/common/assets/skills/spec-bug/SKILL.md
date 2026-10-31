@@ -280,8 +280,8 @@ and the routing on the verdict is `/spec-diff` §2 and §4, as it is everywhere.
 
 **A watch that dies is re-armed on the same window**, silently and bounded by
 the age of that window — `.claude/rules/spec-reports.md` carries the contract,
-including when to stop and what the banner says instead. Do not restate it
-here.
+including when to stop, what the banner says instead, and when the
+engine's `re-show:` brings the banner back. Do not restate it here.
 
 **Why this skill arms as well as waits.** Waiting is what any offer does;
 **arming** asserts an obligation that outlives the turn, and belongs only to

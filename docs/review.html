@@ -11,7 +11,7 @@ covers:
   - packages/common/assets/commands/spec-remote-review.md
   - packages/common/assets/hooks/review-gate.cjs
   - packages/common/assets/rules/spec-reports.md
-verified: 2e840b2813e6
+verified: d8a8c05a3f6b
 -->
 <html lang="en">
 <head>
@@ -804,6 +804,7 @@ verified: 2e840b2813e6
       <details class="reveal">
         <summary>How can the page safely carry the work on?</summary>
         <p class="lede"><b>The phase waits for that press.</b> <span class="mono" style="font-size:.9em">/spec-next</span> ends a phase by rendering the page and then watching, so the button is what carries the work on — there is no command to remember. It used to be true that a device reaching your page couldn't reach your conversation, and that fact was the whole guard. It isn't true any more, deliberately, and two mechanisms replaced it: the <b>serve token</b> — 48 random bits in the URL, minted per server, deciding who can POST at all — and the <b>window</b>, which decides <em>which</em> pass may be claimed without you naming it. A pass that arrived while the session was waiting is yours; one already sitting there when the wait began is never swept up, which is exactly the stranger's pass the old rule was written about.</p>
+        <p class="lede"><b>A long wait brings its links back.</b> The harness reclaims an idle wait, and the session re-arms it on the same window — quietly, but each re-arm still leaves a trace, and over an hour those push the banner out of sight. So every fifth re-arm the engine prints the stack again and the session repeats the verdict line and the banner, read straight from the running server without restarting it, so the link already open on your phone keeps working. <span class="mono" style="font-size:.9em">--reshow-every &lt;n&gt;</span> changes the cadence; <span class="mono" style="font-size:.9em">0</span> turns it off.</p>
       </details>
       <details class="reveal">
         <summary>What stops a pass being claimed unasked?</summary>

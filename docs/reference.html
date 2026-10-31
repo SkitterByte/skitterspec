@@ -5,7 +5,7 @@ covers:
   - packages/common/assets/commands/**
   - packages/common/src/cli.js
   - packages/common/src/env/**
-verified: 2e840b2813e6
+verified: d8a8c05a3f6b
 -->
 <html lang="en">
 <head>
@@ -597,6 +597,7 @@ verified: 2e840b2813e6
           <tr><td class="cmd">spec-env main check|allow|status</td><td>The main guard: refuse a write in the primary checkout while it sits on the base branch. <span class="mono">check</span> is what the hook calls; <span class="mono">allow</span> is reached only through <span class="mono">/allow-main</span>, which only you can run.</td><td class="folder">the main-guard hook · /allow-main</td></tr>
           <tr><td class="cmd">spec-env live [spec|main|status|release|abort]</td><td>Hand the running instance to one spec by checking its branch out in the primary checkout. Bare takes the spec you're on when the workbench is free, and prints the status report when it can't tell.</td><td class="folder">/spec-live</td></tr>
           <tr><td class="cmd">spec-env review [spec]</td><td>Write an HTML page of a spec's diff to <span class="mono">.spec-env/reviews/</span>. <span class="mono">--branch</span> for the whole spec rather than the uncommitted work; <span class="mono">--notes</span> merges a review pass back from the page, <span class="mono">--resolve</span> records what was done about a note.</td><td class="folder">/spec-diff · /spec-next</td></tr>
+          <tr><td class="cmd">spec-env review wait [spec] --since &lt;iso&gt;</td><td>Block until one verdict arrives inside the window. No timeout unless asked. Every fifth re-arm on the same window it prints the review links again (<span class="mono">--reshow-every &lt;n&gt;</span>, <span class="mono">0</span> disables), read-only.</td><td class="folder">/spec · /spec-next · /spec-bug · /no-spec</td></tr>
 
           <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on. With <span class="mono">--record-primary</span> / <span class="mono">--assert-primary-clean</span> it also brackets a build done from outside the worktree, reporting anything that reached your primary checkout instead.</td><td class="folder">you</td></tr>
