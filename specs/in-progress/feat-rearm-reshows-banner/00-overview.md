@@ -1,15 +1,17 @@
 ---
 github_identifier: "#82"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/82"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Re-show the review banner on long waits
 
 > **Type:** Feature
 > **Name:** feat-rearm-reshows-banner
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-31)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-31
 > **Area:** packages/common/src/env/review.js, packages/common/src/cli.js, packages/common/assets/rules/spec-reports.md, packages/common/assets/skills/{spec,spec-next,spec-bug,spec-diff,no-spec}/SKILL.md, docs/review.html, docs/reference.html
 > **Stack:** worktree
@@ -117,6 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-31 | Ready | backlog | Reuben Greaves |
+| 2026-10-31 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
