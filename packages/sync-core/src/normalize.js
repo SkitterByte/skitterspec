@@ -405,15 +405,39 @@ function readSnapshot(snapshotDir, config) {
   return { frontmatter: data, title, sections, phases, body }
 }
 
+// The headings a bug-shaped spec's ticket leads with, in this order, when the
+// spec has them. A Bug ticket is read for its repro before anything else, and
+// the feature overview order buries it. Sections a spec does not have are
+// skipped, never invented — a legacy bug spec with feature-shaped sections
+// renders exactly as it always did.
+const BUG_LEAD_SECTIONS = ['Symptom', 'Repro', 'Expected', 'Actual', 'Root cause', 'Failing test (red)', 'Fix']
+
+// A spec's kind off its folder prefix — the same convention the providers'
+// `specKindOf` reads, kept local because sync-core depends on no other package.
+function bugShaped(snapshotDir) {
+  const name = path.basename(String(snapshotDir || ''))
+  return name.startsWith('bug-') || name.startsWith('hotfix-')
+}
+
 // Build the pushed description: the overview prose with local-only sections
 // removed. Keeps the title line for context. `extraSkip` drops additional
 // sections (e.g. "Phases" once milestones sync as first-class Linear objects, so
 // the phase list isn't duplicated in the description — Decision 5).
-function buildDescription(title, sections, localOnlySections, extraSkip = [], dialect) {
+// `leadSections` names headings to emit FIRST, in its order, matched
+// case-insensitively; the rest follow in document order. Empty means document
+// order throughout — byte-identical to before the parameter existed.
+function buildDescription(title, sections, localOnlySections, extraSkip = [], dialect, leadSections = []) {
   const skip = new Set([...(localOnlySections || []), ...extraSkip])
   const parts = []
   if (title) parts.push(`# ${title}`)
-  for (const [heading, content] of Object.entries(sections)) {
+  const entries = Object.entries(sections)
+  const lead = []
+  for (const want of leadSections) {
+    const hit = entries.find(([heading]) => heading.toLowerCase() === want.toLowerCase())
+    if (hit) lead.push(hit)
+  }
+  const ordered = [...lead, ...entries.filter((e) => !lead.includes(e))]
+  for (const [heading, content] of ordered) {
     if (skip.has(heading)) continue
     parts.push(`## ${heading}\n\n${content}`.trim())
   }
@@ -706,6 +730,10 @@ function normalizeLocal(snapshotDir, config) {
         config.sync.localOnlySections,
         phasesCarriedBySubIssues ? ['Phases'] : [],
         dialect,
+        // A bug or hotfix spec's ticket leads with the bug sections — a
+        // different render of the same overview, so the Bug form opens on the
+        // repro rather than the feature-shaped prose.
+        bugShaped(snapshotDir) ? BUG_LEAD_SECTIONS : [],
       ),
       inlined,
       tasksMode,
