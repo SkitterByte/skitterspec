@@ -125,9 +125,9 @@ test('azure.workItemTypeByKind merges and defaults empty', () => {
   const { config } = loadAzureConfig(
     tmpRepo(
       JSON.stringify({
-        azure: { orgUrl: 'https://dev.azure.com/a', project: 'p', workItemTypeByKind: { bug: 'Bug', hotfix: 'Bug', mystery: 'X' } },
+        azure: { orgUrl: 'https://dev.azure.com/a', project: 'p', workItemTypeByKind: { bug: 'Bug', hotfix: 'Bug', chore: 'Chore', mystery: 'X' } },
       }),
     ),
   )
-  assert.deepStrictEqual(config.azure.workItemTypeByKind, { bug: 'Bug', hotfix: 'Bug' })
+  assert.deepStrictEqual(config.azure.workItemTypeByKind, { bug: 'Bug', hotfix: 'Bug', chore: 'Chore' })
 })

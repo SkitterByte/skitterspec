@@ -109,7 +109,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Base engine: the `chore` kind | ✅ | [01-base-chore-kind.md](01-base-chore-kind.md) |
 | 2 | Authoring surfaces: propose the kind | ✅ | [02-authoring-surfaces.md](02-authoring-surfaces.md) |
-| 3 | Azure: chore in `workItemTypeByKind` | ⬜ | [03-azure-chore-mapping.md](03-azure-chore-mapping.md) |
+| 3 | Azure: chore in `workItemTypeByKind` | ✅ | [03-azure-chore-mapping.md](03-azure-chore-mapping.md) |
 | 4 | Azure: body field by type | ⬜ | [04-azure-body-field.md](04-azure-body-field.md) |
 | 5 | Bug-shaped body render | ⬜ | [05-bug-body-render.md](05-bug-body-render.md) |
 | 6 | GitHub/Jira/Linear kind mapping + migration note | ⬜ | [06-provider-kind-mapping.md](06-provider-kind-mapping.md) |

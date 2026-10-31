@@ -45,11 +45,13 @@ const DEFAULT_CONFIG = Object.freeze({
     // the Basic, Agile and CMMI backlogs drag-order; a Scrum process ranks by
     // `Microsoft.VSTS.Common.BacklogPriority` instead.
     backlogOrderField: 'Microsoft.VSTS.Common.StackRank',
-    // The mint type per SPEC KIND (`feature`/`bug`/`hotfix`, from the spec
-    // folder's prefix), falling back to `workItemType`. In Agile, Scrum and
-    // CMMI a bug is a work item TYPE, so `/spec-bug` minting a User Story
+    // The mint type per SPEC KIND (`feature`/`bug`/`hotfix`/`chore`, from the
+    // spec folder's prefix), falling back to `workItemType`. In Agile, Scrum
+    // and CMMI a bug is a work item TYPE, so `/spec-bug` minting a User Story
     // files it in the wrong backlog; `{ "bug": "Bug", "hotfix": "Bug" }` is
-    // the usual shape there. Empty means one type for everything, as before.
+    // the usual shape there. `chore` wants a custom inherited type (create
+    // `Chore` and its states in the process first); unmapped it falls back to
+    // `workItemType`. Empty means one type for everything, as before.
     workItemTypeByKind: Object.freeze({}),
   }),
   // A spec is a WORK ITEM; each phase a CHILD work item under a hierarchy
@@ -193,7 +195,7 @@ function mergeConfig(base, parsed) {
       // Only the kinds a spec folder can actually be — an unknown key is
       // dropped rather than carried into `states` validation it can never pass.
       const byKind = {}
-      for (const kind of ['feature', 'bug', 'hotfix']) {
+      for (const kind of ['feature', 'bug', 'hotfix', 'chore']) {
         const value = parsed.azure.workItemTypeByKind[kind]
         if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
       }

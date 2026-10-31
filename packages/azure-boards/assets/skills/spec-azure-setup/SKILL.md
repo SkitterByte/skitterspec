@@ -97,6 +97,9 @@ these are config rather than constants:
   Scrum, CMMI): a `/spec-bug` or `/spec-hotfix` minting a `User Story` files
   the bug in the wrong backlog, and `{ "bug": "Bug", "hotfix": "Bug" }` is the
   usual answer there. On Basic (no Bug type) say nothing and leave it empty.
+  A `chore` mapping needs a custom inherited type — offer it only when the
+  project has created one (e.g. `Chore`), and say the type and its states must
+  exist in the process before the first push mints with it.
 - **`intake.bugTypes`** / **`intake.hotfixTypes`** — the same processes route
   intake by TYPE as well as tag: `bugTypes` defaults to `["Bug"]`, so an
   untagged Bug-type item reaches `/spec-bug` without anyone remembering a tag

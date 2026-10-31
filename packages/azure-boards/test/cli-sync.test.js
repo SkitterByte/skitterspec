@@ -944,6 +944,50 @@ test('a bug spec mints with azure.workItemTypeByKind, a feature falls back to wo
   assert.strictEqual(minted[0], require('../src/config.js').loadAzureConfig(plainDir).config.azure.workItemType)
 })
 
+test('a chore spec mints workItemTypeByKind.chore, and falls back unmapped', async () => {
+  const repoWithChoreSpec = ({ config = {} } = {}) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'az-chore-'))
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, CONFIG_FILE),
+      JSON.stringify({ azure: { orgUrl: ORG, project: PROJECT }, ...config }),
+    )
+    const spec = path.join(dir, 'specs', 'in-progress', 'chore-demo')
+    fs.mkdirSync(spec, { recursive: true })
+    fs.writeFileSync(path.join(spec, '00-overview.md'), '# Chore demo\n\n## Problem\n\nCI is slow.\n')
+    fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** speed it up.\n')
+    return dir
+  }
+  const minted = []
+  const mint = (a) => {
+    const original = a.createIssue.bind(a)
+    a.createIssue = async (input) => { minted.push(input.workItemType); return original(input) }
+  }
+
+  const mapped = repoWithChoreSpec({
+    config: { azure: { orgUrl: ORG, project: PROJECT, workItemType: 'User Story', workItemTypeByKind: { chore: 'Chore' } } },
+  })
+  const mappedAdapter = fakeAdapter()
+  mint(mappedAdapter)
+  let plan = await run(['plan', 'chore-demo', '--skip-state-check', '--json'], mapped)
+  fs.writeFileSync(path.join(mapped, 'plan.json'), plan.out)
+  let r = await run(['apply', 'chore-demo', '--plan', path.join(mapped, 'plan.json')], mapped, { adapter: mappedAdapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(minted[0], 'Chore')
+
+  // The stays-silent half: no chore mapping → the single configured type,
+  // exactly as an unmapped bug behaves.
+  const plain = repoWithChoreSpec()
+  const plainAdapter2 = fakeAdapter()
+  minted.length = 0
+  mint(plainAdapter2)
+  plan = await run(['plan', 'chore-demo', '--skip-state-check', '--json'], plain)
+  fs.writeFileSync(path.join(plain, 'plan.json'), plan.out)
+  r = await run(['apply', 'chore-demo', '--plan', path.join(plain, 'plan.json')], plain, { adapter: plainAdapter2 })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(minted[0], require('../src/config.js').loadAzureConfig(plain).config.azure.workItemType)
+})
+
 test('states asks every configured type once, workItemTypeByKind included', async () => {
   const dir = repoWithSpec({
     config: { azure: { orgUrl: ORG, project: PROJECT, workItemType: 'User Story', childType: 'Task', workItemTypeByKind: { bug: 'Bug', hotfix: 'Bug' } } },
