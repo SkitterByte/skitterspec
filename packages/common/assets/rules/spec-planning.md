@@ -7,7 +7,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 
 | Skill | Purpose | Status | Folder |
 |-------|---------|--------|--------|
-| `/spec` | (Feature) Grill to a clear shared understanding, write a groomed spec in its own worktree, then land it on the verdict | `Ready` (or `Draft`) | `specs/backlog/` (on the base branch, by a fast-forward) |
+| `/spec` | (Feature/Chore) Grill to a clear shared understanding, propose the kind, write a groomed spec in its own worktree, then land it on the verdict | `Ready` (or `Draft`) | `specs/backlog/` (on the base branch, by a fast-forward) |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
 | `/no-spec` | Work that genuinely has no spec — its own branch, worktree, page and land. Writes no spec and moves nothing through the lifecycle | `—` | (none) |
@@ -587,23 +587,36 @@ none of them describes.
 - **Other rules specs must honour:** link the relevant `.claude/rules/*.md`
   (architecture, code style, testing, database, etc.) rather than restating them.
 
-## Spec types — Feature, Bug, Hotfix
+## Spec types — Feature, Chore, Bug, Hotfix
 
-Every spec is one of three types, recorded **both** in the header and the filename:
+Every spec is one of four types, recorded **both** in the header and the filename:
 
-- **Header field:** `> **Type:** Feature`, `> **Type:** Bug`, or
-  `> **Type:** Hotfix` (authoritative, greppable:
+- **Header field:** `> **Type:** Feature`, `> **Type:** Chore`,
+  `> **Type:** Bug`, or `> **Type:** Hotfix` (authoritative, greppable:
   `grep -rl 'Type:.*Hotfix' specs/`).
-- **Filename prefix:** `feat-<name>` for features, `bug-<name>` for bugs,
-  `hotfix-<name>` for hotfixes (visible in listings; glob-safe — never use
-  `[BUG]`/`[FEATURE]` brackets).
+- **Filename prefix:** `feat-<name>` for features, `chore-<name>` for chores,
+  `bug-<name>` for bugs, `hotfix-<name>` for hotfixes (visible in listings;
+  glob-safe — never use `[BUG]`/`[FEATURE]` brackets).
+
+A **Chore** is work no end user sees — tooling, CI, dependency bumps, internal
+refactors. The line: anything that is not work end users see or functions they
+use within the app is a chore; everything user-facing is a feature. There is no
+separate entry skill — `/spec` **proposes** feature or chore from what the
+grilling defined, with a one-line reason, and the user confirms. A chore
+defaults its `Gating:` to `none: not user-facing` (where gating is configured),
+and its commits default to `chore`/`refactor`/`ci` types with **no**
+`Release-Note:` footer — a chore is by definition not user-visible, so it has
+no release note to write. Feature specs keep `feat`; bug specs keep `fix`.
+Where a ticketing provider maps kinds to tracker types (e.g. Azure's
+`workItemTypeByKind`), the chore mapping is what keeps tooling work off the
+customer-facing release ladder.
 
 A **Hotfix** is a Bug fixed against a **released tag** rather than `main`: it
 carries an extra `> **Base version:** <tag>` header, forks its worktree from that
 tag, and lands by tagging a new patch + cherry-picking onto `main` (never a
 fast-forward merge). `/spec-live` refuses a hotfix — test it with `/spec-connect`.
 
-All three types share the same lifecycle folders below — type is orthogonal to
+All four types share the same lifecycle folders below — type is orthogonal to
 status.
 
 ## Header fields & State log (audit trail)

@@ -69,9 +69,31 @@ not write the spec until this is resolved.
 Stop grilling when there are no unresolved branches that would change the spec.
 Briefly play back the agreed understanding before writing.
 
+### Propose the kind — feature or chore
+
+This skill writes two kinds of spec, and
+**you propose which from what the grilling defined, with a one-line reason; the user confirms or overrides.**
+The
+line that decides it: a **chore** is anything that is not work end users see or
+functions they use within the app — tooling, CI, dependency bumps, internal
+refactors. Everything user-facing is a **feature**. So the proposal reads like
+*"no user-visible surface → chore"* or *"adds an endpoint users call → feature"*.
+
+The kind is recorded twice, and both follow from the answer: the folder prefix
+(`feat-` / `chore-`) and the `> **Type:**` header (`Feature` / `Chore`). A chore
+also defaults its `Gating:` to `none: not user-facing` (only when gating is
+configured — offer the default, let the user override it like any other
+answer), and its commits default to `chore`/`refactor`/`ci` types with no
+`Release-Note:` (see `.claude/rules/spec-planning.md`).
+
+There is no `/spec-chore` and none should be added: one entry point, one grill,
+and the kind is an output of understanding the work rather than a door the user
+must pick before describing it.
+
 ## Phase B — write the spec
 
-This skill is for **features**. For bugs, use `/spec-bug` (test-first, red→green).
+This skill is for **features and chores**. For bugs, use `/spec-bug`
+(test-first, red→green).
 
 ### Write it in its own worktree
 
@@ -138,8 +160,8 @@ move to, **warn, don't refuse**, and say the trailer for that commit wants
   that phase's goal, its task checkboxes (tests included), and any phase-specific
   notes. **Even a single-phase spec gets `01-….md`** — never lump phase tasks
   into `00-overview.md`. This keeps each phase easy to dive into on its own.
-- Choose a short kebab-case name and **prefix it `feat-`** (the bug counterpart
-  uses `bug-`).
+- Choose a short kebab-case name and **prefix it with the kind** — `feat-` for
+  a feature, `chore-` for a chore (the bug counterpart uses `bug-`).
 
 Use this template (keep it **as concise as possible** — no filler, no restating
 the codebase, link rather than duplicate):
@@ -147,8 +169,8 @@ the codebase, link rather than duplicate):
 ```markdown
 # <Feature title>
 
-> **Type:** Feature
-> **Name:** feat-<kebab-name> (the spec folder name — the handle you paste into `/spec-start`)
+> **Type:** <Feature or Chore — the kind proposed after Phase A>
+> **Name:** <feat- or chore-><kebab-name> (the spec folder name — the handle you paste into `/spec-start`)
 > **Status:** Ready — not started
 > **Author:** <git user.name — `git config user.name`>
 > **Developer:** —
@@ -157,7 +179,8 @@ the codebase, link rather than duplicate):
 > **Stack:** <worktree — or "worktree + docker" if it touches the DB/stateful
 > services; only acted on when isolation is enabled — see Phase A item 9>
 > **Gating:** <flag name — or "none: <one-line reason>". Only when release gating
-> is configured; omit the line entirely otherwise. An empty value or a bare
+> is configured; omit the line entirely otherwise. A chore defaults to
+> "none: not user-facing". An empty value or a bare
 > "none" is not a valid outcome — see Phase A item 10>
 
 ## Problem

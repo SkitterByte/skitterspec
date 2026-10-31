@@ -571,7 +571,7 @@ through to a documented conservative default; see the field notes below.
 - `{repo}` — primary checkout dir basename (e.g. `skitterspec`).
 - `{repoSlug}` — `{repo}` lower-cased, non-alphanumerics collapsed to `-`
   (safe for a `COMPOSE_PROJECT_NAME`).
-- `{slug}` — the spec slug (folder name minus its `feat-`/`bug-` prefix).
+- `{slug}` — the spec slug (folder name minus its `feat-`/`bug-`/`hotfix-`/`chore-` prefix).
 
 ## Pruning orphaned test-DB volumes
 
