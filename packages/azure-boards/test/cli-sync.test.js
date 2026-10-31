@@ -604,6 +604,46 @@ test('doctor --check-remote validates states and probes identity search', async 
   assert.strictEqual(report.checks.find((c) => c.id === 'identity').state, 'ok')
 })
 
+test('doctor --check-remote verifies mapped types and their body fields', async () => {
+  const mapped = {
+    azure: {
+      orgUrl: ORG,
+      project: PROJECT,
+      workItemTypeByKind: { bug: 'Bug', chore: 'Chore' },
+      bodyFieldByType: { Bug: 'Microsoft.VSTS.TCM.ReproSteps' },
+    },
+  }
+  const dir = repoWithSpec({ config: mapped })
+  const adapter = fakeAdapter()
+  adapter.listTypeFields = async (type) =>
+    type === 'Chore' ? null : ['System.Description'] // Bug exists but lacks Repro Steps
+  const r = await run(['doctor', '--check-remote', '--json'], dir, {
+    adapter,
+    env: { AZURE_DEVOPS_EXT_PAT: 't' },
+  })
+  const types = JSON.parse(r.out).checks.find((c) => c.id === 'types')
+  assert.strictEqual(types.state, 'broken')
+  assert.match(types.detail, /"Chore" is not in the project/)
+  assert.match(types.detail, /"Bug" has no field Microsoft\.VSTS\.TCM\.ReproSteps/)
+
+  // The healthy half, and the stays-silent half: every mapped type carries its
+  // field → ok; nothing mapped → NO types row at all.
+  const healthyAdapter = fakeAdapter()
+  healthyAdapter.listTypeFields = async () => ['System.Description', 'Microsoft.VSTS.TCM.ReproSteps']
+  const healthy = await run(['doctor', '--check-remote', '--json'], dir, {
+    adapter: healthyAdapter,
+    env: { AZURE_DEVOPS_EXT_PAT: 't' },
+  })
+  assert.strictEqual(JSON.parse(healthy.out).checks.find((c) => c.id === 'types').state, 'ok')
+
+  const unmappedDir = repoWithSpec()
+  const silent = await run(['doctor', '--check-remote', '--json'], unmappedDir, {
+    adapter: fakeAdapter(),
+    env: { AZURE_DEVOPS_EXT_PAT: 't' },
+  })
+  assert.strictEqual(JSON.parse(silent.out).checks.find((c) => c.id === 'types'), undefined)
+})
+
 test('doctor warns, never breaks, on a PAT without Identity (Read)', async () => {
   const dir = repoWithSpec()
   const adapter = fakeAdapter()

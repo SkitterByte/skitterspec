@@ -74,3 +74,29 @@ test('the adapter wraps discovered tools and omits what the server lacks', async
   assert.strictEqual(adapter.searchIssues, undefined, 'no query tool advertised, no op')
   assert.deepStrictEqual(calls[0], ['wit_work_item', { project: 'web', id: 7 }])
 })
+
+test('MCP creates write the mapped body field; unmapped types stay on Description', async () => {
+  const calls = []
+  const r = discoverAzure(['wit_work_item', 'wit_work_item_write'])
+  const adapter = makeAdapter({
+    tools: r.tools,
+    call: async (tool, args) => {
+      calls.push([tool, args])
+      return { id: 8, fields: { 'System.Title': 'T' } }
+    },
+    orgUrl: 'https://dev.azure.com/acme/',
+    project: 'web',
+    bodyFieldByType: { Bug: 'Microsoft.VSTS.TCM.ReproSteps' },
+  })
+  await adapter.createIssue({ title: 'Crash', description: '## repro', workItemType: 'Bug' })
+  assert.deepStrictEqual(calls[0][1].fields, {
+    'System.Title': 'Crash',
+    'Microsoft.VSTS.TCM.ReproSteps': '## repro',
+  })
+  // STAYS-SILENT: an unmapped type's payload is what it always was.
+  await adapter.createIssue({ title: 'Story', description: '## md', workItemType: 'User Story' })
+  assert.deepStrictEqual(calls[1][1].fields, {
+    'System.Title': 'Story',
+    'System.Description': '## md',
+  })
+})

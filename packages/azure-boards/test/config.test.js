@@ -97,6 +97,59 @@ test('remote hooks read the raw REST shape, format-aware, and fall back to flat'
   assert.strictEqual(config.remote.description({}), undefined)
 })
 
+test('azure.bodyFieldByType merges trimmed string values and defaults empty', () => {
+  const plain = loadAzureConfig(tmpRepo(JSON.stringify({ azure: { orgUrl: 'https://dev.azure.com/a', project: 'p' } }))).config
+  assert.deepStrictEqual(plain.azure.bodyFieldByType, {})
+  const { config } = loadAzureConfig(
+    tmpRepo(
+      JSON.stringify({
+        azure: {
+          orgUrl: 'https://dev.azure.com/a',
+          project: 'p',
+          bodyFieldByType: { Bug: ' Microsoft.VSTS.TCM.ReproSteps ', Chore: '', ' ': 'X' },
+        },
+      }),
+    ),
+  )
+  assert.deepStrictEqual(config.azure.bodyFieldByType, { Bug: 'Microsoft.VSTS.TCM.ReproSteps' })
+})
+
+test('remote description reads the mapped body field for the item type', () => {
+  const { config } = loadAzureConfig(
+    tmpRepo(
+      JSON.stringify({
+        azure: {
+          orgUrl: 'https://dev.azure.com/a',
+          project: 'p',
+          bodyFieldByType: { Bug: 'Microsoft.VSTS.TCM.ReproSteps' },
+        },
+      }),
+    ),
+  )
+  // The hash compare reads what the push wrote — the mapped field.
+  assert.strictEqual(
+    config.remote.description({
+      fields: { 'System.WorkItemType': 'Bug', 'Microsoft.VSTS.TCM.ReproSteps': '## repro' },
+      multilineFieldsFormat: { 'Microsoft.VSTS.TCM.ReproSteps': 'markdown' },
+    }),
+    '## repro',
+  )
+  // A Bug minted before the mapping still reads its Description.
+  assert.strictEqual(
+    config.remote.description({
+      fields: { 'System.WorkItemType': 'Bug', 'System.Description': 'old body' },
+    }),
+    'old body',
+  )
+  // STAYS-SILENT: an unmapped type reads exactly as before.
+  assert.strictEqual(
+    config.remote.description({
+      fields: { 'System.WorkItemType': 'User Story', 'System.Description': 'story' },
+    }),
+    'story',
+  )
+})
+
 // --- the adoption handoff fixes (bug-azure-boards-adoption-fixes) -------------
 
 test('intake routes by work item type as well as tag: bugTypes/hotfixTypes defaults', () => {

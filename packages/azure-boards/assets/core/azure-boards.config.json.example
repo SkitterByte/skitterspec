@@ -4,6 +4,7 @@
     "project": "your-project",
     "workItemType": "Issue",
     "workItemTypeByKind": {},
+    "bodyFieldByType": {},
     "childType": "Task",
     "areaPath": ""
   },

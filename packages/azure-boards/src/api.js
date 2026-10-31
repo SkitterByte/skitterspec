@@ -68,7 +68,7 @@ function vsspsUrlOf(orgUrl) {
  * Wrap credential + org/project into the typed ops the engine uses. Injected
  * `fetch` and `sleep` make every op testable offline.
  */
-function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRetries = MAX_RETRIES }) {
+function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRetries = MAX_RETRIES, bodyFieldByType = {} }) {
   const doFetch = fetchImpl || globalThis.fetch
   if (typeof doFetch !== 'function') {
     throw new Error('no fetch available — Node 18+ is required for the API transport')
@@ -151,6 +151,19 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
     return m ? m[1] : null
   }
 
+  // The field a TYPE's body lives in (`azure.bodyFieldByType`), falling back
+  // to System.Description. On an Agile/Scrum/CMMI Bug form the Description
+  // field is not shown — the body belongs in Repro Steps — so the field is
+  // resolved per type and used symmetrically on write AND read: a write-only
+  // mapping would make every pushed Bug read back as edited. Type names
+  // compare case-insensitively, matching how humans copy them off the form.
+  const bodyFields = Object.entries(bodyFieldByType || {}).map(([t, f]) => [String(t).toLowerCase(), f])
+  function bodyFieldFor(workItemType) {
+    const want = String(workItemType || '').toLowerCase()
+    const hit = bodyFields.find(([t]) => t === want)
+    return hit ? hit[1] : 'System.Description'
+  }
+
   // Text at the boundary: a markdown-format description is entity-DECODED —
   // Azure encodes stray HTML specials on store (`>` → `&gt;`, `"` → `&quot;`,
   // observed live), so the decode is the inverse of the store, and what comes
@@ -158,10 +171,21 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
   // format map is the positive signal that decides — the tag sniff only covers
   // items too old to carry one.
   function descriptionText(raw) {
-    const d = raw.fields && raw.fields['System.Description']
+    const field = bodyFieldFor(raw.fields && raw.fields['System.WorkItemType'])
+    let d = raw.fields && raw.fields[field]
+    let read = field
+    // A MAPPED FIELD THAT IS EMPTY FALLS BACK TO System.Description,
+    // deliberately: an item minted before the mapping holds its body there,
+    // and reading null would accuse it of an edit it never had. The blind
+    // spot: a Repro Steps someone deliberately CLEARED in Boards reads as the
+    // stale Description until the next push rewrites it.
+    if ((d == null || d === '') && field !== 'System.Description') {
+      d = raw.fields && raw.fields['System.Description']
+      read = 'System.Description'
+    }
     if (d == null) return null
     const text = String(d)
-    const fmt = raw.multilineFieldsFormat && raw.multilineFieldsFormat['System.Description']
+    const fmt = raw.multilineFieldsFormat && raw.multilineFieldsFormat[read]
     if (fmt && String(fmt).toLowerCase() === 'markdown') return decodeEntities(text)
     return looksLikeHtml(text) ? htmlToText(text) : text
   }
@@ -198,16 +222,16 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
    * become ops — `undefined` means "say nothing". A null description clears
    * the field; a null assignee unassigns (Azure clears on empty string).
    */
-  function itemPatch(input) {
+  function itemPatch(input, bodyField = 'System.Description') {
     const ops = []
     const add = (path, value) => ops.push({ op: 'add', path, value })
     if (input.title !== undefined) add('/fields/System.Title', input.title)
     if (input.description !== undefined) {
-      add('/fields/System.Description', input.description == null ? '' : input.description)
+      add(`/fields/${bodyField}`, input.description == null ? '' : input.description)
       // The write format, declared beside the field. One-way by Azure's rule —
       // a field saved as markdown cannot revert to HTML — which is fine: this
       // provider never writes HTML.
-      add('/multilineFieldsFormat/System.Description', 'Markdown')
+      add(`/multilineFieldsFormat/${bodyField}`, 'Markdown')
     }
     if (input.assigneeId !== undefined) {
       add('/fields/System.AssignedTo', input.assigneeId == null ? '' : input.assigneeId)
@@ -275,14 +299,14 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
       const created = await request(
         'POST',
         `${projectBase}/wit/workitems/$${encodeURIComponent(workItemType)}`,
-        { body: itemPatch({ title, description, assigneeId, areaPath }), patch: true },
+        { body: itemPatch({ title, description, assigneeId, areaPath }, bodyFieldFor(workItemType)), patch: true },
       )
       if (!created || created.id == null) throw new Error('Azure DevOps returned no work item for the create')
       return { id: String(created.id), identifier: identifierOf(created.id), url: urlOf(created.id) }
     },
 
     async createSubIssue(parentId, { title, description, childType, areaPath }) {
-      const ops = itemPatch({ title, description, areaPath })
+      const ops = itemPatch({ title, description, areaPath }, bodyFieldFor(childType))
       ops.push({
         op: 'add',
         path: '/relations/-',
@@ -298,7 +322,18 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
     },
 
     async updateIssue(id, updates) {
-      const ops = itemPatch(updates)
+      // An update does not know the item's type, and the body field hangs off
+      // it — so when a description is being written AND a mapping exists, one
+      // field read answers it. With no mapping the read is skipped and the
+      // patch is byte-identical to before.
+      let bodyField = 'System.Description'
+      if (updates.description !== undefined && bodyFields.length) {
+        const raw = await request('GET', `${projectBase}/wit/workitems/${encodeURIComponent(numId(id))}`, {
+          query: { fields: 'System.WorkItemType' },
+        })
+        bodyField = bodyFieldFor(raw && raw.fields && raw.fields['System.WorkItemType'])
+      }
+      const ops = itemPatch(updates, bodyField)
       if (!ops.length) return {}
       return request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(numId(id))}`, {
         body: ops,
@@ -402,6 +437,22 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
         // check wherever the names are listed.
         category: s.category || null,
       }))
+    },
+
+    /**
+     * The field reference names a work item type carries — what `doctor
+     * --check-remote` validates `azure.bodyFieldByType` against. `null` means
+     * the TYPE is not in the project (a 404), kept distinct from a type with
+     * an empty field list, which Azure does not produce.
+     */
+    async listTypeFields(workItemType) {
+      const raw = await request(
+        'GET',
+        `${projectBase}/wit/workitemtypes/${encodeURIComponent(workItemType)}/fields`,
+        { allow404: true },
+      )
+      if (raw == null) return null
+      return ((raw && raw.value) || []).map((f) => f.referenceName).filter(Boolean)
     },
 
     // The authenticated user, from connectionData — the one identity read

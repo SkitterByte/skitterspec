@@ -70,7 +70,18 @@ function discoverAzure(toolNames) {
  * shapes the engine consumes. Ops the server cannot express are absent — the
  * consumer feature-detects, exactly as with the API adapter's extras.
  */
-function makeAdapter({ tools, call, orgUrl, project }) {
+function makeAdapter({ tools, call, orgUrl, project, bodyFieldByType = {} }) {
+  // Same resolution as the REST adapter: the field a type's body lives in,
+  // System.Description unless azure.bodyFieldByType names one, matched
+  // case-insensitively. An MCP update cannot resolve the type (the generic
+  // update takes raw fields), so only the creates map here; the REST
+  // transport is the one that covers updates.
+  const bodyFields = Object.entries(bodyFieldByType || {}).map(([t, f]) => [String(t).toLowerCase(), f])
+  const bodyFieldFor = (workItemType) => {
+    const want = String(workItemType || '').toLowerCase()
+    const hit = bodyFields.find(([t]) => t === want)
+    return hit ? hit[1] : 'System.Description'
+  }
   const org = String(orgUrl || '').replace(/\/+$/, '')
   const urlOf = (id) => (org && project ? `${org}/${encodeURIComponent(project)}/_workitems/edit/${id}` : null)
   const normalize = (raw) => {
@@ -96,7 +107,7 @@ function makeAdapter({ tools, call, orgUrl, project }) {
           action: 'create',
           project,
           workItemType,
-          fields: { 'System.Title': title, 'System.Description': description },
+          fields: { 'System.Title': title, [bodyFieldFor(workItemType)]: description },
           format: 'markdown',
         }),
       )
@@ -107,7 +118,7 @@ function makeAdapter({ tools, call, orgUrl, project }) {
           project,
           parentId: Number(parentId),
           workItemType: childType,
-          fields: { 'System.Title': title, 'System.Description': description },
+          fields: { 'System.Title': title, [bodyFieldFor(childType)]: description },
           format: 'markdown',
         }),
       )

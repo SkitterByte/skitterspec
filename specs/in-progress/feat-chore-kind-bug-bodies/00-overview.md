@@ -110,7 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Base engine: the `chore` kind | ✅ | [01-base-chore-kind.md](01-base-chore-kind.md) |
 | 2 | Authoring surfaces: propose the kind | ✅ | [02-authoring-surfaces.md](02-authoring-surfaces.md) |
 | 3 | Azure: chore in `workItemTypeByKind` | ✅ | [03-azure-chore-mapping.md](03-azure-chore-mapping.md) |
-| 4 | Azure: body field by type | ⬜ | [04-azure-body-field.md](04-azure-body-field.md) |
+| 4 | Azure: body field by type | ✅ | [04-azure-body-field.md](04-azure-body-field.md) |
 | 5 | Bug-shaped body render | ⬜ | [05-bug-body-render.md](05-bug-body-render.md) |
 | 6 | GitHub/Jira/Linear kind mapping + migration note | ⬜ | [06-provider-kind-mapping.md](06-provider-kind-mapping.md) |
 
@@ -129,3 +129,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-10-31 — Spec created from the ereqs handoff; decisions 4, 5 and 11
   confirmed by the user (keep `/no-spec`, all four providers, one spec).
+- 2026-10-31 — Phase 4: the read side gained a legacy fallback — an empty
+  mapped field reads `System.Description`, so pre-mapping Bugs are not
+  reported edited. MCP creates map the body field; an MCP update cannot
+  resolve the item's type and keeps `System.Description` (the REST transport
+  covers updates).

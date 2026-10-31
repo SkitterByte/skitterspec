@@ -134,6 +134,111 @@ test('updateIssue sends only the keys that are present, and nothing for none', a
   assert.strictEqual(calls.length, before)
 })
 
+// azure.bodyFieldByType — the mapping is symmetric: what a type's create
+// writes, its read-back and hash compare read (spec feat-chore-kind-bug-bodies
+// phase 4). Type names match case-insensitively.
+const REPRO = 'Microsoft.VSTS.TCM.ReproSteps'
+function mappedAdapter(handler) {
+  const calls = []
+  const fetch = async (url, init) => {
+    calls.push({ url, init })
+    return handler(url, init, calls.length)
+  }
+  const a = makeApiAdapter({
+    orgUrl: ORG, project: PROJECT, token: 'pat', fetch, sleep: async () => {},
+    bodyFieldByType: { Bug: REPRO },
+  })
+  return { a, calls }
+}
+
+test('createIssue writes the mapped body field for a mapped type', async () => {
+  const { a, calls } = mappedAdapter(() => jsonRes({ id: 50 }))
+  await a.createIssue({ title: 'Crash', description: '## repro', workItemType: 'Bug' })
+  const ops = JSON.parse(calls[0].init.body)
+  assert.deepStrictEqual(ops, [
+    { op: 'add', path: '/fields/System.Title', value: 'Crash' },
+    { op: 'add', path: `/fields/${REPRO}`, value: '## repro' },
+    { op: 'add', path: `/multilineFieldsFormat/${REPRO}`, value: 'Markdown' },
+  ])
+})
+
+// STAYS-SILENT: a type the map does not name keeps System.Description
+// byte-identical to the unmapped adapter's patch.
+test('createIssue keeps System.Description for an unmapped type', async () => {
+  const { a, calls } = mappedAdapter(() => jsonRes({ id: 51 }))
+  await a.createIssue({ title: 'Story', description: '## md', workItemType: 'User Story' })
+  const ops = JSON.parse(calls[0].init.body)
+  assert.deepStrictEqual(
+    ops.filter((o) => o.path !== '/fields/System.Title'),
+    [
+      { op: 'add', path: '/fields/System.Description', value: '## md' },
+      { op: 'add', path: '/multilineFieldsFormat/System.Description', value: 'Markdown' },
+    ],
+  )
+})
+
+test('readIssue reads a mapped Bug body from Repro Steps', async () => {
+  const bug = {
+    id: 60,
+    fields: {
+      'System.Title': 'Crash',
+      'System.WorkItemType': 'Bug',
+      [REPRO]: '## repro\n\n1. do the thing',
+      'System.Description': '',
+    },
+    multilineFieldsFormat: { [REPRO]: 'markdown' },
+  }
+  const { a } = mappedAdapter((url) => (url.includes('workitemsbatch') ? jsonRes({ value: [] }) : jsonRes(bug)))
+  const item = await a.readIssue(60)
+  assert.strictEqual(item.description, '## repro\n\n1. do the thing')
+})
+
+test('a mapped Bug minted before the mapping still reads its Description', async () => {
+  const legacy = {
+    id: 61,
+    fields: {
+      'System.WorkItemType': 'Bug',
+      'System.Description': 'old body',
+    },
+  }
+  const { a } = mappedAdapter((url) => (url.includes('workitemsbatch') ? jsonRes({ value: [] }) : jsonRes(legacy)))
+  const item = await a.readIssue(61)
+  assert.strictEqual(item.description, 'old body')
+})
+
+test('updateIssue resolves the body field from the item type, one extra read', async () => {
+  const { a, calls } = mappedAdapter((url, init) => {
+    if ((init.method || 'GET') === 'GET') return jsonRes({ id: 62, fields: { 'System.WorkItemType': 'Bug' } })
+    return jsonRes({ id: 62 })
+  })
+  await a.updateIssue(62, { description: '## repro v2' })
+  assert.match(calls[0].url, /fields=System\.WorkItemType/)
+  const ops = JSON.parse(calls[1].init.body)
+  assert.deepStrictEqual(ops[0], { op: 'add', path: `/fields/${REPRO}`, value: '## repro v2' })
+})
+
+// STAYS-SILENT: with no mapping an update description is one PATCH and no
+// extra GET — byte-identical to before the key existed.
+test('updateIssue without a mapping neither reads the type nor changes the patch', async () => {
+  const { a, calls } = adapter(() => jsonRes({}))
+  await a.updateIssue(7, { description: '## md' })
+  assert.strictEqual(calls.length, 1)
+  assert.deepStrictEqual(JSON.parse(calls[0].init.body), [
+    { op: 'add', path: '/fields/System.Description', value: '## md' },
+    { op: 'add', path: '/multilineFieldsFormat/System.Description', value: 'Markdown' },
+  ])
+})
+
+test('listTypeFields names the fields, and null means the type is absent', async () => {
+  const { a } = adapter((url) =>
+    url.includes('Chore')
+      ? jsonRes({ message: 'not found' }, 404)
+      : jsonRes({ value: [{ referenceName: 'System.Description' }, { referenceName: REPRO }] }),
+  )
+  assert.deepStrictEqual(await a.listTypeFields('Bug'), ['System.Description', REPRO])
+  assert.strictEqual(await a.listTypeFields('Chore'), null)
+})
+
 test('transitionTo is idempotent on the current state', async () => {
   const { a, calls } = adapter((url) =>
     url.includes('workitemsbatch') ? jsonRes({ value: [] }) : jsonRes(RAW_ITEM),

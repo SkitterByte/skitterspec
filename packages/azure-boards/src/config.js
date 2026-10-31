@@ -53,6 +53,14 @@ const DEFAULT_CONFIG = Object.freeze({
     // `Chore` and its states in the process first); unmapped it falls back to
     // `workItemType`. Empty means one type for everything, as before.
     workItemTypeByKind: Object.freeze({}),
+    // The field a TYPE's body is written to and read from, keyed by work item
+    // type name — `{ "Bug": "Microsoft.VSTS.TCM.ReproSteps" }` is the shape
+    // Agile/Scrum/CMMI want, because their Bug form does not show
+    // System.Description at all. Unmapped types keep System.Description. The
+    // mapping is symmetric (create, update, read-back, edited-hash compare):
+    // a write-only mapping would make `/spec-status` report every Bug as
+    // edited. Empty means System.Description everywhere, as before.
+    bodyFieldByType: Object.freeze({}),
   }),
   // A spec is a WORK ITEM; each phase a CHILD work item under a hierarchy
   // link. `tasks` selects how the phase's checkboxes reach that child's
@@ -201,6 +209,16 @@ function mergeConfig(base, parsed) {
       }
       base.azure.workItemTypeByKind = byKind
     }
+    if (isObject(parsed.azure.bodyFieldByType)) {
+      // Keyed by TYPE name (open — any type a project invents), value a field
+      // reference name. Blank values are dropped rather than written as an
+      // empty field path.
+      const byType = {}
+      for (const [type, field] of Object.entries(parsed.azure.bodyFieldByType)) {
+        if (typeof field === 'string' && field.trim() && String(type).trim()) byType[String(type).trim()] = field.trim()
+      }
+      base.azure.bodyFieldByType = byType
+    }
     // A trailing slash on the org would double up in every composed URL.
     if (base.azure.orgUrl) base.azure.orgUrl = base.azure.orgUrl.replace(/\/+$/, '')
   }
@@ -301,16 +319,32 @@ function withRuntime(config) {
     },
     description(item) {
       const fields = item && item.fields
-      if (fields && typeof fields === 'object' && 'System.Description' in fields) {
-        // null IS an answer on this branch: the field was fetched and the
-        // description is genuinely empty — clearing one is an edit, not a
-        // cannot-tell.
-        const d = fields['System.Description']
-        if (d == null) return ''
-        const text = String(d)
-        const fmt = item.multilineFieldsFormat && item.multilineFieldsFormat['System.Description']
-        if (fmt && String(fmt).toLowerCase() === 'markdown') return text
-        return looksLikeHtml(text) ? htmlToText(text) : text
+      if (fields && typeof fields === 'object') {
+        // The body field hangs off the item's TYPE (azure.bodyFieldByType),
+        // same resolution as the adapter's writes — the hash compare must
+        // read the field the push wrote or every mapped Bug reads as edited.
+        const type = String(fields['System.WorkItemType'] || '').toLowerCase()
+        const mapped = Object.entries(config.azure.bodyFieldByType || {}).find(
+          ([t]) => t.toLowerCase() === type,
+        )
+        let field = mapped ? mapped[1] : 'System.Description'
+        // An empty mapped field falls back to System.Description — an item
+        // minted before the mapping holds its body there (same rule as the
+        // adapter's read side).
+        if (mapped && (fields[field] == null || fields[field] === '') && fields['System.Description'] != null) {
+          field = 'System.Description'
+        }
+        if (field in fields) {
+          // null IS an answer on this branch: the field was fetched and the
+          // description is genuinely empty — clearing one is an edit, not a
+          // cannot-tell.
+          const d = fields[field]
+          if (d == null) return ''
+          const text = String(d)
+          const fmt = item.multilineFieldsFormat && item.multilineFieldsFormat[field]
+          if (fmt && String(fmt).toLowerCase() === 'markdown') return text
+          return looksLikeHtml(text) ? htmlToText(text) : text
+        }
       }
       return item && typeof item.description === 'string' ? item.description : undefined
     },

@@ -260,6 +260,7 @@ function apiAdapterFor(config, flags) {
       project: config.azure.project,
       token: cred.token,
       fetch: flags.fetch,
+      bodyFieldByType: config.azure.bodyFieldByType,
     }),
   }
 }
@@ -362,7 +363,7 @@ const assignment = makeAssignmentCommands({
   resolveIdentity: (config, env, deps) => resolveIdentity(config, env, deps),
   resolveCredential: (config, env) => resolveCredential(config, env),
   makeAdapter: (config, cred, flags) =>
-    makeApiAdapter({ orgUrl: config.azure.orgUrl, project: config.azure.project, token: cred.token, fetch: flags.fetch }),
+    makeApiAdapter({ orgUrl: config.azure.orgUrl, project: config.azure.project, token: cred.token, fetch: flags.fetch, bodyFieldByType: config.azure.bodyFieldByType }),
   displayNameOf: (u) => displayNameOf(u),
   usersOverMcp: 'search identities with core_get_identity_ids over MCP, or read them off the org\'s Users page',
 })
@@ -1186,7 +1187,7 @@ async function specSyncInitConfig(dir, flags, out) {
   if (cred.ok) {
     const adapter =
       flags.adapter ||
-      makeApiAdapter({ orgUrl: merged.azure.orgUrl, project: merged.azure.project, token: cred.token, fetch: flags.fetch })
+      makeApiAdapter({ orgUrl: merged.azure.orgUrl, project: merged.azure.project, token: cred.token, fetch: flags.fetch, bodyFieldByType: merged.azure.bodyFieldByType })
     let names = null
     try {
       names = (await unionStates(adapter, merged)).map((st) => st.name)
@@ -1301,7 +1302,7 @@ async function specSyncDoctor(dir, flags, out) {
     if (flags.remoteCheck && cred.ok) {
       const adapter =
         flags.adapter ||
-        makeApiAdapter({ orgUrl: config.azure.orgUrl, project: config.azure.project, token: cred.token, fetch: flags.fetch })
+        makeApiAdapter({ orgUrl: config.azure.orgUrl, project: config.azure.project, token: cred.token, fetch: flags.fetch, bodyFieldByType: config.azure.bodyFieldByType })
       try {
         const viewer = await adapter.readViewer()
         checks.push(row('remote', 'Azure reachable', 'ok', viewer ? `as ${viewer.name || viewer.id}` : 'yes'))
@@ -1320,6 +1321,41 @@ async function specSyncDoctor(dir, flags, out) {
               )
             : row('states', 'State names', 'ok', 'every configured state exists'),
         )
+        // Every mapped type must exist, and carry the body field configured
+        // for it — a missing type fails the first push, and a missing field
+        // silently drops every Bug's body. NO ROW when nothing is mapped: a
+        // line about an unconfigured surface accuses a healthy project.
+        const mappedTypes = [
+          ...new Set([
+            ...Object.values(config.azure.workItemTypeByKind || {}),
+            ...Object.keys(config.azure.bodyFieldByType || {}),
+          ]),
+        ]
+        if (mappedTypes.length) {
+          const problems = []
+          for (const type of mappedTypes) {
+            const fields = await adapter.listTypeFields(type)
+            if (fields == null) {
+              problems.push(`type "${type}" is not in the project`)
+              continue
+            }
+            const wanted = (config.azure.bodyFieldByType || {})[type]
+            if (wanted && !fields.some((f) => f.toLowerCase() === wanted.toLowerCase())) {
+              problems.push(`type "${type}" has no field ${wanted}`)
+            }
+          }
+          checks.push(
+            problems.length
+              ? row(
+                  'types',
+                  'Mapped types',
+                  'broken',
+                  problems.join('; '),
+                  `create the type/field in the process, or fix ${CONFIG_FILE} -> azure.workItemTypeByKind / azure.bodyFieldByType`,
+                )
+              : row('types', 'Mapped types', 'ok', 'every mapped type exists and carries its body field'),
+          )
+        }
         // The capability probe Decision 8 names: identity search is the op
         // that fails first on a narrow token. A 401 here is a WARN, not
         // broken — work item sync is whole without it; only `users` search
