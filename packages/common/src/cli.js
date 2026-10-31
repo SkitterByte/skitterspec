@@ -119,6 +119,9 @@ const {
   passesSince,
   waitForPass,
   WAIT_HEARTBEAT_MS,
+  WAIT_RESHOW_EVERY,
+  recordWaitStart,
+  reshowDue,
   waitingPasses,
   describePending,
   pendingAge,
@@ -2761,6 +2764,74 @@ function resolveHeartbeatMs(flags) {
   return seconds * 1000
 }
 
+/**
+ * Every this-many re-arms the stack is printed again. Default 5, `0` disables.
+ * A value that is not a whole number takes the DEFAULT rather than disabling
+ * (`.claude/rules/negative-checks.md` rule 4), the same as `--heartbeat`.
+ */
+function resolveReshowEvery(flags) {
+  if (flags.reshowEvery === undefined || flags.reshowEvery === null) return WAIT_RESHOW_EVERY
+  const n = Number(flags.reshowEvery)
+  if (!Number.isInteger(n) || n < 0) return WAIT_RESHOW_EVERY
+  return n
+}
+
+/**
+ * The review server that is running, read and never touched — or null.
+ *
+ * NOT `ensureReviewServer`. That one adopts, and where a server is stale it
+ * replaces it, and a re-show that restarted the server would kill the link
+ * open on the reader's phone in order to remind them of it. This reads the
+ * pidfile and the settings and stops there.
+ *
+ * WHAT WOULD FOOL THIS: a pidfile left by a crash names a pid the OS may have
+ * reused for something else. `isAlive` cannot tell those apart, so the URL it
+ * offers could point at nothing — the same blind spot every adopt has, and the
+ * cost is a dead link in a reminder, never a lost pass.
+ */
+function readRunningReviewServer(dir, config) {
+  const abs = (rel) => path.resolve(dir, rel)
+  const settingsFile = `${stateDirLabel(config)}/review-serve.json`
+  const proc = serveProcFor(config, abs(settingsFile), { root: dir })
+  const pid = readPid(abs(proc.pidFile))
+  if (!pid || !isAlive(pid)) return null
+  let settings = null
+  try {
+    settings = JSON.parse(fs.readFileSync(abs(settingsFile), 'utf-8'))
+  } catch {
+    return null
+  }
+  if (!settings || !settings.port) return null
+  return {
+    port: settings.port,
+    token: settings.token || null,
+    loopback: settings.host === '127.0.0.1' || settings.host === 'localhost',
+  }
+}
+
+/**
+ * The stack a re-show prints: the same tiers and `live` a render reports, from
+ * the same functions, with nothing rendered and nothing started.
+ */
+function reshowStack(dir, config, spec, out) {
+  const cfg = withSpecRemote(config, out)
+  const up = readRunningReviewServer(dir, cfg)
+  const served = up ? reviewServedUrls(up, offerableLanAddresses(), spec.folder) : null
+  const tiers = reviewTierStack({ served, fileUrl: reviewFileUrl(out), publishedUrl: readReviewUrl(out), config: cfg })
+  let live = null
+  try {
+    const primaryState = assertPrimaryOnMain(cfg, gitReader(dir))
+    live = liveStateFor(
+      spec,
+      liveContext(dir, cfg, spec, { onBase: primaryState.onBase, primaryBranch: primaryState.branch }),
+    )
+  } catch {
+    // Cannot tell whether it is live — print no line rather than a wrong one.
+    live = null
+  }
+  return { tiers, live }
+}
+
 async function specEnvReviewWait(dir, config, specArg, flags) {
   let spec
   try {
@@ -2794,10 +2865,28 @@ async function specEnvReviewWait(dir, config, specArg, flags) {
   // SAID BEFORE THE FIRST POLL, not after it. The whole point is that a caller
   // knows the wait is running; a line printed on the way out would arrive only
   // for the waits that already worked.
+  //
+  // WHICH START THIS IS, counted per window. A wait that dies is re-armed on the
+  // same `--since`, and every re-arm leaves a trace in the conversation, so
+  // after enough of them the banner and its links have scrolled out of sight.
+  // Every `reshowEvery`th re-arm prints the stack again, read-only, for the
+  // skill to relay as the banner.
+  const reshowEvery = resolveReshowEvery(flags)
+  const started = recordWaitStart(out, spec.folder, flags.since)
+  const rearm = started ? started.rearm : null
+  const reshow = reshowDue(rearm, reshowEvery)
+  const stack = reshow ? reshowStack(dir, config, spec, out) : null
+
   if (!flags.json) {
     process.stdout.write(
       `spec-env review wait: ${spec.folder} — waiting for a verdict sent since ${flags.since}` +
-        `${timeoutMs === null ? '' : ` (up to ${flags.timeout}s)`}\n`,
+        `${timeoutMs === null ? '' : ` (up to ${flags.timeout}s)`}` +
+        `${rearm ? ` (re-arm ${rearm})` : ''}\n` +
+        (stack
+          ? `  re-show: banner (re-arm ${rearm})\n` +
+            stack.tiers.map((t) => reviewTierLine(t) + '\n').join('') +
+            (liveStateLine(stack.live) ? `${liveStateLine(stack.live)}\n` : '')
+          : ''),
     )
   }
 
@@ -2827,7 +2916,20 @@ async function specEnvReviewWait(dir, config, specArg, flags) {
   })
 
   if (flags.json) {
-    process.stdout.write(`${JSON.stringify({ spec: spec.folder, since: flags.since, ...result }, null, 2)}\n`)
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          spec: spec.folder,
+          since: flags.since,
+          rearm,
+          reshow,
+          ...(stack ? { tiers: stack.tiers, live: stack.live } : {}),
+          ...result,
+        },
+        null,
+        2,
+      )}\n`,
+    )
   }
 
   if (result.state === 'arrived') {
@@ -5617,6 +5719,7 @@ async function specEnv(rest) {
     claim: null,
     offered: false,
     heartbeat: null,
+    reshowEvery: null,
     drop: null,
     buttons: null,
     json: false,
@@ -5652,6 +5755,7 @@ async function specEnv(rest) {
     else if (args[i] === '--claim') flags.claim = args[++i]
     else if (args[i] === '--claim-since') flags.claimSince = args[++i]
     else if (args[i] === '--heartbeat') flags.heartbeat = args[++i]
+    else if (args[i] === '--reshow-every') flags.reshowEvery = args[++i]
     else if (args[i] === '--since') flags.since = args[++i]
     else if (args[i] === '--timeout') flags.timeout = args[++i]
     else if (args[i] === '--drop') flags.drop = args[++i]
@@ -5831,6 +5935,7 @@ async function specEnv(rest) {
           '  review skip [spec] "<reason>"          move on without one, on the record\n' +
           '  review gate [spec] --offered           record that the bypass was offered (spends it)\n' +
           '  review wait [spec] --heartbeat <secs>  proof-of-life cadence on stderr; 0 disables\n' +
+          '  review wait [spec] --reshow-every <n>  print the stack again every nth re-arm (5); 0 disables\n' +
           '  review wait [spec] --since <iso>       block until a verdict arrives ([--timeout <s>])\n' +
           '  review waiting [--json]                every pass waiting, across every spec\n' +
           '  review [spec] --claim-since <iso>      claim the one pass that arrived since <iso>\n' +

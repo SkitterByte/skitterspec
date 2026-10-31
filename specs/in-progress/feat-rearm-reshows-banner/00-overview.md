@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine counts re-arms and prints the stack on every 5th | ⬜ | [01-engine-reshow.md](01-engine-reshow.md) |
+| 1 | Engine counts re-arms and prints the stack on every 5th | ✅ | [01-engine-reshow.md](01-engine-reshow.md) |
 | 2 | Rule and skills relay the re-show; silence between | ⬜ | [02-rule-and-skills.md](02-rule-and-skills.md) |
 
 ## Open questions
@@ -125,3 +125,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-10-31 — Spec created, from a long idle review where the banner was
   scrolled away under a column of re-arm lines.
+- 2026-10-31 — Phase 1 done: `recordWaitStart`/`reshowDue` in review.js,
+  read-only `readRunningReviewServer` + `reshowStack` in cli.js, and
+  `--reshow-every`. 9 new tests. The repo has no typecheck script, so
+  `pnpm test` (4168 passing) is the gate.
+- 2026-10-31 — Observed while authoring: the harness requires visible text
+  after a monitor event, so decision 4's "no text at all" may only be
+  achievable as one fixed short line. Settle this in phase 2.

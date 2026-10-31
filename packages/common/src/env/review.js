@@ -1282,6 +1282,81 @@ const WAIT_POLL_MS = 400
 // whatever is supervising the process.
 const WAIT_HEARTBEAT_MS = 5 * 60 * 1000
 
+// Every this-many re-arms on one window, the wait prints the stack again. A
+// COUNT, not an interval, and deliberately: what buries the banner is how many
+// re-arms have scrolled past it, and a death every five minutes and one every
+// forty-five push it up the same distance each. This is not the count
+// `spec-reports.md` rejects — that one bounded how long to keep waiting, and
+// the 12-hour age bound below still does.
+const WAIT_RESHOW_EVERY = 5
+
+// How old a window may be before its start count is pruned. The same 12 hours
+// the skills stop re-arming at: past it nobody is counting, so nothing is kept.
+const WAIT_WINDOW_MAX_MS = 12 * 60 * 60 * 1000
+
+// Beside the pending store, under gitignored `.spec-env/`.
+const WAITS_SUFFIX = '.waits.json'
+
+function reviewWaitsPath(outPath) {
+  return outPath.replace(/\.html$/, '') + WAITS_SUFFIX
+}
+
+/**
+ * Record that a wait started on `since`, and say which start this is.
+ * Returns `{ starts, rearm }` — `rearm` is 0 for the first wait on a window —
+ * or `null` when it cannot tell.
+ *
+ * CANNOT-TELL IS NULL, and null means no re-show (`.claude/rules/negative-checks.md`
+ * rule 4). A store that will not parse, a window that is not a timestamp, a
+ * write that failed: each costs the reader one reminder, never a verdict, so
+ * none of them is worth more than silence. An unreadable store is also never
+ * written over — it may be someone's history.
+ *
+ * WHAT WOULD FOOL THIS: it counts STARTS, so anything that runs `review wait`
+ * on the same window counts too — a second session waiting on one spec, or a
+ * person running it by hand. That over-counts, and the cost is a banner shown
+ * a little early, which is the harmless direction.
+ */
+function recordWaitStart(outPath, specFolder, since, { now = Date.now() } = {}) {
+  if (!Number.isFinite(Date.parse(since))) return null
+  const file = reviewWaitsPath(outPath)
+  let store = { version: 1, spec: specFolder, windows: {} }
+  let raw = null
+  try {
+    raw = fs.readFileSync(file, 'utf8')
+  } catch {}
+  if (raw !== null) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (!parsed || typeof parsed.windows !== 'object' || parsed.windows === null) return null
+      store = { version: parsed.version || 1, spec: parsed.spec || specFolder, windows: parsed.windows }
+    } catch {
+      return null
+    }
+  }
+  const windows = {}
+  for (const [key, count] of Object.entries(store.windows)) {
+    const at = Date.parse(key)
+    if (Number.isFinite(at) && now - at <= WAIT_WINDOW_MAX_MS) windows[key] = count
+  }
+  const prior = Number.isInteger(windows[since]) && windows[since] > 0 ? windows[since] : 0
+  const starts = prior + 1
+  windows[since] = starts
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify({ ...store, windows }, null, 2) + '\n')
+  } catch {
+    return null
+  }
+  return { starts, rearm: starts - 1 }
+}
+
+// Is this re-arm one that re-shows the stack? Pure. The first wait never does —
+// the banner is right above it — and `every` of 0 turns it off.
+function reshowDue(rearm, every = WAIT_RESHOW_EVERY) {
+  return Number.isInteger(every) && every > 0 && Number.isInteger(rearm) && rearm > 0 && rearm % every === 0
+}
+
 /**
  * Block until exactly one pass arrives inside a window. Impure only in that it
  * reads the store and sleeps; it writes nothing and claims nothing.
@@ -2555,6 +2630,10 @@ module.exports = {
   waitingPasses,
   waitForPass,
   WAIT_HEARTBEAT_MS,
+  WAIT_RESHOW_EVERY,
+  recordWaitStart,
+  reshowDue,
+  reviewWaitsPath,
   WAIT_POLL_MS,
   passState,
   describePending,
