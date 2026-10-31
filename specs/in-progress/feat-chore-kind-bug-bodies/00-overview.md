@@ -1,15 +1,17 @@
 ---
 github_identifier: "#75"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/75"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # A `chore` spec kind, and Bugs that render as Bugs
 
 > **Type:** Feature
 > **Name:** feat-chore-kind-bug-bodies
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-10-31)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-10-31
 > **Area:** packages/common (env/resolve.js, cli.js, assets/skills, assets/rules), packages/azure-boards, packages/github, packages/jira, packages/linear, packages/sync-core, docs/*.html
 > **Stack:** worktree
@@ -121,6 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-10-31 | Ready | backlog | Reuben Greaves |
+| 2026-10-31 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
