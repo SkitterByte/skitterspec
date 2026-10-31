@@ -5,6 +5,18 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.4.0 — 31 Oct 2026
+
+### Env
+- **New** — A spec can now be a chore — name its folder chore-<name> and it resolves to a chore/<name> branch, keeping tooling work out of your feature backlog.
+
+### Review
+- **New** — A review left waiting a long time now repeats its links every fifth time the wait restarts, so they are never far up the page.
+
+### Skills
+- **New** — /spec now proposes whether your work is a feature or a chore from what the grilling defined, records the kind in the header and folder prefix, and defaults a chore's gating answer and commit types sensibly.
+- **New** — While a review waits, the session no longer piles up status lines, and every fifth restart it shows the review links again.
+
 ## 23.3.2 — 28 Oct 2026
 
 ### Review
