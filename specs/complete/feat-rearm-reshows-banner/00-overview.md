@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-rearm-reshows-banner
-> **Status:** In Progress — Phase 2 (started 2026-10-31)
+> **Status:** Complete (2026-10-31)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-31
@@ -120,6 +120,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-31 | Ready | backlog | Reuben Greaves |
 | 2026-10-31 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-31 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -137,3 +138,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   verdict."), and otherwise the tool call is the whole turn. spec-diff has
   no re-arm sentence, so it was left alone. `reference.html` gained a
   `review wait` row, which it lacked.
+- 2026-10-31 — Completed; all phases done, tests green.
