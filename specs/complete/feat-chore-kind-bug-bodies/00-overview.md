@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-chore-kind-bug-bodies
-> **Status:** In Progress — Phase 1 (started 2026-10-31)
+> **Status:** Complete (2026-10-31)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-10-31
@@ -124,6 +124,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-10-31 | Ready | backlog | Reuben Greaves |
 | 2026-10-31 | In Progress | in-progress | Reuben Greaves |
+| 2026-10-31 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -134,3 +135,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   reported edited. MCP creates map the body field; an MCP update cannot
   resolve the item's type and keeps `System.Description` (the REST transport
   covers updates).
+- 2026-10-31 — Completed; all phases done, tests green.
