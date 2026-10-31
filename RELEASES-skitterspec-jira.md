@@ -5,6 +5,22 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.1.0 — 31 Oct 2026
+
+### Env
+- **New** — A spec can now be a chore — name its folder chore-<name> and it resolves to a chore/<name> branch, keeping tooling work out of your feature backlog.
+
+### Review
+- **New** — A review left waiting a long time now repeats its links every fifth time the wait restarts, so they are never far up the page.
+
+### Skills
+- **New** — /spec now proposes whether your work is a feature or a chore from what the grilling defined, records the kind in the header and folder prefix, and defaults a chore's gating answer and commit types sensibly.
+- **New** — While a review waits, the session no longer piles up status lines, and every fifth restart it shows the review links again.
+
+### Sync
+- **New** — Every tracker can now mint a spec by its kind — a label on GitHub and Linear, an issue type on Jira — so chores and bugs land as what they are instead of as generic stories.
+- **New** — A bug or hotfix spec's ticket now opens on its Symptom, Root cause and Fix instead of the feature-shaped overview, on every tracker.
+
 ## 2.0.0 — 29 Oct 2026
 
 ### Sync
