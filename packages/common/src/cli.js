@@ -906,7 +906,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   try {
     spec = resolveSpecWithWorktree(dir, config, specArg)
   } catch (err) {
-    const specShaped = typeof specArg === 'string' && /^(feat|bug|hotfix)-./.test(specArg)
+    const specShaped = typeof specArg === 'string' && /^(feat|bug|hotfix|chore)-./.test(specArg)
     if (err.code !== 'SPEC_NOT_FOUND' || !docs || !specShaped || config.mode === 'checkout') {
       throw err
     }

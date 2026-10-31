@@ -96,7 +96,8 @@ function scaffold(folder, { bucket = 'backlog', frontmatter = '', stack = null, 
   return dir
 }
 
-test('splitPrefix splits feat-/bug-/hotfix- prefixes', () => {
+test('splitPrefix splits feat-/bug-/hotfix-/chore- prefixes', () => {
+  assert.deepStrictEqual(splitPrefix('chore-foo'), { type: 'chore', slug: 'foo' })
   assert.deepStrictEqual(splitPrefix('feat-linear-hybrid-sync'), {
     type: 'feat',
     slug: 'linear-hybrid-sync',
@@ -107,6 +108,23 @@ test('splitPrefix splits feat-/bug-/hotfix- prefixes', () => {
 
 test('splitPrefix defaults type to feat when unprefixed', () => {
   assert.deepStrictEqual(splitPrefix('legacy-spec'), { type: 'feat', slug: 'legacy-spec' })
+})
+
+// STAYS-SILENT (negative-checks.md rule 3): an unknown prefix is a healthy
+// legacy spec, not a chore that forgot its kind — it keeps resolving exactly
+// as before the chore kind existed, whole name as slug, no complaint.
+test('splitPrefix: unknown prefix still falls back whole, silently', () => {
+  assert.deepStrictEqual(splitPrefix('junk-foo'), { type: 'feat', slug: 'junk-foo' })
+  assert.deepStrictEqual(splitPrefix('chores-foo'), { type: 'feat', slug: 'chores-foo' })
+})
+
+test('resolveSpec: chore- spec derives a chore/{slug} branch', () => {
+  const dir = scaffold('chore-ci-cache')
+  const r = resolveSpec('chore-ci-cache', dir, baseConfig())
+  assert.strictEqual(r.type, 'chore')
+  assert.strictEqual(r.slug, 'ci-cache')
+  assert.strictEqual(r.branch, 'chore/ci-cache')
+  assert.strictEqual(r.worktreeFolder, 'ci-cache')
 })
 
 test('expandTokens replaces known tokens and leaves unknown intact', () => {

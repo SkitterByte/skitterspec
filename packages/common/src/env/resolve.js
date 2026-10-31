@@ -4,7 +4,8 @@
  * Pure spec/branch resolution for per-spec isolation.
  *
  * Given a spec argument (a folder name or path) it locates the spec folder under
- * `specs/**`, splits the `feat-`/`bug-` prefix into `{ type, slug }`, derives the
+ * `specs/**`, splits the `feat-`/`bug-`/`hotfix-`/`chore-` prefix into
+ * `{ type, slug }`, derives the
  * git branch from the config's `branch.pattern` (provider-neutral; `{identifier}`
  * is filled from a tracker id when one is configured, else it falls back to
  * `{type}/{slug}`), and expands the config's path/name tokens (`{repo}`,
@@ -294,10 +295,10 @@ function phaseIsDone(text) {
   return /^#\s.*✅\s*$/m.test(text)
 }
 
-// Split a `feat-`/`bug-`/`hotfix-` prefix. Unknown prefix → type defaults to
-// `feat` and the whole folder name is the slug.
+// Split a `feat-`/`bug-`/`hotfix-`/`chore-` prefix. Unknown prefix → type
+// defaults to `feat` and the whole folder name is the slug.
 function splitPrefix(folder) {
-  const m = /^(feat|bug|hotfix)-(.+)$/.exec(folder)
+  const m = /^(feat|bug|hotfix|chore)-(.+)$/.exec(folder)
   if (m) return { type: m[1], slug: m[2] }
   return { type: 'feat', slug: folder }
 }
@@ -497,6 +498,12 @@ function assertPrimaryOnMain(config, git) {
  * entry may name its own `branch`, which wins: the record is what the worktree
  * was actually created against, and re-deriving it would go wrong the moment a
  * project changed its pattern under a standing branch.
+ *
+ * A `chore-foo` SPEC derives the same `chore/foo` branch as `/no-spec foo`
+ * does, deliberately left colliding: both cannot exist at once, and git
+ * refuses the second `worktree add -b` loudly rather than either lane
+ * silently adopting the other's branch (spec feat-chore-kind-bug-bodies,
+ * decision 9).
  *
  * Pure but for `repoInfo`, like `resolveSpec`.
  */
