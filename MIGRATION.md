@@ -1,5 +1,34 @@
 # Migration guide
 
+## The `chore` spec kind, and per-type bodies (additive — nothing breaks)
+
+Specs can now be **chores** (`chore-` prefix, `> **Type:** Chore`) and every
+provider can map spec kinds to its own idiom. Configs without a mapping keep
+working unchanged: an unmapped kind mints the provider's default type exactly
+as before, and `System.Description` stays Azure's body field unless a type is
+mapped away from it. `skitterspec update` ships the new skills and rules.
+
+**Create tracker types and states before mapping them.** A mapping names
+something the tracker must already have:
+
+- **Azure Boards** — create the custom inherited type (e.g. `Chore`) and its
+  states in your process, then set
+  `azure.workItemTypeByKind: { "chore": "Chore" }`. To fill a Bug form's Repro
+  Steps instead of the hidden Description, set
+  `azure.bodyFieldByType: { "Bug": "Microsoft.VSTS.TCM.ReproSteps" }` — it
+  applies symmetrically to create, update, read-back and the edited-hash
+  compare, so `/spec-status` stays quiet after a push. Bugs minted before the
+  mapping keep reading their Description until the next push rewrites them.
+  `spec-sync doctor --check-remote` verifies every mapped type exists and
+  carries its body field.
+- **GitHub** — `github.labelsByKind: { "chore": "chore" }` adds the kind's
+  label beside the spec marker.
+- **Jira** — `jira.issueTypeByKind: { "bug": "Bug", "chore": "Task" }` picks
+  the mint type per kind; the type must exist in the project.
+- **Linear** — `linear.labelsByKind: { "chore": "Chore" }` labels the mint;
+  the label must already exist on the team (a missing one is a one-line note,
+  never a failed push).
+
 ## `@skitterbyte/skitterspec-github` v1 → v2 (tell, don't track)
 
 Skitterspec now tells GitHub about **its own** transitions and nothing

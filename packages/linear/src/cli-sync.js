@@ -2226,8 +2226,32 @@ function describeRefusal(error) {
  * stripped (`withoutNull`) except the assignee clear, and the refusal texts
  * name Linear and its commands.
  */
-async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, project, states, forceNew = false }) {
+// A spec's KIND, read off its folder prefix — the same convention the
+// lifecycle skills stamp into `> **Type:**`, but greppable with no file read.
+function specKindOf(snapshotDir) {
+  const name = path.basename(String(snapshotDir || ''))
+  if (name.startsWith('bug-')) return 'bug'
+  if (name.startsWith('hotfix-')) return 'hotfix'
+  if (name.startsWith('chore-')) return 'chore'
+  return 'feature'
+}
+
+async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, project, states, forceNew = false, out = null }) {
   const stateId = (bucket) => (bucket ? stateIdFor(bucket, config, states) : null)
+  // THIS spec's kind label (linear.labelsByKind), resolved name → id once per
+  // apply. A label Linear does not have is a one-line note and an unlabelled
+  // mint, never a failed push — and with nothing configured, no label call is
+  // made at all.
+  const kindLabelName = (config.linear && config.linear.labelsByKind && config.linear.labelsByKind[specKindOf(snapshotDir)]) || ''
+  let kindLabelIds = null
+  if (kindLabelName && teamId && typeof adapter.listLabels === 'function') {
+    const labels = await adapter.listLabels(teamId)
+    const hit = labels.find((l) => l && String(l.name).toLowerCase() === kindLabelName.toLowerCase())
+    if (hit) kindLabelIds = [hit.id]
+    else if (out) out.write(`  !! label "${kindLabelName}" is not on the team — minted without it\n`)
+  } else if (kindLabelName && out && typeof adapter.listLabels !== 'function') {
+    out.write(`  !! label "${kindLabelName}" skipped — this transport cannot list labels\n`)
+  }
   const ops = {
     prevalidateStates: (buckets) => {
       for (const bucket of buckets) stateId(bucket)
@@ -2250,6 +2274,8 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
         // Assert only. An issue being minted has no assignee to retract, so
         // `withoutNull` dropping a null here is exactly right.
         assigneeId: (issue && issue.assignee) || null,
+        // The kind's label, when configured and resolved above; null drops out.
+        labelIds: kindLabelIds,
       }))
       if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
       return created
@@ -2404,7 +2430,7 @@ async function specSyncApply(dir, config, specArg, flags, out) {
     out.write(`spec-sync apply: ${error.message}\n`)
     return 1
   }
-  const shared = { dir, config, adapter, teamId, project: flags.project, states, forceNew: flags.forceNew }
+  const shared = { dir, config, adapter, teamId, project: flags.project, states, forceNew: flags.forceNew, out }
 
   if (!bulk) {
     const lines = ['spec-sync apply: transport = api']

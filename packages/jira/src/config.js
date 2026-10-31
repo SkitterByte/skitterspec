@@ -35,7 +35,11 @@ const DEFAULT_CONFIG = Object.freeze({
   // here, once. `issueType`/`subtaskType` name the types this site uses for a
   // spec and its phases; workflows and type names vary per site, which is why
   // both are config rather than constants.
-  jira: Object.freeze({ siteUrl: '', projectKey: '', issueType: 'Task', subtaskType: 'Subtask' }),
+  // `issueTypeByKind` picks the mint type per SPEC KIND
+  // (`feature`/`bug`/`hotfix`/`chore`, from the spec folder's prefix), falling
+  // back to `issueType` — `{ "bug": "Bug" }` files bug specs as Jira Bugs.
+  // Empty means one type for everything, as before.
+  jira: Object.freeze({ siteUrl: '', projectKey: '', issueType: 'Task', subtaskType: 'Subtask', issueTypeByKind: Object.freeze({}) }),
   // A spec is a Jira ISSUE; each phase a SUBTASK of it. `tasks` selects how the
   // phase's checkboxes reach that subtask's description (as an ADF task list —
   // live checkboxes, still a read-only mirror).
@@ -99,7 +103,7 @@ const LIFECYCLE_BUCKETS = Object.freeze(Object.keys(DEFAULT_CONFIG.states))
 // A fresh, deeply-mutable copy of the defaults to merge onto.
 function defaults() {
   return {
-    jira: { ...DEFAULT_CONFIG.jira },
+    jira: { ...DEFAULT_CONFIG.jira, issueTypeByKind: { ...DEFAULT_CONFIG.jira.issueTypeByKind } },
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
     stateAliases: {},
@@ -142,6 +146,16 @@ function mergeConfig(base, parsed) {
     assign(base.jira, parsed.jira, 'projectKey', 'string?')
     assign(base.jira, parsed.jira, 'issueType', 'string')
     assign(base.jira, parsed.jira, 'subtaskType', 'string')
+    if (isObject(parsed.jira.issueTypeByKind)) {
+      // Only the kinds a spec folder can actually be — an unknown key is
+      // dropped, matching the other providers' by-kind validation.
+      const byKind = {}
+      for (const kind of ['feature', 'bug', 'hotfix', 'chore']) {
+        const value = parsed.jira.issueTypeByKind[kind]
+        if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
+      }
+      base.jira.issueTypeByKind = byKind
+    }
     // A trailing slash on the site would double up in every composed URL.
     if (base.jira.siteUrl) base.jira.siteUrl = base.jira.siteUrl.replace(/\/+$/, '')
   }

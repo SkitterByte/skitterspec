@@ -330,6 +330,16 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
       )
       return (data && data.issues && data.issues.nodes) || []
     },
+    // A team's issue labels, for resolving a configured label NAME
+    // (linear.labelsByKind) to the id a create wants. Team-scoped labels and
+    // the workspace ones the team inherits both answer here.
+    async listLabels(teamId) {
+      const data = await call(
+        `query($id: String!) { team(id: $id) { labels { nodes { id name } } } }`,
+        { id: teamId },
+      )
+      return (data && data.team && data.team.labels && data.team.labels.nodes) || []
+    },
     async listProjects(teamId) {
       const data = teamId
         ? await call(`query($id: String!) { team(id: $id) { projects { nodes { id name } } } }`, { id: teamId })

@@ -44,6 +44,7 @@ phase will read as deployed. See "Releases and deploys" below.
 | `github.statusField` | `Status` | The single-select carrying workflow state. |
 | `github.labels.spec` / `.phase` | `spec` / `phase` | Labels that tell a spec issue from a phase. Empty string = no label. |
 | `github.issueTypes.spec` / `.phase` | — | Issue type names. **Org-owned repos only** — naming one on a personal repo is refused by GitHub. |
+| `github.labelsByKind` | `{}` | One extra label per spec kind (`feature`/`bug`/`hotfix`/`chore`, from the folder prefix), applied beside `labels.spec` — `{ "chore": "chore" }` keeps tooling work filterable. Unmapped kinds add nothing. |
 | `states.<bucket>` | see table | Board Status option per lifecycle bucket — a string, or an array whose first name is written and whose rest are read-only aliases. |
 | `intake.label` | — | The label `/spec --from-issue` lists. |
 | `intake.bugLabels` / `.hotfixLabels` | `["bug"]` / `[]` | Labels that route an adopted issue to `/spec-bug` / `/spec-hotfix`. |

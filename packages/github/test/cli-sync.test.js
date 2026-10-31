@@ -214,6 +214,43 @@ test('a first apply mints the spec and its phases, labelled, on the board, and s
   assert.match(phase, /github_issue_id: "#102"/)
 })
 
+// github.labelsByKind: a chore spec mints with its kind label beside the spec
+// marker, and an unmapped kind's payload is byte-identical to before the key
+// existed (spec feat-chore-kind-bug-bodies phase 6).
+test('a chore spec mints with labelsByKind, an unmapped kind without', async () => {
+  const choreRepo = ({ config = {} } = {}) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-chore-'))
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: { ...GH, ...config } }))
+    const spec = path.join(dir, 'specs', 'in-progress', 'chore-demo')
+    fs.mkdirSync(spec, { recursive: true })
+    fs.writeFileSync(path.join(spec, '00-overview.md'), '# Demo\n\n## Problem\n\nCI is slow.\n')
+    fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** speed it up.\n')
+    return dir
+  }
+  const chorePlan = async (dir) => {
+    const r = await run(['plan', 'chore-demo', '--workspace-states', statesFile(dir), '--json'], dir)
+    assert.strictEqual(r.code, 0, r.out)
+    const f = path.join(dir, 'plan.json')
+    fs.writeFileSync(f, r.out)
+    return f
+  }
+
+  const mapped = choreRepo({ config: { labelsByKind: { chore: 'chore' } } })
+  const mappedAdapter = fakeAdapter()
+  let r = await run(['apply', 'chore-demo', '--plan', await chorePlan(mapped)], mapped, { adapter: mappedAdapter })
+  assert.strictEqual(r.code, 0, r.out)
+  const create = mappedAdapter.calls.find((c) => c[0] === 'createIssue')
+  assert.deepStrictEqual(create[2], ['spec', 'chore'])
+
+  // STAYS-SILENT: no mapping → the labels GitHub has always been sent.
+  const plain = choreRepo()
+  const plainAdapter = fakeAdapter()
+  r = await run(['apply', 'chore-demo', '--plan', await chorePlan(plain)], plain, { adapter: plainAdapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(plainAdapter.calls.find((c) => c[0] === 'createIssue')[2], ['spec'])
+})
+
 // A phase's task list renders as clickable boxes on GitHub, so a tick there is
 // an edit the next push replaces — reported, never refused.
 async function pushedThenPhaseEdited({ tamper }) {

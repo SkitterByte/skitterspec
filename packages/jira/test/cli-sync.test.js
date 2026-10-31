@@ -217,6 +217,49 @@ test('apply mints issue + subtask, transitions, stamps, records — then the nex
   assert.strictEqual(p2.issue, undefined)
 })
 
+// jira.issueTypeByKind: the mint type follows the spec folder's kind prefix,
+// falling back to jira.issueType (spec feat-chore-kind-bug-bodies phase 6).
+test('a chore spec mints issueTypeByKind.chore, and falls back unmapped', async () => {
+  const choreRepo = ({ config = {} } = {}) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-chore-'))
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, CONFIG_FILE),
+      JSON.stringify({ jira: { siteUrl: SITE, projectKey: 'PROJ', ...config } }),
+    )
+    const spec = path.join(dir, 'specs', 'in-progress', 'chore-demo')
+    fs.mkdirSync(spec, { recursive: true })
+    fs.writeFileSync(path.join(spec, '00-overview.md'), '# Demo\n\n## Problem\n\nCI is slow.\n')
+    fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** speed it up.\n')
+    return dir
+  }
+  const minted = []
+  const spy = (a) => {
+    const original = a.createIssue.bind(a)
+    a.createIssue = async (input) => { minted.push(input.issueTypeName); return original(input) }
+  }
+
+  const mapped = choreRepo({ config: { issueTypeByKind: { chore: 'Chore' } } })
+  const mappedAdapter = fakeAdapter()
+  spy(mappedAdapter)
+  let plan = await run(['plan', 'chore-demo', '--skip-state-check', '--json'], mapped)
+  fs.writeFileSync(path.join(mapped, 'plan.json'), plan.out)
+  let r = await run(['apply', 'chore-demo', '--plan', path.join(mapped, 'plan.json')], mapped, { adapter: mappedAdapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(minted[0], 'Chore')
+
+  // STAYS-SILENT: no mapping → the one configured type, exactly as before.
+  const plain = choreRepo()
+  const plainAdapter = fakeAdapter()
+  minted.length = 0
+  spy(plainAdapter)
+  plan = await run(['plan', 'chore-demo', '--skip-state-check', '--json'], plain)
+  fs.writeFileSync(path.join(plain, 'plan.json'), plan.out)
+  r = await run(['apply', 'chore-demo', '--plan', path.join(plain, 'plan.json')], plain, { adapter: plainAdapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(minted[0], 'Task')
+})
+
 test('apply over MCP writes nothing and hands the skill instructions (exit 0)', async () => {
   const dir = repoWithSpec()
   const plan = path.join(dir, 'plan.json')

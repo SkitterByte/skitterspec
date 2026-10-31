@@ -4,7 +4,8 @@
     "repo": "skitterspec",
     "project": 7,
     "statusField": "Status",
-    "labels": { "spec": "spec", "phase": "phase" }
+    "labels": { "spec": "spec", "phase": "phase" },
+    "labelsByKind": {}
   },
   "states": {
     "backlog": "Backlog",

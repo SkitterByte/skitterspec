@@ -34,7 +34,12 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push|none` is a hard 
     "teamKey": "",        // human-facing key, e.g. "ENG" — the RECORDED key;
                           // see "Renaming a team" below (optional)
     "teamId": "",         // Linear team UUID (the issue's team)
-    "projectId": ""       // DEFAULT for the project picker (see below)
+    "projectId": "",      // DEFAULT for the project picker (see below)
+    "labelsByKind": {}    // one label per spec kind (feature/bug/hotfix/chore,
+                          // from the folder prefix), applied at mint —
+                          // e.g. { "chore": "Chore" }. The label must already
+                          // exist on the team; a missing one is a one-line
+                          // note, never a failed push
   },
 
   // Issue intake: `/spec <ISSUE-REF>` adopts any issue; `/spec --from-issue`

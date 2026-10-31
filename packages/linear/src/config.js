@@ -113,7 +113,17 @@ const DEFAULT_CONFIG = Object.freeze({
   // call only and never stored in the spec or the snapshot, so a PM re-homing the
   // issue in Linear is invisible to sync. (The old `initiativeId` grouped
   // Projects, which no longer exist.)
-  linear: Object.freeze({ teamKey: '', teamId: '', projectId: '' }),
+  linear: Object.freeze({
+    teamKey: '',
+    teamId: '',
+    projectId: '',
+    // One label per SPEC KIND (`feature`/`bug`/`hotfix`/`chore`, from the spec
+    // folder's prefix), applied at mint when set — `{ "chore": "Chore" }`
+    // keeps tooling work filterable out of release views. The label must
+    // already exist on the team; a missing one is a one-line note, never a
+    // failed push. Empty means no kind label, as before.
+    labelsByKind: Object.freeze({}),
+  }),
   // Issue intake (`/spec <ISSUE-REF>`, `/spec --from-issue`). `label` is the
   // inbox filter — issues carrying it are what the web app files; `bugLabels`
   // route an issue to `/spec-bug` instead of `/spec`, and `hotfixLabels` route it
@@ -264,7 +274,7 @@ const LIFECYCLE_BUCKETS = Object.freeze(Object.keys(DEFAULT_CONFIG.states))
 // A fresh, deeply-mutable copy of the defaults to merge onto.
 function defaults() {
   return {
-    linear: { ...DEFAULT_CONFIG.linear },
+    linear: { ...DEFAULT_CONFIG.linear, labelsByKind: { ...DEFAULT_CONFIG.linear.labelsByKind } },
     intake: {
       label: DEFAULT_CONFIG.intake.label,
       bugLabels: [...DEFAULT_CONFIG.intake.bugLabels],
@@ -315,6 +325,16 @@ function mergeConfig(base, parsed) {
     assign(base.linear, parsed.linear, 'teamKey', 'string?')
     assign(base.linear, parsed.linear, 'teamId', 'string?')
     assign(base.linear, parsed.linear, 'projectId', 'string?')
+    if (isObject(parsed.linear.labelsByKind)) {
+      // Only the kinds a spec folder can actually be — an unknown key is
+      // dropped, matching the other providers' by-kind validation.
+      const byKind = {}
+      for (const kind of ['feature', 'bug', 'hotfix', 'chore']) {
+        const value = parsed.linear.labelsByKind[kind]
+        if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
+      }
+      base.linear.labelsByKind = byKind
+    }
   }
 
   if (isObject(parsed.intake)) {

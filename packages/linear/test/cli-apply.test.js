@@ -803,3 +803,55 @@ test('a create that lands with a stamp that fails names the orphan', async () =>
   assert.match(r.out, /reattach/, 'and the way back is reattach, not a re-run')
   assert.doesNotMatch(r.out, /re-run to resume/, 're-running here would mint a second')
 })
+
+// linear.labelsByKind: a chore spec mints with the kind's label resolved
+// name → id; a label the team lacks is a one-line note and an unlabelled
+// mint; and with nothing configured no label call is made at all
+// (spec feat-chore-kind-bug-bodies phase 6).
+test('a chore spec mints with its kind label, notes a missing one, and skips unmapped', async () => {
+  const choreRepo = (extraLinear = {}) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-chore-'))
+    const cfg = path.join(dir, CONFIG_FILE)
+    fs.mkdirSync(path.dirname(cfg), { recursive: true })
+    fs.writeFileSync(cfg, JSON.stringify({ linear: { teamId: 'T1', ...extraLinear } }), 'utf-8')
+    const folder = path.join(dir, 'specs', 'in-progress', 'chore-demo')
+    fs.mkdirSync(folder, { recursive: true })
+    fs.writeFileSync(path.join(folder, '00-overview.md'), '# Demo\n\n## Problem\n\nCI is slow.\n', 'utf-8')
+    fs.writeFileSync(path.join(folder, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** speed it up.\n', 'utf-8')
+    return dir
+  }
+  const PLAN = {
+    issue: { description: '# Demo\n\n## Problem\n\nCI is slow.', state: 'in-progress' },
+    subIssues: { create: [{ ref: '01-fix', name: 'Fix', goal: '**Goal:** speed it up.', state: 'backlog' }], update: [] },
+  }
+  const withLabels = (labels) => {
+    const linear = fakeLinear()
+    linear.listLabels = async () => labels
+    return linear
+  }
+
+  const mapped = choreRepo({ labelsByKind: { chore: 'Chore' } })
+  const linear = withLabels([{ id: 'lbl-1', name: 'Chore' }])
+  let r = await run(['apply', 'chore-demo', '--plan', planFile(mapped, PLAN)], mapped, { adapter: linear })
+  assert.strictEqual(r.code, 0, r.out)
+  const create = linear.log.find((c) => c.op === 'createIssue')
+  assert.deepStrictEqual(create.input.labelIds, ['lbl-1'])
+
+  // A label the team lacks: a note, and the mint goes out unlabelled.
+  const missing = choreRepo({ labelsByKind: { chore: 'Chore' } })
+  const bare = withLabels([])
+  r = await run(['apply', 'chore-demo', '--plan', planFile(missing, PLAN)], missing, { adapter: bare })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /label "Chore" is not on the team/)
+  assert.ok(!('labelIds' in bare.log.find((c) => c.op === 'createIssue').input))
+
+  // STAYS-SILENT: nothing configured → no label lookup, no labelIds key.
+  const plain = choreRepo()
+  const silent = fakeLinear()
+  let labelCalls = 0
+  silent.listLabels = async () => { labelCalls++; return [] }
+  r = await run(['apply', 'chore-demo', '--plan', planFile(plain, PLAN)], plain, { adapter: silent })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(labelCalls, 0)
+  assert.ok(!('labelIds' in silent.log.find((c) => c.op === 'createIssue').input))
+})

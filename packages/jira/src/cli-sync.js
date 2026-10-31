@@ -90,7 +90,20 @@ function stateCheckFailure(config, flags) {
 // Apply ops: the kit orchestration with Jira's tracker calls. Status is moved
 // by TRANSITION after the create/update — Jira has no "set status" field — and
 // `transitionTo` is idempotent when the issue already sits on the target.
-function applyOps({ adapter, config }) {
+// A spec's KIND, read off its folder prefix — the same convention the
+// lifecycle skills stamp into `> **Type:**`, but greppable with no file read.
+function specKindOf(snapshotDir) {
+  const name = path.basename(String(snapshotDir || ''))
+  if (name.startsWith('bug-')) return 'bug'
+  if (name.startsWith('hotfix-')) return 'hotfix'
+  if (name.startsWith('chore-')) return 'chore'
+  return 'feature'
+}
+
+function applyOps({ adapter, config, kind = 'feature' }) {
+  // The mint type for THIS spec's kind (jira.issueTypeByKind), falling back to
+  // the one configured type — unmapped kinds mint exactly as before.
+  const mintType = (config.jira.issueTypeByKind && config.jira.issueTypeByKind[kind]) || config.jira.issueType
   const statusFor = (bucket) => {
     const name = config.states && config.states[bucket]
     if (!name) {
@@ -120,7 +133,7 @@ function applyOps({ adapter, config }) {
         description: issue && issue.description != null ? issue.description : undefined,
         assigneeId: issue && issue.assignee ? issue.assignee : undefined,
         projectKey: config.jira.projectKey,
-        issueTypeName: config.jira.issueType,
+        issueTypeName: mintType,
       })
       await settle(created.identifier, issue && issue.state)
       return created
@@ -241,7 +254,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
       snapshotDir,
       plan,
       adapter: cred.adapter,
-      ops: applyOps({ adapter: cred.adapter, config }),
+      ops: applyOps({ adapter: cred.adapter, config, kind: specKindOf(snapshotDir) }),
       forceNew: !!flags.forceNew,
       program: PROGRAM,
     })

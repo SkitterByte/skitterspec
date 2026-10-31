@@ -138,7 +138,17 @@ function stateCheckFailure(config, flags) {
 // issue's own open/closed where the bucket calls for it. Both are idempotent —
 // a Status already set is left alone, and the issue is only opened or closed
 // when it is not already.
-function applyOps({ adapter, config }) {
+// A spec's KIND, read off its folder prefix — the same convention the
+// lifecycle skills stamp into `> **Type:**`, but greppable with no file read.
+function specKindOf(snapshotDir) {
+  const name = path.basename(String(snapshotDir || ''))
+  if (name.startsWith('bug-')) return 'bug'
+  if (name.startsWith('hotfix-')) return 'hotfix'
+  if (name.startsWith('chore-')) return 'chore'
+  return 'feature'
+}
+
+function applyOps({ adapter, config, kind = 'feature' }) {
   const statusFor = (bucket) => {
     const name = config.states && config.states[bucket]
     if (!name) {
@@ -185,6 +195,13 @@ function applyOps({ adapter, config }) {
   }
   const spec = markersFor(config, 'spec')
   const phase = markersFor(config, 'phase')
+  // THIS spec's kind label (github.labelsByKind), beside the spec marker.
+  // Unmapped kinds add nothing, so an unconfigured project's payloads are
+  // byte-identical to before the key existed.
+  const kindLabel = (config.github.labelsByKind || {})[kind]
+  if (kindLabel && !spec.labels.some((l) => l.toLowerCase() === kindLabel.toLowerCase())) {
+    spec.labels = [...spec.labels, kindLabel]
+  }
   return {
     prevalidateStates: (buckets) => {
       for (const bucket of buckets) statusFor(bucket)
@@ -379,7 +396,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
       snapshotDir,
       plan,
       adapter: cred.adapter,
-      ops: applyOps({ adapter: cred.adapter, config }),
+      ops: applyOps({ adapter: cred.adapter, config, kind: specKindOf(snapshotDir) }),
       forceNew: !!flags.forceNew,
       program: PROGRAM,
     })

@@ -3,6 +3,7 @@
     "siteUrl": "https://your-site.atlassian.net",
     "projectKey": "PROJ",
     "issueType": "Task",
+    "issueTypeByKind": {},
     "subtaskType": "Subtask"
   },
   "states": {

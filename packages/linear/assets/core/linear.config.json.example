@@ -2,7 +2,8 @@
   "linear": {
     "teamKey": "",
     "teamId": "",
-    "projectId": ""
+    "projectId": "",
+    "labelsByKind": {}
   },
   "intake": {
     "label": "",

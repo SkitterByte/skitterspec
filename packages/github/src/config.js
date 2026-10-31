@@ -54,6 +54,11 @@ const DEFAULT_CONFIG = Object.freeze({
     statusField: 'Status',
     labels: Object.freeze({ spec: 'spec', phase: 'phase' }),
     issueTypes: Object.freeze({ spec: '', phase: '' }),
+    // One extra label per SPEC KIND (`feature`/`bug`/`hotfix`/`chore`, from
+    // the spec folder's prefix), applied beside `labels.spec` when set —
+    // `{ "chore": "chore" }` keeps tooling work filterable out of release
+    // views. Empty means no kind label, as before.
+    labelsByKind: Object.freeze({}),
   }),
   // A spec is a GitHub ISSUE; each phase a SUB-ISSUE of it, carrying the
   // phase's checkboxes in its body as a task list (rendered live by GitHub —
@@ -118,7 +123,7 @@ const LIFECYCLE_BUCKETS = Object.freeze(Object.keys(DEFAULT_CONFIG.states))
 function defaults() {
   const g = DEFAULT_CONFIG.github
   return {
-    github: { ...g, labels: { ...g.labels }, issueTypes: { ...g.issueTypes } },
+    github: { ...g, labels: { ...g.labels }, issueTypes: { ...g.issueTypes }, labelsByKind: { ...g.labelsByKind } },
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
     stateAliases: {},
@@ -185,6 +190,16 @@ function mergeConfig(base, parsed) {
     if (isObject(parsed.github.issueTypes)) {
       assign(base.github.issueTypes, parsed.github.issueTypes, 'spec', 'string?')
       assign(base.github.issueTypes, parsed.github.issueTypes, 'phase', 'string?')
+    }
+    if (isObject(parsed.github.labelsByKind)) {
+      // Only the kinds a spec folder can actually be — an unknown key is
+      // dropped, matching Azure's workItemTypeByKind validation.
+      const byKind = {}
+      for (const kind of ['feature', 'bug', 'hotfix', 'chore']) {
+        const value = parsed.github.labelsByKind[kind]
+        if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
+      }
+      base.github.labelsByKind = byKind
     }
   }
 
