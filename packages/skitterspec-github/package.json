@@ -1,6 +1,6 @@
 {
   "name": "@skitterbyte/skitterspec-github",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Spec-driven development for Claude Code, with one-way GitHub sync — a superset of @skitterbyte/skitterspec: the base filesystem workflow plus /spec-status · /spec-push · /spec-claim and the spec-sync CLI, mirroring specs to GitHub Issues, sub-issues and a Projects v2 board, with GitHub Releases. The repo is canonical; GitHub is a generated mirror. Install this OR the base OR one other superset — exactly one.",
   "keywords": [
     "claude",
