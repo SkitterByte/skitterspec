@@ -3039,6 +3039,53 @@ function originalPreserved(comments) {
   })
 }
 
+
+// `comment <spec> --file <f>` — post a file's markdown onto the spec's issue
+// as a comment: the one surface one-way sync never touches, so no later push
+// can clobber it. `/spec-complete` posts an incident's log through this.
+// Misuse (no readable file) exits 1; every cannot-tell exits 0 and says so.
+async function specSyncComment(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+  const done = (msg) => {
+    out.write(`spec-sync comment: ${msg}\n`)
+    return 0
+  }
+  if (!flags.file) {
+    out.write('spec-sync comment: pass --file <markdown file to post>\n')
+    return 1
+  }
+  let body
+  try {
+    body = fs.readFileSync(flags.file, 'utf-8')
+  } catch (error) {
+    out.write(`spec-sync comment: cannot read --file: ${error.message}\n`)
+    return 1
+  }
+  if (!body.trim()) {
+    out.write('spec-sync comment: --file is empty — nothing to post\n')
+    return 1
+  }
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const identifier = linkedIdentifier(path.join(snapshotDir, overviewFile))
+  if (!identifier) return done(`${path.basename(snapshotDir)} is not linked — nothing posted`)
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = resolveTransport(flags, config, key.ok)
+  if (transport === 'mcp') {
+    return done(`transport = mcp — post the file's contents onto ${identifier} with the Linear comment tool yourself`)
+  }
+  if (!key.ok) return done(`no API key — ${key.error.split('\n')[0]}; nothing posted`)
+  const adapter = flags.adapter || makeApiAdapter({ apiKey: key.key, fetch: flags.fetch })
+  try {
+    const issue = await adapter.readIssue(identifier)
+    if (!issue || !issue.id) return done(`${identifier} not found on Linear — nothing posted`)
+    await adapter.createComment(issue.id, body)
+    return done(`${identifier} — comment posted (${body.length} characters)`)
+  } catch (error) {
+    return done(`could not reach Linear (${String(error.message).split('\n')[0]}); nothing posted`)
+  }
+}
+
 /**
  * `spec-sync preserve <spec> [--text <file>] [--json]` — post the issue's
  * current description as a comment, before a push replaces it with the spec.
@@ -3273,6 +3320,7 @@ async function specSync(rest, io = {}) {
     // `preserve --text <file>`: the description to keep, when the caller read it
     // over MCP and the engine cannot.
     else if (args[i] === '--text') flags.text = path.resolve(args[++i])
+    else if (args[i] === '--file') flags.file = path.resolve(args[++i])
     else if (args[i] === '--mcp') flags.mcp = path.resolve(args[++i])
     else if (args[i] === '--plan') flags.plan = path.resolve(args[++i])
     else if (args[i] === '--via') flags.via = args[++i]
@@ -3446,6 +3494,8 @@ async function specSync(rest, io = {}) {
       return specSyncVerify(dir, config, positional[0], flags, out) || 0
     case 'preserve':
       return (await specSyncPreserve(dir, config, positional[0], flags, out)) || 0
+    case 'comment':
+      return (await specSyncComment(dir, config, positional[0], flags, out)) || 0
     case 'linked':
       specSyncLinked(dir, config, flags, out)
       return 0
@@ -3465,6 +3515,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
         '       skitterspec spec-sync preserve <spec> [--text <file>] [--via api|mcp] [--json]\n' +
+        '       skitterspec spec-sync comment <spec> --file <file> [--via api|mcp]\n' +
         '       skitterspec spec-sync list [--state <name> …|--all|--in-progress] [--next N] [--mine|--by <user>] [--limit N] [--archived] [--json]\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +

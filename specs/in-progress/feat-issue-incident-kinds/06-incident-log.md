@@ -2,9 +2,9 @@
 github_issue_id: "#91"
 ---
 
-# Phase 6 — Incident log at completion ⬜
+# Phase 6 — Incident log at completion ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `/spec-complete` on an incident spec writes `incident-log.md` and
 pushes it onto the incident item as a comment, refusing first while a linked
@@ -12,30 +12,28 @@ fix is still open.
 
 ## Tasks
 
-- [ ] `/spec-complete` skill: an incident spec (folder prefix) takes the
-      incident path — before completing, grep `specs/backlog/` and
-      `specs/in-progress/` for fix specs carrying
-      `> **Incident:** <this-name>`; any hit refuses with the fix named and
-      offers to complete anyway with it listed as outstanding (operator
-      answers; the choice goes in the Changelog). Blind spot, named in the
-      skill text: an authored-but-unlanded fix spec is invisible to the grep
-- [ ] `incident-log.md` written into the spec folder from the spec and its
-      linked fixes, covering: summary · severity · timeline (started,
-      detected, mitigated, resolved) · impact (who, what, how long) · root
-      cause · fixes (linked specs, their tickets, the releases they shipped
-      in — releases via `spec-sync released` where a provider is installed,
-      else from the spec's own record) · what went well / what didn't ·
-      follow-ups, each offered as a `/spec`
-- [ ] Push the log as a **comment** on the incident item (all four providers
-      have a comment surface; reuse the `spec-sync preserve` comment
-      machinery where possible). The description stays the generated spec
-      mirror. No provider installed / unreachable tracker → say so in one
-      line, log stays in the repo, completion proceeds
-- [ ] Completion still moves the spec and transitions the tracker through the
+- [x] `/spec-complete` skill: `Type: Incident` specs take the incident path —
+      grep `specs/backlog/` + `specs/in-progress/` for
+      `> **Incident:** <this-name>`; a hit refuses naming the fix and offers
+      to complete anyway with it listed as outstanding (operator answers,
+      choice recorded in the Changelog); the branch-local blind spot is named
+      beside the check
+- [x] `incident-log.md` written into the spec folder, covering every decision-3
+      section (summary · severity · timeline · impact · root cause · fixes
+      with tickets and releases via `spec-sync released` · went well/badly ·
+      follow-ups offered as `/spec`)
+- [x] Push the log as a **comment**: new `spec-sync comment <spec> --file <f>`
+      subcommand on all four providers (posts via each adapter's
+      `createComment`; misuse exits 1, every cannot-tell — unlinked, offline,
+      no credentials, MCP transport — exits 0 and says so). The description
+      stays the generated spec projection
+- [x] Completion still moves the spec and transitions the tracker through the
       per-type map from phase 3 (ereqs: Incident → Closed)
-- [ ] Tests: refusal fires on an open linked fix and a test proves nothing
-      moved; completes clean with no linked fixes (stays-silent); log covers
-      every section (template test); comment push exercised against the fake
-      adapters
-- [ ] Docs: reference page — the incident lifecycle end-to-end
-- [ ] Run `pnpm -r test` + typecheck — green
+- [x] Tests: `assets-incident-kind.test.js` pins the refusal/offer, the log
+      sections, the comment command and the kind gating (stays-silent
+      included); comment-verb tests against the fake adapters in azure,
+      github, jira and linear
+- [x] Docs: the four provider pages' command tables gain the `comment` verb;
+      the reference page's incident wording landed in phase 4
+- [x] Run `pnpm -r test` + typecheck — green (packages 0 failures, root 4,235
+      pass; no typecheck script in this repo)

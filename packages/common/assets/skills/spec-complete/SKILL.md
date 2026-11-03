@@ -42,6 +42,45 @@ Before marking complete, confirm the work is actually finished:
   is its own, and step 4 commits that.
 
 
+### An incident spec — the log, and the open-fix check
+
+**Only for `Type: Incident` specs** (folder prefix `incident-`); every other
+kind skips this in silence.
+
+1. **Check for open linked fixes.** Grep `specs/backlog/` and
+   `specs/in-progress/` for specs carrying `> **Incident:** <this spec's name>`.
+   Any hit is a fix still open: **refuse**, naming each one, and offer to
+   complete anyway with it listed as outstanding in the log — the operator
+   answers; record the choice in the spec's Changelog either way.
+   BLIND SPOT, named: a fix spec authored but not yet landed on the base branch
+   is invisible to this grep — acceptable, because `/spec`'s committing
+   verdicts land authored specs on the base
+   (`.claude/rules/negative-checks.md`).
+2. **Write `incident-log.md`** into the spec folder — the stakeholder- and
+   support-facing record, built from the spec and its linked fixes:
+   summary · severity · timeline (started, detected, mitigated, resolved) ·
+   impact (who, what, for how long) · root cause · the fixes (each linked
+   spec, its ticket, and the release it shipped in — `spec-sync released`
+   answers that where a provider is installed; a fix completed but not yet
+   released is listed as such) · what went well and what didn't · follow-ups,
+   each offered as a `/spec` on the spot.
+3. **Push the log onto the incident item as a comment** (only when a provider
+   is installed and the spec is linked):
+
+   ```
+   skitterspec spec-sync comment <spec> --file specs/in-progress/<spec>/incident-log.md
+   ```
+
+   A comment, deliberately: the item's description is generated from the spec,
+   so a log written there would be clobbered by the next push — comments are
+   the one surface one-way sync never touches. The command exits 0 on every
+   cannot-tell (unlinked, offline, no credentials) and says so; relay the line
+   and finish either way — the log in the repo is the record.
+
+Completion then proceeds as normal: the per-type state map decides what the
+tracker is sent (an Incident completes to whatever `statesByType` names for
+it), and steps 3–7 below are unchanged.
+
 ### Release gating (only when configured)
 
 **Only when `specs/.core/gating.config.json` exists.** Run

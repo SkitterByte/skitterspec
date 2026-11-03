@@ -403,6 +403,29 @@ test('a fix spec pushes severity into severityField and a Relates link once', as
   assert.strictEqual(links.length, 0)
 })
 
+// `comment <spec> --file <f>` posts a file onto the issue — the surface no
+// later push can clobber, which is why /spec-complete posts an incident's log
+// through it.
+test('comment posts the file onto the linked issue, and degrades politely', async () => {
+  const dir = repoWithSpec({ identifier: 'PROJ-7' })
+  const logFile = path.join(dir, 'incident-log.md')
+  fs.writeFileSync(logFile, '# Incident log\n\nIt was DNS.\n')
+  const adapter = fakeAdapter()
+  const comments = []
+  adapter.createComment = async (key, body) => { comments.push([String(key), body]) }
+  const r = await run(['comment', 'feat-demo', '--file', logFile], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(comments.map(([k]) => k), ['PROJ-7'])
+  assert.strictEqual((await run(['comment', 'feat-demo'], dir, { adapter })).code, 1)
+  const plain = repoWithSpec()
+  fs.writeFileSync(path.join(plain, 'incident-log.md'), 'log\n')
+  comments.length = 0
+  const r3 = await run(['comment', 'feat-demo', '--file', path.join(plain, 'incident-log.md')], plain, { adapter })
+  assert.strictEqual(r3.code, 0)
+  assert.strictEqual(comments.length, 0)
+  assert.match(r3.out, /not linked — nothing posted/)
+})
+
 test('apply over MCP writes nothing and hands the skill instructions (exit 0)', async () => {
   const dir = repoWithSpec()
   const plan = path.join(dir, 'plan.json')

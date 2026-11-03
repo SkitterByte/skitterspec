@@ -152,7 +152,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | Per-type state overrides + per-type pre-write check | ✅ | [03-per-type-states.md](03-per-type-states.md) |
 | 4 | Authoring surfaces: issue proposal + /spec-incident | ✅ | [04-authoring-surfaces.md](04-authoring-surfaces.md) |
 | 5 | Severity + related links on push | ✅ | [05-severity-related-links.md](05-severity-related-links.md) |
-| 6 | Incident log at completion | ⬜ | [06-incident-log.md](06-incident-log.md) |
+| 6 | Incident log at completion | ✅ | [06-incident-log.md](06-incident-log.md) |
 | 7 | Migration notes, docs sweep, shipping checks | ⬜ | [07-ship.md](07-ship.md) |
 
 ## Open questions
@@ -172,6 +172,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   providers get the state/severity/link machinery (not Azure-only); one
   combined spec; incident log pushed as a comment; state overrides keyed by
   type on Azure/Jira and by kind on GitHub/Linear.
+- 2026-11-03 — Phase 6: the log push is a new generic
+  `spec-sync comment <spec> --file <f>` verb on all four providers rather than
+  preserve-specific machinery — `/spec-complete` calls it so the log never
+  passes through the model, and the base-distribution skill text stays
+  tracker-free (the build test enforces that).
 - 2026-11-03 — Phase 5: the related-incident cross-reference line is part of
   the projected body on **every** provider (not GitHub alone) — appending it
   at send time would make the stored-base hash disagree with the tracker on

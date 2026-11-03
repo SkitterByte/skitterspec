@@ -1145,6 +1145,49 @@ async function specSyncPreserve(dir, config, specArg, flags, out) {
   }
 }
 
+// `comment <spec> --file <f>` — post a file's markdown onto the spec's work
+// item as a comment: the one surface one-way sync never touches, so no later
+// push can clobber it. `/spec-complete` posts an incident's log through this.
+// Misuse (no readable file) exits 1; every cannot-tell exits 0 and says so.
+async function specSyncComment(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+  const done = (msg) => {
+    out.write(`${PROGRAM} comment: ${msg}\n`)
+    return 0
+  }
+  if (!flags.file) {
+    out.write(`${PROGRAM} comment: pass --file <markdown file to post>\n`)
+    return 1
+  }
+  let body
+  try {
+    body = fs.readFileSync(flags.file, 'utf-8')
+  } catch (error) {
+    out.write(`${PROGRAM} comment: cannot read --file: ${error.message}\n`)
+    return 1
+  }
+  if (!body.trim()) {
+    out.write(`${PROGRAM} comment: --file is empty — nothing to post\n`)
+    return 1
+  }
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const identifier = specHelpers.linkedIdentifier(path.join(snapshotDir, overviewFile), config)
+  if (!identifier) return done(`${path.basename(snapshotDir)} is not linked — nothing posted`)
+  const cred = apiAdapterFor(config, flags)
+  const transport = kit.resolveTransport(flags, config, cred.ok)
+  if (transport === 'mcp') {
+    return done(`transport = mcp — post the file's contents onto ${identifier} with the comment tool yourself`)
+  }
+  if (!cred.ok) return done(`no credentials — ${cred.error.split('\n')[0]}; nothing posted`)
+  try {
+    await cred.adapter.createComment(apiId(identifier), body)
+    return done(`${identifier} — comment posted (${body.length} characters)`)
+  } catch (error) {
+    return done(`could not reach Azure (${String(error.message).split('\n')[0]}); nothing posted`)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Credentials: `status` is a READINESS check (exit 1 with none); `set`
 // prompts with hidden input; `unset` removes the org's entry.
@@ -1549,6 +1592,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     tickets a commit range contains
   preserve <spec> [--text <f>]           keep an adopted item's original report
+  comment <spec> --file <f>              post a file onto the item as a comment
   assign <spec> --to <id> | --release    stamp who is building it
   whoami [--set <id>] [--unset]          who you are on Azure (cached)
   users [<query>]                        search the org's identities
@@ -1630,6 +1674,8 @@ async function specSync(rest, io = {}) {
       return kit.refuseRemovedVerb(out, PROGRAM, 'release')
     case 'preserve':
       return specSyncPreserve(dir, config, positional[0], flags, out)
+    case 'comment':
+      return specSyncComment(dir, config, positional[0], flags, out)
     case 'assign':
       return assignment.assign(dir, config, positional[0], flags, out)
     case 'whoami':
@@ -1664,6 +1710,7 @@ function parseArgs(args, sub) {
     '--stored': { kind: 'path' },
     '--remote': { kind: 'path' },
     '--text': { kind: 'path' },
+    '--file': { kind: 'path' },
     '--workspace-states': { kind: 'path', name: 'workspaceStates' },
     '--skip-state-check': { kind: 'boolean', name: 'skipStateCheck' },
     '--via': { kind: 'string' },

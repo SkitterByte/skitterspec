@@ -345,6 +345,34 @@ test('a fix spec carries the incident cross-reference and severity label', async
   assert.match(adapter.issues.get('101').description, /Related incident: #42$/)
 })
 
+// `comment <spec> --file <f>` posts a file onto the issue — the surface no
+// later push can clobber, which is why /spec-complete posts an incident's log
+// through it. Misuse exits 1; every cannot-tell exits 0 and says so.
+test('comment posts the file onto the linked issue, and degrades politely', async () => {
+  const dir = repoWithSpec({ identifier: '#7' })
+  const logFile = path.join(dir, 'incident-log.md')
+  fs.writeFileSync(logFile, '# Incident log\n\nIt was DNS.\n')
+  const adapter = fakeAdapter()
+  adapter.issues.set('7', { id: '7', nodeId: 'n7', identifier: '#7', description: 'x', open: true, state: { name: 'Doing' } })
+  const comments = []
+  adapter.createComment = async (ref, body) => { comments.push([String(ref), body]) }
+  const r = await run(['comment', 'feat-demo', '--file', logFile], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(comments.length, 1)
+  assert.match(comments[0][1], /It was DNS/)
+  // Misuse: no --file is an exit 1.
+  const r2 = await run(['comment', 'feat-demo'], dir, { adapter })
+  assert.strictEqual(r2.code, 1)
+  // Cannot-tell: an unlinked spec posts nothing and exits 0.
+  const plain = repoWithSpec()
+  fs.writeFileSync(path.join(plain, 'incident-log.md'), 'log\n')
+  comments.length = 0
+  const r3 = await run(['comment', 'feat-demo', '--file', path.join(plain, 'incident-log.md')], plain, { adapter })
+  assert.strictEqual(r3.code, 0)
+  assert.strictEqual(comments.length, 0)
+  assert.match(r3.out, /not linked — nothing posted/)
+})
+
 // A phase's task list renders as clickable boxes on GitHub, so a tick there is
 // an edit the next push replaces — reported, never refused.
 async function pushedThenPhaseEdited({ tamper }) {
