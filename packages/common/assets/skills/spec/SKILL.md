@@ -69,31 +69,42 @@ not write the spec until this is resolved.
 Stop grilling when there are no unresolved branches that would change the spec.
 Briefly play back the agreed understanding before writing.
 
-### Propose the kind — feature or chore
+### Propose the kind — feature, chore or issue
 
-This skill writes two kinds of spec, and
+This skill writes three kinds of spec, and
 **you propose which from what the grilling defined, with a one-line reason; the user confirms or overrides.**
 The
-line that decides it: a **chore** is anything that is not work end users see or
-functions they use within the app — tooling, CI, dependency bumps, internal
-refactors. Everything user-facing is a **feature**. So the proposal reads like
-*"no user-visible surface → chore"* or *"adds an endpoint users call → feature"*.
+lines that decide it: a **chore** is code work no end user sees — tooling, CI,
+dependency bumps, internal refactors. An **issue** is work with
+**no code change at all** — in-app configuration, a data fix, a support task —
+written as a spec of manual steps so there is a record and a history.
+Everything user-facing that changes code is a **feature**. So the proposal
+reads like *"no user-visible surface → chore"*, *"no code change, manual
+steps → issue"* or *"adds an endpoint users call → feature"*.
 
 The kind is recorded twice, and both follow from the answer: the folder prefix
-(`feat-` / `chore-`) and the `> **Type:**` header (`Feature` / `Chore`). A chore
+(`feat-` / `chore-` / `issue-`) and the `> **Type:**` header
+(`Feature` / `Chore` / `Issue`). A chore
 also defaults its `Gating:` to `none: not user-facing` (only when gating is
 configured — offer the default, let the user override it like any other
 answer), and its commits default to `chore`/`refactor`/`ci` types with no
-`Release-Note:` (see `.claude/rules/spec-planning.md`).
+`Release-Note:` (see `.claude/rules/spec-planning.md`). An issue defaults its
+`Gating:` to `none: no code`, and its commits to `docs` with no
+`Release-Note:` — its phases are manual steps, not code, though `/spec-start`
+still gives it a worktree, because the document needs one and the history is
+the point.
 
-There is no `/spec-chore` and none should be added: one entry point, one grill,
-and the kind is an output of understanding the work rather than a door the user
-must pick before describing it.
+There is no `/spec-chore` or `/spec-issue` and none should be added: one entry
+point, one grill, and the kind is an output of understanding the work rather
+than a door the user must pick before describing it. The one kind with its own
+door is the **incident** — an outage or degradation of a live service, which
+needs a different grill and starts mid-flight — so when the grilling uncovers
+one, hand off to **`/spec-incident`** rather than writing it here.
 
 ## Phase B — write the spec
 
-This skill is for **features and chores**. For bugs, use `/spec-bug`
-(test-first, red→green).
+This skill is for **features, chores and issues**. For bugs, use `/spec-bug`
+(test-first, red→green); for a live outage, `/spec-incident`.
 
 ### Write it in its own worktree
 
@@ -161,7 +172,8 @@ move to, **warn, don't refuse**, and say the trailer for that commit wants
   notes. **Even a single-phase spec gets `01-….md`** — never lump phase tasks
   into `00-overview.md`. This keeps each phase easy to dive into on its own.
 - Choose a short kebab-case name and **prefix it with the kind** — `feat-` for
-  a feature, `chore-` for a chore (the bug counterpart uses `bug-`).
+  a feature, `chore-` for a chore, `issue-` for an issue (the bug counterpart
+  uses `bug-`, the incident one `incident-`).
 
 Use this template (keep it **as concise as possible** — no filler, no restating
 the codebase, link rather than duplicate):
@@ -169,8 +181,8 @@ the codebase, link rather than duplicate):
 ```markdown
 # <Feature title>
 
-> **Type:** <Feature or Chore — the kind proposed after Phase A>
-> **Name:** <feat- or chore-><kebab-name> (the spec folder name — the handle you paste into `/spec-start`)
+> **Type:** <Feature, Chore or Issue — the kind proposed after Phase A>
+> **Name:** <feat-, chore- or issue-><kebab-name> (the spec folder name — the handle you paste into `/spec-start`)
 > **Status:** Ready — not started
 > **Author:** <git user.name — `git config user.name`>
 > **Developer:** —
@@ -178,6 +190,10 @@ the codebase, link rather than duplicate):
 > **Area:** <comma-separated files/modules this touches>
 > **Stack:** <worktree — or "worktree + docker" if it touches the DB/stateful
 > services; only acted on when isolation is enabled — see Phase A item 9>
+> **Incident:** <incident-<name> — only when this spec is a fix for an open
+> incident spec; the next push links the two as related on the tracker, and
+> `/spec-complete` on the incident counts this spec among its fixes. Omit the
+> line entirely otherwise>
 > **Gating:** <flag name — or "none: <one-line reason>". Only when release gating
 > is configured; omit the line entirely otherwise. A chore defaults to
 > "none: not user-facing". An empty value or a bare

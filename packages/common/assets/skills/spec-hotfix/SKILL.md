@@ -167,6 +167,10 @@ is usually a single-pass fix, so the `## Fix` block can live directly in
 > **Base version:** <tag prod is running, e.g. v33.16.4>
 > **Raised:** <YYYY-MM-DD (today)>
 > **Area:** <files/modules>
+> **Severity:** <Azure's literal values, "1 - Critical" … "4 - Low" — optional;
+> the push writes it where the provider has a home for it. Omit otherwise>
+> **Incident:** <incident-<name> — only when this hotfix is a fix for an open
+> incident spec; the next push links the two as related. Omit otherwise>
 > **Gating:** <pre-filled "none: hotfix — restoring released behaviour"; only
 > when release gating is configured, and overridable — see below>
 

@@ -27,8 +27,9 @@ clobber customised content. Finish with a summary of created vs already-present.
 > **Leave alone**. Non-interactively it only adds what's missing; `--resync` /
 > `--reset` (reset needs `--yes`) drive the stronger actions.
 
-The system is **thirteen skills**: `spec` (feature), `spec-bug` (bug),
+The system is **fourteen skills**: `spec` (feature, chore or issue), `spec-bug` (bug),
 `spec-hotfix` (a bug fixed on a released tag),
+`spec-incident` (a live outage, recorded as it happens),
 `no-spec` (work that genuinely has none — off the base branch all the same),
 `spec-review`, `spec-start`,
 `spec-next`, `spec-diff` (read a spec's diff as a page),

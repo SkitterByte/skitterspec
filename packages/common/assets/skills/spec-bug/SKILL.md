@@ -143,6 +143,10 @@ because work is already underway. Keep it lean:
 > **Developer:** <git user.name — you, since you're fixing it now>
 > **Raised:** <YYYY-MM-DD (today)>
 > **Area:** <files/modules>
+> **Severity:** <Azure's literal values, "1 - Critical" … "4 - Low" — optional;
+> the push writes it where the provider has a home for it. Omit otherwise>
+> **Incident:** <incident-<name> — only when this bug is a fix for an open
+> incident spec; the next push links the two as related. Omit otherwise>
 > **Gating:** <flag name — or "none: <one-line reason>". Only when release gating
 > is configured; omit the line entirely otherwise>
 

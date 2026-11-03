@@ -25,6 +25,7 @@ the governing `spec-planning.md` rule, and the `specs/` folder structure. The li
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason; tear down | `Cancelled` | `specs/cancelled/` |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag | `In Progress` | `specs/in-progress/` |
+| `/spec-incident` | (Incident) Capture a live outage as a record written during it; fixes are separate linked specs | `In Progress` | `specs/in-progress/` |
 | `/no-spec` | Work with no spec — a bump, a rename — on its own branch and page | `—` | (none) |
 | `/spec-to-main` | Land the branch on the base mid-spec, without finishing | (unchanged) | (unchanged) |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |

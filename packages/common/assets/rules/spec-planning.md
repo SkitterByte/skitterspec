@@ -7,9 +7,10 @@ and lifecycle stay consistent. Each sets a status on the spec header
 
 | Skill | Purpose | Status | Folder |
 |-------|---------|--------|--------|
-| `/spec` | (Feature/Chore) Grill to a clear shared understanding, propose the kind, write a groomed spec in its own worktree, then land it on the verdict | `Ready` (or `Draft`) | `specs/backlog/` (on the base branch, by a fast-forward) |
+| `/spec` | (Feature/Chore/Issue) Grill to a clear shared understanding, propose the kind, write a groomed spec in its own worktree, then land it on the verdict | `Ready` (or `Draft`) | `specs/backlog/` (on the base branch, by a fast-forward) |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
+| `/spec-incident` | (Incident) Capture a live outage as a record written during it — grill, write in flight, fixes as separate linked specs | `In Progress` | `specs/in-progress/` |
 | `/no-spec` | Work that genuinely has no spec — its own branch, worktree, page and land. Writes no spec and moves nothing through the lifecycle | `—` | (none) |
 | `/spec-review` | Re-validate a spec against the codebase; refresh stale parts | `—` | (unchanged) |
 | `/spec-start` | Put a spec in flight — provision its branch, then build phase 1 | `In Progress` | `specs/in-progress/` |
@@ -587,26 +588,34 @@ none of them describes.
 - **Other rules specs must honour:** link the relevant `.claude/rules/*.md`
   (architecture, code style, testing, database, etc.) rather than restating them.
 
-## Spec types — Feature, Chore, Bug, Hotfix
+## Spec types — Feature, Chore, Issue, Bug, Hotfix, Incident
 
-Every spec is one of four types, recorded **both** in the header and the filename:
+Every spec is one of six types, recorded **both** in the header and the filename:
 
 - **Header field:** `> **Type:** Feature`, `> **Type:** Chore`,
-  `> **Type:** Bug`, or `> **Type:** Hotfix` (authoritative, greppable:
+  `> **Type:** Issue`, `> **Type:** Bug`, `> **Type:** Hotfix`, or
+  `> **Type:** Incident` (authoritative, greppable:
   `grep -rl 'Type:.*Hotfix' specs/`).
 - **Filename prefix:** `feat-<name>` for features, `chore-<name>` for chores,
-  `bug-<name>` for bugs, `hotfix-<name>` for hotfixes (visible in listings;
+  `issue-<name>` for issues, `bug-<name>` for bugs, `hotfix-<name>` for
+  hotfixes, `incident-<name>` for incidents (visible in listings;
   glob-safe — never use `[BUG]`/`[FEATURE]` brackets).
 
-A **Chore** is work no end user sees — tooling, CI, dependency bumps, internal
-refactors. The line: anything that is not work end users see or functions they
-use within the app is a chore; everything user-facing is a feature. There is no
-separate entry skill — `/spec` **proposes** feature or chore from what the
+A **Chore** is code work no end user sees — tooling, CI, dependency bumps,
+internal refactors. An **Issue** is work with **no code change at all** —
+in-app configuration, a data fix, a support task — written as a spec of manual
+steps so there is a record and a history; everything user-facing that changes
+code is a feature. There is no
+separate entry skill for either — `/spec` **proposes** feature, chore or issue
+from what the
 grilling defined, with a one-line reason, and the user confirms. A chore
 defaults its `Gating:` to `none: not user-facing` (where gating is configured),
 and its commits default to `chore`/`refactor`/`ci` types with **no**
 `Release-Note:` footer — a chore is by definition not user-visible, so it has
-no release note to write. Feature specs keep `feat`; bug specs keep `fix`.
+no release note to write. An issue defaults its `Gating:` to `none: no code`
+and its commits to `docs` with no `Release-Note:`, and it closes when the spec
+completes — nothing is released. Feature specs keep `feat`; bug specs keep
+`fix`.
 Where a ticketing provider maps kinds to tracker types (e.g. Azure's
 `workItemTypeByKind`), the chore mapping is what keeps tooling work off the
 customer-facing release ladder.
@@ -616,14 +625,25 @@ carries an extra `> **Base version:** <tag>` header, forks its worktree from tha
 tag, and lands by tagging a new patch + cherry-picking onto `main` (never a
 fast-forward merge). `/spec-live` refuses a hotfix — test it with `/spec-connect`.
 
-All four types share the same lifecycle folders below — type is orthogonal to
+An **Incident** is an outage or degradation of a live service, captured by
+**`/spec-incident`** during the outage, so it starts straight in
+`specs/in-progress/`. It is a record, not delivery work: its fixes are
+separate hotfix, bug, chore or issue specs, each carrying
+`> **Incident:** incident-<name>` so the push links them, and they are never
+its phases. It carries `> **Severity:**` (Azure's literal values,
+`1 - Critical` … `4 - Low`) and a `## Timeline` appended to as the incident
+unfolds; `/spec-complete` writes `incident-log.md` from it and pushes the log
+onto the tracker item as a comment.
+
+All six types share the same lifecycle folders below — type is orthogonal to
 status.
 
 ## Header fields & State log (audit trail)
 
 Every spec header carries:
 
-- `> **Name:**` — the spec's folder name (`feat-`/`bug-`/`hotfix-<kebab-name>`).
+- `> **Name:**` — the spec's folder name
+  (`feat-`/`chore-`/`issue-`/`bug-`/`hotfix-`/`incident-<kebab-name>`).
   It's the handle you pass to `/spec-start` and the other lifecycle skills, surfaced
   in the header so it's copy-pasteable without digging for the folder name.
 - `> **Author:**` — who created the spec (set at `/spec` / `/spec-bug`, defaults
@@ -634,6 +654,14 @@ Every spec header carries:
   **only when `specs/.core/gating.config.json` exists**: a flag name, or
   `none: <one-line reason>`. Absent entirely in a project that has not adopted
   gating.
+- `> **Severity:**` — on bug, hotfix and incident specs, optional except where
+  `/spec-incident` grills it: Azure's literal values
+  (`1 - Critical` … `4 - Low`). The push writes it where the provider has a
+  home for it; absent, nothing is sent.
+- `> **Incident:**` — on a spec that is a **fix** for an open incident:
+  `incident-<name>`. The push links the two as related on the tracker
+  (one-way; the repo owns the link), and `/spec-complete` on the incident
+  counts the spec among its fixes. Absent on everything else.
 
 Every spec also has a **State log** table — the audit trail of folder/status
 transitions. Each lifecycle skill appends exactly one row when it changes state:
@@ -668,7 +696,7 @@ When asked for a plan, implementation strategy, or feature breakdown:
 
 ```
 specs/backlog/       Ready (or Draft) specs (/spec)
-specs/in-progress/   under active implementation (/spec-start, /spec-bug)
+specs/in-progress/   under active implementation (/spec-start, /spec-bug, /spec-incident)
 specs/complete/      finished (/spec-complete)
 specs/cancelled/     abandoned, with a reason on the header (/spec-cancel)
 specs/.core/         project rules — ALWAYS APPLY, never moved
