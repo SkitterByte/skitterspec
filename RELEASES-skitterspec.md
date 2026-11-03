@@ -5,6 +5,15 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.5.0 — 3 Nov 2026
+
+### Env
+- **New** — A spec can now be an issue (non-code manual-steps work) or an incident (an outage record) — name its folder issue-<name> or incident-<name> and it resolves with its own kind and branch.
+
+### Skills
+- **New** — Completing an incident spec now writes a stakeholder- facing incident log and posts it onto the tracker item as a comment, refusing first while any linked fix spec is still open.
+- **New** — /spec can now propose an issue spec for non-code work done as recorded manual steps, and a new /spec-incident skill captures a live outage as an incident record with severity, a running timeline and linked fix specs.
+
 ## 23.4.0 — 31 Oct 2026
 
 ### Env
