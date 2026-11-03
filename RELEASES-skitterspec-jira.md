@@ -5,6 +5,20 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.2.0 — 3 Nov 2026
+
+### Env
+- **New** — A spec can now be an issue (non-code manual-steps work) or an incident (an outage record) — name its folder issue-<name> or incident-<name> and it resolves with its own kind and branch.
+
+### Skills
+- **New** — Completing an incident spec now writes a stakeholder- facing incident log and posts it onto the tracker item as a comment, refusing first while any linked fix spec is still open.
+- **New** — /spec can now propose an issue spec for non-code work done as recorded manual steps, and a new /spec-incident skill captures a live outage as an incident record with severity, a running timeline and linked fix specs.
+
+### Sync
+- **New** — A bug, hotfix or incident spec's Severity header now reaches the tracker, and a fix spec naming its incident is linked to it automatically on every provider.
+- **New** — A lifecycle bucket can now map to a different state per work item type or spec kind (statesByType / statesByKind), with null meaning send no state — and a state missing from the exact type that would receive it is refused before anything is written.
+- **New** — Issue and incident specs now mint their own tracker types and labels — map them with workItemTypeByKind, issueTypeByKind or labelsByKind, exactly as chores do.
+
 ## 2.1.0 — 31 Oct 2026
 
 ### Env
