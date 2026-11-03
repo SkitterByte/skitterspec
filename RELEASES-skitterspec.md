@@ -5,6 +5,13 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.6.0 — 3 Nov 2026
+
+### Skills
+- **New** — /spec-incident now notices when there is no outage to record — a defect, a risk, or a feature request — and offers the right entry skill instead of opening an incident, while a finished outage you want recorded still gets its incident spec.
+- **New** — /spec-bug and /spec-hotfix now notice mid-investigation when the work belongs to a different entry skill — a production-only defect, a live outage, or a feature request — and offer the right door, keeping what you already told them.
+- **New** — When you describe a bug, a production fix or a live outage to /spec, the grilling now notices and offers the right entry skill — confirming first and carrying your answers across.
+
 ## 23.5.0 — 3 Nov 2026
 
 ### Env
