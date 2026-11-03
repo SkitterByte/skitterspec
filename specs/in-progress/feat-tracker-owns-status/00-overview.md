@@ -1,15 +1,17 @@
 ---
 github_identifier: "#93"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/93"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # The tracker owns status — the repo owns the spec
 
 > **Type:** Feature
 > **Name:** feat-tracker-owns-status (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-11-03)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-11-03
 > **Area:** packages/sync-core/src (normalize.js, compare.js, push.js), packages/provider-kit/src (assignment.js, list-rows.js, config.js), packages/{github,linear,jira,azure-boards}/src/config.js, packages/{github,linear,jira,azure-boards}/assets/skills (spec-claim, spec-list, spec-status), packages/common/assets/skills (spec, spec-bug, spec-hotfix, spec-start, spec-next, spec-complete, spec-cancel), packages/common/assets/rules/spec-planning.md, packages/common/src/env (provision.js, resolve.js), docs/*.html
 > **Stack:** worktree
@@ -138,6 +140,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-11-03 | Ready | backlog | Reuben Greaves |
+| 2026-11-03 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
