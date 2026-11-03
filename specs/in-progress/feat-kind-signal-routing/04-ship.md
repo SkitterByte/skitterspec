@@ -2,24 +2,26 @@
 github_issue_id: "#104"
 ---
 
-# Phase 4 — Ship: docs, build, full suite ⬜
+# Phase 4 — Ship: docs, build, full suite ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the routing is documented, the supersets carry it, and the whole
 repo is green.
 
 ## Tasks
 
-- [ ] Update `docs/reference.html`: describe the signal watch where the entry
+- [x] Update `docs/reference.html`: describe the signal watch where the entry
       skills / kind proposal are covered (one tight paragraph + the matrix),
       bump its `verified:` to the commit that carries this change. Check
       whether `docs/index.html`'s lifecycle overview needs a line; bump its
-      `verified:` only if edited.
-- [ ] Run `npm run build` so the superset packages regenerate with the updated
+      `verified:` only if edited. *(Done as row amendments on the four entry
+      skills — the skill table is where reference.html covers them; index.html
+      re-read, no claim touched, left unbumped.)*
+- [x] Run `npm run build` so the superset packages regenerate with the updated
       base skills; commit the regenerated superset assets with the source.
-- [ ] Run `node scripts/docs-freshness.js impact` and resolve what it lists.
-- [ ] Run the full root suite — green before the phase is done.
+- [x] Run `node scripts/docs-freshness.js impact` and resolve what it lists.
+- [x] Run the full root suite — green before the phase is done.
 
 ## Notes
 

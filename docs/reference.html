@@ -5,7 +5,7 @@ covers:
   - packages/common/assets/commands/**
   - packages/common/src/cli.js
   - packages/common/src/env/**
-verified: 603f8a6146c2
+verified: 0f4908ff4b50
 -->
 <html lang="en">
 <head>
@@ -538,16 +538,16 @@ verified: 603f8a6146c2
         </thead>
         <tbody>
           <tr class="grp-row"><td colspan="3">Core lifecycle</td></tr>
-          <tr><td class="cmd">/spec</td><td>Grill to a shared understanding, propose the kind — feature; chore for code work no end user sees; issue for non-code work done as recorded manual steps — then write a groomed, phased spec.</td><td class="folder">backlog/ · Ready</td></tr>
+          <tr><td class="cmd">/spec</td><td>Grill to a shared understanding, propose the kind — feature; chore for code work no end user sees; issue for non-code work done as recorded manual steps — then write a groomed, phased spec. The grill also watches for bug, hotfix and incident signals and offers the right door the moment one appears — confirm-first, your answers carried across.</td><td class="folder">backlog/ · Ready</td></tr>
           <tr><td class="cmd">/spec-start</td><td>Put a spec in flight — provision its worktree, promote it, mirror the change, then offer to build phase 1 there.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/spec-next</td><td>Build the next phase of the spec in flight, to green. Re-run per phase.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/spec-complete</td><td>Verify all phases + tests, land on base, tear down.</td><td class="folder">complete/</td></tr>
           <tr><td class="cmd">/spec-cancel</td><td>Record progress, stamp a reason, tear down.</td><td class="folder">cancelled/</td></tr>
 
           <tr class="grp-row"><td colspan="3">Entry points &amp; upkeep</td></tr>
-          <tr><td class="cmd">/spec-bug</td><td>Reproduce with a failing test, then drive red → green.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-hotfix</td><td>Fork a worktree from a release tag; land by tag + cherry-pick.</td><td class="folder">in-progress/</td></tr>
-          <tr><td class="cmd">/spec-incident</td><td>Capture a live outage as an Incident spec written during it — severity and timeline on the record, fixes as separate linked specs; <span class="mono">/spec-complete</span> writes the incident log.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-bug</td><td>Reproduce with a failing test, then drive red → green. Escalates to <span class="mono">/spec-hotfix</span> or <span class="mono">/spec-incident</span> when the investigation says so; routes a non-defect back to <span class="mono">/spec</span>.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-hotfix</td><td>Fork a worktree from a release tag; land by tag + cherry-pick. Routes down when the defect is not on a released version, or is not a defect.</td><td class="folder">in-progress/</td></tr>
+          <tr><td class="cmd">/spec-incident</td><td>Capture a live outage as an Incident spec written during it — severity and timeline on the record, fixes as separate linked specs; <span class="mono">/spec-complete</span> writes the incident log. With no outage to record, it offers the right door instead.</td><td class="folder">in-progress/</td></tr>
           <tr><td class="cmd">/no-spec</td><td>Work that genuinely has no spec — a version bump, a rename. Its own branch, its own worktree, its own review page; never the base branch.</td><td class="folder">—</td></tr>
           <tr><td class="cmd">/spec-review</td><td>Re-validate a spec against the codebase; refresh stale parts.</td><td class="folder">— unchanged</td></tr>
           <tr><td class="cmd">/spec-init</td><td>Bootstrap or repair the workflow in a project (idempotent).</td><td class="folder">—</td></tr>

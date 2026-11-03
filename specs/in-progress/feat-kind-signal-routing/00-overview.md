@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `/spec` signal routing + matrix in spec-planning.md | ✅ | [01-spec-routing.md](01-spec-routing.md) |
 | 2 | `/spec-bug` and `/spec-hotfix` watches | ✅ | [02-bug-hotfix-watches.md](02-bug-hotfix-watches.md) |
 | 3 | `/spec-incident` no-outage routing | ✅ | [03-incident-routing.md](03-incident-routing.md) |
-| 4 | Ship — docs, build, full suite | ⬜ | [04-ship.md](04-ship.md) |
+| 4 | Ship — docs, build, full suite | ✅ | [04-ship.md](04-ship.md) |
 
 ## Open questions
 
@@ -128,3 +128,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-03 — Spec created.
+- 2026-11-03 — Phase 4: docs impact flagged `index.html` (covers `skills/**`);
+  re-read — it describes `/spec` at the grill-then-write level and no claim is
+  touched by the routing, so it was left unedited and unbumped.
