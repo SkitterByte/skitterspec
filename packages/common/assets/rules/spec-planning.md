@@ -635,6 +635,56 @@ its phases. It carries `> **Severity:**` (Azure's literal values,
 unfolds; `/spec-complete` writes `incident-log.md` from it and pushes the log
 onto the tracker item as a comment.
 
+### Kind routing — any door, the right spec
+
+`/spec` is the default door, so the kind of work someone describes does not
+always match the skill they typed — especially for someone new, for whom
+"spec it" is the reflex. Every entry skill therefore
+**watches its grill for the signals that mark the other kinds**, and proposes a
+hand-off the moment one appears — never at the end of a grill already shaping
+the wrong spec:
+
+| In | Watches for | Hands to |
+|----|-------------|----------|
+| `/spec` | defect · defect on a released version · live outage | `/spec-bug` · `/spec-hotfix` · `/spec-incident` |
+| `/spec-bug` | on a released version · live outage · not a defect | `/spec-hotfix` · `/spec-incident` · `/spec` |
+| `/spec-hotfix` | live outage · not on a released version · not a defect | `/spec-incident` · `/spec-bug` · `/spec` |
+| `/spec-incident` | no live outage to record | defect → `/spec-bug` (on a released version → `/spec-hotfix`), else `/spec` |
+
+Feature, chore and issue all route to `/spec` — one door for the three kinds it
+writes, where its kind proposal picks between them. Example signals, weighed in
+context rather than matched as keywords: a **defect** is behaviour differing
+from intended — "it's broken", a failing flow, a stack trace of a failure;
+**on a released version** is that defect where what is deployed is named — "in
+prod", "since v2.1"; a **live outage** is a service down or degraded
+**right now**, users affected as we speak; **not a defect** is an ask for new or
+changed behaviour rather than for restoring intended behaviour.
+
+Three rules, the same in every skill:
+
+- **Always confirm; never silently switch.** Name the signal in the user's own
+  words and propose the destination with a one-line reason; the user confirms
+  or declines. A decline ends the matter — the grill carries on where it was,
+  and the same signal is not raised again. A signal is a question, never a
+  verdict: a pasted stack trace in "handle this error nicely" is a feature
+  request, not a bug report.
+- **Precedence: incident > hotfix > bug.** One description can carry several
+  signals; propose the most specific destination — the same reasoning the
+  intake label routing documents for hotfix-over-bug.
+- **Hand off in-session, carrying the context.** On a confirmed switch the
+  current skill invokes the destination skill directly and seeds it with
+  everything the grilling has already established — symptom, version, impact,
+  repro material, decisions so far — so the destination grills only what it
+  still needs ("seed, don't skip, the grill", the principle issue adoption
+  already uses). Stop-and-retype is the **label** routing's shape, and right
+  there because it fires before any grilling; mid-grill it would throw away
+  the answers already given.
+
+This is judgment, not configuration: the signals are examples, there is no
+list to maintain, and nothing here reads a label. A ticketing provider's
+intake label routing (`intake.bugLabels` / `intake.hotfixLabels`) is a
+separate, earlier check and is unchanged by this.
+
 All six types share the same lifecycle folders below — type is orthogonal to
 status.
 

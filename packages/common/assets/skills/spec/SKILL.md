@@ -69,6 +69,39 @@ not write the spec until this is resolved.
 Stop grilling when there are no unresolved branches that would change the spec.
 Briefly play back the agreed understanding before writing.
 
+### Watch for the other doors — bug, hotfix, incident
+
+`/spec` is the default door, so work that belongs to another skill arrives here
+described in the user's own words — no issue, no labels for Phase 0 to route
+on. While grilling, watch for the signals that mark the other kinds and raise
+the hand-off **the moment one appears**, not at the end of the grill: for a
+live outage especially, finishing a feature grill first is actively harmful,
+because `/spec-incident` exists to be written *during* the outage.
+
+- **Defect** — behaviour differing from intended ("it's broken", a failing
+  flow, a stack trace of a failure) → propose **`/spec-bug`**.
+- **Defect on a released version** — the defect is on what is deployed ("in
+  prod", "since v2.1") → propose **`/spec-hotfix`**.
+- **Live outage** — a service down or degraded **right now**, users affected
+  as we speak → propose **`/spec-incident`**.
+
+**Always confirm; never silently switch.** Name the signal in the user's own
+words, propose the destination with a one-line reason, and let them decide. A
+decline carries the grill on where it was, and the same signal is not raised
+again. A signal is a question, never a verdict: a pasted stack trace in
+"handle this error nicely" is a feature request. When one description carries
+several signals, propose the most specific destination —
+**incident > hotfix > bug**.
+
+**On a confirmed switch, hand off in-session and carry the context.** Invoke
+the destination skill directly and seed it with everything the grilling has
+already established — symptom, version, impact, repro material, decisions so
+far — so it grills only what it still needs ("seed, don't skip, the grill",
+exactly as issue adoption does). Do not stop and tell the user to retype: that
+shape belongs to Phase 0's label routing, which fires before any grilling has
+happened and so has nothing to lose. The full routing matrix lives in
+`.claude/rules/spec-planning.md`.
+
 ### Propose the kind — feature, chore or issue
 
 This skill writes three kinds of spec, and
@@ -96,10 +129,13 @@ the point.
 
 There is no `/spec-chore` or `/spec-issue` and none should be added: one entry
 point, one grill, and the kind is an output of understanding the work rather
-than a door the user must pick before describing it. The one kind with its own
-door is the **incident** — an outage or degradation of a live service, which
-needs a different grill and starts mid-flight — so when the grilling uncovers
-one, hand off to **`/spec-incident`** rather than writing it here.
+than a door the user must pick before describing it. The kinds with their own
+doors — bug, hotfix, and the **incident**, an outage or degradation of a live
+service that needs a different grill and starts mid-flight — are the watch's
+business above: when the grilling uncovers one, hand off to **`/spec-bug`**,
+**`/spec-hotfix`** or **`/spec-incident`** rather than writing it here, and it
+is never too late to propose that — reaching this proposal with the signal
+unraised is a missed watch, not a reason to write the wrong kind.
 
 ## Phase B — write the spec
 
