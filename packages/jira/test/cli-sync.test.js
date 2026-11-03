@@ -260,6 +260,30 @@ test('a chore spec mints issueTypeByKind.chore, and falls back unmapped', async 
   assert.strictEqual(minted[0], 'Task')
 })
 
+test('issue and incident specs mint their issueTypeByKind entries', async () => {
+  for (const [folder, type] of [['issue-demo', 'Service Request'], ['incident-demo', 'Incident']]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-kind-'))
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, CONFIG_FILE),
+      JSON.stringify({ jira: { siteUrl: SITE, projectKey: 'PROJ', issueTypeByKind: { issue: 'Service Request', incident: 'Incident' } } }),
+    )
+    const spec = path.join(dir, 'specs', 'in-progress', folder)
+    fs.mkdirSync(spec, { recursive: true })
+    fs.writeFileSync(path.join(spec, '00-overview.md'), `# ${folder}\n\n## Problem\n\nSomething.\n`)
+    fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** do it.\n')
+    const minted = []
+    const adapter = fakeAdapter()
+    const original = adapter.createIssue.bind(adapter)
+    adapter.createIssue = async (input) => { minted.push(input.issueTypeName); return original(input) }
+    const plan = await run(['plan', folder, '--skip-state-check', '--json'], dir)
+    fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+    const r = await run(['apply', folder, '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+    assert.strictEqual(r.code, 0, r.out)
+    assert.strictEqual(minted[0], type)
+  }
+})
+
 test('apply over MCP writes nothing and hands the skill instructions (exit 0)', async () => {
   const dir = repoWithSpec()
   const plan = path.join(dir, 'plan.json')

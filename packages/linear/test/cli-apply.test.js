@@ -855,3 +855,26 @@ test('a chore spec mints with its kind label, notes a missing one, and skips unm
   assert.strictEqual(labelCalls, 0)
   assert.ok(!('labelIds' in silent.log.find((c) => c.op === 'createIssue').input))
 })
+
+test('issue and incident specs mint with their labelsByKind entries', async () => {
+  for (const [folder, label] of [['issue-demo', 'Ops'], ['incident-demo', 'Incident']]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-kind-'))
+    const cfg = path.join(dir, CONFIG_FILE)
+    fs.mkdirSync(path.dirname(cfg), { recursive: true })
+    fs.writeFileSync(cfg, JSON.stringify({ linear: { teamId: 'T1', labelsByKind: { issue: 'Ops', incident: 'Incident' } } }), 'utf-8')
+    const specDir = path.join(dir, 'specs', 'in-progress', folder)
+    fs.mkdirSync(specDir, { recursive: true })
+    fs.writeFileSync(path.join(specDir, '00-overview.md'), `# ${folder}\n\n## Problem\n\nSomething.\n`, 'utf-8')
+    fs.writeFileSync(path.join(specDir, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** do it.\n', 'utf-8')
+    const PLAN = {
+      issue: { description: `# ${folder}\n\n## Problem\n\nSomething.`, state: 'in-progress' },
+      subIssues: { create: [{ ref: '01-fix', name: 'Fix', goal: '**Goal:** do it.', state: 'backlog' }], update: [] },
+    }
+    const linear = fakeLinear()
+    linear.listLabels = async () => [{ id: 'lbl-ops', name: 'Ops' }, { id: 'lbl-inc', name: 'Incident' }]
+    const r = await run(['apply', folder, '--plan', planFile(dir, PLAN)], dir, { adapter: linear })
+    assert.strictEqual(r.code, 0, r.out)
+    const create = linear.log.find((c) => c.op === 'createIssue')
+    assert.deepStrictEqual(create.input.labelIds, [label === 'Ops' ? 'lbl-ops' : 'lbl-inc'], folder)
+  }
+})

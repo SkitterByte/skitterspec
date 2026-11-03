@@ -154,6 +154,8 @@ function specKindOf(snapshotDir) {
   if (name.startsWith('bug-')) return 'bug'
   if (name.startsWith('hotfix-')) return 'hotfix'
   if (name.startsWith('chore-')) return 'chore'
+  if (name.startsWith('issue-')) return 'issue'
+  if (name.startsWith('incident-')) return 'incident'
   return 'feature'
 }
 
@@ -461,7 +463,7 @@ function companionCoverageNote(dir, config, snapshotDir, out) {
   const rawField = parsed.branch && parsed.branch.identifierField
   const field = typeof rawField === 'string' && rawField ? rawField : config.fields.identifier
 
-  const slug = path.basename(snapshotDir).replace(/^(feat|bug|hotfix|chore)-/, '')
+  const slug = path.basename(snapshotDir).replace(/^(feat|bug|hotfix|chore|issue|incident)-/, '')
   const basePath = `${config.sync.baseDir}/${identifier}.base.json`
   const claimed = patterns.some((p) => {
     if (typeof p !== 'string') return false

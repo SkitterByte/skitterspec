@@ -2233,6 +2233,8 @@ function specKindOf(snapshotDir) {
   if (name.startsWith('bug-')) return 'bug'
   if (name.startsWith('hotfix-')) return 'hotfix'
   if (name.startsWith('chore-')) return 'chore'
+  if (name.startsWith('issue-')) return 'issue'
+  if (name.startsWith('incident-')) return 'incident'
   return 'feature'
 }
 

@@ -251,6 +251,28 @@ test('a chore spec mints with labelsByKind, an unmapped kind without', async () 
   assert.deepStrictEqual(plainAdapter.calls.find((c) => c[0] === 'createIssue')[2], ['spec'])
 })
 
+test('issue and incident specs mint with their labelsByKind entries', async () => {
+  for (const [folder, label] of [['issue-demo', 'ops-issue'], ['incident-demo', 'incident']]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-kind-'))
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, CONFIG_FILE),
+      JSON.stringify({ github: { ...GH, labelsByKind: { issue: 'ops-issue', incident: 'incident' } } }),
+    )
+    const spec = path.join(dir, 'specs', 'in-progress', folder)
+    fs.mkdirSync(spec, { recursive: true })
+    fs.writeFileSync(path.join(spec, '00-overview.md'), `# ${folder}\n\n## Problem\n\nSomething.\n`)
+    fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** do it.\n')
+    const r0 = await run(['plan', folder, '--workspace-states', statesFile(dir), '--json'], dir)
+    assert.strictEqual(r0.code, 0, r0.out)
+    fs.writeFileSync(path.join(dir, 'plan.json'), r0.out)
+    const adapter = fakeAdapter()
+    const r = await run(['apply', folder, '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+    assert.strictEqual(r.code, 0, r.out)
+    assert.deepStrictEqual(adapter.calls.find((c) => c[0] === 'createIssue')[2], ['spec', label], folder)
+  }
+})
+
 // A phase's task list renders as clickable boxes on GitHub, so a tick there is
 // an edit the next push replaces — reported, never refused.
 async function pushedThenPhaseEdited({ tamper }) {

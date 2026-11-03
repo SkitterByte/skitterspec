@@ -70,6 +70,16 @@ test('a feat- spec with the same sections keeps document order', () => {
   assert.deepStrictEqual(headings(description), ['Impact', 'Symptom', 'Root cause', 'Fix'])
 })
 
+// The new kinds are not bug-shaped: an issue is manual steps and an incident
+// is an outage record, and both keep the overview's document order.
+test('issue- and incident- specs keep document order, never bug-shaped', () => {
+  for (const name of ['issue-tenant-data-fix', 'incident-api-outage']) {
+    const dir = specNamed(name, BUG_OVERVIEW)
+    const { description } = normalizeLocal(dir, neutralConfig())
+    assert.deepStrictEqual(headings(description), ['Impact', 'Symptom', 'Root cause', 'Fix'], name)
+  }
+})
+
 test('a bug spec with feature-shaped sections is untouched', () => {
   const featureShaped = '# X\n\n## Problem\n\nP.\n\n## Decisions\n\nD.\n'
   const dir = specNamed('bug-legacy', featureShaped)

@@ -203,7 +203,7 @@ function mergeConfig(base, parsed) {
       // Only the kinds a spec folder can actually be — an unknown key is
       // dropped rather than carried into `states` validation it can never pass.
       const byKind = {}
-      for (const kind of ['feature', 'bug', 'hotfix', 'chore']) {
+      for (const kind of ['feature', 'bug', 'hotfix', 'chore', 'issue', 'incident']) {
         const value = parsed.azure.workItemTypeByKind[kind]
         if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
       }
