@@ -2,28 +2,31 @@
 github_issue_id: "#92"
 ---
 
-# Phase 7 — Migration notes, docs sweep, shipping checks ⬜
+# Phase 7 — Migration notes, docs sweep, shipping checks ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a consumer on the previous version can adopt everything from the
 MIGRATION notes alone, and the supersets ship it.
 
 ## Tasks
 
-- [ ] MIGRATION notes (per affected package, matching the chore-kind
-      precedent): the consumer config to add —
-      `workItemTypeByKind.issue/.incident`, `statesByType` / `statesByKind`,
-      `severityLabels` / `jira.severityField` — with the ereqs example
-      (`Issue.complete = Closed`, `Incident.backlog = null`,
-      `Incident.complete = Closed`) spelled out
-- [ ] `env.config.md` / provider `*.config.md` field references updated for
-      every new key
-- [ ] Verify `skitterspec update` delivers `/spec-incident` and the edited
-      skills/rules on a consumer checkout (manifest test)
-- [ ] Supersets rebuild clean (`scripts/build-dist.js` — no new vendored
-      edit sites)
-- [ ] `node scripts/docs-freshness.js impact` clean: every page named in the
-      `Docs:` header was edited in the phase that changed its code, with
-      `verified:` bumped
-- [ ] Full suite: `pnpm -r test` + typecheck — green
+- [x] MIGRATION notes: one new section synced into all five packages'
+      `MIGRATION.md`, with the consumer config per provider and the ereqs
+      example (`Issue.complete = Closed`, `Incident.backlog = null`,
+      `Incident.complete = Closed`) spelled out; the new `states --json`
+      keyed shape and its flat-array compatibility are named
+- [x] Provider `*.config.md` field references updated:
+      `statesByType` (azure, jira), `statesByKind` (github, linear),
+      `github.severityLabels`, `linear.severityLabels`, `jira.severityField`,
+      and the kind lists widened to `issue`/`incident` (env.config.md has no
+      new keys — nothing in it changed)
+- [x] `skitterspec update` delivers `/spec-incident` — skills are discovered
+      from the assets tree; the install, claude-links and skill-budget tests
+      all pass with it, and `pnpm relink` linked it into this repo's `.claude`
+- [x] Supersets rebuild clean (`npm run build`; no new vendored edit sites)
+- [x] `node scripts/docs-freshness.js impact` — nothing to flag; every named
+      page was edited in the phase that changed its code with `verified:`
+      bumped
+- [x] Full suite: `pnpm -r test` green (all 7 packages), root 4,235 pass; no
+      typecheck script in this repo

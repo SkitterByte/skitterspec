@@ -1,5 +1,47 @@
 # Migration guide
 
+## `issue` and `incident` spec kinds, per-type states, incident log (additive — nothing breaks)
+
+Specs can now be **issues** (`issue-` prefix — non-code work done as recorded
+manual steps) and **incidents** (`incident-` prefix, captured live by the new
+`/spec-incident` skill; `/spec-complete` ends one by writing `incident-log.md`
+and posting it onto the tracker item as a comment, via the new
+`spec-sync comment <spec> --file <f>` verb). A lifecycle bucket can map to a
+different state per work item type (`statesByType` on Azure Boards and Jira)
+or per spec kind (`statesByKind` on GitHub and Linear), both top-level beside
+`states`, with `null` meaning "send no state" — and the pre-write check now
+validates each type's effective states against **that type's own** list, so a
+state only one type lacks refuses before anything is written. On Azure and
+Jira, `spec-sync states --json` now prints a per-type map
+(`{ "<type>": [names] }`); a flat array from an older file is still accepted
+and checked as the union. A fix spec can carry
+`> **Incident:** incident-<name>` (linked as related on push) and
+`> **Severity:**` (`1 - Critical` … `4 - Low`). Configs without any of the new
+keys behave exactly as before, and `skitterspec update` ships the new skill
+and rules.
+
+Consumer config, by provider:
+
+- **Azure Boards** —
+  `azure.workItemTypeByKind: { "issue": "Issue", "incident": "Incident" }`,
+  plus
+  `statesByType: { "Issue": { "complete": "Closed" }, "Incident": { "backlog": null, "complete": "Closed" } }`.
+  Severity writes the built-in `Microsoft.VSTS.Common.Severity` — nothing to
+  configure; a type without the field skips it with a note. The incident link
+  is `System.LinkTypes.Related`.
+- **GitHub** — `github.labelsByKind` accepts the new kinds;
+  `statesByKind: { "issue": { "complete": "Done" } }` routes a kind's board
+  Status (`null` sends none); `github.severityLabels: { "2": "sev-high" }`
+  maps the header's leading digit to a label. The incident rides in the
+  generated body as a `Related incident: #N` line.
+- **Jira** — `jira.issueTypeByKind` accepts the new kinds; `statesByType`
+  keys by issue type; `jira.severityField` names the field to write (e.g.
+  `customfield_10900`). The incident link is a `Relates` issue link, added
+  once.
+- **Linear** — `linear.labelsByKind` accepts the new kinds; `statesByKind`
+  keys by spec kind; `linear.severityLabels` maps digits to team labels. The
+  incident link is a related-issue relation.
+
 ## The `chore` spec kind, and per-type bodies (additive — nothing breaks)
 
 Specs can now be **chores** (`chore-` prefix, `> **Type:** Chore`) and every

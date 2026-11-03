@@ -35,11 +35,16 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push|none` is a hard 
                           // see "Renaming a team" below (optional)
     "teamId": "",         // Linear team UUID (the issue's team)
     "projectId": "",      // DEFAULT for the project picker (see below)
-    "labelsByKind": {}    // one label per spec kind (feature/bug/hotfix/chore,
-                          // from the folder prefix), applied at mint —
-                          // e.g. { "chore": "Chore" }. The label must already
-                          // exist on the team; a missing one is a one-line
-                          // note, never a failed push
+    "labelsByKind": {},   // one label per spec kind (feature/bug/hotfix/chore/
+                          // issue/incident, from the folder prefix), applied
+                          // at mint — e.g. { "chore": "Chore" }. The label
+                          // must already exist on the team; a missing one is
+                          // a one-line note, never a failed push
+    "severityLabels": {}  // one label per Severity: header digit
+                          // ("2 - High" → "2") — e.g. { "2": "Sev High" },
+                          // applied at mint. Unset, the header stays
+                          // repo-only. A fix spec's Incident: header adds a
+                          // related-issue relation to its incident
   },
 
   // Issue intake: `/spec <ISSUE-REF>` adopts any issue; `/spec --from-issue`
@@ -89,6 +94,11 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push|none` is a hard 
     "complete": "Done",
     "cancelled": "Canceled"
   },
+
+  // Per-KIND override laid over `states` (Linear has no work item types, so
+  // the spec's kind keys it) — e.g. { "issue": { "complete": "Done" } }. A
+  // bucket set to null sends no state; a bucket an entry lacks falls through.
+  "statesByKind": {},
 
   // The spec's entry-point file the local snapshot + frontmatter live in.
   "snapshot": {

@@ -153,7 +153,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 4 | Authoring surfaces: issue proposal + /spec-incident | ✅ | [04-authoring-surfaces.md](04-authoring-surfaces.md) |
 | 5 | Severity + related links on push | ✅ | [05-severity-related-links.md](05-severity-related-links.md) |
 | 6 | Incident log at completion | ✅ | [06-incident-log.md](06-incident-log.md) |
-| 7 | Migration notes, docs sweep, shipping checks | ⬜ | [07-ship.md](07-ship.md) |
+| 7 | Migration notes, docs sweep, shipping checks | ✅ | [07-ship.md](07-ship.md) |
 
 ## Open questions
 

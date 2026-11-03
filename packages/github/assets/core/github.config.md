@@ -44,8 +44,10 @@ phase will read as deployed. See "Releases and deploys" below.
 | `github.statusField` | `Status` | The single-select carrying workflow state. |
 | `github.labels.spec` / `.phase` | `spec` / `phase` | Labels that tell a spec issue from a phase. Empty string = no label. |
 | `github.issueTypes.spec` / `.phase` | — | Issue type names. **Org-owned repos only** — naming one on a personal repo is refused by GitHub. |
-| `github.labelsByKind` | `{}` | One extra label per spec kind (`feature`/`bug`/`hotfix`/`chore`, from the folder prefix), applied beside `labels.spec` — `{ "chore": "chore" }` keeps tooling work filterable. Unmapped kinds add nothing. |
+| `github.labelsByKind` | `{}` | One extra label per spec kind (`feature`/`bug`/`hotfix`/`chore`/`issue`/`incident`, from the folder prefix), applied beside `labels.spec` — `{ "chore": "chore" }` keeps tooling work filterable. Unmapped kinds add nothing. |
 | `states.<bucket>` | see table | Board Status option per lifecycle bucket — a string, or an array whose first name is written and whose rest are read-only aliases. |
+| `statesByKind.<kind>.<bucket>` | see table | Per-KIND override laid over `states` (GitHub has no work item types, so the spec's kind keys it) — `{ "issue": { "complete": "Done" } }`. A bucket set to `null` sends no Status; open/close still follows the bucket. |
+| `github.severityLabels.<digit>` | `{}` | A label per `Severity:` header digit (`"2 - High"` → `"2"`) — `{ "2": "sev-high" }`, applied at mint. Unset, the header stays repo-only. A fix spec's `Incident:` header rides in the generated body as a `Related incident: #N` line. |
 | `intake.label` | — | The label `/spec --from-issue` lists. |
 | `intake.bugLabels` / `.hotfixLabels` | `["bug"]` / `[]` | Labels that route an adopted issue to `/spec-bug` / `/spec-hotfix`. |
 | `auth.tokenEnv` | `GITHUB_TOKEN` | Env var holding the token; `GH_TOKEN` is read after it. |

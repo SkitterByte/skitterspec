@@ -13,6 +13,8 @@ NAMES — never a credential. Credentials live in the user-level store
 | `jira.subtaskType` | The type a phase mints as (must be a subtask type). | `"Subtask"` |
 | `mapping.specFolder` / `mapping.phases` / `mapping.tasks` | Spec → issue, phase → subtask, tasks → ADF checklist. Same modes as the Linear provider (`subissue` \| `deferred` \| `inline`; `checklist` \| `none`). | `issue` / `subissue` / `checklist` |
 | `states.<bucket>` | The Jira STATUS name for each lifecycle bucket. Must match the project's workflow statuses exactly; moves are applied by workflow transition, and an unreachable status refuses loudly. `cancelled` defaults to `Done` because default Jira workflows carry no Cancelled status. Pick work statuses, not pipeline stages — see **Choosing your status map** below. | see example |
+| `statesByType.<issue type>.<bucket>` | Per-TYPE override laid over `states` — statuses belong to the type's workflow, so `{ "Service Request": { "complete": "Closed" } }` completes that type differently. A bucket set to `null` sends no status; validation checks each type against its own workflow. | `{}` |
+| `jira.severityField` | The field id the `Severity:` header is written to (e.g. `customfield_10900`). Empty, the header stays repo-only. A fix spec's `Incident:` header adds a `Relates` issue link to its incident, once. | `""` |
 | `auth.emailEnv` / `auth.tokenEnv` | Env-var NAMES for the email + API-token pair (basic auth). | `JIRA_EMAIL` / `JIRA_API_TOKEN` |
 | `apply.transport` | `api` \| `mcp`, or empty for "api when credentials resolve, mcp when they don't". | `""` |
 | `sync.baseDir` | Where last-pushed snapshots live. | `specs/.core/jira-base` |
