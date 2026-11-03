@@ -1,15 +1,17 @@
 ---
 github_identifier: "#100"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/100"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Signal-based kind routing in the entry skills
 
 > **Type:** Feature
 > **Name:** feat-kind-signal-routing
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-11-03)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-11-03
 > **Area:** packages/common/assets/skills/{spec,spec-bug,spec-hotfix,spec-incident}/SKILL.md, packages/common/assets/rules/spec-planning.md, packages/common/test, docs/reference.html
 > **Stack:** worktree
@@ -121,6 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-11-03 | Ready | backlog | Reuben Greaves |
+| 2026-11-03 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
