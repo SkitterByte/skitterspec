@@ -4,7 +4,7 @@
  * Pure spec/branch resolution for per-spec isolation.
  *
  * Given a spec argument (a folder name or path) it locates the spec folder under
- * `specs/**`, splits the `feat-`/`bug-`/`hotfix-`/`chore-` prefix into
+ * `specs/**`, splits the `feat-`/`bug-`/`hotfix-`/`chore-`/`issue-`/`incident-` prefix into
  * `{ type, slug }`, derives the
  * git branch from the config's `branch.pattern` (provider-neutral; `{identifier}`
  * is filled from a tracker id when one is configured, else it falls back to
@@ -295,10 +295,11 @@ function phaseIsDone(text) {
   return /^#\s.*✅\s*$/m.test(text)
 }
 
-// Split a `feat-`/`bug-`/`hotfix-`/`chore-` prefix. Unknown prefix → type
-// defaults to `feat` and the whole folder name is the slug.
+// Split a `feat-`/`bug-`/`hotfix-`/`chore-`/`issue-`/`incident-` prefix.
+// Unknown prefix → type defaults to `feat` and the whole folder name is the
+// slug.
 function splitPrefix(folder) {
-  const m = /^(feat|bug|hotfix|chore)-(.+)$/.exec(folder)
+  const m = /^(feat|bug|hotfix|chore|issue|incident)-(.+)$/.exec(folder)
   if (m) return { type: m[1], slug: m[2] }
   return { type: 'feat', slug: folder }
 }

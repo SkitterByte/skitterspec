@@ -106,6 +106,17 @@ test('splitPrefix splits feat-/bug-/hotfix-/chore- prefixes', () => {
   assert.deepStrictEqual(splitPrefix('hotfix-login-crash'), { type: 'hotfix', slug: 'login-crash' })
 })
 
+test('splitPrefix splits issue-/incident- prefixes', () => {
+  assert.deepStrictEqual(splitPrefix('issue-tenant-data-fix'), {
+    type: 'issue',
+    slug: 'tenant-data-fix',
+  })
+  assert.deepStrictEqual(splitPrefix('incident-api-outage'), {
+    type: 'incident',
+    slug: 'api-outage',
+  })
+})
+
 test('splitPrefix defaults type to feat when unprefixed', () => {
   assert.deepStrictEqual(splitPrefix('legacy-spec'), { type: 'feat', slug: 'legacy-spec' })
 })
@@ -116,6 +127,19 @@ test('splitPrefix defaults type to feat when unprefixed', () => {
 test('splitPrefix: unknown prefix still falls back whole, silently', () => {
   assert.deepStrictEqual(splitPrefix('junk-foo'), { type: 'feat', slug: 'junk-foo' })
   assert.deepStrictEqual(splitPrefix('chores-foo'), { type: 'feat', slug: 'chores-foo' })
+  assert.deepStrictEqual(splitPrefix('issues-foo'), { type: 'feat', slug: 'issues-foo' })
+  assert.deepStrictEqual(splitPrefix('incidents-foo'), { type: 'feat', slug: 'incidents-foo' })
+})
+
+test('resolveSpec: issue- and incident- specs derive {type}/{slug} branches', () => {
+  const issue = resolveSpec('issue-tenant-data-fix', scaffold('issue-tenant-data-fix'), baseConfig())
+  assert.strictEqual(issue.type, 'issue')
+  assert.strictEqual(issue.slug, 'tenant-data-fix')
+  assert.strictEqual(issue.branch, 'issue/tenant-data-fix')
+  const incident = resolveSpec('incident-api-outage', scaffold('incident-api-outage'), baseConfig())
+  assert.strictEqual(incident.type, 'incident')
+  assert.strictEqual(incident.slug, 'api-outage')
+  assert.strictEqual(incident.branch, 'incident/api-outage')
 })
 
 test('resolveSpec: chore- spec derives a chore/{slug} branch', () => {

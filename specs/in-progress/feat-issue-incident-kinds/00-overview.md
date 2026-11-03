@@ -147,7 +147,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Base kinds in the engine | ⬜ | [01-base-kinds.md](01-base-kinds.md) |
+| 1 | Base kinds in the engine | ✅ | [01-base-kinds.md](01-base-kinds.md) |
 | 2 | Provider kind mappings | ⬜ | [02-provider-kind-mappings.md](02-provider-kind-mappings.md) |
 | 3 | Per-type state overrides + per-type pre-write check | ⬜ | [03-per-type-states.md](03-per-type-states.md) |
 | 4 | Authoring surfaces: issue proposal + /spec-incident | ⬜ | [04-authoring-surfaces.md](04-authoring-surfaces.md) |
