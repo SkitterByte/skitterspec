@@ -1,15 +1,17 @@
 ---
 github_identifier: "#85"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/85"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # `issue` and `incident` spec kinds, per-type states, incident log
 
 > **Type:** Feature
 > **Name:** feat-issue-incident-kinds
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-11-03)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-11-03
 > **Area:** packages/common (env/resolve.js, cli.js, assets/skills, assets/rules), packages/azure-boards, packages/github, packages/jira, packages/linear, packages/sync-core, docs/*.html
 > **Stack:** worktree
@@ -162,6 +164,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-11-03 | Ready | backlog | Reuben Greaves |
+| 2026-11-03 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
