@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-kind-signal-routing
-> **Status:** In Progress — Phase 1 (started 2026-11-03)
+> **Status:** Complete (2026-11-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-11-03
@@ -124,6 +124,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-11-03 | Ready | backlog | Reuben Greaves |
 | 2026-11-03 | In Progress | in-progress | Reuben Greaves |
+| 2026-11-03 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -131,3 +132,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-03 — Phase 4: docs impact flagged `index.html` (covers `skills/**`);
   re-read — it describes `/spec` at the grill-then-write level and no claim is
   touched by the routing, so it was left unedited and unbumped.
+- 2026-11-03 — Completed; all phases done, tests green (4,244, full root
+  suite).
