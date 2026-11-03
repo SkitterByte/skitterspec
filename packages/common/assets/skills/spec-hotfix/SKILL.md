@@ -58,6 +58,27 @@ Hotfixes are concrete — confirm, don't over-grill. Establish:
 - **Root cause:** read the code **at the base tag** and trace it to `file:line`.
   The fix belongs on the tag's line, so reason about that code, not `main`'s.
 
+### Watch for the other doors — incident, bug, or not a defect
+
+This is the most specific defect door, so most mis-entries route *down*
+(`.claude/rules/spec-planning.md` carries the full routing matrix):
+
+- **Live outage** — the released version is not just wrong but down or
+  degraded **right now** → propose **`/spec-incident`**; the record comes
+  first, and the fix returns here as a linked hotfix spec.
+- **Not on a released version** — §1 cannot name a deployed tag the defect is
+  on (it exists only on `main`, or prod runs something newer that is fine) →
+  propose **`/spec-bug`**; a hotfix branch for something `main` can carry is
+  waste, not safety.
+- **Not a defect** — the ask is new or changed behaviour, not restoring
+  intended behaviour → propose **`/spec`**.
+
+**Always confirm; never silently switch** — name the signal in the user's own
+words with a one-line reason; a decline carries this skill on where it was.
+**On a confirmed switch, hand off in-session and carry the context**
+established so far — the symptom, the repro, any version discussion — so the
+destination grills only what it still needs.
+
 ## 3. Provision the worktree from the tag, then write in it
 
 **Provision before you write, not after.** §1 settled the tag and the name and

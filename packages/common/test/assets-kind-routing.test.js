@@ -40,6 +40,27 @@ test('a confirmed switch hands off in-session with the context', () => {
   assert.match(text, /label routing/i, "and Phase 0's stop-and-retype shape is named as the other case")
 })
 
+test('/spec-bug watches for escalation and for not-a-bug, before the red test', () => {
+  const text = skill('spec-bug')
+  assert.match(text, /### Watch for the other doors/)
+  assert.match(text, /before the failing test is written/i, 'the watch runs while nothing is on disk')
+  assert.match(text, /`\/spec-hotfix`/, 'a released-version defect escalates')
+  assert.match(text, /`\/spec-incident`/, 'a live outage escalates')
+  assert.match(text, /propose \*\*`\/spec`\*\*/, 'not-a-defect routes down to /spec')
+  assert.match(text, /Always confirm; never silently switch/)
+  assert.match(text, /carries the failing test across/i, 'a red test escalating to hotfix keeps its proof')
+})
+
+test('/spec-hotfix watches for incident and routes down when the tag is wrong', () => {
+  const text = skill('spec-hotfix')
+  assert.match(text, /### Watch for the other doors/)
+  assert.match(text, /`\/spec-incident`/, 'a live outage escalates')
+  assert.match(text, /Not on a released version/, 'a defect main can carry routes to /spec-bug')
+  assert.match(text, /`\/spec-bug`/)
+  assert.match(text, /propose \*\*`\/spec`\*\*/, 'not-a-defect routes down to /spec')
+  assert.match(text, /Always confirm; never silently switch/)
+})
+
 test('the routing matrix lives once, in spec-planning.md', () => {
   const text = planning()
   assert.match(text, /### Kind routing/, 'the canonical section exists')

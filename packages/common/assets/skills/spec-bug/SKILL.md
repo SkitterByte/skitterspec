@@ -31,6 +31,38 @@ Bugs are concrete — confirm, don't over-grill. Establish:
   against the broken one (the bug usually lives in the differential). Do NOT
   patch a symptom before you understand the cause.
 
+### Watch for the other doors — hotfix, incident, or not a bug at all
+
+The investigation above is where mis-entry shows, so watch it for the signals
+that mark the other kinds and raise the hand-off the moment one appears —
+before the failing test is written, while nothing is on disk
+(`.claude/rules/spec-planning.md` carries the full routing matrix):
+
+- **On a released version** — the defect is on what is deployed ("in prod",
+  "since v2.1") → propose **`/spec-hotfix`**. This is the escalation that must
+  not be missed: a fix built here lands on `main` and never reaches the
+  running version.
+- **Live outage** — a service down or degraded **right now** → propose
+  **`/spec-incident`**; the record comes first, and the fix returns as a
+  linked spec.
+- **Not a defect** — the ask is new or changed behaviour, not restoring
+  intended behaviour → propose **`/spec`**, whose kind proposal picks feature,
+  chore or issue from there.
+
+**Always confirm; never silently switch** — name the signal in the user's own
+words with a one-line reason, and a decline carries this skill on where it
+was, the same signal not raised again. When several signals appear at once,
+propose the most specific destination — incident over hotfix.
+**On a confirmed switch, hand off in-session and carry the context**: invoke
+the destination skill directly and seed it with what §1 established — symptom,
+repro, root-cause notes, any version named — so it grills only what it still
+needs.
+
+**Once the failing test exists, the repro is evidence, not a question to re-litigate**
+— but evidence can still escalate: a red test that also fails at
+the released tag is the hotfix signal with proof attached, and the hand-off
+carries the failing test across.
+
 ## 2. Isolate the fix in a worktree — when isolation is enabled
 
 **Only when per-spec isolation is enabled** (`specs/.core/env.config.json`

@@ -110,7 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `/spec` signal routing + matrix in spec-planning.md | ✅ | [01-spec-routing.md](01-spec-routing.md) |
-| 2 | `/spec-bug` and `/spec-hotfix` watches | ⬜ | [02-bug-hotfix-watches.md](02-bug-hotfix-watches.md) |
+| 2 | `/spec-bug` and `/spec-hotfix` watches | ✅ | [02-bug-hotfix-watches.md](02-bug-hotfix-watches.md) |
 | 3 | `/spec-incident` no-outage routing | ⬜ | [03-incident-routing.md](03-incident-routing.md) |
 | 4 | Ship — docs, build, full suite | ⬜ | [04-ship.md](04-ship.md) |
 
