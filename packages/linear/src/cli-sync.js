@@ -2239,12 +2239,15 @@ function specKindOf(snapshotDir) {
 }
 
 async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, project, states, forceNew = false, out = null }) {
-  const stateId = (bucket) => (bucket ? stateIdFor(bucket, config, states) : null)
+  const kind = specKindOf(snapshotDir)
+  // Per-kind state resolution: statesByKind[kind] overlays states inside
+  // stateIdFor, and a bucket overridden to null resolves to no transition.
+  const stateId = (bucket) => (bucket ? stateIdFor(bucket, config, states, kind) : null)
   // THIS spec's kind label (linear.labelsByKind), resolved name → id once per
   // apply. A label Linear does not have is a one-line note and an unlabelled
   // mint, never a failed push — and with nothing configured, no label call is
   // made at all.
-  const kindLabelName = (config.linear && config.linear.labelsByKind && config.linear.labelsByKind[specKindOf(snapshotDir)]) || ''
+  const kindLabelName = (config.linear && config.linear.labelsByKind && config.linear.labelsByKind[kind]) || ''
   let kindLabelIds = null
   if (kindLabelName && teamId && typeof adapter.listLabels === 'function') {
     const labels = await adapter.listLabels(teamId)

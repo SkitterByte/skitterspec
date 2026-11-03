@@ -28,6 +28,7 @@ const {
   validateStates,
   stateSuggestions,
   stateNamesFor,
+  effectiveStates,
   remoteDescriptionEdited,
   writeFrontmatter,
   stampSubIssueId,
@@ -151,8 +152,13 @@ function specKindOf(snapshotDir) {
 }
 
 function applyOps({ adapter, config, kind = 'feature' }) {
+  // Per-kind resolution: GitHub has no work item types, so statesByKind keys
+  // the override by the SPEC's kind. Null means "send no Status for this
+  // bucket" — the open/close half of settle still runs, since closing is
+  // derived from the bucket, not from the Status column.
   const statusFor = (bucket) => {
-    const name = config.states && config.states[bucket]
+    const name = effectiveStates(config, config.statesByKind, kind)[bucket]
+    if (name === null) return null
     if (!name) {
       throw new Error(`no state configured for the "${bucket}" bucket — fix ${CONFIG_FILE} -> states`)
     }
@@ -162,7 +168,8 @@ function applyOps({ adapter, config, kind = 'feature' }) {
     if (!bucket) return
     const issue = issueOrRef && issueOrRef.nodeId ? issueOrRef : await adapter.readIssue(issueOrRef)
     if (!issue) throw new Error(`no GitHub issue found for ${issueOrRef}`)
-    const changed = await adapter.setStatus(issue, statusFor(bucket))
+    const status = statusFor(bucket)
+    const changed = status === null ? { changed: false } : await adapter.setStatus(issue, status)
     const reason = closeReasonForBucket(bucket)
     const wantOpen = !reason
     if (issue.open === wantOpen) return

@@ -193,8 +193,52 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
     base.stateAliases = aliases
   }
 
+  // Merge (and validate) a per-type/kind state override table — `statesByType`
+  // keyed by work item / issue type (Azure, Jira), `statesByKind` keyed by spec
+  // kind (GitHub, Linear). Each entry is a PARTIAL bucket map laid over
+  // `states` for that type/kind: a bucket set to null means "send no state for
+  // this bucket", and a bucket the entry lacks falls through to `states`.
+  // An unknown bucket is refused — a typo'd bucket would silently change
+  // nothing at push time. Call after mergeStates, so buckets are final.
+  function mergeStateOverrides(base, parsed, key) {
+    const value = parsed[key]
+    if (!isObject(value)) return
+    const table = {}
+    for (const [name, entry] of Object.entries(value)) {
+      if (!isObject(entry)) {
+        throw new Error(
+          `Invalid ${configFile}: ${key}.${JSON.stringify(name)} = ${JSON.stringify(entry)} ` +
+            '(expected an object mapping lifecycle buckets to a state name, or null to send no state)',
+        )
+      }
+      const row = {}
+      for (const [bucket, state] of Object.entries(entry)) {
+        if (!(bucket in base.states)) {
+          throw new Error(
+            `Invalid ${configFile}: ${key}.${JSON.stringify(name)}.${bucket} — not a lifecycle bucket ` +
+              `(${Object.keys(base.states).join(', ')})`,
+          )
+        }
+        if (state === null) {
+          row[bucket] = null
+          continue
+        }
+        if (typeof state !== 'string' || !state.trim()) {
+          throw new Error(
+            `Invalid ${configFile}: ${key}.${JSON.stringify(name)}.${bucket} = ${JSON.stringify(state)} ` +
+              '(expected a state name, or null to send no state)',
+          )
+        }
+        row[bucket] = state.trim()
+      }
+      if (Object.keys(row).length) table[name] = row
+    }
+    base[key] = table
+  }
+
   return {
     mergeStates,
+    mergeStateOverrides,
     mergeFieldOwnership,
     mergePhaseMapping,
     mergeReleaseIgnorePaths,

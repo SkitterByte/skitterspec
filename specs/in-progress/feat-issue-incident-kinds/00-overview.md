@@ -149,7 +149,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Base kinds in the engine | ✅ | [01-base-kinds.md](01-base-kinds.md) |
 | 2 | Provider kind mappings | ✅ | [02-provider-kind-mappings.md](02-provider-kind-mappings.md) |
-| 3 | Per-type state overrides + per-type pre-write check | ⬜ | [03-per-type-states.md](03-per-type-states.md) |
+| 3 | Per-type state overrides + per-type pre-write check | ✅ | [03-per-type-states.md](03-per-type-states.md) |
 | 4 | Authoring surfaces: issue proposal + /spec-incident | ⬜ | [04-authoring-surfaces.md](04-authoring-surfaces.md) |
 | 5 | Severity + related links on push | ⬜ | [05-severity-related-links.md](05-severity-related-links.md) |
 | 6 | Incident log at completion | ⬜ | [06-incident-log.md](06-incident-log.md) |
@@ -172,3 +172,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   providers get the state/severity/link machinery (not Azure-only); one
   combined spec; incident log pushed as a comment; state overrides keyed by
   type on Azure/Jira and by kind on GitHub/Linear.
+- 2026-11-03 — Phase 3: `statesByType`/`statesByKind` live top-level beside
+  `states` in each provider config (matching the handoff's consumer example),
+  not under the provider key; parsing is one shared `mergeStateOverrides` in
+  provider-kit. Azure and Jira `spec-sync states --json` now print
+  `{ "<type>": [names] }` — the pre-write check still accepts the legacy flat
+  array, validated as the union (MIGRATION note in phase 7).

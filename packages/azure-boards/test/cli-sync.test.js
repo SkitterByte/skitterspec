@@ -418,14 +418,16 @@ test('preserve exits 0 on every cannot-tell', async () => {
 
 // --- states / list ----------------------------------------------------------
 
-test('states --json emits the bare array --workspace-states consumes', async () => {
+test('states --json emits the keyed map --workspace-states consumes', async () => {
   const dir = repoWithSpec()
   const r = await run(['states', '--json'], dir, { adapter: fakeAdapter() })
   assert.strictEqual(r.code, 0)
-  assert.deepStrictEqual(JSON.parse(r.out), ['To Do', 'Doing', 'Done'])
+  const keyed = JSON.parse(r.out)
+  assert.deepStrictEqual(Object.keys(keyed).sort(), ['Issue', 'Task'])
+  assert.deepStrictEqual(keyed.Issue, ['To Do', 'Doing', 'Done'])
 })
 
-test('states asks BOTH configured types and unions the answer', async () => {
+test('states asks BOTH configured types and keys the answer by type', async () => {
   const dir = repoWithSpec({ config: { azure: { orgUrl: ORG, project: PROJECT, workItemType: 'User Story', childType: 'Task' } } })
   const adapter = fakeAdapter()
   adapter.listIssueStates = async (type) => {
@@ -436,7 +438,10 @@ test('states asks BOTH configured types and unions the answer', async () => {
   }
   const r = await run(['states', '--json'], dir, { adapter })
   assert.strictEqual(r.code, 0)
-  assert.deepStrictEqual(JSON.parse(r.out), ['New', 'Closed', 'To Do'])
+  assert.deepStrictEqual(JSON.parse(r.out), {
+    'User Story': ['New', 'Closed'],
+    Task: ['To Do', 'Closed'],
+  })
   const asked = adapter.calls.filter(([op]) => op === 'listIssueStates').map(([, t]) => t)
   assert.deepStrictEqual(asked.sort(), ['Task', 'User Story'])
 })
@@ -1050,6 +1055,88 @@ test('issue and incident specs mint their workItemTypeByKind entries', async () 
     assert.strictEqual(r.code, 0, r.out)
     assert.strictEqual(minted[0], type)
   }
+})
+
+// statesByType: the bucket's state follows the TYPE it is written to. An
+// Issue completes to Closed while a Chore still completes to Resolved, a
+// bucket mapped to null sends no transition at all, and with no statesByType
+// the tests above pin today's behaviour unchanged.
+const SBT_CONFIG = {
+  azure: {
+    orgUrl: ORG,
+    project: PROJECT,
+    workItemType: 'User Story',
+    workItemTypeByKind: { issue: 'Issue', incident: 'Incident', chore: 'Chore' },
+  },
+  states: { backlog: 'New', 'in-progress': 'Active', complete: 'Resolved', cancelled: 'Removed' },
+  statesByType: { Issue: { complete: 'Closed' }, Incident: { backlog: null, complete: 'Closed' } },
+}
+
+function sbtRepo(folder, bucket) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'az-sbt-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify(SBT_CONFIG))
+  const spec = path.join(dir, 'specs', bucket, folder)
+  fs.mkdirSync(spec, { recursive: true })
+  fs.writeFileSync(path.join(spec, '00-overview.md'), `# ${folder}\n\n## Problem\n\nSomething.\n`)
+  fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** do it.\n')
+  return dir
+}
+
+async function sbtApply(folder, bucket) {
+  const dir = sbtRepo(folder, bucket)
+  const adapter = fakeAdapter()
+  const plan = await run(['plan', folder, '--skip-state-check', '--json'], dir)
+  fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+  const r = await run(['apply', folder, '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  return adapter.calls.filter(([op]) => op === 'transitionTo')
+}
+
+test('statesByType: an Issue completes to Closed while a Chore completes to Resolved', async () => {
+  const issueMoves = await sbtApply('issue-demo', 'complete')
+  assert.ok(issueMoves.some(([, id, t]) => id === '101' && t === 'Closed'), JSON.stringify(issueMoves))
+  const choreMoves = await sbtApply('chore-demo', 'complete')
+  assert.ok(choreMoves.some(([, id, t]) => id === '101' && t === 'Resolved'), JSON.stringify(choreMoves))
+})
+
+test('statesByType: a bucket mapped to null sends no state for that type', async () => {
+  // An Incident created in backlog is never sent New — no transition reaches
+  // the spec item, while its Task child still settles through the base map.
+  const moves = await sbtApply('incident-demo', 'backlog')
+  assert.ok(!moves.some(([, id]) => id === '101'), JSON.stringify(moves))
+})
+
+test('the keyed pre-write check refuses a state the receiving type lacks, naming both', async () => {
+  // Issue has no Resolved, and nothing overrides complete for it — the plan
+  // must refuse BEFORE anything could be written, naming the type and state.
+  const dir = sbtRepo('issue-demo', 'in-progress')
+  const noOverrides = JSON.parse(JSON.stringify(SBT_CONFIG))
+  delete noOverrides.statesByType
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify(noOverrides))
+  const statesFile = path.join(dir, 'states.json')
+  const keyed = {
+    'User Story': ['New', 'Active', 'Resolved', 'Closed', 'Removed'],
+    Task: ['New', 'Active', 'Resolved', 'Closed', 'Removed'],
+    Chore: ['New', 'Active', 'Resolved', 'Closed', 'Removed'],
+    Issue: ['New', 'Ready', 'Active', 'Closed', 'Removed'],
+    Incident: ['Active', 'Mitigated', 'Resolved', 'Closed', 'Removed'],
+  }
+  fs.writeFileSync(statesFile, JSON.stringify(keyed))
+  const r = await run(['plan', 'issue-demo', '--workspace-states', statesFile, '--json'], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /Issue: "Resolved" \(states\.complete\) is not a state this type has/)
+
+  // STAYS-SILENT: with the statesByType overrides in place every type's
+  // effective states exist, so the same keyed file passes.
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify(SBT_CONFIG))
+  const ok = await run(['plan', 'issue-demo', '--workspace-states', statesFile, '--json'], dir)
+  assert.strictEqual(ok.code, 0, ok.out)
+
+  // And the legacy flat array is still accepted, validated as the union.
+  fs.writeFileSync(statesFile, JSON.stringify([...new Set(Object.values(keyed).flat())]))
+  const flat = await run(['plan', 'issue-demo', '--workspace-states', statesFile, '--json'], dir)
+  assert.strictEqual(flat.code, 0, flat.out)
 })
 
 test('states asks every configured type once, workItemTypeByKind included', async () => {

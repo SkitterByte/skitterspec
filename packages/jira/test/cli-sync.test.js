@@ -284,6 +284,77 @@ test('issue and incident specs mint their issueTypeByKind entries', async () => 
   }
 })
 
+// statesByType: the bucket's status follows the ISSUE TYPE it is written to,
+// and null sends no transition. Configs without it are pinned by every test
+// above.
+test('statesByType routes complete per issue type, and null sends no status', async () => {
+  const scaffold = (folder, bucket, statesByType) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-sbt-'))
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, CONFIG_FILE),
+      JSON.stringify({
+        jira: { siteUrl: SITE, projectKey: 'PROJ', issueTypeByKind: { issue: 'Service Request', incident: 'Incident' } },
+        states: { backlog: 'To Do', 'in-progress': 'In Progress', complete: 'Resolved', cancelled: 'Cancelled' },
+        statesByType,
+      }),
+    )
+    const spec = path.join(dir, 'specs', bucket, folder)
+    fs.mkdirSync(spec, { recursive: true })
+    fs.writeFileSync(path.join(spec, '00-overview.md'), `# ${folder}\n\n## Problem\n\nSomething.\n`)
+    fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** do it.\n')
+    return dir
+  }
+  const applied = async (folder, bucket, statesByType) => {
+    const dir = scaffold(folder, bucket, statesByType)
+    const adapter = fakeAdapter()
+    const moves = []
+    adapter.transitionTo = async (key, target) => { moves.push([key, target]) }
+    const plan = await run(['plan', folder, '--skip-state-check', '--json'], dir)
+    fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+    const r = await run(['apply', folder, '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+    assert.strictEqual(r.code, 0, r.out)
+    return moves
+  }
+  const overrides = { 'Service Request': { complete: 'Closed' }, Incident: { backlog: null, complete: 'Closed' } }
+  // The override routes the mapped type; the base map still serves the rest.
+  const issueMoves = await applied('issue-demo', 'complete', overrides)
+  assert.ok(issueMoves.some(([key, t]) => key === 'PROJ-101' && t === 'Closed'), JSON.stringify(issueMoves))
+  const featMoves = await applied('feat-demo2', 'complete', overrides)
+  assert.ok(featMoves.some(([key, t]) => key === 'PROJ-101' && t === 'Resolved'), JSON.stringify(featMoves))
+  // null: an Incident created in backlog is never sent a status.
+  const incidentMoves = await applied('incident-demo', 'backlog', overrides)
+  assert.ok(!incidentMoves.some(([key]) => key === 'PROJ-101'), JSON.stringify(incidentMoves))
+})
+
+test('the keyed pre-write check refuses a status the receiving type lacks, naming both', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-sbt-check-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({
+      jira: { siteUrl: SITE, projectKey: 'PROJ', issueTypeByKind: { issue: 'Service Request' } },
+      states: { backlog: 'To Do', 'in-progress': 'In Progress', complete: 'Resolved', cancelled: 'Cancelled' },
+    }),
+  )
+  const spec = path.join(dir, 'specs', 'in-progress', 'issue-demo')
+  fs.mkdirSync(spec, { recursive: true })
+  fs.writeFileSync(path.join(spec, '00-overview.md'), '# Demo\n\n## Problem\n\nSomething.\n')
+  fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** do it.\n')
+  const statesFile = path.join(dir, 'states.json')
+  fs.writeFileSync(
+    statesFile,
+    JSON.stringify({
+      Task: ['To Do', 'In Progress', 'Resolved', 'Cancelled'],
+      Subtask: ['To Do', 'In Progress', 'Resolved', 'Cancelled'],
+      'Service Request': ['To Do', 'In Progress', 'Closed', 'Cancelled'],
+    }),
+  )
+  const r = await run(['plan', 'issue-demo', '--workspace-states', statesFile, '--json'], dir)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /Service Request: "Resolved" \(states\.complete\) is not a status this type's workflow has/)
+})
+
 test('apply over MCP writes nothing and hands the skill instructions (exit 0)', async () => {
   const dir = repoWithSpec()
   const plan = path.join(dir, 'plan.json')

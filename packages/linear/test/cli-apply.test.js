@@ -856,6 +856,45 @@ test('a chore spec mints with its kind label, notes a missing one, and skips unm
   assert.ok(!('labelIds' in silent.log.find((c) => c.op === 'createIssue').input))
 })
 
+// statesByKind: Linear has no work item types, so the override keys on the
+// SPEC's kind — an issue-kind spec's buckets resolve through its entry, and a
+// bucket overridden to null sends no state at all. Configs without it are
+// pinned by every test above.
+test('statesByKind routes the minted state per spec kind, and null sends none', async () => {
+  const kindRepo = (folder, statesByKind) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-sbk-'))
+    const cfg = path.join(dir, CONFIG_FILE)
+    fs.mkdirSync(path.dirname(cfg), { recursive: true })
+    fs.writeFileSync(cfg, JSON.stringify({ linear: { teamId: 'T1' }, statesByKind }), 'utf-8')
+    const specDir = path.join(dir, 'specs', 'in-progress', folder)
+    fs.mkdirSync(specDir, { recursive: true })
+    fs.writeFileSync(path.join(specDir, '00-overview.md'), `# ${folder}\n\n## Problem\n\nSomething.\n`, 'utf-8')
+    fs.writeFileSync(path.join(specDir, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** do it.\n', 'utf-8')
+    return dir
+  }
+  const applied = async (folder, state, statesByKind) => {
+    const dir = kindRepo(folder, statesByKind)
+    const PLAN = {
+      issue: { description: `# ${folder}`, state },
+      subIssues: { create: [], update: [] },
+    }
+    const linear = fakeLinear()
+    const r = await run(['apply', folder, '--plan', planFile(dir, PLAN)], dir, { adapter: linear })
+    assert.strictEqual(r.code, 0, r.out)
+    return linear.log.find((c) => c.op === 'createIssue').input
+  }
+  const overrides = { issue: { complete: 'Done', backlog: null, 'in-progress': 'Backlog' } }
+  // The override routes the mapped kind — an in-progress issue-kind spec
+  // mints into Backlog where a feature would mint into In Progress…
+  const issueInput = await applied('issue-demo', 'in-progress', overrides)
+  assert.strictEqual(issueInput.stateId, 's-backlog')
+  const featInput = await applied('feat-demo', 'in-progress', overrides)
+  assert.strictEqual(featInput.stateId, 's-progress')
+  // …and a bucket overridden to null sends no stateId key at all.
+  const nullInput = await applied('issue-demo', 'backlog', overrides)
+  assert.ok(!('stateId' in nullInput), JSON.stringify(nullInput))
+})
+
 test('issue and incident specs mint with their labelsByKind entries', async () => {
   for (const [folder, label] of [['issue-demo', 'Ops'], ['incident-demo', 'Incident']]) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-kind-'))

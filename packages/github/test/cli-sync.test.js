@@ -273,6 +273,44 @@ test('issue and incident specs mint with their labelsByKind entries', async () =
   }
 })
 
+// statesByKind: GitHub has no work item types, so the override keys on the
+// SPEC's kind — an issue-kind spec completes to a different Status column
+// while every other kind keeps the base map, and null sends no Status at all.
+// Configs without it are pinned by every test above.
+test('statesByKind routes Status per spec kind, and null sends none', async () => {
+  const kindRepo = (folder, bucket, statesByKind) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-sbk-'))
+    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+    fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: { ...GH }, statesByKind }))
+    const spec = path.join(dir, 'specs', bucket, folder)
+    fs.mkdirSync(spec, { recursive: true })
+    fs.writeFileSync(path.join(spec, '00-overview.md'), `# ${folder}\n\n## Problem\n\nSomething.\n`)
+    fs.writeFileSync(path.join(spec, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** do it.\n')
+    return dir
+  }
+  const OPTIONS = [...STATUS_OPTIONS, 'Shipped']
+  const applied = async (folder, bucket, statesByKind) => {
+    const dir = kindRepo(folder, bucket, statesByKind)
+    const r0 = await run(['plan', folder, '--workspace-states', statesFile(dir, OPTIONS), '--json'], dir)
+    assert.strictEqual(r0.code, 0, r0.out)
+    fs.writeFileSync(path.join(dir, 'plan.json'), r0.out)
+    const adapter = fakeAdapter()
+    const r = await run(['apply', folder, '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+    assert.strictEqual(r.code, 0, r.out)
+    return adapter.calls.filter(([op]) => op === 'setStatus')
+  }
+  const overrides = { issue: { complete: 'Shipped', backlog: null } }
+  // complete routes through the override for an issue-kind spec…
+  const issueMoves = await applied('issue-demo', 'complete', overrides)
+  assert.ok(issueMoves.some(([, id, name]) => id === '101' && name === 'Shipped'), JSON.stringify(issueMoves))
+  // …while a feature spec keeps the base map untouched.
+  const featMoves = await applied('feat-demo2', 'complete', overrides)
+  assert.ok(featMoves.some(([, id, name]) => id === '101' && name === 'Done'), JSON.stringify(featMoves))
+  // null: an issue-kind spec in backlog gets no Status write at all.
+  const nullMoves = await applied('issue-demo', 'backlog', overrides)
+  assert.ok(!nullMoves.some(([, id]) => id === '101'), JSON.stringify(nullMoves))
+})
+
 // A phase's task list renders as clickable boxes on GitHub, so a tick there is
 // an edit the next push replaces — reported, never refused.
 async function pushedThenPhaseEdited({ tamper }) {

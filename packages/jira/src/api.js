@@ -267,6 +267,27 @@ function makeApiAdapter({ siteUrl, email, token, fetch: fetchImpl, sleep, maxRet
       return [...names.values()]
     },
 
+    /**
+     * The same statuses KEYED BY ISSUE TYPE — Jira binds a workflow to the
+     * type, so a status one type lacks is exactly what per-type validation
+     * exists to catch, and the deduped list above hides it.
+     */
+    async listIssueStatesByType(projectKey) {
+      const raw = await request('GET', `/project/${encodeURIComponent(projectKey)}/statuses`)
+      const byType = {}
+      for (const type of raw || []) {
+        if (!type || !type.name) continue
+        byType[type.name] = (type.statuses || [])
+          .filter((status) => status && status.name)
+          .map((status) => ({
+            id: String(status.id),
+            name: status.name,
+            category: (status.statusCategory && status.statusCategory.name) || null,
+          }))
+      }
+      return byType
+    },
+
     async readViewer() {
       const raw = await request('GET', '/myself')
       if (!raw || !raw.accountId) return null

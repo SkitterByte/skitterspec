@@ -26,6 +26,7 @@ const {
   isEmptyPlan,
   validateStates,
   stateSuggestions,
+  effectiveStates,
   remoteDescriptionEdited,
   writeFrontmatter,
   stampSubIssueId,
@@ -72,6 +73,41 @@ function stateCheckFailure(config, flags) {
   } catch (error) {
     return [`${PROGRAM} plan: refusing — --workspace-states is not valid JSON: ${error.message}`]
   }
+  // The keyed shape (`{ "<issue type>": [names] }`, what `states --json`
+  // prints) is checked PER TYPE: each configured type's effective statuses —
+  // statesByType over states, nulls skipped — against that type's own
+  // workflow, so a status one type's workflow lacks refuses before the first
+  // write even when another type can reach it.
+  if (names && typeof names === 'object' && !Array.isArray(names)) {
+    const lc = (s) => String(s).toLowerCase().trim()
+    const types = [
+      ...new Set(
+        [config.jira.issueType, config.jira.subtaskType, ...Object.values(config.jira.issueTypeByKind || {})].filter(Boolean),
+      ),
+    ]
+    const problems = []
+    for (const type of types) {
+      const have = names[type]
+      // A TYPE THE FILE LACKS IS A CANNOT-TELL, not a refusal: an absence
+      // here is an older file or a type the fetch could not read, and neither
+      // is evidence the config is wrong (negative-checks.md rule 4).
+      if (!Array.isArray(have)) continue
+      const haveSet = new Set(have.map(lc))
+      const effective = effectiveStates(config, config.statesByType, type)
+      for (const [bucket, name] of Object.entries(effective)) {
+        if (typeof name !== 'string') continue // null = send no status
+        if (!haveSet.has(lc(name))) problems.push({ type, bucket, name, available: have })
+      }
+    }
+    if (!problems.length) return null
+    const lines = [`${PROGRAM} plan: refusing — configured status name(s) missing from the type that would receive them`, '']
+    for (const p of problems) {
+      lines.push(`  ${p.type}: "${p.name}" (states.${p.bucket}) is not a status this type's workflow has`)
+      lines.push(`    ${p.type} has: ${p.available.join(', ') || '(none reported)'}`)
+    }
+    lines.push('', `  Fix ${CONFIG_FILE} -> states / statesByType.`)
+    return lines
+  }
   const list = Array.isArray(names) ? names : []
   const missing = validateStates(config, list)
   if (missing.length) {
@@ -106,20 +142,28 @@ function applyOps({ adapter, config, kind = 'feature' }) {
   // The mint type for THIS spec's kind (jira.issueTypeByKind), falling back to
   // the one configured type — unmapped kinds mint exactly as before.
   const mintType = (config.jira.issueTypeByKind && config.jira.issueTypeByKind[kind]) || config.jira.issueType
-  const statusFor = (bucket) => {
-    const name = config.states && config.states[bucket]
+  // Per-type resolution: statesByType[issue type] overlays states, and null
+  // means "send no status for this bucket" — a deliberate skip, not a gap.
+  const statusFor = (bucket, type) => {
+    const name = effectiveStates(config, config.statesByType, type)[bucket]
+    if (name === null) return null
     if (!name) {
       throw new Error(`no status configured for the "${bucket}" bucket — fix ${CONFIG_FILE} -> states`)
     }
     return name
   }
-  const settle = async (keyOrId, bucket) => {
+  const settle = async (keyOrId, bucket, type) => {
     if (!bucket) return
-    await adapter.transitionTo(keyOrId, statusFor(bucket))
+    const name = statusFor(bucket, type)
+    if (name === null) return
+    await adapter.transitionTo(keyOrId, name)
   }
   return {
     prevalidateStates: (buckets) => {
-      for (const bucket of buckets) statusFor(bucket)
+      for (const bucket of buckets) {
+        statusFor(bucket, mintType)
+        statusFor(bucket, config.jira.subtaskType)
+      }
     },
     searchTwin: (title) => adapter.searchIssues({ query: title, projectKey: config.jira.projectKey }),
     twinAdvice: (twin, wanted, specName) =>
@@ -137,7 +181,7 @@ function applyOps({ adapter, config, kind = 'feature' }) {
         projectKey: config.jira.projectKey,
         issueTypeName: mintType,
       })
-      await settle(created.identifier, issue && issue.state)
+      await settle(created.identifier, issue && issue.state, mintType)
       return created
     },
     updateIssue: async (existing, issue) => {
@@ -147,7 +191,7 @@ function applyOps({ adapter, config, kind = 'feature' }) {
       // forwarded whenever the plan carries it, never truthiness-tested.
       if ('assignee' in issue) updates.assigneeId = issue.assignee ?? null
       if (Object.keys(updates).length) await adapter.updateIssue(existing.identifier, updates)
-      await settle(existing.identifier, issue.state)
+      await settle(existing.identifier, issue.state, mintType)
     },
     mintSubIssue: async (parentId, sub) => {
       const created = await adapter.createSubIssue(parentId, {
@@ -156,7 +200,7 @@ function applyOps({ adapter, config, kind = 'feature' }) {
         projectKey: config.jira.projectKey,
         subtaskTypeName: config.jira.subtaskType,
       })
-      await settle(created.identifier, sub.state)
+      await settle(created.identifier, sub.state, config.jira.subtaskType)
       return created
     },
     updateSubIssue: async (sub) => {
@@ -164,7 +208,7 @@ function applyOps({ adapter, config, kind = 'feature' }) {
       if (sub.name != null) updates.title = sub.name
       if (sub.goal != null) updates.description = sub.goal
       if (Object.keys(updates).length) await adapter.updateIssue(sub.id, updates)
-      await settle(sub.id, sub.state)
+      await settle(sub.id, sub.state, config.jira.subtaskType)
     },
   }
 }
@@ -506,15 +550,31 @@ async function specSyncStates(dir, config, flags, out) {
     return 1
   }
   let states
+  let byType = null
   try {
-    states = await cred.adapter.listIssueStates(config.jira.projectKey)
+    if (typeof cred.adapter.listIssueStatesByType === 'function') {
+      byType = await cred.adapter.listIssueStatesByType(config.jira.projectKey)
+      const byName = new Map()
+      for (const list of Object.values(byType)) for (const s of list) if (!byName.has(s.name)) byName.set(s.name, s)
+      states = [...byName.values()]
+    } else {
+      states = await cred.adapter.listIssueStates(config.jira.projectKey)
+    }
   } catch (error) {
     out.write(`${PROGRAM} states: ${error.message}\n`)
     return 1
   }
   const names = states.map((s) => s.name)
   if (flags.json) {
-    // The bare array --workspace-states consumes.
+    if (byType) {
+      // The keyed shape --workspace-states consumes: `{ "<type>": [names] }`,
+      // so the pre-write check can validate each type against its own
+      // workflow. (A bare array from an older engine is still accepted there.)
+      const keyed = {}
+      for (const [type, list] of Object.entries(byType)) keyed[type] = list.map((s) => s.name)
+      out.write(JSON.stringify(keyed, null, 2) + '\n')
+      return 0
+    }
     out.write(JSON.stringify(names, null, 2) + '\n')
     return 0
   }
@@ -541,6 +601,29 @@ async function specSyncStates(dir, config, flags, out) {
     lines.push(`  ${bucket.padEnd(bw)} -> ${String(name).padEnd(nw)}  ${tail}`)
   }
   if (missing.length) lines.push(`  remap: ${PROGRAM} init-config --force --state <bucket>="<status>"`)
+  // Per-type overrides, each checked against ITS issue type's own workflow —
+  // the union above cannot see a status one type lacks. Absent entirely when
+  // no statesByType is configured; "not checked" when the adapter could not
+  // list statuses per type.
+  const overrideTypes = Object.keys(config.statesByType || {})
+  if (overrideTypes.length) {
+    lines.push('', '  statesByType overrides, checked per issue type:')
+    const lc = (s) => String(s).toLowerCase().trim()
+    for (const type of overrideTypes) {
+      const have = byType && type in byType ? new Set(byType[type].map((s) => lc(s.name))) : null
+      for (const [bucket, name] of Object.entries(config.statesByType[type])) {
+        const tail =
+          name === null
+            ? 'sends no status'
+            : have === null
+              ? 'not checked — statuses not listed per type'
+              : have.has(lc(name))
+                ? 'ok'
+                : "MISSING from this type's workflow"
+        lines.push(`  ${type}.${bucket} -> ${name === null ? '(none)' : name}  ${tail}`)
+      }
+    }
+  }
   out.write(lines.join('\n') + '\n')
   return 0
 }

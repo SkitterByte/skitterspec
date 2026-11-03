@@ -531,8 +531,13 @@ async function fetchWorkspaceStates(adapter, teamId) {
  * from the workspace, so a `config.states` value the workspace lacks fails here
  * with the same vocabulary the state check already uses.
  */
-function stateIdFor(bucket, config, states) {
-  const name = config && config.states && config.states[bucket]
+function stateIdFor(bucket, config, states, kind) {
+  // Per-kind resolution: Linear has no work item types, so statesByKind keys
+  // the override by the SPEC's kind. An entry of null means "send no state
+  // for this bucket", which lands on the same `return null` an unmapped
+  // bucket always took — the caller already treats null as "no transition".
+  const over = config && config.statesByKind && kind ? config.statesByKind[kind] : null
+  const name = over && bucket in over ? over[bucket] : config && config.states && config.states[bucket]
   if (!name) return null
   const hit = states.find((s) => s && s.name === name)
   if (!hit) {

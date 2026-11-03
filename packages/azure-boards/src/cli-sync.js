@@ -28,6 +28,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const {
+  effectiveStates,
   push,
   recordPush,
   readBase,
@@ -129,6 +130,40 @@ function stateCheckFailure(config, flags) {
   } catch (error) {
     return [`${PROGRAM} plan: refusing — --workspace-states is not valid JSON: ${error.message}`]
   }
+  // The keyed shape (`{ "<type>": [names] }`, what `states --json` prints) is
+  // checked PER TYPE: each type's effective states — statesByType over states,
+  // nulls skipped — against that type's own list, so a state one type lacks
+  // refuses before the first write even when another type has it.
+  if (names && typeof names === 'object' && !Array.isArray(names)) {
+    const lc = (s) => String(s).toLowerCase().trim()
+    const types = [
+      ...new Set(
+        [config.azure.workItemType, config.azure.childType, ...Object.values(config.azure.workItemTypeByKind || {})].filter(Boolean),
+      ),
+    ]
+    const problems = []
+    for (const type of types) {
+      const have = names[type]
+      // A TYPE THE FILE LACKS IS A CANNOT-TELL, not a refusal: an absence
+      // here is an older file or a type the fetch could not read, and neither
+      // is evidence the config is wrong (negative-checks.md rule 4).
+      if (!Array.isArray(have)) continue
+      const haveSet = new Set(have.map(lc))
+      const effective = effectiveStates(config, config.statesByType, type)
+      for (const [bucket, name] of Object.entries(effective)) {
+        if (typeof name !== 'string') continue // null = send no state
+        if (!haveSet.has(lc(name))) problems.push({ type, bucket, name, available: have })
+      }
+    }
+    if (!problems.length) return null
+    const lines = [`${PROGRAM} plan: refusing — configured state name(s) missing from the type that would receive them`, '']
+    for (const p of problems) {
+      lines.push(`  ${p.type}: "${p.name}" (states.${p.bucket}) is not a state this type has`)
+      lines.push(`    ${p.type} has: ${p.available.join(', ') || '(none reported)'}`)
+    }
+    lines.push('', `  Fix ${CONFIG_FILE} -> states / statesByType.`)
+    return lines
+  }
   const list = Array.isArray(names) ? names : []
   const missing = validateStates(config, list)
   if (missing.length) {
@@ -165,16 +200,21 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
   // never refuses over a feature that happens to share its title.
   const mintType =
     (config.azure.workItemTypeByKind && config.azure.workItemTypeByKind[kind]) || config.azure.workItemType
-  const stateFor = (bucket) => {
-    const name = config.states && config.states[bucket]
+  // Per-type resolution: statesByType[type] overlays states, and null means
+  // "send no state for this bucket" — a deliberate skip, not a gap.
+  const stateFor = (bucket, type) => {
+    const name = effectiveStates(config, config.statesByType, type)[bucket]
+    if (name === null) return null
     if (!name) {
       throw new Error(`no state configured for the "${bucket}" bucket — fix ${CONFIG_FILE} -> states`)
     }
     return name
   }
-  const settle = async (idOrIdentifier, bucket) => {
+  const settle = async (idOrIdentifier, bucket, type) => {
     if (!bucket) return
-    await adapter.transitionTo(apiId(idOrIdentifier), stateFor(bucket))
+    const name = stateFor(bucket, type)
+    if (name === null) return
+    await adapter.transitionTo(apiId(idOrIdentifier), name)
   }
   // Azure refuses the WHOLE patch over one bad `System.AssignedTo` value
   // ("… is an unknown identity", live repro), which used to take the
@@ -196,7 +236,10 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
   }
   return {
     prevalidateStates: (buckets) => {
-      for (const bucket of buckets) stateFor(bucket)
+      for (const bucket of buckets) {
+        stateFor(bucket, mintType)
+        stateFor(bucket, config.azure.childType)
+      }
     },
     searchTwin: (title) => adapter.searchIssues({ query: title, workItemType: mintType }),
     twinAdvice: (twin, wanted, specName) =>
@@ -217,7 +260,7 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
         },
         (input) => adapter.createIssue(input),
       )
-      await settle(created.id, issue && issue.state)
+      await settle(created.id, issue && issue.state, mintType)
       return created
     },
     updateIssue: async (existing, issue) => {
@@ -229,7 +272,7 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
       if (Object.keys(updates).length) {
         await skippingRefusedAssignee(updates, (input) => adapter.updateIssue(apiId(existing.identifier), input))
       }
-      await settle(existing.identifier, issue.state)
+      await settle(existing.identifier, issue.state, mintType)
     },
     mintSubIssue: async (parentId, sub) => {
       const created = await adapter.createSubIssue(apiId(parentId), {
@@ -238,7 +281,7 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
         childType: config.azure.childType,
         areaPath: config.azure.areaPath || undefined,
       })
-      await settle(created.id, sub.state)
+      await settle(created.id, sub.state, config.azure.childType)
       return created
     },
     updateSubIssue: async (sub) => {
@@ -246,7 +289,7 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
       if (sub.name != null) updates.title = sub.name
       if (sub.goal != null) updates.description = sub.goal
       if (Object.keys(updates).length) await adapter.updateIssue(apiId(sub.id), updates)
-      await settle(sub.id, sub.state)
+      await settle(sub.id, sub.state, config.azure.childType)
     },
   }
 }
@@ -370,13 +413,9 @@ const assignment = makeAssignmentCommands({
   usersOverMcp: 'search identities with core_get_identity_ids over MCP, or read them off the org\'s Users page',
 })
 
-// The state names EVERY configured type can hold, deduped — one map serves the
-// spec item and its children, so a name only has to exist on one of them to be
-// writable somewhere, and validation checks against the union. The per-kind
-// mint types are in the union too, so a `workItemTypeByKind` entry's states
-// are validated before the first write, exactly like the base pair.
-async function unionStates(adapter, config) {
-  const types = [
+// Every configured type — the base pair plus the per-kind mint types.
+function configuredTypes(config) {
+  return [
     ...new Set(
       [
         config.azure.workItemType,
@@ -385,9 +424,27 @@ async function unionStates(adapter, config) {
       ].filter(Boolean),
     ),
   ]
+}
+
+// The state names PER configured type: `{ "<type>": [states] }`. This is what
+// `states --json` prints and what per-type validation consumes — a state one
+// type lacks must refuse even when another type has it.
+async function statesByType(adapter, config) {
+  const byType = {}
+  for (const type of configuredTypes(config)) {
+    byType[type] = await adapter.listIssueStates(type)
+  }
+  return byType
+}
+
+// The same names deduped across types — the display union. Validation no
+// longer checks against this (a union hides exactly the per-type gap the
+// pre-write check exists to catch); the TTY report still lists it.
+async function unionStates(adapter, config) {
+  const byType = await statesByType(adapter, config)
   const byName = new Map()
-  for (const type of types) {
-    for (const s of await adapter.listIssueStates(type)) {
+  for (const states of Object.values(byType)) {
+    for (const s of states) {
       if (!byName.has(s.name)) byName.set(s.name, s)
     }
   }
@@ -771,16 +828,24 @@ async function specSyncStates(dir, config, flags, out) {
     return 1
   }
   let states
+  let byType
   try {
-    states = await unionStates(cred.adapter, config)
+    byType = await statesByType(cred.adapter, config)
+    const byName = new Map()
+    for (const list of Object.values(byType)) for (const s of list) if (!byName.has(s.name)) byName.set(s.name, s)
+    states = [...byName.values()]
   } catch (error) {
     out.write(`${PROGRAM} states: ${error.message}\n`)
     return 1
   }
   const names = states.map((s) => s.name)
   if (flags.json) {
-    // The bare array --workspace-states consumes.
-    out.write(JSON.stringify(names, null, 2) + '\n')
+    // The keyed shape --workspace-states consumes: `{ "<type>": [names] }`,
+    // so the pre-write check can validate each type against its own states.
+    // (A bare array from an older engine is still accepted there.)
+    const keyed = {}
+    for (const [type, list] of Object.entries(byType)) keyed[type] = list.map((s) => s.name)
+    out.write(JSON.stringify(keyed, null, 2) + '\n')
     return 0
   }
   const catOf = new Map(states.map((s) => [s.name, s.category || null]))
@@ -812,6 +877,29 @@ async function specSyncStates(dir, config, flags, out) {
     }
   }
   if (missing.length) lines.push(`  remap: ${PROGRAM} init-config --force --state <bucket>="<state>"`)
+  // Per-type overrides, each checked against ITS type's own states — the
+  // union above cannot see a state one type lacks. Absent entirely when no
+  // statesByType is configured.
+  const overrideTypes = Object.keys(config.statesByType || {})
+  if (overrideTypes.length) {
+    lines.push('', '  statesByType overrides, checked per type:')
+    const lc = (s) => String(s).toLowerCase().trim()
+    for (const type of overrideTypes) {
+      const have = new Set((byType[type] || []).map((s) => lc(s.name)))
+      const known = type in byType
+      for (const [bucket, name] of Object.entries(config.statesByType[type])) {
+        const tail =
+          name === null
+            ? 'sends no state'
+            : !known
+              ? 'type not configured for push — not checked'
+              : have.has(lc(name))
+                ? 'ok'
+                : 'MISSING from this type'
+        lines.push(`  ${type}.${bucket} -> ${name === null ? '(none)' : name}  ${tail}`)
+      }
+    }
+  }
   out.write(lines.join('\n') + '\n')
   return 0
 }
@@ -1308,20 +1396,32 @@ async function specSyncDoctor(dir, flags, out) {
       try {
         const viewer = await adapter.readViewer()
         checks.push(row('remote', 'Azure reachable', 'ok', viewer ? `as ${viewer.name || viewer.id}` : 'yes'))
-        const states = await unionStates(adapter, config)
-        // Deduped: complete and cancelled both map to one state by default,
-        // and "not in the project: Done, Done" reads as a stutter, not a fact.
-        const missing = [...new Set(validateStates(config, states.map((s) => s.name)))]
+        // PER TYPE, the same check the pre-write gate runs: each type's
+        // effective states (statesByType over states, nulls skipped) against
+        // that type's own list — a union would hide exactly the gap this
+        // exists to catch. Deduped so two buckets on one name read once.
+        const byType = await statesByType(adapter, config)
+        const lc = (s) => String(s).toLowerCase().trim()
+        const missing = [
+          ...new Set(
+            Object.entries(byType).flatMap(([type, list]) => {
+              const have = new Set(list.map((s) => lc(s.name)))
+              return Object.values(effectiveStates(config, config.statesByType, type)).filter(
+                (name) => typeof name === 'string' && !have.has(lc(name)),
+              ).map((name) => `${name} (${type})`)
+            }),
+          ),
+        ]
         checks.push(
           missing.length
             ? row(
                 'states',
                 'State names',
                 'broken',
-                `not in these types: ${missing.join(', ')}`,
-                `fix ${CONFIG_FILE} -> states (see spec-sync states)`,
+                `not in the type that would receive them: ${missing.join(', ')}`,
+                `fix ${CONFIG_FILE} -> states / statesByType (see spec-sync states)`,
               )
-            : row('states', 'State names', 'ok', 'every configured state exists'),
+            : row('states', 'State names', 'ok', 'every configured state exists on its type'),
         )
         // Every mapped type must exist, and carry the body field configured
         // for it — a missing type fails the first push, and a missing field

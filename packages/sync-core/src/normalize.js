@@ -786,7 +786,14 @@ function phasesWithheld(snapshotDir, config) {
 function stateNamesFor(bucket, config) {
   const primary = config && config.states && config.states[bucket]
   const aliases = (config && config.stateAliases && config.stateAliases[bucket]) || []
-  return [primary, ...(Array.isArray(aliases) ? aliases : [])].filter((n) => typeof n === 'string' && n)
+  // Override values read as the bucket they override — so a `/spec-status`
+  // against a type completed to "Closed" still reads as `complete`.
+  const overrides = stateOverrideTables(config).flatMap((table) =>
+    Object.values(table).map((entry) => entry && entry[bucket]),
+  )
+  return [...new Set([primary, ...(Array.isArray(aliases) ? aliases : []), ...overrides])].filter(
+    (n) => typeof n === 'string' && n,
+  )
 }
 
 // Map a remote workflow-state name back to the local lifecycle bucket (the
@@ -922,11 +929,39 @@ function titleFromText(text, max = 100) {
   return stripTitleMarkup(title)
 }
 
-// Every state NAME the config points at: the lifecycle bucket map.
+// Per-type/kind state OVERRIDES: `table` maps a work item type (Azure, Jira)
+// or a spec kind (GitHub, Linear) to a partial bucket map laid over
+// `config.states`. A bucket mapped to null means "send no state for this
+// bucket"; a bucket the entry lacks falls through to the base map. With no
+// table, or no entry for `key`, this is exactly `config.states`.
+function effectiveStates(config, table, key) {
+  const out = { ...((config && config.states) || {}) }
+  const over = (table && key && table[key]) || null
+  if (over) for (const [bucket, value] of Object.entries(over)) out[bucket] = value
+  return out
+}
+
+// The per-type/kind override tables a provider config may carry. Readers that
+// scan "every configured state name" scan these too, so an override value is
+// validated and recognised exactly like a base one.
+function stateOverrideTables(config) {
+  return [config && config.statesByType, config && config.statesByKind].filter(Boolean)
+}
+
+// Every state NAME the config points at: the lifecycle bucket map, plus any
+// per-type/kind override values (null entries carry no name).
 function configuredStateNames(config) {
   // The WRITTEN names only. An alias is never written, so one the workspace
   // lacks cannot strand a push; `stateSuggestions` still names it in reports.
-  return Object.values((config && config.states) || {}).filter((v) => typeof v === 'string')
+  const names = Object.values((config && config.states) || {}).filter((v) => typeof v === 'string')
+  for (const table of stateOverrideTables(config)) {
+    for (const entry of Object.values(table)) {
+      for (const value of Object.values(entry || {})) {
+        if (typeof value === 'string') names.push(value)
+      }
+    }
+  }
+  return [...new Set(names)]
 }
 
 // Which configured state NAMES are absent from the live workspace. The skill
@@ -977,6 +1012,7 @@ module.exports = {
   ownsField,
   stateSuggestions,
   configuredStateNames,
+  effectiveStates,
   normalizeLocal,
   assigneeFor,
   phaseProjection,
