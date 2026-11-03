@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-issue-incident-kinds
-> **Status:** In Progress — Phase 1 (started 2026-11-03)
+> **Status:** Complete (2026-11-03)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-11-03
@@ -165,6 +165,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-11-03 | Ready | backlog | Reuben Greaves |
 | 2026-11-03 | In Progress | in-progress | Reuben Greaves |
+| 2026-11-03 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -172,6 +173,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   providers get the state/severity/link machinery (not Azure-only); one
   combined spec; incident log pushed as a comment; state overrides keyed by
   type on Azure/Jira and by kind on GitHub/Linear.
+- 2026-11-03 — Completed; all 7 phases done, tests green (packages + root).
 - 2026-11-03 — Phase 6: the log push is a new generic
   `spec-sync comment <spec> --file <f>` verb on all four providers rather than
   preserve-specific machinery — `/spec-complete` calls it so the log never
