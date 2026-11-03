@@ -311,6 +311,40 @@ test('statesByKind routes Status per spec kind, and null sends none', async () =
   assert.ok(!nullMoves.some(([, id]) => id === '101'), JSON.stringify(nullMoves))
 })
 
+// GitHub has no typed related-link API, so the `Incident:` header rides in the
+// generated body — `Related incident: #N` backlinks on the incident's own
+// timeline — and `Severity:` maps to an opt-in label.
+test('a fix spec carries the incident cross-reference and severity label', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-incident-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ github: { ...GH, severityLabels: { 2: 'sev-high' } } }),
+  )
+  const incident = path.join(dir, 'specs', 'in-progress', 'incident-api-outage')
+  fs.mkdirSync(incident, { recursive: true })
+  fs.writeFileSync(
+    path.join(incident, '00-overview.md'),
+    '---\ngithub_identifier: "#42"\n---\n\n# Incident\n\n## Impact\n\nDown.\n',
+  )
+  const fix = path.join(dir, 'specs', 'in-progress', 'bug-fix-outage')
+  fs.mkdirSync(fix, { recursive: true })
+  fs.writeFileSync(
+    path.join(fix, '00-overview.md'),
+    '# Fix\n\n> **Severity:** 2 - High\n> **Incident:** incident-api-outage\n\n## Problem\n\nDown.\n',
+  )
+  fs.writeFileSync(path.join(fix, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** fix it.\n')
+  const r0 = await run(['plan', 'bug-fix-outage', '--workspace-states', statesFile(dir), '--json'], dir)
+  assert.strictEqual(r0.code, 0, r0.out)
+  fs.writeFileSync(path.join(dir, 'plan.json'), r0.out)
+  const adapter = fakeAdapter()
+  const r = await run(['apply', 'bug-fix-outage', '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  const create = adapter.calls.find((c) => c[0] === 'createIssue')
+  assert.deepStrictEqual(create[2], ['spec', 'sev-high'])
+  assert.match(adapter.issues.get('101').description, /Related incident: #42$/)
+})
+
 // A phase's task list renders as clickable boxes on GitHub, so a tick there is
 // an edit the next push replaces — reported, never refused.
 async function pushedThenPhaseEdited({ tamper }) {

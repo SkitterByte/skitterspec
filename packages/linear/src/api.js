@@ -294,6 +294,26 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
       )
       return unwrap(data, 'issueUpdate')
     },
+    /**
+     * Add a "related" relation between two issues (by uuid). Idempotent at
+     * this level: Linear refuses a relation that already exists, and that
+     * refusal comes back as `{ added: false, already: true }` — a re-push per
+     * phase is the normal case, not a failure.
+     */
+    async createIssueRelation(issueId, relatedIssueId) {
+      try {
+        const data = await call(
+          'mutation($input: IssueRelationCreateInput!) { issueRelationCreate(input: $input) { success } }',
+          { input: { issueId, relatedIssueId, type: 'related' } },
+        )
+        return { added: !!(data && data.issueRelationCreate && data.issueRelationCreate.success) }
+      } catch (error) {
+        if (/already exists|duplicate/i.test(String(error && error.message))) {
+          return { added: false, already: true }
+        }
+        throw error
+      }
+    },
     // A phase sub-issue is an ordinary issue carrying `parentId`. Same mutation,
     // so there is no separate sub-issue surface to keep in step.
     async createSubIssue(parentId, subIssue) {

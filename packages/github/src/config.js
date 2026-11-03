@@ -59,6 +59,7 @@ const DEFAULT_CONFIG = Object.freeze({
     // `{ "chore": "chore" }` keeps tooling work filterable out of release
     // views. Empty means no kind label, as before.
     labelsByKind: Object.freeze({}),
+    severityLabels: Object.freeze({}),
   }),
   // A spec is a GitHub ISSUE; each phase a SUB-ISSUE of it, carrying the
   // phase's checkboxes in its body as a task list (rendered live by GitHub —
@@ -123,7 +124,7 @@ const LIFECYCLE_BUCKETS = Object.freeze(Object.keys(DEFAULT_CONFIG.states))
 function defaults() {
   const g = DEFAULT_CONFIG.github
   return {
-    github: { ...g, labels: { ...g.labels }, issueTypes: { ...g.issueTypes }, labelsByKind: { ...g.labelsByKind } },
+    github: { ...g, labels: { ...g.labels }, issueTypes: { ...g.issueTypes }, labelsByKind: { ...g.labelsByKind }, severityLabels: { ...g.severityLabels } },
     mapping: { ...DEFAULT_CONFIG.mapping },
     states: { ...DEFAULT_CONFIG.states },
     statesByKind: {},
@@ -201,6 +202,15 @@ function mergeConfig(base, parsed) {
         if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
       }
       base.github.labelsByKind = byKind
+    }
+    if (isObject(parsed.github.severityLabels)) {
+      // Keyed by the Severity header's leading digit ("2 - High" → "2").
+      const bySeverity = {}
+      for (const digit of ['1', '2', '3', '4']) {
+        const value = parsed.github.severityLabels[digit]
+        if (typeof value === 'string' && value.trim()) bySeverity[digit] = value.trim()
+      }
+      base.github.severityLabels = bySeverity
     }
   }
 

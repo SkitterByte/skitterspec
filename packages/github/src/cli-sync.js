@@ -29,6 +29,7 @@ const {
   stateSuggestions,
   stateNamesFor,
   effectiveStates,
+  specHeaders,
   remoteDescriptionEdited,
   writeFrontmatter,
   stampSubIssueId,
@@ -151,7 +152,7 @@ function specKindOf(snapshotDir) {
   return 'feature'
 }
 
-function applyOps({ adapter, config, kind = 'feature' }) {
+function applyOps({ adapter, config, kind = 'feature', snapshotDir = null }) {
   // Per-kind resolution: GitHub has no work item types, so statesByKind keys
   // the override by the SPEC's kind. Null means "send no Status for this
   // bucket" — the open/close half of settle still runs, since closing is
@@ -210,6 +211,15 @@ function applyOps({ adapter, config, kind = 'feature' }) {
   const kindLabel = (config.github.labelsByKind || {})[kind]
   if (kindLabel && !spec.labels.some((l) => l.toLowerCase() === kindLabel.toLowerCase())) {
     spec.labels = [...spec.labels, kindLabel]
+  }
+  // The `Severity:` header's label (github.severityLabels, keyed by the
+  // leading digit — "2 - High" → "2"). Opt-in: unset, the header stays
+  // repo-only and the payload is byte-identical to before.
+  const severity = snapshotDir ? specHeaders(snapshotDir, config).severity : null
+  const severityDigit = severity ? (/^([1-4])/.exec(severity) || [])[1] : null
+  const severityLabel = severityDigit ? (config.github.severityLabels || {})[severityDigit] : null
+  if (severityLabel && !spec.labels.some((l) => l.toLowerCase() === severityLabel.toLowerCase())) {
+    spec.labels = [...spec.labels, severityLabel]
   }
   return {
     prevalidateStates: (buckets) => {
@@ -405,7 +415,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
       snapshotDir,
       plan,
       adapter: cred.adapter,
-      ops: applyOps({ adapter: cred.adapter, config, kind: specKindOf(snapshotDir) }),
+      ops: applyOps({ adapter: cred.adapter, config, kind: specKindOf(snapshotDir), snapshotDir }),
       forceNew: !!flags.forceNew,
       program: PROGRAM,
     })

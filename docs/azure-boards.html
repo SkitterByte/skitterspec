@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-azure-boards/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 79243cb4855d
+verified: 1c9203068a48
 -->
 <html lang="en">
 <head>
@@ -604,7 +604,7 @@ verified: 79243cb4855d
       <p class="lede">Boards' work item types and states are <strong>process-defined</strong> — Basic has Issue/Task with To&nbsp;Do/Doing/Done, Agile has User&nbsp;Story/Task with New/Active/Closed, a custom process has whatever it has. So the config names the types and the bucket→state map, and the engine validates every name against the process <em>before</em> the first write: Azure refuses an unknown state only at write time, after the description has already landed, so an unchecked push would half-apply.</p>
     </div>
 
-    <p class="reveal">The mapping lives in config: <span class="mono">states</span> names the Boards state for each lifecycle bucket — <span class="mono">To&nbsp;Do</span> / <span class="mono">Doing</span> / <span class="mono">Done</span> by default (the Basic process's), with <span class="mono">cancelled</span> also defaulting to <span class="mono">Done</span>, because Basic carries no Cancelled state. Validation runs against the <strong>union of both configured types' states</strong>, since one map serves the spec item and its children and the two types can differ.</p>
+    <p class="reveal">The mapping lives in config: <span class="mono">states</span> names the Boards state for each lifecycle bucket — <span class="mono">To&nbsp;Do</span> / <span class="mono">Doing</span> / <span class="mono">Done</span> by default (the Basic process's), with <span class="mono">cancelled</span> also defaulting to <span class="mono">Done</span>, because Basic carries no Cancelled state. Where one type's states differ, <span class="mono">statesByType</span> overlays the map per work item type — <span class="mono">{"Issue": {"complete": "Closed"}, "Incident": {"backlog": null, "complete": "Closed"}}</span> completes an Issue straight to Closed while everything else still resolves through <span class="mono">states</span>, and a bucket mapped to <span class="mono">null</span> sends no state at all. Validation runs <strong>per type</strong>: each configured type's effective states are checked against <em>that type's own</em> list, so a state one type lacks refuses even when another type has it — the union check used to pass exactly that, and the push half-applied.</p>
 
     <div class="win reveal" style="margin-top:26px;" aria-label="Terminal showing the state-check refusal">
       <div class="win-bar">
@@ -613,17 +613,18 @@ verified: 79243cb4855d
       </div>
       <div class="term">
 <div class="l"><span class="prompt">$</span> <span class="cmd">skitterspec-azure-boards spec-sync plan feat-orders --workspace-states states.json</span></div>
-<div class="l">spec-sync plan: <span class="warn">refusing — configured state name(s) not in the project</span></div>
+<div class="l">spec-sync plan: <span class="warn">refusing — configured state name(s) missing from the type that would receive them</span></div>
 <div class="l"> </div>
-<div class="l">  states.complete: "Shipped" is not a state these types have</div>
-<div class="l">    <span class="info">use "Done" instead</span></div>
+<div class="l">  Issue: "Resolved" (states.complete) is not a state this type has</div>
+<div class="l">    <span class="info">Issue has: New, Ready, Active, Closed, Removed</span></div>
 <div class="l"> </div>
-<div class="l">  available: To Do, Doing, Done</div>
-<div class="l">  Fix specs/.core/azure-boards.config.json -&gt; states.</div>
+<div class="l">  Fix specs/.core/azure-boards.config.json -&gt; states / statesByType.</div>
       </div>
     </div>
 
-    <p class="reveal" style="margin-top:22px;">That is the <span class="mono">--workspace-states</span> idiom: <span class="mono">plan</span> refuses to run until the configured names have been checked against the types' real ones (<span class="mono">skitterspec-azure-boards spec-sync states --json</span> prints exactly the array it wants). <span class="mono">/spec-push</span> does the fetch for you, so nothing changes if you drive sync through the skill; a script calling the CLI directly passes the file itself.</p>
+    <p class="reveal" style="margin-top:22px;">That is the <span class="mono">--workspace-states</span> idiom: <span class="mono">plan</span> refuses to run until the configured names have been checked against the types' real ones (<span class="mono">skitterspec-azure-boards spec-sync states --json</span> prints exactly the per-type map it wants; a flat array from an older engine is still accepted and checked as the union). <span class="mono">/spec-push</span> does the fetch for you, so nothing changes if you drive sync through the skill; a script calling the CLI directly passes the file itself.</p>
+
+    <p class="reveal" style="margin-top:22px;">Two spec headers also reach Boards on push. <span class="mono">&gt; **Severity:**</span> (Azure's literal values, <span class="mono">1 - Critical</span> … <span class="mono">4 - Low</span>) writes the built-in <span class="mono">Microsoft.VSTS.Common.Severity</span> field — a type without the field skips it with a note rather than failing the push. <span class="mono">&gt; **Incident:** incident-&lt;name&gt;</span> on a fix spec adds a <span class="mono">System.LinkTypes.Related</span> link to that incident's work item, one-way and idempotent; an incident not yet linked is a line, never a failure.</p>
   </div>
 </section>
 
@@ -786,7 +787,7 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
           <tr><td class="cmd">spec-sync (azure) stamp &lt;spec&gt;</td><td>Write item ids into a spec's frontmatter (<span class="mono">--issue AB#123</span>, <span class="mono">--sub ref=n</span>) — verified against Azure when a PAT resolves. The MCP path's last step — or a manual link.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (azure) record &lt;spec&gt;</td><td>Record the base snapshot that later pushes diff against.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (azure) normalize &lt;spec&gt;</td><td>Print the spec's local projection as JSON, the way the mirror will store it.</td><td class="folder">internal</td></tr>
-          <tr><td class="cmd">spec-sync (azure) states</td><td>The configured types' state names, with the bucket map — <span class="mono">--json</span> prints the bare array <span class="mono">--workspace-states</span> consumes.</td><td class="folder">/spec-push · you</td></tr>
+          <tr><td class="cmd">spec-sync (azure) states</td><td>The configured types' state names, with the bucket map — <span class="mono">--json</span> prints the per-type map <span class="mono">--workspace-states</span> consumes.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (azure) list</td><td>Every spec item the project holds — id, state, title and the local spec name to paste into <span class="mono">/spec-start</span>. Read-only.</td><td class="folder">/spec-list · you</td></tr>
 
           <tr class="grp-row"><td colspan="3">People</td></tr>

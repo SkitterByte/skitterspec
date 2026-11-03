@@ -405,6 +405,60 @@ function readSnapshot(snapshotDir, config) {
   return { frontmatter: data, title, sections, phases, body }
 }
 
+// The spec's own `> **Severity:**` and `> **Incident:**` headers, off the
+// overview's blockquote block. They are PUSH-TIME EXTRAS, deliberately not
+// keys on `normalizeLocal`'s field set: severity lands in a provider-specific
+// home (a field, a label) and the incident link as a typed relation, so
+// neither belongs in the synced-field hashes a stored base compares.
+function specHeaders(snapshotDir, config) {
+  const overviewFile = (config && config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  let raw
+  try {
+    raw = fs.readFileSync(path.join(snapshotDir, overviewFile), 'utf-8')
+  } catch {
+    return { severity: null, incident: null }
+  }
+  const read = (name) => {
+    const m = new RegExp(`^>\\s*\\*\\*${name}:\\*\\*\\s*(.+)$`, 'm').exec(raw)
+    return m ? m[1].trim() : null
+  }
+  return { severity: read('Severity'), incident: read('Incident') }
+}
+
+// Resolve a fix spec's `> **Incident:**` header to the incident spec it names:
+// its folder in any lifecycle bucket, and the tracker identifier stamped on it
+// (via the provider's own `fields.identifier`). `identifier: null` means the
+// incident exists but is not linked yet — report and carry on, never fail the
+// push over it. No header at all returns null.
+function linkedIncident(snapshotDir, config) {
+  const { incident } = specHeaders(snapshotDir, config)
+  if (!incident) return null
+  const root = path.resolve(snapshotDir, '..', '..', '..')
+  const overviewFile = (config && config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  for (const bucket of ['in-progress', 'backlog', 'complete', 'cancelled']) {
+    const file = path.join(root, 'specs', bucket, incident, overviewFile)
+    if (!fs.existsSync(file)) continue
+    const { data } = parseFrontmatter(fs.readFileSync(file, 'utf-8'))
+    const idField = config && config.fields && config.fields.identifier
+    const identifier = idField && data[idField] != null ? String(data[idField]) : null
+    return { name: incident, identifier, found: true }
+  }
+  // A FOLDER NOT ON DISK IS NOT PROOF THE INCIDENT DOES NOT EXIST — buckets
+  // are branch-local truth, so an incident on its own unlanded branch is
+  // invisible here. The caller reports "not linked yet" and carries on.
+  return { name: incident, identifier: null, found: false }
+}
+
+// The one-line cross-reference a fix spec's body carries to its incident. Part
+// of the PROJECTION (not appended at send time), so the stored base, the plan
+// and what the tracker holds all hash the same bytes — and on GitHub the
+// `#N` identifier backlinks on the incident's own timeline.
+function relatedIncidentLine(snapshotDir, config) {
+  const incident = linkedIncident(snapshotDir, config)
+  if (!incident) return ''
+  return `\n\nRelated incident: ${incident.identifier || incident.name}`
+}
+
 // The headings a bug-shaped spec's ticket leads with, in this order, when the
 // spec has them. A Bug ticket is read for its repro before anything else, and
 // the feature overview order buries it. Sections a spec does not have are
@@ -723,23 +777,24 @@ function normalizeLocal(snapshotDir, config) {
   const phasesCarriedBySubIssues =
     syncsSubIssues && phaseModeFor(workflowState, config) !== 'inline' && withheld === 0
   const extracted = {
-    description: withInlinePhases(
-      buildDescription(
-        title,
-        sections,
+    description:
+      withInlinePhases(
+        buildDescription(
+          title,
+          sections,
+          config.sync.localOnlySections,
+          phasesCarriedBySubIssues ? ['Phases'] : [],
+          dialect,
+          // A bug or hotfix spec's ticket leads with the bug sections — a
+          // different render of the same overview, so the Bug form opens on the
+          // repro rather than the feature-shaped prose.
+          bugShaped(snapshotDir) ? BUG_LEAD_SECTIONS : [],
+        ),
+        inlined,
+        tasksMode,
         config.sync.localOnlySections,
-        phasesCarriedBySubIssues ? ['Phases'] : [],
         dialect,
-        // A bug or hotfix spec's ticket leads with the bug sections — a
-        // different render of the same overview, so the Bug form opens on the
-        // repro rather than the feature-shaped prose.
-        bugShaped(snapshotDir) ? BUG_LEAD_SECTIONS : [],
-      ),
-      inlined,
-      tasksMode,
-      config.sync.localOnlySections,
-      dialect,
-    ),
+      ) + relatedIncidentLine(snapshotDir, config),
     // Sub-issue projection: one per phase. `ref` is the phase-file basename — the
     // local handle the push skill stamps a newly-created sub-issue id back into.
     // `state` is the phase's status bucket (from its heading emoji), mapped to a
@@ -1032,4 +1087,6 @@ module.exports = {
   remoteWorkflowState,
   remoteStateReading,
   stateNamesFor,
+  specHeaders,
+  linkedIncident,
 }

@@ -56,6 +56,8 @@ const {
   phaseModeFor,
   ownsField,
   remoteDescriptionEdited,
+  specHeaders,
+  linkedIncident,
 } = require('@skitterbyte/skitterspec-sync-core')
 
 const {
@@ -2248,14 +2250,44 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
   // mint, never a failed push — and with nothing configured, no label call is
   // made at all.
   const kindLabelName = (config.linear && config.linear.labelsByKind && config.linear.labelsByKind[kind]) || ''
+  // The `Severity:` header's label (linear.severityLabels, keyed by the
+  // leading digit — "2 - High" → "2"). Opt-in: unset, the header stays
+  // repo-only and no extra label call is made.
+  const severity = specHeaders(snapshotDir, config).severity
+  const severityDigit = severity ? (/^([1-4])/.exec(severity) || [])[1] : null
+  const severityLabelName =
+    (severityDigit && config.linear && config.linear.severityLabels && config.linear.severityLabels[severityDigit]) || ''
+  const wantedLabels = [kindLabelName, severityLabelName].filter(Boolean)
   let kindLabelIds = null
-  if (kindLabelName && teamId && typeof adapter.listLabels === 'function') {
+  if (wantedLabels.length && teamId && typeof adapter.listLabels === 'function') {
     const labels = await adapter.listLabels(teamId)
-    const hit = labels.find((l) => l && String(l.name).toLowerCase() === kindLabelName.toLowerCase())
-    if (hit) kindLabelIds = [hit.id]
-    else if (out) out.write(`  !! label "${kindLabelName}" is not on the team — minted without it\n`)
-  } else if (kindLabelName && out && typeof adapter.listLabels !== 'function') {
-    out.write(`  !! label "${kindLabelName}" skipped — this transport cannot list labels\n`)
+    const ids = []
+    for (const name of wantedLabels) {
+      const hit = labels.find((l) => l && String(l.name).toLowerCase() === name.toLowerCase())
+      if (hit) ids.push(hit.id)
+      else if (out) out.write(`  !! label "${name}" is not on the team — minted without it\n`)
+    }
+    if (ids.length) kindLabelIds = ids
+  } else if (wantedLabels.length && out && typeof adapter.listLabels !== 'function') {
+    out.write(`  !! label "${wantedLabels.join('", "')}" skipped — this transport cannot list labels\n`)
+  }
+  // The `Incident:` header's related link, added after the mint/update. The
+  // repo owns the link; an incident not linked yet is a line, never a failure.
+  const incident = linkedIncident(snapshotDir, config)
+  const relateToIncident = async (issueId) => {
+    if (!incident) return
+    if (!incident.identifier) {
+      if (out) out.write(`  !! related incident ${incident.name} is not linked yet — link skipped\n`)
+      return
+    }
+    if (typeof adapter.createIssueRelation !== 'function' || typeof adapter.readIssue !== 'function') return
+    const target = await adapter.readIssue(incident.identifier)
+    if (!target || !target.id) {
+      if (out) out.write(`  !! related incident ${incident.identifier} not found on Linear — link skipped\n`)
+      return
+    }
+    const r = await adapter.createIssueRelation(issueId, target.id)
+    if (out && r && r.added) out.write(`  related link added: ${incident.identifier}\n`)
   }
   const ops = {
     prevalidateStates: (buckets) => {
@@ -2283,6 +2315,7 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
         labelIds: kindLabelIds,
       }))
       if (!created || !created.identifier) throw new Error('Linear returned no issue for the spec create')
+      await relateToIncident(created.id)
       return created
     },
     updateIssue: async (existing, issue) => {
@@ -2297,6 +2330,7 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
       // is something to say, so `in` is the test, not truthiness.
       if ('assignee' in issue) updates.assigneeId = issue.assignee ?? null
       await adapter.updateIssue(existing.id, updates)
+      await relateToIncident(existing.id)
     },
     mintSubIssue: async (parentId, sub) => {
       const created = await adapter.createSubIssue(parentId, withoutNull({

@@ -151,7 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Provider kind mappings | ✅ | [02-provider-kind-mappings.md](02-provider-kind-mappings.md) |
 | 3 | Per-type state overrides + per-type pre-write check | ✅ | [03-per-type-states.md](03-per-type-states.md) |
 | 4 | Authoring surfaces: issue proposal + /spec-incident | ✅ | [04-authoring-surfaces.md](04-authoring-surfaces.md) |
-| 5 | Severity + related links on push | ⬜ | [05-severity-related-links.md](05-severity-related-links.md) |
+| 5 | Severity + related links on push | ✅ | [05-severity-related-links.md](05-severity-related-links.md) |
 | 6 | Incident log at completion | ⬜ | [06-incident-log.md](06-incident-log.md) |
 | 7 | Migration notes, docs sweep, shipping checks | ⬜ | [07-ship.md](07-ship.md) |
 
@@ -172,6 +172,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   providers get the state/severity/link machinery (not Azure-only); one
   combined spec; incident log pushed as a comment; state overrides keyed by
   type on Azure/Jira and by kind on GitHub/Linear.
+- 2026-11-03 — Phase 5: the related-incident cross-reference line is part of
+  the projected body on **every** provider (not GitHub alone) — appending it
+  at send time would make the stored-base hash disagree with the tracker on
+  every later compare. Azure's severity write uses the retry-without pattern
+  the assignee refusal already uses, instead of a field-presence pre-read.
 - 2026-11-03 — Phase 3: `statesByType`/`statesByKind` live top-level beside
   `states` in each provider config (matching the handoff's consumer example),
   not under the provider key; parsing is one shared `mergeStateOverrides` in

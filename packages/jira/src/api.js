@@ -152,6 +152,13 @@ function makeApiAdapter({ siteUrl, email, token, fetch: fetchImpl, sleep, maxRet
     if (input.assigneeId !== undefined) {
       fields.assignee = input.assigneeId == null ? null : { accountId: input.assigneeId }
     }
+    // Extra raw fields, keyed by field id — how `jira.severityField` writes a
+    // site's own Severity field without this adapter knowing its id.
+    if (input.extraFields) {
+      for (const [id, value] of Object.entries(input.extraFields)) {
+        if (value !== undefined) fields[id] = value
+      }
+    }
     return fields
   }
 
@@ -164,12 +171,40 @@ function makeApiAdapter({ siteUrl, email, token, fetch: fetchImpl, sleep, maxRet
       return normalizeIssue(raw)
     },
 
-    async createIssue({ title, description, assigneeId, projectKey, issueTypeName }) {
+    async createIssue({ title, description, assigneeId, projectKey, issueTypeName, extraFields }) {
       const created = await request('POST', '/issue', {
-        body: { fields: issueFields({ title, description, assigneeId }, { forCreate: true, projectKey, issueTypeName }) },
+        body: { fields: issueFields({ title, description, assigneeId, extraFields }, { forCreate: true, projectKey, issueTypeName }) },
       })
       if (!created || !created.key) throw new Error('Jira returned no issue for the create')
       return { id: String(created.id), identifier: created.key, url: urlOf(created.key) }
+    },
+
+    /**
+     * The "Relates" links an issue already carries, as the other end's key —
+     * what lets a re-push skip a link that is already there instead of
+     * stacking a duplicate on every push.
+     */
+    async listRelatedLinks(keyOrId) {
+      const raw = await request('GET', `/issue/${encodeURIComponent(keyOrId)}`, {
+        query: { fields: 'issuelinks' },
+        allow404: true,
+      })
+      const links = (raw && raw.fields && raw.fields.issuelinks) || []
+      return links
+        .map((l) => (l.inwardIssue && l.inwardIssue.key) || (l.outwardIssue && l.outwardIssue.key))
+        .filter(Boolean)
+    },
+
+    /** Add a "Relates" issue link between two issues. */
+    async createRelatedLink(keyOrId, targetKeyOrId) {
+      await request('POST', '/issueLink', {
+        body: {
+          type: { name: 'Relates' },
+          inwardIssue: { key: String(keyOrId) },
+          outwardIssue: { key: String(targetKeyOrId) },
+        },
+      })
+      return { added: true }
     },
 
     async createSubIssue(parentId, { title, description, projectKey, subtaskTypeName }) {

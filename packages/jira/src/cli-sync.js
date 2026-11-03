@@ -27,6 +27,8 @@ const {
   validateStates,
   stateSuggestions,
   effectiveStates,
+  specHeaders,
+  linkedIncident,
   remoteDescriptionEdited,
   writeFrontmatter,
   stampSubIssueId,
@@ -138,10 +140,34 @@ function specKindOf(snapshotDir) {
   return 'feature'
 }
 
-function applyOps({ adapter, config, kind = 'feature' }) {
+function applyOps({ adapter, config, kind = 'feature', snapshotDir = null, out = null }) {
   // The mint type for THIS spec's kind (jira.issueTypeByKind), falling back to
   // the one configured type — unmapped kinds mint exactly as before.
   const mintType = (config.jira.issueTypeByKind && config.jira.issueTypeByKind[kind]) || config.jira.issueType
+  // Push-time extras off the spec's own headers: `Severity:` lands in the
+  // site's own field (`jira.severityField`, opt-in — unset, the header stays
+  // repo-only), `Incident:` as a "Relates" issue link. Neither is a synced
+  // field, so neither touches the stored-base hashes.
+  const severity = snapshotDir ? specHeaders(snapshotDir, config).severity : null
+  const severityFields =
+    severity != null && config.jira.severityField ? { [config.jira.severityField]: severity } : undefined
+  const incident = snapshotDir ? linkedIncident(snapshotDir, config) : null
+  const relateToIncident = async (keyOrId) => {
+    if (!incident) return
+    if (!incident.identifier) {
+      if (out) out.write(`  !! related incident ${incident.name} is not linked yet — link skipped\n`)
+      return
+    }
+    if (typeof adapter.createRelatedLink !== 'function') return
+    // Jira stacks duplicate links, and a push runs per phase — so an existing
+    // link to the incident is the skip condition, not an error to swallow.
+    if (typeof adapter.listRelatedLinks === 'function') {
+      const linked = await adapter.listRelatedLinks(keyOrId)
+      if (linked.includes(incident.identifier)) return
+    }
+    await adapter.createRelatedLink(keyOrId, incident.identifier)
+    if (out) out.write(`  related link added: ${incident.identifier}\n`)
+  }
   // Per-type resolution: statesByType[issue type] overlays states, and null
   // means "send no status for this bucket" — a deliberate skip, not a gap.
   const statusFor = (bucket, type) => {
@@ -180,8 +206,10 @@ function applyOps({ adapter, config, kind = 'feature' }) {
         assigneeId: issue && issue.assignee ? issue.assignee : undefined,
         projectKey: config.jira.projectKey,
         issueTypeName: mintType,
+        extraFields: severityFields,
       })
       await settle(created.identifier, issue && issue.state, mintType)
+      await relateToIncident(created.identifier)
       return created
     },
     updateIssue: async (existing, issue) => {
@@ -190,8 +218,10 @@ function applyOps({ adapter, config, kind = 'feature' }) {
       // Null is meaningful here — it is how Jira unassigns — so the key is
       // forwarded whenever the plan carries it, never truthiness-tested.
       if ('assignee' in issue) updates.assigneeId = issue.assignee ?? null
+      if (severityFields) updates.extraFields = severityFields
       if (Object.keys(updates).length) await adapter.updateIssue(existing.identifier, updates)
       await settle(existing.identifier, issue.state, mintType)
+      await relateToIncident(existing.identifier)
     },
     mintSubIssue: async (parentId, sub) => {
       const created = await adapter.createSubIssue(parentId, {
@@ -300,7 +330,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
       snapshotDir,
       plan,
       adapter: cred.adapter,
-      ops: applyOps({ adapter: cred.adapter, config, kind: specKindOf(snapshotDir) }),
+      ops: applyOps({ adapter: cred.adapter, config, kind: specKindOf(snapshotDir), snapshotDir, out }),
       forceNew: !!flags.forceNew,
       program: PROGRAM,
     })

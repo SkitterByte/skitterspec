@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-linear/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 603f8a6146c2
+verified: 1c9203068a48
 -->
 <html lang="en">
 <head>
@@ -581,7 +581,7 @@ verified: 603f8a6146c2
       </div>
       <div class="own-card own-pull">
         <div class="oh"><span class="d"></span>Linear-native · left alone</div>
-        <p>Priority, labels, cycles, discussion. The PM's to set in Linear; one-way sync neither pushes nor reads them, so it never fights the PM for them — the one exception is the spec kind's label, when <span class="mono">labelsByKind</span> maps one, set once at mint.</p>
+        <p>Priority, labels, cycles, discussion. The PM's to set in Linear; one-way sync neither pushes nor reads them, so it never fights the PM for them — the exceptions are the spec kind's label (<span class="mono">labelsByKind</span>) and the severity's (<span class="mono">severityLabels</span>, keyed by the <span class="mono">Severity:</span> header's leading digit), each set once at mint. A <span class="mono">statesByKind</span> entry can route one spec kind's buckets to different workflow states (<span class="mono">null</span> sends none), and a fix spec's <span class="mono">Incident:</span> header adds a related-issue relation to the incident, one-way and idempotent.</p>
       </div>
       <div class="own-card own-both">
         <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>

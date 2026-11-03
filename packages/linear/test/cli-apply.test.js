@@ -895,6 +895,47 @@ test('statesByKind routes the minted state per spec kind, and null sends none', 
   assert.ok(!('stateId' in nullInput), JSON.stringify(nullInput))
 })
 
+// `Severity:` maps to an opt-in label and `Incident:` to a "related" issue
+// relation, resolved through the incident spec's stamped identifier.
+test('a fix spec mints with its severity label and a relation to the incident', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-incident-'))
+  const cfg = path.join(dir, CONFIG_FILE)
+  fs.mkdirSync(path.dirname(cfg), { recursive: true })
+  fs.writeFileSync(cfg, JSON.stringify({ linear: { teamId: 'T1', severityLabels: { 2: 'Sev High' } } }), 'utf-8')
+  const incident = path.join(dir, 'specs', 'in-progress', 'incident-api-outage')
+  fs.mkdirSync(incident, { recursive: true })
+  fs.writeFileSync(
+    path.join(incident, '00-overview.md'),
+    '---\nlinear_identifier: "SKI-42"\n---\n\n# Incident\n\n## Impact\n\nDown.\n',
+    'utf-8',
+  )
+  const fix = path.join(dir, 'specs', 'in-progress', 'bug-fix-outage')
+  fs.mkdirSync(fix, { recursive: true })
+  fs.writeFileSync(
+    path.join(fix, '00-overview.md'),
+    '# Fix\n\n> **Severity:** 2 - High\n> **Incident:** incident-api-outage\n\n## Problem\n\nDown.\n',
+    'utf-8',
+  )
+  fs.writeFileSync(path.join(fix, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** fix it.\n', 'utf-8')
+  const PLAN = {
+    issue: { description: '# Fix\n\n## Problem\n\nDown.\n\nRelated incident: SKI-42', state: 'in-progress' },
+    subIssues: { create: [], update: [] },
+  }
+  const linear = fakeLinear()
+  linear.listLabels = async () => [{ id: 'lbl-sev', name: 'Sev High' }]
+  linear.store.set('SKI-42', { id: 'uuid-incident', identifier: 'SKI-42' })
+  const relations = []
+  linear.createIssueRelation = async (issueId, relatedIssueId) => {
+    relations.push([issueId, relatedIssueId])
+    return { added: true }
+  }
+  const r = await run(['apply', 'bug-fix-outage', '--plan', planFile(dir, PLAN)], dir, { adapter: linear })
+  assert.strictEqual(r.code, 0, r.out)
+  const create = linear.log.find((c) => c.op === 'createIssue')
+  assert.deepStrictEqual(create.input.labelIds, ['lbl-sev'])
+  assert.deepStrictEqual(relations, [['uuid-1', 'uuid-incident']])
+})
+
 test('issue and incident specs mint with their labelsByKind entries', async () => {
   for (const [folder, label] of [['issue-demo', 'Ops'], ['incident-demo', 'Incident']]) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-kind-'))

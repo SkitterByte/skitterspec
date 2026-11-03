@@ -123,6 +123,7 @@ const DEFAULT_CONFIG = Object.freeze({
     // already exist on the team; a missing one is a one-line note, never a
     // failed push. Empty means no kind label, as before.
     labelsByKind: Object.freeze({}),
+    severityLabels: Object.freeze({}),
   }),
   // Issue intake (`/spec <ISSUE-REF>`, `/spec --from-issue`). `label` is the
   // inbox filter — issues carrying it are what the web app files; `bugLabels`
@@ -274,7 +275,7 @@ const LIFECYCLE_BUCKETS = Object.freeze(Object.keys(DEFAULT_CONFIG.states))
 // A fresh, deeply-mutable copy of the defaults to merge onto.
 function defaults() {
   return {
-    linear: { ...DEFAULT_CONFIG.linear, labelsByKind: { ...DEFAULT_CONFIG.linear.labelsByKind } },
+    linear: { ...DEFAULT_CONFIG.linear, labelsByKind: { ...DEFAULT_CONFIG.linear.labelsByKind }, severityLabels: { ...DEFAULT_CONFIG.linear.severityLabels } },
     intake: {
       label: DEFAULT_CONFIG.intake.label,
       bugLabels: [...DEFAULT_CONFIG.intake.bugLabels],
@@ -335,6 +336,15 @@ function mergeConfig(base, parsed) {
         if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
       }
       base.linear.labelsByKind = byKind
+    }
+    if (isObject(parsed.linear.severityLabels)) {
+      // Keyed by the Severity header's leading digit ("2 - High" → "2").
+      const bySeverity = {}
+      for (const digit of ['1', '2', '3', '4']) {
+        const value = parsed.linear.severityLabels[digit]
+        if (typeof value === 'string' && value.trim()) bySeverity[digit] = value.trim()
+      }
+      base.linear.severityLabels = bySeverity
     }
   }
 

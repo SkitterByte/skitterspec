@@ -355,6 +355,54 @@ test('the keyed pre-write check refuses a status the receiving type lacks, namin
   assert.match(r.out, /Service Request: "Resolved" \(states\.complete\) is not a status this type's workflow has/)
 })
 
+// `Severity:` lands in the site's own field (jira.severityField, opt-in) and
+// `Incident:` as a "Relates" link — skipped when the link is already there,
+// because a push runs per phase and Jira stacks duplicates.
+test('a fix spec pushes severity into severityField and a Relates link once', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-incident-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, CONFIG_FILE),
+    JSON.stringify({ jira: { siteUrl: SITE, projectKey: 'PROJ', severityField: 'customfield_10900' } }),
+  )
+  const incident = path.join(dir, 'specs', 'in-progress', 'incident-api-outage')
+  fs.mkdirSync(incident, { recursive: true })
+  fs.writeFileSync(
+    path.join(incident, '00-overview.md'),
+    '---\njira_identifier: "PROJ-42"\n---\n\n# Incident\n\n## Impact\n\nDown.\n',
+  )
+  const fix = path.join(dir, 'specs', 'in-progress', 'bug-fix-outage')
+  fs.mkdirSync(fix, { recursive: true })
+  fs.writeFileSync(
+    path.join(fix, '00-overview.md'),
+    '# Fix\n\n> **Severity:** 2 - High\n> **Incident:** incident-api-outage\n\n## Problem\n\nDown.\n',
+  )
+  fs.writeFileSync(path.join(fix, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** fix it.\n')
+  const adapter = fakeAdapter()
+  const minted = []
+  const links = []
+  let existingLinks = []
+  const original = adapter.createIssue.bind(adapter)
+  adapter.createIssue = async (input) => { minted.push(input.extraFields); return original(input) }
+  adapter.listRelatedLinks = async () => existingLinks
+  adapter.createRelatedLink = async (key, target) => { links.push([key, target]); return { added: true } }
+  const plan = await run(['plan', 'bug-fix-outage', '--skip-state-check', '--json'], dir)
+  fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+  const r = await run(['apply', 'bug-fix-outage', '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(minted[0], { customfield_10900: '2 - High' })
+  assert.strictEqual(links.length, 1)
+  assert.strictEqual(links[0][1], 'PROJ-42')
+  // A link already on the issue is the skip condition — no duplicate stacked.
+  existingLinks = ['PROJ-42']
+  links.length = 0
+  const plan2 = await run(['plan', 'bug-fix-outage', '--skip-state-check', '--json'], dir)
+  fs.writeFileSync(path.join(dir, 'plan2.json'), plan2.out)
+  const r2 = await run(['apply', 'bug-fix-outage', '--plan', path.join(dir, 'plan2.json')], dir, { adapter })
+  assert.strictEqual(r2.code, 0, r2.out)
+  assert.strictEqual(links.length, 0)
+})
+
 test('apply over MCP writes nothing and hands the skill instructions (exit 0)', async () => {
   const dir = repoWithSpec()
   const plan = path.join(dir, 'plan.json')

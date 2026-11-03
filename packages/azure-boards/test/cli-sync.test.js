@@ -1139,6 +1139,62 @@ test('the keyed pre-write check refuses a state the receiving type lacks, naming
   assert.strictEqual(flat.code, 0, flat.out)
 })
 
+// The `Severity:` header lands in the built-in field and the `Incident:`
+// header as a Related link — push-time extras off the spec's own overview.
+test('a fix spec pushes severity and a Related link to its incident', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'az-incident-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ azure: { orgUrl: ORG, project: PROJECT } }))
+  const incident = path.join(dir, 'specs', 'in-progress', 'incident-api-outage')
+  fs.mkdirSync(incident, { recursive: true })
+  fs.writeFileSync(
+    path.join(incident, '00-overview.md'),
+    '---\nazure_identifier: "AB#42"\n---\n\n# Incident\n\n## Impact\n\nDown.\n',
+  )
+  const fix = path.join(dir, 'specs', 'in-progress', 'bug-fix-outage')
+  fs.mkdirSync(fix, { recursive: true })
+  fs.writeFileSync(
+    path.join(fix, '00-overview.md'),
+    '# Fix\n\n> **Type:** Bug\n> **Severity:** 2 - High\n> **Incident:** incident-api-outage\n\n## Problem\n\nDown.\n',
+  )
+  fs.writeFileSync(path.join(fix, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** fix it.\n')
+  const adapter = fakeAdapter()
+  const severities = []
+  const links = []
+  const original = adapter.createIssue.bind(adapter)
+  adapter.createIssue = async (input) => { severities.push(input.severity); return original(input) }
+  adapter.addRelatedLink = async (id, targetId) => { links.push([id, targetId]); return { added: true } }
+  const plan = await run(['plan', 'bug-fix-outage', '--skip-state-check', '--json'], dir)
+  fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+  const r = await run(['apply', 'bug-fix-outage', '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(severities[0], '2 - High')
+  assert.deepStrictEqual(links, [['101', '42']])
+  assert.match(r.out, /related link added: AB#42/)
+})
+
+test('an incident not linked yet is a line, never a failed push', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'az-incident-unlinked-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ azure: { orgUrl: ORG, project: PROJECT } }))
+  const fix = path.join(dir, 'specs', 'in-progress', 'bug-fix-outage')
+  fs.mkdirSync(fix, { recursive: true })
+  fs.writeFileSync(
+    path.join(fix, '00-overview.md'),
+    '# Fix\n\n> **Incident:** incident-api-outage\n\n## Problem\n\nDown.\n',
+  )
+  fs.writeFileSync(path.join(fix, '01-fix.md'), '# Phase 1 — Fix ⬜\n\n**Goal:** fix it.\n')
+  const adapter = fakeAdapter()
+  const links = []
+  adapter.addRelatedLink = async (...a) => { links.push(a); return { added: true } }
+  const plan = await run(['plan', 'bug-fix-outage', '--skip-state-check', '--json'], dir)
+  fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+  const r = await run(['apply', 'bug-fix-outage', '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(links.length, 0)
+  assert.match(r.out, /related incident incident-api-outage is not linked yet — link skipped/)
+})
+
 test('states asks every configured type once, workItemTypeByKind included', async () => {
   const dir = repoWithSpec({
     config: { azure: { orgUrl: ORG, project: PROJECT, workItemType: 'User Story', childType: 'Task', workItemTypeByKind: { bug: 'Bug', hotfix: 'Bug' } } },

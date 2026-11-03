@@ -29,6 +29,8 @@ const path = require('node:path')
 
 const {
   effectiveStates,
+  specHeaders,
+  linkedIncident,
   push,
   recordPush,
   readBase,
@@ -194,12 +196,27 @@ function specKindOf(snapshotDir) {
   return 'feature'
 }
 
-function applyOps({ adapter, config, out, kind = 'feature' }) {
+function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }) {
   // The mint type for THIS spec's kind (its folder prefix), falling back to
   // the one configured type. The twin search uses the same type, so a bug
   // never refuses over a feature that happens to share its title.
   const mintType =
     (config.azure.workItemTypeByKind && config.azure.workItemTypeByKind[kind]) || config.azure.workItemType
+  // Push-time extras off the spec's own headers: `Severity:` lands in the
+  // built-in field, `Incident:` as a Related link. Neither is a synced field,
+  // so neither touches the stored-base hashes.
+  const severity = snapshotDir ? specHeaders(snapshotDir, config).severity : null
+  const incident = snapshotDir ? linkedIncident(snapshotDir, config) : null
+  const relateToIncident = async (idOrIdentifier) => {
+    if (!incident) return
+    if (!incident.identifier) {
+      if (out) out.write(`  !! related incident ${incident.name} is not linked yet — link skipped\n`)
+      return
+    }
+    if (typeof adapter.addRelatedLink !== 'function') return
+    const r = await adapter.addRelatedLink(apiId(idOrIdentifier), apiId(incident.identifier))
+    if (out && r && r.added) out.write(`  related link added: ${incident.identifier}\n`)
+  }
   // Per-type resolution: statesByType[type] overlays states, and null means
   // "send no state for this bucket" — a deliberate skip, not a gap.
   const stateFor = (bucket, type) => {
@@ -234,6 +251,21 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
       return result
     }
   }
+  // The same shape for Severity: a type without the field refuses the whole
+  // patch, and a missing severity field is a cosmetic gap where the rest of
+  // the push is not. Only the severity-naming refusal is retried.
+  const skippingRefusedSeverity = async (input, send) => {
+    if (input.severity === undefined) return send(input)
+    try {
+      return await send(input)
+    } catch (error) {
+      if (!/severity/i.test(String(error && error.message))) throw error
+      const { severity: dropped, ...rest } = input
+      const result = await send(rest)
+      if (out) out.write(`  !! severity skipped: this type has no Severity field — the rest of the push landed\n`)
+      return result
+    }
+  }
   return {
     prevalidateStates: (buckets) => {
       for (const bucket of buckets) {
@@ -257,10 +289,12 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
           assigneeId: issue && issue.assignee ? issue.assignee : undefined,
           workItemType: mintType,
           areaPath: config.azure.areaPath || undefined,
+          severity: severity != null ? severity : undefined,
         },
-        (input) => adapter.createIssue(input),
+        (input) => skippingRefusedSeverity(input, (i) => adapter.createIssue(i)),
       )
       await settle(created.id, issue && issue.state, mintType)
+      await relateToIncident(created.id)
       return created
     },
     updateIssue: async (existing, issue) => {
@@ -269,10 +303,14 @@ function applyOps({ adapter, config, out, kind = 'feature' }) {
       // Null is meaningful here — it is how Boards unassigns — so the key is
       // forwarded whenever the plan carries it, never truthiness-tested.
       if ('assignee' in issue) updates.assigneeId = issue.assignee ?? null
+      if (severity != null) updates.severity = severity
       if (Object.keys(updates).length) {
-        await skippingRefusedAssignee(updates, (input) => adapter.updateIssue(apiId(existing.identifier), input))
+        await skippingRefusedAssignee(updates, (input) =>
+          skippingRefusedSeverity(input, (i) => adapter.updateIssue(apiId(existing.identifier), i)),
+        )
       }
       await settle(existing.identifier, issue.state, mintType)
+      await relateToIncident(existing.identifier)
     },
     mintSubIssue: async (parentId, sub) => {
       const created = await adapter.createSubIssue(apiId(parentId), {
@@ -569,7 +607,7 @@ async function specSyncApply(dir, config, specArg, flags, out, err) {
       snapshotDir,
       plan,
       adapter: cred.adapter,
-      ops: applyOps({ adapter: cred.adapter, config, out, kind: specKindOf(snapshotDir) }),
+      ops: applyOps({ adapter: cred.adapter, config, out, kind: specKindOf(snapshotDir), snapshotDir }),
       forceNew: !!flags.forceNew,
       program: PROGRAM,
     })

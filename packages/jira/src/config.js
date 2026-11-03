@@ -39,7 +39,7 @@ const DEFAULT_CONFIG = Object.freeze({
   // (`feature`/`bug`/`hotfix`/`chore`, from the spec folder's prefix), falling
   // back to `issueType` — `{ "bug": "Bug" }` files bug specs as Jira Bugs.
   // Empty means one type for everything, as before.
-  jira: Object.freeze({ siteUrl: '', projectKey: '', issueType: 'Task', subtaskType: 'Subtask', issueTypeByKind: Object.freeze({}) }),
+  jira: Object.freeze({ siteUrl: '', projectKey: '', issueType: 'Task', subtaskType: 'Subtask', issueTypeByKind: Object.freeze({}), severityField: '' }),
   // A spec is a Jira ISSUE; each phase a SUBTASK of it. `tasks` selects how the
   // phase's checkboxes reach that subtask's description (as an ADF task list —
   // live checkboxes, still a read-only mirror).
@@ -147,6 +147,7 @@ function mergeConfig(base, parsed) {
     assign(base.jira, parsed.jira, 'projectKey', 'string?')
     assign(base.jira, parsed.jira, 'issueType', 'string')
     assign(base.jira, parsed.jira, 'subtaskType', 'string')
+    assign(base.jira, parsed.jira, 'severityField', 'string?')
     if (isObject(parsed.jira.issueTypeByKind)) {
       // Only the kinds a spec folder can actually be — an unknown key is
       // dropped, matching the other providers' by-kind validation.

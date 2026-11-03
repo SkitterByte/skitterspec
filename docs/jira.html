@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-jira/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 79243cb4855d
+verified: 1c9203068a48
 -->
 <html lang="en">
 <head>
@@ -603,7 +603,7 @@ verified: 79243cb4855d
       <p class="lede">Jira has no "set the status" field. An issue moves along the workflow your project defines, so the engine resolves the transition that reaches the mapped status — and when none does, it <strong>refuses and names what is available</strong>. It never path-finds through intermediate statuses on your behalf.</p>
     </div>
 
-    <p class="reveal">The mapping lives in config: <span class="mono">states</span> names the Jira status for each lifecycle bucket — <span class="mono">To&nbsp;Do</span> / <span class="mono">In&nbsp;Progress</span> / <span class="mono">Done</span> by default, with <span class="mono">cancelled</span> also defaulting to <span class="mono">Done</span>, because default Jira workflows carry no Cancelled status. The names must match the project's statuses exactly, and the check runs <em>before</em> anything is written: Jira only rejects an unknown status at transition time, after the description write has already landed, so an unchecked push would half-apply.</p>
+    <p class="reveal">The mapping lives in config: <span class="mono">states</span> names the Jira status for each lifecycle bucket — <span class="mono">To&nbsp;Do</span> / <span class="mono">In&nbsp;Progress</span> / <span class="mono">Done</span> by default, with <span class="mono">cancelled</span> also defaulting to <span class="mono">Done</span>, because default Jira workflows carry no Cancelled status. Where one issue type's workflow differs, <span class="mono">statesByType</span> overlays the map per type — and a bucket mapped to <span class="mono">null</span> sends no status at all. The names must match the project's statuses exactly, and the check runs <em>before</em> anything is written, <strong>per issue type</strong> against that type's own workflow: Jira only rejects an unknown status at transition time, after the description write has already landed, so an unchecked push would half-apply.</p>
 
     <div class="win reveal" style="margin-top:26px;" aria-label="Terminal showing the state-check refusal">
       <div class="win-bar">
@@ -622,7 +622,9 @@ verified: 79243cb4855d
       </div>
     </div>
 
-    <p class="reveal" style="margin-top:22px;">That is the <span class="mono">--workspace-states</span> idiom: <span class="mono">plan</span> refuses to run until the configured names have been checked against the project's real ones (<span class="mono">skitterspec-jira spec-sync states --json</span> prints exactly the array it wants). <span class="mono">/spec-push</span> does the fetch for you, so nothing changes if you drive sync through the skill; a script calling the CLI directly passes the file itself.</p>
+    <p class="reveal" style="margin-top:22px;">That is the <span class="mono">--workspace-states</span> idiom: <span class="mono">plan</span> refuses to run until the configured names have been checked against the project's real ones (<span class="mono">skitterspec-jira spec-sync states --json</span> prints exactly the per-type map it wants; a flat array from an older engine is still accepted and checked as the union). <span class="mono">/spec-push</span> does the fetch for you, so nothing changes if you drive sync through the skill; a script calling the CLI directly passes the file itself.</p>
+
+    <p class="reveal" style="margin-top:22px;">Two spec headers also reach Jira on push. <span class="mono">&gt; **Severity:**</span> writes the field <span class="mono">jira.severityField</span> names (opt-in — a site's own Severity custom field; unset, the header stays repo-only). <span class="mono">&gt; **Incident:** incident-&lt;name&gt;</span> on a fix spec adds a <span class="mono">Relates</span> issue link to that incident's issue — one-way, and skipped when the link already exists, since a push runs per phase.</p>
   </div>
 </section>
 
@@ -778,7 +780,7 @@ skitterspec-jira spec-sync <span class="p">credentials set</span></div>
           <tr><td class="cmd">spec-sync (jira) stamp &lt;spec&gt;</td><td>Write issue keys into a spec's frontmatter (<span class="mono">--issue PROJ-123</span>, <span class="mono">--sub ref=KEY</span>). The MCP path's last step — or a manual link.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (jira) record &lt;spec&gt;</td><td>Record the base snapshot that later pushes diff against.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (jira) normalize &lt;spec&gt;</td><td>Print the spec's local projection as JSON, the way the mirror will store it.</td><td class="folder">internal</td></tr>
-          <tr><td class="cmd">spec-sync (jira) states</td><td>The project's status names — <span class="mono">--json</span> prints the bare array <span class="mono">--workspace-states</span> consumes.</td><td class="folder">/spec-push · you</td></tr>
+          <tr><td class="cmd">spec-sync (jira) states</td><td>The project's status names — <span class="mono">--json</span> prints the per-type map <span class="mono">--workspace-states</span> consumes.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (jira) list</td><td>Every spec issue the project holds — key, status, title and the local spec name to paste into <span class="mono">/spec-start</span>. Read-only.</td><td class="folder">/spec-list · you</td></tr>
 
           <tr class="grp-row"><td colspan="3">Setup &amp; health</td></tr>

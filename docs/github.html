@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-github/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 79243cb4855d
+verified: 1c9203068a48
 -->
 <html lang="en">
 <head>
@@ -582,7 +582,7 @@ verified: 79243cb4855d
       </div>
       <div class="own-card own-pull">
         <div class="oh"><span class="d"></span>GitHub-native · left alone</div>
-        <p>Milestones, other labels, the board's other fields, discussion. Yours to set on GitHub; one-way sync neither pushes nor reads them — the only labels it sets are its own spec/phase markers and, when <span class="mono">labelsByKind</span> maps one, the spec kind's label.</p>
+        <p>Milestones, other labels, the board's other fields, discussion. Yours to set on GitHub; one-way sync neither pushes nor reads them — the only labels it sets are its own spec/phase markers, the spec kind's label when <span class="mono">labelsByKind</span> maps one, and the severity's when <span class="mono">severityLabels</span> maps the spec's <span class="mono">Severity:</span> header (keyed by its leading digit). A <span class="mono">statesByKind</span> entry can route one spec kind's buckets to different Status columns (<span class="mono">null</span> sends none), and a fix spec's <span class="mono">Incident:</span> header rides in the generated body as a <span class="mono">Related incident: #N</span> line, which GitHub backlinks on the incident's own timeline.</p>
       </div>
       <div class="own-card own-both">
         <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>

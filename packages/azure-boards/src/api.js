@@ -236,6 +236,9 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
     if (input.assigneeId !== undefined) {
       add('/fields/System.AssignedTo', input.assigneeId == null ? '' : input.assigneeId)
     }
+    if (input.severity !== undefined && input.severity !== null) {
+      add('/fields/Microsoft.VSTS.Common.Severity', input.severity)
+    }
     if (input.areaPath) add('/fields/System.AreaPath', input.areaPath)
     return ops
   }
@@ -295,14 +298,41 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
       return item
     },
 
-    async createIssue({ title, description, assigneeId, workItemType, areaPath }) {
+    async createIssue({ title, description, assigneeId, workItemType, areaPath, severity }) {
       const created = await request(
         'POST',
         `${projectBase}/wit/workitems/$${encodeURIComponent(workItemType)}`,
-        { body: itemPatch({ title, description, assigneeId, areaPath }, bodyFieldFor(workItemType)), patch: true },
+        { body: itemPatch({ title, description, assigneeId, areaPath, severity }, bodyFieldFor(workItemType)), patch: true },
       )
       if (!created || created.id == null) throw new Error('Azure DevOps returned no work item for the create')
       return { id: String(created.id), identifier: identifierOf(created.id), url: urlOf(created.id) }
+    },
+
+    /**
+     * Add a `System.LinkTypes.Related` relation from one work item to another.
+     * Idempotent at the caller's level: Azure refuses a relation that already
+     * exists, and that exact refusal comes back as `{ added: false,
+     * already: true }` rather than an error — a re-push is not a failure.
+     */
+    async addRelatedLink(id, targetId) {
+      try {
+        await request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(numId(id))}`, {
+          body: [
+            {
+              op: 'add',
+              path: '/relations/-',
+              value: { rel: 'System.LinkTypes.Related', url: itemApiUrl(numId(targetId)) },
+            },
+          ],
+          patch: true,
+        })
+      } catch (error) {
+        if (/already exists|relation.*exist/i.test(String(error && error.message))) {
+          return { added: false, already: true }
+        }
+        throw error
+      }
+      return { added: true }
     },
 
     async createSubIssue(parentId, { title, description, childType, areaPath }) {

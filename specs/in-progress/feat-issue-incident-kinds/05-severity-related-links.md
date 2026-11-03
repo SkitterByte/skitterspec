@@ -2,42 +2,47 @@
 github_issue_id: "#90"
 ---
 
-# Phase 5 — Severity + related links on push ⬜
+# Phase 5 — Severity + related links on push ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the push writes the `Severity:` header and the `Incident:` link,
 one-way, on every provider that has a home for them.
 
 ## Tasks
 
-- [ ] Header parsing (sync-core): read `> **Severity:**` and
-      `> **Incident:**` off the spec overview into the normalized projection
-- [ ] Azure: write `Microsoft.VSTS.Common.Severity` on create and update
-      **where the mint type has the field** (reuse the existing field-presence
-      check, cli-sync.js:1330 area); a type without it skips silently
-- [ ] Azure: resolve the `Incident:` spec name to its work item id (via the
-      target spec's stamped identifier) and add a `System.LinkTypes.Related`
-      relation (extend the existing relations machinery,
-      `packages/azure-boards/src/api.js:146-312`); already-present link is a
-      no-op
-- [ ] Jira: opt-in `jira.severityField` (field id; header value written
-      verbatim); add a "Relates" issue link to the incident's issue
-- [ ] Linear: opt-in `linear.severityLabels` (digit "1"–"4" → label name);
-      create a related-issue relation to the incident's issue
-- [ ] GitHub: opt-in `github.severityLabels` (digit → label name); the
-      generated fix-issue body gains a "Related incident: #N" line (backlinks
-      on the incident's timeline; regenerated every push)
-- [ ] Unlinked incident (no stamped identifier on the target spec): report in
-      the push output and carry on — never fail the push over the link
-- [ ] One-way rule holds: the link and severity are never read back; the
-      edited-in-tracker hash compare is unaffected (GitHub body line is part
-      of the generated body, so it participates in the hash like any other
-      projected line)
-- [ ] Tests: severity written where configured/field present, skipped
-      silently where not; related link added per provider; unlinked incident
-      reports and completes; spec with neither header pushes byte-for-byte as
-      today (stays-silent)
-- [ ] Docs: provider pages (azure-boards, github, jira, linear) — new config
-      keys and the two headers
-- [ ] Run `pnpm -r test` + typecheck — green
+- [x] Header parsing (sync-core): `specHeaders` reads `> **Severity:**` /
+      `> **Incident:**` off the overview, `linkedIncident` resolves the
+      incident's stamped identifier across buckets — push-time extras,
+      deliberately not keys on the synced field set
+- [x] Azure: `Microsoft.VSTS.Common.Severity` written on create and update; a
+      type without the field is retried once without it with a note (the
+      assignee-refusal pattern), never a field-presence pre-read
+- [x] Azure: `addRelatedLink` adds `System.LinkTypes.Related` after
+      mint/update; an already-present relation answers `already` instead of
+      erroring
+- [x] Jira: opt-in `jira.severityField` written via adapter `extraFields`; a
+      "Relates" issue link added once — `listRelatedLinks` makes the existing
+      link the skip condition, since Jira stacks duplicates and a push runs
+      per phase
+- [x] Linear: opt-in `linear.severityLabels` (digit → label name) resolved
+      beside the kind label; a "related" issue relation via
+      `issueRelationCreate`, duplicate answered as `already`
+- [x] GitHub: opt-in `github.severityLabels` (digit → label name); the
+      `Related incident: <identifier|name>` line is part of the **projection**
+      (all providers), so the stored base, the plan and the tracker hash the
+      same bytes — on GitHub the `#N` backlinks on the incident's timeline
+- [x] Unlinked incident: reported in the push output
+      (`not linked yet — link skipped`), push completes
+- [x] One-way rule holds: nothing is read back into the repo; the hash
+      compare is unaffected because the body line is projected, not appended
+      at send time
+- [x] Tests: sync-core header/resolution/projection suite
+      (`sync-incident-headers.test.js`, stays-silent included); azure severity
+      + Related link + unlinked-incident line; jira severityField + Relates
+      dedupe; github severity label + body cross-reference; linear severity
+      label + relation
+- [x] Docs: azure-boards (statesByType + per-type check + headers), jira,
+      github, linear pages updated, `verified:` bumped
+- [x] Run `pnpm -r test` + typecheck — green (packages 0 failures, root 4,225
+      pass; no typecheck script in this repo)
