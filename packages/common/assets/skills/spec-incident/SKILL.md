@@ -37,6 +37,28 @@ Ask for exactly these, batched, with nothing speculative:
 A root cause is **not** grilled: nobody has it yet, and the Timeline is where
 the investigation lands as it happens.
 
+### No live outage to record — route to the right door
+
+This is the costliest door to enter wrongly — no backlog stop, no review page,
+straight into `specs/in-progress/` — so the grill's own answers are also its
+exit. When items 1 and 2 establish there is **no outage to record** — nothing
+is down or degraded, it never was live, or it is a risk rather than an event —
+propose the right door instead of writing an incident
+(`.claude/rules/spec-planning.md` carries the full routing matrix):
+
+- a **defect** → **`/spec-bug`**, or **`/spec-hotfix`** when it is on a
+  released version;
+- anything else → **`/spec`**, whose kind proposal picks feature, chore or
+  issue from there.
+
+**A past outage someone wants a record of stays an incident**: "it is over" is
+not "it never happened" — the signal is *no outage to record*, not *no outage
+now*. This check is the grill's existing questions read honestly, never an
+extra round trip, and the hand-off contract is the same as everywhere else:
+confirm first, naming the signal in the user's own words; a decline carries
+this skill on; on a confirmed switch invoke the destination skill in-session,
+seeded with everything already established.
+
 ## 2. Write it, in flight
 
 Pick a short kebab name prefixed `incident-` (e.g. `incident-api-outage`).

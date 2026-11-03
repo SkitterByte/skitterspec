@@ -61,6 +61,25 @@ test('/spec-hotfix watches for incident and routes down when the tag is wrong', 
   assert.match(text, /Always confirm; never silently switch/)
 })
 
+test('/spec-incident routes down when the grill finds no outage to record', () => {
+  const text = skill('spec-incident')
+  assert.match(text, /### No live outage to record/)
+  assert.match(text, /`\/spec-bug`/)
+  assert.match(text, /`\/spec-hotfix`/)
+  assert.match(text, /\*\*`\/spec`\*\*/, 'anything else routes to /spec')
+  assert.match(text, /never an\s+extra round trip/i, 'the check reuses the grill, keeping it fast')
+  assert.match(text, /confirm first/i)
+})
+
+// STAYS-SILENT (negative-checks.md rule 3): a finished outage is still an
+// incident — the routing fires on "no outage to record", never on "not down
+// right now", so a retro record is not bounced to the wrong door.
+test('a past outage someone wants recorded stays an incident', () => {
+  const text = skill('spec-incident')
+  assert.match(text, /past outage .*stays an incident/i)
+  assert.match(text, /no outage to record.*not.*no outage\s+now/is)
+})
+
 test('the routing matrix lives once, in spec-planning.md', () => {
   const text = planning()
   assert.match(text, /### Kind routing/, 'the canonical section exists')
