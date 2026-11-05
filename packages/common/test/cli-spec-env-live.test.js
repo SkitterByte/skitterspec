@@ -373,6 +373,36 @@ test('stays silent: a spec already holding the instance falls back to the report
   }
 })
 
+// STAYS-SILENT: a held workbench makes the ambiguity moot. The candidates ask
+// exists to name the one thing standing between a bare take and acting — but
+// with the instance held, naming a spec changes nothing: every take is refused.
+// Asking "which spec" here sends the reader off to name one and get blocked,
+// while the report underneath already carries the real answer (in-flight).
+// Seen live 2026-11-05: a blocked release left the workbench held, and the
+// bare form asked the reader to choose between 17 worktrees.
+test('stays silent: a held workbench reports without asking, even with several worktrees', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    // A second provisioned spec — the bare form WOULD be ambiguous if the
+    // workbench were free, which is what makes this the held-case guard.
+    const specDir = path.join(dir, 'specs', 'in-progress', 'feat-y')
+    fs.mkdirSync(specDir, { recursive: true })
+    fs.writeFileSync(path.join(specDir, '00-overview.md'), '# Y\n\n> **Stack:** worktree\n')
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-q', '-m', 'second spec')
+    git(dir, 'worktree', 'add', '-q', '-b', 'feat/y', path.resolve(dir, `../${path.basename(dir)}-wt`, 'y'))
+
+    await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+
+    const out = await runQuiet(['spec-env', 'live', '--dir', dir])
+    assert.match(out, /in-flight:\s+feat-x/)
+    assert.doesNotMatch(out, /specs have worktrees/, 'no ask — naming a spec could change nothing')
+    assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'feat/x', 'unchanged')
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('stays silent: a hand-switched primary checkout falls back to the report', async () => {
   const { dir } = scaffoldRepoWithSpecWorktree()
   try {

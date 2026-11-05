@@ -5311,6 +5311,19 @@ function liveGrammar(dir, config, positional) {
  * would be a second copy free to drift from the first.
  */
 function bareLive(dir, config) {
+  // The workbench must be FREE, not merely un-refused — and it is asked FIRST,
+  // before which spec is even a question. A held instance refuses every bare
+  // take no matter what resolves, so the ambiguity note below would ask the
+  // reader to name a spec that naming cannot help — an ask that buries the
+  // report's own `in-flight:` line, which is the real answer. The report names
+  // the branch, the in-flight spec and the receipt, so it already says why
+  // nothing was taken, and a note here would only contradict it.
+  const primary = assertPrimaryOnMain(config, gitReader(dir))
+  const receipt = readReceipt(dir, config)
+  if (!primary.onBase || (receipt && receipt.spec)) {
+    return { action: 'status', specArg: undefined }
+  }
+
   const choice = provisionedSpecChoice(dir, config)
   if (!choice.folder) {
     // Several worktrees is the only cannot-tell the status report does not
@@ -5322,15 +5335,6 @@ function bareLive(dir, config) {
         '\n'
       : undefined
     return { action: 'status', specArg: undefined, note }
-  }
-
-  // The workbench must be FREE, not merely un-refused. When it is not, the
-  // report names the branch, the in-flight spec and the receipt — so it already
-  // says why nothing was taken, and a note here would only repeat it.
-  const primary = assertPrimaryOnMain(config, gitReader(dir))
-  const receipt = readReceipt(dir, config)
-  if (!primary.onBase || (receipt && receipt.spec)) {
-    return { action: 'status', specArg: undefined }
   }
 
   // Resolved here rather than passed as `undefined`, so the verb acts on the
