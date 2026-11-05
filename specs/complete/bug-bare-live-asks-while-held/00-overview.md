@@ -9,7 +9,7 @@ github_assignee_name: "Skitter Byte"
 
 > **Type:** Bug
 > **Name:** bug-bare-live-asks-while-held (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — fixing (red test added)
+> **Status:** Complete (2026-11-05)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-11-05
@@ -94,9 +94,14 @@ Red output:
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-11-05 | In Progress | in-progress | Reuben Greaves |
+| 2026-11-05 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-11-05 — Completed; fix committed on the page's verdict, tests green
+  (4245). Docs impact flagged index.html and reference.html as covering cli.js —
+  advisory re-reads; the recorded `Docs: none` decision stands (no documented
+  behaviour changed).
 - 2026-11-05 — Fixed: `bareLive()` now checks the workbench before resolving a
   spec, so a held instance gets the plain report; test green (4245 passed).
 - 2026-11-05 — Bug reproduced; failing test added (red). Root-caused from a
