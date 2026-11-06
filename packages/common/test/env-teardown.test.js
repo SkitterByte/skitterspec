@@ -345,3 +345,58 @@ test('a blocked plan carries an empty remoteCommands', () => {
   assert.strictEqual(p.blocked, true)
   assert.deepStrictEqual(p.remoteCommands, [])
 })
+
+// --- PR mode (land.strategy: "pr") ------------------------------------------
+
+const PR = { land: { strategy: 'pr', remote: 'origin', draft: true, specDocs: 'trunk' } }
+
+test('pr: an unlanded branch with an open PR is refused, naming the PR', () => {
+  const p = planDown(spec(), { ...config(), ...PR }, {}, CTX({
+    merged: false, unpushed: false, prState: 'open', prUrl: 'https://host/pr/12',
+  }))
+  assert.strictEqual(p.blocked, true)
+  assert.match(p.reason, /still open — see https:\/\/host\/pr\/12/)
+})
+
+test('pr: a cannot-tell lookup blocks — never -D on a failed lookup', () => {
+  const p = planDown(spec(), { ...config(), ...PR }, {}, CTX({
+    merged: false, unpushed: false, prState: 'cannot-tell',
+  }))
+  assert.strictEqual(p.blocked, true)
+  assert.match(p.reason, /cannot confirm the PR/)
+})
+
+test('pr: no PR and unmerged is a positive refusal, worded as such', () => {
+  const p = planDown(spec(), { ...config(), ...PR }, {}, CTX({
+    merged: false, unpushed: false, prState: 'none',
+  }))
+  assert.strictEqual(p.blocked, true)
+  assert.match(p.reason, /has no PR and is not merged/)
+})
+
+test('pr: a host-merged branch tears down with -D (merged was folded in)', () => {
+  // The CLI folds a merged PR into worktreeState.merged before planning, so the
+  // planner sees landed=true and the pr guard never fires.
+  const p = planDown(spec(), { ...config(), ...PR }, {}, CTX({
+    merged: true, unpushed: false, prState: 'merged',
+  }))
+  assert.strictEqual(p.blocked, false)
+  assert.ok(p.commands.includes('git branch -D feat/thing'))
+})
+
+test('pr: --force bypasses the guard and still plans -d, never -D', () => {
+  const p = planDown(spec(), { ...config(), ...PR }, { force: true }, CTX({
+    merged: false, unpushed: false, prState: 'cannot-tell',
+  }))
+  assert.strictEqual(p.blocked, false)
+  assert.ok(p.commands.includes('git branch -d feat/thing'))
+})
+
+test('pr stays-silent: a trunk config (no land key) is untouched by prState', () => {
+  // An unlanded, pushed branch under trunk config passes the guards exactly as
+  // before, even with a stray prState in the state object.
+  const p = planDown(spec(), config(), {}, CTX({
+    merged: false, unpushed: false, prState: 'cannot-tell',
+  }))
+  assert.strictEqual(p.blocked, false)
+})

@@ -59,6 +59,28 @@ function planDown(spec, config, flags, ctx) {
     if (config.guards.refuseTeardownIfUnpushed && worktreeState.unpushed && !landed) {
       return blocked('worktree has unpushed commits not yet merged into the base branch')
     }
+    // PR mode: `merged` already includes the host's answer (the CLI folds a
+    // merged PR in before planning), so an UNLANDED branch here really is one
+    // the host has not merged — or one whose lookup failed, and deleting a
+    // worktree on a lookup that failed is the destructive reading of an absence
+    // (`.claude/rules/negative-checks.md` rule 4). Refused at plan time rather
+    // than left to `git branch -d`'s error, because this message can name the
+    // PR and the exit where git's cannot. `--force` bypasses, and still plans
+    // `-d` below, so a genuinely unlanded branch fails loudly rather than
+    // being -D'd.
+    if (config.land && config.land.strategy === 'pr' && !landed) {
+      const prState = worktreeState.prState
+      const at = worktreeState.prUrl ? ` — see ${worktreeState.prUrl}` : ''
+      if (prState === 'open' || prState === 'draft') {
+        return blocked(
+          `the PR for ${spec.branch} is still ${prState}${at}; it lands when the host merges`,
+        )
+      }
+      if (prState === 'none') {
+        return blocked(`${spec.branch} has no PR and is not merged into the base branch`)
+      }
+      return blocked(`cannot confirm the PR for ${spec.branch} merged${at}`)
+    }
   }
 
   // Docker teardown only applies to a Docker-escalated spec. A worktree-only spec
@@ -160,6 +182,11 @@ function planDown(spec, config, flags, ctx) {
   // may well be on a remote this clone cannot see (pushed from another machine),
   // and the honest answer to "is there a remote branch?" is then "cannot tell",
   // which routes to doing nothing.
+  //
+  // A host that auto-deletes the branch on merge (common PR-mode hygiene) makes
+  // this delete a no-op: `git push --delete` errors with "remote ref does not
+  // exist", which is loud and destroys nothing. The skills report that as
+  // already-gone, never as a failed teardown.
   const remoteCommands = []
   const policy = (config.teardown && config.teardown.deleteRemoteBranch) || 'prompt'
   if (spec.branch && landed && worktreeState.remoteBranch && policy !== 'never') {

@@ -166,6 +166,7 @@ const {
 } = require('./env/mainguard.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env/integrate.js')
+const { parseRemote, prFor, prCreateCommand } = require('./env/host.js')
 const { planHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -1504,9 +1505,18 @@ function specEnvDown(dir, config, specArg, flags) {
     }
     const dst = dgit(['status', '--porcelain'])
     const contains = dgit(['branch', '--contains', spec.branch, '--list', dbase])
+    let clanded = Boolean(contains && contains.trim())
+    // PR mode: a squash or rebase merge never shows in ancestry, so the host's
+    // answer joins it. Asked only when ancestry says no — trunk projects never
+    // pay the subprocess, and cannot-tell adds nothing (landed stays false).
+    if (!clanded && config.land && config.land.strategy === 'pr') {
+      if (hostPrFor(dir, config.land.remote || 'origin', spec.branch).state === 'merged') {
+        clanded = true
+      }
+    }
     const dplan = planDownCheckout(spec, config, flags, {
       dirty: dst === null || dst.length > 0,
-      landed: Boolean(contains && contains.trim()),
+      landed: clanded,
       onBranch: dgit(['rev-parse', '--abbrev-ref', 'HEAD']) === spec.branch,
       base: dbase,
       checkoutPath: dir,
@@ -1538,7 +1548,19 @@ function specEnvDown(dir, config, specArg, flags) {
   }
 
   const base = resolveBaseBranch(config, gitReader(dir))
-  const worktreeState = worktreeGitState(spec.worktreePath, base)
+  let worktreeState = worktreeGitState(spec.worktreePath, base)
+  // PR mode: a squash or rebase merge leaves ancestry false forever, so the
+  // host's answer joins `merged`. Asked only when it matters — trunk projects
+  // never pay the subprocess, and an ancestry-merged branch has its answer.
+  // `prState` rides along so the planner's refusal can say what it saw.
+  if (
+    config.land && config.land.strategy === 'pr' &&
+    !worktreeState.merged && fs.existsSync(spec.worktreePath)
+  ) {
+    const pr = hostPrFor(spec.worktreePath, config.land.remote || 'origin', spec.branch)
+    worktreeState = { ...worktreeState, prState: pr.state, prUrl: pr.url }
+    if (pr.state === 'merged') worktreeState.merged = true
+  }
   const plan = planDown(spec, config, flags, {
     worktreeState,
     timestamp: compactTimestamp(),
@@ -2058,6 +2080,35 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
 }
 
+// Subprocess runner for the host adapter (`env/host.js`): never throws, and a
+// timeout bounds an `az`/`gh` call with no network — a hung lookup must not
+// hang a teardown. Every failure shape becomes { ok: false }, which the adapter
+// maps to cannot-tell.
+function hostExec(file, args, opts = {}) {
+  try {
+    const stdout = execFileSync(file, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 15000,
+      cwd: opts.cwd,
+    }).toString()
+    return { ok: true, stdout, stderr: '' }
+  } catch (error) {
+    return {
+      ok: false,
+      stdout: '',
+      stderr: (error.stderr && error.stderr.toString()) || error.message || '',
+    }
+  }
+}
+
+// The host's answer about `branch`'s PR, from the tree's own remote URL.
+// { state: merged|open|draft|none|cannot-tell, id, url } — cannot-tell on every
+// failure, including a remote this clone does not have.
+function hostPrFor(treePath, remote, branch) {
+  const url = gitReader(treePath)(['config', '--get', `remote.${remote}.url`])
+  return prFor(parseRemote(url), branch, hostExec, treePath)
+}
+
 // PR-mode integrate: plan rebase-onto-remote-base + consent-gated push + PR.
 // The skill runs what is printed, exactly as the ff path; the difference is
 // that nothing here moves the base branch — the host does, later.
@@ -2085,7 +2136,21 @@ function specEnvIntegratePr(dir, config, spec, base, flags) {
   const lsRemote = git(['ls-remote', remote, `refs/heads/${spec.branch}`])
   const pushedAtHead = Boolean(headSha && lsRemote && lsRemote.split(/\s/)[0] === headSha)
 
+  // The host's answer decides what the PR step says: no PR (or a merged old
+  // one) → the real create command; an open or draft PR → the push updates it,
+  // so a create would only error; cannot-tell → the placeholder, exactly the
+  // degraded shape an unknown host gets.
+  const remoteInfo = parseRemote(git(['config', '--get', `remote.${remote}.url`]))
+  const pr = remoteInfo.host ? hostPrFor(treePath, remote, spec.branch) : { state: 'cannot-tell', id: null, url: null }
+  let prCreate = null
+  if (pr.state === 'none' || pr.state === 'merged') {
+    prCreate = prCreateCommand(remoteInfo, { branch: spec.branch, base, draft: false })
+  } else if (pr.state === 'open' || pr.state === 'draft') {
+    prCreate = `# PR ${pr.id ? `#${pr.id} ` : ''}already ${pr.state} — the push updates it`
+  }
+
   const plan = planIntegratePr(spec, config, {
+    prCreateCommand: prCreate,
     worktreeState: { dirty },
     base,
     remote,
@@ -2116,6 +2181,12 @@ function specEnvIntegratePr(dir, config, spec, base, flags) {
   out.push(`  base:      ${remote}/${base}`)
   out.push(`  branch:    ${plan.branch}`)
   out.push(checkout ? `  checkout:  ${treePath}` : `  worktree:  ${treePath}`)
+  // Silent on cannot-tell: a line about a lookup that failed accuses nothing
+  // and helps nobody — the placeholder in the commands already degrades.
+  if (pr.state === 'none') out.push('  pr:        none yet')
+  else if (pr.state !== 'cannot-tell') {
+    out.push(`  pr:        ${pr.id ? `#${pr.id} ` : ''}${pr.state}${pr.url ? ` · ${pr.url}` : ''}`)
+  }
   out.push('')
   out.push('  run these (abort the rebase on conflict):')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)

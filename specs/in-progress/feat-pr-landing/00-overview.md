@@ -118,7 +118,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `land` config + PR integrate planner behind consent | ✅ | [01-land-config-and-pr-plan.md](01-land-config-and-pr-plan.md) |
-| 2 | Host adapter + host-aware landed check | ⬜ | [02-host-adapter-landed-check.md](02-host-adapter-landed-check.md) |
+| 2 | Host adapter + host-aware landed check | ✅ | [02-host-adapter-landed-check.md](02-host-adapter-landed-check.md) |
 | 3 | origin/base targets + mid-spec draft PR (`/spec-to-main`) | ⬜ | [03-origin-targets-draft-pr.md](03-origin-targets-draft-pr.md) |
 | 4 | Completion: disposition guard + two-run complete; cancel abandons PR | ⬜ | [04-completion-disposition-two-run.md](04-completion-disposition-two-run.md) |
 | 5 | Authoring paths: `land.specDocs` trunk · branch | ⬜ | [05-authoring-spec-docs-path.md](05-authoring-spec-docs-path.md) |
@@ -126,7 +126,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] None.
+- [ ] Before building phases 4–6: confirm LSC's actual flow — do they ever
+      merge via the host (a PR, even just for CI), and can they push `main`
+      directly? Trunk-with-merge-button still needs PR mode; local-ff trunk
+      makes phases 4–6 speculative for them (phases 1–3 hold regardless —
+      multi-dev trunk needs `origin/<base>` targets too).
 
 ## State log
 
@@ -137,6 +141,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-11-06 — Phase 2: the spec's proposed `--force-unlanded` flag was dropped
+  in favour of the existing `--force` — same bypass semantics, and the forced
+  plan still uses `-d` so a genuinely unlanded branch fails loudly. The
+  unlanded-PR refusal moved from "cannot confirm" blanket wording to naming the
+  actual state (open/draft/none/cannot-tell).
 - 2026-11-06 — Phase 1: `pushedAtHead` folds the push into the run list
   (via `remote`) rather than omitting it — the rebase may move the tip, and a
   no-op `push --force-with-lease` is harmless, so the positive signal is read

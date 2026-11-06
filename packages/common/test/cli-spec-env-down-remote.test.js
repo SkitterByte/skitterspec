@@ -163,3 +163,33 @@ test('a branch pushed WITHOUT -u is still found, via the remote list', async () 
   assert.match(out, /git push origin --delete feat\/thing/)
   cleanup(dir)
 })
+
+// --- land.strategy: "pr" -----------------------------------------------------
+
+const PR_CONFIG = { land: { strategy: 'pr' } }
+
+test('pr mode: an unmerged branch on an unknown host blocks rather than -d', async () => {
+  // The scaffold's remote is a local bare repo — no adapter recognises it, so
+  // the merged lookup is a cannot-tell, and cannot-tell must hold the worktree.
+  const { dir } = scaffold({ merge: false, config: PR_CONFIG })
+  try {
+    const out = await runQuiet(['spec-env', 'down', 'feat-thing', '--dir', dir])
+    assert.match(out, /blocked — cannot confirm the PR for feat\/thing merged/)
+    assert.doesNotMatch(out, /git branch -[dD] feat\/thing/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('pr mode stays silent on an ancestry-merged branch — no adapter needed', async () => {
+  // Landed the trunk way: merged into local main. The host is never asked and
+  // the teardown is exactly the trunk one, -D and the confirm-first remote line.
+  const { dir } = scaffold({ config: PR_CONFIG })
+  try {
+    const out = await runQuiet(['spec-env', 'down', 'feat-thing', '--dir', dir])
+    assert.doesNotMatch(out, /blocked/)
+    assert.ok(runTheseBlock(out).includes('git branch -D feat/thing'))
+  } finally {
+    cleanup(dir)
+  }
+})
