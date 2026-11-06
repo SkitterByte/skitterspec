@@ -11,7 +11,7 @@ covers:
   - packages/common/assets/commands/spec-remote-review.md
   - packages/common/assets/hooks/review-gate.cjs
   - packages/common/assets/rules/spec-reports.md
-verified: 3b3d14bd1151
+verified: b3dc1ac9b5d7
 -->
 <html lang="en">
 <head>
@@ -644,7 +644,7 @@ verified: 3b3d14bd1151
     <div class="section-head reveal">
       <div class="eyebrow">Where it sits in the loop</div>
       <h2>The work happens in a worktree. You shouldn't have to go there to read it.</h2>
-      <p class="lede">A phase is built on its own branch in its own checkout, so <span class="mono" style="font-size:.9em">git diff</span> in your terminal answers about the base branch. The page is rendered the moment the phase's tests go green — after the build, before the commit, which is exactly the moment a review is about.</p>
+      <p class="lede">A phase is built on its own branch in its own checkout, so <span class="mono" style="font-size:.9em">git diff</span> in your terminal answers about the base branch. (In PR mode the page measures against the remote image of base where its ref exists locally, so a stale local base never widens the range.) The page is rendered the moment the phase's tests go green — after the build, before the commit, which is exactly the moment a review is about.</p>
     </div>
 
     <div class="pipeline reveal">

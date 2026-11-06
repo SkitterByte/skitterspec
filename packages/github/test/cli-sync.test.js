@@ -857,3 +857,59 @@ test('list --next orders the backlog by board position and caps it', async () =>
   assert.deepStrictEqual(ids, ['#8', '#7'])
   assert.match(r.out, /next 2 in board order/)
 })
+
+test('released reads merge commits but counts a trailer-less one as transport', async () => {
+  const dir = repoWithSpec()
+  const git = gitRepo(dir)
+  const commit = (file, msg) => {
+    fs.writeFileSync(path.join(dir, file), msg)
+    git('add', '--', file)
+    git('commit', '-qm', msg)
+  }
+  commit('base.txt', 'chore: init\n\nRefs: #1')
+  git('switch', '-qc', 'feat/x')
+  commit('x.txt', 'feat: x\n\nRefs: #2')
+  git('switch', '-q', 'main')
+  // The host's merge-commit style, locally: --no-ff forces the merge commit.
+  git('merge', '-q', '--no-ff', '-m', 'Merged PR 7: feat x', 'feat/x')
+  const report = JSON.parse((await run(['released', 'HEAD', '--json'], dir)).out)
+  assert.deepStrictEqual(report.tickets.map((t) => t.ref).sort(), ['#1', '#2'],
+    'the branch commits still count')
+  assert.strictEqual(report.unreferenced, 0,
+    'the merge commit is neither a ticket nor an unreferenced gap')
+  assert.strictEqual(report.merges, 1, 'named as transport instead')
+})
+
+test('a merge commit carrying the only trailer still counts its ticket', async () => {
+  // A hand merge is where a ticket's only trailer sometimes lives — the reason
+  // merge commits are read rather than skipped with --no-merges.
+  const dir = repoWithSpec()
+  const git = gitRepo(dir)
+  const commit = (file, msg) => {
+    fs.writeFileSync(path.join(dir, file), msg)
+    git('add', '--', file)
+    git('commit', '-qm', msg)
+  }
+  commit('base.txt', 'chore: init\n\nRefs: #1')
+  git('switch', '-qc', 'feat/x')
+  commit('x.txt', 'feat: x — no trailer here')
+  git('switch', '-q', 'main')
+  git('merge', '-q', '--no-ff', '-m', 'merge feat x\n\nRefs: #2', 'feat/x')
+  const report = JSON.parse((await run(['released', 'HEAD', '--json'], dir)).out)
+  assert.deepStrictEqual(report.tickets.map((t) => t.ref).sort(), ['#1', '#2'])
+  assert.strictEqual(report.merges, 0, 'a trailer-carrying merge is a ticket, not transport')
+  assert.strictEqual(report.unreferenced, 1, 'the trailer-less branch commit is still the gap')
+})
+
+test('released counts every Refs: line in one squashed body', async () => {
+  const dir = repoWithSpec()
+  const git = gitRepo(dir)
+  // The shape a squash merge leaves when the host keeps commit bodies: one
+  // commit, several trailers.
+  fs.writeFileSync(path.join(dir, 's.txt'), 'squash')
+  git('add', '--', 's.txt')
+  git('commit', '-qm', 'feat: squashed PR (#7)\n\n* feat: a\n\nRefs: #5\n\n* fix: b\n\nRefs: #6')
+  const report = JSON.parse((await run(['released', 'HEAD', '--json'], dir)).out)
+  assert.deepStrictEqual(report.tickets.map((t) => t.ref).sort(), ['#5', '#6'])
+  assert.strictEqual(report.unreferenced, 0)
+})

@@ -146,7 +146,10 @@ function ticketsInRange(commits, options = {}) {
   let unreferenced = 0
   let ignored = 0
   let historical = 0
+  let merges = 0
+  let sawMergeFlag = false
   for (const commit of commits || []) {
+    if (commit && commit.isMerge !== undefined) sawMergeFlag = true
     if (onlyIgnoredPaths(commit && commit.paths, ignorePaths)) {
       // Not counted as unreferenced either: that number exists to surface a
       // MISSED trailer, and a paperwork commit is not a gap someone should hunt.
@@ -157,8 +160,15 @@ function ticketsInRange(commits, options = {}) {
     if (!refs.length) {
       // A POSITIVE signal, never an absence: only a trailer that actually
       // carries an older tracker's ref makes a commit historical. A commit with
-      // no trailer at all is still the gap `unreferenced` is there to name.
+      // no trailer at all is still the gap `unreferenced` is there to name —
+      // unless it is a MERGE commit, which is transport: under PR landing the
+      // host writes one per merged PR, and counting each as a missed trailer
+      // buries the real gaps. A merge that CARRIES a trailer still counted
+      // above, deliberately — a hand merge is where a ticket's only trailer
+      // sometimes lives, which is why these are read rather than skipped
+      // (`--no-merges` was tried and dropped for exactly that loss).
       if (foreign.some((p) => refsInBody(commit && commit.body, p).length)) historical++
+      else if (commit && commit.isMerge) merges++
       else unreferenced++
       continue
     }
@@ -171,6 +181,9 @@ function ticketsInRange(commits, options = {}) {
     total: (commits || []).length,
   }
   if (foreign.length) report.historical = historical
+  // Present only when a caller supplied the flag at all, so a provider that
+  // passes no parent info sees exactly the report shape it always did.
+  if (sawMergeFlag) report.merges = merges
   return report
 }
 

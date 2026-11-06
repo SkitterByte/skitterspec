@@ -94,10 +94,33 @@ and it is cancelled along with it.
 
 ## Why it exists
 
-The repo lands specs with `merge --ff-only`, so history is linear and branch
+In trunk mode the repo lands specs with `merge --ff-only`, so history is linear and branch
 names never reach it. The commit message is the only artefact that survives into
 the range a release scans, which is what lets
 `spec-sync released <range>` report the tickets a release contains. A ref that
 names the wrong ticket does not merely lose information — it moves a commit onto
 another ticket's release report, which is worse than the gap it was meant to
 close.
+
+## Merge styles, and which range still holds the trailers
+
+Trunk mode keeps this simple: `merge --ff-only` means linear history and every
+trailer survives. PR mode (`land.strategy: "pr"`) hands the merge to the host,
+and no merge style is required — teams pick their own — so the scan copes
+per style instead:
+
+- **Merge commits** — every branch commit survives, trailers intact. A
+  trailer-less merge commit counts as transport, never as an unreferenced gap —
+  while a merge that CARRIES a trailer still counts, because a hand merge is
+  where a ticket's only trailer sometimes lives.
+- **Squashed feature PRs** — the branch's commits collapse into one. The
+  trailers survive when the squash message keeps the commit bodies (GitHub:
+  the "Default commit message" squash setting; Azure DevOps: keep the commit
+  descriptions in the squash message) — `released` counts every `Refs:` line
+  in the one body, so a squashed PR carrying three commits still reports three
+  tickets.
+- **A squashed integration-to-release merge** — one commit for a whole cycle,
+  and attribution on the release branch is gone by construction. No setting
+  fixes that: point `released <range>` at the integration branch's range
+  instead, where the commits still exist. The range argument has always been
+  arbitrary, and this is what it is for.

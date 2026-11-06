@@ -7,7 +7,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 
 | Skill | Purpose | Status | Folder |
 |-------|---------|--------|--------|
-| `/spec` | (Feature/Chore/Issue) Grill to a clear shared understanding, propose the kind, write a groomed spec in its own worktree, then land it on the verdict | `Ready` (or `Draft`) | `specs/backlog/` (on the base branch, by a fast-forward) |
+| `/spec` | (Feature/Chore/Issue) Grill to a clear shared understanding, propose the kind, write a groomed spec in its own worktree, then land it on the verdict | `Ready` (or `Draft`) | `specs/backlog/` (on the base branch by a fast-forward — or riding the feature branch under `land.specDocs: "branch"`) |
 | `/spec-bug` | (Bug) Reproduce with a failing test, capture spec, drive red→green | `In Progress` | `specs/in-progress/` |
 | `/spec-hotfix` | (Hotfix) Fork a worktree from a release tag, red→green, land by tag + cherry-pick | `In Progress` | `specs/in-progress/` |
 | `/spec-incident` | (Incident) Capture a live outage as a record written during it — grill, write in flight, fixes as separate linked specs | `In Progress` | `specs/in-progress/` |

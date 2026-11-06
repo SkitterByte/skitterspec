@@ -275,8 +275,41 @@ through to a documented conservative default; see the field notes below.
   // Integration base branch — the branch specs fork from and land back onto
   // (used by the teardown "merged?" guard and, later, the integrate step).
   // Empty = auto-detect: origin/HEAD → main → master. Set it when your default
-  // branch isn't discoverable (e.g. no remote) or differs (trunk, develop).
+  // branch isn't discoverable (e.g. no remote) or differs (trunk, develop, a
+  // release-candidate branch).
   "baseBranch": "",
+
+  // How a finished branch reaches the base branch.
+  //   strategy: "ff" (default) — trunk-based: rebase + local `merge --ff-only`,
+  //             exactly as always; nothing below applies.
+  //             "pr" — the branch is pushed and a pull request carries it; the
+  //             base branch moves only when the host merges. `spec-env
+  //             integrate` then plans a rebase onto <remote>/<base> and a
+  //             consent-gated push (`--push` consents; already-pushed-at-HEAD
+  //             counts as consent; otherwise the plan holds), and a landed
+  //             branch prints the finish — base catch-up plus the deferred
+  //             `afterLand`. `--strategy ff|pr` on integrate overrides this per
+  //             invocation; an unrecognised config value falls back to "ff".
+  //   remote:   where the branch is pushed. Default "origin".
+  //   draft:    mid-spec PRs open as drafts (a draft cannot be merged, so
+  //             nothing downstream can close a ticket early); /spec-complete is
+  //             what flips the PR to ready. Default true.
+  //   specDocs: where a SPEC DOCUMENT lands under "pr". "trunk" (default) keeps
+  //             today's authoring land — needs direct push for docs. "branch"
+  //             has the spec ride the feature branch and land with the work's
+  //             PR; the backlog is then found via the tracker listing, and the
+  //             authoring worktree stays (it is the document's only copy).
+  // The merged-check and PR commands need the host's CLI — `gh` on github.com,
+  // `az` on dev.azure.com — detected from the remote URL, never configured. An
+  // unknown host (Enterprise/Server domains included) degrades to the ancestry
+  // test plus generic printed commands, and every failed lookup is a
+  // cannot-tell: teardown then HOLDS the worktree rather than guessing.
+  "land": {
+    "strategy": "ff",
+    "remote": "origin",
+    "draft": true,
+    "specDocs": "trunk"
+  },
 
   // Teardown safety. --force overrides both. refuseTeardownIfUnpushed only
   // blocks when the commits are ALSO unmerged into the base branch — a branch
@@ -288,9 +321,12 @@ through to a documented conservative default; see the field notes below.
   },
 
   // What teardown cleans up beyond this machine. Nothing publishes a spec
-  // branch for you, so a remote copy exists only because you pushed it by hand —
-  // and without this a completed spec leaves that merged branch on the remote
-  // forever. `deleteRemoteBranch`:
+  // branch unasked — a remote copy exists because you pushed it by hand, or
+  // because a PR-mode land pushed it behind the consent gate — and without this
+  // a completed spec leaves that merged branch on the remote forever. (Hosts
+  // that auto-delete the branch on merge make the planned delete an
+  // already-gone no-op, reported as such, never as a failure.)
+  // `deleteRemoteBranch`:
   //   "prompt"  (default) — plan `git push <remote> --delete <branch>` in its own
   //             "confirm with the user first" section; /spec-complete and
   //             /spec-cancel ask before running it.

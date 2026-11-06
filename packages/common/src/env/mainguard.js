@@ -13,6 +13,12 @@
  * worktree, and `/no-spec` gives mechanical work a branch of its own. So the
  * guard is a push toward a path that exists rather than a refusal with no exit.
  *
+ * PR MODE CHANGES THE REASON, NOT THE BEHAVIOUR. Under `land.strategy: "pr"`
+ * the base branch moves when the host merges, so "where work lands" is the
+ * remote — which makes a local write on base MORE wrong, not less: it can
+ * never reach the remote base except by a push nobody reviews. The guard fires
+ * exactly as before.
+ *
  * THE ACCUSATION IS POSITIVE, AND ALL FOUR PARTS MUST HOLD. It is
  * `.claude/rules/negative-checks.md` rule 1 applied to a check that stops
  * someone working: isolation is configured, the guard is not switched off, this

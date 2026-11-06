@@ -110,3 +110,10 @@ test('nameTickets reports a stamped spec with no url as url null, not a built on
   const specs = [{ spec: 'feat-c', bucket: 'complete', identifier: '#4' }]
   assert.deepEqual(nameTickets([{ ref: '#4', commits: 1 }], specs), [{ ref: '#4', commits: 1, spec: 'feat-c', url: null }])
 })
+
+test('a squashed body with several Refs: lines yields every ref (stays-silent on linear history: one line, one ref, unchanged)', () => {
+  const squashed = '* feat: a\n\nRefs: #5\n\n* fix: b\n\nRefs: #6\n'
+  assert.deepEqual(refsInBody(squashed, GITHUB_REF_RE), ['#5', '#6'])
+  // The linear-history shape is untouched by anything PR mode added.
+  assert.deepEqual(refsInBody('- did a thing\n\nRefs: #12', GITHUB_REF_RE), ['#12'])
+})

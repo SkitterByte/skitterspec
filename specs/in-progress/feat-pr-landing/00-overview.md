@@ -122,7 +122,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | origin/base targets + mid-spec draft PR (`/spec-to-main`) | ✅ | [03-origin-targets-draft-pr.md](03-origin-targets-draft-pr.md) |
 | 4 | Completion: disposition guard + two-run complete; cancel abandons PR | ✅ | [04-completion-disposition-two-run.md](04-completion-disposition-two-run.md) |
 | 5 | Authoring paths: `land.specDocs` trunk · branch | ✅ | [05-authoring-spec-docs-path.md](05-authoring-spec-docs-path.md) |
-| 6 | Release-scan hardening + rules, docs, report vocabulary | ⬜ | [06-release-scan-rules-docs.md](06-release-scan-rules-docs.md) |
+| 6 | Release-scan hardening + rules, docs, report vocabulary | ✅ | [06-release-scan-rules-docs.md](06-release-scan-rules-docs.md) |
 
 ## Open questions
 
@@ -159,6 +159,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-11-06 — Phase 6: the planned `--no-merges` was built and then **reverted
+  within the phase** — linear's stays-silent test proved it lossy (a hand
+  merge's trailer is sometimes a ticket's only one). Replaced with `%P` parent
+  info and transport counting: merge commits are read, a trailer-less one is
+  `merges`, never `unreferenced`, and the report field appears only when a
+  caller supplies parent info.
 - 2026-11-06 — Phase 4: no `complete-pr` verb — `integrate` carries both runs
   (a `(pr)` plan is run 1; a landed branch prints the finish), so completion
   re-runs one verb exactly as the ff flow always has. Disposition became its

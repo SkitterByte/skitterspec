@@ -1027,7 +1027,10 @@ function readCommitRange(dir, rangeArg, verb) {
 
   // NUL-delimited so a subject or body containing the separator cannot split a
   // record; RS between commits for the same reason.
-  const raw = git(['log', '--format=%H%x00%s%x00%b%x1e', range])
+  // %P rides with the sha so a merge commit can be told apart: its trailers
+  // are READ (a hand merge is where a ticket's only trailer sometimes lives),
+  // but a trailer-less merge counts as transport rather than a gap.
+  const raw = git(['log', '--format=%H %P%x00%s%x00%b%x1e', range])
   if (raw === null) {
     return { error: [`spec-sync ${verb}: git could not resolve the range "${range}".`] }
   }
@@ -1037,8 +1040,9 @@ function readCommitRange(dir, rangeArg, verb) {
     .map((r) => r.replace(/^\n/, ''))
     .filter((r) => r.trim())
     .map((record) => {
-      const [sha, subject, ...rest] = record.split('\x00')
-      return { sha, subject, body: rest.join('\x00') }
+      const [idLine, subject, ...rest] = record.split('\x00')
+      const [sha, ...parents] = String(idLine).trim().split(/\s+/).filter(Boolean)
+      return { sha, isMerge: parents.length > 1, subject, body: rest.join('\x00') }
     })
 
   // What each commit CHANGED, so bookkeeping can be told from shipped work. A
@@ -1104,6 +1108,7 @@ async function specSyncReleased(dir, config, rangeArg, flags, out) {
   // MISSED trailer looks identical, so silence here would read as "everything is
   // accounted for".
   lines.push(`  ${report.unreferenced} commit(s) carry no ref`)
+  if (report.merges) lines.push(`  ${report.merges} merge commit(s) — transport, not counted as gaps`)
   // A filter that removes commits without saying so reads as "there was nothing
   // there". Named only when it actually fired — on a project with no paperwork
   // in the range there is nothing to disclose.

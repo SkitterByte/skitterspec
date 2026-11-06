@@ -158,7 +158,10 @@ test('spec-planning.md keeps arm-nothing, with the better reason', () => {
 
 test("spec-planning.md's skill table row says where the spec lands", () => {
   assert.match(PLANNING, /\| `\/spec` \|.*in its own worktree.*\|/)
-  assert.match(PLANNING, /on the base branch, by a fast-forward/)
+  // Both lanes, since land.specDocs: the fast-forward default and the
+  // ride-the-branch exception.
+  assert.match(PLANNING, /on the base branch by a fast-forward/)
+  assert.match(PLANNING, /riding the feature branch under `land\.specDocs: "branch"`/)
 })
 
 test('spec-env stage keeps its justification, replaced rather than dropped', () => {

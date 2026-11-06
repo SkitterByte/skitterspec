@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-azure-boards/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 1c9203068a48
+verified: b3dc1ac9b5d7
 -->
 <html lang="en">
 <head>
@@ -802,7 +802,7 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Reporting</td></tr>
           <tr><td class="cmd">spec-sync (azure) linked</td><td>Every spec and the item it is linked to — how much of the repo is mirrored. Offline.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync (azure) ref</td><td>The ticket for the commit you are writing, answered from the branch. Bare id on stdout only on success, so a substitution cannot splice an error into a commit body.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-sync (azure) released</td><td>The tickets a release contains, scanned from a commit range's <span class="mono">Refs: AB#n</span> trailers — an earlier tracker's <span class="mono">KEY-N</span> trailers count as historical, never as missing. <span class="mono">--json</span> names each ticket's spec and url, for your CI.</td><td class="folder">you · CI</td></tr>
+          <tr><td class="cmd">spec-sync (azure) released</td><td>The tickets a release contains, scanned from a commit range's <span class="mono">Refs: AB#n</span> trailers — an earlier tracker's <span class="mono">KEY-N</span> trailers count as historical, never as missing. A trailer-less merge commit counts as transport, never a gap; which range still holds the trailers under each merge style lives in <span class="mono">commit-trailers.md</span>. <span class="mono">--json</span> names each ticket's spec and url, for your CI.</td><td class="folder">you · CI</td></tr>
         </tbody>
       </table>
     </div>

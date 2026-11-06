@@ -931,12 +931,16 @@ function specSyncRef(dir, config, specArg, flags, out, err) {
 // `Refs:` trailers (kit `src/released.js` owns the parsing rules). Refs are
 // `#N`; an older tracker's `KEY-N` trailer — a repo that moved here from
 // Linear or Jira — counts as historical, never as a missed trailer.
+// Merge commits are READ, never skipped: a hand merge is where a ticket's only
+// trailer sometimes lives (--no-merges was tried and dropped for exactly that
+// loss). What changes is the counting — a trailer-less merge is transport, not
+// a gap — and %P is what lets ticketsInRange tell the two apart.
 function readCommitRange(dir, range) {
   const { execFileSync } = require('node:child_process')
   const SEP = '\0SKITTERSPEC\0'
   let raw
   try {
-    raw = execFileSync('git', ['-C', dir, 'log', `--format=%x00SKITTERSPEC%x00%H%n%B%x00END%x00`, '--name-only', range], {
+    raw = execFileSync('git', ['-C', dir, 'log', `--format=%x00SKITTERSPEC%x00%H %P%n%B%x00END%x00`, '--name-only', range], {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 64 * 1024 * 1024,
@@ -957,9 +961,10 @@ function readCommitRange(dir, range) {
       .map((l) => l.trim())
       .filter(Boolean)
     const nl = head.indexOf('\n')
-    const sha = head.slice(0, nl < 0 ? head.length : nl).trim()
+    const idLine = head.slice(0, nl < 0 ? head.length : nl).trim()
+    const [sha, ...parents] = idLine.split(/\s+/).filter(Boolean)
     const body = nl < 0 ? '' : head.slice(nl + 1)
-    commits.push({ sha, subject: body.split('\n')[0] || '', body, paths })
+    commits.push({ sha, isMerge: parents.length > 1, subject: body.split('\n')[0] || '', body, paths })
   }
   return { ok: true, commits }
 }
@@ -985,6 +990,7 @@ function specSyncReleased(dir, config, rangeArg, flags, out) {
   for (const t of report.tickets) lines.push(`  ${t.ref}  (${t.commits} commit(s))${t.spec ? `  ${t.spec}` : ''}`)
   if (!report.tickets.length) lines.push('  no referenced issues')
   if (report.unreferenced) lines.push(`  ${report.unreferenced} commit(s) carry no Refs: trailer`)
+  if (report.merges) lines.push(`  ${report.merges} merge commit(s) — transport, not counted as gaps`)
   if (report.historical) lines.push(`  ${report.historical} commit(s) reference an earlier tracker (KEY-N)`)
   if (report.ignored) lines.push(`  ${report.ignored} bookkeeping commit(s) ignored`)
   out.write(lines.join('\n') + '\n')

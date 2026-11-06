@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-linear/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 1c9203068a48
+verified: b3dc1ac9b5d7
 -->
 <html lang="en">
 <head>
@@ -867,7 +867,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Reporting — the ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-sync linked</td><td>Every spec and the issue it is linked to — how much of the repo is mirrored.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync ref</td><td>The ticket for the commit you are writing, answered from the branch.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-sync released</td><td>The tickets a release contains, scanned from a commit range — each with its spec and url. <span class="mono">--json</span> is what your CI pipes into its own tooling to record a release or a deploy.</td><td class="folder">you · CI</td></tr>
+          <tr><td class="cmd">spec-sync released</td><td>The tickets a release contains, scanned from a commit range (trailer-less merges count as transport; per-merge-style range guidance in <span class="mono">commit-trailers.md</span>) — each with its spec and url. <span class="mono">--json</span> is what your CI pipes into its own tooling to record a release or a deploy.</td><td class="folder">you · CI</td></tr>
         </tbody>
       </table>
     </div>
