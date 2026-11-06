@@ -1,15 +1,17 @@
 ---
 github_identifier: "#106"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/106"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # PR landing mode — land by pushing a branch, not by fast-forwarding main
 
 > **Type:** Feature
 > **Name:** feat-pr-landing (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-11-06)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-11-06
 > **Area:** packages/common/src/env (integrate.js, teardown.js, resolve.js, config.js, cli.js), packages/common/assets/skills (spec, spec-start, spec-to-main, spec-complete, spec-cancel), packages/common/assets/rules (spec-planning.md, spec-reports.md), packages/common/assets/core/env.config.md, packages/provider-kit/src/released.js, docs/*.html
 > **Stack:** worktree
@@ -131,6 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-11-06 | Ready | backlog | Reuben Greaves |
+| 2026-11-06 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
