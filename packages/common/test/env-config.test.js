@@ -531,3 +531,51 @@ test('provider env defaults fill unset isolation keys, and the project file wins
   assert.strictEqual(base.branch.identifierField, '')
   assert.deepStrictEqual(base.spec.companionPaths, [])
 })
+
+// --- land (PR landing mode) --------------------------------------------------
+
+test('land: defaults to trunk-based ff with nothing configured (stays-silent)', () => {
+  const dir = tmpDir()
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.land, {
+    strategy: 'ff',
+    remote: 'origin',
+    draft: true,
+    specDocs: 'trunk',
+  })
+})
+
+test('land: accepts the pr strategy and its fields', () => {
+  const dir = tmpDir()
+  writeEnvConfig(dir, {
+    land: { strategy: 'pr', remote: 'upstream', draft: false, specDocs: 'branch' },
+  })
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(config.land, {
+    strategy: 'pr',
+    remote: 'upstream',
+    draft: false,
+    specDocs: 'branch',
+  })
+})
+
+test('land: an unrecognised enum falls through to the default, never literal', () => {
+  const dir = tmpDir()
+  // "PR" / "pull-request" / "Branch" are typos — the conservative value stands:
+  // a typo costs a local land that was meant to push, never an unmeant push.
+  writeEnvConfig(dir, { land: { strategy: 'PR', specDocs: 'Branch', remote: '', draft: 'yes' } })
+  const { config } = loadEnvConfig(dir)
+  assert.strictEqual(config.land.strategy, 'ff')
+  assert.strictEqual(config.land.specDocs, 'trunk')
+  assert.strictEqual(config.land.remote, 'origin')
+  assert.strictEqual(config.land.draft, true)
+})
+
+test('land: its keys are known to the unknown-key report', () => {
+  const { collectUnknownKeys } = require('../src/env/config.js')
+  const unknown = collectUnknownKeys(
+    { land: { strategy: 'pr', remote: 'origin', draft: true, specDocs: 'trunk', prr: 1 } },
+    DEFAULT_CONFIG,
+  )
+  assert.deepStrictEqual(unknown, ['land.prr'])
+})

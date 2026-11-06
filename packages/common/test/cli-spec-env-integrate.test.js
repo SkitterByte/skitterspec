@@ -311,3 +311,63 @@ test('integrate says nothing about afterLand when the key is absent', async () =
     cleanup(dir)
   }
 })
+
+// --- land.strategy: "pr" -----------------------------------------------------
+
+test('pr mode: plans fetch + rebase onto the remote base and holds the push', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree({ land: { strategy: 'pr' } })
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /spec-env integrate: feat-x \(pr\)/)
+    assert.match(out, new RegExp(`git -C ${worktree} fetch origin main`))
+    assert.match(out, new RegExp(`git -C ${worktree} rebase origin/main`))
+    // Held, not planned to run: the push sits under the consent section…
+    assert.match(out, /with your consent/)
+    assert.match(out, new RegExp(`git -C ${worktree} push --force-with-lease -u origin feat/x`))
+    // …and nothing moves the base branch locally.
+    assert.doesNotMatch(out, /merge --ff-only/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('pr mode: --push folds the push and PR line into the run list', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree({ land: { strategy: 'pr' } })
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--push', '--dir', dir])
+    assert.doesNotMatch(out, /with your consent/)
+    assert.match(out, new RegExp(`git -C ${worktree} push --force-with-lease -u origin feat/x`))
+    assert.match(out, /# open a pull request: feat\/x -> main/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('pr mode: an explicit ff strategy is byte-identical to no land key (stays-silent)', async () => {
+  const a = scaffoldRepoWithWorktree()
+  const b = scaffoldRepoWithWorktree({ land: { strategy: 'ff' } })
+  try {
+    const plain = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', a.dir])
+    const explicit = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', b.dir])
+    // The plans differ only in the tmp paths they name — normalise those away.
+    const norm = (s, r) => s.split(r.dir).join('<dir>').split(r.worktree).join('<wt>')
+    assert.strictEqual(norm(plain, a), norm(explicit, b))
+  } finally {
+    cleanup(a.dir)
+    cleanup(b.dir)
+  }
+})
+
+test('pr mode: afterLand is announced as deferred, never printed to run', async () => {
+  const { dir } = scaffoldRepoWithWorktree({
+    land: { strategy: 'pr' },
+    afterLand: ['pnpm db:migrate'],
+  })
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /after-land commands are deferred/)
+    assert.doesNotMatch(out, /pnpm db:migrate/)
+  } finally {
+    cleanup(dir)
+  }
+})

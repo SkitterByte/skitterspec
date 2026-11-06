@@ -116,6 +116,90 @@ function planIntegrateCheckout(spec, config, ctx) {
   }
 }
 
+/**
+ * Pure integrate planner for PR mode (`land.strategy: "pr"`).
+ *
+ * Landing is not a local fast-forward: the branch is rebased onto the REMOTE
+ * image of base, pushed, and a pull request carries it the rest of the way —
+ * the base branch moves only when the host merges. So the plan ends in a push,
+ * and the push is consent-gated with exactly `planHotfixLand`'s shape: a branch
+ * already on the remote at HEAD is honoured as the positive signal (`via:
+ * "remote"`), `--push` is the operator's recorded yes (`via: "push"`), and
+ * otherwise the plan HOLDS (`via: "hold"`) — the push and PR commands go in
+ * `holdCommands` for the skill to print, run by nobody until someone consents.
+ *
+ * `afterLand` is DEFERRED, never emitted: base has not moved when these
+ * commands finish, so the project's after-land steps belong to the completion
+ * run that follows the host merge. `afterLandPending: "after-merge"` is how the
+ * plan says so.
+ *
+ * One planner serves both modes: `treePath` is the worktree in worktree mode
+ * and the primary checkout in checkout mode, and `onBranch` is asked only where
+ * the caller supplies it (checkout mode), exactly as `planIntegrateCheckout`
+ * asks it.
+ *
+ * ctx: { worktreeState: { dirty }, base, remote, treePath, aheadOfRemoteBase,
+ *        pushedAtHead, push, prCreateCommand, onBranch }
+ */
+function planIntegratePr(spec, config, ctx) {
+  const { worktreeState = {}, base, treePath, onBranch } = ctx || {}
+  const remote = (ctx && ctx.remote) || 'origin'
+  const branch = spec.branch
+  const result = {
+    blocked: false, noop: false, reason: null, commands: [],
+    push: null, holdCommands: [],
+    afterLand: noAfterLand(), afterLandPending: 'after-merge',
+    base, branch, remote,
+  }
+
+  // "Already landed" is answered FIRST, as the checkout planner does: a landed
+  // spec needs no action wherever the tree happens to be standing, and
+  // /spec-complete re-runs integrate on exactly that state. ONLY an explicit
+  // false lands here: `aheadOfRemoteBase: null` means `<remote>/<base>` could
+  // not be read (never fetched, no network), which is an absence — so it plans
+  // rather than claiming landed (`.claude/rules/negative-checks.md` rule 4);
+  // the plan's own fetch is what makes the next run answerable.
+  if (ctx.aheadOfRemoteBase === false) {
+    return { ...result, noop: true }
+  }
+  if (worktreeState.dirty) {
+    return { ...result, blocked: true, reason: 'worktree has uncommitted changes — commit the completion first' }
+  }
+  if (onBranch === false) {
+    return { ...result, blocked: true, reason: `the checkout is not on ${branch} — switch to it before landing` }
+  }
+
+  const commands = [
+    `git -C ${treePath} fetch ${remote} ${base}`,
+    `git -C ${treePath} rebase ${remote}/${base}`,
+  ]
+  // --force-with-lease because the rebase rewrites; -u so the first push sets
+  // the upstream the unpushed guard reads.
+  const pushCommand = `git -C ${treePath} push --force-with-lease -u ${remote} ${branch}`
+  // Composed by the host adapter where one exists; until the caller supplies
+  // one, a comment line that cannot be run by accident.
+  const prCommand = (ctx && ctx.prCreateCommand)
+    || `# open a pull request: ${branch} -> ${base} on ${remote} (gh / az repos)`
+
+  if (ctx.pushedAtHead || ctx.push) {
+    // Consent is satisfied — by the operator having already published the
+    // branch (the positive signal), or by `--push`. Pushing after the rebase is
+    // safe either way: a no-op push says "Everything up-to-date".
+    const via = ctx.pushedAtHead ? 'remote' : 'push'
+    return {
+      ...result,
+      commands: [...commands, pushCommand, prCommand],
+      push: { kind: 'push', via, remote, branch },
+    }
+  }
+  return {
+    ...result,
+    commands,
+    push: { kind: 'push', via: 'hold', remote, branch },
+    holdCommands: [pushCommand, prCommand],
+  }
+}
+
 // The after-land half of a plan: `config.afterLand`, to run in `cwd` (the
 // primary checkout, standing on base) once the land commands have succeeded.
 // A blocked plan carries the empty form — nothing landed, so nothing follows.
@@ -164,4 +248,4 @@ function noAfterLand() {
   return { cwd: null, commands: [], entries: [], range: null }
 }
 
-module.exports = { planIntegrate, planIntegrateCheckout, afterLandFor, rangeOf }
+module.exports = { planIntegrate, planIntegrateCheckout, planIntegratePr, afterLandFor, rangeOf }

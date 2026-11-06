@@ -41,6 +41,9 @@
  *               // spec alongside its own folder (provider-neutral; {slug} and
  *               // {identifier} expand); empty = the spec folder only
  *     baseBranch: "",          // "" = auto-detect (origin/HEAD → main → master)
+ *     land:     { strategy, remote, draft, specDocs },  // how a branch lands:
+ *               // "ff" (default, trunk-based local fast-forward) or "pr"
+ *               // (push + pull request; base moves when the host merges)
  *     guards:   { refuseTeardownIfDirty, refuseTeardownIfUnpushed },
  *     teardown: { deleteRemoteBranch },
  *     live:     { migrations: [ "glob", ... ] }  // migration globs → `live take`
@@ -206,6 +209,21 @@ const DEFAULT_CONFIG = Object.freeze({
   spec: Object.freeze({ companionPaths: Object.freeze([]) }),
   // Integration base branch. Empty = auto-detect (origin/HEAD → main → master).
   baseBranch: '',
+  // How a finished branch reaches the base branch. `strategy: "ff"` (the
+  // default) is trunk-based landing exactly as it has always been: rebase, then
+  // a local `merge --ff-only` — nothing changes for an installed repo on
+  // upgrade. `"pr"` lands by pushing the branch and opening a pull request on
+  // the host: the base branch moves only when the host merges, so integrate's
+  // plan ends in a consent-gated push (the hotfix pattern: already-pushed is
+  // honoured, `--push` is the recorded yes, otherwise the plan holds) and the
+  // project's `afterLand` commands are deferred to the completion run that
+  // follows the merge. `remote` names where the branch is pushed. `draft`
+  // opens mid-spec PRs as drafts (a draft cannot be merged, so nothing
+  // downstream can close a ticket early). `specDocs` decides where a spec
+  // DOCUMENT lands under "pr": "trunk" keeps today's authoring land (needs
+  // direct push for docs), "branch" has the spec ride the feature branch and
+  // land with the work's PR.
+  land: Object.freeze({ strategy: 'ff', remote: 'origin', draft: true, specDocs: 'trunk' }),
   // `mainIsLandingZone` defaults ON wherever isolation is configured, matching
   // the review gate's precedent: the push toward not working on the base branch
   // is the normal path, and stepping off it is the deliberate act. That does
@@ -370,6 +388,7 @@ function defaults() {
     branch: { ...DEFAULT_CONFIG.branch },
     spec: { companionPaths: [] },
     baseBranch: DEFAULT_CONFIG.baseBranch,
+    land: { ...DEFAULT_CONFIG.land },
     guards: { ...DEFAULT_CONFIG.guards },
     teardown: { ...DEFAULT_CONFIG.teardown },
     review: { ...DEFAULT_CONFIG.review, reviewers: [] },
@@ -644,6 +663,23 @@ function mergeConfig(base, parsed) {
   // session, never a spec's work landing somewhere the author did not choose.
   if (parsed.mode === 'worktree' || parsed.mode === 'checkout') {
     base.mode = parsed.mode
+  }
+
+  // The enums fall through to their defaults on an unrecognised value, like
+  // `mode` above — and the fallback direction matters the same way: "ff" is the
+  // conservative strategy (nothing leaves the machine), so a typo ("PR",
+  // "pull-request") costs a local land that was meant to be a push, never a
+  // push that was meant to stay local. Same for `specDocs`: "trunk" is today's
+  // behaviour.
+  if (isObject(parsed.land)) {
+    if (parsed.land.strategy === 'ff' || parsed.land.strategy === 'pr') {
+      base.land.strategy = parsed.land.strategy
+    }
+    assign(base.land, parsed.land, 'remote', 'string')
+    assign(base.land, parsed.land, 'draft', 'boolean')
+    if (parsed.land.specDocs === 'trunk' || parsed.land.specDocs === 'branch') {
+      base.land.specDocs = parsed.land.specDocs
+    }
   }
 
   if (isObject(parsed.guards)) {

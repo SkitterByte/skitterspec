@@ -165,7 +165,7 @@ const {
   mainGuardStatus,
 } = require('./env/mainguard.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
-const { planIntegrate, planIntegrateCheckout } = require('./env/integrate.js')
+const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env/integrate.js')
 const { planHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -1901,7 +1901,7 @@ function specEnvPrune(dir, config, flags) {
 // Integrate: land a spec's worktree branch onto the base branch (rebase + ff).
 // Queries git for the facts, prints the plan / block / no-op. The /spec-complete
 // skill executes the printed commands (and aborts a conflicting rebase).
-function specEnvIntegrate(dir, config, specArg) {
+function specEnvIntegrate(dir, config, specArg, flags = {}) {
 
   // `dir` is already anchored on the primary checkout by the dispatch, so it is
   // both where the spec resolves and the target of the fast-forward — /spec-complete
@@ -1910,6 +1910,14 @@ function specEnvIntegrate(dir, config, specArg) {
   // resolveSpecWithWorktree offers its worktree as a fallback search location.
   const spec = resolveSpecWithWorktree(dir, config, specArg)
   const base = resolveBaseBranch(config, gitReader(dir))
+
+  // PR mode replaces the local land in BOTH modes: the branch is pushed and a
+  // pull request carries it, so nothing below (live handling included) applies —
+  // the primary checkout is never switched and base never moves here.
+  if (config.land && config.land.strategy === 'pr') {
+    specEnvIntegratePr(dir, config, spec, base, flags)
+    return
+  }
 
   // Checkout mode short-circuits everything below. The live handling in
   // particular reads "primary is on the spec's branch" as a live session — true
@@ -2048,6 +2056,81 @@ function specEnvIntegrate(dir, config, specArg) {
   out.push('  run these (abort the rebase on conflict):')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
+}
+
+// PR-mode integrate: plan rebase-onto-remote-base + consent-gated push + PR.
+// The skill runs what is printed, exactly as the ff path; the difference is
+// that nothing here moves the base branch — the host does, later.
+function specEnvIntegratePr(dir, config, spec, base, flags) {
+  const checkout = config.mode === 'checkout'
+  const treePath = checkout ? dir : spec.worktreePath
+  if (!checkout && !fs.existsSync(spec.worktreePath)) {
+    process.stdout.write(
+      `spec-env integrate: ${spec.folder} has no worktree — nothing to integrate.\n`,
+    )
+    return
+  }
+  const remote = (config.land && config.land.remote) || 'origin'
+  const git = gitReader(treePath)
+  const status = git(['status', '--porcelain'])
+  const dirty = status !== null && status.length > 0
+  // Measured against the REMOTE image of base — local base is allowed to go
+  // stale in PR mode. null = no such ref here yet (never fetched): unknown, so
+  // the planner plans rather than claiming landed.
+  const aheadRaw = git(['rev-list', '--count', `${remote}/${base}..HEAD`])
+  const aheadOfRemoteBase = aheadRaw === null ? null : Number(aheadRaw) > 0
+  // A branch already on the remote at this exact HEAD is the positive signal
+  // that the operator published it — the consent the hold otherwise waits for.
+  const headSha = git(['rev-parse', 'HEAD'])
+  const lsRemote = git(['ls-remote', remote, `refs/heads/${spec.branch}`])
+  const pushedAtHead = Boolean(headSha && lsRemote && lsRemote.split(/\s/)[0] === headSha)
+
+  const plan = planIntegratePr(spec, config, {
+    worktreeState: { dirty },
+    base,
+    remote,
+    treePath,
+    aheadOfRemoteBase,
+    pushedAtHead,
+    push: flags.push === true,
+    onBranch: checkout
+      ? git(['rev-parse', '--abbrev-ref', 'HEAD']) === spec.branch
+      : undefined,
+  })
+
+  if (plan.blocked) {
+    process.stdout.write(`spec-env integrate: blocked — ${plan.reason}.\n`)
+    return
+  }
+  if (plan.noop) {
+    process.stdout.write(
+      `spec-env integrate: ${spec.folder} already landed on ${remote}/${base} — ` +
+        'nothing to integrate.\n',
+    )
+    return
+  }
+
+  const out = []
+  out.push(`spec-env integrate: ${spec.folder} (pr)`)
+  out.push('')
+  out.push(`  base:      ${remote}/${base}`)
+  out.push(`  branch:    ${plan.branch}`)
+  out.push(checkout ? `  checkout:  ${treePath}` : `  worktree:  ${treePath}`)
+  out.push('')
+  out.push('  run these (abort the rebase on conflict):')
+  for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  if (plan.push.via === 'hold') {
+    out.push('')
+    out.push('  then, to publish the branch and open the PR — with your consent')
+    out.push('  (or re-run with --push to plan it all as one list):')
+    for (const cmd of plan.holdCommands) out.push(`    ${cmd}`)
+  }
+  if (Array.isArray(config.afterLand) && config.afterLand.length) {
+    out.push('')
+    out.push('  after-land commands are deferred: base moves when the host merges,')
+    out.push('  and the completion run that follows the merge plans them.')
+  }
+  process.stdout.write(out.join('\n') + '\n')
 }
 
 // The files a land brings into the base branch: `base...branch`, merge-base to
@@ -5869,7 +5952,7 @@ async function specEnv(rest) {
       await specEnvConnect(dir, config, positional[0])
       break
     case 'integrate':
-      specEnvIntegrate(dir, config, positional[0])
+      specEnvIntegrate(dir, config, positional[0], flags)
       break
     case 'hotfix':
       specEnvHotfix(dir, config, positional, flags)

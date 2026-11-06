@@ -117,7 +117,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `land` config + PR integrate planner behind consent | ⬜ | [01-land-config-and-pr-plan.md](01-land-config-and-pr-plan.md) |
+| 1 | `land` config + PR integrate planner behind consent | ✅ | [01-land-config-and-pr-plan.md](01-land-config-and-pr-plan.md) |
 | 2 | Host adapter + host-aware landed check | ⬜ | [02-host-adapter-landed-check.md](02-host-adapter-landed-check.md) |
 | 3 | origin/base targets + mid-spec draft PR (`/spec-to-main`) | ⬜ | [03-origin-targets-draft-pr.md](03-origin-targets-draft-pr.md) |
 | 4 | Completion: disposition guard + two-run complete; cancel abandons PR | ⬜ | [04-completion-disposition-two-run.md](04-completion-disposition-two-run.md) |
@@ -137,6 +137,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-11-06 — Phase 1: `pushedAtHead` folds the push into the run list
+  (via `remote`) rather than omitting it — the rebase may move the tip, and a
+  no-op `push --force-with-lease` is harmless, so the positive signal is read
+  as consent, not as "nothing to push".
 - 2026-11-06 — Spec created. Converged from a design review of what trunk-based
   assumptions cost a PR-based adopter (Azure DevOps first). Scope deliberately
   excludes the checkout model (tracker holds dormant specs): that needs a

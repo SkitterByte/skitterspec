@@ -174,3 +174,90 @@ test('conditional: a land where every entry skips still carries the section (cwd
   assert.strictEqual(p.afterLand.cwd, '/repo')
   assert.deepStrictEqual(p.afterLand.commands, [])
 })
+
+// --- planIntegratePr (land.strategy: "pr") ----------------------------------
+
+const { planIntegratePr } = require('../src/env/integrate.js')
+
+const PRCTX = (overrides = {}) => ({
+  worktreeState: { dirty: false },
+  base: 'main',
+  remote: 'origin',
+  treePath: '/wt/thing',
+  aheadOfRemoteBase: true,
+  pushedAtHead: false,
+  push: false,
+  ...overrides,
+})
+
+test('pr: holds by default — rebase planned, push and PR held for consent', () => {
+  const p = planIntegratePr(spec(), {}, PRCTX())
+  assert.strictEqual(p.blocked, false)
+  assert.strictEqual(p.noop, false)
+  assert.deepStrictEqual(p.commands, [
+    'git -C /wt/thing fetch origin main',
+    'git -C /wt/thing rebase origin/main',
+  ])
+  assert.deepStrictEqual(p.push, { kind: 'push', via: 'hold', remote: 'origin', branch: 'feat/thing' })
+  assert.strictEqual(p.holdCommands[0], 'git -C /wt/thing push --force-with-lease -u origin feat/thing')
+  assert.match(p.holdCommands[1], /^# open a pull request: feat\/thing -> main on origin/)
+})
+
+test('pr: --push folds the push and PR into the one command list', () => {
+  const p = planIntegratePr(spec(), {}, PRCTX({ push: true }))
+  assert.strictEqual(p.push.via, 'push')
+  assert.deepStrictEqual(p.holdCommands, [])
+  assert.deepStrictEqual(p.commands, [
+    'git -C /wt/thing fetch origin main',
+    'git -C /wt/thing rebase origin/main',
+    'git -C /wt/thing push --force-with-lease -u origin feat/thing',
+    '# open a pull request: feat/thing -> main on origin (gh / az repos)',
+  ])
+})
+
+test('pr: a branch already on the remote at HEAD is the consent (via remote)', () => {
+  const p = planIntegratePr(spec(), {}, PRCTX({ pushedAtHead: true }))
+  assert.strictEqual(p.push.via, 'remote')
+  assert.deepStrictEqual(p.holdCommands, [])
+  assert.ok(p.commands.some((c) => c.includes('push --force-with-lease')))
+})
+
+test('pr: a caller-supplied PR command replaces the placeholder', () => {
+  const p = planIntegratePr(spec(), {}, PRCTX({ push: true, prCreateCommand: 'gh pr create --fill' }))
+  assert.strictEqual(p.commands[p.commands.length - 1], 'gh pr create --fill')
+})
+
+test('pr: blocks on a dirty tree with the same reason as the ff planner', () => {
+  const p = planIntegratePr(spec(), {}, PRCTX({ worktreeState: { dirty: true } }))
+  assert.strictEqual(p.blocked, true)
+  assert.match(p.reason, /commit the completion first/)
+  assert.deepStrictEqual(p.commands, [])
+})
+
+test('pr: checkout mode blocks when the checkout is not on the branch', () => {
+  const p = planIntegratePr(spec(), {}, PRCTX({ treePath: '/repo', onBranch: false }))
+  assert.strictEqual(p.blocked, true)
+  assert.match(p.reason, /not on feat\/thing/)
+})
+
+test('pr: noop only on an explicit not-ahead — an unreadable remote base plans', () => {
+  const landed = planIntegratePr(spec(), {}, PRCTX({ aheadOfRemoteBase: false }))
+  assert.strictEqual(landed.noop, true)
+  assert.deepStrictEqual(landed.commands, [])
+  // null = <remote>/<base> could not be read. An absence is not evidence of a
+  // land, so the plan is emitted — its own fetch makes the next run answerable.
+  const unknown = planIntegratePr(spec(), {}, PRCTX({ aheadOfRemoteBase: null }))
+  assert.strictEqual(unknown.noop, false)
+  assert.ok(unknown.commands.length > 0)
+})
+
+test('pr: afterLand is deferred to the post-merge completion run, never emitted', () => {
+  const p = planIntegratePr(spec(), AFTER, PRCTX({ push: true }))
+  assert.deepStrictEqual(p.afterLand, NONE)
+  assert.strictEqual(p.afterLandPending, 'after-merge')
+})
+
+test('stays-silent: the ff planners ignore land config entirely', () => {
+  const prConfig = { land: { strategy: 'pr', remote: 'origin', draft: true, specDocs: 'trunk' } }
+  assert.deepStrictEqual(planIntegrate(spec(), prConfig, CTX()), planIntegrate(spec(), {}, CTX()))
+})
