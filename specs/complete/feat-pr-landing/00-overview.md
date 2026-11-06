@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-pr-landing (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-11-06)
+> **Status:** Complete (2026-11-06)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-11-06
@@ -156,9 +156,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-11-06 | Ready | backlog | Reuben Greaves |
 | 2026-11-06 | In Progress | in-progress | Reuben Greaves |
+| 2026-11-06 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
+- 2026-11-06 — Completed; all phases done, tests green.
 - 2026-11-06 — Phase 6: the planned `--no-merges` was built and then **reverted
   within the phase** — linear's stays-silent test proved it lossy (a hand
   merge's trailer is sometimes a ticket's only one). Replaced with `%P` parent
