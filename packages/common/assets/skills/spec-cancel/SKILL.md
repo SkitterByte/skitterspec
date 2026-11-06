@@ -210,6 +210,15 @@ only ordering that survives.
    copy of abandoned work. Seeing no such section here is the expected case, not
    a fault — and if the user wants the remote branch gone anyway, that is their
    call to make explicitly, not something to tidy away on their behalf.
+
+   **In PR mode the same confirm-first section may carry the PR abandon**
+   (`gh pr close` / `az repos pr update --status abandoned`): a cancelled spec
+   must not leave a live PR behind — it is noise with a merge button on it.
+   The teardown of an open-PR spec is refused unforced (the PR is named), so
+   this line appears on the forced run the refusal led to; ask before running
+   it like the delete above, and run the abandon **before** any remote branch
+   delete — closing the PR first is what stops the host complaining about a
+   deleted source branch.
 4. `skitterspec spec-env prune` — reap orphaned test-DB volumes that belong to no
    live spec (leftovers from declined/aborted teardowns or manual worktree
    removal). Show the orphan list and, **only on the user's confirmation**, run

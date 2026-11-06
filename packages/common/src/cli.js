@@ -35,6 +35,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'dev',
   'connect',
   'integrate',
+  'disposition',
   'hotfix',
   'live',
   'review',
@@ -166,7 +167,8 @@ const {
 } = require('./env/mainguard.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env/integrate.js')
-const { parseRemote, prFor, prCreateCommand, preferRemoteBase } = require('./env/host.js')
+const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
+const { collectDisposition } = require('./env/disposition.js')
 const { planHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -244,7 +246,11 @@ Usage:
                                 dev up <spec>     start host dev servers on the spec's ports
                                 dev down <spec>   stop the spec's host dev servers
                                 connect <spec>    expose a spec on the canonical ports (main = off)
-                                integrate <spec>  plan rebase + fast-forward onto the base branch
+                                integrate <spec>  plan the land: rebase + fast-forward, or in PR
+                                                  mode push + PR (--push, --draft, --strategy)
+                                disposition <spec>
+                                                  list unticked tasks, open phases and surfaced
+                                                  follow-ups to dispose before a PR goes ready
                                 hotfix land <spec>
                                                   release, push (--push), carry a hotfix to
                                                   the base branch (--plan, --also <tag>)
@@ -1571,16 +1577,23 @@ function specEnvDown(dir, config, specArg, flags) {
   // host's answer joins `merged`. Asked only when it matters — trunk projects
   // never pay the subprocess, and an ancestry-merged branch has its answer.
   // `prState` rides along so the planner's refusal can say what it saw.
+  let prAbandon = null
   if (
     config.land && config.land.strategy === 'pr' &&
     !worktreeState.merged && fs.existsSync(spec.worktreePath)
   ) {
-    const pr = hostPrFor(spec.worktreePath, config.land.remote || 'origin', spec.branch)
+    const remote = config.land.remote || 'origin'
+    const pr = hostPrFor(spec.worktreePath, remote, spec.branch)
     worktreeState = { ...worktreeState, prState: pr.state, prUrl: pr.url }
     if (pr.state === 'merged') worktreeState.merged = true
+    if (pr.state === 'open' || pr.state === 'draft') {
+      const info = parseRemote(gitReader(spec.worktreePath)(['config', '--get', `remote.${remote}.url`]))
+      prAbandon = prAbandonCommand(info, { branch: spec.branch, id: pr.id })
+    }
   }
   const plan = planDown(spec, config, flags, {
     worktreeState,
+    prAbandonCommand: prAbandon,
     timestamp: compactTimestamp(),
     composeFilePresent: composeFilePresent(dir, config),
   })
@@ -1954,7 +1967,21 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   // PR mode replaces the local land in BOTH modes: the branch is pushed and a
   // pull request carries it, so nothing below (live handling included) applies —
   // the primary checkout is never switched and base never moves here.
-  if (config.land && config.land.strategy === 'pr') {
+  //
+  // `--strategy` overrides the config per invocation — a team that lands one
+  // feature by direct merge and the next by PR picks at the land, not in a
+  // committed file. An unrecognised value REFUSES BY NAME rather than falling
+  // through: config enums fall back because a typo there must not strengthen a
+  // setting, but a flag is being typed right now and the typist can retype it —
+  // silently landing the other way is the worse answer.
+  if (flags.strategy !== undefined && flags.strategy !== 'ff' && flags.strategy !== 'pr') {
+    process.stdout.write(
+      `spec-env integrate: unknown --strategy "${flags.strategy}" — use ff or pr.\n`,
+    )
+    return
+  }
+  const strategy = flags.strategy || (config.land && config.land.strategy) || 'ff'
+  if (strategy === 'pr') {
     specEnvIntegratePr(dir, config, spec, base, flags)
     return
   }
@@ -2154,25 +2181,24 @@ function specEnvIntegratePr(dir, config, spec, base, flags) {
   const lsRemote = git(['ls-remote', remote, `refs/heads/${spec.branch}`])
   const pushedAtHead = Boolean(headSha && lsRemote && lsRemote.split(/\s/)[0] === headSha)
 
-  // The host's answer decides what the PR step says: no PR (or a merged old
-  // one) → the real create command; an open or draft PR → the push updates it,
-  // so a create would only error; cannot-tell → the placeholder, exactly the
-  // degraded shape an unknown host gets.
-  // `--draft` is the mid-spec form (/spec-to-main's PR-mode descendant): a
-  // draft cannot be merged, so nothing downstream can close a ticket early.
-  // Plain integrate is the landing verb and opens the PR ready.
+  // The host's answer decides what the PR step says — `prPlanCommand` owns the
+  // mapping (create · the-push-updates-it · flip-a-draft-ready · null for
+  // cannot-tell, which keeps the planner's degraded placeholder). `--draft` is
+  // the mid-spec form (/spec-to-main's PR-mode descendant): a draft cannot be
+  // merged, so nothing downstream can close a ticket early. Plain integrate is
+  // the landing verb, so a draft met without the flag is flipped ready.
   const draft = flags.draft === true
   const remoteInfo = parseRemote(git(['config', '--get', `remote.${remote}.url`]))
   const pr = remoteInfo.host ? hostPrFor(treePath, remote, spec.branch) : { state: 'cannot-tell', id: null, url: null }
-  let prCreate = null
-  if (pr.state === 'none' || pr.state === 'merged') {
-    prCreate = prCreateCommand(remoteInfo, { branch: spec.branch, base, draft })
-  } else if (pr.state === 'open' || pr.state === 'draft') {
-    prCreate = `# PR ${pr.id ? `#${pr.id} ` : ''}already ${pr.state} — the push updates it`
-  }
 
   const plan = planIntegratePr(spec, config, {
-    prCreateCommand: prCreate,
+    prCreateCommand: prPlanCommand(remoteInfo, pr, { branch: spec.branch, base, draft }),
+    // The finish half (printed when the host has merged): catch local base up
+    // in the primary checkout and run the deferred afterLand against the
+    // branch's own range — remote image first, local base as the fallback
+    // when the remote ref is not here.
+    primaryPath: dir,
+    changedFiles: landRange(git, `${remote}/${base}`, spec.branch) || landRange(git, base, spec.branch),
     worktreeState: { dirty },
     base,
     remote,
@@ -2190,10 +2216,15 @@ function specEnvIntegratePr(dir, config, spec, base, flags) {
     return
   }
   if (plan.noop) {
-    process.stdout.write(
+    // Landed on the host — completion run 2. The deferred afterLand comes due
+    // and local base wants catching up; the skill runs these, then its own
+    // finalise (bucket move, teardown).
+    const fout = [
       `spec-env integrate: ${spec.folder} already landed on ${remote}/${base} — ` +
-        'nothing to integrate.\n',
-    )
+        'finish what the merge deferred:',
+    ]
+    for (const cmd of plan.finish.commands) fout.push(`    ${cmd}`)
+    process.stdout.write(fout.join('\n') + '\n' + afterLandSection(plan.finish.afterLand))
     return
   }
 
@@ -2223,6 +2254,63 @@ function specEnvIntegratePr(dir, config, spec, base, flags) {
     out.push('  after-land commands are deferred: base moves when the host merges,')
     out.push('  and the completion run that follows the merge plans them.')
   }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
+// `spec-env disposition [<spec>] [--json]` — enumerate the loose ends a
+// completion must dispose before a PR goes ready: unticked tasks, phase-index
+// rows not ✅, surfaced follow-ups. Information only — it never refuses and
+// nothing gates on it; /spec-complete's PR-mode guard is the consumer, and the
+// deciding (tick · spin off · drop) is the operator's there.
+function specEnvDisposition(dir, config, specArg, flags = {}) {
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+  const tree = spec.worktreePath && fs.existsSync(spec.worktreePath) ? spec.worktreePath : dir
+  let folder = null
+  for (const bucket of ['in-progress', 'backlog', 'complete', 'cancelled']) {
+    const p = path.join(tree, 'specs', bucket, spec.folder)
+    if (fs.existsSync(path.join(p, '00-overview.md'))) {
+      folder = p
+      break
+    }
+  }
+  if (!folder) {
+    // A specless (/no-spec) branch, or a legacy bare-file spec: nothing to
+    // enumerate is a clean answer, not an error.
+    const msg = `spec-env disposition: ${spec.folder} — no spec documents found; nothing to enumerate.`
+    process.stdout.write(flags.json ? JSON.stringify({ spec: spec.folder, tasks: [], phases: [], followUps: [], clean: true }, null, 2) + '\n' : msg + '\n')
+    return
+  }
+  const overview = fs.readFileSync(path.join(folder, '00-overview.md'), 'utf-8')
+  const phases = fs
+    .readdirSync(folder)
+    .filter((f) => /^(?!00-)\d{2}-.*\.md$/.test(f))
+    .sort()
+    .map((f) => ({ file: f, content: fs.readFileSync(path.join(folder, f), 'utf-8') }))
+  const d = collectDisposition({ overview, phases })
+  if (flags.json) {
+    process.stdout.write(JSON.stringify({ spec: spec.folder, ...d }, null, 2) + '\n')
+    return
+  }
+  if (d.clean) {
+    process.stdout.write(
+      `spec-env disposition: ${spec.folder} — clean (no unticked tasks, no open phases, no surfaced follow-ups).\n`,
+    )
+    return
+  }
+  const out = [`spec-env disposition: ${spec.folder}`]
+  if (d.tasks.length) {
+    out.push(`  unticked tasks (${d.tasks.length}):`)
+    for (const t of d.tasks) out.push(`    ${t.file}:${t.line}  ${t.text}`)
+  }
+  if (d.phases.length) {
+    out.push(`  phases not ✅ (${d.phases.length}):`)
+    for (const p of d.phases) out.push(`    ${p.n}  ${p.title} — ${p.status}`)
+  }
+  if (d.followUps.length) {
+    out.push(`  follow-ups surfaced (${d.followUps.length}):`)
+    for (const f of d.followUps) out.push(`    ${f.text}`)
+  }
+  out.push('  dispose each before the PR goes ready: tick with evidence · spin off a ticket · drop with a reason.')
   process.stdout.write(out.join('\n') + '\n')
 }
 
@@ -5952,6 +6040,7 @@ async function specEnv(rest) {
     else if (args[i] === '--plan') flags.plan = true
     else if (args[i] === '--push') flags.push = true
     else if (args[i] === '--draft') flags.draft = true
+    else if (args[i] === '--strategy') flags.strategy = args[++i]
     else if (args[i] === '--from') flags.from = args[++i]
     else if (args[i] === '--session') flags.session = args[++i]
     else if (args[i] === '--path') flags.path = args[++i]
@@ -6050,6 +6139,9 @@ async function specEnv(rest) {
       break
     case 'integrate':
       specEnvIntegrate(dir, config, positional[0], flags)
+      break
+    case 'disposition':
+      specEnvDisposition(dir, config, positional[0], flags)
       break
     case 'hotfix':
       specEnvHotfix(dir, config, positional, flags)

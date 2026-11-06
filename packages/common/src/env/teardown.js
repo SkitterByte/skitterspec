@@ -211,6 +211,21 @@ function planDown(spec, config, flags, ctx) {
     }
   }
 
+  // A live PR left behind by a cancelled spec is noise with a merge button on
+  // it, so a FORCED teardown past an open/draft PR also plans the abandon —
+  // composed by the caller (the host adapter's business), quarantined with the
+  // remote delete because closing a shared PR reaches outside this machine.
+  // Unforced never gets here with an open PR (the guard above refused), and a
+  // missing command (unknown host, no id) plans nothing: the refusal/report
+  // already named the PR, and a person closes it.
+  if (
+    config.land && config.land.strategy === 'pr' &&
+    (worktreeState.prState === 'open' || worktreeState.prState === 'draft') &&
+    ctx && ctx.prAbandonCommand
+  ) {
+    remoteCommands.push(ctx.prAbandonCommand)
+  }
+
   return {
     blocked: false,
     reason: null,

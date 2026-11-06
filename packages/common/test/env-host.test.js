@@ -169,3 +169,23 @@ test('preferRemoteBase: pr mode takes the remote-tracking ref when it exists her
   assert.strictEqual(asked, false)
   assert.strictEqual(preferRemoteBase(cfg, null, withRef), null)
 })
+
+// --- prPlanCommand ---------------------------------------------------------------
+
+test('prPlanCommand maps every PR state to its one step', () => {
+  const { prPlanCommand } = require('../src/env/host.js')
+  const at = { branch: 'feat/x', base: 'main', draft: false }
+  // none / merged → a real create
+  assert.match(prPlanCommand(GH, { state: 'none' }, at), /^gh pr create/)
+  assert.match(prPlanCommand(GH, { state: 'merged' }, at), /^gh pr create/)
+  // open → the push updates it
+  assert.match(prPlanCommand(GH, { state: 'open', id: '7' }, at), /^# PR #7 already open/)
+  // draft wanted draft → same comment; draft wanted ready → the ready command
+  assert.match(prPlanCommand(GH, { state: 'draft', id: '7' }, { ...at, draft: true }), /already draft/)
+  assert.strictEqual(prPlanCommand(GH, { state: 'draft', id: '7' }, at), 'gh pr ready feat/x')
+  // azure draft with no id: a named manual step, never silence
+  assert.match(prPlanCommand(AZ, { state: 'draft', id: null }, at), /mark it ready on the host/)
+  // cannot-tell → null, the caller's placeholder stands
+  assert.strictEqual(prPlanCommand(GH, { state: 'cannot-tell' }, at), null)
+  assert.strictEqual(prPlanCommand(GH, null, at), null)
+})

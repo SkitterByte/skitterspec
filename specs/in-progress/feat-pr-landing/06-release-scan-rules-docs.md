@@ -15,13 +15,18 @@ report that says "fast-forward" now tells the truth in both modes.
       call (github, linear, jira, azure-boards `cli-sync.js`) — safe in trunk
       mode where merge commits do not exist. Merge commits therefore stop
       counting as `unreferenced` gaps.
-- [ ] Document the squash policy in `commit-trailers.md` and each provider's
-      docs page: squash merges keep `Refs:` only when the host's squash message
-      includes commit bodies (name the setting per host); otherwise put the ref
-      in the PR description and accept that `released` reports the squashed
-      commit by its PR, not per-commit. Closing keywords stay banned; `AB#123`
-      linking tokens are the host's own mechanism and are neither required nor
-      forbidden.
+- [ ] Document merge-style coping (never a required style — teams will not be
+      forced, 2026-11-06) in `commit-trailers.md` and each provider's docs page:
+      per style, which **range** still holds the trailers. Feature→integration
+      squashed → trailers survive when the squash message keeps commit bodies
+      (name the setting per host), and multiple `Refs:` lines in one squashed
+      body must all count — verify/extend `refsInBody` for that. Integration→
+      release squashed → attribution on the release branch is gone by
+      construction; the documented answer is to point `released <range>` at the
+      integration branch's range, which the tool already accepts. Merge
+      commits → `--no-merges` and everything survives. Closing keywords stay
+      banned; `AB#123` linking tokens are the host's own mechanism and are
+      neither required nor forbidden.
 - [ ] `spec-reports.md`: `Landed` row vocabulary gains `PR #N opened` /
       `PR #N (draft) updated` / `PR #N merged`; the banner and `Next` examples
       stay as they are (the wait contract is untouched by this spec).

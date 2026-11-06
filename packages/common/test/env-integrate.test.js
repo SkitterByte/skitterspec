@@ -261,3 +261,24 @@ test('stays-silent: the ff planners ignore land config entirely', () => {
   const prConfig = { land: { strategy: 'pr', remote: 'origin', draft: true, specDocs: 'trunk' } }
   assert.deepStrictEqual(planIntegrate(spec(), prConfig, CTX()), planIntegrate(spec(), {}, CTX()))
 })
+
+test('pr: a landed branch carries the finish — catch base up + the deferred afterLand', () => {
+  const p = planIntegratePr(spec(), AFTER, PRCTX({
+    aheadOfRemoteBase: false,
+    primaryPath: '/repo',
+    changedFiles: ['src/a.js'],
+  }))
+  assert.strictEqual(p.noop, true)
+  assert.deepStrictEqual(p.finish.commands, [
+    'git -C /repo fetch origin main',
+    'git -C /repo merge --ff-only origin/main',
+  ])
+  assert.deepStrictEqual(p.finish.afterLand.commands, ['pnpm db:data-migration'])
+  assert.deepStrictEqual(p.finish.afterLand.range, ['src/a.js'])
+})
+
+test('pr: a finish with no primaryPath names no commands rather than guessing', () => {
+  const p = planIntegratePr(spec(), {}, PRCTX({ aheadOfRemoteBase: false }))
+  assert.strictEqual(p.noop, true)
+  assert.deepStrictEqual(p.finish.commands, [])
+})

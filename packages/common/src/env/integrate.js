@@ -147,7 +147,7 @@ function planIntegratePr(spec, config, ctx) {
   const branch = spec.branch
   const result = {
     blocked: false, noop: false, reason: null, commands: [],
-    push: null, holdCommands: [],
+    push: null, holdCommands: [], finish: null,
     afterLand: noAfterLand(), afterLandPending: 'after-merge',
     base, branch, remote,
   }
@@ -159,8 +159,24 @@ function planIntegratePr(spec, config, ctx) {
   // not be read (never fetched, no network), which is an absence — so it plans
   // rather than claiming landed (`.claude/rules/negative-checks.md` rule 4);
   // the plan's own fetch is what makes the next run answerable.
+  //
+  // A landed PR-mode branch carries the FINISH half: the host merged, so local
+  // base wants catching up and the deferred afterLand comes due here — this is
+  // completion run 2, the `hotfix finish` shape. `primaryPath` and
+  // `changedFiles` come from the caller like every other git fact; absent a
+  // primaryPath (pure tests, checkout mode asking oddly) the finish still
+  // names no commands rather than guessing a cwd.
   if (ctx.aheadOfRemoteBase === false) {
-    return { ...result, noop: true }
+    const finish = {
+      commands: ctx.primaryPath
+        ? [
+            `git -C ${ctx.primaryPath} fetch ${remote} ${base}`,
+            `git -C ${ctx.primaryPath} merge --ff-only ${remote}/${base}`,
+          ]
+        : [],
+      afterLand: afterLandFor(config, ctx.primaryPath || null, rangeOf(ctx)),
+    }
+    return { ...result, noop: true, finish }
   }
   if (worktreeState.dirty) {
     return { ...result, blocked: true, reason: 'worktree has uncommitted changes — commit the completion first' }

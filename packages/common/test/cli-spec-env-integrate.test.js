@@ -410,3 +410,75 @@ test('pr mode: up notes a remote base that is ahead; trunk says nothing', async 
     fs.rmSync(trunk.bare, { recursive: true, force: true })
   }
 })
+
+test('--strategy overrides config per invocation, and refuses an unknown value by name', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree() // trunk config, no land key
+  try {
+    const pr = await runQuiet(['spec-env', 'integrate', 'feat-x', '--strategy', 'pr', '--dir', dir])
+    assert.match(pr, /spec-env integrate: feat-x \(pr\)/)
+    assert.match(pr, new RegExp(`git -C ${worktree} fetch origin main`))
+    const bad = await runQuiet(['spec-env', 'integrate', 'feat-x', '--strategy', 'squash', '--dir', dir])
+    assert.match(bad, /unknown --strategy "squash" — use ff or pr/)
+    assert.doesNotMatch(bad, /run these/)
+    // And the other direction: a pr-mode project can land one spec the ff way.
+    const { dir: prDir, worktree: prWt } = scaffoldRepoWithWorktree({ land: { strategy: 'pr' } })
+    try {
+      const ff = await runQuiet(['spec-env', 'integrate', 'feat-x', '--strategy', 'ff', '--dir', prDir])
+      assert.match(ff, new RegExp(`git -C ${prDir} merge --ff-only feat/x`))
+      assert.doesNotMatch(ff, /\(pr\)/)
+    } finally {
+      cleanup(prDir)
+    }
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('pr mode: a host-landed branch prints the finish — base catch-up + deferred afterLand', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree({
+    land: { strategy: 'pr' },
+    afterLand: ['pnpm db:migrate'],
+  })
+  const bare = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
+  execFileSync('git', ['init', '-q', '--bare', bare], { stdio: 'ignore' })
+  try {
+    // Land the branch "on the host": merge it into main locally, push main, and
+    // wind local main back — origin/main now contains the branch, main does not.
+    git(dir, 'remote', 'add', 'origin', bare)
+    git(dir, 'merge', '-q', '--ff-only', 'feat/x')
+    git(dir, 'push', '-q', 'origin', 'main')
+    git(dir, 'reset', '-q', '--hard', 'HEAD~1')
+    git(dir, 'fetch', '-q', 'origin', 'main')
+
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, /already landed on origin\/main — finish what the merge deferred/)
+    assert.match(out, new RegExp(`git -C ${dir} fetch origin main`))
+    assert.match(out, new RegExp(`git -C ${dir} merge --ff-only origin/main`))
+    // The deferred afterLand comes due here, with the land's own range known.
+    assert.match(out, /pnpm db:migrate/)
+    assert.doesNotMatch(out, /range unknown/)
+  } finally {
+    cleanup(dir)
+    fs.rmSync(bare, { recursive: true, force: true })
+  }
+})
+
+test('disposition enumerates the worktree spec; --json carries the same answer', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree()
+  try {
+    // Give the worktree's spec a phase file with loose ends.
+    const specDir = path.join(worktree, 'specs', 'in-progress', 'feat-x')
+    fs.writeFileSync(
+      path.join(specDir, '01-build.md'),
+      '# Phase 1 — build ⬜\n\n- [x] Done bit\n- [ ] Loose end\n',
+    )
+    const out = await runQuiet(['spec-env', 'disposition', 'feat-x', '--dir', dir])
+    assert.match(out, /unticked tasks \(1\):/)
+    assert.match(out, /01-build\.md:4 {2}Loose end/)
+    const json = JSON.parse(await runQuiet(['spec-env', 'disposition', 'feat-x', '--json', '--dir', dir]))
+    assert.strictEqual(json.clean, false)
+    assert.strictEqual(json.tasks[0].text, 'Loose end')
+  } finally {
+    cleanup(dir)
+  }
+})

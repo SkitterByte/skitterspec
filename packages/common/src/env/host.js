@@ -201,6 +201,35 @@ function prAbandonCommand(remoteInfo, { branch, id }) {
 }
 
 /**
+ * The PR step of an integrate plan, selected from the host's answer about the
+ * branch. One function so the CLI and its tests cannot disagree with each
+ * other about what each state means:
+ *
+ *   none / merged → the real create command (merged = that PR is history and
+ *                   new commits need a new one)
+ *   open          → a comment: the push updates it, a create would only error
+ *   draft, wanted draft   → the same comment (mid-spec re-push)
+ *   draft, wanted ready   → the ready command — or, where the host needs an id
+ *                   nobody has (Azure without one), a comment naming the manual
+ *                   step rather than nothing
+ *   cannot-tell   → null; the caller keeps its degraded placeholder
+ */
+function prPlanCommand(remoteInfo, pr, { branch, base, draft }) {
+  if (!pr || pr.state === 'cannot-tell') return null
+  if (pr.state === 'none' || pr.state === 'merged') {
+    return prCreateCommand(remoteInfo, { branch, base, draft })
+  }
+  if (pr.state === 'open' || (pr.state === 'draft' && draft)) {
+    return `# PR ${pr.id ? `#${pr.id} ` : ''}already ${pr.state} — the push updates it`
+  }
+  // draft, and the caller wants it ready
+  return (
+    prReadyCommand(remoteInfo, { branch, id: pr.id })
+    || `# PR ${pr.id ? `#${pr.id} ` : ''}is a draft — mark it ready on the host`
+  )
+}
+
+/**
  * The base a PR-mode view measures from: the REMOTE image of base when its
  * remote-tracking ref exists in this clone, else the local name unchanged.
  * Trunk configs pass through untouched, and nothing here fetches — a render
@@ -229,4 +258,5 @@ module.exports = {
   prCreateCommand,
   prReadyCommand,
   prAbandonCommand,
+  prPlanCommand,
 }

@@ -400,3 +400,29 @@ test('pr stays-silent: a trunk config (no land key) is untouched by prState', ()
   }))
   assert.strictEqual(p.blocked, false)
 })
+
+test('pr: a forced teardown past an open PR plans the abandon, confirm-first', () => {
+  const p = planDown(spec(), { ...config(), ...PR }, { force: true }, {
+    ...CTX({ merged: false, unpushed: false, prState: 'open', remoteBranch: 'origin/feat/thing' }),
+    prAbandonCommand: 'gh pr close feat/thing',
+  })
+  assert.strictEqual(p.blocked, false)
+  // Quarantined with the remote delete — reaches a shared host, never run blind.
+  assert.ok(p.remoteCommands.includes('gh pr close feat/thing'))
+  assert.ok(!p.commands.includes('gh pr close feat/thing'))
+})
+
+test('pr stays-silent: no abandon without a command, a PR, or pr mode', () => {
+  // merged (no live PR): nothing to abandon.
+  const merged = planDown(spec(), { ...config(), ...PR }, {}, {
+    ...CTX({ merged: true, prState: 'merged' }),
+    prAbandonCommand: 'gh pr close feat/thing',
+  })
+  assert.ok(!merged.remoteCommands.includes('gh pr close feat/thing'))
+  // trunk config: a stray prState and command change nothing.
+  const trunk = planDown(spec(), config(), { force: true }, {
+    ...CTX({ merged: false, prState: 'open' }),
+    prAbandonCommand: 'gh pr close feat/thing',
+  })
+  assert.deepStrictEqual(trunk.remoteCommands, [])
+})

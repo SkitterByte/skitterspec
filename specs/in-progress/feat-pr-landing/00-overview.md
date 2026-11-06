@@ -120,17 +120,35 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `land` config + PR integrate planner behind consent | ✅ | [01-land-config-and-pr-plan.md](01-land-config-and-pr-plan.md) |
 | 2 | Host adapter + host-aware landed check | ✅ | [02-host-adapter-landed-check.md](02-host-adapter-landed-check.md) |
 | 3 | origin/base targets + mid-spec draft PR (`/spec-to-main`) | ✅ | [03-origin-targets-draft-pr.md](03-origin-targets-draft-pr.md) |
-| 4 | Completion: disposition guard + two-run complete; cancel abandons PR | ⬜ | [04-completion-disposition-two-run.md](04-completion-disposition-two-run.md) |
+| 4 | Completion: disposition guard + two-run complete; cancel abandons PR | ✅ | [04-completion-disposition-two-run.md](04-completion-disposition-two-run.md) |
 | 5 | Authoring paths: `land.specDocs` trunk · branch | ⬜ | [05-authoring-spec-docs-path.md](05-authoring-spec-docs-path.md) |
 | 6 | Release-scan hardening + rules, docs, report vocabulary | ⬜ | [06-release-scan-rules-docs.md](06-release-scan-rules-docs.md) |
 
 ## Open questions
 
-- [ ] Before building phases 4–6: confirm LSC's actual flow — do they ever
-      merge via the host (a PR, even just for CI), and can they push `main`
-      directly? Trunk-with-merge-button still needs PR mode; local-ff trunk
-      makes phases 4–6 speculative for them (phases 1–3 hold regardless —
-      multi-dev trunk needs `origin/<base>` targets too).
+- [x] ~~Before building phases 4–6: confirm LSC's actual flow.~~ Answered
+      2026-11-06 (CTO): rc-flow — protected `master`, a release-candidate
+      branch cut from it, features land on rc by direct merge OR by PR (mixed,
+      per feature), release = rc→master merge + re-cut, env branches
+      (Test/Demo/Live) take master merges and deploy. Maps to
+      `baseBranch: <rc>` + both strategies; phases 4–6 confirmed worth
+      building. See the 2026-11-06 Changelog entry for the consequences.
+- [x] ~~LSC: rc branch fixed name or versioned?~~ Answered 2026-11-06:
+      versioned per release (`2026/Q4`). `baseBranch` therefore changes per
+      cycle — a cheap explicit retarget (a `spec-env base <name>` verb that
+      edits the config and reports the in-flight specs now rebasing onto the
+      new rc) is a **follow-up spec**, deliberately not a phase here. Pattern
+      auto-detection was considered and set aside: "newest match" is a guess,
+      and a pattern matching a dead rc lands work on a branch nobody merges.
+      The follow-up's shape (2026-11-06): bare `spec-env base` LISTS the
+      remote's branches matching a configured pattern (newest first, via
+      ls-remote — no host API or extra permission needed) and the operator's
+      pick is what edits the config — enumeration automatic, deciding human,
+      the disposition guard's split. Only silent auto-retarget stays rejected.
+      Completion's half of the same safety: phase 4's push-consent ask names
+      the base branch, so a stale rc is read by a person before anything is
+      pushed at it; the follow-up adds the engine-side "a newer rc exists"
+      warning.
 
 ## State log
 
@@ -141,6 +159,21 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-11-06 — Phase 4: no `complete-pr` verb — `integrate` carries both runs
+  (a `(pr)` plan is run 1; a landed branch prints the finish), so completion
+  re-runs one verb exactly as the ff flow always has. Disposition became its
+  own verb (`spec-env disposition`), pure and information-only. The spec-doc
+  bucket move follows `land.specDocs`: trunk → run 2 on base, branch → rides
+  the PR in run 1 (Done still waits for run 2 either way).
+- 2026-11-06 — LSC flow confirmed (rc-flow, mixed direct-merge/PR into rc).
+  Consequences: a per-invocation `--strategy` override added to phase 4 (mixed
+  landing per feature); Azure's "complete work items on merge" must stay OFF
+  for rc-flows (a merge into rc is not a release) — skitterspec's transition
+  pushes own status and `spec-sync released` owns Released, which phase 6
+  already covers; rc→master should be a merge commit, not a squash, so `Refs:`
+  trailers survive onto master. Follow-ups: hotfix-to-master mapping (master as
+  release line, rc as carry-back, env branches as targets) is its own spec;
+  rc branch naming is the remaining open question.
 - 2026-11-06 — Phase 3: the worktree fork point and `live take` keep LOCAL base
   in PR mode, against the spec's original plan — an `origin/<base>` fork would
   fork without a just-landed, not-yet-pushed spec document (trunk-docs

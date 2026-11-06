@@ -300,6 +300,58 @@ is finished — e.g. to run a later phase in CI or a shared test env? Use
 5. **Report** the landing (base branch, fast-forward result). It **never pushes** —
    mention the user can `git push` the base branch themselves.
 
+### 6-pr. PR mode (`land.strategy: "pr"`) — dispose, push, ready; finish after the merge
+
+Completion is **two runs** here, the `hotfix land`/`finish` shape: the merge is
+the host's act and may be days away, so the run that readies the PR cannot also
+finalise. Which run this is, the engine says: `spec-env integrate <name>`
+printing a `(pr)` plan is run 1; printing
+`already landed … — finish what the merge deferred` is run 2.
+
+**Run 1 — the last control point.** Once the PR is ready, anyone can merge from
+the host UI and the tracker's automations act — so everything that needs a
+person happens before the ready, in this order:
+
+1. **Disposition pass — mandatory, before anything is pushed.** Run
+   `skitterspec spec-env disposition <name> --json`. For every unticked task,
+   non-✅ phase and surfaced follow-up it lists, the user disposes it:
+   **tick** (it was done — tick it, naming the evidence) · **spin off** (a
+   follow-on ticket minted now, linked to this one — offer `/spec` or the
+   provider's mint) · **drop** (a dated Changelog line with the reason, the
+   `none: <reason>` grammar). Batch the asking; never decide for them, and
+   never auto-create. **Refuse to ready the PR while anything is undisposed**
+   — you asked the enumeration, so it cannot also be fine. `clean` proceeds
+   with nothing asked.
+2. **Consent, naming the target.** Ask once, plainly:
+   *"push `<branch>` and open the PR into `<base>` on `<remote>`, ready for
+   merge?"* — the base branch is named so a spec that outlived a release roll
+   is caught by the person reading a stale rc name. On a no, stop with the
+   held commands relayed.
+3. **Run the plan.** `skitterspec spec-env integrate <name> --push` and run
+   what it prints: fetch, rebase onto `<remote>/<base>`, the push, and the PR
+   create — or, where a draft already exists, the flip-to-ready. A rebase
+   conflict aborts and stops exactly as 6-feature/bug step 2.
+4. **Defer the finalise.** §4's bucket move follows the spec documents'
+   `land.specDocs` lane: under `trunk` leave the spec in `specs/in-progress/`
+   — run 2 moves it on base after the merge; under `branch` commit the move on
+   the branch *before* step 3 so it rides the PR. Either way
+   **the tracker's Done waits for run 2**: a ready PR is not a merged one.
+5. **Stop, keeping the worktree.** Report
+   `Landed: PR #N opened — finish after merge` (or `ready`), spec
+   `In Progress`, worktree standing. No afterLand runs — the plan deferred it
+   — and no teardown. The merge is what un-blocks run 2; nothing here waits on
+   it.
+
+**Run 2 — after the host merges.** `integrate` recognises the landed branch
+(ancestry or the host's answer) and prints the finish: catch local base up and
+the deferred `afterLand` with the land's own range. Run those, then do what run
+1 deferred — the §4 move (trunk lane) with its State log row and commit, the
+§5 report — then **§7 teardown runs as normal**:
+a host-merged branch counts as landed (squash and rebase
+merges included), and a host that auto-deleted the branch makes the remote
+delete an already-gone no-op, never a failure. Re-test on base before calling
+it done, exactly as 6-feature/bug step 4.
+
 ## 7. Tear down the environment (opt-in, only if configured)
 
 **A hotfix is torn down later, by `hotfix finish`.**
