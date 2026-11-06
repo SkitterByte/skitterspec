@@ -26,6 +26,12 @@ will almost certainly be its own spec in its own repo.
   third party (compare the `review.reviewers` stance). A service changes that for
   everything it touches, so it is opt-in and never required.
 
+- **Native automations, weighed 2026-11-06** (PR-mode design conversation):
+  letting trackers derive status from branch/PR/merge events instead of
+  transition pushes. It fails for rc-flows — a merge into the rc is not a
+  release, so complete-on-merge must stay off (LSC, Azure). Weigh it here
+  per flow, not as a replacement for decision 4.
+
 ## Candidate capabilities
 
 - Tracker webhooks: a board Cancelled reaches the branch owner's next session

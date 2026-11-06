@@ -25,6 +25,17 @@ and carry on from it, not just read it.
    `spec-env up` builds the worktree from it instead of forking from base.
    Cannot-tell (fetch fails) prints the fact and forks as today.
 
+## Since written (2026-11-06)
+
+- `feat-pr-landing` landed a consent-gated push (`integrate --push`,
+  already-pushed-at-HEAD counts as consent) and `/spec-to-main` draft PRs. Under
+  `land.strategy: "pr"` the branch is often already on the remote with a PR —
+  reuse that push path for the handoff rather than a second one, and treat the
+  PR as the native branch link where it exists.
+- `feat-tracker-held-specs` (#123) changes `/spec-start` to materialise a spec
+  from the tracker; `feat-rolling-base` (#113) adds a fetch to `spec-env up`.
+  Both touch the fork path this phase changes — see the overview's Related specs.
+
 ## Tasks
 
 - [ ] `spec-env up`: detect `origin/<branch>` (`ls-remote`, positive signal) and

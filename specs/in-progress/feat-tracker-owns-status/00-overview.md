@@ -43,15 +43,26 @@ Status, which belongs to the team, can't follow branches the same way.
    in a file, and never pushes it except on its own code transitions (decision 4).
    It applies to `workflowState` and `assignee`. `description` and `subIssues`
    stay `push`.
-3. **Buckets become code facts only.** `backlog` = no branch · `in-progress` = a
-   branch exists · `complete` = landed · `cancelled` = torn down. Only skills
-   that act on code move them. Ready, Blocked, In Review and the assignee exist
+3. **Buckets become code facts only.** `backlog` = not started · `in-progress` =
+   `/spec-start` ran · `complete` = landed · `cancelled` = torn down. Only skills
+   that act on code move them. (Reworded 2026-11-06 from "no branch" / "a branch
+   exists": under `land.specDocs: "branch"` a backlog spec already has its
+   authoring branch, so a branch is no longer the signal — the transition is.
+   "Landed" is the host-aware check `feat-pr-landing` added, so under
+   `land.strategy: "pr"` it means *merged on the host*, not *ancestor of local
+   base*.) Ready, Blocked, In Review and the assignee exist
    only on the board. Rejected: a flat `specs/<name>/` (rewrites every skill and
    the finding convention for no gain); buckets unchanged (keeps the folder name
    claiming a planning status it can't keep current).
 4. **The repo writes status only when it acts on code.** `/spec-start` →
    in-progress, `/spec-complete` → complete, `/spec-cancel` → cancelled, and
-   creation by `/spec` / `/spec-bug` / `/spec-hotfix`. Phase moves no longer touch
+   creation by `/spec` / `/spec-bug` / `/spec-hotfix`. Under PR landing,
+   completion is two runs: run 1 (push, PR ready) writes **no** state; run 2
+   (the host merged) pushes complete — the same point `feat-pr-landing` already
+   holds Done for. This is also why the tracker's own merge automations are not
+   a substitute: in an rc-flow a merge into the rc is not a release, so Azure's
+   complete-on-merge must stay off and these transition pushes stay the status
+   engine. Phase moves no longer touch
    the parent's state, but sub-issues (phases) stay `push`, because they are
    content. Board-only states (Ready, Blocked, In Review) are never overwritten
    except by one of these transitions.
@@ -99,6 +110,22 @@ Status, which belongs to the team, can't follow branches the same way.
   `/spec-start` and `/spec-next` warn in pre-flight.
 - **Follow-ups ride as the last two phases** (decisions are recorded in each
   phase file), so they can be built straight after without another `/spec`.
+
+## Related specs
+
+Recorded 2026-11-06 so neither side is designed blind:
+
+- **`feat-tracker-held-specs` (#123, Draft)** — holds *dormant* specs in the
+  tracker. It revisits Decision 1 (which rejected tracker-only specs *in flight*)
+  and replaces Decision 3's `backlog` bucket in tracker mode. Its
+  materialise-at-`/spec-start` changes what `spec-env up` forks from, as phase 5's
+  resume does — design them together. It waits for phases 1–4 here.
+- **`feat-rolling-base` (#113)** — adds a fetch to `spec-env up`
+  (`provision.js`); phase 5 here adds `origin/<branch>` detection to the same
+  path. Whichever lands second builds on the other.
+- **`feat-hotfix-to-master` (#118)** — edits `/spec-hotfix` (fork from a release
+  branch, `Base version: <branch>@<sha>`); phase 2 here edits its header writes.
+  Same skill file, independent changes.
 
 ## Impact
 
@@ -150,3 +177,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-03 — `feat-in-flight-status` (backlog) rejected tracker reads in its
   Decision 1. Once this lands, `/spec-review` it: under `pull`, "what is in
   flight" is partly the board's answer.
+- 2026-11-06 — Reviewed vs codebase after `feat-pr-landing` landed (branch
+  rebased onto main; every code reference still resolves, no task already done).
+  Decision 3 reworded — buckets follow transitions, not branch existence,
+  because `land.specDocs: "branch"` gives backlog specs a branch, and
+  "landed" is now host-aware. Decision 4 and phase 2: under PR landing the
+  complete transition rides run 2 only. Phase 5: reuse the PR-landing push
+  path. Phase 6: native automations fail rc-flows. Added Related specs for
+  #123, #113, #118.

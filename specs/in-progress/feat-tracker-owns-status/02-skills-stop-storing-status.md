@@ -22,7 +22,9 @@ assignee is the board's. With `push` or no provider, behaviour is unchanged.
       stays `push`.
 - [ ] `/spec-complete` / `/spec-cancel`: move the bucket, push the transition,
       and release the assignee per today's rule. No header or State-log write
-      under `pull`.
+      under `pull`. Under `land.strategy: "pr"` the complete transition rides
+      run 2 (host merged) only — run 1 pushes no state; `/spec-cancel`'s PR
+      abandon is unchanged.
 - [ ] `/spec-claim` (all four providers): a tracker write. Drop the frontmatter
       stamp and the follow-up push under `pull`.
 - [ ] Read "Draft" from a non-empty Open questions section where a skill needs it
