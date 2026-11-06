@@ -119,7 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `land` config + PR integrate planner behind consent | ✅ | [01-land-config-and-pr-plan.md](01-land-config-and-pr-plan.md) |
 | 2 | Host adapter + host-aware landed check | ✅ | [02-host-adapter-landed-check.md](02-host-adapter-landed-check.md) |
-| 3 | origin/base targets + mid-spec draft PR (`/spec-to-main`) | ⬜ | [03-origin-targets-draft-pr.md](03-origin-targets-draft-pr.md) |
+| 3 | origin/base targets + mid-spec draft PR (`/spec-to-main`) | ✅ | [03-origin-targets-draft-pr.md](03-origin-targets-draft-pr.md) |
 | 4 | Completion: disposition guard + two-run complete; cancel abandons PR | ⬜ | [04-completion-disposition-two-run.md](04-completion-disposition-two-run.md) |
 | 5 | Authoring paths: `land.specDocs` trunk · branch | ⬜ | [05-authoring-spec-docs-path.md](05-authoring-spec-docs-path.md) |
 | 6 | Release-scan hardening + rules, docs, report vocabulary | ⬜ | [06-release-scan-rules-docs.md](06-release-scan-rules-docs.md) |
@@ -141,6 +141,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-11-06 — Phase 3: the worktree fork point and `live take` keep LOCAL base
+  in PR mode, against the spec's original plan — an `origin/<base>` fork would
+  fork without a just-landed, not-yet-pushed spec document (trunk-docs
+  authoring), and live overlay is a local-workbench concept. Staleness is
+  surfaced instead (`spec-env up` prints a note when origin/base is ahead) and
+  correctness is carried by the landing rebase, which always targets the
+  remote base.
 - 2026-11-06 — Phase 2: the spec's proposed `--force-unlanded` flag was dropped
   in favour of the existing `--force` — same bypass semantics, and the forced
   plan still uses `-d` so a genuinely unlanded branch fails loudly. The

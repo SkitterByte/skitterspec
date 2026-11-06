@@ -166,7 +166,7 @@ const {
 } = require('./env/mainguard.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env/integrate.js')
-const { parseRemote, prFor, prCreateCommand } = require('./env/host.js')
+const { parseRemote, prFor, prCreateCommand, preferRemoteBase } = require('./env/host.js')
 const { planHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -1099,6 +1099,24 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // reads as a choice rather than as a project with nothing configured.
   if (plan.docs) {
     out.push('  docs:      documents only — no setup commands, no docker')
+  }
+  // PR mode forks from LOCAL base — an origin/<base> fork would fork without a
+  // just-landed, not-yet-pushed spec document — so when the remote image is
+  // ahead, say so rather than silently forking behind it. Advisory only, and
+  // silent on every cannot-tell: no remote-tracking ref here is an absence,
+  // not a stale base (`.claude/rules/negative-checks.md`).
+  if (config.land && config.land.strategy === 'pr') {
+    const ugit = gitReader(dir)
+    const ubase = resolveBaseBranch(config, ugit)
+    const uremote = config.land.remote || 'origin'
+    const behind = ubase ? ugit(['rev-list', '--count', `${ubase}..${uremote}/${ubase}`]) : null
+    if (behind !== null && Number(behind) > 0) {
+      out.push(
+        `  note:      ${uremote}/${ubase} is ${behind} commit(s) ahead of ${ubase} — the branch forks` +
+          `\n             from local ${ubase}; pull first if you want the newer base` +
+          '\n             (landing rebases onto the remote base either way)',
+      )
+    }
   }
   // Positive, so an operator reading the plan knows the missing spec folder is
   // the lane working rather than something the engine failed to find.
@@ -2140,11 +2158,15 @@ function specEnvIntegratePr(dir, config, spec, base, flags) {
   // one) → the real create command; an open or draft PR → the push updates it,
   // so a create would only error; cannot-tell → the placeholder, exactly the
   // degraded shape an unknown host gets.
+  // `--draft` is the mid-spec form (/spec-to-main's PR-mode descendant): a
+  // draft cannot be merged, so nothing downstream can close a ticket early.
+  // Plain integrate is the landing verb and opens the PR ready.
+  const draft = flags.draft === true
   const remoteInfo = parseRemote(git(['config', '--get', `remote.${remote}.url`]))
   const pr = remoteInfo.host ? hostPrFor(treePath, remote, spec.branch) : { state: 'cannot-tell', id: null, url: null }
   let prCreate = null
   if (pr.state === 'none' || pr.state === 'merged') {
-    prCreate = prCreateCommand(remoteInfo, { branch: spec.branch, base, draft: false })
+    prCreate = prCreateCommand(remoteInfo, { branch: spec.branch, base, draft })
   } else if (pr.state === 'open' || pr.state === 'draft') {
     prCreate = `# PR ${pr.id ? `#${pr.id} ` : ''}already ${pr.state} — the push updates it`
   }
@@ -2176,7 +2198,7 @@ function specEnvIntegratePr(dir, config, spec, base, flags) {
   }
 
   const out = []
-  out.push(`spec-env integrate: ${spec.folder} (pr)`)
+  out.push(`spec-env integrate: ${spec.folder} (pr${draft ? ', draft' : ''})`)
   out.push('')
   out.push(`  base:      ${remote}/${base}`)
   out.push(`  branch:    ${plan.branch}`)
@@ -3759,8 +3781,11 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
   // tag is not an ancestor of the base branch (a release line that never merged
   // back) the range widens to include commits the hotfix never touched.
   //
-  // Lazy, so the common working-tree path pays nothing for it.
-  const reviewBase = () => spec.baseRef || resolveBaseBranch(config, trimmed)
+  // Lazy, so the common working-tree path pays nothing for it. PR mode prefers
+  // the remote image of base via `preferRemoteBase` — one helper shared with
+  // serve.js, so the two renders cannot disagree about a spec's range.
+  const reviewBase = () =>
+    spec.baseRef || preferRemoteBase(config, resolveBaseBranch(config, trimmed), trimmed)
 
   if (flags.branch) {
     base = reviewBase()
@@ -5926,6 +5951,7 @@ async function specEnv(rest) {
     else if (args[i] === '--docs') flags.docs = true
     else if (args[i] === '--plan') flags.plan = true
     else if (args[i] === '--push') flags.push = true
+    else if (args[i] === '--draft') flags.draft = true
     else if (args[i] === '--from') flags.from = args[++i]
     else if (args[i] === '--session') flags.session = args[++i]
     else if (args[i] === '--path') flags.path = args[++i]

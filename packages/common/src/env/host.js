@@ -200,8 +200,29 @@ function prAbandonCommand(remoteInfo, { branch, id }) {
   return `az repos pr update --organization ${remoteInfo.orgUrl} --id ${id} --status abandoned`
 }
 
+/**
+ * The base a PR-mode view measures from: the REMOTE image of base when its
+ * remote-tracking ref exists in this clone, else the local name unchanged.
+ * Trunk configs pass through untouched, and nothing here fetches — a render
+ * must stay offline-safe, so a missing ref is the local fallback, never an
+ * error. `trimmed(argv)` is the caller's git reader (string | null).
+ *
+ * One helper because two copies of this selection (the server's render and the
+ * CLI's) must not disagree about which range one spec's page shows.
+ */
+function preferRemoteBase(config, name, trimmed) {
+  if (!name) return name
+  if (!config || !config.land || config.land.strategy !== 'pr') return name
+  const remoteRef = `${config.land.remote || 'origin'}/${name}`
+  if (trimmed(['rev-parse', '--verify', '--quiet', `refs/remotes/${remoteRef}`])) {
+    return remoteRef
+  }
+  return name
+}
+
 module.exports = {
   parseRemote,
+  preferRemoteBase,
   prFor,
   githubPrState,
   azurePrState,

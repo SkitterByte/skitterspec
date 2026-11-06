@@ -28,6 +28,11 @@ fast-forward leaves `base == branch`, the operation is
 **idempotent and repeatable**: new commits put the branch ahead of base again,
 and you can run `/spec-to-main` as many times as you like.
 
+**In PR mode** (`land.strategy: "pr"` in `env.config.json`) the destination is
+the host, not the local base: this skill becomes *push the branch and open or
+update the DRAFT pull request* — same intent (get the work into CI / the shared
+env), new transport. §4b replaces §4 there; everything else holds unchanged.
+
 ## 0. Preconditions — when this applies
 
 - **Isolation must be on** (`specs/.core/env.config.json` exists **and** the spec
@@ -99,6 +104,28 @@ land made elsewhere leaves them pending here.
 that failed and the ones that did not run, and it **never undoes the land**.
 No section, nothing to run, and nothing to say about it.
 
+## 4b. PR mode — push the branch, keep the PR a draft
+
+When the plan's heading reads `(pr)`, run
+`skitterspec spec-env integrate <name> --draft` instead and run what it prints:
+a fetch, a rebase onto `<remote>/<base>`, and — this is the consent gate — the
+push and PR-create under its own `with your consent` section.
+**Ask before pushing**: ask once, plainly, naming the remote and that the PR
+opens as a draft. On a yes, re-run with `--push` added and run the single printed list; on
+a no, relay the held commands and stop — the work is rebased and ready, and the
+user can push it themselves.
+
+- **The draft is the point.** A draft cannot be merged and the tracker's
+  automations read it as in-progress, so nothing downstream can close the
+  ticket early. `/spec-complete` is what flips it to ready.
+- A `pr:` line saying the PR is already open means the push updates it —
+  nothing more to create, and that is the repeatable case.
+- **No after-land commands run here.** The plan defers them ("after-land
+  commands are deferred: base moves when the host merges") — the completion run
+  that follows the merge owns them. §5's re-test on base does not apply either:
+  base has not moved; CI on the PR is the check this land exists for.
+- A **rebase conflict** aborts and stops exactly as §4.
+
 ## 5. Re-test on base, then report
 
 - Run the project's test command **from the primary checkout** — base must be
@@ -111,7 +138,9 @@ No section, nothing to run, and nothing to say about it.
   to Complete, `git mv` the spec, or tear down the worktree/stack.
   **The spec stays `In Progress` and the worktree stays put.**
 - It **never pushes** — say the user can `git push` the base branch themselves to
-  trigger CI / the shared env.
+  trigger CI / the shared env. (PR mode is not an exception to the stance but to
+  the mechanics: there the push *is* the land, and it runs only behind §4b's
+  explicit consent — never silently.)
 - `Next` points the way forward: `/spec-next` to continue the remaining phases
   (you'll keep committing on the same branch and can `/spec-to-main` again), and
   `/spec-complete` when every phase is genuinely done — it will land the final
@@ -134,6 +163,10 @@ the shape; this section carries only what is specific here.
 `Notes` carries the after-land commands §4 ran, and where, and any it
 skipped because the land matched no `when` — or the one that failed and the ones that did not run. Nothing about it when none are
 configured.
+
+`Landed` in PR mode names the host, not the base: `PR #14 (draft) opened` or
+`PR #14 (draft) updated` — and `held — not pushed` when §4b's consent was
+declined, because an unpushed rebase is a true outcome, not a failure.
 
 **No `Spec` field, deliberately.** This skill changes no status and moves no
 folder, and a `Spec` line here would read as though it had. The spec stays

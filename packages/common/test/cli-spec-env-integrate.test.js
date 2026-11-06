@@ -371,3 +371,42 @@ test('pr mode: afterLand is announced as deferred, never printed to run', async 
     cleanup(dir)
   }
 })
+
+test('pr mode: --draft marks the plan and the create command', async () => {
+  const { dir } = scaffoldRepoWithWorktree({ land: { strategy: 'pr' } })
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--draft', '--push', '--dir', dir])
+    assert.match(out, /spec-env integrate: feat-x \(pr, draft\)/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('pr mode: up notes a remote base that is ahead; trunk says nothing', async () => {
+  const mk = (config) => {
+    const s = scaffoldRepoWithWorktree(config)
+    const bare = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
+    execFileSync('git', ['init', '-q', '--bare', bare], { stdio: 'ignore' })
+    git(s.dir, 'remote', 'add', 'origin', bare)
+    git(s.dir, 'push', '-q', 'origin', 'main')
+    // Put origin/main one ahead of local main without moving local main.
+    git(s.dir, 'commit', '--allow-empty', '-q', '-m', 'upstream work')
+    git(s.dir, 'push', '-q', 'origin', 'main')
+    git(s.dir, 'reset', '-q', '--hard', 'HEAD~1')
+    return { ...s, bare }
+  }
+  const pr = mk({ land: { strategy: 'pr' } })
+  const trunk = mk({})
+  try {
+    const prOut = await runQuiet(['spec-env', 'up', 'feat-x', '--dir', pr.dir])
+    assert.match(prOut, /note: {6}origin\/main is 1 commit\(s\) ahead of main/)
+    // Stays silent: a trunk project with the same stale base gets no note.
+    const trunkOut = await runQuiet(['spec-env', 'up', 'feat-x', '--dir', trunk.dir])
+    assert.doesNotMatch(trunkOut, /ahead of main/)
+  } finally {
+    cleanup(pr.dir)
+    cleanup(trunk.dir)
+    fs.rmSync(pr.bare, { recursive: true, force: true })
+    fs.rmSync(trunk.bare, { recursive: true, force: true })
+  }
+})

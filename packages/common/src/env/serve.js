@@ -40,6 +40,7 @@ const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
 const { specDocsIn, classifyDirtyTree, dirtyPaths } = require('./classify.js')
 const { liveStateFor } = require('./live.js')
+const { preferRemoteBase } = require('./host.js')
 const {
   rawGitReader,
   collectReview,
@@ -557,7 +558,11 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     const out = git(argv)
     return out == null ? null : String(out).trim() || null
   }
-  const base = () => spec.baseRef || resolveBaseBranch(config, trimmed)
+  // PR mode measures the diff against the REMOTE image of base — local base is
+  // allowed to go stale there. `preferRemoteBase` never fetches and falls back
+  // to the local name, so the render stays offline-safe.
+  const base = () =>
+    spec.baseRef || preferRemoteBase(config, resolveBaseBranch(config, trimmed), trimmed)
 
   const now = new Date().toISOString()
   let mode = 'working'

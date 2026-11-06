@@ -2,9 +2,9 @@
 github_issue_id: "#109"
 ---
 
-# Phase 3 — origin/base targets + mid-spec draft PR ⬜
+# Phase 3 — origin/base targets + mid-spec draft PR ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** in PR mode the engine measures against `origin/<base>` (local base
 goes stale by design), and mid-spec work reaches CI as a draft PR that cannot
@@ -12,25 +12,29 @@ be merged.
 
 ## Tasks
 
-- [ ] In PR mode, fetch before measuring and target `<remote>/<base>`:
-      provision fork point (`provision.js` / `spec-env up`), integrate's rebase
-      (phase 1 already), `live take`'s rebase (`live.js`), the review page's
-      merge-base (`serve.js`), and `aheadOfBase` in `worktreeGitState`. Trunk
-      mode keeps local base, untouched.
-- [ ] `spec-env integrate --draft` (or a dedicated `spec-env stage-pr` verb if
-      integrate's semantics stretch too far — decide at build time, record in
-      this file): plan push + draft-PR create/update for an in-flight spec,
-      consent-gated as phase 1.
-- [ ] Fork `/spec-to-main` (SKILL.md) on the plan's strategy: ff plan → today's
-      text unchanged; pr plan → push the branch, open or update the **draft**
-      PR, report `Landed: PR #N (draft) updated`. It still never completes
-      anything, and remains repeatable.
-- [ ] `/spec-start` pre-flight: in PR mode warn (never refuse) when
-      `origin/<base>` is ahead of local base, naming the fetch it ran.
-- [ ] Unit tests on the planners' target selection (pr → `origin/<base>`,
-      ff → `<base>`) and the draft flag; stays-silent test: trunk projects
-      produce no fetch commands anywhere.
-- [ ] Run `pnpm test` — green before the phase is done.
+- [x] origin/base targets, scoped at build time (see Notes): integrate's
+      rebase/measure (phase 1), the review page's merge-base — `preferRemoteBase`
+      in `host.js`, shared by serve.js and the CLI render so the two cannot
+      disagree, remote ref only when present locally, never fetching. The
+      **fork point and `live take` deliberately stay on local base** — an
+      origin fork would fork without a just-landed, not-yet-pushed spec
+      document, and live overlay is a local-workbench concept.
+- [x] `spec-env up` prints a `note:` in PR mode when `origin/<base>` is ahead of
+      local base (advisory, silent on every cannot-tell) — replaces the
+      origin-fork, and replaces the planned `/spec-start` warn (engine-side, so
+      every caller gets it).
+- [x] `spec-env integrate --draft`: same plan with the create command composed
+      `--draft`, heading `(pr, draft)`; an existing PR is updated by the push
+      (no second create). A dedicated verb was not needed.
+- [x] Fork `/spec-to-main` (SKILL.md): §4b PR-mode section — consent-gated push,
+      draft PR, after-land deferred, `Landed: PR #N (draft) opened/updated` and
+      `held — not pushed` vocabulary.
+- [x] Unit tests: `preferRemoteBase` selection table (pr+ref, pr−ref, trunk
+      untouched and never asked), `--draft` heading, up-note with a real ahead
+      remote — plus stays-silent: trunk `up` says nothing on the same stale
+      base, trunk plans carry no fetch (phase 1's byte-identical test).
+- [x] Run `pnpm test` — green (4284 pass; one asset-guard failure caught a
+      bold span my SKILL edit wrapped across a line break — fixed).
 
 ## Notes
 

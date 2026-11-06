@@ -152,3 +152,20 @@ test('ready/abandon: github addresses by branch; azure needs an id or says nothi
   )
   assert.match(prAbandonCommand(AZ, { branch: 'feat/x', id: '9' }), /--status abandoned$/)
 })
+
+// --- preferRemoteBase ----------------------------------------------------------
+
+test('preferRemoteBase: pr mode takes the remote-tracking ref when it exists here', () => {
+  const { preferRemoteBase } = require('../src/env/host.js')
+  const cfg = { land: { strategy: 'pr', remote: 'origin' } }
+  const withRef = (argv) => (argv.join(' ').includes('refs/remotes/origin/main') ? 'abc123' : null)
+  const withoutRef = () => null
+  assert.strictEqual(preferRemoteBase(cfg, 'main', withRef), 'origin/main')
+  // Missing ref falls back to the local name — offline-safe, never an error.
+  assert.strictEqual(preferRemoteBase(cfg, 'main', withoutRef), 'main')
+  // Trunk configs pass through untouched, asking git nothing.
+  let asked = false
+  assert.strictEqual(preferRemoteBase({}, 'main', () => { asked = true; return 'x' }), 'main')
+  assert.strictEqual(asked, false)
+  assert.strictEqual(preferRemoteBase(cfg, null, withRef), null)
+})
