@@ -510,8 +510,16 @@ function specIsUntracked(dir, git, spec) {
  * Returns `{ onFork, foundOn }`; `onFork: null` means "cannot tell" (a hotfix, or
  * a git that would not answer), which the planner routes to carrying on.
  */
-function specOnForkPoint(dir, git, spec) {
+function specOnForkPoint(dir, git, spec, config) {
   if (spec.baseRef) return { onFork: null, foundOn: null }
+  // BRANCH-MODE SPEC DOCUMENTS ARE EXEMPT the same way a hotfix is: under
+  // `land.specDocs: "branch"` the spec rides its feature branch and lands with
+  // the work's PR, so it is *supposed* to be absent from the fork point —
+  // checking would refuse every spec the mode produces. Cannot-tell, so the
+  // planner carries on.
+  if (config && config.land && config.land.specDocs === 'branch') {
+    return { onFork: null, foundOn: null }
+  }
   // Ask about EVERY bucket, by folder name — never about `spec.path`.
   //
   // A spec's folder is its identity; which bucket holds it is a property of the
@@ -634,7 +642,7 @@ function specEnvUpCheckout(dir, config, spec) {
   const primary = assertPrimaryOnMain(config, git)
   const base = resolveBaseBranch(config, git)
   const status = git(['status', '--porcelain', '-uall'])
-  const onFork = specOnForkPoint(dir, git, spec)
+  const onFork = specOnForkPoint(dir, git, spec, config)
 
   const plan = planCheckoutUp(
     spec,
@@ -1016,7 +1024,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   const noDocument = authoring || !spec.path
   const upOnFork = noDocument
     ? { onFork: undefined, foundOn: null }
-    : specOnForkPoint(dir, upGit, spec)
+    : specOnForkPoint(dir, upGit, spec, config)
   const upSpecUntracked = noDocument ? false : specIsUntracked(dir, upGit, spec)
 
   // Trust the shared worktree root so edits into the freshly-provisioned worktree

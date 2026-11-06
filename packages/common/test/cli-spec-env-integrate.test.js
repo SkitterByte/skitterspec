@@ -482,3 +482,55 @@ test('disposition enumerates the worktree spec; --json carries the same answer',
     cleanup(dir)
   }
 })
+
+// --- land.specDocs: "branch" ---------------------------------------------------
+
+// A spec authored on its own branch and never landed on base — the state every
+// branch-mode spec is in between /spec and the PR merging.
+function authorBranchOnlySpec(dir, name, branch) {
+  const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, name.replace(/^feat-/, ''))
+  git(dir, 'worktree', 'add', '-q', '-b', branch, wt)
+  const specDir = path.join(wt, 'specs', 'backlog', name)
+  fs.mkdirSync(specDir, { recursive: true })
+  fs.writeFileSync(path.join(specDir, '00-overview.md'), `# ${name}\n\n> **Stack:** worktree\n`)
+  git(wt, 'add', '-A')
+  git(wt, 'commit', '-q', '-m', `docs(spec): add ${name}`)
+  return wt
+}
+
+test('specDocs branch: re-provisioning a branch-only spec is not refused', async () => {
+  const { dir } = scaffoldRepoWithWorktree({ land: { strategy: 'pr', specDocs: 'branch' } })
+  try {
+    authorBranchOnlySpec(dir, 'feat-y', 'feat/y')
+    const out = await runQuiet(['spec-env', 'up', 'feat-y', '--dir', dir])
+    // The exemption: the spec is SUPPOSED to be absent from the fork point.
+    assert.doesNotMatch(out, /not committed in/)
+    assert.match(out, /worktree exists; will attach/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('specDocs trunk stays-silent: the same state still refuses, naming the branch', async () => {
+  const { dir } = scaffoldRepoWithWorktree({ land: { strategy: 'pr' } }) // specDocs defaults trunk
+  try {
+    authorBranchOnlySpec(dir, 'feat-y', 'feat/y')
+    const out = await runQuiet(['spec-env', 'up', 'feat-y', '--dir', dir])
+    assert.match(out, /not committed in/)
+    assert.match(out, /feat\/y/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('specDocs branch: the standing worktree is what makes the spec resolvable', async () => {
+  const { dir } = scaffoldRepoWithWorktree({ land: { strategy: 'pr', specDocs: 'branch' } })
+  try {
+    authorBranchOnlySpec(dir, 'feat-y', 'feat/y')
+    const out = await runQuiet(['spec-env', 'resolve', 'feat-y', '--dir', dir])
+    assert.match(out, /spec: +feat-y \(backlog\)/)
+    assert.match(out, /branch: +feat\/y/)
+  } finally {
+    cleanup(dir)
+  }
+})

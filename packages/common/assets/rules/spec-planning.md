@@ -234,6 +234,16 @@ worktree: `Commit & Start` keeps it and carries into `/spec-start`, plain
 `commit` tears it down, because a spec parked in the backlog should hold no
 checkout.
 
+**`land.specDocs: "branch"` is the exception, taken deliberately.** Where the
+base branch accepts no direct push even for documents, the spec rides its
+feature branch and lands with the work's PR: both verdicts commit and skip the
+integrate, plain `commit` keeps branch and worktree (they are the document's
+only copy), and the backlog is found through the tracker listing rather than
+`ls specs/backlog/` on base — the known branch-relative-bucket cost, accepted
+because the alternative is a spec that cannot be written at all. The worktree
+fork-point check is exempt in this mode for the hotfix's reason: the spec is
+*supposed* to be absent from the fork point.
+
 **What this bought is the reason it changed.** The page waits for a verdict
 without a timeout — deliberately, because a reader walking away from a diff is
 the normal case — and while the spec was authored in the primary checkout that

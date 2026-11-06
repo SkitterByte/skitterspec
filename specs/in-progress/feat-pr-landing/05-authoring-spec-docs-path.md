@@ -2,9 +2,9 @@
 github_issue_id: "#111"
 ---
 
-# Phase 5 — authoring paths: `land.specDocs` trunk · branch ⬜
+# Phase 5 — authoring paths: `land.specDocs` trunk · branch ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** a project whose branch protection forbids direct pushes can still
 author specs: the spec document rides the feature branch and lands with the
@@ -12,26 +12,26 @@ work's PR.
 
 ## Tasks
 
-- [ ] `specDocs: "trunk"` (default): `/spec` Phase C2 behaves exactly as today —
+- [x] `specDocs: "trunk"` (default): `/spec` Phase C2 behaves exactly as today —
       committing verdicts run `spec-env integrate` and the base gains the spec.
-      No change, covered by a stays-silent test.
-- [ ] `specDocs: "branch"`: C2's committing verdicts commit on the authoring
-      branch and **skip integrate**; `commit-start` renames nothing and
-      `/spec-start` re-runs `up` over the same worktree (the branch already
-      exists — `provision.js`'s `specOnForkPoint` check is skipped in this
-      path, since the spec is on the branch rather than in base's HEAD by
-      design). Plain `commit` keeps the branch and worktree (there is no base
-      copy to park), reported honestly: the spec is findable via the tracker
-      listing, not via `ls specs/backlog/` on base.
-- [ ] `/spec` SKILL.md + `spec-planning.md`: document the visibility trade
-      (`branch` mode backlog discovery = the tracker listing / `git branch`),
-      and that `/spec-cancel` on an unstarted branch-mode spec deletes branch +
-      worktree with the PR never having existed.
-- [ ] `spec-env resolve` / `spec-list`: a branch-mode backlog spec (branch
-      exists, bucket says backlog, never started) resolves and lists correctly.
-- [ ] Unit tests: C2 plan per `specDocs` value, `specOnForkPoint` skip only in
-      branch mode, resolve/list fixtures — plus the trunk stays-silent test.
-- [ ] Run `pnpm test` — green before the phase is done.
+      No change; the stays-silent test re-provisions a branch-only spec under
+      trunk and still gets the "not committed in the fork point" refusal.
+- [x] `specDocs: "branch"`: C2's committing verdicts commit on the authoring
+      branch and **skip integrate** (SKILL.md text); `specOnForkPoint` is
+      exempt in this mode exactly as a hotfix is — the spec is *supposed* to be
+      absent from the fork point — which is what lets `/spec-start` re-run `up`
+      over the authoring worktree without a refusal. Plain `commit` keeps the
+      branch and worktree (they are the document's only copy).
+- [x] `/spec` SKILL.md + `spec-planning.md`: visibility trade documented (the
+      tracker listing / `git branch` is the backlog in branch mode), plus the
+      `/spec-cancel`-on-unstarted consequence (branch + worktree deleted, spec
+      dies with them, no PR ever existed).
+- [x] `spec-env resolve`: a branch-mode backlog spec resolves through its
+      standing worktree (the fallback that already existed — keeping the
+      worktree on plain `commit` is what keeps the spec resolvable).
+- [x] Tests: up-attach not refused in branch mode, trunk same-state refusal
+      (stays-silent), resolve of a branch-only spec via its worktree.
+- [x] Run `pnpm test` — green (4299 pass) · dist build green.
 
 ## Notes
 

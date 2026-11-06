@@ -423,6 +423,18 @@ on the branch you are standing on — so a spec left on its own branch would be
 invisible to everyone, including the next `/spec` run. The commit goes on the
 branch and then the branch goes onto the base:
 
+**Unless the project set `land.specDocs: "branch"`** — the lane for a base
+branch nobody may push, where the spec document rides the feature branch and
+lands with the work's PR. There both verdicts commit on the branch and
+**skip the integrate below entirely**; `commit-start` carries into
+`/spec-start` over the same worktree exactly as ever, and plain `commit` keeps
+the branch AND the worktree, because they are now the only copy of the
+document. Say the trade out loud in the report's `Notes`: the backlog is found
+through the tracker listing (or `git branch`), not `ls specs/backlog/` on base
+— and a later `/spec-cancel` of a never-started branch-mode spec deletes the
+branch and worktree with the spec document dying with them, no PR ever having
+existed. Under the default `"trunk"` everything below applies unchanged.
+
 ```
 skitterspec spec-env integrate <name>
 ```

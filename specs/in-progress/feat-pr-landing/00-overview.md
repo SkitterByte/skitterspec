@@ -121,7 +121,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Host adapter + host-aware landed check | ✅ | [02-host-adapter-landed-check.md](02-host-adapter-landed-check.md) |
 | 3 | origin/base targets + mid-spec draft PR (`/spec-to-main`) | ✅ | [03-origin-targets-draft-pr.md](03-origin-targets-draft-pr.md) |
 | 4 | Completion: disposition guard + two-run complete; cancel abandons PR | ✅ | [04-completion-disposition-two-run.md](04-completion-disposition-two-run.md) |
-| 5 | Authoring paths: `land.specDocs` trunk · branch | ⬜ | [05-authoring-spec-docs-path.md](05-authoring-spec-docs-path.md) |
+| 5 | Authoring paths: `land.specDocs` trunk · branch | ✅ | [05-authoring-spec-docs-path.md](05-authoring-spec-docs-path.md) |
 | 6 | Release-scan hardening + rules, docs, report vocabulary | ⬜ | [06-release-scan-rules-docs.md](06-release-scan-rules-docs.md) |
 
 ## Open questions
