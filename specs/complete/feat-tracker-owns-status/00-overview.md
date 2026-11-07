@@ -219,3 +219,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-07 — Phase 6 accepted on the page (pass 280883, a committing verdict
   with no notes). D1–D7 stand as decisions. Building it is a separate `/spec`:
   the client half here, the service in its own repo.
+- 2026-11-07 — Completed; all phases done, tests green. Under `pull` (this
+  spec's own default) no `Status:` header or State log row was written; the
+  ones above are history. Docs impact: nothing to flag.
