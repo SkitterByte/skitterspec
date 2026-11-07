@@ -5,7 +5,7 @@ covers:
   - packages/common/assets/commands/**
   - packages/common/src/cli.js
   - packages/common/src/env/**
-verified: 0fdab9387af5
+verified: 20590cc72718
 -->
 <html lang="en">
 <head>
@@ -605,7 +605,8 @@ verified: 0fdab9387af5
           <tr class="grp-row"><td colspan="3">The ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-env resolve [spec]</td><td>Print a spec's branch, worktree path and stack name. The fastest way to see what a skill will act on. With <span class="mono">--record-primary</span> / <span class="mono">--assert-primary-clean</span> it also brackets a build done from outside the worktree, reporting anything that reached your primary checkout instead.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-env prune</td><td>List orphaned test-DB volumes left by aborted teardowns, and the commands to remove them.</td><td class="folder">you</td></tr>
-          <tr><td class="cmd">spec-env status</td><td>List every spec that has a worktree, with its port block if it has one.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">skitterspec status</td><td>What is in flight here: every spec that has a worktree, with its bucket and phase progress read from <em>that worktree</em>, plus any <span class="mono">Status:</span> / <span class="mono">Developer:</span> header it still carries. A closing line says when this branch files one differently. Offline, always exits 0. <span class="mono">--json</span> for a script.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-env status</td><td>List every spec that has a worktree, with its port block if it has one, the same bucket and progress detail, and any reviews waiting.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-env base</td><td>Which branch specs fork from and land onto, and how it was found — pinned by <span class="mono">baseBranch</span>, the newest <span class="mono">baseBranchPattern</span> match, <span class="mono">origin/HEAD</span>, or a fallback. Under a pattern it fetches first, lists every match newest-first by commit date with the base marked, and names the provisioned specs that forked from an older match. A failed fetch is reported and the listing comes from the refs already present. <span class="mono">--json</span> for a skill to consume. Lists only — pinning is a hand edit of <span class="mono">baseBranch</span>.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-env stage [spec]</td><td>Split the uncommitted tree into the paths that are this spec's — its folder in any bucket, plus each <span class="mono">spec.companionPaths</span> entry — and the paths that are not, so a commit can name them instead of staging <span class="mono">specs/</span> wholesale and sweeping up another session's work. Reads the tree you are standing in. <span class="mono">--json</span> for a skill to consume. Refuses nothing and writes nothing.</td><td class="folder">/spec-complete · /spec-cancel · you</td></tr>
         </tbody>
@@ -625,7 +626,7 @@ project:    skitterspec_cli-engine-docs
 <span class="c"># nothing to reap, and it says what it protected</span>
 $ skitterspec spec-env <span class="p">prune</span>
 spec-env prune: no orphaned volumes in skitterspec_* (0 namespace volume(s), 1 live spec(s) protected).</div>
-      <p class="lede"><b>What <span class="mono" style="font-size:.9em">status</span> counts.</b> A spec is provisioned when it has a <em>worktree</em> — so every in-flight spec appears, whether or not it runs Docker. Specs that do get a slot and a port block shown beside them; the rest just show their worktree path.</p>
+      <p class="lede"><b>What <span class="mono" style="font-size:.9em">status</span> counts.</b> A spec is provisioned when it has a <em>worktree</em> — so every in-flight spec appears, whether or not it runs Docker. Specs that do get a slot and a port block shown beside them. Each is then read <em>in its own worktree</em>, because a spec moves to <span class="mono">in-progress/</span> on its own branch and the base branch still files it under <span class="mono">backlog/</span>. A finished spec whose worktree was never torn down is listed, but not counted as in flight. A <span class="mono">/no-spec</span> worktree shows as <span class="mono">(no spec)</span>.</p>
     </div>
   </div>
 </section>

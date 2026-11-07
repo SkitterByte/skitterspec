@@ -16,7 +16,7 @@ diff as a self-contained HTML page you open locally — or publish, and read on 
 phone. The diff never passes through the model, so the page costs no context
 tokens however large it is; the optional written review is the part that costs,
 and it is offered rather than assumed. `/spec-next` writes the page at the end of
-every phase.
+every phase. **`skitterspec status`** lists what is in flight across worktrees.
 
 **Handing the review back.** The page takes marks: tick `✓ accept` per file as
 you read, note anything against a line or a whole file, answer the questions a

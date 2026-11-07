@@ -807,3 +807,50 @@ test('no shipped surface still offers commitWith "none"', () => {
   }
   assert.deepStrictEqual(hits, [], `still offers "none" as a commitWith value:\n${hits.join('\n')}`)
 })
+
+// --- the top-level commands --------------------------------------------------
+//
+// `skitterspec status` is the first top-level command added since the site was
+// written, and a top-level command is exactly what nobody looks for in a verb
+// table. So the two places a reader meets them are checked against the one
+// dispatch: `--help` must list every command `run()` handles, and the site must
+// name it, or carry a reason here for not doing so.
+
+const TOP_LEVEL_UNDOCUMENTED = {
+  update: 'documented in the package READMEs and --help; the site has no install-maintenance page',
+  gating: 'opt-in; documented in spec-planning.md and --help, not yet on the site',
+}
+
+function topLevelCommands() {
+  const src = fs.readFileSync(path.join(ROOT, 'packages/common/src/cli.js'), 'utf8')
+  const start = src.indexOf('async function run(')
+  const body = src.slice(start, src.indexOf('\n}\n', start))
+  return new Set([
+    ...[...body.matchAll(/cmd === '([a-z][a-z-]*)'/g)].map((m) => m[1]),
+    ...[...body.matchAll(/^ {4}case '([a-z][a-z-]*)':/gm)].map((m) => m[1]),
+  ])
+}
+
+test('the top-level dispatch is readable, or the checks below mean nothing', () => {
+  const cmds = topLevelCommands()
+  for (const c of ['init', 'spec-env', 'status']) assert.ok(cmds.has(c), `found ${JSON.stringify([...cmds])}`)
+})
+
+test('every top-level command is in --help', () => {
+  const { HELP } = require(path.join(ROOT, 'packages/common/src/cli.js'))
+  for (const c of topLevelCommands()) {
+    assert.match(HELP, new RegExp(`^ {2}skitterspec ${c}\\b`, 'm'), `--help does not list \`skitterspec ${c}\``)
+  }
+})
+
+test('every top-level command is named on the site, or allowlisted with a reason', () => {
+  const pages = fs.readdirSync(path.join(ROOT, 'docs')).filter((f) => f.endsWith('.html'))
+  const site = pages.map((f) => readPage(`docs/${f}`)).join('\n')
+  for (const c of topLevelCommands()) {
+    if (TOP_LEVEL_UNDOCUMENTED[c]) {
+      assert.ok(TOP_LEVEL_UNDOCUMENTED[c].length > 10, `${c}: allowlisted without a reason`)
+      continue
+    }
+    assert.match(site, new RegExp(`skitterspec ${c}\\b`), `no docs page names \`skitterspec ${c}\``)
+  }
+})

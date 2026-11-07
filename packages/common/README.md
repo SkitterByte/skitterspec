@@ -270,6 +270,10 @@ Once adopted it's the **default policy**, not a per-spec chore:
   page from wherever you are. All housekeeping (the backlog→in-progress move,
   header edits, the code) happens on that branch and lands in one PR; `main`
   changes only when it merges.
+  **So how do you see them all?** `skitterspec status` lists every spec with a
+  worktree, reading each one's bucket and phase progress from that worktree.
+  The base branch still files an in-flight spec under `backlog/`, because its
+  move happens on its own branch. Offline, instant, `--json` for scripts.
 - **Docker — a per-spec escalation.** `/spec` records `> **Stack:** worktree`
   (default) or `worktree + docker` when the spec touches the DB / stateful
   services. Only an escalated spec gets a **namespaced stack** — a per-spec

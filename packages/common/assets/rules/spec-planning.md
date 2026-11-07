@@ -157,6 +157,9 @@ build phase 1 now? Say yes and it carries on into a bare `/spec-next`; say no an
 you are already standing in the worktree, so `/spec-next` typed later does the
 same thing. The primary checkout stays on the base branch throughout — the
 session followed the spec, nothing was checked out anywhere.
+That is also why the base branch reads `backlog` for a spec being built: the
+move happened on its branch. **`skitterspec status`** reads each worktree's own
+copy and lists what is in flight and how far along it is.
 **`checkout`** builds the branch in the primary checkout instead: one spec at a
 time, nowhere else to stand, and the build always carries straight on.
 The difference is how many specs can be in flight at once.

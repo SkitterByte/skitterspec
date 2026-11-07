@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Read a spec's real state from its worktree | ✅ | [01-spec-reader.md](01-spec-reader.md) |
 | 2 | `skitterspec status` | ✅ | [02-status-command.md](02-status-command.md) |
-| 3 | Point people at it | ⬜ | [03-docs.md](03-docs.md) |
+| 3 | Point people at it | ✅ | [03-docs.md](03-docs.md) |
 
 ## Non-goals
 
@@ -163,3 +163,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   signal, printed only for specs whose bucket here differs from the one in
   their worktree (or that are absent here), so an idle repo, or one whose
   worktrees agree, says nothing.
+- 2026-11-07 — Phase 3: `docs/reference.html` gains a `skitterspec status` row
+  (verified bumped), and the README, `spec-planning.md` and the adopters'
+  CLAUDE.md section name the command. The docs-claims guard now checks every
+  top-level command against `--help` and the site. `update` and `gating` are
+  allowlisted with reasons, since neither is on the site yet. Docs impact also
+  flags `index.html` (it covers `cli.js`). Nothing on it describes this command,
+  so it was left unedited and its `verified:` was not bumped.
