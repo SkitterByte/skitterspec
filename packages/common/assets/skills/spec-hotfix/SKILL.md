@@ -29,6 +29,16 @@ If isolation is absent, say so and stop; there is no in-place path.
 
 ## 1. Establish the base version (the tag)
 
+**A release BRANCH instead of a tag.** Where `env.config.json` sets
+`hotfix.releaseBranch` (e.g. `"master"` — a team whose prod is whatever that
+branch holds), there is **no tag to ask for**: skip the questions below and run
+§3's `up` **without `--from`**. The engine fetches, forks from the remote's head
+of that branch, and prints two lines — `fork:` naming the commit, and
+`record:  > **Base version:** <branch>@<sha>` — and §5 copies that `record:`
+value into the header **verbatim**. Say which commit it forked from in one line;
+that is the version the fix is built on. The rest of this section is the tag
+flow, unchanged.
+
 - **Read the arguments.** `/spec-hotfix <tag> <name>` (e.g.
   `/spec-hotfix v33.16.4 login-crash`). An argument shaped like an issue
   reference — letters, a hyphen, digits (`SKI-123`) —
@@ -146,6 +156,10 @@ installs `.claude/hooks/main-guard.cjs` that first write is refused outright,
 and a step whose documented opening the repo will not perform is not a step. The
 spec is written in the worktree at §5, on the branch it belongs to.
 
+**Branch-based (`hotfix.releaseBranch`):** run the same command **without**
+`--from` — the engine picks the release branch's head and prints the
+`record:` line §5 copies. An explicit `--from` still wins over it.
+
 **§5 records the same tag you passed to `--from`**, on the spec's
 `> **Base version:**` header. That is not bookkeeping: `/spec-complete` cuts the
 release and carries the fix off the header, so a worktree forked from one ref and
@@ -185,7 +199,7 @@ is usually a single-pass fix, so the `## Fix` block can live directly in
 > **Status:** In Progress — fixing (red test added)
 > **Author:** <git user.name — who reported/captured it>
 > **Developer:** <git user.name — you, since you're fixing it now>
-> **Base version:** <tag prod is running, e.g. v33.16.4>
+> **Base version:** <tag prod is running, e.g. v33.16.4 — or, branch-based, the `record:` value `up` printed, e.g. master@1a2b3c4d5e6f>
 > **Raised:** <YYYY-MM-DD (today)>
 > **Area:** <files/modules>
 > **Severity:** <Azure's literal values, "1 - Critical" … "4 - Low" — optional;

@@ -408,11 +408,36 @@ through to a documented conservative default; see the field notes below.
   // `hotfix land --push`; without it the land holds before the carry. The
   // worktree stays until `spec-env hotfix finish`. Default: built-in patch tag,
   // carry to main, no targets.
+  //
+  // `releaseBranch` makes hotfixes BRANCH-BASED, for a team whose release line
+  // is a branch rather than a tag. Worked example — an rc flow:
+  //   master   takes only rc merges and hotfixes; prod is whatever it holds
+  //   2026/Q4  the current release candidate (`baseBranchPattern: "20??/Q?"`)
+  //   Test/Demo/Live  env branches that take merges from master — OUT OF SCOPE:
+  //            merging master into them stays your pipeline's job
+  // With `"releaseBranch": "master"`, `spec-env up hotfix-<name> --docs` fetches
+  // and forks from origin/master's head and prints the header to record —
+  // `> **Base version:** master@<sha>`. `hotfix land` then rebases onto
+  // origin/master and lands ON it by `land.strategy` (`--strategy` overrides):
+  // "ff" pushes the hotfix onto master; "pr" opens a READY pull request and
+  // holds until the host merges it. The fix is then carried to the resolved base
+  // (the newest rc) — directly under "ff", through a `carry/<slug>` branch and
+  // its own ready PR under "pr". `hotfix finish` tears down once both are
+  // confirmed. Empty (the default) = the tag flow above, unchanged; a hotfix
+  // keeps landing the way its own `Base version` says it was cut.
+  //
+  // `tag` (default true) keeps the release tag on a branch-based hotfix, bumped
+  // from the newest tag the release branch has; false is for a team whose deploy
+  // is driven by the env-branch merge rather than a tag. Under "pr",
+  // `releaseWith` refuses — a squash or rebase merge leaves its tag on a commit
+  // the release branch never has — so use the built-in tag there.
   "hotfix": {
     "releaseWith": "",
     "bump": "patch",
     "cherryPickMain": true,
-    "targets": []
+    "targets": [],
+    "releaseBranch": "",
+    "tag": true
   },
 
   // Reading a spec's diff (`spec-env review`, `/spec-diff`).

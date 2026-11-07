@@ -86,7 +86,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `hotfix.releaseBranch` config + fork from the release branch | ✅ | [01-release-branch-fork.md](01-release-branch-fork.md) |
 | 2 | Land onto the release branch via `land.strategy`; optional tag | ✅ | [02-land-onto-release-branch.md](02-land-onto-release-branch.md) |
 | 3 | Carry back to the resolved rc (direct or carry PR); finish | ✅ | [03-carry-back-to-rc.md](03-carry-back-to-rc.md) |
-| 4 | Skills, env.config.md, reference docs | ⬜ | [04-skills-and-docs.md](04-skills-and-docs.md) |
+| 4 | Skills, env.config.md, reference docs | ✅ | [04-skills-and-docs.md](04-skills-and-docs.md) |
 
 ## Open questions
 
@@ -130,3 +130,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   commit `git cherry` prints nothing for is one the base already contains.
   `finish` asks git first and the host only where git cannot see (a squash
   merge); a host that cannot answer refuses.
+- 2026-11-07 — Phase 4: `/spec-hotfix` copies the engine's `record:` line
+  verbatim rather than composing a Base version, so the header always names the
+  commit the worktree forked from. `/spec-complete` reports a PR still waiting
+  on its merge as `⚠️`. The rc-flow worked example lives in `env.config.md`
+  beside the keys; `docs/reference.html` re-read and `verified:` bumped.

@@ -246,6 +246,27 @@ in that order, and stops at the first step that fails:
    **Then stop: the worktree is kept** (step 7). The branch is what the next
    `-hotfix.N` is cut from if this deploy fails, so it waits for the deploy.
 
+**A branch-based hotfix** (`> **Base version:** <branch>@<sha>`, from
+`hotfix.releaseBranch`) runs the same command and the same consent ask — the
+engine picks the path from the header. What differs is what it does:
+
+- it **rebases** onto `<remote>/<branch>` and **lands on the release branch** by
+  `land.strategy`: under `ff` the push of the hotfix onto that branch *is* the
+  land (so the consent ask names the release branch, not only a tag); under `pr`
+  it pushes the hotfix branch and opens a **ready** PR, then holds with
+  `the PR into <branch> is open` — re-run the same command once it merges;
+- the **tag** is optional (`hotfix.tag`): cut and pushed after the land, or not
+  at all;
+- the **carry** goes to the resolved base — the current rc under
+  `baseBranchPattern` — directly under `ff`, through a `carry/<slug>` branch and
+  its own ready PR under `pr`.
+
+`Landed` then names the release branch, how it landed (fast-forward, or the PR
+and whether it merged), the tag if one was cut, and the carry. A PR still
+waiting on its merge is a `⚠️` — the land is not done until the host says so.
+`spec-env hotfix finish` tears it down once both the land and the carry are
+confirmed, naming every check that is not.
+
 ### 6-feature/bug. `Type: Feature` / `Type: Bug` — rebase + fast-forward
 
 Land the finished branch on the base branch so the work reaches `main` (or your
