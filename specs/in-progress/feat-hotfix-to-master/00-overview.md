@@ -1,21 +1,23 @@
 ---
 github_identifier: "#118"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/118"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Hotfix onto a release branch, carried back to the rc
 
 > **Type:** Feature
 > **Name:** feat-hotfix-to-master (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-11-07)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-11-06
 > **Area:** packages/common/src/env (hotfix.js, hotfixland.js, provision.js, integrate.js, config.js, cli.js), packages/common/assets/skills (spec-hotfix, spec-complete), packages/common/assets/core/env.config.md, docs/reference.html
 > **Stack:** worktree
 > **Docs:** reference
-> **Origin:** follow-up from `feat-pr-landing` (#106) — LSC's rc-flow; follows [`feat-rolling-base`](../feat-rolling-base/00-overview.md) (#113)
-> **Next spec:** [`feat-tracker-held-specs`](../feat-tracker-held-specs/00-overview.md) (#123) — the checkout model, the last of the PR-mode follow-ups
+> **Origin:** follow-up from `feat-pr-landing` (#106) — LSC's rc-flow; follows [`feat-rolling-base`](../../complete/feat-rolling-base/00-overview.md) (#113)
+> **Next spec:** [`feat-tracker-held-specs`](../../backlog/feat-tracker-held-specs/00-overview.md) (#123) — the checkout model, the last of the PR-mode follow-ups
 
 ## Problem
 
@@ -96,6 +98,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-11-06 | Ready | backlog | Reuben Greaves |
+| 2026-11-07 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
