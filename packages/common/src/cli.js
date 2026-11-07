@@ -72,6 +72,7 @@ const {
   repoInfo,
   expandTokens,
   splitPrefix,
+  parseBaseVersion,
   BUCKETS,
 } = require('./env/resolve.js')
 const building = require('./env/building.js')
@@ -944,10 +945,26 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     // Everywhere else `spec.baseRef` comes off the spec and stays the
     // authority — which is why passing this to a spec that resolves refuses
     // below rather than quietly losing to the header.
+    // `--from` takes either Base version form; a `<branch>@<sha>` forks from
+    // the sha, which is the part git can resolve.
+    const fromVersion = flags.from !== undefined ? parseBaseVersion(flags.from) : null
     if (flags.from !== undefined) {
-      const bad = badForkRef(dir, flags.from)
+      const bad = badForkRef(dir, fromVersion ? fromVersion.ref : flags.from)
       if (bad) {
         process.stdout.write(bad)
+        return
+      }
+    }
+    // A BRANCH-BASED hotfix (`hotfix.releaseBranch`) forks from the remote's
+    // head of the release branch, fetched now — prod is whatever that branch
+    // holds, not whatever this clone last saw. Resolved to a sha before the
+    // registry is written, so a refusal leaves nothing behind. An explicit
+    // `--from` still wins: the operator named the fork point.
+    let releaseFork = null
+    if (!fromVersion && splitPrefix(specArg).type === 'hotfix' && config.hotfix.releaseBranch) {
+      releaseFork = releaseBranchFork(dir, config)
+      if (releaseFork.refused) {
+        process.stdout.write(`spec-env up: ${releaseFork.refused}\n`)
         return
       }
     }
@@ -959,7 +976,11 @@ function specEnvUp(dir, config, specArg, flags = {}) {
       recordSpecless(beforeAuth, specArg, { branch: resolved.branch, spec: true }),
     )
     spec = resolved
-    if (flags.from !== undefined) spec.baseRef = flags.from
+    const fork = fromVersion || releaseFork
+    if (fork) {
+      spec.baseRef = fork.ref
+      spec.baseVersion = fork
+    }
     authoring = true
   }
 
@@ -1180,6 +1201,15 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // make the one run that forked from a tag look like every other.
   if (authoring && flags.from !== undefined) {
     out.push(`  fork:      ${flags.from}  (the branch forks from here, not from base)`)
+  }
+  // The header the skill writes into the new spec, said once, by the engine
+  // that chose the commit — so the record and the fork cannot disagree.
+  if (authoring && spec.baseVersion && spec.baseVersion.kind === 'branch' && flags.from === undefined) {
+    const v = spec.baseVersion
+    out.push(
+      `  fork:      ${v.branch}@${v.sha}  (the head of ${baseRemote(config)}/${v.branch})` +
+        `\n  record:    > **Base version:** ${v.branch}@${v.sha}`,
+    )
   }
   if (spec.forkFrom && !attached) {
     out.push(`  fork:      ${spec.forkFrom}  (the base — the primary checkout is on ${primaryUp.branch || 'a detached HEAD'})`)
@@ -1419,6 +1449,38 @@ function speclessMap(dir, config) {
  * tree ref would be rejected here and rejected by `git worktree add` too. Being
  * wrong that way costs a refusal on something that could never have worked.
  */
+/**
+ * Where a branch-based hotfix forks: the remote's head of `hotfix.releaseBranch`,
+ * fetched first. Returns `{ kind: 'branch', branch, sha, ref }` (the Base version
+ * shape, sha abbreviated to 12) or `{ refused }`.
+ *
+ * A failed fetch is not itself a refusal — the remote-tracking ref already here
+ * still names a real commit on the release line — but a ref that is absent after
+ * the fetch is: forking from anywhere else would build the fix on code prod is
+ * not running, which is the one mistake a hotfix exists to avoid.
+ */
+function releaseBranchFork(dir, config) {
+  const branch = config.hotfix.releaseBranch
+  const remote = baseRemote(config)
+  let fetchErr = null
+  try {
+    execFileSync('git', ['-C', dir, 'fetch', remote, branch], { stdio: ['ignore', 'ignore', 'pipe'] })
+  } catch (error) {
+    const stderr = error.stderr ? error.stderr.toString() : ''
+    fetchErr = stderr.split('\n').map((l) => l.trim()).find(Boolean) || 'fetch failed'
+  }
+  const git = gitReader(dir)
+  const sha = git(['rev-parse', '--verify', '--quiet', '--short=12', `refs/remotes/${remote}/${branch}^{commit}`])
+  if (!sha) {
+    return {
+      refused:
+        `hotfix.releaseBranch is "${branch}", but ${remote}/${branch} is not known here` +
+        `${fetchErr ? ` (fetch: ${fetchErr})` : ''} — nothing to fork the hotfix from.`,
+    }
+  }
+  return { kind: 'branch', branch, sha, ref: sha }
+}
+
 function badForkRef(cwd, ref) {
   const git = gitReader(cwd)
   if (!ref) {

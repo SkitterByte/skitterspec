@@ -16,6 +16,7 @@ const {
   repoInfo,
   readStackField,
   readBaseVersionField,
+  parseBaseVersion,
 } = require('../src/env/resolve.js')
 
 // A fake git reader: maps a joined-args key → return value (string, '' , or null).
@@ -372,6 +373,40 @@ test('resolveSpec: a hotfix resolves baseRef + hotfix/<slug> branch', () => {
   assert.strictEqual(r.slug, 'login-crash')
   assert.strictEqual(r.branch, 'hotfix/login-crash')
   assert.strictEqual(r.baseRef, 'v33.16.4')
+})
+
+test('parseBaseVersion: tags stay tags, dotted package tags included', () => {
+  for (const tag of ['v33.16.4', 'v36.4.0-hotfix.2', 'skitterspec@1.4.0', '@scope/pkg@2.0.0']) {
+    assert.deepStrictEqual(parseBaseVersion(tag), { kind: 'tag', tag, ref: tag })
+  }
+  assert.strictEqual(parseBaseVersion(''), null)
+  assert.strictEqual(parseBaseVersion(null), null)
+})
+
+test('parseBaseVersion: <branch>@<sha> is a branch-based base, forking from the sha', () => {
+  assert.deepStrictEqual(parseBaseVersion('master@1a2b3c4d5e6f'), {
+    kind: 'branch',
+    branch: 'master',
+    sha: '1a2b3c4d5e6f',
+    ref: '1a2b3c4d5e6f',
+  })
+  assert.strictEqual(parseBaseVersion('release/2026@abcdef0').branch, 'release/2026')
+  // Too short to be a sha → a tag, never a guess.
+  assert.strictEqual(parseBaseVersion('master@abc').kind, 'tag')
+})
+
+test('resolveSpec: a branch-based hotfix resolves baseRef to the sha, baseVersion to both', () => {
+  const dir = scaffold('hotfix-pay', { bucket: 'in-progress', baseVersion: 'master@1a2b3c4d5e6f' })
+  const r = resolveSpec('hotfix-pay', dir, baseConfig())
+  assert.strictEqual(r.baseRef, '1a2b3c4d5e6f')
+  assert.deepStrictEqual(r.baseVersion, { kind: 'branch', branch: 'master', sha: '1a2b3c4d5e6f', ref: '1a2b3c4d5e6f' })
+})
+
+test('resolveSpec: a tag-based hotfix is unchanged (stays silent)', () => {
+  const dir = scaffold('hotfix-tagged', { bucket: 'in-progress', baseVersion: 'v33.16.4' })
+  const r = resolveSpec('hotfix-tagged', dir, baseConfig())
+  assert.strictEqual(r.baseRef, 'v33.16.4')
+  assert.strictEqual(r.baseVersion.kind, 'tag')
 })
 
 test('resolveSpec: non-hotfix specs resolve baseRef:null (fork from HEAD)', () => {

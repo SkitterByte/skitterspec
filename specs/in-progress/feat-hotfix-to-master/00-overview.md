@@ -83,7 +83,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `hotfix.releaseBranch` config + fork from the release branch | ⬜ | [01-release-branch-fork.md](01-release-branch-fork.md) |
+| 1 | `hotfix.releaseBranch` config + fork from the release branch | ✅ | [01-release-branch-fork.md](01-release-branch-fork.md) |
 | 2 | Land onto the release branch via `land.strategy`; optional tag | ⬜ | [02-land-onto-release-branch.md](02-land-onto-release-branch.md) |
 | 3 | Carry back to the resolved rc (direct or carry PR); finish | ⬜ | [03-carry-back-to-rc.md](03-carry-back-to-rc.md) |
 | 4 | Skills, env.config.md, reference docs | ⬜ | [04-skills-and-docs.md](04-skills-and-docs.md) |
@@ -105,3 +105,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-06 — Spec created from the `feat-pr-landing` follow-up (hotfix-to-master
   mapping: master as release line, rc as carry-back, env branches as targets).
   Grilled to land + carry-back only; env branches dropped from scope.
+- 2026-11-07 — Phase 1: the engine chooses the fork commit and prints the
+  header to record (`record:  > **Base version:** master@<sha12>`), so the
+  record and the fork cannot disagree; the skill copies it in phase 4. An
+  explicit `--from` still wins, and accepts either form. `parseBaseVersion`
+  reads `<name>@<7–40 hex>` as branch-based — dotted package tags
+  (`skitterspec@1.4.0`) stay tags. Until phase 2, `hotfix land` still treats
+  `baseRef` as a tag, so a branch-based hotfix must not be landed yet.

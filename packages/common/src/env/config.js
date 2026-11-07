@@ -50,9 +50,12 @@
  *     teardown: { deleteRemoteBranch },
  *     live:     { migrations: [ "glob", ... ] }  // migration globs → `live take`
  *               // refuses a branch that changes them (code-only v1)
- *     hotfix:   { bump, cherryPickMain, targets }  // `hotfix land`: patch-bump the
- *               // deploy tag, also cherry-pick onto the base branch (main), and
- *               // onto any extra base tags in `targets` (test/demo lines)
+ *     hotfix:   { bump, cherryPickMain, targets, releaseWith, releaseBranch, tag }
+ *               // `hotfix land`: patch-bump the deploy tag, also cherry-pick
+ *               // onto the base branch (main), and onto any extra base tags in
+ *               // `targets` (test/demo lines). `releaseBranch` makes the hotfix
+ *               // branch-based: it forks from <remote>/<releaseBranch> instead
+ *               // of a tag; `tag` keeps (true) or drops the release-tag cut
  *   }
  */
 
@@ -326,11 +329,19 @@ const DEFAULT_CONFIG = Object.freeze({
   // `releaseWith` is a project's own release command, run in the hotfix
   // worktree in place of the built-in tagger — e.g. skittership's
   // `node scripts/release-hotfix.cjs --json`. Empty (the default) = built-in.
+  // `releaseBranch` names a release LINE that is a branch rather than a tag
+  // (e.g. "master", where prod is whatever master holds): the hotfix forks from
+  // the remote's head of it and records `Base version: <branch>@<sha>`. Empty
+  // (the default) = today's tag-based hotfix, unchanged. `tag` (default true)
+  // keeps the release-tag cut; false is for a team whose deploy is driven by a
+  // branch merge rather than a tag.
   hotfix: Object.freeze({
     bump: 'patch',
     cherryPickMain: true,
     targets: Object.freeze([]),
     releaseWith: '',
+    releaseBranch: '',
+    tag: true,
   }),
 })
 
@@ -792,6 +803,14 @@ function mergeConfig(base, parsed) {
     assign(base.hotfix, parsed.hotfix, 'bump', 'string')
     assign(base.hotfix, parsed.hotfix, 'cherryPickMain', 'boolean')
     assign(base.hotfix, parsed.hotfix, 'releaseWith', 'string')
+    assign(base.hotfix, parsed.hotfix, 'tag', 'boolean')
+    // Trimmed, and dropped when it could never name a branch — the same
+    // direction as `baseBranchPattern`: unusable means unset, which is the
+    // tag-based flow every hotfix had before this key existed.
+    if (typeof parsed.hotfix.releaseBranch === 'string') {
+      const name = parsed.hotfix.releaseBranch.trim()
+      if (name && !/[\s@~^:?*[\\]/.test(name) && !name.includes('..')) base.hotfix.releaseBranch = name
+    }
     if (Array.isArray(parsed.hotfix.targets)) {
       base.hotfix.targets = normalizeFileList(parsed.hotfix.targets)
     }

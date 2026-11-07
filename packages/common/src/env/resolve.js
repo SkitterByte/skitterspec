@@ -385,6 +385,27 @@ function readBaseVersionField(specPath) {
 }
 
 /**
+ * Parse a `Base version` value. Two forms:
+ *   - a release tag, `v33.16.4` → `{ kind: 'tag', tag, ref }`
+ *   - a release BRANCH at a commit, `master@1a2b3c4d5e6f` → `{ kind: 'branch',
+ *     branch, sha, ref }`, written by a branch-based hotfix (`hotfix.releaseBranch`)
+ * `ref` is what a worktree forks from: the tag, or the sha — never the branch
+ * name, which has moved on since the hotfix was cut.
+ *
+ * WHAT WOULD FOOL THIS: a tag literally shaped `<name>@<7–40 hex chars>`. Version
+ * tags carry dots (`skitterspec@1.4.0`), so they never match; a tag that did
+ * would be read as a branch form and fork from that sha, which is the commit
+ * the tag points at only if someone named it that way on purpose.
+ */
+function parseBaseVersion(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const v = value.trim()
+  const m = /^([^@\s]+)@([0-9a-f]{7,40})$/i.exec(v)
+  if (m) return { kind: 'branch', branch: m[1], sha: m[2], ref: m[2] }
+  return { kind: 'tag', tag: v, ref: v }
+}
+
+/**
  * Derive the git branch for a spec from the provider-neutral `branch.pattern`
  * (`{type}`, `{slug}`, and optionally `{identifier}`). When the pattern uses
  * `{identifier}`, the id is read from the frontmatter field named by
@@ -599,6 +620,7 @@ function resolveSpecless(name, dir, config, entry = {}) {
     slug,
     stack: 'worktree',
     baseRef: null,
+    baseVersion: null,
     specless: true,
     unwritten: authored,
   }
@@ -651,7 +673,8 @@ function resolveSpec(specArg, dir, config, opts = {}) {
   const stack = readStackField(found.path, config)
   // A hotfix forks its worktree from a release tag (its `Base version`) instead
   // of base HEAD; every other type resolves to baseRef:null (fork from HEAD).
-  const baseRef = type === 'hotfix' ? readBaseVersionField(found.path) : null
+  const baseVersion = type === 'hotfix' ? parseBaseVersion(readBaseVersionField(found.path)) : null
+  const baseRef = baseVersion ? baseVersion.ref : null
   // `specless: false` is written out rather than left off, so every consumer
   // reads the same field on every resolution instead of treating `undefined` as
   // an answer.
@@ -663,6 +686,7 @@ function resolveSpec(specArg, dir, config, opts = {}) {
     slug,
     stack,
     baseRef,
+    baseVersion,
     specless: false,
   }
   const branch = branchFor(spec, config)
@@ -795,4 +819,5 @@ module.exports = {
   readFrontmatterField,
   readStackField,
   readBaseVersionField,
+  parseBaseVersion,
 }

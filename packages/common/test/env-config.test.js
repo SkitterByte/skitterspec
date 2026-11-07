@@ -32,6 +32,25 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(config.guards.refuseTeardownIfDirty, true)
 })
 
+test('hotfix.releaseBranch and hotfix.tag: defaults keep the tag-based flow', () => {
+  const dir = tmpDir()
+  const { hotfix } = loadEnvConfig(dir).config
+  assert.strictEqual(hotfix.releaseBranch, '')
+  assert.strictEqual(hotfix.tag, true)
+  writeEnvConfig(dir, { hotfix: { releaseBranch: ' master ', tag: false } })
+  const set = loadEnvConfig(dir).config.hotfix
+  assert.strictEqual(set.releaseBranch, 'master')
+  assert.strictEqual(set.tag, false)
+})
+
+test('hotfix.releaseBranch: a value that can never name a branch is dropped', () => {
+  for (const bad of ['mas ter', 'a..b', 'main@{1}', 'rel*', 7]) {
+    const dir = tmpDir()
+    writeEnvConfig(dir, { hotfix: { releaseBranch: bad } })
+    assert.strictEqual(loadEnvConfig(dir).config.hotfix.releaseBranch, '')
+  }
+})
+
 test('baseBranch defaults to empty and accepts an override', () => {
   const dir = tmpDir()
   assert.strictEqual(loadEnvConfig(dir).config.baseBranch, '')
@@ -261,6 +280,8 @@ test('hotfix block defaults to patch/main/none, built-in release', () => {
     cherryPickMain: true,
     targets: [],
     releaseWith: '',
+    releaseBranch: '',
+    tag: true,
   })
   assert.deepStrictEqual(DEFAULT_CONFIG.hotfix.targets, [])
 })
