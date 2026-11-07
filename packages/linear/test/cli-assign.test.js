@@ -237,3 +237,42 @@ test('"both" owns the field as surely as "push" does', async () => {
   assert.equal(r.code, 0)
   assert.match(overview(dir), /linear_assignee_id: "user-1"/)
 })
+
+// --- pulled: the tracker owns the field --------------------------------------
+
+function runWith(argv, cwd, adapter) {
+  const out = []
+  return specSync([...argv, '--dir', cwd], {
+    cwd,
+    adapter,
+    out: { write: (s) => out.push(s), isTTY: true },
+    err: { write: () => {} },
+    env: {},
+  }).then((code) => ({ code, out: out.join('') }))
+}
+
+test('pull: --if-unassigned is parsed, and leaves an issue someone holds alone', async () => {
+  const dir = fixtureRepo({ owns: 'pull' })
+  const before = overview(dir)
+  const writes = []
+  const adapter = {
+    readIssue: async () => ({ state: { name: 'In Progress' }, assignee: { id: 'u2', name: 'Someone Else' } }),
+    updateIssue: async (id, input) => writes.push({ id, input }),
+  }
+  const r = await runWith(['assign', 'feat-owned', '--to', 'user-1', '--if-unassigned'], dir, adapter)
+  assert.equal(r.code, 0, r.out)
+  assert.deepStrictEqual(writes, [])
+  assert.equal(overview(dir), before)
+  assert.match(r.out, /already assigned to Someone Else — left alone/)
+})
+
+test('pull: --to writes Linear and stamps nothing', async () => {
+  const dir = fixtureRepo({ owns: 'pull' })
+  const before = overview(dir)
+  const writes = []
+  const adapter = { readIssue: async () => null, updateIssue: async (id, input) => writes.push({ id, input }) }
+  const r = await runWith(['assign', 'feat-owned', '--to', 'user-1'], dir, adapter)
+  assert.equal(r.code, 0, r.out)
+  assert.deepStrictEqual(writes, [{ id: 'SKI-7', input: { assigneeId: 'user-1' } }])
+  assert.equal(overview(dir), before)
+})

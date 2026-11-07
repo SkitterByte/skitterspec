@@ -1600,6 +1600,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   preserve <spec> [--text <f>]           keep an adopted item's original report
   comment <spec> --file <f>              post a file onto the item as a comment
   assign <spec> --to <id> | --release    stamp who is building it
+    [--if-unassigned]                    only when nobody holds the item
   whoami [--set <id>] [--unset]          who you are on Azure (cached)
   users [<query>]                        search the org's identities
   credentials <status|set|unset>         the PAT (user-level)
@@ -1734,6 +1735,7 @@ function parseArgs(args, sub) {
     '--to': { kind: 'string' },
     '--name': { kind: 'string' },
     '--release': { kind: 'boolean' },
+    '--if-unassigned': { kind: 'boolean', name: 'ifUnassigned' },
     '--mine': { kind: 'boolean' },
     '--next': { kind: 'number' },
     '--by': { kind: 'string' },

@@ -1450,6 +1450,7 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   preserve <spec> [--text <f>]           keep an adopted issue's original report
   comment <spec> --file <f>              post a file onto the issue as a comment
   assign <spec> --to <login> | --release  stamp who is building it
+    [--if-unassigned]                    only when nobody holds the issue
   whoami [--set <login>] [--unset]       who you are on GitHub (cached)
   users [<query>]                        the repo's assignable people
   credentials <status|set|unset>         the GitHub token (user-level)
@@ -1585,6 +1586,7 @@ function parseArgs(args, sub) {
     '--to': { kind: 'string' },
     '--name': { kind: 'value' },
     '--release': { kind: 'boolean' },
+    '--if-unassigned': { kind: 'boolean', name: 'ifUnassigned' },
     '--mine': { kind: 'boolean' },
     '--next': { kind: 'number' },
     '--by': { kind: 'string' },

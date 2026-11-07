@@ -205,7 +205,7 @@ function snapshotOf(projection, config) {
  *   `plan.issue` (when present) is the spec issue's description + state; the push
  *   skill applies its provider's project/grouping choice on top of it.
  */
-function planChanges(projection, snapshot) {
+function planChanges(projection, snapshot, { linked = false } = {}) {
   const p = projection || {}
   const snap = snapshot || {}
   const snapS = snap.subIssues || {}
@@ -241,7 +241,7 @@ function planChanges(projection, snapshot) {
 
   const plan = { subIssues }
   if (unstamped.length) plan.unstamped = unstamped
-  const issue = issueChanges(p, snap)
+  const issue = issueChanges(p, snap, { linked })
   if (issue) plan.issue = issue
   return plan
 }
@@ -259,11 +259,19 @@ function planChanges(projection, snapshot) {
  * that is the failure worth avoiding. The push rewrites the snapshot in the new
  * shape, so a spec passes through `unknown` exactly once.
  */
-function issueChanges(projection, snapshot) {
+function issueChanges(projection, snapshot, { linked = false } = {}) {
   const p = projection || {}
   const snap = snapshot || {}
   const both = () => {
-    const out = { description: p.description ?? null, state: p.status ?? null }
+    const out = { description: p.description ?? null }
+    // UNDER `pull`, THE UNKNOWN PATH SENDS NO STATE. Without split hashes there
+    // is no positive signal that the spec moved, and the tracker owns the state
+    // — so the harmless reading of "cannot tell" flips: re-asserting would drag
+    // back a ticket someone moved on the board. Only a CREATE still sends it,
+    // because an issue with no state yet gets its first one from the repo.
+    // `linked` is what tells the two apart: an adopted issue has no snapshot
+    // either, and its board status is a person's, not ours.
+    if (!p.statePulled || !linked) out.state = p.status ?? null
     // ASSERT, NEVER CLEAR, on this path. There are no split hashes here, so
     // whether an assignee was ever pushed is unknown — and the harmless reading
     // of "unknown" is to send one we have and stay silent about one we don't.

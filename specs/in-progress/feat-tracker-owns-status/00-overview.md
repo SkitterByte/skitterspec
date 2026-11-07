@@ -150,7 +150,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine: `pull` ownership, transition-only state writes, live status read | ⬜ | [01-pull-ownership-engine.md](01-pull-ownership-engine.md) |
+| 1 | Engine: `pull` ownership, transition-only state writes, live status read | ✅ | [01-pull-ownership-engine.md](01-pull-ownership-engine.md) |
 | 2 | Skills stop storing status; buckets as code facts; board-owned assignee | ⬜ | [02-skills-stop-storing-status.md](02-skills-stop-storing-status.md) |
 | 3 | Disagreement: report, warn, offer cleanup | ⬜ | [03-disagreement-report-warn.md](03-disagreement-report-warn.md) |
 | 4 | Default flip, rule rewrite, docs, major-release notes | ⬜ | [04-default-flip-and-docs.md](04-default-flip-and-docs.md) |
@@ -185,3 +185,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   complete transition rides run 2 only. Phase 5: reuse the PR-landing push
   path. Phase 6: native automations fail rc-flows. Added Related specs for
   #123, #113, #118.
+- 2026-11-07 — Phase 1: no `--transition` flag. The state's split hash already
+  changes only on a bucket move, so under `pull` the engine sends a state on that
+  positive signal (or on a create) and never on a cannot-tell. A pulled assignee
+  is not projected, so complete/cancel no longer release it (phase 2's task is
+  updated to match). `readStatus` is a single kit function over every adapter's
+  `readIssue`. Its CLI surface moves to phase 3.

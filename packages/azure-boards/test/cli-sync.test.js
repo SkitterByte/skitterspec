@@ -759,6 +759,21 @@ test('assign stamps the assignee fields and names the next step', async () => {
   assert.match(r.out, /push it, so Azure Boards agrees/)
 })
 
+test('pull: assign --if-unassigned is parsed, and leaves a held work item alone', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7', config: { sync: { fieldOwnership: { assignee: 'pull' } } } })
+  const writes = []
+  const adapter = {
+    readIssue: async () => ({ state: { name: 'Active' }, assignee: { id: 'id-2', name: 'Someone Else' } }),
+    updateIssue: async (id, updates) => writes.push({ id, updates }),
+  }
+  const r = await run(['assign', 'feat-demo', '--to', 'id-1', '--if-unassigned'], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(writes, [])
+  assert.match(r.out, /already assigned to Someone Else — left alone/)
+  const overview = fs.readFileSync(path.join(dir, 'specs', 'in-progress', 'feat-demo', '00-overview.md'), 'utf-8')
+  assert.doesNotMatch(overview, /azure_assignee_id/)
+})
+
 test('assign refuses an unlinked spec, writing nothing', async () => {
   const dir = repoWithSpec()
   const r = await run(['assign', 'feat-demo', '--to', 'id-1'], dir)

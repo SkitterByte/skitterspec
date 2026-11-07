@@ -15,7 +15,8 @@
  * Date.now(). `recordPush` writes the snapshot sidecar.
  */
 
-const { normalizeLocal, phasesWithheld, phaseModeFor } = require('./normalize.js')
+const { normalizeLocal, phasesWithheld, phaseModeFor, ownershipOf, readSnapshot } = require('./normalize.js')
+const { fieldsOf } = require('./fields.js')
 const { planChanges, snapshotOf, isEmptyPlan } = require('./compare.js')
 const { readBase, writeBase } = require('./base.js')
 const { detectLegacyMirror } = require('./legacy.js')
@@ -49,13 +50,31 @@ function projectionOf(snapshotDir, config) {
   // push. `normalizeLocal` omits the key entirely when `sync.fieldOwnership`
   // does not list it.
   if ('assignee' in local) projection.assignee = local.assignee ?? null
+  // The tracker owns the state (`sync.fieldOwnership.workflowState: "pull"`), so
+  // a push sends it only as a transition — see `issueChanges`. Set only when
+  // pulled, and read by name, so it can never reach a hash.
+  if (ownershipOf(config, 'workflowState') === 'pull') projection.statePulled = true
   return projection
+}
+
+// Does the spec carry its issue stamp? NOT `identifier`: callers fall back to the
+// folder name for an unlinked spec, so a truthy identifier proves nothing. The
+// stamp is the positive signal — it tells a create (no issue yet, so the spec's
+// first state IS a transition) from a linked spec whose snapshot cannot say what
+// was last sent.
+function isLinked(snapshotDir, config) {
+  try {
+    const { frontmatter } = readSnapshot(snapshotDir, config)
+    return !!(frontmatter && frontmatter[fieldsOf(config).identifier])
+  } catch {
+    return false
+  }
 }
 
 function push({ dir, snapshotDir, identifier, config }) {
   const projection = projectionOf(snapshotDir, config)
   const snapshot = readBase(dir, identifier, config)
-  const plan = planChanges(projection, snapshot)
+  const plan = planChanges(projection, snapshot, { linked: isLinked(snapshotDir, config) })
   // A spec still linked under the pre-9.0 model reads as unlinked here, so the
   // plan above is all-creates and would abandon a live mirror. Carry the finding
   // ON THE PLAN, not as a warning: `--json` routes warnings to stderr, and the

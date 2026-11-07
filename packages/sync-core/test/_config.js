@@ -47,7 +47,10 @@ function neutralConfig() {
       fieldOwnership: {
         description: 'both',
         subIssues: 'both',
-        workflowState: 'pull',
+        // `push`, not the `pull` this once read: `pull` was accepted and inert
+        // then, so the value meant nothing. It now means the tracker owns the
+        // state, and these tests exercise the repo-owned behaviour.
+        workflowState: 'push',
       },
       localOnlySections: ['State log', 'Changelog', 'Open questions'],
     },

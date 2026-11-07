@@ -13,7 +13,7 @@
  * stored matches what was sent — it merges nothing (see `src/verify.js`).
  */
 
-const { ownsField, normalizeLocal, LIFECYCLE_BUCKETS, lintPhases, readSnapshot, parseFrontmatter, remoteWorkflowState, remoteStateReading, stateNamesFor, titleFromText, validateStates, stateSuggestions, effectiveStates, specHeaders, linkedIncident, phaseModeFor } = require('./src/normalize.js')
+const { ownsField, ownershipOf, normalizeLocal, LIFECYCLE_BUCKETS, lintPhases, readSnapshot, parseFrontmatter, remoteWorkflowState, remoteStateReading, stateNamesFor, titleFromText, validateStates, stateSuggestions, effectiveStates, specHeaders, linkedIncident, phaseModeFor } = require('./src/normalize.js')
 const { planChanges, snapshotOf, isEmptyPlan, hashField, stableStringify, remoteDescriptionEdited, remoteSubIssueEdited } = require('./src/compare.js')
 const { readBase, writeBase } = require('./src/base.js')
 const { push, recordPush, projectionOf } = require('./src/push.js')
@@ -27,6 +27,7 @@ const { planRetarget, applyRetarget, deriveRecordedKey, isEmptyRetarget, dirtyPa
 
 module.exports = {
   ownsField,
+  ownershipOf,
   normalizeLocal,
   // Exported for `spec-sync list`: an `inline`-mode spec has no phase sub-issues
   // to read, so the listing must resolve the mode rather than assume `subissue`.

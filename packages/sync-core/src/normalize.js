@@ -374,17 +374,46 @@ function ownsField(config, field) {
   return !!owned && field in owned && owned[field] !== 'none'
 }
 
+/**
+ * WHO owns `field`: `push` (the repo), `pull` (the tracker), or `none` (it is
+ * not in play). `both` reads as `push` — it was accepted long before `pull`
+ * meant anything, and every config that wrote it meant the repo's behaviour.
+ *
+ * `pull` means the TRACKER is the record. The repo reads it live for display
+ * and sends it only as a transition it made itself (a spec changing bucket).
+ *
+ * WHAT WOULD MAKE `pull` LIE: reading the tracker's value and writing it into a
+ * spec file. Nothing that pulls ever writes a repo file — the moment one does,
+ * the repo holds a copy again, and the copy is the manual sync this exists to
+ * remove. `ownsField` stays "in play at all", so a pulled field still answers
+ * true there and no existing caller changes meaning.
+ */
+function ownershipOf(config, field) {
+  if (!ownsField(config, field)) return 'none'
+  return config.sync.fieldOwnership[field] === 'pull' ? 'pull' : 'push'
+}
+
+// The pulled fields the repo still has something to say about. A spec changing
+// bucket is a transition the repo made, so `workflowState` stays projected (its
+// hash is what tells a transition from a routine push). The assignee has no such
+// moment — the board assigns people — so under `pull` the repo projects none.
+const TRANSITION_FIELDS = ['workflowState']
+
 // Reduce an `extracted` map to exactly the configured field keys, defaulting a
 // missing field to `null` so local and remote always share an identical set.
 //
 // A declined field is OMITTED, not set null. The two are not interchangeable
 // here: `null` is a value this projection asserts — it is how a finished spec
 // hands its issue back — so writing it for a field the repo does not own would
-// clear in Linear exactly what declining ownership promised not to touch.
+// clear in Linear exactly what declining ownership promised not to touch. A
+// pulled field with no transition is omitted for the same reason: the tracker
+// owns it, so the repo asserts nothing about it, not even `null`.
 function toFieldSet(extracted, config) {
   const out = {}
   for (const field of Object.keys(config.sync.fieldOwnership)) {
-    if (!ownsField(config, field)) continue
+    const owner = ownershipOf(config, field)
+    if (owner === 'none') continue
+    if (owner === 'pull' && !TRANSITION_FIELDS.includes(field)) continue
     out[field] = field in extracted ? extracted[field] : null
   }
   return out
@@ -1065,6 +1094,7 @@ function stateSuggestions(config, workspaceStates) {
 
 module.exports = {
   ownsField,
+  ownershipOf,
   stateSuggestions,
   configuredStateNames,
   effectiveStates,

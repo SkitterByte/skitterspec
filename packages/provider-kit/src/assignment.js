@@ -13,6 +13,12 @@
  *     the operator is in the tracker, which is the fact assignment rests on.
  *   - `users [<query>]` finds a person to hand a spec to.
  *
+ * Under `sync.fieldOwnership.assignee: "pull"` the TRACKER owns the field, so
+ * `assign` writes the ticket directly and stamps nothing into the repo — there
+ * is no projection to carry it, and a stamp would be a copy someone has to
+ * keep in step. `--if-unassigned` is how `/spec-start` claims a ticket nobody
+ * holds without ever taking one from someone who does.
+ *
  * Everything tracker-shaped arrives as a hook (`makeAssignmentCommands`): the
  * tracker's name for messages, the frontmatter fields, the store scope, how a
  * credential resolves and how an adapter is made. The behaviour is the Linear
@@ -21,9 +27,10 @@
 
 const path = require('node:path')
 
-const { ownsField, writeFrontmatter, deleteFrontmatter, fieldsOf } = require('@skitterbyte/skitterspec-sync-core')
+const { ownsField, ownershipOf, writeFrontmatter, deleteFrontmatter, fieldsOf, readSnapshot } = require('@skitterbyte/skitterspec-sync-core')
 const { resolveTransport } = require('./transport.js')
 const { makeSpecHelpers } = require('./specs.js')
+const { readStatus } = require('./status.js')
 
 /**
  * @param {object} p
@@ -58,6 +65,7 @@ function makeAssignmentCommands(p) {
 
     const problems = []
     if (flags.release && flags.to) problems.push('--release and --to are opposites — pass one')
+    if (flags.release && flags.ifUnassigned) problems.push('--if-unassigned guards an assignment — it has nothing to say about --release')
     if (!flags.release && !flags.to) problems.push('nothing to do — pass --to <user-id> or --release')
     // An unlinked spec has no issue to assign. Refusing beats stamping a field
     // that would sit in the file doing nothing until someone noticed.
@@ -84,6 +92,19 @@ function makeAssignmentCommands(p) {
         ['spec-sync assign: refusing to write — nothing was changed', ...problems.map((x) => `  ${x}`)].join('\n') + '\n',
       )
       return 1
+    }
+
+    if (ownershipOf(config, 'assignee') === 'pull') return assignOnTracker(config, identifier, flags, out)
+
+    // Under `push` the repo's stamp IS the record, so that is what the guard asks.
+    if (flags.ifUnassigned) {
+      const { frontmatter } = readSnapshot(snapshotDir, config)
+      const recorded = frontmatter[fields.assigneeId]
+      if (recorded) {
+        const shown = (fields.assigneeName && frontmatter[fields.assigneeName]) || recorded
+        out.write(`spec-sync assign: ${rel} is already assigned to ${shown} — left alone\n`)
+        return 0
+      }
     }
 
     if (flags.release) {
@@ -114,6 +135,62 @@ function makeAssignmentCommands(p) {
     const who = flags.name ? `${flags.name} (${flags.to})` : flags.to
     out.write(`spec-sync assign: ${rel} assigned to ${who} (${identifier})\n  next: push it, so ${p.tracker} agrees\n`)
     return 0
+  }
+
+  /**
+   * The `pull` half of `assign`: write the ticket, stamp nothing.
+   *
+   * `--if-unassigned` reads the ticket first and acts only on a POSITIVE
+   * "nobody holds it". A read that could not run is cannot-tell, and the
+   * harmless branch is to assign nobody: taking a ticket from a colleague is
+   * the one mistake here that costs someone else their afternoon.
+   *
+   * Exits 0 on every cannot-tell (MCP transport, no credential, an unreadable
+   * ticket) and 1 only when the tracker refused a write it was asked to make.
+   */
+  async function assignOnTracker(config, identifier, flags, out) {
+    const say = (line) => {
+      out.write(`spec-sync assign: ${line}\n`)
+      return 0
+    }
+    const report = (result) => {
+      if (flags.json) {
+        out.write(JSON.stringify({ issue: identifier, owner: 'tracker', ...result }, null, 2) + '\n')
+        return 0
+      }
+      return say(result.line)
+    }
+    const cred = flags.adapter ? { ok: true } : p.resolveCredential(config, flags.env || process.env)
+    const transport = resolveTransport(flags, config, cred.ok)
+    if (transport === 'mcp' || !cred.ok) {
+      const what = flags.release ? 'unassign it' : `assign it to ${flags.to}`
+      return report({
+        written: false,
+        line: `${p.tracker} owns the assignee here, and there is no API transport — ${what} on ${identifier} with the tracker's own tool; nothing was written`,
+      })
+    }
+    const adapter = flags.adapter || p.makeAdapter(config, cred, flags)
+
+    if (flags.ifUnassigned) {
+      const now = await readStatus({ adapter, ref: identifier, config })
+      if (!now.ok) {
+        return report({ written: false, line: `could not read ${identifier} (${now.reason}) — assigned nobody` })
+      }
+      if (now.assignee) {
+        const who = now.assignee.name || now.assignee.id
+        return report({ written: false, assignee: now.assignee, line: `${identifier} is already assigned to ${who} — left alone` })
+      }
+    }
+
+    try {
+      await adapter.updateIssue(identifier, { assigneeId: flags.release ? null : flags.to })
+    } catch (error) {
+      out.write(`spec-sync assign: ${p.tracker} refused — ${String(error.message).split('\n')[0]}\n`)
+      return 1
+    }
+    if (flags.release) return report({ written: true, released: true, line: `${identifier} unassigned on ${p.tracker}` })
+    const who = flags.name ? `${flags.name} (${flags.to})` : flags.to
+    return report({ written: true, id: flags.to, name: flags.name || null, line: `${identifier} assigned to ${who} on ${p.tracker}` })
   }
 
   /**

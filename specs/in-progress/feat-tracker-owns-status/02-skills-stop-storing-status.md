@@ -21,8 +21,9 @@ assignee is the board's. With `push` or no provider, behaviour is unchanged.
 - [ ] `/spec-next`: stop touching the parent's state. Sub-issue (phase) status
       stays `push`.
 - [ ] `/spec-complete` / `/spec-cancel`: move the bucket, push the transition,
-      and release the assignee per today's rule. No header or State-log write
-      under `pull`. Under `land.strategy: "pr"` the complete transition rides
+      and release the assignee per today's rule under `push`. Under `pull` the
+      board keeps the assignee (phase 1 stopped projecting it), and there is no
+      header or State-log write. Under `land.strategy: "pr"` the complete transition rides
       run 2 (host merged) only — run 1 pushes no state; `/spec-cancel`'s PR
       abandon is unchanged.
 - [ ] `/spec-claim` (all four providers): a tracker write. Drop the frontmatter

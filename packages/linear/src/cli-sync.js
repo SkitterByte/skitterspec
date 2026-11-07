@@ -3360,6 +3360,7 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--unset') flags.unset = true
     else if (args[i] === '--to') flags.to = String(args[++i] || '').trim()
     else if (args[i] === '--release') flags.release = true
+    else if (args[i] === '--if-unassigned') flags.ifUnassigned = true
     else if (args[i] === '--no-assign') flags.noAssign = true
     else if (args[i] === '--limit') flags.limit = Number(args[++i]) || 0
     else if (args[i] === '--cursor') flags.cursor = String(args[++i] || '').trim()
@@ -3515,7 +3516,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync projects [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync whoami [--set <id> [--name N]] [--unset] [--json]\n' +
         '       skitterspec spec-sync users [<name-or-email>] [--limit N] [--cursor C] [--json]\n' +
-        '       skitterspec spec-sync assign <spec> --to <id> [--name N] | --release [--json]\n' +
+        '       skitterspec spec-sync assign <spec> --to <id> [--name N] [--if-unassigned] | --release [--json]\n' +
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
