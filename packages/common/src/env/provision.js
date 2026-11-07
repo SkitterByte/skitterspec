@@ -351,7 +351,9 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
   // A hotfix forks its fresh branch from a release tag (`spec.baseRef`, e.g.
   // `v33.16.4`) instead of base HEAD — so the fix is built on the exact commit
   // line prod runs. Attaching an existing branch ignores baseRef (already forked).
-  const forkPoint = !attached && spec.baseRef ? ` ${spec.baseRef}` : ''
+  // A rolling base sets `spec.forkFrom` when the primary checkout is not on it.
+  const forkFrom = spec.baseRef || spec.forkFrom
+  const forkPoint = !attached && forkFrom ? ` ${forkFrom}` : ''
   commands.push(
     attached
       ? `git worktree add ${spec.worktreePath} ${spec.branch}`

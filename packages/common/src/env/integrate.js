@@ -24,12 +24,15 @@ const { globToRegExp } = require('./glob.js')
  * returns is identical so callers need no second code path.
  *
  * @param {object} ctx   { worktreeState: { dirty }, base, aheadOfBase, mainRepoPath,
- *                        changedFiles } — `changedFiles` is what the land brings
- *                        in (`base...branch`), or null when it could not be read
+ *                        changedFiles, primarySwitch } — `changedFiles` is what the
+ *                        land brings in (`base...branch`), or null when it could not
+ *                        be read. `primarySwitch` is set when the primary checkout
+ *                        sits on an older rolling-base match:
+ *                        `{ from, create, remote, dirty }`
  * @returns {object} { blocked, noop, reason, commands, afterLand, base, branch }
  */
 function planIntegrate(spec, config, ctx) {
-  const { worktreeState = {}, base, aheadOfBase, mainRepoPath } = ctx || {}
+  const { worktreeState = {}, base, aheadOfBase, mainRepoPath, primarySwitch } = ctx || {}
   const branch = spec.branch
   const result = {
     blocked: false, noop: false, reason: null, commands: [], afterLand: noAfterLand(), base, branch,
@@ -48,14 +51,37 @@ function planIntegrate(spec, config, ctx) {
     return { ...result, noop: true, afterLand: afterLandFor(config, mainRepoPath, null) }
   }
 
+  // `merge --ff-only` moves whatever the primary checkout has checked out, so a
+  // checkout still on the previous release candidate would RECEIVE the land.
+  // Switch it first — and refuse while it holds uncommitted work, which a switch
+  // would carry onto the new base or refuse halfway through.
+  if (primarySwitch && primarySwitch.dirty) {
+    return {
+      ...result,
+      blocked: true,
+      reason:
+        `the primary checkout is on ${primarySwitch.from}, not ${base}, and has uncommitted ` +
+        `changes — commit or stash them there so it can switch to ${base}`,
+    }
+  }
+
   return {
     ...result,
     commands: [
+      ...(primarySwitch ? [switchCommand(mainRepoPath, base, primarySwitch)] : []),
       `git -C ${spec.worktreePath} rebase ${base}`,
       `git -C ${mainRepoPath} merge --ff-only ${branch}`,
     ],
     afterLand: afterLandFor(config, mainRepoPath, rangeOf(ctx)),
   }
+}
+
+// Put the primary checkout on `base`, creating the local branch from the remote
+// when this clone has never had it (a release candidate cut since).
+function switchCommand(repo, base, { create, remote }) {
+  return create
+    ? `git -C ${repo} switch -c ${base} --track ${remote || 'origin'}/${base}`
+    : `git -C ${repo} switch ${base}`
 }
 
 /**

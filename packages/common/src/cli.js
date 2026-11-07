@@ -538,7 +538,7 @@ function specOnForkPoint(dir, git, spec, config) {
   // into "not committed" and silently emptied the `it is on <branch>` hint too.
   const rels = BUCKETS.map((bucket) => `specs/${bucket}/${spec.folder}`)
   for (const rel of rels) {
-    if (git(['cat-file', '-e', `HEAD:${rel}/00-overview.md`]) !== null) {
+    if (git(['cat-file', '-e', `${spec.forkFrom || 'HEAD'}:${rel}/00-overview.md`]) !== null) {
       return { onFork: true, foundOn: null }
     }
   }
@@ -976,6 +976,11 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     return
   }
 
+  // Rolling base: fetch first, so a release candidate cut since the last fetch
+  // is the one this spec forks from. A hotfix names its own fork point and is
+  // not about the base at all, so it never fetches here. No pattern, no fetch.
+  if (!spec.baseRef) process.stdout.write(fetchNote('up', config, fetchForPattern(dir, config)))
+
   // Checkout mode: the branch is built in the primary checkout, so none of the
   // worktree machinery below applies — no slot, no trust entry and no bootstrap.
   // Handled first precisely so none of that runs by accident.
@@ -1015,6 +1020,20 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   const upGit = gitReader(dir)
   const upStatus = upGit(['status', '--porcelain'])
   const upDirtyPaths = dirtyPaths(upGit)
+  // A worktree forks from whatever the primary checkout has out. Under a
+  // rolling base that can be the previous release candidate, still checked out
+  // after the roll — so where it is not the resolved base, fork from the base
+  // explicitly: the local branch when this clone has one, else its remote image.
+  // No pattern leaves the fork exactly as it was.
+  if (!spec.baseRef && (config.baseBranchPattern || '').trim()) {
+    const ubase = resolveBaseBranch(config, upGit)
+    if (primaryUp.branch !== ubase) {
+      spec.forkFrom =
+        upGit(['show-ref', '--verify', '--quiet', `refs/heads/${ubase}`]) !== null
+          ? ubase
+          : `${baseRemote(config)}/${ubase}`
+    }
+  }
   // A spec with no document on disk does not ask whether the spec is on the
   // fork point — it is known to be nowhere, and that is the healthy state of
   // the authoring lane, not the "would fork without the spec it is for"
@@ -1081,13 +1100,24 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     dirtyPaths: upDirtyPaths,
     specOnFork: upOnFork.onFork,
     specFoundOn: upOnFork.foundOn,
-    forkRef: spec.baseRef || currentBranch(upGit) || 'HEAD',
+    forkRef: spec.baseRef || spec.forkFrom || currentBranch(upGit) || 'HEAD',
     specUntracked: upSpecUntracked,
     composeFilePresent: composeFilePresent(dir, config),
   }, { docs })
 
   if (plan.blocked) {
     process.stdout.write(`spec-env up: blocked — ${plan.reason}.\n`)
+    return
+  }
+  // The planned spec commit lands on the branch the primary checkout has out,
+  // and the fork is from the base — so the new branch would miss the very
+  // commit made for it. Refuse rather than plan one that cannot work.
+  if (spec.forkFrom && plan.specCommit) {
+    process.stdout.write(
+      `spec-env up: blocked — ${spec.folder} is uncommitted on ${primaryUp.branch || 'a detached HEAD'}, ` +
+        `but the base is ${spec.forkFrom}. Switch the primary checkout to the base and commit the spec ` +
+        'there, then re-run.\n',
+    )
     return
   }
 
@@ -1150,6 +1180,9 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // make the one run that forked from a tag look like every other.
   if (authoring && flags.from !== undefined) {
     out.push(`  fork:      ${flags.from}  (the branch forks from here, not from base)`)
+  }
+  if (spec.forkFrom && !attached) {
+    out.push(`  fork:      ${spec.forkFrom}  (the base — the primary checkout is on ${primaryUp.branch || 'a detached HEAD'})`)
   }
   if (trust.reason === 'malformed') {
     out.push(
@@ -1977,7 +2010,12 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   // entirely on its branch may not exist in the primary checkout's specs/** —
   // resolveSpecWithWorktree offers its worktree as a fallback search location.
   const spec = resolveSpecWithWorktree(dir, config, specArg)
+  // Fetch before resolving under a rolling base, so a spec that outlived a
+  // release roll lands on the rc that exists now rather than the one the last
+  // fetch saw. No pattern → no fetch, and the plan below is unchanged.
+  process.stdout.write(fetchNote('integrate', config, fetchForPattern(dir, config)))
   const base = resolveBaseBranch(config, gitReader(dir))
+  const retarget = retargetFor(gitReader(dir), config, spec.branch)
 
   // PR mode replaces the local land in BOTH modes: the branch is pushed and a
   // pull request carries it, so nothing below (live handling included) applies —
@@ -1997,7 +2035,7 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   }
   const strategy = flags.strategy || (config.land && config.land.strategy) || 'ff'
   if (strategy === 'pr') {
-    specEnvIntegratePr(dir, config, spec, base, flags)
+    specEnvIntegratePr(dir, config, spec, base, flags, retarget)
     return
   }
 
@@ -2029,7 +2067,8 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
       return
     }
     const cout = [`spec-env integrate: ${spec.folder}`, '', '  mode:      checkout',
-                  `  base:      ${base}`, `  branch:    ${cplan.branch}`, '',
+                  `  base:      ${base}`, `  branch:    ${cplan.branch}`,
+                  ...retargetLines(retarget), '',
                   '  run these (abort the rebase on conflict):']
     for (const cmd of cplan.commands) cout.push(`    ${cmd}`)
     process.stdout.write(cout.join('\n') + '\n' + afterLandSection(cplan.afterLand))
@@ -2041,7 +2080,11 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   // branch, clear the receipt — so the normal rebase→ff plan below applies
   // unchanged. Refuse if a *different* spec holds the primary checkout.
   const primary = assertPrimaryOnMain(config, gitReader(dir))
-  if (!primary.onBase) {
+  // A primary checkout on an OLDER rolling-base match is not a live session and
+  // not another spec: it is the previous release candidate, still checked out
+  // after the roll. The plan switches it rather than refusing.
+  const primarySwitch = primary.onBase ? null : staleBaseCheckout(dir, config, primary.branch, base)
+  if (!primary.onBase && !primarySwitch) {
     if (primary.branch !== spec.branch) {
       process.stdout.write(
         `spec-env integrate: blocked — another spec (${primary.branch}) holds the ` +
@@ -2105,7 +2148,11 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   const wtGit = gitReader(spec.worktreePath)
   const status = wtGit(['status', '--porcelain'])
   const dirty = status !== null && status.length > 0
-  const ahead = wtGit(['rev-list', '--count', `${base}..HEAD`])
+  // A base this clone has no local branch for yet (a release candidate cut
+  // since) is measured against its remote image — `<base>..HEAD` would not
+  // resolve, read as "nothing ahead", and report the spec already landed.
+  const baseRef = primarySwitch && primarySwitch.create ? `${baseRemote(config)}/${base}` : base
+  const ahead = wtGit(['rev-list', '--count', `${baseRef}..HEAD`])
   const aheadOfBase = ahead !== null && Number(ahead) > 0
 
   const plan = planIntegrate(spec, config, {
@@ -2113,7 +2160,8 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
     base,
     aheadOfBase,
     mainRepoPath: dir,
-    changedFiles: landRange(gitReader(dir), base, spec.branch),
+    changedFiles: landRange(gitReader(dir), baseRef, spec.branch),
+    primarySwitch,
   })
 
   if (plan.blocked) {
@@ -2134,10 +2182,44 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   out.push(`  base:      ${plan.base}`)
   out.push(`  branch:    ${plan.branch}`)
   out.push(`  worktree:  ${spec.worktreePath}`)
+  out.push(...retargetLines(retarget))
+  if (primarySwitch) out.push(`  primary:   on ${primarySwitch.from} — switched to ${base} before the land`)
   out.push('')
   out.push('  run these (abort the rebase on conflict):')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
+}
+
+// The line a plan carries when the rc rolled while the spec was in flight. The
+// rebase onto the newer rc is the land working, not a mistake — but it should
+// never happen without the reader seeing it.
+function retargetLines(retarget) {
+  return retarget ? [`  retarget:  forked from ${retarget.from} · landing onto ${retarget.to}`] : []
+}
+
+// Is the primary checkout sitting on an older rolling-base match? Positive
+// signal only: the branch it has out must itself match `baseBranchPattern`
+// (locally or on the remote). Anything else — a live spec, a detached HEAD, no
+// pattern — returns null and keeps the refusals that were already there.
+function staleBaseCheckout(dir, config, branch, base) {
+  const pattern = (config.baseBranchPattern || '').trim()
+  if (!pattern || !branch || branch === base) return null
+  const git = gitReader(dir)
+  const remote = baseRemote(config)
+  const local = git(['for-each-ref', '--format=%(refname:short)', `refs/heads/${pattern}`])
+  const onMatch =
+    (local || '').split('\n').map((l) => l.trim()).includes(branch) ||
+    patternMatches(git, config).some((m) => m.name === branch)
+  if (!onMatch) return null
+  const status = git(['status', '--porcelain'])
+  return {
+    from: branch,
+    // Unreadable reads as dirty: being wrong that way costs a refusal, the other
+    // way switches a checkout holding work nobody could see.
+    dirty: status === null || status.length > 0,
+    create: git(['show-ref', '--verify', '--quiet', `refs/heads/${base}`]) === null,
+    remote,
+  }
 }
 
 // Subprocess runner for the host adapter (`env/host.js`): never throws, and a
@@ -2172,7 +2254,7 @@ function hostPrFor(treePath, remote, branch) {
 // PR-mode integrate: plan rebase-onto-remote-base + consent-gated push + PR.
 // The skill runs what is printed, exactly as the ff path; the difference is
 // that nothing here moves the base branch — the host does, later.
-function specEnvIntegratePr(dir, config, spec, base, flags) {
+function specEnvIntegratePr(dir, config, spec, base, flags, retarget = null) {
   const checkout = config.mode === 'checkout'
   const treePath = checkout ? dir : spec.worktreePath
   if (!checkout && !fs.existsSync(spec.worktreePath)) {
@@ -2249,6 +2331,7 @@ function specEnvIntegratePr(dir, config, spec, base, flags) {
   out.push(`  base:      ${remote}/${base}`)
   out.push(`  branch:    ${plan.branch}`)
   out.push(checkout ? `  checkout:  ${treePath}` : `  worktree:  ${treePath}`)
+  out.push(...retargetLines(retarget))
   // Silent on cannot-tell: a line about a lookup that failed accuses nothing
   // and helps nobody — the placeholder in the commands already degrades.
   if (pr.state === 'none') out.push('  pr:        none yet')
@@ -2841,49 +2924,88 @@ function specEnvBase(dir, config, flags = {}) {
 
   // No pattern: the base is today's chain, and there is nothing to fetch for —
   // origin/HEAD is not updated by a fetch.
-  let fetch = null
-  if (pattern) {
-    try {
-      execFileSync('git', ['-C', dir, 'fetch', '--prune', remote], { stdio: ['ignore', 'ignore', 'pipe'] })
-      fetch = { ok: true, reason: null }
-    } catch (error) {
-      const stderr = error.stderr ? error.stderr.toString() : ''
-      const reason = stderr.split('\n').map((l) => l.trim()).find(Boolean) || null
-      fetch = { ok: false, reason }
-    }
-  }
-
+  const fetch = fetchForPattern(dir, config)
   const { base, how } = describeBaseBranch(config, git)
 
   let matches = []
   let forks = []
   if (pattern) {
-    const prefix = `refs/remotes/${remote}/`
-    const out = git([
-      'for-each-ref',
-      '--sort=-committerdate',
-      '--format=%(refname)%09%(committerdate:short)',
-      `${prefix}${pattern}`,
-    ])
-    matches = (out || '')
-      .split('\n')
-      .map((line) => line.split('\t'))
-      .filter(([ref]) => ref && ref.startsWith(prefix) && ref !== `${prefix}HEAD`)
-      .map(([ref, date]) => ({ name: ref.slice(prefix.length), date: date || null }))
-
+    matches = patternMatches(git, config)
     const names = matches.map((m) => m.name)
     forks = provisionedBranches(dir, config).map(({ spec, branch }) => ({
       spec,
-      forkedFrom: forkMatch(
-        names,
-        (name) => git(['merge-base', branch, `${prefix}${name}`]),
-        (a, b) => git(['merge-base', '--is-ancestor', a, b]) !== null,
-      ),
+      forkedFrom: forkedFromMatch(git, config, names, branch),
     }))
   }
 
   const { json, lines } = planBaseReport({ pattern, remote, base, how, fetch, matches, forks })
   process.stdout.write(flags.json ? JSON.stringify(json, null, 2) + '\n' : lines.join('\n') + '\n')
+}
+
+// Fetch the base's remote, but only where `baseBranchPattern` decides the base:
+// the resolver reads remote-tracking refs and never the network, so a release
+// candidate cut since the last fetch is invisible until something fetches. With
+// no pattern nothing is fetched and every plan stays byte-identical.
+// Returns null (no pattern) or { ok, reason }; never throws.
+function fetchForPattern(dir, config) {
+  if (!(config.baseBranchPattern || '').trim()) return null
+  try {
+    execFileSync('git', ['-C', dir, 'fetch', '--prune', baseRemote(config)], { stdio: ['ignore', 'ignore', 'pipe'] })
+    return { ok: true, reason: null }
+  } catch (error) {
+    const stderr = error.stderr ? error.stderr.toString() : ''
+    return { ok: false, reason: stderr.split('\n').map((l) => l.trim()).find(Boolean) || null }
+  }
+}
+
+// One line for a plan whose fetch failed; nothing for one that worked or never
+// ran. A failed fetch is not a refusal — the refs already here still resolve.
+function fetchNote(verb, config, fetch) {
+  if (!fetch || fetch.ok) return ''
+  return (
+    `spec-env ${verb}: fetch from ${baseRemote(config)} failed` +
+    `${fetch.reason ? ` (${fetch.reason})` : ''} — resolving from the refs already here.\n`
+  )
+}
+
+// Every remote branch matching `baseBranchPattern`, newest first by committer
+// date, as { name, date } with the remote prefix stripped.
+function patternMatches(git, config) {
+  const pattern = (config.baseBranchPattern || '').trim()
+  if (!pattern) return []
+  const prefix = `refs/remotes/${baseRemote(config)}/`
+  const out = git([
+    'for-each-ref',
+    '--sort=-committerdate',
+    '--format=%(refname)%09%(committerdate:short)',
+    `${prefix}${pattern}`,
+  ])
+  return (out || '')
+    .split('\n')
+    .map((line) => line.split('\t'))
+    .filter(([ref]) => ref && ref.startsWith(prefix) && ref !== `${prefix}HEAD`)
+    .map(([ref, date]) => ({ name: ref.slice(prefix.length), date: date || null }))
+}
+
+// Which pattern match `branch` forked from (see `forkMatch`), or null.
+function forkedFromMatch(git, config, names, branch) {
+  const prefix = `refs/remotes/${baseRemote(config)}/`
+  return forkMatch(
+    names,
+    (name) => git(['merge-base', branch, `${prefix}${name}`]),
+    (a, b) => git(['merge-base', '--is-ancestor', a, b]) !== null,
+  )
+}
+
+// `{ from, to }` when a branch forked from an older pattern match than the base
+// it is about to land on — the rc rolled while the spec was in flight. Null
+// whenever the pattern did not choose the base (a pin is a deliberate choice,
+// and no pattern means no roll), and on every cannot-tell.
+function retargetFor(git, config, branch) {
+  const { base, how } = describeBaseBranch(config, git)
+  if (how !== 'pattern' || !base) return null
+  const from = forkedFromMatch(git, config, patternMatches(git, config).map((m) => m.name), branch)
+  return from && from !== base ? { from, to: base } : null
 }
 
 // Every provisioned spec with the branch its worktree has checked out. A

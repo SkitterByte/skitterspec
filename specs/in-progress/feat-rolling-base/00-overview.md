@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `baseBranchPattern` + resolver (newest match, refusal on none) | ✅ | [01-pattern-resolver.md](01-pattern-resolver.md) |
 | 2 | `spec-env base` — fetch and list | ✅ | [02-base-verb.md](02-base-verb.md) |
-| 3 | Fetch-before-resolve in up/integrate; retarget line; primary-checkout switch | ⬜ | [03-retarget-at-land.md](03-retarget-at-land.md) |
+| 3 | Fetch-before-resolve in up/integrate; retarget line; primary-checkout switch | ✅ | [03-retarget-at-land.md](03-retarget-at-land.md) |
 | 4 | Skills, env.config.md, reference docs | ⬜ | [04-skills-and-docs.md](04-skills-and-docs.md) |
 
 ## Open questions
@@ -127,3 +127,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   "Forked from" is the match with the newest merge-base; a tie (an rc cut from a
   base already holding the old rc's tip) goes to the newer match, so such a spec
   is not listed as behind. Stale rows print only when the pattern chose the base.
+- 2026-11-07 — Phase 3: `spec-env up` forked from whatever the primary
+  checkout had out, so a checkout left on the old rc would fork every new spec
+  from it. Added a task: fork from the resolved base explicitly, and refuse when
+  the planned spec commit would land on the old rc instead. The retarget line is
+  printed in the ff, checkout and PR plans; `integrate` has no `--json`, so there
+  was none to add it to. A primary checkout on an older match is recognised by a
+  positive signal (its branch matches the pattern); anything else keeps the
+  existing live-session refusals.
