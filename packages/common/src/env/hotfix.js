@@ -342,6 +342,143 @@ function planHotfixLand(spec, config, ctx) {
 }
 
 /**
+ * Plan a BRANCH-BASED hotfix land (`Base version: <branch>@<sha>`, from
+ * `hotfix.releaseBranch`): the release line is a branch, so the fix lands ON it —
+ * by the project's `land.strategy` — rather than being tagged off a fork.
+ *
+ *   ff  rebase onto <remote>/<branch> → release (optional tag) → push the hotfix
+ *       head to <branch>, then the tag. The push is the land, so it waits on
+ *       consent exactly as the tag push does today.
+ *   pr  rebase → push the hotfix branch → open a READY pull request into
+ *       <branch> → hold until the host merges it. The run that sees it merged
+ *       tags <remote>/<branch> and pushes the tag. A hotfix PR is finished work,
+ *       which is why it is never a draft.
+ *
+ * Every "already done" is a positive signal from git or the host, so a re-run
+ * picks up where the last one stopped: HEAD already on the remote branch is a
+ * landed ff, a host-reported merge is a landed PR, a recorded release still at
+ * HEAD is reused rather than re-cut.
+ *
+ * ctx: { dirty, remote, strategy, push, behind, onRelease, ahead,
+ *        headOnRemote, pr: { state, id, url } | null, prCommand,
+ *        lastTag, existingTags, released, tagPushed }
+ *   behind     <remote>/<branch> is not an ancestor of HEAD — rebase first
+ *   onRelease  HEAD is an ancestor of <remote>/<branch> — an ff land is done
+ *   lastTag    the newest tag reachable from <remote>/<branch> (bump base)
+ */
+function planBranchHotfixLand(spec, config, ctx) {
+  const c = ctx || {}
+  const v = spec.baseVersion || {}
+  const releaseBranch = v.branch
+  const remote = c.remote || 'origin'
+  const releaseRef = `${remote}/${releaseBranch}`
+  const branch = spec.branch
+  const hotfixCfg = (config && config.hotfix) || {}
+  const tagging = hotfixCfg.tag !== false
+  const releaseWith = String(hotfixCfg.releaseWith || '').trim()
+  const bump = hotfixCfg.bump || 'patch'
+  const strategy = c.strategy === 'pr' ? 'pr' : 'ff'
+  const cwd = spec.worktreePath
+  const result = {
+    blocked: false,
+    noop: false,
+    reason: null,
+    steps: [],
+    strategy,
+    releaseBranch,
+    releaseRef,
+    branch,
+    afterLand: afterLandFor(null),
+  }
+  const block = (reason) => ({ ...result, blocked: true, reason })
+
+  if (!releaseBranch) return block('spec has no branch-based Base version (<branch>@<sha>)')
+  if (c.dirty) return block('worktree has uncommitted changes — commit the completion first')
+  // A project's release command cuts its version commit and tag on the hotfix
+  // branch. Under a PR the commit rides the PR but the host's merge (squash,
+  // rebase) leaves the tag on a commit the release branch never has.
+  if (strategy === 'pr' && tagging && releaseWith) {
+    return block(
+      'hotfix.releaseWith cannot release a branch-based hotfix landed by PR — the tag would ' +
+        'point at a commit the merge rewrites; use the built-in tag, or set hotfix.tag false',
+    )
+  }
+
+  // The tag the built-in tagger cuts, bumped from the newest one the release
+  // branch already has. Computed lazily: only a run that cuts one needs it.
+  const builtInTag = () => {
+    if (!c.lastTag) return { refused: `no release tag on ${releaseBranch} to bump from — set hotfix.tag false, or hotfix.releaseWith` }
+    const tag = nextTag(c.lastTag, c.existingTags, bump)
+    if ((c.existingTags || []).includes(tag)) {
+      return { refused: `tag ${tag} already exists${freeTagHint(c.lastTag, c.existingTags, bump)}` }
+    }
+    return { tag }
+  }
+  const pushVia = (done) => (done ? 'remote' : c.push ? 'push' : 'hold')
+
+  if (strategy === 'ff') {
+    const landed = Boolean(c.onRelease)
+    // A recorded release is only good while it is still at HEAD; a rebase
+    // moves HEAD, so a run that must rebase cuts afresh.
+    const released = c.behind ? null : c.released || null
+    if (landed && (!tagging || (released && c.tagPushed))) {
+      return { ...result, noop: true, reason: `${branch} is already on ${releaseRef} — nothing to land` }
+    }
+    const steps = []
+    if (c.behind && !landed) steps.push({ kind: 'rebase', onto: releaseRef, cwd })
+    if (tagging) {
+      if (released && released.tag) {
+        steps.push({ kind: 'release', via: 'recorded', tag: released.tag, release: released })
+      } else if (releaseWith) {
+        steps.push({ kind: 'release', via: 'command', command: releaseWith, cwd })
+      } else {
+        const t = builtInTag()
+        if (t.refused) return block(t.refused)
+        steps.push({ kind: 'release', via: 'tag', tag: t.tag, cwd, baseTag: c.lastTag, branch })
+      }
+    }
+    steps.push({
+      kind: 'push',
+      via: pushVia(landed && (!tagging || c.tagPushed)),
+      remote,
+      branch,
+      refs: landed ? [] : [`${branch}:${releaseBranch}`],
+      withTag: tagging,
+      cwd,
+    })
+    return { ...result, steps }
+  }
+
+  // pr
+  const merged = c.pr && c.pr.state === 'merged'
+  if (!merged) {
+    const steps = []
+    if (c.behind) steps.push({ kind: 'rebase', onto: releaseRef, cwd })
+    // --force-with-lease because the rebase rewrites a branch that may
+    // already be on the remote; -u so the first push sets the upstream.
+    steps.push({ kind: 'push', via: pushVia(c.headOnRemote && !c.behind), remote, branch, refs: [branch], withTag: false, force: true, cwd })
+    steps.push({ kind: 'pr', command: c.prCommand || null, state: c.pr ? c.pr.state : 'cannot-tell', id: c.pr ? c.pr.id : null, base: releaseBranch, cwd })
+    steps.push({ kind: 'wait', base: releaseBranch, pr: c.pr || null })
+    return { ...result, steps }
+  }
+  if (!tagging || (c.released && c.tagPushed)) {
+    return { ...result, noop: true, reason: `the PR into ${releaseBranch} is merged — nothing to land` }
+  }
+  const steps = []
+  if (c.released && c.released.tag) {
+    steps.push({ kind: 'release', via: 'recorded', tag: c.released.tag, release: c.released })
+  } else {
+    const t = builtInTag()
+    if (t.refused) return block(t.refused)
+    // Tagged at the release branch as the host left it — the merge, whatever
+    // style made it — not at the hotfix branch, which a squash never reaches.
+    steps.push({ kind: 'release', via: 'tag', tag: t.tag, at: releaseRef, cwd, baseTag: c.lastTag, branch })
+  }
+  steps.push({ kind: 'push', via: pushVia(c.tagPushed), remote, branch, refs: [], withTag: true, cwd })
+  return { ...result, steps }
+}
+
+/**
  * Plan `spec-env hotfix finish`: the teardown a hotfix waits for until its
  * deploy is out.
  *
@@ -409,5 +546,6 @@ module.exports = {
   BUMPS,
   tagSlug,
   planHotfixLand,
+  planBranchHotfixLand,
   planHotfixFinish,
 }

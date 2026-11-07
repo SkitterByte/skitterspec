@@ -174,7 +174,7 @@ const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune
 const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env/integrate.js')
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
-const { planHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
+const { planHotfixLand, planBranchHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
@@ -2726,6 +2726,13 @@ function specEnvHotfix(dir, config, positional, flags) {
     refuse(`${spec.folder} has no worktree — nothing to land.`)
     return
   }
+  // A release BRANCH rather than a tag: the fix lands on it by `land.strategy`.
+  // Decided by the spec's own header, so a hotfix cut before the project set
+  // `hotfix.releaseBranch` keeps landing the way it was cut.
+  if (spec.baseVersion && spec.baseVersion.kind === 'branch') {
+    hotfixLandBranch(dir, config, spec, flags, { say, refuse, json })
+    return
+  }
 
   const base = resolveBaseBranch(config, gitReader(dir))
   const wtGit = gitReader(spec.worktreePath)
@@ -2863,6 +2870,159 @@ function specEnvHotfix(dir, config, positional, flags) {
     say(
       `spec-env hotfix land: stopped at step ${result.failedAt} of ${plan.steps.length} ` +
         `(${describeHotfixStep(failed.step)}) — nothing after it ran.`,
+    )
+    if (tag) say(`  ${tag} was cut and is recorded — a re-run carries on from it.`)
+  }
+  if (!result.ok) process.exitCode = 1
+}
+
+// `hotfix land` for a branch-based hotfix: gather the facts, plan with
+// `planBranchHotfixLand`, run the steps. The carry back to the rc follows the
+// land and is not part of this run yet.
+function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
+  if (flags.strategy !== undefined && flags.strategy !== 'ff' && flags.strategy !== 'pr') {
+    refuse(`unknown --strategy "${flags.strategy}" — use ff or pr.`)
+    return
+  }
+  const strategy = flags.strategy || (config.land && config.land.strategy) || 'ff'
+  const remote = baseRemote(config)
+  const releaseBranch = spec.baseVersion.branch
+  const releaseRef = `${remote}/${releaseBranch}`
+  const wtGit = gitReader(spec.worktreePath)
+
+  // The land is onto the release branch as it is NOW. A failed fetch leaves the
+  // last-fetched image, which a non-fast-forward push refuses loudly if stale.
+  try {
+    execFileSync('git', ['-C', spec.worktreePath, 'fetch', remote, releaseBranch], { stdio: 'ignore' })
+  } catch {}
+
+  const status = wtGit(['status', '--porcelain'])
+  const isAncestor = (a, b) => wtGit(['merge-base', '--is-ancestor', a, b]) !== null
+  const head = wtGit(['rev-parse', 'HEAD'])
+  const tagList = wtGit(['tag', '--list'])
+  const existingTags = tagList ? tagList.split('\n').map((t) => t.trim()).filter(Boolean) : []
+  const record = readHotfixRecord(dir, config, spec.folder)
+  const atHead = (wtGit(['tag', '--points-at', 'HEAD']) || '').split('\n').map((t) => t.trim())
+  // ff: a recorded release counts while HEAD still carries it. pr: the tag sits
+  // on the release branch, never on HEAD, so the record and the tag existing is
+  // the signal.
+  const released =
+    record && record.tag && (strategy === 'pr' ? existingTags.includes(record.tag) : atHead.includes(record.tag))
+      ? record
+      : null
+  const tagPushed = released !== null && Boolean(wtGit(['ls-remote', '--tags', remote, `refs/tags/${released.tag}`]))
+  const remoteHead = (wtGit(['ls-remote', '--heads', remote, `refs/heads/${spec.branch}`]) || '').split(/\s+/)[0] || null
+
+  let pr = null
+  let prCommand = null
+  if (strategy === 'pr') {
+    pr = hostPrFor(spec.worktreePath, remote, spec.branch)
+    const info = parseRemote(wtGit(['config', '--get', `remote.${remote}.url`]))
+    // Ready, never draft: a hotfix is finished work.
+    prCommand = prPlanCommand(info, pr, { branch: spec.branch, base: releaseBranch, draft: false })
+  }
+
+  let plan
+  try {
+    plan = planBranchHotfixLand(spec, config, {
+      dirty: status === null || status.length > 0,
+      remote,
+      strategy,
+      push: flags.push === true,
+      behind: !isAncestor(releaseRef, 'HEAD'),
+      onRelease: isAncestor('HEAD', releaseRef),
+      headOnRemote: Boolean(head) && remoteHead === head,
+      pr,
+      prCommand,
+      lastTag: wtGit(['describe', '--tags', '--abbrev=0', releaseRef]),
+      existingTags,
+      released,
+      tagPushed,
+    })
+  } catch (error) {
+    refuse(`${error.message}.`)
+    return
+  }
+  if (plan.blocked) {
+    refuse(`blocked — ${plan.reason}.`)
+    return
+  }
+  if (plan.noop) {
+    if (json) say(JSON.stringify({ ok: true, noop: true, reason: plan.reason }, null, 2))
+    else say(`spec-env hotfix land: ${plan.reason}.`)
+    return
+  }
+
+  const header = () => {
+    say(`spec-env hotfix land: ${spec.folder}${flags.plan ? ' (plan — nothing run)' : ''}`)
+    say('')
+    say(`  release:   ${releaseRef}  (${strategy === 'pr' ? 'by pull request' : 'fast-forward'})`)
+    say(`  branch:    ${spec.branch}`)
+  }
+  if (flags.plan) {
+    if (json) {
+      say(JSON.stringify({ spec: spec.folder, planned: true, strategy, steps: plan.steps }, null, 2))
+      return
+    }
+    header()
+    say('')
+    plan.steps.forEach((st, i) => say(`  ${i + 1}. ${describeHotfixStep(st)}`))
+    return
+  }
+
+  if (!json) {
+    header()
+    say('')
+  }
+  const result = runHotfixLand(plan.steps, {
+    write: json ? () => {} : (line) => say(`  ${line}`),
+    childStdout: json ? process.stderr : 'inherit',
+    record: (release) =>
+      writeHotfixRecord(dir, config, spec.folder, { ...release, at: new Date().toISOString() }),
+  })
+  const tag = result.release ? result.release.tag : null
+  const last = result.results[result.results.length - 1]
+
+  if (json) {
+    say(
+      JSON.stringify(
+        {
+          spec: spec.folder,
+          planned: false,
+          strategy,
+          ok: result.ok,
+          held: result.held === true,
+          waiting: Boolean(last && last.step.kind === 'wait'),
+          failedAt: result.failedAt,
+          release: result.release,
+          steps: result.results.map((r) => ({ ...r.step, outcome: r.outcome, line: r.line })),
+          remaining: plan.steps.slice(result.results.length),
+        },
+        null,
+        2,
+      ),
+    )
+  } else if (result.held && last.step.kind === 'wait') {
+    say('')
+    say(`  landing:   the PR into ${releaseBranch} is open — re-run \`skitterspec spec-env hotfix land ${spec.folder}\` once it merges`)
+  } else if (result.held) {
+    const st = last.step
+    const refs = [...(Array.isArray(st.refs) ? st.refs : []), ...(st.withTag !== false && tag ? [tag] : [])]
+    say('')
+    say(`  held:      nothing pushed — the push to ${remote} is what ${strategy === 'pr' ? 'opens the PR' : 'lands the fix'}.`)
+    say('  re-run with --push, or run:')
+    for (const ref of refs) {
+      say(`    git -C ${spec.worktreePath} push ${st.force ? '--force-with-lease -u ' : ''}${remote} ${ref}`)
+    }
+    say(`  then re-run \`skitterspec spec-env hotfix land ${spec.folder}\`.`)
+  } else if (result.ok) {
+    say('')
+    say(`  landed:    on ${releaseRef}${tag ? ` · tagged ${tag}` : ''}`)
+  } else {
+    process.stderr.write(`  ${last.line}\n`)
+    say(
+      `spec-env hotfix land: stopped at step ${result.failedAt} of ${plan.steps.length} ` +
+        `(${describeHotfixStep(last.step)}) — nothing after it ran.`,
     )
     if (tag) say(`  ${tag} was cut and is recorded — a re-run carries on from it.`)
   }

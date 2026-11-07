@@ -70,11 +70,23 @@ function describeStep(step) {
     case 'release':
       if (step.via === 'command') return `release: ${step.command}`
       if (step.via === 'recorded') return `release: ${step.tag} (cut earlier — not re-run)`
-      return `release: git tag ${step.tag}`
-    case 'push':
-      if (step.via === 'remote') return `push: ${step.tag || 'the tag'} is already on ${step.remote}`
+      return `release: git tag ${step.tag}${step.at ? ` ${step.at}` : ''}`
+    case 'push': {
+      if (step.via === 'remote') {
+        return step.refs ? `push: already on ${step.remote}` : `push: ${step.tag || 'the tag'} is already on ${step.remote}`
+      }
       if (step.via === 'hold') return `push: held — no consent to push to ${step.remote}`
-      return `push: ${step.branch}, then ${step.tag || 'the tag'}, to ${step.remote}`
+      const what = [...pushRefs(step), ...(pushesTag(step) ? [step.tag || 'the tag'] : [])]
+      return `push: ${what.join(', then ')}, to ${step.remote}`
+    }
+    case 'rebase':
+      return `rebase: onto ${step.onto}`
+    case 'pr':
+      if (!step.command) return `pr: cannot tell the PR's state — open one into ${step.base} on the host`
+      if (step.command.startsWith('#')) return `pr: ${step.command.slice(1).trim()}`
+      return `pr: ${step.command}`
+    case 'wait':
+      return `wait: the PR into ${step.base} is not merged yet — re-run once the host merges it`
     case 'target':
       return `target: ${step.base} -> ${step.tag} (cherry-pick, tag)`
     case 'carry': {
@@ -86,6 +98,16 @@ function describeStep(step) {
     default:
       return `unknown step ${step.kind}`
   }
+}
+
+// What a push step sends besides the tag. A tag-based land pushes its branch;
+// a branch-based one names its refs — `<hotfix>:<release>` for an ff land, the
+// hotfix branch for a PR, or none at all when only the tag is left to publish.
+function pushRefs(step) {
+  return Array.isArray(step.refs) ? step.refs : [step.branch]
+}
+function pushesTag(step) {
+  return step.withTag !== false
 }
 
 // The last non-blank line a command wrote to stderr — skittership's refusals
@@ -108,7 +130,7 @@ function runRelease(step, ctx) {
     return { outcome: 'skipped', line: describeStep(step), release: step.release }
   }
   if (step.via === 'tag') {
-    const res = ctx.spawn('git', ['-C', step.cwd, 'tag', step.tag], {
+    const res = ctx.spawn('git', ['-C', step.cwd, 'tag', step.tag, ...(step.at ? [step.at] : [])], {
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
     })
@@ -151,15 +173,16 @@ function runPush(step, release, ctx) {
   const s = { ...step, tag: release ? release.tag : null }
   if (s.via === 'remote') return { outcome: 'skipped', line: describeStep(s) }
   if (s.via === 'hold') return { outcome: 'held', line: describeStep(s) }
-  if (!release) return { outcome: 'failed', line: `${describeStep(s)} — no release to push` }
-  for (const ref of [s.branch, s.tag]) {
-    const argv = ['-C', s.cwd, 'push', s.remote, ref]
+  if (pushesTag(s) && !release) return { outcome: 'failed', line: `${describeStep(s)} — no release to push` }
+  const refs = [...pushRefs(s), ...(pushesTag(s) ? [s.tag] : [])]
+  for (const ref of refs) {
+    const argv = ['-C', s.cwd, 'push', ...(s.force && ref !== s.tag ? ['--force-with-lease', '-u'] : []), s.remote, ref]
     const res = ctx.spawn('git', argv, { stdio: ['ignore', ctx.childStdout, 'pipe'], encoding: 'utf8' })
     if (res.error || res.status !== 0) {
       return { outcome: 'failed', line: `push ${ref} to ${s.remote} — ${lastLine(res.stderr) || why(res)}` }
     }
   }
-  return { outcome: 'pushed', line: `pushed ${s.branch}, then ${s.tag}, to ${s.remote}` }
+  return { outcome: 'pushed', line: `pushed ${refs.join(', then ')}, to ${s.remote}` }
 }
 
 /**
@@ -223,6 +246,30 @@ function runCarry(step, release, ctx) {
   return { outcome: 'ran', line: `carried ${what} onto ${step.base}`, carried: commits.length }
 }
 
+// Replay the hotfix onto the release branch as it is now. A conflict is
+// aborted, leaving the branch exactly where it was, so a re-run tries again.
+function runRebase(step, ctx) {
+  const git = (argv) => ctx.spawn('git', argv, { stdio: ['ignore', ctx.childStdout, 'pipe'], encoding: 'utf8' })
+  const res = git(['-C', step.cwd, 'rebase', step.onto])
+  if (res.error || res.status !== 0) {
+    git(['-C', step.cwd, 'rebase', '--abort'])
+    return { outcome: 'failed', line: `rebase onto ${step.onto} conflicted — aborted; ${lastLine(res.stderr) || why(res)}` }
+  }
+  return { outcome: 'ran', line: `rebased onto ${step.onto}` }
+}
+
+// Open the PR, through the host's own CLI. A `# …` command is the host saying
+// one already exists (the push updated it); null is a host that could not be
+// asked — neither runs anything.
+function runPr(step, ctx) {
+  if (!step.command || step.command.startsWith('#')) return { outcome: 'skipped', line: describeStep(step) }
+  const res = ctx.spawn(step.command, { cwd: step.cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' })
+  if (res.error || res.status !== 0) {
+    return { outcome: 'failed', line: `pr: ${step.command} — ${lastLine(res.stderr) || why(res)}` }
+  }
+  return { outcome: 'ran', line: `opened a PR into ${step.base}${res.stdout ? ` — ${lastLine(res.stdout)}` : ''}` }
+}
+
 // A step that is a list of git argvs run in order — a target's worktree,
 // cherry-pick, tag and cleanup, or the carry's cherry-pick.
 function runArgvs(step, ctx) {
@@ -267,6 +314,11 @@ function runHotfixLand(steps, io = {}) {
       if (step.kind === 'release') r = runRelease(step, ctx)
       else if (step.kind === 'push') r = runPush(step, release, ctx)
       else if (step.kind === 'carry') r = runCarry(step, release, ctx)
+      else if (step.kind === 'rebase') r = runRebase(step, ctx)
+      else if (step.kind === 'pr') r = runPr(step, ctx)
+      // Not a failure: the land is waiting on the host, and nothing after it
+      // (the tag, the carry) may run before the merge.
+      else if (step.kind === 'wait') r = { outcome: 'held', line: describeStep(step) }
       else if (step.kind === 'target') {
         // A project's release command can cut a tag the built-in tagger also
         // planned for a target on the same root. Refuse rather than collide.

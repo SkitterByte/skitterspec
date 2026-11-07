@@ -84,7 +84,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `hotfix.releaseBranch` config + fork from the release branch | ✅ | [01-release-branch-fork.md](01-release-branch-fork.md) |
-| 2 | Land onto the release branch via `land.strategy`; optional tag | ⬜ | [02-land-onto-release-branch.md](02-land-onto-release-branch.md) |
+| 2 | Land onto the release branch via `land.strategy`; optional tag | ✅ | [02-land-onto-release-branch.md](02-land-onto-release-branch.md) |
 | 3 | Carry back to the resolved rc (direct or carry PR); finish | ⬜ | [03-carry-back-to-rc.md](03-carry-back-to-rc.md) |
 | 4 | Skills, env.config.md, reference docs | ⬜ | [04-skills-and-docs.md](04-skills-and-docs.md) |
 
@@ -112,3 +112,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   reads `<name>@<7–40 hex>` as branch-based — dotted package tags
   (`skitterspec@1.4.0`) stay tags. Until phase 2, `hotfix land` still treats
   `baseRef` as a tag, so a branch-based hotfix must not be landed yet.
+- 2026-11-07 — Phase 2: a separate planner (`planBranchHotfixLand`) rather
+  than branches through the tag planner, so the tag-based land is untouched;
+  `hotfix land` routes by the spec's own `Base version` form. The land itself
+  is not written to the hotfix record: "landed" is read from positive signals
+  each run (HEAD on `<remote>/<branch>` for ff, the host's merged state for
+  pr), which is what makes the re-run idempotent; the release stays recorded as
+  before. Under `pr`, `hotfix.releaseWith` refuses — its tag would sit on a
+  commit the host's merge rewrites — and the built-in tag is cut on
+  `<remote>/<branch>` on the run that sees the merge. A rebase that must happen
+  discards a recorded-but-unpushed tag; the next tag number skips it.
