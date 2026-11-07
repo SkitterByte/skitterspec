@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-hotfix-to-master (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-11-07)
+> **Status:** Complete (2026-11-07)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-11-06
@@ -99,6 +99,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-11-06 | Ready | backlog | Reuben Greaves |
 | 2026-11-07 | In Progress | in-progress | Reuben Greaves |
+| 2026-11-07 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -135,3 +136,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   commit the worktree forked from. `/spec-complete` reports a PR still waiting
   on its merge as `⚠️`. The rc-flow worked example lives in `env.config.md`
   beside the keys; `docs/reference.html` re-read and `verified:` bumped.
+- 2026-11-07 — Completed; all phases done, tests green.
