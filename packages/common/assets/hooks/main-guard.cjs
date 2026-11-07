@@ -117,6 +117,15 @@ function writeTarget(input) {
   return null
 }
 
+// The engine's own refusal line, from `spec-env main check`. Pure.
+//
+// WHAT WOULD FOOL THIS: an engine that crashes after printing that line. The
+// refusal is the last thing `check` writes, so a crash before it prints nothing
+// — and one after it has already decided.
+function isRefusal(stdout) {
+  return /^spec-env main: /m.test(stdout || '')
+}
+
 function main() {
   const payload = readPayload()
   if (!payload) allow()
@@ -145,7 +154,14 @@ function main() {
   if (result.error || result.status === null) allow()
   if (result.status !== 1) allow()
 
-  deny((result.stdout || '').trim())
+  // EXIT 1 ALONE IS NOT A REFUSAL. Node exits 1 on an uncaught exception, so an
+  // engine that cannot even load looks exactly like one refusing — and read
+  // that way it denied every Edit and Write in the session. The positive signal
+  // is the refusal the engine PRINTS; a crash prints nothing on stdout.
+  const said = (result.stdout || '').trim()
+  if (!isRefusal(said)) allow()
+
+  deny(said)
 }
 
 // Guarded so the pieces above can be required and tested without the script
@@ -159,4 +175,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { findEngine, WRITE_TOOLS, writeTarget }
+module.exports = { findEngine, WRITE_TOOLS, writeTarget, isRefusal }

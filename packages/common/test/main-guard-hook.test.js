@@ -337,3 +337,26 @@ test('a crash inside the hook still lets the write through', () => {
   const src = fs.readFileSync(HOOK, 'utf8')
   assert.match(src, /catch \{\s*\n\s*\/\/ Even a bug in this file lets the write through\.\s*\n\s*allow\(\)/)
 })
+
+test('STAYS SILENT: an engine that throws (exit 1, no output) is a crash, not a refusal', () => {
+  // Node exits 1 on an uncaught exception — the same status as a refusal. The
+  // exit-2 test above never covered it, and a broken engine then denied every
+  // Edit and Write in the session (see env-review-hook.test.js, "THE INCIDENT").
+  const dir = repo()
+  const stub = path.join(dir, 'throwing-engine')
+  try {
+    fs.writeFileSync(stub, `#!${process.execPath}\nthrow new ReferenceError('phaseProgress is not defined')\n`)
+    fs.chmodSync(stub, 0o755)
+    assert.strictEqual(fire(edit(dir), { engine: stub }).out, '')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('isRefusal: only the engine\'s own main-guard line counts', () => {
+  const { isRefusal } = require(HOOK)
+  assert.strictEqual(isRefusal('spec-env main: the base branch is a landing zone'), true)
+  for (const said of ['', 'boom', 'spec-env review gate: x is awaiting a verdict']) {
+    assert.strictEqual(isRefusal(said), false, JSON.stringify(said))
+  }
+})

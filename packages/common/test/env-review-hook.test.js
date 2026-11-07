@@ -243,8 +243,13 @@ test('it allows when there is no engine to ask', () => {
 test('it allows when the engine crashes', () => {
   const { dir, wt } = scaffold()
   try {
-    const stub = path.join(dir, 'crashing-engine.js')
-    fs.writeFileSync(stub, 'process.exit(3)\n')
+    // An EXECUTABLE stub. This once passed `"node stub.js"` as one bin, which
+    // `spawnSync` cannot run — so the stub never executed and the test proved
+    // only that a missing engine allows.
+    const stub = path.join(dir, 'crashing-engine')
+    fs.writeFileSync(stub, `#!${process.execPath}\nprocess.exit(3)\n`)
+    fs.chmodSync(stub, 0o755)
+    assert.strictEqual(spawnSync(stub, [], { encoding: 'utf8' }).status, 3, 'the stub really runs')
     engine(dir, 'feat-alpha')
     engine(dir, 'arm', 'feat-alpha', '--phase', '2')
     // Any status but the one that means "armed" is a cannot-tell.
@@ -252,7 +257,7 @@ test('it allows when the engine crashes', () => {
       input: JSON.stringify(bashCommit(wt)),
       cwd: wt,
       encoding: 'utf8',
-      env: { ...process.env, SKITTERSPEC_BIN: `${process.execPath} ${stub}` },
+      env: { ...process.env, SKITTERSPEC_BIN: stub },
     })
     assert.strictEqual(res.stdout.trim(), '')
   } finally {
@@ -527,4 +532,44 @@ test('a hook that merely shares the prefix is not mistaken for ours', () => {
     ]),
     false,
   )
+})
+
+// --- a crash that exits 1 ----------------------------------------------------
+//
+// THE INCIDENT. A half-finished edit left `env/handoff.js` exporting names it no
+// longer defined, so every engine call died at load with a ReferenceError.
+// Node exits 1 on an uncaught exception, which is the status that means "armed",
+// so this hook denied EVERY Bash command — a `!` command typed by the operator
+// included — with an empty reason. The crash test above stubs exit 3, which is
+// why it never caught it: the dangerous crash is the one that exits 1.
+
+// An engine that throws on load, as the incident's did: exit 1, a stack on
+// stderr, nothing on stdout. An executable file, because `SKITTERSPEC_BIN` is
+// spawned without a shell and a "node script.js" string would never run at all.
+function throwingEngine(dir) {
+  const stub = path.join(dir, 'throwing-engine')
+  fs.writeFileSync(stub, `#!${process.execPath}\nthrow new ReferenceError('phaseProgress is not defined')\n`)
+  fs.chmodSync(stub, 0o755)
+  return stub
+}
+
+test('stays silent: an engine that throws (exit 1, no output) is a crash, not a refusal', () => {
+  const { dir, wt } = scaffold()
+  try {
+    const bin = throwingEngine(dir)
+    assert.strictEqual(spawnSync(bin, [], { encoding: 'utf8' }).status, 1, 'the stub really exits 1')
+    const got = runHook(bashCommit(wt), { cwd: wt, bin })
+    assert.strictEqual(got.status, 0)
+    assert.strictEqual(got.stdout.trim(), '', 'no decision at all — the commit proceeds')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('isRefusal: only the engine\'s own gate line counts', () => {
+  const { isRefusal } = require(HOOK)
+  assert.strictEqual(isRefusal('spec-env review gate: feat-alpha is awaiting a verdict (phase 2)'), true)
+  for (const said of ['', 'boom', 'ReferenceError: phaseProgress is not defined', 'spec-env main: landing zone']) {
+    assert.strictEqual(isRefusal(said), false, JSON.stringify(said))
+  }
 })
