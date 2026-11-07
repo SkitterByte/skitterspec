@@ -9,7 +9,7 @@ github_assignee_name: "Reuben Greaves"
 
 > **Type:** Feature
 > **Name:** feat-rolling-base (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** In Progress — Phase 1 (started 2026-11-07)
+> **Status:** Complete (2026-11-07)
 > **Author:** Reuben Greaves
 > **Developer:** Reuben Greaves
 > **Raised:** 2026-11-06
@@ -107,6 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |------|--------|--------|----|
 | 2026-11-06 | Ready | backlog | Reuben Greaves |
 | 2026-11-07 | In Progress | in-progress | Reuben Greaves |
+| 2026-11-07 | Complete | complete | Reuben Greaves |
 
 ## Changelog
 
@@ -140,3 +141,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `spec-env base` with `⏸`. `docs/reference.html` re-read against every commit
   since its last `verified:` and bumped. `env.config.json.example` gained the
   key beside `baseBranch`.
+- 2026-11-07 — Completed; all phases done, tests green.
