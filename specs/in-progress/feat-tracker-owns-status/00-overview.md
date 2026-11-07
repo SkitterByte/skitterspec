@@ -155,7 +155,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 3 | Disagreement: report, warn, offer cleanup | ✅ | [03-disagreement-report-warn.md](03-disagreement-report-warn.md) |
 | 4 | Default flip, rule rewrite, docs, major-release notes | ✅ | [04-default-flip-and-docs.md](04-default-flip-and-docs.md) |
 | 5 | Follow-up: branch handoff (push, mirror, resume) | ✅ | [05-branch-handoff.md](05-branch-handoff.md) |
-| 6 | Follow-up: skitterspec service as an always-on projection (design) | ⬜ | [06-service-projection-design.md](06-service-projection-design.md) |
+| 6 | Follow-up: skitterspec service as an always-on projection (design) | ✅ | [06-service-projection-design.md](06-service-projection-design.md) |
 
 ## Open questions
 
@@ -209,3 +209,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   ticket note. Decision 3 became a handoff **comment** rather than a projected
   field, because the engine knows neither the branch nor the sha. See the
   phase 5 notes.
+- 2026-11-07 — Phase 6: the service design is written into the phase file as
+  proposals D1–D7. The proposals are self-hostable first in its own repo, with
+  only a client here; poll on skill run, with push only into `review wait`; a
+  hosted review store beside the artifact tier; and no remote teardown. A
+  committing verdict accepts them. Correction made while writing it: the pushed
+  description drops the header block, so the ticket-to-spec mapping is
+  registered by the CLI rather than parsed from the ticket.
+- 2026-11-07 — Phase 6 accepted on the page (pass 280883, a committing verdict
+  with no notes). D1–D7 stand as decisions. Building it is a separate `/spec`:
+  the client half here, the service in its own repo.
