@@ -276,8 +276,31 @@ through to a documented conservative default; see the field notes below.
   // (used by the teardown "merged?" guard and, later, the integrate step).
   // Empty = auto-detect: origin/HEAD → main → master. Set it when your default
   // branch isn't discoverable (e.g. no remote) or differs (trunk, develop, a
-  // release-candidate branch).
+  // release-candidate branch). An explicit value always wins — it is the pin.
   "baseBranch": "",
+
+  // A base that ROLLS: a glob over the remote's branch names (e.g. "20??/Q?")
+  // for teams that work off a release candidate versioned per release. The
+  // base is the NEWEST match by commit date, so cutting the next rc is all it
+  // takes to move every spec onto it — no config edit per release, no message
+  // to the team. Precedence: baseBranch (pin) → this pattern → origin/HEAD →
+  // main → master.
+  //   - Matched against `refs/remotes/<land.remote>/*`, never the network:
+  //     `spec-env up`, `integrate` and `spec-env base` fetch first; everything
+  //     else reads what the last fetch saw.
+  //   - git's glob does not cross "/": "rc/*" matches rc/2026-11 but not
+  //     rc/a/b. Spell each segment ("20??/Q?").
+  //   - No match REFUSES, naming `spec-env base` — it never falls back to
+  //     origin/HEAD, because zero matches usually means "not fetched", and
+  //     the default branch is exactly where a rolling base must not land.
+  //   - Newest-by-date is only right when one rc is live at a time (the next
+  //     is cut after the last merges). If your rcs overlap, pin `baseBranch`.
+  //   - A spec that outlived a roll lands on the new rc; the integrate plan
+  //     says `retarget:  forked from <old> · landing onto <new>`, and switches
+  //     a primary checkout still on the old rc before the fast-forward.
+  // A pattern holding whitespace or ".." is dropped (treated as unset).
+  // `spec-env base` lists the matches, the base, and specs on an older one.
+  "baseBranchPattern": "",
 
   // How a finished branch reaches the base branch.
   //   strategy: "ff" (default) — trunk-based: rebase + local `merge --ff-only`,

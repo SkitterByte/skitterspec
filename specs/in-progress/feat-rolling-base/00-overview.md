@@ -95,7 +95,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | `baseBranchPattern` + resolver (newest match, refusal on none) | ✅ | [01-pattern-resolver.md](01-pattern-resolver.md) |
 | 2 | `spec-env base` — fetch and list | ✅ | [02-base-verb.md](02-base-verb.md) |
 | 3 | Fetch-before-resolve in up/integrate; retarget line; primary-checkout switch | ✅ | [03-retarget-at-land.md](03-retarget-at-land.md) |
-| 4 | Skills, env.config.md, reference docs | ⬜ | [04-skills-and-docs.md](04-skills-and-docs.md) |
+| 4 | Skills, env.config.md, reference docs | ✅ | [04-skills-and-docs.md](04-skills-and-docs.md) |
 
 ## Open questions
 
@@ -135,3 +135,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   was none to add it to. A primary checkout on an older match is recognised by a
   positive signal (its branch matches the pattern); anything else keeps the
   existing live-session refusals.
+- 2026-11-07 — Phase 4: the three skills relay the engine's lines rather
+  than describing the mechanism, and each sends a no-match refusal to
+  `spec-env base` with `⏸`. `docs/reference.html` re-read against every commit
+  since its last `verified:` and bumped. `env.config.json.example` gained the
+  key beside `baseBranch`.

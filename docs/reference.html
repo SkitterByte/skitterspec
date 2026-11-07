@@ -5,7 +5,7 @@ covers:
   - packages/common/assets/commands/**
   - packages/common/src/cli.js
   - packages/common/src/env/**
-verified: b3dc1ac9b5d7
+verified: 5bc116acf48d
 -->
 <html lang="en">
 <head>
@@ -584,11 +584,11 @@ verified: b3dc1ac9b5d7
         </thead>
         <tbody>
           <tr class="grp-row"><td colspan="3">Planners — they print commands; the skill executes them</td></tr>
-          <tr><td class="cmd">spec-env up &lt;spec&gt;</td><td>Plan a worktree (and a Docker stack, if the spec's <span class="mono">Stack</span> asks for one). Creates nothing.</td><td class="folder">/spec-start</td></tr>
+          <tr><td class="cmd">spec-env up &lt;spec&gt;</td><td>Plan a worktree (and a Docker stack, if the spec's <span class="mono">Stack</span> asks for one). Creates nothing. Under <span class="mono">baseBranchPattern</span> it fetches first and forks from the newest release candidate even when the primary checkout still has an older one out.</td><td class="folder">/spec-start</td></tr>
           <tr><td class="cmd">spec-env bootstrap [&lt;spec&gt;]</td><td>The one verb here that acts: after <span class="mono">up</span>'s worktree add, it runs the worktree's seeds, env file, <span class="mono">setup</span> and stack itself, with the worktree as its cwd — so no <span class="mono">.env</span> path ever appears in a command line. <span class="mono">--plan</span> describes the steps and runs nothing.</td><td class="folder">/spec-start · /spec · /no-spec</td></tr>
           <tr><td class="cmd">spec-env nospec &lt;name&gt;</td><td>Record a branch with no spec document — <span class="mono">/no-spec</span> work — and plan its worktree. The record is what makes a name with nothing under <span class="mono">specs/**</span> resolvable.</td><td class="folder">/no-spec</td></tr>
           <tr><td class="cmd">spec-env down &lt;spec&gt;</td><td>Plan teardown — remove the worktree, delete the branch, drop the stack.</td><td class="folder">/spec-complete · /spec-cancel</td></tr>
-          <tr><td class="cmd">spec-env integrate &lt;spec&gt;</td><td>Plan the landing: rebase onto base, then fast-forward. Live-aware. Under <span class="mono">land.strategy: "pr"</span> (or <span class="mono">--strategy pr</span>) it plans rebase onto the remote base plus a consent-gated push and PR instead (<span class="mono">--push</span> consents, <span class="mono">--draft</span> keeps the PR unmergeable); once the host merges, the same verb prints the finish — base catch-up and the deferred after-land.</td><td class="folder">/spec-complete · /spec-to-main</td></tr>
+          <tr><td class="cmd">spec-env integrate &lt;spec&gt;</td><td>Plan the landing: rebase onto base, then fast-forward. Live-aware. Under <span class="mono">land.strategy: "pr"</span> (or <span class="mono">--strategy pr</span>) it plans rebase onto the remote base plus a consent-gated push and PR instead (<span class="mono">--push</span> consents, <span class="mono">--draft</span> keeps the PR unmergeable); once the host merges, the same verb prints the finish — base catch-up and the deferred after-land. Under <span class="mono">baseBranchPattern</span> it fetches first; a spec forked from an older release candidate prints <span class="mono">retarget: forked from &lt;old&gt; · landing onto &lt;new&gt;</span>, and a primary checkout still on the old one is switched before the fast-forward.</td><td class="folder">/spec-complete · /spec-to-main</td></tr>
           <tr><td class="cmd">spec-env disposition [&lt;spec&gt;]</td><td>List the loose ends a completion must dispose before a PR goes ready — unticked tasks, phases not ✅, surfaced follow-ups. Information only; nothing gates on it.</td><td class="folder">/spec-complete (PR mode)</td></tr>
 
           <tr class="grp-row"><td colspan="3">Actions — they do the thing</td></tr>

@@ -152,6 +152,14 @@ render says so. On **`--plan`** this step does not run at all.
 1. **Provision.** Run `skitterspec spec-env up <name>` — a planner, so run the
    `to provision, run:` commands it prints and confirm they succeeded.
 
+   **Under a rolling base** (`baseBranchPattern`) `up` fetches first, and where
+   the primary checkout is not on the newest release candidate the plan says
+   `fork:  <base>  (the base — the primary checkout is on <old>)` and forks from
+   it. Relay that line in the `Branch` row. A refusal naming
+   `no branch matches <pattern>` means no release candidate is visible —
+   usually not fetched: relay it, stop with `⏸`, and name
+   `skitterspec spec-env base` (it fetches and lists) as the next step.
+
 2. **Trust the worktree.** `spec-env up` wrote the printed `trusted:` root into
    `.claude/settings.local.json`, but that file does not hot-reload in this
    session — run **`/add-dir <trusted root>`** before editing into the worktree,

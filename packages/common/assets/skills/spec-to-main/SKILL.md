@@ -92,6 +92,19 @@ nothing else.
 On a **no-op** ("already landed on `<base>` — nothing to integrate"), just say so
 and continue — the branch has no commits base doesn't already have.
 
+**Under a rolling base** (`baseBranchPattern` in `env.config.json`) the plan
+can carry two more things, and both are the engine's to say:
+- a `git -C <mainRepoPath> switch <base>` (or `switch -c … --track`) **first**,
+  when the primary checkout still has an older release candidate out — run it
+  in order with the rest;
+- a `retarget:  forked from <old> · landing onto <new>` line, when the rc
+  rolled while this spec was in flight. It is the land working, not a fault:
+  relay it verbatim in the `Landed` row so the reader sees where the work went.
+
+A refusal naming `no branch matches <pattern>` means no release candidate is
+visible — usually not fetched. Relay it, stop with `⏸`, and name
+`skitterspec spec-env base` (it fetches and lists) as the next step.
+
 **Then run the after-land commands.** Where the plan ends with a
 `then, in the primary checkout (<path>), run:` section — the project's
 `afterLand`, such as a data migration — run those commands in that directory,
