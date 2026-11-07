@@ -1416,14 +1416,26 @@ test('list --state <bucket> matches every alias of it', async () => {
   assert.doesNotMatch(r.out, /AB#9/)
 })
 
-test('list marks a row whose board state disagrees with its spec', async () => {
+test('list marks a row the board finished and the repo has not', async () => {
   const dir = repoWithSpec({ identifier: 'AB#7' })
   const adapter = listAdapter()
-  adapter.searchIssues = async () => [{ identifier: 'AB#7', title: 'A', state: { name: 'To Do' } }]
-  const r = await run(['list', '--json'], dir, { adapter })
+  adapter.searchIssues = async () => [{ identifier: 'AB#7', title: 'A', state: { name: 'Done' } }]
+  const r = await run(['list', '--json', '--all'], dir, { adapter })
   const [row] = JSON.parse(r.out)
   assert.strictEqual(row.specStatus, 'in-progress')
   assert.strictEqual(row.disagrees, true)
-  const text = await run(['list'], dir, { adapter })
-  assert.match(text.out, /AB#7\tTo Do\t≠ in-progress\t/)
+  assert.strictEqual(row.cleanup, '/spec-complete')
+  const text = await run(['list', '--all'], dir, { adapter })
+  assert.match(text.out, /AB#7\tDone\t≠ in-progress → \/spec-complete\t/)
+})
+
+// STAYS SILENT: the board moving an in-flight spec back to To Do is planning,
+// not a claim about the repo — the bucket only says `/spec-start` ran.
+test('list does not flag a board that merely re-planned an in-flight spec', async () => {
+  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const adapter = listAdapter()
+  adapter.searchIssues = async () => [{ identifier: 'AB#7', title: 'A', state: { name: 'To Do' } }]
+  const [row] = JSON.parse((await run(['list', '--json'], dir, { adapter })).out)
+  assert.strictEqual(row.disagrees, false)
+  assert.strictEqual('cleanup' in row, false)
 })

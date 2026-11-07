@@ -51,6 +51,7 @@ In a project that installs the Linear superset the binary is
 | "set my Linear key", "am I authenticated?" | `credentials <status\|set\|unset>` |
 | "who am I in Linear?", "why is it assigning the wrong person?" | `whoami` — `--set` for a shared or bot key |
 | "who's on this team?", "find Jane's user id" | `users <name-or-email>` |
+| "did someone close this on the board?", "is Linear ahead of the repo?" | `board <spec>` — silent unless Linear says Done/Cancelled where the spec is not; relay its cleanup, never run it |
 | push one spec, or "what would push?" | **defer** — see below |
 
 **With no argument, run `linked`.** It is the repo-wide overview, it is

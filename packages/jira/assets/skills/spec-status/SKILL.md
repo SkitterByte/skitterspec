@@ -19,9 +19,12 @@ Read-only. Reports two things and writes nothing:
    since the last push? The next push replaces it, so this is worth reading
    first.
 
-**Status is not compared, deliberately.** Skitterspec tells Jira about its
-own transitions and never reads a status back: a card someone moved by hand is
-theirs to have moved, and push resends State only when the spec itself moves.
+**Status is not compared — with one exception.** Skitterspec tells Jira about
+its own transitions and does not mirror a status back: a card someone moved by
+hand is theirs to have moved, and push resends State only when the spec itself
+changes bucket. The exception is the one difference the repo can act on — the
+issue says Done or Cancelled while the spec is still in flight — which §3c
+asks about, and reports without acting.
 
 The repo is the source of truth; Jira is a generated mirror, so there is no
 per-field "conflict" — only "what would the next push send" and "did someone
@@ -79,6 +82,18 @@ The Linear provider ships `retarget` to rewrite stale stamps; the Jira provider
 does not yet. Say so, name the two keys, and stop. Do not attempt the rewrite by
 hand — the identifiers live in frontmatter, snapshot filenames and the keys
 inside those snapshots, and a hand edit misses some.
+
+## 3c. Has the board finished it?
+
+```
+skitterspec spec-sync board <spec>
+```
+
+Silent unless Jira says Done or Cancelled while this spec is in `backlog` or
+`in-progress`; then one line naming the cleanup (`/spec-complete` or
+`/spec-cancel`). Relay that line as it is.
+**Report it; never offer or run the cleanup** — this skill is read-only, and
+the branch may be someone else's to close. Silence, an unlinked spec and an unreadable issue all say nothing.
 
 ## 4. Report
 

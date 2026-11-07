@@ -22,10 +22,24 @@ test('--state expands a bucket to every name it has, and keeps a tracker name as
   assert.deepStrictEqual(expandStateArgs(['in-progress', 'Next Sprint'], CONFIG), ['Active', 'Blocked', 'Next Sprint'])
 })
 
-test('a mapped board state that differs from the spec disagrees', () => {
-  const c = specColumn('Active', { bucket: 'backlog' }, CONFIG)
-  assert.deepStrictEqual(c, { specStatus: 'backlog', disagrees: true })
-  assert.strictEqual(specCell(c), '≠ backlog')
+test('a board that finished what the repo has not disagrees, and names the cleanup', () => {
+  const done = specColumn('Closed', { bucket: 'in-progress' }, CONFIG)
+  assert.deepStrictEqual(done, { specStatus: 'in-progress', disagrees: true, cleanup: '/spec-complete' })
+  assert.strictEqual(specCell(done), '≠ in-progress → /spec-complete')
+  const dropped = specColumn('Removed', { bucket: 'in-progress' }, CONFIG)
+  assert.strictEqual(dropped.cleanup, '/spec-cancel')
+  // Done on a spec that never started: there is no work here to complete.
+  assert.strictEqual(specColumn('Closed', { bucket: 'backlog' }, CONFIG).cleanup, '/spec-cancel')
+})
+
+// STAYS-SILENT: the board re-planning is the board's business. A backlog spec
+// it calls in progress, an in-flight one it moved back, and a finished spec it
+// reopened are none of them a claim the repo can act on.
+test('a board that only re-planned never disagrees', () => {
+  assert.strictEqual(specColumn('Active', { bucket: 'backlog' }, CONFIG).disagrees, false)
+  assert.strictEqual(specColumn('New', { bucket: 'in-progress' }, CONFIG).disagrees, false)
+  assert.strictEqual(specColumn('Active', { bucket: 'complete' }, CONFIG).disagrees, false)
+  assert.strictEqual(specColumn('Closed', { bucket: 'cancelled' }, CONFIG).disagrees, false)
 })
 
 test('an alias agrees with its bucket', () => {

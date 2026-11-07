@@ -13,10 +13,15 @@ packages/common/test/assets.test.js.
 **Only when `specs/.core/jira.config.json` exists** and the spec carries a
 `jira_identifier`. Otherwise skip this step — no config means zero change.
 
-- **No pull.** Jira is a generated mirror in one-way sync, so there is nothing
-  to bring down before building — the repo is already the source of truth. (A
-  status a teammate moved in Jira is advisory only; `/spec-status` surfaces it.
-  It is overwritten on the next push.)
+- **No pull — one look at the board, before building.** Nothing is brought
+  down. Run `skitterspec spec-sync board <spec>`: it reads Jira and writes nothing to
+  the spec, and it is **silent** unless the issue says Done or Cancelled while
+  this spec is still in flight. When it prints a line, relay it once as a
+  warning — this session holds the branch, so the cleanup it names is the
+  operator's to choose — and **carry on with the build**. Never run that
+  cleanup and never refuse on it. A status someone moved anywhere else is the
+  board doing its job, and the next push sends a state only when the spec
+  itself changes bucket.
 - **Refresh the mirror now, without asking.** Run `/spec-push`. The spec has just
   moved to `in-progress` and its phase to `🔄` — both real state changes, and the
   tracker is a generated mirror of them. This holds under **both**

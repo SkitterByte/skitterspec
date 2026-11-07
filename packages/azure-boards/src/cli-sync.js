@@ -348,6 +348,16 @@ function apiAdapterFor(config, flags) {
   }
 }
 
+// `board <spec>` — has Azure Boards finished what this repo has not? The kit's
+// (`provider-kit/src/status.js`): one line on a disagreement, silent otherwise.
+async function specSyncBoard(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+  const cred = apiAdapterFor(config, flags)
+  const credential = kit.resolveTransport(flags, config, cred.ok) === 'mcp' ? { ok: false, error: 'transport = mcp — no API read' } : cred
+  return kit.specSyncBoard({ snapshotDir, config, credential, flags, out, tracker: 'Azure Boards', program: PROGRAM })
+}
+
 // ---------------------------------------------------------------------------
 // `released [<range>]` — which tickets a commit range contains, off the
 // `Refs:` trailers (kit `src/released.js` owns the parsing rules). Refs are
@@ -1596,6 +1606,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  tracker listing
   linked [--json]                        specs and their linked items (offline)
   ownership [--json]                     who owns status and assignee (offline)
+  board <spec> [--json]                  is the item finished where the spec is not?
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     tickets a commit range contains
   preserve <spec> [--text <f>]           keep an adopted item's original report
@@ -1672,6 +1683,8 @@ async function specSync(rest, io = {}) {
       return specSyncLinked(dir, config, flags, out)
     case 'ownership':
       return kit.specSyncOwnership(config, flags, out, PROGRAM)
+    case 'board':
+      return specSyncBoard(dir, config, positional[0], flags, out)
     case 'states':
       return specSyncStates(dir, config, flags, out)
     case 'list':

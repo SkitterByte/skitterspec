@@ -116,3 +116,60 @@ test('ownership reads both as push under the shipped defaults of every provider'
     assert.deepStrictEqual(JSON.parse(out.text), { workflowState: 'push', assignee: 'push' }, p.name)
   }
 })
+
+// --- spec-sync board ---------------------------------------------------------
+
+const { specSyncBoard } = require('../src/status.js')
+
+// A GitHub-shaped spec in `bucket`, linked unless told otherwise.
+function boardSpec(bucket, { linked = true } = {}) {
+  const dir = path.join(empty(), 'specs', bucket, 'feat-demo')
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, '00-overview.md'), `${linked ? '---\ngithub_identifier: "#7"\n---\n\n' : ''}# Demo\n`)
+  return dir
+}
+
+async function board(snapshotDir, credential, flags = {}) {
+  const out = sink()
+  const config = PROVIDERS[0].config()
+  const code = await specSyncBoard({ snapshotDir, config, credential, flags, out, tracker: 'GitHub' })
+  return { code, text: out.text }
+}
+
+const reads = (state) => ({ ok: true, adapter: adapterReturning({ state: { name: state }, assignee: null }) })
+
+test('board says one line when the issue is finished and the spec is in flight', async () => {
+  const r = await board(boardSpec('in-progress'), reads('Cancelled'))
+  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.text, 'spec-sync board: #7 is Cancelled on GitHub, but feat-demo is in-progress here — /spec-cancel closes it\n')
+  const done = await board(boardSpec('in-progress'), reads('Done'))
+  assert.match(done.text, /\/spec-complete closes it/)
+})
+
+test('board --json answers every case, so a caller can tell them apart', async () => {
+  const r = await board(boardSpec('in-progress'), reads('Done'), { json: true })
+  const body = JSON.parse(r.text)
+  assert.strictEqual(body.disagrees, true)
+  assert.strictEqual(body.cleanup, '/spec-complete')
+  assert.strictEqual(body.reading.bucket, 'complete')
+  const quiet = JSON.parse((await board(boardSpec('backlog', { linked: false }), reads('Done'), { json: true })).text)
+  assert.deepStrictEqual([quiet.reading, quiet.reason], [null, 'not linked'])
+})
+
+// STAYS SILENT: healthy or cannot-tell, every one of them, exit 0 and no output.
+test('board is silent on agreement, re-planning, and every cannot-tell', async () => {
+  const cases = [
+    [boardSpec('in-progress'), reads('In Progress')],
+    [boardSpec('backlog'), reads('In Progress')],
+    [boardSpec('in-progress'), reads('Waiting on legal')],
+    [boardSpec('complete'), reads('Done')],
+    [boardSpec('in-progress', { linked: false }), reads('Done')],
+    [boardSpec('in-progress'), { ok: false, error: 'no token\nset GITHUB_TOKEN' }],
+    [boardSpec('in-progress'), { ok: true, adapter: { readIssue: async () => { throw new Error('offline') } } }],
+    [boardSpec('in-progress'), { ok: true, adapter: adapterReturning(null) }],
+  ]
+  for (const [dir, credential] of cases) {
+    const r = await board(dir, credential)
+    assert.deepStrictEqual(r, { code: 0, text: '' })
+  }
+})

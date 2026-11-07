@@ -258,6 +258,16 @@ function apiAdapterFor(config, flags) {
   }
 }
 
+// `board <spec>` — has Jira finished what this repo has not? The kit's
+// (`provider-kit/src/status.js`): one line on a disagreement, silent otherwise.
+async function specSyncBoard(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+  const cred = apiAdapterFor(config, flags)
+  const credential = kit.resolveTransport(flags, config, cred.ok) === 'mcp' ? { ok: false, error: 'transport = mcp — no API read' } : cred
+  return kit.specSyncBoard({ snapshotDir, config, credential, flags, out, tracker: 'Jira', program: PROGRAM })
+}
+
 // ---------------------------------------------------------------------------
 // Subcommands. Each returns an exit code and writes only to the streams it is
 // handed, so every branch is testable offline.
@@ -1276,6 +1286,7 @@ const USAGE = `Usage: skitterspec-jira spec-sync <subcommand>
   list [--all | --state NAME]            tracker listing for the project
   linked [--json]                        specs and their linked issues (offline)
   ownership [--json]                     who owns status and assignee (offline)
+  board <spec> [--json]                  is the issue finished where the spec is not?
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     tickets a commit range contains
   preserve <spec> [--text <f>]           keep an adopted issue's original report
@@ -1350,6 +1361,8 @@ async function specSync(rest, io = {}) {
       return specSyncLinked(dir, config, flags, out)
     case 'ownership':
       return kit.specSyncOwnership(config, flags, out, PROGRAM)
+    case 'board':
+      return specSyncBoard(dir, config, positional[0], flags, out)
     case 'states':
       return specSyncStates(dir, config, flags, out)
     case 'list':

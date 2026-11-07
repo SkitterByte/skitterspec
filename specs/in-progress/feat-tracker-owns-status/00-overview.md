@@ -152,7 +152,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Engine: `pull` ownership, transition-only state writes, live status read | ✅ | [01-pull-ownership-engine.md](01-pull-ownership-engine.md) |
 | 2 | Skills stop storing status; buckets as code facts; board-owned assignee | ✅ | [02-skills-stop-storing-status.md](02-skills-stop-storing-status.md) |
-| 3 | Disagreement: report, warn, offer cleanup | ⬜ | [03-disagreement-report-warn.md](03-disagreement-report-warn.md) |
+| 3 | Disagreement: report, warn, offer cleanup | ✅ | [03-disagreement-report-warn.md](03-disagreement-report-warn.md) |
 | 4 | Default flip, rule rewrite, docs, major-release notes | ⬜ | [04-default-flip-and-docs.md](04-default-flip-and-docs.md) |
 | 5 | Follow-up: branch handoff (push, mirror, resume) | ⬜ | [05-branch-handoff.md](05-branch-handoff.md) |
 | 6 | Follow-up: skitterspec service as an always-on projection (design) | ⬜ | [06-service-projection-design.md](06-service-projection-design.md) |
@@ -195,3 +195,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `spec-sync ownership` verb and a `spec-status-owner` seam (empty in the base
   distribution). `/spec-incident` and `/spec-review` joined the list. The PR
   run-2 rule for the complete transition is in every provider's sync seam.
+- 2026-11-07 — Phase 3: disagreement narrowed to "the board finished what the
+  repo has not" in both ownership modes. A new `spec-sync board` verb is read by
+  the `/spec-start` and `/spec-next` pre-flights and by `/spec-status`. The
+  cleanup is named and never offered.

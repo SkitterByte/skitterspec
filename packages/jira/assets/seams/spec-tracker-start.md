@@ -18,6 +18,12 @@ carries a `jira_identifier`. Either missing → **skip**, in one line
 (`not linked to Jira — /spec-push to mirror it`), and carry on. Nothing else in
 this step changes.
 
+**Ask the board first.** Run `skitterspec spec-sync board <spec>`. It is silent
+unless Jira already says Done or Cancelled for this issue; when it prints a
+line, relay it once as a warning and **carry on** — you are the one about to hold
+this branch, so the cleanup it names is yours to choose, and nothing here runs it
+or refuses on it.
+
 **Refresh the mirror now, without asking.** Run `/spec-push`. The spec has just
 moved to `in-progress/` — a real state change, and the tracker is a generated
 mirror of it. (The developer stamped beside it stays a repo-side record:

@@ -18,7 +18,11 @@
  * spec, so a caller that accuses on one is wrong (`negative-checks.md`).
  */
 
+const path = require('node:path')
+
 const { remoteStateReading, ownershipOf } = require('@skitterbyte/skitterspec-sync-core')
+const { makeSpecHelpers } = require('./specs.js')
+const { boardDisagreement } = require('./list-rows.js')
 
 const firstLine = (error) => String((error && error.message) || error).split('\n')[0]
 
@@ -70,4 +74,52 @@ function specSyncOwnership(config, flags, out, program = 'spec-sync') {
   return 0
 }
 
-module.exports = { readStatus, specSyncOwnership }
+/**
+ * `spec-sync board <spec> [--json]` — has the board finished what this repo has
+ * not? Asked by `/spec-start` and `/spec-next` in pre-flight and by
+ * `/spec-status`, so a ticket someone Cancelled or closed as Done reaches the
+ * person holding the branch rather than waiting for them to look.
+ *
+ * SILENT UNLESS IT HAS SOMETHING TO SAY. One line when the board says Done or
+ * Cancelled against a spec still in `backlog`/`in-progress`, naming the command
+ * that closes it — and nothing at all otherwise: agreement, a board that merely
+ * re-planned, an unlinked spec, no credential, an unreadable ticket. Every one of
+ * those is either healthy or cannot-tell, and a line about it would teach the
+ * reader to skip the one line that matters (`negative-checks.md`). `--json`
+ * always answers, so a caller can tell the cases apart. Always exits 0: this
+ * reports, and nothing refuses on it.
+ *
+ * @param {object} p
+ *   - `snapshotDir` the resolved spec folder (its bucket is its parent folder)
+ *   - `config`      the provider config
+ *   - `credential`  `{ ok, adapter, error }` — the provider's API adapter, or why not
+ *   - `flags`, `out`, `tracker` (the name in messages), `program`
+ */
+async function specSyncBoard({ snapshotDir, config, credential, flags = {}, out, tracker, program = 'spec-sync' }) {
+  const spec = path.basename(snapshotDir)
+  const bucket = path.basename(path.dirname(snapshotDir))
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const ref = makeSpecHelpers({ program }).linkedIdentifier(path.join(snapshotDir, overviewFile), config)
+  const answer = (body, line) => {
+    if (flags.json) out.write(JSON.stringify({ spec, bucket, issue: ref || null, ...body }, null, 2) + '\n')
+    else if (line) out.write(`${program} board: ${line}\n`)
+    return 0
+  }
+
+  if (!ref) return answer({ reading: null, reason: 'not linked' })
+  if (!credential || !credential.ok) {
+    return answer({ reading: null, reason: (credential && credential.error ? String(credential.error) : 'no API transport').split('\n')[0] })
+  }
+  const reading = await readStatus({ adapter: credential.adapter, ref, config })
+  if (!reading.ok) return answer({ reading: null, reason: reading.reason })
+
+  const { ok, ...seen } = reading
+  const found = reading.bucket ? boardDisagreement(bucket, reading.bucket) : null
+  if (!found) return answer({ reading: seen, disagrees: false })
+  return answer(
+    { reading: seen, disagrees: true, cleanup: found.cleanup },
+    `${ref} is ${reading.state} on ${tracker}, but ${spec} is ${bucket} here — ${found.cleanup} closes it`,
+  )
+}
+
+module.exports = { readStatus, specSyncOwnership, specSyncBoard }

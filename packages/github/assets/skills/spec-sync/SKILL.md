@@ -48,6 +48,7 @@ In a project that installs the GitHub superset the binary is
 | "what shipped in this release?", "which issues does CI mark deployed?" | `released` — `--json` for a script; recording deploys is the project's own |
 | "is any of this wired up?", "why isn't sync working?" | `doctor` — scaffold, isolation, tracker and credentials in one |
 | "set my GitHub credentials", "am I authenticated?" | `credentials <status\|set\|unset>` |
+| "did someone close this on the board?", "is GitHub ahead of the repo?" | `board <spec>` — silent unless GitHub says Done/Cancelled where the spec is not; relay its cleanup, never run it |
 | push one spec, or "what would push?" | **defer** — see below |
 
 The Linear provider's `retarget`, `reattach`, `stage` and `sanitise` are **not

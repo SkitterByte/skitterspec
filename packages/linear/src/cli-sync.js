@@ -84,7 +84,7 @@ const {
 } = require('./credentials.js')
 const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
-const { specSyncOwnership } = require('@skitterbyte/skitterspec-provider-kit/src/status.js')
+const { specSyncOwnership, specSyncBoard: kitBoard } = require('@skitterbyte/skitterspec-provider-kit/src/status.js')
 const { resolveTransport } = require('@skitterbyte/skitterspec-provider-kit/src/transport.js')
 
 // `assign`, `whoami` and `users` are the kit's (`provider-kit/src/assignment.js`),
@@ -116,6 +116,24 @@ const assignment = makeAssignmentCommands({
   usersOverMcp: 'search the workspace over MCP with the user-list tool',
 })
 const specSyncAssign = (dir, config, specArg, flags, out) => assignment.assign(dir, config, specArg, flags, out)
+
+// `board <spec>` — has Linear finished what this repo has not? The kit's
+// (`provider-kit/src/status.js`): one line on a disagreement, silent otherwise.
+async function specSyncBoard(dir, config, specArg, flags, out) {
+  const snapshotDir = resolveOrExit(specArg, dir, out)
+  if (!snapshotDir) return 1
+  const key = resolveApiKey(config, flags.env || process.env)
+  const transport = resolveTransport(flags, config, key.ok || !!flags.adapter)
+  const credential =
+    transport === 'mcp'
+      ? { ok: false, error: 'transport = mcp — no API read' }
+      : flags.adapter
+        ? { ok: true, adapter: flags.adapter }
+        : key.ok
+          ? { ok: true, adapter: makeApiAdapter({ apiKey: key.key, fetch: flags.fetch }) }
+          : { ok: false, error: key.error }
+  return kitBoard({ snapshotDir, config, credential, flags, out, tracker: 'Linear', program: 'spec-sync' })
+}
 const specSyncWhoami = (dir, config, flags, out) => assignment.whoami(dir, config, flags, out)
 const specSyncUsers = (dir, config, query, flags, out) => assignment.users(dir, config, query, flags, out)
 const { readAllStdin, promptHidden } = require('@skitterbyte/skitterspec-provider-kit/src/prompt.js')
@@ -2000,6 +2018,7 @@ async function specSyncList(dir, config, flags, out) {
 
   const rows = ordered.map((issue) => {
     const local = byIdentifier.get(issue.identifier) || null
+    const column = specColumn((issue.state && issue.state.name) || null, local, config)
     return {
       identifier: issue.identifier || '',
       title: issue.title || '',
@@ -2010,7 +2029,9 @@ async function specSyncList(dir, config, flags, out) {
       // close, so hiding it would defeat the command.
       spec: local ? local.spec : null,
       bucket: local ? local.bucket : null,
-      disagrees: specColumn((issue.state && issue.state.name) || null, local, config).disagrees,
+      disagrees: column.disagrees,
+      // The command that closes it — present only on a disagreeing row.
+      ...(column.cleanup ? { cleanup: column.cleanup } : {}),
       assignee: (issue.assignee && issue.assignee.name) || null,
       // Filled in below for in-progress rows only; `null` on every row that was
       // never looked up, so the shape does not vary by state.
@@ -2146,7 +2167,7 @@ async function specSyncList(dir, config, flags, out) {
   } else {
     const idW = Math.max(...shown.map((r) => r.identifier.length))
     const stW = Math.max(...shown.map((r) => r.state.length))
-    const cell = (r) => specCell({ specStatus: r.bucket, disagrees: r.disagrees })
+    const cell = (r) => specCell({ specStatus: r.bucket, disagrees: r.disagrees, cleanup: r.cleanup })
     const bkW = Math.max(...shown.map((r) => cell(r).length))
     const pad = ' '.repeat(idW + stW + bkW + 6)
     const specW = Math.max(...shown.map((r) => (r.spec || UNLINKED).length))
@@ -3508,6 +3529,8 @@ async function specSync(rest, io = {}) {
       return 0
     case 'ownership':
       return specSyncOwnership(config, flags, out, 'spec-sync')
+    case 'board':
+      return specSyncBoard(dir, config, positional[0], flags, out)
     case 'credentials':
       return await specSyncCredentials(dir, config, positional[0], flags, out)
     default:
@@ -3528,6 +3551,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync list [--state <name> …|--all|--in-progress] [--next N] [--mine|--by <user>] [--limit N] [--archived] [--json]\n' +
         '       skitterspec spec-sync linked [--json]\n' +
         '       skitterspec spec-sync ownership [--json]\n' +
+        '       skitterspec spec-sync board <spec> [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +
         '       skitterspec spec-sync reattach <spec> [--to <ISSUE-REF>] [--json]\n' +

@@ -47,6 +47,7 @@ In a project that installs the Jira superset the binary is
 | "what shipped in this release?", "which tickets does CI mark deployed?" | `released` — `--json` for a script; recording deploys is the project's own |
 | "is any of this wired up?", "why isn't sync working?" | `doctor` — scaffold, isolation, tracker and credentials in one |
 | "set my Jira credentials", "am I authenticated?" | `credentials <status\|set\|unset>` |
+| "did someone close this on the board?", "is Jira ahead of the repo?" | `board <spec>` — silent unless Jira says Done/Cancelled where the spec is not; relay its cleanup, never run it |
 | push one spec, or "what would push?" | **defer** — see below |
 
 The Linear provider's `retarget`, `reattach`, `stage`, `whoami`, `users`,

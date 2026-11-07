@@ -19,9 +19,12 @@ Read-only. Reports two things and writes nothing:
    since the last push? The next push replaces it, so this is worth reading
    first.
 
-**Status is not compared, deliberately.** Skitterspec tells GitHub about its
-own transitions and never reads a status back: a card someone moved by hand is
-theirs to have moved, and push resends State only when the spec itself moves.
+**Status is not compared — with one exception.** Skitterspec tells GitHub about
+its own transitions and does not mirror a status back: a card someone moved by
+hand is theirs to have moved, and push resends State only when the spec itself
+changes bucket. The exception is the one difference the repo can act on — the
+issue says Done or Cancelled while the spec is still in flight — which §3c
+asks about, and reports without acting.
 
 The repo is the source of truth; GitHub is a generated mirror, so there is no
 per-field "conflict" — only "what would the next push send" and "did someone
@@ -78,6 +81,18 @@ a transferred repo's URLs, but the API does not follow the old name.
 There is no `retarget` for GitHub yet. Re-stamp by hand with
 `spec-sync stamp <spec> --issue #<n> --url <new url>`, or fix the config if it
 is the config that is stale.
+
+## 3c. Has the board finished it?
+
+```
+skitterspec spec-sync board <spec>
+```
+
+Silent unless GitHub says Done or Cancelled while this spec is in `backlog` or
+`in-progress`; then one line naming the cleanup (`/spec-complete` or
+`/spec-cancel`). Relay that line as it is.
+**Report it; never offer or run the cleanup** — this skill is read-only, and
+the branch may be someone else's to close. Silence, an unlinked spec and an unreadable issue all say nothing.
 
 ## 4. Report
 
