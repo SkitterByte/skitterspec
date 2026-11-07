@@ -85,7 +85,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `hotfix.releaseBranch` config + fork from the release branch | ✅ | [01-release-branch-fork.md](01-release-branch-fork.md) |
 | 2 | Land onto the release branch via `land.strategy`; optional tag | ✅ | [02-land-onto-release-branch.md](02-land-onto-release-branch.md) |
-| 3 | Carry back to the resolved rc (direct or carry PR); finish | ⬜ | [03-carry-back-to-rc.md](03-carry-back-to-rc.md) |
+| 3 | Carry back to the resolved rc (direct or carry PR); finish | ✅ | [03-carry-back-to-rc.md](03-carry-back-to-rc.md) |
 | 4 | Skills, env.config.md, reference docs | ⬜ | [04-skills-and-docs.md](04-skills-and-docs.md) |
 
 ## Open questions
@@ -122,3 +122,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   commit the host's merge rewrites — and the built-in tag is cut on
   `<remote>/<branch>` on the run that sees the merge. A rebase that must happen
   discards a recorded-but-unpushed tag; the next tag number skips it.
+- 2026-11-07 — Phase 3: the fix commits are listed BEFORE the land
+  (`<remote>/<branch>..HEAD`) and recorded, because after an ff land that range
+  is empty and nothing in the history says which commits were the fix; every
+  carry and `finish` check reads the record. "Already on the base" is judged by
+  patch (`git cherry`), so a squash-merged or cherry-picked fix counts — and a
+  commit `git cherry` prints nothing for is one the base already contains.
+  `finish` asks git first and the host only where git cannot see (a squash
+  merge); a host that cannot answer refuses.

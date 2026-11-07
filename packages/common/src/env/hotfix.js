@@ -359,9 +359,18 @@ function planHotfixLand(spec, config, ctx) {
  * landed ff, a host-reported merge is a landed PR, a recorded release still at
  * HEAD is reused rather than re-cut.
  *
+ * Once the land is confirmed the fix is CARRIED to the resolved base — the
+ * current rc under a rolling base — the same carry a tag-based hotfix makes to
+ * `main` under `ff`, and under `pr` a `carry/<slug>` branch with its own ready
+ * PR, because the rc may be protected too. `ctx.carry` describes it; null means
+ * there is nothing to carry (`cherryPickMain: false`, or the base IS the release
+ * branch).
+ *
  * ctx: { dirty, remote, strategy, push, behind, onRelease, ahead,
  *        headOnRemote, pr: { state, id, url } | null, prCommand,
- *        lastTag, existingTags, released, tagPushed }
+ *        lastTag, existingTags, released, tagPushed,
+ *        carry: { base, strategy, path, tmpPath, commits, startRef?,
+ *                 carryBranch?, prCommand?, prState?, files? } | null }
  *   behind     <remote>/<branch> is not an ancestor of HEAD — rebase first
  *   onRelease  HEAD is an ancestor of <remote>/<branch> — an ff land is done
  *   lastTag    the newest tag reachable from <remote>/<branch> (bump base)
@@ -416,13 +425,46 @@ function planBranchHotfixLand(spec, config, ctx) {
   }
   const pushVia = (done) => (done ? 'remote' : c.push ? 'push' : 'hold')
 
+  // The carry, appended once the land is confirmed. Nothing left to pick — the
+  // base already has every fix commit — is no step at all, so a finished land
+  // reads as a no-op on re-run rather than as a carry that did nothing.
+  const carryStep = () => {
+    const k = c.carry
+    if (!k || !Array.isArray(k.commits) || !k.commits.length) return null
+    return {
+      kind: 'carry',
+      base: k.base,
+      strategy: k.strategy,
+      cwd: k.path,
+      root: k.root || k.path,
+      tmpPath: k.tmpPath || null,
+      commits: k.commits,
+      startRef: k.startRef || null,
+      carryBranch: k.carryBranch || null,
+      remote,
+      push: Boolean(c.push),
+      prCommand: k.prCommand || null,
+      prState: k.prState || null,
+    }
+  }
+  const withCarry = (steps) => {
+    const k = carryStep()
+    if (!k) return steps
+    result.afterLand = k.strategy === 'pr' ? afterLandFor(null) : afterLandFor(config, k.root, rangeOf({ changedFiles: c.carry.files }))
+    return [...steps, k]
+  }
+
   if (strategy === 'ff') {
     const landed = Boolean(c.onRelease)
     // A recorded release is only good while it is still at HEAD; a rebase
     // moves HEAD, so a run that must rebase cuts afresh.
     const released = c.behind ? null : c.released || null
     if (landed && (!tagging || (released && c.tagPushed))) {
-      return { ...result, noop: true, reason: `${branch} is already on ${releaseRef} — nothing to land` }
+      const steps = withCarry([])
+      if (!steps.length) {
+        return { ...result, noop: true, reason: `${branch} is already on ${releaseRef} — nothing to land` }
+      }
+      return { ...result, steps }
     }
     const steps = []
     if (c.behind && !landed) steps.push({ kind: 'rebase', onto: releaseRef, cwd })
@@ -446,7 +488,8 @@ function planBranchHotfixLand(spec, config, ctx) {
       withTag: tagging,
       cwd,
     })
-    return { ...result, steps }
+    const all = withCarry(steps)
+    return { ...result, steps: all }
   }
 
   // pr
@@ -462,7 +505,11 @@ function planBranchHotfixLand(spec, config, ctx) {
     return { ...result, steps }
   }
   if (!tagging || (c.released && c.tagPushed)) {
-    return { ...result, noop: true, reason: `the PR into ${releaseBranch} is merged — nothing to land` }
+    const steps = withCarry([])
+    if (!steps.length) {
+      return { ...result, noop: true, reason: `the PR into ${releaseBranch} is merged — nothing to land` }
+    }
+    return { ...result, steps }
   }
   const steps = []
   if (c.released && c.released.tag) {
@@ -475,7 +522,46 @@ function planBranchHotfixLand(spec, config, ctx) {
     steps.push({ kind: 'release', via: 'tag', tag: t.tag, at: releaseRef, cwd, baseTag: c.lastTag, branch })
   }
   steps.push({ kind: 'push', via: pushVia(c.tagPushed), remote, branch, refs: [], withTag: true, cwd })
-  return { ...result, steps }
+  const all = withCarry(steps)
+  return { ...result, steps: all }
+}
+
+/**
+ * Plan `spec-env hotfix finish` for a BRANCH-BASED hotfix. The fix lives on the
+ * release branch once landed, so the tag-based guards (a tag at HEAD, the branch
+ * on the remote) are the wrong question; these ask whether the work reached
+ * both places it was going:
+ *   - a clean tree;
+ *   - the land confirmed — HEAD on the release branch (ff) or the host saying
+ *     the PR merged (pr). Cannot-tell refuses: the branch may be the only copy;
+ *   - the carry done — the base has every fix commit, its carry PR merged, or
+ *     there was nothing to carry. Cannot-tell refuses for the same reason.
+ * Every failing one is named, and there is no `--force`.
+ *
+ * state: { dirty, landed: true|false|undefined, carried: true|false|undefined|'not-needed',
+ *          releaseBranch, base, hasSlot, mainRepoPath }
+ */
+function planBranchHotfixFinish(spec, state) {
+  const s = state || {}
+  const reasons = []
+  if (s.dirty) reasons.push('the worktree has uncommitted changes')
+  if (s.landed === undefined) reasons.push(`cannot tell whether the fix is on ${s.releaseBranch} — the host or remote did not answer`)
+  else if (!s.landed) reasons.push(`the fix is not on ${s.releaseBranch} yet — run \`spec-env hotfix land\` (and merge its PR)`)
+  if (s.carried === undefined) reasons.push(`cannot tell whether ${s.base} has the fix — the host or remote did not answer`)
+  else if (s.carried === false) reasons.push(`${s.base} does not have the fix yet — re-run \`spec-env hotfix land\` to carry it (and merge the carry PR)`)
+  if (s.hasSlot) reasons.push(`${spec.folder} holds a Docker stack — tear it down with \`spec-env down\``)
+  if (reasons.length) return { blocked: true, reasons, argvs: [] }
+  const root = s.mainRepoPath
+  return {
+    blocked: false,
+    reasons: [],
+    argvs: [
+      ['-C', root, 'worktree', 'remove', spec.worktreePath],
+      // -D: under a squash or rebase merge the branch is never an ancestor of
+      // anything, and the land above is what proved its commits are kept.
+      ['-C', root, 'branch', '-D', spec.branch],
+    ],
+  }
 }
 
 /**
@@ -547,5 +633,6 @@ module.exports = {
   tagSlug,
   planHotfixLand,
   planBranchHotfixLand,
+  planBranchHotfixFinish,
   planHotfixFinish,
 }

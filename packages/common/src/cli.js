@@ -174,7 +174,7 @@ const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune
 const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env/integrate.js')
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
-const { planHotfixLand, planBranchHotfixLand, planHotfixFinish } = require('./env/hotfix.js')
+const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
@@ -2652,6 +2652,11 @@ function hotfixFinish(dir, config, specArg, flags) {
     return
   }
 
+  if (spec.baseVersion && spec.baseVersion.kind === 'branch') {
+    hotfixFinishBranch(dir, config, spec, { say, refuse, json })
+    return
+  }
+
   const wtGit = gitReader(spec.worktreePath)
   const status = wtGit(['status', '--porcelain'])
   const head = wtGit(['rev-parse', 'HEAD'])
@@ -2691,6 +2696,81 @@ function hotfixFinish(dir, config, specArg, flags) {
   say(`  release:   ${plan.releaseTag} (on ${remote} with ${spec.branch})`)
   say(`  removed:   ${spec.worktreePath}`)
   say(`  deleted:   ${spec.branch} (local; ${remote} keeps it)`)
+}
+
+// `hotfix finish` for a branch-based hotfix: the land and the carry, each
+// asked of git first and of the host only where git cannot answer (a squash
+// merge leaves nothing ancestry can see).
+function hotfixFinishBranch(dir, config, spec, { say, refuse, json }) {
+  const remote = baseRemote(config)
+  const releaseBranch = spec.baseVersion.branch
+  const releaseRef = `${remote}/${releaseBranch}`
+  const wtGit = gitReader(spec.worktreePath)
+  const git = gitReader(dir)
+  try {
+    execFileSync('git', ['-C', dir, 'fetch', remote, releaseBranch], { stdio: 'ignore' })
+  } catch {}
+  const status = wtGit(['status', '--porcelain'])
+  const record = readHotfixRecord(dir, config, spec.folder) || {}
+  const fixCommits = Array.isArray(record.fixCommits) ? record.fixCommits : null
+
+  // Landed: HEAD on the release branch, or every fix commit's patch there, or
+  // the host saying the PR merged. Only a host that cannot answer is cannot-tell.
+  let landed = wtGit(['merge-base', '--is-ancestor', 'HEAD', releaseRef]) !== null
+  if (!landed && fixCommits) landed = missingOn(git, releaseRef, fixCommits).length === 0
+  if (!landed) {
+    const pr = hostPrFor(spec.worktreePath, remote, spec.branch)
+    landed = pr.state === 'merged' ? true : pr.state === 'cannot-tell' ? undefined : false
+  }
+
+  process.stdout.write(fetchNote('hotfix finish', config, fetchForPattern(dir, config)))
+  const base = resolveBaseBranch(config, git)
+  let carried
+  if (config.hotfix.cherryPickMain === false || base === releaseBranch) carried = 'not-needed'
+  else if (!fixCommits) carried = undefined
+  else {
+    try {
+      execFileSync('git', ['-C', dir, 'fetch', remote, base], { stdio: 'ignore' })
+    } catch {}
+    const refs = [`${remote}/${base}`, base].filter((r) => git(['rev-parse', '--verify', '--quiet', r]) !== null)
+    carried = refs.some((r) => missingOn(git, r, fixCommits).length === 0)
+    if (!carried) {
+      const pr = hostPrFor(dir, remote, `carry/${spec.slug}`)
+      if (pr.state === 'merged') carried = true
+    }
+  }
+
+  const registry = readRegistry(dir, config)
+  const plan = planBranchHotfixFinish(spec, {
+    dirty: status === null || status.length > 0,
+    landed,
+    carried,
+    releaseBranch,
+    base,
+    mainRepoPath: dir,
+    hasSlot: Object.prototype.hasOwnProperty.call(registry.slots, spec.folder),
+  })
+  if (plan.blocked) {
+    refuse(plan.reasons)
+    return
+  }
+  for (const argv of plan.argvs) {
+    if (git(argv) === null) {
+      refuse([`git ${argv.join(' ')} failed — nothing after it ran`])
+      return
+    }
+  }
+  fs.rmSync(hotfixRecordPath(dir, config, spec.folder), { force: true })
+  if (json) {
+    say(JSON.stringify({ ok: true, spec: spec.folder, landedOn: releaseBranch, carriedTo: carried === 'not-needed' ? null : base, removed: spec.worktreePath, branchDeleted: spec.branch }, null, 2))
+    return
+  }
+  say(`spec-env hotfix finish: ${spec.folder}`)
+  say('')
+  say(`  landed:    on ${releaseRef}`)
+  say(`  carried:   ${carried === 'not-needed' ? 'nothing to carry' : `to ${base}`}`)
+  say(`  removed:   ${spec.worktreePath}`)
+  say(`  deleted:   ${spec.branch}`)
 }
 
 function specEnvHotfix(dir, config, positional, flags) {
@@ -2876,9 +2956,85 @@ function specEnvHotfix(dir, config, positional, flags) {
   if (!result.ok) process.exitCode = 1
 }
 
+// The fix commits of a branch-based hotfix, and which of them `ref` already
+// has. The list is taken BEFORE the land — `<release>..HEAD`, the hotfix's own
+// commits — and recorded, because once the land has happened that range is
+// empty and nothing else in the history says which commits were the fix.
+// A recorded list wins on every later run.
+function branchFixCommits(dir, config, spec, wtGit, releaseRef) {
+  const record = readHotfixRecord(dir, config, spec.folder) || {}
+  if (Array.isArray(record.fixCommits) && record.fixCommits.length) return record.fixCommits
+  const own = wtGit(['rev-list', '--reverse', '--no-merges', `${releaseRef}..HEAD`])
+  const commits = (own ? own.split('\n') : []).map((x) => x.trim()).filter(Boolean)
+  if (commits.length) writeHotfixRecord(dir, config, spec.folder, { ...record, fixCommits: commits })
+  return commits.length ? commits : null
+}
+
+// Which of `commits` `ref` does not have yet, by patch rather than by sha — a
+// cherry-pick or a squash merge is the same change under another sha. `git
+// cherry` prints `+ <sha>` for a change `ref` lacks, `- <sha>` for one it has
+// under another sha, and NOTHING when the commit itself is already in `ref`. A
+// commit git will not compare stays in the list: it then fails as an empty
+// pick, loudly, which is the safe direction to be wrong in.
+function missingOn(git, ref, commits) {
+  return commits.filter((sha) => {
+    const out = git(['cherry', ref, sha, `${sha}^`])
+    return out === null || out.split('\n').some((l) => l.trim().startsWith('+'))
+  })
+}
+
+// How a branch-based hotfix's carry would run now, or null for no carry.
+function branchCarry(dir, config, spec, strategy, releaseBranch, fixCommits) {
+  if (config.hotfix.cherryPickMain === false || !fixCommits) return null
+  process.stdout.write(fetchNote('hotfix land', config, fetchForPattern(dir, config)))
+  const base = resolveBaseBranch(config, gitReader(dir))
+  if (base === releaseBranch) return null
+  const remote = baseRemote(config)
+  const git = gitReader(dir)
+  try {
+    execFileSync('git', ['-C', dir, 'fetch', remote, base], { stdio: 'ignore' })
+  } catch {}
+  const hasLocal = git(['show-ref', '--verify', '--quiet', `refs/heads/${base}`]) !== null
+  const files = carryFiles(git, fixCommits)
+  if (strategy === 'pr') {
+    const carryBranch = `carry/${spec.slug}`
+    const commits = missingOn(git, `${remote}/${base}`, fixCommits)
+    const pr = hostPrFor(dir, remote, carryBranch)
+    const info = parseRemote(git(['config', '--get', `remote.${remote}.url`]))
+    return {
+      base,
+      strategy: 'pr',
+      path: dir,
+      root: dir,
+      tmpPath: path.join(path.dirname(spec.worktreePath), `${spec.slug}-carry`),
+      commits,
+      startRef: `${remote}/${base}`,
+      carryBranch,
+      prState: pr.state,
+      prCommand: prPlanCommand(info, pr, { branch: carryBranch, base, draft: false }),
+      files,
+    }
+  }
+  const commits = missingOn(git, hasLocal ? base : `${remote}/${base}`, fixCommits)
+  // Where the base is checked out decides how: in place when clean, refused
+  // when dirty, a throwaway worktree when it is checked out nowhere.
+  const list = git(['worktree', 'list', '--porcelain']) || ''
+  let where = null
+  let current = null
+  for (const line of list.split('\n')) {
+    if (line.startsWith('worktree ')) current = line.slice('worktree '.length)
+    else if (line === `branch refs/heads/${base}`) where = current
+  }
+  if (where) {
+    const st = gitReader(where)(['status', '--porcelain'])
+    return { base, strategy: st ? 'dirty' : 'inplace', path: where, root: dir, commits, files }
+  }
+  const tmpPath = path.join(path.dirname(spec.worktreePath), `${spec.slug}-carry-${base.replace(/[^a-zA-Z0-9]+/g, '-')}`)
+  return { base, strategy: 'worktree', path: dir, root: dir, tmpPath, commits, files }
+}
+
 // `hotfix land` for a branch-based hotfix: gather the facts, plan with
-// `planBranchHotfixLand`, run the steps. The carry back to the rc follows the
-// land and is not part of this run yet.
+// `planBranchHotfixLand`, run the steps — land, tag, then carry to the rc.
 function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
   if (flags.strategy !== undefined && flags.strategy !== 'ff' && flags.strategy !== 'pr') {
     refuse(`unknown --strategy "${flags.strategy}" — use ff or pr.`)
@@ -2921,6 +3077,8 @@ function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
     // Ready, never draft: a hotfix is finished work.
     prCommand = prPlanCommand(info, pr, { branch: spec.branch, base: releaseBranch, draft: false })
   }
+  const fixCommits = branchFixCommits(dir, config, spec, wtGit, releaseRef)
+  const carry = branchCarry(dir, config, spec, strategy, releaseBranch, fixCommits)
 
   let plan
   try {
@@ -2938,6 +3096,7 @@ function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
       existingTags,
       released,
       tagPushed,
+      carry,
     })
   } catch (error) {
     refuse(`${error.message}.`)
@@ -2958,6 +3117,7 @@ function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
     say('')
     say(`  release:   ${releaseRef}  (${strategy === 'pr' ? 'by pull request' : 'fast-forward'})`)
     say(`  branch:    ${spec.branch}`)
+    if (carry) say(`  carry to:  ${carry.base}${carry.strategy === 'pr' ? ` (via ${carry.carryBranch})` : ''}`)
   }
   if (flags.plan) {
     if (json) {
@@ -2977,8 +3137,13 @@ function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
   const result = runHotfixLand(plan.steps, {
     write: json ? () => {} : (line) => say(`  ${line}`),
     childStdout: json ? process.stderr : 'inherit',
+    // Merged into what is there, so the recorded fix commits survive a release.
     record: (release) =>
-      writeHotfixRecord(dir, config, spec.folder, { ...release, at: new Date().toISOString() }),
+      writeHotfixRecord(dir, config, spec.folder, {
+        ...(readHotfixRecord(dir, config, spec.folder) || {}),
+        ...release,
+        at: new Date().toISOString(),
+      }),
   })
   const tag = result.release ? result.release.tag : null
   const last = result.results[result.results.length - 1]
@@ -3005,6 +3170,10 @@ function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
   } else if (result.held && last.step.kind === 'wait') {
     say('')
     say(`  landing:   the PR into ${releaseBranch} is open — re-run \`skitterspec spec-env hotfix land ${spec.folder}\` once it merges`)
+  } else if (result.held && last.step.kind === 'carry') {
+    say('')
+    say(`  landed:    on ${releaseRef}${tag ? ` · tagged ${tag}` : ''}`)
+    say(`  held:      the carry to ${last.step.base} — re-run with --push to push ${last.step.carryBranch} and open its PR.`)
   } else if (result.held) {
     const st = last.step
     const refs = [...(Array.isArray(st.refs) ? st.refs : []), ...(st.withTag !== false && tag ? [tag] : [])]
@@ -3018,6 +3187,7 @@ function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
   } else if (result.ok) {
     say('')
     say(`  landed:    on ${releaseRef}${tag ? ` · tagged ${tag}` : ''}`)
+    if (result.carried) process.stdout.write(afterLandSection(plan.afterLand))
   } else {
     process.stderr.write(`  ${last.line}\n`)
     say(

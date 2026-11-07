@@ -93,6 +93,12 @@ function describeStep(step) {
       const n = Array.isArray(step.commits) ? step.commits.length : 0
       const what = n === 1 ? '1 commit' : `${n} commits`
       if (step.strategy === 'worktree') return `carry: cherry-pick ${what} onto ${step.base} (throwaway worktree)`
+      if (step.strategy === 'pr') {
+        if (step.prState === 'open' || step.prState === 'draft') return `carry: the PR from ${step.carryBranch} into ${step.base} is open — merge it to finish`
+        if (step.prState === 'merged') return `carry: the PR from ${step.carryBranch} into ${step.base} is merged`
+        if (!step.push) return `carry: held — no consent to push ${step.carryBranch} to ${step.remote}`
+        return `carry: cherry-pick ${what} onto ${step.carryBranch}, push it, open a PR into ${step.base}`
+      }
       return `carry: cherry-pick ${what} onto ${step.base}`
     }
     default:
@@ -207,6 +213,7 @@ function runCarry(step, release, ctx) {
   if (!commits.length) {
     return { outcome: 'skipped', line: `carry: nothing to carry — ${step.base} already has the fix`, carried: 0 }
   }
+  if (step.strategy === 'pr') return runCarryPr(step, commits, ctx)
   if (step.strategy === 'dirty') {
     return {
       outcome: 'refused',
@@ -244,6 +251,41 @@ function runCarry(step, release, ctx) {
   cleanup()
   const what = commits.length === 1 ? '1 commit' : `${commits.length} commits`
   return { outcome: 'ran', line: `carried ${what} onto ${step.base}`, carried: commits.length }
+}
+
+// The carry under `land.strategy: "pr"`: the base may be protected, so the fix
+// reaches it the way everything else does — a `carry/<slug>` branch cut from
+// the base, the fix picked onto it in a throwaway worktree, pushed on consent,
+// and a READY PR into the base. A carry PR already open or merged is the host
+// saying this ran before; neither re-runs anything.
+function runCarryPr(step, commits, ctx) {
+  if (step.prState === 'open' || step.prState === 'draft' || step.prState === 'merged') {
+    return { outcome: 'skipped', line: describeStep(step), carried: 0 }
+  }
+  if (!step.push) return { outcome: 'held', line: describeStep(step) }
+  const git = (argv) =>
+    ctx.spawn('git', argv, { stdio: ['ignore', ctx.childStdout, 'pipe'], encoding: 'utf8' })
+  const fail = (line) => ({ outcome: 'failed', line })
+  const add = git(['-C', step.root, 'worktree', 'add', '-B', step.carryBranch, step.tmpPath, step.startRef])
+  if (add.error || add.status !== 0) return fail(`carry: worktree add ${step.tmpPath} — ${lastLine(add.stderr) || why(add)}`)
+  const cleanup = () => git(['-C', step.root, 'worktree', 'remove', '--force', step.tmpPath])
+  for (const sha of commits) {
+    const res = git(['-C', step.tmpPath, 'cherry-pick', sha])
+    if (res.error || res.status !== 0) {
+      git(['-C', step.tmpPath, 'cherry-pick', '--abort'])
+      cleanup()
+      return fail(`carry: cherry-pick ${sha} onto ${step.carryBranch} conflicted — aborted; ${lastLine(res.stderr) || why(res)}`)
+    }
+  }
+  const push = git(['-C', step.tmpPath, 'push', '--force-with-lease', '-u', step.remote, step.carryBranch])
+  cleanup()
+  if (push.error || push.status !== 0) return fail(`carry: push ${step.carryBranch} — ${lastLine(push.stderr) || why(push)}`)
+  if (!step.prCommand || step.prCommand.startsWith('#')) {
+    return { outcome: 'ran', line: `carry: pushed ${step.carryBranch} — open a PR into ${step.base} on the host`, carried: 0 }
+  }
+  const pr = ctx.spawn(step.prCommand, { cwd: step.root, shell: true, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' })
+  if (pr.error || pr.status !== 0) return fail(`carry: ${step.prCommand} — ${lastLine(pr.stderr) || why(pr)}`)
+  return { outcome: 'ran', line: `carry: opened a PR from ${step.carryBranch} into ${step.base}`, carried: 0 }
 }
 
 // Replay the hotfix onto the release branch as it is now. A conflict is

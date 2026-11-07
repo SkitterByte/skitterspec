@@ -17,7 +17,7 @@ const os = require('node:os')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
-const { planBranchHotfixLand } = require('../src/env/hotfix.js')
+const { planBranchHotfixLand, planBranchHotfixFinish } = require('../src/env/hotfix.js')
 const { runHotfixLand } = require('../src/env/hotfixland.js')
 const { run } = require('../src/cli.js')
 
@@ -173,6 +173,138 @@ test('runner: a conflicted rebase is aborted and stops the run', () => {
   assert.ok(!calls.some((c) => c.includes(' push ')))
 })
 
+// --- carry and finish (planner + runner) --------------------------------------
+
+const CARRY_FF = { base: 'rc', strategy: 'worktree', path: '/repo', root: '/repo', tmpPath: '/wt/pay-carry-rc', commits: ['aaa111'] }
+const CARRY_PR = {
+  base: 'rc',
+  strategy: 'pr',
+  path: '/repo',
+  root: '/repo',
+  tmpPath: '/wt/pay-carry',
+  commits: ['aaa111'],
+  startRef: 'origin/rc',
+  carryBranch: 'carry/pay',
+  prState: 'none',
+  prCommand: 'gh pr create --head carry/pay --base rc --fill',
+}
+
+test('ff: the carry to the resolved base follows the land', () => {
+  const plan = planBranchHotfixLand(SPEC, config(), { ...FRESH, strategy: 'ff', push: true, carry: CARRY_FF })
+  assert.deepStrictEqual(kinds(plan), ['rebase', 'release:tag', 'push:push', 'carry'])
+  assert.strictEqual(plan.steps[3].base, 'rc')
+})
+
+test('ff: landed and tagged, the carry alone is left — a re-run finishes it', () => {
+  const plan = planBranchHotfixLand(SPEC, config(), {
+    ...FRESH, strategy: 'ff', behind: false, onRelease: true, released: { tag: 'v2.4.1' }, tagPushed: true, carry: CARRY_FF,
+  })
+  assert.deepStrictEqual(kinds(plan), ['carry'])
+})
+
+test('ff: a carry with nothing left to pick is no step, and the run is a no-op', () => {
+  const plan = planBranchHotfixLand(SPEC, config(), {
+    ...FRESH, strategy: 'ff', behind: false, onRelease: true, released: { tag: 'v2.4.1' }, tagPushed: true, carry: { ...CARRY_FF, commits: [] },
+  })
+  assert.strictEqual(plan.noop, true)
+})
+
+test('pr: the carry waits for the release-branch merge, then goes through its own ready PR', () => {
+  const open = planBranchHotfixLand(SPEC, config(), {
+    ...FRESH, strategy: 'pr', push: true, pr: { state: 'open', id: 3 }, prCommand: '# PR #3 already open', carry: CARRY_PR,
+  })
+  assert.ok(!open.steps.some((st) => st.kind === 'carry'), 'nothing carried before the merge')
+  const merged = planBranchHotfixLand(SPEC, config({ tag: false }), {
+    ...FRESH, strategy: 'pr', push: true, behind: false, pr: { state: 'merged', id: 3 }, carry: CARRY_PR,
+  })
+  assert.deepStrictEqual(kinds(merged), ['carry'])
+  assert.strictEqual(merged.steps[0].strategy, 'pr')
+  assert.doesNotMatch(merged.steps[0].prCommand, /--draft/)
+})
+
+function fakeSpawn(failOn = null) {
+  const calls = []
+  const spawn = (cmd, args) => {
+    const line = [cmd, ...(Array.isArray(args) ? args : [])].join(' ')
+    calls.push(line)
+    const fail = failOn && failOn.test(line)
+    return { status: fail ? 1 : 0, stdout: '', stderr: fail ? 'CONFLICT (content)\n' : '' }
+  }
+  return { calls, spawn }
+}
+
+test('runner: the pr carry cuts carry/<slug> from the base, picks, pushes and opens a PR', () => {
+  const { calls, spawn } = fakeSpawn()
+  const steps = planBranchHotfixLand(SPEC, config({ tag: false }), {
+    ...FRESH, strategy: 'pr', push: true, behind: false, pr: { state: 'merged' }, carry: CARRY_PR,
+  }).steps
+  const r = runHotfixLand(steps, { spawn, childStderr: () => {} })
+  assert.strictEqual(r.ok, true)
+  assert.deepStrictEqual(calls, [
+    'git -C /repo worktree add -B carry/pay /wt/pay-carry origin/rc',
+    'git -C /wt/pay-carry cherry-pick aaa111',
+    'git -C /wt/pay-carry push --force-with-lease -u origin carry/pay',
+    'git -C /repo worktree remove --force /wt/pay-carry',
+    'gh pr create --head carry/pay --base rc --fill',
+  ])
+})
+
+test('runner: the pr carry holds without consent, and skips once its PR exists', () => {
+  const held = fakeSpawn()
+  const steps = planBranchHotfixLand(SPEC, config({ tag: false }), {
+    ...FRESH, strategy: 'pr', behind: false, pr: { state: 'merged' }, carry: CARRY_PR,
+  }).steps
+  const r = runHotfixLand(steps, { spawn: held.spawn, childStderr: () => {} })
+  assert.strictEqual(r.held, true)
+  assert.deepStrictEqual(held.calls, [])
+
+  const open = fakeSpawn()
+  const steps2 = planBranchHotfixLand(SPEC, config({ tag: false }), {
+    ...FRESH, strategy: 'pr', push: true, behind: false, pr: { state: 'merged' }, carry: { ...CARRY_PR, prState: 'open' },
+  }).steps
+  const r2 = runHotfixLand(steps2, { spawn: open.spawn, childStderr: () => {} })
+  assert.strictEqual(r2.ok, true)
+  assert.deepStrictEqual(open.calls, [])
+})
+
+test('runner: a conflicted carry is aborted and names the commit', () => {
+  const { calls, spawn } = fakeSpawn(/cherry-pick aaa111$/)
+  const steps = planBranchHotfixLand(SPEC, config({ tag: false }), {
+    ...FRESH, strategy: 'ff', push: true, behind: false, onRelease: true, carry: CARRY_FF,
+  }).steps
+  const r = runHotfixLand(steps, { spawn, childStderr: () => {} })
+  assert.strictEqual(r.ok, false)
+  assert.match(r.results.at(-1).line, /cherry-pick aaa111 onto rc conflicted — aborted/)
+  assert.ok(calls.includes('git -C /wt/pay-carry-rc cherry-pick --abort'))
+})
+
+test('finish: every unmet check is named, cannot-tell included', () => {
+  const plan = planBranchHotfixFinish(
+    { folder: 'hotfix-pay', branch: 'hotfix/pay', worktreePath: '/wt/pay' },
+    { dirty: true, landed: undefined, carried: false, releaseBranch: 'master', base: 'rc', hasSlot: false, mainRepoPath: '/repo' },
+  )
+  assert.strictEqual(plan.blocked, true)
+  assert.deepStrictEqual(plan.reasons, [
+    'the worktree has uncommitted changes',
+    'cannot tell whether the fix is on master — the host or remote did not answer',
+    'rc does not have the fix yet — re-run `spec-env hotfix land` to carry it (and merge the carry PR)',
+  ])
+})
+
+test('finish: landed and carried (or nothing to carry) removes the worktree and branch', () => {
+  for (const carried of [true, 'not-needed']) {
+    const plan = planBranchHotfixFinish(
+      { folder: 'hotfix-pay', branch: 'hotfix/pay', worktreePath: '/wt/pay' },
+      { dirty: false, landed: true, carried, releaseBranch: 'master', base: 'rc', mainRepoPath: '/repo' },
+    )
+    assert.strictEqual(plan.blocked, false)
+    assert.deepStrictEqual(plan.argvs, [
+      ['-C', '/repo', 'worktree', 'remove', '/wt/pay'],
+      ['-C', '/repo', 'branch', '-D', 'hotfix/pay'],
+    ])
+  }
+})
+
 // --- CLI over a real repo, ff ---------------------------------------------------
 
 function git(cwd, ...args) {
@@ -190,7 +322,7 @@ function commit(cwd, file, msg) {
 // master on a bare remote carrying v2.4.0; a branch-based hotfix worktree forked
 // from master's head with a fix on it; then master moves on in another clone,
 // so the land has to rebase.
-function scaffold(hotfix = { releaseBranch: 'master' }) {
+function scaffold(hotfix = { releaseBranch: 'master' }, extra = {}) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-')))
   const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-remote-')))
   const other = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-other-')))
@@ -201,7 +333,7 @@ function scaffold(hotfix = { releaseBranch: 'master' }) {
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ worktree: { root: '../{repo}-wt', folderPattern: '{slug}' }, docker: { enabled: false }, hotfix }, null, 2),
+    JSON.stringify({ worktree: { root: '../{repo}-wt', folderPattern: '{slug}' }, docker: { enabled: false }, guards: { mainIsLandingZone: false }, hotfix, ...extra }, null, 2),
   )
   fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
   commit(dir, 'app.js', 'release')
@@ -210,6 +342,8 @@ function scaffold(hotfix = { releaseBranch: 'master' }) {
   git(dir, 'remote', 'add', 'origin', remote)
   git(dir, 'push', '-q', 'origin', 'master', 'v2.4.0')
   git(dir, 'switch', '-q', '-c', 'main')
+  // The current release candidate, cut from master: where a carry goes.
+  git(dir, 'branch', 'rc', 'master')
 
   const sha = git(dir, 'rev-parse', '--short=12', 'master')
   const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'pay')
@@ -253,6 +387,8 @@ async function runQuiet(argv) {
   } finally {
     process.stdout.write = orig
     process.stderr.write = origErr
+    // A refusal sets the exit code; it is the CLI's answer, not this file's.
+    process.exitCode = 0
   }
   return out
 }
@@ -310,6 +446,41 @@ test('hotfix land --plan: the pr strategy plans a ready PR and the wait, running
     assert.match(out, /2\. push: held/)
     assert.match(out, /4\. wait: the PR into master is not merged yet/)
     assert.doesNotMatch(out, /--draft/)
+  } finally {
+    cleanup(fx)
+  }
+})
+
+test('hotfix land (ff) --push carries the fix onto the resolved rc; finish then tears down', async () => {
+  const fx = scaffold({ releaseBranch: 'master', tag: false }, { baseBranch: 'rc' })
+  try {
+    const out = await runQuiet(['spec-env', 'hotfix', 'land', 'hotfix-pay', '--push', '--dir', fx.dir])
+    assert.match(out, /carry to: {2}rc/)
+    assert.match(out, /carried 1 commit onto rc/)
+    git(fx.dir, 'cat-file', '-e', 'rc:fix.txt')
+    // Only the fix — not the other hotfix master took first.
+    assert.throws(() => git(fx.dir, 'cat-file', '-e', 'rc:other.txt'))
+
+    const again = await runQuiet(['spec-env', 'hotfix', 'land', 'hotfix-pay', '--push', '--dir', fx.dir])
+    assert.match(again, /already on origin\/master — nothing to land/)
+
+    const fin = await runQuiet(['spec-env', 'hotfix', 'finish', 'hotfix-pay', '--dir', fx.dir])
+    assert.match(fin, /landed: {4}on origin\/master/)
+    assert.match(fin, /carried: {3}to rc/)
+    assert.ok(!fs.existsSync(fx.wt))
+  } finally {
+    cleanup(fx)
+  }
+})
+
+test('hotfix finish refuses before the land, naming what is missing', async () => {
+  const fx = scaffold({ releaseBranch: 'master', tag: false }, { baseBranch: 'rc' })
+  try {
+    // Nothing landed, nothing recorded: the land is not on master and the
+    // carry cannot be judged — both named, nothing removed.
+    const fin = await runQuiet(['spec-env', 'hotfix', 'finish', 'hotfix-pay', '--dir', fx.dir])
+    assert.match(fin, /refused, nothing removed/)
+    assert.ok(fs.existsSync(fx.wt))
   } finally {
     cleanup(fx)
   }
