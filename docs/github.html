@@ -793,6 +793,7 @@ $ skitterspec-github spec-sync <span class="p">released</span> "$PREV..$TAG" --j
 
           <tr class="grp-row"><td colspan="3">Reporting — the ones you'd actually type</td></tr>
           <tr><td class="cmd">spec-sync (github) linked</td><td>Every spec and the issue it is linked to. Offline.</td><td class="folder">you</td></tr>
+          <tr><td class="cmd">spec-sync (github) ownership</td><td>Who owns a spec's status and assignee here — the repo (<span class="mono">push</span>) or GitHub (<span class="mono">pull</span>). The shared skills ask it before writing a <span class="mono">Status:</span> header, a <span class="mono">Developer:</span> line or a State log row. Offline.</td><td class="folder">the lifecycle skills</td></tr>
           <tr><td class="cmd">spec-sync (github) ref</td><td>The issue for the commit you are writing — <span class="mono">#N</span> on stdout only on success.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync (github) released</td><td>The issues a commit range contains, each with its spec and url. An older tracker's <span class="mono">Refs: SKS-12</span> counts as history, never as a missing trailer. A trailer-less merge commit counts as transport, never a gap; which range still holds the trailers under each merge style lives in <span class="mono">commit-trailers.md</span>. <a href="#releases">See above</a>.</td><td class="folder">you · CI</td></tr>
         </tbody>

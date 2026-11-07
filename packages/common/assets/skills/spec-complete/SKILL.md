@@ -102,6 +102,9 @@ feature was designed not to disturb.
 
 - Tick all completed tasks in the phase files; flip every finished phase-file
   heading **and** every row in the `00-overview.md` phase index to `✅`.
+
+<!-- seam:spec-status-owner -->
+
 - Set the **Status** header in the entry point:
   `> **Status:** Complete (<YYYY-MM-DD>)`.
 - Append a **State log** row:

@@ -18,7 +18,7 @@
  * spec, so a caller that accuses on one is wrong (`negative-checks.md`).
  */
 
-const { remoteStateReading } = require('@skitterbyte/skitterspec-sync-core')
+const { remoteStateReading, ownershipOf } = require('@skitterbyte/skitterspec-sync-core')
 
 const firstLine = (error) => String((error && error.message) || error).split('\n')[0]
 
@@ -50,4 +50,24 @@ async function readStatus({ adapter, ref, config }) {
   }
 }
 
-module.exports = { readStatus }
+/**
+ * `spec-sync ownership [--json]` — who owns a spec's status and assignee here.
+ *
+ * This is the question the shared skills ask before writing a `Status:` header,
+ * a `Developer:` line or a State-log row: the base skills are tracker-free and
+ * cannot read a provider config, so they ask the provider's CLI rather than
+ * deciding from which provider is installed. Offline, and always exit 0 — a
+ * missing config never reaches here (the CLI reports sync is off first), and
+ * that is the skills' cannot-tell, which writes the headers as before.
+ */
+function specSyncOwnership(config, flags, out, program = 'spec-sync') {
+  const owners = { workflowState: ownershipOf(config, 'workflowState'), assignee: ownershipOf(config, 'assignee') }
+  if (flags && flags.json) {
+    out.write(JSON.stringify(owners, null, 2) + '\n')
+    return 0
+  }
+  out.write(`${program} ownership: status ${owners.workflowState} · assignee ${owners.assignee}\n`)
+  return 0
+}
+
+module.exports = { readStatus, specSyncOwnership }

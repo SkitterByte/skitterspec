@@ -165,6 +165,8 @@ split it into phase files (`01-<slug>.md`, `02-…`) with a phase index in
 `00-overview.md`, exactly like a feature spec. It starts in `in-progress`
 because work is already underway. Keep it lean:
 
+<!-- seam:spec-status-owner -->
+
 ```markdown
 # Bug: <short title>
 

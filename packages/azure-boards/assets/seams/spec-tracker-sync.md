@@ -27,6 +27,10 @@ PAT is set (see `apply.transport` in `azure-boards.config.md`).
   complete/cancelled/reviewed in the repo regardless; the mirror is disposable
   and the next push repairs it. Do not roll anything back, and do not stop to
   ask.
+- **In `/spec-complete`'s PR mode this push belongs to run 2.** Run 1 readies
+  a PR, and a ready PR is not a merged one — so skip it on run 1, even where
+  the `branch` lane committed the move to ride the PR, and run it on run 2 once
+  the host has merged. The tracker's Done lands when the work does.
 - **Say what happened** in the skill's report: mirror updated, skipped as
   unlinked, or failed with the reason.
 - **There is no unassign step here.** The projection derives the assignee from

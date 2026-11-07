@@ -28,6 +28,27 @@ thing enforcing it for long enough that the engine's own success line —
 `next: push it, so Linear agrees` — was printed over a push that would drop the
 field. Prose in one skill is not a guard; it is a guard's documentation.
 
+## Under `pull`, the issue is the record
+
+Ask once: `skitterspec spec-sync ownership --json`. Where `assignee` is
+**`pull`**, Linear owns who is building the spec, and the repo keeps no copy — so
+the steps below change in four places, and only these:
+
+- **`assign` writes Linear directly and stamps nothing.** There is no repo record
+  to change and no push to follow: §4 does not run, because the `assign` call
+  *was* the write.
+- **Take checks Linear, not the file.** Run `assign <spec> --to <id> --if-unassigned`
+  first. If it reports the issue is already assigned to someone else, that is
+  step 2's colleague: name them, confirm, then run it again without the flag.
+- **No `> **Developer:**` line is written**, by any mode. The tracker names the
+  person; a header would be the copy `pull` exists to remove.
+- **§3 is skipped.** The issue's own history records the move, and a
+  Changelog line saying who holds it would be that copy again.
+
+Everything else stands: the opt-in check, resolving a person through a search
+before a hand-over, and the report. Under `push` (or with ownership unknown)
+nothing in this section applies.
+
 ## 1. Identify the target spec
 
 The argument, else the spec in flight for this session, else ask. Unlike

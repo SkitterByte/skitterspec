@@ -47,6 +47,12 @@ item is a cosmetic gap that `/spec-claim` closes later.
    skitterspec spec-sync assign <spec> --to <id> --name "<display name>"
    ```
 
+   **Where `spec-sync ownership` reports `assignee: pull`**, the work item is the
+   record and the spec file is not: add `--if-unassigned`. It writes Azure Boards
+   directly, claims the work item only when nobody holds it, and stamps nothing —
+   so step 4 has no header to leave alone, since under `pull` no `Developer:`
+   line was written.
+
 4. **Leave `> **Developer:**` as `git config user.name`** — the step above this
    seam already set it, and this seam must not overwrite it with the tracker's
    display name.
@@ -68,9 +74,12 @@ item is a cosmetic gap that `/spec-claim` closes later.
 
 **Nothing is pushed here.** `assign` writes the repo only, and the refresh these
 skills already run sends it. Assignment is an ordinary field of the projection,
-not a side errand with its own network call.
+not a side errand with its own network call. Under `pull` the
+`assign` call is itself the write, so there is nothing for a push to carry.
 
 **There is no unassign step anywhere.** The projection derives the assignee from
 the spec's lifecycle bucket, so `/spec-complete` and `/spec-cancel` release the
 work item through the push they already make. The stamp deliberately stays in
-the file: who actioned the work outlives who is currently holding it.
+the file: who actioned the work outlives who is currently holding it. Under `pull`
+the projection carries no assignee at all, so finishing a spec leaves it on
+the work item: the board keeps who did the work.

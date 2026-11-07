@@ -1445,6 +1445,7 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  the board's issues
   intake [query] [--json]                issues waiting to become specs
   linked [--json]                        specs and their linked issues (offline)
+  ownership [--json]                     who owns status and assignee (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     issues a commit range contains
   preserve <spec> [--text <f>]           keep an adopted issue's original report
@@ -1519,6 +1520,8 @@ async function specSync(rest, io = {}) {
       return specSyncVerify(dir, config, positional[0], flags, out)
     case 'linked':
       return specSyncLinked(dir, config, flags, out)
+    case 'ownership':
+      return kit.specSyncOwnership(config, flags, out, PROGRAM)
     case 'states':
       return specSyncStates(dir, config, flags, out)
     case 'list':

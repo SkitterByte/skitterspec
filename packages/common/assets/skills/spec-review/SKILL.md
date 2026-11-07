@@ -96,6 +96,9 @@ resolve it by reading the code, do that instead of asking.
 - Add a dated **Changelog** entry summarising the review (e.g. `- <date> —
   Reviewed vs codebase: retargeted Phase 2 onto X, dropped Y (removed), ticked Z
   (already done)`).
+
+<!-- seam:spec-status-owner -->
+
 - **Status:** if drift is minor, leave status as-is. If a `Ready` spec needs real
   re-grooming, knock it back to `Draft` (set `> **Status:** Draft` and append a
   **State log** row).

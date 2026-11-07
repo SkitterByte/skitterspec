@@ -37,6 +37,8 @@ it verbatim/condensed for the header.
 
 ## 4. Stamp the spec
 
+<!-- seam:spec-status-owner -->
+
 Update the **Status** header in the entry point so the reason is visible at the
 top:
 

@@ -1275,6 +1275,7 @@ const USAGE = `Usage: skitterspec-jira spec-sync <subcommand>
   states [--json]                        the project's status names
   list [--all | --state NAME]            tracker listing for the project
   linked [--json]                        specs and their linked issues (offline)
+  ownership [--json]                     who owns status and assignee (offline)
   ref [<spec>]                           the Refs: trailer value for this branch
   released [<range>]                     tickets a commit range contains
   preserve <spec> [--text <f>]           keep an adopted issue's original report
@@ -1347,6 +1348,8 @@ async function specSync(rest, io = {}) {
       return specSyncVerify(dir, config, positional[0], flags, out)
     case 'linked':
       return specSyncLinked(dir, config, flags, out)
+    case 'ownership':
+      return kit.specSyncOwnership(config, flags, out, PROGRAM)
     case 'states':
       return specSyncStates(dir, config, flags, out)
     case 'list':

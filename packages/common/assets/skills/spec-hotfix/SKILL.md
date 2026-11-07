@@ -191,6 +191,8 @@ you there, so create the folder and write it here. A hotfix
 is usually a single-pass fix, so the `## Fix` block can live directly in
 `00-overview.md`. Keep it lean:
 
+<!-- seam:spec-status-owner -->
+
 ```markdown
 # Hotfix: <short title>
 

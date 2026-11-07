@@ -263,6 +263,9 @@ branch is already here.
 
 - `git mv "specs/backlog/<name>" "specs/in-progress/<name>"` if it isn't there
   already (`mkdir -p specs/in-progress` first). Use `git mv` to keep history.
+
+<!-- seam:spec-status-owner -->
+
 - Set the **Status** header: `> **Status:** In Progress — Phase 1 (started <YYYY-MM-DD>)`.
 - Set **Developer** if it is still `—` (`git config user.name`).
 
@@ -299,7 +302,8 @@ destroyed: that skill relays the refusal and offers both ways out. Nothing to do
 here beyond knowing it is no longer dead code.
 
 A spec ideally arrives `Ready` from `/spec`; a `Draft` works too — sanity-check
-it is well-formed first.
+it is well-formed first. Where the spec keeps no `Status:` header (the tracker
+owns its status), a non-empty **Open questions** section is what marks a Draft.
 
 - **Report anything left waiting, and claim none of it.** Ask the engine once:
 

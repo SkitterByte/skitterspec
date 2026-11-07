@@ -72,6 +72,8 @@ this spec. Without isolation, write where you stand.
 The spec is a folder in **`specs/in-progress/`** — never backlog — with
 `00-overview.md` and one phase file:
 
+<!-- seam:spec-status-owner -->
+
 ```markdown
 # Incident: <short title>
 

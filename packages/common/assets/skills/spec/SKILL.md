@@ -211,6 +211,8 @@ move to, **warn, don't refuse**, and say the trailer for that commit wants
   a feature, `chore-` for a chore, `issue-` for an issue (the bug counterpart
   uses `bug-`, the incident one `incident-`).
 
+<!-- seam:spec-status-owner -->
+
 Use this template (keep it **as concise as possible** — no filler, no restating
 the codebase, link rather than duplicate):
 

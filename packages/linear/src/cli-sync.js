@@ -84,6 +84,7 @@ const {
 } = require('./credentials.js')
 const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
+const { specSyncOwnership } = require('@skitterbyte/skitterspec-provider-kit/src/status.js')
 const { resolveTransport } = require('@skitterbyte/skitterspec-provider-kit/src/transport.js')
 
 // `assign`, `whoami` and `users` are the kit's (`provider-kit/src/assignment.js`),
@@ -3505,6 +3506,8 @@ async function specSync(rest, io = {}) {
     case 'linked':
       specSyncLinked(dir, config, flags, out)
       return 0
+    case 'ownership':
+      return specSyncOwnership(config, flags, out, 'spec-sync')
     case 'credentials':
       return await specSyncCredentials(dir, config, positional[0], flags, out)
     default:
@@ -3524,6 +3527,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync comment <spec> --file <file> [--via api|mcp]\n' +
         '       skitterspec spec-sync list [--state <name> …|--all|--in-progress] [--next N] [--mine|--by <user>] [--limit N] [--archived] [--json]\n' +
         '       skitterspec spec-sync linked [--json]\n' +
+        '       skitterspec spec-sync ownership [--json]\n' +
         '       skitterspec spec-sync ref [<spec>] [--json]\n' +
         '       skitterspec spec-sync released [<range>] [--json]\n' +
         '       skitterspec spec-sync reattach <spec> [--to <ISSUE-REF>] [--json]\n' +

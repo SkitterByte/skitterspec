@@ -891,3 +891,30 @@ test('/spec-start stays provider-neutral despite carrying the assign seam', () =
   assert.match(text, /<!-- seam:spec-tracker-assign -->/, 'the source carries the marker')
   assert.doesNotMatch(text, /linear/i, 'spec-start must not name a specific tracker')
 })
+
+// --- status-owner seam placement ---------------------------------------------
+
+// Under `sync.fieldOwnership: "pull"` the provider's fragment tells a skill to
+// write no `Status:` header, `Developer:` line or State log row. It can only do
+// that if it is read FIRST: a seam after the write it switches off arrives once
+// the copy is already on disk. Each skill's first header write is located by
+// the text it writes, which is the stable half.
+for (const [skill, firstWrite] of [
+  ['spec', '> **Status:** Ready — not started'],
+  ['spec-bug', '> **Status:** In Progress — fixing'],
+  ['spec-hotfix', '> **Status:** In Progress — fixing'],
+  ['spec-incident', '> **Status:** In Progress — live'],
+  ['spec-start', 'Set the **Status** header'],
+  ['spec-complete', 'Set the **Status** header'],
+  ['spec-cancel', 'Update the **Status** header'],
+  ['spec-review', 'knock it back to `Draft`'],
+]) {
+  test(`${skill} asks who owns status before it writes a header`, () => {
+    const text = fs.readFileSync(path.join(ASSETS, 'skills', skill, 'SKILL.md'), 'utf8')
+    const seam = text.indexOf('<!-- seam:spec-status-owner -->')
+    const write = text.indexOf(firstWrite)
+    assert.ok(seam !== -1, 'the seam is present')
+    assert.ok(write !== -1, 'the header write is recognisable')
+    assert.ok(seam < write, 'the ownership answer must arrive before the write it switches off')
+  })
+}

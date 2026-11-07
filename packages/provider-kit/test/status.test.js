@@ -87,3 +87,32 @@ test('an unassigned ticket reads assignee null, not a half-empty object', async 
   assert.strictEqual(r.assignee, null)
   assert.strictEqual(r.bucket, 'backlog')
 })
+
+// --- spec-sync ownership -----------------------------------------------------
+
+const { specSyncOwnership } = require('../src/status.js')
+
+const sink = () => {
+  const s = { text: '', write: (t) => (s.text += t) }
+  return s
+}
+
+test('ownership answers both fields, in text and JSON, and always exits 0', () => {
+  const config = PROVIDERS[0].config()
+  config.sync.fieldOwnership.workflowState = 'pull'
+  config.sync.fieldOwnership.assignee = 'none'
+  const text = sink()
+  assert.strictEqual(specSyncOwnership(config, {}, text), 0)
+  assert.strictEqual(text.text, 'spec-sync ownership: status pull · assignee none\n')
+  const json = sink()
+  assert.strictEqual(specSyncOwnership(config, { json: true }, json), 0)
+  assert.deepStrictEqual(JSON.parse(json.text), { workflowState: 'pull', assignee: 'none' })
+})
+
+test('ownership reads both as push under the shipped defaults of every provider', () => {
+  for (const p of PROVIDERS) {
+    const out = sink()
+    specSyncOwnership(p.config(), { json: true }, out)
+    assert.deepStrictEqual(JSON.parse(out.text), { workflowState: 'push', assignee: 'push' }, p.name)
+  }
+})
