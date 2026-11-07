@@ -93,7 +93,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `baseBranchPattern` + resolver (newest match, refusal on none) | ✅ | [01-pattern-resolver.md](01-pattern-resolver.md) |
-| 2 | `spec-env base` — fetch and list | ⬜ | [02-base-verb.md](02-base-verb.md) |
+| 2 | `spec-env base` — fetch and list | ✅ | [02-base-verb.md](02-base-verb.md) |
 | 3 | Fetch-before-resolve in up/integrate; retarget line; primary-checkout switch | ⬜ | [03-retarget-at-land.md](03-retarget-at-land.md) |
 | 4 | Skills, env.config.md, reference docs | ⬜ | [04-skills-and-docs.md](04-skills-and-docs.md) |
 
@@ -120,3 +120,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   reaches the CLI's exit-1 path and the main-guard's fail-open `catch` with no
   caller edited. Also found: git's ref glob does not cross `/` (`rc/*` misses
   `rc/a/b`) — added to phase 4's `env.config.md` task.
+- 2026-11-07 — Phase 2: the verb list in `env.config.md` and
+  `spec-planning.md`, and a `docs/reference.html` row, landed here rather than
+  in phase 4 — the asset-prose and docs-claims tests fail on a dispatched verb
+  no page names. Phase 4 still owns the full write-up and the `verified:` bump.
+  "Forked from" is the match with the newest merge-base; a tie (an rc cut from a
+  base already holding the old rc's tip) goes to the newer match, so such a spec
+  is not listed as behind. Stale rows print only when the pattern chose the base.

@@ -440,19 +440,39 @@ class BaseUnresolvedError extends Error {
  * to the commands that already talk to the remote.
  */
 function resolveBaseBranch(config, git) {
+  const { base, refused } = describeBaseBranch(config, git)
+  if (refused) throw refused
+  return base
+}
+
+/**
+ * The same resolution as `resolveBaseBranch`, returned as data with HOW it was
+ * found — `pin` · `pattern` · `origin-head` · `local` · `fallback` — for the
+ * one surface that reports it (`spec-env base`). A pattern with no match comes
+ * back as `{ base: null, how: 'pattern', refused }` rather than thrown, so a
+ * listing can still say what it saw.
+ */
+function describeBaseBranch(config, git) {
   const explicit = config && typeof config.baseBranch === 'string' && config.baseBranch.trim()
-  if (explicit) return explicit
+  if (explicit) return { base: explicit, how: 'pin' }
 
   const pattern = config && typeof config.baseBranchPattern === 'string' && config.baseBranchPattern.trim()
-  if (pattern) return newestMatch(config, git, pattern)
+  if (pattern) {
+    try {
+      return { base: newestMatch(config, git, pattern), how: 'pattern' }
+    } catch (error) {
+      if (error instanceof BaseUnresolvedError) return { base: null, how: 'pattern', refused: error }
+      throw error
+    }
+  }
 
   const originHead = git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
-  if (originHead) return originHead.replace(/^origin\//, '')
+  if (originHead) return { base: originHead.replace(/^origin\//, ''), how: 'origin-head' }
 
   for (const name of ['main', 'master']) {
-    if (git(['show-ref', '--verify', '--quiet', `refs/heads/${name}`]) !== null) return name
+    if (git(['show-ref', '--verify', '--quiet', `refs/heads/${name}`]) !== null) return { base: name, how: 'local' }
   }
-  return 'main'
+  return { base: 'main', how: 'fallback' }
 }
 
 // The newest remote-tracking branch matching `pattern`, prefix stripped.
@@ -462,8 +482,12 @@ function resolveBaseBranch(config, git) {
 // fetched" — so an empty answer refuses rather than concluding anything, and
 // names the verb that fetches. A stale-but-present answer is the older rc;
 // `up` and `integrate` fetch before resolving so they never act on one.
+function baseRemote(config) {
+  return (config && config.land && typeof config.land.remote === 'string' && config.land.remote.trim()) || 'origin'
+}
+
 function newestMatch(config, git, pattern) {
-  const remote = (config.land && typeof config.land.remote === 'string' && config.land.remote.trim()) || 'origin'
+  const remote = baseRemote(config)
   const prefix = `refs/remotes/${remote}/`
   const out = git(['for-each-ref', '--sort=-committerdate', '--format=%(refname)', `${prefix}${pattern}`])
   const names = (out || '')
@@ -752,6 +776,8 @@ module.exports = {
   collectSpecFolders,
   allSpecs,
   resolveBaseBranch,
+  describeBaseBranch,
+  baseRemote,
   BaseUnresolvedError,
   resolvePrimaryCheckout,
   currentBranch,

@@ -42,9 +42,11 @@ const SPEC_ENV_VERBS = Object.freeze([
   'stage',
   'status',
   'resolve',
+  'base',
   'nospec',
   'main',
 ])
+const { forkMatch, planBaseReport } = require('./env/base.js')
 const {
   readRegistry,
   writeRegistry,
@@ -59,6 +61,8 @@ const {
   resolveSpec,
   resolveSpecless,
   resolveBaseBranch,
+  describeBaseBranch,
+  baseRemote,
   liveWorktreePaths,
   collectSpecFolders,
   allSpecs,
@@ -268,6 +272,9 @@ Usage:
                                                   documents and everything else
                                 status            list provisioned specs + port blocks
                                 resolve <spec>    print resolved slug/type/branch/paths
+                                base              fetch, list baseBranchPattern matches
+                                                  newest-first, mark the base, and name
+                                                  specs forked from an older match
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -2813,6 +2820,89 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
       `worktree:   ${r.worktreePath}\n` +
       `project:    ${r.projectName}\n`,
   )
+}
+
+/**
+ * `skitterspec spec-env base [--json]`
+ *
+ * Which branch is the base, how it was found, and — under `baseBranchPattern` —
+ * every match newest-first plus the provisioned specs that forked from an older
+ * one. It fetches first, because the resolver itself never does: a release
+ * candidate cut since the last fetch is invisible to it.
+ *
+ * Lists only and always exits 0. A failed fetch is reported and the listing
+ * carries on from the refs already here; nothing is edited, and pinning stays a
+ * hand edit of `baseBranch`.
+ */
+function specEnvBase(dir, config, flags = {}) {
+  const pattern = (config.baseBranchPattern || '').trim()
+  const remote = baseRemote(config)
+  const git = gitReader(dir)
+
+  // No pattern: the base is today's chain, and there is nothing to fetch for —
+  // origin/HEAD is not updated by a fetch.
+  let fetch = null
+  if (pattern) {
+    try {
+      execFileSync('git', ['-C', dir, 'fetch', '--prune', remote], { stdio: ['ignore', 'ignore', 'pipe'] })
+      fetch = { ok: true, reason: null }
+    } catch (error) {
+      const stderr = error.stderr ? error.stderr.toString() : ''
+      const reason = stderr.split('\n').map((l) => l.trim()).find(Boolean) || null
+      fetch = { ok: false, reason }
+    }
+  }
+
+  const { base, how } = describeBaseBranch(config, git)
+
+  let matches = []
+  let forks = []
+  if (pattern) {
+    const prefix = `refs/remotes/${remote}/`
+    const out = git([
+      'for-each-ref',
+      '--sort=-committerdate',
+      '--format=%(refname)%09%(committerdate:short)',
+      `${prefix}${pattern}`,
+    ])
+    matches = (out || '')
+      .split('\n')
+      .map((line) => line.split('\t'))
+      .filter(([ref]) => ref && ref.startsWith(prefix) && ref !== `${prefix}HEAD`)
+      .map(([ref, date]) => ({ name: ref.slice(prefix.length), date: date || null }))
+
+    const names = matches.map((m) => m.name)
+    forks = provisionedBranches(dir, config).map(({ spec, branch }) => ({
+      spec,
+      forkedFrom: forkMatch(
+        names,
+        (name) => git(['merge-base', branch, `${prefix}${name}`]),
+        (a, b) => git(['merge-base', '--is-ancestor', a, b]) !== null,
+      ),
+    }))
+  }
+
+  const { json, lines } = planBaseReport({ pattern, remote, base, how, fetch, matches, forks })
+  process.stdout.write(flags.json ? JSON.stringify(json, null, 2) + '\n' : lines.join('\n') + '\n')
+}
+
+// Every provisioned spec with the branch its worktree has checked out. A
+// worktree on a detached HEAD (a spec taken live) names no branch and is left
+// out: there is nothing to compute a fork from, and saying nothing is the
+// harmless answer.
+function provisionedBranches(dir, config) {
+  const list = gitReader(dir)(['worktree', 'list', '--porcelain'])
+  const branchAt = new Map()
+  let current = null
+  for (const line of (list || '').split('\n')) {
+    if (line.startsWith('worktree ')) current = path.resolve(line.slice('worktree '.length).trim())
+    else if (line.startsWith('branch refs/heads/') && current) branchAt.set(current, line.slice('branch refs/heads/'.length))
+  }
+  return allSpecs(dir, config, new Set(branchAt.keys()), speclessMap(dir, config))
+    .map((s) => ({ spec: s.folder, wt: path.resolve(s.worktreePath) }))
+    .filter((s) => s.wt !== path.resolve(dir) && branchAt.has(s.wt))
+    .map((s) => ({ spec: s.spec, branch: branchAt.get(s.wt) }))
+    .sort((a, b) => a.spec.localeCompare(b.spec))
 }
 
 /**
@@ -6159,6 +6249,9 @@ async function specEnv(rest) {
       break
     case 'resolve':
       specEnvResolve(dir, config, positional[0], flags)
+      break
+    case 'base':
+      specEnvBase(dir, config, flags)
       break
     case 'stage':
       specEnvStage(dir, config, positional[0], flags, invokedFrom)
