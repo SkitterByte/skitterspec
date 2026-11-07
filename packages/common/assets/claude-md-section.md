@@ -34,6 +34,25 @@ An accept remembers the file's content, so it lapses by itself when that file
 changes again. The marks are information — nothing gates on them; the verdict is
 the one thing you choose, once.
 
+**The phase waits for that press.** `/spec-next` ends a phase by rendering the
+page and then watching for your verdict, so the button is what carries the work
+on — no command to remember. What makes that safe is not that the page is
+unreachable (it is reachable, deliberately): it is the **serve token** in the
+URL, 48 random bits deciding who can POST at all, plus the **window** — only a
+pass that arrives *while the session is waiting* is claimed for you, and two
+arrivals refuse rather than pick. Outside that window nothing is claimed
+unasked: type `/spec-reviewed`, or `/spec-reviewed 324199` to name one exactly,
+which matters only when two are waiting. A `file://` page has no server to talk
+to, so it copies and you paste, as before.
+
+**And a phase that ended owes you an answer.** The gate is armed when the page
+is rendered at the end of a phase, and cleared by a committing verdict or by
+`skitterspec spec-env review skip "<reason>"` — while it is armed, `/spec-next`
+refuses to build the next phase. Mid-phase renders arm nothing, every
+cannot-tell exits 0 and says nothing, and `review.required: false` turns it off
+for a project. The exit is always one command; one of them is *"I am moving
+on"*, and that reason goes on the record.
+
 **A second opinion, when you want one** (`review.reviewers`, empty by default).
 Point it at a code reviewer that runs from your terminal — CodeRabbit's CLI has
 a free tier and `{ "use": "coderabbit" }` is the whole setup; anything printing

@@ -82,7 +82,7 @@ function findEngine(projectDir) {
   if (process.env.SKITTERSPEC_BIN) return process.env.SKITTERSPEC_BIN
   let at = projectDir
   for (let i = 0; i < 6 && at; i++) {
-    for (const name of ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github']) {
+    for (const name of ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']) {
       const candidate = path.join(at, 'node_modules', '.bin', name)
       if (fs.existsSync(candidate)) return candidate
     }
@@ -91,6 +91,15 @@ function findEngine(projectDir) {
     at = up
   }
   return 'skitterspec'
+}
+
+// The engine's own refusal line, from `spec-env review gate --check`. Pure.
+//
+// WHAT WOULD FOOL THIS: an engine that crashes after printing that line. The
+// refusal is written last, after every read has succeeded, so a crash before
+// it prints nothing — and one after it has already decided.
+function isRefusal(stdout) {
+  return /^spec-env review gate: /m.test(stdout || '')
 }
 
 function main() {
@@ -119,8 +128,16 @@ function main() {
   if (result.error || result.status === null) allow()
   if (result.status !== 1) allow()
 
+  // EXIT 1 ALONE IS NOT A REFUSAL. Node exits 1 on an uncaught exception, so an
+  // engine that cannot even load looks exactly like one saying "armed" — and
+  // once read that way it denied every Bash call in the session, the operator's
+  // own `!` commands included. The positive signal is the refusal the engine
+  // PRINTS; a crash prints nothing on stdout, so it allows.
+  const said = (result.stdout || '').trim()
+  if (!isRefusal(said)) allow()
+
   deny(
-    (result.stdout || '').trim() +
+    said +
       '\n\nThis phase is waiting on a verdict. Relay these to the operator ' +
       'rather than choosing one: press a verdict on the page, /spec-reviewed if ' +
       'a pass is already waiting, or /spec-skip "<reason>" to move on with the ' +
@@ -143,4 +160,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { findEngine }
+module.exports = { findEngine, isRefusal }

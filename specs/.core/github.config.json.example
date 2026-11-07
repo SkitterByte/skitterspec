@@ -4,7 +4,8 @@
     "repo": "skitterspec",
     "project": 7,
     "statusField": "Status",
-    "labels": { "spec": "spec", "phase": "phase" }
+    "labels": { "spec": "spec", "phase": "phase" },
+    "labelsByKind": {}
   },
   "states": {
     "backlog": "Backlog",
@@ -14,5 +15,5 @@
   },
   "intake": { "label": "", "bugLabels": ["bug"], "hotfixLabels": [] },
   "auth": { "tokenEnv": "GITHUB_TOKEN" },
-  "sync": { "fieldOwnership": { "assignee": "push" } }
+  "sync": { "fieldOwnership": { "workflowState": "pull", "assignee": "pull" } }
 }
