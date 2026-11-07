@@ -14,28 +14,13 @@
  * repo. The CLI reads git and writes the note.
  */
 
+const { phaseProgress, progressText } = require('./phases.js')
+
 // Uncommitted work cannot travel with a push, so a hand-over would silently
 // leave it behind in the old worktree. The engine declares the way out rather
 // than leaving the skill to infer one (`offered-unblocks.md`): committing is
 // what the guard asks for, so it is a `satisfy`, and nothing is weakened.
 const COMMIT_FIRST = Object.freeze({ kind: 'satisfy', label: 'Commit first, then hand it over', command: '/commit' })
-
-// What the phase files say about progress: how many are ✅, how many there are,
-// and the first 🔄 (where the next owner picks up). Read off each file's H1,
-// the same emoji the phase index mirrors.
-function phaseProgress(phases) {
-  const named = (phases || []).filter((p) => p && typeof p.content === 'string')
-  const heading = (p) => (p.content.split('\n').find((l) => /^#\s/.test(l)) || '').trim()
-  const done = named.filter((p) => heading(p).endsWith('✅')).length
-  const current = named.findIndex((p) => heading(p).endsWith('🔄'))
-  return { done, total: named.length, current: current === -1 ? null : current + 1 }
-}
-
-function progressText({ done, total, current }) {
-  if (!total) return 'no phase files'
-  const base = `${done} of ${total} phases done`
-  return current ? `${base}, phase ${current} in progress` : base
-}
 
 /**
  * @param {object} f

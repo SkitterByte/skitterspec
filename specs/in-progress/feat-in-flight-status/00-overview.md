@@ -110,7 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Read a spec's real state from its worktree | ⬜ | [01-spec-reader.md](01-spec-reader.md) |
+| 1 | Read a spec's real state from its worktree | ✅ | [01-spec-reader.md](01-spec-reader.md) |
 | 2 | `skitterspec status` | ⬜ | [02-status-command.md](02-status-command.md) |
 | 3 | Point people at it | ⬜ | [03-docs.md](03-docs.md) |
 
@@ -147,3 +147,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (cross-machine belongs to the provider listing and the phase 6 service). Added
   the missing `Docs:` header. `spec-env status` also prints waiting reviews now.
   No task was already done; `skitterspec status` does not exist yet.
+- 2026-11-07 — Phase 1: the reader is `env/specstate.js` (`readSpecState`), and
+  `phaseProgress` moved to `env/phases.js`. A spec found in two buckets
+  mid-`git mv` reports the destination. Follow-up surfaced: `readPhases` in
+  `resolve.js` lets a phase's `Status:` line win over its H1 emoji, while
+  `phaseProgress` reads only the emoji. The two rules can disagree on a
+  hand-edited phase. Also surfaced: `review-gate.cjs` reads an engine crash
+  (exit 1, no output) as "a verdict is owed", so a broken engine locks the
+  session out of Bash, including `!` commands.
