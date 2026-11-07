@@ -111,7 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Read a spec's real state from its worktree | ✅ | [01-spec-reader.md](01-spec-reader.md) |
-| 2 | `skitterspec status` | ⬜ | [02-status-command.md](02-status-command.md) |
+| 2 | `skitterspec status` | ✅ | [02-status-command.md](02-status-command.md) |
 | 3 | Point people at it | ⬜ | [03-docs.md](03-docs.md) |
 
 ## Non-goals
@@ -155,3 +155,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   hand-edited phase. Also surfaced: `review-gate.cjs` reads an engine crash
   (exit 1, no output) as "a verdict is owed", so a broken engine locks the
   session out of Bash, including `!` commands.
+- 2026-11-07 — Phase 2: `env/inflight.js` collects and formats the rows, and
+  `provisionedSpecs` is shared by both commands. Two refinements over the plan.
+  The heading counts only specs whose worktree copy is not complete or
+  cancelled, because a declined teardown leaves a finished spec's worktree
+  standing; such rows are still listed. The closing line is a positive
+  signal, printed only for specs whose bucket here differs from the one in
+  their worktree (or that are absent here), so an idle repo, or one whose
+  worktrees agree, says nothing.

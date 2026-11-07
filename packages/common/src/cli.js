@@ -176,6 +176,7 @@ const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
+const { collectInFlight, detailOf, formatInFlight, isInFlight } = require('./env/inflight.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -280,6 +281,9 @@ Usage:
                                 base              fetch, list baseBranchPattern matches
                                                   newest-first, mark the base, and name
                                                   specs forked from an older match
+  skitterspec status          What is in flight here: every spec with a worktree,
+                              its bucket and phase progress read from that
+                              worktree (--json). Offline; always exits 0.
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -456,14 +460,23 @@ function specEnvReviewWaiting(dir, config, flags) {
   process.stdout.write(section ? `${section.replace(/^\n/, '')}` : 'spec-env review: nothing waiting.\n')
 }
 
-function specEnvStatus(dir, config) {
+// Every spec with a worktree of its own, sorted. Shared by `spec-env status` and
+// the top-level `skitterspec status`, so the two can never disagree about what
+// is provisioned.
+function provisionedSpecs(dir, config) {
   const worktreePaths = liveWorktreePaths(gitReader(dir))
-  const provisioned = allSpecs(dir, config, worktreePaths, speclessMap(dir, config))
-    .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath), specless: s.specless }))
-    // The primary checkout is itself in `git worktree list`; a spec is
-    // provisioned only when it has its OWN worktree, separate from it.
-    .filter((s) => s.wt !== dir && worktreePaths.has(s.wt))
-    .sort((a, b) => a.folder.localeCompare(b.folder))
+  return (
+    allSpecs(dir, config, worktreePaths, speclessMap(dir, config))
+      .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath), specless: s.specless }))
+      // The primary checkout is itself in `git worktree list`; a spec is
+      // provisioned only when it has its OWN worktree, separate from it.
+      .filter((s) => s.wt !== dir && worktreePaths.has(s.wt))
+      .sort((a, b) => a.folder.localeCompare(b.folder))
+  )
+}
+
+function specEnvStatus(dir, config) {
+  const provisioned = provisionedSpecs(dir, config)
 
   // REACHED EITHER WAY. This used to return here, so a repo with nothing in
   // flight could say nothing about a waiting pass — and a repo with nothing in
@@ -474,8 +487,9 @@ function specEnvStatus(dir, config) {
   }
 
   const registry = readRegistry(dir, config)
+  const rows = collectInFlight({ dir, provisioned })
   process.stdout.write('Provisioned specs:\n')
-  for (const { folder, wt, specless } of provisioned) {
+  for (const [i, { folder, wt, specless }] of provisioned.entries()) {
     const slot = registry.slots[folder]
     let ports = ''
     if (slot !== undefined) {
@@ -487,9 +501,36 @@ function specEnvStatus(dir, config) {
     // looking for `specs/**/<name>/` must not conclude the repo is broken when
     // there is nothing there — it is not missing, there never was one.
     const tag = specless ? '  (no spec)' : ''
-    process.stdout.write(`  ${folder}${tag}${ports}\n    ${path.relative(dir, wt) || wt}\n`)
+    // The worktree's own reading — bucket, progress, any legacy header — after
+    // everything this line already carried, so the line is a superset of it.
+    const detail = specless ? '' : `  ${detailOf(rows[i])}`
+    process.stdout.write(`  ${folder}${tag}${ports}${detail}\n    ${path.relative(dir, wt) || wt}\n`)
   }
   process.stdout.write(waitingSection(dir, config))
+}
+
+/**
+ * `skitterspec status` — what is being worked on here, read from each spec's
+ * own worktree. Offline and instant: no tracker is asked, ever. Exits 0 in
+ * every state, an idle repo included — an empty answer is not a finding.
+ */
+function inFlightStatus(argv) {
+  const json = argv.includes('--json')
+  const at = argv.indexOf('--dir')
+  const from = path.resolve(at !== -1 && argv[at + 1] ? argv[at + 1] : process.cwd())
+  const dir = resolvePrimaryCheckout(from, gitReader(from))
+  const { config, present } = loadEnvConfig(dir)
+  const rows = present ? collectInFlight({ dir, provisioned: provisionedSpecs(dir, config) }) : []
+  if (json) {
+    const specs = rows.map((r) => ({ ...r, inFlight: isInFlight(r) }))
+    process.stdout.write(JSON.stringify({ isolation: present, specs }, null, 2) + '\n')
+    return
+  }
+  if (!present) {
+    process.stdout.write('no specs in flight — isolation is not enabled here, so no spec has a worktree.\n')
+    return
+  }
+  process.stdout.write(formatInFlight(rows, { dir }))
 }
 
 // Plan a provision: allocate the slot, persist the registry, and print the plan
@@ -6979,6 +7020,11 @@ async function run(argv) {
 
   if (cmd === 'spec-env') {
     await specEnv(rest)
+    return
+  }
+
+  if (cmd === 'status') {
+    inFlightStatus(rest)
     return
   }
 

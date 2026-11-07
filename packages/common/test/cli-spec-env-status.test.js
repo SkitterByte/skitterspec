@@ -193,3 +193,119 @@ test('the in-flight line is present in every state, so a caller can rely on it',
     assert.strictEqual((out.match(/^ {2}in-flight: /gm) || []).length, 1, 'exactly one in-flight line')
   }
 })
+
+// --- `skitterspec status`: each spec read from its OWN worktree --------------
+//
+// The base branch files an in-flight spec under `backlog/`; the worktree is
+// where the bucket and phase files are true. These pin that the command reads
+// the worktree, stays offline, and exits 0 in every state.
+
+function writePhases(specDir, emojis) {
+  emojis.forEach((e, i) => fs.writeFileSync(path.join(specDir, `0${i + 1}-p.md`), `# Phase ${i + 1} — P ${e}\n`))
+}
+
+// Move a spec to in-progress INSIDE its worktree, as /spec-start does on the
+// branch, leaving this checkout still reading backlog.
+function startInWorktree(wt, folder, emojis, header = '') {
+  const from = path.join(wt, 'specs', 'backlog', folder)
+  const to = path.join(wt, 'specs', 'in-progress', folder)
+  fs.mkdirSync(path.dirname(to), { recursive: true })
+  fs.renameSync(from, to)
+  fs.writeFileSync(path.join(to, '00-overview.md'), `# X\n\n> **Stack:** worktree\n${header}`)
+  writePhases(to, emojis)
+}
+
+function addBacklogSpec(dir, folder) {
+  const specDir = path.join(dir, 'specs', 'backlog', folder)
+  fs.mkdirSync(specDir, { recursive: true })
+  fs.writeFileSync(path.join(specDir, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', `add ${folder}`)
+}
+
+test('status reads two worktrees at different phases, and says why this branch differs', async () => {
+  const dir = scaffold()
+  try {
+    addBacklogSpec(dir, 'feat-alpha')
+    addBacklogSpec(dir, 'feat-beta')
+    startInWorktree(addWorktree(dir, 'feat-alpha'), 'feat-alpha', ['✅', '🔄', '⬜'])
+    startInWorktree(addWorktree(dir, 'feat-beta'), 'feat-beta', ['🔄'], '> **Developer:** Jane Dev\n')
+    const out = await runQuiet(['status', '--dir', dir])
+    assert.match(out, /^2 specs in flight$/m)
+    assert.match(out, /feat-alpha\s+in-progress · 1 of 3 phases done, phase 2 in progress$/m, 'no headers is not unknown')
+    assert.match(out, /feat-beta\s+in-progress · 0 of 1 phases done, phase 1 in progress · Jane Dev$/m)
+    assert.match(out, /On this branch 2 of these read differently/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('status lists a worktree whose spec cannot be read as unknown', async () => {
+  const dir = scaffold()
+  try {
+    addBacklogSpec(dir, 'feat-alpha')
+    const wt = addWorktree(dir, 'feat-alpha')
+    fs.rmSync(path.join(wt, 'specs', 'backlog', 'feat-alpha'), { recursive: true })
+    const out = await runQuiet(['status', '--dir', dir])
+    assert.match(out, /feat-alpha\s+status unknown — no spec named feat-alpha/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('status --json carries the same fields, plus inFlight and here', async () => {
+  const dir = scaffold()
+  try {
+    addBacklogSpec(dir, 'feat-alpha')
+    startInWorktree(addWorktree(dir, 'feat-alpha'), 'feat-alpha', ['✅', '🔄'])
+    const body = JSON.parse(await runQuiet(['status', '--json', '--dir', dir]))
+    assert.strictEqual(body.isolation, true)
+    const [row] = body.specs
+    assert.strictEqual(row.spec, 'feat-alpha')
+    assert.strictEqual(row.bucket, 'in-progress')
+    assert.strictEqual(row.here, 'backlog')
+    assert.strictEqual(row.inFlight, true)
+    assert.deepStrictEqual([row.phasesDone, row.phasesTotal, row.currentPhase], [1, 2, 2])
+    assert.strictEqual(row.status, null)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: status with nothing provisioned says so plainly and exits 0', async () => {
+  const dir = scaffold()
+  try {
+    addBacklogSpec(dir, 'feat-alpha')
+    const out = await runQuiet(['status', '--dir', dir])
+    assert.strictEqual(out, 'no specs in flight\n')
+    assert.ok(!process.exitCode, 'an idle repo is not a failure')
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays silent: status without isolation answers, and does not fail', async () => {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-noiso-')))
+  try {
+    git(dir, 'init', '-q')
+    const out = await runQuiet(['status', '--dir', dir])
+    assert.match(out, /^no specs in flight — isolation is not enabled/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('stays silent: spec-env status keeps every line it printed, and adds detail after', async () => {
+  const dir = scaffold()
+  try {
+    addBacklogSpec(dir, 'feat-alpha')
+    const wt = addWorktree(dir, 'feat-alpha')
+    startInWorktree(wt, 'feat-alpha', ['🔄'])
+    const out = await runQuiet(['spec-env', 'status', '--dir', dir])
+    assert.match(out, /^Provisioned specs:$/m)
+    assert.match(out, /^ {2}feat-alpha {2}in-progress · 0 of 1 phases done, phase 1 in progress$/m)
+    assert.ok(out.includes(`    ${path.relative(dir, wt)}\n`), 'the path line is unchanged')
+  } finally {
+    cleanup(dir)
+  }
+})
