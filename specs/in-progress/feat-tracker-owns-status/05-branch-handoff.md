@@ -2,9 +2,9 @@
 github_issue_id: "#98"
 ---
 
-# Phase 5 — Follow-up: branch handoff (push, mirror, resume) ⬜
+# Phase 5 — Follow-up: branch handoff (push, mirror, resume) ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** when a ticket changes owner, the new owner can find the current code
 and carry on from it, not just read it.
@@ -38,12 +38,37 @@ and carry on from it, not just read it.
 
 ## Tasks
 
-- [ ] `spec-env up`: detect `origin/<branch>` (`ls-remote`, positive signal) and
+- [x] `spec-env up`: detect `origin/<branch>` (`ls-remote`, positive signal) and
       provision tracking it. Print `resumed from origin/<branch> @ <sha>`.
-- [ ] `/spec-claim --to <someone else>`: dirty-tree refusal with the `/commit`
+- [x] `/spec-claim --to <someone else>`: dirty-tree refusal with the `/commit`
       offer, then a consented push, then the tracker write.
-- [ ] Add a branch/sha/phase field to the projection, plus a native link per
+- [x] Add a branch/sha/phase field to the projection, plus a native link per
       provider where supported (text in the description otherwise).
-- [ ] Tests: resume from an existing remote branch; no remote → fork as today (a
+- [x] Tests: resume from an existing remote branch; no remote → fork as today (a
       stays-silent test); a dirty handoff refuses; the push is never run without
       consent. Run `pnpm test` — green.
+
+## Notes
+
+- **Rebased onto `main` first.** `feat-rolling-base` had landed a fetch on the
+  same `spec-env up` fork path, and the overview says whichever lands second
+  builds on the other. The branch was unpublished and clean, and the only
+  conflict was `reference.html`'s `verified:` line. 4445 tests were green after
+  the rebase.
+- **Resume is a positive `ls-remote` signal.** It is asked only where this clone
+  has no such branch, no worktree for it, and the base remote exists. A remote
+  that cannot be asked prints one `resume:` line and forks as before; a repo
+  with no remote says nothing. A resumed branch outranks every fork point,
+  a hotfix's tag included, and skips the spec-on-base gate, because the spec is
+  on the branch. Worktree mode only: `checkout` mode has no fork to replace.
+- **Decision 3 changed shape: a handoff comment, not a projected field.** The
+  sync engine knows neither the git branch nor its sha, and a sha in the
+  description would rewrite it on every commit. So the ticket carries the branch,
+  sha and phases done as a **comment** posted at the hand-over
+  (`spec-env handoff` writes it, `spec-sync comment` posts it). A comment is the
+  surface no push replaces. Native branch links are not added. Under PR landing
+  the PR is already the native link, and the others need integrations or a
+  `{identifier}` branch pattern this repo does not assume.
+- **A plain `push -u`, not `integrate --push`.** The PR-landing push also
+  fetches, rebases and opens a PR, which a hand-over must not do.
+  `already published at HEAD` is still read as needing no push.

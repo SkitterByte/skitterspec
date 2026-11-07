@@ -36,6 +36,7 @@ const SPEC_ENV_VERBS = Object.freeze([
   'connect',
   'integrate',
   'disposition',
+  'handoff',
   'hotfix',
   'live',
   'review',
@@ -174,6 +175,7 @@ const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune
 const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env/integrate.js')
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
+const { planHandoff } = require('./env/handoff.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -256,6 +258,8 @@ Usage:
                                 disposition <spec>
                                                   list unticked tasks, open phases and surfaced
                                                   follow-ups to dispose before a PR goes ready
+                                handoff <spec>    plan handing a spec to someone else: publish
+                                                  its branch, write the ticket note (--json)
                                 hotfix land <spec>
                                                   release, push (--push), carry a hotfix to
                                                   the base branch (--plan, --also <tag>)
@@ -1068,8 +1072,35 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // so `authoring` is false while `spec.path` is still null. Asking git about a
   // null path threw, which is a crash rather than a refusal: the condition is
   // whether there is a document, and it always was.
+  // RESUME, NOT FORK — a spec whose branch is already published. A spec handed
+  // to someone else mid-flight (`/spec-claim --to` pushes it) lives on the
+  // remote and nowhere on this machine, and forking a fresh branch from base
+  // would hand its new owner an empty tree with the old owner's work out of
+  // reach. So where this clone has no such branch and no worktree for it, ask
+  // the remote, and build from what is there.
+  //
+  // A POSITIVE SIGNAL ONLY: `ls-remote` naming the branch with a sha. An empty
+  // answer is "not published", and the fork goes ahead exactly as before. WHAT
+  // WOULD FOOL THIS: a remote this clone cannot reach answers nothing either —
+  // so a failed ask is said in one line (`resume:`) and still forks, and a repo
+  // with no such remote at all is not asked and says nothing.
+  const resumeRemote = baseRemote(config)
+  if (
+    !fs.existsSync(spec.worktreePath) &&
+    upGit(['show-ref', '--verify', '--quiet', `refs/heads/${spec.branch}`]) === null &&
+    upGit(['remote', 'get-url', resumeRemote]) !== null
+  ) {
+    const head = upGit(['ls-remote', '--heads', resumeRemote, `refs/heads/${spec.branch}`])
+    const sha = head ? head.split(/\s+/)[0] : ''
+    if (sha) spec.resumeFrom = { remote: resumeRemote, sha }
+    else if (head === null) spec.resumeUnknown = resumeRemote
+  }
+
   const noDocument = authoring || !spec.path
-  const upOnFork = noDocument
+  // A resumed branch carries the spec itself (it was started there), so whether
+  // the spec is on the BASE is not this run's question: cannot-tell, which the
+  // gate allows.
+  const upOnFork = noDocument || spec.resumeFrom
     ? { onFork: undefined, foundOn: null }
     : specOnForkPoint(dir, upGit, spec, config)
   const upSpecUntracked = noDocument ? false : specIsUntracked(dir, upGit, spec)
@@ -1211,7 +1242,13 @@ function specEnvUp(dir, config, specArg, flags = {}) {
         `\n  record:    > **Base version:** ${v.branch}@${v.sha}`,
     )
   }
-  if (spec.forkFrom && !attached) {
+  if (spec.resumeFrom && !attached) {
+    const { remote, sha } = spec.resumeFrom
+    out.push(`  resume:    ${remote}/${spec.branch} @ ${sha.slice(0, 12)}  (already published — carrying on from it, not forking)`)
+  } else if (spec.resumeUnknown && !attached) {
+    out.push(`  resume:    could not ask ${spec.resumeUnknown} for ${spec.branch} — forking fresh; if it was handed over, fetch and re-run`)
+  }
+  if (spec.forkFrom && !attached && !spec.resumeFrom) {
     out.push(`  fork:      ${spec.forkFrom}  (the base — the primary checkout is on ${primaryUp.branch || 'a detached HEAD'})`)
   }
   if (trust.reason === 'malformed') {
@@ -2422,6 +2459,81 @@ function specEnvIntegratePr(dir, config, spec, base, flags, retarget = null) {
 // rows not ✅, surfaced follow-ups. Information only — it never refuses and
 // nothing gates on it; /spec-complete's PR-mode guard is the consumer, and the
 // deciding (tick · spin off · drop) is the operator's there.
+/**
+ * `spec-env handoff <spec> [--json]` — what handing this spec to someone else
+ * needs: its branch published, and a note for the ticket saying where the work
+ * is. A planner, like `integrate`: it prints the push and runs nothing, because
+ * a push is outward-facing and the skill asks before running it. The note is
+ * written under `.spec-env/handoff/` (gitignored) for `spec-sync comment` to
+ * post. Refusals exit 0 — `--json` carries `blocked`, and the `/commit` offer
+ * where uncommitted work is what stands in the way.
+ */
+function specEnvHandoff(dir, config, specArg, flags = {}) {
+  const spec = resolveSpecWithWorktree(dir, config, specArg)
+  const worktree = Boolean(spec.worktreePath && fs.existsSync(spec.worktreePath))
+  const wtGit = worktree ? gitReader(spec.worktreePath) : () => null
+  const remote = baseRemote(config)
+  const remoteConfigured = worktree && wtGit(['remote', 'get-url', remote]) !== null
+  const lsRemote = remoteConfigured ? wtGit(['ls-remote', '--heads', remote, `refs/heads/${spec.branch}`]) : null
+  let phases = []
+  if (worktree) {
+    for (const bucket of BUCKETS) {
+      const folder = path.join(spec.worktreePath, 'specs', bucket, spec.folder)
+      if (!fs.existsSync(path.join(folder, '00-overview.md'))) continue
+      phases = fs
+        .readdirSync(folder)
+        .filter((f) => /^(?!00-)\d{2}-.*\.md$/.test(f))
+        .sort()
+        .map((f) => ({ file: f, content: fs.readFileSync(path.join(folder, f), 'utf-8') }))
+      break
+    }
+  }
+  const plan = planHandoff({
+    spec: { folder: spec.folder, branch: spec.branch, worktreePath: spec.worktreePath },
+    worktree,
+    dirtyPaths: worktree ? dirtyPaths(wtGit) : [],
+    remote,
+    remoteConfigured,
+    headSha: worktree ? wtGit(['rev-parse', 'HEAD']) : null,
+    remoteSha: lsRemote === null ? null : lsRemote.split(/\s+/)[0] || '',
+    phases,
+  })
+
+  let notePath = null
+  if (!plan.blocked) {
+    notePath = path.join(dir, '.spec-env', 'handoff', `${spec.folder}.md`)
+    fs.mkdirSync(path.dirname(notePath), { recursive: true })
+    fs.writeFileSync(notePath, plan.note)
+  }
+  if (flags.json) {
+    const { note, ...rest } = plan
+    process.stdout.write(JSON.stringify({ spec: spec.folder, ...rest, ...(notePath ? { notePath } : {}) }, null, 2) + '\n')
+    return
+  }
+  if (plan.blocked) {
+    const out = [`spec-env handoff: ${spec.folder} — blocked: ${plan.reason}`]
+    if (plan.offer) out.push(`  way out:   ${plan.offer.command} — ${plan.offer.label}`)
+    process.stdout.write(out.join('\n') + '\n')
+    return
+  }
+  const where = plan.published
+    ? 'already published at HEAD'
+    : plan.remoteUnknown
+      ? `could not ask ${remote} — push to be sure`
+      : `not published at HEAD`
+  const out = [
+    `spec-env handoff: ${spec.folder}`,
+    `  branch:    ${plan.branch} @ ${plan.sha}  (${plan.progress.total ? `${plan.progress.done} of ${plan.progress.total} phases done` : 'no phase files'})`,
+    `  remote:    ${remote} — ${where}`,
+    `  note:      ${notePath}  (post it: spec-sync comment ${spec.folder} --file <note>)`,
+  ]
+  if (plan.commands.length) {
+    out.push('', '  push it, once the operator agrees:')
+    for (const c of plan.commands) out.push(`    ${c}`)
+  }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
 function specEnvDisposition(dir, config, specArg, flags = {}) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
   const tree = spec.worktreePath && fs.existsSync(spec.worktreePath) ? spec.worktreePath : dir
@@ -6754,6 +6866,9 @@ async function specEnv(rest) {
       break
     case 'disposition':
       specEnvDisposition(dir, config, positional[0], flags)
+      break
+    case 'handoff':
+      specEnvHandoff(dir, config, positional[0], flags)
       break
     case 'hotfix':
       specEnvHotfix(dir, config, positional, flags)

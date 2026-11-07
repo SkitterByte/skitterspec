@@ -99,8 +99,26 @@ now".
    stranger and nothing downstream would notice.
 2. On several matches, show them and let the user pick. On none, say so and
    stop — do not fall back to the raw argument as an id.
-3. Stamp it with the resolved id and display name.
-4. Set `> **Developer:**` to that person's **Linear display name**.
+3. **Make the work reachable before you hand it over.** Run
+   `skitterspec spec-env handoff <spec> --json`. A spec's branch lives in a
+   local worktree, so without this the issue would name a new owner for code
+   only you can see.
+   - **`blocked`** — relay the reason. Where it carries an `offer` (uncommitted
+     work: `/commit`), offer it once as `offered-unblocks.md` says, run it on a
+     yes, then run `handoff` again. With no offer, stop here: nothing is assigned.
+   - **`commands`** non-empty — the branch is not published at HEAD. Ask once,
+     naming the target: *"push `<branch>` to `<remote>` so <name> can pick it
+     up?"* Run it on a yes. On a no, stop: a hand-over the new owner cannot
+     reach is not a hand-over, so nothing is assigned.
+   - Then post the note it wrote onto the issue:
+     `skitterspec spec-sync comment <spec> --file <notePath>`. It names the
+     branch, the sha and the phases done, and a comment is the surface no later
+     push replaces. A failed post is said and does not stop the hand-over.
+
+   The new owner's `/spec-start <spec>` resumes from that branch rather than
+   forking a fresh one (`spec-env up` sees it on the remote).
+4. Stamp it with the resolved id and display name.
+5. Set `> **Developer:**` to that person's **Linear display name**.
 
    This is the **one** place the tracker's name reaches the header, and the
    exception is the whole reason it exists: there is no `git config user.name`

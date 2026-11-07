@@ -154,7 +154,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Skills stop storing status; buckets as code facts; board-owned assignee | ✅ | [02-skills-stop-storing-status.md](02-skills-stop-storing-status.md) |
 | 3 | Disagreement: report, warn, offer cleanup | ✅ | [03-disagreement-report-warn.md](03-disagreement-report-warn.md) |
 | 4 | Default flip, rule rewrite, docs, major-release notes | ✅ | [04-default-flip-and-docs.md](04-default-flip-and-docs.md) |
-| 5 | Follow-up: branch handoff (push, mirror, resume) | ⬜ | [05-branch-handoff.md](05-branch-handoff.md) |
+| 5 | Follow-up: branch handoff (push, mirror, resume) | ✅ | [05-branch-handoff.md](05-branch-handoff.md) |
 | 6 | Follow-up: skitterspec service as an always-on projection (design) | ⬜ | [06-service-projection-design.md](06-service-projection-design.md) |
 
 ## Open questions
@@ -203,3 +203,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `assignee` on all four providers. `spec-planning.md`'s "It tells, it doesn't
   track" is rewritten as "the tracker owns status; the repo owns the spec".
   `doctor` reports ownership. `index` joined the `Docs:` pages.
+- 2026-11-07 — Phase 5: rebased onto `main` (rolling-base) before building.
+  `spec-env up` resumes a published branch. The new `spec-env handoff` refuses
+  uncommitted work (offering `/commit`), plans the consented push, and writes the
+  ticket note. Decision 3 became a handoff **comment** rather than a projected
+  field, because the engine knows neither the branch nor the sha. See the
+  phase 5 notes.

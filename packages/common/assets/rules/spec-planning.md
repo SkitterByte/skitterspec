@@ -179,7 +179,7 @@ your canonical `localhost` ports so you can test it at the normal URL
 move, header edits, the code) happens on the spec's branch in the worktree; `main`
 changes only when it merges. Teardown is folded into `/spec-complete` ·
 `/spec-cancel`. Beneath the skills, `skitterspec spec-env
-<up|bootstrap|nospec|main|down|prune|dev|connect|integrate|disposition|hotfix|live|review|stage|status|resolve|base>` is the CLI
+<up|bootstrap|nospec|main|down|prune|dev|connect|integrate|disposition|handoff|hotfix|live|review|stage|status|resolve|base>` is the CLI
 engine. `up` plans the fork;
 **`bootstrap` then runs the worktree's own steps itself** — seeding the gitignored files, the env file, `setup`, the stack — so
 the command a skill runs names no file, and a secrets hook that refuses any

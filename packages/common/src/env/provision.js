@@ -352,13 +352,23 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
   // `v33.16.4`) instead of base HEAD — so the fix is built on the exact commit
   // line prod runs. Attaching an existing branch ignores baseRef (already forked).
   // A rolling base sets `spec.forkFrom` when the primary checkout is not on it.
+  // A branch already published (`spec.resumeFrom` — a handed-over spec) is
+  // fetched and built from instead: the work is there, and a fresh fork would
+  // strand it. It outranks every fork point, a hotfix's tag included, because
+  // the branch already forked from wherever it was meant to.
   const forkFrom = spec.baseRef || spec.forkFrom
   const forkPoint = !attached && forkFrom ? ` ${forkFrom}` : ''
-  commands.push(
-    attached
-      ? `git worktree add ${spec.worktreePath} ${spec.branch}`
-      : `git worktree add ${spec.worktreePath} -b ${spec.branch}${forkPoint}`,
-  )
+  const resume = !attached && spec.resumeFrom ? spec.resumeFrom : null
+  if (resume) {
+    commands.push(`git fetch ${resume.remote} ${spec.branch}`)
+    commands.push(`git worktree add ${spec.worktreePath} -b ${spec.branch} --track ${resume.remote}/${spec.branch}`)
+  } else {
+    commands.push(
+      attached
+        ? `git worktree add ${spec.worktreePath} ${spec.branch}`
+        : `git worktree add ${spec.worktreePath} -b ${spec.branch}${forkPoint}`,
+    )
+  }
   // The tree gate. A worktree forks from the base branch's tree, so an
   // uncommitted spec would produce a branch missing the spec it is for — this is
   // where that gets committed, or refused. Worktree mode had NO clean gate before
