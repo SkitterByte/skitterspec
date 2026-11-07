@@ -170,3 +170,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   allowlisted with reasons, since neither is on the site yet. Docs impact also
   flags `index.html` (it covers `cli.js`). Nothing on it describes this command,
   so it was left unedited and its `verified:` was not bumped.
+- 2026-11-07 — Completed; all phases done, tests green. Under `pull`, no
+  `Status:` header or State log row was written. Docs impact: `index.html` was
+  re-read and nothing on it describes this command (unedited). Follow-ups
+  surfaced and not taken here: `review-gate.cjs` reads an engine crash (exit 1,
+  no output) as a refusal, so a broken engine locks the session out of Bash,
+  `!` commands included; `readPhases` and `phaseProgress` disagree on what marks
+  a phase done; `update` and `gating` have no page on the docs site.
