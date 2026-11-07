@@ -89,3 +89,7 @@ stack on stderr, empty stdout), and asserts the hook prints no decision.
   refusal line (`isRefusal`), and the old crash test now really runs its stub.
   Tests green (4489). This repo's own `.claude/hooks/` copies pick up the fix
   on the next `skitterspec update`.
+- 2026-11-07 — Completed; red tests green, suite green (4489). Docs impact
+  flagged `review.html`. Its one claim about the gate ("every cannot-tell case
+  exits 0 and says nothing") is now also true of a crashing engine, so it was
+  left unedited.
