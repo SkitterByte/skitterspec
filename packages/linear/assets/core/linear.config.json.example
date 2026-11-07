@@ -42,8 +42,8 @@
     "fieldOwnership": {
       "description": "push",
       "subIssues": "push",
-      "workflowState": "push",
-      "assignee": "push"
+      "workflowState": "pull",
+      "assignee": "pull"
     },
     "localOnlySections": ["State log", "Changelog", "Open questions"],
     "keyedFields": {}

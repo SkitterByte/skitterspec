@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-github/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: b3dc1ac9b5d7
+verified: d1c5e83540ea
 -->
 <html lang="en">
 <head>
@@ -578,7 +578,7 @@ verified: b3dc1ac9b5d7
     <div class="own reveal">
       <div class="own-card own-push">
         <div class="oh"><span class="d"></span>repo owns · pushed</div>
-        <p>The spec body, phases &amp; tasks, the board Status, open/closed, and the assignee. Authored in the repo, published up. State log, changelog &amp; open questions stay local — never leak to GitHub.</p>
+        <p>The spec body / description, phases &amp; tasks. Authored in the repo, published up. The issue's status and assignee are GitHub's by default (<span class="mono">pull</span>): the repo sends a status only when a spec is created, started, completed or cancelled, and assigns only an issue nobody holds. State log, changelog &amp; open questions stay local — never leak to GitHub.</p>
       </div>
       <div class="own-card own-pull">
         <div class="oh"><span class="d"></span>GitHub-native · left alone</div>
@@ -586,7 +586,7 @@ verified: b3dc1ac9b5d7
       </div>
       <div class="own-card own-both">
         <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>
-        <p>Edit a body on GitHub and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved card is never reported — skitterspec doesn't read Status back.</p>
+        <p>Edit a body on GitHub and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved card is the board's business — the one move reported is an issue closed Done or Cancelled while its spec is still in flight (<span class="mono">spec-sync board</span>), which names the cleanup and runs nothing.</p>
       </div>
     </div>
   </div>
@@ -696,7 +696,7 @@ skitterspec-github spec-sync <span class="p">credentials set</span> --owner &lt;
     <div class="section-head reveal">
       <div class="eyebrow">Everyday</div>
       <h2>A handful of commands, one direction.</h2>
-      <p class="sub">The repo is the source of truth. There is no pull.</p>
+      <p class="sub">The repo is the source of truth for the spec; GitHub for its status and assignee. Nothing is merged back.</p>
     </div>
 
     <!-- commands:start -->

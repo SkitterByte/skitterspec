@@ -507,15 +507,44 @@ against a committed last-pushed snapshot and applies it) and `/spec-status`
 backed by a `spec-sync` CLI. There is no content pull — the tracker is never
 read back or merged.
 
-**It tells, it doesn't track.** Skitterspec sends the tracker its own
-transitions — a spec starting, a phase finishing, a spec completing or being
-cancelled — and nothing else. A status someone changes on the tracker is
-theirs to have changed: it is never read back, never reported, and only
-overwritten when the spec itself next moves. Releases and deployments are the
-host project's to record. The one release question skitterspec answers is which
-tickets a commit range contains (`spec-sync released <range> --json`, each row
-with its spec and url), because only the `Refs:` trailers know. What the
-project's CI does with that list is its own business.
+**The tracker owns status; the repo owns the spec.** With a provider attached,
+a team runs its work from the board — assignment, Ready, Blocked, Cancelled and
+Done all happen there — so a status kept in the repo as well is a copy somebody
+has to keep in step by hand, and on the base branch it was already wrong (an
+in-flight spec still reads `backlog` there). The split follows what each side
+can actually know:
+
+1. **The repo owns the content** — Problem, Decisions, phases, checkboxes,
+   Changelog. Content follows branches, lands in the same commit as its code,
+   and is read offline by the agent building it. That is why specs did not move
+   into the tracker wholesale: a ticket has no branches.
+2. **The tracker owns status and assignee** — `sync.fieldOwnership`
+   `workflowState` and `assignee` ship as **`pull`**. Under `pull` the skills
+   write no `Status:` header, no `Developer:` line and no State log row (the
+   `spec-status-owner` seam asks `spec-sync ownership` first), `assign` writes
+   the ticket directly, and the repo stores nothing it reads.
+3. **Buckets are code facts**, not planning status: `backlog` (not started),
+   `in-progress` (`/spec-start` ran), `complete` (landed — merged on the host
+   under PR landing), `cancelled` (torn down). Only skills that act on code move
+   them.
+4. **The repo writes status only when it acts on code** — creation, start,
+   complete, cancel — detected as a bucket move, never on a push that merely
+   cannot tell. Under PR landing the complete transition waits for run 2: a
+   ready PR is not a merged one.
+5. **A board that finished first is reported, never obeyed.** `spec-sync board`
+   says one line when the ticket is Done or Cancelled while the spec is still in
+   flight, naming the cleanup; `/spec-start` and `/spec-next` warn and carry on,
+   `/spec-status` reports. Nobody is obliged to sync, because nothing reads the
+   bucket as planning truth any more.
+
+`"push"` on either field restores the repo-owned behaviour; `"none"` leaves it
+alone entirely. Without a provider none of this applies: the header, the State
+log and the buckets keep their meaning, because there is nowhere else for status
+to live. Releases and deployments are the host project's to record. The one
+release question skitterspec answers is which tickets a commit range contains
+(`spec-sync released <range> --json`, each row with its spec and url), because
+only the `Refs:` trailers know. What the project's CI does with that list is its
+own business.
 
 **One-way means the repo wins, and it now wins *loudly*.** Those are different
 claims and only the first was ever in doubt. A ticket's description is generated
@@ -548,13 +577,14 @@ disk at all. The tracker knows both, and each row carries the spec's folder name
 so `/spec-start <name>` is a copy-paste away. See the provider's own docs for
 what it calls the command.
 
-A provider may also mirror **who is building a spec**, as one more field the repo
-owns. Where it does, `/spec-start` records the developer and the tracker's ticket
-is assigned to them, the assignment is released when the spec completes, and
-`/spec-claim` moves ownership mid-flight — take it, hand it back, or hand it to a
-teammate. Like everything else here it is opt-in and one-way: the spec file is
-the record, and the ticket is the mirror. See the provider's own docs for how to
-turn it on.
+A provider also knows **who is building a spec**, and under the default `pull`
+the ticket's assignee is the record: `/spec-start` assigns the operator only when
+nobody holds the ticket (`assign --if-unassigned`), never reassigns anyone, and
+leaves the assignee in place when the spec finishes — the board keeps who did
+the work. `/spec-claim` moves ownership mid-flight — take it, hand it back, or
+hand it to a teammate — by writing the ticket directly. Under `push` the spec
+file is the record and the ticket the mirror, as before. See the provider's own
+docs for both.
 
 **Every skill that moves a spec through the lifecycle carries a seam**, so the
 mirror keeps up without anyone remembering to push: `/spec`, `/spec-bug` and
@@ -722,6 +752,10 @@ Every spec header carries:
   `incident-<name>`. The push links the two as related on the tracker
   (one-way; the repo owns the link), and `/spec-complete` on the incident
   counts the spec among its fixes. Absent on everything else.
+
+**Under a provider's default `pull`, these three are the tracker's** —
+`Status:`, `Developer:` and the State log — and new specs carry
+`> **Tracker:** <url>` instead; see the ticketing section above. A spec that already has them keeps them as history.
 
 Every spec also has a **State log** table — the audit trail of folder/status
 transitions. Each lifecycle skill appends exactly one row when it changes state:

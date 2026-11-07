@@ -211,9 +211,10 @@ Then name the next step:
 Mention what setup did **not** configure, so the defaults aren't mistaken for
 decisions: phase mapping (`mapping.phases` — sub-issue per phase by default) and
 field ownership, and intake (`intake.label`, `bugLabels`, `hotfixLabels`).
-Point at `github.config.md` for those. Assignment is on by default
-(`sync.fieldOwnership.assignee: push`): `/spec-start` assigns the issue to the
-token's login, and `spec-sync whoami` shows who that is.
+Point at `github.config.md` for those. Status and assignee are GitHub's by
+default (`sync.fieldOwnership` `workflowState`/`assignee`: `pull` — the
+`doctor` table's `Ownership` row says which is in force): `/spec-start` assigns
+an unheld issue to the token's login, and `spec-sync whoami` shows who that is.
 
 End with the block defined in `.claude/rules/spec-reports.md`. That file carries
 the shape; this section carries only what is specific here.

@@ -15,7 +15,7 @@ github_assignee_name: "Reuben Greaves"
 > **Raised:** 2026-11-03
 > **Area:** packages/sync-core/src (normalize.js, compare.js, push.js), packages/provider-kit/src (assignment.js, list-rows.js, config.js), packages/{github,linear,jira,azure-boards}/src/config.js, packages/{github,linear,jira,azure-boards}/assets/skills (spec-claim, spec-list, spec-status), packages/common/assets/skills (spec, spec-bug, spec-hotfix, spec-start, spec-next, spec-complete, spec-cancel), packages/common/assets/rules/spec-planning.md, packages/common/src/env (provision.js, resolve.js), docs/*.html
 > **Stack:** worktree
-> **Docs:** reference, github, linear, jira, azure-boards
+> **Docs:** reference, github, linear, jira, azure-boards, index
 
 ## Problem
 
@@ -153,7 +153,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Engine: `pull` ownership, transition-only state writes, live status read | ✅ | [01-pull-ownership-engine.md](01-pull-ownership-engine.md) |
 | 2 | Skills stop storing status; buckets as code facts; board-owned assignee | ✅ | [02-skills-stop-storing-status.md](02-skills-stop-storing-status.md) |
 | 3 | Disagreement: report, warn, offer cleanup | ✅ | [03-disagreement-report-warn.md](03-disagreement-report-warn.md) |
-| 4 | Default flip, rule rewrite, docs, major-release notes | ⬜ | [04-default-flip-and-docs.md](04-default-flip-and-docs.md) |
+| 4 | Default flip, rule rewrite, docs, major-release notes | ✅ | [04-default-flip-and-docs.md](04-default-flip-and-docs.md) |
 | 5 | Follow-up: branch handoff (push, mirror, resume) | ⬜ | [05-branch-handoff.md](05-branch-handoff.md) |
 | 6 | Follow-up: skitterspec service as an always-on projection (design) | ⬜ | [06-service-projection-design.md](06-service-projection-design.md) |
 
@@ -199,3 +199,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   repo has not" in both ownership modes. A new `spec-sync board` verb is read by
   the `/spec-start` and `/spec-next` pre-flights and by `/spec-status`. The
   cleanup is named and never offered.
+- 2026-11-07 — Phase 4: `pull` is the shipped default for `workflowState` and
+  `assignee` on all four providers. `spec-planning.md`'s "It tells, it doesn't
+  track" is rewritten as "the tracker owns status; the repo owns the spec".
+  `doctor` reports ownership. `index` joined the `Docs:` pages.

@@ -109,11 +109,11 @@ test('ownership answers both fields, in text and JSON, and always exits 0', () =
   assert.deepStrictEqual(JSON.parse(json.text), { workflowState: 'pull', assignee: 'none' })
 })
 
-test('ownership reads both as push under the shipped defaults of every provider', () => {
+test('ownership reads both as pull under the shipped defaults of every provider', () => {
   for (const p of PROVIDERS) {
     const out = sink()
     specSyncOwnership(p.config(), { json: true }, out)
-    assert.deepStrictEqual(JSON.parse(out.text), { workflowState: 'push', assignee: 'push' }, p.name)
+    assert.deepStrictEqual(JSON.parse(out.text), { workflowState: 'pull', assignee: 'pull' }, p.name)
   }
 })
 

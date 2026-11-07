@@ -1336,6 +1336,7 @@ async function specSyncDoctor(dir, flags, out) {
       checks.push(row('tracker', 'GitHub config', 'broken', configGap(loaded.config), `fix ${CONFIG_FILE}`))
     } else {
       checks.push(row('tracker', 'GitHub config', 'ok', `${repoLabel(loaded.config)} · board ${loaded.config.github.project}`))
+      checks.push(kit.ownershipDoctorRow(loaded.config))
       const retired = kit.retiredKeysRow(path.join(dir, CONFIG_FILE), CONFIG_FILE, row)
       if (retired) checks.push(retired)
       // A worktree forks from a COMMIT, so a config that exists only in the

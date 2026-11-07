@@ -749,7 +749,7 @@ test('an unreachable Azure stamps anyway, saying it could not check', async () =
 // --- assignment (the kit seam, Azure's binding) -------------------------------
 
 test('assign stamps the assignee fields and names the next step', async () => {
-  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const dir = repoWithSpec({ identifier: 'AB#7', config: { sync: { fieldOwnership: { assignee: 'push' } } } })
   const r = await run(['assign', 'feat-demo', '--to', 'id-1', '--name', 'Jane Dev'], dir)
   assert.strictEqual(r.code, 0, r.out)
   const overview = fs.readFileSync(path.join(dir, 'specs', 'in-progress', 'feat-demo', '00-overview.md'), 'utf-8')
@@ -784,7 +784,7 @@ test('assign refuses an unlinked spec, writing nothing', async () => {
 })
 
 test('assign --release clears the stamp', async () => {
-  const dir = repoWithSpec({ identifier: 'AB#7' })
+  const dir = repoWithSpec({ identifier: 'AB#7', config: { sync: { fieldOwnership: { assignee: 'push' } } } })
   await run(['assign', 'feat-demo', '--to', 'id-1', '--name', 'Jane'], dir)
   const r = await run(['assign', 'feat-demo', '--release'], dir)
   assert.strictEqual(r.code, 0)

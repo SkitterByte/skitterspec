@@ -13,10 +13,14 @@ const { specSync } = require('../src/cli-sync.js')
 const { CONFIG_FILE } = require('../src/config.js')
 const { makeApiAdapter } = require('../src/api.js')
 
+// The repo-owned (`push`) path, said out loud: the shipped default is `pull`,
+// whose behaviour is pinned in assignment-pull.test.js.
+const PUSH = { sync: { fieldOwnership: { workflowState: 'push', assignee: 'push' } } }
+
 function repo({ linked = true, config = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-assign-'))
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: { owner: 'SkitterByte', repo: 'demo', project: 7 }, ...config }))
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: { owner: 'SkitterByte', repo: 'demo', project: 7 }, ...PUSH, ...config }))
   const spec = path.join(dir, 'specs', 'in-progress', 'feat-demo')
   fs.mkdirSync(spec, { recursive: true })
   const fm = linked ? '---\ngithub_identifier: "#101"\n---\n\n' : ''

@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-linear/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: b3dc1ac9b5d7
+verified: d1c5e83540ea
 -->
 <html lang="en">
 <head>
@@ -542,7 +542,7 @@ verified: b3dc1ac9b5d7
       <div class="icard">
         <span class="k">HOW IT'S SAFE</span>
         <h3>The repo always wins</h3>
-        <p>One direction, so nothing is ever read back or clobbered. Skitterspec tells Linear about its own transitions and nothing else — a card someone moves in Linear is theirs to have moved, and push only resends state when the spec itself moves.</p>
+        <p>One direction for content, so nothing is merged back or clobbered. Status and assignee are Linear's: push sends a state only when the spec itself changes bucket, and a card someone moves in Linear is theirs to have moved.</p>
       </div>
     </div>
 
@@ -577,7 +577,7 @@ verified: b3dc1ac9b5d7
     <div class="own reveal">
       <div class="own-card own-push">
         <div class="oh"><span class="d"></span>repo owns · pushed</div>
-        <p>The spec body / description, phases &amp; tasks, completion state, and the workflow state. Authored in the repo, published up. State log, changelog &amp; open questions stay local — never leak to Linear.</p>
+        <p>The spec body / description, phases &amp; tasks. Authored in the repo, published up. The issue's status and assignee are Linear's by default (<span class="mono">pull</span>): the repo sends a status only when a spec is created, started, completed or cancelled, and assigns only an issue nobody holds. State log, changelog &amp; open questions stay local — never leak to Linear.</p>
       </div>
       <div class="own-card own-pull">
         <div class="oh"><span class="d"></span>Linear-native · left alone</div>
@@ -585,7 +585,7 @@ verified: b3dc1ac9b5d7
       </div>
       <div class="own-card own-both">
         <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>
-        <p>Edit an issue's description in Linear and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved card is never reported — skitterspec doesn't read state back, so there's nothing to reconcile.</p>
+        <p>Edit an issue's description in Linear and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved card is the board's business — the one move reported is an issue closed Done or Cancelled while its spec is still in flight (<span class="mono">spec-sync board</span>), which names the cleanup and runs nothing.</p>
       </div>
     </div>
   </div>
@@ -790,7 +790,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
     <div class="section-head reveal">
       <div class="eyebrow">Everyday</div>
       <h2>Two commands, one direction.</h2>
-      <p class="sub">The repo is the source of truth. There is no pull.</p>
+      <p class="sub">The repo is the source of truth for the spec; Linear for its status and assignee. Nothing is merged back.</p>
     </div>
 
     <!-- commands:start -->

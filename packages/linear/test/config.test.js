@@ -42,7 +42,7 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
   assert.strictEqual(config.snapshot.overviewFile, '00-overview.md')
   assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base')
   assert.strictEqual(config.sync.fieldOwnership.description, 'push')
-  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull', 'Linear owns the status')
   // One-way: the projection is the spec issue's description + its sub-issues +
   // workflow state + who is building it. Tasks/priority/labels are not in the
   // set — those are Linear-native triage and nothing here writes them.
@@ -52,7 +52,7 @@ test('absent config → defaults with present:false (opt-out, no throw)', () => 
     'workflowState',
     'assignee',
   ])
-  assert.strictEqual(config.sync.fieldOwnership.assignee, 'push', 'assignment ships on')
+  assert.strictEqual(config.sync.fieldOwnership.assignee, 'pull', 'Linear owns the assignee')
   assert.deepStrictEqual(config.sync.localOnlySections, ['State log', 'Changelog', 'Open questions'])
 })
 
@@ -84,7 +84,7 @@ test('fieldOwnership overrides merge onto defaults and add new fields', () => {
   const { config } = loadLinearConfig(dir)
   assert.strictEqual(config.sync.fieldOwnership.description, 'push') // overridden
   assert.strictEqual(config.sync.fieldOwnership.customField, 'pull') // added
-  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push') // default kept
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull') // default kept
 })
 
 test('keyedFields default empty; merge adds keyed collection fields', () => {
@@ -134,7 +134,7 @@ test('declining one field does not disturb the others', () => {
   writeConfig(dir, { sync: { fieldOwnership: { assignee: 'none' } } })
   const { config } = loadLinearConfig(dir)
   assert.strictEqual(config.sync.fieldOwnership.description, 'push')
-  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull')
   assert.strictEqual(config.sync.fieldOwnership.subIssues, 'push')
 })
 

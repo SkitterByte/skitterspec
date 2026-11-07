@@ -84,7 +84,7 @@ const {
 } = require('./credentials.js')
 const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
-const { specSyncOwnership, specSyncBoard: kitBoard } = require('@skitterbyte/skitterspec-provider-kit/src/status.js')
+const { specSyncOwnership, specSyncBoard: kitBoard, ownershipDoctorRow } = require('@skitterbyte/skitterspec-provider-kit/src/status.js')
 const { resolveTransport } = require('@skitterbyte/skitterspec-provider-kit/src/transport.js')
 
 // `assign`, `whoami` and `users` are the kit's (`provider-kit/src/assignment.js`),
@@ -902,6 +902,7 @@ function gatherState(dir, flags) {
   }
 
   state._config = config
+  if (config) state.ownership = ownershipDoctorRow(config)
   state.retired = retiredKeysRow(path.join(dir, CONFIG_FILE), CONFIG_FILE, doctorRow)
   return state
 }

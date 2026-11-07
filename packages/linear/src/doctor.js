@@ -57,6 +57,8 @@ function runChecks(state = {}) {
   ]
   // A retired config key is a stale file, not a broken one (provider-kit
   // `retiredKeysRow`): present only when the config still carries one.
+  // Who owns status and assignee here — a fact, never a fault.
+  if (state.ownership) checks.push(state.ownership)
   if (state.retired) checks.push(state.retired)
   return combineDoctorChecks(checks)
 }

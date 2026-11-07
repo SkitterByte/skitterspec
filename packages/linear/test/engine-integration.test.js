@@ -38,8 +38,10 @@ test('provider config + one-way engine produce a create plan', () => {
   const { dir, specDir, config } = setup()
   const r = push({ dir, snapshotDir: specDir, identifier: ID, config })
   assert.strictEqual(r.empty, false)
-  assert.ok(r.plan.issue, 'spec issue description/state pushed on first run')
-  assert.strictEqual(r.plan.issue.state, 'in-progress')
+  assert.ok(r.plan.issue, 'spec issue description pushed on first run')
+  // Under the default `pull`, a LINKED spec with no snapshot cannot say it moved,
+  // so its state is Linear's and is not sent (sync-ownership-pull.test.js).
+  assert.strictEqual('state' in r.plan.issue, false)
   // one phase → one sub-issue; tasks are not synced
   assert.strictEqual(r.plan.subIssues.create.length, 1)
   assert.strictEqual(r.plan.subIssues.create[0].name, 'Durable outbox')

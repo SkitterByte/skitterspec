@@ -1186,6 +1186,7 @@ async function specSyncDoctor(dir, flags, out) {
       checks.push(row('tracker', 'Jira config', 'broken', 'siteUrl or projectKey is empty', `fix ${CONFIG_FILE}`))
     } else {
       checks.push(row('tracker', 'Jira config', 'ok', `${loaded.config.jira.projectKey} @ ${loaded.config.jira.siteUrl}`))
+      checks.push(kit.ownershipDoctorRow(loaded.config))
       // A worktree forks from a COMMIT, so a config that exists only in the
       // working tree is invisible in every spec worktree — where the sync
       // skills actually run — and sync there reports itself off with no clue

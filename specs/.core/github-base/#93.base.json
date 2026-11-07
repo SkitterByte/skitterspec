@@ -3,14 +3,13 @@
   "issueFields": {
     "description": "b0c9d313cb69e20445d3b3a51ba1ab84e2c04750",
     "state": "d49a92cbdeee6dc3536e539fa47da98528634fa1",
-    "assignee": "1ffacc006b2608594bdae1c981be93f9eac09e00",
     "descriptionStream": "587c8deed1dc67a02cfeb04a65f66533178750b6"
   },
   "subIssues": {
     "#94": "67a3d73d153bffe0e2f6bf54b910f30a1c1933b5",
     "#95": "97aec2f4b1c26f71ca7df6755293d460ad0cacf4",
     "#96": "c6fc674252e0d8b37cbc5e16b74ce125cd055f77",
-    "#97": "9e9ebf7ff766a7615e6ef36949270620660b9f02",
+    "#97": "58f3146064de4fd5f7ade466ecf1c5c42751af75",
     "#98": "ddadee252eac5714e41fbb266a2829eaff3a148b",
     "#99": "09cc60c280bf9544e7a168565a6cda476c64602c"
   },
@@ -18,7 +17,7 @@
     "#94": "e0b336c22b2c87982f93293f37553e41aa535657",
     "#95": "20a4469400bcb875962a74f0dc5123b425513fa4",
     "#96": "68300b0a208654d43e4e6f708803448694bfb93c",
-    "#97": "139eec2856f0de4360636411ad4df2d29f690822",
+    "#97": "2aa19a0593b83bf12c7931e41db72818218a254f",
     "#98": "5e2f706c46a42df7ca552d9add29f36e05ac9c20",
     "#99": "4a2625cf791cfe3466a0fbaa68ce78dafea8e9b6"
   }

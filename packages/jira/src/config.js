@@ -76,11 +76,16 @@ const DEFAULT_CONFIG = Object.freeze({
   sync: Object.freeze({
     baseDir: 'specs/.core/jira-base',
     backupDir: 'specs/.core/jira-backups',
+    // The repo owns the spec's CONTENT (`push`); the tracker owns its STATUS and
+    // ASSIGNEE (`pull`) — the board is where a team assigns and moves work, so a
+    // repo copy is one somebody has to keep in step by hand. Under `pull` the
+    // state is sent only as a transition the repo made (a bucket move), and the
+    // assignee not at all. Set either back to `"push"` for the repo-owned behaviour.
     fieldOwnership: Object.freeze({
       description: 'push',
       subIssues: 'push',
-      workflowState: 'push',
-      assignee: 'push',
+      workflowState: 'pull',
+      assignee: 'pull',
     }),
     localOnlySections: Object.freeze(['State log', 'Changelog', 'Open questions']),
     keyedFields: Object.freeze({}),

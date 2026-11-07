@@ -241,7 +241,7 @@ test('--no-assign writes ONLY the assignee key, not the whole ownership map', as
   const { config } = loadLinearConfig(dir)
   assert.strictEqual(config.sync.fieldOwnership.description, 'push')
   assert.strictEqual(config.sync.fieldOwnership.subIssues, 'push')
-  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'push')
+  assert.strictEqual(config.sync.fieldOwnership.workflowState, 'pull')
   assert.strictEqual(config.sync.baseDir, 'specs/.core/linear-base', 'unrelated sync defaults survive')
 })
 
@@ -252,7 +252,7 @@ test('a plain init writes nothing about assignment, and gets it anyway', async (
   const dir = repo()
   await run(dir, ['--team-id', 'T1'])
   assert.ok(!fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8').includes('assignee'))
-  assert.strictEqual(loadLinearConfig(dir).config.sync.fieldOwnership.assignee, 'push')
+  assert.strictEqual(loadLinearConfig(dir).config.sync.fieldOwnership.assignee, 'pull')
 })
 
 test('the retired --assign fails loudly rather than doing nothing', async () => {

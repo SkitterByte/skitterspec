@@ -183,13 +183,16 @@ test('--to refuses when the repo does not own the assignee field', async () => {
   assert.ok(!/linear_assignee_id/.test(overview(dir)), 'and nothing was written')
 })
 
-test('a repo that says nothing gets the default, which OWNS the field', async () => {
-  // Since v16 silence is not declining — the default is `push`, so a config
-  // with no `sync` block assigns. Declining has to be said, and `none` is how.
+test('a repo that says nothing gets the default, which is pull: Linear holds it, the file does not', async () => {
+  // Silence is not declining — it takes the default, and the default is now
+  // `pull`. With no key there is nowhere to write, so nothing is written
+  // anywhere and the command says where to do it; the spec file stays as is.
   const dir = fixtureRepo({ owns: null })
+  const before = overview(dir)
   const r = await run(['assign', 'feat-owned', '--to', 'user-1'], dir)
   assert.equal(r.code, 0)
-  assert.match(overview(dir), /linear_assignee_id: "user-1"/)
+  assert.equal(overview(dir), before)
+  assert.match(r.out, /Linear owns the assignee here/)
 })
 
 test('--release refuses too, rather than clearing a stamp nothing pushed', async () => {

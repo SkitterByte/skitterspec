@@ -7,8 +7,9 @@ a Linear issue and each phase a sub-issue; a phase's tasks ride along inside
 that sub-issue's description as a read-only checklist. Content is
 pushed up and never read back or merged — `/spec-push` diffs the spec against a
 committed **last-pushed snapshot** and applies only what changed; `/spec-status`
-is a read-only report of what would push. The `sync.fieldOwnership` map now just selects the
-projection field set (every field is repo-owned and pushed).
+is a read-only report of what would push. The `sync.fieldOwnership` map says who
+owns each field: the repo pushes the content (`description`, `subIssues`), and
+Linear owns status and assignee (`workflowState`, `assignee` ship as `pull`).
 
 **Every Linear step is gated on this file.** While `specs/.core/linear.config.json`
 is absent the feature is simply unused — `/spec`, `/spec-start`, and the CLI's
@@ -125,17 +126,19 @@ absence). A `sync.fieldOwnership` value outside `both|pull|push|none` is a hard 
     // carries its own, and push knows what changed without reading Linear back.
     "baseDir": "specs/.core/linear-base",
 
-    // The pushed projection field set (repo → Linear, one-way). The `push` marker
-    // is retained for shape; there is no pull. The default set is the spec
-    // issue's `description`, its `subIssues` (one per phase — name + goal +
-    // state), and the lifecycle `workflowState`. Tasks, priority, labels, cycles
-    // and comments are NOT here, so a PM's triage is never touched. Any key you
-    // add joins the pushed projection.
+    // Who owns each field. `push`: the repo, sent one way (repo → Linear) — the
+    // spec issue's `description` and its `subIssues` (one per phase — name +
+    // goal + state). `pull`: Linear — the `workflowState` is sent only as a
+    // transition the repo made (a bucket move), and the `assignee` is never
+    // projected; `spec-sync assign` writes it directly. `"push"` on either
+    // restores the repo-owned behaviour; `"none"` declines a field. Tasks,
+    // priority, labels, cycles and comments are NOT here, so a PM's triage is
+    // never touched.
     "fieldOwnership": {
       "description": "push",
       "subIssues": "push",
-      "workflowState": "push",
-      "assignee": "push"
+      "workflowState": "pull",
+      "assignee": "pull"
     },
 
     // Markdown sections of 00-overview.md that are local-only scaffolding and
@@ -177,7 +180,17 @@ Sprint", "Released". A bucket's value may be an **array** instead of a string:
 
 ## Assignment (`sync.fieldOwnership.assignee`)
 
-**On by default since v16.** The spec issue is assigned to whoever is building
+**Linear owns it by default (`pull`).** The board is where a team assigns work,
+so the issue's assignee is the record and the spec keeps no copy: `/spec-start`
+runs `spec-sync assign --if-unassigned`, which assigns you only when nobody holds
+the issue and never reassigns anyone; `/spec-claim` writes Linear directly; and
+finishing a spec leaves the assignee in place — the board keeps who did the work.
+No `linear_assignee_id` stamp and no `> **Developer:**` line is written. Set
+`"assignee": "push"` for the repo-owned behaviour described below.
+
+### Under `push`
+
+**On by default from v16 until `pull` replaced it.** The spec issue is assigned to whoever is building
 it: `/spec-start` records them, and the issue is released when the spec
 completes. To decline it, say so:
 
@@ -679,11 +692,13 @@ most specific destination. Leave a list empty and nothing routes through it.
 
 ## One direction — nothing to reconcile
 
-The repo owns the spec and pushes it; there is no pull. `/spec-push` diffs the
-current spec against the committed **last-pushed snapshot** and sends only what
-changed — creates for unlinked items, updates for changed ones. A workflow-state a
-teammate moves in Linear is **not skitterspec's business**: it is never read
-back or reported, and push resends State only when the spec itself moves. A
+The repo owns the spec's content and pushes it; nothing is merged back.
+`/spec-push` diffs the current spec against the committed
+**last-pushed snapshot** and sends only what changed — creates for unlinked items, updates for
+changed ones. A workflow-state a teammate moves in Linear is **Linear's**: push
+sends a state only when the spec itself changes bucket, and the one difference
+reported is the issue being Done or Cancelled while the spec is still in flight
+(`spec-sync board`, which names the cleanup and runs nothing). A
 **description** someone edited there is reported by `/spec-status`, because
 the next push replaces it. Priority, labels, cycles and comments are
 Linear-native triage and are never touched. No base merge, no conflicts, no

@@ -18,7 +18,7 @@ NAMES — never a credential. Credentials live in the user-level store
 | `auth.emailEnv` / `auth.tokenEnv` | Env-var NAMES for the email + API-token pair (basic auth). | `JIRA_EMAIL` / `JIRA_API_TOKEN` |
 | `apply.transport` | `api` \| `mcp`, or empty for "api when credentials resolve, mcp when they don't". | `""` |
 | `sync.baseDir` | Where last-pushed snapshots live. | `specs/.core/jira-base` |
-| `sync.fieldOwnership` | Which projection fields push (`description`, `subIssues`, `workflowState`, `assignee`; `"none"` declines one). | all `push` |
+| `sync.fieldOwnership` | Who owns each field. The repo pushes `description` and `subIssues`; Jira owns `workflowState` and `assignee` (`pull`: the state is sent only on a bucket move, the assignee never projected). `"push"` restores the repo-owned behaviour; `"none"` declines a field. | content `push`, status and assignee `pull` |
 | `release.ignorePaths` | Bookkeeping path prefixes `released` ignores, exactly as the Linear provider defines them. | `specs/`, changelogs |
 
 Descriptions are stored as ADF (Atlassian Document Format): the adapter

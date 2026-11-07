@@ -53,7 +53,7 @@ phase will read as deployed. See "Releases and deploys" below.
 | `auth.tokenEnv` | `GITHUB_TOKEN` | Env var holding the token; `GH_TOKEN` is read after it. |
 | `apply.transport` | — | `api` or `mcp`; unset = API when a token resolves. |
 | `sync.baseDir` | `specs/.core/github-base` | Last-pushed snapshots. Commit them. |
-| `sync.fieldOwnership` | all `push` | Per-field ownership; `"none"` declines one (e.g. `assignee`). |
+| `sync.fieldOwnership` | `description`/`subIssues` `push`; `workflowState`/`assignee` `pull` | Who owns each field: the repo pushes the content, GitHub owns status and assignee (state sent only on a bucket move, assignee written directly by `assign`). `"push"` restores the repo-owned behaviour; `"none"` declines a field. |
 
 ## More than one name per bucket — read-only aliases
 

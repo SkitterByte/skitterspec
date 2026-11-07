@@ -23,7 +23,7 @@ env-var NAMES — never a credential. Credentials live in the user-level store
 | `refs.foreignPatterns` | Ref shapes that are KNOWN HISTORY rather than unreferenced commits — a repo migrating off another tracker lists its old key here (e.g. `"ERQ-\\d+"`). | `[]` |
 | `apply.transport` | `api` \| `mcp`, or empty for "api when credentials resolve, mcp when they don't". | `""` |
 | `sync.baseDir` | Where last-pushed snapshots live. | `specs/.core/azure-base` |
-| `sync.fieldOwnership` | Which projection fields push (`description`, `subIssues`, `workflowState`, `assignee`; `"none"` declines one). | all `push` |
+| `sync.fieldOwnership` | Who owns each field. The repo pushes `description` and `subIssues`; Azure Boards owns `workflowState` and `assignee` (`pull`: the state is sent only on a bucket move, the assignee never projected). `"push"` restores the repo-owned behaviour; `"none"` declines a field. | content `push`, status and assignee `pull` |
 | `release.ignorePaths` | Bookkeeping path prefixes `released` ignores, exactly as the other providers define them. | `specs/`, changelogs |
 
 Descriptions are stored as MARKDOWN: the adapter writes the projection's

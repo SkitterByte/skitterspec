@@ -190,29 +190,28 @@ const DEFAULT_CONFIG = Object.freeze({
   sync: Object.freeze({
     baseDir: 'specs/.core/linear-base',
     backupDir: 'specs/.core/linear-backups',
-    // One-way (repo → Linear): the projection field set the repo owns and pushes
-    // — the issue `description`, its `subIssues` (one per phase, name + goal +
-    // state), and the lifecycle `workflowState`. There is no pull. Priority,
-    // labels, cycles and comments are Linear-native triage — deliberately NOT in
-    // the set, so the PM's triage is never touched. The `push` marker is retained
-    // for shape; any key you add joins the pushed projection.
+    // The repo owns the spec's CONTENT and pushes it one way (repo → Linear) —
+    // the issue `description` and its `subIssues` (one per phase, name + goal +
+    // state). Priority, labels, cycles and comments are Linear-native triage —
+    // deliberately NOT in the set, so the PM's triage is never touched.
     //
-    // `assignee` ships ON, and the opt-out is `"assignee": "none"`. It was
-    // opt-in until v16, and the cost of that was silent in exactly the wrong
-    // direction: a repo that never added the line looked identical to one that
-    // did not want the feature, so the only signal was noticing an unassigned
-    // issue weeks later.
+    // Linear owns the spec's STATUS and ASSIGNEE (`pull`). The board is where a
+    // team assigns and moves work, so a repo copy is one somebody has to keep in
+    // step by hand. Under `pull` the state is sent only as a transition the repo
+    // made (a spec changing bucket — see `compare.js` `issueChanges`), the
+    // assignee is never projected, and `spec-sync assign` writes Linear directly.
+    // Set either back to `"push"` for the repo-owned behaviour, or `"none"` to
+    // leave it alone entirely.
     //
-    // WHAT MAKES ON-BY-DEFAULT SAFE, and it is not this line: a spec that
-    // records no assignee sends none (so a PM's triage survives), and a snapshot
-    // with no assignee key means "never pushed" rather than "was null" (so no
-    // upgrade emits a clear). Flipping the default widens who gets assigned; it
-    // cannot widen who gets UNassigned. See `compare.js` `issueChanges`.
+    // WHAT MAKES `pull` SAFE ON UPGRADE: a pulled field asserts nothing, so the
+    // flip can only make pushes send LESS. A state is never re-sent from an old
+    // snapshot (cannot-tell routes to silence), and an assignee hash recorded
+    // under `push` is never compared again — so nothing is cleared on the board.
     fieldOwnership: Object.freeze({
       description: 'push',
       subIssues: 'push',
-      workflowState: 'push',
-      assignee: 'push',
+      workflowState: 'pull',
+      assignee: 'pull',
     }),
     localOnlySections: Object.freeze(['State log', 'Changelog', 'Open questions']),
     // Fields that are keyed collections (arrays of objects with a stable id),

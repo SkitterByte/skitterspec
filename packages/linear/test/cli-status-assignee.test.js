@@ -113,14 +113,15 @@ test('a genuine disagreement the repo WILL overwrite is reported as drift', asyn
 
 // --- stays silent ------------------------------------------------------------
 
-test('a repo that says nothing DOES get an assignee line — the default owns it', async () => {
-  // The inversion at v16, stated where it is most visible: `optIn: false` used
-  // to mean inert. It now means "took the default", and the default is `push`.
+// STAYS SILENT: the default is now `pull`, so Linear holds the assignee and the
+// repo projects none — there is nothing of the repo's to compare, and an
+// assignee line would report a difference the repo has no claim to.
+test('a repo that says nothing gets no assignee line — the default leaves it to Linear', async () => {
   const dir = fixtureRepo({ optIn: false, assignee: 'user-1' })
   const remote = remoteFile(dir, { assignee: { id: 'user-9', name: 'Priya PM' } })
   const r = await run(['status', 'feat-owned', '--remote', remote], dir)
   assert.strictEqual(r.code, 0)
-  assert.match(r.out, /assignee/i, 'silence is not an opt-out any more')
+  assert.doesNotMatch(r.out, /assignee/i)
 })
 
 test('STAYS SILENT: a moved workflow state adds no line beside the assignee', async () => {

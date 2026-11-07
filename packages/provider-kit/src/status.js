@@ -23,6 +23,7 @@ const path = require('node:path')
 const { remoteStateReading, ownershipOf } = require('@skitterbyte/skitterspec-sync-core')
 const { makeSpecHelpers } = require('./specs.js')
 const { boardDisagreement } = require('./list-rows.js')
+const { doctorRow } = require('./doctor.js')
 
 const firstLine = (error) => String((error && error.message) || error).split('\n')[0]
 
@@ -122,4 +123,15 @@ async function specSyncBoard({ snapshotDir, config, credential, flags = {}, out,
   )
 }
 
-module.exports = { readStatus, specSyncOwnership, specSyncBoard }
+/**
+ * The doctor's one line on ownership: who holds status and assignee here. Always
+ * `ok` — both answers are valid configurations, and the line exists so a reader
+ * can see which one is in force without opening the config.
+ */
+function ownershipDoctorRow(config) {
+  const status = ownershipOf(config, 'workflowState')
+  const assignee = ownershipOf(config, 'assignee')
+  return doctorRow('ownership', 'Ownership', 'ok', `status ${status} · assignee ${assignee}`)
+}
+
+module.exports = { readStatus, specSyncOwnership, specSyncBoard, ownershipDoctorRow }

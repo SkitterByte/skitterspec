@@ -446,8 +446,10 @@ test('a cancelled spec closes as not planned', async () => {
   )
 })
 
+// Pinned to `push`: this is apply's settle mechanism, and with no snapshot
+// a pulled state is cannot-tell and sends nothing (sync-ownership-pull.test.js).
 test('a spec moved back out of a terminal bucket reopens its issue', async () => {
-  const dir = repoWithSpec({ identifier: '#101' })
+  const dir = repoWithSpec({ identifier: '#101', config: { sync: { fieldOwnership: { workflowState: 'push' } } } })
   const adapter = fakeAdapter()
   const issue = adapter.make('Demo', 'old body')
   issue.open = false

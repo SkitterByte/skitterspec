@@ -1442,6 +1442,7 @@ async function specSyncDoctor(dir, flags, out) {
       checks.push(row('tracker', 'Azure config', 'broken', 'orgUrl or project is empty', `fix ${CONFIG_FILE}`))
     } else {
       checks.push(row('tracker', 'Azure config', 'ok', `${loaded.config.azure.project} @ ${loaded.config.azure.orgUrl}`))
+      checks.push(kit.ownershipDoctorRow(loaded.config))
       const retired = kit.retiredKeysRow(path.join(dir, CONFIG_FILE), CONFIG_FILE, row)
       if (retired) checks.push(retired)
       // A worktree forks from a COMMIT, so a config that exists only in the
