@@ -1,21 +1,23 @@
 ---
 github_identifier: "#113"
 github_url: "https://github.com/SkitterByte/skitterspec/issues/113"
+github_assignee_id: "SkitterByte"
+github_assignee_name: "Reuben Greaves"
 ---
 
 # Rolling base — follow the newest release-candidate branch
 
 > **Type:** Feature
 > **Name:** feat-rolling-base (the spec folder name — the handle you paste into `/spec-start`)
-> **Status:** Ready — not started
+> **Status:** In Progress — Phase 1 (started 2026-11-07)
 > **Author:** Reuben Greaves
-> **Developer:** —
+> **Developer:** Reuben Greaves
 > **Raised:** 2026-11-06
 > **Area:** packages/common/src/env (resolve.js, config.js, integrate.js, provision.js, mainguard.js, cli.js), packages/common/assets/core/env.config.md, packages/common/assets/skills (spec-start, spec-complete, spec-to-main), docs/reference.html
 > **Stack:** worktree
 > **Docs:** reference
 > **Origin:** follow-up from `feat-pr-landing` (#106) — LSC's rc-flow
-> **Next spec:** [`feat-hotfix-to-master`](../feat-hotfix-to-master/00-overview.md) (#118) — its carry-back targets the base this spec resolves
+> **Next spec:** [`feat-hotfix-to-master`](../../backlog/feat-hotfix-to-master/00-overview.md) (#118) — its carry-back targets the base this spec resolves
 
 ## Problem
 
@@ -104,6 +106,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | Date | Status | Folder | By |
 |------|--------|--------|----|
 | 2026-11-06 | Ready | backlog | Reuben Greaves |
+| 2026-11-07 | In Progress | in-progress | Reuben Greaves |
 
 ## Changelog
 
