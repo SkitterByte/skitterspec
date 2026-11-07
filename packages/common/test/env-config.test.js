@@ -39,6 +39,21 @@ test('baseBranch defaults to empty and accepts an override', () => {
   assert.strictEqual(loadEnvConfig(dir).config.baseBranch, 'develop')
 })
 
+test('baseBranchPattern defaults to empty and accepts a glob', () => {
+  const dir = tmpDir()
+  assert.strictEqual(loadEnvConfig(dir).config.baseBranchPattern, '')
+  writeEnvConfig(dir, { baseBranchPattern: ' 20??/Q? ' })
+  assert.strictEqual(loadEnvConfig(dir).config.baseBranchPattern, '20??/Q?')
+})
+
+test('baseBranchPattern: whitespace or .. inside is dropped, never thrown on', () => {
+  for (const bad of ['20?? /Q?', 'rc/..', '../main', 42]) {
+    const dir = tmpDir()
+    writeEnvConfig(dir, { baseBranchPattern: bad })
+    assert.strictEqual(loadEnvConfig(dir).config.baseBranchPattern, '')
+  }
+})
+
 test('present config → present:true and merged over defaults', () => {
   const dir = tmpDir()
   writeEnvConfig(dir, {

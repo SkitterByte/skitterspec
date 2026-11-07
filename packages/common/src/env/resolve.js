@@ -405,22 +405,46 @@ function branchFor(spec, config) {
 }
 
 /**
+ * Thrown when `baseBranchPattern` is set and no remote branch matches it. A
+ * refusal, never a fall-through: the default branch is exactly where a rolling
+ * base must not land. `refused` carries the one-line reason; `pattern` the glob.
+ */
+class BaseUnresolvedError extends Error {
+  constructor(pattern) {
+    const refused = `no branch matches ${pattern} — run spec-env base to fetch`
+    super(refused)
+    this.name = 'BaseUnresolvedError'
+    this.refused = refused
+    this.pattern = pattern
+  }
+}
+
+/**
  * Resolve the integration base branch (the branch specs fork from and land back
  * onto). Precedence:
  *   1. `config.baseBranch` — explicit override
- *   2. `origin/HEAD` — the remote's default branch
- *   3. `main` if it exists locally
- *   4. `master` if it exists locally
- *   5. `main` — last-resort default
+ *   2. `config.baseBranchPattern` — the newest remote branch matching it, by
+ *      committer date; no match throws `BaseUnresolvedError`
+ *   3. `origin/HEAD` — the remote's default branch
+ *   4. `main` if it exists locally
+ *   5. `master` if it exists locally
+ *   6. `main` — last-resort default
  *
  * `git(args)` runs a read-only git command and returns trimmed stdout, or `null`
  * on a non-zero exit / failure. It's injected so this stays pure and unit-testable
  * with no live git; the CLI supplies a real reader. (Note: `show-ref --quiet`
  * emits no stdout on success, so a non-null `''` still means "exists".)
+ *
+ * Step 2 reads remote-tracking refs and never the network, so it stays
+ * synchronous for every caller, the main-guard hook included. Fetching is left
+ * to the commands that already talk to the remote.
  */
 function resolveBaseBranch(config, git) {
   const explicit = config && typeof config.baseBranch === 'string' && config.baseBranch.trim()
   if (explicit) return explicit
+
+  const pattern = config && typeof config.baseBranchPattern === 'string' && config.baseBranchPattern.trim()
+  if (pattern) return newestMatch(config, git, pattern)
 
   const originHead = git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
   if (originHead) return originHead.replace(/^origin\//, '')
@@ -429,6 +453,29 @@ function resolveBaseBranch(config, git) {
     if (git(['show-ref', '--verify', '--quiet', `refs/heads/${name}`]) !== null) return name
   }
   return 'main'
+}
+
+// The newest remote-tracking branch matching `pattern`, prefix stripped.
+//
+// WHAT WOULD FOOL THIS: an unfetched remote. A release candidate cut since the
+// last fetch is invisible here, and no rc at all looks identical to "never
+// fetched" — so an empty answer refuses rather than concluding anything, and
+// names the verb that fetches. A stale-but-present answer is the older rc;
+// `up` and `integrate` fetch before resolving so they never act on one.
+function newestMatch(config, git, pattern) {
+  const remote = (config.land && typeof config.land.remote === 'string' && config.land.remote.trim()) || 'origin'
+  const prefix = `refs/remotes/${remote}/`
+  const out = git(['for-each-ref', '--sort=-committerdate', '--format=%(refname)', `${prefix}${pattern}`])
+  const names = (out || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((ref) => ref.startsWith(prefix))
+    .map((ref) => ref.slice(prefix.length))
+    // `origin/HEAD` is a symref to the default branch, and a broad pattern
+    // (`*`) would otherwise match it.
+    .filter((name) => name && name !== 'HEAD')
+  if (names.length === 0) throw new BaseUnresolvedError(pattern)
+  return names[0]
 }
 
 /**
@@ -705,6 +752,7 @@ module.exports = {
   collectSpecFolders,
   allSpecs,
   resolveBaseBranch,
+  BaseUnresolvedError,
   resolvePrimaryCheckout,
   currentBranch,
   assertPrimaryOnMain,

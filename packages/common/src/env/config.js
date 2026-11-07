@@ -41,6 +41,8 @@
  *               // spec alongside its own folder (provider-neutral; {slug} and
  *               // {identifier} expand); empty = the spec folder only
  *     baseBranch: "",          // "" = auto-detect (origin/HEAD → main → master)
+ *     baseBranchPattern: "",   // glob over remote branch names; newest match
+ *               // by commit date is the base (rolling release-candidate)
  *     land:     { strategy, remote, draft, specDocs },  // how a branch lands:
  *               // "ff" (default, trunk-based local fast-forward) or "pr"
  *               // (push + pull request; base moves when the host merges)
@@ -209,6 +211,11 @@ const DEFAULT_CONFIG = Object.freeze({
   spec: Object.freeze({ companionPaths: Object.freeze([]) }),
   // Integration base branch. Empty = auto-detect (origin/HEAD → main → master).
   baseBranch: '',
+  // A glob over the remote's branch names (`"20??/Q?"`) for a base that rolls:
+  // the newest match by commit date is the base, so cutting the next release
+  // candidate is all it takes to move every spec onto it. An explicit
+  // `baseBranch` still wins. Empty = off, and resolution is exactly as before.
+  baseBranchPattern: '',
   // How a finished branch reaches the base branch. `strategy: "ff"` (the
   // default) is trunk-based landing exactly as it has always been: rebase, then
   // a local `merge --ff-only` — nothing changes for an installed repo on
@@ -388,6 +395,7 @@ function defaults() {
     branch: { ...DEFAULT_CONFIG.branch },
     spec: { companionPaths: [] },
     baseBranch: DEFAULT_CONFIG.baseBranch,
+    baseBranchPattern: DEFAULT_CONFIG.baseBranchPattern,
     land: { ...DEFAULT_CONFIG.land },
     guards: { ...DEFAULT_CONFIG.guards },
     teardown: { ...DEFAULT_CONFIG.teardown },
@@ -655,6 +663,15 @@ function mergeConfig(base, parsed) {
 
   assign(base, parsed, 'registry', 'string')
   assign(base, parsed, 'baseBranch', 'string')
+
+  // Dropped rather than thrown on, like every field here — and dropping is the
+  // safe direction: an unusable pattern resolves the base exactly as an unset
+  // one does. Whitespace and `..` can never name a branch, so a pattern holding
+  // either is a typo, not a glob.
+  if (typeof parsed.baseBranchPattern === 'string') {
+    const pattern = parsed.baseBranchPattern.trim()
+    if (pattern && !/\s/.test(pattern) && !pattern.includes('..')) base.baseBranchPattern = pattern
+  }
 
   // Same treatment as `teardown.deleteRemoteBranch` below, for the same reason:
   // an unrecognised value falls through to the default rather than erroring or

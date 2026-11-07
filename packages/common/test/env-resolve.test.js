@@ -9,6 +9,7 @@ const path = require('node:path')
 const {
   resolveSpec,
   resolveBaseBranch,
+  BaseUnresolvedError,
   resolvePrimaryCheckout,
   splitPrefix,
   expandTokens,
@@ -56,6 +57,63 @@ test('resolveBaseBranch: no origin/HEAD, no main → master if it exists', () =>
 
 test('resolveBaseBranch: nothing detectable → defaults to main', () => {
   assert.strictEqual(resolveBaseBranch({}, fakeGit({})), 'main')
+})
+
+const MATCH = (remote, pattern) =>
+  `for-each-ref --sort=-committerdate --format=%(refname) refs/remotes/${remote}/${pattern}`
+
+test('resolveBaseBranch: explicit baseBranch beats baseBranchPattern', () => {
+  const git = fakeGit({ [MATCH('origin', '20??/Q?')]: 'refs/remotes/origin/2026/Q4' })
+  assert.strictEqual(resolveBaseBranch({ baseBranch: 'master', baseBranchPattern: '20??/Q?' }, git), 'master')
+})
+
+test('resolveBaseBranch: pattern takes the newest by date, not by name', () => {
+  // git sorts by committer date; Q1 of the next year was cut last, so it is
+  // first even though it sorts before Q4 by name.
+  const git = fakeGit({
+    [MATCH('origin', '20??/Q?')]: 'refs/remotes/origin/2027/Q1\nrefs/remotes/origin/2026/Q4',
+    [ORIGIN_HEAD]: 'origin/master',
+  })
+  assert.strictEqual(resolveBaseBranch({ baseBranchPattern: '20??/Q?' }, git), '2027/Q1')
+})
+
+test('resolveBaseBranch: one match resolves, on the configured land.remote', () => {
+  const git = fakeGit({ [MATCH('upstream', 'rc/*')]: 'refs/remotes/upstream/rc/2026-11' })
+  const config = { baseBranchPattern: 'rc/*', land: { remote: 'upstream' } }
+  assert.strictEqual(resolveBaseBranch(config, git), 'rc/2026-11')
+})
+
+test('resolveBaseBranch: a broad pattern never resolves to the HEAD symref', () => {
+  const git = fakeGit({ [MATCH('origin', '*')]: 'refs/remotes/origin/HEAD\nrefs/remotes/origin/2026/Q4' })
+  assert.strictEqual(resolveBaseBranch({ baseBranchPattern: '*' }, git), '2026/Q4')
+})
+
+test('resolveBaseBranch: no match refuses, never falls through to origin/HEAD', () => {
+  const git = fakeGit({ [MATCH('origin', '20??/Q?')]: '', [ORIGIN_HEAD]: 'origin/master', [HAS_MAIN]: '' })
+  assert.throws(
+    () => resolveBaseBranch({ baseBranchPattern: '20??/Q?' }, git),
+    (err) =>
+      err instanceof BaseUnresolvedError &&
+      err.refused === 'no branch matches 20??/Q? — run spec-env base to fetch' &&
+      err.message === err.refused,
+  )
+})
+
+test('resolveBaseBranch: unreadable refs refuse too (cannot tell is not a base)', () => {
+  const git = fakeGit({ [ORIGIN_HEAD]: 'origin/master' })
+  assert.throws(() => resolveBaseBranch({ baseBranchPattern: '20??/Q?' }, git), BaseUnresolvedError)
+})
+
+test('resolveBaseBranch: pattern unset or blank → today\'s chain, and no ref listing', () => {
+  const asked = []
+  const map = { [ORIGIN_HEAD]: 'origin/develop' }
+  const git = (argv) => {
+    asked.push(argv[0])
+    return fakeGit(map)(argv)
+  }
+  assert.strictEqual(resolveBaseBranch({}, git), 'develop')
+  assert.strictEqual(resolveBaseBranch({ baseBranchPattern: '  ' }, git), 'develop')
+  assert.ok(!asked.includes('for-each-ref'))
 })
 
 const COMMON_DIR = 'rev-parse --git-common-dir'
