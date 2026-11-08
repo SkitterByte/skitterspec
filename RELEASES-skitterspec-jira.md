@@ -5,6 +5,41 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.4.0 — 8 Nov 2026
+
+**Highlights:** Your tracker now owns each spec's status and assignee: the spec skills stop writing Status, Developer and State log lines, a ticket keeps its assignee when the spec finishes, and pushes no longer move a card someone moved on the board. To keep the old behaviour, set workflowState and assignee to push in sync.fieldOwnership.
+
+### Env
+- **New** — `skitterspec status` shows every spec being worked on in its own worktree, with how far along it is, even though the base branch still files it under backlog.
+- **New** — Handing a spec to a teammate now publishes its branch (after asking) and leaves a note on the ticket, and their /spec-start picks up the branch with your work on it instead of starting fresh.
+- **New** — After a branch-based hotfix lands, the fix is carried to the current release candidate, and hotfix finish cleans up once both are confirmed.
+- **New** — A hotfix based on a release branch now lands on that branch, by fast-forward or a ready pull request, and tags the release.
+- **New** — A hotfix can now start from a release branch such as master instead of a tag: set hotfix.releaseBranch and it forks from the branch's current head.
+- **New** — Specs that outlived a release-candidate roll now land on the new candidate, with the plan saying so, and new specs always fork from the newest one.
+- **New** — Run spec-env base to see which release-candidate branch specs fork from and land onto, and which specs started on an older one.
+- **New** — A rolling release-candidate branch can now be the base: set baseBranchPattern and specs follow the newest matching branch.
+- **New** — Projects whose base branch accepts no direct pushes can now author specs too: the spec document rides the feature branch and lands with the work's pull request.
+- **New** — Completing a spec in PR mode now walks every unticked task and follow-up past you before the pull request can be merged, so unfinished work is spun off or recorded instead of buried when the ticket closes.
+- **New** — Mid-spec work in PR mode now reaches CI as a draft pull request that cannot be merged early, and review pages measure the diff against the remote base so a stale local base never widens the range.
+- **New** — In PR mode, teardown now recognises squash- and rebase-merged branches by asking the host whether the pull request merged, instead of refusing branches the ancestry test cannot see.
+- **New** — Projects whose base branch moves by pull request can now set land.strategy to "pr": spec-env integrate plans a rebase onto the remote base and a consent-gated push instead of a local fast-forward.
+- **Fixed** — A bare /spec-live now tells you which spec is already live instead of asking you to pick one — naming a spec could never have helped while the running instance was held.
+
+### Hooks
+- **Fixed** — A Claude Code session no longer gets locked out of every command when the skitterspec engine fails to load; the review and main-branch guards now let the call through instead of refusing it.
+
+### Skills
+- **New** — With a tracker that owns status, the spec skills stop writing Status, Developer and State log lines, so nobody has to keep the spec in step with the board by hand.
+
+### Sync
+- **Action required** — Your tracker now owns each spec's status and assignee: the spec skills stop writing Status, Developer and State log lines, a ticket keeps its assignee when the spec finishes, and pushes no longer move a card someone moved on the board. To keep the old behaviour, set workflowState and assignee to push in sync.fieldOwnership.
+- **New** — Setting up a tracker now asks whether tickets should carry a short summary or the full spec, and new specs get a summary and acceptance criteria written for the people reading the board.
+- **New** — Tickets now show how far along the work is, and on GitHub the percentage can also fill a board Number field you can sort by.
+- **New** — Tickets can now carry a short summary of the work (what it is, what done looks like, what it touches) instead of the whole spec, and anything your team writes around it is kept on every push.
+- **New** — When a ticket is closed or cancelled on the board while its spec is still in flight, the spec commands now say so once and name the command that tidies the repo up, instead of flagging every status the board changes.
+- **New** — Setting a field to "pull" in sync.fieldOwnership now lets the tracker own a spec's status and assignee: pushes stop re-asserting a status someone moved on the board, and assigning writes the ticket directly.
+- **New** — Release reports now work under pull-request merge styles: merged PRs no longer show up as commits missing a ticket reference, and the docs say which range to scan when squash merges rewrite history.
+
 ## 2.3.0 — 3 Nov 2026
 
 ### Skills
