@@ -1476,6 +1476,7 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   record <spec>                          write the last-pushed snapshot
   status <spec> [--remote <f>]           read-only drift report
   verify <spec> --stored <f>             compare a read-back against the repo
+  splice <spec> --live <f> [--phase <ref>]  the body to write over MCP (summary mode)
   states [--json]                        the board's Status options + bucket map
   list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  the board's issues
   intake [query] [--json]                issues waiting to become specs
@@ -1553,6 +1554,11 @@ async function specSync(rest, io = {}) {
       return specSyncRecord(dir, config, positional[0], out)
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out, err)
+    case 'splice': {
+      const snapshotDir = resolveOrExit(positional[0], dir, err)
+      if (!snapshotDir) return 1
+      return kit.specSyncSplice({ snapshotDir, config, flags, out, err, program: PROGRAM })
+    }
     case 'verify':
       return specSyncVerify(dir, config, positional[0], flags, out)
     case 'linked':
@@ -1607,6 +1613,8 @@ function parseArgs(args, sub) {
     '--dir': { kind: 'path', name: 'dirOverride' },
     '--plan': { kind: 'path' },
     '--stored': { kind: 'path' },
+    '--live': { kind: 'path' },
+    '--phase': { kind: 'string' },
     '--remote': { kind: 'path' },
     '--text': { kind: 'path' },
     '--file': { kind: 'path' },

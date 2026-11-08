@@ -86,6 +86,7 @@ const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 const { specSyncOwnership, specSyncBoard: kitBoard, ownershipDoctorRow } = require('@skitterbyte/skitterspec-provider-kit/src/status.js')
 const { resolveTransport } = require('@skitterbyte/skitterspec-provider-kit/src/transport.js')
+const { specSyncSplice } = require('@skitterbyte/skitterspec-provider-kit/src/splice.js')
 
 // `assign`, `whoami` and `users` are the kit's (`provider-kit/src/assignment.js`),
 // hoisted when the GitHub provider became their second consumer. What is
@@ -2684,6 +2685,10 @@ function specSyncInitConfig(dir, flags, out) {
   if (flags.teamKey) linear.teamKey = flags.teamKey
   if (flags.projectId) linear.projectId = flags.projectId
   draft.linear = linear
+  // A NEW config carries a summary, not the spec: written explicitly, so the
+  // file says what the ticket gets. A config that predates the key keeps
+  // pushing the spec (the loader's default), so an upgrade rewrites nothing.
+  draft.mapping = { description: flags.description || 'summary' }
   const intake = {}
   if (flags.intakeLabel) intake.label = flags.intakeLabel
   if (flags.bugLabels.length) intake.bugLabels = flags.bugLabels
@@ -3345,6 +3350,9 @@ async function specSync(rest, io = {}) {
     else if (args[i] === '--apply') flags.apply = true
     else if (args[i] === '--remote') flags.remote = path.resolve(args[++i])
     else if (args[i] === '--stored') flags.stored = path.resolve(args[++i])
+    else if (args[i] === '--live') flags.live = path.resolve(args[++i])
+    else if (args[i] === '--description') flags.description = args[++i]
+    else if (args[i] === '--phase') flags.phase = args[++i]
     // `preserve --text <file>`: the description to keep, when the caller read it
     // over MCP and the engine cannot.
     else if (args[i] === '--text') flags.text = path.resolve(args[++i])
@@ -3519,6 +3527,11 @@ async function specSync(rest, io = {}) {
       return (await specSyncRetarget(dir, config, flags, out)) || 0
     case 'apply':
       return (await specSyncApply(dir, config, positional[0], flags, out)) || 0
+    case 'splice': {
+      const snapshotDir = resolveOrExit(positional[0], dir, err)
+      if (!snapshotDir) return 1
+      return specSyncSplice({ snapshotDir, config, flags, out, err, program: 'spec-sync' })
+    }
     case 'verify':
       return specSyncVerify(dir, config, positional[0], flags, out) || 0
     case 'preserve':
@@ -3547,6 +3560,7 @@ async function specSync(rest, io = {}) {
         '       skitterspec spec-sync apply <spec> --plan <file> [--via api|mcp] [--project id] [--json]\n' +
         '       skitterspec spec-sync apply --all <bucket> [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync verify <spec> --stored <file>\n' +
+        '       skitterspec spec-sync splice <spec> --live <file> [--phase <ref>]\n' +
         '       skitterspec spec-sync preserve <spec> [--text <file>] [--via api|mcp] [--json]\n' +
         '       skitterspec spec-sync comment <spec> --file <file> [--via api|mcp]\n' +
         '       skitterspec spec-sync list [--state <name> …|--all|--in-progress] [--next N] [--mine|--by <user>] [--limit N] [--archived] [--json]\n' +

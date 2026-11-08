@@ -1092,6 +1092,10 @@ async function specSyncInitConfig(dir, flags, out) {
   const parsed = { jira: { siteUrl: flags.siteUrl, projectKey: flags.projectKey } }
   if (flags.issueType) parsed.jira.issueType = flags.issueType
   if (flags.subtaskType) parsed.jira.subtaskType = flags.subtaskType
+  // A NEW config carries a summary, not the spec: written explicitly, so the
+  // file says what the ticket gets. A config that predates the key keeps
+  // pushing the spec (the loader's default), so an upgrade rewrites nothing.
+  parsed.mapping = { description: flags.description || 'summary' }
   if (flags.stateNames && Object.keys(flags.stateNames).length) {
     for (const bucket of Object.keys(flags.stateNames)) {
       if (!LIFECYCLE_BUCKETS.includes(bucket)) {
@@ -1289,6 +1293,7 @@ const USAGE = `Usage: skitterspec-jira spec-sync <subcommand>
   record <spec>                          write the last-pushed snapshot
   status <spec> [--remote <f>]           read-only drift report
   verify <spec> --stored <f>             compare a read-back against the repo
+  splice <spec> --live <f> [--phase <ref>]  the body to write over MCP (summary mode)
   states [--json]                        the project's status names
   list [--all | --state NAME]            tracker listing for the project
   linked [--json]                        specs and their linked issues (offline)
@@ -1362,6 +1367,11 @@ async function specSync(rest, io = {}) {
       return specSyncRecord(dir, config, positional[0], out)
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out, err)
+    case 'splice': {
+      const snapshotDir = resolveOrExit(positional[0], dir, err)
+      if (!snapshotDir) return 1
+      return kit.specSyncSplice({ snapshotDir, config, flags, out, err, program: PROGRAM })
+    }
     case 'verify':
       return specSyncVerify(dir, config, positional[0], flags, out)
     case 'linked':
@@ -1408,6 +1418,9 @@ function parseArgs(args, sub) {
     '--dir': { kind: 'path', name: 'dirOverride' },
     '--plan': { kind: 'path' },
     '--stored': { kind: 'path' },
+    '--live': { kind: 'path' },
+    '--description': { kind: 'string' },
+    '--phase': { kind: 'string' },
     '--remote': { kind: 'path' },
     '--text': { kind: 'path' },
     '--file': { kind: 'path' },

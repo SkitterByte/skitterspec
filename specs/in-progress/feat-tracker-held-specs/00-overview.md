@@ -97,6 +97,8 @@ Phase 5 is the authoring side and docs: `/spec` writes `## Summary` and
 | Description write (provider apply) | update | splice the block into the live description instead of replacing it |
 | `compareStored` (sync-core `compare.js`) | update | hash the managed block, not the whole description |
 | Adoption comment (`cli-sync.js` per provider) | update | skipped in summary mode — the original text is kept in place |
+| `spec-sync splice` CLI verb | add | all four providers — the MCP path's body |
+| Plan JSON | update | gains `descriptionMode` |
 | `## Summary` spec section | add | optional; `/spec` writes it; falls back to Problem |
 | `## Acceptance criteria` spec section | add | optional; `/spec` grills for it; projected as a checklist |
 | Progress field | add | block text always; GitHub Number field via `summary.progressField` |
@@ -113,7 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Delimiter spike, per provider | ✅ | [02-delimiter-spike.md](02-delimiter-spike.md) |
 | 3 | Managed block + summary mode | ✅ | [03-managed-block.md](03-managed-block.md) |
 | 4 | Progress — block text and native fields | ✅ | [04-progress.md](04-progress.md) |
-| 5 | Authoring, setup skills, docs | ⬜ | [05-authoring-docs.md](05-authoring-docs.md) |
+| 5 | Authoring, setup skills, docs | ✅ | [05-authoring-docs.md](05-authoring-docs.md) |
 
 ## Open questions
 
@@ -178,3 +180,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-08 — Follow-up surfaced: native progress fields for Linear, Jira and
   Azure Boards are not wired (no test access here); the `afterIssue` op is the
   seam. Not in scope for this spec.
+- 2026-11-08 — Phase 5 built: `/spec` and `/spec-review` carry the Summary and
+  Acceptance-criteria pair; setup skills ask what a ticket carries; a
+  `spec-sync splice` verb makes the MCP path splice through the engine; all
+  four `init-config`s write `summary`; the five tracker pages and reference
+  re-read and re-verified.

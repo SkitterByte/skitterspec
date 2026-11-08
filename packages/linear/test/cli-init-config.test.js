@@ -54,7 +54,9 @@ test('writes a minimal config from a team id alone', async () => {
   const { code, text } = await run(dir, ['--team-id', 'team-uuid-1'])
 
   assert.strictEqual(code, 0)
-  assert.deepStrictEqual(written(dir), { linear: { teamId: 'team-uuid-1' } })
+  // `mapping.description` is not a default being restated — the loader's is
+  // `spec`; a NEW config is deliberately written with `summary`.
+  assert.deepStrictEqual(written(dir), { linear: { teamId: 'team-uuid-1' }, mapping: { description: 'summary' } })
   assert.match(text, /wrote specs\/\.core\/linear\.config\.json/)
 })
 
@@ -65,9 +67,11 @@ test('omits every default the operator did not set', async () => {
 
   // The shipped defaults must not be restated: a config that repeats them
   // buries the one line that is this repo's, and freezes today's values.
-  for (const key of ['mapping', 'snapshot', 'branch', 'auth', 'apply', 'sync', 'states']) {
+  for (const key of ['snapshot', 'branch', 'auth', 'apply', 'sync', 'states', 'phases', 'tasks', 'specFolder']) {
     assert.ok(!raw.includes(`"${key}"`), `${key} should not be written`)
   }
+  // `mapping` carries only the one key that is a choice rather than a default.
+  assert.deepStrictEqual(JSON.parse(raw).mapping, { description: 'summary' })
   // …and the loader still supplies them.
   const { config, present } = loadLinearConfig(dir)
   assert.strictEqual(present, true)
@@ -190,7 +194,7 @@ test('--json emits a machine-readable result the skill can relay', async () => {
   assert.strictEqual(result.ok, true)
   assert.strictEqual(result.file, CONFIG_FILE)
   assert.strictEqual(result.replaced, false)
-  assert.deepStrictEqual(result.wrote, { linear: { teamId: 'T1' } })
+  assert.deepStrictEqual(result.wrote, { linear: { teamId: 'T1' }, mapping: { description: 'summary' } })
   assert.deepStrictEqual(result.validated.states, { checked: 4, against: 4, missing: [] })
 })
 
@@ -263,4 +267,15 @@ test('the retired --assign fails loudly rather than doing nothing', async () => 
   const r = await run(dir, ['--team-id', 'T1', '--assign'])
   assert.notStrictEqual(r.code, 0)
   assert.match(r.text, /--assign/)
+})
+
+test('--description spec writes the full-spec mode; a bad mode refuses and writes nothing', async () => {
+  const dir = repo()
+  const bad = await run(dir, ['--team-id', 'T1', '--description', 'sumary'])
+  assert.notStrictEqual(bad.code, 0)
+  assert.match(bad.text, /mapping\.description/)
+  assert.ok(!fs.existsSync(path.join(dir, CONFIG_FILE)))
+  const ok = await run(dir, ['--team-id', 'T1', '--description', 'spec'])
+  assert.strictEqual(ok.code, 0)
+  assert.deepStrictEqual(written(dir).mapping, { description: 'spec' })
 })

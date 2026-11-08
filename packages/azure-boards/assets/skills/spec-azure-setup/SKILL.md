@@ -136,6 +136,27 @@ Then settle the four bucket→state names against that list:
 Each answer that differs from the defaults becomes a `--state <bucket>=<name>`
 flag in step 6.
 
+## 5b. What does a ticket carry?
+
+Ask once, with the recommendation first — this decides what the team sees on
+every ticket, so it is theirs to choose rather than a default to inherit:
+
+- **`summary`** *(recommended — what `init-config` writes)* — the ticket holds a
+  short delimited block: the spec's summary, its acceptance criteria, the
+  surfaces it touches, its gating and its progress. Push splices that block in
+  beside whatever the team writes, which no push ever touches. The spec itself
+  stays in git.
+- **`spec`** — the whole overview is the ticket body, replaced on every push.
+  Pass `--description spec` to `init-config`.
+
+Azure Boards's block is marked with a heading for now (`summary.delimiter`), provisional
+until a measured run settles which delimiter Azure Boards's editor keeps.
+
+Then name the phase mode, without asking unless they raise it:
+`mapping.phases` stays `subissue` — one assignable sub-issue per phase, which
+is what lets phases run in parallel. `deferred` (minted at `/spec-start`),
+`inline` and `none` (no sub-issues at all) are one edit to the file away.
+
 ## 6. Write it
 
 ```
@@ -143,7 +164,8 @@ skitterspec spec-sync init-config \
   --org-url https://dev.azure.com/<org> --project <project> \
   [--work-item-type Issue] [--child-type Task] \
   [--kind-type <kind>=<Type> …] [--bug-type <Type> …] [--hotfix-type <Type> …] \
-  [--state <bucket>=<name> …] [--force] [--json]
+  [--state <bucket>=<name> …] [--force] [--json] \
+  [--description summary|spec]
 ```
 
 The engine writes **only the keys that differ from the defaults**, so the file

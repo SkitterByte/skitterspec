@@ -510,6 +510,22 @@ against a committed last-pushed snapshot and applies it) and `/spec-status`
 backed by a `spec-sync` CLI. There is no content pull — the tracker is never
 read back or merged.
 
+**What a ticket carries is the project's choice (`mapping.description`).**
+Under `"spec"` the issue body is the whole overview and each phase sub-issue
+its phase file, replaced on every push — what every config written before the
+setting existed gets. Under `"summary"`, what a new config is written with, the
+spec stays in git and the ticket gets what a ticket is for: a delimited
+**block** holding the spec's `## Summary`, its `## Acceptance criteria`, the
+Impact table's surfaces, its gating and its progress (`62% · phase 3 of 4`),
+with each sub-issue's block holding its goal and task count. Push **splices**
+the block into whatever the description holds, so a team's own text around it
+survives every push, and only an edit *inside* the block is drift. That is a
+splice, not a pull: nothing outside the block is parsed, merged or written
+back. A delimiter edited by hand is cannot-tell — the push names it and writes
+nothing there rather than guess. `mapping.phases: "none"` drops the phase
+objects entirely; `subissue` stays the default because assignable phases are
+what let them run in parallel.
+
 **The tracker owns status; the repo owns the spec.** With a provider attached,
 a team runs its work from the board — assignment, Ready, Blocked, Cancelled and
 Done all happen there — so a status kept in the repo as well is a copy somebody

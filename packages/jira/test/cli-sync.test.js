@@ -660,6 +660,8 @@ test('init-config writes only what was set, and validates through the loader', a
   const written = JSON.parse(fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8'))
   assert.deepStrictEqual(written, {
     jira: { siteUrl: SITE, projectKey: 'PROJ' },
+    // A new config says what the ticket carries; the loader default is `spec`.
+    mapping: { description: 'summary' },
     states: { complete: 'Shipped' },
   })
   // Spec worktrees fork from commits, so a written-but-uncommitted config is

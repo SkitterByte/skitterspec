@@ -1343,6 +1343,10 @@ async function specSyncInitConfig(dir, flags, out) {
   const parsed = { azure: { orgUrl: flags.orgUrl, project: flags.project } }
   if (flags.workItemType) parsed.azure.workItemType = flags.workItemType
   if (flags.childType) parsed.azure.childType = flags.childType
+  // A NEW config carries a summary, not the spec: written explicitly, so the
+  // file says what the ticket gets. A config that predates the key keeps
+  // pushing the spec (the loader's default), so an upgrade rewrites nothing.
+  parsed.mapping = { description: flags.description || 'summary' }
   if (flags.kindTypes && Object.keys(flags.kindTypes).length) parsed.azure.workItemTypeByKind = flags.kindTypes
   if (flags.bugTypes || flags.hotfixTypes) {
     parsed.intake = {}
@@ -1609,6 +1613,7 @@ const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
   record <spec>                          write the last-pushed snapshot
   status <spec> [--remote <f>]           read-only drift report
   verify <spec> --stored <f>             compare a read-back against the repo
+  splice <spec> --live <f> [--phase <ref>]  the body to write over MCP (summary mode)
   states [--json]                        the configured types' state names
   list [--all | --state NAME|BUCKET | --next N] [--mine | --by USER]  tracker listing
   linked [--json]                        specs and their linked items (offline)
@@ -1684,6 +1689,11 @@ async function specSync(rest, io = {}) {
       return specSyncRecord(dir, config, positional[0], out)
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out, err)
+    case 'splice': {
+      const snapshotDir = resolveOrExit(positional[0], dir, err)
+      if (!snapshotDir) return 1
+      return kit.specSyncSplice({ snapshotDir, config, flags, out, err, program: PROGRAM })
+    }
     case 'verify':
       return specSyncVerify(dir, config, positional[0], flags, out)
     case 'linked':
@@ -1738,6 +1748,9 @@ function parseArgs(args, sub) {
     '--dir': { kind: 'path', name: 'dirOverride' },
     '--plan': { kind: 'path' },
     '--stored': { kind: 'path' },
+    '--live': { kind: 'path' },
+    '--description': { kind: 'string' },
+    '--phase': { kind: 'string' },
     '--remote': { kind: 'path' },
     '--text': { kind: 'path' },
     '--file': { kind: 'path' },

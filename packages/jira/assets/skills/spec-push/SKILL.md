@@ -20,6 +20,13 @@ skill computes what changed since the last push and applies it — it never read
 Jira content back or merges. A person editing the mirror in Jira will see it
 overwritten on the next push.
 
+**That is `mapping.description: "spec"`.** Under `"summary"` (what a new
+config is written with) the issue and each sub-issue carry a delimited
+**block** instead — summary, acceptance criteria, surfaces, gating and
+progress for the spec; goal and task count for a phase — spliced in beside
+whatever the team wrote in Jira, which is never overwritten. Only the block
+is the repo's, so only an edit inside it is reported.
+
 **Opt-in**: only runs when `specs/.core/jira.config.json` exists. If absent,
 tell the user how to enable Jira sync and stop.
 
@@ -147,6 +154,21 @@ There is no project to pick, on either path: a minted issue lands in the
 configured `jira.projectKey` by construction.
 
 ## 4a. Apply it yourself — the MCP path (order matters)
+
+**In summary mode, every body you write is the engine's splice — never the plan's text on its own.**
+Only when the plan's `descriptionMode` is
+`summary` (it is always present; `spec` needs none of this). There
+the plan's `description` and each sub-issue's `goal` are a **block**, and the
+issue's body is the block *plus the team's text around it*. Writing the block
+alone deletes that text. So, for each object you are about to write:
+
+1. Save the body Jira holds now to a file — an empty file for one you are
+   creating.
+2. `skitterspec spec-sync splice <spec> --live <file>` for the spec issue, or
+   `… --phase <ref>` for a phase's sub-issue.
+3. Write **exactly what it prints**. A non-zero exit printed nothing and means
+   a delimiter was edited by hand: skip that object's body, write its other
+   fields, and name it in the report. Never compose the splice yourself.
 
 **First, check whether you are about to overwrite someone.** On the API path
 `apply` does this for itself, off the read-back it already makes. On the MCP

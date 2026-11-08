@@ -38,7 +38,9 @@ not write the spec until this is resolved.
   asking. Verify endpoints/models/files actually exist before relying on them.
 - Cover, at minimum, the areas that apply:
   1. **Problem & why** — what's broken/missing, who feels it, why now.
-  2. **Scope & non-goals** — explicit out-of-scope items.
+  2. **Scope & non-goals** — explicit out-of-scope items, and the
+     **acceptance criteria**: what someone checks, without reading the code,
+     to call the work done (they become `## Acceptance criteria`).
   3. **Affected areas** — concrete files/modules/packages this touches.
   4. **Proposed solution shape** — the chosen approach and the alternatives
      rejected, with the reason (this becomes "Decisions").
@@ -237,9 +239,19 @@ the codebase, link rather than duplicate):
 > "none: not user-facing". An empty value or a bare
 > "none" is not a valid outcome — see Phase A item 10>
 
+## Summary
+
+<1–3 sentences: what the work delivers, for someone who will never open the
+spec — no phase breakdown, no implementation detail. With a ticketing provider
+in summary mode this is what the ticket leads with.>
+
 ## Problem
 
 <2–6 sentences: what's wrong/missing and why it matters. No fluff.>
+
+## Acceptance criteria
+
+- <an observable check, from Phase A item 2 — one per line>
 
 ## Decisions
 
@@ -342,6 +354,11 @@ Rules for the spec body:
 - **Changelog** is mandatory and lives in the spec. Every later decision or
   course-correction gets a dated one-line entry. Convert relative dates to
   absolute.
+- **`## Summary` and `## Acceptance criteria` are the ticket-facing pair.**
+  Write them for a reader on the board, not the one building it: the summary
+  says what the work delivers, each criterion is something a person can check.
+  A ticketing provider in summary mode projects exactly these (plus the
+  Impact table's surfaces, Gating and progress) and nothing else.
 - Keep it tight. If a section adds no information, delete it.
 
 ## Phase C — finish up

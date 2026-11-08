@@ -25,6 +25,7 @@ const args = require('./src/args.js')
 const adapter = require('./src/adapter.js')
 const apply = require('./src/apply.js')
 const status = require('./src/status.js')
+const splice = require('./src/splice.js')
 
 module.exports = {
   ...config,
@@ -40,4 +41,5 @@ module.exports = {
   ...adapter,
   ...apply,
   ...status,
+  ...splice,
 }

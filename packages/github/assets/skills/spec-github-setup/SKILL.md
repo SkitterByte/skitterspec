@@ -133,12 +133,38 @@ flag in step 6.
 but offer to create them now with a colour, since a label made on first use is
 grey and undescribed. Create them only on a yes.
 
+## 5b. What does a ticket carry?
+
+Ask once, with the recommendation first — this decides what the team sees on
+every ticket, so it is theirs to choose rather than a default to inherit:
+
+- **`summary`** *(recommended — what `init-config` writes)* — the ticket holds a
+  short delimited block: the spec's summary, its acceptance criteria, the
+  surfaces it touches, its gating and its progress. Push splices that block in
+  beside whatever the team writes, which no push ever touches. The spec itself
+  stays in git.
+- **`spec`** — the whole overview is the ticket body, replaced on every push.
+  Pass `--description spec` to `init-config`.
+
+GitHub's block is marked with HTML comments, measured to survive its editor.
+
+Then name the phase mode, without asking unless they raise it:
+`mapping.phases` stays `subissue` — one assignable sub-issue per phase, which
+is what lets phases run in parallel. `deferred` (minted at `/spec-start`),
+`inline` and `none` (no sub-issues at all) are one edit to the file away.
+
+**On GitHub, offer the progress field too.** If the board has (or the user
+wants) a **Number** field for % done, name it in `summary.progressField`
+after the write; every push then fills it. Off by default, and a board
+without the field is one report line, never a failure.
+
 ## 6. Write it
 
 ```
 skitterspec spec-sync init-config \
   --owner <owner> --repo <repo> --project <N> \
-  [--status-field Status] [--state <bucket>=<name> …] [--force]
+  [--status-field Status] [--state <bucket>=<name> …] [--force] \
+  [--description summary|spec]
 ```
 
 The engine writes **only the keys that were given**, so the file shows this

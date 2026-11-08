@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-azure-boards/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: d1c5e83540ea
+verified: 6e59e6e6cd42
 -->
 <html lang="en">
 <head>
@@ -576,6 +576,10 @@ verified: d1c5e83540ea
 
     <p class="reveal" style="color:var(--ink-soft); font-size:.95rem; margin-top:26px; max-width:64ch;"><strong>There is no project picker, on purpose.</strong> <span class="mono">azure.project</span> pins exactly one project per repo, and every spec item lands there <em>by construction</em> (<span class="mono">azure.areaPath</span> places it inside the project when a team wants one). The question the config asks is not "which project do you like" — it is "which product's work does this repo hold", and it is answered once.</p>
 
+    <h3 style="margin-top:44px; font-size:1.05rem;" class="reveal">Or: the issue carries a summary, and the spec stays in git</h3>
+    <p class="reveal" style="max-width:70ch;">The mapping above is <span class="mono">mapping.description: "spec"</span>, which is what a config written before the setting existed gets. With <span class="mono">"summary"</span> (what a new config is written with) the issue body holds a delimited <b>block</b> instead: the spec's summary, its acceptance criteria, the surfaces it touches, its gating and its progress (<span class="mono">62% · phase 3 of 4</span>), with a pointer to the spec. Push splices that block into whatever the description already holds, so anything your team writes around it survives every push, and an edit is reported only if it lands <em>inside</em> the block. Phase sub-issues get a block too: their goal and <span class="mono">n of m tasks</span>, with the task list staying in git. <span class="mono">mapping.phases: "none"</span> drops the sub-issues altogether.</p>
+    <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:10px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;"><b style="color:var(--ink-soft)">Provisional:</b> Boards marks the block with a heading (<span class="mono">summary.delimiter: "heading"</span>) until a measured run settles which delimiter survives Boards's editor. If a delimiter is edited by hand, the push names it and leaves the block unwritten rather than guess.</p>
+
     <h3 style="margin-top:52px; font-size:1.15rem;" class="reveal">Who owns what — no reconciliation, because there's one owner</h3>
     <p style="color:var(--ink-soft); font-size:.95rem; margin-top:10px; max-width:64ch;" class="reveal">One-way sync means there's nothing to argue about: the repo owns the spec and pushes it; Boards-native triage stays the PM's and is never touched. No base, no conflicts, no <span class="mono">--force</span>.</p>
     <div class="own reveal">
@@ -783,6 +787,7 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
           <tr><td class="cmd">spec-sync (azure) apply &lt;spec&gt;</td><td>Apply a plan over the API — create/update as JSON Patch, then set the state — and stamp the returned ids. On the MCP transport it writes nothing and names the tools that apply it instead.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (azure) status &lt;spec&gt;</td><td>What would push, and whether the description was edited on Boards since the last push. Never reads the item's state.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (azure) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent — markdown is stored verbatim, so this is normally byte-identical; an HTML-era item reduces to text first. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>
+          <tr><td class="cmd">spec-sync (azure) splice &lt;spec&gt; --live &lt;f&gt;</td><td>The body to write when the skill applies over MCP: in summary mode, the block spliced into what Azure Boards holds now, so the team's text around it survives; refuses (prints no body) when a delimiter was edited. In spec mode, the projection as it is.</td><td class="folder">/spec-push · /spec</td></tr>
           <tr><td class="cmd">spec-sync (azure) preserve &lt;spec&gt;</td><td>Post the item's current description as a comment headed <b>Original report</b>, before the linking push replaces it with the spec. How a reporter's original words survive adoption. Idempotent, and never fatal — it exits 0 on everything it cannot do.</td><td class="folder">/spec · /spec-bug · /spec-hotfix</td></tr>
           <tr><td class="cmd">spec-sync (azure) comment &lt;spec&gt; --file &lt;f&gt;</td><td>Post a file onto the spec's work item as a comment — the surface no later push can clobber. How an incident's log reaches the item at completion. Exits 0 on everything it cannot do.</td><td class="folder">/spec-complete</td></tr>
           <tr><td class="cmd">spec-sync (azure) stamp &lt;spec&gt;</td><td>Write item ids into a spec's frontmatter (<span class="mono">--issue AB#123</span>, <span class="mono">--sub ref=n</span>) — verified against Azure when a PAT resolves. The MCP path's last step — or a manual link.</td><td class="folder">/spec-push · you</td></tr>

@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-linear/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: d1c5e83540ea
+verified: 6e59e6e6cd42
 -->
 <html lang="en">
 <head>
@@ -572,6 +572,10 @@ verified: d1c5e83540ea
 
     <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:14px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;">The spec body travels as the issue <b style="color:var(--ink-soft)">description</b>, each phase as a <b style="color:var(--ink-soft)">sub-issue</b> (name, goal, state, and its task list as a read-only checklist), and the lifecycle folder sets the workflow state. Nothing is read back, so a box ticked in Linear is overwritten. Push diffs against a committed last-pushed snapshot, so only what changed is sent — IDs stamped back into the markdown.</p>
 
+    <h3 style="margin-top:44px; font-size:1.05rem;" class="reveal">Or: the issue carries a summary, and the spec stays in git</h3>
+    <p class="reveal" style="max-width:70ch;">The mapping above is <span class="mono">mapping.description: "spec"</span>, which is what a config written before the setting existed gets. With <span class="mono">"summary"</span> (what a new config is written with) the issue body holds a delimited <b>block</b> instead: the spec's summary, its acceptance criteria, the surfaces it touches, its gating and its progress (<span class="mono">62% · phase 3 of 4</span>), with a pointer to the spec. Push splices that block into whatever the description already holds, so anything your team writes around it survives every push, and an edit is reported only if it lands <em>inside</em> the block. Phase sub-issues get a block too: their goal and <span class="mono">n of m tasks</span>, with the task list staying in git. <span class="mono">mapping.phases: "none"</span> drops the sub-issues altogether.</p>
+    <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:10px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;"><b style="color:var(--ink-soft)">Provisional:</b> Linear marks the block with a heading (<span class="mono">summary.delimiter: "heading"</span>) until a measured run settles which delimiter survives Linear's editor. If a delimiter is edited by hand, the push names it and leaves the block unwritten rather than guess.</p>
+
     <h3 style="margin-top:52px; font-size:1.15rem;" class="reveal">Who owns what — no reconciliation, because there's one owner</h3>
     <p style="color:var(--ink-soft); font-size:.95rem; margin-top:10px; max-width:64ch;" class="reveal">One-way sync means there's nothing to argue about: the repo owns the spec and pushes it; Linear-native triage stays the PM's and is never touched. No base, no conflicts, no <span class="mono">--force</span>.</p>
     <div class="own reveal">
@@ -845,6 +849,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
           <tr><td class="cmd">spec-sync apply &lt;spec&gt;</td><td>Apply a plan, stamp the returned ids into the spec, and record the snapshot.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync status &lt;spec&gt;</td><td>What would push, and whether the description was edited in Linear since the last push. Never reads the issue's workflow-state.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync verify &lt;spec&gt;</td><td>Read back what Linear stored and compare it to what was sent.</td><td class="folder">/spec-push · you</td></tr>
+          <tr><td class="cmd">spec-sync splice &lt;spec&gt; --live &lt;f&gt;</td><td>The body to write when the skill applies over MCP: in summary mode, the block spliced into what Linear holds now, so the team's text around it survives; refuses (prints no body) when a delimiter was edited. In spec mode, the projection as it is.</td><td class="folder">/spec-push · /spec</td></tr>
           <tr><td class="cmd">spec-sync preserve &lt;spec&gt;</td><td>Post the issue's current description as a comment, before the linking push replaces it with the spec. How a reporter's original words survive adoption. Idempotent, and never fatal — it exits 0 on everything it cannot do.</td><td class="folder">/spec · /spec-bug · /spec-hotfix</td></tr>
           <tr><td class="cmd">spec-sync comment &lt;spec&gt; --file &lt;f&gt;</td><td>Post a file onto the spec's issue as a comment — the surface no later push can clobber. How an incident's log reaches the ticket at completion. Exits 0 on everything it cannot do.</td><td class="folder">/spec-complete</td></tr>
           <tr><td class="cmd">spec-sync reattach &lt;spec&gt; [--to &lt;ref&gt;]</td><td>Point a spec back at the issue it already has, when its link was lost. Stamps the one unclaimed issue whose title matches exactly — and refuses rather than choosing when several do.</td><td class="folder">you</td></tr>

@@ -14,7 +14,9 @@ If it's absent, skip this entirely — the spec stays local-only and the skill
 behaves exactly as above. When present, link the spec you just wrote so status
 and discussion live in GitHub while the repo stays the source of truth. A spec is
 a GitHub **issue**; each phase is a **sub-issue**, carrying that phase's tasks in
-its description as a read-only checklist.
+its description as a read-only checklist. That is the `spec` description mode;
+under `summary` (a new config's default) the issue and each sub-issue carry
+a short block instead, and the phase's tasks stay in git.
 
 **Linking is just the first push**, so it runs the same engine path `/spec-push`
 does — you never create the issue by hand:

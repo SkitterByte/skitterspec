@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-github/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: d1c5e83540ea
+verified: 6e59e6e6cd42
 -->
 <html lang="en">
 <head>
@@ -801,6 +801,7 @@ $ skitterspec-github spec-sync <span class="p">released</span> "$PREV..$TAG" --j
           <tr><td class="cmd">spec-sync (github) apply &lt;spec&gt;</td><td>Apply a plan over the API — create or update, link sub-issues, set the board Status, open or close — and stamp the returned numbers. On the MCP transport it writes nothing and names the tools instead.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (github) status &lt;spec&gt;</td><td>What would push, and whether the body was edited on GitHub since the last push. Never reads the board's Status.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (github) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>
+          <tr><td class="cmd">spec-sync (github) splice &lt;spec&gt; --live &lt;f&gt;</td><td>The body to write when the skill applies over MCP: in summary mode, the block spliced into what GitHub holds now, so the team's text around it survives; refuses (prints no body) when a delimiter was edited. In spec mode, the projection as it is.</td><td class="folder">/spec-push · /spec</td></tr>
           <tr><td class="cmd">spec-sync (github) preserve &lt;spec&gt;</td><td>Post an adopted issue's original body as a comment headed <b>Original report</b>, before the linking push replaces it. Idempotent, and exits 0 on everything it cannot do.</td><td class="folder">/spec · /spec-bug · /spec-hotfix</td></tr>
           <tr><td class="cmd">spec-sync (github) comment &lt;spec&gt; --file &lt;f&gt;</td><td>Post a file onto the spec's issue as a comment — the surface no later push can clobber. How an incident's log reaches the issue at completion. Exits 0 on everything it cannot do.</td><td class="folder">/spec-complete</td></tr>
           <tr><td class="cmd">spec-sync (github) stamp &lt;spec&gt;</td><td>Write issue numbers into a spec (<span class="mono">--issue #123</span>, <span class="mono">--sub ref=#124</span>), checked against GitHub when a token resolves.</td><td class="folder">/spec-push · you</td></tr>

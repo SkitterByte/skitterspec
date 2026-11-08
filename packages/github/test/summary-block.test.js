@@ -244,3 +244,51 @@ test('no progressField writes no field and prints no progress line', async () =>
   assert.ok(!adapter.calls.some((c) => c[0] === 'setNumberField'))
   assert.doesNotMatch(r.out, /progress:/)
 })
+
+// --- splice: the MCP path's body, from the engine ------------------------------
+
+test('splice prints the block spliced into the live body, and the phase block with --phase', async () => {
+  const dir = repo()
+  const live = path.join(dir, 'live.md')
+  fs.writeFileSync(live, 'PM note.\n')
+  let r = await run(['splice', 'feat-demo', '--live', live], dir)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.ok(r.out.startsWith(BEGIN) && r.out.endsWith('\n\nPM note.\n'), r.out)
+  fs.writeFileSync(live, '')
+  r = await run(['splice', 'feat-demo', '--live', live, '--phase', '01-outbox'], dir)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /^<!-- skitterspec:begin -->\na durable place\./)
+})
+
+test('splice refuses a damaged block, an unknown phase and a missing --live, printing no body', async () => {
+  const dir = repo()
+  const live = path.join(dir, 'live.md')
+  fs.writeFileSync(live, `${BEGIN}\nhalf a block`)
+  const outs = []
+  for (const args of [
+    ['splice', 'feat-demo', '--live', live],
+    ['splice', 'feat-demo', '--live', live, '--phase', '09-nope'],
+    ['splice', 'feat-demo'],
+  ]) {
+    const out = new Sink()
+    const err = new Sink()
+    const code = await specSync(args, { cwd: dir, out, err, env: {}, tty: false })
+    assert.strictEqual(code, 1, args.join(' '))
+    assert.strictEqual(out.text, '', 'stdout carries a body or nothing')
+    outs.push(err.text)
+  }
+  assert.match(outs[0], /delimiters were edited — write nothing/)
+  assert.match(outs[1], /no phase 09-nope/)
+  assert.match(outs[2], /pass --live/)
+})
+
+// STAYS-SILENT: spec mode prints the projection, untouched by the live body.
+test('splice in spec mode prints the whole projection', async () => {
+  const dir = repo({ mapping: {} })
+  const live = path.join(dir, 'live.md')
+  fs.writeFileSync(live, 'whatever is there')
+  const r = await run(['splice', 'feat-demo', '--live', live], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /^# Demo/)
+  assert.doesNotMatch(r.out, /whatever is there/)
+})

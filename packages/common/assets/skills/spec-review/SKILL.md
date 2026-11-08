@@ -43,6 +43,11 @@ trust the spec's own wording — verify:
 - **Decisions still valid.** Re-check each `## Decisions` entry against the
   current architecture and `.claude/rules/*.md`. Flag any that now conflict with
   how the codebase actually works (a changed convention, a superseded approach).
+- **The ticket-facing pair.** A spec with no `## Summary` or no
+  `## Acceptance criteria` is not broken — older specs predate both — but where
+  a ticketing provider pushes summaries the ticket falls back to the Problem's
+  first paragraph and shows no definition of done. Offer to write the missing
+  one(s) in step 3, with a draft; never add them unasked.
 - **New constraints.** Note rules/patterns introduced since the spec was written
   that it must now honour (e.g. a new required field, a new error type, a new
   pattern the rest of the code now follows).

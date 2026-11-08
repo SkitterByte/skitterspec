@@ -16,6 +16,7 @@
  */
 
 const { normalizeLocal, phasesWithheld, phaseModeFor, ownershipOf, readSnapshot } = require('./normalize.js')
+const { descriptionMode } = require('./summary.js')
 const { fieldsOf } = require('./fields.js')
 const { planChanges, snapshotOf, isEmptyPlan } = require('./compare.js')
 const { readBase, writeBase } = require('./base.js')
@@ -89,6 +90,10 @@ function push({ dir, snapshotDir, identifier, config }) {
   // know that an absent field means `subissue`. `isEmptyPlan` and `snapshotOf`
   // both read named fields, so an extra key cannot make a spec look edited.
   plan.phaseMode = projection.phaseMode
+  // Always set too: under `summary` the planned bodies are BLOCKS, and an
+  // apply that writes one over the whole description deletes the team's text.
+  // The MCP path reads this to know it must splice (`spec-sync splice`).
+  plan.descriptionMode = descriptionMode(config)
   return { ok: true, empty: isEmptyPlan(plan), plan, projection }
 }
 
