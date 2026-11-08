@@ -125,12 +125,14 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - [x] Which native progress field each provider offers. GitHub: a Projects
       Number field, named in `summary.progressField` (phase 4). Linear, Jira,
       Azure: not wired — see the 2026-11-08 follow-up below.
-- [ ] Switching an existing project from `spec` to `summary`: its pushed
-      descriptions hold no block yet — does the first summary push replace the
-      whole description once (and back it up as a comment), or prepend the block
-      and leave the old spec text below it?
-- [ ] Switching to `phases: none` leaves existing sub-issues frozen (one-way
-      sync has no delete) — close them on the switch, or leave them?
+- [x] Switching an existing project from `spec` to `summary`: the first
+      summary push puts the block **above** the old body and leaves the old
+      spec text below it (an absent block is spliced in, never a replace).
+      Nothing is deleted, and the old text can be removed by hand; a one-off
+      clean-up on switch was not built.
+- [x] Switching to `phases: none`: sub-issues already linked keep projecting
+      (now as goal + progress blocks), for the no-delete reason; they are not
+      closed. Only unlinked phases stop being minted.
 
 ## State log
 
@@ -185,3 +187,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `spec-sync splice` verb makes the MCP path splice through the engine; all
   four `init-config`s write `summary`; the five tracker pages and reference
   re-read and re-verified.
+- 2026-11-08 — Completed; all five phases done, tests green. The two switching
+  questions are answered by what was built (block prepended, old text kept;
+  linked sub-issues kept) rather than by a migration step, consciously.
+  Deferred: native progress fields for Linear, Jira and Azure; delimiter
+  measurement for those three is #132.
