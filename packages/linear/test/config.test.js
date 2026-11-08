@@ -300,8 +300,8 @@ test('an unknown mapping.phases throws rather than degrading to subissue', () =>
   assert.throws(() => loadLinearConfig(dir), /mapping\.phases/)
 })
 
-test('PHASE_MAPPINGS is exactly subissue|deferred|inline', () => {
-  assert.deepStrictEqual([...PHASE_MAPPINGS], ['subissue', 'deferred', 'inline'])
+test('PHASE_MAPPINGS is exactly subissue|deferred|inline|none', () => {
+  assert.deepStrictEqual([...PHASE_MAPPINGS], ['subissue', 'deferred', 'inline', 'none'])
 })
 
 test('mapping.phases also accepts a map of lifecycle bucket to mode', () => {

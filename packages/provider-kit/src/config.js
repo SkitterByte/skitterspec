@@ -236,6 +236,33 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
     base[key] = table
   }
 
+  // Merge (and validate) what a ticket's description carries —
+  // `mapping.description` (`spec` · `summary`) and the block's delimiter style
+  // (`summary.delimiter`: `comment` · `heading`). Loud on a bad value: a typo
+  // must not read as a choice to keep pushing the whole spec.
+  function mergeDescription(base, parsed) {
+    if (isObject(parsed.mapping) && parsed.mapping.description !== undefined) {
+      const mode = parsed.mapping.description
+      if (!DESCRIPTION_MODES.includes(mode)) {
+        throw new Error(
+          `Invalid ${configFile}: mapping.description = ${JSON.stringify(mode)} ` +
+            `(expected one of ${DESCRIPTION_MODES.join('|')})`,
+        )
+      }
+      base.mapping.description = mode
+    }
+    if (isObject(parsed.summary) && parsed.summary.delimiter !== undefined) {
+      const style = parsed.summary.delimiter
+      if (!DELIMITER_STYLES.includes(style)) {
+        throw new Error(
+          `Invalid ${configFile}: summary.delimiter = ${JSON.stringify(style)} ` +
+            `(expected one of ${DELIMITER_STYLES.join('|')})`,
+        )
+      }
+      base.summary = { ...(base.summary || {}), delimiter: style }
+    }
+  }
+
   return {
     mergeStates,
     mergeStateOverrides,
@@ -243,8 +270,14 @@ function makeMergeHelpers({ configFile, ownership, lifecycleBuckets, phaseMappin
     mergePhaseMapping,
     mergeReleaseIgnorePaths,
     mergeKeyedFields,
+    mergeDescription,
   }
 }
+
+// What `mapping.description` may be. `spec` is the default and what a config
+// that predates the key gets, so an upgrade rewrites no ticket.
+const DESCRIPTION_MODES = Object.freeze(['spec', 'summary'])
+const DELIMITER_STYLES = Object.freeze(['comment', 'heading'])
 
 // Keys no provider reads any more. The merge already ignores them, as it does
 // every unknown key — so a config still carrying one is a stale file, not a
@@ -292,4 +325,4 @@ function retiredKeysRow(file, configFile, row) {
   )
 }
 
-module.exports = { isObject, stringList, assign, makeMergeHelpers, retiredKeys, retiredKeysRow, RETIRED_KEYS }
+module.exports = { isObject, stringList, assign, makeMergeHelpers, retiredKeys, retiredKeysRow, RETIRED_KEYS, DESCRIPTION_MODES, DELIMITER_STYLES }

@@ -24,7 +24,7 @@ const {
   resolvePrimaryCheckout,
 } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
-const { readSnapshot, parseFrontmatter, lintPhases, fieldsOf, projectionOf, compareStored } = require('@skitterbyte/skitterspec-sync-core')
+const { readSnapshot, parseFrontmatter, lintPhases, fieldsOf, projectionOf, compareStored, comparableDescription } = require('@skitterbyte/skitterspec-sync-core')
 
 function makeSpecHelpers({ program = 'spec-sync' } = {}) {
   // Resolve a spec argument to its snapshot dir. Accepts a spec name/folder
@@ -227,7 +227,9 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
         bad++
         continue
       }
-      const r = compareStored(sent, got, config)
+      // Summary mode compares the block alone: the text around it is the
+      // team's. Right after a write a missing block IS a loss, so it reads as ''.
+      const r = compareStored(sent, comparableDescription(got, config) ?? '', config)
       if (r.ok) continue
       bad++
       lines.push(

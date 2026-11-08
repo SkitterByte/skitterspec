@@ -43,6 +43,7 @@ const {
   stampSubIssueId,
   listPhaseFiles,
   normalizeLocal,
+  descriptionMode,
 } = require('@skitterbyte/skitterspec-sync-core')
 const kit = require('@skitterbyte/skitterspec-provider-kit')
 const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
@@ -1119,6 +1120,11 @@ async function specSyncPreserve(dir, config, specArg, flags, out) {
     return 0
   }
   if (!identifier) return done(`${path.basename(snapshotDir)} is not linked — nothing to preserve`)
+  // Summary mode splices a block in beside the reporter's text rather than
+  // replacing it, so the original is still in the description itself.
+  if (descriptionMode(config) === 'summary') {
+    return done(`${identifier} — summary mode keeps the original description in place; nothing to preserve`)
+  }
 
   let original = null
   if (flags.text) {

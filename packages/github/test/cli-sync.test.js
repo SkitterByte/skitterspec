@@ -688,7 +688,23 @@ test('init-config needs owner, repo and board, and writes only what was given', 
   assert.strictEqual(missing.code, 1)
   const r = await run(['init-config', '--owner', 'SkitterByte', '--repo', 'demo', '--project', '7'], dir, { adapter: fakeAdapter() })
   assert.strictEqual(r.code, 0, r.out)
-  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8')), { github: { owner: 'SkitterByte', repo: 'demo', project: '7' } })
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8')), {
+    github: { owner: 'SkitterByte', repo: 'demo', project: '7' },
+    // A new config says what the ticket carries, and the default is a summary.
+    mapping: { description: 'summary' },
+  })
+})
+
+test('init-config --description spec writes the full-spec mode, and a bad mode refuses', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-init-'))
+  const base = ['init-config', '--owner', 'SkitterByte', '--repo', 'demo', '--project', '7']
+  const bad = await run([...base, '--description', 'sumary'], dir, { adapter: fakeAdapter() })
+  assert.strictEqual(bad.code, 1)
+  assert.match(bad.out, /mapping\.description/)
+  assert.ok(!fs.existsSync(path.join(dir, CONFIG_FILE)))
+  const r = await run([...base, '--description', 'spec'], dir, { adapter: fakeAdapter() })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(dir, CONFIG_FILE), 'utf-8')).mapping, { description: 'spec' })
 })
 
 test('init-config refuses a states map the board cannot express, writing nothing', async () => {

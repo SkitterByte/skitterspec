@@ -54,10 +54,10 @@ is, what done looks like, who has it, what state it is in, and how far along**
    are not. A phase sub-issue's description becomes its own managed block: the
    phase's Goal line plus `n of m tasks`. The task checklist stays in git
    (`mapping.tasks` already supports dropping it).
-5. **Default for new installs; existing installs pinned.** `mapping.description`
-   defaults to `summary`, and `skitterspec update` writes an explicit
-   `"spec"` into a config that predates the key, so an upgrade rewrites no
-   ticket. A project switches by changing one value.
+5. **Default for new installs; existing installs unchanged.** A new config
+   is written with `mapping.description: "summary"`; a config without the key
+   reads as `spec`, so an upgrade rewrites no ticket. A project switches by
+   changing one value.
 6. **Progress is ticked tasks.** `% done` = ticked checkboxes over all
    checkboxes across the phase files, shown in the spec ticket's block as
    `62% · phase 3 of 4` and in each sub-issue's as `n of m tasks`. Where a provider has a native number field (a GitHub
@@ -88,8 +88,9 @@ Phase 5 is the authoring side and docs: `/spec` writes `## Summary` and
 
 | Surface | Change | Detail |
 |---------|--------|--------|
-| `mapping.description` config key | add | `summary` (default) · `spec`, all four providers |
-| `skitterspec update` config merge | update | pins `"spec"` into a config that predates the key |
+| `mapping.description` config key | add | `summary` (new configs) · `spec` (absent), all four providers |
+| `init-config` (per provider) | update | writes `mapping.description: "summary"` into a new config |
+| `summary.delimiter` config key | add | `comment` · `heading`, per provider |
 | `mapping.phases` | update | gains `none` — no phase objects at all |
 | `buildDescription` (sync-core `normalize.js`) | update | summary mode renders the managed block only |
 | Phase sub-issue description (`normalize.js` ~L530) | update | summary mode: Goal + `n of m tasks` block |
@@ -109,7 +110,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Docs-first design draft (index + GitHub) | ✅ | [01-docs-first.md](01-docs-first.md) |
 | 2 | Delimiter spike, per provider | ✅ | [02-delimiter-spike.md](02-delimiter-spike.md) |
-| 3 | Managed block + summary mode | ⬜ | [03-managed-block.md](03-managed-block.md) |
+| 3 | Managed block + summary mode | ✅ | [03-managed-block.md](03-managed-block.md) |
 | 4 | Progress — block text and native fields | ⬜ | [04-progress.md](04-progress.md) |
 | 5 | Authoring, setup skills, docs | ⬜ | [05-authoring-docs.md](05-authoring-docs.md) |
 
@@ -162,3 +163,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   byte-identical. Linear (free-plan cap), Jira and Azure (no test access)
   carried to `chore-delimiter-spike-providers` (#132); phase 3 uses the
   heading delimiter for them as provisional.
+- 2026-11-08 — Phase 3 built. Deviation from Decision 5: instead of
+  `skitterspec update` pinning old configs to `spec`, a config without the key
+  *is* `spec` and `init-config` writes `summary` into new ones. Same outcome,
+  no migration to get wrong, and an un-upgraded config can never flip to
+  summary by accident. Touches uses each Impact row's Detail (Surface alone is
+  a category, e.g. `Endpoint`). The splice lives in the shared apply skeleton,
+  so all four providers get it; the MCP apply path in the skills does not
+  splice yet (phase 5).

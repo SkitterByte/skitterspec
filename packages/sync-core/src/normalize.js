@@ -17,6 +17,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { dialectOf } = require('./dialect.js')
+const { descriptionMode, wrapBlock, specBlockInner, phaseBlockInner } = require('./summary.js')
 const { fieldsOf } = require('./fields.js')
 const { fenceMask, findTaskBlocks, collapse, collapseHyphenAware } = require('./task-block.js')
 
@@ -764,7 +765,9 @@ function phaseProjection(phases, workflowState, config) {
   // They differ only in where an unlinked phase goes — nowhere yet, or into the
   // spec issue's own description.
   const deferring = mode === 'deferred' && UNSTARTED_BUCKETS.includes(workflowState)
-  const projected = deferring || mode === 'inline' ? named.filter((p) => p.id != null) : named
+  // `none` holds every unlinked phase back for good — the ticket is one ticket.
+  // A phase already linked keeps projecting, for the same no-delete reason.
+  const projected = deferring || mode === 'inline' || mode === 'none' ? named.filter((p) => p.id != null) : named
   const unlinked = named.filter((p) => p.id == null)
   return {
     projected,
@@ -780,8 +783,11 @@ function phaseProjection(phases, workflowState, config) {
 
 function normalizeLocal(snapshotDir, config) {
   const dialect = dialectOf(config)
-  const { frontmatter, title, sections, phases } = readSnapshot(snapshotDir, config)
+  const { frontmatter, title, sections, phases, body } = readSnapshot(snapshotDir, config)
   const tasksMode = (config.mapping && config.mapping.tasks) || 'checklist'
+  // `summary` replaces both bodies with a delimited block (src/summary.js);
+  // `spec`, the default, is everything below exactly as it was.
+  const summaryMode = descriptionMode(config) === 'summary'
   // Status is the spec's lifecycle bucket. The folder is the source of truth; an
   // explicit `spec_status` frontmatter key overrides it if present. Resolved
   // BEFORE the sub-issue projection because deferral withholds phases by this
@@ -806,8 +812,13 @@ function normalizeLocal(snapshotDir, config) {
   const phasesCarriedBySubIssues =
     syncsSubIssues && phaseModeFor(workflowState, config) !== 'inline' && withheld === 0
   const extracted = {
-    description:
-      withInlinePhases(
+    description: summaryMode
+      ? wrapBlock(
+          dialect.flattenTables(dialect.canonicalize(specBlockInner({ snapshotDir, sections, body }))) +
+            relatedIncidentLine(snapshotDir, config),
+          config,
+        )
+      : withInlinePhases(
         buildDescription(
           title,
           sections,
@@ -834,7 +845,9 @@ function normalizeLocal(snapshotDir, config) {
       id: p.id,
       ref: p.phase,
       name: p.name,
-      goal: subIssueBody(p, tasksMode, config.sync.localOnlySections, dialect),
+      goal: summaryMode
+        ? wrapBlock(dialect.flattenTables(phaseBlockInner(p)), config)
+        : subIssueBody(p, tasksMode, config.sync.localOnlySections, dialect),
       state: phaseStateUnder(workflowState, p.state),
     })),
     workflowState,

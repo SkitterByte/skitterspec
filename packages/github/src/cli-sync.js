@@ -35,6 +35,7 @@ const {
   stampSubIssueId,
   listPhaseFiles,
   normalizeLocal,
+  descriptionMode,
 } = require('@skitterbyte/skitterspec-sync-core')
 const kit = require('@skitterbyte/skitterspec-provider-kit')
 const { GITHUB_REF_RE, IDENTIFIER_RE } = require('@skitterbyte/skitterspec-provider-kit/src/released.js')
@@ -1025,6 +1026,11 @@ async function specSyncPreserve(dir, config, specArg, flags, out) {
     return 0
   }
   if (!identifier) return done(`${path.basename(snapshotDir)} is not linked — nothing to preserve`)
+  // Summary mode splices a block in beside the reporter's text rather than
+  // replacing it, so the original is still in the description itself.
+  if (descriptionMode(config) === 'summary') {
+    return done(`${identifier} — summary mode keeps the original description in place; nothing to preserve`)
+  }
 
   let original = null
   if (flags.text) {
@@ -1241,6 +1247,10 @@ async function specSyncInitConfig(dir, flags, out) {
   // fails HERE rather than on the first push.
   const parsed = { github: { owner: flags.owner, repo: flags.repo, project: flags.project } }
   if (flags.statusField) parsed.github.statusField = flags.statusField
+  // A NEW config carries a summary, not the spec: written explicitly, so the
+  // file says what the ticket gets. A config that predates the key keeps
+  // pushing the spec (the loader's default), so an upgrade rewrites nothing.
+  parsed.mapping = { description: flags.description || 'summary' }
   if (flags.stateNames && Object.keys(flags.stateNames).length) {
     for (const bucket of Object.keys(flags.stateNames)) {
       if (!LIFECYCLE_BUCKETS.includes(bucket)) {
@@ -1468,6 +1478,7 @@ const USAGE = `Usage: ${BIN} spec-sync <subcommand>
   users [<query>]                        the repo's assignable people
   credentials <status|set|unset>         the GitHub token (user-level)
   init-config --owner … --repo … --project N   write the config
+             [--description summary|spec]  what a ticket body carries (default summary)
   doctor [--check-remote] [--json]       readiness report
 
 Not yet shipped for GitHub: retarget, reattach, sanitise.
@@ -1600,6 +1611,7 @@ function parseArgs(args, sub) {
     '--repo': { kind: 'string' },
     '--project': { kind: 'string' },
     '--status-field': { kind: 'string', name: 'statusField' },
+    '--description': { kind: 'string' },
     '--to': { kind: 'string' },
     '--name': { kind: 'value' },
     '--release': { kind: 'boolean' },

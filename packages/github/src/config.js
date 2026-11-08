@@ -28,7 +28,7 @@ const CONFIG_FILE = 'specs/.core/github.config.json'
 
 const OWNERSHIP = Object.freeze(['both', 'pull', 'push', 'none'])
 const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
-const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred', 'inline'])
+const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred', 'inline', 'none'])
 const TRANSPORTS = Object.freeze(['api', 'mcp'])
 const DEFAULT_TOKEN_ENV = 'GITHUB_TOKEN'
 // Read after `auth.tokenEnv`, because it is the name the GitHub CLI itself
@@ -64,7 +64,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // A spec is a GitHub ISSUE; each phase a SUB-ISSUE of it, carrying the
   // phase's checkboxes in its body as a task list (rendered live by GitHub —
   // still a read-only mirror).
-  mapping: Object.freeze({ specFolder: 'issue', phases: DEFAULT_PHASE_MODE, tasks: 'checklist' }),
+  // `description`: what the ticket body carries — `spec` (the whole overview)
+  // or `summary` (a delimited block beside the team's own text). `spec` is the
+  // default so a config written before the key pushes what it always pushed.
+  mapping: Object.freeze({ specFolder: 'issue', phases: DEFAULT_PHASE_MODE, tasks: 'checklist', description: 'spec' }),
+  // The summary block's delimiters (measured 2026-11-08: GitHub keeps HTML comments verbatim and hides them).
+  summary: Object.freeze({ delimiter: 'comment' }),
   // Board STATUS OPTION names — the spec issue's (from the folder bucket) and
   // each sub-issue's (from the phase emoji) both map through this table. They
   // must match the Status field's options exactly; the adapter resolves them
@@ -131,6 +136,7 @@ function defaults() {
   return {
     github: { ...g, labels: { ...g.labels }, issueTypes: { ...g.issueTypes }, labelsByKind: { ...g.labelsByKind }, severityLabels: { ...g.severityLabels } },
     mapping: { ...DEFAULT_CONFIG.mapping },
+    summary: { ...DEFAULT_CONFIG.summary },
     states: { ...DEFAULT_CONFIG.states },
     statesByKind: {},
     stateAliases: {},
@@ -158,7 +164,7 @@ function defaults() {
 }
 
 const { isObject, stringList, assign } = kitConfig
-const { mergeStates, mergeStateOverrides, mergeFieldOwnership, mergePhaseMapping, mergeReleaseIgnorePaths, mergeKeyedFields } =
+const { mergeStates, mergeStateOverrides, mergeFieldOwnership, mergePhaseMapping, mergeReleaseIgnorePaths, mergeKeyedFields, mergeDescription } =
   kitConfig.makeMergeHelpers({
     configFile: CONFIG_FILE,
     ownership: OWNERSHIP,
@@ -227,6 +233,7 @@ function mergeConfig(base, parsed) {
     }
     mergePhaseMapping(base.mapping, parsed.mapping)
   }
+  mergeDescription(base, parsed)
 
   mergeStates(base, parsed)
   mergeStateOverrides(base, parsed, 'statesByKind')

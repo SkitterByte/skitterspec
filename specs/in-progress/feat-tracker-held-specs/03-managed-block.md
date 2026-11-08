@@ -2,33 +2,44 @@
 github_issue_id: "#125"
 ---
 
-# Phase 3 — Managed block + summary mode ⬜
+# Phase 3 — Managed block + summary mode ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** under `mapping.description: "summary"`, a push writes only the managed
 block and leaves every other line of the description as the team wrote it.
 
 ## Tasks
 
-- [ ] `mapping.description` (`summary` default · `spec`) in all four provider
-      configs and the `.example`/`.md` references
-- [ ] `skitterspec update`: write `"description": "spec"` into a config that
-      predates the key, so an upgrade rewrites no ticket
-- [ ] sync-core: render the spec block — summary (`## Summary`, else
-      Problem's first paragraph), acceptance criteria checklist, surfaces
-      touched, gating, spec link — skipping each part whose source is absent
-- [ ] sync-core: render the sub-issue block — the phase's Goal line (task
-      count arrives in phase 4)
-- [ ] sync-core: pure `spliceBlock(live, block, delimiter)` — replace an
-      existing block, or insert one when absent; never touch outside text
-- [ ] Provider apply: read the live description and write the splice (summary
-      mode only; `spec` mode replaces as today)
-- [ ] `compareStored`: hash the block only in summary mode
-- [ ] `mapping.phases: "none"` — project no phase objects; existing linked
-      sub-issues keep the current one-way behaviour pending the open question
-- [ ] Adoption: skip the original-report comment in summary mode
-- [ ] Tests: splice round-trips (absent block, present block, outside text
-      edited, delimiter at either end); a stays-silent drift test where only the
-      outside text changed; `spec` mode output byte-identical to today; a
-      pre-key config pinned by `update`, a fresh one defaulting to `summary`
+- [x] `mapping.description` (`spec` · `summary`) and `summary.delimiter`
+      (`comment` · `heading`) in all four provider configs, validated by a
+      shared kit helper (`mergeDescription`); `.example`/`.md` references
+      updated. GitHub defaults to `comment` (measured); Linear, Jira and Azure
+      to `heading` (provisional, #132)
+- [x] New installs get summary: GitHub's `init-config` writes
+      `mapping.description: "summary"` (`--description spec` opts out). A
+      config without the key is `spec`, so no `update` migration is needed —
+      see the overview Changelog
+- [x] sync-core `src/summary.js`: the spec block — summary (`## Summary`, else
+      Problem's, else Symptom's first paragraph), acceptance criteria
+      checklist, Touches (each Impact row's Detail, else Surface), Gating, spec
+      path — each part skipped when its source is absent
+- [x] sync-core: the sub-issue block — the phase's goal (task count arrives in
+      phase 4)
+- [x] sync-core: pure `spliceBlock` / `blockOf` — present → replaced in
+      place, absent → put above the team's text, damaged → `null` (never
+      written)
+- [x] Provider apply: the shared kit skeleton reads the live body and writes
+      the splice for the issue and every sub-issue update; a damaged or
+      unreadable body is named and its body left out of the write
+- [x] Drift and verify scoped to the block (`comparableDescription` in
+      `remoteDescriptionEdited` and `verifyLines`)
+- [x] `mapping.phases: "none"` — no unlinked phase is projected; a linked one
+      keeps its sub-issue
+- [x] Adoption: `preserve` is a no-op in summary mode (GitHub, Jira, Azure;
+      Linear has no preserve)
+- [x] Tests: `packages/sync-core/test/sync-summary-block.test.js` (12) and
+      `packages/github/test/summary-block.test.js` (7) — splice round-trips,
+      damaged blocks, outside-text stays-silent drift, spec mode unchanged,
+      `phases: none`, preserve; init-config default and `--description`.
+      `pnpm test`: 4510 passed

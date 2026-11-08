@@ -23,7 +23,7 @@ const CONFIG_FILE = 'specs/.core/azure-boards.config.json'
 
 const OWNERSHIP = Object.freeze(['both', 'pull', 'push', 'none'])
 const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
-const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred', 'inline'])
+const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred', 'inline', 'none'])
 const TRANSPORTS = Object.freeze(['api', 'mcp'])
 const DEFAULT_TOKEN_ENV = 'AZURE_DEVOPS_EXT_PAT'
 const DEFAULT_PHASE_MODE = 'subissue'
@@ -66,7 +66,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // link. `tasks` selects how the phase's checkboxes reach that child's
   // description (markdown checkboxes render natively — still a read-only
   // mirror).
-  mapping: Object.freeze({ specFolder: 'issue', phases: DEFAULT_PHASE_MODE, tasks: 'checklist' }),
+  // `description`: what the ticket body carries — `spec` (the whole overview)
+  // or `summary` (a delimited block beside the team's own text). `spec` is the
+  // default so a config written before the key pushes what it always pushed.
+  mapping: Object.freeze({ specFolder: 'issue', phases: DEFAULT_PHASE_MODE, tasks: 'checklist', description: 'spec' }),
+  // The summary block's delimiters (provisional until chore-delimiter-spike-providers measures this tracker).
+  summary: Object.freeze({ delimiter: 'heading' }),
   // Boards STATE names — the spec item's state (from the folder bucket) and
   // each child's state (from the phase emoji) both map through this table.
   // They must match the process's states exactly; the adapter validates at
@@ -153,6 +158,7 @@ function defaults() {
   return {
     azure: { ...DEFAULT_CONFIG.azure },
     mapping: { ...DEFAULT_CONFIG.mapping },
+    summary: { ...DEFAULT_CONFIG.summary },
     states: { ...DEFAULT_CONFIG.states },
     statesByType: {},
     stateAliases: {},
@@ -183,7 +189,7 @@ function defaults() {
 }
 
 const { isObject, stringList, assign } = kitConfig
-const { mergeStates, mergeStateOverrides, mergeFieldOwnership, mergePhaseMapping, mergeReleaseIgnorePaths, mergeKeyedFields } =
+const { mergeStates, mergeStateOverrides, mergeFieldOwnership, mergePhaseMapping, mergeReleaseIgnorePaths, mergeKeyedFields, mergeDescription } =
   kitConfig.makeMergeHelpers({
     configFile: CONFIG_FILE,
     ownership: OWNERSHIP,
@@ -240,6 +246,7 @@ function mergeConfig(base, parsed) {
     }
     mergePhaseMapping(base.mapping, parsed.mapping)
   }
+  mergeDescription(base, parsed)
 
   mergeStates(base, parsed)
   mergeStateOverrides(base, parsed, 'statesByType')

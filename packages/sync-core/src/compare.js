@@ -24,6 +24,7 @@ const { createHash } = require('node:crypto')
 // two reductions that disagree would be two different answers to one question.
 // Dialect-parameterised: the provider's `config.dialect` names the transforms.
 const { stream } = require('./verify.js')
+const { comparableDescription } = require('./summary.js')
 
 // Deterministic JSON: object keys sorted recursively; array order preserved.
 // undefined normalises to null.
@@ -132,7 +133,10 @@ function remoteDescriptionEdited(snapshot, remote, config) {
   if (!remote || typeof remote !== 'object') return null
   // A provider whose remote shape differs supplies `config.remote.description`.
   const hook = config && config.remote && config.remote.description
-  const text = typeof hook === 'function' ? hook(remote) : 'description' in remote ? remote.description : undefined
+  const raw = typeof hook === 'function' ? hook(remote) : 'description' in remote ? remote.description : undefined
+  // In summary mode only the block is the repo's: text around it is the team's
+  // and is never drift. A block that is missing or damaged is cannot-tell.
+  const text = comparableDescription(raw, config)
   if (typeof text !== 'string') return null
 
   return hashField(stream(text, config)) !== recorded

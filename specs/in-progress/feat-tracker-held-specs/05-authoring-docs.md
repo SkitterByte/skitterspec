@@ -17,6 +17,14 @@ profile without reading a config reference.
 - [ ] `/spec-github-setup` and its provider peers: ask summary vs spec, and the
       phase mode, with the 2026-08-28 parallel-phases trade stated
 - [ ] `spec-planning.md` ticketing section: what the ticket carries per mode
+- [ ] `/spec-push` MCP path (and `/spec`'s): in summary mode, read the live
+      body and splice the block before `issue_write`, never write the plan's
+      block over the whole body; consider a `spec-sync splice` verb so the
+      skill does not compose it
+- [ ] `init-config` for Linear, Jira and Azure: write
+      `mapping.description: "summary"` like GitHub's
+- [ ] Skill text that says a sub-issue carries the phase's task checklist
+      (`/spec`, `/spec-push`) — true only in `spec` mode
 - [ ] Carry the phase 1 draft (index + github) to linear, jira and
       azure-boards once phase 3 settles the shape; bump each `verified:`
 - [ ] Tests: skill-text assertions where the repo has them; docs-freshness test

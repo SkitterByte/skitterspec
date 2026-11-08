@@ -470,6 +470,24 @@ default for anyone who never sets one.
   **section of the spec issue's own description**, with its full task list, and
   the `## Phases` index stays as the table of contents. One issue per spec,
   however many phases it has.
+- `"none"` — no phase objects at all: the issue is one ticket. A phase that
+  already carries a `linear_issue_id` keeps its sub-issue (see below).
+
+## What the issue body carries — `mapping.description`
+
+- `"spec"` (the default, and what a config without the key gets) — the whole
+  overview, replacing the description on every push.
+- `"summary"` — a delimited **block** (summary, acceptance criteria, surfaces
+  touched, gating, spec path) spliced into the description beside whatever the
+  team wrote there, which no push touches. Phase sub-issues get a block with
+  their goal. Drift is reported only for an edit *inside* the block.
+
+`summary.delimiter` marks the block: `"heading"` (the default here — a
+`## Skitterspec summary` heading and an end line) or `"comment"` (HTML
+comments). Linear's default is **provisional** until
+`chore-delimiter-spike-providers` measures which survives Linear's editor. A
+delimiter someone edited is reported and the block left unwritten, never
+guessed at.
 
 ### One mode, or one per bucket
 

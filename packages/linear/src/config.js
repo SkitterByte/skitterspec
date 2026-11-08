@@ -77,7 +77,7 @@ const TASK_MAPPINGS = Object.freeze(['checklist', 'none'])
 // flight and something else entirely for work that finished long ago. A bucket
 // the map omits gets DEFAULT_PHASE_MODE, so a partial map adds an exception
 // rather than silently suppressing phases everywhere it is silent.
-const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred', 'inline'])
+const PHASE_MAPPINGS = Object.freeze(['subissue', 'deferred', 'inline', 'none'])
 const DEFAULT_PHASE_MODE = 'subissue'
 
 // How `spec-sync apply` reaches Linear. `api` talks to the GraphQL API directly;
@@ -150,7 +150,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // synced (they live only in the repo phase files).
   // A spec is an ISSUE; each phase a SUB-ISSUE of it. `tasks` selects how the
   // phase's checkboxes reach that sub-issue's description — see TASK_MAPPINGS.
-  mapping: Object.freeze({ specFolder: 'issue', phases: DEFAULT_PHASE_MODE, tasks: 'checklist' }),
+  // `description`: what the ticket body carries — `spec` (the whole overview)
+  // or `summary` (a delimited block beside the team's own text). `spec` is the
+  // default so a config written before the key pushes what it always pushed.
+  mapping: Object.freeze({ specFolder: 'issue', phases: DEFAULT_PHASE_MODE, tasks: 'checklist', description: 'spec' }),
+  // The summary block's delimiters (provisional until chore-delimiter-spike-providers measures this tracker).
+  summary: Object.freeze({ delimiter: 'heading' }),
   // Linear ISSUE workflow-state names — the spec issue's state (from the folder
   // bucket) and each sub-issue's state (from the phase emoji) both map through
   // this one table. They must match the workspace's issue states exactly;
@@ -282,6 +287,7 @@ function defaults() {
       preserveOriginal: DEFAULT_CONFIG.intake.preserveOriginal,
     },
     mapping: { ...DEFAULT_CONFIG.mapping },
+    summary: { ...DEFAULT_CONFIG.summary },
     states: { ...DEFAULT_CONFIG.states },
     statesByKind: {},
     stateAliases: {},
@@ -307,7 +313,7 @@ function defaults() {
 // vocabularies; `mergeConfig` below is the part that is Linear's — which keys
 // exist and how they nest.
 const { isObject, stringList, assign } = kitConfig
-const { mergeStates, mergeStateOverrides, mergeFieldOwnership, mergePhaseMapping, mergeReleaseIgnorePaths, mergeKeyedFields } =
+const { mergeStates, mergeStateOverrides, mergeFieldOwnership, mergePhaseMapping, mergeReleaseIgnorePaths, mergeKeyedFields, mergeDescription } =
   kitConfig.makeMergeHelpers({
     configFile: CONFIG_FILE,
     ownership: OWNERSHIP,
@@ -374,6 +380,7 @@ function mergeConfig(base, parsed) {
     }
     mergePhaseMapping(base.mapping, parsed.mapping)
   }
+  mergeDescription(base, parsed)
 
   mergeStates(base, parsed)
   mergeStateOverrides(base, parsed, 'statesByKind')

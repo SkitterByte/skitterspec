@@ -51,6 +51,9 @@ phase will read as deployed. See "Releases and deploys" below.
 | `intake.label` | — | The label `/spec --from-issue` lists. |
 | `intake.bugLabels` / `.hotfixLabels` | `["bug"]` / `[]` | Labels that route an adopted issue to `/spec-bug` / `/spec-hotfix`. |
 | `auth.tokenEnv` | `GITHUB_TOKEN` | Env var holding the token; `GH_TOKEN` is read after it. |
+| `mapping.description` | What a ticket body carries. `"summary"`: a delimited block (summary, acceptance criteria, surfaces touched, gating, spec path) spliced in beside the team's own text, which no push touches; phase sub-issues get a block with their goal. `"spec"`: the whole overview, replacing the body (the behaviour before this key). A config without the key is `spec`, so an upgrade rewrites no ticket. | `spec` |
+| `summary.delimiter` | How the block is marked: `"comment"` (HTML comments, hidden on the rendered ticket) or `"heading"` (a `## Skitterspec summary` heading and an end line). GitHub keeps HTML comments verbatim (measured). A delimiter someone edited is reported and the block is left unwritten, never guessed at. | `comment` |
+| `mapping.phases` | `subissue` (one assignable sub-issue per phase), `deferred` (minted at `/spec-start`), `inline` (sections of the issue), or `none` (no phase objects; a phase already linked keeps its sub-issue). | `subissue` |
 | `apply.transport` | — | `api` or `mcp`; unset = API when a token resolves. |
 | `sync.baseDir` | `specs/.core/github-base` | Last-pushed snapshots. Commit them. |
 | `sync.fieldOwnership` | `description`/`subIssues` `push`; `workflowState`/`assignee` `pull` | Who owns each field: the repo pushes the content, GitHub owns status and assignee (state sent only on a bucket move, assignee written directly by `assign`). `"push"` restores the repo-owned behaviour; `"none"` declines a field. |

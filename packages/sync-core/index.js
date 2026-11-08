@@ -20,6 +20,7 @@ const { push, recordPush, projectionOf } = require('./src/push.js')
 const { writeFrontmatter, deleteFrontmatter, stampSubIssueId, stampIssueId, findPhaseFileByTitle, listPhaseFiles } = require('./src/write.js')
 const { detectLegacyMirror } = require('./src/legacy.js')
 const { compareStored, stream } = require('./src/verify.js')
+const { descriptionMode, delimitersFor, blockOf, wrapBlock, spliceBlock, comparableDescription, DELIMITERS } = require('./src/summary.js')
 const { identityDialect, dialectOf } = require('./src/dialect.js')
 const { fieldsOf } = require('./src/fields.js')
 const { renderTaskBlock, findTaskBlocks, wrapEmphasisAware, collapseHyphenAware, inferWidth, fenceMask, DEFAULT_WIDTH } = require('./src/task-block.js')
@@ -62,6 +63,15 @@ module.exports = {
   listPhaseFiles,
   detectLegacyMirror,
   compareStored,
+  // The summary block: what a ticket carries under `mapping.description:
+  // "summary"`, and the splice that writes it beside the team's own text.
+  descriptionMode,
+  delimitersFor,
+  blockOf,
+  wrapBlock,
+  spliceBlock,
+  comparableDescription,
+  DELIMITERS,
   // The tolerant reduction behind both `compareStored` and the snapshot's
   // `descriptionStream` hash — exported so a provider can reduce a read-back the
   // same way rather than writing a second one that disagrees.

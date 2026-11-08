@@ -51,6 +51,8 @@ const {
   remoteDescriptionEdited,
   remoteSubIssueEdited,
   listPhaseFiles,
+  descriptionMode,
+  spliceBlock,
 } = require('@skitterbyte/skitterspec-sync-core')
 const { makeSpecHelpers } = require('./specs.js')
 
@@ -140,7 +142,8 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
       lines.push(ops.remoteEditedLine(identifier))
     }
     if (plan.issue) {
-      await ops.updateIssue(existing, plan.issue)
+      const issue = spliced(plan.issue, 'description', existing, config, identifier, lines)
+      await ops.updateIssue(existing, issue)
       lines.push(`  issue updated: ${identifier}`)
     }
   }
@@ -167,11 +170,15 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
   // issue. The read is spent only where the snapshot recorded something to
   // compare against, so an old snapshot costs no extra calls.
   const base = readBase(dir, identifier, config)
-  for (const sub of (plan.subIssues && plan.subIssues.update) || []) {
+  const summary = descriptionMode(config) === 'summary'
+  for (let sub of (plan.subIssues && plan.subIssues.update) || []) {
     const streams = base && base.subIssueStreams
-    if (sub.goal != null && streams && streams[String(sub.id)]) {
+    const compare = sub.goal != null && streams && streams[String(sub.id)]
+    // Summary mode always reads the live body: the block is spliced into it.
+    if (compare || (summary && sub.goal != null)) {
       const before = await adapter.readIssue(sub.id)
-      if (remoteSubIssueEdited(base, sub.id, before, config) === true) lines.push(ops.remoteEditedLine(sub.id))
+      if (compare && remoteSubIssueEdited(base, sub.id, before, config) === true) lines.push(ops.remoteEditedLine(sub.id))
+      sub = spliced(sub, 'goal', before, config, sub.id, lines)
     }
     await ops.updateSubIssue(sub)
     result.subIssues[sub.ref || refById.get(String(sub.id)) || sub.id] = sub.id
@@ -196,6 +203,32 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
   const file = recordPush({ dir, snapshotDir, identifier: helpers.specIdentifier(snapshotDir, config), config })
   lines.push(`  snapshot: ${path.relative(dir, file)}`)
   return { result, lines, lost }
+}
+
+/**
+ * Under `mapping.description: "summary"` the planned body is the block alone,
+ * and the write must be the block SPLICED into what the tracker holds, so the
+ * team's text around it survives. `spec` mode returns the payload untouched.
+ *
+ * A damaged block (a delimiter someone edited) is cannot-tell: the body is
+ * left out of the write entirely and the run says so. Guessing the edges would
+ * eat the team's text, and prepending would leave two blocks.
+ */
+function spliced(payload, key, live, config, label, lines) {
+  if (descriptionMode(config) !== 'summary' || payload[key] == null) return payload
+  const hook = config && config.remote && config.remote.description
+  const current = live && typeof hook === 'function' ? hook(live) : live ? live.description : undefined
+  // Nothing read back is not an empty body: write nothing rather than guess.
+  if (typeof current !== 'string') {
+    lines.push(`  ?? ${label}: could not read its body — summary block not written`)
+    return { ...payload, [key]: undefined }
+  }
+  const next = spliceBlock(current, payload[key], config)
+  if (next == null) {
+    lines.push(`  !! ${label}: its summary block's delimiters were edited — block not written; repair them and re-push`)
+    return { ...payload, [key]: undefined }
+  }
+  return { ...payload, [key]: next }
 }
 
 // The phase file a sub-issue ref names — the ref is the phase-file basename.
