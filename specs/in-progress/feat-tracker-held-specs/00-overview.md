@@ -108,14 +108,16 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Docs-first design draft (index + GitHub) | ✅ | [01-docs-first.md](01-docs-first.md) |
-| 2 | Delimiter spike, per provider | ⬜ | [02-delimiter-spike.md](02-delimiter-spike.md) |
+| 2 | Delimiter spike, per provider | ✅ | [02-delimiter-spike.md](02-delimiter-spike.md) |
 | 3 | Managed block + summary mode | ⬜ | [03-managed-block.md](03-managed-block.md) |
 | 4 | Progress — block text and native fields | ⬜ | [04-progress.md](04-progress.md) |
 | 5 | Authoring, setup skills, docs | ⬜ | [05-authoring-docs.md](05-authoring-docs.md) |
 
 ## Open questions
 
-- [ ] Which delimiter each provider preserves in a description (phase 2 answers).
+- [x] Which delimiter each provider preserves in a description. GitHub:
+      HTML comment (phase 2). Linear, Jira, Azure: heading fallback,
+      provisional until `chore-delimiter-spike-providers` (#132) measures them.
 - [ ] Which native progress field each provider offers, and whether it needs a
       board/project setting first (phase 4 answers per provider).
 - [ ] Switching an existing project from `spec` to `summary`: its pushed
@@ -155,3 +157,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   page) so the when/where/what of the tracker integration is reviewed before
   code; phases 1–4 renumbered 2–5. The draft rides this branch and lands only
   with the code.
+- 2026-11-08 — Phase 2 closed on GitHub alone: HTML comments survive
+  web-editor edits outside the block, and a re-splice leaves that text
+  byte-identical. Linear (free-plan cap), Jira and Azure (no test access)
+  carried to `chore-delimiter-spike-providers` (#132); phase 3 uses the
+  heading delimiter for them as provisional.
