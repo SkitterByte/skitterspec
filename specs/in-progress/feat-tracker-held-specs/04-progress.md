@@ -2,7 +2,7 @@
 github_issue_id: "#127"
 ---
 
-# Phase 3 — Progress: block text and native fields ⬜
+# Phase 4 — Progress: block text and native fields ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 

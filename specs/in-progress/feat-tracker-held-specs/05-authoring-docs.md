@@ -2,7 +2,7 @@
 github_issue_id: "#128"
 ---
 
-# Phase 4 — Authoring, setup skills, docs ⬜
+# Phase 5 — Authoring, setup skills, docs ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 
@@ -17,6 +17,7 @@ profile without reading a config reference.
 - [ ] `/spec-github-setup` and its provider peers: ask summary vs spec, and the
       phase mode, with the 2026-08-28 parallel-phases trade stated
 - [ ] `spec-planning.md` ticketing section: what the ticket carries per mode
-- [ ] Docs pages named once phase 2 settles the shape; bump each `verified:`
+- [ ] Carry the phase 1 draft (index + github) to linear, jira and
+      azure-boards once phase 3 settles the shape; bump each `verified:`
 - [ ] Tests: skill-text assertions where the repo has them; docs-freshness test
       green

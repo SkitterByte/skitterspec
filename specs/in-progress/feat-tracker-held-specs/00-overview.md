@@ -13,7 +13,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/123"
 > **Raised:** 2026-11-06
 > **Area:** packages/sync-core/src (normalize.js `buildDescription`/`phaseModeFor`, compare.js), packages/{github,linear,jira,azure-boards}/src (config defaults, adoption comment), packages/common/assets/skills (spec, spec-push)
 > **Stack:** worktree
-> **Docs:** none: phase 1 is a spike; pages are named when phase 2 is built
+> **Docs:** index, github, linear, jira, azure-boards
 > **Origin:** follow-up from `feat-pr-landing` (#106); redirected 2026-11-08 away from the library-checkout model
 > **Next spec:** none
 
@@ -73,13 +73,15 @@ is, what done looks like, who has it, what state it is in, and how far along**
 
 ## Solution overview
 
-Phase 1 measures, per provider, which delimiter survives a write and read-back
-of the description (an HTML comment on GitHub/Azure; Linear and Jira ADF are the
-unknowns — a heading or panel may have to stand in). Phase 2 builds the managed
+Phase 1 drafts the docs first (index timeline, GitHub as exemplar) so the
+process is reviewed before code. Phase 2 measures, per provider, which
+delimiter survives a write and read-back of the description (an HTML comment
+on GitHub/Azure; Linear and Jira ADF are the unknowns — a heading or panel may
+have to stand in). Phase 3 builds the managed
 block in sync-core — render, splice, scoped drift hash — for the spec ticket and
 each sub-issue, plus `summary` mode, its default-and-pin, and `phases: none`.
-Phase 3 adds progress, block text first and native fields where configured.
-Phase 4 is the authoring side and docs: `/spec` writes `## Summary` and
+Phase 4 adds progress, block text first and native fields where configured.
+Phase 5 is the authoring side and docs: `/spec` writes `## Summary` and
 `## Acceptance criteria`, setup skills offer the choice.
 
 ## Impact
@@ -105,16 +107,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Delimiter spike, per provider | ⬜ | [01-delimiter-spike.md](01-delimiter-spike.md) |
-| 2 | Managed block + summary mode | ⬜ | [02-managed-block.md](02-managed-block.md) |
-| 3 | Progress — block text and native fields | ⬜ | [03-progress.md](03-progress.md) |
-| 4 | Authoring, setup skills, docs | ⬜ | [04-authoring-docs.md](04-authoring-docs.md) |
+| 1 | Docs-first design draft (index + GitHub) | ⬜ | [01-docs-first.md](01-docs-first.md) |
+| 2 | Delimiter spike, per provider | ⬜ | [02-delimiter-spike.md](02-delimiter-spike.md) |
+| 3 | Managed block + summary mode | ⬜ | [03-managed-block.md](03-managed-block.md) |
+| 4 | Progress — block text and native fields | ⬜ | [04-progress.md](04-progress.md) |
+| 5 | Authoring, setup skills, docs | ⬜ | [05-authoring-docs.md](05-authoring-docs.md) |
 
 ## Open questions
 
-- [ ] Which delimiter each provider preserves in a description (phase 1 answers).
+- [ ] Which delimiter each provider preserves in a description (phase 2 answers).
 - [ ] Which native progress field each provider offers, and whether it needs a
-      board/project setting first (phase 3 answers per provider).
+      board/project setting first (phase 4 answers per provider).
 - [ ] Switching an existing project from `spec` to `summary`: its pushed
       descriptions hold no block yet — does the first summary push replace the
       whole description once (and back it up as a comment), or prepend the block
@@ -148,3 +151,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   gains acceptance criteria, surfaces touched and gating; `summary` is the
   default for new installs with existing configs pinned to `spec`; the repo
   owns a managed block, not the whole description.
+- 2026-11-08 — Started. Added a docs-first phase 1 (index timeline + GitHub
+  page) so the when/where/what of the tracker integration is reviewed before
+  code; phases 1–4 renumbered 2–5. The draft rides this branch and lands only
+  with the code.

@@ -2,7 +2,7 @@
 github_issue_id: "#125"
 ---
 
-# Phase 2 — Managed block + summary mode ⬜
+# Phase 3 — Managed block + summary mode ⬜
 
 > Spec: [00-overview.md](00-overview.md) · **Status:** Not started
 
@@ -19,7 +19,7 @@ block and leaves every other line of the description as the team wrote it.
       Problem's first paragraph), acceptance criteria checklist, surfaces
       touched, gating, spec link — skipping each part whose source is absent
 - [ ] sync-core: render the sub-issue block — the phase's Goal line (task
-      count arrives in phase 3)
+      count arrives in phase 4)
 - [ ] sync-core: pure `spliceBlock(live, block, delimiter)` — replace an
       existing block, or insert one when absent; never touch outside text
 - [ ] Provider apply: read the live description and write the splice (summary
