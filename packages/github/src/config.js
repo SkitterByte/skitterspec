@@ -69,7 +69,8 @@ const DEFAULT_CONFIG = Object.freeze({
   // default so a config written before the key pushes what it always pushed.
   mapping: Object.freeze({ specFolder: 'issue', phases: DEFAULT_PHASE_MODE, tasks: 'checklist', description: 'spec' }),
   // The summary block's delimiters (measured 2026-11-08: GitHub keeps HTML comments verbatim and hides them).
-  summary: Object.freeze({ delimiter: 'comment' }),
+  // `progressField`: a board Number field to mirror % done into; empty = off.
+  summary: Object.freeze({ delimiter: 'comment', progressField: '' }),
   // Board STATUS OPTION names — the spec issue's (from the folder bucket) and
   // each sub-issue's (from the phase emoji) both map through this table. They
   // must match the Status field's options exactly; the adapter resolves them
@@ -234,6 +235,7 @@ function mergeConfig(base, parsed) {
     mergePhaseMapping(base.mapping, parsed.mapping)
   }
   mergeDescription(base, parsed)
+  if (isObject(parsed.summary)) assign(base.summary, parsed.summary, 'progressField', 'string?')
 
   mergeStates(base, parsed)
   mergeStateOverrides(base, parsed, 'statesByKind')

@@ -36,6 +36,7 @@
  *   - `updateSubIssue(sub)`                 apply a sub-issue update
  *   - `remoteEditedLine(identifier)`        the someone-else-edited warning
  *   - `twinAdvice(twin, title, specName)`   the refusal message for a twin
+ *   - `afterIssue(issue)`                    optional; → a report line or null
  */
 
 const path = require('node:path')
@@ -145,6 +146,17 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
       const issue = spliced(plan.issue, 'description', existing, config, identifier, lines)
       await ops.updateIssue(existing, issue)
       lines.push(`  issue updated: ${identifier}`)
+    }
+  }
+
+  // A provider's per-push extra on the spec issue (e.g. progress mirrored into
+  // a native field). Never fatal: the repo and the block already carry it.
+  if (ops.afterIssue && result.issue) {
+    try {
+      const line = await ops.afterIssue(result.issue)
+      if (line) lines.push(line)
+    } catch (error) {
+      lines.push(`  ?? ${result.issue.identifier}: ${String((error && error.message) || error).split('\n')[0]}`)
     }
   }
 

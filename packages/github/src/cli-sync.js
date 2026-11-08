@@ -36,6 +36,8 @@ const {
   listPhaseFiles,
   normalizeLocal,
   descriptionMode,
+  progressOf,
+  readSnapshot,
 } = require('@skitterbyte/skitterspec-sync-core')
 const kit = require('@skitterbyte/skitterspec-provider-kit')
 const { GITHUB_REF_RE, IDENTIFIER_RE } = require('@skitterbyte/skitterspec-provider-kit/src/released.js')
@@ -222,7 +224,19 @@ function applyOps({ adapter, config, kind = 'feature', snapshotDir = null }) {
   if (severityLabel && !spec.labels.some((l) => l.toLowerCase() === severityLabel.toLowerCase())) {
     spec.labels = [...spec.labels, severityLabel]
   }
+  // `summary.progressField`: mirror % done into a board Number field. Opt-in;
+  // a spec with no checkboxes has no progress to send (cannot-tell, not 0).
+  const progressField = config.summary && config.summary.progressField
   return {
+    afterIssue: async (issue) => {
+      if (!progressField || !snapshotDir || typeof adapter.setNumberField !== 'function') return null
+      const progress = progressOf(readSnapshot(snapshotDir, config).phases)
+      if (!progress) return null
+      const r = await adapter.setNumberField(issue, progressField, progress.percent)
+      return r && r.skipped
+        ? `  progress: not mirrored — ${r.skipped}`
+        : `  progress: ${progress.percent}% → board field "${progressField}"`
+    },
     prevalidateStates: (buckets) => {
       for (const bucket of buckets) statusFor(bucket)
     },

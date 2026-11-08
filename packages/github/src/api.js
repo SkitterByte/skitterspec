@@ -101,7 +101,7 @@ fragment Board on ProjectV2 {
   fields(first: 50) {
     nodes {
       ... on ProjectV2SingleSelectField { id name options { id name } }
-      ... on ProjectV2FieldCommon { id name }
+      ... on ProjectV2FieldCommon { id name dataType }
     }
   }
 }`
@@ -190,6 +190,13 @@ query($id: ID!, $after: String) {
 const ADD_ITEM = `
 mutation($project: ID!, $content: ID!) {
   addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
+}`
+
+const SET_NUMBER = `
+mutation($project: ID!, $item: ID!, $field: ID!, $number: Float!) {
+  updateProjectV2ItemFieldValue(
+    input: { projectId: $project, itemId: $item, fieldId: $field, value: { number: $number } }
+  ) { projectV2Item { id } }
 }`
 
 const SET_OPTION = `
@@ -411,7 +418,12 @@ function makeApiAdapter({
       url: board.url || null,
       fields: ((board.fields && board.fields.nodes) || [])
         .filter((f) => f && f.id && f.name)
-        .map((f) => ({ id: f.id, name: f.name, options: Array.isArray(f.options) ? f.options.map((o) => ({ id: o.id, name: o.name })) : null })),
+        .map((f) => ({
+          id: f.id,
+          name: f.name,
+          dataType: f.dataType || null,
+          options: Array.isArray(f.options) ? f.options.map((o) => ({ id: o.id, name: o.name })) : null,
+        })),
     }
     return boardCache
   }
@@ -700,6 +712,25 @@ function makeApiAdapter({
       }
       const { itemId } = await adapter.addToBoard(issue)
       await graphql(SET_OPTION, { project: board.id, item: itemId, field: field.id, option: option.id })
+      return { changed: true }
+    },
+
+    /**
+     * Write a number into a board NUMBER field (`summary.progressField`). A
+     * field the board lacks, or one that is not a number, is not a failure:
+     * the progress is still in the issue's block, so this answers `skipped`
+     * with the reason and writes nothing.
+     */
+    async setNumberField(issueOrRef, fieldName, value) {
+      const board = await resolveBoard()
+      const want = String(fieldName || '').toLowerCase().trim()
+      const field = board.fields.find((f) => String(f.name).toLowerCase().trim() === want)
+      if (!field) return { skipped: `the board has no field "${fieldName}"` }
+      if (field.dataType !== 'NUMBER') return { skipped: `the board's "${field.name}" field is not a Number field` }
+      const issue = issueOrRef && issueOrRef.nodeId ? issueOrRef : await adapter.readIssue(issueOrRef)
+      if (!issue) throw new GitHubRefusal(`no issue ${JSON.stringify(issueOrRef)} to set "${field.name}" on`)
+      const { itemId } = await adapter.addToBoard(issue)
+      await graphql(SET_NUMBER, { project: board.id, item: itemId, field: field.id, number: value })
       return { changed: true }
     },
 

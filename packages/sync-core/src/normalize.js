@@ -814,7 +814,7 @@ function normalizeLocal(snapshotDir, config) {
   const extracted = {
     description: summaryMode
       ? wrapBlock(
-          dialect.flattenTables(dialect.canonicalize(specBlockInner({ snapshotDir, sections, body }))) +
+          dialect.flattenTables(dialect.canonicalize(specBlockInner({ snapshotDir, sections, body, phases }))) +
             relatedIncidentLine(snapshotDir, config),
           config,
         )

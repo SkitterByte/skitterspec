@@ -99,7 +99,8 @@ Phase 5 is the authoring side and docs: `/spec` writes `## Summary` and
 | Adoption comment (`cli-sync.js` per provider) | update | skipped in summary mode — the original text is kept in place |
 | `## Summary` spec section | add | optional; `/spec` writes it; falls back to Problem |
 | `## Acceptance criteria` spec section | add | optional; `/spec` grills for it; projected as a checklist |
-| Progress field | add | block text always; native field opt-in per provider |
+| Progress field | add | block text always; GitHub Number field via `summary.progressField` |
+| `afterIssue` apply op (provider-kit) | add | optional per-push extra on the spec issue |
 
 ## Phases
 
@@ -111,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Docs-first design draft (index + GitHub) | ✅ | [01-docs-first.md](01-docs-first.md) |
 | 2 | Delimiter spike, per provider | ✅ | [02-delimiter-spike.md](02-delimiter-spike.md) |
 | 3 | Managed block + summary mode | ✅ | [03-managed-block.md](03-managed-block.md) |
-| 4 | Progress — block text and native fields | ⬜ | [04-progress.md](04-progress.md) |
+| 4 | Progress — block text and native fields | ✅ | [04-progress.md](04-progress.md) |
 | 5 | Authoring, setup skills, docs | ⬜ | [05-authoring-docs.md](05-authoring-docs.md) |
 
 ## Open questions
@@ -119,8 +120,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - [x] Which delimiter each provider preserves in a description. GitHub:
       HTML comment (phase 2). Linear, Jira, Azure: heading fallback,
       provisional until `chore-delimiter-spike-providers` (#132) measures them.
-- [ ] Which native progress field each provider offers, and whether it needs a
-      board/project setting first (phase 4 answers per provider).
+- [x] Which native progress field each provider offers. GitHub: a Projects
+      Number field, named in `summary.progressField` (phase 4). Linear, Jira,
+      Azure: not wired — see the 2026-11-08 follow-up below.
 - [ ] Switching an existing project from `spec` to `summary`: its pushed
       descriptions hold no block yet — does the first summary push replace the
       whole description once (and back it up as a comment), or prepend the block
@@ -171,3 +173,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   a category, e.g. `Endpoint`). The splice lives in the shared apply skeleton,
   so all four providers get it; the MCP apply path in the skills does not
   splice yet (phase 5).
+- 2026-11-08 — Phase 4 built: progress in both blocks, and GitHub mirrors it
+  into a board Number field (`summary.progressField`).
+- 2026-11-08 — Follow-up surfaced: native progress fields for Linear, Jira and
+  Azure Boards are not wired (no test access here); the `afterIssue` op is the
+  seam. Not in scope for this spec.

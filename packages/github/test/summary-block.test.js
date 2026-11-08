@@ -18,10 +18,10 @@ const STATUS_OPTIONS = ['Backlog', 'In Progress', 'Done', 'Cancelled']
 const BEGIN = '<!-- skitterspec:begin -->'
 const END = '<!-- skitterspec:end -->'
 
-function repo({ mapping = { description: 'summary' } } = {}) {
+function repo({ mapping = { description: 'summary' }, summary } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-summary-'))
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: GH, mapping }))
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: GH, mapping, ...(summary ? { summary } : {}) }))
   const spec = path.join(dir, 'specs', 'in-progress', 'feat-demo')
   fs.mkdirSync(spec, { recursive: true })
   fs.writeFileSync(path.join(spec, '00-overview.md'), '# Demo\n\n## Problem\n\nFirst version.\n\n## Decisions\n\n1. Internal.\n')
@@ -97,6 +97,10 @@ function fakeAdapter() {
     async listComments(ref) {
       return (get(ref) || { comments: [] }).comments
     },
+    async setNumberField(ref, field, value) {
+      calls.push(['setNumberField', String(ref.id || ref), field, value])
+      return field === 'Missing' ? { skipped: 'the board has no field "Missing"' } : { changed: true }
+    },
     async createComment(ref, body) {
       calls.push(['createComment', String(ref)])
       get(ref).comments.push({ id: 'c1', body })
@@ -128,7 +132,8 @@ test('a first apply mints the issue and sub-issue with blocks, not the spec', as
   assert.match(issue, /First version\./)
   assert.doesNotMatch(issue, /Internal\./)
   const sub = adapter.issues.get('102').description
-  assert.strictEqual(sub, `${BEGIN}\na durable place.\n${END}`)
+  assert.strictEqual(sub, `${BEGIN}\na durable place.\n\n**Progress** 0 of 1 tasks\n${END}`)
+  assert.match(issue, /\*\*Progress\*\* 0% · phase 1 of 1/)
   assert.match(r.out, /round-tripped intact/)
 })
 
@@ -211,4 +216,31 @@ test('a config with no mapping.description still pushes the spec', async () => {
   const issue = adapter.issues.get('101').description
   assert.ok(!issue.includes(BEGIN))
   assert.match(issue, /Internal\./)
+})
+
+test('summary.progressField mirrors % done into the board field on every push', async () => {
+  const dir = repo({ summary: { progressField: 'Progress' } })
+  const adapter = fakeAdapter()
+  const r = await apply(dir, adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(
+    adapter.calls.filter((c) => c[0] === 'setNumberField'),
+    [['setNumberField', '101', 'Progress', 0]],
+  )
+  assert.match(r.out, /progress: 0% → board field "Progress"/)
+})
+
+test('a board without the field is one line, never a failure', async () => {
+  const dir = repo({ summary: { progressField: 'Missing' } })
+  const r = await apply(dir, fakeAdapter())
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /progress: not mirrored — the board has no field "Missing"/)
+})
+
+// STAYS-SILENT: unconfigured, nothing is written and nothing is said.
+test('no progressField writes no field and prints no progress line', async () => {
+  const adapter = fakeAdapter()
+  const r = await apply(repo(), adapter)
+  assert.ok(!adapter.calls.some((c) => c[0] === 'setNumberField'))
+  assert.doesNotMatch(r.out, /progress:/)
 })

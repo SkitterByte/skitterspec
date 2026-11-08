@@ -20,6 +20,7 @@ const {
   remoteDescriptionEdited,
   snapshotOf,
   DELIMITERS,
+  progressOf,
 } = require('../index.js')
 const { neutralConfig } = require('./_config.js')
 
@@ -102,12 +103,12 @@ test('the spec block carries summary, criteria, touches, gating and the path —
 test('a spec with none of the optional parts still gets its Problem and its path', () => {
   const p = normalizeLocal(specDir({ overview: '# Bare\n\n## Problem\n\nFirst para.\n\nSecond para.\n' }), summaryConfig())
   const inner = p.description.split('\n').slice(1, -1).join('\n')
-  assert.strictEqual(inner, 'First para.\n\n**Spec** `specs/in-progress/feat-inbox-sort`')
+  assert.strictEqual(inner, 'First para.\n\n**Progress** 50% · phase 1 of 1\n\n**Spec** `specs/in-progress/feat-inbox-sort`')
 })
 
 test('a phase sub-issue carries its goal in a block, not its task list', () => {
   const p = normalizeLocal(specDir({ overview: FULL }), summaryConfig())
-  assert.strictEqual(p.subIssues[0].goal, wrapBlock('make the thing.', summaryConfig()))
+  assert.strictEqual(p.subIssues[0].goal, wrapBlock('make the thing.\n\n**Progress** 1 of 2 tasks', summaryConfig()))
   assert.doesNotMatch(p.subIssues[0].goal, /two/)
 })
 
@@ -194,4 +195,53 @@ test('text added outside the block is not drift; an edit inside it is', () => {
   assert.strictEqual(remoteDescriptionEdited(snap, { description: `PM context.\n\n${edited}` }, C), true)
   // A block that is gone or damaged is cannot-tell, never an accusation.
   assert.strictEqual(remoteDescriptionEdited(snap, { description: 'PM rewrote everything' }, C), null)
+})
+
+// --- progress -----------------------------------------------------------------
+
+const box = (mark) => ({ checkbox: true, mark })
+const phase = (name, state, marks) => ({ name, state, blocks: marks.map(box) })
+
+test('progress is ticked over total across phases, and names the phase being worked', () => {
+  const p = progressOf([
+    phase('A', 'complete', ['x', 'x']),
+    phase('B', 'in-progress', ['x', ' ', ' ']),
+    phase('C', 'backlog', [' ', ' ', ' ']),
+  ])
+  assert.deepStrictEqual(p, { ticked: 3, total: 8, percent: 37, phase: 2, phases: 3 })
+})
+
+test('progress counts nested boxes once each, and only x as done', () => {
+  const p = progressOf([phase('A', 'backlog', ['x', '~', '>', '-', 'x'])])
+  assert.deepStrictEqual([p.ticked, p.total, p.phase], [2, 5, 1])
+})
+
+test('all done is 100% on the last phase', () => {
+  assert.deepStrictEqual(progressOf([phase('A', 'complete', ['x']), phase('B', 'complete', ['x'])]), {
+    ticked: 2,
+    total: 2,
+    percent: 100,
+    phase: 2,
+    phases: 2,
+  })
+})
+
+// STAYS-SILENT: no checkboxes is cannot-tell, never 0%.
+test('a spec without a single checkbox renders no progress line', () => {
+  assert.strictEqual(progressOf([phase('A', 'backlog', [])]), null)
+  const dir = specDir({ overview: FULL, phases: { '01-build.md': '# Phase 1 — Build ⬜\n\n**Goal:** make the thing.\n' } })
+  const p = normalizeLocal(dir, C)
+  assert.doesNotMatch(p.description, /Progress/)
+  assert.doesNotMatch(p.subIssues[0].goal, /Progress/)
+})
+
+test('the real phase parser feeds progress: a nested and a wrapped task count once each', () => {
+  const dir = specDir({
+    overview: FULL,
+    phases: {
+      '01-build.md': '# Phase 1 — Build 🔄\n\n**Goal:** g.\n\n## Tasks\n\n- [x] one\n  - [x] nested\n- [ ] two that\n      wraps\n',
+      '02-ship.md': '# Phase 2 — Ship ⬜\n\n**Goal:** s.\n\n## Tasks\n\n- [ ] ship\n',
+    },
+  })
+  assert.match(normalizeLocal(dir, C).description, /\*\*Progress\*\* 50% · phase 1 of 2/)
 })

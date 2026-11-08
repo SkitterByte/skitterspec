@@ -177,7 +177,7 @@ function specPath(snapshotDir) {
  * invented, when its source is absent — a spec with no Summary, criteria,
  * Impact table or Gating header still gets a block: its Problem and its path.
  */
-function specBlockInner({ snapshotDir, sections, body }) {
+function specBlockInner({ snapshotDir, sections, body, phases }) {
   const summary =
     String(sections.Summary || '').trim() || firstParagraph(sections.Problem) || firstParagraph(sections.Symptom)
   const parts = []
@@ -188,13 +188,58 @@ function specBlockInner({ snapshotDir, sections, body }) {
   if (t) parts.push(`**Touches** ${t}`)
   const gating = headerValue(body, 'Gating')
   if (gating) parts.push(`**Gating** ${gating}`)
+  const progress = progressLine(phases)
+  if (progress) parts.push(progress)
   parts.push(`**Spec** \`${specPath(snapshotDir)}\``)
   return parts.join('\n\n')
 }
 
-// A phase sub-issue's block content: its goal. Task count joins it in phase 4.
+// --- progress -----------------------------------------------------------------
+
+// A phase's checkboxes: every task bullet, nested ones included, each counted
+// once. Only `x` is done — `[~]`, `[>]`, `[-]` are not (task-block.js).
+function taskCounts(phase) {
+  const boxes = ((phase && phase.blocks) || []).filter((b) => b && b.checkbox)
+  return { ticked: boxes.filter((b) => b.mark === 'x').length, total: boxes.length }
+}
+
+/**
+ * How far along a spec is, from its phase files' own checkboxes.
+ *
+ * `null` when there is not a single checkbox anywhere: that is cannot-tell, not
+ * 0%. A spec written without task lists has not "made no progress", and a
+ * ticket reading 0% for its whole life would say exactly that.
+ *
+ * `phase` is the one being worked: the first in progress, else the first not
+ * done, else the last (everything is done).
+ */
+function progressOf(phases) {
+  const list = (phases || []).filter((p) => p && p.name)
+  let ticked = 0
+  let total = 0
+  for (const p of list) {
+    const c = taskCounts(p)
+    ticked += c.ticked
+    total += c.total
+  }
+  if (!total) return null
+  let at = list.findIndex((p) => p.state === 'in-progress')
+  if (at === -1) at = list.findIndex((p) => p.state !== 'complete')
+  if (at === -1) at = list.length - 1
+  return { ticked, total, percent: Math.floor((ticked / total) * 100), phase: at + 1, phases: list.length }
+}
+
+function progressLine(phases) {
+  const p = progressOf(phases)
+  return p ? `**Progress** ${p.percent}% · phase ${p.phase} of ${p.phases}` : ''
+}
+
+// A phase sub-issue's block content: its goal, and its task count when it has
+// any checkboxes (a phase with none says nothing rather than `0 of 0`).
 function phaseBlockInner(phase) {
-  return String((phase && phase.goal) || '').trim() || String((phase && phase.name) || '').trim()
+  const goal = String((phase && phase.goal) || '').trim() || String((phase && phase.name) || '').trim()
+  const { ticked, total } = taskCounts(phase)
+  return total ? `${goal}\n\n**Progress** ${ticked} of ${total} tasks` : goal
 }
 
 module.exports = {
@@ -207,5 +252,6 @@ module.exports = {
   comparableDescription,
   specBlockInner,
   phaseBlockInner,
+  progressOf,
   tableRows,
 }

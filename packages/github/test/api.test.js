@@ -70,6 +70,8 @@ const BOARD = {
               ],
             },
             { id: 'F_dep', name: 'Deployed', options: [{ id: 'o_test', name: 'Test' }] },
+            { id: 'F_prog', name: 'Progress', dataType: 'NUMBER' },
+            { id: 'F_note', name: 'Note', dataType: 'TEXT' },
           ],
         },
       },
@@ -286,6 +288,21 @@ test('setFieldOption reaches a second field (Deployed) by name', async () => {
   const { a, calls } = adapter((call) => res(gqlKind(call) === 'board' ? BOARD : gqlKind(call) === 'set' ? { data: {} } : issueData(rawIssue())))
   await a.setFieldOption(12, 'Deployed', 'Test')
   assert.deepStrictEqual(calls.find((c) => gqlKind(c) === 'set').body.variables.option, 'o_test')
+})
+
+test('setNumberField writes a number into a board Number field', async () => {
+  const { a, calls } = adapter((call) => res(gqlKind(call) === 'board' ? BOARD : gqlKind(call) === 'set' ? { data: {} } : issueData(rawIssue())))
+  assert.deepStrictEqual(await a.setNumberField(12, 'progress', 62), { changed: true })
+  const set = calls.find((c) => gqlKind(c) === 'set')
+  assert.deepStrictEqual(set.body.variables, { project: 'PVT_1', item: 'PVTI_12', field: 'F_prog', number: 62 })
+  assert.match(set.body.query, /value: \{ number: \$number \}/)
+})
+
+test('setNumberField skips a missing or non-number field, writing nothing', async () => {
+  const { a, calls } = adapter(() => res(BOARD))
+  assert.deepStrictEqual(await a.setNumberField(12, 'Done %', 5), { skipped: 'the board has no field "Done %"' })
+  assert.deepStrictEqual(await a.setNumberField(12, 'Note', 5), { skipped: 'the board\'s "Note" field is not a Number field' })
+  assert.ok(!calls.some((c) => isGraphql(c) && ['add', 'set'].includes(gqlKind(c))))
 })
 
 test('no board configured, or none visible, is a named refusal', async () => {

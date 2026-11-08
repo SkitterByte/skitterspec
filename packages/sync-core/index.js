@@ -20,7 +20,7 @@ const { push, recordPush, projectionOf } = require('./src/push.js')
 const { writeFrontmatter, deleteFrontmatter, stampSubIssueId, stampIssueId, findPhaseFileByTitle, listPhaseFiles } = require('./src/write.js')
 const { detectLegacyMirror } = require('./src/legacy.js')
 const { compareStored, stream } = require('./src/verify.js')
-const { descriptionMode, delimitersFor, blockOf, wrapBlock, spliceBlock, comparableDescription, DELIMITERS } = require('./src/summary.js')
+const { descriptionMode, delimitersFor, blockOf, wrapBlock, spliceBlock, comparableDescription, progressOf, DELIMITERS } = require('./src/summary.js')
 const { identityDialect, dialectOf } = require('./src/dialect.js')
 const { fieldsOf } = require('./src/fields.js')
 const { renderTaskBlock, findTaskBlocks, wrapEmphasisAware, collapseHyphenAware, inferWidth, fenceMask, DEFAULT_WIDTH } = require('./src/task-block.js')
@@ -71,6 +71,8 @@ module.exports = {
   wrapBlock,
   spliceBlock,
   comparableDescription,
+  // How far along a spec is, from its own checkboxes (null: no checkboxes).
+  progressOf,
   DELIMITERS,
   // The tolerant reduction behind both `compareStored` and the snapshot's
   // `descriptionStream` hash — exported so a provider can reduce a read-back the
