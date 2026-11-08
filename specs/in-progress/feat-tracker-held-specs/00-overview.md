@@ -107,7 +107,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Docs-first design draft (index + GitHub) | ⬜ | [01-docs-first.md](01-docs-first.md) |
+| 1 | Docs-first design draft (index + GitHub) | ✅ | [01-docs-first.md](01-docs-first.md) |
 | 2 | Delimiter spike, per provider | ⬜ | [02-delimiter-spike.md](02-delimiter-spike.md) |
 | 3 | Managed block + summary mode | ⬜ | [03-managed-block.md](03-managed-block.md) |
 | 4 | Progress — block text and native fields | ⬜ | [04-progress.md](04-progress.md) |

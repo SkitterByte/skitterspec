@@ -544,49 +544,77 @@ verified: d1c5e83540ea
       <div class="icard">
         <span class="k">HOW IT'S SAFE</span>
         <h3>The repo always wins</h3>
-        <p>One direction, so nothing is ever read back or clobbered. Skitterspec tells the board about its own transitions and nothing else, so a card someone moves is left alone. A body edited on GitHub — a ticked box included — is reported <em>loudly</em> before the next push overwrites it.</p>
+        <p>One direction, so nothing is ever read back or merged. The repo owns one delimited block in each issue body and nothing else: text your team writes around it survives every push. Skitterspec tells the board about its own transitions and nothing more, so a card someone moves is left alone. An edit <em>inside</em> the block is reported, loudly, before the next push replaces it.</p>
       </div>
     </div>
 
-    <h3 style="margin-top:56px; font-size:1.15rem;" class="reveal">The mapping — spec structure becomes GitHub structure</h3>
+    <h3 style="margin-top:56px; font-size:1.15rem;" class="reveal">The mapping: the spec stays in git, the issue says what the work is</h3>
     <div class="map reveal">
       <div class="map-row">
         <div class="map-l">spec folder <small>specs/&lt;bucket&gt;/feat-name/</small></div>
         <div class="map-arrow">→</div>
-        <div class="map-r"><span class="pill-l">Issue</span><small>the whole spec, one issue labelled spec — #123</small></div>
+        <div class="map-r"><span class="pill-l">Issue</span><small>One issue labelled spec, e.g. #123. Its body holds the summary block: summary, acceptance criteria, surfaces touched, gating, progress and a link to the spec</small></div>
       </div>
       <div class="map-row">
         <div class="map-l">phase file <small>01-schema.md, 02-controls.md …</small></div>
         <div class="map-arrow">→</div>
-        <div class="map-r"><span class="pill-l">Sub-issue</span><small>one per phase, labelled phase — name, goal, state</small></div>
+        <div class="map-r"><span class="pill-l">Sub-issue</span><small>One per phase, labelled phase. Its block holds the phase's goal and <span class="mono">n of m tasks</span>, and its Status comes from the phase's state</small></div>
       </div>
       <div class="map-row">
         <div class="map-l">task checkbox <small>- [ ] add sortBy param</small></div>
         <div class="map-arrow">→</div>
-        <div class="map-r"><span class="pill-l">Task list</span><small>GitHub renders it live — still a read-only mirror</small></div>
+        <div class="map-r"><span class="pill-l">Progress</span><small>Counted, not copied. Ticked over total gives the issue's % and each sub-issue's task count. The list itself stays in git</small></div>
       </div>
       <div class="map-row">
         <div class="map-l">lifecycle bucket <small>backlog / in-progress / complete</small></div>
         <div class="map-arrow">→</div>
-        <div class="map-r"><span class="pill-l">Board Status</span><small>a Projects v2 option, plus closing the issue at the end</small></div>
+        <div class="map-r"><span class="pill-l">Board Status</span><small>A Projects v2 option, sent only when the repo acts on code, plus closing the issue at the end</small></div>
       </div>
     </div>
 
-    <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:14px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;">GitHub keeps an issue body as the markdown it was sent, so there is no format to convert and a clean push reads back identical. The mirror stays read-only: a box ticked on GitHub is drift, reported and then overwritten. Push diffs against a committed last-pushed snapshot, so only what changed is sent — issue numbers stamped back into the markdown as <b style="color:var(--ink-soft)">#N</b>.</p>
+    <pre class="reveal" style="margin-top:22px; padding:18px 20px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius-sm); font-family:var(--font-mono); font-size:.8rem; line-height:1.6; overflow-x:auto; white-space:pre;">&lt;!-- skitterspec:begin --&gt;
+Sort the task inbox by when an item entered its state, or when it was created.
+
+**Acceptance criteria**
+- [ ] Both dates show on every row
+- [ ] Sort order survives a reload
+
+**Touches** GET /tasks · tasks.state_entered_at · TaskInbox
+**Gating** flag inbox-sort
+**Progress** 62% · phase 3 of 4 · [spec](…/specs/in-progress/feat-inbox-sort)
+&lt;!-- skitterspec:end --&gt;
+
+Notes from the PM, a customer quote, a design link: all of it stays.</pre>
+
+    <p class="reveal" style="color:var(--ink-faint); font-size:.85rem; margin-top:14px; font-family:var(--font-mono); max-width:70ch; line-height:1.65;">GitHub stores an issue body as the markdown it was sent and hides HTML comments, so the delimiters are invisible on the issue. Push reads the live body, replaces what is between them (or adds the block if there isn't one), and writes the result. That is a splice, not a pull: nothing outside the block is parsed, merged or written back to the spec. Push diffs against a committed last-pushed snapshot, so only what changed is sent, and issue numbers are stamped back into the markdown as <b style="color:var(--ink-soft)">#N</b>. <b style="color:var(--ink-soft)">Provisional:</b> mirroring progress into a Projects number field is planned as an opt-in.</p>
+
+    <div class="table-wrap reveal" style="margin-top:26px;">
+      <table>
+        <thead><tr><th>Setting</th><th>Value</th><th>What the issue gets</th></tr></thead>
+        <tbody>
+          <tr><td>mapping.description</td><td><b>summary</b> (default)</td><td>the summary block, beside your team's text</td></tr>
+          <tr><td></td><td>spec</td><td>the whole overview as the body, as before. An upgrade pins an existing project here, so no issue changes until you switch</td></tr>
+          <tr><td>mapping.phases</td><td><b>subissue</b> (default)</td><td>one assignable sub-issue per phase, so phases can run in parallel</td></tr>
+          <tr><td></td><td>deferred</td><td>sub-issues minted at <span class="mono">/spec-start</span>, not at <span class="mono">/spec</span></td></tr>
+          <tr><td></td><td>inline</td><td>phases as sections of the issue, with no sub-issues</td></tr>
+          <tr><td></td><td>none</td><td>no phase objects at all: the ticket is one ticket</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <h3 style="margin-top:52px; font-size:1.15rem;" class="reveal">Who owns what — no reconciliation, because there's one owner</h3>
     <div class="own reveal">
       <div class="own-card own-push">
         <div class="oh"><span class="d"></span>repo owns · pushed</div>
-        <p>The spec body / description, phases &amp; tasks. Authored in the repo, published up. The issue's status and assignee are GitHub's by default (<span class="mono">pull</span>): the repo sends a status only when a spec is created, started, completed or cancelled, and assigns only an issue nobody holds. State log, changelog &amp; open questions stay local — never leak to GitHub.</p>
+        <p>The summary block in each issue and sub-issue, the phase sub-issues themselves, and progress. All of it is derived from the spec in git. The issue's status and assignee are GitHub's by default (<span class="mono">pull</span>): the repo sends a status only when a spec is created, started, completed or cancelled, and assigns only an issue nobody holds. Decisions, the Impact table's detail, phase task lists, the state log, the changelog and open questions stay in the repo.</p>
       </div>
       <div class="own-card own-pull">
         <div class="oh"><span class="d"></span>GitHub-native · left alone</div>
-        <p>Milestones, other labels, the board's other fields, discussion. Yours to set on GitHub; one-way sync neither pushes nor reads them — the only labels it sets are its own spec/phase markers, the spec kind's label when <span class="mono">labelsByKind</span> maps one, and the severity's when <span class="mono">severityLabels</span> maps the spec's <span class="mono">Severity:</span> header (keyed by its leading digit). A <span class="mono">statesByKind</span> entry can route one spec kind's buckets to different Status columns (<span class="mono">null</span> sends none), and a fix spec's <span class="mono">Incident:</span> header rides in the generated body as a <span class="mono">Related incident: #N</span> line, which GitHub backlinks on the incident's own timeline.</p>
+        <p>Every line of the body outside the block, plus milestones, other labels, the board's other fields and discussion. Yours to set on GitHub; one-way sync neither pushes nor reads them — the only labels it sets are its own spec/phase markers, the spec kind's label when <span class="mono">labelsByKind</span> maps one, and the severity's when <span class="mono">severityLabels</span> maps the spec's <span class="mono">Severity:</span> header (keyed by its leading digit). A <span class="mono">statesByKind</span> entry can route one spec kind's buckets to different Status columns (<span class="mono">null</span> sends none), and a fix spec's <span class="mono">Incident:</span> header rides in the generated body as a <span class="mono">Related incident: #N</span> line, which GitHub backlinks on the incident's own timeline.</p>
       </div>
       <div class="own-card own-both">
         <div class="oh"><span class="d"></span>edits · surfaced, not merged</div>
-        <p>Edit a body on GitHub and <span class="mono">/spec-status</span> says so before the next push replaces it. A moved card is the board's business — the one move reported is an issue closed Done or Cancelled while its spec is still in flight (<span class="mono">spec-sync board</span>), which names the cleanup and runs nothing.</p>
+        <p>Edit <em>inside</em> the block on GitHub and <span class="mono">/spec-status</span> says so before the next push replaces it. An edit outside it isn't drift, because it was never the repo's. A moved card is the board's business — the one move reported is an issue closed Done or Cancelled while its spec is still in flight (<span class="mono">spec-sync board</span>), which names the cleanup and runs nothing.</p>
       </div>
     </div>
   </div>

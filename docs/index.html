@@ -846,7 +846,7 @@ verified: d1c5e83540ea
         <span class="chip"><b>/spec-push</b> repo → Linear</span>
         <span class="chip"><b>/spec-status</b> what would push · edits</span>
       </div>
-      <p><b>One way: the repo is canonical for the spec, Linear for its status.</b> Push publishes structure &amp; content, and sends a workflow state only when the spec starts, completes or is cancelled; assignment, moves and Linear-native triage — priority, labels, cycles, comments — are the team's and are left untouched. No content is read back or merged, so there's nothing to clobber.</p>
+      <p><b>One way: the repo is canonical for the spec, Linear for its status.</b> The spec itself stays in git. Push keeps a <b>summary</b> in the issue (what the work is, what done looks like, how far along it is) and sends a workflow state only when the spec starts, completes or is cancelled. Assignment, moves, Linear-native triage (priority, labels, cycles, comments) and anything the team writes in the description outside that summary all belong to the team, and push leaves them alone. Nothing is read back or merged, so there's nothing to clobber.</p>
     </div>
   </div>
 </section>
@@ -866,7 +866,8 @@ verified: d1c5e83540ea
       <span class="mono">@skitterbyte/skitterspec-jira</span> superset mirrors them as a Jira Cloud
       issue and its subtasks, with statuses moved by workflow transition; and the
       <span class="mono">@skitterbyte/skitterspec-github</span> superset mirrors them as GitHub issues
-      and sub-issues on a Projects board, free on a personal account. All are
+      and sub-issues on a Projects board, free on a personal account. Each ticket
+      carries a <a href="#ticket-timeline">summary of the work</a>, not the spec. All are
       pushed from the repo and never read back, and all are opt-in — until the provider's
       <span class="mono">specs/.core/*.config.json</span> exists, nothing changes.
     </p>
@@ -878,6 +879,76 @@ verified: d1c5e83540ea
       <a class="pkg pill" href="github.html">GitHub: set it up, check it →</a>
       <a class="pkg pill" href="azure-boards.html">Azure Boards: set it up, check it →</a>
     </p>
+  </div>
+</section>
+
+<!-- ============ WHEN THE TICKET IS TOUCHED ============ -->
+<section id="ticket-timeline">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="eyebrow">With a tracker · when, where and what</p>
+      <h2>The spec stays in git. The ticket says what the work is.</h2>
+      <p class="lede">A ticket is where a team plans, assigns and tracks work, so that is what it gets: a short summary, a definition of done, and how far along the work is. The spec stays in the repo, where the person building it reads it and where it lands in the same commit as the code. Each row below is a moment the tracker is written to. Nothing else writes to it.</p>
+    </div>
+
+    <div class="map reveal">
+      <div class="map-row">
+        <div class="map-l">/spec <small>after the grill, when the spec is written · also /spec-bug, /spec-hotfix, /spec-incident</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">created</span><small>The issue, holding the summary block, plus one sub-issue per phase holding its goal. Status Backlog. Adopting an issue someone already filed splices the block into their description and keeps their text.</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">/spec-start <small>the branch is provisioned</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">In Progress</span><small>Status moves because the repo acted on code. Assigns you only if nobody holds the issue.</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">/spec-next <small>a phase starts, then ends</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">progress</span><small>The phase's sub-issue goes In Progress, then Done. Progress updates on both, e.g. <span class="mono">62% · phase 3 of 4</span> on the issue and <span class="mono">5 of 8 tasks</span> on the sub-issue.</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">/spec-review · /spec-push <small>the spec's summary or criteria changed</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">block refreshed</span><small>Only the summary block is rewritten. Nothing outside it changes.</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">/spec-claim <small>take it, hand it back, hand it on</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">assignee</span><small>Written directly. The ticket is the record of who holds the work.</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">/spec-complete · /spec-cancel <small>landed, or dropped</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">Done · Cancelled</span><small>The issue is closed. In PR mode, Done waits for the second run, after the host has merged.</small></div>
+      </div>
+      <div class="map-row">
+        <div class="map-l">a release <small>your CI, over a commit range</small></div>
+        <div class="map-arrow">→</div>
+        <div class="map-r"><span class="pill-l">read only</span><small><span class="mono">spec-sync released &lt;range&gt;</span> lists the tickets the range contains, from each commit's <span class="mono">Refs:</span> trailer. What gets recorded is up to your CI.</small></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:44px; font-size:1.05rem;" class="reveal">What the summary block carries</h3>
+    <pre class="reveal mono" style="margin-top:14px; padding:18px 20px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius-sm); font-size:.8rem; line-height:1.6; overflow-x:auto; white-space:pre;">&lt;!-- skitterspec:begin --&gt;
+Sort the task inbox by when an item entered its state, or when it was created.
+
+**Acceptance criteria**
+- [ ] Both dates show on every row
+- [ ] Sort order survives a reload
+
+**Touches** GET /tasks · tasks.state_entered_at · TaskInbox
+**Gating** flag inbox-sort
+**Progress** 62% · phase 3 of 4 · spec: specs/in-progress/feat-inbox-sort
+&lt;!-- skitterspec:end --&gt;
+
+Anything here is the team's: context, links, a customer's words. Push never touches it.</pre>
+    <p class="cmp-note reveal">The summary comes from the spec's <b>## Summary</b> section, or the first paragraph of <b>## Problem</b> if there isn't one. Acceptance criteria come from <b>## Acceptance criteria</b>, <b>Touches</b> from the Impact table's Surface column, and <b>Gating</b> from the header. A part with nothing to draw from is left out, never made up. Phase task lists stay in git. <b>Provisional:</b> the delimiter shown here is GitHub's, and Linear and Jira may need a heading in its place (the delimiter spike decides). Some providers will also mirror progress into a native field.</p>
+
+    <h3 style="margin-top:40px; font-size:1.05rem;" class="reveal">What is never touched</h3>
+    <p class="reveal" style="max-width:74ch;">Board moves your team makes, priority, labels other than skitterspec's own, cycles and milestones, comments, and every line of the description outside the block. The repo sends a status only when it acts on code. If the board says Done or Cancelled while the spec is still in flight, that is <b>reported</b> once, with the cleanup named, and never acted on.</p>
+
+    <p class="cmp-note reveal">Two settings decide the shape, per project. <b>mapping.description</b> is <span class="mono">summary</span> by default; <span class="mono">spec</span> keeps the older full-spec description, and an upgrade pins an existing project to it so no ticket changes until you switch. <b>mapping.phases</b> is <span class="mono">subissue</span> (assignable, so phases can run in parallel), <span class="mono">deferred</span> (minted at <span class="mono">/spec-start</span>), <span class="mono">inline</span>, or <span class="mono">none</span> for a ticket with no children.</p>
   </div>
 </section>
 
