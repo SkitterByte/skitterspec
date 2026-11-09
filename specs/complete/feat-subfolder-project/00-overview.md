@@ -156,3 +156,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   classifiers; only pathspecs handed out (stage, the `up` gate's commit,
   `docs.paths`) are made project-relative, since they run from the project
   folder.
+- 2026-11-09 — Moved the headline `Release-Note!:` from the phase 6 `docs`
+  commit to phase 1's `feat` commit (messages only, unpushed) — the generator
+  drops notes on `docs` commits.
+- 2026-11-09 — Follow-up surfaced: the full suite has never run on Windows;
+  the windows-latest job runs it with `continue-on-error` until it is green
+  there. Not in scope here.
+- 2026-11-09 — Completed; all phases done, tests green (4629, nested 167).
