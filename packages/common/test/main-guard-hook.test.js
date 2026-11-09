@@ -281,7 +281,7 @@ test('STAYS SILENT: a payload with no tool name and no cwd', () => {
 test('an allow for this session lets the write through; another session does not', () => {
   const dir = repo()
   try {
-    execFileSync(ENGINE, ['spec-env', 'main', 'allow', 'by', 'hand', '--dir', dir, '--session', 'S1'], {
+    execFileSync(process.execPath, [ENGINE, 'spec-env', 'main', 'allow', 'by', 'hand', '--dir', dir, '--session', 'S1'], {
       stdio: 'ignore',
     })
     assert.strictEqual(fire({ ...edit(dir), session_id: 'S1' }).out, '', 'the session that asked')
@@ -298,11 +298,11 @@ test('an allow for this session lets the write through; another session does not
 test('/allow-main off restores the guard', () => {
   const dir = repo()
   try {
-    execFileSync(ENGINE, ['spec-env', 'main', 'allow', '--dir', dir, '--session', 'S1'], {
+    execFileSync(process.execPath, [ENGINE, 'spec-env', 'main', 'allow', '--dir', dir, '--session', 'S1'], {
       stdio: 'ignore',
     })
     assert.strictEqual(fire({ ...edit(dir), session_id: 'S1' }).out, '')
-    execFileSync(ENGINE, ['spec-env', 'main', 'allow', 'off', '--dir', dir, '--session', 'S1'], {
+    execFileSync(process.execPath, [ENGINE, 'spec-env', 'main', 'allow', 'off', '--dir', dir, '--session', 'S1'], {
       stdio: 'ignore',
     })
     assert.strictEqual(fire({ ...edit(dir), session_id: 'S1' }).decision, 'deny')
@@ -314,7 +314,7 @@ test('/allow-main off restores the guard', () => {
 test('the allow file is gitignored, so it never reaches anyone else', () => {
   const dir = repo()
   try {
-    execFileSync(ENGINE, ['spec-env', 'main', 'allow', '--dir', dir, '--session', 'S1'], {
+    execFileSync(process.execPath, [ENGINE, 'spec-env', 'main', 'allow', '--dir', dir, '--session', 'S1'], {
       stdio: 'ignore',
     })
     assert.strictEqual(git(dir, 'status', '--porcelain'), '', 'nothing to commit')
@@ -345,10 +345,10 @@ test('STAYS SILENT: an engine that throws (exit 1, no output) is a crash, not a 
   // exit-2 test above never covered it, and a broken engine then denied every
   // Edit and Write in the session (see env-review-hook.test.js, "THE INCIDENT").
   const dir = repo()
-  const stub = path.join(dir, 'throwing-engine')
+  // A `.js` file: the hook runs it through node, as Windows requires.
+  const stub = path.join(dir, 'throwing-engine.js')
   try {
-    fs.writeFileSync(stub, `#!${process.execPath}\nthrow new ReferenceError('phaseProgress is not defined')\n`)
-    fs.chmodSync(stub, 0o755)
+    fs.writeFileSync(stub, "throw new ReferenceError('phaseProgress is not defined')\n")
     assert.strictEqual(fire(edit(dir), { engine: stub }).out, '')
   } finally {
     cleanup(dir)

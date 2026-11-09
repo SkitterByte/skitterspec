@@ -12,7 +12,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { spawn } = require('node:child_process')
+const { spawn, spawnSync } = require('node:child_process')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -34,7 +34,18 @@ function isAlive(pid) {
 // Signal a detached process's whole group (its leader pid is `pid`, so the group
 // id is `-pid`) — reaches children like vite/tsc that a bare `pnpm dev` spawns.
 // Falls back to signalling just the leader if the group send fails.
-function signalGroup(pid, sig) {
+//
+// WINDOWS HAS NO PROCESS GROUPS: `-pid` throws, the fallback kills only the
+// `sh` wrapper, and the server it started survives — holding its port and its
+// worktree, which then cannot be removed (chore-windows-ci). `taskkill /T` walks
+// the tree instead; `/F` for both signals, because a console process ignores
+// the polite close a bare `taskkill` sends. Run with an argument list, never a
+// shell. `opts` is injectable for tests.
+function signalGroup(pid, sig, { platform = process.platform, run = spawnSync } = {}) {
+  if (platform === 'win32') {
+    run('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+    return
+  }
   try {
     process.kill(-pid, sig)
   } catch {
@@ -81,6 +92,8 @@ function startProcess(proc, { cwd, rootDir, spawnImpl = spawn }) {
       cwd,
       env: { ...process.env, ...proc.env },
       detached: true,
+      // No console window per dev server on Windows; nothing anywhere else.
+      windowsHide: true,
       stdio: ['ignore', out, out],
     })
     child.unref()

@@ -83,7 +83,8 @@ function cleanup(dir) {
 
 // The printed worktree path: one shell word, quoted when it has to be — and a
 // nested fixture's repo name carries a space (test/helpers/repo.js).
-const WT = String.raw`(?:"[^"]+|\S+)-wt\/null-total"?`
+// Either separator: Windows prints `-wt\null-total`.
+const WT = String.raw`(?:"[^"]+|\S+)-wt[\\/]null-total"?`
 
 async function runQuiet(argv) {
   const orig = process.stdout.write

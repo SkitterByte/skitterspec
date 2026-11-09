@@ -71,3 +71,53 @@ for (const hook of HOOKS) {
     assert.ok(got === 'skitterspec' || !got.startsWith(root), got)
   })
 }
+
+// --- Windows: the package's JS entry, run through node -------------------------
+//
+// chore-windows-ci: on Windows the hooks spawned `.bin/<name>` — a shell shim
+// spawn cannot execute (EFTYPE) — failed open, and every guard was silently off.
+
+function jsEntry(dir, name = 'skitterspec') {
+  const p = path.join(dir, 'node_modules', '@skitterbyte', name, 'bin', `${name}.js`)
+  fs.mkdirSync(path.dirname(p), { recursive: true })
+  fs.writeFileSync(p, '')
+  return p
+}
+
+for (const hook of HOOKS) {
+  const { findEngine, engineCommand } = require(hook)
+  const name = path.basename(hook)
+
+  test(`${name}: on win32 the package's JS entry is found, in the project or above`, () => {
+    const root = tmp()
+    const project = path.join(root, 'FF.CSC.Solution')
+    fs.mkdirSync(project, { recursive: true })
+    const want = jsEntry(root, 'skitterspec-azure-boards')
+    assert.strictEqual(withoutOverride(() => findEngine(project, 'win32')), want)
+  })
+
+  test(`${name}: on win32 it runs through node, never as the file itself`, () => {
+    const root = tmp()
+    const js = jsEntry(root)
+    assert.deepStrictEqual(withoutOverride(() => engineCommand(root, 'win32')), { file: process.execPath, args: [js] })
+  })
+
+  test(`${name}: STAYS SILENT — a .bin shim is not what win32 runs, and POSIX is unchanged`, () => {
+    const root = tmp()
+    const shim = bin(root)
+    const got = withoutOverride(() => findEngine(root, 'win32'))
+    assert.ok(got === 'skitterspec' || !got.startsWith(root), 'the shim is not picked on win32')
+    assert.deepStrictEqual(withoutOverride(() => engineCommand(root, 'linux')), { file: shim, args: [] })
+  })
+
+  test(`${name}: a .js SKITTERSPEC_BIN runs through node`, () => {
+    const saved = process.env.SKITTERSPEC_BIN
+    process.env.SKITTERSPEC_BIN = '/x/engine.js'
+    try {
+      assert.deepStrictEqual(engineCommand('/anywhere'), { file: process.execPath, args: ['/x/engine.js'] })
+    } finally {
+      if (saved === undefined) delete process.env.SKITTERSPEC_BIN
+      else process.env.SKITTERSPEC_BIN = saved
+    }
+  })
+}

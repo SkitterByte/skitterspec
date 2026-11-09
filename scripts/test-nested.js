@@ -49,7 +49,9 @@ if (require.main === module) {
   }
   const prefix = process.env.SKITTERSPEC_TEST_PREFIX || DEFAULT_PREFIX
   process.stdout.write(`test:nested: ${files.length} file(s), project nested under ${prefix}/\n`)
-  const result = spawnSync(process.execPath, ['--test', ...files], {
+  // Anything after `test:nested` is handed to `node --test` — CI adds its
+  // annotation reporter this way.
+  const result = spawnSync(process.execPath, ['--test', ...process.argv.slice(2), ...files], {
     stdio: 'inherit',
     env: { ...process.env, SKITTERSPEC_TEST_PREFIX: prefix },
   })

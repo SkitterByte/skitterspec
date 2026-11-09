@@ -67,6 +67,8 @@ jobs:
   windows:
     name: windows (node 24)
     runs-on: windows-latest
+    env:
+      ANNOTATE: --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/gh-annotations.js --test-reporter-destination=stdout
     steps:
       # Before checkout: a worktree path under the runner's temp dir plus a
       # deep spec folder can pass MAX_PATH.
@@ -82,6 +84,8 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:nested
-      - run: pnpm test
+      # Each failure also becomes a public annotation (scripts/gh-annotations.js):
+      # the log needs repo-admin rights to download, the annotations do not.
+      - run: pnpm test:nested ${{ env.ANNOTATE }}
+      - run: pnpm test ${{ env.ANNOTATE }}
         continue-on-error: true

@@ -236,10 +236,11 @@ test('it allows when the engine crashes', () => {
     // An EXECUTABLE stub. This once passed `"node stub.js"` as one bin, which
     // `spawnSync` cannot run — so the stub never executed and the test proved
     // only that a missing engine allows.
-    const stub = path.join(dir, 'crashing-engine')
-    fs.writeFileSync(stub, `#!${process.execPath}\nprocess.exit(3)\n`)
-    fs.chmodSync(stub, 0o755)
-    assert.strictEqual(spawnSync(stub, [], { encoding: 'utf8' }).status, 3, 'the stub really runs')
+    // A `.js` file the hook runs through node — the way it runs any `.js`
+    // engine, and the only way Windows can run one at all.
+    const stub = path.join(dir, 'crashing-engine.js')
+    fs.writeFileSync(stub, 'process.exit(3)\n')
+    assert.strictEqual(spawnSync(process.execPath, [stub], { encoding: 'utf8' }).status, 3, 'the stub really runs')
     engine(dir, 'feat-alpha')
     engine(dir, 'arm', 'feat-alpha', '--phase', '2')
     // Any status but the one that means "armed" is a cannot-tell.
@@ -534,12 +535,12 @@ test('a hook that merely shares the prefix is not mistaken for ours', () => {
 // why it never caught it: the dangerous crash is the one that exits 1.
 
 // An engine that throws on load, as the incident's did: exit 1, a stack on
-// stderr, nothing on stdout. An executable file, because `SKITTERSPEC_BIN` is
-// spawned without a shell and a "node script.js" string would never run at all.
+// stderr, nothing on stdout. A `.js` file, which the hook runs through node:
+// `SKITTERSPEC_BIN` is spawned without a shell, so a "node script.js" string
+// would never run at all, and Windows cannot execute a script by its shebang.
 function throwingEngine(dir) {
-  const stub = path.join(dir, 'throwing-engine')
-  fs.writeFileSync(stub, `#!${process.execPath}\nthrow new ReferenceError('phaseProgress is not defined')\n`)
-  fs.chmodSync(stub, 0o755)
+  const stub = path.join(dir, 'throwing-engine.js')
+  fs.writeFileSync(stub, "throw new ReferenceError('phaseProgress is not defined')\n")
   return stub
 }
 
@@ -547,7 +548,7 @@ test('stays silent: an engine that throws (exit 1, no output) is a crash, not a 
   const { dir, wt } = scaffold()
   try {
     const bin = throwingEngine(dir)
-    assert.strictEqual(spawnSync(bin, [], { encoding: 'utf8' }).status, 1, 'the stub really exits 1')
+    assert.strictEqual(spawnSync(process.execPath, [bin], { encoding: 'utf8' }).status, 1, 'the stub really exits 1')
     const got = runHook(bashCommit(wt), { cwd: wt, bin })
     assert.strictEqual(got.status, 0)
     assert.strictEqual(got.stdout.trim(), '', 'no decision at all — the commit proceeds')

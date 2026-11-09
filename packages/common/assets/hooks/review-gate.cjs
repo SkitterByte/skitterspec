@@ -78,12 +78,22 @@ function readPayload() {
  * is the fallback for a global install, and `SKITTERSPEC_BIN` overrides
  * everything for anyone whose layout is neither.
  */
-function findEngine(projectDir) {
+const ENGINES = ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']
+
+function findEngine(projectDir, platform = process.platform) {
   if (process.env.SKITTERSPEC_BIN) return process.env.SKITTERSPEC_BIN
   let at = projectDir
   for (let i = 0; i < 6 && at; i++) {
-    for (const name of ['skitterspec', 'skitterspec-linear', 'skitterspec-jira', 'skitterspec-github', 'skitterspec-azure-boards']) {
-      const candidate = path.join(at, 'node_modules', '.bin', name)
+    for (const name of ENGINES) {
+      // ON WINDOWS, THE PACKAGE'S OWN JS ENTRY, never `.bin/<name>`. That is a
+      // shell shim nothing here can execute (spawn refuses it: EFTYPE), and the
+      // `.cmd` beside it needs a shell — which a hook handing a tool's command
+      // line over as an argument must never use. Unreachable, the hook failed
+      // open, and every guard was silently off on Windows (chore-windows-ci).
+      const candidate =
+        platform === 'win32'
+          ? path.join(at, 'node_modules', '@skitterbyte', name, 'bin', `${name}.js`)
+          : path.join(at, 'node_modules', '.bin', name)
       if (fs.existsSync(candidate)) return candidate
     }
     const up = path.dirname(at)
@@ -91,6 +101,13 @@ function findEngine(projectDir) {
     at = up
   }
   return 'skitterspec'
+}
+
+// How to run what `findEngine` found: a `.js` engine through this node, since
+// Windows cannot execute one directly — anything else as itself, as before.
+function engineCommand(projectDir, platform = process.platform) {
+  const engine = findEngine(projectDir, platform)
+  return /\.[cm]?js$/i.test(engine) ? { file: process.execPath, args: [engine] } : { file: engine, args: [] }
 }
 
 // The engine's own refusal line, from `spec-env review gate --check`. Pure.
@@ -117,9 +134,10 @@ function main() {
   // its own checkout, and the answer differs per worktree.
   const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd()
 
+  const engine = engineCommand(cwd)
   const result = spawnSync(
-    findEngine(cwd),
-    ['spec-env', 'review', 'gate', '--check', '--for-command', command, '--dir', cwd],
+    engine.file,
+    [...engine.args, 'spec-env', 'review', 'gate', '--check', '--for-command', command, '--dir', cwd],
     { cwd, encoding: 'utf8', timeout: 8000 },
   )
 
@@ -160,4 +178,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { findEngine, isRefusal }
+module.exports = { findEngine, engineCommand, isRefusal }

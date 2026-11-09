@@ -97,3 +97,29 @@ test('waitHealthy short-circuits true when there is no health url', async () => 
   assert.strictEqual(await waitHealthy(null), true)
   assert.strictEqual(await waitHealthy(''), true)
 })
+
+// --- Windows: no process groups -------------------------------------------------
+//
+// chore-windows-ci: `kill(-pid)` throws on Windows and killing the `sh` leader
+// left the dev server alive, holding its worktree. `taskkill /T /F` walks the
+// tree; asserted on its argument list, since no Windows process exists here.
+
+test('signalGroup on win32 kills the whole tree with taskkill, without a shell', () => {
+  const calls = []
+  const { signalGroup: sg } = require('../src/env/supervise.js')
+  for (const sig of ['SIGTERM', 'SIGKILL']) {
+    sg(4242, sig, { platform: 'win32', run: (file, args, opts) => calls.push({ file, args, shell: opts && opts.shell }) })
+  }
+  assert.deepStrictEqual(calls, [
+    { file: 'taskkill', args: ['/pid', '4242', '/T', '/F'], shell: undefined },
+    { file: 'taskkill', args: ['/pid', '4242', '/T', '/F'], shell: undefined },
+  ])
+})
+
+test('STAYS SILENT: signalGroup off win32 never runs taskkill', () => {
+  const calls = []
+  const { signalGroup: sg } = require('../src/env/supervise.js')
+  // A pid that is certainly gone: the POSIX path swallows the ESRCH.
+  sg(2 ** 22 + 7, 'SIGTERM', { platform: 'linux', run: () => calls.push('taskkill') })
+  assert.deepStrictEqual(calls, [])
+})

@@ -1,0 +1,3 @@
+# LF everywhere, on every platform (chore-windows-ci). Without it a Windows
+# checkout gets CRLF, and every test that reads a file and matches `\n` fails.
+* text=auto eol=lf

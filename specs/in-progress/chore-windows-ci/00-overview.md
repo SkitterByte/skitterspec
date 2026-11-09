@@ -83,7 +83,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Run the Windows job and triage its failures | ✅ | [01-triage.md](01-triage.md) |
-| 2 | Line endings and Windows product fixes | ⬜ | [02-product-fixes.md](02-product-fixes.md) |
+| 2 | Line endings and Windows product fixes | ✅ | [02-product-fixes.md](02-product-fixes.md) |
 | 3 | Test-only Windows assumptions | ⬜ | [03-test-fixes.md](03-test-fixes.md) |
 | 4 | Make the Windows job blocking | ⬜ | [04-blocking.md](04-blocking.md) |
 
@@ -98,3 +98,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   one class throughout — the 8.3 short temp path on the runner defeated the
   project find-up. Fixed in phase 1 (`realpathSync.native`) because nothing
   past it was visible; the rest of the triage moves to phase 2's first task.
+- 2026-11-09 — Phase 2: run 42699077387 showed two Windows product bugs —
+  hooks unable to reach the engine (guards silently off) and `dev down` leaving
+  servers alive — both fixed; plus test-only fixes done early to save a CI
+  round trip, and an annotation reporter so later runs triage without a log.
