@@ -5,6 +5,12 @@ What's new for users of skitterspec-azure-boards. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.5.0 — 9 Nov 2026
+
+### Azure
+- **Fixed** — A new spec-sync restate command brings Boards items you pushed earlier up to your current state map. It previews the moves first, changes child items only unless you ask, and never pulls an item out of a state your release process moved it to.
+- **Fixed** — Changing which Boards state a lifecycle bucket maps to now reaches work items that were already pushed, updating only their state. A resend never pulls an item back out of a state your own release process moved it to, such as On Prod.
+
 ## 2.4.0 — 8 Nov 2026
 
 **Highlights:** Your tracker now owns each spec's status and assignee: the spec skills stop writing Status, Developer and State log lines, a ticket keeps its assignee when the spec finishes, and pushes no longer move a card someone moved on the board. To keep the old behaviour, set workflowState and assignee to push in sync.fieldOwnership.
