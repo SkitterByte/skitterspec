@@ -53,7 +53,16 @@ const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/s
 const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
 const { IDENTIFIER_RE } = require('@skitterbyte/skitterspec-provider-kit/src/released.js')
 
-const { loadAzureConfig, mergeConfig, defaults, CONFIG_FILE, LIFECYCLE_BUCKETS } = require('./config.js')
+const {
+  loadAzureConfig,
+  mergeConfig,
+  defaults,
+  CONFIG_FILE,
+  LIFECYCLE_BUCKETS,
+  specKindOf,
+  mintTypeFor,
+  stateNameFor,
+} = require('./config.js')
 const {
   resolveCredential,
   writeCredential,
@@ -185,24 +194,23 @@ function stateCheckFailure(config, flags) {
 // Apply ops: the kit orchestration with Azure's tracker calls. State is moved
 // by a direct `System.State` write after the create/update, and `transitionTo`
 // is idempotent when the item already sits on the target.
-// A spec's KIND, read off its folder prefix — the same convention the
-// lifecycle skills stamp into `> **Type:**`, but greppable with no file read.
-function specKindOf(snapshotDir) {
-  const name = path.basename(String(snapshotDir || ''))
-  if (name.startsWith('bug-')) return 'bug'
-  if (name.startsWith('hotfix-')) return 'hotfix'
-  if (name.startsWith('chore-')) return 'chore'
-  if (name.startsWith('issue-')) return 'issue'
-  if (name.startsWith('incident-')) return 'incident'
-  return 'feature'
-}
+//
+// A RESEND IS NOT A MOVE. A plan marks a state `stateResend` when nothing says
+// the spec moved — a state-map change, or a snapshot that was lost — and such a
+// send never drags an item backwards: one sitting in a state this config does
+// not map for its type, or in a later bucket than the target, is left where it
+// is and named. A host's release CI moving finished items on (Resolved → On
+// Prod) is the case this protects. A real bucket move is the repo's transition
+// and is sent as before, backwards or not.
 
+// How far through the lifecycle a bucket is. The two finished buckets rank
+// alike: neither is behind the other.
+const BUCKET_RANK = { backlog: 0, 'in-progress': 1, complete: 2, cancelled: 2 }
 function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }) {
   // The mint type for THIS spec's kind (its folder prefix), falling back to
   // the one configured type. The twin search uses the same type, so a bug
   // never refuses over a feature that happens to share its title.
-  const mintType =
-    (config.azure.workItemTypeByKind && config.azure.workItemTypeByKind[kind]) || config.azure.workItemType
+  const mintType = mintTypeFor(config, kind)
   // Push-time extras off the spec's own headers: `Severity:` lands in the
   // built-in field, `Incident:` as a Related link. Neither is a synced field,
   // so neither touches the stored-base hashes.
@@ -221,17 +229,52 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
   // Per-type resolution: statesByType[type] overlays states, and null means
   // "send no state for this bucket" — a deliberate skip, not a gap.
   const stateFor = (bucket, type) => {
-    const name = effectiveStates(config, config.statesByType, type)[bucket]
+    const name = stateNameFor(config, bucket, type)
     if (name === null) return null
     if (!name) {
       throw new Error(`no state configured for the "${bucket}" bucket — fix ${CONFIG_FILE} -> states`)
     }
     return name
   }
-  const settle = async (idOrIdentifier, bucket, type) => {
+  // The bucket a live state means for one type: its own resolution first, then
+  // the shared map and its aliases — an item can still sit on the name an
+  // earlier map wrote. Null is a state this config does not map at all.
+  const bucketOfState = (name, type) => {
+    const want = String(name).toLowerCase().trim()
+    const same = (n) => typeof n === 'string' && n.toLowerCase().trim() === want
+    for (const bucket of LIFECYCLE_BUCKETS) if (same(stateNameFor(config, bucket, type))) return bucket
+    for (const bucket of LIFECYCLE_BUCKETS) if (same(config.states[bucket])) return bucket
+    for (const bucket of LIFECYCLE_BUCKETS) if (((config.stateAliases || {})[bucket] || []).some(same)) return bucket
+    return null
+  }
+  // Should a resend leave this item where it is? A reason string when so.
+  const keepReason = async (idOrIdentifier, bucket, name, type) => {
+    let item
+    try {
+      item = await adapter.readIssue(apiId(idOrIdentifier))
+    } catch (error) {
+      return `could not read its state (${String((error && error.message) || error).split('\n')[0]})`
+    }
+    const at = item && item.state && item.state.name
+    // Cannot tell where it is, so the harmless reading is to leave it.
+    if (!at) return 'could not read its state'
+    if (String(at).toLowerCase().trim() === String(name).toLowerCase().trim()) return null
+    const current = bucketOfState(at, type)
+    if (current === null) return `at "${at}", a state this config does not map for ${type}`
+    if (BUCKET_RANK[current] > BUCKET_RANK[bucket]) return `at "${at}", later than ${bucket}`
+    return null
+  }
+  const settle = async (idOrIdentifier, bucket, type, resend = null) => {
     if (!bucket) return
     const name = stateFor(bucket, type)
     if (name === null) return
+    if (resend) {
+      const reason = await keepReason(idOrIdentifier, bucket, name, type)
+      if (reason) {
+        if (out) out.write(`  state kept: ${asIdentifier(apiId(idOrIdentifier))} ${reason} — a resend leaves it\n`)
+        return
+      }
+    }
     await adapter.transitionTo(apiId(idOrIdentifier), name)
   }
   // Azure refuses the WHOLE patch over one bad `System.AssignedTo` value
@@ -310,7 +353,7 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
           skippingRefusedSeverity(input, (i) => adapter.updateIssue(apiId(existing.identifier), i)),
         )
       }
-      await settle(existing.identifier, issue.state, mintType)
+      await settle(existing.identifier, issue.state, mintType, issue.stateResend)
       await relateToIncident(existing.identifier)
     },
     mintSubIssue: async (parentId, sub) => {
@@ -328,7 +371,7 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
       if (sub.name != null) updates.title = sub.name
       if (sub.goal != null) updates.description = sub.goal
       if (Object.keys(updates).length) await adapter.updateIssue(apiId(sub.id), updates)
-      await settle(sub.id, sub.state, config.azure.childType)
+      await settle(sub.id, sub.state, config.azure.childType, sub.stateResend)
     },
   }
 }

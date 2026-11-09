@@ -14,9 +14,10 @@
  */
 
 const { readFileSync } = require('node:fs')
-const { join } = require('node:path')
+const { join, basename } = require('node:path')
 
 const kitConfig = require('@skitterbyte/skitterspec-provider-kit/src/config.js')
+const { effectiveStates } = require('@skitterbyte/skitterspec-sync-core')
 const { dialect, htmlToText, looksLikeHtml } = require('./dialect.js')
 
 const CONFIG_FILE = 'specs/.core/azure-boards.config.json'
@@ -305,6 +306,30 @@ function mergeConfig(base, parsed) {
   return base
 }
 
+// A spec's KIND, read off its folder prefix — the same convention the
+// lifecycle skills stamp into `> **Type:**`, but greppable with no file read.
+function specKindOf(snapshotDir) {
+  const name = basename(String(snapshotDir || ''))
+  if (name.startsWith('bug-')) return 'bug'
+  if (name.startsWith('hotfix-')) return 'hotfix'
+  if (name.startsWith('chore-')) return 'chore'
+  if (name.startsWith('issue-')) return 'issue'
+  if (name.startsWith('incident-')) return 'incident'
+  return 'feature'
+}
+
+// The work item type a spec of this kind mints, falling back to the one
+// configured type.
+function mintTypeFor(config, kind) {
+  return (config.azure.workItemTypeByKind && config.azure.workItemTypeByKind[kind]) || config.azure.workItemType
+}
+
+// The state a bucket writes for one work item type: statesByType[type] over
+// states. `null` is a deliberate "send no state"; `undefined` is no mapping.
+function stateNameFor(config, bucket, type) {
+  return effectiveStates(config, config.statesByType, type)[bucket]
+}
+
 // Attach the parts of the provider contract that are code, not JSON: the
 // markdown dialect, and the `provider` block. Azure identifiers all share the
 // constant `AB` prefix (`AB#123`), so unlike Jira's project key there is
@@ -323,6 +348,14 @@ function withRuntime(config) {
   // as markdown or HTML depending on the item's era. Each hook falls back to
   // the flat Linear-like shape, so a pre-reduced payload keeps working.
   config.remote = {
+    // The state name a push writes for this bucket, recorded in the snapshot
+    // so a state-map change is visible to `plan` (sync-core `stateNames`).
+    // Resolved exactly as the apply resolves it: the spec item by its kind's
+    // mint type, a phase by `childType`.
+    writtenStateName(bucket, role, snapshotDir) {
+      const type = role === 'subIssue' ? config.azure.childType : mintTypeFor(config, specKindOf(snapshotDir))
+      return stateNameFor(config, bucket, type)
+    },
     stateName(item) {
       const st = item && item.fields && item.fields['System.State']
       if (st != null) return typeof st === 'object' ? (st.name != null ? st.name : null) : st
@@ -392,6 +425,9 @@ function loadAzureConfig(dir = process.cwd()) {
 const releaseIgnorePaths = (config) => (config.release && config.release.ignorePaths) || []
 
 module.exports = {
+  specKindOf,
+  mintTypeFor,
+  stateNameFor,
   loadAzureConfig,
   mergeConfig,
   defaults,

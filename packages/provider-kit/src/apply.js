@@ -83,6 +83,9 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
   const identifier = helpers.linkedIdentifier(path.join(snapshotDir, overviewFile), config)
   const lines = []
   const result = { issue: null, subIssues: {} }
+  // Which items this apply carried a state for — the snapshot records today's
+  // state name for these and only these (`recordPush`).
+  const sent = { issue: !!(plan.issue && plan.issue.state != null), subIssues: new Set() }
   // Handed out immediately, so a throw from anywhere below still reports what
   // had been stamped by the time it happened.
   if (progress) progress.result = result
@@ -167,6 +170,7 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
     const file = resolvePhaseFileIn(snapshotDir, sub.ref)
     if (!file) throw new Error(`no phase file for ref ${sub.ref}`)
     stampSubIssueId(snapshotDir, file, created.identifier, config)
+    if (sub.state != null) sent.subIssues.add(String(created.identifier))
     result.subIssues[sub.ref] = created.identifier
     lines.push(`  sub-issue created: ${sub.ref} → ${created.identifier}`)
   }
@@ -193,6 +197,7 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
       sub = spliced(sub, 'goal', before, config, sub.id, lines)
     }
     await ops.updateSubIssue(sub)
+    if (sub.state != null) sent.subIssues.add(String(sub.id))
     result.subIssues[sub.ref || refById.get(String(sub.id)) || sub.id] = sub.id
     lines.push(`  sub-issue updated: ${sub.id}`)
   }
@@ -212,7 +217,7 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
   const lost = verify.some((l) => l.includes('!!') || l.includes('??'))
 
   // 7. Record the snapshot from the now-stamped files, so the next push is empty.
-  const file = recordPush({ dir, snapshotDir, identifier: helpers.specIdentifier(snapshotDir, config), config })
+  const file = recordPush({ dir, snapshotDir, identifier: helpers.specIdentifier(snapshotDir, config), config, sent })
   lines.push(`  snapshot: ${path.relative(dir, file)}`)
   return { result, lines, lost }
 }

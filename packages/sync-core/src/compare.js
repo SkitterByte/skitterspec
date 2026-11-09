@@ -199,6 +199,49 @@ function snapshotOf(projection, config) {
 }
 
 /**
+ * The `stateNames` record for a snapshot: the tracker state name each item was
+ * last SENT, `{ issue, subIssues: { <id>: name } }`, or null when there is
+ * nothing to record (no provider hook, nothing ever sent).
+ *
+ * An item this push sent a state for (`sent`) records today's resolution. Any
+ * other item keeps the name the previous snapshot had for it, or gets none —
+ * the absence `planChanges` reads as cannot-tell. Writing today's name for an
+ * item that was not sent would record a claim about the tracker nobody made.
+ *
+ * @param {object} projection  the projection, carrying `stateName`s
+ * @param {object|null} previous  the snapshot being replaced
+ * @param {{ issue?: boolean, subIssues?: Set<string> }|null} sent
+ */
+function stateNamesRecord(projection, previous, sent) {
+  const p = projection || {}
+  const before = (previous && previous.stateNames) || {}
+  const beforeSubs = before.subIssues || {}
+  const sentSubs = (sent && sent.subIssues) || new Set()
+  const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key)
+  const out = { subIssues: {} }
+  if (sent && sent.issue && p.stateName !== undefined) out.issue = p.stateName
+  else if (has(before, 'issue')) out.issue = before.issue
+  for (const s of p.subIssues || []) {
+    if (!s || s.id == null) continue
+    const id = String(s.id)
+    if (sentSubs.has(id) && s.stateName !== undefined) out.subIssues[id] = s.stateName
+    else if (has(beforeSubs, id)) out.subIssues[id] = beforeSubs[id]
+  }
+  if (!has(out, 'issue') && !Object.keys(out.subIssues).length) return null
+  return out
+}
+
+// Has the state an unchanged item maps to moved under it — a state-map edit in
+// the config rather than a move of the spec? Only a RECORDED name can say: an
+// item with none is cannot-tell and plans nothing, so an upgrade or a config
+// change never turns into a workspace-wide resend. A bucket that now sends no
+// state (`null`) has nothing to resend.
+function remapped(recorded, current) {
+  if (recorded === undefined || current === undefined || current === null) return false
+  return recorded !== current
+}
+
+/**
  * Diff the local projection against the last-pushed snapshot.
  * @returns {{ issue?: object, subIssues: {create,update} }}
  *   `unstamped` (when present) lists phases whose stamp is missing while the
@@ -213,6 +256,9 @@ function planChanges(projection, snapshot, { linked = false } = {}) {
   const p = projection || {}
   const snap = snapshot || {}
   const snapS = snap.subIssues || {}
+  const names = snap.stateNames || {}
+  const recordedSub = (id) =>
+    names.subIssues && Object.prototype.hasOwnProperty.call(names.subIssues, id) ? names.subIssues[id] : undefined
 
   // Ids the last push minted that no phase claims any more. A phase file's stamp
   // is the only link back to its sub-issue, and it lives in frontmatter — so a
@@ -239,7 +285,15 @@ function planChanges(projection, snapshot, { linked = false } = {}) {
         subIssues.create.push({ ref: s.ref, name: s.name, goal: s.goal, state: s.state })
       }
     } else if (snapS[String(s.id)] !== subIssueHash(s)) {
-      subIssues.update.push({ ref: s.ref, id: s.id, name: s.name, goal: s.goal, state: s.state })
+      const update = { ref: s.ref, id: s.id, name: s.name, goal: s.goal, state: s.state }
+      // No hash on record for an id the spec carries: the snapshot was lost or
+      // predates it, so this is a resend, not a move the spec made.
+      if (snapS[String(s.id)] === undefined) update.stateResend = 'unknown'
+      subIssues.update.push(update)
+    } else if (remapped(recordedSub(String(s.id)), s.stateName)) {
+      // STATE ONLY: the phase itself is unchanged, so its title and body stay
+      // as they are on the tracker.
+      subIssues.update.push({ ref: s.ref, id: s.id, state: s.state, stateResend: 'remap' })
     }
   }
 
@@ -276,6 +330,9 @@ function issueChanges(projection, snapshot, { linked = false } = {}) {
     // `linked` is what tells the two apart: an adopted issue has no snapshot
     // either, and its board status is a person's, not ours.
     if (!p.statePulled || !linked) out.state = p.status ?? null
+    // A linked issue with no split hashes is a resend: nothing says the spec
+    // moved, so the apply must not drag the issue out of a later state.
+    if (linked && out.state != null) out.stateResend = 'unknown'
     // ASSERT, NEVER CLEAR, on this path. There are no split hashes here, so
     // whether an assignee was ever pushed is unknown — and the harmless reading
     // of "unknown" is to send one we have and stay silent about one we don't.
@@ -302,6 +359,11 @@ function issueChanges(projection, snapshot, { linked = false } = {}) {
   const changed = {}
   if (fields.description !== want.description) changed.description = p.description ?? null
   if (fields.state !== want.state) changed.state = p.status ?? null
+  else if (!p.statePulled && remapped(snap.stateNames && snap.stateNames.issue, p.stateName)) {
+    // The tracker owns a pulled state, so a remap never re-asserts it there.
+    changed.state = p.status ?? null
+    changed.stateResend = 'remap'
+  }
 
   // ASSIGNEE — AN ABSENT SNAPSHOT KEY MEANS "NEVER PUSHED", NOT "WAS NULL".
   //
@@ -342,6 +404,7 @@ module.exports = {
   issueChanges,
   specIssueFieldHashes,
   snapshotOf,
+  stateNamesRecord,
   isEmptyPlan,
   hashField,
   stableStringify,

@@ -18,7 +18,7 @@
 const { normalizeLocal, phasesWithheld, phaseModeFor, ownershipOf, readSnapshot } = require('./normalize.js')
 const { descriptionMode } = require('./summary.js')
 const { fieldsOf } = require('./fields.js')
-const { planChanges, snapshotOf, isEmptyPlan } = require('./compare.js')
+const { planChanges, snapshotOf, stateNamesRecord, isEmptyPlan } = require('./compare.js')
 const { readBase, writeBase } = require('./base.js')
 const { detectLegacyMirror } = require('./legacy.js')
 
@@ -55,7 +55,34 @@ function projectionOf(snapshotDir, config) {
   // a push sends it only as a transition — see `issueChanges`. Set only when
   // pulled, and read by name, so it can never reach a hash.
   if (ownershipOf(config, 'workflowState') === 'pull') projection.statePulled = true
+  attachStateNames(projection, snapshotDir, config)
   return projection
+}
+
+// The tracker state NAME each bucket resolves to today, from the provider's
+// `config.remote.writtenStateName(bucket, role, snapshotDir)` hook: a string,
+// `null` for "this bucket sends no state", or `undefined` for cannot-tell — no
+// hook, a hook that threw, or no bucket to resolve. Read by name, so it never
+// reaches a hash: recorded beside them as `stateNames`, it is what lets a plan
+// see a state-map change the bucket hashes are blind to.
+function attachStateNames(projection, snapshotDir, config) {
+  const hook = config && config.remote && config.remote.writtenStateName
+  if (typeof hook !== 'function') return
+  const resolve = (bucket, role) => {
+    if (!bucket) return undefined
+    try {
+      const name = hook(bucket, role, snapshotDir)
+      return name === null || typeof name === 'string' ? name : undefined
+    } catch {
+      return undefined
+    }
+  }
+  const name = resolve(projection.status, 'issue')
+  if (name !== undefined) projection.stateName = name
+  projection.subIssues = projection.subIssues.map((s) => {
+    const sub = resolve(s && s.state, 'subIssue')
+    return sub === undefined ? s : { ...s, stateName: sub }
+  })
 }
 
 // Does the spec carry its issue stamp? NOT `identifier`: callers fall back to the
@@ -101,9 +128,18 @@ function push({ dir, snapshotDir, identifier, config }) {
  * Record the last-pushed snapshot from the CURRENT files — call after the skill
  * has applied the plan and stamped new ids. Returns the snapshot path.
  */
-function recordPush({ dir, snapshotDir, identifier, config }) {
+// `sent` says which items this push carried a state for — `{ issue, subIssues }`,
+// the latter a set of ids. Only those get today's name recorded; anything else
+// keeps the name it already had, or none. Recording today's name for an item
+// that was NOT sent would claim the tracker holds it, and silence the very remap
+// this record exists to catch. Without `sent` (a hand-applied MCP push) nothing
+// new is recorded and what was there is kept.
+function recordPush({ dir, snapshotDir, identifier, config, sent = null }) {
   const projection = projectionOf(snapshotDir, config)
-  return writeBase(dir, identifier, config, snapshotOf(projection, config))
+  const snapshot = snapshotOf(projection, config)
+  const names = stateNamesRecord(projection, readBase(dir, identifier, config), sent)
+  if (names) snapshot.stateNames = names
+  return writeBase(dir, identifier, config, snapshot)
 }
 
 module.exports = { push, recordPush, projectionOf }
