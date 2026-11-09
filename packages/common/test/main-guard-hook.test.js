@@ -27,40 +27,30 @@ const HOOK = path.join(__dirname, '..', 'assets', 'hooks', 'main-guard.cjs')
 // distribution built at install time, so a test of a source change would run
 // yesterday's engine and pass or fail for reasons unrelated to the diff.
 const ENGINE = path.join(__dirname, '..', 'bin', 'skitterspec.js')
+const { makeRepo, repoFor } = require('./helpers/repo.js')
 
 const git = (cwd, ...args) =>
   execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
     .toString()
     .trim()
 
-/** A real repo on `main`, with isolation configured and one committed file. */
+/**
+ * A real repo on `main`, with isolation configured and one committed file. The
+ * project may be nested in a subfolder of the repo (test/helpers/repo.js); `dir`
+ * is the project folder, where a session stands.
+ */
 function repo({ isolation = true } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hook-')))
-  git(dir, 'init', '-q')
-  git(dir, 'config', 'user.email', 'test@example.com')
-  git(dir, 'config', 'user.name', 'Test')
-  git(dir, 'config', 'core.excludesFile', '/dev/null')
-  if (isolation) {
-    fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-    fs.writeFileSync(
-      path.join(dir, 'specs', '.core', 'env.config.json'),
-      JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }),
-    )
-  }
-  fs.writeFileSync(path.join(dir, 'README.md'), '# x\n')
-  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
-  git(dir, 'add', '-A')
-  git(dir, 'commit', '-q', '-m', 'init')
-  git(dir, 'branch', '-M', 'main')
-  return dir
+  const r = makeRepo({
+    name: 'skitterspec-hook-',
+    config: isolation ? { baseBranch: 'main', docker: { enabled: false } } : null,
+    files: { 'README.md': '# x\n' },
+  })
+  r.git('config', 'core.excludesFile', '/dev/null')
+  return r.dir
 }
 
 function cleanup(dir) {
-  try {
-    git(dir, 'worktree', 'prune')
-  } catch {}
-  fs.rmSync(dir, { recursive: true, force: true })
-  fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
+  repoFor(dir).cleanup()
 }
 
 /** Run the hook with a payload, and parse whatever it printed. */
@@ -143,8 +133,7 @@ test('STAYS SILENT: a write outside the repo, from the primary checkout on main'
 test('STAYS SILENT: a write into a worktree, from the primary checkout on main', () => {
   const dir = repo()
   try {
-    const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'thing')
-    git(dir, 'worktree', 'add', '-q', '-b', 'feat/thing', wt)
+    const wt = repoFor(dir).addWorktree('feat-thing')
     assert.strictEqual(fire(write(dir, path.join(wt, 'README.md'))).out, '')
   } finally {
     cleanup(dir)
@@ -154,14 +143,28 @@ test('STAYS SILENT: a write into a worktree, from the primary checkout on main',
 test('a write into the primary checkout on main is denied, wherever the session stands', () => {
   const dir = repo()
   try {
-    const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'thing')
-    git(dir, 'worktree', 'add', '-q', '-b', 'feat/thing', wt)
+    const wt = repoFor(dir).addWorktree('feat-thing')
     assert.strictEqual(fire(write(wt, path.join(dir, 'README.md'))).decision, 'deny')
     assert.strictEqual(
       fire(write(dir, path.join(dir, 'brand', 'new', 'file.md'))).decision,
       'deny',
       'a file in a folder that does not exist yet is still inside the checkout',
     )
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('a write beside the project, in the primary checkout on main, is denied', () => {
+  // feat-subfolder-project, decision 6: the guard covers the whole primary
+  // checkout. A project in a subfolder of its repo once compared the write's
+  // checkout (the repo root) with the project folder, never matched, and let
+  // every write through — this one included.
+  const dir = repo()
+  try {
+    const sibling = path.join(repoFor(dir).root, 'Sql', 'schema.sql')
+    assert.strictEqual(fire(write(dir, sibling)).decision, 'deny')
+    assert.strictEqual(fire(write(dir, path.join(dir, 'README.md'))).decision, 'deny')
   } finally {
     cleanup(dir)
   }
@@ -176,8 +179,7 @@ test('a write into the primary checkout on main is denied, wherever the session 
 test('STAYS SILENT: inside a worktree on a spec branch', () => {
   const dir = repo()
   try {
-    const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'thing')
-    git(dir, 'worktree', 'add', '-q', '-b', 'feat/thing', wt)
+    const wt = repoFor(dir).addWorktree('feat-thing')
     assert.strictEqual(fire(edit(wt)).out, '')
   } finally {
     cleanup(dir)

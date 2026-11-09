@@ -33,7 +33,8 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { assertPrimaryOnMain, resolvePrimaryCheckout } = require('./resolve.js')
+const { assertPrimaryOnMain } = require('./resolve.js')
+const { primaryAnchor } = require('./project.js')
 
 // Where the allow lives. Gitignored, machine-local and beside the registry —
 // this is one person's decision about one session, never the project's policy.
@@ -218,12 +219,20 @@ function checkMainWrite(dir, config, git, opts = {}) {
   // the primary checkout's own, wherever the session is standing.
   let branchGit = git
   try {
-    primary = resolvePrimaryCheckout(dir, git)
+    // `primary` is the PROJECT folder in the primary checkout — where the allow
+    // file lives. The question "is this write in the primary checkout?" is
+    // asked of its ROOT: `--show-toplevel` answers with the root, and a project
+    // in a subfolder of its repo compared the two, never matched, and let every
+    // write through. The whole primary checkout is guarded, not only the
+    // project folder: a write to `Sql/` on the base branch is unreviewed work
+    // too (feat-subfolder-project, decision 6).
+    const anchor = primaryAnchor(dir, git)
+    primary = anchor.dir
     if (opts.target && typeof opts.gitAt === 'function') {
       const top = checkoutOf(opts.target, opts.gitAt)
-      isPrimary = Boolean(top) && Boolean(primary) && sameDir(top, primary)
+      isPrimary = Boolean(top) && Boolean(anchor.root) && sameDir(top, anchor.root)
       if (!isPrimary) return ALLOWS
-      branchGit = opts.gitAt(primary)
+      branchGit = opts.gitAt(anchor.root)
     } else {
       isPrimary = Boolean(primary) && path.resolve(primary) === path.resolve(dir)
     }

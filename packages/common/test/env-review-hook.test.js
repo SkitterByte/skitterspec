@@ -29,43 +29,34 @@ const { ensureReviewGateHook, alreadyRegistered, hookEntry, HOOK_SCRIPT } = requ
 // path and this suite cannot name three different files.
 const HOOK = path.join(__dirname, '..', 'assets', 'hooks', path.basename(HOOK_SCRIPT))
 const ENGINE = path.join(__dirname, '..', 'bin', 'skitterspec.js')
+const { makeRepo, repoFor } = require('./helpers/repo.js')
 
 function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
 }
 
+// The project may be nested in a subfolder of its repo (test/helpers/repo.js):
+// `dir` and `wt` are the project folder in the primary checkout and in alpha's
+// worktree — where a session stands to commit.
 function scaffold({ isolation = true } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hook-')))
-  git(dir, 'init', '-q')
-  git(dir, 'config', 'user.email', 'test@example.com')
-  git(dir, 'config', 'user.name', 'Test')
-  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-  if (isolation) {
-    fs.writeFileSync(
-      path.join(dir, 'specs', '.core', 'env.config.json'),
-      JSON.stringify({ baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local', serve: 'never' } }),
-    )
-  }
-  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
-  fs.writeFileSync(path.join(dir, 'app.js'), 'one\ntwo\n')
-  const specDir = path.join(dir, 'specs', 'in-progress', 'feat-alpha')
-  fs.mkdirSync(specDir, { recursive: true })
-  fs.writeFileSync(path.join(specDir, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
-  git(dir, 'add', '-A')
-  git(dir, 'commit', '-q', '-m', 'init')
-  git(dir, 'branch', '-M', 'main')
-  const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'alpha')
-  git(dir, 'worktree', 'add', '-q', '-b', 'feat/alpha', wt)
+  const repo = makeRepo({
+    name: 'skitterspec-hook-',
+    config: isolation
+      ? { baseBranch: 'main', docker: { enabled: false }, review: { reader: 'local', serve: 'never' } }
+      : null,
+    files: {
+      'app.js': 'one\ntwo\n',
+      'specs/in-progress/feat-alpha/00-overview.md': '# X\n\n> **Stack:** worktree\n',
+    },
+  })
+  const dir = repo.dir
+  const wt = repo.addWorktree('feat-alpha')
   fs.writeFileSync(path.join(wt, 'app.js'), 'one\nTWO\n')
   return { dir, wt }
 }
 
 function cleanup(dir) {
-  try {
-    git(dir, 'worktree', 'prune')
-  } catch {}
-  fs.rmSync(dir, { recursive: true, force: true })
-  fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
+  repoFor(dir).cleanup()
 }
 
 const engine = (dir, ...args) =>
@@ -174,13 +165,12 @@ test('it allows a commit in a DIFFERENT spec\'s worktree', () => {
   // worktree mode is for, and one spec's obligation is not another's.
   const { dir, wt } = scaffold()
   try {
-    const other = path.resolve(dir, `../${path.basename(dir)}-wt`, 'beta')
     const sd = path.join(dir, 'specs', 'in-progress', 'feat-beta')
     fs.mkdirSync(sd, { recursive: true })
     fs.writeFileSync(path.join(sd, '00-overview.md'), '# beta\n\n> **Stack:** worktree\n')
     git(dir, 'add', '-A')
     git(dir, 'commit', '-q', '-m', 'beta')
-    git(dir, 'worktree', 'add', '-q', '-b', 'feat/beta', other)
+    const other = repoFor(dir).addWorktree('feat-beta')
 
     engine(dir, 'feat-alpha')
     engine(dir, 'arm', 'feat-alpha', '--phase', '2')

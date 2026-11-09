@@ -16,6 +16,8 @@ the docs-freshness test and a clean dist build.
       project-relative vs root-relative, `core.longpaths` on Windows
 - [ ] docs/reference.html: the same, plus the `project:` line; bump its
       `verified:`
+- [ ] Say where to install skitterspec in a subfolder project: in the project
+      folder or above it — the hooks walk up, never down
 - [ ] Rebuild the distribution packages (`scripts/build-dist.js`) and confirm
       the vendored copies carry the module
 - [ ] Run `node scripts/docs-freshness.js impact`; typecheck + test +
