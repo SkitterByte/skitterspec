@@ -80,3 +80,4 @@ and a genuine one-line edit on a CRLF file is still "your edit — kept".
 - 2026-11-09 — Bug reproduced; failing test added (red).
 - 2026-11-09 — Fixed: `normalizeEol` behind `sha1` and a `sameContent`
   compare in `init.js`; 4 new tests green, 4558 pass.
+- 2026-11-09 — Completed; fix done, tests green.
