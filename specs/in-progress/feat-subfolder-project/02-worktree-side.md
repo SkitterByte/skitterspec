@@ -20,5 +20,9 @@ project-scoped — proven by nested up/bootstrap/dev/handoff tests.
 - [ ] Make the folder `up`/`handoff` tells the session to `cd` into
       `projectIn(<wt>)`; check the spec-start / spec / no-spec skill text says
       "the path the engine prints", not a hand-built one
+- [ ] Look up specs in a worktree at `projectIn(<wt>)` (resolve.js
+      `findSpecFolder` search dirs, inflight.js `read`)
+- [ ] Move `cli-spec-env-status`, `-zero-arg` and `-up-from` tests (and the
+      up/bootstrap/dev/handoff ones) onto `test/helpers/repo.js`
 - [ ] Tests: nested up → bootstrap → dev → handoff on a fixture; prefix `''`
       unchanged; typecheck + test + `test:nested` green

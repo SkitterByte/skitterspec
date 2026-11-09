@@ -16,6 +16,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const { primaryAnchor, repoRootOf } = require('./project.js')
 
 const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
 
@@ -524,17 +525,20 @@ function newestMatch(config, git, pattern) {
 }
 
 /**
- * Resolve `dir` to the primary checkout root — the parent of the shared git dir.
- * From the primary checkout `git rev-parse --git-common-dir` is `.git` (relative),
- * so the parent is `dir`; from a linked worktree it's the absolute `<main>/.git`,
- * so the parent is `<main>`. Anchoring every `spec-env` command here means they
- * resolve `{repo}` / worktree paths / the registry identically whether run from
- * `main` or a worktree. `git(args)` returns trimmed stdout or `null` (not a repo)
- * — injected for testability; a `null` degrades to `dir` (today's behaviour).
+ * Resolve `dir` to the PROJECT FOLDER in the primary checkout — the primary root
+ * (the parent of the shared git dir) joined with the project's prefix, which is
+ * `''` when the project is the repo. From the primary checkout
+ * `git rev-parse --git-common-dir` is `.git` (relative), so the root is `dir`;
+ * from a linked worktree it's the absolute `<main>/.git`, so the root is
+ * `<main>`. Anchoring every `spec-env` command here means they read the config
+ * and registry identically whether run from `main` or a worktree.
+ * `git(args)` returns trimmed stdout or `null` (not a repo) — injected for
+ * testability; a `null` degrades to `dir` (today's behaviour). `env/project.js`
+ * carries how the prefix is found; `{repo}` and the worktree layout resolve
+ * against the root, which a loaded config carries (`attachProject`).
  */
 function resolvePrimaryCheckout(dir, git) {
-  const common = git(['rev-parse', '--git-common-dir'])
-  return common ? path.dirname(path.resolve(dir, common)) : dir
+  return primaryAnchor(dir, git).dir
 }
 
 /**
@@ -601,7 +605,8 @@ function assertPrimaryOnMain(config, git) {
  * Pure but for `repoInfo`, like `resolveSpec`.
  */
 function resolveSpecless(name, dir, config, entry = {}) {
-  const { repo, repoSlug } = repoInfo(dir)
+  const root = repoRootOf(dir, config)
+  const { repo, repoSlug } = repoInfo(root)
   // AN AUTHORING RECORD RESOLVES AS THE SPEC IT WILL BE. `spec: true` marks a
   // record written by `up --docs` for a spec not written yet (the `/spec`
   // authoring lane), so type and slug come from the name's own prefix — the
@@ -634,7 +639,7 @@ function resolveSpecless(name, dir, config, entry = {}) {
     branch,
     worktreeRoot,
     worktreeFolder,
-    worktreePath: path.resolve(dir, worktreeRoot, worktreeFolder),
+    worktreePath: path.resolve(root, worktreeRoot, worktreeFolder),
     projectName: expandTokens(config.docker.projectNamePattern, tokens),
   }
 }
@@ -667,7 +672,10 @@ function resolveSpec(specArg, dir, config, opts = {}) {
   }
 
   const { type, slug } = splitPrefix(found.folder)
-  const { repo, repoSlug } = repoInfo(dir)
+  // The repo's root, not the project folder: `{repo}` names the repo and the
+  // worktree layout sits beside it (spec feat-subfolder-project, decision 4).
+  const root = repoRootOf(dir, config)
+  const { repo, repoSlug } = repoInfo(root)
   const tokens = { repo, repoSlug, slug }
 
   const stack = readStackField(found.path, config)
@@ -693,7 +701,7 @@ function resolveSpec(specArg, dir, config, opts = {}) {
 
   const worktreeRoot = expandTokens(config.worktree.root, tokens)
   const worktreeFolder = expandTokens(config.worktree.folderPattern, tokens)
-  const worktreePath = path.resolve(dir, worktreeRoot, worktreeFolder)
+  const worktreePath = path.resolve(root, worktreeRoot, worktreeFolder)
   const projectName = expandTokens(config.docker.projectNamePattern, tokens)
 
   return {

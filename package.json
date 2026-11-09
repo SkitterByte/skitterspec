@@ -20,6 +20,7 @@
   },
   "scripts": {
     "test": "node --test",
+    "test:nested": "node scripts/test-nested.js",
     "build": "node scripts/build-dist.js all",
     "dev:link": "node scripts/dev-link.js",
     "relink": "node scripts/claude-relink.js",

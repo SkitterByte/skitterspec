@@ -425,7 +425,7 @@ test('the anchoring that makes the above true is still in the code', () => {
   // Every subcommand resolves against the primary checkout, whichever worktree
   // it was typed in. Remove this and two worktrees become two different repos
   // as far as the server is concerned.
-  assert.match(src, /dir = resolvePrimaryCheckout\(dir, gitReader\(dir\)\)/)
+  assert.match(src, /const anchor = primaryAnchor\(dir, gitReader\(dir\)\)\n\s*dir = anchor\.dir/)
 })
 
 // --- stale by BUILD, not only by version -----------------------------------

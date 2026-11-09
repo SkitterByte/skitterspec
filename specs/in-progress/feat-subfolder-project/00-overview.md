@@ -85,7 +85,7 @@ and `../{repo}-wt` lands worktrees inside the repo.
    env/CLI test with the project nested, and CI runs both suites on ubuntu and
    windows-latest (`core.longpaths` on). Each accusing check gets a stays-silent
    test on the nested layout (`.claude/rules/negative-checks.md`).
-10. **The prefix is reported, not configured**: one `project:` line in
+10. **The prefix is reported, not configured**: one `subfolder:` line in
     `spec-env resolve` and at the top of `skitterspec status`, only when the
     prefix is non-empty. No `doctor` verb.
 11. **Out of scope:** several skitterspec projects in one repo (find-up picks
@@ -111,7 +111,7 @@ a `null` (outside the project) is code. Hooks already receive the subfolder as
 | Business rule | update | spec-doc / noise / foreign classification (review, serve, classify) |
 | Business rule | update | main guard primary-checkout test; review-gate hook |
 | Config key | update | provider `ignorePaths` / spec discovery made prefix-aware |
-| CLI output | add | `project: <prefix>/ (in repo <root>)` line in resolve + status |
+| CLI output | add | `subfolder: <prefix>/ (in repo <root>)` line in resolve + status |
 | CI | add | windows-latest job; `test:nested` script |
 | Docs | update | SETUP.md, env.config.md, docs/reference.html |
 
@@ -122,7 +122,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Locate the project, re-anchor, nested test harness + Windows CI | ⬜ | [01-locate-and-anchor.md](01-locate-and-anchor.md) |
+| 1 | Locate the project, re-anchor, nested test harness + Windows CI | ✅ | [01-locate-and-anchor.md](01-locate-and-anchor.md) |
 | 2 | Worktree side: paths, setup/dev/docker cwd, session move | ⬜ | [02-worktree-side.md](02-worktree-side.md) |
 | 3 | Repo-relative matching: review, serve, stage | ⬜ | [03-path-matching.md](03-path-matching.md) |
 | 4 | Guards and hooks | ⬜ | [04-guards-and-hooks.md](04-guards-and-hooks.md) |
@@ -138,3 +138,12 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-09 — Spec created from an adopter's report (Azure DevOps, .NET 4.8
   solution in a subfolder). Grill replaced `--show-prefix` with find-up to
   `specs/.core/` (decision 1).
+- 2026-11-09 — Decision 9 amended: there was no shared fixture builder to
+  teach a prefix. A new `test/helpers/repo.js` takes it, and each phase moves
+  the tests for the sites it touches onto the helper; `test:nested` reruns
+  every file that uses it.
+- 2026-11-09 — Decision 10 amended: the line is `subfolder:`, not `project:`
+  — `spec-env resolve` already prints `project:` for the docker project name.
+- 2026-11-09 — Windows CI: `test:nested` gates; the full suite runs with
+  `continue-on-error`, since it has never run on Windows and may be red there
+  for reasons unrelated to this spec.

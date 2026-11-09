@@ -53,3 +53,35 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      # The same git-backed tests again, with the project in a subfolder of its
+      # git root (spec feat-subfolder-project).
+      - run: pnpm test:nested
+
+  # A subfolder project's first adopter is on Windows, where git prints `/` and
+  # `path` builds `\` — exactly the bug class nesting a project creates, and
+  # nothing on ubuntu would catch it.
+  #
+  # The nested run is the gate. The full suite has never run on Windows, so it
+  # reports here without failing the build until it has been made green there;
+  # turning `continue-on-error` off is that follow-up's to do.
+  windows:
+    name: windows (node 24)
+    runs-on: windows-latest
+    steps:
+      # Before checkout: a worktree path under the runner's temp dir plus a
+      # deep spec folder can pass MAX_PATH.
+      - run: git config --global core.longpaths true
+
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:nested
+      - run: pnpm test
+        continue-on-error: true

@@ -67,7 +67,6 @@ const {
   liveWorktreePaths,
   collectSpecFolders,
   allSpecs,
-  resolvePrimaryCheckout,
   assertPrimaryOnMain,
   currentBranch,
   repoInfo,
@@ -76,6 +75,7 @@ const {
   parseBaseVersion,
   BUCKETS,
 } = require('./env/resolve.js')
+const { primaryAnchor, attachProject, repoRootOf, projectLine } = require('./env/project.js')
 const building = require('./env/building.js')
 const {
   readReceipt,
@@ -518,8 +518,10 @@ function inFlightStatus(argv) {
   const json = argv.includes('--json')
   const at = argv.indexOf('--dir')
   const from = path.resolve(at !== -1 && argv[at + 1] ? argv[at + 1] : process.cwd())
-  const dir = resolvePrimaryCheckout(from, gitReader(from))
+  const anchor = primaryAnchor(from, gitReader(from))
+  const dir = anchor.dir
   const { config, present } = loadEnvConfig(dir)
+  attachProject(config, anchor)
   const rows = present ? collectInFlight({ dir, provisioned: provisionedSpecs(dir, config) }) : []
   if (json) {
     const specs = rows.map((r) => ({ ...r, inFlight: isInFlight(r) }))
@@ -530,7 +532,7 @@ function inFlightStatus(argv) {
     process.stdout.write('no specs in flight — isolation is not enabled here, so no spec has a worktree.\n')
     return
   }
-  process.stdout.write(formatInFlight(rows, { dir }))
+  process.stdout.write(projectLine(anchor) + formatInFlight(rows, { dir }))
 }
 
 // Plan a provision: allocate the slot, persist the registry, and print the plan
@@ -1993,10 +1995,11 @@ function resolveSpecWithWorktree(dir, config, specArg) {
   // one where a missing spec was previously a usage error.
   specArg = specArg || soleProvisionedSpec(dir, config)
   const { slug } = splitPrefix(path.basename(specArg))
-  const { repo, repoSlug } = repoInfo(dir)
+  const root = repoRootOf(dir, config)
+  const { repo, repoSlug } = repoInfo(root)
   const wtTokens = { repo, repoSlug, slug }
   const worktreeGuess = path.resolve(
-    dir,
+    root,
     expandTokens(config.worktree.root, wtTokens),
     expandTokens(config.worktree.folderPattern, wtTokens),
   )
@@ -2073,7 +2076,7 @@ function specEnvPrune(dir, config, flags) {
       `spec-env prune: reaped a stale review-server pidfile (pid ${reapedPid} is gone).\n`,
     )
   }
-  const { repoSlug } = repoInfo(dir)
+  const { repoSlug } = repoInfo(repoRootOf(dir, config))
 
   const vols = listRepoVolumes(repoSlug)
   if (!vols.ok) {
@@ -3446,7 +3449,8 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
       `type/slug:  ${r.type} / ${r.slug}\n` +
       `branch:     ${r.branch}\n` +
       `worktree:   ${r.worktreePath}\n` +
-      `project:    ${r.projectName}\n`,
+      `project:    ${r.projectName}\n` +
+      projectLine(config.project),
   )
 }
 
@@ -6818,11 +6822,15 @@ async function specEnv(rest) {
   // those two ask about the tree in front of you, and the two differ inside a
   // worktree.
   const invokedFrom = dir
-  // Anchor on the primary checkout so every subcommand resolves {repo}, worktree
-  // paths, and the registry identically whether run from main or a worktree.
-  dir = resolvePrimaryCheckout(dir, gitReader(dir))
+  // Anchor on the project folder in the primary checkout so every subcommand
+  // resolves {repo}, worktree paths, and the registry identically whether run
+  // from main or a worktree — and from a project that sits in a subfolder of
+  // its repo (env/project.js).
+  const anchor = primaryAnchor(dir, gitReader(dir))
+  dir = anchor.dir
 
   const { config, present, unknown, badReviewers } = loadEnvConfig(dir)
+  attachProject(config, anchor)
   if (!present) {
     process.stdout.write(
       'spec-env: isolation not enabled (no specs/.core/env.config.json).\n' +

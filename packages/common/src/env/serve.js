@@ -38,6 +38,7 @@ const {
 } = require('./resolve.js')
 const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
+const { primaryAnchor, attachProject } = require('./project.js')
 const { specDocsIn, classifyDirtyTree, dirtyPaths } = require('./classify.js')
 const { liveStateFor } = require('./live.js')
 const { preferRemoteBase } = require('./host.js')
@@ -1035,6 +1036,9 @@ if (require.main === module) {
   }
   const { dir, port, host, token } = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
   const { config } = loadEnvConfig(dir)
+  // `dir` is the project folder the CLI anchored on; re-derive where it sits in
+  // its repo so worktree paths resolve beside the repo, as the CLI's do.
+  attachProject(config, primaryAnchor(dir, trimmedGitReader(dir)))
   const server = createReviewServer({ ...serverHooks(dir, config), token })
   startReviewServer(server, { port, host }).then(
     () => {},
