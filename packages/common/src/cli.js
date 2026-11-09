@@ -75,7 +75,15 @@ const {
   parseBaseVersion,
   BUCKETS,
 } = require('./env/resolve.js')
-const { primaryAnchor, attachProject, repoRootOf, projectLine } = require('./env/project.js')
+const {
+  primaryAnchor,
+  attachProject,
+  repoRootOf,
+  prefixOf,
+  toRepoPath,
+  projectLine,
+  shellPath,
+} = require('./env/project.js')
 const building = require('./env/building.js')
 const {
   readReceipt,
@@ -467,7 +475,12 @@ function provisionedSpecs(dir, config) {
   const worktreePaths = liveWorktreePaths(gitReader(dir))
   return (
     allSpecs(dir, config, worktreePaths, speclessMap(dir, config))
-      .map((s) => ({ folder: s.folder, wt: path.resolve(s.worktreePath), specless: s.specless }))
+      .map((s) => ({
+        folder: s.folder,
+        wt: path.resolve(s.worktreePath),
+        project: path.resolve(s.projectPath),
+        specless: s.specless,
+      }))
       // The primary checkout is itself in `git worktree list`; a spec is
       // provisioned only when it has its OWN worktree, separate from it.
       .filter((s) => s.wt !== dir && worktreePaths.has(s.wt))
@@ -489,7 +502,7 @@ function specEnvStatus(dir, config) {
   const registry = readRegistry(dir, config)
   const rows = collectInFlight({ dir, provisioned })
   process.stdout.write('Provisioned specs:\n')
-  for (const [i, { folder, wt, specless }] of provisioned.entries()) {
+  for (const [i, { folder, project, specless }] of provisioned.entries()) {
     const slot = registry.slots[folder]
     let ports = ''
     if (slot !== undefined) {
@@ -504,7 +517,8 @@ function specEnvStatus(dir, config) {
     // The worktree's own reading — bucket, progress, any legacy header — after
     // everything this line already carried, so the line is a superset of it.
     const detail = specless ? '' : `  ${detailOf(rows[i])}`
-    process.stdout.write(`  ${folder}${tag}${ports}${detail}\n    ${path.relative(dir, wt) || wt}\n`)
+    // The project folder inside the worktree: where a session works on it.
+    process.stdout.write(`  ${folder}${tag}${ports}${detail}\n    ${path.relative(dir, project) || project}\n`)
   }
   process.stdout.write(waitingSection(dir, config))
 }
@@ -584,9 +598,14 @@ function specOnForkPoint(dir, git, spec, config) {
   // points outside this repo entirely (`../<repo>-wt/<slug>/specs/...`) — a path
   // no `cat-file` or `log` can ever match, which turned every in-flight spec
   // into "not committed" and silently emptied the `it is on <branch>` hint too.
+  //
+  // `<ref>:<path>` names a path from the REPO ROOT, while the `log` pathspec
+  // below is relative to `dir`, the project folder — so the first needs the
+  // project's prefix and the second must not have it (feat-subfolder-project).
   const rels = BUCKETS.map((bucket) => `specs/${bucket}/${spec.folder}`)
+  const prefix = prefixOf(config)
   for (const rel of rels) {
-    if (git(['cat-file', '-e', `${spec.forkFrom || 'HEAD'}:${rel}/00-overview.md`]) !== null) {
+    if (git(['cat-file', '-e', `${spec.forkFrom || 'HEAD'}:${toRepoPath(rel, prefix)}/00-overview.md`]) !== null) {
       return { onFork: true, foundOn: null }
     }
   }
@@ -912,7 +931,7 @@ function specEnvNospec(dir, config, name, flags = {}) {
     `spec-env nospec: ${name} ` +
       (attached ? '(plan — worktree exists; will attach)' : '(plan — nothing created yet)'),
     '',
-    `  worktree:  ${spec.worktreePath}`,
+    `  worktree:  ${spec.projectPath}`,
     `  branch:    ${spec.branch}`,
     '  stack:     worktree-only (no docker, no port block)',
     `  recorded:  ${already ? 'already in' : 'added to'} ${config.registry} as a specless branch`,
@@ -932,8 +951,8 @@ function specEnvNospec(dir, config, name, flags = {}) {
   out.push('  to provision, run:')
   out.push(
     attached
-      ? `    git worktree add ${spec.worktreePath} ${spec.branch}`
-      : `    git worktree add ${spec.worktreePath} -b ${spec.branch}`,
+      ? `    git worktree add ${shellPath(spec.worktreePath)} ${spec.branch}`
+      : `    git worktree add ${shellPath(spec.worktreePath)} -b ${spec.branch}`,
   )
   const seeds = (config.seedFiles && config.seedFiles.files) || []
   if (seeds.length || (config.setup || []).length) out.push(...bootstrapLines(name))
@@ -1228,7 +1247,9 @@ function specEnvUp(dir, config, specArg, flags = {}) {
       (attached ? '(plan — worktree exists; will attach)' : '(plan — nothing created yet)'),
   )
   out.push('')
-  out.push(`  worktree:  ${plan.worktreePath}`)
+  // Where the session moves to: the project folder inside the worktree, which
+  // is the worktree itself unless the project sits in a subfolder of its repo.
+  out.push(`  worktree:  ${plan.projectPath}`)
   out.push(`  branch:    ${plan.branch}`)
   if (plan.slot !== null) {
     const hi = plan.portOffset + config.docker.portsPerSpec - 1
@@ -1406,7 +1427,7 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
     if (json) {
       say(
         JSON.stringify(
-          { spec: name, worktree: spec.worktreePath, docs, planned: true, steps },
+          { spec: name, worktree: spec.projectPath, docs, planned: true, steps },
           null,
           2,
         ),
@@ -1415,7 +1436,7 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
     }
     say(`spec-env bootstrap: ${name} (plan — nothing run)`)
     say('')
-    say(`  worktree:  ${spec.worktreePath}`)
+    say(`  worktree:  ${spec.projectPath}`)
     if (!steps.length) say('  steps:     none — nothing configured to run')
     else steps.forEach((st, i) => say(`  ${i + 1}. ${describeStep(st)}`))
     return
@@ -1423,10 +1444,13 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
 
   if (!json) {
     say(`spec-env bootstrap: ${name}`)
-    say(`  worktree:  ${spec.worktreePath}`)
+    say(`  worktree:  ${spec.projectPath}`)
   }
+  // The project folder inside the worktree: setup, seeds and the env file are
+  // all project-relative, as `env.config.json` is (feat-subfolder-project,
+  // decision 5). `mainRoot` is the same folder in the primary checkout.
   const result = runBootstrap(steps, {
-    cwd: spec.worktreePath,
+    cwd: spec.projectPath,
     mainRoot: dir,
     // Report lines go to stdout as plain text; under --json they are carried in
     // the payload instead, and spawned output is moved to stderr with them.
@@ -1439,7 +1463,7 @@ function specEnvBootstrap(dir, config, specArg, flags = {}) {
       JSON.stringify(
         {
           spec: name,
-          worktree: spec.worktreePath,
+          worktree: spec.projectPath,
           docs,
           planned: false,
           ok: result.ok,
@@ -2263,7 +2287,7 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
         process.stdout.write(
           `spec-env integrate: blocked — ${stranded} commit(s) are stranded on the detached ` +
             `HEAD of ${spec.worktreePath} (at ${head}), ahead of ${spec.branch}; re-isolating ` +
-            `would abandon them. Recover with \`git -C ${spec.worktreePath} branch <tmp> ${head}\`, ` +
+            `would abandon them. Recover with \`git -C ${shellPath(spec.worktreePath)} branch <tmp> ${head}\`, ` +
             `reconcile onto ${spec.branch}, then re-run.\n`,
         )
         return
@@ -2522,7 +2546,7 @@ function specEnvHandoff(dir, config, specArg, flags = {}) {
   let phases = []
   if (worktree) {
     for (const bucket of BUCKETS) {
-      const folder = path.join(spec.worktreePath, 'specs', bucket, spec.folder)
+      const folder = path.join(spec.projectPath, 'specs', bucket, spec.folder)
       if (!fs.existsSync(path.join(folder, '00-overview.md'))) continue
       phases = fs
         .readdirSync(folder)
@@ -2580,7 +2604,7 @@ function specEnvHandoff(dir, config, specArg, flags = {}) {
 
 function specEnvDisposition(dir, config, specArg, flags = {}) {
   const spec = resolveSpecWithWorktree(dir, config, specArg)
-  const tree = spec.worktreePath && fs.existsSync(spec.worktreePath) ? spec.worktreePath : dir
+  const tree = spec.projectPath && fs.existsSync(spec.projectPath) ? spec.projectPath : dir
   let folder = null
   for (const bucket of ['in-progress', 'backlog', 'complete', 'cancelled']) {
     const p = path.join(tree, 'specs', bucket, spec.folder)
@@ -2804,7 +2828,7 @@ function hotfixFinish(dir, config, specArg, flags) {
     }
   })()
   if (inside) {
-    refuse([`this shell is inside the worktree — \`cd ${dir}\` first, then re-run`])
+    refuse([`this shell is inside the worktree — \`cd ${shellPath(dir)}\` first, then re-run`])
     return
   }
 
@@ -3092,8 +3116,8 @@ function specEnvHotfix(dir, config, positional, flags) {
     say('')
     say(`  prod tag:  ${tag}  (cut locally — not pushed, nothing carried yet)`)
     say(`  to deploy, push the branch, then the tag — re-run with --push, or run:`)
-    say(`    git -C ${spec.worktreePath} push ${remote} ${spec.branch}`)
-    say(`    git -C ${spec.worktreePath} push ${remote} ${tag}`)
+    say(`    git -C ${shellPath(spec.worktreePath)} push ${remote} ${spec.branch}`)
+    say(`    git -C ${shellPath(spec.worktreePath)} push ${remote} ${tag}`)
     say(`  then re-run \`skitterspec spec-env hotfix land ${spec.folder}\` to carry the fix.`)
   } else if (result.ok) {
     say('')
@@ -3337,7 +3361,7 @@ function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
     say(`  held:      nothing pushed — the push to ${remote} is what ${strategy === 'pr' ? 'opens the PR' : 'lands the fix'}.`)
     say('  re-run with --push, or run:')
     for (const ref of refs) {
-      say(`    git -C ${spec.worktreePath} push ${st.force ? '--force-with-lease -u ' : ''}${remote} ${ref}`)
+      say(`    git -C ${shellPath(spec.worktreePath)} push ${st.force ? '--force-with-lease -u ' : ''}${remote} ${ref}`)
     }
     say(`  then re-run \`skitterspec spec-env hotfix land ${spec.folder}\`.`)
   } else if (result.ok) {
@@ -3448,7 +3472,7 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
     `spec:       ${r.folder} (${r.specless ? 'no spec' : r.bucket})\n` +
       `type/slug:  ${r.type} / ${r.slug}\n` +
       `branch:     ${r.branch}\n` +
-      `worktree:   ${r.worktreePath}\n` +
+      `worktree:   ${r.projectPath}\n` +
       `project:    ${r.projectName}\n` +
       projectLine(config.project),
   )
@@ -5478,7 +5502,7 @@ async function specEnvDev(dir, config, positional) {
   if (action === 'up') {
     const out = [`spec-env dev up: ${spec.folder}  slot ${slot}  (ports from ${plan.portOffset})`]
     for (const proc of plan.procs) {
-      const res = startProcess(proc, { cwd: spec.worktreePath, rootDir: dir })
+      const res = startProcess(proc, { cwd: spec.projectPath, rootDir: dir })
       let health = ''
       if (proc.health) {
         health = (await waitHealthy(proc.health)) ? '  health: ok' : '  health: TIMEOUT'

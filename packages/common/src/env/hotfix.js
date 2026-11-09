@@ -22,6 +22,7 @@
 
 const path = require('node:path')
 const { afterLandFor, rangeOf } = require('./integrate.js')
+const { shellPath } = require('./project.js')
 
 /**
  * Parse a semver-ish tag and return it with its PATCH bumped by one. Preserves any
@@ -227,15 +228,17 @@ function planHotfixLand(spec, config, ctx) {
     // The tag is the command's to choose and is unknown until it has run, so
     // there is nothing to check a collision against here — the command refuses
     // a tag that exists, and the runner refuses one a target also planned.
-    commands.push(`(cd ${spec.worktreePath} && ${releaseWith})`)
-    steps.push({ kind: 'release', via: 'command', command: releaseWith, cwd: spec.worktreePath })
+    // The release command is the project's, so it runs in the project folder.
+    const releaseCwd = spec.projectPath || spec.worktreePath
+    commands.push(`(cd ${shellPath(releaseCwd)} && ${releaseWith})`)
+    steps.push({ kind: 'release', via: 'command', command: releaseWith, cwd: releaseCwd })
   } else {
     prodTag = nextTag(baseRef, c.existingTags, bump)
     if (taken.has(prodTag)) {
       return block(`tag ${prodTag} already exists${freeTagHint(baseRef, c.existingTags, bump)}`)
     }
     taken.add(prodTag)
-    commands.push(`git -C ${spec.worktreePath} tag ${prodTag}`)
+    commands.push(`git -C ${shellPath(spec.worktreePath)} tag ${prodTag}`)
     steps.push({
       kind: 'release',
       via: 'tag',
@@ -281,10 +284,10 @@ function planHotfixLand(spec, config, ctx) {
     const tmpBranch = `hotfix/${slug}`
     const tmpPath = path.join(wtRoot, slug)
     commands.push(
-      `git worktree add ${tmpPath} -b ${tmpBranch} ${t}`,
-      `git -C ${tmpPath} cherry-pick ${fixPick.join(' ')}`,
-      `git -C ${tmpPath} tag ${tag}`,
-      `git worktree remove ${tmpPath}`,
+      `git worktree add ${shellPath(tmpPath)} -b ${tmpBranch} ${t}`,
+      `git -C ${shellPath(tmpPath)} cherry-pick ${fixPick.join(' ')}`,
+      `git -C ${shellPath(tmpPath)} tag ${tag}`,
+      `git worktree remove ${shellPath(tmpPath)}`,
       `git branch -D ${tmpBranch}`,
     )
     const root = c.mainRepoPath
@@ -320,8 +323,8 @@ function planHotfixLand(spec, config, ctx) {
     const picks = carry.commits || [fixRange]
     commands.push(
       carry.strategy === 'worktree'
-        ? `git worktree add ${carry.tmpPath} ${c.base} && git -C ${carry.tmpPath} cherry-pick ${picks.join(' ')}`
-        : `git -C ${carry.path} cherry-pick ${picks.join(' ')}`,
+        ? `git worktree add ${shellPath(carry.tmpPath)} ${c.base} && git -C ${shellPath(carry.tmpPath)} cherry-pick ${picks.join(' ')}`
+        : `git -C ${shellPath(carry.path)} cherry-pick ${picks.join(' ')}`,
     )
     steps.push({
       kind: 'carry',

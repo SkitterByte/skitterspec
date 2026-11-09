@@ -266,7 +266,7 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   // reads the spec's worktree, and for those the two are the same path — so
   // `treePath` left null keeps the existing behaviour exactly. The `docs` mode
   // has no worktree to read, which is the whole reason it exists.
-  const root = treePath || spec.worktreePath
+  const root = treePath || spec.projectPath || spec.worktreePath
 
   // AN EXPLICIT FILE SET, or every changed file. `only` is a whitelist of
   // repo-relative paths, and it exists because the `docs` mode reads a tree

@@ -23,6 +23,7 @@
 
 const { expandTokens } = require('./resolve.js')
 const { composeFileArg } = require('./provision.js')
+const { shellPath } = require('./project.js')
 
 /**
  * @param {object} spec  resolved spec: { slug, branch, worktreePath, projectName, ... }
@@ -131,7 +132,7 @@ function planDown(spec, config, flags, ctx) {
   commands.push(
     force
       ? `git worktree remove --force ${spec.worktreePath}`
-      : `git worktree remove ${spec.worktreePath}`,
+      : `git worktree remove ${shellPath(spec.worktreePath)}`,
   )
 
   // --- delete the branch ---
@@ -282,8 +283,8 @@ function planDownCheckout(spec, config, flags, ctx) {
   }
 
   const commands = []
-  if (onBranch !== false) commands.push(`git -C ${checkoutPath} switch ${base}`)
-  commands.push(`git -C ${checkoutPath} branch ${landed ? '-D' : '-d'} ${spec.branch}`)
+  if (onBranch !== false) commands.push(`git -C ${shellPath(checkoutPath)} switch ${base}`)
+  commands.push(`git -C ${shellPath(checkoutPath)} branch ${landed ? '-D' : '-d'} ${spec.branch}`)
   return { ...result, commands }
 }
 

@@ -205,3 +205,31 @@ test('projectLine names a subfolder project, and prints nothing at the root', ()
   assert.strictEqual(projectLine(undefined), '')
   assert.strictEqual(projectLine({ root: '/r', prefix: 'FF.CSC.Solution' }), 'subfolder:  FF.CSC.Solution/ (in repo /r)\n')
 })
+
+// --- shellPath -----------------------------------------------------------------
+
+const { shellPath } = require('../src/env/project.js')
+
+test('stays silent: an ordinary path prints byte-identically', () => {
+  assert.strictEqual(shellPath('/Users/me/code/app-wt/x'), '/Users/me/code/app-wt/x')
+})
+
+test('shellPath quotes a path with a space — the adopter\'s `LSC App`', () => {
+  assert.strictEqual(shellPath('/c/Code/LSC App-wt/x'), '"/c/Code/LSC App-wt/x"')
+})
+
+test('shellPath quotes a Windows path, keeping its backslashes', () => {
+  // Unquoted, bash eats the backslashes: C:\Code becomes C:Code.
+  assert.strictEqual(shellPath('C:\\Code\\LSC App-wt\\x'), '"C:\\Code\\LSC App-wt\\x"')
+  assert.strictEqual(shellPath('C:\\Code\\app'), '"C:\\Code\\app"')
+})
+
+test('shellPath escapes what bash still expands inside double quotes', () => {
+  assert.strictEqual(shellPath('/tmp/a $b"c`d'), '"/tmp/a \\$b\\"c\\`d"')
+})
+
+test('shellPath survives a real shell round-trip', () => {
+  const odd = '/tmp/LSC App $HOME "q" `x`'
+  const out = execFileSync('sh', ['-c', `printf %s ${shellPath(odd)}`]).toString()
+  assert.strictEqual(out, odd)
+})

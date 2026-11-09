@@ -65,8 +65,10 @@ test('the worktree lands beside the REPO, named for the repo', async () => {
   const repo = withSpec('feat-alpha')
   try {
     const out = await runQuiet(['spec-env', 'resolve', 'feat-alpha', '--dir', repo.dir])
+    // The line names the project folder inside the worktree — where a session
+    // stands — which is the worktree itself at prefix ''.
     const wt = /^worktree: {3}(.+)$/m.exec(out)[1]
-    assert.strictEqual(wt, repo.worktreeFor('alpha').wt)
+    assert.strictEqual(wt, repo.worktreeFor('alpha').project)
     assert.ok(!wt.startsWith(repo.root + path.sep), 'never inside the repo')
   } finally {
     repo.cleanup()

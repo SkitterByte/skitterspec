@@ -8,6 +8,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const BIN = path.join(__dirname, '..', 'bin', 'skitterspec.js')
+const { makeRepo, repoFor } = require('./helpers/repo.js')
 
 // A live-git integration test for `spec-env dev up|down`, driven through the real
 // binary from a real cwd. It pins the regression that made the browser-testing
@@ -45,36 +46,20 @@ const IDLE = 'node -e "setInterval(function(){},1000)"'
 // Primary checkout on `main` plus a worktree on the spec's branch, with the spec
 // folder present ONLY on that branch: the post-/spec-start state.
 function scaffoldBranchOnlySpec() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-dev-')))
-  git(dir, 'init', '-q')
-  git(dir, 'config', 'user.email', 'test@example.com')
-  git(dir, 'config', 'user.name', 'Test')
-
-  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-  fs.writeFileSync(
-    path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify(
-      {
-        baseBranch: 'main',
-        docker: { enabled: false },
-        dev: [{ name: 'web', command: IDLE, portVar: 'PORT' }],
-      },
-      null,
-      2,
-    ),
-  )
-  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
-
-  // The spec starts in the backlog on main…
-  const backlog = path.join(dir, 'specs', 'backlog', 'feat-x')
-  fs.mkdirSync(backlog, { recursive: true })
-  fs.writeFileSync(path.join(backlog, '00-overview.md'), '# X\n\n> **Stack:** worktree\n')
-  git(dir, 'add', '-A')
-  git(dir, 'commit', '-q', '-m', 'init')
-  git(dir, 'branch', '-M', 'main')
-
-  const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, 'x')
-  git(dir, 'worktree', 'add', '-q', '-b', 'feat/x', worktree)
+  // The project may be nested in a subfolder of its repo (test/helpers/repo.js);
+  // `dir` and `worktree` are then the project folder in each checkout.
+  const repo = makeRepo({
+    name: 'skitterspec-dev-',
+    config: {
+      baseBranch: 'main',
+      docker: { enabled: false },
+      dev: [{ name: 'web', command: IDLE, portVar: 'PORT' }],
+    },
+    // The spec starts in the backlog on main…
+    files: { 'specs/backlog/feat-x/00-overview.md': '# X\n\n> **Stack:** worktree\n' },
+  })
+  const dir = repo.dir
+  const worktree = repo.addWorktree('feat-x')
 
   // …and /spec-start moves it to in-progress on the BRANCH, in the worktree, while
   // main drops its backlog copy. The spec now exists nowhere in the primary
@@ -96,11 +81,7 @@ function cleanup(dir) {
   try {
     cli(dir, 'spec-env', 'dev', 'down', 'feat-x')
   } catch {}
-  try {
-    git(dir, 'worktree', 'prune')
-  } catch {}
-  fs.rmSync(dir, { recursive: true, force: true })
-  fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
+  repoFor(dir).cleanup()
 }
 
 for (const from of ['primary', 'worktree']) {

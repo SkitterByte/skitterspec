@@ -19,6 +19,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { globToRegExp } = require('./glob.js')
+const { shellPath } = require('./project.js')
 
 const REQUIRED = ['spec', 'branch', 'holder', 'heldSince', 'baseMainCommit']
 
@@ -341,9 +342,9 @@ function planTake(spec, config, ctx) {
   return {
     ...result,
     commands: [
-      `git -C ${spec.worktreePath} rebase ${base}`,
-      `git -C ${spec.worktreePath} switch --detach`,
-      `git -C ${c.primaryPath} checkout ${branch}`,
+      `git -C ${shellPath(spec.worktreePath)} rebase ${base}`,
+      `git -C ${shellPath(spec.worktreePath)} switch --detach`,
+      `git -C ${shellPath(c.primaryPath)} checkout ${branch}`,
     ],
     warnings,
     receipt: {
@@ -405,8 +406,8 @@ function planRelease(spec, config, ctx) {
     }
   }
 
-  const commands = [`git -C ${c.primaryPath} checkout ${base}`]
-  if (c.worktreeExists) commands.push(`git -C ${spec.worktreePath} switch ${branch}`)
+  const commands = [`git -C ${shellPath(c.primaryPath)} checkout ${base}`]
+  if (c.worktreeExists) commands.push(`git -C ${shellPath(spec.worktreePath)} switch ${branch}`)
   return { ...result, commands, clears: true }
 }
 
@@ -457,8 +458,8 @@ function planAbort(config, ctx) {
 
   const branch = c.receipt.branch
   const commands = []
-  if (!(c.primary && c.primary.onBase)) commands.push(`git -C ${c.primaryPath} checkout ${base}`)
-  if (c.worktreeExists) commands.push(`git -C ${c.worktreePath} switch ${branch}`)
+  if (!(c.primary && c.primary.onBase)) commands.push(`git -C ${shellPath(c.primaryPath)} checkout ${base}`)
+  if (c.worktreeExists) commands.push(`git -C ${shellPath(c.worktreePath)} switch ${branch}`)
   return { ...result, commands, clears: true, branch }
 }
 

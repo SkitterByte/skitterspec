@@ -123,7 +123,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Locate the project, re-anchor, nested test harness + Windows CI | ✅ | [01-locate-and-anchor.md](01-locate-and-anchor.md) |
-| 2 | Worktree side: paths, setup/dev/docker cwd, session move | ⬜ | [02-worktree-side.md](02-worktree-side.md) |
+| 2 | Worktree side: paths, setup/dev/docker cwd, session move | ✅ | [02-worktree-side.md](02-worktree-side.md) |
 | 3 | Repo-relative matching: review, serve, stage | ⬜ | [03-path-matching.md](03-path-matching.md) |
 | 4 | Guards and hooks | ⬜ | [04-guards-and-hooks.md](04-guards-and-hooks.md) |
 | 5 | Providers and init | ⬜ | [05-providers-and-init.md](05-providers-and-init.md) |
@@ -147,3 +147,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-09 — Windows CI: `test:nested` gates; the full suite runs with
   `continue-on-error`, since it has never run on Windows and may be red there
   for reasons unrelated to this spec.
+- 2026-11-09 — Phase 2: the `worktree:` line names the project folder inside
+  the worktree (identical at prefix ''), since that is where a session stands
+  and what `/spec-next` compares against. Added `shellPath` quoting to every
+  printed command — a repo named with a space (the adopter's `LSC App`) broke
+  `git worktree add` regardless of nesting.

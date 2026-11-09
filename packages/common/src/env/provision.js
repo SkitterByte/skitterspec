@@ -15,6 +15,7 @@ const { classifyDirtyTree } = require('./classify.js')
 const { portOffset } = require('./registry.js')
 const { renderEnvFile } = require('./render.js')
 const { expandTokens } = require('./resolve.js')
+const { shellPath } = require('./project.js')
 
 // Cap a path list in a message: enough to recognise, not a wall of text.
 function listPaths(paths) {
@@ -252,7 +253,9 @@ function worktreeSteps(spec, offset, config, opts = {}) {
   const seed = config.seedFiles || { mode: 'symlink', files: [] }
   const mode = seed.mode === 'copy' ? 'copy' : 'symlink'
   const tokens = {
-    worktreePath: spec.worktreePath,
+    // The step's own cwd — the project folder inside the worktree — so the
+    // documented "{worktreePath} is the cwd" stays true for a subfolder project.
+    worktreePath: spec.projectPath || spec.worktreePath,
     slug: spec.slug,
     branch: spec.branch,
     projectName: spec.projectName,
@@ -361,12 +364,12 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
   const resume = !attached && spec.resumeFrom ? spec.resumeFrom : null
   if (resume) {
     commands.push(`git fetch ${resume.remote} ${spec.branch}`)
-    commands.push(`git worktree add ${spec.worktreePath} -b ${spec.branch} --track ${resume.remote}/${spec.branch}`)
+    commands.push(`git worktree add ${shellPath(spec.worktreePath)} -b ${spec.branch} --track ${resume.remote}/${spec.branch}`)
   } else {
     commands.push(
       attached
-        ? `git worktree add ${spec.worktreePath} ${spec.branch}`
-        : `git worktree add ${spec.worktreePath} -b ${spec.branch}${forkPoint}`,
+        ? `git worktree add ${shellPath(spec.worktreePath)} ${spec.branch}`
+        : `git worktree add ${shellPath(spec.worktreePath)} -b ${spec.branch}${forkPoint}`,
     )
   }
   // The tree gate. A worktree forks from the base branch's tree, so an
@@ -386,6 +389,7 @@ function planUp(spec, alloc, config, ctx, opts = {}) {
     // report from "provisioned", and the caller cannot reconstruct it.
     untouched: gate.foreign || [],
     worktreePath: spec.worktreePath,
+    projectPath: spec.projectPath || spec.worktreePath,
     branch: spec.branch,
     projectName: spec.projectName,
     slot: wantsDocker ? slot : null,

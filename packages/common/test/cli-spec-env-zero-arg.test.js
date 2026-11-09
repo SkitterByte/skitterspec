@@ -13,6 +13,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+const { makeRepo, repoFor } = require('./helpers/repo.js')
 
 function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -23,21 +24,10 @@ function git(cwd, ...args) {
 // A real git checkout on `main` with isolation enabled. Specs are added by
 // `addSpec`; worktrees by `addWorktree`, so each test states its own shape.
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-zeroarg-')))
-  git(dir, 'init', '-q')
-  git(dir, 'config', 'user.email', 'test@example.com')
-  git(dir, 'config', 'user.name', 'Test')
-  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-  fs.writeFileSync(
-    path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify({ baseBranch: 'main', docker: { enabled: false } }, null, 2),
-  )
-  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
-  fs.writeFileSync(path.join(dir, 'README.md'), '# test\n')
-  git(dir, 'add', '-A')
-  git(dir, 'commit', '-q', '-m', 'init')
-  git(dir, 'branch', '-M', 'main')
-  return dir
+  return makeRepo({
+    name: 'skitterspec-zeroarg-',
+    config: { baseBranch: 'main', docker: { enabled: false } },
+  }).dir
 }
 
 function addSpec(dir, folder, bucket = 'in-progress') {
@@ -48,19 +38,14 @@ function addSpec(dir, folder, bucket = 'in-progress') {
   git(dir, 'commit', '-q', '-m', `add ${folder}`)
 }
 
+// The project folder inside the new worktree — the worktree itself unless the
+// project is nested (test/helpers/repo.js).
 function addWorktree(dir, folder) {
-  const slug = folder.replace(/^(feat|bug|hotfix)-/, '')
-  const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, slug)
-  git(dir, 'worktree', 'add', '-q', '-b', `feat/${slug}`, worktree)
-  return worktree
+  return repoFor(dir).addWorktree(folder)
 }
 
 function cleanup(dir) {
-  try {
-    git(dir, 'worktree', 'prune')
-  } catch {}
-  fs.rmSync(dir, { recursive: true, force: true })
-  fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
+  repoFor(dir).cleanup()
 }
 
 async function runQuiet(argv) {

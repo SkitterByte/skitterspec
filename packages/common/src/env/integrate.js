@@ -1,6 +1,7 @@
 'use strict'
 
 const { globToRegExp } = require('./glob.js')
+const { shellPath } = require('./project.js')
 
 /**
  * Pure integrate planner for `spec-env integrate`.
@@ -69,8 +70,8 @@ function planIntegrate(spec, config, ctx) {
     ...result,
     commands: [
       ...(primarySwitch ? [switchCommand(mainRepoPath, base, primarySwitch)] : []),
-      `git -C ${spec.worktreePath} rebase ${base}`,
-      `git -C ${mainRepoPath} merge --ff-only ${branch}`,
+      `git -C ${shellPath(spec.worktreePath)} rebase ${base}`,
+      `git -C ${shellPath(mainRepoPath)} merge --ff-only ${branch}`,
     ],
     afterLand: afterLandFor(config, mainRepoPath, rangeOf(ctx)),
   }
@@ -80,8 +81,8 @@ function planIntegrate(spec, config, ctx) {
 // when this clone has never had it (a release candidate cut since).
 function switchCommand(repo, base, { create, remote }) {
   return create
-    ? `git -C ${repo} switch -c ${base} --track ${remote || 'origin'}/${base}`
-    : `git -C ${repo} switch ${base}`
+    ? `git -C ${shellPath(repo)} switch -c ${base} --track ${remote || 'origin'}/${base}`
+    : `git -C ${shellPath(repo)} switch ${base}`
 }
 
 /**
@@ -134,9 +135,9 @@ function planIntegrateCheckout(spec, config, ctx) {
   return {
     ...result,
     commands: [
-      `git -C ${checkoutPath} rebase ${base}`,
-      `git -C ${checkoutPath} switch ${base}`,
-      `git -C ${checkoutPath} merge --ff-only ${branch}`,
+      `git -C ${shellPath(checkoutPath)} rebase ${base}`,
+      `git -C ${shellPath(checkoutPath)} switch ${base}`,
+      `git -C ${shellPath(checkoutPath)} merge --ff-only ${branch}`,
     ],
     afterLand: afterLandFor(config, checkoutPath, rangeOf(ctx)),
   }
@@ -196,8 +197,8 @@ function planIntegratePr(spec, config, ctx) {
     const finish = {
       commands: ctx.primaryPath
         ? [
-            `git -C ${ctx.primaryPath} fetch ${remote} ${base}`,
-            `git -C ${ctx.primaryPath} merge --ff-only ${remote}/${base}`,
+            `git -C ${shellPath(ctx.primaryPath)} fetch ${remote} ${base}`,
+            `git -C ${shellPath(ctx.primaryPath)} merge --ff-only ${remote}/${base}`,
           ]
         : [],
       afterLand: afterLandFor(config, ctx.primaryPath || null, rangeOf(ctx)),
@@ -212,12 +213,12 @@ function planIntegratePr(spec, config, ctx) {
   }
 
   const commands = [
-    `git -C ${treePath} fetch ${remote} ${base}`,
-    `git -C ${treePath} rebase ${remote}/${base}`,
+    `git -C ${shellPath(treePath)} fetch ${remote} ${base}`,
+    `git -C ${shellPath(treePath)} rebase ${remote}/${base}`,
   ]
   // --force-with-lease because the rebase rewrites; -u so the first push sets
   // the upstream the unpushed guard reads.
-  const pushCommand = `git -C ${treePath} push --force-with-lease -u ${remote} ${branch}`
+  const pushCommand = `git -C ${shellPath(treePath)} push --force-with-lease -u ${remote} ${branch}`
   // Composed by the host adapter where one exists; until the caller supplies
   // one, a comment line that cannot be run by accident.
   const prCommand = (ctx && ctx.prCreateCommand)

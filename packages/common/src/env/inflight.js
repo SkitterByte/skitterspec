@@ -22,19 +22,22 @@ const { progressText } = require('./phases.js')
 /**
  * @param {object} a
  *   - `dir`          the checkout the command was run from
- *   - `provisioned`  `[{ folder, wt, specless }]`, from the worktree list
+ *   - `provisioned`  `[{ folder, wt, project, specless }]`, from the worktree
+ *                    list — `project` is the project folder inside `wt`, the
+ *                    same path unless the project sits in a subfolder
  *   - `read`         `readSpecState`, injectable
  */
 function collectInFlight({ dir, provisioned, read = readSpecState }) {
-  return provisioned.map(({ folder, wt, specless }) => {
+  return provisioned.map(({ folder, wt, project, specless }) => {
+    const at = project || wt
     // A `/no-spec` record has a branch and no document BY DESIGN (Decision 6).
     // It is listed, and never read, so it can never be called unknown.
-    if (specless) return { spec: folder, worktree: wt, specless: true }
-    const there = read(wt, folder)
+    if (specless) return { spec: folder, worktree: at, specless: true }
+    const there = read(at, folder)
     const here = read(dir, folder)
     return {
       spec: folder,
-      worktree: wt,
+      worktree: at,
       specless: false,
       ...there,
       // Where this checkout files it: a bucket, or null when it is not on this

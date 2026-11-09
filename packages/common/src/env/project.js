@@ -141,6 +141,24 @@ function attachProject(config, anchor) {
   return config
 }
 
+/**
+ * A path as one shell word, for the commands the engine PRINTS for a person or
+ * a skill to run. Quoted only when it has to be, so a path without spaces or
+ * shell characters prints byte-identically to before. Double quotes, because
+ * they mean the same in bash, zsh, Git Bash and cmd for an ordinary path; the
+ * three characters bash still expands inside them are escaped. A backslash
+ * forces quoting (unquoted, bash eats it — `C:\Code` becomes `C:Code`) and is
+ * left as it is inside the quotes, where bash keeps it.
+ *
+ * WHY: a repo at `C:\Code\LSC App` lays its worktrees out at `LSC App-wt`, and
+ * `git worktree add C:\Code\LSC App-wt\x -b …` is two arguments.
+ */
+function shellPath(p) {
+  const s = String(p)
+  if (!/[\s"'$`!&|;<>()*?[\]{}#~\\]/.test(s)) return s
+  return `"${s.replace(/(["$`])/g, '\\$1')}"`
+}
+
 /** The repo root a config was loaded for, else `dir` — today's behaviour. */
 function repoRootOf(dir, config) {
   return (config && config.project && config.project.root) || dir
@@ -168,6 +186,7 @@ module.exports = {
   fromRepoPath,
   toRepoPath,
   toPosix,
+  shellPath,
   attachProject,
   repoRootOf,
   prefixOf,

@@ -30,6 +30,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+const { makeRepo, repoFor } = require('./helpers/repo.js')
 
 function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -44,18 +45,15 @@ function writeConfig(dir) {
 }
 
 // A real checkout with a real tag on it — the fork point has to be something
-// git can actually be asked about.
+// git can actually be asked about. The project may be nested in a subfolder of
+// the repo (test/helpers/repo.js).
 function scaffoldRepo() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-upfrom-')))
-  git(dir, 'init', '-q')
-  git(dir, 'config', 'user.email', 'test@example.com')
-  git(dir, 'config', 'user.name', 'Test')
-  writeConfig(dir)
-  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
-  fs.writeFileSync(path.join(dir, 'app.js'), 'released\n')
-  git(dir, 'add', '-A')
-  git(dir, 'commit', '-q', '-m', 'release')
-  git(dir, 'branch', '-M', 'main')
+  const repo = makeRepo({
+    name: 'skitterspec-upfrom-',
+    config: { worktree: { root: '../{repo}-wt', folderPattern: '{slug}' } },
+    files: { 'app.js': 'released\n' },
+  })
+  const dir = repo.dir
   git(dir, 'tag', 'v1.0.0')
   // Something after the tag, so forking from the tag and forking from HEAD are
   // distinguishable rather than accidentally the same commit.
@@ -73,9 +71,19 @@ function scaffoldBare() {
 }
 
 function cleanup(dir) {
+  try {
+    repoFor(dir).cleanup()
+    return
+  } catch {
+    // scaffoldBare: not a repo the helper built
+  }
   fs.rmSync(dir, { recursive: true, force: true })
   fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
 }
+
+// The printed worktree path: one shell word, quoted when it has to be — and a
+// nested fixture's repo name carries a space (test/helpers/repo.js).
+const WT = String.raw`(?:"[^"]+|\S+)-wt\/null-total"?`
 
 async function runQuiet(argv) {
   const orig = process.stdout.write
@@ -102,7 +110,7 @@ test('--from puts the ref on the fork, so the worktree is the released line', as
     ])
     assert.match(
       out,
-      /git worktree add \S+-wt\/null-total -b hotfix\/null-total v1\.0\.0/,
+      new RegExp(`git worktree add ${WT} -b hotfix\/null-total v1\.0\.0`),
       'the tag is the fork point of the printed plan',
     )
     assert.match(out, /fork:\s+v1\.0\.0/, 'and the plan says so in its own right')
@@ -129,7 +137,7 @@ test('without --from the same command forks from base, unchanged', async () => {
   const dir = scaffoldRepo()
   try {
     const out = await runQuiet(['spec-env', 'up', 'hotfix-null-total', '--dir', dir, '--docs'])
-    assert.match(out, /git worktree add \S+-wt\/null-total -b hotfix\/null-total\n/)
+    assert.match(out, new RegExp(`git worktree add ${WT} -b hotfix\/null-total\n`))
     assert.doesNotMatch(out, /fork:/, 'no fork line where nothing was named')
   } finally {
     cleanup(dir)
@@ -158,7 +166,7 @@ test('the flagless re-run over an authoring worktree plans the setup commands', 
     )
     await runQuiet(['spec-env', 'up', 'bug-null-total', '--dir', dir, '--docs'])
     execFileSync('git', ['-C', dir, 'worktree', 'add', '-q',
-      path.resolve(dir, `../${path.basename(dir)}-wt/null-total`), '-b', 'bug/null-total'])
+      repoFor(dir).worktreeFor('null-total').wt, '-b', 'bug/null-total'])
 
     const out = await runQuiet(['spec-env', 'up', 'bug-null-total', '--dir', dir])
     assert.match(out, /will attach/, 'the existing worktree is re-attached, never re-forked')
@@ -216,7 +224,7 @@ test('STAYS SILENT: a tree git cannot read passes the ref through, and accuses n
     const out = await runQuiet([
       'spec-env', 'up', 'hotfix-null-total', '--dir', dir, '--docs', '--from', 'v1.0.0',
     ])
-    assert.match(out, /git worktree add \S+-wt\/null-total -b hotfix\/null-total v1\.0\.0/)
+    assert.match(out, new RegExp(`git worktree add ${WT} -b hotfix\/null-total v1\.0\.0`))
     assert.doesNotMatch(out, /could not resolve/i, 'an absence of git is not an absence of the ref')
   } finally {
     cleanup(dir)

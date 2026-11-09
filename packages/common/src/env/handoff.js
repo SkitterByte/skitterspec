@@ -15,6 +15,7 @@
  */
 
 const { phaseProgress, progressText } = require('./phases.js')
+const { shellPath } = require('./project.js')
 
 // Uncommitted work cannot travel with a push, so a hand-over would silently
 // leave it behind in the old worktree. The engine declares the way out rather
@@ -55,7 +56,7 @@ function planHandoff(f) {
   // unpublished branch and a stale one both need it, and a remote that could
   // not be asked is planned as if it does (a redundant push is harmless).
   const published = Boolean(f.headSha && f.remoteSha && f.remoteSha === f.headSha)
-  const commands = published ? [] : [`git -C ${spec.worktreePath} push -u ${f.remote} ${spec.branch}`]
+  const commands = published ? [] : [`git -C ${shellPath(spec.worktreePath)} push -u ${f.remote} ${spec.branch}`]
   const sha = (f.headSha || '').slice(0, 12)
   const note = [
     `**Handed over** — the work is on \`${spec.branch}\` at \`${sha}\` (${f.remote}), ${progressText(progress)}.`,

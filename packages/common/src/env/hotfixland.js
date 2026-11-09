@@ -21,6 +21,7 @@
  */
 
 const { spawnSync } = require('node:child_process')
+const { shellPath } = require('./project.js')
 
 // The fields skittership's `release-hotfix.cjs --json` prints, and their types.
 // `versionCommit` is null only on its `--dry-run`, which skitterspec never
@@ -219,7 +220,7 @@ function runCarry(step, release, ctx) {
       outcome: 'refused',
       line:
         `carry: ${step.cwd} has uncommitted changes on ${step.base} — commit or stash them, ` +
-        `then run: git -C ${step.cwd} cherry-pick ${commits.join(' ')}`,
+        `then run: git -C ${shellPath(step.cwd)} cherry-pick ${commits.join(' ')}`,
     }
   }
   const git = (argv) =>

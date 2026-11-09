@@ -16,7 +16,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { primaryAnchor, repoRootOf } = require('./project.js')
+const { primaryAnchor, repoRootOf, prefixOf, projectIn } = require('./project.js')
 
 const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
 
@@ -640,13 +640,17 @@ function resolveSpecless(name, dir, config, entry = {}) {
     worktreeRoot,
     worktreeFolder,
     worktreePath: path.resolve(root, worktreeRoot, worktreeFolder),
+    projectPath: projectIn(path.resolve(root, worktreeRoot, worktreeFolder), prefixOf(config)),
     projectName: expandTokens(config.docker.projectNamePattern, tokens),
   }
 }
 
 function resolveSpec(specArg, dir, config, opts = {}) {
-  const searchDirs = opts.searchDirs || []
-  const preferDirs = opts.preferDirs || []
+  // Both are CHECKOUT ROOTS (worktrees, from `git worktree list` or the config's
+  // layout); a spec lives in the project folder inside each one.
+  const prefix = prefixOf(config)
+  const searchDirs = (opts.searchDirs || []).map((d) => projectIn(d, prefix))
+  const preferDirs = (opts.preferDirs || []).map((d) => projectIn(d, prefix))
   const found = findSpecFolder(specArg, dir, searchDirs, preferDirs)
   if (!found) {
     // A SPECLESS BRANCH, but only on the registry's word. `/no-spec` work has a
@@ -702,6 +706,9 @@ function resolveSpec(specArg, dir, config, opts = {}) {
   const worktreeRoot = expandTokens(config.worktree.root, tokens)
   const worktreeFolder = expandTokens(config.worktree.folderPattern, tokens)
   const worktreePath = path.resolve(root, worktreeRoot, worktreeFolder)
+  // Where the project sits inside the worktree — what a session stands in and
+  // what project-scoped steps run in. The worktree itself when the prefix is ''.
+  const projectPath = projectIn(worktreePath, prefixOf(config))
   const projectName = expandTokens(config.docker.projectNamePattern, tokens)
 
   return {
@@ -712,6 +719,7 @@ function resolveSpec(specArg, dir, config, opts = {}) {
     worktreeRoot,
     worktreeFolder,
     worktreePath,
+    projectPath,
     projectName,
   }
 }
@@ -763,13 +771,15 @@ function collectSpecFolders(roots) {
 function allSpecs(dir, config, worktreePaths, specless = {}) {
   const searchDirs = [...worktreePaths]
   const specs = []
-  for (const folder of collectSpecFolders([dir, ...searchDirs])) {
+  const projects = searchDirs.map((d) => projectIn(d, prefixOf(config)))
+  for (const folder of collectSpecFolders([dir, ...projects])) {
     try {
       const spec = resolveSpec(folder, dir, config, { searchDirs })
       specs.push({
         folder: spec.folder,
         slug: spec.slug,
         worktreePath: spec.worktreePath,
+        projectPath: spec.projectPath,
         specless: false,
       })
     } catch {
@@ -794,6 +804,7 @@ function allSpecs(dir, config, worktreePaths, specless = {}) {
       folder: spec.folder,
       slug: spec.slug,
       worktreePath: spec.worktreePath,
+      projectPath: spec.projectPath,
       specless: true,
     })
   }

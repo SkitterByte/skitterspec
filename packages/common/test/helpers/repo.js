@@ -62,7 +62,7 @@ function makeRepo({ name = 'skitterspec-', prefix = nestedPrefix(), config = {},
   git(root, 'commit', '-q', '-m', 'init')
 
   const wtRoot = path.resolve(root, `../${path.basename(root)}-wt`)
-  return {
+  const repo = {
     root,
     dir,
     prefix,
@@ -83,8 +83,29 @@ function makeRepo({ name = 'skitterspec-', prefix = nestedPrefix(), config = {},
       } catch {}
       fs.rmSync(root, { recursive: true, force: true })
       fs.rmSync(wtRoot, { recursive: true, force: true })
+      byDir.delete(dir)
+    },
+    // Add a worktree for `folder` on `feat/<slug>` at the default layout, and
+    // return the project folder inside it — where a session would stand.
+    addWorktree(folder) {
+      const slug = folder.replace(/^(feat|bug|hotfix|chore|issue|incident)-/, '')
+      const { wt, project } = repo.worktreeFor(slug)
+      git(root, 'worktree', 'add', '-q', '-b', `feat/${slug}`, wt)
+      return project
     },
   }
+  byDir.set(dir, repo)
+  return repo
 }
 
-module.exports = { makeRepo, nestedPrefix, git }
+// Tests written as `scaffold() → dir` keep that shape: the repo a project
+// folder belongs to is looked up rather than threaded through every helper.
+const byDir = new Map()
+
+function repoFor(dir) {
+  const repo = byDir.get(dir)
+  if (!repo) throw new Error(`not a makeRepo project folder: ${dir}`)
+  return repo
+}
+
+module.exports = { makeRepo, repoFor, nestedPrefix, git }
