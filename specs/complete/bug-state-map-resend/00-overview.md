@@ -94,3 +94,6 @@ sent to them.
   already pushed against today's map through the same guard, as a dry run
   unless `--apply`, and records names into the existing snapshot.
   `docs/azure-boards.html` covers both. 4554 tests pass.
+- 2026-11-09 — Completed; all phases done, tests green. Follow-ups, not in
+  scope here: a hand-applied MCP push (`spec-sync record`) records no state
+  names, and GitHub, Jira and Linear can adopt the same name lookup.
