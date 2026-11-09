@@ -81,6 +81,8 @@ const {
   repoRootOf,
   prefixOf,
   toRepoPath,
+  projectRelative,
+  projectIn,
   projectLine,
   shellPath,
 } = require('./env/project.js')
@@ -3383,8 +3385,10 @@ function hotfixLandBranch(dir, config, spec, flags, { say, refuse, json }) {
 // anchored on the primary checkout by the dispatcher, so this reads the tree the
 // build must not be writing into. See env/building.js for why this is two
 // content-based queries rather than one `status --porcelain`.
-function primaryPaths(dir) {
-  const git = gitReader(dir)
+// Read from the repo ROOT, so a build that leaked outside a subfolder project —
+// into `Sql/`, say — is still seen (feat-subfolder-project).
+function primaryPaths(dir, config) {
+  const git = gitReader(repoRootOf(dir, config))
   return building.mergePaths(
     git(['diff', '--name-only', 'HEAD']),
     git(['ls-files', '--others', '--exclude-standard']),
@@ -3398,7 +3402,7 @@ function recordPrimary(dir, config, r) {
     spec: r.folder,
     worktreePath: r.worktreePath,
     primary: dir,
-    paths: primaryPaths(dir),
+    paths: primaryPaths(dir, config),
   })
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, JSON.stringify(baseline, null, 2) + '\n')
@@ -3426,7 +3430,7 @@ function assertPrimaryClean(dir, config, r) {
   } catch {
     baseline = null
   }
-  const result = building.compare(baseline, primaryPaths(dir), {
+  const result = building.compare(baseline, primaryPaths(dir, config), {
     spec: r.folder,
     worktreePath: r.worktreePath,
     primary: dir,
@@ -3665,16 +3669,23 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
     return
   }
 
-  const { owned, foreign } = classifyDirtyTree(spec, paths, config)
+  // Classified as git paths from the tree's ROOT, reported relative to the
+  // PROJECT folder in it — what a pathspec is when run from where a session
+  // stands. The same thing at the root of a repo (feat-subfolder-project).
+  const prefix = prefixOf(config)
+  const split = classifyDirtyTree(spec, paths, config)
+  const owned = split.owned.map((p) => projectRelative(p, prefix))
+  const foreign = split.foreign.map((p) => projectRelative(p, prefix))
+  const treeShown = prefix ? projectIn(tree, prefix) : tree
 
   if (flags.json) {
-    process.stdout.write(JSON.stringify({ spec: spec.folder, tree, owned, foreign }) + '\n')
+    process.stdout.write(JSON.stringify({ spec: spec.folder, tree: treeShown, owned, foreign }) + '\n')
     return
   }
 
   const out = [
     `spec-env stage: ${spec.folder} — ${owned.length} owned, ${foreign.length} foreign`,
-    `  tree:  ${tree}`,
+    `  tree:  ${treeShown}`,
   ]
   // An empty list is omitted rather than printed under its heading: a heading
   // with nothing beneath it reads as a finding.
@@ -4644,7 +4655,9 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     }),
   )
 
-  const readFrom = docs ? docs.tree : live.state === 'on' ? dir : spec.worktreePath
+  // Always a git ROOT, so every path the reader prints is root-relative and
+  // every pathspec it is handed means the same thing (feat-subfolder-project).
+  const readFrom = docs ? docs.tree : live.state === 'on' ? repoRootOf(dir, config) : spec.worktreePath
   const git = rawGitReader(readFrom)
   const trimmed = gitReader(readFrom)
 
@@ -5290,7 +5303,9 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
           // The paths a committing verdict on this page must commit, so the
           // skill that routes on it never recomputes the set the reader saw.
           // Absent for every other mode, which keeps their output identical.
-          ...(docs ? { docs: { paths: docs.owned } } : {}),
+          // Project-relative: the pathspec `/commit` is handed runs from the
+          // project folder.
+          ...(docs ? { docs: { paths: docs.owned.map((p) => projectRelative(p, prefixOf(config))) } } : {}),
           out,
           publishCopy,
           reader: reader.reader,

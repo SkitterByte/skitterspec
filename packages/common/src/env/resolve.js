@@ -641,6 +641,7 @@ function resolveSpecless(name, dir, config, entry = {}) {
     worktreeFolder,
     worktreePath: path.resolve(root, worktreeRoot, worktreeFolder),
     projectPath: projectIn(path.resolve(root, worktreeRoot, worktreeFolder), prefixOf(config)),
+    prefix: prefixOf(config),
     projectName: expandTokens(config.docker.projectNamePattern, tokens),
   }
 }
@@ -720,6 +721,9 @@ function resolveSpec(specArg, dir, config, opts = {}) {
     worktreeFolder,
     worktreePath,
     projectPath,
+    // The project's folder within the repo, as a repo path ('' at the root) —
+    // what turns a git path into a project path (env/project.js).
+    prefix: prefixOf(config),
     projectName,
   }
 }

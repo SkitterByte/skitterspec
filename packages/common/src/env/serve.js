@@ -38,7 +38,7 @@ const {
 } = require('./resolve.js')
 const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
-const { primaryAnchor, attachProject } = require('./project.js')
+const { primaryAnchor, attachProject, repoRootOf, prefixOf, fromRepoPath, toRepoPath } = require('./project.js')
 const { specDocsIn, classifyDirtyTree, dirtyPaths } = require('./classify.js')
 const { liveStateFor } = require('./live.js')
 const { preferRemoteBase } = require('./host.js')
@@ -220,8 +220,11 @@ ${body}
  * file in the tree IS evidence that the tree is being used for something else,
  * and that answer must stay unchanged — see the stays-silent test.
  */
-function isProjectBookkeeping(p) {
-  return String(p).startsWith('specs/.core/')
+//
+// `p` is a repo path; the project's `specs/.core/` is under its prefix.
+function isProjectBookkeeping(p, prefix = '') {
+  const rel = fromRepoPath(String(p), prefix)
+  return rel !== null && rel.startsWith('specs/.core/')
 }
 
 function docsWorktree(wt, spec, config) {
@@ -247,18 +250,22 @@ function docsWorktree(wt, spec, config) {
   // which is what `--docs` showed from the CLI — a served page that listed a
   // file the run's own report did not would be a different page from the one
   // the reader was told about.
-  const intruders = foreign.filter((p) => !isProjectBookkeeping(p))
+  const intruders = foreign.filter((p) => !isProjectBookkeeping(p, prefixOf(config)))
   if (!owned.length || intruders.length) return null
   return { owned }
 }
 
 function viewFor(dir, config, spec, git, { fallback = false } = {}) {
   if (!spec) return null
+  // Every tree a view names is a git ROOT, so the reader bound to it prints
+  // root-relative paths and takes root-relative pathspecs. `dir` is the project
+  // folder, which is the root unless the project sits in a subfolder.
+  const root = repoRootOf(dir, config)
   // LIVE COMES FIRST, because while a spec is live its worktree still exists —
   // detached — and would win the check below while holding none of the work.
   // `live take` checks the branch out HERE, and a fix made while live is made
   // here too, so this checkout is the tree that answers.
-  if (spec.branch && headBranchOf(git) === spec.branch) return { kind: 'live', tree: dir }
+  if (spec.branch && headBranchOf(git) === spec.branch) return { kind: 'live', tree: root }
   const wt = spec.worktreePath
   if (wt && wt !== dir && fs.existsSync(wt)) {
     // A DOCS WORKTREE IS NOT A CODE WORKTREE, and this used to be unreachable.
@@ -288,7 +295,7 @@ function viewFor(dir, config, spec, git, { fallback = false } = {}) {
     if (docs) return { kind: 'docs', tree: wt, owned: docs.owned }
     return { kind: 'worktree', tree: wt }
   }
-  const found = specDocsIn(dir, spec, config, trimmedGitReader(dir))
+  const found = specDocsIn(root, spec, config, trimmedGitReader(root))
   // `error` is cannot-tell — not a page, and not an error page either (rule 4:
   // the harmless branch).
   if (found.error) return null
@@ -311,9 +318,9 @@ function viewFor(dir, config, spec, git, { fallback = false } = {}) {
   // omits them in the first place. A direct request is someone opening an
   // address they were given, and that has to keep resolving.
   if (!fallback) return null
-  const committed = committedDocsFor(dir, config, spec)
+  const committed = committedDocsFor(root, config, spec)
   if (!committed) return null
-  return { kind: 'docs-committed', tree: dir, owned: committed }
+  return { kind: 'docs-committed', tree: root, owned: committed }
 }
 
 /**
@@ -323,9 +330,9 @@ function viewFor(dir, config, spec, git, { fallback = false } = {}) {
  * that is no spec at all must stay a 404 rather than render an empty page with
  * a commit button on it.
  */
-function committedDocsFor(dir, config, spec) {
-  const git = trimmedGitReader(dir)
-  const out = git(['ls-files', '--', `specs/*/${spec.folder}/*`])
+function committedDocsFor(root, config, spec) {
+  const git = trimmedGitReader(root)
+  const out = git(['ls-files', '--', toRepoPath(`specs/*/${spec.folder}/*`, prefixOf(config))])
   if (out == null) return null
   const paths = String(out)
     .split('\n')

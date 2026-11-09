@@ -19,6 +19,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+const { makeRepo, repoFor } = require('./helpers/repo.js')
 
 function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -28,31 +29,18 @@ function git(cwd, ...args) {
 
 const SNAPSHOT = 'specs/.core/linear-base/{identifier}.base.json'
 
+// The project may be nested in a subfolder of its repo (test/helpers/repo.js);
+// `dir` is the project folder, and stage reports paths relative to it.
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stage-')))
-  git(dir, 'init', '-q')
-  git(dir, 'config', 'user.email', 'test@example.com')
-  git(dir, 'config', 'user.name', 'Test')
-  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-  fs.writeFileSync(
-    path.join(dir, 'specs', '.core', 'env.config.json'),
-    JSON.stringify(
-      {
-        baseBranch: 'main',
-        docker: { enabled: false },
-        branch: { pattern: '{type}/{slug}', identifierField: 'linear_identifier' },
-        spec: { companionPaths: [SNAPSHOT] },
-      },
-      null,
-      2,
-    ),
-  )
-  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
-  fs.writeFileSync(path.join(dir, 'README.md'), '# test\n')
-  git(dir, 'add', '-A')
-  git(dir, 'commit', '-q', '-m', 'init')
-  git(dir, 'branch', '-M', 'main')
-  return dir
+  return makeRepo({
+    name: 'skitterspec-stage-',
+    config: {
+      baseBranch: 'main',
+      docker: { enabled: false },
+      branch: { pattern: '{type}/{slug}', identifierField: 'linear_identifier' },
+      spec: { companionPaths: [SNAPSHOT] },
+    },
+  }).dir
 }
 
 // A committed spec, so later edits to it show as modifications rather than as
@@ -74,11 +62,7 @@ function dirty(dir, rel, body = 'edited\n') {
 }
 
 function cleanup(dir) {
-  try {
-    git(dir, 'worktree', 'prune')
-  } catch {}
-  fs.rmSync(dir, { recursive: true, force: true })
-  fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
+  repoFor(dir).cleanup()
 }
 
 async function runQuiet(argv) {
@@ -241,7 +225,7 @@ test('an unreadable git yields null, never an empty owned set', async () => {
     addSpec(dir, 'feat-alpha')
     // Break the repo *after* the spec is on disk, so resolution still works and
     // only the tree read fails.
-    fs.rmSync(path.join(dir, '.git'), { recursive: true, force: true })
+    fs.rmSync(path.join(repoFor(dir).root, '.git'), { recursive: true, force: true })
 
     const r = await asJson(['spec-env', 'stage', 'feat-alpha', '--dir', dir])
     assert.strictEqual(r.owned, null, 'owned is null, not []')
@@ -258,8 +242,8 @@ test('run from inside a worktree, it reads that worktree’s tree', async () => 
   const dir = scaffold()
   try {
     addSpec(dir, 'feat-alpha')
-    const worktree = path.resolve(dir, `../${path.basename(dir)}-wt`, 'alpha')
-    git(dir, 'worktree', 'add', '-q', '-b', 'feat/alpha', worktree)
+    // The project folder inside the new worktree (test/helpers/repo.js).
+    const worktree = repoFor(dir).addWorktree('feat-alpha')
     dirty(worktree, 'specs/in-progress/feat-alpha/00-overview.md')
     dirty(dir, 'specs/in-progress/feat-alpha/00-overview.md', 'primary only\n')
 

@@ -17,6 +17,7 @@
 
 const path = require('node:path')
 const { BUCKETS, expandTokens, readFrontmatterField } = require('./resolve.js')
+const { fromRepoPath, prefixOf } = require('./project.js')
 
 // git reports repo-relative, forward-slashed paths; an untracked directory comes
 // back with a trailing slash. Normalise both away so comparisons are exact.
@@ -66,7 +67,9 @@ function expandCompanion(pattern, spec, config) {
 /**
  * Split `dirtyPaths` into the ones that belong to `spec` and the ones that do
  * not. Repo-relative paths in, repo-relative paths out; nothing is read from git
- * and nothing is written.
+ * and nothing is written. The spec's folders and companion paths are
+ * PROJECT-relative, so each path is converted with the config's prefix before it
+ * is compared — a path outside a subfolder project is never the spec's.
  *
  * Owned:
  *   - anything inside `specs/<bucket>/<folder>/` for ANY bucket. Every bucket is
@@ -89,11 +92,13 @@ function classifyDirtyTree(spec, dirtyPaths, config) {
     if (expanded) companions.add(expanded)
   }
 
+  const prefix = prefixOf(config)
   for (const raw of dirtyPaths || []) {
     const p = normalize(raw)
     if (!p) continue
-    const inFolder = folders.some((f) => p === f || p.startsWith(`${f}/`))
-    if (inFolder || companions.has(p)) owned.push(p)
+    const rel = fromRepoPath(p, prefix)
+    const inFolder = rel !== null && folders.some((f) => rel === f || rel.startsWith(`${f}/`))
+    if (inFolder || (rel !== null && companions.has(rel))) owned.push(p)
     else foreign.push(p)
   }
   return { owned, foreign }
@@ -129,7 +134,10 @@ function unquotePath(p) {
 function dirtyPaths(git) {
   const lists = [
     git(['diff', '--name-only', 'HEAD']),
-    git(['ls-files', '--others', '--exclude-standard']),
+    // `--full-name`: `ls-files` answers relative to its cwd, `diff` from the repo
+    // root. Read from a subfolder project they disagreed, and every untracked
+    // spec document was classified as somebody else's.
+    git(['ls-files', '--others', '--exclude-standard', '--full-name']),
   ]
   if (lists.every((l) => l === null)) return null
   const out = []

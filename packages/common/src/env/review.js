@@ -19,6 +19,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { readPhases, readOverview } = require('./resolve.js')
+const { fromRepoPath, projectIn } = require('./project.js')
 const { execFileSync } = require('node:child_process')
 
 // `-U` large enough that a file's patch IS the file. Reviewing a changed line
@@ -40,8 +41,13 @@ const REVIEW_DIR = path.join('.spec-env', 'reviews')
 // push snapshot that lives among them. The ENGINE decides this, because it knows
 // the spec's own paths — a viewer guessing from regexes would get it wrong the
 // first time someone's product code lived under a folder called `specs`.
-function isNoise(relPath) {
-  return relPath.startsWith('specs/') || relPath.startsWith('.spec-env/')
+//
+// `relPath` is a REPO path, and only the project's own `specs/` and `.spec-env/`
+// are bookkeeping: a project in a subfolder of its repo (`prefix`) owns neither
+// folder at the root, and a change beside it — `Sql/` — is code.
+function isNoise(relPath, prefix = '') {
+  const rel = fromRepoPath(relPath, prefix)
+  return rel !== null && (rel.startsWith('specs/') || rel.startsWith('.spec-env/'))
 }
 
 /**
@@ -57,8 +63,10 @@ function isNoise(relPath) {
  * On a page whose SUBJECT is the spec, applying it folds away every file and
  * renders a page with nothing open on it.
  */
-function isSpecDocOf(relPath, folder) {
-  const parts = String(relPath).split('/')
+function isSpecDocOf(relPath, folder, prefix = '') {
+  const rel = fromRepoPath(String(relPath), prefix)
+  if (rel === null) return false
+  const parts = rel.split('/')
   return parts.length > 3 && parts[0] === 'specs' && parts[2] === folder
 }
 
@@ -266,7 +274,10 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   // reads the spec's worktree, and for those the two are the same path — so
   // `treePath` left null keeps the existing behaviour exactly. The `docs` mode
   // has no worktree to read, which is the whole reason it exists.
-  const root = treePath || spec.projectPath || spec.worktreePath
+  //
+  // `treePath` is a git ROOT, like every tree the readers are bound to — the
+  // spec's documents are in the project folder inside it.
+  const root = treePath ? projectIn(treePath, spec.prefix || '') : spec.projectPath || spec.worktreePath
 
   // AN EXPLICIT FILE SET, or every changed file. `only` is a whitelist of
   // repo-relative paths, and it exists because the `docs` mode reads a tree
@@ -280,7 +291,8 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   // else the spec's own documents are the bookkeeping beside the code; on a
   // docs page they are the code, and the companions the project declared (a
   // tracker snapshot, say) are what belongs folded away.
-  const noiseOf = (p) => (mode === 'docs' ? !isSpecDocOf(p, spec.folder) : isNoise(p))
+  const prefix = spec.prefix || ''
+  const noiseOf = (p) => (mode === 'docs' ? !isSpecDocOf(p, spec.folder, prefix) : isNoise(p, prefix))
 
   // THE SURFACES BLOCK, built here so the page never has to know which tiers
   // exist or which of them can be turned on. `null` when the caller passed

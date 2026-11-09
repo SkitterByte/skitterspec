@@ -119,6 +119,18 @@ function fromRepoPath(rel, prefix) {
   return rel.startsWith(`${prefix}/`) ? rel.slice(prefix.length + 1) : null
 }
 
+/**
+ * A repo path as seen from the project folder: `fromRepoPath` inside the
+ * project, `../…` outside it — the form a pathspec takes when it is run from the
+ * project folder, which is where a session stands. Prefix `''` returns it
+ * unchanged.
+ */
+function projectRelative(rel, prefix) {
+  if (!prefix) return rel
+  const inside = fromRepoPath(rel, prefix)
+  return inside !== null ? inside : path.posix.relative(prefix, rel)
+}
+
 /** A project-relative path as a repo path. Prefix `''` returns it unchanged. */
 function toRepoPath(rel, prefix) {
   if (!prefix) return rel
@@ -184,6 +196,7 @@ module.exports = {
   primaryAnchor,
   projectIn,
   fromRepoPath,
+  projectRelative,
   toRepoPath,
   toPosix,
   shellPath,

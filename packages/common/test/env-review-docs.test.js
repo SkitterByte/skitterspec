@@ -28,6 +28,8 @@ const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
 const review = require('../src/env/review.js')
+const { makeRepo, repoFor, nestedPrefix } = require('./helpers/repo.js')
+const { projectRelative } = require('../src/env/project.js')
 
 const PAGE = fs.readFileSync(path.join(__dirname, '..', 'assets', 'review', 'page.html'), 'utf8')
 
@@ -54,31 +56,19 @@ function specFiles(dir, bucket, folder, extra = '') {
  * has in it while someone else authors beside you.
  */
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-docs-')))
-  git(dir, 'init', '-q')
-  git(dir, 'config', 'user.email', 'test@example.com')
-  git(dir, 'config', 'user.name', 'Test')
-  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
-  fs.writeFileSync(
-    path.join(dir, 'specs', '.core', 'env.config.json'),
+  // The project may be nested in a subfolder of its repo (test/helpers/repo.js).
+  const dir = makeRepo({
+    name: 'skitterspec-docs-',
     // `reader: local` is stated rather than detected, so a suite run from a
     // bridged or ssh session does not stand a real server up mid-test.
-    JSON.stringify(
-      {
-        baseBranch: 'main',
-        docker: { enabled: false },
-        review: { reader: 'local', serve: 'never' },
-        spec: { companionPaths: ['specs/.core/snap-{slug}.json'] },
-      },
-      null,
-      2,
-    ),
-  )
-  fs.writeFileSync(path.join(dir, '.gitignore'), '/.spec-env/\n')
-  fs.writeFileSync(path.join(dir, 'app.js'), 'one\ntwo\n')
-  git(dir, 'add', '-A')
-  git(dir, 'commit', '-q', '-m', 'init')
-  git(dir, 'branch', '-M', 'main')
+    config: {
+      baseBranch: 'main',
+      docker: { enabled: false },
+      review: { reader: 'local', serve: 'never' },
+      spec: { companionPaths: ['specs/.core/snap-{slug}.json'] },
+    },
+    files: { 'app.js': 'one\ntwo\n' },
+  }).dir
 
   // Both uncommitted, exactly as `/spec` leaves them.
   specFiles(dir, 'backlog', 'feat-mine')
@@ -87,11 +77,7 @@ function scaffold() {
 }
 
 function cleanup(dir) {
-  try {
-    git(dir, 'worktree', 'prune')
-  } catch {}
-  fs.rmSync(dir, { recursive: true, force: true })
-  fs.rmSync(path.resolve(dir, `../${path.basename(dir)}-wt`), { recursive: true, force: true })
+  repoFor(dir).cleanup()
 }
 
 async function runQuiet(argv) {
@@ -112,7 +98,10 @@ async function runQuiet(argv) {
 const docs = (dir, spec, ...extra) =>
   runQuiet(['spec-env', 'review', spec, '--dir', dir, '--docs', ...extra])
 const docsJson = async (dir, spec, ...extra) => JSON.parse(await docs(dir, spec, '--json', ...extra))
-const paths = (data) => data.files.map((f) => f.path).sort()
+// The page lists GIT paths — from the repo root, so a nested project's carry its
+// prefix. Compared here as the project sees them.
+const rel = (f) => projectRelative(f.path, nestedPrefix())
+const paths = (data) => data.files.map(rel).sort()
 
 // --- it fires ---------------------------------------------------------------
 
@@ -189,7 +178,7 @@ test('a spec mid-move is rendered from both buckets at once', async () => {
     git(dir, 'mv', 'specs/backlog/feat-mine', 'specs/in-progress/feat-mine')
     const data = await docsJson(dir, 'feat-mine')
     assert.ok(
-      data.files.some((f) => f.path.startsWith('specs/in-progress/feat-mine/')),
+      data.files.some((f) => rel(f).startsWith('specs/in-progress/feat-mine/')),
       `expected the new bucket: ${paths(data).join(', ')}`,
     )
   } finally {
@@ -217,7 +206,7 @@ test('a declared companion stays bookkeeping, since it is not the spec', async (
   try {
     fs.writeFileSync(path.join(dir, 'specs', '.core', 'snap-mine.json'), '{"a":1}\n')
     const data = await docsJson(dir, 'feat-mine')
-    const snap = data.files.find((f) => f.path === 'specs/.core/snap-mine.json')
+    const snap = data.files.find((f) => rel(f) === 'specs/.core/snap-mine.json')
     assert.ok(snap, `the companion is on the page: ${paths(data).join(', ')}`)
     assert.strictEqual(snap.noise, true, 'a generated snapshot is not what anyone came to read')
   } finally {
@@ -230,8 +219,7 @@ test('STAYS SILENT: in the ordinary mode a spec document is still bookkeeping', 
   try {
     git(dir, 'add', '-A')
     git(dir, 'commit', '-q', '-m', 'specs')
-    const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'mine')
-    git(dir, 'worktree', 'add', '-q', '-b', 'feat/mine', wt)
+    const wt = repoFor(dir).addWorktree('feat-mine')
     fs.mkdirSync(path.join(wt, 'specs', 'in-progress'), { recursive: true })
     git(wt, 'mv', 'specs/backlog/feat-mine', 'specs/in-progress/feat-mine')
     fs.writeFileSync(path.join(wt, 'app.js'), 'one\ntwo\nchanged\n')
@@ -241,7 +229,7 @@ test('STAYS SILENT: in the ordinary mode a spec document is still bookkeeping', 
     const doc = data.files.find((f) => f.path.includes('feat-mine/00-overview.md'))
     assert.ok(doc, `the worktree render still lists the spec: ${paths(data).join(', ')}`)
     assert.strictEqual(doc.noise, true, 'the inversion must not leak into the phase view')
-    const code = data.files.find((f) => f.path === 'app.js')
+    const code = data.files.find((f) => rel(f) === 'app.js')
     assert.ok(code && code.noise === false, 'and code is still the subject there')
   } finally {
     cleanup(dir)
@@ -394,8 +382,7 @@ test('STAYS SILENT: an ordinary render carries no docs key at all', async () => 
   try {
     git(dir, 'add', '-A')
     git(dir, 'commit', '-q', '-m', 'specs')
-    const wt = path.resolve(dir, `../${path.basename(dir)}-wt`, 'mine')
-    git(dir, 'worktree', 'add', '-q', '-b', 'feat/mine', wt)
+    const wt = repoFor(dir).addWorktree('feat-mine')
     fs.writeFileSync(path.join(wt, 'app.js'), 'one\ntwo\nthree\n')
     const data = JSON.parse(await runQuiet(['spec-env', 'review', 'feat-mine', '--dir', dir, '--json']))
     assert.ok(!('docs' in data), 'a key that appears for everyone changes every payload')

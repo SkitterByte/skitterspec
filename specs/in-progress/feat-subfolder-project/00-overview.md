@@ -124,7 +124,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Locate the project, re-anchor, nested test harness + Windows CI | ✅ | [01-locate-and-anchor.md](01-locate-and-anchor.md) |
 | 2 | Worktree side: paths, setup/dev/docker cwd, session move | ✅ | [02-worktree-side.md](02-worktree-side.md) |
-| 3 | Repo-relative matching: review, serve, stage | ⬜ | [03-path-matching.md](03-path-matching.md) |
+| 3 | Repo-relative matching: review, serve, stage | ✅ | [03-path-matching.md](03-path-matching.md) |
 | 4 | Guards and hooks | ⬜ | [04-guards-and-hooks.md](04-guards-and-hooks.md) |
 | 5 | Providers and init | ⬜ | [05-providers-and-init.md](05-providers-and-init.md) |
 | 6 | Docs and dist | ⬜ | [06-docs-and-dist.md](06-docs-and-dist.md) |
@@ -152,3 +152,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   and what `/spec-next` compares against. Added `shellPath` quoting to every
   printed command — a repo named with a space (the adopter's `LSC App`) broke
   `git worktree add` regardless of nesting.
+- 2026-11-09 — Phase 3: paths stay git paths on the page and inside the
+  classifiers; only pathspecs handed out (stage, the `up` gate's commit,
+  `docs.paths`) are made project-relative, since they run from the project
+  folder.

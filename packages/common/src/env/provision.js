@@ -15,7 +15,7 @@ const { classifyDirtyTree } = require('./classify.js')
 const { portOffset } = require('./registry.js')
 const { renderEnvFile } = require('./render.js')
 const { expandTokens } = require('./resolve.js')
-const { shellPath } = require('./project.js')
+const { shellPath, prefixOf, projectRelative } = require('./project.js')
 
 // Cap a path list in a message: enough to recognise, not a wall of text.
 function listPaths(paths) {
@@ -91,7 +91,13 @@ function planSpecCommit(spec, ctx, config, { carriesChanges = false } = {}) {
     return ok
   }
 
-  const { owned, foreign } = classifyDirtyTree(spec, c.dirtyPaths, config)
+  // Git paths in, PROJECT paths out: the planned `git add -- …` runs from the
+  // project folder, and a project in a subfolder of its repo must not name
+  // `<prefix>/specs/…` from inside `<prefix>` (feat-subfolder-project).
+  const split = classifyDirtyTree(spec, c.dirtyPaths, config)
+  const prefix = prefixOf(config)
+  const owned = split.owned.map((p) => projectRelative(p, prefix))
+  const foreign = split.foreign.map((p) => projectRelative(p, prefix))
 
   // FOREIGN DIRT REFUSES ONLY WHERE IT CAN REACH THE BRANCH, which is checkout
   // mode and nowhere else. `git switch -c` carries the working tree onto the new
