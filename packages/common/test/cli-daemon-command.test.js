@@ -8,6 +8,8 @@
 const { test } = require('node:test')
 const assert = require('node:assert')
 const { execFileSync } = require('node:child_process')
+const os = require('node:os')
+const path = require('node:path')
 
 const { serveProcFor } = require('../src/cli.js')
 
@@ -17,14 +19,18 @@ const argvOf = (command) =>
   JSON.parse(execFileSync('sh', ['-c', `node -e 'console.log(JSON.stringify(process.argv.slice(1)))' ${command.replace(/^node \S+|^node "[^"]*"/, '')}`]).toString())
 
 test('the review server command survives sh with a space in the path', () => {
-  const proc = serveProcFor(CONFIG, '/tmp/LSC App/FF.CSC.Solution/.spec-env/review-serve.json', { root: '/tmp/LSC App/FF.CSC.Solution' })
-  assert.deepStrictEqual(argvOf(proc.command), ['/tmp/LSC App/FF.CSC.Solution/.spec-env/review-serve.json'])
+  // A real OS path: on Windows, Git's sh would rewrite a POSIX-looking one.
+  const root = path.join(os.tmpdir(), 'LSC App', 'FF.CSC.Solution')
+  const file = path.join(root, '.spec-env', 'review-serve.json')
+  const proc = serveProcFor(CONFIG, file, { root })
+  assert.deepStrictEqual(argvOf(proc.command).map((p) => path.resolve(p)), [path.resolve(file)])
 })
 
 test('the review server command keeps a Windows path\'s backslashes through sh', () => {
   const file = 'C:\\Users\\runneradmin\\x\\.spec-env\\review-serve.json'
   const proc = serveProcFor(CONFIG, file, { root: 'C:\\Users\\runneradmin\\x' })
-  assert.deepStrictEqual(argvOf(proc.command), [file])
+  // Printed with forward slashes (shellPath); the same file either way.
+  assert.deepStrictEqual(argvOf(proc.command), [file.replace(/\\/g, '/')])
 })
 
 test('STAYS SILENT: an ordinary path prints exactly as before', () => {

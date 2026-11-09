@@ -3643,7 +3643,10 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
   // is scoped to its cwd, so reading from a subdirectory would list only that
   // subdirectory's untracked files and report the rest of the spec as absent.
   const git = gitReader(invokedFrom)
-  const tree = git(['rev-parse', '--show-toplevel']) || invokedFrom
+  // `path.resolve`d: git prints the toplevel with `/` on every platform
+  // (`C:/Users/…` on Windows), and every other path here is an OS path.
+  const top = git(['rev-parse', '--show-toplevel'])
+  const tree = top ? path.resolve(top) : invokedFrom
   const paths = dirtyPaths(gitReader(tree))
 
   // Three states, not two (`.claude/rules/negative-checks.md` rule 4). A null
@@ -3731,7 +3734,10 @@ function specEnvStage(dir, config, specArg, flags = {}, invokedFrom = dir) {
  */
 function resolveSpecDocs(config, spec, invokedFrom) {
   const git = gitReader(invokedFrom)
-  const tree = git(['rev-parse', '--show-toplevel']) || invokedFrom
+  // `path.resolve`d: git prints the toplevel with `/` on every platform
+  // (`C:/Users/…` on Windows), and every other path here is an OS path.
+  const top = git(['rev-parse', '--show-toplevel'])
+  const tree = top ? path.resolve(top) : invokedFrom
   // THE CLASSIFICATION IS SHARED with the review server's route for the same
   // spec (`specDocsIn`), so the served page and the written page cannot
   // disagree about which files they show. This function adds only the wording.

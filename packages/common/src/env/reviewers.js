@@ -32,6 +32,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { spawn } = require('node:child_process')
+const { signalGroup } = require('./supervise.js')
 
 const BUNDLED_ADAPTERS = { coderabbit: require('./reviewers/coderabbit.js') }
 
@@ -287,7 +288,9 @@ function runReviewer(entry, ctx) {
       // Through a shell, deliberately: the config holds a command LINE, with
       // pipes and quoting the project chose. It is read from a committed config
       // in the project's own repo — the same trust level as a package script.
-      child = spawnFn('/bin/sh', ['-c', rendered], {
+      // `sh` from PATH on Windows — Git for Windows' — where `/bin/sh` does not
+      // exist and no reviewer could run at all (chore-windows-ci).
+      child = spawnFn(process.platform === 'win32' ? 'sh' : '/bin/sh', ['-c', rendered], {
         cwd: worktree,
         stdio: ['ignore', 'pipe', 'pipe'],
         // THE CHILD LEADS ITS OWN PROCESS GROUP, and the timeout below depends
@@ -314,15 +317,9 @@ function runReviewer(entry, ctx) {
       timedOut = true
       // The group, not the shell: `/bin/sh -c "cr review"` killed on its own
       // leaves the reviewer running and holding the port/rate-limit slot.
-      try {
-        process.kill(-child.pid, 'SIGKILL')
-      } catch {
-        try {
-          child.kill('SIGKILL')
-        } catch {
-          /* already gone */
-        }
-      }
+      // `signalGroup` is the group on POSIX and the process tree on Windows,
+      // which has no groups (env/supervise.js).
+      signalGroup(child.pid, 'SIGKILL')
     }, entry.timeout * 1000)
 
     const settle = (spawnError) => {

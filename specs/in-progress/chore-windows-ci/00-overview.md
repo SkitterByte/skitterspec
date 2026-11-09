@@ -107,3 +107,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   42703961942): `test:nested` green on Windows; the full suite showed the
   review server unable to start, the credential store unreadable, and
   `integrate` printing one folder two ways — all product, all fixed.
+- 2026-11-09 — Phase 3 round 2 (run 42706885393, 72 failures): printed
+  Windows paths switch to forward slashes (operator's choice) instead of
+  quoted backslashes; reviewers spawn `sh` and kill their tree on Windows;
+  seeds fall back to a junction (directory) or a copy (file) where symlinks
+  are refused; `stage` reports its tree as an OS path.

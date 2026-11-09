@@ -19,6 +19,8 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+// Paths as the engine prints them in a command (forward slashes on Windows).
+const { shellPath } = require('../src/env/project.js')
 const { assertPrimaryOnMain } = require('../src/env/resolve.js')
 const { checkMainWrite } = require('../src/env/mainguard.js')
 
@@ -137,9 +139,9 @@ test('integrate: fetches, says the spec is retargeted, and switches the primary 
     assert.match(out, /retarget: {2}forked from 2026\/Q4 · landing onto 2027\/Q1/)
     assert.match(out, /primary: {3}on 2026\/Q4 — switched to 2027\/Q1 before the land/)
     assert.deepStrictEqual(runThese(out), [
-      `git -C ${fx.dir} switch -c 2027/Q1 --track origin/2027/Q1`,
-      `git -C ${fx.worktree} rebase 2027/Q1`,
-      `git -C ${fx.dir} merge --ff-only feat/thing`,
+      `git -C ${shellPath(fx.dir)} switch -c 2027/Q1 --track origin/2027/Q1`,
+      `git -C ${shellPath(fx.worktree)} rebase 2027/Q1`,
+      `git -C ${shellPath(fx.dir)} merge --ff-only feat/thing`,
     ])
   } finally {
     cleanup(fx)
@@ -168,7 +170,7 @@ test('integrate: a local base branch is switched to, not created', async () => {
     git(fx.dir, ['fetch', '-q', 'origin'])
     git(fx.dir, ['branch', '-q', '--track', '2027/Q1', 'origin/2027/Q1'])
     const out = await runQuiet(['spec-env', 'integrate', 'feat-thing', '--dir', fx.dir])
-    assert.strictEqual(runThese(out)[0], `git -C ${fx.dir} switch 2027/Q1`)
+    assert.strictEqual(runThese(out)[0], `git -C ${shellPath(fx.dir)} switch 2027/Q1`)
   } finally {
     cleanup(fx)
   }
@@ -206,8 +208,8 @@ test('integrate: no pattern → no fetch, no retarget, no switch (stays silent)'
     const out = await runQuiet(['spec-env', 'integrate', 'feat-thing', '--dir', fx.dir])
     assert.doesNotMatch(out, /retarget:|primary:|fetch/)
     assert.deepStrictEqual(runThese(out), [
-      `git -C ${fx.worktree} rebase 2026/Q4`,
-      `git -C ${fx.dir} merge --ff-only feat/thing`,
+      `git -C ${shellPath(fx.worktree)} rebase 2026/Q4`,
+      `git -C ${shellPath(fx.dir)} merge --ff-only feat/thing`,
     ])
     // Nothing fetched: the rc the lead cut is still unknown here.
     assert.throws(() => git(fx.dir, ['rev-parse', '--verify', 'origin/2027/Q1']))

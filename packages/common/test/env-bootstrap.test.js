@@ -216,3 +216,55 @@ test('describeStep says what each step is without shell', () => {
   )
   assert.doesNotMatch(describeStep({ kind: 'envFile', file: '.env', projectName: 'p', offset: 1 }), /grep|>>|touch/)
 })
+
+// --- a machine that cannot create symlinks (chore-windows-ci) ------------------
+//
+// Windows without Developer Mode refuses `symlink` (EPERM). A seed is what makes
+// a fresh worktree runnable, so a file falls back to a copy — and says so — and
+// a directory takes a junction on Windows, which needs no privilege.
+
+const seedStep = (file) => ({ kind: 'seed', file, mode: 'symlink' })
+
+function noSymlinks(calls = []) {
+  return {
+    ...fs,
+    symlinkSync: (src, dst, type) => {
+      calls.push(type)
+      const err = new Error('EPERM: operation not permitted, symlink')
+      err.code = 'EPERM'
+      throw err
+    },
+  }
+}
+
+test('a seed that cannot be linked is copied, and the line says so', () => {
+  const env = scaffold({ 'local.settings': 'secret=1\n' })
+  const lines = []
+  const r = runBootstrap([seedStep('local.settings')], {
+    cwd: env.wt,
+    mainRoot: env.main,
+    fs: noSymlinks(),
+    write: (l) => lines.push(l),
+  })
+  assert.strictEqual(r.ok, true)
+  const dst = path.join(env.wt, 'local.settings')
+  assert.strictEqual(fs.lstatSync(dst).isSymbolicLink(), false)
+  assert.strictEqual(fs.readFileSync(dst, 'utf8'), 'secret=1\n')
+  assert.match(lines.join('\n'), /copied — this machine cannot create symlinks/)
+})
+
+test('a seeded directory asks for a junction on Windows', () => {
+  const env = scaffold({ 'cache/a.txt': 'a\n' })
+  const types = []
+  const fakeFs = { ...fs, symlinkSync: (src, dst, type) => types.push(type) }
+  runBootstrap([seedStep('cache')], { cwd: env.wt, mainRoot: env.main, fs: fakeFs, platform: 'win32', write: () => {} })
+  assert.deepStrictEqual(types, ['junction'])
+})
+
+test('STAYS SILENT: a symlink that works is still a symlink, with no copy note', () => {
+  const env = scaffold({ 'local.settings': 'x\n' })
+  const lines = []
+  runBootstrap([seedStep('local.settings')], { cwd: env.wt, mainRoot: env.main, write: (l) => lines.push(l) })
+  assert.strictEqual(fs.lstatSync(path.join(env.wt, 'local.settings')).isSymbolicLink(), true)
+  assert.doesNotMatch(lines.join('\n'), /copied/)
+})

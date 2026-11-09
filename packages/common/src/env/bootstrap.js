@@ -61,7 +61,7 @@ function lstatOrNull(fs, p) {
  * The target is tested with `lstat`, which does not: an existing link, even a
  * dangling one, is somebody's deliberate state and is left alone.
  */
-function runSeed(step, { cwd, mainRoot, fs }) {
+function runSeed(step, { cwd, mainRoot, fs, platform = process.platform }) {
   const src = path.join(mainRoot, step.file)
   const dst = path.join(cwd, step.file)
   if (!fs.existsSync(src)) {
@@ -71,8 +71,26 @@ function runSeed(step, { cwd, mainRoot, fs }) {
     return { outcome: 'skipped', line: `seed ${step.file}: exists — skipped` }
   }
   fs.mkdirSync(path.dirname(dst), { recursive: true })
-  if (step.mode === 'copy') fs.copyFileSync(src, dst)
-  else fs.symlinkSync(src, dst)
+  if (step.mode === 'copy') {
+    fs.copyFileSync(src, dst)
+    return { outcome: 'seeded', line: `seeded ${step.file} → ${src}` }
+  }
+  // WINDOWS WITHOUT DEVELOPER MODE CANNOT CREATE A SYMLINK (EPERM), and a
+  // seed is what makes a fresh worktree runnable at all (chore-windows-ci). A
+  // directory takes a junction there, which needs no privilege; a file that
+  // still cannot be linked is copied — said, because a copy does not follow
+  // later edits to the primary checkout's file the way a link would.
+  const dir = fs.statSync(src).isDirectory()
+  try {
+    fs.symlinkSync(src, dst, dir && platform === 'win32' ? 'junction' : undefined)
+  } catch (err) {
+    if (dir || !(err && (err.code === 'EPERM' || err.code === 'EACCES'))) throw err
+    fs.copyFileSync(src, dst)
+    return {
+      outcome: 'seeded',
+      line: `seeded ${step.file} → ${src} (copied — this machine cannot create symlinks)`,
+    }
+  }
   return { outcome: 'seeded', line: `seeded ${step.file} → ${src}` }
 }
 
@@ -157,6 +175,7 @@ function runBootstrap(steps, io) {
     cwd: io.cwd,
     mainRoot: io.mainRoot,
     fs: io.fs || realFs,
+    platform: io.platform || process.platform,
     spawn: io.spawn || spawnSync,
     childStdout: io.childStdout || 'inherit',
   }

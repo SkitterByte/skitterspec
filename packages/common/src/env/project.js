@@ -167,15 +167,19 @@ function attachProject(config, anchor) {
  * a skill to run. Quoted only when it has to be, so a path without spaces or
  * shell characters prints byte-identically to before. Double quotes, because
  * they mean the same in bash, zsh, Git Bash and cmd for an ordinary path; the
- * three characters bash still expands inside them are escaped. A backslash
- * forces quoting (unquoted, bash eats it — `C:\Code` becomes `C:Code`) and is
- * left as it is inside the quotes, where bash keeps it.
+ * three characters bash still expands inside them are escaped.
  *
- * WHY: a repo at `C:\Code\LSC App` lays its worktrees out at `LSC App-wt`, and
- * `git worktree add C:\Code\LSC App-wt\x -b …` is two arguments.
+ * A WINDOWS DRIVE PATH PRINTS WITH FORWARD SLASHES (`C:/Users/x/wt`): git, Git
+ * Bash, cmd and PowerShell all take that form unquoted, where `C:\Users` loses
+ * its backslashes in Git Bash (`C:Users`) unless quoted (chore-windows-ci).
+ *
+ * WHY QUOTING AT ALL: a repo at `C:\Code\LSC App` lays its worktrees out at
+ * `LSC App-wt`, and `git worktree add C:/Code/LSC App-wt/x -b …` is two
+ * arguments.
  */
 function shellPath(p) {
-  const s = String(p)
+  let s = String(p)
+  if (/^[A-Za-z]:[\\/]/.test(s)) s = s.replace(/\\/g, '/')
   if (!/[\s"'$`!&|;<>()*?[\]{}#~\\]/.test(s)) return s
   return `"${s.replace(/(["$`])/g, '\\$1')}"`
 }

@@ -42,7 +42,7 @@ for (const hook of HOOKS) {
     const root = tmp()
     const project = path.join(root, 'FF.CSC.Solution')
     const want = bin(project)
-    assert.strictEqual(withoutOverride(() => findEngine(project)), want)
+    assert.strictEqual(withoutOverride(() => findEngine(project, 'linux')), want)
   })
 
   test(`${name}: an engine installed at the repo root, above the project, is found`, () => {
@@ -50,7 +50,7 @@ for (const hook of HOOKS) {
     const project = path.join(root, 'FF.CSC.Solution')
     fs.mkdirSync(project, { recursive: true })
     const want = bin(root, 'skitterspec-azure-boards')
-    assert.strictEqual(withoutOverride(() => findEngine(project)), want)
+    assert.strictEqual(withoutOverride(() => findEngine(project, 'linux')), want)
   })
 
   test(`${name}: the nearer install wins`, () => {
@@ -58,14 +58,14 @@ for (const hook of HOOKS) {
     const project = path.join(root, 'FF.CSC.Solution')
     bin(root)
     const want = bin(project)
-    assert.strictEqual(withoutOverride(() => findEngine(project)), want)
+    assert.strictEqual(withoutOverride(() => findEngine(project, 'linux')), want)
   })
 
   test(`${name}: STAYS SILENT — nothing installed falls back to the PATH name`, () => {
     const root = tmp()
     const project = path.join(root, 'FF.CSC.Solution')
     fs.mkdirSync(project, { recursive: true })
-    const got = withoutOverride(() => findEngine(project))
+    const got = withoutOverride(() => findEngine(project, 'linux'))
     // Either the bare name, or an install found further up this machine's tree
     // (a developer's home directory may hold one) — never a path under `root`.
     assert.ok(got === 'skitterspec' || !got.startsWith(root), got)

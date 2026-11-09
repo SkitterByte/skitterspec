@@ -429,7 +429,7 @@ test('--strategy overrides config per invocation, and refuses an unknown value b
     const { dir: prDir, worktree: prWt } = scaffoldRepoWithWorktree({ land: { strategy: 'pr' } })
     try {
       const ff = await runQuiet(['spec-env', 'integrate', 'feat-x', '--strategy', 'ff', '--dir', prDir])
-      assert.match(ff, new RegExp(`git -C ${prDir} merge --ff-only feat/x`))
+      assert.match(ff, new RegExp(`git -C ${cmdPath(prDir)} merge --ff-only feat/x`))
       assert.doesNotMatch(ff, /\(pr\)/)
     } finally {
       cleanup(prDir)

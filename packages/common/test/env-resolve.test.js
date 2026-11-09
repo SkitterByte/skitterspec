@@ -122,13 +122,13 @@ const COMMON_DIR = 'rev-parse --git-common-dir'
 test('resolvePrimaryCheckout: from the primary checkout (.git) → dir itself', () => {
   // git-common-dir is relative (".git") when run from the primary checkout.
   const git = fakeGit({ [COMMON_DIR]: '.git' })
-  assert.strictEqual(resolvePrimaryCheckout('/repo', git), '/repo')
+  assert.strictEqual(resolvePrimaryCheckout('/repo', git), path.resolve('/repo'))
 })
 
 test('resolvePrimaryCheckout: from a worktree (absolute /main/.git) → the primary root', () => {
   // this is the bug: run from a worktree, dir basename would mis-drive {repo}.
   const git = fakeGit({ [COMMON_DIR]: '/main/.git' })
-  assert.strictEqual(resolvePrimaryCheckout('/main-wt/thing', git), '/main')
+  assert.strictEqual(resolvePrimaryCheckout('/main-wt/thing', git), path.resolve('/main'))
 })
 
 test('resolvePrimaryCheckout: not a git repo (null) → falls back to dir', () => {

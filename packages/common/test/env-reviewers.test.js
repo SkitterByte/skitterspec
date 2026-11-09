@@ -188,11 +188,13 @@ test('a reviewer that prints rdjsonl produces checks', async () => {
 })
 
 test('a reviewer runs in the worktree it was given', async () => {
-  const dir = fs.realpathSync(tmpdir())
-  const cmd = `printf '%s\\n' "$(pwd)" >&2; exit 3`
+  const dir = fs.realpathSync.native(tmpdir())
+  // Git Bash's `pwd` prints `/c/Users/…`; `pwd -W` is the Windows form.
+  const pwd = process.platform === 'win32' ? 'pwd -W' : 'pwd'
+  const cmd = `printf '%s\\n' "$(${pwd})" >&2; exit 3`
   const { outcome } = await runReviewer(sh('pwd', cmd), { worktree: dir })
   assert.equal(outcome.state, 'failed')
-  assert.equal(outcome.detail, dir)
+  assert.equal(path.resolve(outcome.detail), dir)
 })
 
 test('the placeholders reach the spawned command', async () => {
