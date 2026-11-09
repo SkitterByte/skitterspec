@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-azure-boards/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 59a8cf96cd5d
+verified: e74e2827ff6e
 -->
 <html lang="en">
 <head>
@@ -628,6 +628,10 @@ verified: 59a8cf96cd5d
 
     <p class="reveal" style="margin-top:22px;">That is the <span class="mono">--workspace-states</span> idiom: <span class="mono">plan</span> refuses to run until the configured names have been checked against the types' real ones (<span class="mono">skitterspec-azure-boards spec-sync states --json</span> prints exactly the per-type map it wants; a flat array from an older engine is still accepted and checked as the union). <span class="mono">/spec-push</span> does the fetch for you, so nothing changes if you drive sync through the skill; a script calling the CLI directly passes the file itself.</p>
 
+    <p class="reveal" style="margin-top:22px;"><strong>Changing the map later.</strong> Each push records the Boards state name every item was sent, so when you edit <span class="mono">states</span> or <span class="mono">statesByType</span> — say <span class="mono">{"Task": {"complete": "Closed"}}</span> — the next <span class="mono">plan</span> lists exactly the items whose state moved, and sends their <em>state only</em>: no title or body is rewritten. Items pushed before names were recorded have nothing to compare against; <span class="mono">skitterspec-azure-boards spec-sync restate --all complete</span> reads their live state and lists the moves, and <span class="mono">--apply</span> makes them. It touches child items only unless you pass <span class="mono">--parents</span>.</p>
+
+    <p class="reveal" style="margin-top:22px;"><strong>A resend never moves an item backwards.</strong> When a state is sent without the spec having moved — a map change, a <span class="mono">restate</span>, or a full push after a lost snapshot — an item sitting in a state this config does not map for its type (your release pipeline's <span class="mono">On&nbsp;Prod</span>), or in a later bucket than the target, is left where it is and named on a <span class="mono">state kept:</span> line. A spec that genuinely moves bucket still sends its state, as before.</p>
+
     <p class="reveal" style="margin-top:22px;">Two spec headers also reach Boards on push. <span class="mono">&gt; **Severity:**</span> (Azure's literal values, <span class="mono">1 - Critical</span> … <span class="mono">4 - Low</span>) writes the built-in <span class="mono">Microsoft.VSTS.Common.Severity</span> field — a type without the field skips it with a note rather than failing the push. <span class="mono">&gt; **Incident:** incident-&lt;name&gt;</span> on a fix spec adds a <span class="mono">System.LinkTypes.Related</span> link to that incident's work item, one-way and idempotent; an incident not yet linked is a line, never a failure.</p>
   </div>
 </section>
@@ -785,6 +789,7 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync (azure) plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing — and refuses until the types' state names have been checked (<span class="mono">--workspace-states</span>).</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (azure) apply &lt;spec&gt;</td><td>Apply a plan over the API — create/update as JSON Patch, then set the state — and stamp the returned ids. On the MCP transport it writes nothing and names the tools that apply it instead.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync (azure) restate &lt;spec&gt; | --all &lt;bucket&gt;</td><td>Bring already-pushed items' states up to today's map, read live — child items only unless <span class="mono">--parents</span>. A dry run until <span class="mono">--apply</span>; never moves an item out of an unmapped or later state; records the names so the next map change shows up in <span class="mono">plan</span>.</td><td class="folder">you</td></tr>
           <tr><td class="cmd">spec-sync (azure) status &lt;spec&gt;</td><td>What would push, and whether the description was edited on Boards since the last push. Never reads the item's state.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (azure) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent — markdown is stored verbatim, so this is normally byte-identical; an HTML-era item reduces to text first. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (azure) splice &lt;spec&gt; --live &lt;f&gt;</td><td>The body to write when the skill applies over MCP: in summary mode, the block spliced into what Azure Boards holds now, so the team's text around it survives; refuses (prints no body) when a delimiter was edited. In spec mode, the projection as it is.</td><td class="folder">/spec-push · /spec</td></tr>

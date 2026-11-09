@@ -44,6 +44,9 @@ const {
   listPhaseFiles,
   normalizeLocal,
   descriptionMode,
+  projectionOf,
+  ownershipOf,
+  writeBase,
 } = require('@skitterbyte/skitterspec-sync-core')
 const kit = require('@skitterbyte/skitterspec-provider-kit')
 const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
@@ -247,31 +250,38 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
     for (const bucket of LIFECYCLE_BUCKETS) if (((config.stateAliases || {})[bucket] || []).some(same)) return bucket
     return null
   }
-  // Should a resend leave this item where it is? A reason string when so.
-  const keepReason = async (idOrIdentifier, bucket, name, type) => {
+  // Where a state send would take this item, read live: the name it would
+  // write, where it sits now, and — for a resend — why it should be left
+  // alone (`keep`), or null when it may move.
+  const stateDecision = async (idOrIdentifier, bucket, type) => {
+    const name = stateFor(bucket, type)
+    if (name === null) return { name: null, at: null, keep: null, already: false }
     let item
     try {
       item = await adapter.readIssue(apiId(idOrIdentifier))
     } catch (error) {
-      return `could not read its state (${String((error && error.message) || error).split('\n')[0]})`
+      const why = String((error && error.message) || error).split('\n')[0]
+      return { name, at: null, keep: `could not read its state (${why})`, already: false }
     }
     const at = item && item.state && item.state.name
     // Cannot tell where it is, so the harmless reading is to leave it.
-    if (!at) return 'could not read its state'
-    if (String(at).toLowerCase().trim() === String(name).toLowerCase().trim()) return null
+    if (!at) return { name, at: null, keep: 'could not read its state', already: false }
+    if (String(at).toLowerCase().trim() === String(name).toLowerCase().trim()) return { name, at, keep: null, already: true }
     const current = bucketOfState(at, type)
-    if (current === null) return `at "${at}", a state this config does not map for ${type}`
-    if (BUCKET_RANK[current] > BUCKET_RANK[bucket]) return `at "${at}", later than ${bucket}`
-    return null
+    if (current === null) return { name, at, keep: `at "${at}", a state this config does not map for ${type}`, already: false }
+    if (BUCKET_RANK[current] > BUCKET_RANK[bucket]) return { name, at, keep: `at "${at}", later than ${bucket}`, already: false }
+    return { name, at, keep: null, already: false }
   }
+  const keptLine = (idOrIdentifier, reason) =>
+    `  state kept: ${asIdentifier(apiId(idOrIdentifier))} ${reason} — a resend leaves it\n`
   const settle = async (idOrIdentifier, bucket, type, resend = null) => {
     if (!bucket) return
     const name = stateFor(bucket, type)
     if (name === null) return
     if (resend) {
-      const reason = await keepReason(idOrIdentifier, bucket, name, type)
-      if (reason) {
-        if (out) out.write(`  state kept: ${asIdentifier(apiId(idOrIdentifier))} ${reason} — a resend leaves it\n`)
+      const decision = await stateDecision(idOrIdentifier, bucket, type)
+      if (decision.keep) {
+        if (out) out.write(keptLine(idOrIdentifier, decision.keep))
         return
       }
     }
@@ -311,6 +321,9 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
     }
   }
   return {
+    stateDecision,
+    keptLine,
+    mintType,
     prevalidateStates: (buckets) => {
       for (const bucket of buckets) {
         stateFor(bucket, mintType)
@@ -1647,11 +1660,120 @@ async function specSyncDoctor(dir, flags, out) {
 }
 
 // ---------------------------------------------------------------------------
+// `restate <spec> | --all <bucket> [--parents] [--apply]` — bring the states of
+// already-pushed items up to today's config, read live.
+//
+// `plan` sees a state-map change only for items whose snapshot recorded the
+// name they were sent. Everything pushed before that record existed has
+// nothing to diff against, so this reads each item's live state instead and
+// settles it through the same resend guard an apply uses: an item in a state
+// this config does not map for its type, or in a later bucket, is left and
+// named. Children only by default — a host's release CI often owns the
+// parent's states past complete — and `--parents` opts the spec item in.
+// Dry-run unless `--apply`; on `--apply` the names are recorded into each
+// spec's existing snapshot, so the next state-map change shows up in `plan`.
+async function specSyncRestate(dir, config, specArg, flags, out) {
+  const cred = apiAdapterFor(config, flags)
+  if (kit.resolveTransport(flags, config, cred.ok) === 'mcp') {
+    out.write(`${PROGRAM} restate: transport = mcp — this reads every item's live state, so it needs the API. Set credentials and re-run.\n`)
+    return 0
+  }
+  if (!cred.ok) {
+    out.write(`${PROGRAM} restate: ${String(cred.error).split('\n')[0]} — nothing read, nothing written\n`)
+    return 0
+  }
+  let dirs
+  if (flags.all !== undefined) {
+    const bucket = String(flags.all)
+    if (!BUCKETS.includes(bucket)) {
+      out.write(`${PROGRAM} restate --all: not a lifecycle bucket: ${bucket}\n`)
+      return 1
+    }
+    dirs = listSpecs(dir, config)
+      .filter((sp) => sp.bucket === bucket)
+      .map((sp) => resolveSnapshotDir(sp.spec, dir))
+  } else {
+    const snapshotDir = resolveOrExit(specArg, dir, out)
+    if (!snapshotDir) return 1
+    dirs = [snapshotDir]
+  }
+
+  const apply = !!flags.apply
+  const overviewFile = (config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  const pulled = ownershipOf(config, 'workflowState') === 'pull'
+  const totals = { moved: 0, already: 0, kept: 0 }
+  for (const snapshotDir of dirs) {
+    const spec = path.basename(snapshotDir)
+    const identifier = specHelpers.linkedIdentifier(path.join(snapshotDir, overviewFile), config)
+    if (!identifier) {
+      out.write(`${PROGRAM} restate: ${spec} — not linked, skipped\n`)
+      continue
+    }
+    out.write(`${PROGRAM} restate: ${spec} (${identifier})\n`)
+    const ops = applyOps({ adapter: cred.adapter, config, out: null, kind: specKindOf(snapshotDir), snapshotDir })
+    const projection = projectionOf(snapshotDir, config)
+    const items = []
+    if (flags.parents) {
+      if (pulled) out.write(`  ${identifier} left — its state is the tracker's (sync.fieldOwnership.workflowState: pull)\n`)
+      else items.push({ role: 'issue', id: identifier, bucket: projection.status, type: ops.mintType })
+    }
+    for (const sub of projection.subIssues || []) {
+      if (sub && sub.id != null) items.push({ role: 'subIssue', id: sub.id, bucket: sub.state, type: config.azure.childType })
+    }
+    const settled = { subIssues: {} }
+    for (const item of items) {
+      if (!item.bucket) continue
+      const label = asIdentifier(apiId(item.id))
+      const d = await ops.stateDecision(item.id, item.bucket, item.type)
+      if (d.name === null) {
+        out.write(`  ${label} — ${item.bucket} sends no state for ${item.type}\n`)
+        continue
+      }
+      if (d.keep) {
+        totals.kept++
+        out.write(ops.keptLine(item.id, d.keep))
+      } else if (d.already) {
+        totals.already++
+        out.write(`  ${label} already "${d.name}"\n`)
+      } else {
+        totals.moved++
+        if (apply) await cred.adapter.transitionTo(apiId(item.id), d.name)
+        out.write(`  ${label} "${d.at}" → "${d.name}"${apply ? '' : ' (dry run)'}\n`)
+      }
+      if (item.role === 'issue') settled.issue = d.name
+      else settled.subIssues[String(item.id)] = d.name
+    }
+    if (apply) recordStateNames(dir, config, snapshotDir, settled, out)
+  }
+  const verb = apply ? 'moved' : 'would move'
+  out.write(`${PROGRAM} restate: ${totals.moved} ${verb}, ${totals.already} already there, ${totals.kept} left alone\n`)
+  if (!apply && totals.moved) out.write('  dry run — nothing written. Re-run with --apply to move them.\n')
+  return 0
+}
+
+// Merge the names `restate` settled into the spec's EXISTING snapshot. With no
+// snapshot nothing is written: a snapshot holding only names would read to
+// `plan` as every phase unrecorded, and resend all their bodies.
+function recordStateNames(dir, config, snapshotDir, settled, out) {
+  const identifier = specIdentifier(snapshotDir, config)
+  const base = readBase(dir, identifier, config)
+  if (!base) {
+    out.write('  no snapshot to record names in — the next push records them\n')
+    return
+  }
+  const before = base.stateNames || {}
+  const names = { ...before, subIssues: { ...(before.subIssues || {}), ...settled.subIssues } }
+  if (settled.issue !== undefined) names.issue = settled.issue
+  writeBase(dir, identifier, config, { ...base, stateNames: names })
+}
+
 const USAGE = `Usage: skitterspec-azure-boards spec-sync <subcommand>
 
   normalize <spec>                       print the local projection as JSON
   plan <spec> --workspace-states <f>     what a push would change (dry, JSON)
   apply <spec> --plan <f> | --all <b>    apply a plan over the API
+  restate <spec> | --all <b>             resend child states to today's map (dry)
+    [--parents] [--apply]                include the spec item; write the moves
   stamp <spec> --issue AB#n [--sub r=n]  write returned ids into the spec
   record <spec>                          write the last-pushed snapshot
   status <spec> [--remote <f>]           read-only drift report
@@ -1726,6 +1848,8 @@ async function specSync(rest, io = {}) {
       return specSyncPlan(dir, config, positional[0], flags, out, err)
     case 'apply':
       return specSyncApply(dir, config, positional[0], flags, out, err)
+    case 'restate':
+      return specSyncRestate(dir, config, positional[0], flags, out)
     case 'stamp':
       return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
@@ -1811,6 +1935,7 @@ function parseArgs(args, sub) {
     '--link': { kind: 'list', name: 'links' },
     '--stage': { kind: 'string' },
     '--apply': { kind: 'boolean' },
+    '--parents': { kind: 'boolean' },
     '--to': { kind: 'string' },
     '--name': { kind: 'string' },
     '--release': { kind: 'boolean' },

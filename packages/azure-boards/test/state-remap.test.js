@@ -255,3 +255,99 @@ test('STAYS SILENT: under pull, a remap never re-asserts the parent state', asyn
   const plan = await run(['plan', 'feat-demo', '--skip-state-check', '--json'], dir)
   assert.strictEqual(JSON.parse(plan.out).issue, undefined)
 })
+
+// --- restate: items pushed before the snapshot recorded names ----------------
+
+// The host project's history: pushed under complete → Resolved by a version
+// that recorded no names, then the Task map changed and CI moved the parent on.
+async function legacyHostRepo() {
+  const dir = completedSpecRepo()
+  writeConfig(dir, { states: { complete: 'Resolved' } })
+  const adapter = fakeAdapter()
+  await planAndApply(dir, adapter)
+  const baseDir = path.join(dir, 'specs', '.core', 'azure-base')
+  for (const file of fs.readdirSync(baseDir)) {
+    const p = path.join(baseDir, file)
+    const snap = JSON.parse(fs.readFileSync(p, 'utf-8'))
+    delete snap.stateNames
+    fs.writeFileSync(p, JSON.stringify(snap))
+  }
+  adapter.items.get(PARENT).state = { name: 'On Prod' }
+  writeConfig(dir, { states: { complete: 'Resolved' }, statesByType: { Task: { complete: 'Closed' } } })
+  adapter.calls.length = 0
+  return { dir, adapter }
+}
+
+const snapshotOfDemo = (dir) =>
+  JSON.parse(fs.readFileSync(path.join(dir, 'specs', '.core', 'azure-base', 'AB#101.base.json'), 'utf-8'))
+
+test('restate is a dry run by default: it reads, names the move, and writes nothing', async () => {
+  const { dir, adapter } = await legacyHostRepo()
+  const before = snapshotOfDemo(dir)
+  const r = await run(['restate', 'feat-demo'], dir, adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /AB#102 "Resolved" → "Closed" \(dry run\)/)
+  assert.match(r.out, /1 would move/)
+  assert.ok(!adapter.calls.some(([op]) => op === 'transitionTo' || op === 'updateIssue'))
+  assert.deepStrictEqual(snapshotOfDemo(dir), before)
+})
+
+test('restate --apply moves the Tasks, leaves the parent, and records the names', async () => {
+  const { dir, adapter } = await legacyHostRepo()
+  const r = await run(['restate', 'feat-demo', '--apply'], dir, adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(adapter.items.get(CHILD).state.name, 'Closed')
+  assert.strictEqual(adapter.items.get(PARENT).state.name, 'On Prod')
+  assert.ok(!adapter.calls.some(([op, id]) => id === PARENT && op !== 'readIssue'))
+  assert.deepStrictEqual(snapshotOfDemo(dir).stateNames, { subIssues: { 'AB#102': 'Closed' } })
+
+  // Recorded, so the next state-map change is plain `plan` work again.
+  writeConfig(dir, { states: { complete: 'Resolved' }, statesByType: { Task: { complete: 'Done' } } })
+  const plan = await run(['plan', 'feat-demo', '--skip-state-check', '--json'], dir)
+  assert.strictEqual(JSON.parse(plan.out).subIssues.update.length, 1)
+})
+
+test('restate --parents still leaves a parent in a state the host moved it to, and names it', async () => {
+  const { dir, adapter } = await legacyHostRepo()
+  const r = await run(['restate', 'feat-demo', '--parents', '--apply'], dir, adapter)
+  assert.strictEqual(adapter.items.get(PARENT).state.name, 'On Prod')
+  assert.match(r.out, /state kept: AB#101 at "On Prod"/)
+})
+
+test('restate --parents moves a parent that is behind its bucket', async () => {
+  const { dir, adapter } = await legacyHostRepo()
+  adapter.items.get(PARENT).state = { name: 'Doing' }
+  await run(['restate', 'feat-demo', '--parents', '--apply'], dir, adapter)
+  assert.strictEqual(adapter.items.get(PARENT).state.name, 'Resolved')
+  assert.strictEqual(snapshotOfDemo(dir).stateNames.issue, 'Resolved')
+})
+
+test('restate --all <bucket> walks every spec in the bucket', async () => {
+  const { dir, adapter } = await legacyHostRepo()
+  const r = await run(['restate', '--all', 'complete', '--apply'], dir, adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /restate: feat-demo \(AB#101\)/)
+  assert.strictEqual(adapter.items.get(CHILD).state.name, 'Closed')
+})
+
+test('STAYS SILENT: a child already on the target is reported, not moved', async () => {
+  const { dir, adapter } = await legacyHostRepo()
+  adapter.items.get(CHILD).state = { name: 'Closed' }
+  const r = await run(['restate', 'feat-demo', '--apply'], dir, adapter)
+  assert.match(r.out, /AB#102 already "Closed"/)
+  assert.ok(!adapter.calls.some(([op]) => op === 'transitionTo'))
+})
+
+test('restate over MCP exits 0 and writes nothing', async () => {
+  const { dir } = await legacyHostRepo()
+  const r = await run(['restate', 'feat-demo', '--via', 'mcp'], dir)
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /transport = mcp/)
+})
+
+test('restate --all refuses a name that is not a bucket', async () => {
+  const { dir, adapter } = await legacyHostRepo()
+  const r = await run(['restate', '--all', 'done'], dir, adapter)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.out, /not a lifecycle bucket: done/)
+})

@@ -69,7 +69,7 @@ sent to them.
 | Phase | Status |
 |-------|--------|
 | [01 — Record resolved state names; guard resends](01-record-and-guard.md) | ✅ |
-| [02 — `spec-sync restate` for items pushed before names were recorded](02-restate.md) | ⬜ |
+| [02 — `spec-sync restate` for items pushed before names were recorded](02-restate.md) | ✅ |
 
 ## Impact
 
@@ -90,3 +90,7 @@ sent to them.
   sent item resolved to; `plan` turns a changed name into a state-only update,
   and a resend leaves an item in an unmapped or later state where it is. Red
   tests green; 4546 tests pass.
+- 2026-11-09 — Fixed (phase 2): `spec-sync restate` settles items that were
+  already pushed against today's map through the same guard, as a dry run
+  unless `--apply`, and records names into the existing snapshot.
+  `docs/azure-boards.html` covers both. 4554 tests pass.
