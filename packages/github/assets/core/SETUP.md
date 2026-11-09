@@ -23,6 +23,11 @@ pnpm exec skitterspec init --isolation
 Install exactly one distribution: the base, or one superset. This one provides
 both `skitterspec-github` and `skitterspec`.
 
+**A project in a subfolder of its repo** (a solution folder beside `Sql/`,
+say) installs and runs exactly the same way, from that folder: install the
+package there or above it, and run `spec-sync` from it. `specs/.core/env.config.md`
+→ *A project in a subfolder of its repo* has the details.
+
 ## 2. Make the board
 
 On GitHub: **Projects → New project → Board**, owned by the repo's owner. Note

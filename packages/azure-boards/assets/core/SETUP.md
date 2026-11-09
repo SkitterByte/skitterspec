@@ -37,6 +37,11 @@ exactly one):
 npx @skitterbyte/skitterspec-azure-boards init
 ```
 
+**A project in a subfolder of its repo** (a solution folder beside `Sql/`,
+say) installs and runs exactly the same way, from that folder: install the
+package there or above it, and run `spec-sync` from it. `specs/.core/env.config.md`
+→ *A project in a subfolder of its repo* has the details.
+
 ## 2. Credentials — a Personal Access Token
 
 Azure DevOps authenticates REST calls with basic auth: an empty username and a

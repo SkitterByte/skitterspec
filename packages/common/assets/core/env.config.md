@@ -68,6 +68,8 @@ through to a documented conservative default; see the field notes below.
   "worktree": {
     "root": "../{repo}-wt",   // dir that holds all spec worktrees; sibling of
                               // the primary checkout, never nested inside it.
+                              // Resolved against the REPO root, even for a
+                              // project in a subfolder of its repo (below).
     "folderPattern": "{slug}" // per-spec worktree dir name.
   },
 
@@ -141,7 +143,8 @@ through to a documented conservative default; see the field notes below.
   // typechecks, builds and tests work immediately instead of failing on a
   // missing node_modules. An array, run in order, stopping at the first that
   // exits non-zero; [] = none. Each string is a shell command; {slug}/{branch}/{worktreePath}/{projectName}/{portOffset}
-  // expand (the cwd is already the worktree, so {worktreePath} is usually
+  // expand (the cwd is already the worktree — the project folder inside it, for a
+  // project in a subfolder of its repo — so {worktreePath} is usually
   // redundant). Example: ["pnpm install --frozen-lockfile"].
   // An entry may also be { "run": "<cmd>", "when": ["<glob>", ...] }. `when` is
   // IGNORED here — a fresh worktree always runs every setup step — and exists
@@ -650,9 +653,57 @@ through to a documented conservative default; see the field notes below.
 }
 ```
 
+## A project in a subfolder of its repo
+
+Most projects ARE their repo: `specs/` and `.claude/` sit at the git root. Some
+cannot — a Visual Studio solution folder beside `Sql/` and a prototype or two,
+where sessions start in the solution folder, so that is where `.claude/` must be
+for its skills and hooks to load, and where `specs/` belongs. That works with no
+configuration:
+
+```
+C:\Code\LSC App\                ← git root
+├── FF.CSC.Solution\             ← the project: specs/, .claude/, run Claude here
+├── Sql\
+└── Prototype\
+C:\Code\LSC App-wt\<spec>\       ← each spec's worktree, beside the repo
+```
+
+- **The project is found, not configured.** Every `spec-env` verb walks up from
+  where it is run to the nearest folder holding `specs/.core/`, stopping at the
+  git root. Found at the root, it behaves exactly as it always has; found in a
+  subfolder, that subfolder is the project — from inside it or anywhere beneath
+  it. `spec-env resolve` and `skitterspec status` print a
+  `subfolder:  FF.CSC.Solution/ (in repo C:\Code\LSC App)` line when it is not
+  the root, and nothing extra when it is. Several projects in one repo are not
+  supported: the nearest `specs/.core/` wins.
+- **Repo-level things resolve against the repo root**: `worktree.root`, `{repo}`
+  (`LSC App`, not the project folder's name) and therefore the worktree layout.
+  A spec's worktree is a checkout of the whole repo, with the project at the same
+  place inside it.
+- **Everything in this file is project-relative**: `setup`, `dev`, seed files,
+  `docker.composeFile` and `docker.envFile`, `registry`, `spec.companionPaths`,
+  and the folder `/spec-start` moves the session into
+  (`<worktree>/FF.CSC.Solution`). Git commands run against the worktree.
+- **The review page lists git paths**, so the project's files carry its folder
+  (`FF.CSC.Solution/specs/…`) and a change beside it (`Sql/…`) is shown as code.
+- **The main guard covers the whole primary checkout**, not only the project
+  folder: a write to `Sql/` on the base branch is unreviewed work too.
+- **Install skitterspec in the project folder or above it.** The hooks find the
+  engine by walking UP from the session's folder to a `node_modules/.bin`; an
+  install below the project (say an Angular `ClientApp/node_modules`) is not
+  found, and the hooks fall back to `skitterspec` on your PATH.
+- **Run `spec-sync` from the project folder.** The tracker providers take the
+  project from where they are run (or `--dir`); `release.ignorePaths` are read
+  against the project, so `specs/` means the project's.
+- **Windows**: git prints `/` and paths with spaces are quoted in every command
+  the engine prints. A deep spec folder inside a worktree can pass 260
+  characters — set `git config --global core.longpaths true` once.
+
 ## Token expansion
 
-- `{repo}` — primary checkout dir basename (e.g. `skitterspec`).
+- `{repo}` — the repo root's dir basename (e.g. `skitterspec`) — the primary
+  checkout's root, which for a project in a subfolder is the folder above it.
 - `{repoSlug}` — `{repo}` lower-cased, non-alphanumerics collapsed to `-`
   (safe for a `COMPOSE_PROJECT_NAME`).
 - `{slug}` — the spec slug (folder name minus its `feat-`/`bug-`/`hotfix-`/`chore-` prefix).

@@ -43,6 +43,11 @@ contains the entire base, so install one **or** the other, never both):
 npx @skitterbyte/skitterspec-linear init
 ```
 
+**A project in a subfolder of its repo** (a solution folder beside `Sql/`,
+say) installs and runs exactly the same way, from that folder: install the
+package there or above it, and run `spec-sync` from it. `specs/.core/env.config.md`
+→ *A project in a subfolder of its repo* has the details.
+
 ## 2. Connect the Linear MCP server
 
 The sync skills talk to Linear over MCP. Add Linear's official remote server and

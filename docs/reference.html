@@ -5,7 +5,7 @@ covers:
   - packages/common/assets/commands/**
   - packages/common/src/cli.js
   - packages/common/src/env/**
-verified: 59a8cf96cd5d
+verified: e83067c398ba
 -->
 <html lang="en">
 <head>
@@ -627,6 +627,7 @@ project:    skitterspec_cli-engine-docs
 $ skitterspec spec-env <span class="p">prune</span>
 spec-env prune: no orphaned volumes in skitterspec_* (0 namespace volume(s), 1 live spec(s) protected).</div>
       <p class="lede"><b>What <span class="mono" style="font-size:.9em">status</span> counts.</b> A spec is provisioned when it has a <em>worktree</em> — so every in-flight spec appears, whether or not it runs Docker. Specs that do get a slot and a port block shown beside them. Each is then read <em>in its own worktree</em>, because a spec moves to <span class="mono">in-progress/</span> on its own branch and the base branch still files it under <span class="mono">backlog/</span>. A finished spec whose worktree was never torn down is listed, but not counted as in flight. A <span class="mono">/no-spec</span> worktree shows as <span class="mono">(no spec)</span>.</p>
+      <p class="lede"><b>A project in a subfolder of its repo.</b> When <span class="mono">specs/</span> and <span class="mono">.claude/</span> live in, say, a solution folder beside <span class="mono">Sql/</span>, nothing needs configuring: every verb walks up to the nearest <span class="mono">specs/.core/</span>, and <span class="mono">resolve</span> and <span class="mono">status</span> add a <span class="mono">subfolder:</span> line naming it. Worktrees are still laid out beside the <em>repo</em> and named for it; setup, dev servers and the session itself work in the project folder inside each one, and its <span class="mono">worktree:</span> line names that folder. <span class="mono">env.config.md</span> has the details.</p>
     </div>
   </div>
 </section>
