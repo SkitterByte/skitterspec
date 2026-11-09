@@ -28,8 +28,8 @@ function git(cwd, ...args) {
 // A checkout on `main` with a bare remote, one worktree-only spec, and its branch
 // pushed and merged — the exact shape /spec-complete leaves behind.
 function scaffold({ remoteName = 'origin', push = true, merge = true, config = {} } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-down-')))
-  const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-remote-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-down-')))
+  const remote = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-remote-')))
   execFileSync('git', ['init', '-q', '--bare', remote], { stdio: 'ignore' })
 
   git(dir, 'init', '-q')

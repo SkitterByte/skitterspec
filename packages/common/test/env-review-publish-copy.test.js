@@ -49,7 +49,7 @@ function wrapperTags(html) {
 }
 
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-pubcopy-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-pubcopy-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')

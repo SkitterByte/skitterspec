@@ -47,7 +47,7 @@ test('stays silent when no server is running', () => {
 // --- reaping a pidfile whose process is gone --------------------------------
 
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rst-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rst-')))
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   g('init', '-q')
   g('config', 'user.email', 'test@example.com')
@@ -152,7 +152,7 @@ test('prune says nothing about a server on a repo that never ran one', async () 
 // real repo, because the property that matters is whether the FACTS reach it —
 // a policy test would still pass if `othersServed` were always zero.
 function scaffoldSpecs(names) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rsd-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rsd-')))
   const g = (cwd, ...a) => execFileSync('git', ['-C', cwd, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   g(dir, 'init', '-q')
   g(dir, 'config', 'user.email', 'test@example.com')

@@ -29,7 +29,7 @@ function g(dir, ...a) {
 }
 
 function repoWithSpecs(review = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-remotespec-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-remotespec-')))
   g(dir, 'init', '-q')
   g(dir, 'config', 'user.email', 'test@example.com')
   g(dir, 'config', 'user.name', 'Test')

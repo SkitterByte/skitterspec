@@ -51,7 +51,7 @@ const blobOf = (over = {}) => ({
  * untouched-behaviour half of this file runs against the same fixture.
  */
 function scaffold({ provisioned = false } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stranded-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stranded-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')

@@ -29,7 +29,7 @@ const {
 } = require('../src/env/mainguard.js')
 
 const CONFIG = { registry: '.spec-env/registry.json', guards: {} }
-const tmpDir = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-guard-')))
+const tmpDir = () => fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-guard-')))
 
 // Every part present and true — the only shape that refuses.
 const FIRES = {

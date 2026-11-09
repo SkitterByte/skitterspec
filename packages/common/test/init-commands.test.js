@@ -19,7 +19,7 @@ const {
 } = require('../src/init.js')
 
 function tmp(lockfiles = [], { localInstall = false } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-cmds-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-cmds-')))
   for (const f of lockfiles) fs.writeFileSync(path.join(dir, f), '')
   if (localInstall) seedLocalInstall(dir)
   return dir

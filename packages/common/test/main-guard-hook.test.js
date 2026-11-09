@@ -120,7 +120,7 @@ const write = (cwd, file) => ({ tool_name: 'Write', tool_input: { file_path: fil
 
 test('STAYS SILENT: a write outside the repo, from the primary checkout on main', () => {
   const dir = repo()
-  const scratch = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-scratch-')))
+  const scratch = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-scratch-')))
   try {
     assert.strictEqual(fire(write(dir, path.join(scratch, 'notes.md'))).out, '')
     assert.strictEqual(fire(write(dir, path.join(scratch, 'new', 'deep', 'x.md'))).out, '')
@@ -206,7 +206,7 @@ test('STAYS SILENT: a repo with no isolation config', () => {
 })
 
 test('STAYS SILENT: a directory that is not a git repo at all', () => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-nogit-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-nogit-')))
   try {
     assert.strictEqual(fire(edit(dir)).out, '')
   } finally {

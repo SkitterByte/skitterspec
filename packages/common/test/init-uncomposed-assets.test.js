@@ -20,7 +20,7 @@ const { assertComposedAssets } = require('../src/init.js')
 const ASSETS = path.join(__dirname, '..', 'assets')
 
 function tmpdir() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-uncomposed-')))
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-uncomposed-')))
 }
 
 // Spawn the bin, not run() — the guard sits at the outermost boundary so the

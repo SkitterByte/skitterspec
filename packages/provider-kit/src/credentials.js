@@ -63,7 +63,7 @@ function storePath(env = process.env, homedir = os.homedir) {
  *   `absent` (no file — the normal default, not a problem), `permissions`
  *   (group/world readable), `unreadable`, `malformed`.
  */
-function readStore(file, { stat = fs.statSync, read = fs.readFileSync } = {}) {
+function readStore(file, { stat = fs.statSync, read = fs.readFileSync, platform = process.platform } = {}) {
   let info
   try {
     info = stat(file)
@@ -74,7 +74,12 @@ function readStore(file, { stat = fs.statSync, read = fs.readFileSync } = {}) {
     return { ok: false, code: 'unreadable', path: file, reason: `cannot read ${file}: ${err.message}` }
   }
 
-  if (info.mode & GROUP_OR_WORLD) {
+  // ON WINDOWS THE MODE BITS SAY NOTHING. Node reports every file there as
+  // 0o666, so this check refused every store on Windows and no stored
+  // credential could ever be read (chore-windows-ci). Access there is the
+  // profile directory's ACL, which these bits do not describe — cannot tell,
+  // and cannot-tell does not accuse (`.claude/rules/negative-checks.md`).
+  if (platform !== 'win32' && info.mode & GROUP_OR_WORLD) {
     const mode = (info.mode & 0o777).toString(8)
     return {
       ok: false,

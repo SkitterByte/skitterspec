@@ -84,7 +84,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Run the Windows job and triage its failures | ✅ | [01-triage.md](01-triage.md) |
 | 2 | Line endings and Windows product fixes | ✅ | [02-product-fixes.md](02-product-fixes.md) |
-| 3 | Test-only Windows assumptions | ⬜ | [03-test-fixes.md](03-test-fixes.md) |
+| 3 | Test-only Windows assumptions | 🔄 | [03-test-fixes.md](03-test-fixes.md) |
 | 4 | Make the Windows job blocking | ⬜ | [04-blocking.md](04-blocking.md) |
 
 ## Open questions
@@ -102,3 +102,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   hooks unable to reach the engine (guards silently off) and `dev down` leaving
   servers alive — both fixed; plus test-only fixes done early to save a CI
   round trip, and an annotation reporter so later runs triage without a log.
+- 2026-11-09 — Phase 3 runs as CI rounds committed mid-phase (operator's
+  choice), reviewed as a whole once Windows is green. Round 1 (run
+  42703961942): `test:nested` green on Windows; the full suite showed the
+  review server unable to start, the credential store unreadable, and
+  `integrate` printing one folder two ways — all product, all fixed.

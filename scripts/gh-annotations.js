@@ -34,12 +34,34 @@ function annotationFor(d, cwd = process.cwd()) {
   return `::error ${where}title=${prop(d.name || 'test')}::${data(message)}\n`
 }
 
+// GitHub keeps ten error annotations per step. The first nine failures get one
+// each; everything past them is named in a tenth, so a run with forty failures
+// still lists all forty without anyone opening the log.
+const INDIVIDUAL = 9
+
 module.exports = async function* ghAnnotations(source) {
+  let shown = 0
+  const rest = []
   for await (const event of source) {
     if (event.type !== 'test:fail') continue
     const line = annotationFor(event.data)
-    if (line) yield line
+    if (!line) continue
+    if (shown < INDIVIDUAL) {
+      shown++
+      yield line
+    } else {
+      const d = event.data
+      const file = d.file ? path.relative(process.cwd(), d.file).split(path.sep).join('/') : '?'
+      rest.push(`${file}:${d.line || 1} ${d.name}`)
+    }
   }
+  if (rest.length) yield restAnnotation(rest)
+}
+
+/** The closing annotation naming every failure past the first nine. */
+function restAnnotation(rest) {
+  return `::error title=${prop(`${rest.length} more failing test(s)`)}::${data(rest.join('\n'))}\n`
 }
 
 module.exports.annotationFor = annotationFor
+module.exports.INDIVIDUAL = INDIVIDUAL

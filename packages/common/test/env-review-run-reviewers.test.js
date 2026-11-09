@@ -35,7 +35,7 @@ const FINDING = (file, line, severity, message) =>
  * finds a spec `/spec-start` provisioned.
  */
 function scaffold(reviewers = []) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-runrev-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-runrev-')))
   git(dir, 'init', '-q', '-b', 'main')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')

@@ -27,7 +27,7 @@ const { reviewTierStack, reviewTierLine } = require('../src/env/review.js')
 const { run } = require('../src/cli.js')
 
 function repo(review = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-tiers-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-tiers-')))
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   g('init', '-q')
   g('config', 'user.email', 'test@example.com')

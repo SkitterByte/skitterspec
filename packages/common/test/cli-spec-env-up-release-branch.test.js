@@ -33,9 +33,9 @@ function commit(cwd, file, msg) {
 }
 
 function scaffold(hotfix = { releaseBranch: 'master' }) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-relbranch-')))
-  const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-relbranch-remote-')))
-  const lead = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-relbranch-lead-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-relbranch-')))
+  const remote = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-relbranch-remote-')))
+  const lead = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-relbranch-lead-')))
   execFileSync('git', ['init', '-q', '--bare', remote], { stdio: 'ignore' })
 
   git(dir, 'init', '-q')

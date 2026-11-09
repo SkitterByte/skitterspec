@@ -27,7 +27,7 @@ function commit(cwd, file, msg) {
 }
 
 function scaffold({ remote: withRemote = true, published = true } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resume-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resume-')))
   git(dir, ['init', '-q', '-b', 'main'])
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
@@ -41,13 +41,13 @@ function scaffold({ remote: withRemote = true, published = true } = {}) {
   let remote = null
   let sha = null
   if (withRemote) {
-    remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resume-remote-')))
+    remote = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resume-remote-')))
     execFileSync('git', ['init', '-q', '--bare', remote], { stdio: 'ignore' })
     git(dir, ['remote', 'add', 'origin', remote])
     git(dir, ['push', '-q', 'origin', 'main'])
     if (published) {
       // The previous owner's clone: started the spec, did a phase, pushed it.
-      const prev = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resume-prev-')))
+      const prev = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-resume-prev-')))
       execFileSync('git', ['clone', '-q', remote, prev], { stdio: 'ignore' })
       git(prev, ['switch', '-q', '-c', 'feat/thing'])
       commit(prev, 'work.txt', 'phase 1')

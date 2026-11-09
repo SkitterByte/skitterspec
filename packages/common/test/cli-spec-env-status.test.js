@@ -275,7 +275,7 @@ test('stays silent: status with nothing provisioned says so plainly and exits 0'
 })
 
 test('stays silent: status without isolation answers, and does not fail', async () => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-noiso-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-noiso-')))
   try {
     git(dir, 'init', '-q')
     const out = await runQuiet(['status', '--dir', dir])

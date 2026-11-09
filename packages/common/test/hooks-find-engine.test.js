@@ -14,7 +14,7 @@ const path = require('node:path')
 const HOOKS = ['main-guard.cjs', 'review-gate.cjs'].map((f) => path.join(__dirname, '..', 'assets', 'hooks', f))
 
 function tmp() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-findengine-')))
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-findengine-')))
 }
 
 function bin(dir, name = 'skitterspec') {

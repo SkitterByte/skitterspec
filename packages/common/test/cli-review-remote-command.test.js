@@ -28,7 +28,7 @@ const { run } = require('../src/cli.js')
 const COMMAND = path.join(__dirname, '..', 'assets', 'commands', 'spec-remote-review.md')
 
 function repo(review) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-remotecmd-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-remotecmd-')))
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   g('init', '-q')
   g('config', 'user.email', 'test@example.com')

@@ -160,8 +160,8 @@ function commit(cwd, file, msg, date) {
 // own) and 2027/Q1 (newer, cut from main without it). One spec worktree forked
 // from 2026/Q4. Dates are fixed relative values, never today.
 function scaffold({ config = {}, remoteUrl = null } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-base-')))
-  const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-base-remote-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-base-')))
+  const remote = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-base-remote-')))
   execFileSync('git', ['init', '-q', '--bare', remote], { stdio: 'ignore' })
 
   git(dir, ['init', '-q'])

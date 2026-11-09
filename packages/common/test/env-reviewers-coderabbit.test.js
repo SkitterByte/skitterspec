@@ -278,7 +278,7 @@ test('a `use` naming an adapter this build does not have is said at config-read 
   // `spawnSync`, not `execFileSync`: this advisory is on STDERR, and
   // `execFileSync` returns stdout only.
   const { spawnSync } = require('node:child_process')
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-cruse-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-cruse-')))
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),

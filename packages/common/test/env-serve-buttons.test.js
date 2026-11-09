@@ -51,7 +51,7 @@ function git(cwd, ...args) {
  * only ever looked at one.
  */
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-buttons-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-buttons-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
@@ -370,7 +370,7 @@ test('stays silent: a record naming a set this engine does not know is ignored',
 })
 
 test('readRenderRecord: absent, corrupt and present are three states', () => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rec-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rec-')))
   try {
     const out = reviewOutPath(dir, 'feat-x', null)
     assert.deepStrictEqual(readRenderRecord(out, 'feat-x'), { buttons: null, corrupt: false, present: false })

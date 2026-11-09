@@ -49,7 +49,7 @@ function freePort() {
 }
 
 function scaffold(review) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-serveport-cli-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-serveport-cli-')))
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   g('init', '-q')
   g('config', 'user.email', 'test@example.com')

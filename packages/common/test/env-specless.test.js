@@ -44,7 +44,7 @@ const CONFIG = {
   branch: { pattern: '{type}/{slug}' },
 }
 
-const tmpDir = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-specless-')))
+const tmpDir = () => fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-specless-')))
 
 // --- the registry key -------------------------------------------------------
 

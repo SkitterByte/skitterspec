@@ -24,7 +24,7 @@ function g(dir, ...a) {
 }
 
 function repoWithSpec(dev) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-liveline-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-liveline-')))
   g(dir, 'init', '-q')
   g(dir, 'config', 'user.email', 'test@example.com')
   g(dir, 'config', 'user.name', 'Test')

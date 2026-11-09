@@ -49,3 +49,15 @@ test('STAYS SILENT: passing tests and other events print nothing', async () => {
   assert.strictEqual(out.length, 1)
   assert.match(out[0], /::boom\n$/)
 })
+
+test('past nine failures, the rest are named together in one tenth annotation', async () => {
+  async function* events() {
+    for (let i = 1; i <= 12; i++) yield { type: 'test:fail', data: failure(`boom ${i}`, { name: `t${i}`, line: i }) }
+  }
+  const out = []
+  for await (const line of reporter(events())) out.push(line)
+  assert.strictEqual(out.length, 10, 'GitHub keeps ten per step')
+  assert.match(out[8], /title=t9::boom 9/)
+  assert.match(out[9], /^::error title=3 more failing test\(s\)::/)
+  for (const n of [10, 11, 12]) assert.match(out[9], new RegExp(`t${n}`))
+})

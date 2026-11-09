@@ -44,7 +44,7 @@ The second one.
 `
 
 function tmpSpec(files) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-ctx-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-ctx-')))
   for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body)
   return dir
 }

@@ -218,7 +218,9 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
 
   // 7. Record the snapshot from the now-stamped files, so the next push is empty.
   const file = recordPush({ dir, snapshotDir, identifier: helpers.specIdentifier(snapshotDir, config), config, sent })
-  lines.push(`  snapshot: ${path.relative(dir, file)}`)
+  // A repo path, `/`-separated on every platform — the form every other
+  // spec path in this output takes.
+  lines.push(`  snapshot: ${path.relative(dir, file).split(path.sep).join('/')}`)
   return { result, lines, lost }
 }
 

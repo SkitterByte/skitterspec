@@ -32,7 +32,7 @@ const { init, resync, reset, lastReport } = require('../src/init.js')
 const { HOOK_SCRIPT } = require('../src/env/hooks.js')
 
 function tmpProject() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hookwire-')))
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hookwire-')))
 }
 
 // The install commands all print a report; the assertions are on disk and on

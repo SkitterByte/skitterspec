@@ -27,7 +27,7 @@ const { run } = require('../src/cli.js')
 const URL = 'https://claude.ai/code/artifact/15f92c48-9be0-4f29-a1bc-db47d0168e8d'
 
 function scaffold({ published = false } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-pub-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-pub-')))
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   g('init', '-q')
   g('config', 'user.email', 'test@example.com')

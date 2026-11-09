@@ -50,7 +50,7 @@ process.stdout.write(JSON.stringify({ tag, version: '1.0.0-hotfix.1', baseTag: '
 }
 
 function scaffold(hotfix = {}, extra = {}) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-')))
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-')))
   const dir = path.join(root, 'repo')
   fs.mkdirSync(dir)
   git(dir, 'init', '-q')
@@ -136,7 +136,7 @@ const onRemote = (env, ref) => {
 }
 
 test('releaseWith + --push: released, branch then tag pushed, then carried', async () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
   const stub = writeStub(root)
   const env = scaffold({ releaseWith: stub.command })
   try {
@@ -158,7 +158,7 @@ test('releaseWith + --push: released, branch then tag pushed, then carried', asy
 })
 
 test('afterLand: the carried fix is the range — the version commit is not in it', async () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
   const stub = writeStub(root)
   const env = scaffold({ releaseWith: stub.command }, {
     afterLand: [
@@ -179,7 +179,7 @@ test('afterLand: the carried fix is the range — the version commit is not in i
 })
 
 test('a re-run reuses the recorded release rather than cutting a second', async () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
   const stub = writeStub(root)
   const env = scaffold({ releaseWith: stub.command, cherryPickMain: false })
   try {
@@ -195,7 +195,7 @@ test('a re-run reuses the recorded release rather than cutting a second', async 
 })
 
 test('a refusing releaseWith exits 1, relays its line, and touches nothing', async () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
   const stub = writeStub(root, { fail: true })
   const env = scaffold({ releaseWith: stub.command })
   try {
@@ -279,7 +279,7 @@ test('stays silent: an unreachable remote is cannot-tell, so the re-run holds', 
 const subjects = (cwd, range) => git(cwd, 'log', '--format=%s', range).split('\n').filter(Boolean)
 
 test('main gains the fix and the spec commits, and never the version commit', async () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
   const stub = writeStub(root)
   const env = scaffold({ releaseWith: stub.command })
   try {
@@ -366,7 +366,7 @@ test('a conflicting carry is aborted, names the commit, and leaves main where it
 // --- finish -------------------------------------------------------------------
 
 test('end to end: finish refuses until the branch is on origin, then tears down', async () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-stub-')))
   const stub = writeStub(root)
   const env = scaffold({ releaseWith: stub.command })
   try {
@@ -423,7 +423,8 @@ test('stays silent: spec-env down on a landed hotfix plans exactly what it did b
       process.stdout.write = orig
     }
     assert.doesNotMatch(out, /blocked/)
-    assert.match(out, /git worktree remove \S+\/wt\/login/)
+    // Either separator, and quoted where a Windows path is (shellPath).
+    assert.match(out, /git worktree remove "?\S+[\\/]wt[\\/]login/)
     assert.match(out, /git branch -D hotfix\/login/)
     assert.ok(fs.existsSync(env.wt), 'down only plans; it removed nothing')
   } finally {

@@ -116,7 +116,7 @@ test('a claim against an empty store is an ordinary no, not a crash', () => {
 // --- the sidecar on disk ----------------------------------------------------
 
 function tmp() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-pending-')))
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-pending-')))
 }
 
 test('the store round-trips, and an absent one is ordinary', () => {
@@ -160,7 +160,7 @@ function git(cwd, ...args) {
 }
 
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-claim-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-claim-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')

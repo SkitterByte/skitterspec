@@ -24,7 +24,7 @@ const {
 } = require('../src/env/project.js')
 
 function tmp() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-project-')))
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-project-')))
 }
 
 function mk(...parts) {

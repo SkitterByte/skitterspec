@@ -102,7 +102,12 @@ function findPrefix(from, toplevel) {
 function primaryAnchor(from, git) {
   const common = git(['rev-parse', '--git-common-dir'])
   if (!common) return { root: from, prefix: '', dir: from }
-  const root = path.dirname(path.resolve(from, common))
+  // Canonical, so one folder prints one way wherever the command was run from.
+  // From the primary checkout `common` is relative (`.git`) and the root came
+  // out spelled as `from` was; from a worktree git hands back an absolute,
+  // long-form path — on Windows `RUNNER~1` against `runneradmin` for the same
+  // folder, and `integrate` printed two different plans (chore-windows-ci).
+  const root = real(path.dirname(path.resolve(from, common)))
   const toplevel = git(['rev-parse', '--show-toplevel'])
   const prefix = toplevel ? findPrefix(from, toplevel) : ''
   return { root, prefix, dir: projectIn(root, prefix) }

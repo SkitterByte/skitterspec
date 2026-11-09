@@ -65,7 +65,7 @@ const gitReader = (cwd) => (argv) => {
 // Two specs: one provisioned with a worktree and real changes, one left in
 // backlog with no worktree at all — the second is the stays-silent case.
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-serve-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-serve-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')

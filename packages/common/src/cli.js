@@ -5605,7 +5605,9 @@ function proxyProcFor(config, routesFileAbs) {
   const sdir = stateDirLabel(config)
   return {
     name: 'proxy',
-    command: `node ${path.join(__dirname, 'env', 'proxy.js')} ${routesFileAbs}`,
+    // Quoted: this runs through `sh -c`, which eats a Windows path's
+    // backslashes and splits any path with a space (chore-windows-ci).
+    command: `node ${shellPath(path.join(__dirname, 'env', 'proxy.js'))} ${shellPath(routesFileAbs)}`,
     env: {},
     logFile: `${sdir}/logs/proxy.log`,
     pidFile: `${sdir}/pids/proxy.pid`,
@@ -5673,7 +5675,9 @@ function serveProcFor(config, settingsFileAbs, { root = null } = {}) {
   const sdir = stateDirLabel(config)
   return {
     name: 'review-serve',
-    command: `node ${daemonScript(root)} ${settingsFileAbs}`,
+    // Quoted: this runs through `sh -c`, which eats a Windows path's
+    // backslashes and splits any path with a space (chore-windows-ci).
+    command: `node ${shellPath(daemonScript(root))} ${shellPath(settingsFileAbs)}`,
     script: daemonScript(root),
     env: {},
     logFile: `${sdir}/logs/review-serve.log`,

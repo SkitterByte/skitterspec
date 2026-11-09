@@ -53,7 +53,9 @@ test('no credential anywhere is a refusal whose message never carries a token', 
   assert.doesNotMatch(JSON.stringify(r), /super-secret-token/)
 })
 
-test('an over-permissive store is refused with the chmod advice', () => {
+// POSIX permission bits: Windows reports every file as 0o666 and the store
+// check does not read them there (credentials-platform.test.js pins both).
+test('an over-permissive store is refused with the chmod advice', { skip: process.platform === 'win32' && 'POSIX mode bits do not apply on Windows' }, () => {
   const { root, file } = tmpHome()
   writeCredential(file, SITE, 'a@b.c', 'tok')
   fs.chmodSync(file, 0o644)

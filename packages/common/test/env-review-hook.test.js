@@ -277,7 +277,7 @@ test('it allows on an unreadable payload', () => {
 // --- registration in project settings ---------------------------------------
 
 test('it registers into a settings file that does not exist yet', () => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
   try {
     assert.strictEqual(ensureReviewGateHook(dir).reason, 'created')
     const written = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'))
@@ -299,7 +299,7 @@ test('it registers into a settings file that does not exist yet', () => {
 })
 
 test('it merges without disturbing anything already in the file', () => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
   try {
     fs.mkdirSync(path.join(dir, '.claude'), { recursive: true })
     fs.writeFileSync(
@@ -320,7 +320,7 @@ test('it merges without disturbing anything already in the file', () => {
 })
 
 test('re-running registers nothing a second time', () => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
   try {
     ensureReviewGateHook(dir)
     assert.strictEqual(ensureReviewGateHook(dir).reason, 'present')
@@ -348,7 +348,7 @@ test("an operator's own wrapping of our hook is left alone, not duplicated", () 
 })
 
 test('a settings file it cannot parse is reported, never rewritten', () => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
   try {
     fs.mkdirSync(path.join(dir, '.claude'), { recursive: true })
     const file = path.join(dir, '.claude', 'settings.json')
@@ -380,7 +380,7 @@ test('the registered command points at the script the package ships', () => {
 // pins the parse mode is independent of the host.
 
 function hostProject(packageJson) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-host-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-host-')))
   if (packageJson !== null) fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(packageJson))
   const installed = path.join(dir, HOOK_SCRIPT)
   fs.mkdirSync(path.dirname(installed), { recursive: true })
@@ -440,7 +440,7 @@ test('a registration naming the old .js path is rewritten, not duplicated', () =
   // points at is retired by this same upgrade, so leaving the entry alone would
   // aim the harness at nothing — and adding a second entry beside it would run
   // the gate twice and read as a bug in the gate.
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
   try {
     fs.mkdirSync(path.join(dir, '.claude'), { recursive: true })
     const stale = 'node "${CLAUDE_PROJECT_DIR}/.claude/hooks/review-gate.js"'
@@ -473,7 +473,7 @@ test("an operator's own wrapping is migrated in place, not replaced", () => {
   // The path moved; their command did not become ours. Only the script path
   // inside it is rewritten, so a wrapper, a flag or a different interpreter all
   // survive the migration that fixes the extension.
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
   try {
     fs.mkdirSync(path.join(dir, '.claude'), { recursive: true })
     fs.writeFileSync(
@@ -503,7 +503,7 @@ test("an operator's own wrapping is migrated in place, not replaced", () => {
 
 test('an entry already naming the shipped path is left completely alone', () => {
   // The stays-silent half of the migration: "present" must still mean no write.
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-settings-')))
   try {
     ensureReviewGateHook(dir)
     const before = fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8')

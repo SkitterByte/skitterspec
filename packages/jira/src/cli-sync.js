@@ -473,7 +473,7 @@ function specSyncRecord(dir, config, specArg, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return 1
   const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config })
-  out.write(`${PROGRAM} record: snapshot written — ${path.relative(dir, file)}\n`)
+  out.write(`${PROGRAM} record: snapshot written — ${path.relative(dir, file).split(path.sep).join('/')}\n`)
   return 0
 }
 

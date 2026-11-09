@@ -21,7 +21,7 @@ const { readPhases, phaseIsDone } = require('../src/env/resolve.js')
 const { collectReview } = require('../src/env/review.js')
 
 function specDir(phases, { bucket = 'in-progress', folder = 'feat-x', overview = true } = {}) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-phases-')))
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-phases-')))
   const dir = path.join(root, 'specs', bucket, folder)
   fs.mkdirSync(dir, { recursive: true })
   if (overview) fs.writeFileSync(path.join(dir, '00-overview.md'), '# X\n')
@@ -98,7 +98,7 @@ test('stays silent: a layout it cannot read answers null, never false', () => {
   }
   assert.strictEqual(readPhases('/nowhere/at/all'), null, 'a folder it cannot see')
 
-  const legacy = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-legacy-')))
+  const legacy = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-legacy-')))
   try {
     // A legacy bare `<name>.md` spec has no folder to list at all.
     fs.writeFileSync(path.join(legacy, 'feat-x.md'), '# X\n')
@@ -159,7 +159,7 @@ test('stays silent: an unreadable spec adds no key to the page data', () => {
   } finally {
     drop(root)
   }
-  const empty = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-none-')))
+  const empty = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-none-')))
   try {
     assert.ok(!('phases' in render(empty)), 'no spec folder at all adds nothing')
   } finally {

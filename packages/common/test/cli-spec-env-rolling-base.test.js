@@ -45,9 +45,9 @@ function writeSpec(root, bucket, folder) {
 
 // Dates are fixed and long past — never today.
 function scaffold({ config = { baseBranchPattern: '20??/Q?' }, spec = true } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-')))
-  const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-remote-')))
-  const lead = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-lead-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-')))
+  const remote = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-remote-')))
+  const lead = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-lead-')))
   execFileSync('git', ['init', '-q', '--bare', remote], { stdio: 'ignore' })
 
   git(dir, ['init', '-q'])
@@ -290,7 +290,7 @@ test('a checkout left on the old rc is no longer "on base"; the new rc is', () =
 })
 
 test('main-guard: refuses on the new rc, and fails open when no rc resolves', () => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-guard-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-roll-guard-')))
   try {
     const config = { baseBranchPattern: '20??/Q?', guards: { mainIsLandingZone: true } }
     const base = { 'rev-parse --git-common-dir': '.git', 'symbolic-ref --short HEAD': '2027/Q1' }

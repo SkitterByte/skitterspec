@@ -8,6 +8,11 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const { run } = require('../src/cli.js')
+const { shellPath } = require('../src/env/project.js')
+
+// A path as the engine prints it in a command — quoted when it has to be, which
+// a Windows path (backslashes) always is — escaped for use inside a RegExp.
+const cmdPath = (p) => shellPath(p).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // A live-git integration test for `spec-env integrate`. It exercises the real
 // resolve/anchor path end-to-end — the piece that unit tests can't reach — and
@@ -41,7 +46,7 @@ async function runQuiet(argv) {
 // Build a primary checkout on `main` with an isolated spec, plus a real worktree
 // on the spec's branch holding one commit ahead of main (so integrate has work).
 function scaffoldRepoWithWorktree(extraConfig = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-int-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-int-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
@@ -88,11 +93,11 @@ test('integrate anchors on the primary checkout when run from inside a worktree'
 
     assert.match(out, /spec-env integrate: feat-x/, 'prints the plan (no crash, not a no-op)')
     // The rebase runs in the worktree…
-    assert.match(out, new RegExp(`git -C ${worktree} rebase main`), 'rebase targets the worktree')
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} rebase main`), 'rebase targets the worktree')
     // …and the fast-forward lands on the PRIMARY checkout, not the worktree.
     assert.match(
       out,
-      new RegExp(`git -C ${dir} merge --ff-only feat/x`),
+      new RegExp(`git -C ${cmdPath(dir)} merge --ff-only feat/x`),
       'ff-merge is anchored on the primary checkout',
     )
   } finally {
@@ -121,8 +126,8 @@ test('integrate is live-aware: ends the live session, then lands and re-isolates
     // It ended the live session first…
     assert.match(out, /ended live session — feat-x released/)
     // …then printed the normal landing plan.
-    assert.match(out, new RegExp(`git -C ${worktree} rebase main`))
-    assert.match(out, new RegExp(`git -C ${dir} merge --ff-only feat/x`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} rebase main`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(dir)} merge --ff-only feat/x`))
 
     // Back to the normal state: primary on base, branch re-isolated, receipt gone.
     assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
@@ -192,7 +197,7 @@ test('integrate lands fixes committed on the branch while live (commit-in-primar
     assert.match(out, /ended live session — feat-x released/)
     assert.match(out, /spec-env integrate: feat-x/, 'prints the landing plan, not a no-op')
     assert.doesNotMatch(out, /already landed/, 'the live fix is not silently dropped')
-    assert.match(out, new RegExp(`git -C ${worktree} rebase main`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} rebase main`))
 
     // Re-isolated: primary back on base, worktree carries the live fix on the branch.
     assert.strictEqual(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main')
@@ -319,11 +324,11 @@ test('pr mode: plans fetch + rebase onto the remote base and holds the push', as
   try {
     const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
     assert.match(out, /spec-env integrate: feat-x \(pr\)/)
-    assert.match(out, new RegExp(`git -C ${worktree} fetch origin main`))
-    assert.match(out, new RegExp(`git -C ${worktree} rebase origin/main`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} fetch origin main`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} rebase origin/main`))
     // Held, not planned to run: the push sits under the consent section…
     assert.match(out, /with your consent/)
-    assert.match(out, new RegExp(`git -C ${worktree} push --force-with-lease -u origin feat/x`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} push --force-with-lease -u origin feat/x`))
     // …and nothing moves the base branch locally.
     assert.doesNotMatch(out, /merge --ff-only/)
   } finally {
@@ -336,7 +341,7 @@ test('pr mode: --push folds the push and PR line into the run list', async () =>
   try {
     const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--push', '--dir', dir])
     assert.doesNotMatch(out, /with your consent/)
-    assert.match(out, new RegExp(`git -C ${worktree} push --force-with-lease -u origin feat/x`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} push --force-with-lease -u origin feat/x`))
     assert.match(out, /# open a pull request: feat\/x -> main/)
   } finally {
     cleanup(dir)
@@ -385,7 +390,7 @@ test('pr mode: --draft marks the plan and the create command', async () => {
 test('pr mode: up notes a remote base that is ahead; trunk says nothing', async () => {
   const mk = (config) => {
     const s = scaffoldRepoWithWorktree(config)
-    const bare = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
+    const bare = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
     execFileSync('git', ['init', '-q', '--bare', bare], { stdio: 'ignore' })
     git(s.dir, 'remote', 'add', 'origin', bare)
     git(s.dir, 'push', '-q', 'origin', 'main')
@@ -416,7 +421,7 @@ test('--strategy overrides config per invocation, and refuses an unknown value b
   try {
     const pr = await runQuiet(['spec-env', 'integrate', 'feat-x', '--strategy', 'pr', '--dir', dir])
     assert.match(pr, /spec-env integrate: feat-x \(pr\)/)
-    assert.match(pr, new RegExp(`git -C ${worktree} fetch origin main`))
+    assert.match(pr, new RegExp(`git -C ${cmdPath(worktree)} fetch origin main`))
     const bad = await runQuiet(['spec-env', 'integrate', 'feat-x', '--strategy', 'squash', '--dir', dir])
     assert.match(bad, /unknown --strategy "squash" — use ff or pr/)
     assert.doesNotMatch(bad, /run these/)
@@ -439,7 +444,7 @@ test('pr mode: a host-landed branch prints the finish — base catch-up + deferr
     land: { strategy: 'pr' },
     afterLand: ['pnpm db:migrate'],
   })
-  const bare = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
+  const bare = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
   execFileSync('git', ['init', '-q', '--bare', bare], { stdio: 'ignore' })
   try {
     // Land the branch "on the host": merge it into main locally, push main, and
@@ -452,8 +457,8 @@ test('pr mode: a host-landed branch prints the finish — base catch-up + deferr
 
     const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
     assert.match(out, /already landed on origin\/main — finish what the merge deferred/)
-    assert.match(out, new RegExp(`git -C ${dir} fetch origin main`))
-    assert.match(out, new RegExp(`git -C ${dir} merge --ff-only origin/main`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(dir)} fetch origin main`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(dir)} merge --ff-only origin/main`))
     // The deferred afterLand comes due here, with the land's own range known.
     assert.match(out, /pnpm db:migrate/)
     assert.doesNotMatch(out, /range unknown/)

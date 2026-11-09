@@ -62,7 +62,9 @@ test('a missing store is the normal default, not an error', () => {
   assert.strictEqual(r.code, 'absent', 'absent is its own code, so callers can ignore it')
 })
 
-test('a group- or world-readable store is refused, naming the chmod', () => {
+// POSIX permission bits: Windows reports every file as 0o666 and the store
+// check does not read them there (credentials-platform.test.js pins both).
+test('a group- or world-readable store is refused, naming the chmod', { skip: process.platform === 'win32' && 'POSIX mode bits do not apply on Windows' }, () => {
   const s = withStore({ teams: { [TEAM]: { key: SECRET } } }, 0o644)
   try {
     const r = readStore(s.file)

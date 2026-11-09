@@ -21,7 +21,7 @@ const { engineVersionFor, staleServer } = require('../src/env/serve.js')
 const { collectReview } = require('../src/env/review.js')
 
 function tmp() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-engine-')))
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-engine-')))
 }
 
 // --- staleServer: three outcomes, and the third is the point ----------------
@@ -146,7 +146,7 @@ const { execFileSync } = require('node:child_process')
 const { run } = require('../src/cli.js')
 
 function repo() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-restart-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-restart-')))
   const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   git('init', '-q')
   git('config', 'user.email', 'test@example.com')
@@ -273,7 +273,7 @@ test('a pending pass survives a restart and is still claimable after it', async 
     readNotes,
   } = require('../src/env/review.js')
 
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-survive-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-survive-')))
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   try {
     g('init', '-q')

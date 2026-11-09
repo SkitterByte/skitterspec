@@ -323,9 +323,9 @@ function commit(cwd, file, msg) {
 // from master's head with a fix on it; then master moves on in another clone,
 // so the land has to rebase.
 function scaffold(hotfix = { releaseBranch: 'master' }, extra = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-')))
-  const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-remote-')))
-  const other = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-other-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-')))
+  const remote = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-remote-')))
+  const other = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-hfland-other-')))
   execFileSync('git', ['init', '-q', '--bare', remote], { stdio: 'ignore' })
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')

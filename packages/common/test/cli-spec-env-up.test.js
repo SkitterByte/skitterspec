@@ -39,7 +39,7 @@ function isolateIgnores(dir) {
 // branch — enough to drive `live take` (which branch-switches the primary), so
 // we can prove `spec-env up` refuses while the spec is live.
 function scaffoldGitWithWorktree(slug = 'x') {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-live-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-live-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
@@ -243,7 +243,7 @@ test('a re-run of spec-env up does not drift into claiming the worktree exists',
  * the WORKTREE, so its path lies outside the primary checkout.
  */
 function scaffoldInFlight(slug = 'y') {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-inflight-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-inflight-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
@@ -294,7 +294,7 @@ test('a spec genuinely absent from the fork point is still refused', () => {
   // case it was written for, or the fix above would have removed it rather than
   // corrected it. That case is a spec authored ON THE BRANCH and never committed
   // to base — so the worktree really would fork from a commit without it.
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-branchonly-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-branchonly-')))
   try {
     git(dir, 'init', '-q')
     git(dir, 'config', 'user.email', 'test@example.com')
@@ -344,7 +344,7 @@ test('a spec genuinely absent from the fork point is still refused', () => {
  * a scaffold without one yields "nobody looked", which is a different path.
  */
 function scaffoldDirty() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-dirty-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-up-dirty-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')

@@ -437,7 +437,7 @@ function specSyncRecord(dir, config, specArg, out) {
   if (!snapshotDir) return 1
   const identifier = specIdentifier(snapshotDir, config)
   const file = recordPush({ dir, snapshotDir, identifier, config })
-  out.write(`spec-sync record: snapshot written → ${path.relative(dir, file)}\n`)
+  out.write(`spec-sync record: snapshot written → ${path.relative(dir, file).split(path.sep).join('/')}\n`)
 }
 
 // `spec-sync status <spec> [--remote file] [--workspace-states file]` — read-only

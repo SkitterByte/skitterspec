@@ -2,9 +2,9 @@
 github_issue_id: "#150"
 ---
 
-# Phase 3 — Test-only Windows assumptions ⬜
+# Phase 3 — Test-only Windows assumptions 🔄
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** In progress
 
 **Goal:** no test assumes POSIX where the product does not — proven by the
 full suite green on windows-latest.

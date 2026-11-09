@@ -65,7 +65,7 @@ function scaffoldRepo() {
 
 // No git at all — the cannot-tell case.
 function scaffoldBare() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-upfrom-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-upfrom-')))
   writeConfig(dir)
   return dir
 }

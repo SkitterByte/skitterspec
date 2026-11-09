@@ -119,7 +119,7 @@ test('required:false answers cannot-tell even with the gate armed', () => {
 // --- the sidecar on disk ----------------------------------------------------
 
 function tmp() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-gate-')))
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-gate-')))
 }
 
 test('the gate round-trips, and an absent one is ordinary', () => {
@@ -166,7 +166,7 @@ function git(cwd, ...args) {
 // folder is written for each name either way: the case this exists for is a
 // spec that HAS a folder and has lost its worktree.
 function scaffold({ config, worktrees = ['alpha'] } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-gatecli-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-gatecli-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')

@@ -34,7 +34,7 @@ const LAYOUTS = {
 const SERVE_REL = LAYOUTS.monorepo
 
 function fakeCheckout({ withServe, layout = 'monorepo' }) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-own-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-own-')))
   if (withServe) {
     const rel = LAYOUTS[layout]
     fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true })

@@ -34,7 +34,7 @@ const {
 } = require('../src/env/config.js')
 
 function tmpDir() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-serveport-')))
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-serveport-')))
 }
 
 function writeEnvConfig(dir, obj) {

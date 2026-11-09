@@ -98,7 +98,7 @@ test('detect defers to the signals, and a missing config behaves like detect', (
 
 test('an unrecognised reader falls through to detect, not to local', () => {
   const { config } = (() => {
-    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-reader-')))
+    const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-reader-')))
     fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
     fs.writeFileSync(
       path.join(dir, 'specs', '.core', 'env.config.json'),
@@ -114,7 +114,7 @@ test('an unrecognised reader falls through to detect, not to local', () => {
 // --- what the engine prints ------------------------------------------------
 
 function scaffold(reader, extraReview = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rdr-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-rdr-')))
   const g = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] })
   g('init', '-q')
   g('config', 'user.email', 'test@example.com')

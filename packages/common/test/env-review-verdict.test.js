@@ -42,7 +42,7 @@ function git(cwd, ...args) {
 }
 
 function scaffold() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-verdict-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-verdict-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
@@ -461,7 +461,7 @@ test('an empty commitWith leaves the default standing', () => {
   // Disabling the hand-off is a decision and is spelled "none". Deleting the
   // text between the quotes must not silently stop commits happening.
   const { loadEnvConfig, DEFAULT_CONFIG } = require('../src/env/config.js')
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-commitwith-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-commitwith-')))
   fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
   fs.writeFileSync(
     path.join(dir, 'specs', '.core', 'env.config.json'),

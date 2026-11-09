@@ -48,7 +48,7 @@ async function runQuiet(argv) {
  * builds the same repo with no worktree at all, for the stays-silent case.
  */
 function scaffold({ withWorktree = true } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bucket-')))
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bucket-')))
   git(dir, 'init', '-q')
   git(dir, 'config', 'user.email', 'test@example.com')
   git(dir, 'config', 'user.name', 'Test')
