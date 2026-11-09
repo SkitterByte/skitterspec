@@ -3,10 +3,12 @@
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
+const { execFileSync } = require('child_process')
 
 const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { ensureHooks } = require('./env/hooks.js')
 const { repoInfo, expandTokens } = require('./env/resolve.js')
+const { primaryAnchor } = require('./env/project.js')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 
@@ -729,8 +731,18 @@ function trustWorktreeRoot(dir) {
     report.warnings.push('could not read worktree.root — skipped trusting the worktree dir')
     return
   }
-  const { repo, repoSlug } = repoInfo(dir)
-  const rootAbs = path.resolve(dir, expandTokens(root, { repo, repoSlug }))
+  // Resolved against the REPO's root, and named for it, exactly as `spec-env`
+  // resolves it — `dir` is the project folder, which is a subfolder of the repo
+  // for some projects (feat-subfolder-project). Not a repo → `dir`, as before.
+  const anchor = primaryAnchor(dir, (args) => {
+    try {
+      return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    } catch {
+      return null
+    }
+  })
+  const { repo, repoSlug } = repoInfo(anchor.root)
+  const rootAbs = path.resolve(anchor.root, expandTokens(root, { repo, repoSlug }))
   const res = ensureWorktreeDirTrusted(dir, rootAbs)
   const label = '.claude/settings.local.json (trusted worktree root)'
   if (res.reason === 'malformed') {

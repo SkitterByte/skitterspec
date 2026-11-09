@@ -17,7 +17,8 @@ const { spawnSync } = require('node:child_process')
 const ROOT = path.join(__dirname, '..')
 // The adopter's layout: a solution folder with a dot in its name.
 const DEFAULT_PREFIX = 'FF.CSC.Solution'
-const USES_HELPER = /require\(['"]\.\/helpers\/repo(\.js)?['"]\)/
+// Its own package's `./helpers/repo`, or common's from a sibling package.
+const USES_HELPER = /require\(['"][./]*(?:common\/test\/)?helpers\/repo(\.js)?['"]\)/
 
 /** Every `*.test.js` under `packages/<pkg>/test/` that builds repos with the helper. */
 function nestedTestFiles(root = ROOT) {

@@ -25,7 +25,7 @@ const path = require('node:path')
 
 const { BUCKETS, findSpecFolder, branchFor, splitPrefix, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
-const { ticketsInRange, nameTickets, refuseRemovedVerb } = require('./released.js')
+const { ticketsInRange, nameTickets, refuseRemovedVerb, projectPrefixOf } = require('./released.js')
 const { retiredKeysRow } = require('@skitterbyte/skitterspec-provider-kit/src/config.js')
 const { doctorRow } = require('@skitterbyte/skitterspec-provider-kit/src/doctor.js')
 const { execFileSync } = require('node:child_process')
@@ -1085,7 +1085,11 @@ async function specSyncReleased(dir, config, rangeArg, flags, out) {
   }
   const { range, commits } = read
 
-  const report = ticketsInRange(commits, { ignorePaths: releaseIgnorePaths(config) })
+  const report = ticketsInRange(commits, {
+    ignorePaths: releaseIgnorePaths(config),
+    // A nested project's commits carry its folder in every path (feat-subfolder-project).
+    prefix: projectPrefixOf(dir),
+  })
   report.tickets = nameTickets(report.tickets, listSpecs(dir, config, { urls: true }))
 
   // Titles are an ENRICHMENT: the scan itself is offline. No key, the MCP

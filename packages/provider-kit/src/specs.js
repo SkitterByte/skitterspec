@@ -21,9 +21,9 @@ const {
   findSpecFolder,
   resolveSpec,
   liveWorktreePaths,
-  resolvePrimaryCheckout,
 } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 const { loadEnvConfig } = require('@skitterbyte/skitterspec-common/src/env/config.js')
+const { primaryAnchor, attachProject, projectIn } = require('@skitterbyte/skitterspec-common/src/env/project.js')
 const { readSnapshot, parseFrontmatter, lintPhases, fieldsOf, projectionOf, compareStored, comparableDescription } = require('@skitterbyte/skitterspec-sync-core')
 
 function makeSpecHelpers({ program = 'spec-sync' } = {}) {
@@ -136,9 +136,16 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
     }
     let primary
     let env
+    let prefix = ''
     try {
-      primary = resolvePrimaryCheckout(dir, git) || dir
+      // The project folder in the primary checkout, with where it sits in its
+      // repo attached — worktrees are laid out beside the REPO, and each holds
+      // the project at the same prefix (feat-subfolder-project).
+      const anchor = primaryAnchor(dir, git)
+      primary = anchor.dir || dir
+      prefix = anchor.prefix
       env = loadEnvConfig(primary)
+      attachProject(env.config, anchor)
     } catch {
       return here
     }
@@ -156,8 +163,10 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
     const byName = new Map(here.map((s) => [s.spec, s]))
     for (const listed of liveWorktreePaths(git)) {
       const tree = real(listed)
-      if (tree === self) continue
-      for (const s of listSpecs(tree, config)) {
+      // The project folder inside this worktree — where its specs are.
+      const project = real(projectIn(listed, prefix))
+      if (project === self) continue
+      for (const s of listSpecs(project, config)) {
         let own = null
         try {
           own = real(resolveSpec(s.spec, primary, env.config, { searchDirs: [tree] }).worktreePath)

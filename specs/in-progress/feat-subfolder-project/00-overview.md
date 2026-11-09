@@ -126,7 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | Worktree side: paths, setup/dev/docker cwd, session move | ✅ | [02-worktree-side.md](02-worktree-side.md) |
 | 3 | Repo-relative matching: review, serve, stage | ✅ | [03-path-matching.md](03-path-matching.md) |
 | 4 | Guards and hooks | ✅ | [04-guards-and-hooks.md](04-guards-and-hooks.md) |
-| 5 | Providers and init | ⬜ | [05-providers-and-init.md](05-providers-and-init.md) |
+| 5 | Providers and init | ✅ | [05-providers-and-init.md](05-providers-and-init.md) |
 | 6 | Docs and dist | ⬜ | [06-docs-and-dist.md](06-docs-and-dist.md) |
 
 ## Open questions

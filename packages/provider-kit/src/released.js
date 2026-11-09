@@ -1,5 +1,25 @@
 'use strict'
 
+const { execFileSync } = require('node:child_process')
+const { primaryAnchor, fromRepoPath } = require('@skitterbyte/skitterspec-common/src/env/project.js')
+
+/**
+ * The project's prefix within its repo, read from `dir` — `''` at the root, and
+ * `''` whenever git cannot answer (today's behaviour). What `ticketsInRange`
+ * needs to read a commit's root-relative paths against the project's
+ * `ignorePaths`.
+ */
+function projectPrefixOf(dir) {
+  const git = (args) => {
+    try {
+      return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    } catch {
+      return null
+    }
+  }
+  return primaryAnchor(dir, git).prefix
+}
+
 /**
  * Which tickets a release contains.
  *
@@ -99,7 +119,14 @@ function asGlobal(pattern) {
  * @param {string[]|null|undefined} paths repo-relative paths the commit changed
  * @param {string[]} ignorePaths repo-relative prefixes that are bookkeeping
  */
-function onlyIgnoredPaths(paths, ignorePaths) {
+//
+// `paths` are what `git log --name-only` prints — from the REPO ROOT — while
+// `ignorePaths` are the project's, like every path in its config. For a project
+// in a subfolder of its repo (`prefix`, spec feat-subfolder-project) each path
+// is made project-relative first, and a path OUTSIDE the project is never
+// bookkeeping: a commit that touched `Sql/` did real work. Prefix '' compares
+// exactly as before.
+function onlyIgnoredPaths(paths, ignorePaths, prefix = '') {
   if (!Array.isArray(paths) || !paths.length) return false
   const prefixes = (Array.isArray(ignorePaths) ? ignorePaths : [])
     .filter((p) => typeof p === 'string' && p.trim())
@@ -113,7 +140,9 @@ function onlyIgnoredPaths(paths, ignorePaths) {
     // An unreadable entry is an unknown, not an ignored one — it makes the whole
     // commit count, per the bias above.
     if (!file) return false
-    return prefixes.some((prefix) => file === prefix || file.startsWith(`${prefix}/`))
+    const rel = fromRepoPath(file, prefix)
+    if (rel === null) return false
+    return prefixes.some((p) => rel === p || rel.startsWith(`${p}/`))
   })
 }
 
@@ -140,6 +169,7 @@ function onlyIgnoredPaths(paths, ignorePaths) {
  */
 function ticketsInRange(commits, options = {}) {
   const ignorePaths = (options && options.ignorePaths) || []
+  const prefix = (options && options.prefix) || ''
   const refPattern = options && options.refPattern
   const foreign = ((options && options.foreignPatterns) || []).map(asGlobal).filter(Boolean)
   const seen = new Map()
@@ -150,7 +180,7 @@ function ticketsInRange(commits, options = {}) {
   let sawMergeFlag = false
   for (const commit of commits || []) {
     if (commit && commit.isMerge !== undefined) sawMergeFlag = true
-    if (onlyIgnoredPaths(commit && commit.paths, ignorePaths)) {
+    if (onlyIgnoredPaths(commit && commit.paths, ignorePaths, prefix)) {
       // Not counted as unreferenced either: that number exists to surface a
       // MISSED trailer, and a paperwork commit is not a gap someone should hunt.
       ignored++
@@ -222,6 +252,7 @@ function refuseRemovedVerb(out, program, verb) {
 }
 
 module.exports = {
+  projectPrefixOf,
   ticketsInRange,
   refuseRemovedVerb,
   nameTickets,

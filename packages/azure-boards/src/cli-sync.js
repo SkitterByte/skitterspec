@@ -471,6 +471,8 @@ function specSyncReleased(dir, config, rangeArg, flags, out) {
   }
   const report = kit.ticketsInRange(read.commits, {
     ignorePaths: (config.release && config.release.ignorePaths) || [],
+    // A nested project's commits carry its folder in every path (feat-subfolder-project).
+    prefix: kit.projectPrefixOf(dir),
     refPattern: AZURE_REF_RE,
     foreignPatterns: foreign.patterns,
   })
