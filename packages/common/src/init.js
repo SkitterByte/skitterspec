@@ -310,8 +310,22 @@ const MANIFEST_VERSION = 1
 // reset each init() alongside `report`.
 const writtenHashes = {}
 
+// Every judgement about a managed file compares content with its line endings
+// normalised. On Windows with `core.autocrlf=true` a checkout rewrites LF to
+// CRLF, and an exact compare read that conversion as the user's edit: every
+// skill, command and rule became "your edit — kept" and stopped updating.
+// Assets ship LF, so hashes of LF files — every manifest already written — are
+// unchanged by this.
+function normalizeEol(content) {
+  return content.replace(/\r\n/g, '\n')
+}
+
+function sameContent(a, b) {
+  return normalizeEol(a) === normalizeEol(b)
+}
+
 function sha1(content) {
-  return crypto.createHash('sha1').update(content).digest('hex')
+  return crypto.createHash('sha1').update(normalizeEol(content)).digest('hex')
 }
 
 // The full managed set for a target dir: repo-relative path, absolute path, and
@@ -409,7 +423,7 @@ function managedState(dir, relPath, manifest, bundled) {
   const abs = path.join(dir, relPath)
   if (!fs.existsSync(abs)) return 'missing'
   const onDisk = fs.readFileSync(abs, 'utf8')
-  if (bundled !== undefined && onDisk === bundled) return 'pristine'
+  if (bundled !== undefined && sameContent(onDisk, bundled)) return 'pristine'
   const known = manifest.files[relPath]
   if (known) return sha1(onDisk) === known ? 'pristine' : 'customized'
   return manifest.baselined ? 'adopted' : 'customized'
@@ -777,7 +791,7 @@ function checkSync(dir, { claudeMd = true, log = console.log } = {}) {
     else if (state === 'customized') rows.push([relPath, 'your edit — kept (--force overwrites)'])
     else if (state === 'adopted')
       rows.push([relPath, 'adopted upstream — yours kept, theirs not installed (--force takes theirs)'])
-    else if (fs.readFileSync(abs, 'utf8') !== bundled) rows.push([relPath, 'out of date — would be updated'])
+    else if (!sameContent(fs.readFileSync(abs, 'utf8'), bundled)) rows.push([relPath, 'out of date — would be updated'])
   }
   const section = claudeMd ? claudeMdSectionState(dir) : 'fresh'
   // A healthy area says NOTHING. A report that lists what is already fine is a
@@ -876,7 +890,7 @@ function resyncManagedFile(dir, target, manifest, force) {
     return report[state].push({ relPath, added, removed, hunks })
   }
   // pristine — update only if the bundled content actually changed
-  if (fs.readFileSync(abs, 'utf8') === bundled) {
+  if (sameContent(fs.readFileSync(abs, 'utf8'), bundled)) {
     // The file is ours and current, but the manifest disagreed — record the
     // repair rather than healing in silence: a file that quietly starts
     // updating again is as opaque as one that quietly stopped.
