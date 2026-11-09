@@ -12,6 +12,7 @@ const path = require('node:path')
 const { execFileSync, execSync } = require('node:child_process')
 
 const { makeRepo } = require('./helpers/repo.js')
+const { shellPath } = require('../src/env/project.js')
 
 const BIN = path.join(__dirname, '..', 'bin', 'skitterspec.js')
 
@@ -65,7 +66,8 @@ test('up names the project folder inside the worktree, and adds the worktree its
     const { plan, add } = provision(repo)
     const { wt, project } = repo.worktreeFor('x')
     assert.match(plan, new RegExp(`^ {2}worktree: {2}${project.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'))
-    assert.ok(add.includes(wt), 'git adds the worktree root, not the project folder')
+    // As the engine prints it — forward slashes on Windows, quoted for a space.
+    assert.ok(add.includes(shellPath(wt)), 'git adds the worktree root, not the project folder')
     assert.ok(fs.existsSync(path.join(project, 'specs', 'backlog', 'feat-x')), 'and the project is inside it')
   } finally {
     repo.cleanup()
