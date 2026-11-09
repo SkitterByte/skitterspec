@@ -233,3 +233,31 @@ test('shellPath survives a real shell round-trip', () => {
   const out = execFileSync('sh', ['-c', `printf %s ${shellPath(odd)}`]).toString()
   assert.strictEqual(out, odd)
 })
+
+// --- another spelling of the same folder ---------------------------------------
+//
+// chore-windows-ci: GitHub's Windows runners put the temp dir behind an 8.3
+// short name (`C:\Users\RUNNER~1\…`) while git reports the long one, and the JS
+// `realpathSync` keeps whichever spelling it was given — so every folder looked
+// outside its own repo and no project was ever found. A case-flipped path on a
+// case-insensitive filesystem (macOS, Windows) is the same failure, and one a
+// test can build anywhere that has one.
+
+function caseAlias(p) {
+  const base = path.basename(p)
+  const flipped = base === base.toUpperCase() ? base.toLowerCase() : base.toUpperCase()
+  const alias = path.join(path.dirname(p), flipped)
+  return alias !== p && fs.existsSync(alias) ? alias : null
+}
+
+test('findPrefix finds the project from another spelling of its folder', (t) => {
+  const root = tmp()
+  const project = mk(root, 'FF.CSC.Solution')
+  mk(project, 'specs', '.core')
+  git(root, 'init', '-q')
+  const alias = caseAlias(root)
+  if (!alias) return t.skip('case-sensitive filesystem: a case-flipped path is a different folder here')
+  const from = path.join(alias, 'FF.CSC.Solution')
+  assert.strictEqual(findPrefix(from, git(root, 'rev-parse', '--show-toplevel')), 'FF.CSC.Solution')
+  assert.strictEqual(primaryAnchor(from, reader(from)).prefix, 'FF.CSC.Solution')
+})

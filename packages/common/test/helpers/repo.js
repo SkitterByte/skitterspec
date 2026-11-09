@@ -37,7 +37,8 @@ function makeRepo({ name = 'skitterspec-', prefix = nestedPrefix(), config = {},
   // Nested, the root's name carries a space as the adopter's did (`LSC App`),
   // so quoting is exercised wherever a path reaches a shell.
   const base = prefix ? `${name}nested app-` : name
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), base)))
+  // `.native` expands a Windows 8.3 short name (`RUNNER~1`) the way git does.
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), base)))
   const dir = prefix ? path.join(root, ...prefix.split('/')) : root
   git(root, 'init', '-q', '-b', 'main')
   git(root, 'config', 'user.email', 'test@example.com')

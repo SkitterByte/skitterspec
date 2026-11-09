@@ -37,9 +37,13 @@ function isDir(p) {
   }
 }
 
+// `.native`, never the JS `realpathSync`: on Windows only the native call
+// expands an 8.3 short name (`C:\Users\RUNNER~1\…`), and git always reports the
+// long one. Compared un-expanded, every folder under a short-named temp dir
+// looked outside its own repo, and the project was never found.
 function real(p) {
   try {
-    return fs.realpathSync(p)
+    return fs.realpathSync.native(p)
   } catch {
     return path.resolve(p)
   }

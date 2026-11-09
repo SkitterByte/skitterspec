@@ -170,7 +170,7 @@ function checkoutOf(target, gitAt) {
 // the same directory. Cannot-tell is "not the same", the branch that allows.
 function sameDir(a, b) {
   try {
-    return fs.realpathSync(a) === fs.realpathSync(b)
+    return fs.realpathSync.native(a) === fs.realpathSync.native(b)
   } catch {
     return false
   }

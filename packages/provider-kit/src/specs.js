@@ -154,7 +154,7 @@ function makeSpecHelpers({ program = 'spec-sync' } = {}) {
     // symlinks (macOS /var → /private/var) where `resolveSpec` does not.
     const real = (p) => {
       try {
-        return fs.realpathSync(p)
+        return fs.realpathSync.native(p)
       } catch {
         return path.resolve(p)
       }

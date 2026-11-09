@@ -1517,7 +1517,7 @@ function bootstrapLines(name, { docs = false } = {}) {
 // the same directory. Cannot-tell (either missing) is "not the same".
 function sameDir(a, b) {
   try {
-    return fs.realpathSync(a) === fs.realpathSync(b)
+    return fs.realpathSync.native(a) === fs.realpathSync.native(b)
   } catch {
     return false
   }
@@ -1975,7 +1975,7 @@ function provisionedSpecChoice(dir, config, cwd = process.cwd()) {
   //    so a nested worktree is not shadowed by an ancestor one.
   let here
   try {
-    here = fs.realpathSync(path.resolve(cwd))
+    here = fs.realpathSync.native(path.resolve(cwd))
   } catch {
     here = path.resolve(cwd)
   }
@@ -2823,7 +2823,7 @@ function hotfixFinish(dir, config, specArg, flags) {
   const cwd = process.cwd()
   const inside = (() => {
     try {
-      const rel = path.relative(fs.realpathSync(spec.worktreePath), fs.realpathSync(cwd))
+      const rel = path.relative(fs.realpathSync.native(spec.worktreePath), fs.realpathSync.native(cwd))
       return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
     } catch {
       return false
@@ -4100,7 +4100,7 @@ function specEnvReviewGate(dir, config, specArg, flags, invokedFrom = dir) {
   if (flags.forCommand !== undefined && judged.state === 'armed') {
     const inside = (child, parent) => {
       try {
-        const rel = path.relative(fs.realpathSync(parent), fs.realpathSync(child))
+        const rel = path.relative(fs.realpathSync.native(parent), fs.realpathSync.native(child))
         return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
       } catch {
         return false

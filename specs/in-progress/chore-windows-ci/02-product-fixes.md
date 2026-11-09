@@ -11,6 +11,9 @@ filed here — proven by those tests passing on windows-latest and ubuntu.
 
 ## Tasks
 
+- [ ] Get a windows-latest run with phase 1's short-name fix (operator pushes)
+      and triage what remains — line endings · product · test-only — into
+      this phase and phase 3
 - [ ] Add `.gitattributes` (`* text=auto eol=lf`) and renormalise
 - [ ] supervise.js: stop a dev server's whole tree on Windows (no negative-pid
       group kill there — e.g. `taskkill /T /F`), keeping POSIX unchanged

@@ -82,7 +82,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Run the Windows job and triage its failures | ⬜ | [01-triage.md](01-triage.md) |
+| 1 | Run the Windows job and triage its failures | ✅ | [01-triage.md](01-triage.md) |
 | 2 | Line endings and Windows product fixes | ⬜ | [02-product-fixes.md](02-product-fixes.md) |
 | 3 | Test-only Windows assumptions | ⬜ | [03-test-fixes.md](03-test-fixes.md) |
 | 4 | Make the Windows job blocking | ⬜ | [04-blocking.md](04-blocking.md) |
@@ -94,3 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-09 — Spec created from `feat-subfolder-project`'s follow-up.
+- 2026-11-09 — Phase 1: the first run (42694773088) failed `test:nested` with
+  one class throughout — the 8.3 short temp path on the runner defeated the
+  project find-up. Fixed in phase 1 (`realpathSync.native`) because nothing
+  past it was visible; the rest of the triage moves to phase 2's first task.
