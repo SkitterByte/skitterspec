@@ -250,6 +250,8 @@ Usage:
                                                   Docker stack (prints commands; creates nothing)
                                                   --docs: a tree to write documents in — no
                                                   setup commands, no Docker
+                                                  --plan: write nothing, not even the trust
+                                                  entry or the registry record
                                 bootstrap [spec]  run the worktree's seeds, env file, setup
                                                   and stack itself, in the worktree — after
                                                   \`up\`'s worktree add (--docs: seeds only;
@@ -1038,11 +1040,13 @@ function specEnvUp(dir, config, specArg, flags = {}) {
     }
     const beforeAuth = readRegistry(dir, config)
     const resolved = resolveSpecless(specArg, dir, config, { spec: true })
-    writeRegistry(
-      dir,
-      config,
-      recordSpecless(beforeAuth, specArg, { branch: resolved.branch, spec: true }),
-    )
+    if (!flags.plan) {
+      writeRegistry(
+        dir,
+        config,
+        recordSpecless(beforeAuth, specArg, { branch: resolved.branch, spec: true }),
+      )
+    }
     spec = resolved
     const fork = fromVersion || releaseFork
     if (fork) {
@@ -1172,8 +1176,12 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // Trust the shared worktree root so edits into the freshly-provisioned worktree
   // don't prompt. One absolute entry (the root) covers every spec; self-heals on
   // every provision for teammates who only cloned and ran /spec-start.
+  //
+  // `--plan` is the dry run: every write below is asked and not made, and the
+  // report says "would". It was parsed and ignored once, so a plan headed
+  // "nothing created yet" still wrote this entry into the operator's settings.
   const worktreeRootAbs = path.dirname(spec.worktreePath)
-  const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs)
+  const trust = ensureWorktreeDirTrusted(dir, worktreeRootAbs, { dryRun: !!flags.plan })
 
   // Documents mode brings no stack up, so a Docker spec provisioned this way is
   // a worktree-only run. Asked through `resolveStack`, which `planUp` also
@@ -1204,7 +1212,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
       Object.prototype.hasOwnProperty.call(before.slots, spec.folder) || worktreeOnDisk
     const alloc = allocateSlot(before, spec.folder)
     slot = alloc.slot
-    writeRegistry(dir, config, alloc.registry) // the engine's only write (Docker path)
+    if (!flags.plan) writeRegistry(dir, config, alloc.registry) // the engine's only write (Docker path)
   } else {
     attached = worktreeOnDisk
   }
@@ -1291,7 +1299,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
   // the lane working rather than something the engine failed to find.
   if (authoring) {
     out.push('  authoring: no spec document yet — the skill writes it in the worktree')
-    out.push(`  recorded:  added to ${config.registry} until the spec is written`)
+    out.push(`  recorded:  ${flags.plan ? 'would add to' : 'added to'} ${config.registry} until the spec is written`)
   }
   // Only where one was NAMED. The fork point is otherwise base HEAD, which is
   // the unremarkable case, and a line asserting it on every provision would
@@ -1323,10 +1331,8 @@ function specEnvUp(dir, config, specArg, flags = {}) {
         `\n             add ${worktreeRootAbs} to permissions.additionalDirectories yourself`,
     )
   } else {
-    out.push(
-      `  trusted:   ${worktreeRootAbs}  ` +
-        `(${trust.changed ? 'added to' : 'already in'} .claude/settings.local.json)`,
-    )
+    const verb = !trust.changed ? 'already in' : flags.plan ? 'would add to' : 'added to'
+    out.push(`  trusted:   ${worktreeRootAbs}  (${verb} .claude/settings.local.json)`)
   }
   out.push(...specCommitLines(plan, spec.folder))
   out.push(...untouchedLines(plan))

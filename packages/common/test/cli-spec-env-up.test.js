@@ -209,6 +209,38 @@ test('spec-env up creates nothing, and its verb does not claim it did', async ()
   assert.ok(!fs.existsSync(worktree), 'no worktree was created on disk')
 })
 
+// `--plan` is the dry run, and it was parsed and then ignored: a bare `up`
+// still writes the trust entry (and, for an unwritten spec or a Docker one, the
+// registry), and `--plan` did the same under a header saying "nothing created
+// yet". Reported from Windows, where the stray entry was `C:\Code\LSC App-wt`.
+test('spec-env up --plan writes nothing — no trust entry, no registry', async () => {
+  const { dir, folder } = scaffold('dry')
+  const out = await runQuiet(['spec-env', 'up', folder, '--plan', '--dir', dir])
+
+  assert.ok(!fs.existsSync(path.join(dir, '.claude', 'settings.local.json')), 'no settings file')
+  assert.ok(!fs.existsSync(path.join(dir, '.spec-env')), 'no registry')
+  assert.match(out, /trusted:\s+\S+-wt\s+\(would add to \.claude\/settings\.local\.json\)/)
+  assert.match(out, /to provision, run:/, 'still prints the plan')
+})
+
+test('spec-env up --plan on an unwritten spec records no authoring branch', async () => {
+  const { dir } = scaffold('dry2')
+  const out = await runQuiet(['spec-env', 'up', 'bug-dry', '--docs', '--plan', '--dir', dir])
+
+  assert.ok(!fs.existsSync(path.join(dir, '.spec-env')), 'no registry')
+  assert.ok(!fs.existsSync(path.join(dir, '.claude', 'settings.local.json')), 'no settings file')
+  assert.match(out, /recorded:\s+would add to \S+ until the spec is written/)
+})
+
+test('STAYS SILENT: --plan reports an already-trusted root as already in', async () => {
+  const { dir, folder } = scaffold('dry3')
+  await runQuiet(['spec-env', 'up', folder, '--dir', dir])
+  const before = fs.readFileSync(path.join(dir, '.claude', 'settings.local.json'), 'utf8')
+  const out = await runQuiet(['spec-env', 'up', folder, '--plan', '--dir', dir])
+  assert.match(out, /\(already in \.claude\/settings\.local\.json\)/)
+  assert.strictEqual(fs.readFileSync(path.join(dir, '.claude', 'settings.local.json'), 'utf8'), before)
+})
+
 test('spec-env up with the emitted commands not run leaves the spec un-provisioned', async () => {
   const { dir, folder } = scaffold('unprov')
   await runQuiet(['spec-env', 'up', folder, '--dir', dir])

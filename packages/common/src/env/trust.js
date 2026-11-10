@@ -41,8 +41,11 @@ function writeSettings(file, settings) {
  *   - `added`     — the root was merged into an existing file
  *   - `present`   — the root was already listed (no write)
  *   - `malformed` — the file exists but isn't parseable JSON (left untouched)
+ *
+ * `{ dryRun: true }` answers the same question and writes nothing — `changed`
+ * then means "would change", which is what `spec-env up --plan` reports.
  */
-function ensureWorktreeDirTrusted(dir, rootAbs) {
+function ensureWorktreeDirTrusted(dir, rootAbs, { dryRun = false } = {}) {
   const file = settingsPath(dir)
 
   let raw
@@ -50,7 +53,7 @@ function ensureWorktreeDirTrusted(dir, rootAbs) {
     raw = fs.readFileSync(file, 'utf-8')
   } catch (error) {
     if (error.code === 'ENOENT') {
-      writeSettings(file, { permissions: { additionalDirectories: [rootAbs] } })
+      if (!dryRun) writeSettings(file, { permissions: { additionalDirectories: [rootAbs] } })
       return { changed: true, reason: 'created' }
     }
     throw error
@@ -70,6 +73,7 @@ function ensureWorktreeDirTrusted(dir, rootAbs) {
     : []
 
   if (dirs.includes(rootAbs)) return { changed: false, reason: 'present' }
+  if (dryRun) return { changed: true, reason: 'added' }
 
   writeSettings(file, {
     ...parsed,
