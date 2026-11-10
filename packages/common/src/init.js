@@ -425,6 +425,9 @@ function writeManifest(dir, files) {
 // `pruneRetiredManaged` passes no `bundled` on purpose: the package no longer
 // ships that file, so there is nothing to compare it against.
 function managedState(dir, relPath, manifest, bundled) {
+  // Manifest keys are `/`-separated; a caller holding an OS path still finds
+  // its file's record (chore-windows-ci).
+  relPath = String(relPath).split(path.sep).join('/')
   const abs = path.join(dir, relPath)
   if (!fs.existsSync(abs)) return 'missing'
   const onDisk = fs.readFileSync(abs, 'utf8')

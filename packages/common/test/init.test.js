@@ -149,7 +149,8 @@ test('migration: a pre-manifest repo re-seeds without clobbering a user edit', a
   assert.strictEqual(managedState(dir, skill.relPath, manifest), 'pristine')
 })
 
-const anySkill = (dir) => managedTargets(dir).find((t) => t.relPath.includes(`${path.sep}skills${path.sep}spec${path.sep}`))
+// Manifest paths are `/`-separated on every platform.
+const anySkill = (dir) => managedTargets(dir).find((t) => t.relPath.includes('/skills/spec/'))
 
 test('isExistingSetup: false on a fresh dir, true after init', async () => {
   const dir = tmpProject()
