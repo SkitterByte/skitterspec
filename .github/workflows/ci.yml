@@ -61,9 +61,9 @@ jobs:
   # `path` builds `\` — exactly the bug class nesting a project creates, and
   # nothing on ubuntu would catch it.
   #
-  # The nested run is the gate. The full suite has never run on Windows, so it
-  # reports here without failing the build until it has been made green there;
-  # turning `continue-on-error` off is that follow-up's to do.
+  # Both runs gate, as on ubuntu (chore-windows-ci made the full suite green
+  # here). A test that cannot apply on Windows skips itself with a reason —
+  # never this job.
   windows:
     name: windows (node 24)
     runs-on: windows-latest
@@ -88,4 +88,3 @@ jobs:
       # the log needs repo-admin rights to download, the annotations do not.
       - run: pnpm test:nested ${{ env.ANNOTATE }}
       - run: pnpm test ${{ env.ANNOTATE }}
-        continue-on-error: true

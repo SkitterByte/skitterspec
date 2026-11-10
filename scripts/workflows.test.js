@@ -253,3 +253,27 @@ test('release.yml mentioning `npm publish` in prose is not an accusation', () =>
   const bare = yaml.replace(/npm stage publish/g, '')
   assert.doesNotMatch(bare, /npm publish/)
 })
+
+// --- no step in ci.yml may fail without failing the build (chore-windows-ci) ----
+//
+// The Windows suite ran under `continue-on-error` until it was green there. A
+// step that reports without gating is one nobody reads, so CI states plainly
+// that every step blocks — a test that cannot apply on a platform skips itself
+// with a reason instead.
+
+function continuesOnError(yaml) {
+  return /^\s*continue-on-error\s*:/m.test(withoutComments(yaml))
+}
+
+test('ci.yml has no step that can fail without failing the build', () => {
+  const yaml = fs.readFileSync(path.join(WORKFLOWS, 'ci.yml'), 'utf8')
+  assert.strictEqual(continuesOnError(yaml), false)
+})
+
+test('a step that really continues on error is caught', () => {
+  assert.strictEqual(continuesOnError('      - run: pnpm test\n        continue-on-error: true\n'), true)
+})
+
+test('STAYS SILENT: a comment mentioning continue-on-error is not an accusation', () => {
+  assert.strictEqual(continuesOnError('  # once ran with continue-on-error: true\n      - run: pnpm test\n'), false)
+})
