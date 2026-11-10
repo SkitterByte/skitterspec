@@ -187,6 +187,7 @@ const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } 
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
 const { collectInFlight, detailOf, formatInFlight, isInFlight } = require('./env/inflight.js')
+const { epicStatus, formatEpicStatus, indexSpecTree } = require('./env/epic.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -296,6 +297,11 @@ Usage:
   skitterspec status          What is in flight here: every spec with a worktree,
                               its bucket and phase progress read from that
                               worktree (--json). Offline; always exits 0.
+  skitterspec epic status <epic>
+                              An epic's members, from their Epic: and Waits on:
+                              headers: ready now, blocked and on what, cannot
+                              tell, waves and free lanes (--json). Waits are
+                              met only on the base branch. Always exits 0.
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -551,6 +557,88 @@ function inFlightStatus(argv) {
     return
   }
   process.stdout.write(projectLine(anchor) + formatInFlight(rows, { dir }))
+}
+
+/**
+ * `skitterspec epic status <epic>` — the members' own headers turned into an
+ * order. Waits are read off the BASE BRANCH by git, never off whatever the
+ * primary checkout has checked out, because that is the one place every
+ * session agrees on (`env/epic.js`). Advisory: always exits 0.
+ */
+function epicStatusCommand(argv) {
+  const json = argv.includes('--json')
+  const at = argv.indexOf('--dir')
+  const from = path.resolve(at !== -1 && argv[at + 1] ? argv[at + 1] : process.cwd())
+  const epic = argv.find((a, i) => !a.startsWith('--') && argv[i - 1] !== '--dir')
+  if (!epic) {
+    process.stdout.write('Usage: skitterspec epic status <epic> [--json] [--dir <path>]\n')
+    return
+  }
+  const anchor = primaryAnchor(from, gitReader(from))
+  const dir = anchor.dir
+  const { config, present } = loadEnvConfig(dir)
+  attachProject(config, anchor)
+  const git = gitReader(dir)
+  const say = (line) => process.stdout.write(json ? JSON.stringify({ epic, cannotTell: line }, null, 2) + '\n' : `epic status: cannot tell — ${line}\n`)
+
+  let base
+  try {
+    base = resolveBaseBranch(config, git)
+  } catch (err) {
+    say(err.message)
+    return
+  }
+  const listing = git(['ls-tree', '-r', '--name-only', base, '--', 'specs'])
+  if (listing === null) {
+    say(`the base branch ${base} could not be read`)
+    return
+  }
+  // `git grep` exits 1 on no match, which the reader returns as null. The tree
+  // above was readable, so here null is "no spec names an epic".
+  const grep = git(['grep', '-l', '-E', '^>[[:space:]]*\\*\\*Epic:\\*\\*', base, '--', 'specs'])
+  const candidates = (grep || '')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => l.slice(base.length + 1))
+  const readFile = (p) => git(['show', `${base}:${p}`])
+  const worktrees = present
+    ? provisionedSpecs(dir, config)
+        .filter((p) => !p.specless)
+        .map((p) => worktreeOverview(p.project, p.folder))
+        .filter(Boolean)
+    : []
+
+  const status = epicStatus({ epic, index: indexSpecTree(listing), readFile, candidates, worktrees })
+  process.stdout.write(json ? JSON.stringify({ base, ...status }, null, 2) + '\n' : formatEpicStatus(status))
+}
+
+// A provisioned spec's own overview and bucket, read in its worktree — the
+// copy where an in-flight spec's bucket and headers are true. null when the
+// worktree holds no readable copy.
+function worktreeOverview(root, folder) {
+  for (const bucket of ['in-progress', 'backlog', 'complete', 'cancelled']) {
+    const dir = path.join(root, 'specs', bucket, folder)
+    let overview
+    try {
+      overview = fs.readFileSync(path.join(dir, '00-overview.md'), 'utf8')
+    } catch {
+      continue
+    }
+    const phases = fs
+      .readdirSync(dir)
+      .filter((f) => /^\d\d-.+\.md$/.test(f) && f !== '00-overview.md')
+      .map((f) => {
+        let text = null
+        try {
+          text = fs.readFileSync(path.join(dir, f), 'utf8')
+        } catch {
+          // unreadable: a phase with nothing to say
+        }
+        return { n: Number(f.slice(0, 2)), text }
+      })
+    return { folder, bucket, overview, phases }
+  }
+  return null
 }
 
 // Plan a provision: allocate the slot, persist the registry, and print the plan
@@ -7088,6 +7176,13 @@ async function run(argv) {
 
   if (cmd === 'status') {
     inFlightStatus(rest)
+    return
+  }
+
+  if (cmd === 'epic') {
+    const [sub, ...eArgs] = rest
+    if (sub === 'status') epicStatusCommand(eArgs)
+    else process.stdout.write('Usage: skitterspec epic status <epic> [--json] [--dir <path>]\n')
     return
   }
 
