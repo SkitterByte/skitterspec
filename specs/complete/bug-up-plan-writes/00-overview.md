@@ -72,3 +72,4 @@ Red before the fix: `AssertionError: no settings file` and
 - 2026-11-10 — Left alone: a bare `up` still writes the trust entry and the
   records. The skills rely on that (`/spec-start` step 2), and its `trusted:`
   and `recorded:` lines already say "added to".
+- 2026-11-10 — Completed; fix done, tests green (4668, nested 167).
