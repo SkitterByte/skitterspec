@@ -1,0 +1,24 @@
+{
+  "issue": "de087beffb8b736a45f96922c953173099babae1",
+  "issueFields": {
+    "description": "6102fd055cb3419efbd8432e5f673b5fba2ed9d2",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "descriptionStream": "6cb95ec8556d038da5d4bdaa438b0cc3203fabfd"
+  },
+  "subIssues": {
+    "#154": "0a412302ecd0183d2f2b1eca935485b8fa5e0300",
+    "#155": "807969848ab51fb42c6764cebb452a7970a89413",
+    "#156": "68cbfdfa9547afef39fa9a1165b887c2f12d3bec",
+    "#157": "2ea31f14478b1be6823e6c8ccbc7a3661647dce6",
+    "#158": "c0c24d1a5669e1c53df32882892599cdd4f03cec",
+    "#159": "1548890560ed4ccd9219e1314cd47d04017ebb71"
+  },
+  "subIssueStreams": {
+    "#154": "007a47870b7d92eaf49307d3d132472ec9db7de0",
+    "#155": "9f6272b4c92a38fa6c7600b2e83864a6b0c7d8c4",
+    "#156": "3dd95f81b14d06b257209588602b60e534b13ab6",
+    "#157": "e72a14aab49d25c78af81da7df30ea4b1fb17cb2",
+    "#158": "a65d05153c95058cfedbe8d8655e1bd47ccdb3a6",
+    "#159": "e90d8e73ce672761e19069ccd8c267277af3757b"
+  }
+}
