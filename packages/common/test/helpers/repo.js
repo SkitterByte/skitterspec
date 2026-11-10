@@ -82,8 +82,12 @@ function makeRepo({ name = 'skitterspec-', prefix = nestedPrefix(), config = {},
       try {
         git(root, 'worktree', 'prune')
       } catch {}
-      fs.rmSync(root, { recursive: true, force: true })
-      fs.rmSync(wtRoot, { recursive: true, force: true })
+      // RETRIED, because Windows releases a killed process's handles late: a
+      // dev server `taskkill`ed a moment ago can still hold its cwd, and the
+      // rm fails EPERM on a tree that is free a few hundred ms later.
+      const rm = { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }
+      fs.rmSync(root, rm)
+      fs.rmSync(wtRoot, rm)
       byDir.delete(dir)
     },
     // Add a worktree for `folder` on `feat/<slug>` at the default layout, and
