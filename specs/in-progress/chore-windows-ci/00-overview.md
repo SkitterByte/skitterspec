@@ -84,7 +84,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Run the Windows job and triage its failures | ✅ | [01-triage.md](01-triage.md) |
 | 2 | Line endings and Windows product fixes | ✅ | [02-product-fixes.md](02-product-fixes.md) |
-| 3 | Test-only Windows assumptions | 🔄 | [03-test-fixes.md](03-test-fixes.md) |
+| 3 | Test-only Windows assumptions | ✅ | [03-test-fixes.md](03-test-fixes.md) |
 | 4 | Make the Windows job blocking | ⬜ | [04-blocking.md](04-blocking.md) |
 
 ## Open questions
@@ -125,3 +125,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   URL encoded the drive colon; `init-config` printed `\`; `~` forced quotes
   mid-path. POSIX-only tests (mode bits, executable bits, git's checkout-time
   `.claude` links) skip on Windows with a named reason.
+- 2026-11-10 — Phase 3 done: run 42794894480 green on windows-latest, both
+  steps, no failure annotations. Despite its name the phase was mostly
+  product fixes — see its file.
