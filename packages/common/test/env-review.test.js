@@ -228,19 +228,19 @@ test('the page is announced as a clickable file:// URL, not just a path', () => 
   // A bare absolute path is not clickable in any terminal, so the line that
   // announces the page could not reach it. This is the whole fix.
   // On Windows the same path resolves onto the current drive: `file:///D:/tmp/…`.
-  const drive = process.platform === 'win32' ? `${path.resolve('/').slice(0, 2)}` : ''
-  assert.strictEqual(reviewFileUrl('/tmp/reviews/feat-x.html'), `file:///${drive ? `${drive}/` : ''}tmp/reviews/feat-x.html`)
+  const drive = process.platform === 'win32' ? `${path.resolve('/').slice(0, 2)}/` : ''
+  assert.strictEqual(reviewFileUrl('/tmp/reviews/feat-x.html'), `file:///${drive}tmp/reviews/feat-x.html`)
 
   // A path can legitimately contain a space, a `#` or a `?`, and all three end
   // the URL early if left raw — which is worse than a bare path, because it
   // looks like a link and goes somewhere wrong.
   assert.strictEqual(
     reviewFileUrl('/Users/x/my code/.spec-env/reviews/feat-x.html'),
-    'file:///Users/x/my%20code/.spec-env/reviews/feat-x.html',
+    `file:///${drive}Users/x/my%20code/.spec-env/reviews/feat-x.html`,
   )
   assert.strictEqual(
     reviewFileUrl('/tmp/a#b/c?d/feat-x.html'),
-    'file:///tmp/a%23b/c%3Fd/feat-x.html',
+    `file:///${drive}tmp/a%23b/c%3Fd/feat-x.html`,
   )
 
   // Separators survive: encoding the whole string would eat them.

@@ -192,7 +192,8 @@ test('--json emits a machine-readable result the skill can relay', async () => {
   assert.strictEqual(code, 0)
   const result = JSON.parse(text)
   assert.strictEqual(result.ok, true)
-  assert.strictEqual(result.file, CONFIG_FILE)
+  // Printed, so `/`-separated on every platform.
+  assert.strictEqual(result.file, CONFIG_FILE.split(path.sep).join('/'))
   assert.strictEqual(result.replaced, false)
   assert.deepStrictEqual(result.wrote, { linear: { teamId: 'T1' }, mapping: { description: 'summary' } })
   assert.deepStrictEqual(result.validated.states, { checked: 4, against: 4, missing: [] })

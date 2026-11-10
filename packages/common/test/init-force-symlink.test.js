@@ -61,7 +61,8 @@ test('--force refuses a live symlink, and the target keeps its content', async (
     assert.strictEqual(fs.readFileSync(asset, 'utf8'), ORIGINAL, 'the asset was written through')
     assert.ok(fs.lstatSync(installed).isSymbolicLink(), 'the link itself survived')
 
-    const rel = path.relative(dir, installed)
+    // The report names files `/`-separated on every platform.
+    const rel = path.relative(dir, installed).split(path.sep).join('/')
     assert.ok(
       lastReport().refused.includes(rel),
       `expected ${rel} among refused, got ${JSON.stringify(lastReport().refused)}`,
@@ -127,7 +128,8 @@ test('without --force a linked target is skipped, exactly as before', async () =
 
     await initQuiet({ dir, force: false, ...base, mode: 'update' })
 
-    const rel = path.relative(dir, installed)
+    // The report names files `/`-separated on every platform.
+    const rel = path.relative(dir, installed).split(path.sep).join('/')
     assert.deepStrictEqual(lastReport().refused, [], 'no --force, no refusal — nothing was going to be written')
     assert.ok(lastReport().skipped.includes(rel), 'it is an ordinary skip')
     assert.strictEqual(fs.readFileSync(asset, 'utf8'), '# source\n')

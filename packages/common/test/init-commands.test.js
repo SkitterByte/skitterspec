@@ -301,7 +301,7 @@ test('stays silent: a freshly installed command reads back as pristine', async (
     const manifest = readManifest(dir)
     for (const name of COMMANDS) {
       const rel = path.join('.claude', 'commands', name)
-      const bundled = managedTargets(dir).find((t) => t.relPath === rel).bundled
+      const bundled = managedTargets(dir).find((t) => t.relPath === rel.split(path.sep).join('/')).bundled
       assert.strictEqual(
         managedState(dir, rel, manifest, bundled),
         'pristine',
@@ -319,7 +319,7 @@ test('an edited command is classified customized and kept', async () => {
     const rel = path.join('.claude', 'commands', COMMANDS[0])
     fs.writeFileSync(path.join(dir, rel), '# mine now\n')
     const manifest = readManifest(dir)
-    const bundled = managedTargets(dir).find((t) => t.relPath === rel).bundled
+    const bundled = managedTargets(dir).find((t) => t.relPath === rel.split(path.sep).join('/')).bundled
     assert.strictEqual(managedState(dir, rel, manifest, bundled), 'customized')
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })

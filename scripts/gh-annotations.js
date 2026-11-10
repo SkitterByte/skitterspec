@@ -41,7 +41,7 @@ function annotationFor(d, cwd = process.cwd()) {
 // opening the log.
 const MAX_ANNOTATIONS = 10
 const MESSAGE_BYTES = 3800
-const LINE_CHARS = 300
+const LINE_CHARS = 480
 
 /** One failure as a single summary line. */
 function summaryLine(d, cwd = process.cwd()) {
@@ -54,7 +54,23 @@ function summaryLine(d, cwd = process.cwd()) {
     .slice(0, 2)
     .join(' ¶ ')
   const file = d.file ? path.relative(cwd, d.file).split(path.sep).join('/') : '?'
-  return `${file}:${d.line || 1} ${d.name} — ${first}`.slice(0, LINE_CHARS)
+  // Where it actually threw — the first frame in this repo — and, for an
+  // assertion, what it compared: a message alone ("+ actual - expected", or
+  // "reading 'relPath'") rarely says enough to fix it from.
+  const frame = String((cause && cause.stack) || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.startsWith('at ') && !l.includes('node:') && !l.includes('node_modules'))
+  const at = frame ? ` @ ${frame.replace(/^at /, '').replace(/\\/g, '/').replace(/.*?(packages|scripts)\//, '$1/')}` : ''
+  const short = (v) => {
+    try {
+      return JSON.stringify(v).slice(0, 120)
+    } catch {
+      return String(v).slice(0, 120)
+    }
+  }
+  const cmp = cause && 'actual' in cause && 'expected' in cause ? ` | actual=${short(cause.actual)} expected=${short(cause.expected)}` : ''
+  return `${file}:${d.line || 1} ${d.name} — ${first}${cmp}${at}`.slice(0, LINE_CHARS)
 }
 
 /** Pack summary lines into at most `MAX_ANNOTATIONS` annotation bodies. */
