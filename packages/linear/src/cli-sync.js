@@ -2655,7 +2655,8 @@ function labelList(value) {
  */
 function specSyncInitConfig(dir, flags, out) {
   const file = path.join(dir, CONFIG_FILE)
-  const rel = CONFIG_FILE
+  // Printed, so `/`-separated on every platform.
+  const rel = CONFIG_FILE.split(path.sep).join('/')
   const existed = fs.existsSync(file)
   const fail = (lines, extra = {}) => {
     if (flags.json) {

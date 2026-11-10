@@ -288,8 +288,11 @@ const RETIRED_FILES = [
   path.join('specs', 'complete', '00-index.md'),
 ]
 
+// `/`-separated on every platform: these are the manifest's keys and the
+// report's lines, and a Windows install recording `specs\\.core\\…` would read
+// as a different file to every other machine (chore-windows-ci).
 function rel(dir, p) {
-  return path.relative(dir, p) || '.'
+  return path.relative(dir, p).split(path.sep).join('/') || '.'
 }
 
 function ensureDir(p) {

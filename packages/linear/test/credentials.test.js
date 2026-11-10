@@ -152,7 +152,7 @@ test('no key at all reports every way to set one, and stays a normal state', () 
   assert.match(r.error, /--via mcp/, 'still offers the MCP fallback')
 })
 
-test('an unusable store is surfaced, not silently read as "no key set"', () => {
+test('an unusable store is surfaced, not silently read as "no key set"', { skip: process.platform === 'win32' && 'POSIX mode bits do not apply on Windows' }, () => {
   // A permissions refusal that degraded to the generic message would hide the
   // leak — the user would set the key again and never learn the file is exposed.
   const s = withStore({ teams: { [TEAM]: { key: SECRET } } }, 0o644)
@@ -170,8 +170,14 @@ test('an unusable store is surfaced, not silently read as "no key set"', () => {
 
 test('no failure path ever puts the key in an error or diagnostic', () => {
   const cases = [
-    () => withStore({ teams: { [TEAM]: { key: SECRET } } }, 0o644),
-    () => withStore({ teams: { [TEAM]: { key: SECRET } } }, 0o604),
+    // A loose mode is a failure only where mode bits mean something — on
+    // Windows that store reads, and a read key is not a diagnostic.
+    ...(process.platform === 'win32'
+      ? []
+      : [
+          () => withStore({ teams: { [TEAM]: { key: SECRET } } }, 0o644),
+          () => withStore({ teams: { [TEAM]: { key: SECRET } } }, 0o604),
+        ]),
     () => withStore(`{ "teams": { "${TEAM}": { "key": "${SECRET}" } }`),
   ]
   for (const make of cases) {

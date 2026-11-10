@@ -73,7 +73,7 @@ test('status reports "not set" and names the command, without a key anywhere', a
   }
 })
 
-test('set --stdin stores the key at 0600, preserving other teams', async () => {
+test('set --stdin stores the key at 0600, preserving other teams', { skip: process.platform === 'win32' && 'POSIX mode bits do not apply on Windows' }, async () => {
   const s = scaffold()
   try {
     fs.mkdirSync(path.dirname(s.file), { recursive: true })

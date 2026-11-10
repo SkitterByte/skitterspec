@@ -36,7 +36,9 @@ function collectMarkdown(target) {
       // Skip VCS/deps, and `.core` — skitterspec's own manifest-managed docs.
       // Reflowing a managed file makes the next `update` see it as customized and
       // freeze the shipped version, silently pinning stale docs.
-      if (/(^|\/)(node_modules|\.git|\.core)$/.test(p)) return
+      // Either separator: on Windows `p` is `specs\\.core`, and a `/`-only test
+      // walked straight into the managed docs it exists to protect.
+      if (/(^|[\\/])(node_modules|\.git|\.core)$/.test(p)) return
       for (const name of fs.readdirSync(p).sort()) walk(path.join(p, name))
     } else if (st.isFile() && p.endsWith('.md')) {
       out.push(p)
@@ -95,10 +97,13 @@ async function specSanitise(argv, { cwd = process.cwd(), out = process.stdout } 
 
   const excludeRes = opts.exclude.map(globToRe)
   const excluded = (rel) => excludeRes.some((re) => re.test(rel))
+  // Repo paths are `/`-separated everywhere — what `--exclude` globs are
+  // written against, and what the report prints.
+  const relOf = (f) => path.relative(cwd, f).split(path.sep).join('/')
   const files = new Set()
   for (const p of opts.paths) {
     for (const f of collectMarkdown(path.resolve(cwd, p))) {
-      if (!excluded(path.relative(cwd, f))) files.add(f)
+      if (!excluded(relOf(f))) files.add(f)
     }
   }
 
@@ -108,7 +113,7 @@ async function specSanitise(argv, { cwd = process.cwd(), out = process.stdout } 
   for (const file of [...files].sort()) {
     const src = fs.readFileSync(file, 'utf-8')
     const res = sanitizeSpecMarkdown(src, opts.width ? { width: opts.width } : {})
-    const rel = path.relative(cwd, file)
+    const rel = relOf(file)
     if (res.refused) {
       refusedFiles++
       out.write(`skipped  ${rel} (would alter structure — left untouched)\n`)

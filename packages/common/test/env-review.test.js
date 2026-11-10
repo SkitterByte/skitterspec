@@ -227,7 +227,9 @@ test('a spec with no changes produces an empty, still-valid page', () => {
 test('the page is announced as a clickable file:// URL, not just a path', () => {
   // A bare absolute path is not clickable in any terminal, so the line that
   // announces the page could not reach it. This is the whole fix.
-  assert.strictEqual(reviewFileUrl('/tmp/reviews/feat-x.html'), 'file:///tmp/reviews/feat-x.html')
+  // On Windows the same path resolves onto the current drive: `file:///D:/tmp/…`.
+  const drive = process.platform === 'win32' ? `${path.resolve('/').slice(0, 2)}` : ''
+  assert.strictEqual(reviewFileUrl('/tmp/reviews/feat-x.html'), `file:///${drive ? `${drive}/` : ''}tmp/reviews/feat-x.html`)
 
   // A path can legitimately contain a space, a `#` or a `?`, and all three end
   // the URL early if left raw — which is worse than a bare path, because it

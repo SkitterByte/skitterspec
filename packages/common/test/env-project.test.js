@@ -219,7 +219,7 @@ test('shellPath quotes a path with a space — the adopter\'s `LSC App`', () => 
 })
 
 test('STAYS SILENT: a backslash in a POSIX path is quoted, never rewritten', () => {
-  assert.strictEqual(shellPath('/odd\\name'), '"/odd\\name"')
+  assert.strictEqual(shellPath('/odd\\name', 'linux'), '"/odd\\name"')
 })
 
 test('shellPath prints a Windows drive path with forward slashes, quoting only a space', () => {
@@ -227,6 +227,11 @@ test('shellPath prints a Windows drive path with forward slashes, quoting only a
   // slashes work unquoted in git, Git Bash, cmd and PowerShell alike.
   assert.strictEqual(shellPath('C:\\Code\\app-wt\\x'), 'C:/Code/app-wt/x')
   assert.strictEqual(shellPath('C:\\Code\\LSC App-wt\\x'), '"C:/Code/LSC App-wt/x"')
+})
+
+test('shellPath leaves a mid-path ~ alone and quotes a leading one', () => {
+  assert.strictEqual(shellPath('C:\\Users\\RUNNER~1\\x'), 'C:/Users/RUNNER~1/x')
+  assert.strictEqual(shellPath('~/x'), '"~/x"')
 })
 
 test('shellPath escapes what bash still expands inside double quotes', () => {

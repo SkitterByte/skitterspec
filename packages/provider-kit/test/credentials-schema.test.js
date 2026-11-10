@@ -76,7 +76,7 @@ test('a compound credential resolves through credentialFor, never keyFor', () =>
   assert.deepStrictEqual(second.credentialFor(store, 'S1'), { email: 'a', token: 'b' })
 })
 
-test('the migrated file stays owner-only', () => {
+test('the migrated file stays owner-only', { skip: process.platform === 'win32' && 'POSIX mode bits do not apply on Windows' }, () => {
   const { file } = tmpStore({ version: 1, teams: { T1: { key: 'k1' } } })
   fs.chmodSync(file, 0o600)
   assert.ok(second.writeKey(file, 'S1', 'sk').ok)

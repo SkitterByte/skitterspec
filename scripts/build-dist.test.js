@@ -345,7 +345,7 @@ for (const [dist, binFile] of [
   ['skitterspec', 'skitterspec.js'],
   ['skitterspec-linear', 'skitterspec-linear.js'],
 ]) {
-  test(`${dist} composes an executable bin`, () => {
+  test(`${dist} composes an executable bin`, { skip: process.platform === 'win32' && 'Windows has no executable bit; npm writes .cmd shims there' }, () => {
     const out = dist === 'skitterspec' ? builtBase() : builtLinear()
     const mode = fs.statSync(path.join(out, 'bin', binFile)).mode
     assert.ok(mode & 0o100, `${binFile} is owner-executable (got ${(mode & 0o777).toString(8)})`)

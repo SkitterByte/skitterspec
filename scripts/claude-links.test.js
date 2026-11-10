@@ -95,7 +95,7 @@ test('the repo really is dogfood-linked', () => {
   assert.ok(found.length > 5, `expected .claude symlinks, found ${found.length}`)
 })
 
-test('no symlink under .claude/ points at a missing target', () => {
+test('no symlink under .claude/ points at a missing target', { skip: process.platform === 'win32' && 'git on Windows creates these links at checkout, before node_modules exists, as file links that never resolve to a directory' }, () => {
   const broken = links(CLAUDE)
     .filter((p) => !fs.existsSync(p))
     .map((p) => `${path.relative(ROOT, p)} -> ${fs.readlinkSync(p)}`)

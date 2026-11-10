@@ -83,7 +83,7 @@ test('a stored key is preserved when an identity is written beside it', () => {
   assert.deepEqual(stored.teams[TEAM].user, { id: 'user-1', name: 'Jane Dev' })
 })
 
-test('the store is created owner-only', () => {
+test('the store is created owner-only', { skip: process.platform === 'win32' && 'POSIX mode bits do not apply on Windows' }, () => {
   const s = xdg()
   writeUser(s.file, TEAM, { id: 'user-1', name: 'Jane Dev' })
   assert.equal((fs.statSync(s.file).mode & 0o777).toString(8), '600')

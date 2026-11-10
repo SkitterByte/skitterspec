@@ -2591,7 +2591,9 @@ function reviewFileUrl(outPath) {
   const encoded = path
     .resolve(outPath)
     .split(path.sep)
-    .map((seg) => encodeURIComponent(seg))
+    // A Windows drive (`C:`) stays as it is: encoded, `file:///C%3A/…` is a
+    // link no browser opens (chore-windows-ci).
+    .map((seg, i) => (i === 0 && /^[A-Za-z]:$/.test(seg) ? seg : encodeURIComponent(seg)))
     .join('/')
   return `file://${encoded.startsWith('/') ? '' : '/'}${encoded}`
 }

@@ -118,3 +118,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   reporter now packs every failure with its first error line into up to ten
   annotations. Seen once locally: `cli-spec-env-stage`'s "unreadable git" test
   failed under a parallel nested run and passed 3/3 alone — watch it.
+- 2026-11-10 — Phase 3 round 4 (run 42781740351, 28 failures, all read from
+  annotations): product — `spec-sanitise` walked into `specs\.core` and matched
+  `--exclude` against `\` paths on Windows; the init manifest keyed files by OS
+  path; `build-dist` wrote `\` require specifiers; the review page's `file://`
+  URL encoded the drive colon; `init-config` printed `\`; `~` forced quotes
+  mid-path. POSIX-only tests (mode bits, executable bits, git's checkout-time
+  `.claude` links) skip on Windows with a named reason.

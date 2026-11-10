@@ -182,7 +182,8 @@ function shellPath(p, platform = process.platform) {
   // A drive path anywhere; on Windows every backslash, which is always a
   // separator there — `\\wt\\x` from a rooted path is no different.
   if (platform === 'win32' || /^[A-Za-z]:[\\/]/.test(s)) s = s.replace(/\\/g, '/')
-  if (!/[\s"'$`!&|;<>()*?[\]{}#~\\]/.test(s)) return s
+  // `~` only where bash expands it — at the start; `RUNNER~1` needs no quotes.
+  if (!/[\s"'$`!&|;<>()*?[\]{}#\\]/.test(s) && !s.startsWith('~')) return s
   return `"${s.replace(/(["$`])/g, '\\$1')}"`
 }
 

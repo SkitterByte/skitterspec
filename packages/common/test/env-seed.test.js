@@ -65,7 +65,7 @@ test('symlink mode: worktree file points at the main file and stays in sync', ()
 
   const target = path.join(wt, '.env')
   assert.ok(fs.lstatSync(target).isSymbolicLink(), 'target is a symlink')
-  assert.strictEqual(fs.realpathSync(target), fs.realpathSync(path.join(main, '.env')))
+  assert.strictEqual(fs.realpathSync.native(target), fs.realpathSync.native(path.join(main, '.env')))
   assert.strictEqual(fs.readFileSync(target, 'utf8'), 'SECRET=1\n')
   assert.match(out, /seeded \.env →/, 'prints the seeded note')
 
@@ -118,7 +118,7 @@ test('the main checkout is resolved from inside the linked worktree', () => {
   runSeed(wt, '.env', 'symlink')
   const linkText = fs.readlinkSync(path.join(wt, '.env'))
   assert.ok(
-    linkText.includes(path.join(main, '.env')) || fs.realpathSync(path.join(wt, '.env')) === fs.realpathSync(path.join(main, '.env')),
+    linkText.includes(path.join(main, '.env')) || fs.realpathSync.native(path.join(wt, '.env')) === fs.realpathSync.native(path.join(main, '.env')),
     'symlink resolves to the main checkout',
   )
 })

@@ -77,7 +77,10 @@ function rewriteRequires(code, fileAbs, srcRoot) {
     if (!v) return whole // unknown → left for the guard to catch
     const sub = spec.slice(v.from.length).replace(/^\//, '')
     const target = path.join(v.to(srcRoot), sub)
-    let relp = path.relative(path.dirname(fileAbs), target)
+    // A require specifier is `/`-separated on every platform: built on
+    // Windows, `path.relative` gave `..\\..\\env\\project.js`, which loads
+    // there and nowhere else — a published dist must load everywhere.
+    let relp = path.relative(path.dirname(fileAbs), target).split(path.sep).join('/')
     if (!relp.startsWith('.')) relp = `./${relp}`
     return `require(${q}${relp}${q})`
   })
