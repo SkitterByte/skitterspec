@@ -130,3 +130,5 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   product fixes — see its file.
 - 2026-11-10 — Phase 4 done: the Windows job blocks, and run 42799372472 is
   green with it blocking.
+- 2026-11-10 — Completed; all phases done, tests green on ubuntu and
+  windows-latest (4665, nested 167), the Windows job blocking.
