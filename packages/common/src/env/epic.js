@@ -73,7 +73,107 @@ function epicHeaders(text) {
     epic: unquote(header(text, 'Epic')) || null,
     waitsOn: parseWaitsOn(header(text, 'Waits on')),
     lanes: parseLanes(header(text, 'Lanes')),
+    area: parseArea(header(text, 'Area')),
   }
+}
+
+// Split on commas outside `{…}` and `(…)` — `a/{b,c}.ts, d (x, y)` is two parts.
+function splitTopLevel(value) {
+  const parts = []
+  let depth = 0
+  let cur = ''
+  for (const ch of value) {
+    if (ch === '{' || ch === '(') depth++
+    else if ((ch === '}' || ch === ')') && depth > 0) depth--
+    if (ch === ',' && depth === 0) {
+      parts.push(cur)
+      cur = ''
+    } else cur += ch
+  }
+  parts.push(cur)
+  return parts.map((p) => p.trim()).filter(Boolean)
+}
+
+// `a/{b,c}/{d,e}.ts` → every combination. One level of nesting per group,
+// which is how the headers write it.
+function expandBraces(pattern) {
+  const m = /\{([^{}]*)\}/.exec(pattern)
+  if (!m) return [pattern]
+  const head = pattern.slice(0, m.index)
+  const tail = pattern.slice(m.index + m[0].length)
+  return m[1].split(',').flatMap((alt) => expandBraces(`${head}${alt.trim()}${tail}`))
+}
+
+/**
+ * `> **Area:**` → the path patterns it names, brace-expanded. A trailing
+ * annotation — `(new)`, `(deep link)`, `` (`bareLive`) `` — is dropped, and so
+ * is any entry that does not read as a path (`skills (spec, spec-start)`):
+ * prose names no file, so it can clash with nothing. That is a cannot-tell,
+ * and a cannot-tell claims no clash — `Area:` is declared, not measured.
+ */
+function parseArea(value) {
+  if (!value) return []
+  const paths = splitTopLevel(value)
+    .map((part) => part.replace(/\s*\([^()]*\)\s*$/, '').replace(/`/g, '').trim())
+    .filter((part) => /^[\w.@+\-/*{},[\]]+$/.test(part) && /[/.]/.test(part))
+    .flatMap(expandBraces)
+    .map((p) => p.replace(/^\.\//, ''))
+  return [...new Set(paths)]
+}
+
+// One path segment against another, either of which may hold a `*`.
+function segmentsMeet(a, b) {
+  if (a === b || a === '**' || b === '**') return true
+  const re = (g) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`)
+  if (a.includes('*') && re(a).test(b.replace(/\*/g, ''))) return true
+  if (b.includes('*') && re(b).test(a.replace(/\*/g, ''))) return true
+  return false
+}
+
+/**
+ * Could one file be named by both patterns? A pattern that ends first is read
+ * as a directory holding the other — `packages/api/` and `packages/api` both
+ * name everything under it, since a header rarely says which it means. A bare
+ * filename (no `/`) is matched against the other's last segment.
+ *
+ * WHAT WOULD FOOL THIS: a directory and a file of the same name read as a
+ * clash, and a glob against a glob is matched loosely. Both err towards
+ * naming a clash, which only ever warns.
+ */
+function patternsMeet(a, b) {
+  const split = (p) => p.replace(/\/+$/, '').split('/').filter(Boolean)
+  const sa = split(a)
+  const sb = split(b)
+  if (sa.length === 1 || sb.length === 1) {
+    const [bare, other] = sa.length === 1 ? [sa, sb] : [sb, sa]
+    return segmentsMeet(bare[0], other[other.length - 1])
+  }
+  for (let i = 0; i < Math.min(sa.length, sb.length); i++) {
+    if (sa[i] === '**' || sb[i] === '**') return true
+    if (!segmentsMeet(sa[i], sb[i])) return false
+  }
+  return true
+}
+
+/**
+ * Every pair of open members whose `Area:` patterns meet, with the patterns
+ * they share — the "never together" sets. A member with no readable `Area:`
+ * claims nothing (stays silent), and finished members are left out: a pair
+ * matters only while both may still be built.
+ */
+function clashes(members) {
+  const open = members.filter((m) => m.area.length && !['complete', 'cancelled'].includes(m.bucket))
+  const out = []
+  for (let i = 0; i < open.length; i++) {
+    for (let j = i + 1; j < open.length; j++) {
+      const shared = new Set()
+      for (const a of open[i].area) {
+        for (const b of open[j].area) if (patternsMeet(a, b)) shared.add(a.length >= b.length ? a : b)
+      }
+      if (shared.size) out.push({ specs: [open[i].spec, open[j].spec], paths: [...shared].sort() })
+    }
+  }
+  return out
 }
 
 /**
@@ -208,7 +308,7 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [] }) 
     if (h.epic !== epic) continue
     const entry = index.get(m[2])
     const phases = entry ? [...entry.phases].map(([n, p]) => ({ n, text: readFile(p) })) : []
-    members.set(m[2], { spec: m[2], waits: h.waitsOn, phases })
+    members.set(m[2], { spec: m[2], waits: h.waitsOn, area: h.area, phases })
   }
   // A member authored on its own branch and not landed yet is invisible on the
   // base branch; its worktree copy is what knows it belongs here.
@@ -216,7 +316,7 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [] }) 
     const h = epicHeaders(w.overview)
     // The worktree's copy is the newer word on a spec being built: it may have
     // joined, changed its waits, or moved to another epic.
-    if (h.epic === epic) members.set(w.folder, { spec: w.folder, waits: h.waitsOn, phases: w.phases || [] })
+    if (h.epic === epic) members.set(w.folder, { spec: w.folder, waits: h.waitsOn, area: h.area, phases: w.phases || [] })
     else if (h.epic !== null) members.delete(w.folder)
   }
 
@@ -273,6 +373,7 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [] }) 
     cancelled: of('cancelled').map((m) => m.spec),
     waves,
     syncPoints,
+    clashes: clashes(list),
     cycles,
     unlayered,
   }
@@ -305,10 +406,39 @@ function formatEpicStatus(s) {
     ['Cancelled', names(s.cancelled)],
     ['Waves', s.waves.map((w, i) => `${i + 1}: ${w.join(', ')}`).join(' · ')],
     ['Sync points', s.syncPoints.map(syncLine).join(' · ')],
+    ['Never together', s.clashes.map((c) => `${c.specs.join(' ‖ ')} (${c.paths.join(', ')})`).join(' · ')],
     ['Cycle', s.cycles.map((c) => c.join(' → ')).join(' · ')],
   ].filter(([, v]) => v)
   if (!s.members.length) rows.push(['Members', `none — no spec carries \`> **Epic:** ${s.epic}\``])
   return `${head}\n\n| | |\n|---|---|\n${rows.map(([k, v]) => `| **${k}** | ${v} |`).join('\n')}\n`
 }
 
-module.exports = { epicStatus, formatEpicStatus, epicHeaders, parseWaitsOn, indexSpecTree, resolveWait, layer }
+/**
+ * What starting or building one member should hear about — the half of
+ * `epic check` that is about other members in flight. Each warning names the
+ * in-flight member and the paths the two share. Never a refusal: `Area:` is
+ * declared, not measured (Decision 4). A spec that is no member of anything
+ * hears nothing.
+ */
+function memberCheck(status, spec) {
+  const flying = new Set(status.inFlight.map((m) => m.spec))
+  const warnings = status.clashes
+    .filter((c) => c.specs.includes(spec))
+    .map((c) => ({ with: c.specs.find((x) => x !== spec), paths: c.paths }))
+    .filter((c) => flying.has(c.with))
+    .map((c) => ({ kind: 'clash', ...c, message: `${c.with} is in flight and edits ${c.paths.join(', ')} too` }))
+  return { spec, epic: status.epic, warnings }
+}
+
+module.exports = {
+  epicStatus,
+  formatEpicStatus,
+  epicHeaders,
+  parseWaitsOn,
+  parseArea,
+  patternsMeet,
+  indexSpecTree,
+  resolveWait,
+  layer,
+  memberCheck,
+}

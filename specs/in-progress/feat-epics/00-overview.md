@@ -145,7 +145,7 @@ push  → provider seam setParent(memberIssue, epicIssue)
 |---------|--------|--------|
 | Domain object | add | `epic-` kind, `Type: Epic` (folder, no phases) |
 | Config key | add | headers `Epic:`, `Waits on:` (overview and phase files), `Lanes:` |
-| CLI command | add | `skitterspec epic status <epic> [--json]`, `skitterspec epic check <member> [--phase N]` |
+| CLI command | add | `skitterspec epic status <epic> [--json]`, `skitterspec epic check <spec> [--phase N] [--json]` |
 | Business rule | add | unmet wait at build time → warn + bypass offer, recorded |
 | Business rule | add | a wait met by a landing's rebase → re-run that phase's tests before ff |
 | Business rule | add | waits met on positive signals only; cycles reported |
@@ -163,7 +163,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Epic kind and member headers | ✅ | [01-kind-and-headers.md](01-kind-and-headers.md) |
 | 2 | `epic status`: waits, waves, ready-now | ✅ | [02-epic-status.md](02-epic-status.md) |
-| 3 | Area clashes and the start warning | ⬜ | [03-clashes.md](03-clashes.md) |
+| 3 | Area clashes and the start warning | ✅ | [03-clashes.md](03-clashes.md) |
 | 4 | Lifecycle skills | ⬜ | [04-lifecycle.md](04-lifecycle.md) |
 | 5 | Tracker seam + GitHub | ⬜ | [05-seam-github.md](05-seam-github.md) |
 | 6 | Linear, Jira, Azure Boards | ⬜ | [06-other-providers.md](06-other-providers.md) |
@@ -197,3 +197,6 @@ and may be built before them.
   10 (derived progress, no unobservable checks); phase 4 gains `epic check`,
   and phase 7 is new. With the phase-level edge the plan reproduces exactly:
   #154 and #159 share wave 1.
+- 2026-11-10 — Phase 3: `epic check <spec>` was introduced here for the clash
+  warning, so `/spec-start` asks one engine verb; phase 4 extends the same verb
+  with unmet waits and the bypass offer rather than adding a second call.

@@ -335,6 +335,19 @@ conditional on it. A spec written before the project adopted gating has no heade
 and is not broken — turning this into a gate would accuse the very specs the
 feature was designed not to disturb.
 
+## 4c. Note what the spec's epic says (only for an epic member)
+
+Run `skitterspec epic check <name>`. It prints nothing for a spec in no epic,
+or one with nothing in its way — which is the usual case, so say nothing then.
+When it prints a line — another member of the same epic is already in flight
+and edits the same files — relay it **once**, before phase 1 starts, and
+**carry on**.
+
+**This check warns and never refuses.** `Area:` is what a spec says it will
+touch, not what it does, so a clash is a reason to look rather than proof two
+specs collide — and the operator may already know they edit different parts of
+the file. Nothing below is conditional on it.
+
 ## 5. Bring the spec's dev servers up — confirm before heavy steps
 
 **Only when the project configures host dev servers** (`env.config.json` → a
@@ -403,7 +416,8 @@ the shape; this section carries only what is specific here.
 - `✅` — the branch is provisioned, the spec is `in-progress`, the session is
   standing in the worktree.
 - `⚠️` — provisioned, with something worth knowing (dev servers that did not
-  come up, a mirror that did not refresh, a missing gating decision).
+  come up, a mirror that did not refresh, a missing gating decision, an epic
+  member in flight on the same files).
 - `❌` — provisioning failed part-way and left something behind. Say what, and
   where.
 - `⏸` — the gate refused: in `checkout` mode a dirty tree or someone else's

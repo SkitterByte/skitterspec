@@ -187,7 +187,7 @@ const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } 
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
 const { collectInFlight, detailOf, formatInFlight, isInFlight } = require('./env/inflight.js')
-const { epicStatus, formatEpicStatus, indexSpecTree } = require('./env/epic.js')
+const { epicStatus, formatEpicStatus, indexSpecTree, epicHeaders, memberCheck } = require('./env/epic.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -300,8 +300,13 @@ Usage:
   skitterspec epic status <epic>
                               An epic's members, from their Epic: and Waits on:
                               headers: ready now, blocked and on what, cannot
-                              tell, waves and free lanes (--json). Waits are
-                              met only on the base branch. Always exits 0.
+                              tell, waves, sync points, never-together pairs
+                              and free lanes (--json). Waits are met only on
+                              the base branch. Always exits 0.
+  skitterspec epic check <spec>
+                              What starting a member should hear: a member
+                              sharing Area: paths already in flight. Silent
+                              when nothing; warns, never refuses (--json).
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -567,32 +572,72 @@ function inFlightStatus(argv) {
  */
 function epicStatusCommand(argv) {
   const json = argv.includes('--json')
-  const at = argv.indexOf('--dir')
-  const from = path.resolve(at !== -1 && argv[at + 1] ? argv[at + 1] : process.cwd())
-  const epic = argv.find((a, i) => !a.startsWith('--') && argv[i - 1] !== '--dir')
+  const epic = epicPositional(argv)
   if (!epic) {
     process.stdout.write('Usage: skitterspec epic status <epic> [--json] [--dir <path>]\n')
     return
   }
+  const inputs = epicInputs(argv, json, epic)
+  if (!inputs) return
+  const status = epicStatus({ epic, ...inputs })
+  process.stdout.write(json ? JSON.stringify({ base: inputs.base, ...status }, null, 2) + '\n' : formatEpicStatus(status))
+}
+
+/**
+ * `skitterspec epic check <spec>` — what starting or building one member
+ * should hear about its epic, asked by `/spec-start`. Prints nothing when there
+ * is nothing to say: a spec in no epic, or an epic with nothing in its way.
+ * Warns and never refuses (spec feat-epics, Decision 4). Always exits 0.
+ */
+function epicCheckCommand(argv) {
+  const json = argv.includes('--json')
+  const spec = epicPositional(argv)
+  if (!spec) {
+    process.stdout.write('Usage: skitterspec epic check <spec> [--json] [--dir <path>]\n')
+    return
+  }
+  const inputs = epicInputs(argv, json, spec)
+  if (!inputs) return
+  // The member's own copy names its epic: the worktree's where it has one,
+  // else the base branch's.
+  const own = inputs.worktrees.find((w) => w.folder === spec)
+  const entry = inputs.index.get(spec)
+  const text = own ? own.overview : entry ? inputs.readFile(`specs/${entry.bucket}/${spec}/00-overview.md`) : null
+  const epic = text ? epicHeaders(text).epic : null
+  const result = epic ? memberCheck(epicStatus({ epic, ...inputs }), spec) : { spec, epic: null, warnings: [] }
+  if (json) process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+  else for (const w of result.warnings) process.stdout.write(`epic check: ${spec} (${epic}) — ${w.message}\n`)
+}
+
+function epicPositional(argv) {
+  return argv.find((a, i) => !a.startsWith('--') && argv[i - 1] !== '--dir')
+}
+
+// The base branch's spec tree and the provisioned worktrees' own copies — what
+// both `epic` verbs read. Waits are read off the BASE BRANCH by git, never off
+// whatever the primary checkout has checked out (`env/epic.js`). null, having
+// said why, when the base branch cannot be read.
+function epicInputs(argv, json, subject) {
+  const at = argv.indexOf('--dir')
+  const from = path.resolve(at !== -1 && argv[at + 1] ? argv[at + 1] : process.cwd())
   const anchor = primaryAnchor(from, gitReader(from))
   const dir = anchor.dir
   const { config, present } = loadEnvConfig(dir)
   attachProject(config, anchor)
   const git = gitReader(dir)
-  const say = (line) => process.stdout.write(json ? JSON.stringify({ epic, cannotTell: line }, null, 2) + '\n' : `epic status: cannot tell — ${line}\n`)
+  const say = (line) => {
+    process.stdout.write(json ? JSON.stringify({ subject, cannotTell: line }, null, 2) + '\n' : `epic: cannot tell — ${line}\n`)
+    return null
+  }
 
   let base
   try {
     base = resolveBaseBranch(config, git)
   } catch (err) {
-    say(err.message)
-    return
+    return say(err.message)
   }
   const listing = git(['ls-tree', '-r', '--name-only', base, '--', 'specs'])
-  if (listing === null) {
-    say(`the base branch ${base} could not be read`)
-    return
-  }
+  if (listing === null) return say(`the base branch ${base} could not be read`)
   // `git grep` exits 1 on no match, which the reader returns as null. The tree
   // above was readable, so here null is "no spec names an epic".
   const grep = git(['grep', '-l', '-E', '^>[[:space:]]*\\*\\*Epic:\\*\\*', base, '--', 'specs'])
@@ -607,9 +652,7 @@ function epicStatusCommand(argv) {
         .map((p) => worktreeOverview(p.project, p.folder))
         .filter(Boolean)
     : []
-
-  const status = epicStatus({ epic, index: indexSpecTree(listing), readFile, candidates, worktrees })
-  process.stdout.write(json ? JSON.stringify({ base, ...status }, null, 2) + '\n' : formatEpicStatus(status))
+  return { base, index: indexSpecTree(listing), readFile, candidates, worktrees }
 }
 
 // A provisioned spec's own overview and bucket, read in its worktree — the
@@ -7182,7 +7225,8 @@ async function run(argv) {
   if (cmd === 'epic') {
     const [sub, ...eArgs] = rest
     if (sub === 'status') epicStatusCommand(eArgs)
-    else process.stdout.write('Usage: skitterspec epic status <epic> [--json] [--dir <path>]\n')
+    else if (sub === 'check') epicCheckCommand(eArgs)
+    else process.stdout.write('Usage: skitterspec epic <status <epic> | check <spec>> [--json] [--dir <path>]\n')
     return
   }
 
