@@ -45,6 +45,9 @@ test('specHeaders reads Severity and Incident off the overview', () => {
   assert.deepStrictEqual(specHeaders(dir, neutralConfig()), {
     severity: '2 - High',
     incident: 'incident-api-outage',
+    epic: null,
+    waitsOn: [],
+    lanes: null,
   })
 })
 
@@ -52,7 +55,13 @@ test('specHeaders reads Severity and Incident off the overview', () => {
 // is byte-identical to before the headers existed.
 test('a spec without the headers projects exactly as before', () => {
   const dir = writeSpec(repo(), 'in-progress', 'bug-plain', '# Plain\n\n## Problem\n\nP.\n')
-  assert.deepStrictEqual(specHeaders(dir, neutralConfig()), { severity: null, incident: null })
+  assert.deepStrictEqual(specHeaders(dir, neutralConfig()), {
+    severity: null,
+    incident: null,
+    epic: null,
+    waitsOn: [],
+    lanes: null,
+  })
   const { description } = normalizeLocal(dir, neutralConfig())
   assert.ok(!/Related incident/.test(description))
 })

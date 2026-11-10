@@ -119,7 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Epic kind and member headers | ⬜ | [01-kind-and-headers.md](01-kind-and-headers.md) |
+| 1 | Epic kind and member headers | ✅ | [01-kind-and-headers.md](01-kind-and-headers.md) |
 | 2 | `epic status`: waits, waves, ready-now | ⬜ | [02-epic-status.md](02-epic-status.md) |
 | 3 | Area clashes and the start warning | ⬜ | [03-clashes.md](03-clashes.md) |
 | 4 | Lifecycle skills | ⬜ | [04-lifecycle.md](04-lifecycle.md) |
@@ -138,3 +138,9 @@ Phases 1–4 are useful with no tracker at all.
   worked out by hand and stored as an `issue-` spec
   (`issue-library-and-sessions-plan`, skitterload #162). That spec is the
   worked example and the first epic to convert.
+- 2026-11-10 — Phase 1: an epic's "no phase files" is decided by its `epic-`
+  prefix (`isEpic`), never by the absence itself — `readPhases` and `status`
+  answer zero phases for an epic and still cannot-tell for any other kind.
+  The providers' own kind maps (`specKindOf`, per-kind tracker types) are left
+  to phases 5–6, where the epic's tracker type is decided; until then an epic
+  pushes as a feature.

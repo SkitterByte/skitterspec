@@ -435,24 +435,68 @@ function readSnapshot(snapshotDir, config) {
   return { frontmatter: data, title, sections, phases, body }
 }
 
-// The spec's own `> **Severity:**` and `> **Incident:**` headers, off the
-// overview's blockquote block. They are PUSH-TIME EXTRAS, deliberately not
-// keys on `normalizeLocal`'s field set: severity lands in a provider-specific
-// home (a field, a label) and the incident link as a typed relation, so
-// neither belongs in the synced-field hashes a stored base compares.
+// The spec's own `> **Severity:**`, `> **Incident:**`, `> **Epic:**`,
+// `> **Waits on:**` and `> **Lanes:**` headers, off the overview's blockquote
+// block. They are PUSH-TIME EXTRAS, deliberately not keys on `normalizeLocal`'s
+// field set: severity lands in a provider-specific home (a field, a label),
+// the incident and epic links as typed relations, and the waits and lanes are
+// read by `epic status` — none belongs in the synced-field hashes a stored base
+// compares.
 function specHeaders(snapshotDir, config) {
   const overviewFile = (config && config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
   let raw
   try {
     raw = fs.readFileSync(path.join(snapshotDir, overviewFile), 'utf-8')
   } catch {
-    return { severity: null, incident: null }
+    return { severity: null, incident: null, epic: null, waitsOn: [], lanes: null }
   }
   const read = (name) => {
     const m = new RegExp(`^>\\s*\\*\\*${name}:\\*\\*\\s*(.+)$`, 'm').exec(raw)
     return m ? m[1].trim() : null
   }
-  return { severity: read('Severity'), incident: read('Incident') }
+  return {
+    severity: read('Severity'),
+    incident: read('Incident'),
+    epic: unquote(read('Epic')) || null,
+    waitsOn: parseWaitsOn(read('Waits on')),
+    lanes: parseLanes(read('Lanes')),
+  }
+}
+
+// A header value a hand may have wrapped in backticks, as a spec name usually is.
+function unquote(value) {
+  return value == null ? value : value.replace(/^`(.*)`$/, '$1').trim()
+}
+
+// `> **Waits on:** <spec>[ phase N], …` → `[{ spec, phase }]`, `phase` null for
+// a whole-spec wait. `none` (or the `—` placeholder) is an empty list.
+//
+// A MALFORMED ENTRY IS KEPT, never dropped: `{ spec: null, phase: null, raw }`.
+// Dropping it would make a wait nobody can read look like no wait at all, and
+// `epic status` would then call the member ready — the accusation running the
+// wrong way. Kept, it reports as cannot-tell (`.claude/rules/negative-checks.md`).
+function parseWaitsOn(value) {
+  if (!value) return []
+  const trimmed = value.trim()
+  if (/^(none|—|-)$/i.test(trimmed)) return []
+  return trimmed
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const m = /^`?([a-z0-9][a-z0-9._-]*)`?(?:\s+phase\s+(\d+))?$/i.exec(part)
+      if (!m) return { spec: null, phase: null, raw: part }
+      return { spec: m[1], phase: m[2] ? Number(m[2]) : null, raw: part }
+    })
+}
+
+// `> **Lanes:** N` — a positive whole number, else null. An unreadable cap is
+// no cap, which `epic status` reports as uncapped rather than guessing one.
+function parseLanes(value) {
+  if (!value) return null
+  const m = /^(\d+)$/.exec(value.trim())
+  const n = m ? Number(m[1]) : 0
+  return n > 0 ? n : null
 }
 
 // Resolve a fix spec's `> **Incident:**` header to the incident spec it names:
@@ -1131,5 +1175,6 @@ module.exports = {
   remoteStateReading,
   stateNamesFor,
   specHeaders,
+  parseWaitsOn,
   linkedIncident,
 }

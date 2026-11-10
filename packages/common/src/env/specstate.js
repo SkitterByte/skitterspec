@@ -24,6 +24,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const { phaseProgress } = require('./phases.js')
+const { isEpic } = require('./resolve.js')
 
 // Most live first: a spec that exists in two buckets mid-`git mv` is reported
 // where it is going, not where it was.
@@ -76,7 +77,10 @@ function readSpecState(root, folder, io = defaultIo) {
       if (overview === null) return { found: false, reason: `${bucket}/${folder} has no readable 00-overview.md` }
       const phaseFiles = files.filter((f) => /^(?!00-)\d{2}-.*\.md$/.test(f)).sort()
       const phases = phaseFiles.map((f) => ({ file: f, content: tryRead(io, () => io.readFile(path.join(dir, f))) }))
-      const progress = phases.length ? phaseProgress(phases) : inlineProgress(overview)
+      // An epic has no phases by construction (its prefix says so), so zero is
+      // an answer for it — where any other folder without phase files is a
+      // legacy overview to read inline.
+      const progress = phases.length || isEpic(folder) ? phaseProgress(phases) : inlineProgress(overview)
       return state(bucket, false, overview, progress)
     }
     const bare = tryRead(io, () => io.readFile(path.join(root, 'specs', bucket, `${folder}.md`)))

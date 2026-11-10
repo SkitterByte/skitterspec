@@ -104,7 +104,7 @@ shape belongs to Phase 0's label routing, which fires before any grilling has
 happened and so has nothing to lose. The full routing matrix lives in
 `.claude/rules/spec-planning.md`.
 
-### Propose the kind — feature, chore or issue
+### Propose the kind — feature, chore or issue (or an epic of them)
 
 This skill writes three kinds of spec, and
 **you propose which from what the grilling defined, with a one-line reason; the user confirms or overrides.**
@@ -129,7 +129,16 @@ answer), and its commits default to `chore`/`refactor`/`ci` types with no
 still gives it a worktree, because the document needs one and the history is
 the point.
 
-There is no `/spec-chore` or `/spec-issue` and none should be added: one entry
+**And when the grilling describes several specs and their order, it is an epic.**
+An **epic** is a spec of specs: it records why a group of specs belongs together
+and how many may run at once, and holds no phases of its own — its progress is
+its members'. Signals: the work is plainly more than one spec, the user is
+sequencing them ("this has to land before that"), or two of them would edit the
+same files. Propose it as *"several specs with an order between them → epic"*,
+and on a yes write the epic **and** each member as its own spec — the epic is
+not a container for their phases (see **Writing an epic** below).
+
+There is no `/spec-chore`, `/spec-issue` or `/spec-epic` and none should be added: one entry
 point, one grill, and the kind is an output of understanding the work rather
 than a door the user must pick before describing it. The kinds with their own
 doors — bug, hotfix, and the **incident**, an outage or degradation of a live
@@ -141,8 +150,9 @@ unraised is a missed watch, not a reason to write the wrong kind.
 
 ## Phase B — write the spec
 
-This skill is for **features, chores and issues**. For bugs, use `/spec-bug`
-(test-first, red→green); for a live outage, `/spec-incident`.
+This skill is for **features, chores and issues**, and the **epics** that group
+them. For bugs, use `/spec-bug` (test-first, red→green); for a live outage,
+`/spec-incident`.
 
 ### Write it in its own worktree
 
@@ -210,8 +220,8 @@ move to, **warn, don't refuse**, and say the trailer for that commit wants
   notes. **Even a single-phase spec gets `01-….md`** — never lump phase tasks
   into `00-overview.md`. This keeps each phase easy to dive into on its own.
 - Choose a short kebab-case name and **prefix it with the kind** — `feat-` for
-  a feature, `chore-` for a chore, `issue-` for an issue (the bug counterpart
-  uses `bug-`, the incident one `incident-`).
+  a feature, `chore-` for a chore, `issue-` for an issue, `epic-` for an epic
+  (the bug counterpart uses `bug-`, the incident one `incident-`).
 
 <!-- seam:spec-status-owner -->
 
@@ -234,6 +244,11 @@ the codebase, link rather than duplicate):
 > incident spec; the next push links the two as related on the tracker, and
 > `/spec-complete` on the incident counts this spec among its fixes. Omit the
 > line entirely otherwise>
+> **Epic:** <epic-<name> — only when this spec is a member of an epic. Omit the
+> line entirely otherwise>
+> **Waits on:** <what must land first: `<spec>` (that spec complete) or
+> `<spec> phase N` (that phase ✅ on the base branch), comma-separated, or
+> `none`. Only on an epic member; a wait may name a spec outside the epic>
 > **Gating:** <flag name — or "none: <one-line reason>". Only when release gating
 > is configured; omit the line entirely otherwise. A chore defaults to
 > "none: not user-facing". An empty value or a bare
@@ -326,6 +341,22 @@ order). Each phase file uses this template:
 
 Keep the `00-overview.md` phase index and the phase files in sync: the index row
 is the one-line summary + status; the phase file is the detail.
+
+### Writing an epic
+
+An epic is `specs/backlog/epic-<name>/00-overview.md` and nothing else —
+**no phase files**, and it is the one kind for which that is valid. Its overview takes
+the template above with `> **Type:** Epic`, an optional `> **Lanes:** N` (how
+many members may be in flight at once), and in place of `## Phases` a line saying
+its progress is its members'. Its Decisions are the place to record **why** the
+order is what it is.
+
+The order itself is **not** written in the epic. Each member is an ordinary spec
+of its own kind, written with this skill, carrying `> **Epic:** epic-<name>`
+and its `> **Waits on:**` — so a member read alone says what it waits for, and
+the epic can never disagree with its members about it. Write the epic first,
+then each member; a member's `Area:` is what later tells two members apart as
+safe or unsafe to run at once, so be specific there.
 
 The **State log** is the audit trail of folder/status transitions — every
 lifecycle skill (`/spec-start`, `/spec-complete`, `/spec-cancel`) appends one row

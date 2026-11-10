@@ -4,7 +4,7 @@
  * Pure spec/branch resolution for per-spec isolation.
  *
  * Given a spec argument (a folder name or path) it locates the spec folder under
- * `specs/**`, splits the `feat-`/`bug-`/`hotfix-`/`chore-`/`issue-`/`incident-` prefix into
+ * `specs/**`, splits the `feat-`/`bug-`/`hotfix-`/`chore-`/`issue-`/`incident-`/`epic-` prefix into
  * `{ type, slug }`, derives the
  * git branch from the config's `branch.pattern` (provider-neutral; `{identifier}`
  * is filled from a tracker id when one is configured, else it falls back to
@@ -77,8 +77,10 @@ function readPhases(specDir, { overviewFile = '00-overview.md' } = {}) {
     .map((e) => e.name)
     .sort()
   // No phase files is not "no phases" — it is a legacy layout whose phases live
-  // inline in the overview, and this reader cannot see them.
-  if (!files.length) return null
+  // inline in the overview, and this reader cannot see them. The one exception
+  // is an epic, whose prefix says positively that it has none: there is no
+  // phase for `/spec-next` to build, and that is an answer, not a cannot-tell.
+  if (!files.length) return isEpic(specDir) ? { total: 0, done: 0, hasNextPhase: false, live: null } : null
 
   let done = 0
   for (const name of files) {
@@ -296,13 +298,21 @@ function phaseIsDone(text) {
   return /^#\s.*✅\s*$/m.test(text)
 }
 
-// Split a `feat-`/`bug-`/`hotfix-`/`chore-`/`issue-`/`incident-` prefix.
-// Unknown prefix → type defaults to `feat` and the whole folder name is the
-// slug.
+// Split a `feat-`/`bug-`/`hotfix-`/`chore-`/`issue-`/`incident-`/`epic-`
+// prefix. Unknown prefix → type defaults to `feat` and the whole folder name is
+// the slug.
 function splitPrefix(folder) {
-  const m = /^(feat|bug|hotfix|chore|issue|incident)-(.+)$/.exec(folder)
+  const m = /^(feat|bug|hotfix|chore|issue|incident|epic)-(.+)$/.exec(folder)
   if (m) return { type: m[1], slug: m[2] }
   return { type: 'feat', slug: folder }
+}
+
+// An epic is a spec of specs: a folder with an overview and no phase files of
+// its own, its progress being its members'. Decided off the folder prefix — the
+// positive signal every other kind uses — never off the absence of phase files,
+// which is also what a legacy inline-phase spec looks like.
+function isEpic(folder) {
+  return splitPrefix(path.basename(String(folder || ''))).type === 'epic'
 }
 
 // Repo identity used for token expansion.
@@ -831,6 +841,7 @@ module.exports = {
   assertPrimaryOnMain,
   branchFor,
   splitPrefix,
+  isEpic,
   repoInfo,
   expandTokens,
   findSpecFolder,
