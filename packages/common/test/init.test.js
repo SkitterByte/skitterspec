@@ -773,3 +773,20 @@ test('--gating and --no-gating parse', () => {
   assert.strictEqual(parse(['--no-gating']).opts.gating, false)
   assert.strictEqual(parse([]).opts.gating, undefined, 'absent stays absent')
 })
+
+// --- a manifest written by an earlier Windows install (chore-windows-ci) -------
+
+test('STAYS SILENT: a manifest with \\-separated keys still protects a customized file', async () => {
+  const dir = tmpProject()
+  await init({ dir, force: false, claudeMd: false, mode: 'init' })
+  const one = specPlanning(dir)
+  // Rewrite the manifest the way a pre-fix Windows install recorded it.
+  const m = readManifest(dir)
+  const legacy = {}
+  for (const [k, v] of Object.entries(m.files)) legacy[k.replace(/\//g, '\\')] = v
+  fs.writeFileSync(path.join(dir, 'specs', '.core', '.skitterspec-manifest.json'), JSON.stringify({ version: m.version, files: legacy }))
+  fs.appendFileSync(path.join(dir, one.relPath), '\nMY EDIT\n')
+  const read = readManifest(dir)
+  assert.ok(read.files[one.relPath], 'the record is found under its / key')
+  assert.strictEqual(managedState(dir, one.relPath, read), 'customized')
+})

@@ -368,10 +368,18 @@ function readManifest(dir) {
   try {
     const parsed = JSON.parse(fs.readFileSync(path.join(dir, MANIFEST_FILE), 'utf8'))
     if (parsed && typeof parsed === 'object' && parsed.files && typeof parsed.files === 'object') {
+      // KEYS ARE `/`-SEPARATED ON READ, whoever wrote them. A Windows install
+      // before chore-windows-ci recorded `.claude\\skills\\…`; looked up by the
+      // `/` paths every caller now uses, its records went missing — and a
+      // missing record is what turns a user's edited retired file into one
+      // that gets deleted. No managed path contains a backslash, so this
+      // cannot merge two genuine entries.
+      const files = {}
+      for (const [key, hash] of Object.entries(parsed.files)) files[key.replace(/\\/g, '/')] = hash
       return {
         version: parsed.version || MANIFEST_VERSION,
-        files: parsed.files,
-        baselined: Object.keys(parsed.files).length > 0,
+        files,
+        baselined: Object.keys(files).length > 0,
       }
     }
   } catch {
