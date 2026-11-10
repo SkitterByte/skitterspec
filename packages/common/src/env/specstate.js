@@ -65,7 +65,7 @@ function tryRead(io, fn) {
  * @param {string} root    the checkout to read — a spec's worktree, normally
  * @param {string} folder  the spec's folder name (`feat-x`)
  * @param {object} [io]    `{ readdir, readFile }`, each throwing on failure
- * @returns {{ found: true, bucket, legacy, phasesDone, phasesTotal, currentPhase, status, developer }
+ * @returns {{ found: true, bucket, legacy, phasesDone, phasesTotal, currentPhase, status, developer, epic }
  *         | { found: false, reason }}
  */
 function readSpecState(root, folder, io = defaultIo) {
@@ -99,6 +99,7 @@ function state(bucket, legacy, text, progress) {
     currentPhase: progress ? progress.current : null,
     status: header(text, 'Status'),
     developer: header(text, 'Developer'),
+    epic: (header(text, 'Epic') || '').replace(/^`(.*)`$/, '$1') || null,
   }
 }
 

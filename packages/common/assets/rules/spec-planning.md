@@ -647,17 +647,17 @@ none of them describes.
 - **Other rules specs must honour:** link the relevant `.claude/rules/*.md`
   (architecture, code style, testing, database, etc.) rather than restating them.
 
-## Spec types — Feature, Chore, Issue, Bug, Hotfix, Incident
+## Spec types — Feature, Chore, Issue, Bug, Hotfix, Incident, Epic
 
-Every spec is one of six types, recorded **both** in the header and the filename:
+Every spec is one of seven types, recorded **both** in the header and the filename:
 
 - **Header field:** `> **Type:** Feature`, `> **Type:** Chore`,
-  `> **Type:** Issue`, `> **Type:** Bug`, `> **Type:** Hotfix`, or
-  `> **Type:** Incident` (authoritative, greppable:
+  `> **Type:** Issue`, `> **Type:** Bug`, `> **Type:** Hotfix`,
+  `> **Type:** Incident`, or `> **Type:** Epic` (authoritative, greppable:
   `grep -rl 'Type:.*Hotfix' specs/`).
 - **Filename prefix:** `feat-<name>` for features, `chore-<name>` for chores,
   `issue-<name>` for issues, `bug-<name>` for bugs, `hotfix-<name>` for
-  hotfixes, `incident-<name>` for incidents (visible in listings;
+  hotfixes, `incident-<name>` for incidents, `epic-<name>` for epics (visible in listings;
   glob-safe — never use `[BUG]`/`[FEATURE]` brackets).
 
 A **Chore** is code work no end user sees — tooling, CI, dependency bumps,
@@ -693,6 +693,36 @@ its phases. It carries `> **Severity:**` (Azure's literal values,
 `1 - Critical` … `4 - Low`) and a `## Timeline` appended to as the incident
 unfolds; `/spec-complete` writes `incident-log.md` from it and pushes the log
 onto the tracker item as a comment.
+
+An **Epic** is a spec of specs: `epic-<name>/00-overview.md` and
+**no phase files** — the one kind for which that is valid — recording why a group belongs
+together and, optionally, `> **Lanes:** N`, how many members may be in flight at
+once. `/spec` proposes it when the grill describes several specs and their
+order. **The order lives on the members, never on the epic**: each carries
+`> **Epic:** epic-<name>` and `> **Waits on:**`, and any phase file may carry
+its own `Waits on:` for a wait that holds only that phase.
+`skitterspec epic status <epic>` turns those headers into what can start now,
+what is blocked and on what, the waves, the phase-level sync points, and the
+pairs whose `Area:` overlaps (never together). A wait is met only on the base
+branch — the spec in `complete/`, or that phase file reading done — and
+anything it cannot see is cannot-tell, never met.
+
+The rule is checked **where the work happens**: `/spec-start` and `/spec-next`
+on a member ask `skitterspec epic check` before building, and an unmet wait
+warns and offers a recorded bypass (`.claude/rules/offered-unblocks.md`) — it
+never refuses, and it never lets a build pass the wait in silence. An epic
+itself gets a documents-only worktree, `/spec-next` refuses it, and
+`/spec-complete` refuses while a member is open, offering to complete with them
+listed.
+
+**Migrating an `issue-` plan spec to an epic.** A coordination spec written
+before epics existed — waves as phases, ticked by hand — becomes one by moving
+its order onto its members: rename the folder to `epic-<name>` (`git mv`), set
+`> **Type:** Epic`, add `> **Epic:**` and `> **Waits on:**` to each member (and
+a phase file's own `Waits on:` for a phase-level sync point), and delete the
+wave phase files — `epic status` derives them. Keep the plan's Decisions: they
+are the *why* the members' headers cannot say. Then check that
+`skitterspec epic status <epic>` reproduces the plan you had.
 
 ### Kind routing — any door, the right spec
 
@@ -744,7 +774,7 @@ list to maintain, and nothing here reads a label. A ticketing provider's
 intake label routing (`intake.bugLabels` / `intake.hotfixLabels`) is a
 separate, earlier check and is unchanged by this.
 
-All six types share the same lifecycle folders below — type is orthogonal to
+All seven types share the same lifecycle folders below — type is orthogonal to
 status.
 
 ## Header fields & State log (audit trail)
@@ -752,7 +782,7 @@ status.
 Every spec header carries:
 
 - `> **Name:**` — the spec's folder name
-  (`feat-`/`chore-`/`issue-`/`bug-`/`hotfix-`/`incident-<kebab-name>`).
+  (`feat-`/`chore-`/`issue-`/`bug-`/`hotfix-`/`incident-`/`epic-<kebab-name>`).
   It's the handle you pass to `/spec-start` and the other lifecycle skills, surfaced
   in the header so it's copy-pasteable without digging for the folder name.
 - `> **Author:**` — who created the spec (set at `/spec` / `/spec-bug`, defaults
@@ -771,6 +801,14 @@ Every spec header carries:
   `incident-<name>`. The push links the two as related on the tracker
   (one-way; the repo owns the link), and `/spec-complete` on the incident
   counts the spec among its fixes. Absent on everything else.
+- `> **Epic:**` — on a spec that is a **member** of an epic: `epic-<name>`.
+  Absent on everything else.
+- `> **Waits on:**` — on an epic member: what its start waits for, as
+  `<spec>` (that spec complete) or `<spec> phase N` (that phase done on the base
+  branch), comma-separated, or `none`. A phase file may carry its own, holding
+  only that phase.
+- `> **Lanes:**` — on an epic, optional: how many members may be in flight at
+  once.
 
 **Under a provider's default `pull`, these three are the tracker's** —
 `Status:`, `Developer:` and the State log — and new specs carry

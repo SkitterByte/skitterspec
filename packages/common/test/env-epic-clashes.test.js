@@ -131,14 +131,16 @@ test('skitterspec epic check: silent for a non-member and a clear member', () =>
   assert.deepStrictEqual(JSON.parse(check('feat-session-recipes', '--json')), {
     spec: 'feat-session-recipes',
     epic: EPIC,
+    phase: null,
     warnings: [],
+    blocked: false,
   })
   assert.deepStrictEqual(JSON.parse(check('feat-loner', '--json')).epic, null)
 })
 
 test('/spec-start relays epic check once and never refuses on it', () => {
   const skill = fs.readFileSync(path.join(__dirname, '..', 'assets', 'skills', 'spec-start', 'SKILL.md'), 'utf8')
-  assert.match(skill, /## 4c\. Note what the spec's epic says/)
-  assert.match(skill, /skitterspec epic check <name>/)
+  assert.match(skill, /## 4c\. Ask the spec's epic/)
+  assert.match(skill, /skitterspec epic check <name> --json/)
   assert.match(skill, /\*\*This check warns and never refuses\.\*\*/)
 })

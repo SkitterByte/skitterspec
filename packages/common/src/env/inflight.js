@@ -81,9 +81,17 @@ function formatInFlight(rows, { dir }) {
   const width = Math.max(...rows.map((r) => r.spec.length))
   const live = rows.filter(isInFlight).length
   const out = [live ? `${live} spec${live === 1 ? '' : 's'} in flight` : 'no specs in flight']
-  for (const r of rows) {
-    out.push(`  ${r.spec.padEnd(width)}  ${detailOf(r)}`)
-    out.push(`    ${path.relative(dir, r.worktree) || r.worktree}`)
+  const row = (r, indent) => {
+    out.push(`${indent}${r.spec.padEnd(width)}  ${detailOf(r)}`)
+    out.push(`${indent}  ${path.relative(dir, r.worktree) || r.worktree}`)
+  }
+  // Members are listed under their epic, read off each spec's own copy; a spec
+  // in no epic — the common case — prints exactly as it always has.
+  for (const r of rows.filter((x) => !x.epic)) row(r, '  ')
+  const epics = [...new Set(rows.map((r) => r.epic).filter(Boolean))].sort()
+  for (const epic of epics) {
+    out.push(`  ${epic}`)
+    for (const r of rows.filter((x) => x.epic === epic)) row(r, '    ')
   }
   // SAID ONLY WHEN TRUE. On an idle repo, or one whose worktrees all agree with
   // this checkout, the line would explain a discrepancy that is not there.

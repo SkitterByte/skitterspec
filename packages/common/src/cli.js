@@ -72,6 +72,7 @@ const {
   repoInfo,
   expandTokens,
   splitPrefix,
+  isEpic,
   parseBaseVersion,
   BUCKETS,
 } = require('./env/resolve.js')
@@ -187,7 +188,15 @@ const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } 
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
 const { collectInFlight, detailOf, formatInFlight, isInFlight } = require('./env/inflight.js')
-const { epicStatus, formatEpicStatus, indexSpecTree, epicHeaders, memberCheck } = require('./env/epic.js')
+const {
+  epicStatus,
+  formatEpicStatus,
+  indexSpecTree,
+  epicHeaders,
+  memberCheck,
+  bypassLine,
+  appendChangelog,
+} = require('./env/epic.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -303,10 +312,14 @@ Usage:
                               tell, waves, sync points, never-together pairs
                               and free lanes (--json). Waits are met only on
                               the base branch. Always exits 0.
-  skitterspec epic check <spec>
-                              What starting a member should hear: a member
-                              sharing Area: paths already in flight. Silent
-                              when nothing; warns, never refuses (--json).
+  skitterspec epic check <spec> [--phase N]
+                              What starting a member (or building phase N)
+                              should hear: unmet waits, with a bypass offer the
+                              first time, and members on the same files in
+                              flight. Silent when nothing; never refuses.
+  skitterspec epic bypass <spec> [--phase N]
+                              Build past an unmet wait, recorded as a dated
+                              line in the member's Changelog.
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -584,29 +597,123 @@ function epicStatusCommand(argv) {
 }
 
 /**
- * `skitterspec epic check <spec>` — what starting or building one member
- * should hear about its epic, asked by `/spec-start`. Prints nothing when there
- * is nothing to say: a spec in no epic, or an epic with nothing in its way.
- * Warns and never refuses (spec feat-epics, Decision 4). Always exits 0.
+ * `skitterspec epic check <spec> [--phase N]` — what starting or building one
+ * member should hear about its epic, asked by `/spec-start` (the start) and
+ * `/spec-next` (`--phase N`). Prints nothing when there is nothing to say: a
+ * spec in no epic, or one with nothing in its way.
+ *
+ * An unmet wait is `blocked`, with a `bypass` offer the first time it is asked
+ * (`.claude/rules/offered-unblocks.md`); `--offered` spends that offer. It
+ * never refuses anything itself and always exits 0 — the skill relays it and
+ * the operator answers (spec feat-epics, Decision 8).
  */
 function epicCheckCommand(argv) {
   const json = argv.includes('--json')
   const spec = epicPositional(argv)
-  if (!spec) {
-    process.stdout.write('Usage: skitterspec epic check <spec> [--json] [--dir <path>]\n')
+  const phase = phaseFlag(argv)
+  if (!spec || phase === undefined) {
+    process.stdout.write('Usage: skitterspec epic check <spec> [--phase N] [--offered] [--json] [--dir <path>]\n')
     return
   }
+  const ctx = memberContext(argv, json, spec)
+  if (!ctx) return
+  const { result, recordFile, record } = ctx.check(phase)
+  if (argv.includes('--offered')) {
+    const key = phase === null ? 'start' : `phase ${phase}`
+    if (result.offer) writeEpicRecord(recordFile, { ...record, offered: [...new Set([...(record.offered || []), key])] })
+    process.stdout.write(json ? JSON.stringify({ spec, offered: key }, null, 2) + '\n' : '')
+    return
+  }
+  if (json) {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+    return
+  }
+  for (const w of result.warnings) process.stdout.write(`epic check: ${spec} (${result.epic}) — ${w.message}\n`)
+  if (result.blocked) process.stdout.write(`epic check: ${result.reason}\n`)
+}
+
+/**
+ * `skitterspec epic bypass <spec> [--phase N]` — build past an unmet wait, on
+ * the record. Writes a dated line into the member's own Changelog, in its
+ * worktree, and remembers the scope so the same wait is not asked again. A
+ * wait already met has nothing to bypass and writes nothing.
+ */
+function epicBypassCommand(argv) {
+  const spec = epicPositional(argv)
+  const phase = phaseFlag(argv)
+  if (!spec || phase === undefined) {
+    process.stdout.write('Usage: skitterspec epic bypass <spec> [--phase N] [--dir <path>]\n')
+    return
+  }
+  const ctx = memberContext(argv, false, spec)
+  if (!ctx) return
+  const { result, recordFile, record } = ctx.check(phase)
+  if (!result.blocked) {
+    process.stdout.write(`epic bypass: ${spec} has no unmet wait${phase === null ? '' : ` for phase ${phase}`} — nothing recorded.\n`)
+    return
+  }
+  // Written where the spec is being built — its own worktree — and nowhere
+  // else: on the base branch the line would be a change nobody reviews.
+  const file = ctx.worktreeFile
+  if (!file) {
+    process.stdout.write(`epic bypass: ${spec} has no worktree to record it in — /spec-start it first. Nothing recorded.\n`)
+    process.exitCode = 1
+    return
+  }
+  const line = bypassLine(result, new Date().toISOString().slice(0, 10))
+  fs.writeFileSync(file, appendChangelog(fs.readFileSync(file, 'utf8'), line))
+  writeEpicRecord(recordFile, { ...record, bypassed: [...new Set([...(record.bypassed || []), ...result.scopes])] })
+  process.stdout.write(`epic bypass: recorded in ${path.relative(process.cwd(), file) || file}\n  ${line}\n`)
+}
+
+// `--phase N` → N; absent → null (the start); present but not a number →
+// undefined, which the callers refuse as usage.
+function phaseFlag(argv) {
+  const at = argv.indexOf('--phase')
+  if (at === -1) return null
+  const n = Number(argv[at + 1])
+  return Number.isInteger(n) && n > 0 ? n : undefined
+}
+
+// One member, read for `check` and `bypass`: its epic (off its own copy — the
+// worktree's where it has one, else the base branch's), the record of offers
+// and bypasses, and where its worktree overview lives. null, having said why,
+// when the base branch cannot be read.
+function memberContext(argv, json, spec) {
   const inputs = epicInputs(argv, json, spec)
-  if (!inputs) return
-  // The member's own copy names its epic: the worktree's where it has one,
-  // else the base branch's.
+  if (!inputs) return null
   const own = inputs.worktrees.find((w) => w.folder === spec)
   const entry = inputs.index.get(spec)
   const text = own ? own.overview : entry ? inputs.readFile(`specs/${entry.bucket}/${spec}/00-overview.md`) : null
   const epic = text ? epicHeaders(text).epic : null
-  const result = epic ? memberCheck(epicStatus({ epic, ...inputs }), spec) : { spec, epic: null, warnings: [] }
-  if (json) process.stdout.write(JSON.stringify(result, null, 2) + '\n')
-  else for (const w of result.warnings) process.stdout.write(`epic check: ${spec} (${epic}) — ${w.message}\n`)
+  const recordFile = path.join(inputs.dir, '.spec-env', 'epics', `${spec}.json`)
+  const record = readEpicRecord(recordFile)
+  return {
+    worktreeFile: own ? path.join(own.root, 'specs', own.bucket, spec, '00-overview.md') : null,
+    check: (phase) => ({
+      recordFile,
+      record,
+      result: epic
+        ? memberCheck(epicStatus({ epic, ...inputs }), spec, { phase, record })
+        : { spec, epic: null, phase, warnings: [], blocked: false },
+    }),
+  }
+}
+
+// The per-spec record of offers raised and waits bypassed. Machine-local and
+// gitignored, like the review sidecars; the Changelog line is the durable half.
+// An unreadable record is an empty one: the cost is an offer asked again.
+function readEpicRecord(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
+function writeEpicRecord(file, record) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(record, null, 2) + '\n')
 }
 
 function epicPositional(argv) {
@@ -652,7 +759,7 @@ function epicInputs(argv, json, subject) {
         .map((p) => worktreeOverview(p.project, p.folder))
         .filter(Boolean)
     : []
-  return { base, index: indexSpecTree(listing), readFile, candidates, worktrees }
+  return { dir, base, index: indexSpecTree(listing), readFile, candidates, worktrees }
 }
 
 // A provisioned spec's own overview and bucket, read in its worktree — the
@@ -679,7 +786,7 @@ function worktreeOverview(root, folder) {
         }
         return { n: Number(f.slice(0, 2)), text }
       })
-    return { folder, bucket, overview, phases }
+    return { folder, bucket, overview, phases, root }
   }
   return null
 }
@@ -1112,7 +1219,9 @@ function specEnvNospec(dir, config, name, flags = {}) {
 }
 
 function specEnvUp(dir, config, specArg, flags = {}) {
-  const docs = flags.docs === true
+  // An epic holds no code — its work is its members' — so its tree is always a
+  // documents-only one, with or without the flag (spec feat-epics).
+  const docs = flags.docs === true || isEpic(String(specArg || ''))
 
   // THE AUTHORING LANE — `up <name> --docs` for a spec that is not written yet.
   // `/spec` provisions BEFORE it writes a line (feat-main-is-a-landing-zone
@@ -1498,7 +1607,7 @@ function specEnvUp(dir, config, specArg, flags = {}) {
  * primary checkout already has its dependencies.
  */
 function specEnvBootstrap(dir, config, specArg, flags = {}) {
-  const docs = flags.docs === true
+  const docs = flags.docs === true || isEpic(String(specArg || ''))
   const json = flags.json === true
   const say = (line) => process.stdout.write(line + '\n')
   const refuse = (msg) => {
@@ -7226,7 +7335,8 @@ async function run(argv) {
     const [sub, ...eArgs] = rest
     if (sub === 'status') epicStatusCommand(eArgs)
     else if (sub === 'check') epicCheckCommand(eArgs)
-    else process.stdout.write('Usage: skitterspec epic <status <epic> | check <spec>> [--json] [--dir <path>]\n')
+    else if (sub === 'bypass') epicBypassCommand(eArgs)
+    else process.stdout.write('Usage: skitterspec epic <status <epic> | check <spec> | bypass <spec>> [--phase N] [--json] [--dir <path>]\n')
     return
   }
 

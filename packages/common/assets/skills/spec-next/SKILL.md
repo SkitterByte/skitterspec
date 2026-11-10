@@ -116,6 +116,10 @@ A **name argument** is accepted, but it must *match* the spec in flight — it
 narrows a re-run, it does not select a different spec. A mismatch refuses,
 naming both.
 
+**An epic has no phases to build.** When the spec resolved is an `epic-`, refuse
+with the `⏸` block and name `skitterspec epic status <epic>` in `Next`: an
+epic's work is its members', each built with `/spec-next` in its own worktree.
+
 ## 2. Pre-flight — the last phase is committed, and was answered
 
 Before writing any code for this phase, get the workspace clean:
@@ -181,8 +185,37 @@ Before writing any code for this phase, get the workspace clean:
 ## 3. Implement the phase
 
 Identify the **first unfinished phase** from the `00-overview.md` phase index,
-then open its phase file (`0N-<slug>.md`) — that file holds the tasks. Mark it
-started: set the phase-file heading to `🔄` and its `> **Status:**` to
+then open its phase file (`0N-<slug>.md`) — that file holds the tasks.
+
+**Ask the spec's epic before building it.** Run
+`skitterspec epic check <spec> --phase <N> --json`. It answers for every spec:
+one in no epic, or with nothing in its way, comes back with no warnings and
+`blocked: false` — carry on in silence. Otherwise:
+
+- **`warnings`** — a member on the same files in flight, or a wait whose
+  landing cannot be read. Relay each once and carry on.
+- **`blocked: true`** — this phase (or the spec's start) waits on something
+  not yet on the base branch. Relay the `reason`, then,
+  **only where `offer` is present**, put its `label` and Cancel to the operator exactly as
+  `.claude/rules/offered-unblocks.md` describes, spending it with
+  `skitterspec epic check <spec> --phase <N> --offered` as you raise it.
+  The offer runs `skitterspec epic bypass <spec> --phase <N>`, which records the
+  choice in the spec's Changelog, and the build carries on. Cancel stops with
+  the `⏸` block — nothing was marked started. With no `offer` (it was already
+  raised once), stop with `⏸` and name the bypass command from the `reason` in
+  `Next`.
+
+**Why it is asked here and not only at `/spec-start`.** The rule has to show up
+where the work happens. In the field the sync point lived in a coordination
+spec while `/spec-next` in the dependent spec's worktree — which never read it —
+built the waiting phase anyway. A phase-level wait is invisible to a check made
+once at the start, so each phase is asked as it is built.
+
+**It warns; it never refuses on its own.** The operator may know an edge does
+not matter for this phase, and the bypass is that knowledge on the record. What
+it rules out is the silent build.
+
+Mark it started: set the phase-file heading to `🔄` and its `> **Status:**` to
 `In progress`, and flip the matching row in the overview phase index to `🔄`.
 
 **Then sync with the tracker (only if a provider is installed).** The phase has

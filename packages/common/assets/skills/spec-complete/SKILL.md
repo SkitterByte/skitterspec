@@ -42,6 +42,25 @@ Before marking complete, confirm the work is actually finished:
   is its own, and step 4 commits that.
 
 
+### An epic — complete after its members
+
+**Only for `Type: Epic` specs** (folder prefix `epic-`); every other kind
+skips this in silence. An epic has no phase files, so the phase checks above
+have nothing to read for it — its progress is its members'.
+
+1. **Check for open members.** Run `skitterspec epic status <spec> --json` and
+   read `members`: any whose `bucket` is not `complete` or `cancelled` is still
+   open. Any open member: **refuse**, naming each with its bucket, and offer to
+   complete anyway with them listed as outstanding — the operator answers;
+   record the choice in the epic's Changelog either way, naming the members
+   left open.
+   BLIND SPOT, named: a member authored on its own branch and neither landed
+   nor provisioned here is invisible to the engine — acceptable, for the
+   reason the incident check below gives (`.claude/rules/negative-checks.md`).
+2. **Its landing carries documents only.** An epic's worktree is
+   documents-only, so the land in step 6 moves the overview and nothing else;
+   every member landed — or was listed as outstanding — on its own.
+
 ### An incident spec — the log, and the open-fix check
 
 **Only for `Type: Incident` specs** (folder prefix `incident-`); every other

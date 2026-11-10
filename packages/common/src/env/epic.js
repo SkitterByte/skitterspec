@@ -420,14 +420,67 @@ function formatEpicStatus(s) {
  * declared, not measured (Decision 4). A spec that is no member of anything
  * hears nothing.
  */
-function memberCheck(status, spec) {
+function memberCheck(status, spec, { phase = null, record = {} } = {}) {
   const flying = new Set(status.inFlight.map((m) => m.spec))
   const warnings = status.clashes
     .filter((c) => c.specs.includes(spec))
     .map((c) => ({ with: c.specs.find((x) => x !== spec), paths: c.paths }))
     .filter((c) => flying.has(c.with))
     .map((c) => ({ kind: 'clash', ...c, message: `${c.with} is in flight and edits ${c.paths.join(', ')} too` }))
-  return { spec, epic: status.epic, warnings }
+
+  // THE WAITS this build stands behind: the spec's start, always — a start
+  // bypassed at `/spec-start` is not asked again — and, with `phase`, that
+  // phase's own. Read where the work happens, which is the whole point
+  // (Decision 8): the field example's phase 2 was built because the place it
+  // was built never read the plan.
+  const member = status.members.find((m) => m.spec === spec)
+  const bypassed = new Set(record.bypassed || [])
+  const scoped = []
+  if (member && !bypassed.has('start')) scoped.push(...member.waits.map((w) => ({ scope: 'start', wait: w })))
+  if (phase !== null && !bypassed.has(`phase ${phase}`)) {
+    for (const p of status.syncPoints) {
+      if (p.spec === spec && p.phase === phase) scoped.push({ scope: `phase ${phase}`, wait: p.wait })
+    }
+  }
+  const unmet = scoped.filter((s) => s.wait.state === 'unmet')
+  for (const s of scoped.filter((x) => x.wait.state === 'cannot-tell')) {
+    warnings.push({ kind: 'cannot-tell', message: `cannot tell whether ${s.wait.raw} has landed — ${s.wait.why}` })
+  }
+
+  const result = { spec, epic: status.epic, phase, warnings, blocked: unmet.length > 0 }
+  if (!unmet.length) return result
+  const what = phase === null ? `${spec}'s start` : `${spec} phase ${phase}`
+  result.scopes = [...new Set(unmet.map((s) => s.scope))]
+  result.reason =
+    `${what} waits on ${unmet.map((s) => `${s.wait.raw} (${s.wait.why})`).join(', ')} — ` +
+    `land that first, or build anyway with: skitterspec epic bypass ${spec}${phase === null ? '' : ` --phase ${phase}`}`
+  // Offered ONCE per obligation (`.claude/rules/offered-unblocks.md`): spent by
+  // being raised, recorded by `--offered`, so a re-run is a plain refusal.
+  const key = phase === null ? 'start' : `phase ${phase}`
+  if (!(record.offered || []).includes(key)) {
+    result.offer = {
+      kind: 'bypass',
+      label: 'Build it anyway — the wait is recorded as passed over',
+      command: `skitterspec epic bypass ${spec}${phase === null ? '' : ` --phase ${phase}`}`,
+    }
+  }
+  return result
+}
+
+/**
+ * The dated Changelog line a bypass leaves on the member spec — where the next
+ * reader of that spec, and phase 7's re-verify, will find it.
+ */
+function bypassLine(check, date) {
+  const what = check.phase === null ? 'Started' : `Built phase ${check.phase}`
+  return `- ${date} — ${what} past an unmet wait (epic check bypass, ${check.epic}): ${check.reason.split(' — land that first')[0]}.`
+}
+
+// Append `line` to the overview's `## Changelog`, which ends the file in every
+// spec the skills write; a spec without one gains the section.
+function appendChangelog(text, line) {
+  const body = text.replace(/\s*$/, '')
+  return /^## Changelog\s*$/m.test(body) ? `${body}\n${line}\n` : `${body}\n\n## Changelog\n\n${line}\n`
 }
 
 module.exports = {
@@ -441,4 +494,6 @@ module.exports = {
   resolveWait,
   layer,
   memberCheck,
+  bypassLine,
+  appendChangelog,
 }

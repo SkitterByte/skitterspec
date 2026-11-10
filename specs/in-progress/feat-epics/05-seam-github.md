@@ -16,5 +16,6 @@ github_issue_id: "#158"
 - [ ] GitHub: add the member issue as a sub-issue of the epic issue (nesting
       keeps its phase sub-issues under it); verify reads it back
 - [ ] An unlinked epic or member: report, never mint the other
+- [ ] `/spec-list` (GitHub) groups members under their epic's issue
 - [ ] Tests against the GitHub fake: link set, idempotent re-push, member moved
       to another epic re-parents

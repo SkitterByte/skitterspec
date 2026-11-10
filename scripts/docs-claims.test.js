@@ -819,7 +819,6 @@ test('no shipped surface still offers commitWith "none"', () => {
 const TOP_LEVEL_UNDOCUMENTED = {
   update: 'documented in the package READMEs and --help; the site has no install-maintenance page',
   gating: 'opt-in; documented in spec-planning.md and --help, not yet on the site',
-  epic: 'in --help while feat-epics is being built; its site page lands with phase 4 (lifecycle skills)',
 }
 
 function topLevelCommands() {

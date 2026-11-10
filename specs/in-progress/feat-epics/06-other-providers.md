@@ -17,4 +17,5 @@ trackers, each in its native way.
 - [ ] Azure Boards: epic pushed as work item type Epic (via
       `workItemTypeByKind`); member linked as its child in the hierarchy
 - [ ] Each: idempotent re-push, re-parenting, verify read-back
+- [ ] Each provider's `/spec-list` groups members under their epic
 - [ ] Tests per provider against its fake

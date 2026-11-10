@@ -335,18 +335,30 @@ conditional on it. A spec written before the project adopted gating has no heade
 and is not broken — turning this into a gate would accuse the very specs the
 feature was designed not to disturb.
 
-## 4c. Note what the spec's epic says (only for an epic member)
+## 4c. Ask the spec's epic (only for an epic member)
 
-Run `skitterspec epic check <name>`. It prints nothing for a spec in no epic,
-or one with nothing in its way — which is the usual case, so say nothing then.
-When it prints a line — another member of the same epic is already in flight
-and edits the same files — relay it **once**, before phase 1 starts, and
-**carry on**.
+Run `skitterspec epic check <name> --json`. It answers for every spec: one in no
+epic, or with nothing in its way, comes back with no warnings and
+`blocked: false` — the usual case, so say nothing then. Otherwise:
 
-**This check warns and never refuses.** `Area:` is what a spec says it will
-touch, not what it does, so a clash is a reason to look rather than proof two
-specs collide — and the operator may already know they edit different parts of
-the file. Nothing below is conditional on it.
+- **`warnings`** — another member of the same epic is in flight on the same
+  files, or a wait whose landing cannot be read. Relay each **once**, before
+  phase 1 starts, and **carry on**. `Area:` is what a spec says it will touch,
+  not what it does, so a clash is a reason to look rather than proof two specs
+  collide.
+- **`blocked: true`** — the spec's start waits on something not yet on the
+  base branch. Relay the `reason`, then, **only where `offer` is present**, put
+  its `label` and Cancel to the operator as `.claude/rules/offered-unblocks.md`
+  describes, spending it with `skitterspec epic check <name> --offered` as you
+  raise it. The offer runs `skitterspec epic bypass <name>`, which records the
+  choice in the spec's Changelog, and step 6 goes ahead. Cancel ends at step
+  6's **stop here** — the worktree stays provisioned, which is cheap, and phase
+  1 is not built.
+
+**This check warns and never refuses.** The operator may know a wait does not
+matter for this spec, and the bypass is that knowledge on the record.
+`/spec-next` asks again for each phase, because a phase can wait on something
+the start does not.
 
 ## 5. Bring the spec's dev servers up — confirm before heavy steps
 
@@ -361,6 +373,11 @@ To reach the spec at your normal `localhost` URL afterwards, the **user** types
 invoke it yourself.
 
 ## 6. Build phase 1
+
+**An epic has no phase 1.** `spec-env up` gives it a documents-only tree (no
+`setup`, no Docker) whether or not `--docs` was passed, because its work is its
+members'. Skip this step and step 5, end with the block, and name
+`skitterspec epic status <name>` in `Next`.
 
 **`checkout` mode — carry straight on into `/spec-next`** in this session: it
 marks phase 1 started, refreshes the mirror again, builds it with tests and
