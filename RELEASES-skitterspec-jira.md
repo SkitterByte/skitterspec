@@ -5,6 +5,11 @@ What's new for users of skitterspec-jira. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.5.1 — 10 Nov 2026
+
+### Env
+- **Fixed** — spec-env up --plan is now a true dry run: it no longer adds the worktree folder to .claude/settings.local.json or records anything in the registry.
+
 ## 2.5.0 — 10 Nov 2026
 
 **Highlights:** skitterspec now works when your project lives in a subfolder of its git repository, such as a solution folder beside Sql/: specs, worktrees, the review page, the guards and every tracker provider find the project on their own, with nothing to configure.
