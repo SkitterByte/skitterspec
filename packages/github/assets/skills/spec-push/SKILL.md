@@ -205,6 +205,15 @@ say, which includes every case the engine could not tell.
 4. **Close or reopen to match.** A spec or phase in `complete` closes with
    reason `completed`; in `cancelled`, `not_planned`; anywhere else it is open.
    `issue_write` sets `state` and `state_reason`.
+5. **Put an epic member under its epic.** Only when the overview carries
+   `> **Epic:** epic-<name>`. Read that epic's `github_identifier` off its own
+   overview (any bucket). Unlinked → say
+   `epic <name> is not linked yet — parent skipped (push the epic first)` and
+   carry on; never mint it here. Linked → `issue_read` the member; when its
+   parent is already that issue, do nothing; otherwise `sub_issue_write` it
+   under the epic's issue (with `replace_parent` when it had another parent),
+   and read it back. The API path does this itself and prints
+   `parent set: …`.
 
 Milestones, other labels and comments are GitHub-native triage — do **not**
 push them; they're the PM's.

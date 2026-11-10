@@ -99,6 +99,14 @@ function fakeAdapter() {
       if (i && updates.description !== undefined) i.description = updates.description
       return {}
     },
+    async setParent(ref, parentRef) {
+      calls.push(['setParent', String(ref), String(parentRef)])
+      const i = get(ref)
+      const want = String(parentRef).replace(/^#/, '')
+      if (i.parent === want) return { changed: false }
+      i.parent = want
+      return { changed: true }
+    },
     async setStatus(issueOrRef, name) {
       calls.push(['setStatus', String(issueOrRef.id || issueOrRef), name])
       const i = get(issueOrRef)
@@ -930,4 +938,139 @@ test('released counts every Refs: line in one squashed body', async () => {
   const report = JSON.parse((await run(['released', 'HEAD', '--json'], dir)).out)
   assert.deepStrictEqual(report.tickets.map((t) => t.ref).sort(), ['#5', '#6'])
   assert.strictEqual(report.unreferenced, 0)
+})
+
+// --- epics (spec feat-epics, phase 5) ------------------------------------------
+
+function epicRepo({ epicIdentifier = '#40', memberEpic = 'epic-library' } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-epic-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ github: GH }))
+  const epic = path.join(dir, 'specs', 'backlog', 'epic-library')
+  fs.mkdirSync(epic, { recursive: true })
+  const fm = epicIdentifier ? `---\ngithub_identifier: "${epicIdentifier}"\n---\n\n` : ''
+  fs.writeFileSync(path.join(epic, '00-overview.md'), `${fm}# Library\n\n> **Type:** Epic\n> **Lanes:** 2\n\n## Problem\n\nWhy.\n`)
+  const member = path.join(dir, 'specs', 'backlog', 'feat-gen')
+  fs.mkdirSync(member, { recursive: true })
+  fs.writeFileSync(
+    path.join(member, '00-overview.md'),
+    `# Gen\n\n> **Epic:** ${memberEpic}\n> **Waits on:** none\n\n## Problem\n\nP.\n`,
+  )
+  fs.writeFileSync(path.join(member, '01-x.md'), '# Phase 1 — X ⬜\n\n**Goal:** x.\n')
+  return dir
+}
+
+async function applySpec(dir, spec, adapter) {
+  const r0 = await run(['plan', spec, '--workspace-states', statesFile(dir), '--json'], dir)
+  assert.strictEqual(r0.code, 0, r0.out)
+  fs.writeFileSync(path.join(dir, 'plan.json'), r0.out)
+  return run(['apply', spec, '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+}
+
+test('a member is minted, then put under its epic as a sub-issue', async () => {
+  const dir = epicRepo()
+  const adapter = fakeAdapter()
+  const r = await applySpec(dir, 'feat-gen', adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  const member = adapter.calls.find((c) => c[0] === 'createIssue' && c[1] === 'Gen')
+  assert.ok(member)
+  assert.deepStrictEqual(adapter.calls.filter((c) => c[0] === 'setParent').map((c) => c[2]), ['#40'])
+  assert.match(r.out, /parent set: #\d+ under epic #40/)
+  assert.match([...adapter.issues.values()].find((i) => i.title === 'Gen').description, /Epic: #40$/)
+})
+
+test('a re-push under the same epic sets nothing and says nothing about it', async () => {
+  const dir = epicRepo()
+  const adapter = fakeAdapter()
+  await applySpec(dir, 'feat-gen', adapter)
+  fs.appendFileSync(path.join(dir, 'specs', 'backlog', 'feat-gen', '00-overview.md'), '\nMore.\n')
+  const r = await applySpec(dir, 'feat-gen', adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(adapter.calls.filter((c) => c[0] === 'setParent').length, 2, 'asked, and idempotent')
+  assert.doesNotMatch(r.out, /parent set/)
+})
+
+test('an unlinked epic is named and skipped, never minted', async () => {
+  const dir = epicRepo({ epicIdentifier: null })
+  const adapter = fakeAdapter()
+  const r = await applySpec(dir, 'feat-gen', adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /epic epic-library is not linked yet — parent skipped/)
+  assert.strictEqual(adapter.calls.filter((c) => c[0] === 'createIssue').length, 1, 'only the member was minted')
+  assert.strictEqual(adapter.calls.filter((c) => c[0] === 'setParent').length, 0)
+})
+
+test('the epic pushes as an issue with no phase sub-issues', async () => {
+  const dir = epicRepo({ epicIdentifier: null })
+  const adapter = fakeAdapter()
+  const r = await applySpec(dir, 'epic-library', adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(adapter.calls.filter((c) => c[0] === 'createSubIssue').length, 0)
+  assert.strictEqual(adapter.calls.filter((c) => c[0] === 'setParent').length, 0)
+})
+
+// STAYS-SILENT: a spec in no epic pushes exactly as before.
+test('a spec in no epic asks for no parent', async () => {
+  const dir = repoWithSpec()
+  const adapter = fakeAdapter()
+  const r = await run(['apply', 'feat-demo', '--plan', await planFile(dir)], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  assert.strictEqual(adapter.calls.filter((c) => c[0] === 'setParent').length, 0)
+  assert.doesNotMatch(r.out, /epic/)
+})
+
+test('a parent link GitHub refuses is reported, and the push still succeeds', async () => {
+  const dir = epicRepo()
+  const adapter = fakeAdapter()
+  adapter.setParent = async () => {
+    throw new Error('Validation Failed: parent issue is locked')
+  }
+  const r = await applySpec(dir, 'feat-gen', adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.match(r.out, /\?\? parent #40: Validation Failed: parent issue is locked/)
+  assert.match(frontmatterOf(dir, 'feat-gen'), /github_identifier: "#\d+"/, 'the member is still stamped')
+})
+
+const frontmatterOf = (dir, spec) => fs.readFileSync(path.join(dir, 'specs', 'backlog', spec, '00-overview.md'), 'utf-8')
+
+test('list keeps an epic member under its epic row; a phase stays out', async () => {
+  const dir = epicRepo()
+  fs.writeFileSync(
+    path.join(dir, 'specs', 'backlog', 'feat-gen', '00-overview.md'),
+    '---\ngithub_identifier: "#102"\n---\n\n# Gen\n\n> **Epic:** epic-library\n',
+  )
+  fs.writeFileSync(
+    path.join(dir, 'specs', 'backlog', 'epic-library', '00-overview.md'),
+    '---\ngithub_identifier: "#101"\n---\n\n# Library\n\n> **Type:** Epic\n',
+  )
+  const adapter = fakeAdapter()
+  adapter.make('Library').state = { name: 'Backlog' } // #101, the epic
+  const member = adapter.make('Gen') // #102
+  member.parent = '101'
+  member.state = { name: 'Backlog' }
+  const loner = adapter.make('Loner') // #103
+  loner.state = { name: 'Backlog' }
+  const phase = adapter.make('Phase 1') // #104, a phase of the member
+  phase.parent = '102'
+  const r = await run(['list'], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  const lines = r.out.split('\n')
+  const at = (id) => lines.findIndex((l) => l.includes(`${id}\t`))
+  assert.ok(at('#101') !== -1 && at('#102') === at('#101') + 1, r.out)
+  assert.match(lines[at('#102')], /^ {4}#102/)
+  assert.match(lines[at('#103')], /^ {2}#103/)
+  assert.strictEqual(at('#104'), -1, 'a phase is not listed')
+  const json = JSON.parse((await run(['list', '--json'], dir, { adapter })).out)
+  assert.strictEqual(json.find((row) => row.identifier === '#102').epic, '#101')
+})
+
+// STAYS-SILENT: with no epic linked here, every sub-issue stays out, as before.
+test('list with no linked epic hides sub-issues exactly as before', async () => {
+  const dir = repoWithSpec({ identifier: '#101' })
+  const adapter = fakeAdapter()
+  adapter.make('Demo').state = { name: 'In Progress' }
+  const sub = adapter.make('Child')
+  sub.parent = '101'
+  const r = await run(['list', '--json'], dir, { adapter })
+  assert.deepStrictEqual(JSON.parse(r.out).map((row) => row.identifier), ['#101'])
 })

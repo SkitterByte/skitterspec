@@ -516,6 +516,28 @@ function makeApiAdapter({
       return child
     },
 
+    /**
+     * Make `ref` a sub-issue of `parentRef` — an epic member under its epic.
+     * Idempotent: an issue already under that parent is left alone. One under
+     * another parent is MOVED (`replace_parent`), which is what a member that
+     * changed epics means. Read back, and refused when GitHub stored anything
+     * else, so a link that did not land is never reported as set.
+     */
+    async setParent(ref, parentRef) {
+      const issue = await adapter.readIssue(ref)
+      if (!issue) throw new GitHubRefusal(`no GitHub issue ${identifierOf(numberOf(ref))} to put under ${identifierOf(numberOf(parentRef))}`)
+      const want = String(numberOf(parentRef))
+      if (issue.parent && issue.parent.id === want) return { changed: false }
+      await rest('POST', `${repoPath}/issues/${want}/sub_issues`, {
+        body: { sub_issue_id: issue.databaseId, ...(issue.parent ? { replace_parent: true } : {}) },
+      })
+      const back = await adapter.readIssue(ref)
+      if (!back || !back.parent || back.parent.id !== want) {
+        throw new GitHubRefusal(`${issue.identifier} was linked under #${want} but GitHub reads it back under ${back && back.parent ? back.parent.identifier : 'no parent'}`)
+      }
+      return { changed: true, moved: !!issue.parent }
+    },
+
     async updateIssue(ref, updates) {
       const body = issuePayload(updates || {})
       if (!Object.keys(body).length) return {}

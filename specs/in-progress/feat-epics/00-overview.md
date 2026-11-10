@@ -12,7 +12,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/153"
 > **Raised:** 2026-11-10
 > **Area:** packages/common/src/{cli.js,env/resolve.js}, packages/sync-core/src/{normalize.js,push.js}, packages/provider-kit/, packages/{github,linear,jira,azure-boards}/src/, skills (spec, spec-start, spec-next, spec-complete, spec-list), .claude/rules/spec-planning.md
 > **Stack:** worktree
-> **Docs:** reference
+> **Docs:** reference, github
 
 ## Summary
 
@@ -166,7 +166,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 2 | `epic status`: waits, waves, ready-now | ✅ | [02-epic-status.md](02-epic-status.md) |
 | 3 | Area clashes and the start warning | ✅ | [03-clashes.md](03-clashes.md) |
 | 4 | Lifecycle skills | ✅ | [04-lifecycle.md](04-lifecycle.md) |
-| 5 | Tracker seam + GitHub | ⬜ | [05-seam-github.md](05-seam-github.md) |
+| 5 | Tracker seam + GitHub | ✅ | [05-seam-github.md](05-seam-github.md) |
 | 6 | Linear, Jira, Azure Boards | ⬜ | [06-other-providers.md](06-other-providers.md) |
 | 7 | Re-verify a wait met by rebase | ⬜ | [07-reverify-on-rebase.md](07-reverify-on-rebase.md) |
 
@@ -204,3 +204,7 @@ and may be built before them.
 - 2026-11-10 — Phase 4: `/spec-list` grouping moved to phases 5–6 — it reads
   the tracker, so it can group only once the parent link exists. `epic bypass`
   joined `epic check` as the recorded way past a wait.
+- 2026-11-10 — Phase 5: a member's pushed description carries an `Epic:` line
+  (the related-incident precedent), so gaining the header always yields a push
+  for the parent link to ride on. GitHub's `list` had to stop treating every
+  sub-issue as a phase.

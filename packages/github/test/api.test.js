@@ -495,3 +495,43 @@ test('STAYS LOUD: any other add refusal is not read as already-there', async () 
   await assert.rejects(a.addToBoard(fresh), /not accessible/)
   assert.ok(!calls.some((c) => gqlKind(c) === 'issue'), 'no re-read on a refusal that says nothing about the board')
 })
+
+// --- epic parent (spec feat-epics, phase 5) ------------------------------------
+
+// Reads answer with the issue under `parents[i]` on the i-th read, so a test
+// can say what GitHub holds before the link and what it reads back after.
+function parentAdapter(parents) {
+  let reads = 0
+  return adapter((call) => {
+    if (isGraphql(call)) {
+      const parent = parents[Math.min(reads++, parents.length - 1)]
+      return res(issueData({ ...rawIssue({ number: 20 }), parent: parent ? { number: parent } : null }))
+    }
+    return res({}, 201)
+  })
+}
+
+test('setParent links a member under its epic by database id, then reads it back', async () => {
+  const { a, calls } = parentAdapter([null, 5])
+  assert.deepStrictEqual(await a.setParent('#20', '#5'), { changed: true, moved: false })
+  const post = calls.find((c) => !isGraphql(c))
+  assert.match(post.url, /\/issues\/5\/sub_issues$/)
+  assert.deepStrictEqual(post.body, { sub_issue_id: 9020 })
+})
+
+test('setParent leaves an issue already under that epic alone', async () => {
+  const { a, calls } = parentAdapter([5])
+  assert.deepStrictEqual(await a.setParent('#20', '#5'), { changed: false })
+  assert.ok(calls.every(isGraphql), 'no write')
+})
+
+test('setParent moves a member that changed epics', async () => {
+  const { a, calls } = parentAdapter([4, 5])
+  assert.deepStrictEqual(await a.setParent('#20', '#5'), { changed: true, moved: true })
+  assert.deepStrictEqual(calls.find((c) => !isGraphql(c)).body, { sub_issue_id: 9020, replace_parent: true })
+})
+
+test('setParent refuses when GitHub reads back another parent', async () => {
+  const { a } = parentAdapter([null, null])
+  await assert.rejects(a.setParent('#20', '#5'), /linked under #5 but GitHub reads it back under no parent/)
+})

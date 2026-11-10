@@ -240,6 +240,7 @@ function applyOps({ adapter, config, kind = 'feature', snapshotDir = null }) {
     prevalidateStates: (buckets) => {
       for (const bucket of buckets) statusFor(bucket)
     },
+    setParent: (issue, parentIdentifier) => adapter.setParent(issue.id, parentIdentifier),
     searchTwin: (title) => adapter.searchIssues({ query: title }),
     twinAdvice: (twin, wanted, specName) =>
       `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +
@@ -817,8 +818,17 @@ async function specSyncList(dir, config, flags, out) {
     return 1
   }
   const linked = new Map(listSpecsLive(dir, config).filter((s) => s.identifier).map((s) => [s.identifier, s]))
-  const rows = issues
-    .filter((i) => !i.parent)
+  // A sub-issue is normally a phase, and stays out of the listing. The one
+  // kind of sub-issue that is a SPEC is an epic's member (spec feat-epics), so
+  // it is kept — on a positive signal only: its parent is linked to an `epic-`
+  // spec here. BLIND SPOT: an epic this checkout has no linked copy of reads
+  // as an unknown parent, and its members stay hidden as they did before
+  // epics existed — a missing row, never a phase shown as a spec.
+  const epics = new Set([...linked.values()].filter((s) => /^epic-/.test(s.spec)).map((s) => s.identifier))
+  const parentId = (i) => (i.parent ? i.parent.identifier || `#${i.parent.id}` : null)
+  const epicOf = (i) => (i.parent && epics.has(parentId(i)) ? parentId(i) : null)
+  let rows = issues
+    .filter((i) => !i.parent || epicOf(i))
     .slice(0, next !== null ? next : flags.limit || Infinity)
     .map((i) => {
       const spec = linked.get(i.identifier) || null
@@ -830,8 +840,18 @@ async function specSyncList(dir, config, flags, out) {
         ...specColumn(state, spec, config),
         assignee: (i.assignees || []).map((a) => a.name || a.id).join(', ') || null,
         spec: spec ? spec.spec : null,
+        ...(epicOf(i) ? { epic: epicOf(i) } : {}),
       }
     })
+  // Members listed under their epic's row, where it is in the listing. Board
+  // order (`--next`) is the order that was asked for, so it is left alone.
+  if (next === null) {
+    const under = (id) => rows.filter((r) => r.epic === id)
+    const listed = new Set(rows.map((r) => r.identifier))
+    rows = [
+      ...rows.filter((r) => !r.epic || !listed.has(r.epic)).flatMap((r) => [r, ...under(r.identifier)]),
+    ]
+  }
   if (flags.json) {
     out.write(JSON.stringify(rows, null, 2) + '\n')
     return 0
@@ -843,9 +863,14 @@ async function specSyncList(dir, config, flags, out) {
   const lines = [
     `${PROGRAM} list: ${repoLabel(config)} · board ${config.github.project}${assignee ? ` · assigned to ${assignee.name}` : ''}${next !== null ? ` · next ${next} in board order` : ''}`,
   ]
+  const shown = new Set(rows.map((r) => r.identifier))
   for (const r of rows) {
+    // A member under its epic's row is indented; one whose epic is not in this
+    // listing says which epic it belongs to instead.
+    const lead = r.epic && shown.has(r.epic) ? '    ' : '  '
+    const tail = r.epic && !shown.has(r.epic) ? `  (epic ${r.epic})` : ''
     lines.push(
-      `  ${r.identifier}\t${r.state || '—'}\t${specCell(r)}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}`,
+      `${lead}${r.identifier}\t${r.state || '—'}\t${specCell(r)}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}${tail}`,
     )
   }
   out.write(lines.join('\n') + '\n')

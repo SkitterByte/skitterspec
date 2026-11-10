@@ -98,7 +98,10 @@ Then list the board's items once per run:
   items whose `github.statusField` value matches; `--all` keeps closed ones too.
 - **Filter out phase sub-issues** — keep issues with no parent. A spec is a
   top-level issue; a phase is its sub-issue, and a listing that includes them
-  buries the specs.
+  buries the specs. **The one exception is an epic's member**: keep a sub-issue
+  whose parent is linked to an `epic-` spec here, and list it indented under
+  its epic's row — or, when the epic's row is not in the listing, with
+  `(epic #N)` after it. An unknown parent stays filtered out, as before.
 - **Page, and never cap silently.** Follow the tool's pagination until it runs
   out. If you stop early, say so on its own line and say what you stopped at.
 

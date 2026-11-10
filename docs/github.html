@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-github/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 59a8cf96cd5d
+verified: cff6f716888b
 -->
 <html lang="en">
 <head>
@@ -736,6 +736,7 @@ skitterspec-github spec-sync <span class="p">credentials set</span> --owner &lt;
       <div class="icard">
         <h3><span class="mono">/spec-push</span></h3>
         <p>Repo → GitHub. Checks the board's options, diffs against the last-pushed snapshot, creates or updates the spec issue and its phase sub-issues, puts them on the board, and stamps the returned numbers back into your markdown.</p>
+        <p>An <b>epic</b> pushes as an issue of its own with no phase sub-issues, and each member spec (<span class="mono">&gt; **Epic:** epic-&lt;name&gt;</span>) becomes its sub-issue, with its phases nested beneath it. A member whose epic is not linked yet is named and skipped, never minted. A member that changes epics is moved. <span class="mono">spec-sync list</span> shows members indented under their epic.</p>
       </div>
       <div class="icard">
         <h3><span class="mono">/spec-claim</span></h3>
@@ -798,7 +799,7 @@ $ skitterspec-github spec-sync <span class="p">released</span> "$PREV..$TAG" --j
         <tbody>
           <tr class="grp-row"><td colspan="3">Plumbing — the push path drives these</td></tr>
           <tr><td class="cmd">spec-sync (github) plan &lt;spec&gt;</td><td>Compute a create/update plan against the last-pushed snapshot. Writes nothing — and refuses until the board's options have been checked (<span class="mono">--workspace-states</span>).</td><td class="folder">/spec-push</td></tr>
-          <tr><td class="cmd">spec-sync (github) apply &lt;spec&gt;</td><td>Apply a plan over the API — create or update, link sub-issues, set the board Status, open or close — and stamp the returned numbers. On the MCP transport it writes nothing and names the tools instead.</td><td class="folder">/spec-push</td></tr>
+          <tr><td class="cmd">spec-sync (github) apply &lt;spec&gt;</td><td>Apply a plan over the API — create or update, link sub-issues, put an epic member under its epic, set the board Status, open or close — and stamp the returned numbers. On the MCP transport it writes nothing and names the tools instead.</td><td class="folder">/spec-push</td></tr>
           <tr><td class="cmd">spec-sync (github) status &lt;spec&gt;</td><td>What would push, and whether the body was edited on GitHub since the last push. Never reads the board's Status.</td><td class="folder">/spec-status</td></tr>
           <tr><td class="cmd">spec-sync (github) verify &lt;spec&gt;</td><td>Compare a read-back against what was sent. Warns, never fails.</td><td class="folder">/spec-push · you</td></tr>
           <tr><td class="cmd">spec-sync (github) splice &lt;spec&gt; --live &lt;f&gt;</td><td>The body to write when the skill applies over MCP: in summary mode, the block spliced into what GitHub holds now, so the team's text around it survives; refuses (prints no body) when a delimiter was edited. In spec mode, the projection as it is.</td><td class="folder">/spec-push · /spec</td></tr>

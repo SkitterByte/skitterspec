@@ -523,6 +523,39 @@ function linkedIncident(snapshotDir, config) {
   return { name: incident, identifier: null, found: false }
 }
 
+// A member spec's `> **Epic:**` resolved the way `linkedIncident` resolves its
+// header: the epic's folder in any bucket and its stamped identifier, or
+// `identifier: null` when the epic is not linked yet (report and carry on —
+// never mint the other). No header returns null.
+//
+// A FOLDER NOT ON DISK IS NOT PROOF THE EPIC DOES NOT EXIST, for the reason
+// `linkedIncident` gives: buckets are branch-local truth.
+function linkedEpic(snapshotDir, config) {
+  const { epic } = specHeaders(snapshotDir, config)
+  if (!epic) return null
+  const root = path.resolve(snapshotDir, '..', '..', '..')
+  const overviewFile = (config && config.snapshot && config.snapshot.overviewFile) || '00-overview.md'
+  for (const bucket of ['in-progress', 'backlog', 'complete', 'cancelled']) {
+    const file = path.join(root, 'specs', bucket, epic, overviewFile)
+    if (!fs.existsSync(file)) continue
+    const { data } = parseFrontmatter(fs.readFileSync(file, 'utf-8'))
+    const idField = config && config.fields && config.fields.identifier
+    const identifier = idField && data[idField] != null ? String(data[idField]) : null
+    return { name: epic, identifier, found: true }
+  }
+  return { name: epic, identifier: null, found: false }
+}
+
+// The member's one-line pointer to its epic. Part of the PROJECTION, like the
+// related-incident line, so the stored base, the plan and the tracker hash the
+// same bytes — and so a spec that only GAINS an `Epic:` header still has a
+// change to push, which is what gives the parent link a push to ride on.
+function epicLine(snapshotDir, config) {
+  const epic = linkedEpic(snapshotDir, config)
+  if (!epic) return ''
+  return `\n\nEpic: ${epic.identifier || epic.name}`
+}
+
 // The one-line cross-reference a fix spec's body carries to its incident. Part
 // of the PROJECTION (not appended at send time), so the stored base, the plan
 // and what the tracker holds all hash the same bytes — and on GitHub the
@@ -859,7 +892,8 @@ function normalizeLocal(snapshotDir, config) {
     description: summaryMode
       ? wrapBlock(
           dialect.flattenTables(dialect.canonicalize(specBlockInner({ snapshotDir, sections, body, phases }))) +
-            relatedIncidentLine(snapshotDir, config),
+            relatedIncidentLine(snapshotDir, config) +
+            epicLine(snapshotDir, config),
           config,
         )
       : withInlinePhases(
@@ -878,7 +912,9 @@ function normalizeLocal(snapshotDir, config) {
         tasksMode,
         config.sync.localOnlySections,
         dialect,
-      ) + relatedIncidentLine(snapshotDir, config),
+      ) +
+      relatedIncidentLine(snapshotDir, config) +
+      epicLine(snapshotDir, config),
     // Sub-issue projection: one per phase. `ref` is the phase-file basename — the
     // local handle the push skill stamps a newly-created sub-issue id back into.
     // `state` is the phase's status bucket (from its heading emoji), mapped to a
@@ -1177,4 +1213,5 @@ module.exports = {
   specHeaders,
   parseWaitsOn,
   linkedIncident,
+  linkedEpic,
 }

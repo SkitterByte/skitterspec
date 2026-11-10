@@ -37,6 +37,10 @@
  *   - `remoteEditedLine(identifier)`        the someone-else-edited warning
  *   - `twinAdvice(twin, title, specName)`   the refusal message for a twin
  *   - `afterIssue(issue)`                    optional; → a report line or null
+ *   - `setParent(issue, parentIdentifier)`   optional; make the spec issue a
+ *                                           child of its epic's → `{ changed }`.
+ *                                           Absent means this tracker cannot
+ *                                           express it, and the push says so.
  */
 
 const path = require('node:path')
@@ -54,6 +58,7 @@ const {
   listPhaseFiles,
   descriptionMode,
   spliceBlock,
+  linkedEpic,
 } = require('@skitterbyte/skitterspec-sync-core')
 const { makeSpecHelpers } = require('./specs.js')
 
@@ -160,6 +165,25 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
       if (line) lines.push(line)
     } catch (error) {
       lines.push(`  ?? ${result.issue.identifier}: ${String((error && error.message) || error).split('\n')[0]}`)
+    }
+  }
+
+  // An epic member's issue is a child of its epic's (spec feat-epics,
+  // Decision 6). Never fatal and never a mint: an epic not linked yet is named
+  // and skipped, and a tracker with no way to say "parent" says so.
+  const epic = result.issue ? linkedEpic(snapshotDir, config) : null
+  if (epic) {
+    if (!epic.identifier) {
+      lines.push(`  !! epic ${epic.name} is not linked yet — parent skipped (push the epic first)`)
+    } else if (typeof ops.setParent !== 'function') {
+      lines.push(`  epic ${epic.identifier}: this tracker cannot express a parent here — skipped`)
+    } else {
+      try {
+        const r = await ops.setParent(result.issue, epic.identifier)
+        if (r && r.changed) lines.push(`  parent set: ${result.issue.identifier} under epic ${epic.identifier}`)
+      } catch (error) {
+        lines.push(`  ?? parent ${epic.identifier}: ${String((error && error.message) || error).split('\n')[0]}`)
+      }
     }
   }
 

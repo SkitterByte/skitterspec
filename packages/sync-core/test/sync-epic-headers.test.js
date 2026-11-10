@@ -2,8 +2,8 @@
 
 // A member spec's `Epic:` and `Waits on:` headers, and an epic's `Lanes:`, read
 // off the overview beside `Severity:` and `Incident:`. They are push-time
-// extras like those two: never keys on the synced field set, so a spec that
-// gains one projects exactly as it did before.
+// extras like those two: never keys on the synced field set. The one place they
+// touch the projection is the member's epic line, like the incident's.
 
 const { test } = require('node:test')
 const assert = require('node:assert')
@@ -11,7 +11,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { specHeaders, parseWaitsOn, normalizeLocal } = require('../src/normalize.js')
+const { specHeaders, parseWaitsOn, normalizeLocal, linkedEpic } = require('../src/normalize.js')
 const { neutralConfig } = require('./_config.js')
 
 function writeSpec(name, headerLines) {
@@ -72,9 +72,10 @@ test('an unreadable Lanes is no cap, never a guessed one', () => {
   }
 })
 
-// STAYS-SILENT: the headers are extras, so a member's projection is unchanged
-// by carrying them.
-test('a member projects exactly as it would without the headers', () => {
+// The one place the headers touch the projection is the epic line, which is
+// what gives a member that only GAINED an `Epic:` header a change to push (and
+// so a push for its parent link to ride on). Everything else is unchanged.
+test('a member projects as before plus its epic line; waits never touch it', () => {
   const plain = writeSpec('feat-gen', ['> **Type:** Feature'])
   const member = writeSpec('feat-gen', [
     '> **Type:** Feature',
@@ -84,8 +85,24 @@ test('a member projects exactly as it would without the headers', () => {
   const strip = (d) => d.replace(/^>.*$/gm, '')
   assert.strictEqual(
     strip(normalizeLocal(member, neutralConfig()).description),
-    strip(normalizeLocal(plain, neutralConfig()).description),
+    strip(normalizeLocal(plain, neutralConfig()).description) + '\n\nEpic: epic-library',
   )
+})
+
+test('the epic line names the epic\'s identifier once it is linked', () => {
+  const member = writeSpec('feat-gen', ['> **Epic:** epic-library'])
+  const epic = path.join(member, '..', 'epic-library')
+  fs.mkdirSync(epic, { recursive: true })
+  fs.writeFileSync(path.join(epic, '00-overview.md'), '---\nlinear_identifier: "EP-1"\n---\n\n# Epic\n')
+  assert.match(normalizeLocal(member, neutralConfig()).description, /\n\nEpic: EP-1$/)
+  assert.deepStrictEqual(linkedEpic(member, neutralConfig()), { name: 'epic-library', identifier: 'EP-1', found: true })
+})
+
+// STAYS-SILENT: a spec in no epic has no line and no link.
+test('a spec in no epic carries no epic line', () => {
+  const plain = writeSpec('feat-gen', ['> **Type:** Feature'])
+  assert.doesNotMatch(normalizeLocal(plain, neutralConfig()).description, /Epic:/)
+  assert.strictEqual(linkedEpic(plain, neutralConfig()), null)
 })
 
 test('an epic with no phase files projects with no sub-issues', () => {
