@@ -42,22 +42,28 @@ test('STAYS SILENT: passing tests and other events print nothing', async () => {
   async function* events() {
     yield { type: 'test:pass', data: { name: 'ok' } }
     yield { type: 'test:diagnostic', data: { message: 'tests 1' } }
-    yield { type: 'test:fail', data: failure('boom') }
+  }
+  const out = []
+  for await (const line of reporter(events())) out.push(line)
+  assert.deepStrictEqual(out, [])
+})
+
+test('every failure is listed with the first line of its error', async () => {
+  async function* events() {
+    yield { type: 'test:pass', data: { name: 'ok' } }
+    for (let i = 1; i <= 3; i++) yield { type: 'test:fail', data: failure(`boom ${i}\nstack`, { name: `t${i}`, line: i }) }
   }
   const out = []
   for await (const line of reporter(events())) out.push(line)
   assert.strictEqual(out.length, 1)
-  assert.match(out[0], /::boom\n$/)
+  assert.match(out[0], /^::error title=3 failing test\(s\) — part 1 of 1::/)
+  for (const n of [1, 2, 3]) assert.match(out[0], new RegExp(`a\\.test\\.js:${n} t${n} — boom ${n}`))
 })
 
-test('past nine failures, the rest are named together in one tenth annotation', async () => {
-  async function* events() {
-    for (let i = 1; i <= 12; i++) yield { type: 'test:fail', data: failure(`boom ${i}`, { name: `t${i}`, line: i }) }
-  }
-  const out = []
-  for await (const line of reporter(events())) out.push(line)
-  assert.strictEqual(out.length, 10, 'GitHub keeps ten per step')
-  assert.match(out[8], /title=t9::boom 9/)
-  assert.match(out[9], /^::error title=3 more failing test\(s\)::/)
-  for (const n of [10, 11, 12]) assert.match(out[9], new RegExp(`t${n}`))
+test('many failures are packed into at most ten annotations, the overflow counted', () => {
+  const lines = Array.from({ length: 400 }, (_, i) => `packages/x/test/f.test.js:${i} a fairly long test name number ${i} — ${'x'.repeat(200)}`)
+  const { bodies, dropped } = reporter.pack(lines)
+  assert.strictEqual(bodies.length, 10, 'GitHub keeps ten per step')
+  for (const b of bodies) assert.ok(Buffer.byteLength(b.join('\n')) <= 3800, 'each fits under the message cap')
+  assert.strictEqual(bodies.reduce((n, b) => n + b.length, 0) + dropped, 400, 'nothing is lost silently')
 })

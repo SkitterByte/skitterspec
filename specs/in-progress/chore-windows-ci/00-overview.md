@@ -112,3 +112,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   quoted backslashes; reviewers spawn `sh` and kill their tree on Windows;
   seeds fall back to a junction (directory) or a copy (file) where symlinks
   are refused; `stage` reports its tree as an OS path.
+- 2026-11-09 — Phase 3 round 3 (run 42711473516): `test:nested` green on
+  Windows; the full suite ran for the first time — 35 failures, mostly path
+  spellings in tests. `shellPath` converts every backslash on win32; the
+  reporter now packs every failure with its first error line into up to ten
+  annotations. Seen once locally: `cli-spec-env-stage`'s "unreadable git" test
+  failed under a parallel nested run and passed 3/3 alone — watch it.

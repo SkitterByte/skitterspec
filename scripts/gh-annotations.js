@@ -34,34 +34,69 @@ function annotationFor(d, cwd = process.cwd()) {
   return `::error ${where}title=${prop(d.name || 'test')}::${data(message)}\n`
 }
 
-// GitHub keeps ten error annotations per step. The first nine failures get one
-// each; everything past them is named in a tenth, so a run with forty failures
-// still lists all forty without anyone opening the log.
-const INDIVIDUAL = 9
+// GitHub keeps ten error annotations per step and cuts a message at about
+// 4 KB. So every failure is packed — `file:line name — first line of its
+// error` — into as few annotations as fit, ten at most: room for about a
+// hundred and fifty failures, each with the reason it failed, without anyone
+// opening the log.
+const MAX_ANNOTATIONS = 10
+const MESSAGE_BYTES = 3800
+const LINE_CHARS = 300
 
-module.exports = async function* ghAnnotations(source) {
-  let shown = 0
-  const rest = []
-  for await (const event of source) {
-    if (event.type !== 'test:fail') continue
-    const line = annotationFor(event.data)
-    if (!line) continue
-    if (shown < INDIVIDUAL) {
-      shown++
-      yield line
-    } else {
-      const d = event.data
-      const file = d.file ? path.relative(process.cwd(), d.file).split(path.sep).join('/') : '?'
-      rest.push(`${file}:${d.line || 1} ${d.name}`)
-    }
-  }
-  if (rest.length) yield restAnnotation(rest)
+/** One failure as a single summary line. */
+function summaryLine(d, cwd = process.cwd()) {
+  const err = d.details && d.details.error
+  const cause = (err && err.cause) || err
+  const first = String((cause && (cause.message || cause)) || 'failed')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' ¶ ')
+  const file = d.file ? path.relative(cwd, d.file).split(path.sep).join('/') : '?'
+  return `${file}:${d.line || 1} ${d.name} — ${first}`.slice(0, LINE_CHARS)
 }
 
-/** The closing annotation naming every failure past the first nine. */
-function restAnnotation(rest) {
-  return `::error title=${prop(`${rest.length} more failing test(s)`)}::${data(rest.join('\n'))}\n`
+/** Pack summary lines into at most `MAX_ANNOTATIONS` annotation bodies. */
+function pack(lines) {
+  const bodies = []
+  let current = []
+  let size = 0
+  for (const line of lines) {
+    const bytes = Buffer.byteLength(line, 'utf8') + 1
+    if (current.length && size + bytes > MESSAGE_BYTES) {
+      bodies.push(current)
+      current = []
+      size = 0
+    }
+    current.push(line)
+    size += bytes
+  }
+  if (current.length) bodies.push(current)
+  if (bodies.length <= MAX_ANNOTATIONS) return { bodies, dropped: 0 }
+  const kept = bodies.slice(0, MAX_ANNOTATIONS)
+  const dropped = bodies.slice(MAX_ANNOTATIONS).reduce((n, b) => n + b.length, 0)
+  return { bodies: kept, dropped }
+}
+
+module.exports = async function* ghAnnotations(source) {
+  const lines = []
+  for await (const event of source) {
+    if (event.type !== 'test:fail') continue
+    // Same filter as `annotationFor`: a parent failing only because a subtest
+    // did adds nothing.
+    if (!annotationFor(event.data)) continue
+    lines.push(summaryLine(event.data))
+  }
+  if (!lines.length) return
+  const { bodies, dropped } = pack(lines)
+  for (const [i, body] of bodies.entries()) {
+    const more = dropped && i === bodies.length - 1 ? `\n(+${dropped} more — see the log)` : ''
+    const title = `${lines.length} failing test(s) — part ${i + 1} of ${bodies.length}`
+    yield `::error title=${prop(title)}::${data(body.join('\n') + more)}\n`
+  }
 }
 
 module.exports.annotationFor = annotationFor
-module.exports.INDIVIDUAL = INDIVIDUAL
+module.exports.pack = pack
+module.exports.summaryLine = summaryLine

@@ -61,7 +61,7 @@
 
 const { createHash } = require('node:crypto')
 const { readFileSync, realpathSync } = require('node:fs')
-const { join, resolve } = require('node:path')
+const { join, resolve, sep } = require('node:path')
 
 const CONFIG_FILE = join('specs', '.core', 'env.config.json')
 
@@ -891,7 +891,7 @@ function loadEnvConfig(dir = process.cwd()) {
   try {
     parsed = JSON.parse(raw)
   } catch (error) {
-    throw new Error(`Invalid ${CONFIG_FILE}: ${error.message}`)
+    throw new Error(`Invalid ${CONFIG_FILE.split(sep).join('/')}: ${error.message}`)
   }
 
   return {

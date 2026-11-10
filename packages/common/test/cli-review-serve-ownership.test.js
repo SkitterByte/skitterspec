@@ -21,6 +21,8 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
+// The command prints paths with forward slashes on Windows (shellPath).
+const slashes = (p) => String(p).replace(/\\/g, '/')
 const { serveProcFor, serverScriptOk } = require('../src/cli.js')
 
 const CONFIG = { registry: '.spec-env/registry.json' }
@@ -52,7 +54,7 @@ test('the daemon is launched from the primary checkout, not from whoever started
       root: primary,
     })
     assert.ok(
-      proc.command.includes(path.join(primary, SERVE_REL)),
+      slashes(proc.command).includes(slashes(path.join(primary, SERVE_REL))),
       `the command should name the primary checkout's copy, got:\n  ${proc.command}`,
     )
     // The precise failure this test exists for: a command naming a path inside
@@ -75,7 +77,7 @@ test('an installed project is found too, not just this monorepo', () => {
       root: primary,
     })
     assert.ok(
-      proc.command.includes(path.join(primary, LAYOUTS.installed)),
+      slashes(proc.command).includes(slashes(path.join(primary, LAYOUTS.installed))),
       `should find the installed copy, got:\n  ${proc.command}`,
     )
   } finally {
@@ -90,7 +92,7 @@ test('a checkout with no copy of the daemon falls back to the running one', () =
   try {
     const proc = serveProcFor(CONFIG, path.join(bare, '.spec-env', 'review-serve.json'), { root: bare })
     assert.ok(
-      proc.command.includes(path.join('src', 'env', 'serve.js')),
+      slashes(proc.command).includes(slashes(path.join('src', 'env', 'serve.js'))),
       `should still name a serve.js, got:\n  ${proc.command}`,
     )
     assert.ok(!proc.command.includes(path.join(bare, SERVE_REL)), 'and not one that is not there')

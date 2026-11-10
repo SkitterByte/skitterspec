@@ -355,7 +355,11 @@ test('pr mode: an explicit ff strategy is byte-identical to no land key (stays-s
     const plain = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', a.dir])
     const explicit = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', b.dir])
     // The plans differ only in the tmp paths they name — normalise those away.
-    const norm = (s, r) => s.split(r.dir).join('<dir>').split(r.worktree).join('<wt>')
+    // Both spellings: OS paths on the `worktree:` lines, the printed form
+    // (forward slashes on Windows) in the commands.
+    const norm = (s, r) =>
+      [[r.worktree, '<wt>'], [r.dir, '<dir>'], [shellPath(r.worktree), '<wt>'], [shellPath(r.dir), '<dir>']]
+        .reduce((acc, [from, to]) => acc.split(from).join(to), s)
     assert.strictEqual(norm(plain, a), norm(explicit, b))
   } finally {
     cleanup(a.dir)

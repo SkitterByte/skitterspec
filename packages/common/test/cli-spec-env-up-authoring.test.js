@@ -78,7 +78,7 @@ test('up --docs on an unwritten spec plans an authoring worktree instead of refu
     assert.match(out, /to provision, run:/, 'a plan, not a refusal')
     assert.match(
       out,
-      /git worktree add \S+-wt\/new-thing -b feat\/new-thing/,
+      /git worktree add \S+-wt[\\/]new-thing -b feat\/new-thing/,
       'forks the branch the written spec will resolve to, in the worktree the written spec will resolve to',
     )
     assert.match(out, /docs:\s+documents only/, 'documents mode is reported positively')
@@ -102,7 +102,7 @@ test('the authoring provision is recorded, so the name resolves before the spec 
 
     const out = await runQuiet(['spec-env', 'resolve', 'feat-new-thing', '--dir', dir])
     assert.match(out, /branch:\s+feat\/new-thing/, 'resolvable by name from the record alone')
-    assert.match(out, /worktree:\s+\S+-wt\/new-thing/, 'at the path the written spec will occupy')
+    assert.match(out, /worktree:\s+\S+-wt[\\/]new-thing/, 'at the path the written spec will occupy')
   } finally {
     cleanup(dir)
   }

@@ -61,7 +61,7 @@ test('two specs at different phases are both listed, with their worktree paths',
   assert.match(out, /^2 specs in flight$/m)
   assert.match(out, /feat-a\s+in-progress · 1 of 3 phases done, phase 2 in progress/)
   assert.match(out, /feat-b\s+in-progress · 0 of 1 phases done, phase 1 in progress/)
-  assert.match(out, /\.\.\/wt\/feat-a/)
+  assert.match(out, /\.\.[\\/]wt[\\/]feat-a/)
 })
 
 test('a /no-spec record is listed as (no spec), never read, never unknown', () => {

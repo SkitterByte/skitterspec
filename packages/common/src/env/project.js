@@ -177,9 +177,11 @@ function attachProject(config, anchor) {
  * `LSC App-wt`, and `git worktree add C:/Code/LSC App-wt/x -b …` is two
  * arguments.
  */
-function shellPath(p) {
+function shellPath(p, platform = process.platform) {
   let s = String(p)
-  if (/^[A-Za-z]:[\\/]/.test(s)) s = s.replace(/\\/g, '/')
+  // A drive path anywhere; on Windows every backslash, which is always a
+  // separator there — `\\wt\\x` from a rooted path is no different.
+  if (platform === 'win32' || /^[A-Za-z]:[\\/]/.test(s)) s = s.replace(/\\/g, '/')
   if (!/[\s"'$`!&|;<>()*?[\]{}#~\\]/.test(s)) return s
   return `"${s.replace(/(["$`])/g, '\\$1')}"`
 }
