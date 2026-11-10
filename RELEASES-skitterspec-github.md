@@ -5,6 +5,28 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.5.0 — 10 Nov 2026
+
+**Highlights:** skitterspec now works when your project lives in a subfolder of its git repository, such as a solution folder beside Sql/: specs, worktrees, the review page, the guards and every tracker provider find the project on their own, with nothing to configure.
+
+### Azure
+- **Fixed** — Changing which Boards state a lifecycle bucket maps to now reaches work items that were already pushed, updating only their state. A resend never pulls an item back out of a state your own release process moved it to, such as On Prod.
+
+### Env
+- **New** — The worktree commands spec-env prints now work when your repository's path contains spaces.
+- **New** — skitterspec now works when your project lives in a subfolder of its git repository, such as a solution folder beside Sql/: specs, worktrees, the review page, the guards and every tracker provider find the project on their own, with nothing to configure.
+- **Fixed** — On Windows, configured code reviewers run, worktree seed files work without Developer Mode, and printed commands use paths that paste into any shell.
+- **Fixed** — On Windows, the review page's server now starts, stored tracker credentials are read, and paths print the same however a command was reached.
+- **Fixed** — On Windows, the main-branch guard and the review gate now run as intended, and stopping a spec's dev servers stops the whole server instead of leaving it running.
+- **Fixed** — On Windows, skitterspec now finds your project when its path is reached through a short (8.3) folder name, instead of reporting that isolation is not enabled.
+
+### General
+- **Fixed** — On Windows, spec-sanitise no longer rewrites the managed docs in specs/.core, and the review page link opens in a browser.
+
+### Install
+- **Fixed** — On Windows, upgrading skitterspec keeps the managed files you edited, including ones written by an earlier Windows install.
+- **Fixed** — On Windows clones with core.autocrlf, skitterspec update now refreshes skills, commands and rules instead of reporting every one of them as your edit and keeping the old copy.
+
 ## 2.4.0 — 8 Nov 2026
 
 **Highlights:** Your tracker now owns each spec's status and assignee: the spec skills stop writing Status, Developer and State log lines, a ticket keeps its assignee when the spec finishes, and pushes no longer move a card someone moved on the board. To keep the old behaviour, set workflowState and assignee to push in sync.fieldOwnership.
