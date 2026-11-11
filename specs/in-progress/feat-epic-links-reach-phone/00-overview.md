@@ -88,7 +88,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Engine: member links + loopback tier | ✅ | [01-engine-links.md](01-engine-links.md) |
-| 2 | Relay rule + docs | ⬜ | [02-relay-rule-docs.md](02-relay-rule-docs.md) |
+| 2 | Relay rule + docs | ✅ | [02-relay-rule-docs.md](02-relay-rule-docs.md) |
 
 ## Open questions
 

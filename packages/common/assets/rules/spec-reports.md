@@ -144,6 +144,13 @@ mentioning. The whole reason the stack exists is that the engine was being asked
 to guess where the reader was sitting, and it guessed wrong three separate ways
 in one day; a skill re-deciding that in prose is the same guess one layer up.
 
+**And it holds outside a skill too.** Whenever you relay engine output that
+carries a stack — `epic status` asked in passing, a `resolve`, an answer to a
+question — pass on every tier, every `also:` line with its label, and the
+`remote` line, never the one URL that looked like the answer. An agent asked
+about an epic once replied with the member list and the loopback link alone,
+and the reader on a phone was left with nothing they could open.
+
 **Three tiers, always all three, in this order.**
 
 | Tier | Is | Off when |
