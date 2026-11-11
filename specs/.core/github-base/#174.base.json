@@ -1,0 +1,16 @@
+{
+  "issue": "963080c5710488879935e704c01e1906356a4391",
+  "issueFields": {
+    "description": "5199c8db6aa9b16788e99a54aad3725a1b095f16",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "descriptionStream": "07c9f435093c8a2411fc54cc14bbeee8b62b664b"
+  },
+  "subIssues": {
+    "#175": "fd0f3f6df23b1a35ebe2516f23a0c6e084de2db0",
+    "#176": "11f1b32cb2fa9f9563d563c41231dacc1db2e679"
+  },
+  "subIssueStreams": {
+    "#175": "96a4dc73044d15a8a44dadc506bab3b63045520c",
+    "#176": "cf59c1a13b5c1fea5fcb35d9595ba2b54be64344"
+  }
+}
