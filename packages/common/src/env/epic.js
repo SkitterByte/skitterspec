@@ -483,7 +483,49 @@ function appendChangelog(text, line) {
   return /^## Changelog\s*$/m.test(body) ? `${body}\n${line}\n` : `${body}\n\n## Changelog\n\n${line}\n`
 }
 
+/**
+ * Waits a landing's rebase will MEET — the field case behind Decision 9: a
+ * phase built before the phase it waited on had landed, then rebased over it,
+ * lands in the right order without ever having run with the dependency
+ * underneath. A rebase satisfies the order, not the intent.
+ *
+ * Asked of two readings of the base branch — `before` at the spec's fork
+ * point, `after` at the base it is about to land on — and of the spec's own
+ * DONE phases (a phase not yet built will be built on top anyway). A wait is
+ * listed only on a positive signal from BOTH reads: unmet before, met after.
+ * Cannot-tell on either side is reported as such and never claimed — the cost
+ * of a wrong "met by this rebase" is a re-run nobody needed, but the cost of
+ * inventing one is a re-run claim nobody can check.
+ *
+ * @param {object} a
+ *   - `overview`  the spec's own overview text (its start waits)
+ *   - `phases`    `[{ n, text }]`, the spec's own phase files
+ *   - `before`    `{ index, readFile }` at the fork point
+ *   - `after`     `{ index, readFile }` at the base being landed on
+ * @returns {{ met: [{ phase, wait }], cannotTell: [{ phase, wait }] }}
+ *   `phase` is the spec's phase number, or null for its start's waits.
+ */
+function waitsMetByRebase({ overview, phases = [], before, after }) {
+  const built = phases.filter((p) => p.text !== null && phaseIsDone(p.text))
+  const scoped = [
+    ...(built.length ? epicHeaders(overview || '').waitsOn.map((w) => ({ phase: null, w })) : []),
+    ...built.flatMap((p) => epicHeaders(p.text).waitsOn.map((w) => ({ phase: p.n, w }))),
+  ]
+  const met = []
+  const cannotTell = []
+  for (const { phase, w } of scoped) {
+    const was = resolveWait(w, before.index, before.readFile)
+    const now = resolveWait(w, after.index, after.readFile)
+    if (now.state !== 'met' || was.state === 'met') continue
+    const wait = { ...w, why: now.why }
+    if (was.state === 'unmet') met.push({ phase, wait })
+    else cannotTell.push({ phase, wait: { ...wait, why: `${was.why} at the fork point` } })
+  }
+  return { met, cannotTell }
+}
+
 module.exports = {
+  waitsMetByRebase,
   epicStatus,
   formatEpicStatus,
   epicHeaders,

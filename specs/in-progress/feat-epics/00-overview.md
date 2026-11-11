@@ -168,7 +168,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 4 | Lifecycle skills | ✅ | [04-lifecycle.md](04-lifecycle.md) |
 | 5 | Tracker seam + GitHub | ✅ | [05-seam-github.md](05-seam-github.md) |
 | 6 | Linear, Jira, Azure Boards | ✅ | [06-other-providers.md](06-other-providers.md) |
-| 7 | Re-verify a wait met by rebase | ⬜ | [07-reverify-on-rebase.md](07-reverify-on-rebase.md) |
+| 7 | Re-verify a wait met by rebase | ✅ | [07-reverify-on-rebase.md](07-reverify-on-rebase.md) |
 
 Phases 1–4 and 7 are useful with no tracker at all; 7 depends on nothing in 5–6
 and may be built before them.
@@ -211,3 +211,7 @@ and may be built before them.
 - 2026-11-10 — Phase 6: Jira and Azure default an epic's type to `Epic`; only
   a mapped type is states-checked. Follow-up surfaced: the `states` check does
   not include the defaulted `Epic` type — not in scope here.
+- 2026-11-11 — Phase 7: the fork-point comparison runs at PLAN time, so
+  `integrate` names the phases to re-verify before any command runs, and the
+  landing skills run the tests between the rebase and the fast-forward. PR mode
+  and the hotfix carry print no `re-verify:` lines; recorded in the phase notes.

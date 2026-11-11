@@ -92,6 +92,16 @@ nothing else.
 On a **no-op** ("already landed on `<base>` — nothing to integrate"), just say so
 and continue — the branch has no commits base doesn't already have.
 
+**When the plan carries `re-verify:` lines**, the rebase is about to bring in
+something a **built** phase waited on — that phase was built without its
+dependency underneath, and a clean rebase does not prove it works on top of it.
+So after the rebase and **before** the fast-forward, run the project's test
+command **in the worktree**. Green → carry on with the fast-forward. Red →
+**stop before the fast-forward**, leaving the rebased branch where it is, relay
+the failure, and end `❌`: base has not moved. A `re-verify: cannot tell` line is
+relayed as information — it claims nothing, so it adds no run. (spec feat-epics,
+Decision 9.)
+
 **Under a rolling base** (`baseBranchPattern` in `env.config.json`) the plan
 can carry two more things, and both are the engine's to say:
 - a `git -C <mainRepoPath> switch <base>` (or `switch -c … --track`) **first**,

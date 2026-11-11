@@ -196,6 +196,7 @@ const {
   memberCheck,
   bypassLine,
   appendChangelog,
+  waitsMetByRebase,
 } = require('./env/epic.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
@@ -2483,7 +2484,8 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
     }
     const cout = [`spec-env integrate: ${spec.folder}`, '', '  mode:      checkout',
                   `  base:      ${base}`, `  branch:    ${cplan.branch}`,
-                  ...retargetLines(retarget), '',
+                  ...retargetLines(retarget),
+                  ...reverifyLines(dir, spec, base, dir), '',
                   '  run these (abort the rebase on conflict):']
     for (const cmd of cplan.commands) cout.push(`    ${cmd}`)
     process.stdout.write(cout.join('\n') + '\n' + afterLandSection(cplan.afterLand))
@@ -2599,10 +2601,49 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   out.push(`  worktree:  ${spec.worktreePath}`)
   out.push(...retargetLines(retarget))
   if (primarySwitch) out.push(`  primary:   on ${primarySwitch.from} — switched to ${base} before the land`)
+  out.push(...reverifyLines(dir, spec, baseRef, spec.projectPath || spec.worktreePath))
   out.push('')
   out.push('  run these (abort the rebase on conflict):')
   for (const cmd of plan.commands) out.push(`    ${cmd}`)
   process.stdout.write(out.join('\n') + '\n' + afterLandSection(plan.afterLand))
+}
+
+// What this land's rebase will bring in that the spec's BUILT phases waited
+// on (spec feat-epics, Decision 9) — each listed phase was built without its
+// dependency underneath, so the landing skill runs the tests after the rebase
+// and before the fast-forward. Read off the fork point and the base by git,
+// against the spec's own copy in `tree`. Silent when nothing arrives, which is
+// every spec with no `Waits on:` at all.
+function reverifyLines(dir, spec, baseRef, tree) {
+  const own = worktreeOverview(tree, spec.folder)
+  if (!own) return []
+  const git = gitReader(dir)
+  const read = (ref) => {
+    const listing = ref ? git(['ls-tree', '-r', '--name-only', ref, '--', 'specs']) : null
+    // An unreadable side reads as nothing at all, so every wait on it is a
+    // cannot-tell — never a "met by this rebase" that nobody could check.
+    return listing === null
+      ? { index: new Map(), readFile: () => null }
+      : { index: indexSpecTree(listing), readFile: (p) => git(['show', `${ref}:${p}`]) }
+  }
+  const fork = git(['merge-base', baseRef, spec.branch])
+  const { met, cannotTell } = waitsMetByRebase({
+    overview: own.overview,
+    phases: own.phases,
+    before: read(fork),
+    after: read(baseRef),
+  })
+  const what = (phase) => (phase === null ? 'start' : `phase ${phase}`)
+  const lines = []
+  if (met.length) {
+    lines.push('  re-verify: this rebase brings in what built phases waited on — run the tests')
+    lines.push('             after the rebase and before the fast-forward:')
+    for (const { phase, wait } of met) lines.push(`    ${what(phase)} waited on ${wait.raw} — ${wait.why}`)
+  }
+  for (const { phase, wait } of cannotTell) {
+    lines.push(`  re-verify: cannot tell for ${what(phase)} — ${wait.raw}: ${wait.why}`)
+  }
+  return lines
 }
 
 // The line a plan carries when the rc rolled while the spec was in flight. The
