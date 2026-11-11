@@ -16,7 +16,14 @@
  *                    "productName": "<repo name>", "scopeAreas": {},
  *                    "emptyRelease": true },
  *     "versionHook": true,
- *     "hotfix":    { "branchPrefix": "hotfix/" }
+ *     "hotfix":    { "branchPrefix": "hotfix/" },
+ *     "packages":  { "<name>": { "tagPrefix": "<name>@", "paths": ["packages/x/**"],
+ *                                "releasesFile": "RELEASES-<name>.md",
+ *                                "productName": "<name>", "dir": "packages/x",
+ *                                "npm": "@scope/x" } },
+ *     "release":   { "staged": true, "test": "pnpm test", "preTag": ["<command>"],
+ *                    "recordedHashes": [{ "files": ["docs/*.html"],
+ *                                         "pattern": "^verified: ([0-9a-f]{7,40})" }] }
  *   }
  *
  * `releases.emptyRelease` is what a release with no user-facing notes says in
@@ -26,10 +33,21 @@
  *
  * `hotfix.branchPrefix` is the branch prefix `release-hotfix.cjs` requires
  * before it will cut a `-hotfix.N` version.
+ *
+ * `packages` is opt-in: one entry per separately-tagged package in a monorepo,
+ * read only when a generator is run with `--package <name>`. Every field is
+ * optional. It is validated here but kept exactly as written (`null` when
+ * absent), so `init`/`update` write it back unchanged; `resolvePackage` fills
+ * in the defaults at the point of use.
+ *
+ * `release` is opt-in too, and kept as written: its presence installs the
+ * release scripts, and `release.staged` the npm staged-publish approver.
  */
 
 const { readFileSync } = require('node:fs')
 const { basename, join } = require('node:path')
+
+const { tagScheme } = require('./git-commits.cjs')
 
 const SCHEMA_VERSION = 1
 const CONFIG_FILE = 'skittership.config.json'
@@ -67,7 +85,126 @@ function defaultsFor(dir) {
     },
     versionHook: true,
     hotfix: { branchPrefix: 'hotfix/' },
+    packages: null,
+    release: null,
   }
+}
+
+// A package name ends up in a default tag prefix and a default filename, so it
+// is held to the same character set as a prefix.
+const PACKAGE_NAME = /^[A-Za-z0-9._-]+$/
+const PACKAGE_STRING_FIELDS = ['tagPrefix', 'releasesFile', 'productName', 'dir', 'npm']
+
+function packagesError(message) {
+  return new Error(`Invalid ${CONFIG_FILE}: packages${message}`)
+}
+
+/**
+ * Check `packages` and return it as written. Throws on anything malformed:
+ * unlike the other keys, a package typo silently ignored would release the
+ * wrong commits under the right name.
+ */
+function validatePackages(packages) {
+  if (!isObject(packages)) throw packagesError(' must be an object of package entries')
+  for (const [name, entry] of Object.entries(packages)) {
+    if (!PACKAGE_NAME.test(name)) {
+      throw packagesError(`: "${name}" is not a usable package name (letters, digits, . _ -)`)
+    }
+    if (!isObject(entry)) throw packagesError(`.${name} must be an object`)
+    for (const field of PACKAGE_STRING_FIELDS) {
+      const value = entry[field]
+      if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
+        throw packagesError(`.${name}.${field} must be a non-empty string`)
+      }
+    }
+    if (entry.tagPrefix !== undefined) {
+      try {
+        tagScheme(entry.tagPrefix)
+      } catch (error) {
+        throw packagesError(`.${name}.tagPrefix: ${error.message}`)
+      }
+    }
+    if (
+      entry.paths !== undefined &&
+      (!Array.isArray(entry.paths) ||
+        entry.paths.length === 0 ||
+        entry.paths.some((p) => typeof p !== 'string' || !p.trim()))
+    ) {
+      throw packagesError(`.${name}.paths must be a non-empty array of path globs`)
+    }
+  }
+  return packages
+}
+
+/**
+ * One package's settings with the defaults filled in, or null when `name` is
+ * not configured.
+ */
+function resolvePackage(config, name) {
+  const entry = config.packages && Object.hasOwn(config.packages, name) ? config.packages[name] : null
+  if (!entry) return null
+  const tagPrefix = entry.tagPrefix || `${name}@`
+  return {
+    name,
+    tagPrefix,
+    scheme: tagScheme(tagPrefix),
+    paths: entry.paths || null,
+    releasesFile: entry.releasesFile || `RELEASES-${name}.md`,
+    productName: entry.productName || name,
+    dir: entry.dir || null,
+    npm: entry.npm || null,
+  }
+}
+
+function releaseError(message) {
+  return new Error(`Invalid ${CONFIG_FILE}: release${message}`)
+}
+
+/**
+ * Check `release` and return it as written, like `packages`. Its presence is
+ * the opt-in to the release scripts, so a malformed value refuses rather than
+ * being read as absent.
+ */
+function validateRelease(release) {
+  if (!isObject(release)) throw releaseError(' must be an object')
+  if (release.staged !== undefined && typeof release.staged !== 'boolean') {
+    throw releaseError('.staged must be true or false')
+  }
+  if (release.test !== undefined && (typeof release.test !== 'string' || !release.test.trim())) {
+    throw releaseError('.test must be a non-empty command string')
+  }
+  if (
+    release.preTag !== undefined &&
+    (!Array.isArray(release.preTag) || release.preTag.some((c) => typeof c !== 'string' || !c.trim()))
+  ) {
+    throw releaseError('.preTag must be an array of command strings')
+  }
+  if (release.recordedHashes !== undefined) {
+    if (!Array.isArray(release.recordedHashes)) {
+      throw releaseError('.recordedHashes must be an array of { files, pattern }')
+    }
+    release.recordedHashes.forEach((source, i) => {
+      const at = `.recordedHashes[${i}]`
+      if (!isObject(source)) throw releaseError(`${at} must be { files, pattern }`)
+      if (
+        !Array.isArray(source.files) ||
+        source.files.length === 0 ||
+        source.files.some((f) => typeof f !== 'string' || !f.trim())
+      ) {
+        throw releaseError(`${at}.files must be a non-empty array of path globs`)
+      }
+      let re
+      try {
+        re = new RegExp(source.pattern)
+      } catch (error) {
+        throw releaseError(`${at}.pattern is not a valid regular expression: ${error.message}`)
+      }
+      if (typeof source.pattern !== 'string' || new RegExp(`${re.source}|`).exec('').length < 2) {
+        throw releaseError(`${at}.pattern must capture the hash in group 1`)
+      }
+    })
+  }
+  return release
 }
 
 /**
@@ -114,6 +251,10 @@ function mergeConfig(base, parsed) {
     }
   }
 
+  // `null` reads as absent, like leaving the key out.
+  if (parsed.packages != null) base.packages = validatePackages(parsed.packages)
+  if (parsed.release != null) base.release = validateRelease(parsed.release)
+
   if (isObject(parsed.hotfix)) {
     if (typeof parsed.hotfix.branchPrefix === 'string' && parsed.hotfix.branchPrefix.trim()) {
       base.hotfix.branchPrefix = parsed.hotfix.branchPrefix.trim()
@@ -151,6 +292,7 @@ function loadConfig(dir = process.cwd()) {
 
 module.exports = {
   loadConfig,
+  resolvePackage,
   DEFAULT_CONFIG,
   DEFAULT_EMPTY_RELEASE,
   SCHEMA_VERSION,

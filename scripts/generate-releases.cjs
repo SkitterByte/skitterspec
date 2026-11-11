@@ -34,19 +34,22 @@ const { existsSync, readFileSync, writeFileSync } = require('node:fs')
 const { basename, join } = require('node:path')
 
 const {
+  DEFAULT_SCHEME,
   escapeRegex,
   getAllVersionTags,
   getCommitsBetween,
   getCommitsSinceLastTag,
   getTagDate,
+  globMatcher,
   indexOfOlderSection,
   nearestAncestorTag,
   parseCommit,
+  parseRange,
   countCommitsSince,
   tagExists,
   VERSION_PATTERN,
 } = require('./lib/git-commits.cjs')
-const { loadConfig, DEFAULT_EMPTY_RELEASE } = require('./lib/config.cjs')
+const { loadConfig, resolvePackage, DEFAULT_EMPTY_RELEASE } = require('./lib/config.cjs')
 
 // Buckets render in this order within each area.
 const BUCKET_ORDER = ['Action required', 'New', 'Improved', 'Fixed']
@@ -247,14 +250,75 @@ function readReleases(path, header) {
   }
 }
 
-function getCurrentVersion() {
+function getCurrentVersion(dir = '.') {
+  const file = join(process.cwd(), dir, 'package.json')
   try {
-    const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8'))
+    const packageJson = JSON.parse(readFileSync(file, 'utf-8'))
     return packageJson.version
   } catch {
-    console.error('Error reading package.json')
+    console.error(dir === '.' ? 'Error reading package.json' : `Error reading ${join(dir, 'package.json')}`)
     process.exit(1)
   }
+}
+
+/**
+ * The options for `--package <name>`: that package's file, product name and
+ * tag scheme, plus how its commits are attributed. Exits non-zero, naming the
+ * configured packages, when `name` is not one of them.
+ */
+function packageOptions(config, name) {
+  const pkg = resolvePackage(config, name)
+  if (!pkg) {
+    const known = Object.keys(config.packages || {})
+    console.error(
+      known.length
+        ? `✖ No package "${name}" in skittership.config.json — configured: ${known.join(', ')}`
+        : `✖ --package ${name}: skittership.config.json configures no packages`,
+    )
+    process.exit(1)
+  }
+  const packages = Object.keys(config.packages).map((n) => resolvePackage(config, n))
+  return {
+    pkg,
+    options: {
+      file: pkg.releasesFile,
+      productName: pkg.productName,
+      scheme: pkg.scheme,
+      attribution: attributionFor(pkg, packages),
+    },
+  }
+}
+
+/**
+ * Pull `--range <from>..<to>` out of the arguments, so what remains reads as
+ * before. Exits non-zero, having written nothing, on a malformed range or one
+ * combined with --retro (which pairs tags itself).
+ */
+function takeRangeArg(args, usage) {
+  const idx = args.indexOf('--range')
+  if (idx < 0) return { range: null, rest: args }
+  const rest = [...args.slice(0, idx), ...args.slice(idx + 2)]
+  try {
+    if (rest.includes('--retro')) {
+      throw new Error('--range and --retro do not combine: --retro pairs each tag with its own base.')
+    }
+    return { range: parseRange(args[idx + 1]), rest }
+  } catch (error) {
+    console.error(`\n✖ ${error.message}\n  ${usage}\n`)
+    process.exit(1)
+  }
+}
+
+/** `--package <name>` is pulled out first, so what remains reads as before. */
+function takePackageArg(args) {
+  const idx = args.indexOf('--package')
+  if (idx < 0) return { name: null, rest: args }
+  const name = args[idx + 1]
+  if (!name || name.startsWith('-')) {
+    console.error('Usage: generate-releases.cjs --package <name> [version | --retro [count]]')
+    process.exit(1)
+  }
+  return { name, rest: [...args.slice(0, idx), ...args.slice(idx + 2)] }
 }
 
 function notesFor(commitLines, scopeAreas) {
@@ -265,6 +329,56 @@ function notesFor(commitLines, scopeAreas) {
     .filter((n) => n !== null)
 }
 
+/**
+ * How a package's commits are told apart from the rest, built from the
+ * `packages` config. A commit belongs to every package one of its changed
+ * files matches; a package with no `paths` takes every commit. `null` (no
+ * `--package`) means no attribution at all — the default walk, untouched.
+ */
+function attributionFor(pkg, packages) {
+  const matcherOf = (entry) => {
+    if (!entry.paths) return () => true
+    const globs = entry.paths.map(globMatcher)
+    return (files) => files.some((f) => globs.some((g) => g(f)))
+  }
+  const all = packages.map(matcherOf)
+  return {
+    own: matcherOf(pkg),
+    any: (files) => all.some((m) => m(files)),
+  }
+}
+
+/**
+ * Split walked commits into this package's lines and the orphans: commits
+ * carrying a real note that no configured package claims.
+ *
+ * BLIND SPOT: attribution reads CHANGED PATHS. A user-facing commit that only
+ * touches files outside every package (docs/, scripts/) is an orphan. That is
+ * usually right — such a commit should not carry a footer — and it is why
+ * orphans are listed on every run rather than dropped in silence.
+ */
+function select(walked, attribution) {
+  if (!attribution) return { lines: walked, orphans: [] }
+  const lines = []
+  const orphans = []
+  for (const { line, files } of walked) {
+    if (attribution.own(files)) lines.push(line)
+    else if (!attribution.any(files)) {
+      const commit = parseCommit(line)
+      if (commit && parseReleaseNote(commit)) orphans.push(line.split('\0')[1])
+    }
+  }
+  return { lines, orphans }
+}
+
+function reportOrphans(orphans, label = '') {
+  if (orphans.length === 0) return
+  console.log(
+    `  ${label}${orphans.length} Release-Note footer(s) match no configured package and were not included:`,
+  )
+  for (const subject of orphans) console.log(`    ${subject}`)
+}
+
 function resolveOptions(options = {}) {
   return {
     file: options.file || DEFAULT_FILE,
@@ -273,20 +387,34 @@ function resolveOptions(options = {}) {
     changelogFile: options.changelogFile || 'CHANGELOG.md',
     // `null` is the explicit off; only an absent option takes the default.
     emptyRelease: options.emptyRelease === undefined ? DEFAULT_EMPTY_RELEASE : options.emptyRelease,
+    scheme: options.scheme || DEFAULT_SCHEME,
+    attribution: options.attribution || null,
   }
 }
 
 function updateReleases(newVersion, options = {}) {
-  const { file, productName, scopeAreas, changelogFile, emptyRelease } = resolveOptions(options)
+  const orphans = []
+  writeRelease(newVersion, options, orphans)
+  reportOrphans(orphans)
+}
+
+function writeRelease(newVersion, options, orphans) {
+  const { file, productName, scopeAreas, changelogFile, emptyRelease, scheme, attribution } =
+    resolveOptions(options)
   const releasesPath = join(process.cwd(), file)
   const header = defaultReleasesHeader(productName, changelogFile)
   let content = readReleases(releasesPath, header)
 
   let range = 'unknown range'
-  const notes = notesFor(
-    getCommitsSinceLastTag(newVersion, { onRange: (r) => (range = r) }),
-    scopeAreas,
-  )
+  const walked = getCommitsSinceLastTag(newVersion, {
+    onRange: (r) => (range = r),
+    scheme,
+    withFiles: Boolean(attribution),
+    range: options.range || null,
+  })
+  const selected = select(walked, attribution)
+  orphans.push(...selected.orphans)
+  const notes = notesFor(selected.lines, scopeAreas)
   if (notes.length === 0 && !emptyRelease) {
     console.log(`No Release-Note footers found since last tag — skipping ${file} update`)
     // Ensure the artifact exists so a version hook's downstream steps have a
@@ -300,7 +428,7 @@ function updateReleases(newVersion, options = {}) {
   // re-stamping a shipped release with the current date. getTagDate falls back
   // to today when the tag does not exist, which is the `npm version` path —
   // the version being released has no tag yet, so that stays unchanged.
-  const date = getTagDate(`v${newVersion}`)
+  const date = getTagDate(scheme.tagFor(newVersion))
   const section = renderReleasesSection(newVersion, date, notes, emptyRelease)
   const before = content
   content = upsertReleasesSection(content, section, newVersion)
@@ -309,7 +437,7 @@ function updateReleases(newVersion, options = {}) {
     // Do not claim an update that did not happen — and when the version is
     // already tagged, say how much work is deliberately excluded, so "no diff"
     // cannot read as "nothing pending".
-    const tag = `v${newVersion}`
+    const tag = scheme.tagFor(newVersion)
     if (tagExists(tag)) {
       const pending = countCommitsSince(tag)
       console.log(`${tag} is already tagged — ${file} unchanged.`)
@@ -334,12 +462,13 @@ function updateReleases(newVersion, options = {}) {
 }
 
 function retroFillReleases(count, options = {}) {
-  const { file, productName, scopeAreas, changelogFile, emptyRelease } = resolveOptions(options)
+  const { file, productName, scopeAreas, changelogFile, emptyRelease, scheme, attribution } =
+    resolveOptions(options)
   const releasesPath = join(process.cwd(), file)
   const header = defaultReleasesHeader(productName, changelogFile)
   let content = readReleases(releasesPath, header)
 
-  const tags = getAllVersionTags()
+  const tags = getAllVersionTags(scheme)
   if (tags.length === 0) {
     console.log('No version tags found — nothing to retro-fill')
     return
@@ -352,9 +481,14 @@ function retroFillReleases(count, options = {}) {
   for (const tag of targets) {
     // The release this one built on — its nearest ancestor tag, not its
     // neighbour by sort, which for a hotfix is a tag on another line.
-    const previousTag = nearestAncestorTag(`${tag}^`)
-    const version = tag.replace(/^v/, '')
-    const notes = notesFor(getCommitsBetween(previousTag, tag), scopeAreas)
+    const previousTag = nearestAncestorTag(`${tag}^`, scheme)
+    const version = scheme.versionOf(tag)
+    const selected = select(
+      getCommitsBetween(previousTag, tag, { withFiles: Boolean(attribution) }),
+      attribution,
+    )
+    reportOrphans(selected.orphans, `${tag}: `)
+    const notes = notesFor(selected.lines, scopeAreas)
 
     if (notes.length === 0 && !emptyRelease) {
       // No notes for this tag, and placeholders are switched off. Skipping
@@ -390,7 +524,11 @@ function retroFillReleases(count, options = {}) {
 }
 
 function main(argv) {
-  const args = argv.slice(2)
+  const { name: packageName, rest: afterPackage } = takePackageArg(argv.slice(2))
+  const { range, rest: args } = takeRangeArg(
+    afterPackage,
+    'Usage: generate-releases.cjs [--package <name>] --range <from>..<to> [version]',
+  )
 
   let config
   try {
@@ -405,12 +543,19 @@ function main(argv) {
     return
   }
 
-  const options = {
+  let options = {
     file: config.releases.file,
     productName: config.releases.productName,
     scopeAreas: config.releases.scopeAreas,
     changelogFile: config.changelog.file,
     emptyRelease: config.releases.emptyRelease,
+  }
+  if (range) options.range = range
+  let versionDir = '.'
+  if (packageName) {
+    const { pkg, options: overrides } = packageOptions(config, packageName)
+    options = { ...options, ...overrides }
+    versionDir = pkg.dir
   }
   const retroIdx = args.indexOf('--retro')
 
@@ -430,9 +575,20 @@ function main(argv) {
     retroFillReleases(count, options)
   } else {
     try {
-      updateReleases(args[0] || getCurrentVersion(), options)
+      let version = args[0]
+      if (!version) {
+        if (!versionDir) {
+          console.error(
+            `✖ --package ${packageName}: pass the version, or set packages.${packageName}.dir ` +
+              'so it can be read from that package.json',
+          )
+          process.exit(1)
+        }
+        version = getCurrentVersion(versionDir)
+      }
+      updateReleases(version, options)
     } catch (error) {
-      if (error.code !== 'NO_BASE_TAG') throw error
+      if (error.code !== 'NO_BASE_TAG' && error.code !== 'BAD_RANGE') throw error
       console.error(`\n✖ ${error.message}\n`)
       process.exit(1)
     }

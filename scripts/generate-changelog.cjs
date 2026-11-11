@@ -15,6 +15,7 @@ const { readFileSync, writeFileSync } = require('node:fs')
 const { join } = require('node:path')
 
 const {
+  DEFAULT_SCHEME,
   escapeRegex,
   getAllVersionTags,
   getCommitsBetween,
@@ -23,6 +24,7 @@ const {
   indexOfOlderSection,
   nearestAncestorTag,
   parseCommit,
+  parseRange,
   countCommitsSince,
   tagExists,
   VERSION_PATTERN,
@@ -185,11 +187,16 @@ function readChangelog(path) {
 
 function updateChangelog(newVersion, options = {}) {
   const file = options.file || DEFAULT_FILE
+  const scheme = options.scheme || DEFAULT_SCHEME
   const changelogPath = join(process.cwd(), file)
   let changelogContent = readChangelog(changelogPath)
 
   let range = 'unknown range'
-  const commitLines = getCommitsSinceLastTag(newVersion, { onRange: (r) => (range = r) })
+  const commitLines = getCommitsSinceLastTag(newVersion, {
+    onRange: (r) => (range = r),
+    scheme,
+    range: options.range || null,
+  })
   const commits = commitLines.map(parseCommit).filter((commit) => commit !== null)
 
   if (commits.length === 0) {
@@ -203,7 +210,7 @@ function updateChangelog(newVersion, options = {}) {
   // re-stamping a shipped release with the current date. getTagDate falls back
   // to today when the tag does not exist, which is the `npm version` path —
   // the version being released has no tag yet, so that stays unchanged.
-  const date = getTagDate(`v${newVersion}`)
+  const date = getTagDate(scheme.tagFor(newVersion))
   const newSection = generateChangelogSection(newVersion, date, categories).trimEnd() + '\n'
 
   const before = changelogContent
@@ -214,7 +221,7 @@ function updateChangelog(newVersion, options = {}) {
     // regenerates the already-correct section for the tagged version, writes the
     // same bytes, and used to report "✅ Updated" — while silently covering none
     // of the commits made since. Both facts belong in the output.
-    reportNoChange(file, newVersion, range)
+    reportNoChange(file, newVersion, range, scheme)
     return
   }
 
@@ -226,8 +233,8 @@ function updateChangelog(newVersion, options = {}) {
  * Say that nothing changed, and — when the version is already tagged — how much
  * work is deliberately excluded, so "no diff" cannot read as "nothing pending".
  */
-function reportNoChange(file, version, range) {
-  const tag = `v${version}`
+function reportNoChange(file, version, range, scheme = DEFAULT_SCHEME) {
+  const tag = scheme.tagFor(version)
   if (tagExists(tag)) {
     const pending = countCommitsSince(tag)
     console.log(`${tag} is already tagged — ${file} unchanged.`)
@@ -244,10 +251,11 @@ function reportNoChange(file, version, range) {
 
 function retroFillChangelog(count, options = {}) {
   const file = options.file || DEFAULT_FILE
+  const scheme = options.scheme || DEFAULT_SCHEME
   const changelogPath = join(process.cwd(), file)
   let changelogContent = readChangelog(changelogPath)
 
-  const tags = getAllVersionTags()
+  const tags = getAllVersionTags(scheme)
   if (tags.length === 0) {
     console.log('No version tags found — nothing to retro-fill')
     return
@@ -261,8 +269,8 @@ function retroFillChangelog(count, options = {}) {
   for (const tag of targets) {
     // The release this one built on — its nearest ancestor tag, not its
     // neighbour by sort, which for a hotfix is a tag on another line.
-    const previousTag = nearestAncestorTag(`${tag}^`)
-    const version = tag.replace(/^v/, '')
+    const previousTag = nearestAncestorTag(`${tag}^`, scheme)
+    const version = scheme.versionOf(tag)
     const commits = getCommitsBetween(previousTag, tag)
       .map(parseCommit)
       .filter((c) => c !== null)
@@ -296,8 +304,31 @@ function retroFillChangelog(count, options = {}) {
   }
 }
 
+/**
+ * Pull `--range <from>..<to>` out of the arguments, so what remains reads as
+ * before. Exits non-zero, having written nothing, on a malformed range or one
+ * combined with --retro (which pairs tags itself).
+ */
+function takeRangeArg(args, usage) {
+  const idx = args.indexOf('--range')
+  if (idx < 0) return { range: null, rest: args }
+  const rest = [...args.slice(0, idx), ...args.slice(idx + 2)]
+  try {
+    if (rest.includes('--retro')) {
+      throw new Error('--range and --retro do not combine: --retro pairs each tag with its own base.')
+    }
+    return { range: parseRange(args[idx + 1]), rest }
+  } catch (error) {
+    console.error(`\n✖ ${error.message}\n  ${usage}\n`)
+    process.exit(1)
+  }
+}
+
 function main(argv) {
-  const args = argv.slice(2)
+  const { range, rest: args } = takeRangeArg(
+    argv.slice(2),
+    'Usage: generate-changelog.cjs --range <from>..<to> [version]',
+  )
 
   let config
   try {
@@ -313,6 +344,7 @@ function main(argv) {
   }
 
   const options = { file: config.changelog.file }
+  if (range) options.range = range
   const retroIdx = args.indexOf('--retro')
 
   if (retroIdx >= 0) {
@@ -334,7 +366,7 @@ function main(argv) {
     try {
       updateChangelog(version, options)
     } catch (error) {
-      if (error.code !== 'NO_BASE_TAG') throw error
+      if (error.code !== 'NO_BASE_TAG' && error.code !== 'BAD_RANGE') throw error
       console.error(`\n✖ ${error.message}\n`)
       process.exit(1)
     }

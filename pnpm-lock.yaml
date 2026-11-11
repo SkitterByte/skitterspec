@@ -167,8 +167,8 @@ importers:
   .:
     devDependencies:
       '@skitterbyte/skittership':
-        specifier: ^2.1.0
-        version: 2.1.0
+        specifier: ^2.2.0
+        version: 2.2.0
       '@skitterbyte/skitterspec-provider-azure-boards':
         specifier: workspace:*
         version: link:packages/azure-boards
@@ -282,8 +282,8 @@ importers:
 
 packages:
 
-  '@skitterbyte/skittership@2.1.0':
-    resolution: {integrity: sha512-MIEFI1jMzq293bfm3fh3pfqRb0Ae5EHusE/wK/8+3j8wWU5JOtdS53O6vZ/oqBp9EtDx8ijSD5M5nY0+LVejuA==}
+  '@skitterbyte/skittership@2.2.0':
+    resolution: {integrity: sha512-0lcX2ksSGmiVGKYDWRRWDImvOkEMKbW8IBcBzvIKUTSR4MknSgqsTV8mX6VIuGYTn8cb1WADX58DuTFvUMjxnQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -300,7 +300,7 @@ packages:
 
 snapshots:
 
-  '@skitterbyte/skittership@2.1.0':
+  '@skitterbyte/skittership@2.2.0':
     dependencies:
       prompts: 2.4.2
 

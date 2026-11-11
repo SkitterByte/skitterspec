@@ -1,13 +1,13 @@
 {
-  "installedVersion": "2.1.0",
+  "installedVersion": "2.2.0",
   "files": {
     ".claude/rules/commit-messages.md": "sha256-b9473321d2eefe44435d26a7b4c1934d9e7304ad12a285776f48d2c29d15d673",
     ".claude/skills/commit/SKILL.md": "sha256-bca6221144145870a474787132bc2de44c4d2c8e1888d7369ba9d0ce9d61453d",
     "scripts/check-release-index.cjs": "sha256-2f0e97eacaae060643782e2da51f68343962c68a34bbfe54098d3e5d9a0f4601",
-    "scripts/generate-changelog.cjs": "sha256-772bbccbc1bca1fd0c837ddf2388525bcdb84b2273431bbd06ed9afe96142d8e",
-    "scripts/generate-releases.cjs": "sha256-0e6f07affaac01b109e84f7198a3e41b467b6c9959942dfc92f47adea69db16f",
-    "scripts/lib/config.cjs": "sha256-7a78ee4de6d17e97fc886a1eb8aabbe2ac8df6a184da527d331a1f3375b8c074",
-    "scripts/lib/git-commits.cjs": "sha256-6c4bc9268d6902f7fedf5d680ae3ccfb012e577819875592a16ef4fad1f02044",
+    "scripts/generate-changelog.cjs": "sha256-2526b76924d15bb600b73cb61c507e64be0b1eb2ea651ea1ff619b0f54f5de0b",
+    "scripts/generate-releases.cjs": "sha256-7704f50d9db0700a38c9ada3279c6f2b73b2c4fd4c2224f26d1595e72f9dc27d",
+    "scripts/lib/config.cjs": "sha256-3583165d23ca9f386403943f2a6a86f3943ff93aad228ea0ff811afe0fc1ec71",
+    "scripts/lib/git-commits.cjs": "sha256-b7f17675c199d8b4674c4e512bca956c031f6d7cf383c05bc8bc08f505d27982",
     "scripts/release-hotfix.cjs": "sha256-27c353ef136a3951173956f2f3fda92cd99acf9487ce232ee3085bdb300924bb"
   }
 }

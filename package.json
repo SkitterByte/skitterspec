@@ -11,7 +11,7 @@
     "node": ">=22.13"
   },
   "devDependencies": {
-    "@skitterbyte/skittership": "^2.1.0",
+    "@skitterbyte/skittership": "^2.2.0",
     "@skitterbyte/skitterspec-provider-azure-boards": "workspace:*",
     "@skitterbyte/skitterspec-provider-github": "workspace:*",
     "@skitterbyte/skitterspec-provider-jira": "workspace:*",
