@@ -163,3 +163,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `/epic` beside the members to start. `docs/index.html` gained the `/epic`
   chip the published-docs check requires; its `verified:` was not bumped, since
   the rest of that page was not re-read.
+- 2026-11-11 — Completed; all phases done, tests green.
