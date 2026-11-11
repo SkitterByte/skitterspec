@@ -641,7 +641,12 @@ function epicStatusCommand(argv) {
     // A link only where a server is already serving: this reads the server and
     // never starts one, so a status asked from a phone never restarts the
     // server whose link that phone has open.
-    linkFor: (spec) => (up ? `${serveUrl('127.0.0.1', up)}${encodeURIComponent(spec)}` : null),
+    //
+    // The NETWORK address where the server is bound wide, so a row read on a
+    // phone opens there too; loopback where it is not, or where this machine
+    // has no address to offer. A tailnet reader has the epic page, whose member
+    // links are relative.
+    linkFor: (spec) => memberPageLink(up, offerableLanAddresses(), spec),
   })
   const answer = { ...epicAnswer(epic, inputs, readers), ...(here ? { here: here.label } : {}) }
   const page = epicPageTiers(inputs, up, epic)
@@ -652,6 +657,14 @@ function epicStatusCommand(argv) {
   // No such epic is a plain answer; a page link for it would be a link to nothing.
   const found = answer.found || answer.members.length
   process.stdout.write(formatEpicStatus(answer) + (found ? '\n' + epicPageLines(page) : ''))
+}
+
+// A member's review page as `epic status` prints it: the network URL where the
+// server is bound wide, else loopback; null with nothing serving.
+function memberPageLink(up, addrs, spec) {
+  if (!up) return null
+  const served = reviewServedUrls(up, addrs, spec)
+  return served.url || served.loopbackUrl
 }
 
 /**
@@ -5901,9 +5914,6 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
       // The reason there is no served URL, when there is none. A `file://` link
       // with nothing said about it reads as the ordinary outcome, and it is not.
       (!served && noServeBecause ? `  not served: ${noServeBecause}\n` : '') +
-      (served && served.loopback && config.review.allowNetwork
-        ? `  network permitted but the running server is loopback-bound — ${served.widen}\n`
-        : '') +
       (served && served.started && !served.loopback
         ? '  serving: every provisioned spec, to anyone with a URL on your network.\n' +
           '  stop:  skitterspec spec-env review serve --stop\n'
@@ -7621,5 +7631,6 @@ module.exports = {
   serverScriptOk,
   daemonScript,
   reviewServedUrls,
+  memberPageLink,
   restartHost,
 }

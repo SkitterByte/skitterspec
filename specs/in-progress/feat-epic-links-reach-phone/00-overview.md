@@ -87,7 +87,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Engine: member links + loopback tier | ⬜ | [01-engine-links.md](01-engine-links.md) |
+| 1 | Engine: member links + loopback tier | ✅ | [01-engine-links.md](01-engine-links.md) |
 | 2 | Relay rule + docs | ⬜ | [02-relay-rule-docs.md](02-relay-rule-docs.md) |
 
 ## Open questions
@@ -97,3 +97,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-11 — Spec created.
+- 2026-11-11 — A loopback-bound network tier offers no page press (`bound:
+  "loopback"`): `allow-network` would change nothing, and widening restarts
+  the server.

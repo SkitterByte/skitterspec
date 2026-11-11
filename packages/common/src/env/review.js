@@ -606,6 +606,10 @@ const ACTIONS = ['live-on', 'allow-network', 'allow-remote']
  */
 function tierAction(tier) {
   if (!tier || !tier.off) return null
+  // A loopback bind is off for a reason no press can fix: widening it restarts
+  // the server, which mints a new token and kills every link already open. Its
+  // command is named on the line; the page offers nothing.
+  if (tier.bound === 'loopback') return null
   if (tier.tier === 'network') return 'allow-network'
   if (tier.tier === 'remote') return 'allow-remote'
   return null
@@ -745,6 +749,11 @@ function reviewTierStack({ served, fileUrl, publishedUrl, config }) {
         return isTailnetAddress(host) ? { url: u, label: 'tailnet' } : { url: u }
       }),
     })
+  } else if (served && served.loopback && served.widen) {
+    // Permitted, and the machine has addresses — but the running server is
+    // bound to loopback. "No network address" here sent readers looking for a
+    // network problem; the fix is one command, so the line names it.
+    tiers.push({ tier: 'network', off: true, bound: 'loopback', enable: served.widen })
   } else {
     // Permitted, but there is no address to offer — a machine with no network,
     // or a server that could not take one. Not a problem to report as an error.
