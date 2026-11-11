@@ -35,7 +35,10 @@ const {
   allSpecs,
   resolveSpec,
   resolveBaseBranch,
+  isEpic,
 } = require('./resolve.js')
+const { epicTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./epicread.js')
+const { renderEpicPage } = require('./epicpage.js')
 const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
 const { primaryAnchor, attachProject, repoRootOf, prefixOf, fromRepoPath, toRepoPath } = require('./project.js')
@@ -124,8 +127,16 @@ function escapeHtml(s) {
  * palette on bare `:root`, redefined under `prefers-color-scheme`) so the two
  * do not disagree when opened side by side.
  */
-function renderIndex(entries, { token = null } = {}) {
+function renderIndex(entries, { token = null, epics = [] } = {}) {
   const prefix = token ? `/${token}` : ''
+  // Epics with a member in flight, each a doorway to its epic page. Listed
+  // above the diffs because an epic page is where a reader running several
+  // members starts; absent entirely on a repo with no epic in flight.
+  const epicList = epics.length
+    ? `<h2>epics</h2>\n<ul>\n${epics
+        .map((e) => `<li><a href="${prefix}/${encodeURIComponent(e)}">${escapeHtml(e)}</a><span class="b">what to run next, per member</span></li>`)
+        .join('\n')}\n</ul>\n<h2>diffs</h2>`
+    : ''
   const rows = entries
     .map((e) => {
       const t = e.totals || { files: 0, additions: 0, deletions: 0 }
@@ -161,6 +172,7 @@ body { margin:0; padding:2rem 1.25rem; background:var(--bg); color:var(--fg);
   font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif }
 main { max-width:52rem; margin:0 auto }
 h1 { font-size:1.1rem; margin:0 0 1.25rem; font-weight:600 }
+h2 { font-size:.9rem; margin:1.25rem 0 .25rem; font-weight:600; color:var(--dim) }
 ul { list-style:none; margin:0; padding:0 }
 li { display:flex; flex-wrap:wrap; gap:.75rem; align-items:baseline;
   padding:.7rem 0; border-top:1px solid var(--line) }
@@ -177,6 +189,7 @@ code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace }
 <body>
 <main>
 <h1>spec diffs</h1>
+${epicList}
 ${body}
 </main>
 </body>
@@ -792,7 +805,7 @@ function readBody(req, limit = MAX_PASS_BYTES) {
   })
 }
 
-function createReviewServer({ resolveEntries, render, receive = null, passState = null, token = null }) {
+function createReviewServer({ resolveEntries, resolveEpics = () => [], render, receive = null, passState = null, token = null }) {
   return http.createServer((req, res) => {
     const send = (code, body, type = 'text/html; charset=utf-8') => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' })
@@ -846,7 +859,7 @@ function createReviewServer({ resolveEntries, render, receive = null, passState 
     }
 
     try {
-      if (route.kind === 'index') return send(200, renderIndex(resolveEntries(), { token }))
+      if (route.kind === 'index') return send(200, renderIndex(resolveEntries(), { token, epics: resolveEpics() }))
       const out = render(route.spec, { branch: route.branch })
       if (!out) return send(404, 'not found', 'text/plain; charset=utf-8')
       if (out.error) return send(409, out.error, 'text/plain; charset=utf-8')
@@ -995,9 +1008,53 @@ function serverHooks(dir, config) {
       }
     })
 
+  // Every provisioned spec's own copy — what an epic's members are read off.
+  const worktrees = () =>
+    allSpecs(dir, config, liveWorktreePaths(trimmedGit), specless())
+      .filter((s) => !s.specless && s.worktreePath && s.worktreePath !== dir && fs.existsSync(s.worktreePath))
+      .map((s) => worktreeOverview(s.projectPath || s.worktreePath, s.folder))
+      .filter(Boolean)
+
+  // The epic page, read per request like every other page. null — a 404 — when
+  // no such epic exists and no spec names it; an unreadable base branch is a
+  // 409 saying so, never an empty plan.
+  const epicPage = (folder) => {
+    let base
+    try {
+      base = resolveBaseBranch(config, trimmedGit)
+    } catch (err) {
+      return { error: `cannot tell — ${err.message}` }
+    }
+    const tree = epicTree(trimmedGit, base)
+    if (!tree) return { error: `cannot tell — the base branch ${base} could not be read` }
+    const inputs = { dir, config, base, ...tree, worktrees: worktrees() }
+    const answer = epicAnswer(folder, inputs, memberReaders({ ...inputs, git: trimmedGitReader, linkFor: (s) => encodeURIComponent(s) }))
+    if (!answer.found && !answer.members.length) return null
+    return { html: renderEpicPage(answer) }
+  }
+
   return {
     resolveEntries,
-    render: (folder, opts) => renderSpecPage(dir, config, resolveOne(folder), opts),
+    resolveEpics: () => {
+      try {
+        return epicsInFlight(worktrees())
+      } catch {
+        // The index is a doorway; an unreadable worktree costs a link, never the page.
+        return []
+      }
+    },
+    render: (folder, opts) => {
+      // AN EPIC BEING WRITTEN KEEPS ITS AUTHORING PAGE. `/spec` renders a new
+      // epic's own documents at this same address, with verdict buttons, and
+      // that page must still be the one a reader gets while the documents are
+      // uncommitted. Every other epic address is the epic page.
+      if (isEpic(folder)) {
+        const one = resolveOne(folder)
+        const view = one ? viewFor(dir, config, one, trimmedGit) : null
+        if (!view || view.kind !== 'docs') return epicPage(folder)
+      }
+      return renderSpecPage(dir, config, resolveOne(folder), opts)
+    },
     receive: (folder, blob) => receivePass(dir, config, resolveOne(folder), blob),
     // A spec this daemon cannot resolve is not a pass that was claimed — it is
     // a lookup that could not see, so it says nothing rather than reporting the

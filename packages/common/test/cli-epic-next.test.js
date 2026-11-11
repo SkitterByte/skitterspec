@@ -121,6 +121,8 @@ test('epic status: the human view is the same answer, as plain text', async () =
     assert.match(human, /^ {2}feat-a +phase 2 of 2 +\/spec-next — phase 2 +\S+/m)
     assert.match(human, /^ {2}feat-b +backlog +waits on feat-a +—$/m)
     assert.doesNotMatch(human, /\|/)
+    // No server running here: the page line names the one command that starts it.
+    assert.match(human, /^epic page: no review server running — start it with: skitterspec spec-env review serve --host 0\.0\.0\.0$/m)
   } finally {
     cleanup(dir)
   }

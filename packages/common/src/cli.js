@@ -198,7 +198,8 @@ const {
   appendChangelog,
   waitsMetByRebase,
 } = require('./env/epic.js')
-const { epicRows, nextAction, readNextInputs, actionText } = require('./env/nextaction.js')
+const { nextAction, readNextInputs } = require('./env/nextaction.js')
+const { epicTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./env/epicread.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -620,10 +621,43 @@ function epicStatusCommand(argv) {
     )
     return
   }
-  const status = epicStatus({ epic, ...inputs })
-  const { rows, next } = epicRows(status, memberReaders(inputs))
-  const answer = { ...status, rows, next }
-  process.stdout.write(json ? JSON.stringify({ base: inputs.base, ...answer }, null, 2) + '\n' : formatEpicStatus(answer))
+  const up = inputs.config ? readRunningReviewServer(inputs.dir, inputs.config) : null
+  const readers = memberReaders({
+    ...inputs,
+    git: gitReader,
+    // A link only where a server is already serving: this reads the server and
+    // never starts one, so a status asked from a phone never restarts the
+    // server whose link that phone has open.
+    linkFor: (spec) => (up ? `${serveUrl('127.0.0.1', up)}${encodeURIComponent(spec)}` : null),
+  })
+  const answer = epicAnswer(epic, inputs, readers)
+  const page = epicPageTiers(inputs, up, epic)
+  if (json) {
+    process.stdout.write(JSON.stringify({ base: inputs.base, ...answer, page }, null, 2) + '\n')
+    return
+  }
+  // No such epic is a plain answer; a page link for it would be a link to nothing.
+  const found = answer.found || answer.members.length
+  process.stdout.write(formatEpicStatus(answer) + (found ? '\n' + epicPageLines(page) : ''))
+}
+
+/**
+ * Where the epic page can be read: the same tiers a review render prints, for
+ * the epic's own route — or, with no server running, the one command that
+ * starts it. Never null where isolation is configured, because the page is the
+ * thing a phone reader comes back to (Decision 8).
+ */
+function epicPageTiers(inputs, up, epic) {
+  if (!inputs.config) return null
+  if (!up) return { off: true, start: 'skitterspec spec-env review serve --host 0.0.0.0' }
+  const served = reviewServedUrls(up, offerableLanAddresses(), epic)
+  return { tiers: reviewTierStack({ served, fileUrl: null, publishedUrl: null, config: inputs.config }) }
+}
+
+function epicPageLines(page) {
+  if (!page) return ''
+  if (page.off) return `epic page: no review server running — start it with: ${page.start}\n`
+  return `epic page:\n${page.tiers.map(reviewTierLine).join('\n')}\n`
 }
 
 /**
@@ -640,41 +674,6 @@ function epicFromHere(inputs) {
   if (!own) return null
   if (isEpic(own.folder)) return own.folder
   return epicHeaders(own.overview).epic
-}
-
-// Epics with a member, or themselves, in flight on this machine — what a bare
-// `epic status` offers when it cannot tell which one was meant.
-function epicsInFlight(worktrees) {
-  const open = worktrees.filter((w) => w.bucket !== 'complete' && w.bucket !== 'cancelled')
-  const names = open.map((w) => (isEpic(w.folder) ? w.folder : epicHeaders(w.overview).epic)).filter(Boolean)
-  return [...new Set(names)].sort()
-}
-
-/**
- * The disk half of a member row, for `epicRows`: each member's own worktree,
- * the review sidecars beside its page, and the running server's link. Nothing
- * is started — a link only where a server is already serving.
- */
-function memberReaders(inputs) {
-  const { dir, config, worktrees } = inputs
-  const own = new Map(worktrees.map((w) => [w.folder, w]))
-  const up = config ? readRunningReviewServer(dir, config) : null
-  return {
-    inputsFor: (spec) => {
-      const w = own.get(spec)
-      if (!w) return null
-      return readNextInputs({
-        folder: spec,
-        bucket: w.bucket,
-        worktree: w.root,
-        outPath: reviewOutPath(dir, spec),
-        required: config ? config.review.required : true,
-        git: gitReader(w.root),
-      })
-    },
-    tabFor: (spec) => (own.has(spec) ? path.relative(path.dirname(dir), own.get(spec).root) : null),
-    linkFor: (spec) => (up ? `${serveUrl('127.0.0.1', up)}${encodeURIComponent(spec)}` : null),
-  }
 }
 
 /**
@@ -824,52 +823,15 @@ function epicInputs(argv, json, subject) {
   } catch (err) {
     return say(err.message)
   }
-  const listing = git(['ls-tree', '-r', '--name-only', base, '--', 'specs'])
-  if (listing === null) return say(`the base branch ${base} could not be read`)
-  // `git grep` exits 1 on no match, which the reader returns as null. The tree
-  // above was readable, so here null is "no spec names an epic".
-  const grep = git(['grep', '-l', '-E', '^>[[:space:]]*\\*\\*Epic:\\*\\*', base, '--', 'specs'])
-  const candidates = (grep || '')
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => l.slice(base.length + 1))
-  const readFile = (p) => git(['show', `${base}:${p}`])
+  const tree = epicTree(git, base)
+  if (!tree) return say(`the base branch ${base} could not be read`)
   const worktrees = present
     ? provisionedSpecs(dir, config)
         .filter((p) => !p.specless)
         .map((p) => worktreeOverview(p.project, p.folder))
         .filter(Boolean)
     : []
-  return { dir, config: present ? config : null, base, index: indexSpecTree(listing), readFile, candidates, worktrees }
-}
-
-// A provisioned spec's own overview and bucket, read in its worktree — the
-// copy where an in-flight spec's bucket and headers are true. null when the
-// worktree holds no readable copy.
-function worktreeOverview(root, folder) {
-  for (const bucket of ['in-progress', 'backlog', 'complete', 'cancelled']) {
-    const dir = path.join(root, 'specs', bucket, folder)
-    let overview
-    try {
-      overview = fs.readFileSync(path.join(dir, '00-overview.md'), 'utf8')
-    } catch {
-      continue
-    }
-    const phases = fs
-      .readdirSync(dir)
-      .filter((f) => /^\d\d-.+\.md$/.test(f) && f !== '00-overview.md')
-      .map((f) => {
-        let text = null
-        try {
-          text = fs.readFileSync(path.join(dir, f), 'utf8')
-        } catch {
-          // unreadable: a phase with nothing to say
-        }
-        return { n: Number(f.slice(0, 2)), text }
-      })
-    return { folder, bucket, overview, phases, root }
-  }
-  return null
+  return { dir, config: present ? config : null, base, ...tree, worktrees }
 }
 
 // Plan a provision: allocate the slot, persist the registry, and print the plan
