@@ -130,7 +130,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Next action per spec | ⬜ | [01-next-action.md](01-next-action.md) |
+| 1 | Next action per spec | ✅ | [01-next-action.md](01-next-action.md) |
 | 2 | CLI and JSON output | ⬜ | [02-cli-output.md](02-cli-output.md) |
 | 3 | Served epic page | ⬜ | [03-epic-page.md](03-epic-page.md) |
 | 4 | Epic tab: start hand-off, `/epic`, docs | ⬜ | [04-epic-tab.md](04-epic-tab.md) |
@@ -142,3 +142,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-11 — Spec created.
+- 2026-11-11 — Phase 1: `nextAction` takes `phases: [{ n, done }]` rather
+  than counts, so the held-phase check and `/spec-next`'s phase number come
+  from the first unfinished phase file. A spec with no phase files is `idle`
+  (no command) rather than `/spec-next`, which would refuse. The gate input
+  splits `unknown` into `off` (opted out — silence) and `unreadable`.
