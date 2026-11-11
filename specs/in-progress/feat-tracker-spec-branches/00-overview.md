@@ -115,7 +115,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Default `specDocs` to branch when a provider is configured | ✅ | [01-provider-default.md](01-provider-default.md) |
 | 2 | Push the spec branch on the verdict; delete it on cancel | ✅ | [02-push-and-cancel.md](02-push-and-cancel.md) |
-| 3 | Backlog checks read spec branches | ⬜ | [03-branch-discovery.md](03-branch-discovery.md) |
+| 3 | Backlog checks read spec branches | ✅ | [03-branch-discovery.md](03-branch-discovery.md) |
 
 ## Open questions
 
@@ -135,3 +135,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   the same verb and must not turn into a push. A docs-only branch (its range
   is only the spec's own documents) also skips the PR-mode teardown guard,
   since that lane never opens a PR for it.
+- 2026-11-11 — Phase 3: a branch's own specs are the folders its range
+  changed, since every spec branch carries every base spec too. Branch
+  copies are read in every project, not only the branch lane — in trunk a
+  started spec's branch copy is the truer one — and add nothing where no
+  spec branch has unlanded spec changes. Epic status takes them as a
+  `branches` input beside `worktrees`; a worktree still wins.

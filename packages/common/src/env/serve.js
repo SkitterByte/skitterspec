@@ -38,6 +38,7 @@ const {
   isEpic,
 } = require('./resolve.js')
 const { epicTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./epicread.js')
+const { specBranchDocs } = require('./specbranches.js')
 const { renderEpicPage } = require('./epicpage.js')
 const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
@@ -1027,7 +1028,7 @@ function serverHooks(dir, config) {
     }
     const tree = epicTree(trimmedGit, base)
     if (!tree) return { error: `cannot tell — the base branch ${base} could not be read` }
-    const inputs = { dir, config, base, ...tree, worktrees: worktrees() }
+    const inputs = { dir, config, base, ...tree, worktrees: worktrees(), branches: specBranchDocs(trimmedGit, config, base) }
     const answer = epicAnswer(folder, inputs, memberReaders({ ...inputs, git: trimmedGitReader, linkFor: (s) => encodeURIComponent(s) }))
     if (!answer.found && !answer.members.length) return null
     return { html: renderEpicPage(answer) }

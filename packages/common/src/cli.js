@@ -184,6 +184,7 @@ const {
 } = require('./env/mainguard.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
 const { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs } = require('./env/integrate.js')
+const { specBranchDocs, preferBranches } = require('./env/specbranches.js')
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
@@ -851,7 +852,7 @@ function epicInputs(argv, json, subject) {
         .map((p) => worktreeOverview(p.project, p.folder))
         .filter(Boolean)
     : []
-  return { dir, config: present ? config : null, base, ...tree, worktrees }
+  return { dir, config: present ? config : null, base, ...tree, worktrees, branches: specBranchDocs(git, config, base) }
 }
 
 // Plan a provision: allocate the slot, persist the registry, and print the plan
@@ -964,14 +965,28 @@ function untouchedLines(plan) {
  * yet is not broken, and a check that stopped someone's work over a missing
  * header would be a worse failure than the omission it names.
  */
+// Specs that live only on their own branch, for the checks that read the
+// backlog. Every cannot-tell — no git, an unresolvable base — is an empty list,
+// which leaves the disk scan exactly as it was.
+function branchSpecDocs(dir) {
+  try {
+    const { config } = loadEnvConfig(dir)
+    const git = gitReader(dir)
+    return specBranchDocs(git, config, resolveBaseBranch(config, git))
+  } catch {
+    return []
+  }
+}
+
 function gatingCheck(dir, argv) {
   const { opts, positional } = parse(argv)
-  const { checkGating, activeSpecs } = require('./gating.js')
+  const { checkGating, activeSpecs, ACTIVE_BUCKETS } = require('./gating.js')
+  const branches = branchSpecDocs(dir).filter((b) => ACTIVE_BUCKETS.includes(b.bucket))
 
   let specs = null
   if (positional.length && !opts.all) {
     const name = path.basename(positional[0])
-    const found = activeSpecs(dir).filter((s) => s.folder === name)
+    const found = preferBranches(activeSpecs(dir), branches).filter((s) => s.folder === name)
     if (!found.length) {
       // Not an accusation: a name that matches no ACTIVE spec is usually a
       // finished one, which gating never covers anyway.
@@ -981,7 +996,7 @@ function gatingCheck(dir, argv) {
     specs = found
   }
 
-  const result = checkGating(dir, specs)
+  const result = checkGating(dir, specs, { branches })
 
   if (opts.json) {
     process.stdout.write(JSON.stringify(result, null, 2) + '\n')
@@ -1001,8 +1016,8 @@ function gatingCheck(dir, argv) {
   for (const f of result.findings) {
     lines.push(
       f.kind === 'missing'
-        ? `  ${f.folder} (${f.bucket}): no Gating: header`
-        : `  ${f.folder} (${f.bucket}): Gating: "${f.raw}" says nothing — a bare "none" is not a reason`,
+        ? `  ${f.folder} (${f.bucket}${f.from ? `, ${f.from}` : ''}): no Gating: header`
+        : `  ${f.folder} (${f.bucket}${f.from ? `, ${f.from}` : ''}): Gating: "${f.raw}" says nothing — a bare "none" is not a reason`,
     )
   }
   lines.push('')

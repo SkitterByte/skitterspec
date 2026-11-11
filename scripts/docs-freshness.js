@@ -35,6 +35,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
+const { specBranchDocs, preferBranches, branchLabel } = require('../packages/common/src/env/specbranches.js')
 
 const DOCS_DIR = 'docs'
 
@@ -185,8 +186,10 @@ const DOCS_HEADER_RE = /^> \*\*Docs:\*\*\s*(.*)$/m
  * the reason is what a reviewer can argue with, so `none` without one is a
  * shrug, not a decision (the same rule the Gating header has).
  */
-function checkSpecs(root = process.cwd()) {
-  const findings = []
+function checkSpecs(root = process.cwd(), branches = branchSpecs(root)) {
+  // Read every active spec first, so a copy on its own branch can replace the
+  // disk copy of the same spec (env/specbranches.js) before anything is judged.
+  const specs = []
   for (const bucket of ACTIVE_BUCKETS) {
     const dir = path.join(root, 'specs', bucket)
     let entries
@@ -211,15 +214,41 @@ function checkSpecs(root = process.cwd()) {
         continue // a folder with no overview is not this check's business
       }
       const name = entry.isDirectory() ? entry.name : entry.name.replace(/\.md$/, '')
-      const m = DOCS_HEADER_RE.exec(text)
-      if (!m) {
-        findings.push({ spec: name, bucket, reason: 'no Docs: header' })
-      } else if (!m[1].trim() || m[1].trim() === 'none' || m[1].trim() === 'none:') {
-        findings.push({ spec: name, bucket, reason: 'bare none — the reason is the point' })
-      }
+      specs.push({ folder: name, bucket, overview: text })
+    }
+  }
+  const active = branches.filter((b) => ACTIVE_BUCKETS.includes(b.bucket))
+  const findings = []
+  for (const spec of preferBranches(specs, active)) {
+    const from = spec.ref ? { from: branchLabel(spec) } : {}
+    const m = DOCS_HEADER_RE.exec(spec.overview)
+    if (!m) {
+      findings.push({ spec: spec.folder, bucket: spec.bucket, reason: 'no Docs: header', ...from })
+    } else if (!m[1].trim() || m[1].trim() === 'none' || m[1].trim() === 'none:') {
+      findings.push({ spec: spec.folder, bucket: spec.bucket, reason: 'bare none — the reason is the point', ...from })
     }
   }
   return findings
+}
+
+// Specs living only on their own branch. Any cannot-tell — no git, no base —
+// is an empty list, so the disk scan stands exactly as it was.
+function branchSpecs(root) {
+  try {
+    const { loadEnvConfig } = require('../packages/common/src/env/config.js')
+    const { resolveBaseBranch } = require('../packages/common/src/env/resolve.js')
+    const { config } = loadEnvConfig(root)
+    const git = (args) => {
+      try {
+        return execFileSync('git', ['-C', root, ...args], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+      } catch {
+        return null
+      }
+    }
+    return specBranchDocs(git, config, resolveBaseBranch(config, git))
+  } catch {
+    return []
+  }
 }
 
 // --- impact -----------------------------------------------------------------
@@ -322,7 +351,7 @@ function main(argv) {
     if (findings.length === 0) {
       console.log('  every active spec has a Docs: answer')
     } else {
-      for (const f of findings) console.log(`  ${f.bucket}/${f.spec} — ${f.reason}`)
+      for (const f of findings) console.log(`  ${f.bucket}/${f.spec}${f.from ? ` (${f.from})` : ''} — ${f.reason}`)
     }
     return 0
   }

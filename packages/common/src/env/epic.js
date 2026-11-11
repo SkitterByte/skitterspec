@@ -298,9 +298,15 @@ function layer(members) {
  *   - `worktrees`  `[{ folder, bucket, overview, phases: [{ n, text }] }]` —
  *                  each provisioned spec's own copy, which is where an
  *                  in-flight spec's bucket and phase progress are true
+ *   - `branches`   the same shape, read off spec branches this machine has no
+ *                  worktree for (`env/specbranches.js`) — how a member that
+ *                  rides its own branch is seen at all. It can make a member
+ *                  VISIBLE and give it a bucket; it never meets a wait, which
+ *                  is still read only off the base branch.
  */
-function epicStatus({ epic, index, readFile, candidates = [], worktrees = [], waitIndex = index, waitRead = readFile }) {
+function epicStatus({ epic, index, readFile, candidates = [], worktrees = [], branches = [], waitIndex = index, waitRead = readFile }) {
   const own = new Map(worktrees.map((w) => [w.folder, w]))
+  const onBranch = new Map(branches.filter((b) => !own.has(b.folder)).map((b) => [b.folder, b]))
   const members = new Map()
 
   for (const file of candidates) {
@@ -315,8 +321,10 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [], wa
     members.set(m[2], { spec: m[2], waits: h.waitsOn, area: h.area, phases })
   }
   // A member authored on its own branch and not landed yet is invisible on the
-  // base branch; its worktree copy is what knows it belongs here.
-  for (const w of worktrees) {
+  // base branch; its worktree copy is what knows it belongs here — or, with no
+  // worktree on this machine, its branch's copy. The worktree is read last, so
+  // it wins.
+  for (const w of [...onBranch.values(), ...worktrees]) {
     const h = epicHeaders(w.overview)
     // The worktree's copy is the newer word on a spec being built: it may have
     // joined, changed its waits, or moved to another epic.
@@ -330,7 +338,8 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [], wa
     const base = index.get(m.spec)
     // In flight is the positive signal of a worktree whose own copy has not
     // finished; otherwise the base branch's bucket.
-    m.bucket = wt && !['complete', 'cancelled'].includes(wt.bucket) ? 'in-progress' : base ? base.bucket : wt ? wt.bucket : null
+    const br = onBranch.get(m.spec)
+    m.bucket = wt && !['complete', 'cancelled'].includes(wt.bucket) ? 'in-progress' : br ? br.bucket : base ? base.bucket : wt ? wt.bucket : null
     m.resolved = m.waits.map((w) => ({ ...w, ...resolveWait(w, waitIndex, waitRead) }))
     // A phase's own `Waits on:` holds that phase, not the spec's start: the
     // sync point the field example turned on (#154 phase 2 on #159 phase 1).

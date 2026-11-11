@@ -909,6 +909,14 @@ status also lives in the tracker when a ticketing provider is linked. (There are
 no `00-index.md` summary files — the folder tree, headers, and State logs are
 queried directly.)
 
+Under `land.specDocs: "branch"` a spec is not on the base branch until its
+work lands, so `specs/backlog/` there misses it. `gating check` and
+`epic status` therefore also read the spec folders each spec branch changed —
+local branches, then remote-tracking ones as of the last fetch, never
+fetching — and a branch copy wins over the base copy unless the base branch
+has already finished that spec. A branch copy can make an epic member visible;
+it never meets a wait, which is still read only off the base branch.
+
 ## Rules
 
 - If a spec already exists, update it — don't rewrite from scratch.

@@ -24,7 +24,9 @@ Every new spec records, in its header, which docs pages the change makes wrong:
   commit as the code it describes — and that commit bumps the page's
   `verified:` to its own HEAD.
 - `node scripts/docs-freshness.js check` lists active specs
-  (`specs/backlog/`, `specs/in-progress/`) with no usable answer. It is
+  (`specs/backlog/`, `specs/in-progress/`) with no usable answer — including
+  specs that live only on their own branch (`land.specDocs: "branch"`), read
+  off local and remote-tracking spec branches without fetching. It is
   advisory and always exits 0; specs finished before this convention existed
   are out of range by construction.
 

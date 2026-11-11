@@ -15,6 +15,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const { preferBranches, branchLabel } = require('./env/specbranches.js')
 
 const CONFIG_FILE = path.join('specs', '.core', 'gating.config.json')
 
@@ -87,6 +88,12 @@ function readGatingField(specPath) {
   } catch {
     return { raw: null, kind: 'missing' }
   }
+  return readGatingText(raw)
+}
+
+// The same reading over an overview's text — a spec read off its own branch
+// (`env/specbranches.js`) has text and no path on disk.
+function readGatingText(raw) {
   const m = /^>\s*\*\*Gating:\*\*\s*(.*)$/m.exec(raw)
   if (!m) return { raw: null, kind: 'missing' }
   const value = m[1].trim().replace(/^["'`]|["'`]$/g, '')
@@ -130,15 +137,19 @@ function activeSpecs(dir) {
  * @returns {{configured: boolean, findings: Array<{folder, bucket, kind, raw}>,
  *            checked: number, guidance: string}}
  */
-function checkGating(dir, specs) {
+function checkGating(dir, specs, { branches = [] } = {}) {
   const { config, present } = loadGatingConfig(dir)
   if (!present) return { configured: false, findings: [], checked: 0, guidance: '' }
-  const targets = specs && specs.length ? specs : activeSpecs(dir)
+  // Branch copies (`env/specbranches.js`) win over the disk copy of the same
+  // spec and add the ones the base branch cannot see; finished buckets are not
+  // gating's business either way.
+  const active = branches.filter((b) => ACTIVE_BUCKETS.includes(b.bucket))
+  const targets = specs && specs.length ? specs : preferBranches(activeSpecs(dir), active)
   const findings = []
   for (const spec of targets) {
-    const { kind, raw } = readGatingField(spec.path)
+    const { kind, raw } = spec.ref ? readGatingText(spec.overview) : readGatingField(spec.path)
     if (kind === 'missing' || kind === 'invalid') {
-      findings.push({ folder: spec.folder, bucket: spec.bucket, kind, raw })
+      findings.push({ folder: spec.folder, bucket: spec.bucket, kind, raw, ...(spec.ref ? { from: branchLabel(spec) } : {}) })
     }
   }
   return { configured: true, findings, checked: targets.length, guidance: config.guidance }
@@ -150,6 +161,7 @@ module.exports = {
   ACTIVE_BUCKETS,
   loadGatingConfig,
   readGatingField,
+  readGatingText,
   activeSpecs,
   checkGating,
 }

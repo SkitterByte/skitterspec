@@ -2,29 +2,30 @@
 github_issue_id: "#173"
 ---
 
-# Phase 3 — Backlog checks read spec branches ⬜
+# Phase 3 — Backlog checks read spec branches ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** `gating check`, `epic status` and `docs-freshness check` see a spec
 that exists only on a spec branch — proven by tests over a fixture repo.
 
 ## Tasks
 
-- [ ] Add `packages/common/src/env/specbranches.js`: list local and
-      remote-tracking branches matching `branch.pattern`, read
-      `specs/<bucket>/<folder>/00-overview.md` off each with `git cat-file`,
-      return `{ folder, bucket, ref, overview }`; never fetch
-- [ ] Apply the precedence rule (base `complete/`/`cancelled/` › local branch ›
+- [x] Add `packages/common/src/env/specbranches.js`: list local and
+      remote-tracking branches matching `branch.pattern`, take the spec
+      folders each one's range (`base...ref`) changed, read them off it with
+      `git show`, return `{ folder, bucket, ref, local, overview, phases }`;
+      never fetch
+- [x] Apply the precedence rule (base `complete/`/`cancelled/` › local branch ›
       remote-tracking › base `backlog/`) in one shared helper
-- [ ] Merge it into `gating.js`, `epicread.js` and `scripts/docs-freshness.js`;
+- [x] Merge it into `gating.js`, `epicread.js` and `scripts/docs-freshness.js`;
       label branch-sourced rows with their ref and "as of last fetch"
-- [ ] Name the blind spots beside the reader: unfetched remotes, a branch not
+- [x] Name the blind spots beside the reader: unfetched remotes, a branch not
       matching the pattern
-- [ ] Tests: branch-only spec reported by all three; base-complete beats a stale
-      branch; trunk repo with no spec branches → output identical to today
-      (stays-silent); no remote → local branches only; run the typecheck and
-      test commands — green
+- [x] Tests: branch-only spec reported by all three; base-complete beats a stale
+      branch; no spec branches / no git / landed branch → nothing (stays-silent);
+      local beats remote-tracking; `pnpm test` (4867) and `test:nested` (167)
+      — green
 
 ## Notes
 

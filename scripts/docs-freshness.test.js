@@ -142,6 +142,32 @@ test('STAYS SILENT: missing buckets are not findings', () => {
   assert.deepStrictEqual(checkSpecs(tmpdir()), [])
 })
 
+test('check reads a spec that lives only on its branch, and prefers the branch copy', () => {
+  // feat-tracker-spec-branches: under land.specDocs "branch" a spec is not on
+  // base until its work lands, so the check is handed the branch copies too.
+  const root = tmpdir()
+  write(root, 'specs/backlog/feat-a/00-overview.md', '> **Docs:** none: answered on base\n')
+  const branches = [
+    { folder: 'feat-a', bucket: 'in-progress', ref: 'refs/heads/feat/a', local: true, overview: '# a, edited\n' },
+    { folder: 'feat-b', bucket: 'backlog', ref: 'refs/remotes/origin/feat/b', local: false, overview: '# b\n' },
+    { folder: 'feat-c', bucket: 'complete', ref: 'refs/heads/feat/c', local: true, overview: '# c\n' },
+  ]
+  const found = checkSpecs(root, branches)
+  assert.deepStrictEqual(
+    found.map((f) => [f.spec, f.bucket, f.from]),
+    [
+      ['feat-a', 'in-progress', 'on feat/a'],
+      ['feat-b', 'backlog', 'on origin/feat/b, as of last fetch'],
+    ],
+  )
+})
+
+test('STAYS SILENT: no branch copies leaves the disk scan as it was', () => {
+  const root = tmpdir()
+  write(root, 'specs/backlog/feat-a/00-overview.md', '> **Docs:** reference\n')
+  assert.deepStrictEqual(checkSpecs(root, []), [])
+})
+
 test('check reads a legacy bare-file spec', () => {
   const root = tmpdir()
   write(root, 'specs/backlog/feat-legacy.md', '# legacy, no header\n')
