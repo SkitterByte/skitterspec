@@ -124,6 +124,14 @@ skip — never a flag. Putting the flag on `/commit` was the other suggestion an
 is worse: `/commit` belongs to skittership, which is why the gate is enforced
 by a hook rather than by editing that skill.
 
+**`/epic` is the sixth command**, and it is user-only for the mild reason: it
+pre-executes `skitterspec epic status` and relays it, so there is no judgement
+to apply. It exists for the tab an epic is run from — each member is built in
+a tab of its own, and on a phone the in-app browser has to close to switch
+tabs, so the epic page's link has to be one command away rather than scrolled
+past. Bare, it means the epic of the worktree it runs in. It reads and nothing
+more: the next action it names for a member is typed in that member's tab.
+
 **A refusal may OFFER its own exit, and that is a different thing again.**
 Where the engine declares one, a skill relays the refusal and **then** offers it
 — once per obligation, with the choice recorded, and answered by the operator

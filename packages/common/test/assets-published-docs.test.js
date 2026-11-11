@@ -79,7 +79,7 @@ const REGION = /<!-- commands:start -->([\s\S]*?)<!-- commands:end -->/
 //
 // Longest stem first, or `spec` would win the alternation before `no-spec` is
 // tried.
-const TOKEN = /(?<![\w./-])\/((?:no-spec|allow-main|spec)[a-z-]*)\b(?!\.md)/g
+const TOKEN = /(?<![\w./-])\/((?:no-spec|allow-main|epic|spec)[a-z-]*)\b(?!\.md)/g
 
 function documented(file) {
   const text = read(file)

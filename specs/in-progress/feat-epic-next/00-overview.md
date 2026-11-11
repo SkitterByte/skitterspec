@@ -133,7 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Next action per spec | ✅ | [01-next-action.md](01-next-action.md) |
 | 2 | CLI and JSON output | ✅ | [02-cli-output.md](02-cli-output.md) |
 | 3 | Served epic page | ✅ | [03-epic-page.md](03-epic-page.md) |
-| 4 | Epic tab: start hand-off, `/epic`, docs | ⬜ | [04-epic-tab.md](04-epic-tab.md) |
+| 4 | Epic tab: start hand-off, `/epic`, docs | ✅ | [04-epic-tab.md](04-epic-tab.md) |
 
 ## Open questions
 
@@ -158,3 +158,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   its documents are committed, so the authoring verdict buttons are never
   replaced by a read-only page. `epic status` prints the page's tier stack, or
   the serve command when no server runs; it reads the server, never starts it.
+- 2026-11-11 — Phase 4: `/spec-start` on an epic carries the epic page as its
+  `Review` row (a page to come back to, so a row and never a banner) and names
+  `/epic` beside the members to start. `docs/index.html` gained the `/epic`
+  chip the published-docs check requires; its `verified:` was not bumped, since
+  the rest of that page was not re-read.

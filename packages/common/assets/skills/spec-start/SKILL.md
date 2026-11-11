@@ -376,8 +376,31 @@ invoke it yourself.
 
 **An epic has no phase 1.** `spec-env up` gives it a documents-only tree (no
 `setup`, no Docker) whether or not `--docs` was passed, because its work is its
-members'. Skip this step and step 5, end with the block, and name
-`skitterspec epic status <name>` in `Next`.
+members'. Skip this step and step 5, and end with the block — but first ask
+what the epic needs started:
+
+```
+skitterspec epic status <name> --json
+```
+
+Its `rows` carry each member's next action, and its `page` the epic page's
+tiers. Two things go in the block, both copied from it rather than composed:
+
+- **`Next`** names the first members to start — one `/spec-start <member>`
+  for each row whose `next.verb` is `start`, **in a new tab each**, and only as
+  many as there are free lanes (`freeLanes`; all of them when it is null). A
+  start qualified `no free lane` or `clashes with …` is not offered here. None
+  ready is a true answer: say what the first wave waits on.
+- **`Review`** carries the epic page's stack — `local`, `network`, `remote`,
+  as `page.tiers` gives them — or, where `page.off`, the command that starts
+  the server. It is a page to come back to, not one to answer: nothing waits
+  on it, so it is the row and never the banner.
+
+**This tab is the epic's from here.** The members are built in tabs of their
+own; this one is where the operator comes back to see what each needs. On a
+phone the in-app browser has to close to switch tabs, so the page link must be
+one command away rather than scrolled past: **`/epic`** re-shows the table and
+the page, and the block names it.
 
 **`checkout` mode — carry straight on into `/spec-next`** in this session: it
 marks phase 1 started, refreshes the mirror again, builds it with tests and
@@ -443,10 +466,14 @@ the shape; this section carries only what is specific here.
   is **not** on this list in `worktree` mode — it is an `Untouched` row on a
   `✅`.
 
-**Fields:** `Tracker` · `Branch` · `Spec` · `Worktree` · `Untouched` · `Follow-ups` · `Next`
+**Fields:** `Tracker` · `Branch` · `Spec` · `Worktree` · `Untouched` · `Review` · `Follow-ups` · `Next`
 
 `Worktree` carries the path, because the session is now standing in it and the
 operator's next command depends on knowing that. `Next` is `/spec-next`.
+
+**An epic is the one exception, both ways.** `Review` appears only for an epic,
+carrying its page's stack, and its `Next` is the members to start in new tabs
+— with `/epic` to bring the table and the page back (step 6).
 
 `Untouched` appears only when `spec-env up` reported uncommitted work that was
 not this spec's — say how much and whose, and **keep the verdict `✅`**. Nothing
