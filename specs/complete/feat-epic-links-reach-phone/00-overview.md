@@ -100,3 +100,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-11 — A loopback-bound network tier offers no page press (`bound:
   "loopback"`): `allow-network` would change nothing, and widening restarts
   the server.
+- 2026-11-11 — Completed; all phases done, tests green.
