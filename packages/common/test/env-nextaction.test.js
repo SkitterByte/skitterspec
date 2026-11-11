@@ -13,7 +13,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { nextAction, epicNext, readNextInputs, readPhases } = require('../src/env/nextaction.js')
+const { nextAction, epicNext, epicRows, actionText, readNextInputs, readPhases } = require('../src/env/nextaction.js')
 
 const phases = (...done) => done.map((d, i) => ({ n: i + 1, done: d }))
 const flying = (over = {}) => ({
@@ -207,4 +207,48 @@ test('readNextInputs: git that cannot answer is an unknown tree, never a clean o
   assert.strictEqual(inputs.dirty, null)
   assert.strictEqual(inputs.gate, 'clear')
   assert.deepStrictEqual(inputs.passes, [])
+})
+
+// ── member rows and their words ──────────────────────────────────────────────
+
+const status = (over = {}) => ({
+  epic: 'epic-x',
+  freeLanes: 1,
+  members: [
+    { spec: 'feat-a', bucket: 'in-progress', waits: [] },
+    { spec: 'feat-c', bucket: 'backlog', waits: [] },
+    { spec: 'feat-d', bucket: 'backlog', waits: [] },
+  ],
+  inFlight: [{ spec: 'feat-a' }],
+  syncPoints: [],
+  clashes: [{ specs: ['feat-a', 'feat-c'], paths: ['src/x.js'] }, { specs: ['feat-c', 'feat-d'], paths: ['src/y.js'] }],
+  ...over,
+})
+const clean = { bucket: 'in-progress', phases: phases(true, false), gate: 'clear', passes: [], dirty: 0 }
+
+test('epicRows: an in-flight member with no worktree here is cannot-tell, with no tab', () => {
+  const { rows } = epicRows(status())
+  assert.strictEqual(rows[0].next.verb, 'cannot-tell')
+  assert.match(rows[0].next.why, /no worktree/)
+  assert.strictEqual(rows[0].tab, null)
+})
+
+test('epicRows: a verdict carries the served link, and a clash names only members in flight', () => {
+  const { rows } = epicRows(status(), {
+    inputsFor: () => ({ ...clean, gate: 'armed' }),
+    tabFor: () => 'repo-wt/a',
+    linkFor: (spec) => `http://127.0.0.1:7760/t/${spec}`,
+  })
+  assert.strictEqual(rows[0].next.link, 'http://127.0.0.1:7760/t/feat-a')
+  assert.strictEqual(rows[0].tab, 'repo-wt/a')
+  assert.strictEqual(rows[1].next.why, 'clashes with feat-a')
+  assert.strictEqual(rows[2].next.why, null)
+})
+
+test('actionText words each verb once, for every rendering', () => {
+  assert.strictEqual(actionText(nextAction(flying())), '/spec-next — phase 2')
+  assert.strictEqual(actionText({ verb: 'verdict', link: null }), 'verdict — /spec-diff in its tab')
+  assert.strictEqual(actionText({ verb: 'verdict', link: 'http://x' }), 'verdict → http://x')
+  assert.strictEqual(actionText(nextAction(flying({ dirty: 2 }))), 'building — nothing to run yet')
+  assert.strictEqual(actionText({ verb: 'done', command: null, why: null }), '—')
 })

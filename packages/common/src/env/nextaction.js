@@ -106,7 +106,7 @@ function nextAction(a) {
   // building is the wrong advice — so it is a state with no verb (Decision 2).
   if (a.dirty === null || a.dirty === undefined) return tell(progress, 'git could not read its worktree')
   if (a.dirty > 0) {
-    return { verb: 'building', state: `${progress} · ${plural(a.dirty, 'file')} uncommitted`, command: null, link: null, why: null }
+    return { verb: 'building', state: `${progress} · ${plural(a.dirty, 'file')} uncommitted`, command: null, link: null, why: 'building — nothing to run yet' }
   }
 
   // A spec with no phase files yet has nothing for `/spec-next` to build;
@@ -208,4 +208,55 @@ function readNextInputs({ folder, bucket, worktree, outPath, required, git, io =
   }
 }
 
-module.exports = { nextAction, epicNext, readNextInputs, readPhases }
+/**
+ * The `next` cell as words — one string shared by every rendering, so the
+ * terminal, `status` and the page cannot word the same action differently.
+ */
+function actionText(a) {
+  if (!a) return '—'
+  if (a.verb === 'verdict') return a.link ? `verdict → ${a.link}` : 'verdict — /spec-diff in its tab'
+  if (a.verb === 'cannot-tell') return `cannot tell — ${a.why}`
+  if (a.command) return a.why ? `${a.command} — ${a.why}` : a.command
+  return a.why || '—'
+}
+
+/**
+ * One row per member, in `epicStatus` order: `{ spec, bucket, tab, next }`,
+ * plus the epic's own action. Pure — the disk arrives through three callbacks,
+ * each answering for one spec:
+ *
+ *   - `inputsFor(spec)` → `readNextInputs`' answer, or null when the spec has
+ *     no worktree on this machine
+ *   - `tabFor(spec)`    → where its tab stands, or null
+ *   - `linkFor(spec)`   → its served page, or null when nothing is serving
+ *
+ * An in-flight member with no worktree HERE is cannot-tell rather than
+ * guessed: it may be in flight on a colleague's machine, and its gate and its
+ * tree are there, not here.
+ */
+function epicRows(status, { inputsFor = () => null, tabFor = () => null, linkFor = () => null } = {}) {
+  const flying = new Set(status.inFlight.map((m) => m.spec))
+  const rows = status.members.map((m) => {
+    const clashWith = status.clashes
+      .filter((c) => c.specs.includes(m.spec))
+      .map((c) => c.specs.find((x) => x !== m.spec))
+      .filter((x) => flying.has(x))
+    const syncWaits = status.syncPoints
+      .filter((p) => p.spec === m.spec && p.phase !== null)
+      .map((p) => ({ phase: p.phase, state: p.wait.state, raw: p.wait.raw }))
+    let next
+    if (m.bucket === 'in-progress') {
+      const inputs = inputsFor(m.spec)
+      next = inputs
+        ? nextAction({ spec: m.spec, ...inputs, bucket: 'in-progress', syncWaits })
+        : tell('in-progress', 'no worktree for it on this machine')
+    } else {
+      next = nextAction({ spec: m.spec, bucket: m.bucket, waits: m.waits, freeLanes: status.freeLanes, clashWith })
+    }
+    if (next.verb === 'verdict') next = { ...next, link: linkFor(m.spec) }
+    return { spec: m.spec, bucket: m.bucket, tab: m.bucket === 'in-progress' ? tabFor(m.spec) : null, next }
+  })
+  return { rows, next: epicNext(status.epic, status.members) }
+}
+
+module.exports = { nextAction, epicNext, epicRows, actionText, readNextInputs, readPhases }

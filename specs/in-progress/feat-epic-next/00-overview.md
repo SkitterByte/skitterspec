@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Next action per spec | ✅ | [01-next-action.md](01-next-action.md) |
-| 2 | CLI and JSON output | ⬜ | [02-cli-output.md](02-cli-output.md) |
+| 2 | CLI and JSON output | ✅ | [02-cli-output.md](02-cli-output.md) |
 | 3 | Served epic page | ⬜ | [03-epic-page.md](03-epic-page.md) |
 | 4 | Epic tab: start hand-off, `/epic`, docs | ⬜ | [04-epic-tab.md](04-epic-tab.md) |
 
@@ -147,3 +147,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   from the first unfinished phase file. A spec with no phase files is `idle`
   (no command) rather than `/spec-next`, which would refuse. The gate input
   splits `unknown` into `off` (opted out — silence) and `unreadable`.
+- 2026-11-11 — Phase 2: the whole `epic status` human view is plain text now,
+  not only the member table — the Ready now / In flight / Blocked / Done rows
+  are gone, carried by the table. A bare form also resolves from a MEMBER's
+  worktree (its `Epic:` header). The page's tier stack moved to phase 3, where
+  the route it points at is built. `building` reads "building — nothing to run
+  yet" so `status`, which shows no state column, still says it.

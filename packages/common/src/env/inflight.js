@@ -18,6 +18,7 @@ const path = require('node:path')
 
 const { readSpecState } = require('./specstate.js')
 const { progressText } = require('./phases.js')
+const { actionText } = require('./nextaction.js')
 
 /**
  * @param {object} a
@@ -84,6 +85,7 @@ function formatInFlight(rows, { dir }) {
   const row = (r, indent) => {
     out.push(`${indent}${r.spec.padEnd(width)}  ${detailOf(r)}`)
     out.push(`${indent}  ${path.relative(dir, r.worktree) || r.worktree}`)
+    if (r.next) out.push(`${indent}  next: ${actionText(r.next)}`)
   }
   // Members are listed under their epic, read off each spec's own copy; a spec
   // in no epic — the common case — prints exactly as it always has.

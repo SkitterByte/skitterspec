@@ -198,6 +198,7 @@ const {
   appendChangelog,
   waitsMetByRebase,
 } = require('./env/epic.js')
+const { epicRows, nextAction, readNextInputs, actionText } = require('./env/nextaction.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -565,7 +566,26 @@ function inFlightStatus(argv) {
   const dir = anchor.dir
   const { config, present } = loadEnvConfig(dir)
   attachProject(config, anchor)
-  const rows = present ? collectInFlight({ dir, provisioned: provisionedSpecs(dir, config) }) : []
+  const rows = (present ? collectInFlight({ dir, provisioned: provisionedSpecs(dir, config) }) : []).map((r) =>
+    // Only a spec whose own copy was read, and which is still in flight, gets
+    // a next action — a finished or unreadable one has nothing true to offer.
+    isInFlight(r) && r.found
+      ? {
+          ...r,
+          next: nextAction({
+            spec: r.spec,
+            ...readNextInputs({
+              folder: r.spec,
+              bucket: r.bucket,
+              worktree: r.worktree,
+              outPath: reviewOutPath(dir, r.spec),
+              required: config.review.required,
+              git: gitReader(r.worktree),
+            }),
+          }),
+        }
+      : r,
+  )
   if (json) {
     const specs = rows.map((r) => ({ ...r, inFlight: isInFlight(r) }))
     process.stdout.write(JSON.stringify({ isolation: present, specs }, null, 2) + '\n')
@@ -586,15 +606,75 @@ function inFlightStatus(argv) {
  */
 function epicStatusCommand(argv) {
   const json = argv.includes('--json')
-  const epic = epicPositional(argv)
+  const named = epicPositional(argv)
+  const inputs = epicInputs(argv, json, named || null)
+  if (!inputs) return
+  const epic = named || epicFromHere(inputs)
   if (!epic) {
-    process.stdout.write('Usage: skitterspec epic status <epic> [--json] [--dir <path>]\n')
+    const flying = epicsInFlight(inputs.worktrees)
+    const line = flying.length
+      ? `name an epic — in flight here: ${flying.join(', ')}`
+      : 'name an epic — none has a member in flight here'
+    process.stdout.write(
+      json ? JSON.stringify({ epic: null, inFlight: flying }, null, 2) + '\n' : `Usage: skitterspec epic status [<epic>] [--json] [--dir <path>]\n${line}\n`,
+    )
     return
   }
-  const inputs = epicInputs(argv, json, epic)
-  if (!inputs) return
   const status = epicStatus({ epic, ...inputs })
-  process.stdout.write(json ? JSON.stringify({ base: inputs.base, ...status }, null, 2) + '\n' : formatEpicStatus(status))
+  const { rows, next } = epicRows(status, memberReaders(inputs))
+  const answer = { ...status, rows, next }
+  process.stdout.write(json ? JSON.stringify({ base: inputs.base, ...answer }, null, 2) + '\n' : formatEpicStatus(answer))
+}
+
+/**
+ * The epic a bare `epic status` means: the one whose worktree this command runs
+ * in, or the epic named by the member whose worktree it runs in. A positive
+ * signal or nothing — standing anywhere else names no epic, and the caller says
+ * so rather than picking one.
+ */
+function epicFromHere(inputs) {
+  const top = gitReader(process.cwd())(['rev-parse', '--show-toplevel'])
+  if (!top) return null
+  const here = path.resolve(top)
+  const own = inputs.worktrees.find((w) => here === path.resolve(w.root) || here.startsWith(path.resolve(w.root) + path.sep))
+  if (!own) return null
+  if (isEpic(own.folder)) return own.folder
+  return epicHeaders(own.overview).epic
+}
+
+// Epics with a member, or themselves, in flight on this machine — what a bare
+// `epic status` offers when it cannot tell which one was meant.
+function epicsInFlight(worktrees) {
+  const open = worktrees.filter((w) => w.bucket !== 'complete' && w.bucket !== 'cancelled')
+  const names = open.map((w) => (isEpic(w.folder) ? w.folder : epicHeaders(w.overview).epic)).filter(Boolean)
+  return [...new Set(names)].sort()
+}
+
+/**
+ * The disk half of a member row, for `epicRows`: each member's own worktree,
+ * the review sidecars beside its page, and the running server's link. Nothing
+ * is started — a link only where a server is already serving.
+ */
+function memberReaders(inputs) {
+  const { dir, config, worktrees } = inputs
+  const own = new Map(worktrees.map((w) => [w.folder, w]))
+  const up = config ? readRunningReviewServer(dir, config) : null
+  return {
+    inputsFor: (spec) => {
+      const w = own.get(spec)
+      if (!w) return null
+      return readNextInputs({
+        folder: spec,
+        bucket: w.bucket,
+        worktree: w.root,
+        outPath: reviewOutPath(dir, spec),
+        required: config ? config.review.required : true,
+        git: gitReader(w.root),
+      })
+    },
+    tabFor: (spec) => (own.has(spec) ? path.relative(path.dirname(dir), own.get(spec).root) : null),
+    linkFor: (spec) => (up ? `${serveUrl('127.0.0.1', up)}${encodeURIComponent(spec)}` : null),
+  }
 }
 
 /**
@@ -760,7 +840,7 @@ function epicInputs(argv, json, subject) {
         .map((p) => worktreeOverview(p.project, p.folder))
         .filter(Boolean)
     : []
-  return { dir, base, index: indexSpecTree(listing), readFile, candidates, worktrees }
+  return { dir, config: present ? config : null, base, index: indexSpecTree(listing), readFile, candidates, worktrees }
 }
 
 // A provisioned spec's own overview and bucket, read in its worktree — the

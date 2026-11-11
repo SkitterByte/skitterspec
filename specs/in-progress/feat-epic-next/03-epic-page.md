@@ -21,6 +21,8 @@ never exposing a pass code.
       (Decision 6)
 - [ ] Self-refresh every 30 s; light and dark like the review page
 - [ ] Index page: list epics with in-flight members, linked
+- [ ] End `epic status`'s human output with the epic page's tier stack when
+      the review server is up, or the command that starts it
 - [ ] Tests: route picks the epic view; member link is relative; no pass code
       in the HTML; refresh present; index lists the epic; an epic with no
       members renders the empty state rather than a 404

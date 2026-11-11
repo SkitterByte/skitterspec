@@ -173,7 +173,7 @@ test('a cycle is named, and nothing in or behind it is layered', () => {
   assert.strictEqual(s.cycles[0][0], s.cycles[0][s.cycles[0].length - 1], 'the loop is closed')
   assert.deepStrictEqual(s.waves, [['feat-d']])
   assert.deepStrictEqual(s.unlayered.sort(), ['feat-a', 'feat-b', 'feat-c'])
-  assert.match(formatEpicStatus(s), /\*\*Cycle\*\* \| feat-(a|b) → feat-(a|b) → feat-(a|b)/)
+  assert.match(formatEpicStatus(s), /cycle +feat-(a|b) → feat-(a|b) → feat-(a|b)/)
 })
 
 // A wait on a spec that is not on the base branch is cannot-tell — it may be
@@ -263,7 +263,12 @@ test('skitterspec epic status reads the base branch, not the checkout', () => {
   assert.strictEqual(out.waves.length, 4)
 
   const human = execFileSync('node', [bin, 'epic', 'status', EPIC, '--dir', dir]).toString()
-  assert.match(human, /^\*\*epic-library-and-sessions\*\* — 7 members · 2 lanes, 2 free/)
-  assert.match(human, /\| \*\*Ready now\*\* \| feat-free-authoring-safety, feat-one-off-workouts \|/)
-  assert.match(human, /\| \*\*Sync points\*\* \| feat-one-off-workouts phase 2 after feat-free-authoring-safety phase 1 \(not yet/)
+  assert.match(human, /^epic-library-and-sessions — 7 members · 2 lanes, 2 free/)
+  assert.match(human, /^ {2}feat-free-authoring-safety +backlog · ready +\/spec-start feat-free-authoring-safety +—$/m)
+  assert.match(human, /^ {2}sync points +feat-one-off-workouts phase 2 after feat-free-authoring-safety phase 1 \(not yet/m)
+  // Plain text, readable raw under `watch`: no markdown table anywhere.
+  assert.doesNotMatch(human, /\|/)
+  // Every member carries its next action in the JSON as well.
+  const row = out.rows.find((r) => r.spec === 'feat-session-recipes')
+  assert.strictEqual(row.next.verb, 'blocked')
 })

@@ -27,6 +27,7 @@
  */
 
 const { phaseIsDone } = require('./resolve.js')
+const { epicRows, actionText } = require('./nextaction.js')
 
 const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
 
@@ -379,9 +380,6 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [] }) 
   }
 }
 
-const names = (xs) => xs.map((x) => (typeof x === 'string' ? x : x.spec)).join(', ')
-const reasons = (xs) => xs.map((x) => `${x.spec} (${x.by.map((w) => w.why).join('; ')})`).join(', ')
-
 // `feat-a phase 2 after feat-b phase 1 — not done`, or `feat-a starts after …`.
 function syncLine({ spec, phase, wait }) {
   const who = phase === null ? `${spec} starts` : `${spec} phase ${phase}`
@@ -389,28 +387,44 @@ function syncLine({ spec, phase, wait }) {
   return `${who} after ${wait.raw} (${mark} — ${wait.why})`
 }
 
+// Columns padded to their widest cell. Plain text, never a markdown table: the
+// answer is read raw under `watch` as often as it is rendered (spec
+// feat-epic-next, Decision 3), and a pipe table read raw is noise.
+function aligned(lines, indent = '  ') {
+  const widths = lines[0].map((_, i) => Math.max(...lines.map((l) => l[i].length)))
+  return lines.map((l) => (indent + l.map((c, i) => (i === l.length - 1 ? c : c.padEnd(widths[i]))).join('  ')).trimEnd())
+}
+
 /**
- * The human answer, in the report-block shape: one sentence, then a table of
- * only the rows that have something in them.
+ * The human answer: a headline, one row per member saying what to run and in
+ * which tab, then the plan's shape — waves, sync points, clashes — wherever
+ * there is something to say. `s.rows` comes from `epicRows`; a status without
+ * them is rendered with nothing read off disk, so an in-flight member says it
+ * cannot tell rather than guessing.
  */
 function formatEpicStatus(s) {
   if (!s.found && !s.members.length) return `no epic named ${s.epic}, and no spec names it as its Epic.\n`
   const lanes = s.lanes === null ? 'no lane cap' : `${s.lanes} lanes, ${s.freeLanes} free`
-  const head = `**${s.epic}** — ${s.members.length} member${s.members.length === 1 ? '' : 's'} · ${lanes}${s.found ? '' : ' · epic not on the base branch'}`
-  const rows = [
-    ['Ready now', names(s.ready)],
-    ['In flight', names(s.inFlight)],
-    ['Blocked', reasons(s.blocked)],
-    ['Cannot tell', reasons(s.cannotTell)],
-    ['Done', names(s.complete)],
-    ['Cancelled', names(s.cancelled)],
-    ['Waves', s.waves.map((w, i) => `${i + 1}: ${w.join(', ')}`).join(' · ')],
-    ['Sync points', s.syncPoints.map(syncLine).join(' · ')],
-    ['Never together', s.clashes.map((c) => `${c.specs.join(' ‖ ')} (${c.paths.join(', ')})`).join(' · ')],
-    ['Cycle', s.cycles.map((c) => c.join(' → ')).join(' · ')],
+  const head = `${s.epic} — ${s.members.length} member${s.members.length === 1 ? '' : 's'} · ${lanes}${s.found ? '' : ' · epic not on the base branch'}`
+  const out = [head, '']
+  if (!s.members.length) {
+    out.push(`  no members — no spec carries \`> **Epic:** ${s.epic}\``)
+  } else {
+    const { rows, next } = s.rows ? { rows: s.rows, next: s.next } : epicRows(s)
+    const state = (r) => (r.bucket === 'in-progress' ? r.next.state : r.next.state || r.bucket || 'unknown')
+    out.push(
+      ...aligned([['member', 'state', 'next', 'tab'], ...rows.map((r) => [r.spec, state(r), actionText(r.next), r.tab || '—'])]),
+    )
+    if (next) out.push('', `  ${s.epic}: ${actionText(next)}`)
+  }
+  const shape = [
+    ['waves', s.waves.map((w, i) => `${i + 1}: ${w.join(', ')}`).join(' · ')],
+    ['sync points', s.syncPoints.map(syncLine).join(' · ')],
+    ['never together', s.clashes.map((c) => `${c.specs.join(' ‖ ')} (${c.paths.join(', ')})`).join(' · ')],
+    ['cycle', s.cycles.map((c) => c.join(' → ')).join(' · ')],
   ].filter(([, v]) => v)
-  if (!s.members.length) rows.push(['Members', `none — no spec carries \`> **Epic:** ${s.epic}\``])
-  return `${head}\n\n| | |\n|---|---|\n${rows.map(([k, v]) => `| **${k}** | ${v} |`).join('\n')}\n`
+  if (shape.length) out.push('', ...aligned(shape))
+  return out.join('\n') + '\n'
 }
 
 /**
