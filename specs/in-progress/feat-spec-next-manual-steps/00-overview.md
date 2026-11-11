@@ -98,7 +98,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `/spec-next` lists and confirms manual steps | ⬜ | [01-manual-steps.md](01-manual-steps.md) |
+| 1 | `/spec-next` lists and confirms manual steps | ✅ | [01-manual-steps.md](01-manual-steps.md) |
 
 ## Open questions
 
@@ -107,3 +107,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-11 — Spec created.
+- 2026-11-11 — The five distribution copies are untracked build output and
+  `.claude/skills/spec-next` is a symlink into `packages/common`, so only the
+  `common` source was edited; the build carries it.

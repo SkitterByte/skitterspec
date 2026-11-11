@@ -264,11 +264,46 @@ Then build it, following the project rules in `.claude/rules/*.md` and `CLAUDE.m
 - Never hardcode dates in tests; never run destructive commands against a real
   database — use the project's test database only.
 
+### Manual steps — list them, then ask
+
+Some tasks are a person's to do: every task in an **Issue** spec, and any task
+you cannot perform yourself — operate a UI, check a device, confirm something
+on a board, run a manual test pass. That is a **judgment**, not a marker: there
+is no `(manual)` tag to look for, and a spec written before this rule has none.
+
+Build the tasks before the first manual one as usual. Then **stop at it** and
+print **every remaining manual step of this phase, verbatim and numbered**, as a
+plain markdown list in the conversation — never fenced, and
+**never only the phase file's path**. A pointer to the file sends the reader
+out of the terminal to find out what to do, which is the failure this exists to
+fix; the steps themselves are what they act on.
+
+Then ask one question, with three answers:
+
+- **All done** — tick those steps and carry on to the end of the phase.
+- **Some failed** — the picker cannot list the steps (it holds four options and
+  a phase can hold more), so ask in prose which numbers failed and what
+  happened. Write a dated note under each failed task, leave it unticked, tick
+  the rest. Where what happened is a defect, offer **`/spec-bug`** — confirm,
+  never switch.
+- **Not yet** — tick nothing.
+
+This is the mid-run question `.claude/rules/spec-reports.md` already allows —
+whether a person did something is a question you cannot answer yourself — so it
+needs no new shape in the report.
+
+**Some failed or Not yet leaves the phase `🔄`, and stops the run there.** Code
+tasks after an unconfirmed step are not built past it, and the phase did not
+end: **skip §4's done-marking and §5 entirely** — no page, no arm, no wait.
+End `⚠️` and name `/spec-next` in `Next`; it re-lists the same unticked steps.
+
 ## 4. Record progress
 
 - In the **phase file**: tick completed tasks (`- [x]`), flip its heading to `✅`,
   and set its `> **Status:**` to `Done`.
 - In **`00-overview.md`**: flip the matching phase-index row to `✅`.
+- A manual step answered **Some failed** keeps its box unticked with its note,
+  and the phase is not marked done (§3, *Manual steps*).
 - If anything changed from the plan (a decision, a deviation, a discovered
   constraint), add a dated **Changelog** entry in `00-overview.md`.
 - If new work surfaced, add it as tasks to the appropriate phase file (or add a
@@ -595,7 +630,9 @@ the shape; this section carries only what is specific here.
 
 - `✅` — the phase is built and its tests are green.
 - `⚠️` — built and green, with something worth knowing (a mirror that did not
-  refresh, a deviation from the plan).
+  refresh, a deviation from the plan) — or stopped at manual steps answered
+  **Some failed** or **Not yet**: the phase stays `🔄`, `Notes` says which steps
+  are open, and `Next` is `/commit, then /spec-next` to pick them up.
 - `❌` — the phase's tests are red, or it stopped part-way. Quote the failure.
 - `⏸` — no spec in flight, or the name given does not match the one that is.
 
