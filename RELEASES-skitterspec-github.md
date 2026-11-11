@@ -5,6 +5,30 @@ What's new for users of skitterspec-github. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.8.0 — 11 Nov 2026
+
+### Env
+- **New** — Gating checks and epic status now also see specs that live only on their own branch, so a spec that has not reached main yet is no longer missing from them.
+- **New** — When a spec stays on its own branch, writing it now offers to push that branch so the spec is not only on your machine, and cancelling a spec that was never started offers to remove it from the remote too.
+- **New** — With a ticketing provider set up, a new spec now stays on its own branch and reaches main with its work, instead of being landed on main the moment it is written. Set land.specDocs to keep the old way.
+
+### Epic
+- **New** — Epic status now links waiting members to an address your phone can open, and a review server listening only on this machine says which command opens it to your network.
+- **New** — skitterspec epic status --here shows an epic as the worktree you are in defines it, so converting a plan into an epic can be checked before the conversion lands.
+
+### Review
+- **New** — The review index and the epic page now show which project they belong to, matching the review pages.
+- **New** — Review pages now show which project they belong to, in the browser tab and above the heading, so pages from different repos are easy to tell apart. Set review.projectName to override the name.
+
+### Spec
+- **Fixed** — Writing a spec no longer stops to ask whether to push its branch; the report suggests the push instead, for you to run if you want.
+
+### Spec Next
+- **New** — When a phase has steps only you can do, such as a manual test pass, /spec-next now lists them in the terminal and asks whether they are done, instead of pointing at the spec file.
+
+### Sync
+- **New** — Pushing an epic converted from a plan spec now closes the plan's old phase sub-issues on GitHub and removes them from the epic, so its sub-issues are only its member specs.
+
 ## 2.7.0 — 11 Nov 2026
 
 ### Epic
