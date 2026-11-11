@@ -269,7 +269,7 @@ function resolveReader(config, env = {}) {
  * `buttons` is the button set the page renders — see `BUTTON_SETS`. It is the
  * caller's declaration about the work, not a reading of the gate.
  */
-function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false, buttons = null, only = null, treePath = null, live = null, tiers = null }) {
+function collectReview({ spec, git, mode = 'working', ref, base = null, now, notes = null, gate = null, fellBack = false, buttons = null, only = null, treePath = null, live = null, tiers = null, project = null }) {
   // WHICH TREE THE SPEC'S OWN DOCUMENTS ARE READ FROM. Every render but one
   // reads the spec's worktree, and for those the two are the same path — so
   // `treePath` left null keeps the existing behaviour exactly. The `docs` mode
@@ -360,6 +360,9 @@ function collectReview({ spec, git, mode = 'working', ref, base = null, now, not
   return {
     spec: spec.folder,
     title: spec.folder,
+    // The project's name, for the tab and the line above the heading. Absent
+    // when the caller could not tell, and the page then renders as before.
+    ...(project ? { project } : {}),
     branch: spec.branch,
     // The tree the diff was read from. Identical to the worktree for every
     // mode but `docs`, where there is no worktree and this is the checkout the
@@ -2309,16 +2312,22 @@ function fragmentTemplate(template = null) {
  */
 function renderReviewFragment(data, { template = null, reviewHtml = '' } = {}) {
   const values = {
-    [TITLE_PLACEHOLDER]: escapeHtml(data.title),
+    [TITLE_PLACEHOLDER]: escapeHtml(tabTitle(data)),
     [REVIEW_PLACEHOLDER]: reviewHtml,
     [DATA_PLACEHOLDER]: escapeIsland(JSON.stringify(data)),
   }
   return fragmentTemplate(template).replace(PLACEHOLDER_RE, (m) => values[m])
 }
 
+// The tab name: `<project> · <spec>`, so pages from two projects open side by
+// side can be told apart from the tab alone — all a phone shows.
+function tabTitle(data) {
+  return data.project ? `${data.project} · ${data.title}` : data.title
+}
+
 function renderReviewPage(data, { template = null, reviewHtml = '' } = {}) {
   const values = {
-    [TITLE_PLACEHOLDER]: escapeHtml(data.title),
+    [TITLE_PLACEHOLDER]: escapeHtml(tabTitle(data)),
     [REVIEW_PLACEHOLDER]: reviewHtml,
     [DATA_PLACEHOLDER]: escapeIsland(JSON.stringify(data)),
   }

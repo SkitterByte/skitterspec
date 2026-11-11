@@ -16,9 +16,6 @@ the docs describe the new key — proven by render tests.
       `<project> · spec diffs`
 - [ ] Pass it into `packages/common/src/env/epicpage.js`: `<title>`
       `<project> · <epic>` and an eyebrow line above the h1
-- [ ] Document `review.projectName` in
-      `packages/common/assets/core/env.config.md` and the
-      `env.config.json.example`
 - [ ] Update `docs/review.html` and `docs/reference.html`; bump their
       `verified:` to this commit
 - [ ] Tests: both pages escape the name, and render unchanged with no name

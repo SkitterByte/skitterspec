@@ -309,6 +309,10 @@ const DEFAULT_CONFIG = Object.freeze({
     allowRemote: false,
     commitWith: '/commit',
     required: true,
+    // The name every generated page carries in its tab and above its heading.
+    // Empty means "the project folder's name" (`projectName` in project.js) —
+    // the override exists for a checkout named `app` or `repo`.
+    projectName: '',
     // External code reviewers whose findings render as CHECKS on the page.
     // Empty by default and never written by `init`: configuring one sends the
     // worktree's diff to whatever the command talks to, which is a decision
@@ -774,6 +778,8 @@ function mergeConfig(base, parsed) {
     // here. There is nothing it could mean instead: the hand-off has no off
     // switch, so a blank value is a typo rather than an instruction.
     assign(base.review, parsed.review, 'commitWith', 'string')
+    // A blank name falls back to the folder's, like `commitWith` above.
+    assign(base.review, parsed.review, 'projectName', 'string')
     // Same shape as `serveOnRemote`, and for a sharper reason: a non-boolean
     // leaves the gate ON. Turning off a check that refuses must be something
     // someone WROTE, never something a typo achieved on their behalf.

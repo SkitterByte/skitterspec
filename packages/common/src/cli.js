@@ -79,6 +79,7 @@ const {
 const {
   primaryAnchor,
   attachProject,
+  projectName,
   repoRootOf,
   prefixOf,
   toRepoPath,
@@ -5507,6 +5508,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
     notes,
     gate,
     buttons,
+    project: projectName(config),
     ...surfaceArgs,
     ...(docs ? { only: docs.owned, treePath: docs.tree } : {}),
   })
@@ -5549,6 +5551,7 @@ async function specEnvReview(dir, config, specArg, flags, invokedFrom = dir) {
         notes,
         gate,
         buttons,
+        project: projectName(config),
         ...surfaceArgs,
         fellBack: true,
       })

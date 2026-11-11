@@ -120,6 +120,7 @@ body {
 
 header { margin-bottom: 1rem; }
 h1 { font-size: 1.3rem; margin: 0 0 .3rem; overflow-wrap: anywhere; }
+.eyebrow { color: var(--muted); font-size: .8rem; margin: 0 0 .15rem; overflow-wrap: anywhere; }
 .sub { color: var(--muted); font-size: .85rem; margin: 0; overflow-wrap: anywhere; }
 .sub .sep { opacity: .5; padding: 0 .35rem; }
 .a { color: var(--add-mark); }
@@ -833,6 +834,7 @@ a.ticket:hover { border-color: var(--accent); }
 <body>
 <div class="wrap" id="wrap">
 <header>
+  <p class="eyebrow" id="project" hidden></p>
   <h1 id="title"></h1>
   <p class="sub" id="sub"></p>
   <div class="controls">
@@ -3311,6 +3313,13 @@ a.ticket:hover { border-color: var(--accent); }
   // --- header --------------------------------------------------------------
   var titleEl = document.getElementById('title')
   titleEl.textContent = data.title
+  // The project this page belongs to, above the heading. textContent, never
+  // markup: the name comes from a config file and the page is served.
+  if (data.project) {
+    var projectEl = document.getElementById('project')
+    projectEl.textContent = data.project
+    projectEl.hidden = false
+  }
   /**
    * The tracker ticket, beside the title and linked where there is a url.
    *

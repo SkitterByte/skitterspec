@@ -163,6 +163,23 @@ function attachProject(config, anchor) {
 }
 
 /**
+ * The name a generated page calls this project by: `review.projectName` when
+ * set, else the project folder's name in the PRIMARY checkout.
+ *
+ * NEVER THE CWD'S NAME. A worktree's folder is named after its spec, so a page
+ * rendered from one would repeat the spec name where the project's belongs —
+ * which is why this reads the anchor `attachProject` recorded. `null` when there
+ * is none: cannot tell, and the pages then render exactly as they did before.
+ */
+function projectName(config) {
+  const set = config && config.review && config.review.projectName
+  if (typeof set === 'string' && set.trim()) return set.trim()
+  const p = config && config.project
+  if (!p || !p.root) return null
+  return path.basename(projectIn(p.root, p.prefix || '')) || null
+}
+
+/**
  * A path as one shell word, for the commands the engine PRINTS for a person or
  * a skill to run. Quoted only when it has to be, so a path without spaces or
  * shell characters prints byte-identically to before. Double quotes, because
@@ -217,6 +234,7 @@ module.exports = {
   toPosix,
   shellPath,
   attachProject,
+  projectName,
   repoRootOf,
   prefixOf,
   projectLine,

@@ -188,6 +188,7 @@ All optional, in `specs/.core/env.config.json`:
 | `review.allowRemote` | `false` | whether publishing is permitted for every spec — the project default. `/spec-remote-review` permits one spec at a time in a gitignored sidecar and never edits this key (`review allow remote --project` does) |
 | `review.required` | `true` | whether a finished phase owes a verdict |
 | `review.commitWith` | `"/commit"` | the skill a committing verdict hands off to |
+| `review.projectName` | `""` | the name generated pages carry in their tab and above their heading. Empty means the project folder's name |
 | `review.reader` | `"detect"` | where you are reading — `local`, `remote`, or detect it |
 | `review.servePort` | derived | the port, normally derived from the repo's path |
 | `review.reviewers` | `[]` | external code reviewers whose findings render as checks. Empty by default — adding one sends the worktree's diff to whatever the command talks to |

@@ -559,6 +559,12 @@ through to a documented conservative default; see the field notes below.
   // because a commit made under rules nobody configured must not read as one
   // made under /commit.
   //
+  // `projectName` is what every generated page — the review page, the served
+  // index, the epic page — calls this project, in its tab and above its
+  // heading. Empty (the default) means the project folder's name in the
+  // primary checkout, never a worktree's; set it when that folder is called
+  // something like `app`. Default: "".
+  //
   // THERE IS NO OFF SWITCH. `"none"` existed and was removed: it produced a
   // verdict that records itself and does nothing, which is the one thing a
   // review page must not offer — a review is the guard in front of an action.
@@ -652,6 +658,7 @@ through to a documented conservative default; see the field notes below.
     "serve": "always",
     "commitWith": "/commit",
     "required": true,
+    "projectName": "",
     "reviewers": []
   }
 }
