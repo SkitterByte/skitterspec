@@ -119,7 +119,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Open questions
 
-- [ ] None
+- [x] None
 
 ## Changelog
 
@@ -141,3 +141,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   started spec's branch copy is the truer one — and add nothing where no
   spec branch has unlanded spec changes. Epic status takes them as a
   `branches` input beside `worktrees`; a worktree still wins.
+- 2026-11-11 — Completed; all phases done, tests green. `docs-freshness
+  impact` lists the four provider pages, index and review for the bins,
+  skills and serve.js this touched; none describes the authoring land, so
+  none was edited.
