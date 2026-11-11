@@ -214,6 +214,14 @@ say, which includes every case the engine could not tell.
    under the epic's issue (with `replace_parent` when it had another parent),
    and read it back. The API path does this itself and prints
    `parent set: …`.
+6. **Retire an epic's leftover sub-issues.** Only when the plan carries
+   `subIssues.retire` — which it does only for an epic, whose phase sub-issues
+   are left over from the plan spec it was converted from. For each id:
+   `issue_write` it closed with `state_reason: not_planned`, then
+   `sub_issue_write` to remove it from its parent, and read it back. A retire
+   that fails is said and left: run `spec-sync record <spec>` with
+   `--keep-sub-issue <id>` for it, so the next push tries again. The API path
+   does this itself and prints `sub-issue retired: …`.
 
 Milestones, other labels and comments are GitHub-native triage — do **not**
 push them; they're the PM's.

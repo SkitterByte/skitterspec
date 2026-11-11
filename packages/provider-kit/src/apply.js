@@ -37,6 +37,10 @@
  *   - `remoteEditedLine(identifier)`        the someone-else-edited warning
  *   - `twinAdvice(twin, title, specName)`   the refusal message for a twin
  *   - `afterIssue(issue)`                    optional; → a report line or null
+ *   - `retireSubIssue(id)`                  optional; close a leftover phase
+ *                                           sub-issue as not planned and
+ *                                           unlink it. Absent means this tracker
+ *                                           cannot, and the push names the ids.
  *   - `setParent(issue, parentIdentifier)`   optional; make the spec issue a
  *                                           child of its epic's → `{ changed }`.
  *                                           Absent means this tracker cannot
@@ -226,6 +230,26 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
     lines.push(`  sub-issue updated: ${sub.id}`)
   }
 
+  // 5b. Retire an epic's leftover phase sub-issues (spec feat-epic-migration,
+  // Decision 2). Never fatal: a tracker without the seam names the ids once and
+  // they are forgotten — the line is the record; a retire that FAILS keeps its
+  // id in the snapshot, so the next push tries again.
+  const keepSubIssues = []
+  const retire = (plan.subIssues && plan.subIssues.retire) || []
+  if (retire.length && typeof ops.retireSubIssue !== 'function') {
+    lines.push(`  this tracker cannot retire sub-issues here — close by hand: ${retire.join(', ')}`)
+  } else {
+    for (const id of retire) {
+      try {
+        await ops.retireSubIssue(id)
+        lines.push(`  sub-issue retired: ${id} (no phase claims it on an epic)`)
+      } catch (error) {
+        keepSubIssues.push(id)
+        lines.push(`  ?? retire ${id}: ${String((error && error.message) || error).split('\n')[0]}`)
+      }
+    }
+  }
+
   // 6. Read back what the tracker stored and run the SAME check verify runs.
   const stored = { issue: undefined, subIssues: {} }
   if (result.issue) {
@@ -241,7 +265,7 @@ async function applyInner({ dir, config, snapshotDir, plan, adapter, ops, progre
   const lost = verify.some((l) => l.includes('!!') || l.includes('??'))
 
   // 7. Record the snapshot from the now-stamped files, so the next push is empty.
-  const file = recordPush({ dir, snapshotDir, identifier: helpers.specIdentifier(snapshotDir, config), config, sent })
+  const file = recordPush({ dir, snapshotDir, identifier: helpers.specIdentifier(snapshotDir, config), config, sent, keepSubIssues })
   // A repo path, `/`-separated on every platform — the form every other
   // spec path in this output takes.
   lines.push(`  snapshot: ${path.relative(dir, file).split(path.sep).join('/')}`)

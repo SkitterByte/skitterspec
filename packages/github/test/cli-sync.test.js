@@ -1074,3 +1074,18 @@ test('list with no linked epic hides sub-issues exactly as before', async () => 
   const r = await run(['list', '--json'], dir, { adapter })
   assert.deepStrictEqual(JSON.parse(r.out).map((row) => row.identifier), ['#101'])
 })
+
+// --- record --keep-sub-issue (spec feat-epic-migration, phase 2) -------------
+
+test('record --keep-sub-issue holds an unfinished retire for the next push', async () => {
+  const { readBase, writeBase } = require('@skitterbyte/skitterspec-sync-core')
+  const { loadGithubConfig } = require('../src/config.js')
+  const dir = repoWithSpec({ identifier: '#7' })
+  const { config } = loadGithubConfig(dir)
+  writeBase(dir, '#7', config, { subIssues: { '#40': 'h40', '#41': 'h41' } })
+  const r = await run(['record', 'feat-demo', '--keep-sub-issue', '#41'], dir)
+  assert.strictEqual(r.code, 0, r.out)
+  const kept = Object.keys(readBase(dir, '#7', config).subIssues)
+  assert.ok(kept.includes('#41'), 'the unfinished retire is remembered')
+  assert.ok(!kept.includes('#40'), 'and nothing else unclaimed is')
+})

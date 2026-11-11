@@ -1,5 +1,7 @@
 'use strict'
 
+const path = require('node:path')
+
 /**
  * `push` — repo → Linear, one-way. The repo is the source of truth; Linear is a
  * generated mirror. We never read remote content: `push` builds the local
@@ -102,7 +104,8 @@ function isLinked(snapshotDir, config) {
 function push({ dir, snapshotDir, identifier, config }) {
   const projection = projectionOf(snapshotDir, config)
   const snapshot = readBase(dir, identifier, config)
-  const plan = planChanges(projection, snapshot, { linked: isLinked(snapshotDir, config) })
+  const epic = path.basename(String(snapshotDir || '')).startsWith('epic-')
+  const plan = planChanges(projection, snapshot, { linked: isLinked(snapshotDir, config), epic })
   // A spec still linked under the pre-9.0 model reads as unlinked here, so the
   // plan above is all-creates and would abandon a live mirror. Carry the finding
   // ON THE PLAN, not as a warning: `--json` routes warnings to stderr, and the
@@ -134,10 +137,18 @@ function push({ dir, snapshotDir, identifier, config }) {
 // that was NOT sent would claim the tracker holds it, and silence the very remap
 // this record exists to catch. Without `sent` (a hand-applied MCP push) nothing
 // new is recorded and what was there is kept.
-function recordPush({ dir, snapshotDir, identifier, config, sent = null }) {
+// `keepSubIssues` names ids the projection no longer claims but the tracker may
+// still hold — a retire that failed — so the next push plans them again rather
+// than forgetting them.
+function recordPush({ dir, snapshotDir, identifier, config, sent = null, keepSubIssues = [] }) {
   const projection = projectionOf(snapshotDir, config)
   const snapshot = snapshotOf(projection, config)
-  const names = stateNamesRecord(projection, readBase(dir, identifier, config), sent)
+  const before = readBase(dir, identifier, config)
+  for (const id of keepSubIssues) {
+    const hash = before && before.subIssues && before.subIssues[String(id)]
+    if (hash !== undefined) snapshot.subIssues[String(id)] = hash
+  }
+  const names = stateNamesRecord(projection, before, sent)
   if (names) snapshot.stateNames = names
   return writeBase(dir, identifier, config, snapshot)
 }

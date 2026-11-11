@@ -538,6 +538,26 @@ function makeApiAdapter({
       return { changed: true, moved: !!issue.parent }
     },
 
+    /**
+     * Retire a leftover phase sub-issue: close it as not planned, then unlink
+     * it from its parent, so the epic's sub-issues are its members alone. An
+     * issue already closed and unparented is left alone. Read back: a close or
+     * an unlink that did not land is refused rather than reported as done.
+     */
+    async retireSubIssue(ref) {
+      const issue = await adapter.readIssue(ref)
+      if (!issue) throw new GitHubRefusal(`no GitHub issue ${identifierOf(numberOf(ref))} to retire`)
+      if (issue.open !== false) await adapter.setIssueOpen(ref, { open: false, reason: 'not_planned' })
+      if (issue.parent) {
+        await rest('DELETE', `${repoPath}/issues/${issue.parent.id}/sub_issue`, { body: { sub_issue_id: issue.databaseId } })
+      }
+      const back = await adapter.readIssue(ref)
+      if (!back || back.open !== false || back.parent) {
+        throw new GitHubRefusal(`${issue.identifier} was retired but GitHub reads it back ${back && back.open !== false ? 'open' : 'still under a parent'}`)
+      }
+      return { changed: true }
+    },
+
     async updateIssue(ref, updates) {
       const body = issuePayload(updates || {})
       if (!Object.keys(body).length) return {}

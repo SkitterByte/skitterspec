@@ -535,3 +535,32 @@ test('setParent refuses when GitHub reads back another parent', async () => {
   const { a } = parentAdapter([null, null])
   await assert.rejects(a.setParent('#20', '#5'), /linked under #5 but GitHub reads it back under no parent/)
 })
+
+// --- retire a leftover phase sub-issue (spec feat-epic-migration, phase 2) ------
+
+// Reads answer `states[i]` on the i-th read: `{ open, parent }`.
+function retireAdapter(states) {
+  let reads = 0
+  return adapter((call) => {
+    if (isGraphql(call)) {
+      const s = states[Math.min(reads++, states.length - 1)]
+      return res(issueData({ ...rawIssue({ number: 20 }), state: s.open ? 'OPEN' : 'CLOSED', parent: s.parent ? { number: s.parent } : null }))
+    }
+    return res({}, 200)
+  })
+}
+
+test('retireSubIssue closes as not planned, unlinks from its parent, and reads it back', async () => {
+  const { a, calls } = retireAdapter([{ open: true, parent: 5 }, { open: false, parent: null }])
+  assert.deepStrictEqual(await a.retireSubIssue('#20'), { changed: true })
+  const writes = calls.filter((c) => !isGraphql(c))
+  assert.deepStrictEqual(writes.map((c) => c.method), ['PATCH', 'DELETE'])
+  assert.deepStrictEqual(writes[0].body, { state: 'closed', state_reason: 'not_planned' })
+  assert.match(writes[1].url, /\/issues\/5\/sub_issue$/)
+  assert.deepStrictEqual(writes[1].body, { sub_issue_id: 9020 })
+})
+
+test('retireSubIssue refuses when GitHub still reads it under a parent', async () => {
+  const { a } = retireAdapter([{ open: true, parent: 5 }, { open: false, parent: 5 }])
+  await assert.rejects(a.retireSubIssue('#20'), /still under a parent/)
+})

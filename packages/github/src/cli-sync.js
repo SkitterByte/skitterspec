@@ -243,6 +243,7 @@ function applyOps({ adapter, config, kind = 'feature', snapshotDir = null }) {
       for (const bucket of buckets) statusFor(bucket)
     },
     setParent: (issue, parentIdentifier) => adapter.setParent(issue.id, parentIdentifier),
+    retireSubIssue: (id) => adapter.retireSubIssue(id),
     searchTwin: (title) => adapter.searchIssues({ query: title }),
     twinAdvice: (twin, wanted, specName) =>
       `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +
@@ -579,10 +580,13 @@ async function specSyncStamp(dir, config, specArg, flags, out) {
   return 0
 }
 
-function specSyncRecord(dir, config, specArg, out) {
+// `--keep-sub-issue <id>` (repeatable): a retire the MCP path could not finish
+// stays in the snapshot, so the next push plans it again.
+function specSyncRecord(dir, config, specArg, flags, out) {
   const snapshotDir = resolveOrExit(specArg, dir, out)
   if (!snapshotDir) return 1
-  const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config })
+  const keepSubIssues = (flags && flags.keepSubIssues) || []
+  const file = recordPush({ dir, snapshotDir, identifier: specIdentifier(snapshotDir, config), config, keepSubIssues })
   out.write(`${PROGRAM} record: snapshot written — ${path.relative(dir, file).split(path.sep).join('/')}\n`)
   return 0
 }
@@ -1568,7 +1572,7 @@ async function specSync(rest, io = {}) {
     case 'stamp':
       return specSyncStamp(dir, config, positional[0], flags, out)
     case 'record':
-      return specSyncRecord(dir, config, positional[0], out)
+      return specSyncRecord(dir, config, positional[0], flags, out)
     case 'status':
       return specSyncStatus(dir, config, positional[0], flags, out, err)
     case 'splice': {
@@ -1643,6 +1647,7 @@ function parseArgs(args, sub) {
     '--issue': { kind: 'string' },
     '--url': { kind: 'value' },
     '--sub': { kind: 'list', name: 'subs' },
+    '--keep-sub-issue': { kind: 'list', name: 'keepSubIssues' },
     '--limit': { kind: 'number' },
     '--stdin': { kind: 'boolean' },
     '--check-remote': { kind: 'boolean', name: 'remoteCheck' },

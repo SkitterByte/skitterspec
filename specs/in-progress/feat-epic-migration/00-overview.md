@@ -102,7 +102,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `epic status --here` | ✅ | [01-status-here.md](01-status-here.md) |
-| 2 | Retire an epic's leftover sub-issues | ⬜ | [02-retire-subissues.md](02-retire-subissues.md) |
+| 2 | Retire an epic's leftover sub-issues | ✅ | [02-retire-subissues.md](02-retire-subissues.md) |
 | 3 | Migration guidance and docs | ⬜ | [03-guidance.md](03-guidance.md) |
 
 ## Open questions
@@ -116,3 +116,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-11 — Phase 1: `epicStatus` takes `waitIndex`/`waitRead`, so members
   can be read from one tree and waits resolved against another; `--here` reads
   the project folder of the checkout's own git root.
+- 2026-11-11 — Phase 2: a tracker without the seam names the ids once and
+  they are then forgotten — keeping them would make every later push non-empty
+  for good. A failed retire is kept (`recordPush` `keepSubIssues`), and the MCP
+  path keeps one with `spec-sync record --keep-sub-issue <id>`.

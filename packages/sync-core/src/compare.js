@@ -252,7 +252,7 @@ function remapped(recorded, current) {
  *   `plan.issue` (when present) is the spec issue's description + state; the push
  *   skill applies its provider's project/grouping choice on top of it.
  */
-function planChanges(projection, snapshot, { linked = false } = {}) {
+function planChanges(projection, snapshot, { linked = false, epic = false } = {}) {
   const p = projection || {}
   const snap = snapshot || {}
   const snapS = snap.subIssues || {}
@@ -296,6 +296,13 @@ function planChanges(projection, snapshot, { linked = false } = {}) {
       subIssues.update.push({ ref: s.ref, id: s.id, state: s.state, stateResend: 'remap' })
     }
   }
+
+  // AN EPIC'S UNCLAIMED IDS ARE LEFTOVERS, NOT LOST STAMPS. An epic has no
+  // phases by construction (spec feat-epics, Decision 1), so every sub-issue the
+  // snapshot remembers belongs to the plan spec it was converted from — a
+  // positive signal. On any other kind an unclaimed id stays the ambiguity it
+  // is above, and nothing is retired (spec feat-epic-migration, Decision 2).
+  if (epic && unclaimed.length) subIssues.retire = unclaimed.slice()
 
   const plan = { subIssues }
   if (unstamped.length) plan.unstamped = unstamped
@@ -394,7 +401,8 @@ function issueChanges(projection, snapshot, { linked = false } = {}) {
 
 // True when a plan would push nothing.
 function isEmptyPlan(plan) {
-  return !plan.issue && !plan.subIssues.create.length && !plan.subIssues.update.length
+  const retire = plan.subIssues.retire || []
+  return !plan.issue && !plan.subIssues.create.length && !plan.subIssues.update.length && !retire.length
 }
 
 module.exports = {
