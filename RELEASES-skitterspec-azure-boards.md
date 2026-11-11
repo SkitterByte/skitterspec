@@ -5,6 +5,23 @@ What's new for users of skitterspec-azure-boards. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 2.7.0 — 11 Nov 2026
+
+**Highlights:** Epics: group related specs, record what each waits on, and /spec-start and /spec-next warn before building past an unmet wait — with a recorded way to go ahead anyway.
+
+### Env
+- **New** — When landing a spec brings in a phase it was waiting on, /spec-complete and /spec-to-main re-run its tests before the base branch moves, so a dependency that arrived by rebase is actually tested underneath it.
+- **New** — epic status now names the specs that edit the same files, and /spec-start warns when you start one beside its pair already in flight.
+- **New** — skitterspec epic status <epic> shows which of an epic's specs can start now, which are blocked and on what, the waves they fall into and the phase-level sync points between them.
+- **New** — A spec can now be an epic (epic-<name>) grouping related specs, and each member can record which epic it belongs to and which specs or phases it waits on.
+
+### Skills
+- **New** — Epics: group related specs, record what each waits on, and /spec-start and /spec-next warn before building past an unmet wait — with a recorded way to go ahead anyway.
+
+### Sync
+- **New** — On Linear, Jira and Azure Boards, a spec that belongs to an epic is pushed under the epic's issue as its native parent, and spec-sync list shows it there.
+- **New** — On GitHub, a spec that belongs to an epic is pushed as a sub-issue of the epic's issue, and spec-sync list shows it under its epic.
+
 ## 2.6.1 — 10 Nov 2026
 
 ### Env
