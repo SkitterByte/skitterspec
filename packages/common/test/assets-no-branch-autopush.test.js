@@ -175,3 +175,10 @@ test('the invariant holds on the COMPOSED surface, not just the source', () => {
   }
   assert.deepStrictEqual(unexplained, [], `unclassified git push after composition:\n${unexplained.join('\n')}`)
 })
+
+test('/spec suggests publishing a branch-lane spec in the report, and never asks', () => {
+  const s = fs.readFileSync(path.join(SKILLS_DIR, 'spec', 'SKILL.md'), 'utf8')
+  assert.match(s, /\*\*Do not ask, and do not run it\*\*/)
+  assert.match(s, /Report `Landed` as `not pushed`/)
+  assert.doesNotMatch(s, /so the spec is not only on this/)
+})

@@ -493,11 +493,14 @@ skitterspec spec-env integrate <name> --docs
 Under `"trunk"` it prints the ordinary land, unchanged. Under `"branch"` it
 says `spec docs ride the branch` and plans one push of the spec's branch,
 consent-gated like every push in this workflow: already on the remote at HEAD
-is honoured and runs nothing; otherwise it holds the push and you **ask once, plainly** — *"push `<branch>` to `<remote>` so the spec is not only on this
-machine?"* — then re-run with `--push` and run what it prints. A no is a true
-outcome, not a failure: report `Landed` as `held — not pushed`. A yes reports
+is honoured and runs nothing; otherwise it holds the push.
+**Do not ask, and do not run it** — a suggestion is not a question.
+Report `Landed` as `not pushed`, with the held command it printed beside it as
+the way to publish, so it sits in the table for the reader to take or leave. A
+question here interrupted the end of an authoring run for something that can
+wait until the reader chooses to. Already on the remote reports
 `pushed <remote>/<branch>`. A clone with no such remote prints that the branch
-stays local; report that as the `Landed` row and ask nothing.
+stays local; report that as the `Landed` row.
 
 Say the trade in the report's `Notes`: the backlog is found through the
 tracker listing (or the spec branches), not `ls specs/backlog/` on base. Under
