@@ -110,3 +110,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-11 — The five distribution copies are untracked build output and
   `.claude/skills/spec-next` is a symlink into `packages/common`, so only the
   `common` source was edited; the build carries it.
+- 2026-11-11 — Completed; all phases done, tests green.
