@@ -729,8 +729,26 @@ its order onto its members: rename the folder to `epic-<name>` (`git mv`), set
 `> **Type:** Epic`, add `> **Epic:**` and `> **Waits on:**` to each member (and
 a phase file's own `Waits on:` for a phase-level sync point), and delete the
 wave phase files — `epic status` derives them. Keep the plan's Decisions: they
-are the *why* the members' headers cannot say. Then check that
-`skitterspec epic status <epic>` reproduces the plan you had.
+are the *why* the members' headers cannot say.
+
+**A phase that is not a wave becomes a member.** A test pass, a review, a
+manual step the plan held as a phase is its own spec of the kind its work is —
+usually an **Issue** (manual steps, no code) — with `> **Epic:**` and its own
+`> **Waits on:**`; whatever waited on that phase waits on the member instead.
+An epic holds no phases, because it holds no check it cannot observe.
+
+**Do it off the base branch, and check it before it lands.** The conversion is
+documents only, so it is a `/no-spec` branch. From that worktree,
+`skitterspec epic status <epic> --here` reads the members and headers as the
+branch has them — uncommitted edits included — while a wait still counts as met
+only on the base branch, so you can confirm it reproduces the plan you had
+before landing it.
+
+**The epic's first push retires the wave sub-issues.** An epic has no phases,
+so every phase sub-issue its snapshot still remembers is a leftover of the plan
+it was converted from: the push closes each as not planned and unlinks it from
+the epic's issue, leaving the members as its only sub-issues. A tracker that
+cannot retire one names it, to close by hand.
 
 ### Kind routing — any door, the right spec
 

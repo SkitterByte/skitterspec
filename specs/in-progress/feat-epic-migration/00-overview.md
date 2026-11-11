@@ -12,7 +12,7 @@ github_url: "https://github.com/SkitterByte/skitterspec/issues/166"
 > **Raised:** 2026-11-11
 > **Area:** packages/common/src/{cli.js,env/epicread.js}, packages/sync-core/src/compare.js, packages/provider-kit/src/apply.js, packages/github/src/{api.js,cli-sync.js}, packages/common/assets/rules/spec-planning.md, packages/github/assets/skills/spec-push/SKILL.md, docs/{reference,github}.html
 > **Stack:** worktree
-> **Docs:** reference, github
+> **Docs:** reference, github, linear, jira, azure-boards
 
 ## Summary
 
@@ -103,7 +103,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | `epic status --here` | ✅ | [01-status-here.md](01-status-here.md) |
 | 2 | Retire an epic's leftover sub-issues | ✅ | [02-retire-subissues.md](02-retire-subissues.md) |
-| 3 | Migration guidance and docs | ⬜ | [03-guidance.md](03-guidance.md) |
+| 3 | Migration guidance and docs | ✅ | [03-guidance.md](03-guidance.md) |
 
 ## Open questions
 
@@ -120,3 +120,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   they are then forgotten — keeping them would make every later push non-empty
   for good. A failed retire is kept (`recordPush` `keepSubIssues`), and the MCP
   path keeps one with `spec-sync record --keep-sub-issue <id>`.
+- 2026-11-11 — Phase 3: `linear`, `jira` and `azure-boards` added to `Docs:` —
+  each now says its push names an epic's leftover phase objects to close by
+  hand, since only GitHub retires them.
