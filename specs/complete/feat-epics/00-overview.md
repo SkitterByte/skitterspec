@@ -215,3 +215,6 @@ and may be built before them.
   `integrate` names the phases to re-verify before any command runs, and the
   landing skills run the tests between the rebase and the fast-forward. PR mode
   and the hotfix carry print no `re-verify:` lines; recorded in the phase notes.
+- 2026-11-11 — Completed; all phases done, tests green. Deferred, on the
+  record above: PR-mode and hotfix-carry re-verify (phase 7 notes), the
+  states check for a defaulted `Epic` type (phase 6 follow-up).
