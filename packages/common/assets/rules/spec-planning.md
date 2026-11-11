@@ -245,15 +245,18 @@ worktree: `Commit & Start` keeps it and carries into `/spec-start`, plain
 `commit` tears it down, because a spec parked in the backlog should hold no
 checkout.
 
-**`land.specDocs: "branch"` is the exception, taken deliberately.** Where the
-base branch accepts no direct push even for documents, the spec rides its
-feature branch and lands with the work's PR: both verdicts commit and skip the
-integrate, plain `commit` keeps branch and worktree (they are the document's
-only copy), and the backlog is found through the tracker listing rather than
-`ls specs/backlog/` on base — the known branch-relative-bucket cost, accepted
-because the alternative is a spec that cannot be written at all. The worktree
-fork-point check is exempt in this mode for the hotfix's reason: the spec is
-*supposed* to be absent from the fork point.
+**`land.specDocs: "branch"` is the exception — and the default with a tracker.**
+The spec rides its feature branch and lands with the work: both verdicts commit
+and skip the integrate, plain `commit` keeps branch and worktree (they are the
+document's only copy), and the backlog is found through the tracker listing
+rather than `ls specs/backlog/` on base. It began as the lane for a base branch
+that accepts no direct push even for documents. It is now also what a project
+gets by default once a ticketing provider is configured and the key is unset,
+under either landing strategy: the ticket already exists and the board already
+owns status, so a land whose only purpose was findability buys nothing. Setting
+the key, to either value, always wins. The worktree fork-point check is exempt
+in this mode for the hotfix's reason: the spec is *supposed* to be absent from
+the fork point.
 
 **What this bought is the reason it changed.** The page waits for a verdict
 without a timeout — deliberately, because a reader walking away from a diff is

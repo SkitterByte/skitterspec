@@ -473,9 +473,11 @@ on the branch you are standing on — so a spec left on its own branch would be
 invisible to everyone, including the next `/spec` run. The commit goes on the
 branch and then the branch goes onto the base:
 
-**Unless the project set `land.specDocs: "branch"`** — the lane for a base
-branch nobody may push, where the spec document rides the feature branch and
-lands with the work's PR. There both verdicts commit on the branch and
+**Unless `land.specDocs` is `"branch"`** — set so in `env.config.json`, or
+left unset in a project with a ticketing provider configured (its config file
+under `specs/.core/`), where it is the default because the tracker already is
+the backlog. It is the lane where the spec document rides its feature branch
+and lands with the work. There both verdicts commit on the branch and
 **skip the integrate below entirely**; `commit-start` carries into
 `/spec-start` over the same worktree exactly as ever, and plain `commit` keeps
 the branch AND the worktree, because they are now the only copy of the

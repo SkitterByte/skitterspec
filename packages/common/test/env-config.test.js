@@ -568,6 +568,66 @@ test('provider env defaults fill unset isolation keys, and the project file wins
   assert.deepStrictEqual(base.spec.companionPaths, [])
 })
 
+// --- provider specDocs default (feat-tracker-spec-branches) -------------------
+
+function writeProviderConfig(dir) {
+  const file = path.join(dir, 'specs', '.core', 'github.config.json')
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, '{}', 'utf-8')
+}
+
+test('land.specDocs defaults to branch when a provider is configured and the key is unset', (t) => {
+  const { setProviderConfigFile } = require('../src/env/config.js')
+  t.after(() => setProviderConfigFile(null))
+  setProviderConfigFile('specs/.core/github.config.json')
+
+  const withFile = tmpDir()
+  writeProviderConfig(withFile)
+  writeEnvConfig(withFile, { land: { strategy: 'ff' } })
+  assert.strictEqual(loadEnvConfig(withFile).config.land.specDocs, 'branch')
+
+  // No env.config.json at all: the provider config alone still decides.
+  const bare = tmpDir()
+  writeProviderConfig(bare)
+  assert.strictEqual(loadEnvConfig(bare).config.land.specDocs, 'branch')
+})
+
+test('land.specDocs: an explicit value beats the provider default, typos included', (t) => {
+  const { setProviderConfigFile } = require('../src/env/config.js')
+  t.after(() => setProviderConfigFile(null))
+  setProviderConfigFile('specs/.core/github.config.json')
+
+  const trunk = tmpDir()
+  writeProviderConfig(trunk)
+  writeEnvConfig(trunk, { land: { specDocs: 'trunk' } })
+  assert.strictEqual(loadEnvConfig(trunk).config.land.specDocs, 'trunk')
+
+  // A rejected value is still the project speaking: it falls to the
+  // conservative "trunk", never up to the provider default.
+  const typo = tmpDir()
+  writeProviderConfig(typo)
+  writeEnvConfig(typo, { land: { specDocs: 'Branch' } })
+  assert.strictEqual(loadEnvConfig(typo).config.land.specDocs, 'trunk')
+})
+
+test('land.specDocs stays trunk with no provider configured (stays-silent)', (t) => {
+  const { setProviderConfigFile } = require('../src/env/config.js')
+  t.after(() => setProviderConfigFile(null))
+
+  // Registered, but this project never set the provider up: no file, no flip.
+  setProviderConfigFile('specs/.core/github.config.json')
+  const unset = tmpDir()
+  writeEnvConfig(unset, {})
+  assert.strictEqual(loadEnvConfig(unset).config.land.specDocs, 'trunk')
+
+  // The base distribution registers nothing, so a provider file it cannot
+  // know about changes nothing either.
+  setProviderConfigFile(null)
+  const base = tmpDir()
+  writeProviderConfig(base)
+  assert.strictEqual(loadEnvConfig(base).config.land.specDocs, 'trunk')
+})
+
 // --- land (PR landing mode) --------------------------------------------------
 
 test('land: defaults to trunk-based ff with nothing configured (stays-silent)', () => {

@@ -60,7 +60,7 @@
  */
 
 const { createHash } = require('node:crypto')
-const { readFileSync, realpathSync } = require('node:fs')
+const { existsSync, readFileSync, realpathSync } = require('node:fs')
 const { join, resolve, sep } = require('node:path')
 
 const CONFIG_FILE = join('specs', '.core', 'env.config.json')
@@ -230,9 +230,11 @@ const DEFAULT_CONFIG = Object.freeze({
   // follows the merge. `remote` names where the branch is pushed. `draft`
   // opens mid-spec PRs as drafts (a draft cannot be merged, so nothing
   // downstream can close a ticket early). `specDocs` decides where a spec
-  // DOCUMENT lands under "pr": "trunk" keeps today's authoring land (needs
-  // direct push for docs), "branch" has the spec ride the feature branch and
-  // land with the work's PR.
+  // DOCUMENT lands: "trunk" keeps the authoring land (needs direct push for
+  // docs under "pr"), "branch" has the spec ride its feature branch and land
+  // with the work. The "trunk" here is only the base's default — with a
+  // ticketing provider configured and the key unset, `applyProviderSpecDocs`
+  // makes it "branch", whatever the strategy.
   land: Object.freeze({ strategy: 'ff', remote: 'origin', draft: true, specDocs: 'trunk' }),
   // `mainIsLandingZone` defaults ON wherever isolation is configured, matching
   // the review gate's precedent: the push toward not working on the base branch
@@ -873,6 +875,33 @@ function applyProviderEnvDefaults(config, parsed) {
   return config
 }
 
+// The provider's own config file, relative to the project root — set once per
+// process by a provider superset's bin, like the defaults above. A registered
+// file that EXISTS is the positive signal that a ticketing provider is attached
+// to this project, and only then does `land.specDocs` default to "branch": the
+// tracker is the backlog, so landing a spec document on the base branch just to
+// make it findable buys nothing (feat-tracker-spec-branches).
+//
+// WHAT WOULD FOOL THIS: an installed superset whose project never ran its setup
+// has no config file, and reads as no provider — which is the safe reading,
+// since "trunk" is today's behaviour. An unregistered base distribution never
+// asks at all.
+let providerConfigFile = null
+function setProviderConfigFile(rel) {
+  providerConfigFile = rel || null
+}
+
+// An explicit `specDocs` in the file — any value, even one the merge rejected —
+// is the project's decision; a rejected typo stays on the conservative "trunk"
+// rather than being promoted to the provider default.
+function applyProviderSpecDocs(config, parsed, dir) {
+  if (!providerConfigFile) return config
+  const pLand = parsed && typeof parsed.land === 'object' && parsed.land !== null ? parsed.land : null
+  if (pLand && 'specDocs' in pLand) return config
+  if (existsSync(join(dir, providerConfigFile))) config.land.specDocs = 'branch'
+  return config
+}
+
 function loadEnvConfig(dir = process.cwd()) {
   const base = defaults()
   const file = join(dir, CONFIG_FILE)
@@ -882,7 +911,12 @@ function loadEnvConfig(dir = process.cwd()) {
     raw = readFileSync(file, 'utf-8')
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return { config: applyProviderEnvDefaults(base, null), present: false, unknown: [], badReviewers: [] }
+      return {
+        config: applyProviderSpecDocs(applyProviderEnvDefaults(base, null), null, dir),
+        present: false,
+        unknown: [],
+        badReviewers: [],
+      }
     }
     throw error
   }
@@ -895,7 +929,7 @@ function loadEnvConfig(dir = process.cwd()) {
   }
 
   return {
-    config: applyProviderEnvDefaults(mergeConfig(base, parsed), parsed),
+    config: applyProviderSpecDocs(applyProviderEnvDefaults(mergeConfig(base, parsed), parsed), parsed, dir),
     present: true,
     unknown: collectUnknownKeys(parsed),
     badReviewers: collectBadReviewers(parsed),
@@ -905,6 +939,7 @@ function loadEnvConfig(dir = process.cwd()) {
 module.exports = {
   loadEnvConfig,
   setProviderEnvDefaults,
+  setProviderConfigFile,
   resolveServePort,
   derivedServePort,
   servePortRoot,

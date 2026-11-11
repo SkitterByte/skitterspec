@@ -320,11 +320,15 @@ through to a documented conservative default; see the field notes below.
   //   draft:    mid-spec PRs open as drafts (a draft cannot be merged, so
   //             nothing downstream can close a ticket early); /spec-complete is
   //             what flips the PR to ready. Default true.
-  //   specDocs: where a SPEC DOCUMENT lands under "pr". "trunk" (default) keeps
-  //             today's authoring land — needs direct push for docs. "branch"
-  //             has the spec ride the feature branch and land with the work's
-  //             PR; the backlog is then found via the tracker listing, and the
-  //             authoring worktree stays (it is the document's only copy).
+  //   specDocs: where a SPEC DOCUMENT lands. "trunk" keeps the authoring land
+  //             — needs direct push for docs under "pr". "branch" has the spec
+  //             ride its feature branch and land with the work; the backlog is
+  //             then found via the tracker listing, and the authoring worktree
+  //             stays (it is the document's only copy). Default "trunk" —
+  //             unless a ticketing provider is configured (its config file in
+  //             specs/.core/) and this key is unset, under either strategy:
+  //             then "branch", because the tracker already is the backlog.
+  //             Setting the key, to either value, always wins.
   // The merged-check and PR commands need the host's CLI — `gh` on github.com,
   // `az` on dev.azure.com — detected from the remote URL, never configured. An
   // unknown host (Enterprise/Server domains included) degrades to the ancestry

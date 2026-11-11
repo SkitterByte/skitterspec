@@ -54,7 +54,7 @@ document on one laptop (nothing pushes the branch), and leaves `gating check`,
 2. **The default only fills an absent key.** An explicit `"trunk"` or
    `"branch"` always wins, so a project can opt back out with one line.
 3. **Provider detection is a positive signal** — a provider config file present
-   under `specs/.core/` (the names owned by provider-kit). Unreadable or absent
+   under `specs/.core/` (registered by the provider's own bin). Unreadable or absent
    is cannot-tell and resolves to `"trunk"`, today's behaviour
    (`.claude/rules/negative-checks.md` rule 4).
 4. **Both committing verdicts push the spec branch, consent-gated** — the hotfix
@@ -113,7 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Default `specDocs` to branch when a provider is configured | ⬜ | [01-provider-default.md](01-provider-default.md) |
+| 1 | Default `specDocs` to branch when a provider is configured | ✅ | [01-provider-default.md](01-provider-default.md) |
 | 2 | Push the spec branch on the verdict; delete it on cancel | ⬜ | [02-push-and-cancel.md](02-push-and-cancel.md) |
 | 3 | Backlog checks read spec branches | ⬜ | [03-branch-discovery.md](03-branch-discovery.md) |
 
@@ -125,3 +125,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-11 — Spec created. Default deliberately covers `ff` too (decision 1),
   which changes this repo's own `/spec` flow once released.
+- 2026-11-11 — Phase 1: provider detection is a `setProviderConfigFile` seam
+  registered by each provider bin, not a filename list in provider-kit —
+  it mirrors `setProviderEnvDefaults` and keeps common tracker-free.
+  `ENV_CONFIG_DEFAULTS` left alone so the composed example does not pin
+  `specDocs` explicitly.

@@ -27,6 +27,11 @@ const { run, HELP } = require('@skitterbyte/skitterspec-common/src/cli.js')
 require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderEnvDefaults(
   require('@skitterbyte/skitterspec-provider-github/src/config.js').ENV_CONFIG_DEFAULTS,
 )
+// Its config file too: present, it is what makes `land.specDocs` default to
+// "branch" (see common src/env/config.js, setProviderConfigFile).
+require('@skitterbyte/skitterspec-common/src/env/config.js').setProviderConfigFile(
+  require('@skitterbyte/skitterspec-provider-github/src/config.js').CONFIG_FILE,
+)
 const {
   PROVIDER_COMMANDS,
   providerHelpSection,
