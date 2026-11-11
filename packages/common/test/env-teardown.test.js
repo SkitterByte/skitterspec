@@ -426,3 +426,40 @@ test('pr stays-silent: no abandon without a command, a PR, or pr mode', () => {
   })
   assert.deepStrictEqual(trunk.remoteCommands, [])
 })
+
+// --- docs lane: a never-started branch-mode spec (feat-tracker-spec-branches)
+
+const DOCS_LANE = (land = {}) => ({ ...config(), land: { specDocs: 'branch', ...land } })
+const DOCS_ONLY = (over = {}) => CTX({ merged: false, docsOnly: true, remoteBranch: 'origin/feat/thing', ...over })
+
+test('docs lane: an unlanded docs-only branch offers its remote delete, confirm-first', () => {
+  const p = planDown(spec({ stack: 'worktree' }), DOCS_LANE(), {}, DOCS_ONLY())
+  assert.strictEqual(p.blocked, false)
+  assert.deepStrictEqual(p.remoteCommands, ['git push origin --delete feat/thing'])
+  assert.ok(!p.commands.some((c) => c.includes('--delete')), 'never in the run-blind list')
+})
+
+test('docs lane: "always" still keeps the docs-only delete confirm-first', () => {
+  const cfg = { ...DOCS_LANE(), teardown: { deleteRemoteBranch: 'always' } }
+  const p = planDown(spec({ stack: 'worktree' }), cfg, {}, DOCS_ONLY())
+  assert.deepStrictEqual(p.remoteCommands, ['git push origin --delete feat/thing'])
+  assert.ok(!p.commands.some((c) => c.includes('--delete')))
+})
+
+test('docs lane: under pr, a docs-only branch needs no PR to tear down', () => {
+  const p = planDown(spec({ stack: 'worktree' }), DOCS_LANE({ strategy: 'pr' }), {}, DOCS_ONLY({ prState: 'none' }))
+  assert.strictEqual(p.blocked, false)
+})
+
+test('stays-silent: a branch with code on it is never offered for remote delete', () => {
+  const p = planDown(spec({ stack: 'worktree' }), DOCS_LANE(), { force: true }, DOCS_ONLY({ docsOnly: false }))
+  assert.deepStrictEqual(p.remoteCommands, [])
+})
+
+test('stays-silent: docsOnly under the trunk lane changes nothing', () => {
+  const trunk = { ...config(), land: { specDocs: 'trunk', strategy: 'pr' } }
+  const p = planDown(spec({ stack: 'worktree' }), trunk, {}, DOCS_ONLY({ prState: 'none' }))
+  assert.strictEqual(p.blocked, true, 'the PR guard still applies outside the docs lane')
+  const forced = planDown(spec({ stack: 'worktree' }), { ...config(), land: { specDocs: 'trunk' } }, { force: true }, DOCS_ONLY())
+  assert.deepStrictEqual(forced.remoteCommands, [])
+})

@@ -478,20 +478,32 @@ left unset in a project with a ticketing provider configured (its config file
 under `specs/.core/`), where it is the default because the tracker already is
 the backlog. It is the lane where the spec document rides its feature branch
 and lands with the work. There both verdicts commit on the branch and
-**skip the integrate below entirely**; `commit-start` carries into
-`/spec-start` over the same worktree exactly as ever, and plain `commit` keeps
-the branch AND the worktree, because they are now the only copy of the
-document. Say the trade out loud in the report's `Notes`: the backlog is found
-through the tracker listing (or `git branch`), not `ls specs/backlog/` on base
-— and a later `/spec-cancel` of a never-started branch-mode spec deletes the
-branch and worktree with the spec document dying with them, no PR ever having
-existed. Under the default `"trunk"` everything below applies unchanged.
+**touch no base at all**; `commit-start` carries into `/spec-start` over the
+same worktree exactly as ever, and plain `commit` keeps the branch AND the
+worktree, because they are the document's working copy. What the lane does
+instead of landing is **publish the branch**, because an unpushed spec branch
+is on one machine and nowhere else — the ticket's summary cannot rebuild it.
+
+**The same command answers both lanes; you do not choose between them:**
 
 ```
-skitterspec spec-env integrate <name>
+skitterspec spec-env integrate <name> --docs
 ```
 
-It plans a rebase onto the base branch in the worktree, then a
+Under `"trunk"` it prints the ordinary land, unchanged. Under `"branch"` it
+says `spec docs ride the branch` and plans one push of the spec's branch,
+consent-gated like every push in this workflow: already on the remote at HEAD
+is honoured and runs nothing; otherwise it holds the push and you **ask once, plainly** — *"push `<branch>` to `<remote>` so the spec is not only on this
+machine?"* — then re-run with `--push` and run what it prints. A no is a true
+outcome, not a failure: report `Landed` as `held — not pushed`. A yes reports
+`pushed <remote>/<branch>`. A clone with no such remote prints that the branch
+stays local; report that as the `Landed` row and ask nothing.
+
+Say the trade in the report's `Notes`: the backlog is found through the
+tracker listing (or the spec branches), not `ls specs/backlog/` on base. Under
+`"trunk"` everything below applies unchanged.
+
+Under `"trunk"` it plans a rebase onto the base branch in the worktree, then a
 `merge --ff-only` in the primary checkout — run the commands it prints. It
 refuses on a dirty tree, which is correct here: the commit ran first, so anything
 still uncommitted at this point is not this spec's and the land must not proceed.

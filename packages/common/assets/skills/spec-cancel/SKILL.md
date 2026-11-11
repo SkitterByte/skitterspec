@@ -213,6 +213,13 @@ only ordering that survives.
    a fault — and if the user wants the remote branch gone anyway, that is their
    call to make explicitly, not something to tidy away on their behalf.
 
+   **One unlanded branch does get the section: a never-started spec under `land.specDocs: "branch"`**, whose branch holds nothing but its own
+   documents. Its remote copy backs up only the spec being cancelled — the
+   ticket keeps the record — and left there it goes on reading as backlog to
+   every check that scans spec branches. Ask exactly as above. On a no, say in
+   the report that the branch stays on the remote and will still read as
+   backlog until someone deletes it.
+
    **In PR mode the same confirm-first section may carry the PR abandon**
    (`gh pr close` / `az repos pr update --status abandoned`): a cancelled spec
    must not leave a live PR behind — it is noise with a merge button on it.

@@ -543,3 +543,65 @@ test('specDocs branch: the standing worktree is what makes the spec resolvable',
     cleanup(dir)
   }
 })
+
+// --- integrate --docs (feat-tracker-spec-branches) ----------------------------
+
+test('docs lane: integrate --docs holds a push of the spec branch and plans no land', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree({ land: { specDocs: 'branch' } })
+  const bare = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-bare-')))
+  execFileSync('git', ['init', '-q', '--bare', bare], { stdio: 'ignore' })
+  try {
+    git(dir, 'remote', 'add', 'origin', bare)
+    const held = await runQuiet(['spec-env', 'integrate', 'feat-x', '--docs', '--dir', dir])
+    assert.match(held, /spec docs ride the branch/)
+    assert.match(held, /with your consent/)
+    assert.match(held, new RegExp(`git -C ${cmdPath(worktree)} push -u origin feat/x`))
+    assert.doesNotMatch(held, /rebase|merge --ff-only/)
+
+    const consented = await runQuiet(['spec-env', 'integrate', 'feat-x', '--docs', '--push', '--dir', dir])
+    assert.match(consented, /run these:/)
+
+    // Once the branch is on the remote at HEAD, the plan says so and runs nothing.
+    git(worktree, 'push', '-q', '-u', 'origin', 'feat/x')
+    const pushed = await runQuiet(['spec-env', 'integrate', 'feat-x', '--docs', '--dir', dir])
+    assert.match(pushed, /already on origin at HEAD — nothing to run/)
+  } finally {
+    cleanup(dir)
+    fs.rmSync(bare, { recursive: true, force: true })
+  }
+})
+
+test('docs lane: no remote configured holds and says the branch stays local', async () => {
+  const { dir } = scaffoldRepoWithWorktree({ land: { specDocs: 'branch' } })
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--docs', '--push', '--dir', dir])
+    assert.match(out, /no "origin" configured — the branch stays local/)
+    assert.doesNotMatch(out, /push -u/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays-silent: --docs under the trunk lane is the ordinary land, unchanged', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree()
+  try {
+    const docs = await runQuiet(['spec-env', 'integrate', 'feat-x', '--docs', '--dir', dir])
+    const plain = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.strictEqual(docs, plain)
+    assert.match(docs, new RegExp(`git -C ${cmdPath(worktree)} rebase main`))
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('stays-silent: the branch lane never turns a CODE land (no --docs) into a push', async () => {
+  const { dir, worktree } = scaffoldRepoWithWorktree({ land: { specDocs: 'branch' } })
+  try {
+    const out = await runQuiet(['spec-env', 'integrate', 'feat-x', '--dir', dir])
+    assert.match(out, new RegExp(`git -C ${cmdPath(worktree)} rebase main`))
+    assert.match(out, new RegExp(`git -C ${cmdPath(dir)} merge --ff-only feat/x`))
+    assert.doesNotMatch(out, /spec docs ride the branch/)
+  } finally {
+    cleanup(dir)
+  }
+})

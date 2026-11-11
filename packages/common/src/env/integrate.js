@@ -243,6 +243,53 @@ function planIntegratePr(spec, config, ctx) {
   }
 }
 
+/**
+ * Pure planner for the AUTHORING land of a spec document under
+ * `land.specDocs: "branch"` (`spec-env integrate --docs`).
+ *
+ * The document rides its own branch rather than landing on base, so the plan
+ * touches no base at all — no rebase, no fast-forward, no PR. What it does is
+ * publish the branch, because a spec on an unpushed branch is on one machine
+ * and nowhere else (the ticket's summary block cannot rebuild it). The push is
+ * consent-gated with `planIntegratePr`'s shape: already on the remote at HEAD
+ * is honoured (`via: "remote"`), `--push` is the recorded yes (`via: "push"`),
+ * otherwise it HOLDS (`via: "hold"`) with the push in `holdCommands`.
+ *
+ * NO REMOTE IS A HOLD, NEVER AN ERROR. A clone with no remote of that name
+ * cannot publish, and refusing would accuse a healthy local-only repo; the
+ * plan says so (`noRemote`) and the spec stays on its local branch.
+ *
+ * ctx: { worktreeState: { dirty }, remote, treePath, remoteConfigured,
+ *        pushedAtHead, push }
+ */
+function planIntegrateDocs(spec, config, ctx) {
+  const { worktreeState = {}, treePath, remoteConfigured } = ctx || {}
+  const remote = (ctx && ctx.remote) || 'origin'
+  const branch = spec.branch
+  const result = {
+    blocked: false, noop: false, reason: null, commands: [],
+    push: null, holdCommands: [], noRemote: false,
+    afterLand: noAfterLand(), branch, remote,
+  }
+
+  // The verdict's commit ran first, so anything still uncommitted is not this
+  // spec's — and a push would publish a branch missing it.
+  if (worktreeState.dirty) {
+    return { ...result, blocked: true, reason: 'worktree has uncommitted changes — commit the spec first' }
+  }
+  if (!remoteConfigured) {
+    return { ...result, noRemote: true, push: { kind: 'push', via: 'hold', remote, branch } }
+  }
+  if (ctx.pushedAtHead) {
+    return { ...result, noop: true, push: { kind: 'push', via: 'remote', remote, branch } }
+  }
+  const pushCommand = `git -C ${shellPath(treePath)} push -u ${remote} ${branch}`
+  if (ctx.push) {
+    return { ...result, commands: [pushCommand], push: { kind: 'push', via: 'push', remote, branch } }
+  }
+  return { ...result, push: { kind: 'push', via: 'hold', remote, branch }, holdCommands: [pushCommand] }
+}
+
 // The after-land half of a plan: `config.afterLand`, to run in `cwd` (the
 // primary checkout, standing on base) once the land commands have succeeded.
 // A blocked plan carries the empty form — nothing landed, so nothing follows.
@@ -291,4 +338,4 @@ function noAfterLand() {
   return { cwd: null, commands: [], entries: [], range: null }
 }
 
-module.exports = { planIntegrate, planIntegrateCheckout, planIntegratePr, afterLandFor, rangeOf }
+module.exports = { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs, afterLandFor, rangeOf }

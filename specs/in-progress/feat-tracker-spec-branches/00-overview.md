@@ -114,7 +114,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Default `specDocs` to branch when a provider is configured | ✅ | [01-provider-default.md](01-provider-default.md) |
-| 2 | Push the spec branch on the verdict; delete it on cancel | ⬜ | [02-push-and-cancel.md](02-push-and-cancel.md) |
+| 2 | Push the spec branch on the verdict; delete it on cancel | ✅ | [02-push-and-cancel.md](02-push-and-cancel.md) |
 | 3 | Backlog checks read spec branches | ⬜ | [03-branch-discovery.md](03-branch-discovery.md) |
 
 ## Open questions
@@ -130,3 +130,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   it mirrors `setProviderEnvDefaults` and keeps common tracker-free.
   `ENV_CONFIG_DEFAULTS` left alone so the composed example does not pin
   `specDocs` explicitly.
+- 2026-11-11 — Phase 2: the authoring push is `integrate --docs`, not
+  integrate keyed on `specDocs` alone — `/spec-complete` lands code through
+  the same verb and must not turn into a push. A docs-only branch (its range
+  is only the spec's own documents) also skips the PR-mode teardown guard,
+  since that lane never opens a PR for it.

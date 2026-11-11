@@ -47,6 +47,15 @@ function planDown(spec, config, flags, ctx) {
   // can use `-D` — the same question ("are these commits recoverable?"), so the
   // two must never answer it differently.
   const landed = Boolean(worktreeState.merged || worktreeState.reachableFromTag)
+  // A spec-documents-only branch under `land.specDocs: "branch"` — authored,
+  // perhaps pushed, never started (feat-tracker-spec-branches). It holds no
+  // code to lose and was never meant to have a PR, and left on the remote it
+  // reads as backlog to every check that scans spec branches. `docsOnly` is a
+  // positive signal the caller computes from the branch's own range; anything
+  // it cannot read stays false, which keeps every guard below as it was.
+  const docsLane = Boolean(
+    worktreeState.docsOnly && config.land && config.land.specDocs === 'branch',
+  )
 
   // --- guards (overridable with --force) ---
   if (!force) {
@@ -69,7 +78,7 @@ function planDown(spec, config, flags, ctx) {
     // PR and the exit where git's cannot. `--force` bypasses, and still plans
     // `-d` below, so a genuinely unlanded branch fails loudly rather than
     // being -D'd.
-    if (config.land && config.land.strategy === 'pr' && !landed) {
+    if (config.land && config.land.strategy === 'pr' && !landed && !docsLane) {
       const prState = worktreeState.prState
       const at = worktreeState.prUrl ? ` — see ${worktreeState.prUrl}` : ''
       if (prState === 'open' || prState === 'draft') {
@@ -188,9 +197,15 @@ function planDown(spec, config, flags, ctx) {
   // this delete a no-op: `git push --delete` errors with "remote ref does not
   // exist", which is loud and destroys nothing. The skills report that as
   // already-gone, never as a failed teardown.
+  //
+  // The docs lane is the one unlanded branch that may be offered: its remote
+  // copy backs up only the spec document being cancelled, and the ticket keeps
+  // the record. It is ALWAYS confirm-first — "always" folds the landed delete
+  // into the run-blind list, but deleting the last copy of a document is not
+  // what that policy was set for.
   const remoteCommands = []
   const policy = (config.teardown && config.teardown.deleteRemoteBranch) || 'prompt'
-  if (spec.branch && landed && worktreeState.remoteBranch && policy !== 'never') {
+  if (spec.branch && (landed || docsLane) && worktreeState.remoteBranch && policy !== 'never') {
     // `remoteBranch` is a short ref like "origin/feat/thing" and the branch name
     // itself contains slashes, so the remote is what remains once the exact
     // "/<branch>" suffix is stripped — not the text before the first slash.
@@ -206,7 +221,7 @@ function planDown(spec, config, flags, ctx) {
         const cmd = `git push ${remote} --delete ${spec.branch}`
         // "always" is the project saying it never wants to be asked, so the push
         // joins the run-blind list. Everything else keeps it quarantined.
-        if (policy === 'always') commands.push(cmd)
+        if (policy === 'always' && landed) commands.push(cmd)
         else remoteCommands.push(cmd)
       }
     }

@@ -282,3 +282,55 @@ test('pr: a finish with no primaryPath names no commands rather than guessing', 
   assert.strictEqual(p.noop, true)
   assert.deepStrictEqual(p.finish.commands, [])
 })
+
+// --- authoring land under land.specDocs: "branch" (feat-tracker-spec-branches)
+
+const { planIntegrateDocs } = require('../src/env/integrate.js')
+
+const DOCS = (overrides = {}) => ({
+  worktreeState: { dirty: false },
+  remote: 'origin',
+  treePath: '/wt/thing',
+  remoteConfigured: true,
+  pushedAtHead: false,
+  push: false,
+  ...overrides,
+})
+
+test('docs: holds the push without consent, and touches no base', () => {
+  const plan = planIntegrateDocs(spec(), {}, DOCS())
+  assert.strictEqual(plan.push.via, 'hold')
+  assert.deepStrictEqual(plan.commands, [])
+  assert.deepStrictEqual(plan.holdCommands, ['git -C /wt/thing push -u origin feat/thing'])
+  assert.ok(!JSON.stringify(plan).includes('rebase'), 'no rebase in a docs land')
+  assert.ok(!JSON.stringify(plan).includes('merge'), 'no fast-forward in a docs land')
+})
+
+test('docs: --push plans the push as the one command', () => {
+  const plan = planIntegrateDocs(spec(), {}, DOCS({ push: true }))
+  assert.strictEqual(plan.push.via, 'push')
+  assert.deepStrictEqual(plan.commands, ['git -C /wt/thing push -u origin feat/thing'])
+  assert.deepStrictEqual(plan.holdCommands, [])
+})
+
+test('docs: a branch already on the remote at HEAD is honoured — nothing to run', () => {
+  const plan = planIntegrateDocs(spec(), {}, DOCS({ pushedAtHead: true }))
+  assert.strictEqual(plan.noop, true)
+  assert.strictEqual(plan.push.via, 'remote')
+  assert.deepStrictEqual(plan.commands, [])
+})
+
+test('docs: a dirty worktree blocks — the push would miss what is uncommitted', () => {
+  const plan = planIntegrateDocs(spec(), {}, DOCS({ worktreeState: { dirty: true } }))
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /uncommitted/)
+})
+
+test('stays-silent: no remote configured holds quietly rather than refusing', () => {
+  const plan = planIntegrateDocs(spec(), {}, DOCS({ remoteConfigured: false, push: true }))
+  assert.strictEqual(plan.blocked, false)
+  assert.strictEqual(plan.noRemote, true)
+  assert.strictEqual(plan.push.via, 'hold')
+  assert.deepStrictEqual(plan.commands, [])
+  assert.deepStrictEqual(plan.holdCommands, [])
+})

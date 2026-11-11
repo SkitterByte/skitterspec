@@ -183,7 +183,7 @@ const {
   mainGuardStatus,
 } = require('./env/mainguard.js')
 const { planPrune, liveSlugsForSpecs, reconcileRegistry } = require('./env/prune.js')
-const { planIntegrate, planIntegrateCheckout, planIntegratePr } = require('./env/integrate.js')
+const { planIntegrate, planIntegrateCheckout, planIntegratePr, planIntegrateDocs } = require('./env/integrate.js')
 const { parseRemote, prFor, prPlanCommand, prAbandonCommand, preferRemoteBase } = require('./env/host.js')
 const { collectDisposition } = require('./env/disposition.js')
 const { planHandoff } = require('./env/handoff.js')
@@ -280,7 +280,8 @@ Usage:
                                 dev down <spec>   stop the spec's host dev servers
                                 connect <spec>    expose a spec on the canonical ports (main = off)
                                 integrate <spec>  plan the land: rebase + fast-forward, or in PR
-                                                  mode push + PR (--push, --draft, --strategy)
+                                                  mode push + PR (--push, --draft, --strategy);
+                                                  --docs: under specDocs "branch", publish only
                                 disposition <spec>
                                                   list unticked tasks, open phases and surfaced
                                                   follow-ups to dispose before a PR goes ready
@@ -2115,6 +2116,16 @@ function specEnvDown(dir, config, specArg, flags) {
       prAbandon = prAbandonCommand(info, { branch: spec.branch, id: pr.id })
     }
   }
+  // Under the docs lane, a branch whose whole range is this spec's own
+  // documents (its folder, its companions) is a never-started spec: the
+  // planner may offer its remote delete. Asked only in that lane, and an
+  // unreadable or empty range is not docs-only — it stays false.
+  if (config.land && config.land.specDocs === 'branch' && !worktreeState.merged) {
+    const range = landRange(gitReader(dir), base, spec.branch)
+    if (Array.isArray(range) && range.length) {
+      worktreeState = { ...worktreeState, docsOnly: classifyDirtyTree(spec, range, config).foreign.length === 0 }
+    }
+  }
   const plan = planDown(spec, config, flags, {
     worktreeState,
     prAbandonCommand: prAbandon,
@@ -2487,6 +2498,15 @@ function specEnvIntegrate(dir, config, specArg, flags = {}) {
   // entirely on its branch may not exist in the primary checkout's specs/** —
   // resolveSpecWithWorktree offers its worktree as a fallback search location.
   const spec = resolveSpecWithWorktree(dir, config, specArg)
+  // `--docs` is /spec's authoring land. Under the "branch" lane the document
+  // rides its own branch, so there is nothing to land — only a branch to
+  // publish. Under "trunk" it falls through to the ordinary land unchanged.
+  // Keyed on the FLAG, never on `specDocs` alone: /spec-complete lands CODE
+  // through this same verb, and that land must not turn into a push.
+  if (flags.docs === true && config.land && config.land.specDocs === 'branch') {
+    specEnvIntegrateDocs(dir, config, spec, flags)
+    return
+  }
   // Fetch before resolving under a rolling base, so a spec that outlived a
   // release roll lands on the rc that exists now rather than the one the last
   // fetch saw. No pattern → no fetch, and the plan below is unchanged.
@@ -2868,6 +2888,55 @@ function specEnvIntegratePr(dir, config, spec, base, flags, retarget = null) {
     out.push('')
     out.push('  after-land commands are deferred: base moves when the host merges,')
     out.push('  and the completion run that follows the merge plans them.')
+  }
+  process.stdout.write(out.join('\n') + '\n')
+}
+
+// The authoring land under `land.specDocs: "branch"`: publish the spec's branch,
+// consent-gated, and touch nothing else. /spec runs what is printed.
+function specEnvIntegrateDocs(dir, config, spec, flags) {
+  const checkout = config.mode === 'checkout'
+  const treePath = checkout ? dir : spec.worktreePath
+  if (!checkout && !fs.existsSync(spec.worktreePath)) {
+    process.stdout.write(`spec-env integrate: ${spec.folder} has no worktree — nothing to publish.\n`)
+    return
+  }
+  const remote = (config.land && config.land.remote) || 'origin'
+  const git = gitReader(treePath)
+  const status = git(['status', '--porcelain'])
+  const remoteConfigured = git(['remote', 'get-url', remote]) !== null
+  const headSha = git(['rev-parse', 'HEAD'])
+  const lsRemote = remoteConfigured ? git(['ls-remote', remote, `refs/heads/${spec.branch}`]) : null
+  const plan = planIntegrateDocs(spec, config, {
+    worktreeState: { dirty: status !== null && status.length > 0 },
+    remote,
+    treePath,
+    remoteConfigured,
+    pushedAtHead: Boolean(headSha && lsRemote && lsRemote.split(/\s/)[0] === headSha),
+    push: flags.push === true,
+  })
+
+  if (plan.blocked) {
+    process.stdout.write(`spec-env integrate: blocked — ${plan.reason}.\n`)
+    return
+  }
+  const out = [`spec-env integrate: ${spec.folder} (spec docs ride the branch)`, '']
+  out.push('  lane:      branch — land.specDocs; the base branch is not touched')
+  out.push(`  branch:    ${plan.branch}`)
+  out.push(checkout ? `  checkout:  ${treePath}` : `  worktree:  ${treePath}`)
+  if (plan.noRemote) {
+    out.push(`  remote:    no "${remote}" configured — the branch stays local`)
+  } else if (plan.push.via === 'remote') {
+    out.push(`  pushed:    already on ${remote} at HEAD — nothing to run`)
+  } else if (plan.push.via === 'push') {
+    out.push('')
+    out.push('  run these:')
+    for (const cmd of plan.commands) out.push(`    ${cmd}`)
+  } else {
+    out.push('')
+    out.push('  then, to publish the branch — with your consent')
+    out.push('  (or re-run with --push to plan it as one list):')
+    for (const cmd of plan.holdCommands) out.push(`    ${cmd}`)
   }
   process.stdout.write(out.join('\n') + '\n')
 }

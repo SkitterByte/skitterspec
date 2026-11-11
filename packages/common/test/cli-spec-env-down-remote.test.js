@@ -193,3 +193,38 @@ test('pr mode stays silent on an ancestry-merged branch — no adapter needed', 
     cleanup(dir)
   }
 })
+
+// --- docs lane (feat-tracker-spec-branches) ------------------------------------
+
+// A branch-mode spec that was authored and pushed but never started: its only
+// commit touches its own documents.
+function docsOnlyScaffold(extra = {}) {
+  const s = scaffold({ push: false, merge: false, config: { land: { specDocs: 'branch' }, ...extra } })
+  git(s.worktree, 'reset', '-q', '--hard', 'HEAD~1')
+  fs.appendFileSync(path.join(s.worktree, 'specs', 'in-progress', 'feat-thing', '00-overview.md'), '\nmore\n')
+  git(s.worktree, 'commit', '-q', '-am', 'spec')
+  git(s.worktree, 'push', '-q', '-u', 'origin', 'feat/thing')
+  return s
+}
+
+test('docs lane: a never-started spec branch offers its remote delete, confirm-first', async () => {
+  const { dir, remote } = docsOnlyScaffold()
+  try {
+    const out = await runQuiet(['spec-env', 'down', 'feat-thing', '--dir', dir])
+    assert.match(out, /remote branch — confirm with the user first:\n\s+git push origin --delete feat\/thing/)
+  } finally {
+    cleanup(dir)
+    fs.rmSync(remote, { recursive: true, force: true })
+  }
+})
+
+test('stays-silent: a docs-lane branch carrying code is not offered', async () => {
+  const s = scaffold({ push: true, merge: false, config: { land: { specDocs: 'branch' } } })
+  try {
+    const out = await runQuiet(['spec-env', 'down', 'feat-thing', '--force', '--dir', s.dir])
+    assert.doesNotMatch(out, /--delete/)
+  } finally {
+    cleanup(s.dir)
+    fs.rmSync(s.remote, { recursive: true, force: true })
+  }
+})
