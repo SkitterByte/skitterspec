@@ -36,6 +36,44 @@ function epicTree(git, base) {
   return { index: indexSpecTree(listing), readFile: (p) => git(['show', `${base}:${p}`]), candidates }
 }
 
+/**
+ * The same shape as `epicTree`, read off a WORKING TREE on disk — uncommitted
+ * edits included. It is what `epic status --here` reads members and headers
+ * from, so a conversion can be checked in the worktree it is made in before it
+ * lands. Waits are still met only on the base branch: that is the caller's
+ * `waitIndex`, never this.
+ *
+ * WHAT WOULD FOOL THIS: a file git would ignore is read like any other. Under
+ * `specs/` there is nothing ignored by design, so the cost is a stray editor
+ * backup named `*.md`, read as one more phase file.
+ */
+function workingTree(root) {
+  const files = []
+  const walk = (rel) => {
+    let entries
+    try {
+      entries = fs.readdirSync(path.join(root, rel), { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      const p = `${rel}/${e.name}`
+      if (e.isDirectory()) walk(p)
+      else if (e.isFile()) files.push(p)
+    }
+  }
+  walk('specs')
+  const readFile = (p) => {
+    try {
+      return fs.readFileSync(path.join(root, p), 'utf8')
+    } catch {
+      return null
+    }
+  }
+  const candidates = files.filter((p) => p.endsWith('/00-overview.md') && /^>\s*\*\*Epic:\*\*/m.test(readFile(p) || ''))
+  return { index: indexSpecTree(files.join('\n')), readFile, candidates }
+}
+
 // A provisioned spec's own overview and bucket, read in its worktree — the
 // copy where an in-flight spec's bucket and headers are true. null when the
 // worktree holds no readable copy.
@@ -106,4 +144,4 @@ function epicAnswer(epic, inputs, readers) {
   return { ...status, rows, next }
 }
 
-module.exports = { epicTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer }
+module.exports = { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer }

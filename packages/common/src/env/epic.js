@@ -292,11 +292,14 @@ function layer(members) {
  *   - `index`      `indexSpecTree` of the base branch
  *   - `readFile`   base-branch path → text, or null
  *   - `candidates` base-branch overview paths that may carry an `Epic:` header
+ *   - `waitIndex`/`waitRead`  where a wait is resolved, when that is not where
+ *                  members are read — `epic status --here` reads members off a
+ *                  working tree and still meets a wait only on the base branch
  *   - `worktrees`  `[{ folder, bucket, overview, phases: [{ n, text }] }]` —
  *                  each provisioned spec's own copy, which is where an
  *                  in-flight spec's bucket and phase progress are true
  */
-function epicStatus({ epic, index, readFile, candidates = [], worktrees = [] }) {
+function epicStatus({ epic, index, readFile, candidates = [], worktrees = [], waitIndex = index, waitRead = readFile }) {
   const own = new Map(worktrees.map((w) => [w.folder, w]))
   const members = new Map()
 
@@ -328,14 +331,14 @@ function epicStatus({ epic, index, readFile, candidates = [], worktrees = [] }) 
     // In flight is the positive signal of a worktree whose own copy has not
     // finished; otherwise the base branch's bucket.
     m.bucket = wt && !['complete', 'cancelled'].includes(wt.bucket) ? 'in-progress' : base ? base.bucket : wt ? wt.bucket : null
-    m.resolved = m.waits.map((w) => ({ ...w, ...resolveWait(w, index, readFile) }))
+    m.resolved = m.waits.map((w) => ({ ...w, ...resolveWait(w, waitIndex, waitRead) }))
     // A phase's own `Waits on:` holds that phase, not the spec's start: the
     // sync point the field example turned on (#154 phase 2 on #159 phase 1).
     // A phase already done has nothing left to wait for.
     m.phaseWaits = m.phases
       .filter((p) => p.text !== null && !phaseIsDone(p.text))
       .flatMap((p) =>
-        epicHeaders(p.text).waitsOn.map((w) => ({ at: p.n, wait: { ...w, ...resolveWait(w, index, readFile) } })),
+        epicHeaders(p.text).waitsOn.map((w) => ({ at: p.n, wait: { ...w, ...resolveWait(w, waitIndex, waitRead) } })),
       )
   }
 
@@ -403,9 +406,12 @@ function aligned(lines, indent = '  ') {
  * cannot tell rather than guessing.
  */
 function formatEpicStatus(s) {
-  if (!s.found && !s.members.length) return `no epic named ${s.epic}, and no spec names it as its Epic.\n`
+  if (!s.found && !s.members.length) {
+    return `no epic named ${s.epic}, and no spec names it as its Epic${s.here ? ` in ${s.here}` : ''}.\n`
+  }
   const lanes = s.lanes === null ? 'no lane cap' : `${s.lanes} lanes, ${s.freeLanes} free`
-  const head = `${s.epic} — ${s.members.length} member${s.members.length === 1 ? '' : 's'} · ${lanes}${s.found ? '' : ' · epic not on the base branch'}`
+  const where = s.here ? ` · headers from ${s.here}` : s.found ? '' : ' · epic not on the base branch'
+  const head = `${s.epic} — ${s.members.length} member${s.members.length === 1 ? '' : 's'} · ${lanes}${where}`
   const out = [head, '']
   if (!s.members.length) {
     out.push(`  no members — no spec carries \`> **Epic:** ${s.epic}\``)

@@ -101,7 +101,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `epic status --here` | ⬜ | [01-status-here.md](01-status-here.md) |
+| 1 | `epic status --here` | ✅ | [01-status-here.md](01-status-here.md) |
 | 2 | Retire an epic's leftover sub-issues | ⬜ | [02-retire-subissues.md](02-retire-subissues.md) |
 | 3 | Migration guidance and docs | ⬜ | [03-guidance.md](03-guidance.md) |
 
@@ -113,3 +113,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-11 — Spec created from skitterload's feedback on converting its
   library plan to an epic.
+- 2026-11-11 — Phase 1: `epicStatus` takes `waitIndex`/`waitRead`, so members
+  can be read from one tree and waits resolved against another; `--here` reads
+  the project folder of the checkout's own git root.

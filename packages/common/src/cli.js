@@ -199,7 +199,7 @@ const {
   waitsMetByRebase,
 } = require('./env/epic.js')
 const { nextAction, readNextInputs } = require('./env/nextaction.js')
-const { epicTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./env/epicread.js')
+const { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./env/epicread.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
@@ -608,8 +608,18 @@ function inFlightStatus(argv) {
 function epicStatusCommand(argv) {
   const json = argv.includes('--json')
   const named = epicPositional(argv)
-  const inputs = epicInputs(argv, json, named || null)
-  if (!inputs) return
+  const based = epicInputs(argv, json, named || null)
+  if (!based) return
+  const here = argv.includes('--here') ? hereTree(based) : null
+  if (argv.includes('--here') && !here) {
+    process.stdout.write(json ? JSON.stringify({ epic: named || null, cannotTell: 'not in a git checkout' }, null, 2) + '\n' : 'epic: cannot tell — --here needs a git checkout to read\n')
+    return
+  }
+  // --here: members and headers from this tree, uncommitted edits included;
+  // a wait is still met only on the base branch.
+  const inputs = here
+    ? { ...based, ...here.tree, waitIndex: based.index, waitRead: based.readFile }
+    : based
   const epic = named || epicFromHere(inputs)
   if (!epic) {
     const flying = epicsInFlight(inputs.worktrees)
@@ -617,7 +627,7 @@ function epicStatusCommand(argv) {
       ? `name an epic — in flight here: ${flying.join(', ')}`
       : 'name an epic — none has a member in flight here'
     process.stdout.write(
-      json ? JSON.stringify({ epic: null, inFlight: flying }, null, 2) + '\n' : `Usage: skitterspec epic status [<epic>] [--json] [--dir <path>]\n${line}\n`,
+      json ? JSON.stringify({ epic: null, inFlight: flying }, null, 2) + '\n' : `Usage: skitterspec epic status [<epic>] [--here] [--json] [--dir <path>]\n${line}\n`,
     )
     return
   }
@@ -630,7 +640,7 @@ function epicStatusCommand(argv) {
     // server whose link that phone has open.
     linkFor: (spec) => (up ? `${serveUrl('127.0.0.1', up)}${encodeURIComponent(spec)}` : null),
   })
-  const answer = epicAnswer(epic, inputs, readers)
+  const answer = { ...epicAnswer(epic, inputs, readers), ...(here ? { here: here.label } : {}) }
   const page = epicPageTiers(inputs, up, epic)
   if (json) {
     process.stdout.write(JSON.stringify({ base: inputs.base, ...answer, page }, null, 2) + '\n')
@@ -658,6 +668,15 @@ function epicPageLines(page) {
   if (!page) return ''
   if (page.off) return `epic page: no review server running — start it with: ${page.start}\n`
   return `epic page:\n${page.tiers.map(reviewTierLine).join('\n')}\n`
+}
+
+// The working tree `--here` reads: the project folder of the checkout this
+// command runs in. null when there is no checkout to read.
+function hereTree(inputs) {
+  const top = gitReader(process.cwd())(['rev-parse', '--show-toplevel'])
+  if (!top) return null
+  const root = path.join(path.resolve(top), (inputs.config && prefixOf(inputs.config)) || '')
+  return { tree: workingTree(root), label: path.relative(path.dirname(inputs.dir), root) || root }
 }
 
 /**
