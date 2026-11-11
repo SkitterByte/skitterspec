@@ -100,3 +100,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-11 — Phase 2 also threads the name through `serve.js`'s own
   spec-page renders: the server re-renders per request, which phase 1
   (CLI render only) did not reach.
+- 2026-11-11 — Completed; all phases done, tests green.
