@@ -335,6 +335,36 @@ function makeApiAdapter({ orgUrl, project, token, fetch: fetchImpl, sleep, maxRe
       return { added: true }
     },
 
+    /**
+     * Make work item `id` a child of `parentId` — an epic member under its epic
+     * (spec feat-epics), as a Hierarchy-Reverse relation. Idempotent: an item
+     * already under it is left alone. One under another parent is MOVED — the
+     * old parent relation removed in the same patch, since an item has one
+     * parent. Read back, and refused when Azure holds anything else.
+     */
+    async setParent(id, parentId) {
+      const raw = await request('GET', `${projectBase}/wit/workitems/${encodeURIComponent(numId(id))}`, {
+        query: { $expand: 'relations' },
+        allow404: true,
+      })
+      if (!raw || raw.id == null) throw new Error(`no work item ${identifierOf(numId(id))} to put under ${identifierOf(numId(parentId))}`)
+      const want = String(numId(parentId))
+      const relations = raw.relations || []
+      const at = relations.findIndex((r) => r && r.rel === PARENT_REL)
+      if (at !== -1 && String(idFromRelationUrl(relations[at].url)) === want) return { changed: false }
+      const ops = []
+      if (at !== -1) ops.push({ op: 'remove', path: `/relations/${at}` })
+      ops.push({ op: 'add', path: '/relations/-', value: { rel: PARENT_REL, url: itemApiUrl(want) } })
+      await request('PATCH', `${projectBase}/wit/workitems/${encodeURIComponent(numId(id))}`, { body: ops, patch: true })
+      const back = await this.readIssue(id)
+      if (!back || !back.parent || back.parent.id !== want) {
+        throw new Error(
+          `${identifierOf(raw.id)} was put under ${identifierOf(want)} but Azure reads it back under ${back && back.parent ? back.parent.identifier : 'no parent'}`,
+        )
+      }
+      return { changed: true, moved: at !== -1 }
+    },
+
     async createSubIssue(parentId, { title, description, childType, areaPath }) {
       const ops = itemPatch({ title, description, areaPath }, bodyFieldFor(childType))
       ops.push({

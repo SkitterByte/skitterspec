@@ -73,6 +73,10 @@ Then build one JQL query per run:
 - **Filter out phase subtasks in the query** — add
   `AND issuetype NOT IN subtaskIssueTypes()`. A spec is a standard issue; a
   phase is a subtask, and a listing that includes them buries the specs.
+- **Group an epic's members under it.** A row whose `parent` is linked to an
+  `epic-` spec here is that epic's member: list it indented under the epic's
+  row, or with `(epic <id>)` after it when the epic's row is not in the
+  listing.
 - **Ask for the fields you print** — `summary` and `status`; the key rides on
   every result, and the browse url is `<siteUrl>/browse/<key>`.
 - **Page, and never cap silently.** Follow the tool's pagination until it runs

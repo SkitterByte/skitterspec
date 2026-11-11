@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-jira/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 59a8cf96cd5d
+verified: b79e850162c0
 -->
 <html lang="en">
 <head>
@@ -739,6 +739,7 @@ skitterspec-jira spec-sync <span class="p">credentials set</span></div>
       <div class="icard">
         <h3><span class="mono">/spec-push</span></h3>
         <p>Repo → Jira. Fetches the project's statuses, diffs against the last-pushed snapshot, creates or updates the spec issue and its phase subtasks, and stamps the returned keys back into your markdown.</p>
+        <p>An <b>epic</b> mints as Jira's own <span class="mono">Epic</span> type (or whatever <span class="mono">jira.issueTypeByKind.epic</span> names), with no phase subtasks, and each member spec (<span class="mono">&gt; **Epic:** epic-&lt;name&gt;</span>) gets it as its <span class="mono">parent</span>. A member whose epic is not linked yet is named and skipped, never minted. A member that changes epics is moved. A site still on the legacy Epic Link field refuses the write, and the push reports that refusal. <span class="mono">spec-sync list</span> shows members under their epic.</p>
       </div>
       <div class="icard">
         <h3><span class="mono">/spec-sync</span></h3>

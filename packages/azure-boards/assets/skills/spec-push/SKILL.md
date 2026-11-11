@@ -197,6 +197,16 @@ say, which includes every case the engine could not tell.
    `ref` (the phase-file basename).
 3. **Children update** → update by id (title/description), plus a state write
    where the state changed.
+4. **Put an epic member under its epic.** Only when the overview carries
+   `> **Epic:** epic-<name>`. Read that epic's `azure_identifier` off its own
+   overview (any bucket). Unlinked → say
+   `epic <name> is not linked yet — parent skipped (push the epic first)` and
+   carry on; never mint it here. Linked → read the member; when its parent is
+   already the epic, do nothing; otherwise link the member as a child of the
+   epic's item (removing any other parent link first — an item has one), with
+   the epic itself minted as type `Epic` unless `azure.workItemTypeByKind.epic`
+   names another, and read it back. The API path
+   does this itself and prints `parent set: …`.
 
 Priority, iterations, area moves and comments are Boards-native triage — do
 **not** push them; they're the PM's.

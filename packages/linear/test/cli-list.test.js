@@ -910,3 +910,54 @@ test('stays silent: --mine with nothing unlinked prints no hidden-count line', a
 
   assert.doesNotMatch(r.out, /unpushed/)
 })
+
+// --- epics (spec feat-epics, phase 6) ----------------------------------------
+
+function epicRepo() {
+  const dir = fixtureRepo()
+  const folder = path.join(dir, 'specs', 'backlog', 'epic-library')
+  fs.mkdirSync(folder, { recursive: true })
+  fs.writeFileSync(path.join(folder, '00-overview.md'), '---\nlinear_identifier: "SKS-10"\n---\n\n# Library\n', 'utf-8')
+  return dir
+}
+
+test('an epic row lists its members under it — the parentless query cannot', async () => {
+  const dir = epicRepo()
+  const linear = fakeLinear(
+    [issue('SKS-10', 'Library', 'Backlog'), issue('SKS-2', 'The other one', 'Backlog')],
+    {
+      children: {
+        'uuid-SKS-10': [
+          issue('SKS-11', 'Gen', 'Backlog', { state: { id: 's-backlog', name: 'Backlog' }, parent: { id: 'uuid-SKS-10' } }),
+          issue('SKS-12', 'Done member', 'Done', { state: { id: 's-done', name: 'Done' }, parent: { id: 'uuid-SKS-10' } }),
+        ],
+      },
+    },
+  )
+  const r = await run(['list'], dir, { adapter: linear })
+  assert.strictEqual(r.code, 0, r.out)
+  const lines = r.out.split('\n')
+  const at = (id) => lines.findIndex((l) => l.trimStart().startsWith(`${id} `))
+  assert.strictEqual(at('SKS-11'), at('SKS-10') + 2, 'right after the epic row and its title line')
+  assert.match(lines[at('SKS-11')], /^ {4}SKS-11/)
+  assert.strictEqual(at('SKS-12'), -1, 'a member outside the state filter is not listed')
+  const json = JSON.parse((await run(['list', '--json'], dir, { adapter: linear })).out)
+  assert.strictEqual(json.specs.find((row) => row.identifier === 'SKS-11').epic, 'SKS-10')
+})
+
+// STAYS-SILENT: no epic linked here, no member lookups — a listing costs what
+// it did before epics existed.
+test('a listing with no epic row reads no children for members', async () => {
+  const dir = fixtureRepo()
+  const linear = fakeLinear([issue('SKS-2', 'The other one', 'Backlog')])
+  await run(['list'], dir, { adapter: linear })
+  assert.strictEqual(linear.log.filter((c) => c.op === 'listSubIssues').length, 0)
+})
+
+test('members that cannot be read are said once, never a failed listing', async () => {
+  const dir = epicRepo()
+  const linear = fakeLinear([issue('SKS-10', 'Library', 'Backlog')], { subIssuesThrow: true })
+  const r = await run(['list'], dir, { adapter: linear })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.out, /could not read the members of SKS-10 — they are not listed/)
+})

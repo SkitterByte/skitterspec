@@ -906,3 +906,76 @@ test('an unreachable Jira stamps anyway, saying it could not check', async () =>
   assert.match(r.out, /PROJ-7 stamped onto feat-demo/)
   assert.doesNotMatch(r.out, /verified against Jira/)
 })
+
+// --- epics (spec feat-epics, phase 6) ------------------------------------------
+
+function epicRepo({ epicKey = 'PROJ-40' } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-epic-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ jira: { siteUrl: SITE, projectKey: 'PROJ' } }))
+  const write = (spec, text) => {
+    fs.mkdirSync(path.join(dir, 'specs', 'backlog', spec), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'specs', 'backlog', spec, '00-overview.md'), text)
+  }
+  write('epic-library', `${epicKey ? `---\njira_identifier: "${epicKey}"\n---\n\n` : ''}# Library\n\n> **Type:** Epic\n`)
+  write('feat-gen', '# Gen\n\n> **Epic:** epic-library\n\n## Problem\n\nP.\n')
+  return dir
+}
+
+async function pushJira(dir, spec, adapter) {
+  const states = path.join(dir, 'states.json')
+  fs.writeFileSync(states, JSON.stringify(['To Do', 'In Progress', 'Done']))
+  const planned = await run(['plan', spec, '--workspace-states', states, '--json'], dir)
+  assert.strictEqual(planned.code, 0, planned.out)
+  fs.writeFileSync(path.join(dir, 'plan.json'), planned.out)
+  return run(['apply', spec, '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+}
+
+test('an epic mints as Jira\'s Epic type, a member as the configured type', async () => {
+  const dir = epicRepo({ epicKey: null })
+  const adapter = fakeAdapter()
+  const types = []
+  const create = adapter.createIssue
+  adapter.createIssue = async (input) => {
+    types.push(input.issueTypeName)
+    return create(input)
+  }
+  assert.strictEqual((await pushJira(dir, 'epic-library', adapter)).code, 0)
+  assert.strictEqual((await pushJira(dir, 'feat-gen', adapter)).code, 0)
+  assert.deepStrictEqual(types, ['Epic', 'Task'])
+})
+
+test('a member is put under its Epic; an unlinked epic is named and skipped', async () => {
+  const linkedDir = epicRepo()
+  const adapter = fakeAdapter()
+  adapter.setParent = async (key, parent) => {
+    adapter.calls.push(['setParent', key, parent])
+    return { changed: true }
+  }
+  const r = await pushJira(linkedDir, 'feat-gen', adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(adapter.calls.filter((c) => c[0] === 'setParent').map((c) => c[2]), ['PROJ-40'])
+  assert.match(r.out, /parent set: PROJ-\d+ under epic PROJ-40/)
+
+  const unlinked = await pushJira(epicRepo({ epicKey: null }), 'feat-gen', fakeAdapter())
+  assert.match(unlinked.out, /epic epic-library is not linked yet — parent skipped/)
+})
+
+test('list keeps a member under its Epic row and hides a subtask', async () => {
+  const dir = epicRepo()
+  fs.writeFileSync(path.join(dir, 'specs', 'backlog', 'feat-gen', '00-overview.md'), '---\njira_identifier: "PROJ-41"\n---\n\n# Gen\n')
+  const adapter = fakeAdapter()
+  adapter.searchIssues = async () => [
+    { identifier: 'PROJ-40', title: 'Library', state: { name: 'To Do' }, parent: null },
+    { identifier: 'PROJ-43', title: 'Loner', state: { name: 'To Do' }, parent: null },
+    { identifier: 'PROJ-41', title: 'Gen', state: { name: 'To Do' }, parent: { id: '40', identifier: 'PROJ-40' } },
+    { identifier: 'PROJ-42', title: 'Phase 1', state: { name: 'To Do' }, parent: { id: '41', identifier: 'PROJ-41' } },
+  ]
+  const r = await run(['list'], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  const lines = r.out.split('\n')
+  const at = (id) => lines.findIndex((l) => l.includes(`${id}\t`))
+  assert.strictEqual(at('PROJ-41'), at('PROJ-40') + 1, r.out)
+  assert.match(lines[at('PROJ-41')], /^ {4}PROJ-41/)
+  assert.strictEqual(at('PROJ-42'), -1)
+})

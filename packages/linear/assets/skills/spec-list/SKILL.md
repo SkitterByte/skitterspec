@@ -107,7 +107,9 @@ Then, per state you are listing:
 - **Filter out phase sub-issues yourself.** The tool can filter *to* a parent
   (`parentId`) but has no "parentless" filter, so **you** must drop every issue
   that came back carrying a `parentId`. A spec issue has none; a phase sub-issue
-  does.
+  does. **The one exception is an epic's member**: keep an issue whose
+  `parentId` is the id of an issue linked to an `epic-` spec here, and list it
+  indented under its epic's row. An unknown parent is dropped, as before.
 - **Page, and never cap silently.** `limit` defaults to 50 and maxes at 250;
   follow `cursor` until it runs out. If you stop early, say so on its own line
   and say what you stopped at.

@@ -215,6 +215,27 @@ function makeApiAdapter({ siteUrl, email, token, fetch: fetchImpl, sleep, maxRet
       return { id: String(created.id), identifier: created.key, url: urlOf(created.key) }
     },
 
+    /**
+     * Make `keyOrId` a child of the Epic `parentKey` — an epic member under its
+     * epic (spec feat-epics), through the `parent` field every Jira Cloud
+     * project now takes for an Epic. Idempotent: an issue already under it is
+     * left alone; one under another epic is moved. Read back, and refused when
+     * Jira holds anything else. BLIND SPOT: a site still on the legacy
+     * "Epic Link" field refuses the write, and the push reports that refusal
+     * rather than reaching for a custom field it cannot name.
+     */
+    async setParent(keyOrId, parentKey) {
+      const issue = await this.readIssue(keyOrId)
+      if (!issue) throw new Error(`no Jira issue ${keyOrId} to put under ${parentKey}`)
+      if (issue.parent && issue.parent.identifier === parentKey) return { changed: false }
+      await request('PUT', `/issue/${encodeURIComponent(issue.identifier)}`, { body: { fields: { parent: { key: parentKey } } } })
+      const back = await this.readIssue(issue.identifier)
+      if (!back || !back.parent || back.parent.identifier !== parentKey) {
+        throw new Error(`${issue.identifier} was put under ${parentKey} but Jira reads it back under ${back && back.parent ? back.parent.identifier : 'no parent'}`)
+      }
+      return { changed: true, moved: !!issue.parent }
+    },
+
     async updateIssue(keyOrId, updates) {
       const fields = issueFields(updates)
       if (!Object.keys(fields).length) return {}

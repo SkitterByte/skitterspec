@@ -53,6 +53,7 @@ const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitter
 
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/src/list-assignee.js')
+const { epicIdentifiers, epicOf, keepSpecIssues, groupUnderEpics } = require('@skitterbyte/skitterspec-provider-kit/src/epic-rows.js')
 const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
 const { IDENTIFIER_RE } = require('@skitterbyte/skitterspec-provider-kit/src/released.js')
 
@@ -330,6 +331,9 @@ function applyOps({ adapter, config, out, kind = 'feature', snapshotDir = null }
         stateFor(bucket, config.azure.childType)
       }
     },
+    ...(typeof adapter.setParent === 'function'
+      ? { setParent: (issue, parentIdentifier) => adapter.setParent(apiId(issue.id), apiId(parentIdentifier)) }
+      : {}),
     searchTwin: (title) => adapter.searchIssues({ query: title, workItemType: mintType }),
     twinAdvice: (twin, wanted, specName) =>
       `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +
@@ -633,7 +637,7 @@ function companionCoverageNote(dir, config, snapshotDir, out) {
   const rawField = parsed.branch && parsed.branch.identifierField
   const field = typeof rawField === 'string' && rawField ? rawField : config.fields.identifier
 
-  const slug = path.basename(snapshotDir).replace(/^(feat|bug|hotfix|chore|issue|incident)-/, '')
+  const slug = path.basename(snapshotDir).replace(/^(feat|bug|hotfix|chore|issue|incident|epic)-/, '')
   const basePath = `${config.sync.baseDir}/${identifier}.base.json`
   const claimed = patterns.some((p) => {
     if (typeof p !== 'string') return false
@@ -1079,20 +1083,25 @@ async function specSyncList(dir, config, flags, out) {
     return 1
   }
   const linked = new Map(listSpecsLive(dir, config).filter((s) => s.identifier).map((s) => [s.identifier, s]))
-  const rows = items
-    .filter((i) => !i.parent)
-    .map((i) => {
-      const spec = linked.get(i.identifier) || null
-      const state = i.state ? i.state.name : null
-      return {
-        identifier: i.identifier,
-        title: i.title,
-        state,
-        ...specColumn(state, spec, config),
-        assignee: i.assignee ? i.assignee.name || i.assignee.email || i.assignee.id : null,
-        spec: spec ? spec.spec : null,
-      }
-    })
+  // An epic's members are children of its Epic, kept and grouped under it
+  // (provider-kit `epic-rows.js`, which names the blind spot). Backlog order
+  // (`--next`) is the order asked for, and is left alone.
+  const epics = epicIdentifiers([...linked.values()])
+  const parentRef = (i) => i.parent.identifier
+  let rows = keepSpecIssues(items, epics, parentRef).map((i) => {
+    const spec = linked.get(i.identifier) || null
+    const state = i.state ? i.state.name : null
+    return {
+      identifier: i.identifier,
+      title: i.title,
+      state,
+      ...specColumn(state, spec, config),
+      assignee: i.assignee ? i.assignee.name || i.assignee.email || i.assignee.id : null,
+      spec: spec ? spec.spec : null,
+      ...(epicOf(i, epics, parentRef) ? { epic: epicOf(i, epics, parentRef) } : {}),
+    }
+  })
+  if (next === null) rows = groupUnderEpics(rows)
   if (flags.json) {
     out.write(JSON.stringify(rows, null, 2) + '\n')
     return 0
@@ -1103,9 +1112,12 @@ async function specSyncList(dir, config, flags, out) {
   }
   const scope = next !== null ? ` · next ${next} by ${config.azure.backlogOrderField}` : ''
   const lines = [`${PROGRAM} list: ${config.azure.project}${assignee ? ` · assigned to ${assignee.name}` : ''}${scope}`]
+  const shown = new Set(rows.map((r) => r.identifier))
   for (const r of rows) {
+    const lead = r.epic && shown.has(r.epic) ? '    ' : '  '
+    const tail = r.epic && !shown.has(r.epic) ? `  (epic ${r.epic})` : ''
     lines.push(
-      `  ${r.identifier}\t${r.state || '—'}\t${specCell(r)}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}`,
+      `${lead}${r.identifier}\t${r.state || '—'}\t${specCell(r)}\t${r.assignee || 'unassigned'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : '  (no spec)'}${tail}`,
     )
   }
   out.write(lines.join('\n') + '\n')

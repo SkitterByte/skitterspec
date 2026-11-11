@@ -207,6 +207,14 @@ say, which includes every case the engine could not tell.
    issue id (`name` → title, `goal` → description, `state` via `config.states`).
    Keep each returned id against its `ref` (the phase-file basename).
 3. **Sub-issues update** → `save_issue` by `id` (title/description/state).
+4. **Put an epic member under its epic.** Only when the overview carries
+   `> **Epic:** epic-<name>`. Read that epic's `linear_identifier` off its own
+   overview (any bucket). Unlinked → say
+   `epic <name> is not linked yet — parent skipped (push the epic first)` and
+   carry on; never mint it here. Linked → read the member; when its parent is
+   already the epic, do nothing; otherwise `save_issue` the member with
+   `parentId` = the epic issue's id (it replaces any other parent), and read it back. The API path
+   does this itself and prints `parent set: …`.
 
 Priority, labels, cycles and comments are Linear-native triage — do **not** push
 them; they're the PM's.

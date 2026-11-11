@@ -99,6 +99,10 @@ Then build one WIQL query per run:
 - **Filter to the spec type in the query** — the `[System.WorkItemType]` clause
   above. A spec is the configured parent type; a phase is a child of
   `azure.childType`, and a listing that includes children buries the specs.
+- **Group an epic's members under it.** A row whose `System.Parent` is linked to an
+  `epic-` spec here is that epic's member: list it indented under the epic's
+  row, or with `(epic <id>)` after it when the epic's row is not in the
+  listing.
 - **Ask for the fields you print** — `System.Title` and `System.State`; the id
   rides on every result, and the url is
   `<orgUrl>/<project>/_workitems/edit/<id>`.

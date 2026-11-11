@@ -314,6 +314,26 @@ function makeApiAdapter({ apiKey, fetch: fetchImpl, endpoint, sleep, maxRetries 
         throw error
       }
     },
+    /**
+     * Make `ref` a child of `parentRef` — an epic member under its epic (spec
+     * feat-epics). Both are read by identifier or uuid. Idempotent: an issue
+     * already under that parent is left alone; one under another is moved,
+     * since Linear has one parent per issue. Read back, and refused when Linear
+     * holds anything else, so a link that did not land is never reported set.
+     */
+    async setParent(ref, parentRef) {
+      const issue = await this.readIssue(ref)
+      if (!issue) throw new Error(`no Linear issue ${ref} to put under ${parentRef}`)
+      const parent = await this.readIssue(parentRef)
+      if (!parent) throw new Error(`no Linear issue ${parentRef} to put ${issue.identifier} under`)
+      if (issue.parent && issue.parent.id === parent.id) return { changed: false }
+      await this.updateIssue(issue.id, { parentId: parent.id })
+      const back = await this.readIssue(issue.id)
+      if (!back || !back.parent || back.parent.id !== parent.id) {
+        throw new Error(`${issue.identifier} was put under ${parent.identifier} but Linear reads it back elsewhere`)
+      }
+      return { changed: true, moved: !!issue.parent }
+    },
     // A phase sub-issue is an ordinary issue carrying `parentId`. Same mutation,
     // so there is no separate sub-issue surface to keep in step.
     async createSubIssue(parentId, subIssue) {

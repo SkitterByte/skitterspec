@@ -521,3 +521,54 @@ test('readViewer answers with the assignable identity first', async () => {
   assert.strictEqual(viewer.id, 'jane@acme.test', 'the id slot carries what System.AssignedTo accepts')
   assert.strictEqual(viewer.email, 'jane@acme.test')
 })
+
+// --- epic parent (spec feat-epics, phase 6) ------------------------------------
+
+// GETs answer with the item under `parents[i]` on the i-th read (as both the
+// System.Parent field and its Hierarchy-Reverse relation); PATCHes recorded.
+function parentAdapter(parents) {
+  let reads = 0
+  return adapter((url, init) => {
+    if (init.method === 'GET') {
+      const parent = parents[Math.min(reads++, parents.length - 1)]
+      return jsonRes({
+        id: 20,
+        fields: { 'System.Title': 'Gen', 'System.State': 'New', ...(parent ? { 'System.Parent': parent } : {}) },
+        relations: [
+          { rel: 'System.LinkTypes.Related', url: `${ORG}/_apis/wit/workItems/99` },
+          ...(parent ? [{ rel: 'System.LinkTypes.Hierarchy-Reverse', url: `${ORG}/_apis/wit/workItems/${parent}` }] : []),
+        ],
+      })
+    }
+    return jsonRes({ id: 20 })
+  })
+}
+
+const patchOf = (calls) => {
+  const c = calls.find((x) => x.init.method === 'PATCH')
+  return c ? JSON.parse(c.init.body) : null
+}
+
+test('setParent adds a Hierarchy-Reverse relation to the epic, and reads it back', async () => {
+  const { a, calls } = parentAdapter([null, 5])
+  assert.deepStrictEqual(await a.setParent('20', '5'), { changed: true, moved: false })
+  assert.deepStrictEqual(patchOf(calls), [
+    { op: 'add', path: '/relations/-', value: { rel: 'System.LinkTypes.Hierarchy-Reverse', url: `${ORG}/_apis/wit/workItems/5` } },
+  ])
+})
+
+test('setParent leaves an item already under that epic alone', async () => {
+  const { a, calls } = parentAdapter([5])
+  assert.deepStrictEqual(await a.setParent('20', '5'), { changed: false })
+  assert.strictEqual(patchOf(calls), null)
+})
+
+test('setParent moves an item: the old parent relation is removed by its index', async () => {
+  const { a, calls } = parentAdapter([4, 5])
+  assert.deepStrictEqual(await a.setParent('20', '5'), { changed: true, moved: true })
+  assert.deepStrictEqual(patchOf(calls)[0], { op: 'remove', path: '/relations/1' })
+})
+
+test('setParent refuses a link Azure did not keep', async () => {
+  await assert.rejects(parentAdapter([null, null]).a.setParent('20', '5'), /put under AB#5 but Azure reads it back under no parent/)
+})

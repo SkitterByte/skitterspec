@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-linear/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: 59a8cf96cd5d
+verified: b79e850162c0
 -->
 <html lang="en">
 <head>
@@ -806,6 +806,7 @@ skitterspec spec-sync <span class="p">credentials set</span></div>
       <div class="icard">
         <h3><span class="mono">/spec-push</span></h3>
         <p>Repo → Linear. Diffs against the last-pushed snapshot, creates or updates the spec issue and its phase sub-issues, and stamps the returned ids back into your markdown.</p>
+        <p>An <b>epic</b> pushes as an issue of its own with no phase sub-issues, and each member spec (<span class="mono">&gt; **Epic:** epic-&lt;name&gt;</span>) gets it as its parent, with its phases nested beneath it. A member whose epic is not linked yet is named and skipped, never minted. A member that changes epics is moved. <span class="mono">spec-sync list</span> shows members indented under their epic.</p>
       </div>
       <div class="icard">
         <h3><span class="mono">/spec-sync</span></h3>

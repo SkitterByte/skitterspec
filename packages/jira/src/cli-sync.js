@@ -37,6 +37,7 @@ const {
   descriptionMode,
 } = require('@skitterbyte/skitterspec-sync-core')
 const kit = require('@skitterbyte/skitterspec-provider-kit')
+const { epicIdentifiers, epicOf, keepSpecIssues, groupUnderEpics } = require('@skitterbyte/skitterspec-provider-kit/src/epic-rows.js')
 const { BUCKETS, findSpecFolder, currentBranch } = require('@skitterbyte/skitterspec-common/src/env/resolve.js')
 
 const { loadJiraConfig, mergeConfig, defaults, CONFIG_FILE, LIFECYCLE_BUCKETS, DEFAULT_CONFIG } = require('./config.js')
@@ -138,13 +139,17 @@ function specKindOf(snapshotDir) {
   if (name.startsWith('chore-')) return 'chore'
   if (name.startsWith('issue-')) return 'issue'
   if (name.startsWith('incident-')) return 'incident'
+  if (name.startsWith('epic-')) return 'epic'
   return 'feature'
 }
 
 function applyOps({ adapter, config, kind = 'feature', snapshotDir = null, out = null }) {
   // The mint type for THIS spec's kind (jira.issueTypeByKind), falling back to
   // the one configured type — unmapped kinds mint exactly as before.
-  const mintType = (config.jira.issueTypeByKind && config.jira.issueTypeByKind[kind]) || config.jira.issueType
+  // An epic mints as Jira's own Epic type unless the site maps it elsewhere:
+  // that is what makes it its members' native parent (spec feat-epics).
+  const mintType =
+    (config.jira.issueTypeByKind && config.jira.issueTypeByKind[kind]) || (kind === 'epic' ? 'Epic' : config.jira.issueType)
   // Push-time extras off the spec's own headers: `Severity:` lands in the
   // site's own field (`jira.severityField`, opt-in — unset, the header stays
   // repo-only), `Incident:` as a "Relates" issue link. Neither is a synced
@@ -192,6 +197,9 @@ function applyOps({ adapter, config, kind = 'feature', snapshotDir = null, out =
         statusFor(bucket, config.jira.subtaskType)
       }
     },
+    ...(typeof adapter.setParent === 'function'
+      ? { setParent: (issue, parentIdentifier) => adapter.setParent(issue.identifier || issue.id, parentIdentifier) }
+      : {}),
     searchTwin: (title) => adapter.searchIssues({ query: title, projectKey: config.jira.projectKey }),
     twinAdvice: (twin, wanted, specName) =>
       `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +
@@ -700,14 +708,19 @@ async function specSyncList(dir, config, flags, out) {
     return 1
   }
   const linked = new Map(listSpecs(dir, config).filter((s) => s.identifier).map((s) => [s.identifier, s]))
-  const rows = issues
-    .filter((i) => !i.parent)
-    .map((i) => ({
+  // An epic's members are sub-issues of its Epic, kept and grouped under it
+  // (provider-kit `epic-rows.js`, which names the blind spot).
+  const epics = epicIdentifiers([...linked.values()])
+  const parentKey = (i) => i.parent.identifier
+  const rows = groupUnderEpics(
+    keepSpecIssues(issues, epics, parentKey).map((i) => ({
       identifier: i.identifier,
       title: i.title,
       state: i.state ? i.state.name : null,
       spec: linked.has(i.identifier) ? linked.get(i.identifier).spec : null,
-    }))
+      ...(epicOf(i, epics, parentKey) ? { epic: epicOf(i, epics, parentKey) } : {}),
+    })),
+  )
   if (flags.json) {
     out.write(JSON.stringify(rows, null, 2) + '\n')
     return 0
@@ -717,8 +730,11 @@ async function specSyncList(dir, config, flags, out) {
     return 0
   }
   const lines = [`${PROGRAM} list: ${config.jira.projectKey}`]
+  const shown = new Set(rows.map((r) => r.identifier))
   for (const r of rows) {
-    lines.push(`  ${r.identifier}\t${r.state || '—'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : ''}`)
+    const lead = r.epic && shown.has(r.epic) ? '    ' : '  '
+    const tail = r.epic && !shown.has(r.epic) ? `  (epic ${r.epic})` : ''
+    lines.push(`${lead}${r.identifier}\t${r.state || '—'}\t${r.title || ''}${r.spec ? `  -> ${r.spec}` : ''}${tail}`)
   }
   out.write(lines.join('\n') + '\n')
   return 0

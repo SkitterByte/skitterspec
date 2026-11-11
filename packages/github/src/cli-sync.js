@@ -69,6 +69,7 @@ const { resolveIdentity, displayNameOf } = require('./identity.js')
 const { makeAssignmentCommands } = require('@skitterbyte/skitterspec-provider-kit/src/assignment.js')
 const { resolveListAssignee } = require('@skitterbyte/skitterspec-provider-kit/src/list-assignee.js')
 const { expandStateArgs, specColumn, specCell } = require('@skitterbyte/skitterspec-provider-kit/src/list-rows.js')
+const { epicIdentifiers, epicOf, keepSpecIssues, groupUnderEpics } = require('@skitterbyte/skitterspec-provider-kit/src/epic-rows.js')
 
 const PROGRAM = 'spec-sync'
 const BIN = 'skitterspec-github'
@@ -152,6 +153,7 @@ function specKindOf(snapshotDir) {
   if (name.startsWith('chore-')) return 'chore'
   if (name.startsWith('issue-')) return 'issue'
   if (name.startsWith('incident-')) return 'incident'
+  if (name.startsWith('epic-')) return 'epic'
   return 'feature'
 }
 
@@ -818,17 +820,11 @@ async function specSyncList(dir, config, flags, out) {
     return 1
   }
   const linked = new Map(listSpecsLive(dir, config).filter((s) => s.identifier).map((s) => [s.identifier, s]))
-  // A sub-issue is normally a phase, and stays out of the listing. The one
-  // kind of sub-issue that is a SPEC is an epic's member (spec feat-epics), so
-  // it is kept — on a positive signal only: its parent is linked to an `epic-`
-  // spec here. BLIND SPOT: an epic this checkout has no linked copy of reads
-  // as an unknown parent, and its members stay hidden as they did before
-  // epics existed — a missing row, never a phase shown as a spec.
-  const epics = new Set([...linked.values()].filter((s) => /^epic-/.test(s.spec)).map((s) => s.identifier))
-  const parentId = (i) => (i.parent ? i.parent.identifier || `#${i.parent.id}` : null)
-  const epicOf = (i) => (i.parent && epics.has(parentId(i)) ? parentId(i) : null)
-  let rows = issues
-    .filter((i) => !i.parent || epicOf(i))
+  // An epic's members are sub-issues too, kept and grouped (provider-kit
+  // `epic-rows.js`, which names the blind spot).
+  const epics = epicIdentifiers([...linked.values()])
+  const parentId = (i) => i.parent.identifier || `#${i.parent.id}`
+  let rows = keepSpecIssues(issues, epics, parentId)
     .slice(0, next !== null ? next : flags.limit || Infinity)
     .map((i) => {
       const spec = linked.get(i.identifier) || null
@@ -840,18 +836,12 @@ async function specSyncList(dir, config, flags, out) {
         ...specColumn(state, spec, config),
         assignee: (i.assignees || []).map((a) => a.name || a.id).join(', ') || null,
         spec: spec ? spec.spec : null,
-        ...(epicOf(i) ? { epic: epicOf(i) } : {}),
+        ...(epicOf(i, epics, parentId) ? { epic: epicOf(i, epics, parentId) } : {}),
       }
     })
   // Members listed under their epic's row, where it is in the listing. Board
   // order (`--next`) is the order that was asked for, so it is left alone.
-  if (next === null) {
-    const under = (id) => rows.filter((r) => r.epic === id)
-    const listed = new Set(rows.map((r) => r.identifier))
-    rows = [
-      ...rows.filter((r) => !r.epic || !listed.has(r.epic)).flatMap((r) => [r, ...under(r.identifier)]),
-    ]
-  }
+  if (next === null) rows = groupUnderEpics(rows)
   if (flags.json) {
     out.write(JSON.stringify(rows, null, 2) + '\n')
     return 0

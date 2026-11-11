@@ -216,7 +216,7 @@ function mergeConfig(base, parsed) {
       // Only the kinds a spec folder can actually be — an unknown key is
       // dropped rather than carried into `states` validation it can never pass.
       const byKind = {}
-      for (const kind of ['feature', 'bug', 'hotfix', 'chore', 'issue', 'incident']) {
+      for (const kind of ['feature', 'bug', 'hotfix', 'chore', 'issue', 'incident', 'epic']) {
         const value = parsed.azure.workItemTypeByKind[kind]
         if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
       }
@@ -315,13 +315,20 @@ function specKindOf(snapshotDir) {
   if (name.startsWith('chore-')) return 'chore'
   if (name.startsWith('issue-')) return 'issue'
   if (name.startsWith('incident-')) return 'incident'
+  if (name.startsWith('epic-')) return 'epic'
   return 'feature'
 }
 
 // The work item type a spec of this kind mints, falling back to the one
 // configured type.
 function mintTypeFor(config, kind) {
-  return (config.azure.workItemTypeByKind && config.azure.workItemTypeByKind[kind]) || config.azure.workItemType
+  // An epic mints as the process's own Epic type unless the project maps it
+  // elsewhere — every Azure process ships one, and it is what makes the epic
+  // its members' parent in the backlog hierarchy (spec feat-epics).
+  return (
+    (config.azure.workItemTypeByKind && config.azure.workItemTypeByKind[kind]) ||
+    (kind === 'epic' ? 'Epic' : config.azure.workItemType)
+  )
 }
 
 // The state a bucket writes for one work item type: statesByType[type] over

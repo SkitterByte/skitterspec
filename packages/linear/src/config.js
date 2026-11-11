@@ -336,7 +336,7 @@ function mergeConfig(base, parsed) {
       // Only the kinds a spec folder can actually be — an unknown key is
       // dropped, matching the other providers' by-kind validation.
       const byKind = {}
-      for (const kind of ['feature', 'bug', 'hotfix', 'chore', 'issue', 'incident']) {
+      for (const kind of ['feature', 'bug', 'hotfix', 'chore', 'issue', 'incident', 'epic']) {
         const value = parsed.linear.labelsByKind[kind]
         if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
       }

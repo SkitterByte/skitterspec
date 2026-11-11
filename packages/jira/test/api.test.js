@@ -244,3 +244,37 @@ test('no error message ever carries the token', async () => {
     assert.doesNotMatch(String(err.stack || ''), /Basic /)
   }
 })
+
+// --- epic parent (spec feat-epics, phase 6) ------------------------------------
+
+// GETs answer with the issue under `parents[i]` on the i-th read; a PUT is
+// recorded. What Jira holds before the write, then what it reads back after.
+function parentAdapter(parents) {
+  let reads = 0
+  return adapter((url, init) => {
+    if (init.method === 'GET') {
+      const parent = parents[Math.min(reads++, parents.length - 1)]
+      return jsonRes({ ...RAW_ISSUE, fields: { ...RAW_ISSUE.fields, parent: parent ? { id: '9', key: parent } : null } })
+    }
+    return jsonRes(null, 204)
+  })
+}
+
+test('setParent puts a member under its Epic through the parent field', async () => {
+  const { a, calls } = parentAdapter([null, 'PROJ-1'])
+  assert.deepStrictEqual(await a.setParent('PROJ-7', 'PROJ-1'), { changed: true, moved: false })
+  const put = calls.find((c) => c.init.method === 'PUT')
+  assert.match(put.url, /\/issue\/PROJ-7$/)
+  assert.deepStrictEqual(JSON.parse(put.init.body), { fields: { parent: { key: 'PROJ-1' } } })
+})
+
+test('setParent leaves a member already under that Epic alone', async () => {
+  const { a, calls } = parentAdapter(['PROJ-1'])
+  assert.deepStrictEqual(await a.setParent('PROJ-7', 'PROJ-1'), { changed: false })
+  assert.ok(calls.every((c) => c.init.method === 'GET'))
+})
+
+test('setParent moves a member between Epics, and refuses a link that did not land', async () => {
+  assert.deepStrictEqual(await parentAdapter(['PROJ-2', 'PROJ-1']).a.setParent('PROJ-7', 'PROJ-1'), { changed: true, moved: true })
+  await assert.rejects(parentAdapter([null, null]).a.setParent('PROJ-7', 'PROJ-1'), /put under PROJ-1 but Jira reads it back under no parent/)
+})

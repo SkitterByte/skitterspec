@@ -5,7 +5,7 @@ covers:
   - packages/skitterspec-azure-boards/**
   - packages/sync-core/**
   - packages/provider-kit/**
-verified: e74e2827ff6e
+verified: b79e850162c0
 -->
 <html lang="en">
 <head>
@@ -744,6 +744,7 @@ skitterspec-azure-boards spec-sync <span class="p">credentials set</span></div>
       <div class="icard">
         <h3><span class="mono">/spec-push</span></h3>
         <p>Repo → Boards. Fetches the types' states, diffs against the last-pushed snapshot, creates or updates the spec item and its phase children, and stamps the returned ids back into your markdown.</p>
+        <p>An <b>epic</b> mints as the process's <span class="mono">Epic</span> type (or whatever <span class="mono">azure.workItemTypeByKind.epic</span> names), with no phase children, and each member spec (<span class="mono">&gt; **Epic:** epic-&lt;name&gt;</span>) is linked as its child in the hierarchy. A member whose epic is not linked yet is named and skipped, never minted. A member that changes epics is moved, its old parent link removed. Map <span class="mono">workItemTypeByKind.epic</span> to have <span class="mono">states</span> check the Epic type's states too. <span class="mono">spec-sync list</span> shows members under their epic.</p>
       </div>
       <div class="icard">
         <h3><span class="mono">/spec-sync</span></h3>

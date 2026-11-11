@@ -2018,11 +2018,40 @@ async function specSyncList(dir, config, flags, out) {
   // An assignee filter cannot be applied to a spec with no Linear assignee, so
   // the section is withheld under one — counted, never silently dropped.
   const localHidden = assignee ? unlinked.length : null
+  // AN EPIC'S MEMBERS ARE SUB-ISSUES, so the parentless query above cannot
+  // return them (spec feat-epics). For each listed issue linked to an `epic-`
+  // spec here, its children — every one a member, since an epic has no phases —
+  // are read and listed under it, under the same state and assignee filters.
+  // One extra call per epic row, none for any other. Board order (`--next`) is
+  // left alone. A failed read is said once, never a failed listing.
+  const memberFailures = []
+  let listed = ordered
+  if (next === null) {
+    listed = []
+    for (const issue of ordered) {
+      listed.push(issue)
+      const local = byIdentifier.get(issue.identifier)
+      if (!local || !/^epic-/.test(local.spec)) continue
+      let children
+      try {
+        children = (await adapter.listSubIssues(issue.id)) || []
+      } catch {
+        memberFailures.push(issue.identifier)
+        continue
+      }
+      for (const child of children) {
+        if (!child) continue
+        if (stateIds && stateIds.length && !(child.state && stateIds.includes(child.state.id))) continue
+        if (assignee && !(child.assignee && child.assignee.id === assignee.id)) continue
+        listed.push({ ...child, epic: issue.identifier })
+      }
+    }
+  }
   // Identifier → Linear uuid, for the phase lookup below. Kept beside the rows
   // rather than on them, so the --json shape stays exactly what it prints.
-  const uuidOf = new Map(ordered.map((i) => [i.identifier, i.id]))
+  const uuidOf = new Map(listed.map((i) => [i.identifier, i.id]))
 
-  const rows = ordered.map((issue) => {
+  const rows = listed.map((issue) => {
     const local = byIdentifier.get(issue.identifier) || null
     const column = specColumn((issue.state && issue.state.name) || null, local, config)
     return {
@@ -2043,6 +2072,7 @@ async function specSyncList(dir, config, flags, out) {
       // never looked up, so the shape does not vary by state.
       phase: null,
       url: issue.url || null,
+      ...(issue.epic ? { epic: issue.epic } : {}),
     }
   })
 
@@ -2157,6 +2187,9 @@ async function specSyncList(dir, config, flags, out) {
   if (page.pageInfo && page.pageInfo.hasNextPage) {
     lines.push('  ! Linear reported further pages it did not return — this listing may be short')
   }
+  if (memberFailures.length) {
+    lines.push(`  ! could not read the members of ${memberFailures.join(', ')} — they are not listed`)
+  }
   if (phaseFailures.length) {
     lines.push(
       `  ! could not read the phases of ${phaseFailures.join(', ')} — those rows show no phase`,
@@ -2183,11 +2216,13 @@ async function specSyncList(dir, config, flags, out) {
       // on most rows, and padding for a column that is usually blank buys
       // nothing but width.
       const held = [row.assignee, phaseLabel(row.phase)].filter(Boolean).join(' · ')
+      // An epic's member sits indented under its epic's row.
+      const lead = row.epic ? '    ' : '  '
       lines.push(
-        `  ${row.identifier.padEnd(idW)}  ${row.state.padEnd(stW)}  ${cell(row).padEnd(bkW)}  ` +
+        `${lead}${row.identifier.padEnd(idW)}  ${row.state.padEnd(stW)}  ${cell(row).padEnd(bkW)}  ` +
           (held ? `${(row.spec || UNLINKED).padEnd(specW)}  ${held}` : row.spec || UNLINKED),
       )
-      if (row.title) lines.push(`  ${pad}${row.title}`)
+      if (row.title) lines.push(`${lead}${pad}${row.title}`)
     }
   }
   if (localHidden === null && unlinked.length) {
@@ -2270,6 +2305,7 @@ function specKindOf(snapshotDir) {
   if (name.startsWith('chore-')) return 'chore'
   if (name.startsWith('issue-')) return 'issue'
   if (name.startsWith('incident-')) return 'incident'
+  if (name.startsWith('epic-')) return 'epic'
   return 'feature'
 }
 
@@ -2326,6 +2362,11 @@ async function applyOneSpec({ dir, config, snapshotDir, plan, adapter, teamId, p
     prevalidateStates: (buckets) => {
       for (const bucket of buckets) stateId(bucket)
     },
+    // Only where the adapter can — the MCP transport's says nothing, and the
+    // push then names that rather than guessing (provider-kit apply).
+    ...(typeof adapter.setParent === 'function'
+      ? { setParent: (issue, parentIdentifier) => adapter.setParent(issue.id, parentIdentifier) }
+      : {}),
     searchTwin: (title) => adapter.searchIssues({ query: title, teamId }),
     twinAdvice: (twin, wanted, specName) =>
       `${twin.identifier} is already titled "${wanted}" and no spec claims it — ` +

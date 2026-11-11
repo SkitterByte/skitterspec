@@ -209,7 +209,7 @@ function mergeConfig(base, parsed) {
       // Only the kinds a spec folder can actually be — an unknown key is
       // dropped, matching Azure's workItemTypeByKind validation.
       const byKind = {}
-      for (const kind of ['feature', 'bug', 'hotfix', 'chore', 'issue', 'incident']) {
+      for (const kind of ['feature', 'bug', 'hotfix', 'chore', 'issue', 'incident', 'epic']) {
         const value = parsed.github.labelsByKind[kind]
         if (typeof value === 'string' && value.trim()) byKind[kind] = value.trim()
       }

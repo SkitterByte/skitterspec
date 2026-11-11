@@ -1441,3 +1441,75 @@ test('list does not flag a board that merely re-planned an in-flight spec', asyn
   assert.strictEqual(row.disagrees, false)
   assert.strictEqual('cleanup' in row, false)
 })
+
+// --- epics (spec feat-epics, phase 6) ------------------------------------------
+
+function epicRepo({ epicId = 'AB#40', config = {} } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'azure-epic-'))
+  fs.mkdirSync(path.join(dir, 'specs', '.core'), { recursive: true })
+  fs.writeFileSync(path.join(dir, CONFIG_FILE), JSON.stringify({ azure: { orgUrl: ORG, project: PROJECT, ...config } }))
+  const write = (spec, text) => {
+    fs.mkdirSync(path.join(dir, 'specs', 'backlog', spec), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'specs', 'backlog', spec, '00-overview.md'), text)
+  }
+  write('epic-library', `${epicId ? `---\nazure_identifier: "${epicId}"\n---\n\n` : ''}# Library\n\n> **Type:** Epic\n`)
+  write('feat-gen', '# Gen\n\n> **Epic:** epic-library\n\n## Problem\n\nP.\n')
+  return dir
+}
+
+async function pushAzure(dir, spec, adapter) {
+  const plan = await run(['plan', spec, '--skip-state-check', '--json'], dir)
+  assert.strictEqual(plan.code, 0, plan.out)
+  fs.writeFileSync(path.join(dir, 'plan.json'), plan.out)
+  return run(['apply', spec, '--plan', path.join(dir, 'plan.json')], dir, { adapter })
+}
+
+test('an epic mints as Epic unless workItemTypeByKind maps it elsewhere', async () => {
+  const minted = []
+  const spy = (a) => {
+    const original = a.createIssue.bind(a)
+    a.createIssue = async (input) => {
+      minted.push(input.workItemType)
+      return original(input)
+    }
+    return a
+  }
+  assert.strictEqual((await pushAzure(epicRepo({ epicId: null }), 'epic-library', spy(fakeAdapter()))).code, 0)
+  const mapped = epicRepo({ epicId: null, config: { workItemTypeByKind: { epic: 'Initiative' } } })
+  assert.strictEqual((await pushAzure(mapped, 'epic-library', spy(fakeAdapter()))).code, 0)
+  assert.deepStrictEqual(minted, ['Epic', 'Initiative'])
+})
+
+test('a member is put under its epic by work item id; an unlinked epic is skipped', async () => {
+  const adapter = fakeAdapter()
+  const parents = []
+  adapter.setParent = async (id, parentId) => {
+    parents.push([id, parentId])
+    return { changed: true }
+  }
+  const r = await pushAzure(epicRepo(), 'feat-gen', adapter)
+  assert.strictEqual(r.code, 0, r.out)
+  assert.deepStrictEqual(parents.map((p) => p[1]), ['40'])
+  assert.match(r.out, /parent set: AB#\d+ under epic AB#40/)
+  const unlinked = await pushAzure(epicRepo({ epicId: null }), 'feat-gen', fakeAdapter())
+  assert.match(unlinked.out, /epic epic-library is not linked yet — parent skipped/)
+})
+
+test('list keeps a member under its epic row and hides a task', async () => {
+  const dir = epicRepo()
+  fs.writeFileSync(path.join(dir, 'specs', 'backlog', 'feat-gen', '00-overview.md'), '---\nazure_identifier: "AB#41"\n---\n\n# Gen\n')
+  const adapter = fakeAdapter()
+  adapter.searchIssues = async () => [
+    { identifier: 'AB#40', title: 'Library', state: { name: 'New' }, parent: null },
+    { identifier: 'AB#43', title: 'Loner', state: { name: 'New' }, parent: null },
+    { identifier: 'AB#41', title: 'Gen', state: { name: 'New' }, parent: { id: '40', identifier: 'AB#40' } },
+    { identifier: 'AB#42', title: 'Phase 1', state: { name: 'New' }, parent: { id: '41', identifier: 'AB#41' } },
+  ]
+  const r = await run(['list'], dir, { adapter })
+  assert.strictEqual(r.code, 0, r.out)
+  const lines = r.out.split('\n')
+  const at = (id) => lines.findIndex((l) => l.includes(`${id}\t`))
+  assert.strictEqual(at('AB#41'), at('AB#40') + 1, r.out)
+  assert.match(lines[at('AB#41')], /^ {4}AB#41/)
+  assert.strictEqual(at('AB#42'), -1)
+})
