@@ -1,0 +1,14 @@
+{
+  "issue": "62edfa759906a7850f57058cfbda94604a5fe124",
+  "issueFields": {
+    "description": "0711b390317d03cfb04a7d8686060f85a71e010b",
+    "state": "5767f380fa5d574444763a1753c78be1df8d9037",
+    "descriptionStream": "0124572c079f6e2fe711206c6b92ca211d384663"
+  },
+  "subIssues": {
+    "#181": "91e42b5b1919d5ee43856b47769ab2259a31ce09"
+  },
+  "subIssueStreams": {
+    "#181": "d6a1f7157267cf6db6e995d8023a865108abdb03"
+  }
+}
