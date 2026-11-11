@@ -42,7 +42,7 @@ const { specBranchDocs } = require('./specbranches.js')
 const { renderEpicPage } = require('./epicpage.js')
 const { readRegistry } = require('./registry.js')
 const { loadEnvConfig } = require('./config.js')
-const { primaryAnchor, attachProject, repoRootOf, prefixOf, fromRepoPath, toRepoPath } = require('./project.js')
+const { primaryAnchor, attachProject, projectName, repoRootOf, prefixOf, fromRepoPath, toRepoPath } = require('./project.js')
 const { specDocsIn, classifyDirtyTree, dirtyPaths } = require('./classify.js')
 const { liveStateFor } = require('./live.js')
 const { preferRemoteBase } = require('./host.js')
@@ -128,8 +128,11 @@ function escapeHtml(s) {
  * palette on bare `:root`, redefined under `prefers-color-scheme`) so the two
  * do not disagree when opened side by side.
  */
-function renderIndex(entries, { token = null, epics = [] } = {}) {
+function renderIndex(entries, { token = null, epics = [], project = null } = {}) {
   const prefix = token ? `/${token}` : ''
+  // The heading and tab name the project, so two servers' indexes open side by
+  // side can be told apart. No name — cannot tell — reads as it always did.
+  const heading = project ? `${escapeHtml(project)} · spec diffs` : 'spec diffs'
   // Epics with a member in flight, each a doorway to its epic page. Listed
   // above the diffs because an epic page is where a reader running several
   // members starts; absent entirely on a repo with no epic in flight.
@@ -162,7 +165,7 @@ function renderIndex(entries, { token = null, epics = [] } = {}) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>spec diffs</title>
+<title>${heading}</title>
 <style>
 :root { --bg:#fff; --fg:#1a1a1a; --dim:#6b6b6b; --line:#e3e3e3; --add:#0a7b34; --del:#b3261e; --link:#0b5fbd }
 @media (prefers-color-scheme: dark) {
@@ -189,7 +192,7 @@ code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace }
 </head>
 <body>
 <main>
-<h1>spec diffs</h1>
+<h1>${heading}</h1>
 ${epicList}
 ${body}
 </main>
@@ -562,6 +565,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
       notes,
       gate: gateRead.corrupt ? null : gateRead.gate,
       buttons,
+      project: projectName(config),
       only: view.owned,
       treePath: view.tree,
     })
@@ -639,6 +643,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
     buttons,
     live,
     tiers,
+    project: projectName(config),
   })
 
   if (!branch && data.totals.files === 0) {
@@ -661,6 +666,7 @@ function renderSpecPage(dir, config, spec, { branch = false } = {}) {
         buttons,
         live,
         tiers,
+        project: projectName(config),
         fellBack: true,
       })
       if (wider.totals.files > 0) {
@@ -806,7 +812,7 @@ function readBody(req, limit = MAX_PASS_BYTES) {
   })
 }
 
-function createReviewServer({ resolveEntries, resolveEpics = () => [], render, receive = null, passState = null, token = null }) {
+function createReviewServer({ resolveEntries, resolveEpics = () => [], render, receive = null, passState = null, token = null, project = null }) {
   return http.createServer((req, res) => {
     const send = (code, body, type = 'text/html; charset=utf-8') => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' })
@@ -860,7 +866,7 @@ function createReviewServer({ resolveEntries, resolveEpics = () => [], render, r
     }
 
     try {
-      if (route.kind === 'index') return send(200, renderIndex(resolveEntries(), { token, epics: resolveEpics() }))
+      if (route.kind === 'index') return send(200, renderIndex(resolveEntries(), { token, epics: resolveEpics(), project }))
       const out = render(route.spec, { branch: route.branch })
       if (!out) return send(404, 'not found', 'text/plain; charset=utf-8')
       if (out.error) return send(409, out.error, 'text/plain; charset=utf-8')
@@ -1031,11 +1037,13 @@ function serverHooks(dir, config) {
     const inputs = { dir, config, base, ...tree, worktrees: worktrees(), branches: specBranchDocs(trimmedGit, config, base) }
     const answer = epicAnswer(folder, inputs, memberReaders({ ...inputs, git: trimmedGitReader, linkFor: (s) => encodeURIComponent(s) }))
     if (!answer.found && !answer.members.length) return null
-    return { html: renderEpicPage(answer) }
+    return { html: renderEpicPage(answer, { project: projectName(config) }) }
   }
 
   return {
     resolveEntries,
+    // What the index calls this project. Read once: the server is per project.
+    project: projectName(config),
     resolveEpics: () => {
       try {
         return epicsInFlight(worktrees())

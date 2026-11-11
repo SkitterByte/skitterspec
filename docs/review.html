@@ -12,7 +12,7 @@ covers:
   - packages/common/src/env/epicpage.js
   - packages/common/assets/hooks/review-gate.cjs
   - packages/common/assets/rules/spec-reports.md
-verified: 820184ae52fe
+verified: ce9251c9efb8
 -->
 <html lang="en">
 <head>
@@ -838,6 +838,10 @@ verified: 820184ae52fe
       <details class="reveal">
         <summary>Whose commit skill runs the commit?</summary>
         <p class="lede"><b>It commits with your commit skill, not ours.</b> An approval hands off to whatever <span class="mono" style="font-size:.9em">review.commitWith</span> names — <span class="mono" style="font-size:.9em">/commit</span> by default, any skill you install, any skill you install. There is no off switch, deliberately: <span class="mono" style="font-size:.9em">none</span> existed and was removed, because it produced the one thing a review page must not have — a verdict that records itself and does nothing. Skitterspec never ships a copy of one: <span class="mono" style="font-size:.9em">/commit</span> belongs to skittership, where it also writes the release-note footers your changelog is built from, and a fork of it living here would drift in silence. With no such skill available it commits directly — stage, typecheck, test, conventional message — and says it took that path, every time. And if the tests fail there's no commit: approving a change judges the change, it never promises that it builds.</p>
+      </details>
+      <details class="reveal">
+        <summary>Which project is this page from?</summary>
+        <p class="lede"><b>The tab says.</b> Every page reads <span class="mono" style="font-size:.9em">&lt;project&gt; · &lt;spec&gt;</span> in its tab, with the project's name in small type above the heading — on a phone the tab is often all you can see. The name is the project folder's in your main checkout, never the worktree's; set <span class="mono" style="font-size:.9em">review.projectName</span> when that folder is called something like <span class="mono" style="font-size:.9em">app</span>.</p>
       </details>
       <details class="reveal">
         <summary>Where does the page live?</summary>

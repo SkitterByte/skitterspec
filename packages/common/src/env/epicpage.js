@@ -51,7 +51,7 @@ function syncLine({ spec, phase, wait }) {
   return `${who} after ${wait.raw} (${mark})`
 }
 
-function renderEpicPage(answer, { refreshSeconds = REFRESH_SECONDS } = {}) {
+function renderEpicPage(answer, { refreshSeconds = REFRESH_SECONDS, project = null } = {}) {
   const lanes = answer.lanes === null ? 'no lane cap' : `${answer.lanes} lanes, ${answer.freeLanes} free`
   const count = `${answer.members.length} member${answer.members.length === 1 ? '' : 's'}`
   const rows = (answer.rows || [])
@@ -83,7 +83,7 @@ function renderEpicPage(answer, { refreshSeconds = REFRESH_SECONDS } = {}) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="${Number(refreshSeconds)}">
-<title>${escapeHtml(answer.epic)}</title>
+<title>${project ? `${escapeHtml(project)} · ` : ''}${escapeHtml(answer.epic)}</title>
 <style>
 :root { --bg:#fff; --fg:#1a1a1a; --dim:#6b6b6b; --line:#e3e3e3; --link:#0b5fbd; --hot:#a15c00 }
 @media (prefers-color-scheme: dark) {
@@ -94,6 +94,7 @@ body { margin:0; padding:2rem 1rem; background:var(--bg); color:var(--fg);
   font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif }
 main { max-width:60rem; margin:0 auto }
 h1 { font-size:1.1rem; margin:0 0 .25rem; font-weight:600 }
+.eyebrow { color:var(--dim); font-size:.8rem; margin:0 0 .1rem }
 .sub { color:var(--dim); margin:0 0 1.25rem }
 .wrap { overflow-x:auto }
 table { border-collapse:collapse; width:100% }
@@ -113,7 +114,7 @@ dt { color:var(--dim) } dd { margin:0 }
 </head>
 <body>
 <main>
-<h1>${escapeHtml(answer.epic)}</h1>
+${project ? `<p class="eyebrow">${escapeHtml(project)}</p>\n` : ''}<h1>${escapeHtml(answer.epic)}</h1>
 <p class="sub">${count} · ${escapeHtml(lanes)}</p>
 <div class="wrap">${table}</div>
 ${own}

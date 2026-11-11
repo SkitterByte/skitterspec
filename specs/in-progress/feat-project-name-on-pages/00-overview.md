@@ -86,7 +86,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Name resolver + review page | ✅ | [01-review-page.md](01-review-page.md) |
-| 2 | Served index + epic page, docs | ⬜ | [02-index-epic-docs.md](02-index-epic-docs.md) |
+| 2 | Served index + epic page, docs | ✅ | [02-index-epic-docs.md](02-index-epic-docs.md) |
 
 ## Open questions
 
@@ -97,3 +97,6 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 - 2026-11-11 — Spec created.
 - 2026-11-11 — Config docs for `review.projectName` moved from phase 2 to
   phase 1: the docs tests fail on an undocumented `review.*` key.
+- 2026-11-11 — Phase 2 also threads the name through `serve.js`'s own
+  spec-page renders: the server re-renders per request, which phase 1
+  (CLI render only) did not reach.
