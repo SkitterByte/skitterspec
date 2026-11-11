@@ -5,6 +5,15 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.10.0 — 11 Nov 2026
+
+### Epic
+- **New** — Starting an epic now tells you which members to start, each in its own tab, and /epic brings back what every member needs next along with the epic page link whenever you return to that tab.
+- **New** — skitterspec epic status now tells you, for every member, the one command to run next and which worktree tab to run it in, and skitterspec status shows the same beside each spec in flight.
+
+### Review
+- **New** — The review server now shows each epic as a page that refreshes itself, listing what every member needs next and linking straight to any review waiting for your verdict.
+
 ## 23.9.0 — 11 Nov 2026
 
 **Highlights:** Epics: group related specs, record what each waits on, and /spec-start and /spec-next warn before building past an unmet wait — with a recorded way to go ahead anyway.
