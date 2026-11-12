@@ -257,6 +257,7 @@ test('sessions, commits, moves and open state for one spec land in one group', a
     repoOf,
     facts,
     openFor,
+    chat: true,
   })
   const p = d.projects[0]
   assert.strictEqual(p.skitterspec, true)

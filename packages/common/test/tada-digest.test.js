@@ -167,7 +167,9 @@ function repoOf(cwd) {
   return { repo: null }
 }
 
-const digest = (root, over = {}) => buildDigest({ root, window: WINDOW, repoOf, ...over })
+// `chat`, because these pin how sessions are READ; which ones a recap keeps is
+// `tada-chatter.test.js`'s question.
+const digest = (root, over = {}) => buildDigest({ root, window: WINDOW, repoOf, chat: true, ...over })
 
 test('entries are compared as instants, not by the day their string starts with', async () => {
   const root = tmpRoot()

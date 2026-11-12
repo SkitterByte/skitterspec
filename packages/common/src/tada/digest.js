@@ -56,10 +56,11 @@ function memo(fn) {
  *   - `facts`   `(repo) => readRepoFacts(…)` — commits, lifecycle moves and
  *               spec lookups for a repo; omitted, groups are sessions only
  *   - `openFor` `(repo) => [{ spec, detail, next }]` — what is in flight there
+ *   - `chat`    keep every prompt, no-spec ones included (`--chat`)
  *   - `category` the running project's category: only projects carrying the
  *               same one are reported. Null reports every project.
  */
-async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, facts = null, openFor = null, category = null }) {
+async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, facts = null, openFor = null, category = null, chat = false }) {
   const resolve = memo(repoOf)
   const notes = []
   const refolded = new Set()
@@ -145,9 +146,12 @@ async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, fact
         ...(f && f.category ? { category: f.category } : {}),
         git: p.git,
         skitterspec: Boolean(f && f.skitterspec),
-        groups: groupsOf(p, f, f && openFor ? openFor(p.repo) : []),
+        groups: groupsOf(p, f, f && openFor ? openFor(p.repo) : [], { chat }),
       }
     })
+    // A project whose only activity was chatter that led nowhere has nothing
+    // left to report once that is dropped.
+    .filter((p) => p.groups.length > 0)
     .sort((a, b) => a.name.localeCompare(b.name))
 
   return {
@@ -161,11 +165,32 @@ async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, fact
 const fold = (s) => s.trim().toLowerCase()
 
 /**
+ * Changes over chatter (Decision 3): prompts typed where no spec was in play
+ * are dropped — unless the same session went on to stand on a spec's branch,
+ * in which case they were the conversation that led to that spec, and they
+ * move into it. The spec the session reached first afterwards takes them;
+ * failing that, the first it reached at all.
+ *
+ * Only prompts are dropped. A no-spec group's commits are changes, and stay.
+ */
+function foldChatter(placed) {
+  const out = placed.filter((x) => x.spec)
+  for (const x of placed.filter((y) => !y.spec)) {
+    const onSpecs = out.filter((y) => y.s.id === x.s.id).sort((a, b) => (a.s.start < b.s.start ? -1 : 1))
+    const into = onSpecs.find((y) => y.s.start >= x.s.start) || onSpecs[0]
+    if (!into) continue
+    into.s.prompts.push(...x.s.prompts)
+    if (x.s.start < into.s.start) into.s.start = x.s.start
+  }
+  return out
+}
+
+/**
  * One project's groups: a spec where the branch, a commit or an in-flight row
  * names one, else the branch. Sessions, commits, lifecycle moves and open
  * state for one spec land in one group, whichever of them found it.
  */
-function groupsOf(p, f, open) {
+function groupsOf(p, f, open, { chat = false } = {}) {
   const groups = new Map()
   const group = (spec, branch) => {
     const key = spec ? `spec\0${spec}` : `branch\0${branch || ''}`
@@ -177,12 +202,14 @@ function groupsOf(p, f, open) {
     return g
   }
 
+  const placed = []
   for (const [branch, sessions] of p.groups) {
-    const g = group(f ? f.toSpec(branch) : null, branch)
-    for (const s of sessions.values()) {
-      s.prompts.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
-      g.sessions.push({ id: s.id, start: s.start, end: s.end, ...trimPrompts(s.prompts) })
-    }
+    const spec = f ? f.toSpec(branch) : null
+    for (const s of sessions.values()) placed.push({ spec, branch, s })
+  }
+  for (const { spec, branch, s } of chat ? placed : foldChatter(placed)) {
+    s.prompts.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+    group(spec, branch).sessions.push({ id: s.id, start: s.start, end: s.end, ...trimPrompts(s.prompts) })
   }
   if (f) {
     for (const c of f.commits) group(c.spec, c.spec ? null : c.branch).commits.push(c)

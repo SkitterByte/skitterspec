@@ -16,7 +16,7 @@ what already happened and says it back in the shape a standup wants.
 ## 1. Get the digest
 
 ```
-skitterspec tada [--since <when> | --on <when>] [--here | --all-projects]
+skitterspec tada [--since <when> | --on <when>] [--here | --all-projects] [--chat]
 ```
 
 Map the request onto the flags and nothing else:
@@ -29,6 +29,8 @@ Map the request onto the flags and nothing else:
   standing in.
 - **`--all-projects`** — "everything", "work and personal": every project on
   the machine.
+- **`--chat`** — "everything I talked about", "include the chats": keep the
+  prompts on branches with no spec too.
 
 **The report is scoped by category without being asked.** Run from a project
 whose `project.category` is set (in `specs/.core/env.config.json`), it covers
@@ -70,15 +72,17 @@ do not paste it anywhere else, and never publish it.
 One section per project, then one entry per group. A group headed by a spec
 (`feat-orders [#12]`) is that spec's work wherever it happened — its branch, its
 worktree, or a commit on the base naming it. A group headed `<branch> — no spec`
-is work that names none.
+is work that names none, and carries only its commits: prompts typed where no
+spec was in play are left out, unless the session went on to a spec — then
+they sit under that spec, as the conversation that led to it.
 
 For each group, say what applies and skip what does not:
 
 - **Done** — the lifecycle moves (`* written`, `* started`, `* phase N done`,
   `* completed`) and the commits (`+ <sha> <subject>`). Say what changed in a
   line, from the subjects — do not list every sha.
-- **Explored** — sessions whose group has no commit or move: what was looked
-  into, asked or decided, read off the prompts. The prompts are partial by
+- **Explored** — a spec's sessions beyond what its commits say: what was
+  looked into, asked or decided, read off the prompts. The prompts are partial by
   construction (`… N more` marks the cut), so say what they show, not that it
   is everything.
 - **In flight** — the `in flight:` line: where the spec stands and its next

@@ -85,25 +85,25 @@ const facts = (repo) => ({
 const names = (d) => d.projects.map((p) => p.name)
 
 test('a category reports only the projects sharing it, compared loosely', async () => {
-  const d = await buildDigest({ root: transcripts(), window: WINDOW, repoOf, facts, category: 'WORK' })
+  const d = await buildDigest({ root: transcripts(), window: WINDOW, repoOf, facts, chat: true, category: 'WORK' })
   assert.deepStrictEqual(names(d), ['Acme Portal', 'work-b'])
   assert.strictEqual(d.category, 'WORK')
 })
 
 test('uncategorised projects, and places outside any repo, are left out entirely', async () => {
-  const d = await buildDigest({ root: transcripts(), window: WINDOW, repoOf, facts, category: 'personal' })
+  const d = await buildDigest({ root: transcripts(), window: WINDOW, repoOf, facts, chat: true, category: 'personal' })
   assert.deepStrictEqual(names(d), ['home-c'])
   assert.deepStrictEqual(d.notes, [], 'nothing is said about what was left out')
 })
 
 test('no category — run from an uncategorised place, or --all-projects — reports everything', async () => {
-  const d = await buildDigest({ root: transcripts(), window: WINDOW, repoOf, facts, category: null })
+  const d = await buildDigest({ root: transcripts(), window: WINDOW, repoOf, facts, chat: true, category: null })
   assert.deepStrictEqual(names(d), ['Acme Portal', 'home-c', 'plain', 'scratch', 'work-b'])
   assert.ok(!('category' in d))
 })
 
 test('each project is shown by its project.name, falling back to its folder', async () => {
-  const d = await buildDigest({ root: transcripts(), window: WINDOW, repoOf, facts })
+  const d = await buildDigest({ root: transcripts(), window: WINDOW, repoOf, facts, chat: true })
   const acme = d.projects.find((p) => p.repo === '/work-a')
   assert.strictEqual(acme.name, 'Acme Portal')
   assert.strictEqual(acme.category, 'work')

@@ -111,7 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Project name and category, and scoping by them | ✅ | [01-project-settings.md](01-project-settings.md) |
-| 2 | Changes over chatter | ⬜ | [02-changes-over-chatter.md](02-changes-over-chatter.md) |
+| 2 | Changes over chatter | ✅ | [02-changes-over-chatter.md](02-changes-over-chatter.md) |
 | 3 | Readable dates and a served page | ⬜ | [03-served-page.md](03-served-page.md) |
 
 ## Open questions
@@ -126,3 +126,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `config.checkout`, freeing `project` for the config block. Also commits the
   `.claude/skills/spec-tada` link #182 left untracked; main's
   `claude-links` test fails without it.
+- 2026-11-12 — Phase 2: chatter folds into the spec the session reached
+  next, else the first it reached; a project left with nothing once chatter
+  is dropped disappears from the report. The phase-1 reading tests pin
+  `chat: true`, since they test how sessions are read, not which are kept.

@@ -342,7 +342,9 @@ Usage:
                               today, yesterday, last friday, 3 days ago, 2w,
                               2026-11-06 or 6 Nov. Scoped to projects sharing
                               this one's project.category (--all-projects for
-                              every project). --here for this repo only,
+                              every project). Prompts on branches with no spec
+                              are left out unless they led to one (--chat keeps
+                              them). --here for this repo only,
                               --json, --page [--summary <recap.md>] for an HTML
                               page. Reads ~/.claude/projects; exits 0 unless the
                               window cannot be read.
@@ -654,6 +656,7 @@ async function tadaCommand(argv) {
     window,
     here: argv.includes('--here') ? process.cwd() : null,
     category: argv.includes('--all-projects') ? null : runningCategory(process.cwd()),
+    chat: argv.includes('--chat'),
     facts: (repo) => {
       let config = {}
       try {
