@@ -215,9 +215,28 @@ test('dev entries normalise; required fields kept, optionals passed through', ()
       portVar: 'API_PORT',
       health: 'http://localhost:{API_PORT}/health',
       frontPort: 8080,
+      reload: 'hot',
     },
-    { name: 'ui', command: 'pnpm --filter ui dev', portVar: 'PORT' },
+    { name: 'ui', command: 'pnpm --filter ui dev', portVar: 'PORT', reload: 'hot' },
   ])
+})
+
+test('dev reload accepts "restart" and falls back to "hot" on anything else', () => {
+  const dir = tmpDir()
+  const entry = (name, reload) => ({ name, command: 'run', portVar: 'PORT', reload })
+  writeEnvConfig(dir, {
+    dev: [entry('vs', 'restart'), entry('ui', 'hot'), entry('typo', 'Restart'), entry('num', 1)],
+  })
+  const { config } = loadEnvConfig(dir)
+  assert.deepStrictEqual(
+    config.dev.map((d) => [d.name, d.reload]),
+    [
+      ['vs', 'restart'],
+      ['ui', 'hot'],
+      ['typo', 'hot'],
+      ['num', 'hot'],
+    ],
+  )
 })
 
 test('dev drops malformed entries (missing required fields / wrong types)', () => {

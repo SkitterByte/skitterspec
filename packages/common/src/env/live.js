@@ -209,6 +209,12 @@ function depsChanged(files, setupTriggers) {
   return files.some((f) => DEPS_RE.test(f) || res.some((r) => r.test(f)))
 }
 
+// One reminder per `reload: "restart"` dev entry — an IDE-hosted app sees the
+// branch switch on disk but runs the old build until someone restarts it.
+function restartReminders(names, when) {
+  return names.map((name) => `restart ${name} ${when} — it does not hot-reload`)
+}
+
 // --- take planner ---------------------------------------------------------
 
 /**
@@ -230,7 +236,10 @@ function depsChanged(files, setupTriggers) {
  *   base           resolved base branch name (rebase target)
  *   baseMainCommit primary HEAD before the switch (receipt / crash recovery)
  *   serverUp       true | false | null — null = no canonical ports declared → no gate
- *   canonicalPorts number[] — declared canonical (frontPort) ports, for messages
+ *   canonicalPorts number[] — declared canonical (frontPort) ports of the HOT
+ *                  dev entries, for messages
+ *   restartApps    string[] — names of `reload: "restart"` dev entries; never
+ *                  probed, each named in a restart reminder instead
  *   migrationsHit  boolean — the branch diff touches configured migration globs
  *   depsChanged    boolean — the branch diff touches a lockfile/manifest (→ warn)
  *   holder,heldSince receipt provenance (injected by the CLI; no Date.now here)
@@ -351,12 +360,17 @@ function planTake(spec, config, ctx) {
   }
 
   const warnings = []
+  const restartApps = Array.isArray(c.restartApps) ? c.restartApps : []
   if (c.depsChanged) {
     warnings.push('dependencies changed on this branch — restart your dev server after the switch')
   }
-  if (c.serverUp === null) {
+  // An app that restarts rather than hot-reloads is the operator's to restart,
+  // so its absence from the ports is the normal state — the IDE is closed, or
+  // will be restarted anyway — and "nothing to hot-reload" would only mislead.
+  if (c.serverUp === null && !restartApps.length) {
     warnings.push('no canonical dev ports configured — nothing to hot-reload; switching anyway')
   }
+  warnings.push(...restartReminders(restartApps, 'after the switch'))
 
   return {
     ...result,
@@ -386,8 +400,8 @@ function planTake(spec, config, ctx) {
  * In the branch-switch model `take` never moves the base ref, so release is just
  * `checkout base` (frees the branch) then re-attach it to the worktree — no reset.
  *
- * ctx: { primary:{onBase,branch}, primaryPath, base, clean, worktreeExists }
- * @returns {object} { blocked, noop, reason, commands, clears, base, branch, worktreePath }
+ * ctx: { primary:{onBase,branch}, primaryPath, base, clean, worktreeExists, restartApps }
+ * @returns {object} { blocked, noop, reason, commands, warnings, clears, base, branch, worktreePath }
  */
 function planRelease(spec, config, ctx) {
   const c = ctx || {}
@@ -398,6 +412,7 @@ function planRelease(spec, config, ctx) {
     noop: false,
     reason: null,
     commands: [],
+    warnings: [],
     clears: false,
     base,
     branch,
@@ -427,7 +442,8 @@ function planRelease(spec, config, ctx) {
 
   const commands = [`git -C ${shellPath(c.primaryPath)} checkout ${base}`]
   if (c.worktreeExists) commands.push(`git -C ${shellPath(spec.worktreePath)} switch ${branch}`)
-  return { ...result, commands, clears: true }
+  const warnings = restartReminders(Array.isArray(c.restartApps) ? c.restartApps : [], `on ${base}`)
+  return { ...result, commands, warnings, clears: true }
 }
 
 // --- abort planner --------------------------------------------------------

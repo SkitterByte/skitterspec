@@ -32,8 +32,9 @@
  *               // `when` globs gate an entry on the land's changed files, and
  *               // `{ setup: true }` expands to `setupTriggers`; literal, no
  *               // token expansion; normalised to `{ run, when }`; empty = none
- *     dev:      [ { name, command, portVar, health?, frontPort? } ],  // host dev
- *               // servers started on the spec's port block (empty = none)
+ *     dev:      [ { name, command, portVar, health?, frontPort?, reload } ],  // host dev
+ *               // servers started on the spec's port block (empty = none);
+ *               // reload "hot" (default) | "restart" (IDE-hosted, `live` reminds)
  *     proxy:    { enabled, host },  // bundled front-door proxy (spec-env connect)
  *     registry: ".spec-env/registry.json",
  *     branch:   { pattern, identifierField },  // git branch naming (provider-neutral)
@@ -462,6 +463,9 @@ function normalizeDev(parsed) {
     if (typeof raw.frontPort === 'number' && Number.isFinite(raw.frontPort)) {
       entry.frontPort = raw.frontPort
     }
+    // An unrecognised value falls through to "hot", the conservative reading:
+    // a typo keeps `live take`'s listening check rather than silently dropping it.
+    entry.reload = raw.reload === 'restart' ? 'restart' : 'hot'
     out.push(entry)
   }
   return out

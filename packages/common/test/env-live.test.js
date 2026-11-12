@@ -236,6 +236,25 @@ test('planTake warns on a dependency change and on no configured dev ports', () 
   assert.match(noPorts.warnings.join('\n'), /nothing to hot-reload/)
 })
 
+test('planTake lets a restart-only project through, naming each app to restart', () => {
+  const plan = planTake(SPEC, {}, okCtx({ serverUp: null, canonicalPorts: [], restartApps: ['api'] }))
+  assert.strictEqual(plan.blocked, false)
+  const text = plan.warnings.join('\n')
+  assert.match(text, /restart api after the switch — it does not hot-reload/)
+  assert.doesNotMatch(text, /nothing to hot-reload; switching anyway/)
+})
+
+test('planTake still refuses when a HOT server is down beside a restart app', () => {
+  const plan = planTake(SPEC, {}, okCtx({ serverUp: false, canonicalPorts: [3000], restartApps: ['api'] }))
+  assert.strictEqual(plan.blocked, true)
+  assert.match(plan.reason, /no dev server listening on canonical port\(s\) 3000/)
+})
+
+test('planTake adds no restart reminder when no entry declares restart', () => {
+  const plan = planTake(SPEC, {}, okCtx())
+  assert.deepStrictEqual(plan.warnings, [])
+})
+
 // --- planRelease ----------------------------------------------------------
 
 // A ctx where release proceeds: primary on the spec's branch, clean, worktree there.
@@ -259,6 +278,15 @@ test('planRelease emits checkout base + re-isolate and clears the receipt', () =
     'git -C /wt/x switch feat/x',
   ])
   assert.strictEqual(plan.clears, true)
+  assert.deepStrictEqual(plan.warnings, [])
+})
+
+test('planRelease reminds to restart each restart app on base', () => {
+  const plan = planRelease(SPEC, {}, relCtx({ restartApps: ['api', 'worker'] }))
+  assert.deepStrictEqual(plan.warnings, [
+    'restart api on main — it does not hot-reload',
+    'restart worker on main — it does not hot-reload',
+  ])
 })
 
 test('planRelease is a no-op when the primary checkout is already on base', () => {

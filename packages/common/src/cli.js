@@ -7213,9 +7213,13 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   const files = changed ? changed.split('\n').filter(Boolean) : []
   const depsHit = depsChanged(files, config.setupTriggers)
 
-  // Verify-only: probe the declared canonical (frontPort) ports. None declared →
-  // no health gate (serverUp = null); the switch proceeds with a warning.
-  const canonicalPorts = config.dev.map((d) => d.frontPort).filter((p) => typeof p === 'number')
+  // Verify-only: probe the declared canonical (frontPort) ports of the HOT dev
+  // entries. None declared → no health gate (serverUp = null); the switch
+  // proceeds with a warning. A `reload: "restart"` entry is never probed: an
+  // IDE-hosted app that is not running is the normal state, not a refusal.
+  const hotDev = config.dev.filter((d) => d.reload !== 'restart')
+  const restartApps = config.dev.filter((d) => d.reload === 'restart').map((d) => d.name)
+  const canonicalPorts = hotDev.map((d) => d.frontPort).filter((p) => typeof p === 'number')
   let serverUp = null
   if (canonicalPorts.length) {
     const up = await portsAnswering(canonicalPorts, config.proxy.host)
@@ -7233,6 +7237,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     baseMainCommit,
     serverUp,
     canonicalPorts,
+    restartApps,
     migrationsHit: migrationsHit(files, config.live.migrations),
     depsChanged: depsHit,
     holder: primaryGit(['config', 'user.name']) || 'unknown',
@@ -7349,6 +7354,7 @@ async function specEnvLiveRelease(dir, config, specArg) {
     base,
     clean,
     worktreeExists,
+    restartApps: config.dev.filter((d) => d.reload === 'restart').map((d) => d.name),
   })
 
   if (plan.noop) {
@@ -7370,7 +7376,8 @@ async function specEnvLiveRelease(dir, config, specArg) {
 
   process.stdout.write(
     `spec-env live release: ${spec.folder} released — primary back on ${base}, ` +
-      `${spec.branch} re-isolated to its worktree.\n`,
+      `${spec.branch} re-isolated to its worktree.\n` +
+      plan.warnings.map((w) => `  ! ${w}\n`).join(''),
   )
 }
 

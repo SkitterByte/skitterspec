@@ -147,6 +147,29 @@ test('live take switches the primary checkout to the branch and writes a receipt
   }
 })
 
+test('live take and release name a restart app, and never probe its port', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    // Port 1 has nothing listening: a HOT entry there would refuse the take.
+    const configPath = path.join(dir, 'specs', '.core', 'env.config.json')
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+    config.dev = [{ name: 'api', command: 'dotnet run', portVar: 'PORT', frontPort: 1, reload: 'restart' }]
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+    git(dir, 'commit', '-q', '-am', 'restart app')
+
+    const take = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    assert.match(take, /feat-x is live on the primary checkout/)
+    assert.match(take, /restart api after the switch — it does not hot-reload/)
+    assert.doesNotMatch(take, /nothing to hot-reload; switching anyway/)
+
+    const release = await runQuiet(['spec-env', 'live', 'release', '--dir', dir])
+    assert.match(release, /feat-x released/)
+    assert.match(release, /restart api on main — it does not hot-reload/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('a second live take is refused while a spec holds the instance', async () => {
   const { dir } = scaffoldRepoWithSpecWorktree()
   try {

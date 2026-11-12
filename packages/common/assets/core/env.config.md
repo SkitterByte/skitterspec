@@ -242,6 +242,13 @@ through to a documented conservative default; see the field notes below.
   //              {portVar}/{port} expand here too. Omit for no health gate.
   //   frontPort  optional canonical origin this process fronts (e.g. 3000 for the
   //              UI, 8080 for the API) — used by the proxy to route to it.
+  //   reload     "hot" (default) or "restart". `live take` probes a hot entry's
+  //              frontPort and refuses when nothing answers. A "restart" entry —
+  //              an API run from Visual Studio or Rider — is never probed: take
+  //              and release name it to restart instead. An unrecognised value
+  //              reads as "hot". e.g. { "name": "api", "command": "dotnet run",
+  //              "portVar": "ASPNETCORE_HTTP_PORTS", "frontPort": 5000,
+  //              "reload": "restart" }
   "dev": [],
 
   // Front-door proxy for `spec-env connect <spec>` — a small bundled Node
