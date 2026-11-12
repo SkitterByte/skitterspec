@@ -183,6 +183,27 @@ function projectName(config) {
   return path.basename(projectIn(at.root, at.prefix || '')) || null
 }
 
+/**
+ * The name and category with where each came from — what `skitterspec project`
+ * shows, so a reader can tell a name they set from one inherited from the
+ * folder. `source` is `project.name` · `review.projectName` · `folder` ·
+ * `unset` for the name, `project.category` · `unset` for the category.
+ */
+function describeProject(config) {
+  const set = (v) => typeof v === 'string' && v.trim()
+  const p = (config && config.project) || {}
+  const r = (config && config.review) || {}
+  let name = { value: null, source: 'unset' }
+  if (set(p.name)) name = { value: p.name.trim(), source: 'project.name' }
+  else if (set(r.projectName)) name = { value: r.projectName.trim(), source: 'review.projectName' }
+  else {
+    const folder = projectName({ checkout: config && config.checkout })
+    if (folder) name = { value: folder, source: 'folder' }
+  }
+  const category = set(p.category) ? { value: p.category.trim(), source: 'project.category' } : { value: null, source: 'unset' }
+  return { name, category }
+}
+
 /** The project's category, trimmed — or null when none is set. */
 function projectCategory(config) {
   const c = config && config.project && config.project.category
@@ -246,6 +267,7 @@ module.exports = {
   attachProject,
   projectName,
   projectCategory,
+  describeProject,
   repoRootOf,
   prefixOf,
   projectLine,

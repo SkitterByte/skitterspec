@@ -83,6 +83,7 @@ const {
   attachProject,
   projectName,
   projectCategory,
+  describeProject,
   repoRootOf,
   prefixOf,
   toRepoPath,
@@ -210,7 +211,8 @@ const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfi
 const { planDev } = require('./env/dev.js')
 const { windowFor, windowLabel, humanLabel, localDay } = require('./tada/window.js')
 const { ROUTE: TADA_ROUTE, tadaQuery, recapKey: tadaRecapKey, recapPath: tadaRecapPath } = require('./tada/serve.js')
-const { defaultRoot } = require('./tada/transcripts.js')
+const { defaultRoot, knownDirs } = require('./tada/transcripts.js')
+const { setProjectKeys } = require('./env/projectedit.js')
 const { buildDigest, gitRepoOf } = require('./tada/digest.js')
 const { readRepoFacts } = require('./tada/repo.js')
 const { formatTada } = require('./tada/format.js')
@@ -336,6 +338,11 @@ Usage:
   skitterspec epic bypass <spec> [--phase N]
                               Build past an unmet wait, recorded as a dated
                               line in the member's Changelog.
+  skitterspec project         This project's name and category, and where each
+                              comes from. --name <n> / --category <c> set them
+                              in specs/.core/env.config.json ("" clears),
+                              editing only those keys; --categories lists the
+                              categories your other projects use (--json).
   skitterspec tada            What you did in Claude Code: the window's sessions,
                               commits and spec moves across every project,
                               folded into each repo and grouped by spec.
@@ -633,6 +640,128 @@ function inFlightRows(from) {
       : r,
   )
   return { anchor, present, rows }
+}
+
+/**
+ * `skitterspec project` — what this project is called and which category it is
+ * in, and the one way to set them. It writes the checkout it runs in (in a
+ * worktree, that is the branch), and leaves committing to the caller.
+ *
+ * NO env.config.json, NO WRITE. That file's presence is what turns isolation
+ * on, so creating it to hold a category would change how every skill behaves
+ * as a side effect of naming a project.
+ */
+function projectCommand(argv) {
+  const json = argv.includes('--json')
+  if (argv.includes('--categories')) return projectCategories(json)
+
+  const cwd = process.cwd()
+  const anchor = primaryAnchor(cwd, gitReader(cwd))
+  const top = gitReader(cwd)(['rev-parse', '--show-toplevel'])
+  // THE TREE YOU ARE STANDING IN, never the primary checkout: a worktree's
+  // config is the branch's, and that is where the change is meant to land.
+  const dir = top ? projectIn(path.resolve(top), anchor.prefix) : cwd
+  const file = path.join(dir, 'specs', '.core', 'env.config.json')
+  const refuse = (why) => {
+    process.stderr.write(`skitterspec project: ${why}\n`)
+    process.exitCode = 1
+  }
+
+  const changes = {}
+  for (const k of ['name', 'category']) {
+    const at = argv.indexOf(`--${k}`)
+    if (at === -1) continue
+    const v = argv[at + 1]
+    if (v === undefined || (v.startsWith('--') && v !== '')) return refuse(`--${k} needs a value ("" clears it)`)
+    changes[k] = v.trim()
+  }
+
+  if (!fs.existsSync(file)) {
+    if (Object.keys(changes).length) {
+      return refuse(
+        `no specs/.core/env.config.json here — it is what turns isolation on, so it is not created just to hold a ` +
+          `${Object.keys(changes).join(' and ')}. Adopt isolation first: skitterspec init --isolation`,
+      )
+    }
+  } else if (Object.keys(changes).length) {
+    let edited
+    try {
+      edited = setProjectKeys(fs.readFileSync(file, 'utf8'), changes)
+    } catch (e) {
+      return refuse(`${path.relative(cwd, file) || file}: ${e.message}`)
+    }
+    fs.writeFileSync(file, edited)
+  }
+
+  let config = {}
+  try {
+    config = loadEnvConfig(dir).config
+  } catch (e) {
+    return refuse(e.message)
+  }
+  attachProject(config, anchor)
+  const d = describeProject(config)
+  const wrote = Object.keys(changes)
+  if (json) {
+    process.stdout.write(JSON.stringify({ dir, file: fs.existsSync(file) ? file : null, ...d, wrote }, null, 2) + '\n')
+    return
+  }
+  const line = (label, x) => `  ${label.padEnd(9)} ${x.value === null ? '—' : x.value}  (${x.source})`
+  const out = [`project: ${dir}`, line('name:', d.name), line('category:', d.category)]
+  if (wrote.length) out.push('', `set ${wrote.join(' and ')} in specs/.core/env.config.json — commit it to keep it`)
+  else if (!fs.existsSync(file)) out.push('', 'no specs/.core/env.config.json — these are the defaults')
+  process.stdout.write(out.join('\n') + '\n')
+}
+
+// The categories the projects you work in already carry — so a new one picks
+// `work` rather than inventing `Work stuff` and splitting a report in two.
+// Projects are the repos your Claude Code sessions ran in; each is asked for
+// its own config.
+function projectCategories(json) {
+  const repos = new Set()
+  for (const d of knownDirs(defaultRoot())) {
+    const r = gitRepoOf(d)
+    if (r.repo) repos.add(r.repo)
+  }
+  const byCategory = new Map()
+  const none = []
+  for (const repo of [...repos].sort()) {
+    let category = null
+    let name = path.basename(repo)
+    try {
+      const { config } = loadEnvConfig(repo)
+      category = projectCategory(config)
+      name = (config.project && config.project.name && config.project.name.trim()) || name
+    } catch {
+      // An unreadable config is that repo's to fix; it simply has no answer.
+    }
+    if (!category) {
+      none.push(name)
+      continue
+    }
+    const key = category.toLowerCase()
+    if (!byCategory.has(key)) byCategory.set(key, { spellings: new Map(), projects: [] })
+    const row = byCategory.get(key)
+    row.spellings.set(category, (row.spellings.get(category) || 0) + 1)
+    row.projects.push(name)
+  }
+  // One category, however it was capitalised — shown as most projects spell
+  // it, the tie broken alphabetically so the answer does not depend on which
+  // repo happened to be read first.
+  const rows = [...byCategory.values()]
+    .map(({ spellings, projects }) => ({
+      category: [...spellings].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0][0],
+      projects,
+    }))
+    .sort((a, b) => b.projects.length - a.projects.length || a.category.localeCompare(b.category))
+  if (json) {
+    process.stdout.write(JSON.stringify({ categories: rows, uncategorised: none }, null, 2) + '\n')
+    return
+  }
+  const width = Math.max(8, ...rows.map((r) => r.category.length))
+  const out = rows.length ? ['categories in use:', ...rows.map((r) => `  ${r.category.padEnd(width)}  ${r.projects.length}  ${r.projects.join(', ')}`)] : ['no project has a category yet']
+  if (none.length) out.push(`uncategorised: ${none.join(', ')}`)
+  process.stdout.write(out.join('\n') + '\n')
 }
 
 /**
@@ -7712,6 +7841,11 @@ async function run(argv) {
 
   if (cmd === 'status') {
     inFlightStatus(rest)
+    return
+  }
+
+  if (cmd === 'project') {
+    projectCommand(rest)
     return
   }
 

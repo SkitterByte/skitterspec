@@ -207,8 +207,46 @@ function trimPrompts(prompts) {
   }
 }
 
+// Enough of a transcript to see where its session ran. A session's first
+// entries carry its cwd; reading the whole file to learn that is how listing
+// every project would cost a minute.
+const HEAD_BYTES = 64 * 1024
+
+/**
+ * Every directory any session ran in — read from the head of each transcript,
+ * plus the folder each session was launched from. All time, not a window: this
+ * answers "which projects do you work in", for `skitterspec project
+ * --categories`. Resolving them to repos is the caller's.
+ */
+function knownDirs(root) {
+  const dirs = new Set()
+  for (const file of listTranscripts(root, new Date(0))) {
+    const launch = launchDir(path.basename(path.dirname(file)))
+    if (launch) dirs.add(launch)
+    let head = ''
+    try {
+      const fd = fs.openSync(file, 'r')
+      const buf = Buffer.alloc(HEAD_BYTES)
+      const n = fs.readSync(fd, buf, 0, HEAD_BYTES, 0)
+      fs.closeSync(fd)
+      head = buf.subarray(0, n).toString('utf8')
+    } catch {
+      continue
+    }
+    for (const m of head.matchAll(/"cwd":"((?:[^"\\]|\\.)*)"/g)) {
+      try {
+        dirs.add(JSON.parse(`"${m[1]}"`))
+      } catch {
+        // a cwd cut off at the head's edge — the next line will carry it
+      }
+    }
+  }
+  return [...dirs]
+}
+
 module.exports = {
   defaultRoot,
+  knownDirs,
   launchDir,
   listTranscripts,
   readPrompt,

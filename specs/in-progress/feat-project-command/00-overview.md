@@ -94,7 +94,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | `skitterspec project`: read, write, list categories | ⬜ | [01-project-command.md](01-project-command.md) |
+| 1 | `skitterspec project`: read, write, list categories | ✅ | [01-project-command.md](01-project-command.md) |
 | 2 | `/spec-init` asks for name and category | ⬜ | [02-spec-init.md](02-spec-init.md) |
 
 ## Open questions
@@ -104,3 +104,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-12 — Spec created, following #191.
+- 2026-11-12 — Phase 1: the text edit lives in `env/projectedit.js` and
+  checks itself — the edited file must parse to exactly the intended config,
+  or nothing is written. `--categories` reads only the head of each
+  transcript for its cwd (~0.1s over all of them), and shows a category in
+  the spelling most projects use, so the order repos are read in cannot
+  change the answer.
