@@ -5,6 +5,11 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 19.9.1 — 12 Nov 2026
+
+### Tada
+- **Fixed** — /spec-tada now finds the sessions for a repo on Windows too, including with --here.
+
 ## 19.9.0 — 12 Nov 2026
 
 **Highlights:** The epic page and epic status now show how far along an epic is, group members into in flight, ready, waiting and done, and end on numbered next steps saying what to type in which tab.
