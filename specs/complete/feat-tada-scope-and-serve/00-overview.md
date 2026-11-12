@@ -138,3 +138,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   (`since-2026-11-06`), so a since-window keeps its recap as it grows.
   The live server gains the route once this lands and the primary
   checkout's engine is rebuilt; until then it answers 404 there.
+- 2026-11-12 — Completion: `docs/index.html` re-read for the covered skill
+  and CLI changes — its one `/spec-tada` line still holds; `verified:`
+  bumped.
+- 2026-11-12 — Completed; all phases done, tests green.
