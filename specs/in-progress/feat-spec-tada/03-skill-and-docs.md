@@ -21,7 +21,8 @@ digest, installed by `init`/`update` and documented.
       distributions pick it up)
 - [ ] Add the skill to `spec-planning.md`'s table and
       `claude-md-section.md`
-- [ ] Document the `tada` verb in `docs/reference.html`; bump its
-      `verified:`
+- [ ] Extend the `tada` row in `docs/reference.html` (added in phase 1)
+      for spec grouping; add `packages/common/src/tada/**` to its `covers`;
+      bump its `verified:`
 - [ ] Tests: text output snapshot; install test lists `spec-tada`; run
       `pnpm typecheck` and `pnpm test` — green

@@ -205,6 +205,9 @@ const { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, e
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
+const { windowFor } = require('./tada/window.js')
+const { defaultRoot } = require('./tada/transcripts.js')
+const { buildDigest } = require('./tada/digest.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
 const {
   renderRoutes,
@@ -326,6 +329,11 @@ Usage:
   skitterspec epic bypass <spec> [--phase N]
                               Build past an unmet wait, recorded as a dated
                               line in the member's Changelog.
+  skitterspec tada            What you did in Claude Code: the window's sessions
+                              across every project, folded into each repo and
+                              grouped by branch (--since today|yesterday|
+                              <weekday>|YYYY-MM-DD, --here for this repo only,
+                              --json). Reads ~/.claude/projects; always exits 0.
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -600,6 +608,53 @@ function inFlightStatus(argv) {
     return
   }
   process.stdout.write(projectLine(anchor) + formatInFlight(rows, { dir }))
+}
+
+/**
+ * `skitterspec tada` — the ta-da list's digest: what was done in the window,
+ * across every project, folded into repos and grouped by branch. Advisory and
+ * read-only: always exits 0, a quiet day included — an empty answer is not a
+ * finding. Only a `--since` it cannot read refuses, because a window guessed
+ * from a typo would report the wrong day with total confidence.
+ */
+async function tadaCommand(argv) {
+  const json = argv.includes('--json')
+  const at = argv.indexOf('--since')
+  let window
+  try {
+    window = windowFor(at !== -1 ? argv[at + 1] : undefined)
+  } catch (e) {
+    process.stderr.write(`skitterspec tada: ${e.message}\n`)
+    process.exitCode = 1
+    return
+  }
+  const digest = await buildDigest({
+    root: defaultRoot(),
+    window,
+    here: argv.includes('--here') ? process.cwd() : null,
+  })
+  if (json) {
+    process.stdout.write(JSON.stringify(digest, null, 2) + '\n')
+    return
+  }
+  process.stdout.write(formatTada(digest))
+}
+
+function formatTada(digest) {
+  const out = [`ta-da: ${digest.window.since} → ${digest.window.until}`]
+  if (digest.projects.length === 0) out.push('  nothing in this window.')
+  for (const p of digest.projects) {
+    out.push('', `${p.name}${p.repo ? `  (${p.repo})` : '  (not a git repo)'}`)
+    for (const g of p.groups) {
+      out.push(`  ${g.branch || '(no branch)'} — ${g.sessions.length} session(s)`)
+      for (const s of g.sessions) {
+        for (const pr of s.prompts) out.push(`    - ${pr.command ? `${pr.command} ` : ''}${pr.text}`.trimEnd())
+        if (s.omitted) out.push(`    … ${s.omitted} more`)
+      }
+    }
+  }
+  for (const n of digest.notes) out.push('', n)
+  return out.join('\n') + '\n'
 }
 
 /**
@@ -7527,6 +7582,11 @@ async function run(argv) {
 
   if (cmd === 'status') {
     inFlightStatus(rest)
+    return
+  }
+
+  if (cmd === 'tada') {
+    await tadaCommand(rest)
     return
   }
 

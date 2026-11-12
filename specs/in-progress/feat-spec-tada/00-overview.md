@@ -131,7 +131,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Transcript digest by repo and branch | ⬜ | [01-transcript-digest.md](01-transcript-digest.md) |
+| 1 | Transcript digest by repo and branch | ✅ | [01-transcript-digest.md](01-transcript-digest.md) |
 | 2 | Git, spec attribution and open items | ⬜ | [02-git-and-specs.md](02-git-and-specs.md) |
 | 3 | `/spec-tada` skill, text output, docs | ⬜ | [03-skill-and-docs.md](03-skill-and-docs.md) |
 | 4 | Optional HTML page | ⬜ | [04-html-page.md](04-html-page.md) |
@@ -143,3 +143,15 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-11 — Spec created, seeded from a draft `today` skill.
+- 2026-11-12 — Phase 1: a session that only ever stood in a torn-down
+  worktree has no live cwd to fold from, so the repo also falls back to the
+  transcript folder's launch directory, decoded only where exactly one
+  spelling exists on disk. Torn-down cwds are one counted note, not one per
+  directory — they are the normal end of a spec.
+- 2026-11-12 — Phase 1: built-in housekeeping commands (`/clear`,
+  `/compact`, …) and compaction summaries are dropped from the digest;
+  skill commands stay as events.
+- 2026-11-12 — Phase 1: the `docs/reference.html` row moved forward from
+  phase 3 — the published-docs test requires every top-level command on the
+  site. Its `covers` glob waits for phase 3 (a glob over untracked files
+  fails the build).
