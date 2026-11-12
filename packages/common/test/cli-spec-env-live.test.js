@@ -147,6 +147,71 @@ test('live take switches the primary checkout to the branch and writes a receipt
   }
 })
 
+// Set land.strategy on the scaffold's committed config, keeping the tree clean.
+function setLand(dir, land) {
+  const configPath = path.join(dir, 'specs', '.core', 'env.config.json')
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+  config.land = land
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+  git(dir, 'commit', '-q', '-am', 'land config')
+}
+
+test('live take under PR landing rebases onto the fetched remote base', async () => {
+  const { dir, worktree } = scaffoldRepoWithSpecWorktree()
+  const remote = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-live-remote-')))
+  const other = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'skitterspec-live-other-')))
+  try {
+    setLand(dir, { strategy: 'pr' })
+    execFileSync('git', ['init', '-q', '--bare', remote])
+    git(dir, 'remote', 'add', 'origin', remote)
+    git(dir, 'push', '-q', 'origin', 'main')
+    // Someone else merges a PR: the remote base moves, local main does not.
+    execFileSync('git', ['clone', '-q', '-b', 'main', remote, other])
+    git(other, 'config', 'user.email', 'o@example.com')
+    git(other, 'config', 'user.name', 'Other')
+    fs.writeFileSync(path.join(other, 'merged.txt'), 'merged\n')
+    git(other, 'add', '-A')
+    git(other, 'commit', '-q', '-m', 'merged elsewhere')
+    git(other, 'push', '-q', 'origin', 'main')
+
+    const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    assert.match(out, /feat-x is live on the primary checkout/)
+    assert.match(out, /rebased: +onto origin\/main/)
+    // The live branch carries the remote's commit, which local main never saw.
+    assert.ok(fs.existsSync(path.join(dir, 'merged.txt')))
+    assert.ok(fs.existsSync(path.join(dir, 'change.txt')))
+    assert.strictEqual(git(worktree, 'rev-parse', '--abbrev-ref', 'HEAD'), 'HEAD')
+  } finally {
+    cleanup(dir)
+    fs.rmSync(remote, { recursive: true, force: true })
+    fs.rmSync(other, { recursive: true, force: true })
+  }
+})
+
+test('live take under PR landing with no remote falls back to local base and says so', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    setLand(dir, { strategy: 'pr' })
+    const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    assert.match(out, /feat-x is live on the primary checkout/)
+    assert.match(out, /could not fetch origin\/main — rebased onto local main/)
+    assert.doesNotMatch(out, /rebased: +onto/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
+test('live take under trunk landing never fetches or mentions a remote base', async () => {
+  const { dir } = scaffoldRepoWithSpecWorktree()
+  try {
+    const out = await runQuiet(['spec-env', 'live', 'take', 'feat-x', '--dir', dir])
+    assert.match(out, /feat-x is live on the primary checkout/)
+    assert.doesNotMatch(out, /could not fetch|rebased: +onto/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('live take and release name a restart app, and never probe its port', async () => {
   const { dir } = scaffoldRepoWithSpecWorktree()
   try {

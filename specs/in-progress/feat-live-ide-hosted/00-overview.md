@@ -113,7 +113,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Dependency changes from `setup` `when` globs | ✅ | [01-deps-from-setup-when.md](01-deps-from-setup-when.md) |
 | 2 | `dev[].reload` — restart-hosted apps | ✅ | [02-restart-dev-entries.md](02-restart-dev-entries.md) |
-| 3 | PR-mode rebase onto remote base + migrations docs | ⬜ | [03-pr-remote-base-and-docs.md](03-pr-remote-base-and-docs.md) |
+| 3 | PR-mode rebase onto remote base + migrations docs | ✅ | [03-pr-remote-base-and-docs.md](03-pr-remote-base-and-docs.md) |
 
 ## Open questions
 
@@ -131,3 +131,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `config.js` is read (`mode`, `land.strategy`), and `hot` is the conservative
   reading because it keeps the listening check. The `/spec-live` command text
   needed no change: it relays the engine's warnings verbatim.
+- 2026-11-12 — Phase 3: the engine prints a `rebased: onto <remote>/<base>`
+  line itself, so the `/spec-live` command text again needed no change.
+  `spec-planning.md`'s live overlay paragraph now names the remote base. The
+  fallback also covers a fetch that succeeds without producing the ref
+  (`rev-parse --verify`), not only a failed fetch.

@@ -236,7 +236,8 @@ when `env.config.json` is absent — every skill then behaves as it does today.
 runs a spec's *own* dev stack and proxies the canonical ports to it (one stack per
 spec). **Live overlay** instead reuses the one dev server you already have running:
 `/spec-live <spec>` — or a bare `/spec-live`, which takes the spec you are
-standing on — rebases the branch onto base, frees it from its worktree, and
+standing on — rebases the branch onto base (the fetched remote base under PR
+landing), frees it from its worktree, and
 checks it out **in the primary checkout**, so your running server hot-reloads the
 feature at the normal URL — no second stack, no proxy. Bare only acts when there
 is exactly one answer *and* the workbench is free; anything else prints the

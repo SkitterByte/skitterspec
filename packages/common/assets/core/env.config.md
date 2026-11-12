@@ -399,8 +399,14 @@ through to a documented conservative default; see the field notes below.
   // `migrations` is a list of globs (`**`, `*`, `?`) marking migration files; a
   // branch that changes any of them is treated as STATEFUL and `live take`
   // refuses it (code-only v1 — use `/spec-connect` for those). Default: none.
+  // Nothing is detected for you: an EF Core project wants
+  // ["**/Migrations/**"], so a spec adding a migration is refused rather than
+  // applied to the shared dev database.
   // A branch changing a manifest a `setup` entry's `when` names (or an npm
   // lockfile) is let through with a "restart your dev server" warning.
+  // Under `land.strategy: "pr"` take fetches and rebases onto
+  // `<land.remote>/<base>`, since local base moves only when you pull; a
+  // failed fetch falls back to local base and says so.
   "live": {
     "migrations": []
   },

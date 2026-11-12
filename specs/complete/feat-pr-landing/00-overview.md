@@ -160,6 +160,10 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 ## Changelog
 
+- 2026-11-12 — Reversed for `live take` by `feat-live-ide-hosted`: under PR
+  landing it now fetches and rebases onto `<remote>/<base>`, falling back to
+  local base with a note when the fetch fails. The worktree fork point is
+  unchanged. The entry below stands as the original reasoning.
 - 2026-11-06 — Completed; all phases done, tests green.
 - 2026-11-06 — Phase 6: the planned `--no-merges` was built and then **reverted
   within the phase** — linear's stays-silent test proved it lossy (a hand

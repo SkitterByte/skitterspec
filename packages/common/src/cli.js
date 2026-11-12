@@ -7190,6 +7190,30 @@ function bareLive(dir, config) {
   return { action: 'take', specArg: choice.folder }
 }
 
+// What `live take` rebases onto. Under PR landing the base branch moves only
+// when the host merges, so local base is as stale as the last pull: fetch and
+// rebase onto `<remote>/<base>`, which is also what the landing rebase targets.
+// The take already rewrites the branch on every run, and the PR push is
+// `--force-with-lease`, so this puts nothing new at risk. Trunk landing keeps
+// local base — there the base branch is local work.
+//
+// WHAT WOULD FOOL THIS: a failed fetch (offline, no such remote, no such branch
+// there) says nothing about whether the remote base moved. That is cannot-tell,
+// so it falls back to local base and says so — never a refusal.
+function liveRebaseTarget(dir, config, base) {
+  if (config.land.strategy !== 'pr') return { onto: base, note: null }
+  const remote = baseRemote(config)
+  const onto = `${remote}/${base}`
+  const fetched = runGit(dir, ['fetch', remote, base]).ok
+  if (fetched && gitReader(dir)(['rev-parse', '--verify', '--quiet', `refs/remotes/${onto}`])) {
+    return { onto, note: null }
+  }
+  return {
+    onto: base,
+    note: `could not fetch ${onto} — rebased onto local ${base}, which may be behind the remote`,
+  }
+}
+
 // Take the running instance: rebase the spec's branch onto base, free it from its
 // worktree, and check it out in the primary checkout so the dev server reloads it.
 async function specEnvLiveTake(dir, config, specArg, flags = {}) {
@@ -7207,9 +7231,11 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   const wtStatus = worktreeExists ? gitReader(spec.worktreePath)(['status', '--porcelain']) : ''
   const worktreeClean = wtStatus !== null && wtStatus.length === 0
   const baseMainCommit = primaryGit(['rev-parse', 'HEAD'])
+  const { onto, note: rebaseNote } = liveRebaseTarget(dir, config, base)
 
-  // Diff base...branch to spot migration / dependency changes (best-effort).
-  const changed = primaryGit(['diff', '--name-only', `${base}...${spec.branch}`])
+  // Diff onto...branch to spot migration / dependency changes (best-effort) —
+  // against the target the rebase will replay over, so both read the same commits.
+  const changed = primaryGit(['diff', '--name-only', `${onto}...${spec.branch}`])
   const files = changed ? changed.split('\n').filter(Boolean) : []
   const depsHit = depsChanged(files, config.setupTriggers)
 
@@ -7235,6 +7261,8 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     worktreeExists,
     base,
     baseMainCommit,
+    rebaseOnto: onto,
+    rebaseNote,
     serverUp,
     canonicalPorts,
     restartApps,
@@ -7277,7 +7305,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   }
 
   // Execute the switch. Rebase first; on conflict, abort and bail (state untouched).
-  const reb = runGit(spec.worktreePath, ['rebase', base])
+  const reb = runGit(spec.worktreePath, ['rebase', onto])
   if (!reb.ok) {
     // A rebase fails two ways and they need different answers. It can REFUSE TO
     // START (unstaged changes, a missing base) — nothing to abort, nothing to
@@ -7288,9 +7316,9 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     if (started) runGit(spec.worktreePath, ['rebase', '--abort'])
     process.stdout.write(
       started
-        ? `spec-env live take: rebase of ${spec.branch} onto ${base} hit conflicts — ` +
+        ? `spec-env live take: rebase of ${spec.branch} onto ${onto} hit conflicts — ` +
             `resolve them in ${spec.worktreePath}, then retry.\n`
-        : `spec-env live take: rebase of ${spec.branch} onto ${base} could not start — ` +
+        : `spec-env live take: rebase of ${spec.branch} onto ${onto} could not start — ` +
             `git said:\n    ${reb.err.split('\n').join('\n    ')}\n`,
     )
     return
@@ -7316,6 +7344,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   out.push('')
   out.push(`  primary:   now on ${receipt.branch} (was ${base} @ ${receipt.baseMainCommit.slice(0, 7)})`)
   out.push(`  worktree:  ${spec.worktreePath} (detached — branch handed to the primary checkout)`)
+  if (onto !== base) out.push(`  rebased:   onto ${onto} (PR landing — the remote base)`)
   for (const w of plan.warnings) out.push(`  ! ${w}`)
   out.push('')
   out.push('  Test at your canonical URL; release with: /spec-live main')

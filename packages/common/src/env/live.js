@@ -233,7 +233,10 @@ function restartReminders(names, when) {
  *   clean          boolean — primary checkout working tree is clean
  *   worktreeClean  boolean — the SPEC WORKTREE's tree is clean (the rebase runs there)
  *   worktreeExists boolean — the spec's worktree is on disk
- *   base           resolved base branch name (rebase target)
+ *   base           resolved base branch name (the workbench release returns to)
+ *   rebaseOnto     the rebase target — `<remote>/<base>` under PR landing,
+ *                  else omitted, meaning `base`
+ *   rebaseNote     string|null — why the target fell back to local base
  *   baseMainCommit primary HEAD before the switch (receipt / crash recovery)
  *   serverUp       true | false | null — null = no canonical ports declared → no gate
  *   canonicalPorts number[] — declared canonical (frontPort) ports of the HOT
@@ -257,6 +260,7 @@ function planTake(spec, config, ctx) {
     warnings: [],
     receipt: null,
     base,
+    onto: c.rebaseOnto || base,
     branch,
     worktreePath: spec.worktreePath,
   }
@@ -371,11 +375,12 @@ function planTake(spec, config, ctx) {
     warnings.push('no canonical dev ports configured — nothing to hot-reload; switching anyway')
   }
   warnings.push(...restartReminders(restartApps, 'after the switch'))
+  if (c.rebaseNote) warnings.push(c.rebaseNote)
 
   return {
     ...result,
     commands: [
-      `git -C ${shellPath(spec.worktreePath)} rebase ${base}`,
+      `git -C ${shellPath(spec.worktreePath)} rebase ${c.rebaseOnto || base}`,
       `git -C ${shellPath(spec.worktreePath)} switch --detach`,
       `git -C ${shellPath(c.primaryPath)} checkout ${branch}`,
     ],

@@ -250,6 +250,23 @@ test('planTake still refuses when a HOT server is down beside a restart app', ()
   assert.match(plan.reason, /no dev server listening on canonical port\(s\) 3000/)
 })
 
+test('planTake rebases onto rebaseOnto when given, and onto base otherwise', () => {
+  const pr = planTake(SPEC, {}, okCtx({ rebaseOnto: 'origin/main' }))
+  assert.strictEqual(pr.commands[0], 'git -C /wt/x rebase origin/main')
+  assert.strictEqual(pr.onto, 'origin/main')
+  assert.strictEqual(pr.base, 'main')
+
+  const trunk = planTake(SPEC, {}, okCtx())
+  assert.strictEqual(trunk.commands[0], 'git -C /wt/x rebase main')
+  assert.strictEqual(trunk.onto, 'main')
+})
+
+test('planTake carries a fallback note as a warning, never a refusal', () => {
+  const plan = planTake(SPEC, {}, okCtx({ rebaseNote: 'could not fetch origin/main — rebased onto local main' }))
+  assert.strictEqual(plan.blocked, false)
+  assert.match(plan.warnings.join('\n'), /could not fetch origin\/main/)
+})
+
 test('planTake adds no restart reminder when no entry declares restart', () => {
   const plan = planTake(SPEC, {}, okCtx())
   assert.deepStrictEqual(plan.warnings, [])
