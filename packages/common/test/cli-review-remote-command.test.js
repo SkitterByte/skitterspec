@@ -184,15 +184,15 @@ test('the command publishes only a page the engine names, and is per spec', () =
 // belongs: it is the main guard's exit, not a review tier. `spec-skip` did
 // too, and belongs for the same shape of reason: it is the REVIEW GATE's exit —
 // the same `spec-env review skip "<reason>"` that always existed, at an address
-// a person will type — and not a tier toggle. `epic` did too: it re-shows an
+// a person will type — and not a tier toggle. `spec-epic` did too: it re-shows an
 // epic's next actions and its page, which is a read, not a tier.
 test('STAYS SILENT: no command was shipped for the tier nobody touches', () => {
   const dir = path.dirname(COMMAND)
   const shipped = fs.readdirSync(dir).sort()
   assert.deepStrictEqual(shipped, [
     'allow-main.md',
-    'epic.md',
     'spec-connect.md',
+    'spec-epic.md',
     'spec-live.md',
     'spec-remote-review.md',
     'spec-skip.md',

@@ -467,3 +467,39 @@ test('stays silent: an edited spec-live skill is kept, not deleted', async () =>
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// `/epic` was renamed `/spec-epic` (spec feat-spec-epic-commands): the old
+// command is in the manifest and no longer shipped, so the same prune applies.
+function seedRetiredCommand(dir, name, body) {
+  const rel = path.join('.claude', 'commands', name)
+  const abs = path.join(dir, rel)
+  fs.writeFileSync(abs, body)
+  const manifest = readManifest(dir)
+  manifest.files[rel] = sha1(body)
+  writeManifest(dir, manifest.files)
+  return rel
+}
+
+test('resync retires a pristine /epic command and installs /spec-epic', async () => {
+  const dir = await installInto()
+  try {
+    const rel = seedRetiredCommand(dir, 'epic.md', '# old command\n')
+    quietResync(dir)
+    assert.ok(!fs.existsSync(path.join(dir, rel)), 'the renamed command was removed')
+    assert.ok(fs.existsSync(cmdPath(dir, 'spec-epic.md')), 'its new name is installed')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('stays silent: an edited /epic command is kept, not deleted', async () => {
+  const dir = await installInto()
+  try {
+    const rel = seedRetiredCommand(dir, 'epic.md', '# old command\n')
+    fs.writeFileSync(path.join(dir, rel), '# old command, with my notes\n')
+    quietResync(dir)
+    assert.ok(fs.existsSync(path.join(dir, rel)), 'a user edit is never discarded')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})

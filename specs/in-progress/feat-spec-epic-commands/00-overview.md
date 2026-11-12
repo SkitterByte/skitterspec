@@ -138,7 +138,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Rename `/epic` → `/spec-epic` | ⬜ | [01-rename-epic-command.md](01-rename-epic-command.md) |
+| 1 | Rename `/epic` → `/spec-epic` | ✅ | [01-rename-epic-command.md](01-rename-epic-command.md) |
 | 2 | `/spec-epic-next` skill and the `/spec-complete` hand-off | ⬜ | [02-spec-epic-next.md](02-spec-epic-next.md) |
 | 3 | Epic view grouped by state, with next steps | ⬜ | [03-epic-page-grouped.md](03-epic-page-grouped.md) |
 
@@ -150,3 +150,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 - 2026-11-12 — Spec created.
 - 2026-11-12 — Added phase 3 (epic page rework) from review of a live epic page.
+- 2026-11-12 — Phase 1: the docs pages' `verified:` were not bumped. Each
+  edit was a one-token rename and the rest of each page was not re-read, the
+  same call feat-epic-next made for `index`. The published-docs token pattern
+  keeps `epic`, so a stray `/epic` left in the docs now fails as an unknown
+  command rather than passing unnoticed.

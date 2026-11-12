@@ -138,7 +138,7 @@ same files. Propose it as *"several specs with an order between them → epic"*,
 and on a yes write the epic **and** each member as its own spec — the epic is
 not a container for their phases (see **Writing an epic** below).
 
-There is no `/spec-chore`, `/spec-issue` or `/spec-epic` and none should be added: one entry
+There is no `/spec-chore`, `/spec-issue` or epic-writing door and none should be added (`/spec-epic` reads an epic's status; it writes nothing): one entry
 point, one grill, and the kind is an output of understanding the work rather
 than a door the user must pick before describing it. The kinds with their own
 doors — bug, hotfix, and the **incident**, an outage or degradation of a live

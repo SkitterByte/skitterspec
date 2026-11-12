@@ -35,7 +35,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-remote-review` | Permit (or forbid) reviewing from off your network |
 | `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
-| `/epic` | What every member of an epic needs next, in which tab, and the epic page |
+| `/spec-epic` | What every member of an epic needs next, in which tab, and the epic page |
 <!-- commands:end -->
 
 The last three are **slash commands** rather than skills: each pre-executes one

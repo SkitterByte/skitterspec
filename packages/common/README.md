@@ -45,7 +45,7 @@ the operator can run them.
 | `/spec-remote-review` | Permit (or forbid) publishing a review for a reader off the network |
 | `/allow-main` | Allow writes on the base branch for this session — yours to run, never Claude's |
 | `/spec-skip` | Move on from a phase without a verdict, reason recorded — yours to run, never Claude's |
-| `/epic` | What every member of an epic needs next, in which tab, and the epic page |
+| `/spec-epic` | What every member of an epic needs next, in which tab, and the epic page |
 
 <!-- commands:end -->
 

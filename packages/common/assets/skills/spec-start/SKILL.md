@@ -399,7 +399,7 @@ tiers. Two things go in the block, both copied from it rather than composed:
 **This tab is the epic's from here.** The members are built in tabs of their
 own; this one is where the operator comes back to see what each needs. On a
 phone the in-app browser has to close to switch tabs, so the page link must be
-one command away rather than scrolled past: **`/epic`** re-shows the table and
+one command away rather than scrolled past: **`/spec-epic`** re-shows the table and
 the page, and the block names it.
 
 **`checkout` mode — carry straight on into `/spec-next`** in this session: it
@@ -473,7 +473,7 @@ operator's next command depends on knowing that. `Next` is `/spec-next`.
 
 **An epic is the one exception, both ways.** `Review` appears only for an epic,
 carrying its page's stack, and its `Next` is the members to start in new tabs
-— with `/epic` to bring the table and the page back (step 6).
+— with `/spec-epic` to bring the table and the page back (step 6).
 
 `Untouched` appears only when `spec-env up` reported uncommitted work that was
 not this spec's — say how much and whose, and **keep the verdict `✅`**. Nothing

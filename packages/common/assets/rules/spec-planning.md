@@ -136,7 +136,7 @@ skip — never a flag. Putting the flag on `/commit` was the other suggestion an
 is worse: `/commit` belongs to skittership, which is why the gate is enforced
 by a hook rather than by editing that skill.
 
-**`/epic` is the sixth command**, and it is user-only for the mild reason: it
+**`/spec-epic` is the sixth command**, and it is user-only for the mild reason: it
 pre-executes `skitterspec epic status` and relays it, so there is no judgement
 to apply. It exists for the tab an epic is run from — each member is built in
 a tab of its own, and on a phone the in-app browser has to close to switch
