@@ -5,6 +5,28 @@ What's new for users of skitterspec-linear. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 19.9.0 — 12 Nov 2026
+
+**Highlights:** The epic page and epic status now show how far along an epic is, group members into in flight, ready, waiting and done, and end on numbered next steps saying what to type in which tab.
+
+### Epic
+- **New** — The epic page and epic status now show how far along an epic is, group members into in flight, ready, waiting and done, and end on numbered next steps saying what to type in which tab.
+- **New** — /spec-epic-next tells you which epic member can start now and gives you the /spec-start to run in a new tab. Finishing an epic member now points you straight at it.
+- **New** — The epic status command is now /spec-epic, matching the other spec commands. Running skitterspec update removes the old /epic.
+
+### Install
+- **New** — /spec-init now asks for the project's name and category, suggesting the categories your other projects already use, and `skitterspec init --isolation` accepts --name and --category.
+- **New** — `skitterspec project` shows a project's name and category and where each comes from; --name and --category set them without touching the rest of env.config.json, and --categories lists the categories your other projects already use.
+
+### Release tooling
+- **New** — Give a project a name and a category (work, personal, a client) in env.config.json: the name heads every page, and /spec-tada reports only the projects sharing your category unless you ask for --all-projects.
+
+### Tada
+- **New** — /spec-tada --page now opens on your phone: the review server serves the recap at the same addresses as your review pages, with dates written the way you would write them.
+- **New** — /spec-tada leaves out chat on branches with no spec, unless it led to one, so your recap is about the work; --chat brings it all back.
+- **New** — /spec-tada now understands "last friday", "3 days ago", "2w" and dates like "6 Nov", can recap a single day as well as everything since one, and can save the recap as a page.
+- **New** — Type /spec-tada (or ask "what did I do today?") for a ta-da list of your day in Claude Code: what landed, what you explored and what is still in flight, across every project and grouped by spec, ending in a three-line standup.
+
 ## 19.8.0 — 11 Nov 2026
 
 ### Env
