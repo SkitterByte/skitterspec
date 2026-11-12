@@ -119,7 +119,7 @@ next · blockers).
 
 | Surface | Change | Detail |
 |---------|--------|--------|
-| CLI command | add | `skitterspec tada [--since] [--here] [--json] [--page --summary <file>]` |
+| CLI command | add | `skitterspec tada [--since <when> or --on <when>] [--here] [--json] [--page --summary <file>]` |
 | Skill/rule | add | `/spec-tada` skill (model-invocable) |
 | Skill/rule | update | spec-planning.md skill table, claude-md-section.md |
 | Docs | update | docs/reference.html — `tada` verb |
@@ -134,7 +134,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | 1 | Transcript digest by repo and branch | ✅ | [01-transcript-digest.md](01-transcript-digest.md) |
 | 2 | Git, spec attribution and open items | ✅ | [02-git-and-specs.md](02-git-and-specs.md) |
 | 3 | `/spec-tada` skill, text output, docs | ✅ | [03-skill-and-docs.md](03-skill-and-docs.md) |
-| 4 | Optional HTML page | ⬜ | [04-html-page.md](04-html-page.md) |
+| 4 | Optional HTML page, and richer dates | ✅ | [04-html-page.md](04-html-page.md) |
 
 ## Open questions
 
@@ -171,3 +171,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `spec-init`'s skill list, and this repo's own `CLAUDE.md`, which must
   match the shipped section. The formatter moved to `tada/format.js` to be
   tested on its own.
+- 2026-11-12 — Asked for mid-phase-4, and built in it: relative and named
+  dates (`last friday` within a week, `3 days ago`, `2w`, `last week`) and
+  written-out dates (`6 Nov`, `Nov 6 2025`), for `--since` and a new
+  `--on <when>` that covers one day. Extends Decision 4. A numeric `11/12`
+  is refused rather than guessed — it is a different day in London and New
+  York. Values may be several words, unquoted.
+- 2026-11-12 — Phase 4: the page is offered as a `Notes` line ("`--page`
+  renders one"), not a picker — a picker after every recap would be shown
+  reflexively and dismissed. The page's file name and title use local dates
+  (`windowLabel`); the digest keeps UTC instants for scripts.

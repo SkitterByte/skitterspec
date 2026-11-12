@@ -2,6 +2,8 @@
 
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
+const { pathToFileURL } = require('url')
 const { execFileSync } = require('child_process')
 const { init, resync, reset, checkSync, isExistingSetup } = require('./init.js')
 const {
@@ -205,11 +207,12 @@ const { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, e
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
-const { windowFor } = require('./tada/window.js')
+const { windowFor, windowLabel } = require('./tada/window.js')
 const { defaultRoot } = require('./tada/transcripts.js')
 const { buildDigest } = require('./tada/digest.js')
 const { readRepoFacts } = require('./tada/repo.js')
 const { formatTada } = require('./tada/format.js')
+const { renderTadaPage } = require('./tada/page.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
 const {
   renderRoutes,
@@ -331,11 +334,15 @@ Usage:
   skitterspec epic bypass <spec> [--phase N]
                               Build past an unmet wait, recorded as a dated
                               line in the member's Changelog.
-  skitterspec tada            What you did in Claude Code: the window's sessions
-                              across every project, folded into each repo and
-                              grouped by branch (--since today|yesterday|
-                              <weekday>|YYYY-MM-DD, --here for this repo only,
-                              --json). Reads ~/.claude/projects; always exits 0.
+  skitterspec tada            What you did in Claude Code: the window's sessions,
+                              commits and spec moves across every project,
+                              folded into each repo and grouped by spec.
+                              --since <when> (to now) or --on <when> (that day):
+                              today, yesterday, last friday, 3 days ago, 2w,
+                              2026-11-06 or 6 Nov. --here for this repo only,
+                              --json, --page [--summary <recap.md>] for an HTML
+                              page. Reads ~/.claude/projects; exits 0 unless the
+                              window cannot be read.
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -631,10 +638,9 @@ function inFlightRows(from) {
  */
 async function tadaCommand(argv) {
   const json = argv.includes('--json')
-  const at = argv.indexOf('--since')
   let window
   try {
-    window = windowFor(at !== -1 ? argv[at + 1] : undefined)
+    window = windowFor({ since: tadaFlag(argv, '--since'), on: tadaFlag(argv, '--on') })
   } catch (e) {
     process.stderr.write(`skitterspec tada: ${e.message}\n`)
     process.exitCode = 1
@@ -664,11 +670,44 @@ async function tadaCommand(argv) {
       }
     },
   })
+  // The reader's own dates, for the text header and the page; the digest's
+  // own `since`/`until` stay UTC instants for a script.
+  digest.window.label = windowLabel(window)
+  if (argv.includes('--page')) {
+    // The recap is the model's, handed over as a file; the page prints only
+    // its path, because the digest it carries was already read once.
+    const from = tadaFlag(argv, '--summary')
+    let recap = null
+    if (from) {
+      try {
+        recap = fs.readFileSync(path.resolve(from), 'utf8')
+      } catch (e) {
+        process.stderr.write(`skitterspec tada: --summary ${from}: ${e.code || e.message}\n`)
+        process.exitCode = 1
+        return
+      }
+    }
+    const label = digest.window.label
+    const out = path.join(os.tmpdir(), `skitterspec-tada-${label.replace(' → ', '_')}.html`)
+    fs.writeFileSync(out, renderTadaPage(digest, { recap, title: `Ta-da · ${label}` }))
+    process.stdout.write(`page: ${pathToFileURL(out).href}\n`)
+    return
+  }
   if (json) {
     process.stdout.write(JSON.stringify(digest, null, 2) + '\n')
     return
   }
   process.stdout.write(formatTada(digest))
+}
+
+// A flag's value, which may be several words — `--since last friday`,
+// `--on 6 Nov` — running to the next flag. Quoting it works too.
+function tadaFlag(argv, name) {
+  const at = argv.indexOf(name)
+  if (at === -1) return undefined
+  const words = []
+  for (let i = at + 1; i < argv.length && !argv[i].startsWith('--'); i++) words.push(argv[i])
+  return words.length ? words.join(' ') : undefined
 }
 
 

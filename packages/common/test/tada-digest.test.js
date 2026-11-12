@@ -12,7 +12,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { parseSince } = require('../src/tada/window.js')
+const { parseWhen, windowFor, windowLabel } = require('../src/tada/window.js')
 const { readPrompt, launchDir, PROMPT_CHARS } = require('../src/tada/transcripts.js')
 const { buildDigest } = require('../src/tada/digest.js')
 
@@ -20,30 +20,76 @@ const { buildDigest } = require('../src/tada/digest.js')
 
 // Monday 9 November 2026, mid-afternoon, local time.
 const MONDAY = new Date(2026, 10, 9, 15, 30)
+const day = (m, d, y = 2026) => new Date(y, m, d)
 
 test('the default window opens at local midnight today', () => {
-  assert.deepStrictEqual(parseSince(undefined, MONDAY), new Date(2026, 10, 9))
-  assert.deepStrictEqual(parseSince('today', MONDAY), new Date(2026, 10, 9))
+  assert.deepStrictEqual(parseWhen(undefined, MONDAY), day(10, 9))
+  assert.deepStrictEqual(parseWhen('today', MONDAY), day(10, 9))
 })
 
-test('yesterday is the previous local midnight', () => {
-  assert.deepStrictEqual(parseSince('yesterday', MONDAY), new Date(2026, 10, 8))
+test('named days: yesterday, a weekday, last <weekday>, last week', () => {
+  assert.deepStrictEqual(parseWhen('yesterday', MONDAY), day(10, 8))
+  assert.deepStrictEqual(parseWhen('friday', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('Fri', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('last friday', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('last  Saturday', MONDAY), day(10, 7))
+  assert.deepStrictEqual(parseWhen('last week', MONDAY), day(10, 2))
 })
 
-test('a weekday is the most recent past one, and today\'s name means a week back', () => {
-  assert.deepStrictEqual(parseSince('friday', MONDAY), new Date(2026, 10, 6))
-  assert.deepStrictEqual(parseSince('Fri', MONDAY), new Date(2026, 10, 6))
-  assert.deepStrictEqual(parseSince('monday', MONDAY), new Date(2026, 10, 2))
+test('a weekday is never more than a week back, and today\'s name means exactly a week', () => {
+  assert.deepStrictEqual(parseWhen('monday', MONDAY), day(10, 2))
+  assert.deepStrictEqual(parseWhen('tuesday', MONDAY), day(10, 3))
 })
 
-test('a date is its local midnight', () => {
-  assert.deepStrictEqual(parseSince('2026-11-02', MONDAY), new Date(2026, 10, 2))
+test('relative days and weeks, spelled several ways', () => {
+  assert.deepStrictEqual(parseWhen('3 days ago', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('3 days', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('3d', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('-3d', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('1 day ago', MONDAY), day(10, 8))
+  assert.deepStrictEqual(parseWhen('a week ago', MONDAY), day(10, 2))
+  assert.deepStrictEqual(parseWhen('2 weeks ago', MONDAY), day(9, 26))
+  assert.deepStrictEqual(parseWhen('2w', MONDAY), day(9, 26))
+})
+
+test('actual dates: ISO, day-month and month-day, with or without a year', () => {
+  assert.deepStrictEqual(parseWhen('2026-11-02', MONDAY), day(10, 2))
+  assert.deepStrictEqual(parseWhen('6 Nov', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('6th November', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('Nov 6', MONDAY), day(10, 6))
+  assert.deepStrictEqual(parseWhen('November 6, 2025', MONDAY), day(10, 6, 2025))
+  assert.deepStrictEqual(parseWhen('6 Sept 2026', MONDAY), day(8, 6))
+})
+
+test('a date with no year is the most recent one, never a future one', () => {
+  assert.deepStrictEqual(parseWhen('20 Dec', MONDAY), day(11, 20, 2025))
 })
 
 test('a window it cannot read refuses rather than guessing a day', () => {
-  assert.throws(() => parseSince('2026-02-31', MONDAY), /no such date/)
-  assert.throws(() => parseSince('2026-12-01', MONDAY), /in the future/)
-  assert.throws(() => parseSince('last week', MONDAY), /expected today/)
+  assert.throws(() => parseWhen('2026-02-31', MONDAY), /no such date/)
+  assert.throws(() => parseWhen('31 Feb', MONDAY), /no such date/)
+  assert.throws(() => parseWhen('2026-12-01', MONDAY), /in the future/)
+  assert.throws(() => parseWhen('next friday', MONDAY), /expected today/)
+  assert.throws(() => parseWhen('november', MONDAY), /expected today/)
+})
+
+test('a numeric date that reads two ways is refused, naming both fixes', () => {
+  assert.throws(() => parseWhen('11/12', MONDAY), /reads two ways .* 2026-11-12 or 12 Nov/)
+  assert.throws(() => parseWhen('6.11.2026', MONDAY), /reads two ways/)
+})
+
+test('--since runs to now; --on is that one day; both together is refused', () => {
+  assert.deepStrictEqual(windowFor({ since: 'friday' }, MONDAY), { since: day(10, 6), until: MONDAY })
+  assert.deepStrictEqual(windowFor({ on: 'last friday' }, MONDAY), { since: day(10, 6), until: day(10, 7) })
+  // On today, the day is not over: it runs to now, not to midnight.
+  assert.deepStrictEqual(windowFor({ on: 'today' }, MONDAY), { since: day(10, 9), until: MONDAY })
+  assert.throws(() => windowFor({ since: 'friday', on: 'friday' }, MONDAY), /pick one/)
+})
+
+test('the label is the reader\'s own dates: one day, or first → last', () => {
+  assert.strictEqual(windowLabel(windowFor({ on: 'last friday' }, MONDAY)), '2026-11-06')
+  assert.strictEqual(windowLabel(windowFor({}, MONDAY)), '2026-11-09')
+  assert.strictEqual(windowLabel(windowFor({ since: 'friday' }, MONDAY)), '2026-11-06 → 2026-11-09')
 })
 
 // --- prompts -----------------------------------------------------------------

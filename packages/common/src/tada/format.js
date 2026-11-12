@@ -10,7 +10,8 @@
  */
 
 function formatTada(digest) {
-  const out = [`ta-da: ${digest.window.since} → ${digest.window.until}`]
+  const w = digest.window
+  const out = [`ta-da: ${w.label || `${w.since} → ${w.until}`}`]
   if (digest.projects.length === 0) out.push('  nothing in this window.')
   for (const p of digest.projects) {
     out.push('', `${p.name}${p.repo ? `  (${p.repo})` : '  (not a git repo)'}`)

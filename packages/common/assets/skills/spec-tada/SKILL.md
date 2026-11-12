@@ -16,16 +16,31 @@ what already happened and says it back in the shape a standup wants.
 ## 1. Get the digest
 
 ```
-skitterspec tada [--since <when>] [--here]
+skitterspec tada [--since <when> | --on <when>] [--here]
 ```
 
-Map the request onto the two flags and nothing else:
+Map the request onto the flags and nothing else:
 
-- **`--since`** — `today` (the default), `yesterday`, a weekday (`friday` is the
-  most recent past Friday — what a Monday standup means), or `YYYY-MM-DD`. The
-  window always runs to now, in local time.
+- **`--since <when>`** — from that day to now: "since Friday", "this week",
+  "the last three days".
+- **`--on <when>`** — that one day: "what did I do last Friday", "on the 6th".
+  Neither flag is today.
 - **`--here`** — "this repo", "this project": narrow to the repo the session is
   standing in. Otherwise every project on the machine is in it.
+
+A `<when>` is any of these, passed as the words the person used — no quoting:
+
+| Kind | Examples |
+|------|----------|
+| named | `today` · `yesterday` · `friday` · `last friday` · `last week` |
+| relative | `3 days ago` · `3d` · `2 weeks ago` · `2w` |
+| a date | `2026-11-06` · `6 Nov` · `Nov 6` · `6 November 2026` |
+
+A weekday is the most recent past one, so never more than a week back. A date
+with no year is the most recent such date. `11/12` is refused rather than
+guessed — it is a different day in London and New York — so translate a
+numeric date only when the person's meaning is unambiguous, and write it as
+`YYYY-MM-DD`.
 
 **Read the text form, never `--json`.** It carries the same facts at a fifth of
 the size, and the size is the whole cost of this skill.
@@ -35,8 +50,8 @@ a person typed — capped, and only the first and last few per session — and f
 each session into its repo, so a worktree is never mistaken for a project. A
 transcript opened by hand is the thing the digest exists to avoid paying for.
 
-A `--since` the engine cannot read is refused with exit 1 — relay it and stop
-with `⏸`. Everything else exits 0, a quiet day included.
+A window the engine cannot read is refused with exit 1 and a line naming the
+fix — relay it and stop with `⏸`. Everything else exits 0, a quiet day included.
 
 **The digest quotes the person's own prompts.** It stays in this conversation:
 do not paste it anywhere else, and never publish it.
@@ -71,6 +86,25 @@ Then the **standup** — three lines, no more:
 - **Blockers:** a verdict waiting, a gate armed, a wait unmet — or `none`.
   Only what the digest shows; never invent one.
 
+## 3. The page — only when asked
+
+When the person asks for the recap as a page — "as a page", "something I can
+share", "`--page`" — write the recap and standup you just wrote, as markdown,
+to a temporary file, and run the same window again with it:
+
+```
+skitterspec tada <the same flags> --page --summary <that file>
+```
+
+It prints one line, `page: file://…` — a self-contained page with the recap on
+top and the digest underneath, in the system temp folder. Put that path in
+`Built`. It is a file on this machine: it is never served, and
+**never publish it** — it quotes the person's prompts, so sharing it is
+theirs to do.
+
+Not asked, it is not rendered — say once, at the end of `Notes`, that
+`--page` would.
+
 ## Report
 
 The recap and standup are the body of the message; the block follows them and
@@ -83,13 +117,14 @@ what is specific here.
   as such: a quiet day is an answer.
 - `⚠️` — written, but the digest said `cannot tell` somewhere. Name it in
   `Notes`.
-- `⏸` — the engine refused the `--since`. Nothing was read.
+- `⏸` — the engine refused the window. Nothing was read.
 
 **Fields:** `Built` · `Notes` · `Follow-ups` · `Next`
 
-`Built` is the window and the counts — projects, specs, commits. `Notes`
-carries the digest's own closing lines (`cannot tell`, torn-down worktrees
-counted elsewhere), and is omitted when it printed none. `Next` is the one
+`Built` is the window and the counts — projects, specs, commits — and the
+page's path when one was rendered. `Notes` carries the digest's own closing
+lines (`cannot tell`, torn-down worktrees counted elsewhere) and, when no page
+was asked for, that `--page` renders one. `Next` is the one
 in-flight action the standup put first, or `nothing in flight`.
 
 **`Follow-ups` is always `none` here.** This skill reports work; anything it
