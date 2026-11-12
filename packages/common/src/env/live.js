@@ -190,6 +190,25 @@ function migrationsHit(files, patterns) {
   return files.some((f) => res.some((r) => r.test(f)))
 }
 
+// Lockfiles/manifests whose change means a dev server needs a restart, not HMR.
+// Always checked, so a project whose `when` globs name only (say) a schema file
+// keeps the warning it had before those globs existed.
+const DEPS_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$/
+
+// True when the branch changes a dependency manifest: the npm set above, or any
+// file a `setup` entry's `when` globs name. Those globs are the project saying
+// "this file changing means setup must re-run" — a .csproj, a go.mod — and a
+// change that needs setup re-run needs the running app restarted for the same
+// reason. Reading them keeps the engine ignorant of what stack it is in.
+function depsChanged(files, setupTriggers) {
+  if (!Array.isArray(files) || !files.length) return false
+  const globs = (Array.isArray(setupTriggers) ? setupTriggers : []).flatMap((t) =>
+    t && Array.isArray(t.when) ? t.when : [],
+  )
+  const res = globs.map(globToRegExp)
+  return files.some((f) => DEPS_RE.test(f) || res.some((r) => r.test(f)))
+}
+
 // --- take planner ---------------------------------------------------------
 
 /**
@@ -472,6 +491,7 @@ module.exports = {
   summarizeReceipt,
   globToRegExp,
   migrationsHit,
+  depsChanged,
   planTake,
   planRelease,
   planAbort,

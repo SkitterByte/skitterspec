@@ -15,6 +15,7 @@ const {
   summarizeReceipt,
   globToRegExp,
   migrationsHit,
+  depsChanged,
   planTake,
   planRelease,
   planAbort,
@@ -115,6 +116,33 @@ test('migrationsHit is false for empty files/patterns, true on a match', () => {
   assert.strictEqual(migrationsHit(['db/migrations/1.sql'], []), false)
   assert.strictEqual(migrationsHit(['src/app.js'], ['**/migrations/**']), false)
   assert.strictEqual(migrationsHit(['src/app.js', 'db/migrations/1.sql'], ['**/migrations/**']), true)
+})
+
+// --- depsChanged ----------------------------------------------------------
+
+const DOTNET_TRIGGERS = [
+  { run: 'dotnet restore', when: ['**/*.csproj', 'Directory.Packages.props'] },
+]
+
+test('depsChanged fires on a file a setup `when` glob names', () => {
+  assert.strictEqual(depsChanged(['src/Api/Api.csproj'], DOTNET_TRIGGERS), true)
+  assert.strictEqual(depsChanged(['Api.csproj'], DOTNET_TRIGGERS), true)
+  assert.strictEqual(depsChanged(['Directory.Packages.props'], DOTNET_TRIGGERS), true)
+})
+
+test('depsChanged stays silent on ordinary source changes', () => {
+  assert.strictEqual(depsChanged(['src/Api/Program.cs', 'src/Api/Orders.cs'], DOTNET_TRIGGERS), false)
+  assert.strictEqual(depsChanged([], DOTNET_TRIGGERS), false)
+})
+
+test('depsChanged keeps the npm set with or without `when` globs', () => {
+  assert.strictEqual(depsChanged(['web/package.json'], []), true)
+  assert.strictEqual(depsChanged(['pnpm-lock.yaml'], undefined), true)
+  // A project whose triggers name only a schema still warns on a lockfile.
+  const prisma = [{ run: 'pnpm db:generate', when: ['prisma/schema.prisma'] }]
+  assert.strictEqual(depsChanged(['pnpm-lock.yaml'], prisma), true)
+  assert.strictEqual(depsChanged(['prisma/schema.prisma'], prisma), true)
+  assert.strictEqual(depsChanged(['src/app.js'], prisma), false)
 })
 
 // --- planTake -------------------------------------------------------------

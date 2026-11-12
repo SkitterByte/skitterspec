@@ -161,7 +161,10 @@ through to a documented conservative default; see the field notes below.
   // An entry may also be { "run": "<cmd>", "when": ["<glob>", ...] }. `when` is
   // IGNORED here — a fresh worktree always runs every setup step — and exists
   // so `afterLand` can re-run that step after a land that changes its inputs
-  // (`{ "setup": true }`, below).
+  // (`{ "setup": true }`, below), and so `live take` warns to restart the dev
+  // server when a branch changes one of those files. Name your stack's
+  // manifests here, e.g. { "run": "dotnet restore", "when": ["**/*.csproj",
+  // "Directory.Packages.props"] } — the npm/pnpm/yarn files always count.
   "setup": [],
 
   // Commands to run in the PRIMARY checkout after a land — the counterpart of
@@ -389,6 +392,8 @@ through to a documented conservative default; see the field notes below.
   // `migrations` is a list of globs (`**`, `*`, `?`) marking migration files; a
   // branch that changes any of them is treated as STATEFUL and `live take`
   // refuses it (code-only v1 — use `/spec-connect` for those). Default: none.
+  // A branch changing a manifest a `setup` entry's `when` names (or an npm
+  // lockfile) is let through with a "restart your dev server" warning.
   "live": {
     "migrations": []
   },

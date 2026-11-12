@@ -111,7 +111,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 
 | # | Phase | Status | File |
 |---|-------|--------|------|
-| 1 | Dependency changes from `setup` `when` globs | ⬜ | [01-deps-from-setup-when.md](01-deps-from-setup-when.md) |
+| 1 | Dependency changes from `setup` `when` globs | ✅ | [01-deps-from-setup-when.md](01-deps-from-setup-when.md) |
 | 2 | `dev[].reload` — restart-hosted apps | ⬜ | [02-restart-dev-entries.md](02-restart-dev-entries.md) |
 | 3 | PR-mode rebase onto remote base + migrations docs | ⬜ | [03-pr-remote-base-and-docs.md](03-pr-remote-base-and-docs.md) |
 
@@ -122,3 +122,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 ## Changelog
 
 - 2026-11-12 — Spec created.
+- 2026-11-12 — Phase 1: the npm set is always checked alongside the `when`
+  globs, not only as a fallback when none are declared. A project whose
+  triggers name only a schema file would otherwise lose the lockfile warning.
+  `docs/reference.html` does not describe the warning, so it was not touched.

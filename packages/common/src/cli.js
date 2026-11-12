@@ -99,6 +99,7 @@ const {
   clearReceipt,
   summarizeReceipt,
   migrationsHit,
+  depsChanged,
   planTake,
   liveStateFor,
   liveStateLine,
@@ -7071,9 +7072,6 @@ function runGit(cwd, args) {
   }
 }
 
-// Lockfiles/manifests whose change means a dev server needs a restart, not HMR.
-const DEPS_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$/
-
 // Live overlay: test a spec on the already-running instance by checking its
 // branch out in the primary checkout, so the running dev server hot-reloads the
 // feature. The branch that's checked out IS the lock (assertPrimaryOnMain); the
@@ -7213,7 +7211,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
   // Diff base...branch to spot migration / dependency changes (best-effort).
   const changed = primaryGit(['diff', '--name-only', `${base}...${spec.branch}`])
   const files = changed ? changed.split('\n').filter(Boolean) : []
-  const depsChanged = files.some((f) => DEPS_RE.test(f))
+  const depsHit = depsChanged(files, config.setupTriggers)
 
   // Verify-only: probe the declared canonical (frontPort) ports. None declared →
   // no health gate (serverUp = null); the switch proceeds with a warning.
@@ -7236,7 +7234,7 @@ async function specEnvLiveTake(dir, config, specArg, flags = {}) {
     serverUp,
     canonicalPorts,
     migrationsHit: migrationsHit(files, config.live.migrations),
-    depsChanged,
+    depsChanged: depsHit,
     holder: primaryGit(['config', 'user.name']) || 'unknown',
     heldSince: new Date().toISOString(),
   })
