@@ -131,4 +131,26 @@ function windowLabel({ since, until }) {
   return a === b ? a : `${a} → ${b}`
 }
 
-module.exports = { parseWhen, windowFor, windowLabel, GRAMMAR }
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+/**
+ * The window as a person writes dates: `Thursday 12 November 2026` for one
+ * day, `Fri 6 – Thu 12 Nov 2026` for a span — the month and year said once
+ * when the two ends share them, and both times when they do not.
+ */
+function humanLabel({ since, until }) {
+  const last = new Date(until.getTime() - 1)
+  const end = last < since ? since : last
+  if (localDay(since) === localDay(end)) {
+    return `${DAY_NAMES[since.getDay()]} ${since.getDate()} ${MONTH_NAMES[since.getMonth()]} ${since.getFullYear()}`
+  }
+  const short = (d) => `${DAY_NAMES[d.getDay()].slice(0, 3)} ${d.getDate()}`
+  const month = (d) => MONTH_NAMES[d.getMonth()].slice(0, 3)
+  const sameYear = since.getFullYear() === end.getFullYear()
+  const sameMonth = sameYear && since.getMonth() === end.getMonth()
+  const from = sameMonth ? short(since) : `${short(since)} ${month(since)}${sameYear ? '' : ` ${since.getFullYear()}`}`
+  return `${from} – ${short(end)} ${month(end)} ${end.getFullYear()}`
+}
+
+module.exports = { parseWhen, windowFor, windowLabel, humanLabel, localDay, GRAMMAR }

@@ -171,12 +171,15 @@ const BIN = path.join(__dirname, '..', 'bin', 'skitterspec.js')
 const tada = (args, env = {}) =>
   execFileSync(process.execPath, [BIN, 'tada', ...args], {
     env: { ...process.env, CLAUDE_CONFIG_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'tada-cfg-')), ...env },
+    // Outside any repo: run from here, `--page` would find this checkout's
+    // isolation config and write a recap into it, through its review server.
+    cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'tada-cwd-')),
     stdio: ['ignore', 'pipe', 'pipe'],
   }).toString()
 
 test('a several-word window needs no quotes', () => {
-  assert.match(tada(['--on', 'last', 'friday']), /^ta-da: \d{4}-\d{2}-\d{2}\n/)
-  assert.match(tada(['--since', '3', 'days', 'ago', '--here']), /^ta-da: \S+ → \S+\n/)
+  assert.match(tada(['--on', 'last', 'friday']), /^ta-da: Friday \d{1,2} [A-Z][a-z]+ \d{4}\n/)
+  assert.match(tada(['--since', '3', 'days', 'ago', '--here']), /^ta-da: [A-Z][a-z]{2} \d{1,2}( [A-Z][a-z]{2})? – [A-Z][a-z]{2} \d{1,2} [A-Z][a-z]{2} \d{4}\n/)
 })
 
 test('a window it cannot read exits 1 and names the fix', () => {
@@ -186,7 +189,7 @@ test('a window it cannot read exits 1 and names the fix', () => {
   )
 })
 
-test('--page writes a file and prints only its path', () => {
+test('--page with no review server to use writes a file and prints only its path', () => {
   const recap = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tada-recap-')), 'recap.md')
   fs.writeFileSync(recap, '## Done\n\n- nothing much')
   // Its own temp dir, so the test never overwrites a page the reader made.

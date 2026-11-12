@@ -208,7 +208,8 @@ const { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, e
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
 const { planDev } = require('./env/dev.js')
-const { windowFor, windowLabel } = require('./tada/window.js')
+const { windowFor, windowLabel, humanLabel, localDay } = require('./tada/window.js')
+const { ROUTE: TADA_ROUTE, tadaQuery, recapKey: tadaRecapKey, recapPath: tadaRecapPath } = require('./tada/serve.js')
 const { defaultRoot } = require('./tada/transcripts.js')
 const { buildDigest, gitRepoOf } = require('./tada/digest.js')
 const { readRepoFacts } = require('./tada/repo.js')
@@ -651,12 +652,37 @@ async function tadaCommand(argv) {
     process.exitCode = 1
     return
   }
+  const flags = {
+    on: tadaFlag(argv, '--on') ? localDay(window.since) : null,
+    since: tadaFlag(argv, '--since') ? localDay(window.since) : null,
+    all: argv.includes('--all-projects'),
+    chat: argv.includes('--chat'),
+    here: argv.includes('--here'),
+  }
+  let recap = null
+  if (argv.includes('--page')) {
+    // The recap is the model's, handed over as a file.
+    const from = tadaFlag(argv, '--summary')
+    if (from) {
+      try {
+        recap = fs.readFileSync(path.resolve(from), 'utf8')
+      } catch (e) {
+        process.stderr.write(`skitterspec tada: --summary ${from}: ${e.code || e.message}\n`)
+        process.exitCode = 1
+        return
+      }
+    }
+    // Served where the review server can serve it: the page is drawn per
+    // request there, so only the recap is kept. It prints the links and
+    // nothing else, because the digest it carries was already read once.
+    if (await serveTadaPage({ window, flags, recap })) return
+  }
   const digest = await buildDigest({
     root: defaultRoot(),
     window,
-    here: argv.includes('--here') ? process.cwd() : null,
-    category: argv.includes('--all-projects') ? null : runningCategory(process.cwd()),
-    chat: argv.includes('--chat'),
+    here: flags.here ? process.cwd() : null,
+    category: flags.all ? null : runningCategory(process.cwd()),
+    chat: flags.chat,
     facts: (repo) => {
       let config = {}
       try {
@@ -679,24 +705,11 @@ async function tadaCommand(argv) {
   })
   // The reader's own dates, for the text header and the page; the digest's
   // own `since`/`until` stay UTC instants for a script.
-  digest.window.label = windowLabel(window)
+  digest.window.label = humanLabel(window)
   if (argv.includes('--page')) {
-    // The recap is the model's, handed over as a file; the page prints only
-    // its path, because the digest it carries was already read once.
-    const from = tadaFlag(argv, '--summary')
-    let recap = null
-    if (from) {
-      try {
-        recap = fs.readFileSync(path.resolve(from), 'utf8')
-      } catch (e) {
-        process.stderr.write(`skitterspec tada: --summary ${from}: ${e.code || e.message}\n`)
-        process.exitCode = 1
-        return
-      }
-    }
-    const label = digest.window.label
-    const out = path.join(os.tmpdir(), `skitterspec-tada-${label.replace(' → ', '_')}.html`)
-    fs.writeFileSync(out, renderTadaPage(digest, { recap, title: `Ta-da · ${label}` }))
+    // No server to serve it: the page is a file on this machine, as it was.
+    const out = path.join(os.tmpdir(), `skitterspec-tada-${windowLabel(window).replace(' → ', '_')}.html`)
+    fs.writeFileSync(out, renderTadaPage(digest, { recap, title: `Ta-da · ${digest.window.label}`, category: digest.category || null }))
     process.stdout.write(`page: ${pathToFileURL(out).href}\n`)
     return
   }
@@ -705,6 +718,48 @@ async function tadaCommand(argv) {
     return
   }
   process.stdout.write(formatTada(digest))
+}
+
+/**
+ * `--page` through the review server: save the recap where the server reads
+ * it, make sure the server is up, and print every tier for the window's
+ * address — the stack a review render prints, for the `_tada` route.
+ *
+ * Returns false — fall back to the file — where there is nothing to serve
+ * from: no isolation here, `review.serve: "never"`, or a server that could not
+ * start. Each of those is the project's or the machine's state, not a failure
+ * of the page, so the file is still written and nothing exits non-zero.
+ */
+async function serveTadaPage({ window, flags, recap }) {
+  const cwd = process.cwd()
+  const anchor = primaryAnchor(cwd, gitReader(cwd))
+  let loaded
+  try {
+    loaded = loadEnvConfig(anchor.dir)
+  } catch {
+    return false
+  }
+  const { config, present } = loaded
+  if (!present || config.review.serve === 'never') return false
+  attachProject(config, anchor)
+  const dir = anchor.dir
+  const ask = { on: flags.on, since: flags.since, window, all: flags.all, chat: flags.chat }
+  if (recap !== null) {
+    const file = tadaRecapPath(path.join(dir, stateDirLabel(config)), tadaRecapKey(ask))
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, recap)
+  }
+  const up = await ensureReviewServer(dir, config, { host: config.review.allowNetwork ? '0.0.0.0' : '127.0.0.1' })
+  if (up.error) return false
+  const served = reviewServedUrls(up, offerableLanAddresses(), TADA_ROUTE)
+  // The window rides in the query, as absolute days, so the link means the
+  // same page tomorrow as it does now.
+  const q = tadaQuery({ ...flags, on: flags.on || (flags.since ? null : localDay(window.since)) })
+  const withQ = (u) => (u ? `${u}${q}` : u)
+  const page = { ...served, loopbackUrl: withQ(served.loopbackUrl), url: withQ(served.url), alternates: (served.alternates || []).map(withQ) }
+  const tiers = reviewTierStack({ served: page, fileUrl: null, publishedUrl: null, config })
+  process.stdout.write(`page: ${humanLabel(window)}\n${tiers.map(reviewTierLine).join('\n')}\n`)
+  return true
 }
 
 // The category of the project a report is run from — its scope. Null (report

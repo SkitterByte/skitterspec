@@ -102,18 +102,27 @@ Then the **standup** — three lines, no more:
 ## 3. The page — only when asked
 
 When the person asks for the recap as a page — "as a page", "something I can
-share", "`--page`" — write the recap and standup you just wrote, as markdown,
-to a temporary file, and run the same window again with it:
+read on my phone", "`--page`" — write the recap and standup you just wrote, as
+markdown, to a temporary file, and run the same window again with it:
 
 ```
 skitterspec tada <the same flags> --page --summary <that file>
 ```
 
-It prints one line, `page: file://…` — a self-contained page with the recap on
-top and the digest underneath, in the system temp folder. Put that path in
-`Built`. It is a file on this machine: it is never served, and
-**never publish it** — it quotes the person's prompts, so sharing it is
-theirs to do.
+**Where the project has a review server**, it saves the recap beside the
+review notes and prints the page's stack — `local`, `network`, `remote` —
+exactly as a review render does. The page is drawn per request, from the
+day's facts as they stand when it is opened, with the recap on top and when
+it was written. Relay every tier as the engine printed it, in the `Built`
+row (`.claude/rules/spec-reports.md` carries the shape). Nothing waits on it:
+it asks no verdict, so it is a row and never a banner.
+
+**Where there is none** — no isolation, `review.serve: "never"` — it prints
+one line, `page: file://…`, a file in the system temp folder that opens on
+this machine only. Say so in `Notes`.
+
+**Never publish it.** It quotes the person's prompts; sharing it is theirs to
+do.
 
 Not asked, it is not rendered — say once, at the end of `Notes`, that
 `--page` would.
@@ -135,7 +144,7 @@ what is specific here.
 **Fields:** `Built` · `Notes` · `Follow-ups` · `Next`
 
 `Built` is the window and the counts — projects, specs, commits — and the
-page's path when one was rendered. `Notes` carries the digest's own closing
+page's tiers (or its `file://` path) when one was rendered. `Notes` carries the digest's own closing
 lines (`cannot tell`, torn-down worktrees counted elsewhere) and, when no page
 was asked for, that `--page` renders one. `Next` is the one
 in-flight action the standup put first, or `nothing in flight`.

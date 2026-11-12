@@ -240,7 +240,7 @@ test('the daemon builds its hooks with serverHooks, and nowhere else', () => {
   // And the hooks the server needs all come from one place.
   assert.deepStrictEqual(
     Object.keys(serverHooks('/nowhere', { registry: '.spec-env/registry.json', spec: {} })).sort(),
-    ['passState', 'project', 'receive', 'render', 'resolveEntries', 'resolveEpics'],
+    ['passState', 'project', 'receive', 'render', 'resolveEntries', 'resolveEpics', 'tada'],
   )
 })
 

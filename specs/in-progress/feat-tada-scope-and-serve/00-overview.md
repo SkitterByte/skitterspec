@@ -112,7 +112,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Project name and category, and scoping by them | ✅ | [01-project-settings.md](01-project-settings.md) |
 | 2 | Changes over chatter | ✅ | [02-changes-over-chatter.md](02-changes-over-chatter.md) |
-| 3 | Readable dates and a served page | ⬜ | [03-served-page.md](03-served-page.md) |
+| 3 | Readable dates and a served page | ✅ | [03-served-page.md](03-served-page.md) |
 
 ## Open questions
 
@@ -130,3 +130,11 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   next, else the first it reached; a project left with nothing once chatter
   is dropped disappears from the report. The phase-1 reading tests pin
   `chat: true`, since they test how sessions are read, not which are kept.
+- 2026-11-12 — Phase 3: the route is `_tada` — the leading underscore keeps
+  it out of the spec-name namespace (a `/no-spec` branch can be called
+  anything kebab-case). The server builds the digest by running the CLI's
+  own `tada --json` in its project, so page and terminal share one
+  implementation. A recap is keyed by the window's start and kind
+  (`since-2026-11-06`), so a since-window keeps its recap as it grows.
+  The live server gains the route once this lands and the primary
+  checkout's engine is rebuilt; until then it answers 404 there.

@@ -71,6 +71,14 @@ function renderMarkdown(md) {
   return out.join('\n')
 }
 
+// `14:05 on Thursday 12 November`, in the reader's local time.
+function timeText(d) {
+  const t = new Date(d)
+  const pad = (n) => String(n).padStart(2, '0')
+  const day = t.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+  return `${pad(t.getHours())}:${pad(t.getMinutes())} on ${day}`
+}
+
 const EVENT = { written: 'spec written', started: 'started', completed: 'completed', cancelled: 'cancelled' }
 const eventText = (e) => (e.kind === 'phase-done' ? `phase ${e.phase} done` : EVENT[e.kind] || e.kind)
 
@@ -118,10 +126,17 @@ function groupHtml(g) {
  * @param {object} opts
  *   - `recap`  the model's markdown recap, or null for the digest alone
  *   - `title`  the page title — the caller's, in the reader's own dates
- *              (`windowLabel`); the digest only knows UTC instants
+ *              (`humanLabel`); the digest only knows UTC instants
+ *   - `project`   the name of the project the report was run from, set in
+ *                 small type above the heading as on every generated page
+ *   - `category`  the scope the report was cut to, beside it
+ *   - `writtenAt` when the recap was written — a served page is drawn now,
+ *                 and the recap above it may be hours older than the facts
  */
-function renderTadaPage(digest, { recap = null, title = 'Ta-da' } = {}) {
+function renderTadaPage(digest, { recap = null, title = 'Ta-da', project = null, category = null, writtenAt = null } = {}) {
   const name = title
+  const eyebrow = [project, category].filter(Boolean).map(escapeHtml).join(' · ')
+  const written = recap && writtenAt ? `<p class="muted">Recap written ${escapeHtml(timeText(writtenAt))}</p>` : ''
   const projects = digest.projects
     .map(
       (p) =>
@@ -136,7 +151,7 @@ function renderTadaPage(digest, { recap = null, title = 'Ta-da' } = {}) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(name)}</title>
+<title>${escapeHtml(project ? `${project} · ${name}` : name)}</title>
 <style>
 /* The light palette is complete on bare :root; the dark blocks only redefine. */
 :root {
@@ -159,14 +174,14 @@ function renderTadaPage(digest, { recap = null, title = 'Ta-da' } = {}) {
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 main { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; }
-h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h1 { font-size: 1.6rem; margin: 0 0 16px; }
 h2 { font-size: 1.25rem; margin: 28px 0 8px; }
 h3 { font-size: 1.1rem; margin: 0 0 12px; overflow-wrap: anywhere; }
 h4 { font-size: 1rem; margin: 0 0 6px; overflow-wrap: anywhere; }
 a { color: var(--accent); }
 code { font: 0.88em ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; }
 .muted { color: var(--muted); font-weight: normal; font-size: 0.9em; }
-.window { color: var(--muted); margin: 0 0 20px; }
+.eyebrow { color: var(--muted); font-size: 0.85em; margin: 0 0 2px; }
 .recap { border: 1px solid var(--line); border-radius: 10px; padding: 4px 18px 12px; background: var(--good-bg); }
 .project { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 24px; }
 .group { background: var(--panel); border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
@@ -183,9 +198,9 @@ details summary { cursor: pointer; color: var(--muted); }
 </head>
 <body>
 <main>
+${eyebrow ? `<p class="eyebrow">${eyebrow}</p>` : ''}
 <h1>${escapeHtml(name)}</h1>
-<p class="window">${escapeHtml(digest.window.since)} → ${escapeHtml(digest.window.until)}</p>
-${recap ? `<section class="recap">${renderMarkdown(recap)}</section>` : ''}
+${recap ? `<section class="recap">${renderMarkdown(recap)}${written}</section>` : ''}
 <h2>What it was written from</h2>
 ${projects || '<p class="muted">Nothing in this window.</p>'}
 ${notes}

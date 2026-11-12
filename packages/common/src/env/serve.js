@@ -46,6 +46,7 @@ const { primaryAnchor, attachProject, projectName, repoRootOf, prefixOf, fromRep
 const { specDocsIn, classifyDirtyTree, dirtyPaths } = require('./classify.js')
 const { liveStateFor } = require('./live.js')
 const { preferRemoteBase } = require('./host.js')
+const { ROUTE: TADA_ROUTE, renderServedTada } = require('../tada/serve.js')
 const {
   rawGitReader,
   collectReview,
@@ -96,6 +97,9 @@ function routeFor(url, { token = null } = {}) {
 
   if (segments.length === 0) return { kind: 'index' }
   if (segments.length > 1) return { kind: 'notfound' }
+  // The ta-da page: a window, not a spec. Its query is the window and passed
+  // through whole, to be read — and refused if unreadable — by `tada/serve.js`.
+  if (segments[0] === TADA_ROUTE) return { kind: 'tada', search: rawQuery || '' }
 
   // `?pass=<code>` asks what became of ONE pass, and it is checked BEFORE
   // `?branch` because it is not a view of the diff at all — it is the page
@@ -812,7 +816,7 @@ function readBody(req, limit = MAX_PASS_BYTES) {
   })
 }
 
-function createReviewServer({ resolveEntries, resolveEpics = () => [], render, receive = null, passState = null, token = null, project = null }) {
+function createReviewServer({ resolveEntries, resolveEpics = () => [], render, receive = null, passState = null, tada = null, token = null, project = null }) {
   return http.createServer((req, res) => {
     const send = (code, body, type = 'text/html; charset=utf-8') => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' })
@@ -863,6 +867,20 @@ function createReviewServer({ resolveEntries, resolveEpics = () => [], render, r
       const out = passState ? passState(route.spec, route.code) : null
       const state = out && typeof out.state === 'string' ? out.state : 'unknown'
       return send(200, JSON.stringify({ state }), 'application/json; charset=utf-8')
+    }
+
+    // ASYNC, unlike the diff page: the digest is the CLI's own answer, run in a
+    // child process, so the one request waits and the server does not. A
+    // server built without the hook is an older one, and says not found.
+    if (route.kind === 'tada') {
+      if (!tada) return send(404, 'not found', 'text/plain; charset=utf-8')
+      Promise.resolve()
+        .then(() => tada(route.search))
+        .then(
+          (out) => (out.html ? send(200, out.html) : send(out.status || 500, out.error, 'text/plain; charset=utf-8')),
+          (err) => send(500, `render failed: ${err.message}`, 'text/plain; charset=utf-8'),
+        )
+      return
     }
 
     try {
@@ -1073,6 +1091,15 @@ function serverHooks(dir, config) {
       if (!one) return { state: 'unknown' }
       return readPassState(reviewOutPath(dir, one.folder, null), one.folder, code)
     },
+    // The ta-da page, scoped to THIS project's category, its recap read from
+    // the same state folder the review notes live in.
+    tada: (search) =>
+      renderServedTada({
+        dir,
+        stateDir: path.join(dir, path.posix.dirname(config.registry) || '.spec-env'),
+        search,
+        project: projectName(config),
+      }),
   }
 }
 
