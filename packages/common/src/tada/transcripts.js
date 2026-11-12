@@ -165,7 +165,11 @@ async function readSession(file, { since, until }) {
  * into the wrong repo with nothing to show for it.
  */
 function launchDir(name, existsOnDisk = fs.existsSync) {
+  // A leading `-` is a POSIX root, so it decodes with POSIX separators on any
+  // platform — `path.join` on Windows would turn `/Users/me` into `\\Users\\me`.
+  // A Windows folder (`C--Users-me`) starts with its drive and is cannot-tell.
   if (!name.startsWith('-')) return null
+  const { join } = path.posix
   const parts = name.slice(1).split('-')
   // Each `-` has three readings, so the search is exponential in their count;
   // past this many it is cannot-tell rather than a stall.
@@ -179,13 +183,13 @@ function launchDir(name, existsOnDisk = fs.existsSync) {
   const walk = (i, at, seg) => {
     if (found.length > 1) return
     if (i === parts.length) {
-      const full = path.join(at, seg)
+      const full = join(at, seg)
       if (exists(full)) found.push(full)
       return
     }
     const next = parts[i]
     // Close the segment here, if what it names exists so far.
-    if (seg && exists(path.join(at, seg))) walk(i + 1, path.join(at, seg), next)
+    if (seg && exists(join(at, seg))) walk(i + 1, join(at, seg), next)
     // Or keep it open, through a literal `-` or a `.` (a dotfile, `app.web`).
     if (seg !== '') {
       walk(i + 1, at, `${seg}-${next}`)
@@ -194,7 +198,7 @@ function launchDir(name, existsOnDisk = fs.existsSync) {
       walk(i + 1, at, `.${next}`)
     }
   }
-  walk(1, path.sep, parts[0])
+  walk(1, '/', parts[0])
   return found.length === 1 ? found[0] : null
 }
 

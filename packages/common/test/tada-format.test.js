@@ -11,6 +11,7 @@ const { test } = require('node:test')
 const assert = require('node:assert')
 const fs = require('node:fs')
 const path = require('node:path')
+const url = require('node:url')
 
 const { formatTada } = require('../src/tada/format.js')
 
@@ -197,7 +198,7 @@ test('--page with no review server to use writes a file and prints only its path
   const out = tada(['--on', 'yesterday', '--page', '--summary', recap], { TMPDIR: tmp, TMP: tmp, TEMP: tmp })
   const m = /^page: (file:\/\/\S+)\n$/.exec(out)
   assert.ok(m, `one line, the path: ${out}`)
-  assert.ok(fs.realpathSync(new URL(m[1]).pathname).startsWith(fs.realpathSync(tmp)), 'written to the temp dir')
+  assert.ok(fs.realpathSync(url.fileURLToPath(m[1])).startsWith(fs.realpathSync(tmp)), 'written to the temp dir')
   const html = fs.readFileSync(new URL(m[1]), 'utf8')
   assert.match(html, /<li>nothing much<\/li>/)
 })

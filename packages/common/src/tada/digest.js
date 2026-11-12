@@ -126,7 +126,9 @@ async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, fact
 
   let list = [...projects.values()]
   if (here) {
-    const at = path.resolve(here)
+    // An absolute cwd is taken as written, like every session's own: resolving
+    // `/repo` on Windows prefixes the drive, and it then matches nothing.
+    const at = path.isAbsolute(here) ? here : path.resolve(here)
     const key = resolve(at).repo || at
     list = list.filter((p) => p.key === key)
   }
