@@ -19,6 +19,7 @@ and lifecycle stay consistent. Each sets a status on the spec header
 | `/spec-to-main` | Land the branch on the base (rebase + ff) **without** finishing — for running the work in CI / a shared env mid-spec; repeatable | `In Progress` (unchanged) | (unchanged) |
 | `/spec-complete` | Verify all phases done + tests green; land + tear down | `Complete` | `specs/complete/` |
 | `/spec-cancel` | Record progress, stamp a reason on the header; tear down | `Cancelled` | `specs/cancelled/` |
+| `/spec-tada` | A ta-da list — recap what you did in Claude Code over a window, across every project, by project then spec, ending in a standup. Read-only | (unchanged) | (unchanged) |
 | `/spec-init` | Bootstrap/repair this workflow in a project (idempotent) | — | — |
 
 **Skills vs commands.** The table above lists **skills** — Claude reads them and
@@ -70,6 +71,17 @@ matters: it is where Claude is sent when it would otherwise write on the base
 branch. Beneath it, `skitterspec spec-env nospec <name>` records the branch —
 and that record is what makes a name with nothing under `specs/**` resolvable by
 `review`, `integrate`, `down` and a bare `resolve`.
+
+**`/spec-tada` reads, and moves nothing.** It is in the table because it
+reports in the unit the table is about — a spec — but it changes no status,
+writes no file and commits nothing. `skitterspec tada` reads Claude Code's own
+transcripts down to the prompts a person typed and folds each session into
+the **repo** it worked in, so a session that moved into `../<repo>-wt/<slug>`
+is that repo's work, not a project of its own. A commit already on the base
+branch is attributed by the spec folder it touched or its `Refs:` ticket, never
+by a branch that happens to contain it — a spec branch cut this afternoon
+contains all of this morning. It is model-invocable, because "what did I do
+today?" should reach it.
 
 **`/allow-main` is the fourth command.** It is user-only for a different reason
 from the other three: `/spec-connect`, `/spec-live` and `/spec-remote-review`

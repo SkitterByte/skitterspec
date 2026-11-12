@@ -20,6 +20,9 @@ phone. The diff never passes through the model, so the page costs no context
 tokens however large it is; the optional written review is the part that costs,
 and it is offered rather than assumed. `/spec-next` writes the page at the end of
 every phase. **`skitterspec status`** lists what is in flight across worktrees.
+At the end of the day, **`/spec-tada`** is the ta-da list: what you did across
+every project, grouped by spec — what landed, what was explored, what is still
+in flight — ending in a three-line standup (`skitterspec tada` is the engine).
 
 **Handing the review back.** The page takes marks: tick `✓ accept` per file as
 you read, note anything against a line or a whole file, answer the questions a

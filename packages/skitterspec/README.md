@@ -28,6 +28,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-to-main` | Land the branch mid-spec, without finishing it |
 | `/spec-complete` | Verify, land, tear down |
 | `/spec-cancel` | Record why, stamp the header, tear down |
+| `/spec-tada` | A ta-da list: what you did today, by project and by spec, plus a standup |
 | `/spec-init` | Bootstrap or repair the workflow in a project |
 | `/spec-connect` | Point your canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |

@@ -133,7 +133,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Transcript digest by repo and branch | ✅ | [01-transcript-digest.md](01-transcript-digest.md) |
 | 2 | Git, spec attribution and open items | ✅ | [02-git-and-specs.md](02-git-and-specs.md) |
-| 3 | `/spec-tada` skill, text output, docs | ⬜ | [03-skill-and-docs.md](03-skill-and-docs.md) |
+| 3 | `/spec-tada` skill, text output, docs | ✅ | [03-skill-and-docs.md](03-skill-and-docs.md) |
 | 4 | Optional HTML page | ⬜ | [04-html-page.md](04-html-page.md) |
 
 ## Open questions
@@ -165,3 +165,9 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   shared as `inFlightRows` so the two commands agree on what is in flight.
   The digest field is `inFlight`, not `open` — a test forbids `.open` in
   `cli.js`, where it was the removed opener key.
+- 2026-11-12 — Phase 3: a new skill reaches further than the Area listed —
+  every published command table (both distribution READMEs, the common
+  README, `docs/index.html`), `docs/linear.html`'s installed-skill count,
+  `spec-init`'s skill list, and this repo's own `CLAUDE.md`, which must
+  match the shipped section. The formatter moved to `tada/format.js` to be
+  tested on its own.
