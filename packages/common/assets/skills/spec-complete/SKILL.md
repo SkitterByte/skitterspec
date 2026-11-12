@@ -199,6 +199,12 @@ least: the reader has just finished something and cannot tell whether a line
 about another spec followed from it. `Next` is one action for this spec, and
 `/spec-list` is where the wider picture lives if they want it.
 
+**An epic member is the one exception to that `Next`.** When the spec carries
+`> **Epic:**`, its own work is done and the next thing for that work is its
+epic's: `Next` is **`/spec-epic-next`**, which names the member that can start
+now. Name the command and nothing else — which members are ready is that
+skill's to read, and listing them here is the survey this section forbids.
+
 `Landed` says how, because the two ways differ: a fast-forward names the base
 and the commit, a hotfix names the release tag, whether it was pushed, and the
 `main` carry — and a release tag that has not been pushed is a `⚠️`, not a `✅`. `Worktree` says

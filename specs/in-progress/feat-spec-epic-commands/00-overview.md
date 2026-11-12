@@ -139,7 +139,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Rename `/epic` → `/spec-epic` | ✅ | [01-rename-epic-command.md](01-rename-epic-command.md) |
-| 2 | `/spec-epic-next` skill and the `/spec-complete` hand-off | ⬜ | [02-spec-epic-next.md](02-spec-epic-next.md) |
+| 2 | `/spec-epic-next` skill and the `/spec-complete` hand-off | ✅ | [02-spec-epic-next.md](02-spec-epic-next.md) |
 | 3 | Epic view grouped by state, with next steps | ⬜ | [03-epic-page-grouped.md](03-epic-page-grouped.md) |
 
 ## Open questions
@@ -155,3 +155,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   same call feat-epic-next made for `index`. The published-docs token pattern
   keeps `epic`, so a stray `/epic` left in the docs now fails as an unknown
   command rather than passing unnoticed.
+- 2026-11-12 — Phase 2: shipping a fifteenth base skill also touched
+  `spec-init`'s skill enumeration, the `docs/index.html` chips,
+  `docs/linear.html`'s quoted `21 skills installed`, and the repo's own
+  `.claude/skills` link. Those are the guards that keep each list from going
+  stale. The skill reads `rows` for now, and phase 3 moves it to `steps`.

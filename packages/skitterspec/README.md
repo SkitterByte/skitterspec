@@ -25,6 +25,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-next` | Build the next phase of the spec in flight |
 | `/spec-diff` | Read what a phase changed, on a page you can mark up |
 | `/spec-reviewed` | Pick up a verdict pressed when nothing was waiting for it |
+| `/spec-epic-next` | Name the epic member that can start now, to start in a new tab |
 | `/spec-to-main` | Land the branch mid-spec, without finishing it |
 | `/spec-complete` | Verify, land, tear down |
 | `/spec-cancel` | Record why, stamp the header, tear down |
