@@ -5,6 +5,13 @@ What's new for users of skitterspec. For the full technical log see
 
 Generated from `Release-Note:` commit footers.
 
+## 23.13.0 — 12 Nov 2026
+
+### Live
+- **New** — In projects that land through pull requests, /spec-live now tests your branch on top of the latest remote base instead of a possibly stale local one.
+- **New** — Apps you run from an IDE such as Visual Studio can be marked "reload": "restart" — /spec-live no longer refuses when they are closed, and tells you which ones to restart after it switches the branch and after it hands main back.
+- **New** — /spec-live now warns you to restart your app when a branch changes any file your setup steps declare in when, such as a .csproj, not only npm lockfiles.
+
 ## 23.12.1 — 12 Nov 2026
 
 ### Tada
