@@ -674,7 +674,7 @@ test('the retired-skill guard stays silent on documenting the removal', () => {
 // those — so counting a built dist's directory instead would make it wrong.
 const NUMBER_WORDS = {
   seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
-  fourteen: 14, fifteen: 15,
+  fourteen: 14, fifteen: 15, sixteen: 16,
 }
 
 test('spec-init names exactly the lifecycle skills it ships', () => {
