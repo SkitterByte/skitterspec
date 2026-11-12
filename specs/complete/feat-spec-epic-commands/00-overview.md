@@ -170,3 +170,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   out its first starts from `rows` and leaves out clashing members, while
   `steps` lists them with a caution. The two should read one answer. That is
   not in scope here.
+- 2026-11-12 — Completed; all phases done, tests green.
