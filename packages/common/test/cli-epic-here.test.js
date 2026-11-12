@@ -101,7 +101,7 @@ test('--here sees an uncommitted conversion that a bare run cannot', async () =>
     assert.strictEqual(here.lanes, 1)
     assert.ok(here.here, 'and it says where the headers came from')
     const human = await runQuiet(['epic', 'status', 'epic-y', '--here'], dir)
-    assert.match(human, /^epic-y — 1 member · 1 lanes, 1 free · headers from /)
+    assert.match(human, /^epic-y — 0 of 1 done · 0 in flight · 1 lanes, 1 free · headers from /)
   } finally {
     cleanup(dir)
   }

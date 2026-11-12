@@ -263,8 +263,9 @@ test('skitterspec epic status reads the base branch, not the checkout', () => {
   assert.strictEqual(out.waves.length, 4)
 
   const human = execFileSync('node', [bin, 'epic', 'status', EPIC, '--dir', dir]).toString()
-  assert.match(human, /^epic-library-and-sessions — 7 members · 2 lanes, 2 free/)
-  assert.match(human, /^ {2}feat-free-authoring-safety +backlog · ready +\/spec-start feat-free-authoring-safety +—$/m)
+  assert.match(human, /^epic-library-and-sessions — 0 of 7 done · 0 in flight · 2 lanes, 2 free/)
+  assert.match(human, /^ {2}ready to start\n {4}feat-free-authoring-safety/m)
+  assert.match(human, /^ {4}1\. in a new tab \(2 lanes free\): {2}\/spec-start /m)
   assert.match(human, /^ {2}sync points +feat-one-off-workouts phase 2 after feat-free-authoring-safety phase 1 \(not yet/m)
   // Plain text, readable raw under `watch`: no markdown table anywhere.
   assert.doesNotMatch(human, /\|/)

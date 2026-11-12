@@ -16,7 +16,7 @@ const path = require('node:path')
 
 const { isEpic } = require('./resolve.js')
 const { epicStatus, epicHeaders, indexSpecTree } = require('./epic.js')
-const { epicRows, readNextInputs } = require('./nextaction.js')
+const { epicRows, epicPlan, readNextInputs } = require('./nextaction.js')
 const { reviewOutPath } = require('./review.js')
 
 /**
@@ -141,7 +141,7 @@ function memberReaders({ dir, config, worktrees, linkFor = () => null, git }) {
 function epicAnswer(epic, inputs, readers) {
   const status = epicStatus({ epic, ...inputs })
   const { rows, next } = epicRows(status, readers)
-  return { ...status, rows, next }
+  return { ...status, rows, next, ...epicPlan(status, { rows, next }) }
 }
 
 module.exports = { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer }

@@ -17,7 +17,8 @@ const COMPLETE = fs.readFileSync(path.join(SKILLS, 'spec-complete', 'SKILL.md'),
 
 test('/spec-epic-next reads the engine rather than re-deriving what can start', () => {
   assert.match(SKILL, /skitterspec epic status \[<epic>\] --json/)
-  assert.match(SKILL, /`next\.verb` is `start`/)
+  assert.match(SKILL, /Read its `steps`, `groups` and `freeLanes`/)
+  assert.match(SKILL, /`where` is `new-tab`/)
 })
 
 test('/spec-epic-next is model-invocable', () => {
@@ -34,13 +35,13 @@ test('stays silent: /spec-epic-next starts, provisions and moves nothing', () =>
 
 test('several startable members are a picker, never a guess, and clashes stay listed', () => {
   assert.match(SKILL, /Offer a picker[\s\S]*\*\*never choose for them\*\*/)
-  assert.match(SKILL, /listed \*\*with\*\* its clash, not filtered out/)
+  assert.match(SKILL, /listed\n\*\*with\*\* its clash, not filtered out/)
 })
 
-test('the three refusals: no free lane, nothing ready, a wait it cannot read', () => {
-  assert.match(SKILL, /\*\*No free lane\.\*\*[\s\S]*?Stop with `⏸`/)
-  assert.match(SKILL, /\*\*Nothing ready\.\*\*[\s\S]*?stop with `⏸`/)
-  assert.match(SKILL, /\*\*A wait it cannot read\.\*\*[\s\S]*?stop with `⏸`/)
+test('the refusals: no free lane, and nothing ready — an unreadable wait included', () => {
+  assert.match(SKILL, /\*\*No free lane\.\*\*[\s\S]*?Stop with\n?\s*`⏸`/)
+  assert.match(SKILL, /\*\*Nothing ready\.\*\*[\s\S]*?Stop with `⏸`/)
+  assert.match(SKILL, /never in `ready`/)
 })
 
 test('/spec-complete on an epic member names /spec-epic-next, and only that', () => {

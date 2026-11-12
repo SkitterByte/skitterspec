@@ -30,35 +30,38 @@ lists as the candidates. **Never pick an epic from conversation**: a
 spec discussed is not the epic in hand, and the engine already knows where you
 are standing.
 
-Read its `rows`: each member's `next` carries a `verb`, a `command` and a
-`why`. A **startable** member is one whose `next.verb` is `start`. Do not
-re-derive that from headers — the engine decides what can start, and one
-answer that can disagree with `/spec-epic` is one too many.
+Read its `steps`, `groups` and `freeLanes`. A step whose `where` is `new-tab`
+is a member that may start now, in a free lane; its `command` is the
+`/spec-start` to type and its `caution` any clash. Do not re-derive that from
+`rows` or the headers. The engine decides what can start and caps it at the
+free lanes, and it is the same answer the epic page and `/spec-epic` print.
+Any second answer could disagree with them.
 
 ## 2. Route on what it said
 
-**A wait it cannot read.** Any member with `next.verb` of `cannot-tell` that is
-not yet started could be the one that should start. When **no** row is
-startable and any is `cannot-tell`, stop with `⏸` and quote its `why` — never
-treat an unreadable wait as met (`.claude/rules/negative-checks.md`).
+**Every member done.** The only step has `where: epic`, and its `command` is
+`/spec-complete <epic>`. Say so, `✅`.
 
-**No free lane.** Where `freeLanes` is `0`, every startable row's `why`
-carries `no free lane`. Stop with `⏸`: the lanes are the cap the epic chose,
-and this skill does not offer a way past it. Name the members in flight — the
-rows whose bucket is `in-progress` — so the reader can see what is holding
-them.
+**No free lane.** `freeLanes` is `0` and `groups.ready` is not empty. Stop with
+`⏸`: the lanes are the cap the epic chose, and this skill does not offer a way
+past it. Name the members in `groups.inFlight`, which are what is holding the
+lanes. The in-tab steps say what each needs to finish.
 
-**Nothing ready.** No startable row: stop with `⏸`, naming what each backlog
-member waits on (its `why`). An epic whose members are all done is the one
-exception — its own `next` is `/spec-complete <epic>`, so say that, `✅`.
+**Nothing ready.** `groups.ready` is empty. Stop with `⏸` and name what each
+member in `groups.waiting` waits on (its row's `next.why`). A member the engine
+could not read is in `waiting` with its reason, never in `ready`
+(`.claude/rules/negative-checks.md`), so quote that reason rather than
+treating the wait as met.
 
-**One startable.** Name it. `Next` is its `command`, in a new tab.
+**One start step.** Name it. `Next` is its `command`, in a new tab, with its
+`caution` beside it.
 
-**Several startable.** Offer a picker — one option per startable member, plus
-Cancel — and **never choose for them**. A member whose `why` says
-`clashes with …` is listed **with** its clash, not filtered out: `Area:` is
-what a spec says it will touch, and `/spec-start` §4c raises the clash again
-when it starts. A choice ends `✅` with that member in `Next`; Cancel ends `⏸`.
+**Several start steps.** Offer a picker — one option per start step, plus
+Cancel — and **never choose for them**. A member with a `caution` is listed
+**with** its clash, not filtered out: `Area:` is what a spec says it will
+touch, and `/spec-start` §4c raises the clash again when it starts. The engine
+already puts the start with no clash first, so keep its order. A choice ends
+`✅` with that member in `Next`; Cancel ends `⏸`.
 
 ## Report
 
@@ -74,7 +77,7 @@ the shape; this section carries only what is specific here.
 
 **Fields:** `Spec` · `Follow-ups` · `Next`
 
-`Spec` names the epic and how far along it is, from the engine's own
-headline. `Next` is `/spec-start <member>` **in a new tab**, or on a `⏸` the
+`Spec` names the epic and how far along it is, from the engine's
+`progress` (`N of M done · K in flight`). `Next` is `/spec-start <member>` **in a new tab**, or on a `⏸` the
 thing that would unblock it. Where several are startable the picker is the
 control after the block, and `Next` names it.

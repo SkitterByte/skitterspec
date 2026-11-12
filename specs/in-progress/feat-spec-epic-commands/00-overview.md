@@ -140,7 +140,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 |---|-------|--------|------|
 | 1 | Rename `/epic` → `/spec-epic` | ✅ | [01-rename-epic-command.md](01-rename-epic-command.md) |
 | 2 | `/spec-epic-next` skill and the `/spec-complete` hand-off | ✅ | [02-spec-epic-next.md](02-spec-epic-next.md) |
-| 3 | Epic view grouped by state, with next steps | ⬜ | [03-epic-page-grouped.md](03-epic-page-grouped.md) |
+| 3 | Epic view grouped by state, with next steps | ✅ | [03-epic-page-grouped.md](03-epic-page-grouped.md) |
 
 ## Open questions
 
@@ -160,3 +160,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `docs/linear.html`'s quoted `21 skills installed`, and the repo's own
   `.claude/skills` link. Those are the guards that keep each list from going
   stale. The skill reads `rows` for now, and phase 3 moves it to `steps`.
+- 2026-11-12 — Phase 3: `epicPlan` lives in `nextaction.js` beside
+  `epicRows` and rides `epicAnswer`, so `--json`, the page and the text view
+  read one object. When there is one free lane, the start with no clash goes
+  first. The in-flight rows no longer carry a `next` cell, because the
+  numbered steps say it once. Docs `verified:` were not bumped: only the epic
+  paragraphs were re-read.
+- 2026-11-12 — Follow-up surfaced: `/spec-start` on an epic (§6) still works
+  out its first starts from `rows` and leaves out clashing members, while
+  `steps` lists them with a caution. The two should read one answer. That is
+  not in scope here.

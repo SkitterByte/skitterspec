@@ -2,9 +2,9 @@
 github_issue_id: "#190"
 ---
 
-# Phase 3 — Epic view grouped by state, with next steps ⬜
+# Phase 3 — Epic view grouped by state, with next steps ✅
 
-> Spec: [00-overview.md](00-overview.md) · **Status:** Not started
+> Spec: [00-overview.md](00-overview.md) · **Status:** Done
 
 **Goal:** the epic page and `epic status` show at a glance what is done, in
 flight and left, and end on a numbered list of what to type in which tab.
@@ -12,28 +12,28 @@ Proven by render tests over the page and the text view.
 
 ## Tasks
 
-- [ ] Engine (`epic.js`): add `progress` (`done`, `total`, `inFlight`) and
+- [x] Engine (`epic.js`): add `progress` (`done`, `total`, `inFlight`) and
       `groups` (`inFlight` · `ready` · `waiting` · `done`) to the status. Every
       member is in exactly one group, and `cannot tell` goes into `waiting`
       with its reason. `--json` carries both
-- [ ] Engine: add `steps`, the ordered next steps (Decision 9). Each step is
+- [x] Engine: add `steps`, the ordered next steps (Decision 9). Each step is
       `{ where, command, unblocks, caution }`
-- [ ] Page (`epicpage.js`): a progress header and bar, the four groups (Done
+- [x] Page (`epicpage.js`): a progress header and bar, the four groups (Done
       collapsed to a count, opened by `<details>`), then **Next steps** at the
       bottom. Waves and never-together go behind a `<details>`. It keeps the
       30 s refresh, relative member links and no pass codes (feat-epic-next
       Decisions 5–6)
-- [ ] Text view (`epic status`): the same order and grouping, in plain text
+- [x] Text view (`epic status`): the same order and grouping, in plain text
       readable under `watch`
-- [ ] `/spec-epic-next` reads its startable members from `steps`, so the
+- [x] `/spec-epic-next` reads its startable members from `steps`, so the
       skill, the page and the CLI give one answer
-- [ ] Docs: `review` (the epic page) and `reference` (`epic status` output);
+- [x] Docs: `review` (the epic page) and `reference` (`epic status` output);
       bump `verified:`
-- [ ] Tests: group membership (incl. cannot-tell → waiting); step order;
+- [x] Tests: group membership (incl. cannot-tell → waiting); step order;
       `unblocks` from `Waits on:`; the clash caution; no start step beyond the
       free lanes; a stays-silent test that an all-done epic emits only
       `/spec-complete <epic>`; page render keeps no pass code
-- [ ] Run typecheck + tests — green before the phase is done
+- [x] Run typecheck + tests — green before the phase is done
 
 ## Notes
 

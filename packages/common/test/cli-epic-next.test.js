@@ -118,8 +118,9 @@ test('epic status: the human view is the same answer, as plain text', async () =
   const { dir } = scaffold()
   try {
     const human = await runQuiet(['epic', 'status', 'epic-x', '--dir', dir])
-    assert.match(human, /^ {2}feat-a +phase 2 of 2 +\/spec-next — phase 2 +\S+/m)
-    assert.match(human, /^ {2}feat-b +backlog +waits on feat-a +—$/m)
+    assert.match(human, /^ {2}in flight\n {4}feat-a +phase 2 of 2 +\S+$/m)
+    assert.match(human, /^ {2}waiting\n {4}feat-b +waits on feat-a$/m)
+    assert.match(human, /^ {4}1\. in \S+: {2}\/spec-next$/m)
     assert.doesNotMatch(human, /\|/)
     // No server running here: the page line names the one command that starts it.
     assert.match(human, /^epic page: no review server running — start it with: skitterspec spec-env review serve --host 0\.0\.0\.0$/m)

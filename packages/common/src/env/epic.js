@@ -27,7 +27,7 @@
  */
 
 const { phaseIsDone } = require('./resolve.js')
-const { epicRows, actionText } = require('./nextaction.js')
+const { epicRows, epicPlan, actionText } = require('./nextaction.js')
 
 const BUCKETS = ['backlog', 'in-progress', 'complete', 'cancelled']
 
@@ -408,11 +408,12 @@ function aligned(lines, indent = '  ') {
 }
 
 /**
- * The human answer: a headline, one row per member saying what to run and in
- * which tab, then the plan's shape — waves, sync points, clashes — wherever
- * there is something to say. `s.rows` comes from `epicRows`; a status without
- * them is rendered with nothing read off disk, so an in-flight member says it
- * cannot tell rather than guessing.
+ * The human answer, in the order a reader needs it (spec
+ * feat-spec-epic-commands, Decisions 9–10): how far along, every member in its
+ * group, then the numbered next steps, then the plan's shape — waves, sync
+ * points, clashes — which explains the order the steps act on. `s.rows` comes
+ * from `epicRows`; a status without them is rendered with nothing read off
+ * disk, so an in-flight member says it cannot tell rather than guessing.
  */
 function formatEpicStatus(s) {
   if (!s.found && !s.members.length) {
@@ -420,17 +421,29 @@ function formatEpicStatus(s) {
   }
   const lanes = s.lanes === null ? 'no lane cap' : `${s.lanes} lanes, ${s.freeLanes} free`
   const where = s.here ? ` · headers from ${s.here}` : s.found ? '' : ' · epic not on the base branch'
-  const head = `${s.epic} — ${s.members.length} member${s.members.length === 1 ? '' : 's'} · ${lanes}${where}`
-  const out = [head, '']
+  const out = []
   if (!s.members.length) {
-    out.push(`  no members — no spec carries \`> **Epic:** ${s.epic}\``)
+    out.push(`${s.epic} — 0 members · ${lanes}${where}`, '', `  no members — no spec carries \`> **Epic:** ${s.epic}\``)
   } else {
     const { rows, next } = s.rows ? { rows: s.rows, next: s.next } : epicRows(s)
-    const state = (r) => (r.bucket === 'in-progress' ? r.next.state : r.next.state || r.bucket || 'unknown')
+    const plan = s.steps ? s : epicPlan(s, { rows, next })
+    const { progress, groups, steps } = plan
+    const byName = new Map(rows.map((r) => [r.spec, r]))
     out.push(
-      ...aligned([['member', 'state', 'next', 'tab'], ...rows.map((r) => [r.spec, state(r), actionText(r.next), r.tab || '—'])]),
+      `${s.epic} — ${progress.done} of ${progress.total} done · ${progress.inFlight} in flight · ${lanes}${where}`,
+      `  ${progressBar(progress)}`,
     )
-    if (next) out.push('', `  ${s.epic}: ${actionText(next)}`)
+    const group = (title, names, cells) => {
+      if (!names.length) return
+      out.push('', `  ${title}`, ...aligned(names.map((n) => cells(byName.get(n))), '    '))
+    }
+    group('in flight', groups.inFlight, (r) => [r.spec, r.next.state || 'in-progress', r.tab || '—'])
+    group('ready to start', groups.ready, (r) => [r.spec, r.next.why || 'ready'])
+    group('waiting', groups.waiting, (r) => [r.spec, r.next.why || actionText(r.next)])
+    if (groups.done.length) out.push('', `  done (${groups.done.length})`, `    ${groups.done.join(', ')}`)
+    out.push('', '  next steps')
+    if (steps.length) out.push(...steps.flatMap((st, i) => stepLines(st, i + 1, s.freeLanes)))
+    else out.push('    nothing to type — every open member is building, held or waiting')
   }
   const shape = [
     ['waves', s.waves.map((w, i) => `${i + 1}: ${w.join(', ')}`).join(' · ')],
@@ -440,6 +453,28 @@ function formatEpicStatus(s) {
   ].filter(([, v]) => v)
   if (shape.length) out.push('', ...aligned(shape))
   return out.join('\n') + '\n'
+}
+
+// `[█████░░░░]` — one cell per member, so it reads as a count, not a percent.
+function progressBar({ done, total }) {
+  return `[${'█'.repeat(done)}${'░'.repeat(Math.max(0, total - done))}]`
+}
+
+// One numbered step: where, then what to type, then what it unblocks and any
+// caution, each on its own line so a phone-width terminal does not wrap them
+// into one another.
+function stepLines(st, n, freeLanes) {
+  const where =
+    st.where === 'epic'
+      ? "in the epic's tab"
+      : st.where === 'new-tab'
+        ? `in a new tab${freeLanes === null || freeLanes === undefined ? '' : ` (${freeLanes} lane${freeLanes === 1 ? '' : 's'} free)`}`
+        : `in ${st.tab || `${st.spec}'s tab`}`
+  const what = st.verb === 'verdict' ? (st.link ? `press a verdict → ${st.link}` : 'press a verdict on its page') : st.command
+  const lines = [`    ${n}. ${where}:  ${what}`]
+  if (st.unblocks.length) lines.push(`       → unblocks ${st.unblocks.join(', ')}`)
+  if (st.caution) lines.push(`       ⚠ ${st.caution}`)
+  return lines
 }
 
 /**

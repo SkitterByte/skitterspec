@@ -259,4 +259,81 @@ function epicRows(status, { inputsFor = () => null, tabFor = () => null, linkFor
   return { rows, next: epicNext(status.epic, status.members) }
 }
 
-module.exports = { nextAction, epicNext, epicRows, actionText, readNextInputs, readPhases }
+// In-flight actions before starts, and among those the one a person is
+// already holding first: a pass, then a page, then a finish, then a build.
+const TAB_ORDER = ['claim', 'verdict', 'complete', 'next']
+
+/**
+ * What the epic view is laid out from (spec feat-spec-epic-commands,
+ * Decisions 9–10): how far along it is, every member in exactly one group, and
+ * the numbered next steps. Computed once here so the page, the terminal and
+ * `/spec-epic-next` cannot give three answers.
+ *
+ * GROUPS ARE BY POSITIVE SIGNAL. `ready` is a member the engine said may start
+ * (`verb: start`); everything else in the backlog — blocked, or a wait that
+ * cannot be read — is `waiting`, never `ready`
+ * (`.claude/rules/negative-checks.md`). A row whose bucket could not be read is
+ * waiting too.
+ *
+ * A STEP IS SOMETHING TO TYPE. A member that is building, held or cannot-tell
+ * gets no step: naming one would be advice the engine cannot back.
+ */
+function epicPlan(status, { rows = [], next = null } = {}) {
+  const groups = { inFlight: [], ready: [], waiting: [], done: [] }
+  for (const r of rows) {
+    if (r.bucket === 'complete' || r.bucket === 'cancelled') groups.done.push(r.spec)
+    else if (r.bucket === 'in-progress') groups.inFlight.push(r.spec)
+    else if (r.bucket === 'backlog' && r.next.verb === 'start') groups.ready.push(r.spec)
+    else groups.waiting.push(r.spec)
+  }
+  const progress = { done: groups.done.length, total: rows.length, inFlight: groups.inFlight.length }
+
+  // Everyone not yet finished who waits on `raw` — the whole spec, or one of
+  // its phases.
+  const open = new Set([...groups.ready, ...groups.waiting])
+  const waitersOn = (raw) =>
+    (status.members || []).filter((m) => open.has(m.spec) && (m.waits || []).some((w) => w.raw === raw && w.state !== 'met')).map((m) => m.spec)
+
+  if (next) return { progress, groups, steps: [{ where: 'epic', spec: status.epic, verb: next.verb, command: next.command, link: null, unblocks: [], caution: null }] }
+
+  const steps = []
+  const tabRows = rows
+    .filter((r) => r.bucket === 'in-progress' && TAB_ORDER.includes(r.next.verb))
+    .sort((a, b) => TAB_ORDER.indexOf(a.next.verb) - TAB_ORDER.indexOf(b.next.verb))
+  const stepOf = new Map()
+  for (const r of tabRows) {
+    let unblocks = []
+    if (r.next.verb === 'complete') unblocks = waitersOn(r.spec)
+    if (r.next.verb === 'next') {
+      const m = /^phase (\d+)/.exec(r.next.why || '')
+      if (m) unblocks = waitersOn(`${r.spec} phase ${m[1]}`)
+    }
+    steps.push({ where: 'tab', spec: r.spec, tab: r.tab, verb: r.next.verb, command: r.next.command, link: r.next.link, unblocks, caution: null })
+    stepOf.set(r.spec, steps.length)
+  }
+
+  const flying = new Set(groups.inFlight)
+  const clashesOf = (spec) =>
+    (status.clashes || [])
+      .filter((c) => c.specs.includes(spec))
+      .map((c) => c.specs.find((x) => x !== spec))
+      .filter((x) => flying.has(x))
+  // A start that clashes with nothing in flight first: with one lane, the
+  // safer start is the one to take.
+  const starts = rows
+    .filter((r) => groups.ready.includes(r.spec))
+    .map((r) => ({ r, clash: clashesOf(r.spec) }))
+    .sort((a, b) => Number(a.clash.length > 0) - Number(b.clash.length > 0))
+  const cap = status.freeLanes === null || status.freeLanes === undefined ? starts.length : status.freeLanes
+  for (const { r, clash } of starts.slice(0, cap)) {
+    let caution = null
+    if (clash.length) {
+      const after = clash.map((x) => stepOf.get(x)).filter(Boolean)
+      caution = `clashes with ${clash.join(', ')}${after.length ? `; safer after step ${after.join(', ')}` : ''}`
+    }
+    steps.push({ where: 'new-tab', spec: r.spec, tab: null, verb: 'start', command: r.next.command, link: null, unblocks: [], caution })
+  }
+  return { progress, groups, steps }
+}
+
+module.exports = { nextAction, epicNext, epicRows, epicPlan, actionText, readNextInputs, readPhases }

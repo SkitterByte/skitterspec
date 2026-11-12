@@ -89,12 +89,12 @@ test('a waiting page is a RELATIVE link, and a waiting pass shows no code', asyn
   const s = await serve(dir)
   try {
     let html = await (await s.get('epic-x')).text()
-    assert.match(html, /<a href="feat-a">press a verdict on its page →<\/a>/)
+    assert.match(html, /<a href="feat-a">press a verdict on feat-a's page →<\/a>/)
     assert.doesNotMatch(html, /href="http/)
 
     write(path.join(dir, '.spec-env', 'reviews', 'feat-a.pending.json'), JSON.stringify({ version: 1, spec: 'feat-a', passes: [{ code: '324199' }, { code: '555123' }] }))
     html = await (await s.get('epic-x')).text()
-    assert.match(html, /verdict waiting — <code>\/spec-reviewed<\/code> in its tab/)
+    assert.match(html, /verdict waiting — <code>\/spec-reviewed<\/code>/)
     assert.doesNotMatch(html, /324199|555123/)
   } finally {
     await s.close()
