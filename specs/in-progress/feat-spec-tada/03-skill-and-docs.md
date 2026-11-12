@@ -11,6 +11,9 @@ digest, installed by `init`/`update` and documented.
 
 ## Tasks
 
+> Two busy days across three repos are ~19 KB as text and ~97 KB as JSON —
+> the skill should read the text form.
+
 - [ ] Text form of `skitterspec tada` mirroring the JSON digest
 - [ ] Add `packages/common/assets/skills/spec-tada/SKILL.md` —
       model-invocable; runs the verb, writes Done / Explored / Open per

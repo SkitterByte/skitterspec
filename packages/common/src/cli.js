@@ -200,7 +200,7 @@ const {
   appendChangelog,
   waitsMetByRebase,
 } = require('./env/epic.js')
-const { nextAction, readNextInputs } = require('./env/nextaction.js')
+const { nextAction, readNextInputs, actionText } = require('./env/nextaction.js')
 const { epicTree, workingTree, worktreeOverview, epicsInFlight, memberReaders, epicAnswer } = require('./env/epicread.js')
 const { planHotfixLand, planBranchHotfixLand, planBranchHotfixFinish, planHotfixFinish } = require('./env/hotfix.js')
 const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfixland.js')
@@ -208,6 +208,7 @@ const { planDev } = require('./env/dev.js')
 const { windowFor } = require('./tada/window.js')
 const { defaultRoot } = require('./tada/transcripts.js')
 const { buildDigest } = require('./tada/digest.js')
+const { readRepoFacts } = require('./tada/repo.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
 const {
   renderRoutes,
@@ -574,6 +575,25 @@ function inFlightStatus(argv) {
   const json = argv.includes('--json')
   const at = argv.indexOf('--dir')
   const from = path.resolve(at !== -1 && argv[at + 1] ? argv[at + 1] : process.cwd())
+  const { anchor, present, rows } = inFlightRows(from)
+  if (json) {
+    const specs = rows.map((r) => ({ ...r, inFlight: isInFlight(r) }))
+    process.stdout.write(JSON.stringify({ isolation: present, specs }, null, 2) + '\n')
+    return
+  }
+  if (!present) {
+    process.stdout.write('no specs in flight — isolation is not enabled here, so no spec has a worktree.\n')
+    return
+  }
+  process.stdout.write(projectLine(anchor) + formatInFlight(rows, { dir: anchor.dir }))
+}
+
+/**
+ * The rows behind `skitterspec status`, read from `from`'s repo — shared with
+ * `skitterspec tada`, whose open items are exactly these, so the two can never
+ * disagree about what is in flight.
+ */
+function inFlightRows(from) {
   const anchor = primaryAnchor(from, gitReader(from))
   const dir = anchor.dir
   const { config, present } = loadEnvConfig(dir)
@@ -598,16 +618,7 @@ function inFlightStatus(argv) {
         }
       : r,
   )
-  if (json) {
-    const specs = rows.map((r) => ({ ...r, inFlight: isInFlight(r) }))
-    process.stdout.write(JSON.stringify({ isolation: present, specs }, null, 2) + '\n')
-    return
-  }
-  if (!present) {
-    process.stdout.write('no specs in flight — isolation is not enabled here, so no spec has a worktree.\n')
-    return
-  }
-  process.stdout.write(projectLine(anchor) + formatInFlight(rows, { dir }))
+  return { anchor, present, rows }
 }
 
 /**
@@ -632,6 +643,25 @@ async function tadaCommand(argv) {
     root: defaultRoot(),
     window,
     here: argv.includes('--here') ? process.cwd() : null,
+    facts: (repo) => {
+      let config = {}
+      try {
+        config = loadEnvConfig(repo).config
+      } catch {
+        // An unreadable config is the repo's to fix, not this report's — the
+        // defaults still read its commits; only a custom branch.pattern is lost.
+      }
+      return readRepoFacts({ repo, git: gitReader(repo), config, window })
+    },
+    openFor: (repo) => {
+      try {
+        return inFlightRows(repo)
+          .rows.filter(isInFlight)
+          .map((r) => ({ spec: r.spec, detail: detailOf(r), next: r.next ? actionText(r.next) : null }))
+      } catch {
+        return []
+      }
+    },
   })
   if (json) {
     process.stdout.write(JSON.stringify(digest, null, 2) + '\n')
@@ -646,11 +676,17 @@ function formatTada(digest) {
   for (const p of digest.projects) {
     out.push('', `${p.name}${p.repo ? `  (${p.repo})` : '  (not a git repo)'}`)
     for (const g of p.groups) {
-      out.push(`  ${g.branch || '(no branch)'} — ${g.sessions.length} session(s)`)
+      const head = g.spec ? `${g.spec}${g.ticket ? ` [${g.ticket.id}]` : ''}` : `${g.branch || '(no branch)'} — no spec`
+      out.push(`  ${head}`)
+      for (const e of g.events) out.push(`    * ${e.kind === 'phase-done' ? `phase ${e.phase} done` : e.kind}`)
+      for (const c of g.commits) out.push(`    + ${c.sha} ${c.subject}`)
+      const sessions = g.sessions.length
+      if (sessions) out.push(`    ${sessions} session${sessions === 1 ? '' : 's'}:`)
       for (const s of g.sessions) {
         for (const pr of s.prompts) out.push(`    - ${pr.command ? `${pr.command} ` : ''}${pr.text}`.trimEnd())
         if (s.omitted) out.push(`    … ${s.omitted} more`)
       }
+      if (g.inFlight) out.push(`    in flight: ${g.inFlight.detail}${g.inFlight.next ? ` · next: ${g.inFlight.next}` : ''}`)
     }
   }
   for (const n of digest.notes) out.push('', n)

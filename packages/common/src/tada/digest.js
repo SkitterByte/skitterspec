@@ -53,8 +53,11 @@ function memo(fn) {
  *   - `window`  `{ since, until }` from `windowFor`
  *   - `here`    a cwd to narrow to its repo, or null for every project
  *   - `repoOf`  `gitRepoOf`, injectable
+ *   - `facts`   `(repo) => readRepoFacts(…)` — commits, lifecycle moves and
+ *               spec lookups for a repo; omitted, groups are sessions only
+ *   - `openFor` `(repo) => [{ spec, detail, next }]` — what is in flight there
  */
-async function buildDigest({ root, window, here = null, repoOf = gitRepoOf }) {
+async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, facts = null, openFor = null }) {
   const resolve = memo(repoOf)
   const notes = []
   const refolded = new Set()
@@ -128,25 +131,90 @@ async function buildDigest({ root, window, here = null, repoOf = gitRepoOf }) {
   return {
     window: { since: window.since.toISOString(), until: window.until.toISOString() },
     projects: list
-      .map((p) => ({
-        repo: p.repo,
-        name: p.name,
-        git: p.git,
-        groups: [...p.groups.entries()]
-          .map(([branch, sessions]) => ({
-            branch,
-            sessions: [...sessions.values()]
-              .map((s) => {
-                s.prompts.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
-                return { id: s.id, start: s.start, end: s.end, ...trimPrompts(s.prompts) }
-              })
-              .sort((a, b) => (a.start < b.start ? -1 : 1)),
-          }))
-          .sort((a, b) => (a.sessions[0].start < b.sessions[0].start ? -1 : 1)),
-      }))
+      .map((p) => {
+        const f = p.repo && facts ? facts(p.repo) : null
+        if (f) notes.push(...f.notes)
+        return {
+          repo: p.repo,
+          name: p.name,
+          git: p.git,
+          skitterspec: Boolean(f && f.skitterspec),
+          groups: groupsOf(p, f, f && openFor ? openFor(p.repo) : []),
+        }
+      })
       .sort((a, b) => a.name.localeCompare(b.name)),
     notes: [...new Set(notes)],
   }
+}
+
+/**
+ * One project's groups: a spec where the branch, a commit or an in-flight row
+ * names one, else the branch. Sessions, commits, lifecycle moves and open
+ * state for one spec land in one group, whichever of them found it.
+ */
+function groupsOf(p, f, open) {
+  const groups = new Map()
+  const group = (spec, branch) => {
+    const key = spec ? `spec\0${spec}` : `branch\0${branch || ''}`
+    if (!groups.has(key)) {
+      groups.set(key, { spec: spec || null, branch: branch || null, sessions: [], commits: [], events: [], inFlight: null })
+    }
+    const g = groups.get(key)
+    if (!g.branch && branch) g.branch = branch
+    return g
+  }
+
+  for (const [branch, sessions] of p.groups) {
+    const g = group(f ? f.toSpec(branch) : null, branch)
+    for (const s of sessions.values()) {
+      s.prompts.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+      g.sessions.push({ id: s.id, start: s.start, end: s.end, ...trimPrompts(s.prompts) })
+    }
+  }
+  if (f) {
+    for (const c of f.commits) group(c.spec, c.spec ? null : c.branch).commits.push(c)
+    for (const e of f.events) group(e.spec, null).events.push(e)
+  }
+  for (const row of open) group(row.spec, null).inFlight = row
+
+  return [...groups.values()]
+    .map((g) => {
+      g.sessions.sort((a, b) => (a.start < b.start ? -1 : 1))
+      g.commits.sort(byTime)
+      g.events.sort(byTime)
+      const ticket = g.spec && f ? f.ticket(g.spec) || refTicket(g.commits) : null
+      return { spec: g.spec, branch: g.branch, ...(ticket ? { ticket } : {}), sessions: g.sessions, commits: g.commits, events: g.events, inFlight: g.inFlight }
+    })
+    .sort((a, b) => {
+      // Activity first, in the order it happened; a spec that is only open —
+      // in flight, untouched in this window — goes last.
+      const ta = firstAt(a)
+      const tb = firstAt(b)
+      if (ta === tb) return 0
+      if (ta === null) return 1
+      if (tb === null) return -1
+      return ta < tb ? -1 : 1
+    })
+}
+
+// Stable on a tie — a rebased run shares one committer second, and its order
+// is the walk's, which is oldest first.
+function byTime(a, b) {
+  const ta = Date.parse(a.at)
+  const tb = Date.parse(b.at)
+  return ta < tb ? -1 : ta > tb ? 1 : 0
+}
+
+function firstAt(g) {
+  const times = [...g.sessions.map((s) => s.start), ...g.commits.map((c) => c.at)].map((t) => Date.parse(t))
+  return times.length ? Math.min(...times) : null
+}
+
+// A spec whose overview carries no ticket can still be named by the `Refs:`
+// its commits carried — the id alone, since only the overview holds a url.
+function refTicket(commits) {
+  const ids = [...new Set(commits.flatMap((c) => c.refs || []))]
+  return ids.length === 1 ? { id: ids[0], url: null } : null
 }
 
 module.exports = { buildDigest, gitRepoOf }

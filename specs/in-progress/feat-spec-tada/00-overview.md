@@ -132,7 +132,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Transcript digest by repo and branch | ✅ | [01-transcript-digest.md](01-transcript-digest.md) |
-| 2 | Git, spec attribution and open items | ⬜ | [02-git-and-specs.md](02-git-and-specs.md) |
+| 2 | Git, spec attribution and open items | ✅ | [02-git-and-specs.md](02-git-and-specs.md) |
 | 3 | `/spec-tada` skill, text output, docs | ⬜ | [03-skill-and-docs.md](03-skill-and-docs.md) |
 | 4 | Optional HTML page | ⬜ | [04-html-page.md](04-html-page.md) |
 
@@ -155,3 +155,13 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   phase 3 — the published-docs test requires every top-level command on the
   site. Its `covers` glob waits for phase 3 (a glob over untracked files
   fails the build).
+- 2026-11-12 — Phase 2 refines Decision 6: the branch is asked only of a
+  commit not yet on the base. On real repos a spec branch forked in the
+  afternoon "contains" the whole morning's base history, so containment
+  attributed every landed commit to the last spec started. A landed commit
+  is attributed by its spec folder, then its `Refs:` ticket.
+- 2026-11-12 — Phase 2: the stash is excluded from `--all` (a stash entry
+  read as duplicated work), and `skitterspec status`'s row-building is now
+  shared as `inFlightRows` so the two commands agree on what is in flight.
+  The digest field is `inFlight`, not `open` — a test forbids `.open` in
+  `cli.js`, where it was the removed opener key.
