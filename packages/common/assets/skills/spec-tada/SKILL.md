@@ -16,7 +16,7 @@ what already happened and says it back in the shape a standup wants.
 ## 1. Get the digest
 
 ```
-skitterspec tada [--since <when> | --on <when>] [--here]
+skitterspec tada [--since <when> | --on <when>] [--here | --all-projects]
 ```
 
 Map the request onto the flags and nothing else:
@@ -26,7 +26,16 @@ Map the request onto the flags and nothing else:
 - **`--on <when>`** — that one day: "what did I do last Friday", "on the 6th".
   Neither flag is today.
 - **`--here`** — "this repo", "this project": narrow to the repo the session is
-  standing in. Otherwise every project on the machine is in it.
+  standing in.
+- **`--all-projects`** — "everything", "work and personal": every project on
+  the machine.
+
+**The report is scoped by category without being asked.** Run from a project
+whose `project.category` is set (in `specs/.core/env.config.json`), it covers
+only the projects with the same category; uncategorised ones are left out. The
+first line of the digest names the category when there is one — say it in
+`Built`, so the reader knows what the report covers. Each project is shown by
+its `project.name`.
 
 A `<when>` is any of these, passed as the words the person used — no quoting:
 

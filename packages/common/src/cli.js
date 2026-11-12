@@ -82,6 +82,7 @@ const {
   primaryAnchor,
   attachProject,
   projectName,
+  projectCategory,
   repoRootOf,
   prefixOf,
   toRepoPath,
@@ -209,7 +210,7 @@ const { runHotfixLand, describeStep: describeHotfixStep } = require('./env/hotfi
 const { planDev } = require('./env/dev.js')
 const { windowFor, windowLabel } = require('./tada/window.js')
 const { defaultRoot } = require('./tada/transcripts.js')
-const { buildDigest } = require('./tada/digest.js')
+const { buildDigest, gitRepoOf } = require('./tada/digest.js')
 const { readRepoFacts } = require('./tada/repo.js')
 const { formatTada } = require('./tada/format.js')
 const { renderTadaPage } = require('./tada/page.js')
@@ -339,7 +340,9 @@ Usage:
                               folded into each repo and grouped by spec.
                               --since <when> (to now) or --on <when> (that day):
                               today, yesterday, last friday, 3 days ago, 2w,
-                              2026-11-06 or 6 Nov. --here for this repo only,
+                              2026-11-06 or 6 Nov. Scoped to projects sharing
+                              this one's project.category (--all-projects for
+                              every project). --here for this repo only,
                               --json, --page [--summary <recap.md>] for an HTML
                               page. Reads ~/.claude/projects; exits 0 unless the
                               window cannot be read.
@@ -650,6 +653,7 @@ async function tadaCommand(argv) {
     root: defaultRoot(),
     window,
     here: argv.includes('--here') ? process.cwd() : null,
+    category: argv.includes('--all-projects') ? null : runningCategory(process.cwd()),
     facts: (repo) => {
       let config = {}
       try {
@@ -698,6 +702,20 @@ async function tadaCommand(argv) {
     return
   }
   process.stdout.write(formatTada(digest))
+}
+
+// The category of the project a report is run from — its scope. Null (report
+// everything) outside a repo, in a repo with no category, or with a config that
+// cannot be read: an unreadable config narrowing the report to nothing would
+// be the confident wrong answer.
+function runningCategory(cwd) {
+  const r = gitRepoOf(cwd)
+  if (!r.repo) return null
+  try {
+    return projectCategory(loadEnvConfig(r.repo).config)
+  } catch {
+    return null
+  }
 }
 
 // A flag's value, which may be several words — `--since last friday`,
@@ -4033,7 +4051,7 @@ function specEnvResolve(dir, config, specArg, flags = {}) {
       `branch:     ${r.branch}\n` +
       `worktree:   ${r.projectPath}\n` +
       `project:    ${r.projectName}\n` +
-      projectLine(config.project),
+      projectLine(config.checkout),
   )
 }
 

@@ -56,8 +56,10 @@ function memo(fn) {
  *   - `facts`   `(repo) => readRepoFacts(…)` — commits, lifecycle moves and
  *               spec lookups for a repo; omitted, groups are sessions only
  *   - `openFor` `(repo) => [{ spec, detail, next }]` — what is in flight there
+ *   - `category` the running project's category: only projects carrying the
+ *               same one are reported. Null reports every project.
  */
-async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, facts = null, openFor = null }) {
+async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, facts = null, openFor = null, category = null }) {
   const resolve = memo(repoOf)
   const notes = []
   const refolded = new Set()
@@ -128,24 +130,35 @@ async function buildDigest({ root, window, here = null, repoOf = gitRepoOf, fact
     list = list.filter((p) => p.key === key)
   }
 
+  const want = category ? fold(category) : null
+  const reported = list
+    .map((p) => ({ p, f: p.repo && facts ? facts(p.repo) : null }))
+    // Scoped by category: a project counts only when its own config carries
+    // the same one. Uncategorised projects — and repos with no skitterspec
+    // config, which have nowhere to declare one — are left out entirely.
+    .filter(({ f }) => !want || (f && f.category && fold(f.category) === want))
+    .map(({ p, f }) => {
+      if (f) notes.push(...f.notes)
+      return {
+        repo: p.repo,
+        name: (f && f.name) || p.name,
+        ...(f && f.category ? { category: f.category } : {}),
+        git: p.git,
+        skitterspec: Boolean(f && f.skitterspec),
+        groups: groupsOf(p, f, f && openFor ? openFor(p.repo) : []),
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
+
   return {
     window: { since: window.since.toISOString(), until: window.until.toISOString() },
-    projects: list
-      .map((p) => {
-        const f = p.repo && facts ? facts(p.repo) : null
-        if (f) notes.push(...f.notes)
-        return {
-          repo: p.repo,
-          name: p.name,
-          git: p.git,
-          skitterspec: Boolean(f && f.skitterspec),
-          groups: groupsOf(p, f, f && openFor ? openFor(p.repo) : []),
-        }
-      })
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    ...(category ? { category } : {}),
+    projects: reported,
     notes: [...new Set(notes)],
   }
 }
+
+const fold = (s) => s.trim().toLowerCase()
 
 /**
  * One project's groups: a spec where the branch, a commit or an in-flight row

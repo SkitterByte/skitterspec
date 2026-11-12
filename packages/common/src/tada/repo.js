@@ -13,6 +13,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const { describeBaseBranch } = require('../env/resolve.js')
+const { projectName, projectCategory } = require('../env/project.js')
 const { CONTAINS_CAP, authorOf, branchesContaining, knownSpecs, onBaseIn, readCommits, specForTicket, ticketFor } = require('./commits.js')
 const { attributeCommit, branchToSpec, lifecycleEvents } = require('./specs.js')
 
@@ -25,7 +26,7 @@ const SHORT = 9
  *   - `git`     reader bound to it
  *   - `config`  its env config (`loadEnvConfig(repo).config`)
  *   - `window`  `{ since, until }`
- * @returns {{ skitterspec, base, toSpec, ticket, commits, events, notes }}
+ * @returns {{ name, category, skitterspec, base, toSpec, ticket, commits, events, notes }}
  */
 function readRepoFacts({ repo, git, config, window }) {
   const notes = []
@@ -92,7 +93,10 @@ function readRepoFacts({ repo, git, config, window }) {
     notes.push(`${asked} unlanded commits in ${path.basename(repo)} — past ${CONTAINS_CAP}, the rest are attributed by their files alone`)
   }
 
-  return { skitterspec, base, toSpec, ticket, commits, events, notes }
+  // The config's own name, else the repo's folder — the config is read without
+  // a checkout anchor, so `projectName` cannot fall back to the folder itself.
+  const name = projectName(config) || path.basename(repo)
+  return { name, category: projectCategory(config), skitterspec, base, toSpec, ticket, commits, events, notes }
 }
 
 module.exports = { readRepoFacts }

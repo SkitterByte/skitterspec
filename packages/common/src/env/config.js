@@ -162,6 +162,11 @@ const DEFAULT_CONFIG = Object.freeze({
   // dev servers may still want parallel specs, and absence of configuration is
   // not evidence of intent (see .claude/rules/negative-checks.md).
   mode: 'worktree',
+  // What this project is called and which group it belongs to — facts about
+  // the project, not about any one feature. `name` heads every generated page
+  // (empty: the folder's name); `category` is a free label (`work`, a client's
+  // name) that `skitterspec tada` scopes a report by.
+  project: Object.freeze({ name: '', category: '' }),
   worktree: Object.freeze({ root: '../{repo}-wt', folderPattern: '{slug}' }),
   docker: Object.freeze({
     enabled: true,
@@ -309,9 +314,8 @@ const DEFAULT_CONFIG = Object.freeze({
     allowRemote: false,
     commitWith: '/commit',
     required: true,
-    // The name every generated page carries in its tab and above its heading.
-    // Empty means "the project folder's name" (`projectName` in project.js) —
-    // the override exists for a checkout named `app` or `repo`.
+    // SUPERSEDED by `project.name`, and still read beneath it so a config that
+    // set it keeps its name. The name was never the review page's alone.
     projectName: '',
     // External code reviewers whose findings render as CHECKS on the page.
     // Empty by default and never written by `init`: configuring one sends the
@@ -400,6 +404,7 @@ function collectUnknownKeys(parsed, known = DEFAULT_CONFIG, prefix = '') {
 function defaults() {
   return {
     mode: DEFAULT_CONFIG.mode,
+    project: { ...DEFAULT_CONFIG.project },
     worktree: { ...DEFAULT_CONFIG.worktree },
     docker: { ...DEFAULT_CONFIG.docker },
     seedFiles: { mode: DEFAULT_CONFIG.seedFiles.mode, files: [] },
@@ -632,6 +637,11 @@ function normalizeAfterLand(parsed, setupTriggers) {
  */
 function mergeConfig(base, parsed) {
   if (!isObject(parsed)) return base
+
+  if (isObject(parsed.project)) {
+    assign(base.project, parsed.project, 'name', 'string')
+    assign(base.project, parsed.project, 'category', 'string')
+  }
 
   if (isObject(parsed.worktree)) {
     assign(base.worktree, parsed.worktree, 'root', 'string')

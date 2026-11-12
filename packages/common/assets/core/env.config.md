@@ -65,6 +65,18 @@ through to a documented conservative default; see the field notes below.
   // Not to be confused with `seedFiles.mode`, which is "symlink" | "copy".
   "mode": "worktree",
 
+  // What this project is called and which group it belongs to.
+  "project": {
+    "name": "",               // heads every generated page — reviews, the
+                              // served index, the epic page, the ta-da page.
+                              // Empty: the primary checkout's folder name. Read
+                              // before the superseded `review.projectName`.
+    "category": ""            // a free label — "work", "personal", a client.
+                              // `skitterspec tada` run here reports only the
+                              // projects with the same category (compared
+                              // case-insensitively); empty here reports all.
+  },
+
   "worktree": {
     "root": "../{repo}-wt",   // dir that holds all spec worktrees; sibling of
                               // the primary checkout, never nested inside it.
@@ -559,11 +571,9 @@ through to a documented conservative default; see the field notes below.
   // because a commit made under rules nobody configured must not read as one
   // made under /commit.
   //
-  // `projectName` is what every generated page — the review page, the served
-  // index, the epic page — calls this project, in its tab and above its
-  // heading. Empty (the default) means the project folder's name in the
-  // primary checkout, never a worktree's; set it when that folder is called
-  // something like `app`. Default: "".
+  // `projectName` is SUPERSEDED by `project.name` and still read beneath it,
+  // so a config that set it keeps its name. Set `project.name` instead.
+  // Default: "".
   //
   // THERE IS NO OFF SWITCH. `"none"` existed and was removed: it produced a
   // verdict that records itself and does nothing, which is the one thing a

@@ -86,7 +86,7 @@ test('a blank review.projectName falls back to the folder name', () => {
 })
 
 test('a subfolder project is named after its own folder', () => {
-  assert.strictEqual(projectName({ review: {}, project: { root: '/r/mono', prefix: 'apps/web' } }), 'web')
+  assert.strictEqual(projectName({ review: {}, checkout: { root: '/r/mono', prefix: 'apps/web' } }), 'web')
 })
 
 test('no anchor and no override is cannot-tell: null', () => {

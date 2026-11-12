@@ -154,7 +154,9 @@ function toRepoPath(rel, prefix) {
  * config.
  */
 function attachProject(config, anchor) {
-  Object.defineProperty(config, 'project', {
+  // `checkout`, not `project`: `project` is the config's own key (name,
+  // category), and the anchor is where this checkout sits on disk.
+  Object.defineProperty(config, 'checkout', {
     value: Object.freeze({ root: anchor.root, prefix: anchor.prefix }),
     enumerable: false,
     configurable: true,
@@ -163,8 +165,9 @@ function attachProject(config, anchor) {
 }
 
 /**
- * The name a generated page calls this project by: `review.projectName` when
- * set, else the project folder's name in the PRIMARY checkout.
+ * The name a generated page calls this project by: `project.name` when set,
+ * else the superseded `review.projectName`, else the project folder's name in
+ * the PRIMARY checkout.
  *
  * NEVER THE CWD'S NAME. A worktree's folder is named after its spec, so a page
  * rendered from one would repeat the spec name where the project's belongs —
@@ -172,11 +175,18 @@ function attachProject(config, anchor) {
  * is none: cannot tell, and the pages then render exactly as they did before.
  */
 function projectName(config) {
-  const set = config && config.review && config.review.projectName
-  if (typeof set === 'string' && set.trim()) return set.trim()
-  const p = config && config.project
-  if (!p || !p.root) return null
-  return path.basename(projectIn(p.root, p.prefix || '')) || null
+  for (const set of [config && config.project && config.project.name, config && config.review && config.review.projectName]) {
+    if (typeof set === 'string' && set.trim()) return set.trim()
+  }
+  const at = config && config.checkout
+  if (!at || !at.root) return null
+  return path.basename(projectIn(at.root, at.prefix || '')) || null
+}
+
+/** The project's category, trimmed — or null when none is set. */
+function projectCategory(config) {
+  const c = config && config.project && config.project.category
+  return typeof c === 'string' && c.trim() ? c.trim() : null
 }
 
 /**
@@ -206,12 +216,12 @@ function shellPath(p, platform = process.platform) {
 
 /** The repo root a config was loaded for, else `dir` — today's behaviour. */
 function repoRootOf(dir, config) {
-  return (config && config.project && config.project.root) || dir
+  return (config && config.checkout && config.checkout.root) || dir
 }
 
 /** The project prefix a config was loaded for, else `''`. */
 function prefixOf(config) {
-  return (config && config.project && config.project.prefix) || ''
+  return (config && config.checkout && config.checkout.prefix) || ''
 }
 
 /**
@@ -235,6 +245,7 @@ module.exports = {
   shellPath,
   attachProject,
   projectName,
+  projectCategory,
   repoRootOf,
   prefixOf,
   projectLine,
