@@ -136,3 +136,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `spec-planning.md`'s live overlay paragraph now names the remote base. The
   fallback also covers a fetch that succeeds without producing the ref
   (`rev-parse --verify`), not only a failed fetch.
+- 2026-11-12 — Completed; all phases done, tests green.
