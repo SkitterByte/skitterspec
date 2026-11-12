@@ -115,3 +115,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   `setProjectKeys`, so `--isolation --mode checkout` and a kept config both
   survive. The CLI path is tested through `parse`: the source package refuses
   `init` until composed, so the end-to-end run belongs to the distribution.
+- 2026-11-12 — Completed; all phases done, tests green.
