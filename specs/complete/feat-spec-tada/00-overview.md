@@ -181,3 +181,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   renders one"), not a picker — a picker after every recap would be shown
   reflexively and dismissed. The page's file name and title use local dates
   (`windowLabel`); the digest keeps UTC instants for scripts.
+- 2026-11-12 — Completed; all phases done, tests green.
