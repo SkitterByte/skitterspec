@@ -378,6 +378,8 @@ Options (init / update):
   --yes, -y                Accept defaults; skip the interactive setup prompts
   --isolation / --no-isolation        Enable/skip per-spec isolation (a git
                                       worktree per spec; writes env.config.json)
+  --name <name> / --category <c>      (init --isolation) Write project.name /
+                                      project.category into env.config.json
   --remove-release-tooling            (update) Remove leftover release tooling
                                       non-interactively (moved to skittership)
 
@@ -419,7 +421,11 @@ function parse(argv) {
     else if (a === '--diff') opts.diff = true
     else if (a === '--check') opts.check = true
     else if (a === '--dir') opts.dir = argv[++i]
-    else if (a.startsWith('--')) throw new Error(`unknown option: ${a}`)
+    else if (a === '--name' || a === '--category') {
+      const v = argv[++i]
+      if (v === undefined) throw new Error(`${a} needs a value`)
+      opts.project = { ...opts.project, [a.slice(2)]: v }
+    } else if (a.startsWith('--')) throw new Error(`unknown option: ${a}`)
     else positional.push(a)
   }
   return { opts, positional }
@@ -7922,6 +7928,7 @@ async function run(argv) {
         isolation,
         workspaceMode,
         gating,
+        project: opts.project,
       })
       break
     }

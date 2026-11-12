@@ -180,3 +180,41 @@ test('a flag with no value is refused, not taken as clearing', () => {
   assert.strictEqual(run(['--name'], { cwd: dir }).status, 1)
   assert.strictEqual(fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), 'utf8'), '{}')
 })
+
+// --- init and the skill (phase 2) ------------------------------------------------------
+
+const { init } = require('../src/init.js')
+
+test('init --isolation writes a name and category given to it, and only those', async () => {
+  const dir = repo()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true, project: { name: 'Acme', category: 'work' } })
+  const file = path.join(dir, 'specs', '.core', 'env.config.json')
+  const written = JSON.parse(fs.readFileSync(file, 'utf8'))
+  assert.deepStrictEqual(written.project, { name: 'Acme', category: 'work' })
+  const example = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'assets', 'core', 'env.config.json.example'), 'utf8'))
+  assert.deepStrictEqual({ ...written, project: example.project }, example, 'the rest is the template')
+})
+
+// Stays silent: init with neither flag writes the template untouched.
+test('init --isolation without them leaves the template as shipped', async () => {
+  const dir = repo()
+  await init({ dir, force: false, claudeMd: false, mode: 'init', isolation: true })
+  assert.strictEqual(
+    fs.readFileSync(path.join(dir, 'specs', '.core', 'env.config.json'), 'utf8'),
+    fs.readFileSync(path.join(__dirname, '..', 'assets', 'core', 'env.config.json.example'), 'utf8'),
+  )
+})
+
+test('init parses --name and --category, and refuses one with no value', () => {
+  const { parse } = require('../src/cli.js')
+  assert.deepStrictEqual(parse(['--isolation', '--name', 'Acme Portal', '--category', 'work']).opts.project, { name: 'Acme Portal', category: 'work' })
+  assert.throws(() => parse(['--category']), /needs a value/)
+})
+
+test('/spec-init names the command, the categories list and the /no-spec route', () => {
+  const skill = fs.readFileSync(path.join(__dirname, '..', 'assets', 'skills', 'spec-init', 'SKILL.md'), 'utf8')
+  assert.match(skill, /skitterspec project --categories/)
+  assert.match(skill, /skitterspec project --name/)
+  assert.match(skill, /\/no-spec/)
+  assert.match(skill, /init --isolation --name/)
+})

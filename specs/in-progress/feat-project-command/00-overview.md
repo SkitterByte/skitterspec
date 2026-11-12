@@ -95,7 +95,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | `skitterspec project`: read, write, list categories | ✅ | [01-project-command.md](01-project-command.md) |
-| 2 | `/spec-init` asks for name and category | ⬜ | [02-spec-init.md](02-spec-init.md) |
+| 2 | `/spec-init` asks for name and category | ✅ | [02-spec-init.md](02-spec-init.md) |
 
 ## Open questions
 
@@ -110,3 +110,8 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   transcript for its cwd (~0.1s over all of them), and shows a category in
   the spelling most projects use, so the order repos are read in cannot
   change the answer.
+- 2026-11-12 — Phase 2: `init` takes `--name`/`--category` beside
+  `--isolation` and edits them into the file it just wrote, through the same
+  `setProjectKeys`, so `--isolation --mode checkout` and a kept config both
+  survive. The CLI path is tested through `parse`: the source package refuses
+  `init` until composed, so the end-to-end run belongs to the distribution.

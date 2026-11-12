@@ -84,6 +84,17 @@ by a branch that happens to contain it — a spec branch cut this afternoon
 contains all of this morning. It is model-invocable, because "what did I do
 today?" should reach it.
 
+**A report covers one category.** `project.category` in `env.config.json`
+decides which projects share a report — only those with the category of the
+repo it runs from, and an uncategorised project is in nobody's but its own
+(`--all-projects` takes everything). `project.name` is what heads the page,
+and every review page, with the repo folder as the fallback.
+`skitterspec project` shows both and sets them (`--name`, `--category`) by
+editing only those values; `--categories` lists what your other projects
+already use, so one category is not spelled two ways. `/spec-init` asks for
+both — on an existing config through a `/no-spec` branch, since the base
+branch is a landing zone.
+
 **`/allow-main` is the fourth command.** It is user-only for a different reason
 from the other three: `/spec-connect`, `/spec-live` and `/spec-remote-review`
 are marked that way because there is no judgment to apply. This one is marked that

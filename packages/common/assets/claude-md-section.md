@@ -20,6 +20,9 @@ every phase. **`skitterspec status`** lists what is in flight across worktrees.
 At the end of the day, **`/spec-tada`** is the ta-da list: what you did across
 every project, grouped by spec — what landed, what was explored, what is still
 in flight — ending in a three-line standup (`skitterspec tada` is the engine).
+It covers the projects that share this one's `project.category`;
+**`skitterspec project`** shows and sets the name and category, and
+`/spec-init` asks for both.
 
 **Handing the review back.** The page takes marks: tick `✓ accept` per file as
 you read, note anything against a line or a whole file, answer the questions a

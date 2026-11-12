@@ -9,6 +9,7 @@ const { ensureWorktreeDirTrusted } = require('./env/trust.js')
 const { ensureHooks } = require('./env/hooks.js')
 const { repoInfo, expandTokens } = require('./env/resolve.js')
 const { primaryAnchor } = require('./env/project.js')
+const { setProjectKeys } = require('./env/projectedit.js')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 
@@ -691,7 +692,7 @@ function installCore(dir, opts) {
 // Only called when the operator opts in, and never on `update` (adopting isolation
 // is a deliberate choice, not something a re-sync flips on). Idempotent: writeFile
 // never clobbers an existing env.config.json without --force.
-function installIsolation(dir, { enabled, workspaceMode }, opts) {
+function installIsolation(dir, { enabled, workspaceMode, project = {} }, opts) {
   if (!enabled) return
   const target = path.join(dir, 'specs', '.core', 'env.config.json')
   copyAsset(dir, path.join('core', 'env.config.json.example'), target, opts)
@@ -704,6 +705,13 @@ function installIsolation(dir, { enabled, workspaceMode }, opts) {
     const parsed = JSON.parse(fs.readFileSync(target, 'utf8'))
     parsed.mode = 'checkout'
     fs.writeFileSync(target, `${JSON.stringify(parsed, null, 2)}\n`)
+  }
+  // --name / --category, edited in rather than regenerated, so a config the
+  // operator already customized keeps everything but the two values asked for.
+  if ((typeof project.name === 'string' || typeof project.category === 'string') && fs.existsSync(target)) {
+    const text = fs.readFileSync(target, 'utf8')
+    const edited = setProjectKeys(text, project)
+    if (edited !== text) fs.writeFileSync(target, edited)
   }
   trustWorktreeRoot(dir)
 }
@@ -1137,7 +1145,7 @@ function suggestReleaseWith(dir) {
   )
 }
 
-async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating }) {
+async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gating, project }) {
   if (!fs.existsSync(dir)) throw new Error(`target dir does not exist: ${dir}`)
   resetReport()
 
@@ -1149,7 +1157,7 @@ async function init({ dir, force, claudeMd, mode, isolation, workspaceMode, gati
   removeRetiredFiles(dir)
   installCore(dir, { force })
   // Adopting isolation writes the live env.config.json — init only, never update.
-  if (mode !== 'update') installIsolation(dir, { enabled: isolation, workspaceMode }, { force })
+  if (mode !== 'update') installIsolation(dir, { enabled: isolation, workspaceMode, project }, { force })
   if (mode !== 'update') installGating(dir, { enabled: gating }, { force })
   if (claudeMd) installClaudeMd(dir, { mode })
   suggestReleaseWith(dir)

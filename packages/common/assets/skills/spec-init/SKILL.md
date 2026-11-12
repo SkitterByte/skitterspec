@@ -61,6 +61,36 @@ path, and records the answer on each spec. Leave it off and nothing appears:
 no question, no header, no check. Off is a perfectly good answer for a project
 that does not use flags.
 
+## 0c. Project name and category (only with isolation)
+
+Two values in `env.config.json` that the rest of the tooling reads:
+`project.name` heads every generated page (reviews, `/spec-tada`), and
+`project.category` decides which projects share a `/spec-tada` report — a
+project with no category is left out of everyone else's. Ask both, together:
+
+- **Name** — default the repo folder's name, which is also what is used when it
+  is left empty. Accept it unless the operator wants another.
+- **Category** — run `skitterspec project --categories` and offer what it
+  lists, most-used first, so `work` is not typed as `Work stuff` in the next
+  repo and splits a report in two. Then offer to **type a new one**, and to
+  **leave it empty** (this project stays out of every categorised report).
+
+Where the answer goes depends on whether the file exists yet:
+
+- **A fresh adoption** — pass them to the command that creates the file:
+  `skitterspec init --isolation --name "<name>" --category <category>`.
+- **`env.config.json` already exists** — the change is work, and the base
+  branch is a landing zone, so make it on a `/no-spec` branch
+  (`project-settings`): run `skitterspec project --name "<name>" --category
+  <category>` in that worktree, which edits only those two values, then land
+  it on the verdict as `/no-spec` does. Never write it in the primary checkout
+  on the base branch.
+
+`skitterspec project` with no flags shows what is set now and where each value
+comes from — read it first on a re-run, and skip the question when both are
+already what the operator wants. Without isolation there is no
+`env.config.json` and the command refuses to create one, so skip this step.
+
 ## 1. Folders
 
 Create any that are missing; drop a `.gitkeep` into ones that would otherwise be
