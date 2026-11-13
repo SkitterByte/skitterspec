@@ -32,8 +32,11 @@ const BIN = path.join(__dirname, '..', '..', 'bin', 'skitterspec.js')
  * absolute day so a link keeps meaning the same thing tomorrow, and the
  * scope flags. `since` and `on` are both day strings (`YYYY-MM-DD`) or absent.
  */
-function tadaQuery({ on = null, since = null, all = false, chat = false, here = false } = {}) {
+function tadaQuery({ on = null, since = null, all = false, chat = false, here = false, todo = false } = {}) {
   const q = new URLSearchParams()
+  // The to-do is always "this morning": its window is the engine's to find,
+  // so it carries the day it was asked on and nothing else.
+  if (todo) q.set('todo', '1')
   if (on) q.set('on', on)
   else if (since) q.set('since', since)
   if (all) q.set('all', '1')
@@ -50,7 +53,7 @@ function readTadaQuery(search, now = new Date()) {
   const since = q.get('since')
   const window = windowFor({ on: on || undefined, since: since || undefined }, now)
   const flag = (k) => ['1', 'true', ''].includes(q.get(k)) && q.has(k)
-  return { on, since, all: flag('all'), chat: flag('chat'), here: flag('here'), window }
+  return { on, since, all: flag('all'), chat: flag('chat'), here: flag('here'), todo: flag('todo'), window }
 }
 
 /**
@@ -58,8 +61,8 @@ function readTadaQuery(search, now = new Date()) {
  * end: `--since friday` runs to now, so an end-keyed recap would be lost the
  * next morning while the link that names it still works.
  */
-function recapKey({ on, since, window, all, chat }) {
-  const kind = on ? 'on' : since ? 'since' : 'on'
+function recapKey({ on, since, window, all, chat, todo = false }) {
+  const kind = todo ? 'todo' : on ? 'on' : since ? 'since' : 'on'
   return `${kind}-${localDay(window.since)}${all ? '-all' : ''}${chat ? '-chat' : ''}`
 }
 
@@ -69,9 +72,12 @@ function recapPath(stateDir, key) {
 
 /** The CLI's digest for one window, run where the server's project lives. */
 function runDigest({ dir, ask, exec = execFile, bin = BIN }) {
-  const args = [bin, 'tada', '--json']
+  const args = [bin, ask.todo ? 'todo' : 'tada', '--json']
   const day = localDay(ask.window.since)
-  if (ask.on) args.push('--on', day)
+  if (ask.todo) {
+    // `todo` finds its own window from today; a page asked for a past day's
+    // to-do still shows this morning's, which is the only one there is.
+  } else if (ask.on) args.push('--on', day)
   else if (ask.since) args.push('--since', day)
   if (ask.all) args.push('--all-projects')
   if (ask.chat) args.push('--chat')
@@ -117,7 +123,7 @@ async function renderServedTada({ dir, stateDir, search, project = null, now = n
     html: renderTadaPage(out.digest, {
       recap,
       writtenAt,
-      title: `Ta-da · ${humanLabel(ask.window)}`,
+      title: `${ask.todo ? 'To-do' : 'Ta-da'} · ${humanLabel(ask.window)}`,
       project,
       category: out.digest.category || null,
     }),

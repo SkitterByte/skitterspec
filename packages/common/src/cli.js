@@ -217,6 +217,7 @@ const { setProjectKeys } = require('./env/projectedit.js')
 const { buildDigest, gitRepoOf } = require('./tada/digest.js')
 const { readRepoFacts } = require('./tada/repo.js')
 const { formatTada } = require('./tada/format.js')
+const { LOOKBACK_DAYS, activityTimes, lastActiveDay, readBlockers, buildTodo, formatTodo } = require('./tada/todo.js')
 const { renderTadaPage } = require('./tada/page.js')
 const { startProcess, stopProcess, waitHealthy, readPid, isAlive } = require('./env/supervise.js')
 const {
@@ -357,6 +358,12 @@ Usage:
                               --json, --page [--summary <recap.md>] for an HTML
                               page. Reads ~/.claude/projects; exits 0 unless the
                               window cannot be read.
+  skitterspec todo            Where you left off: each project as it stood on
+                              the last day with activity (up to 14 days back),
+                              its open specs and next actions, review verdicts
+                              waiting and gates armed, and today so far. Same
+                              scope as tada (--here, --all-projects), --json,
+                              --page [--summary <recap.md>].
   skitterspec gating <cmd>    Release-gating check (opt-in; needs
                               specs/.core/gating.config.json). Subcommands:
                                 check [spec]      report specs with no recorded gating
@@ -813,33 +820,7 @@ async function tadaCommand(argv) {
     // nothing else, because the digest it carries was already read once.
     if (await serveTadaPage({ window, flags, recap })) return
   }
-  const digest = await buildDigest({
-    root: defaultRoot(),
-    window,
-    here: flags.here ? process.cwd() : null,
-    home: process.cwd(),
-    category: flags.all ? null : runningCategory(process.cwd()),
-    chat: flags.chat,
-    facts: (repo) => {
-      let config = {}
-      try {
-        config = loadEnvConfig(repo).config
-      } catch {
-        // An unreadable config is the repo's to fix, not this report's — the
-        // defaults still read its commits; only a custom branch.pattern is lost.
-      }
-      return readRepoFacts({ repo, git: gitReader(repo), config, window })
-    },
-    openFor: (repo) => {
-      try {
-        return inFlightRows(repo)
-          .rows.filter(isInFlight)
-          .map((r) => ({ spec: r.spec, detail: detailOf(r), next: r.next ? actionText(r.next) : null }))
-      } catch {
-        return []
-      }
-    },
-  })
+  const digest = await tadaDigest(window, flags)
   // The reader's own dates, for the text header and the page; the digest's
   // own `since`/`until` stay UTC instants for a script.
   digest.window.label = humanLabel(window)
@@ -855,6 +836,118 @@ async function tadaCommand(argv) {
     return
   }
   process.stdout.write(formatTada(digest))
+}
+
+/**
+ * One window's digest, scoped the way `tada` and `todo` both scope it: the
+ * running project's category unless `--all-projects`, the repo alone under
+ * `--here`, and the run's own cwd as home. `open: false` skips the in-flight
+ * rows, for a scan that only asks when something happened.
+ */
+async function tadaDigest(window, flags, { chat = flags.chat, open = true } = {}) {
+  return buildDigest({
+    root: defaultRoot(),
+    window,
+    here: flags.here ? process.cwd() : null,
+    home: process.cwd(),
+    category: flags.all ? null : runningCategory(process.cwd()),
+    chat,
+    facts: (repo) => {
+      let config = {}
+      try {
+        config = loadEnvConfig(repo).config
+      } catch {
+        // An unreadable config is the repo's to fix, not this report's — the
+        // defaults still read its commits; only a custom branch.pattern is lost.
+      }
+      return readRepoFacts({ repo, git: gitReader(repo), config, window })
+    },
+    openFor: open ? openSpecsIn : null,
+  })
+}
+
+function openSpecsIn(repo) {
+  try {
+    return inFlightRows(repo)
+      .rows.filter(isInFlight)
+      .map((r) => ({ spec: r.spec, detail: detailOf(r), next: r.next ? actionText(r.next) : null }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * What stands in one repo's way, read off its review store: passes waiting
+ * and gates armed, for the specs in flight there. Read-only, and every
+ * cannot-tell — no config, no store, an unreadable sidecar — is nothing at all
+ * rather than a blocker (`.claude/rules/negative-checks.md`).
+ */
+function repoBlockers(repo, specs) {
+  let config
+  try {
+    config = loadEnvConfig(repo).config
+  } catch {
+    return []
+  }
+  return readBlockers(reviewsDirFor(repo, config), specs, config.review && config.review.required)
+}
+
+/**
+ * `skitterspec todo` — the morning half of the ta-da list: where each project
+ * was left on the last day with any activity, what is ahead, and what is in
+ * the way. Exits 0 whatever it finds, a fortnight of nothing included.
+ */
+async function todoCommand(argv) {
+  const now = new Date()
+  const flags = { on: null, since: null, all: argv.includes('--all-projects'), chat: false, here: argv.includes('--here') }
+  const today = windowFor({}, now)
+  // One scan of the lookback finds the day; only that day is read in full.
+  const lookback = { since: new Date(today.since.getFullYear(), today.since.getMonth(), today.since.getDate() - LOOKBACK_DAYS), until: today.since }
+  const scan = await tadaDigest(lookback, flags, { chat: true, open: false })
+  const day = lastActiveDay(activityTimes(scan), today.since)
+  const leftWindow = day ? windowFor({ on: localDay(day) }, now) : null
+  const leftOff = leftWindow ? await tadaDigest(leftWindow, flags) : null
+  const todaySoFar = await tadaDigest(today, flags)
+
+  const homeRepo = gitRepoOf(process.cwd()).repo
+  let home = null
+  if (homeRepo && fs.existsSync(path.join(homeRepo, 'specs', '.core'))) {
+    let name = path.basename(homeRepo)
+    try {
+      name = projectName(loadEnvConfig(homeRepo).config) || name
+    } catch {
+      // the folder name stands in, as it does everywhere else
+    }
+    home = { repo: homeRepo, name, groups: openSpecsIn(homeRepo).map((row) => ({ spec: row.spec, inFlight: row })) }
+  }
+
+  const todo = buildTodo({ leftOff, leftOffDay: day, today: todaySoFar, home, blockersFor: repoBlockers })
+  todo.todayLabel = humanLabel(today)
+  if (todo.leftOff) todo.leftOff.label = humanLabel(leftWindow)
+
+  if (argv.includes('--page')) {
+    let recap = null
+    const from = tadaFlag(argv, '--summary')
+    if (from) {
+      try {
+        recap = fs.readFileSync(path.resolve(from), 'utf8')
+      } catch (e) {
+        process.stderr.write(`skitterspec todo: --summary ${from}: ${e.code || e.message}\n`)
+        process.exitCode = 1
+        return
+      }
+    }
+    if (await serveTadaPage({ window: today, flags: { ...flags, todo: true }, recap })) return
+    const out = path.join(os.tmpdir(), `skitterspec-todo-${localDay(today.since)}.html`)
+    fs.writeFileSync(out, renderTadaPage(todo, { recap, title: `To-do · ${todo.todayLabel}`, category: todo.category || null }))
+    process.stdout.write(`page: ${pathToFileURL(out).href}\n`)
+    return
+  }
+  if (argv.includes('--json')) {
+    process.stdout.write(JSON.stringify(todo, null, 2) + '\n')
+    return
+  }
+  process.stdout.write(formatTodo(todo, now))
 }
 
 /**
@@ -880,7 +973,7 @@ async function serveTadaPage({ window, flags, recap }) {
   if (!present || config.review.serve === 'never') return false
   attachProject(config, anchor)
   const dir = anchor.dir
-  const ask = { on: flags.on, since: flags.since, window, all: flags.all, chat: flags.chat }
+  const ask = { on: flags.on, since: flags.since, window, all: flags.all, chat: flags.chat, todo: Boolean(flags.todo) }
   if (recap !== null) {
     const file = tadaRecapPath(path.join(dir, stateDirLabel(config)), tadaRecapKey(ask))
     fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -7892,6 +7985,11 @@ async function run(argv) {
 
   if (cmd === 'tada') {
     await tadaCommand(rest)
+    return
+  }
+
+  if (cmd === 'todo') {
+    await todoCommand(rest)
     return
   }
 

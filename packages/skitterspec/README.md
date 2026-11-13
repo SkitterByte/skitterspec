@@ -30,6 +30,7 @@ demand, host dev servers on reserved ports — and everything below.
 | `/spec-complete` | Verify, land, tear down |
 | `/spec-cancel` | Record why, stamp the header, tear down |
 | `/spec-tada` | A ta-da list: what you did today, by project and by spec, plus a standup |
+| `/spec-todo` | Where you left off on your last working day, what is open and what is waiting on you |
 | `/spec-init` | Bootstrap or repair the workflow in a project |
 | `/spec-connect` | Point your canonical `localhost` ports at one spec's stack |
 | `/spec-live` | Check one spec out in the primary checkout, so your running server reloads it |

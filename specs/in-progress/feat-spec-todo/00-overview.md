@@ -165,7 +165,7 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
 | # | Phase | Status | File |
 |---|-------|--------|------|
 | 1 | Home-scoped ta-da, with wins | ✅ | [01-home-scope-and-wins.md](01-home-scope-and-wins.md) |
-| 2 | `/spec-todo` — where you left off | ⬜ | [02-spec-todo.md](02-spec-todo.md) |
+| 2 | `/spec-todo` — where you left off | ✅ | [02-spec-todo.md](02-spec-todo.md) |
 | 3 | The project guard and `/allow-project` | ⬜ | [03-project-guard.md](03-project-guard.md) |
 | 4 | Docs and rules | ⬜ | [04-docs.md](04-docs.md) |
 
@@ -183,3 +183,17 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
   wins as chips and marks the home project. A home project with no activity in
   the window is not listed, so the recap's `Next` reads `nothing in flight
   here`; phase 2's todo is where its open specs show.
+- 2026-11-13 — Phase 2:
+  - `todo` takes no `--since`/`--on`. The engine finds the left-off day
+    itself, so a window flag would only contradict it.
+  - A spec the left-off day completed or cancelled is named on one
+    `finished:` line rather than given a section. Work on no spec is left
+    out, because it is history rather than somewhere to pick up.
+  - Waiting passes count as blockers only for specs still in flight. That
+    keeps a month-old pass for a finished spec out of the morning.
+  - The page is served through the existing `_tada` route with `?todo=1`
+    rather than a new route.
+  - The docs tests demand that every shipped command and skill is named, so
+    the README tables, the index chip, the reference row and the linear
+    page's skill count moved here from phase 4. Phase 4 keeps the rules,
+    CLAUDE.md and the `verified:` bumps.

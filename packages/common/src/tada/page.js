@@ -14,6 +14,10 @@
  * text, so a `<script>` in a prompt arrives as text, never as a tag.
  */
 
+const todo = require('./todo.js')
+
+const blockedText = (b) => todo.blockedText(b, new Date())
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 }
@@ -100,17 +104,21 @@ function groupHtml(g) {
         .join('')}</div>`,
     )
   }
-  if (g.events.length) {
+  // A to-do group carries where it was left and the last thing typed, in
+  // place of the day's full moves, commits and sessions.
+  if (g.left) parts.push(`<p>left: ${escapeHtml(g.left)}</p>`)
+  if (g.prompt) parts.push(`<p class="muted">${escapeHtml(g.prompt)}</p>`)
+  if ((g.events || []).length) {
     parts.push(`<div class="chips">${g.events.map((e) => `<span class="chip">${escapeHtml(eventText(e))}</span>`).join('')}</div>`)
   }
-  if (g.commits.length) {
+  if ((g.commits || []).length) {
     parts.push(
       `<ul class="commits">${g.commits
         .map((c) => `<li><code>${escapeHtml(c.sha)}</code> ${escapeHtml(c.subject)}</li>`)
         .join('')}</ul>`,
     )
   }
-  if (g.sessions.length) {
+  if ((g.sessions || []).length) {
     const prompts = g.sessions
       .map(
         (s) =>
@@ -128,8 +136,19 @@ function groupHtml(g) {
   return `<section class="group">${parts.join('\n')}</section>`
 }
 
+// A to-do project's blockers and today-so-far; a ta-da project has neither.
+function projectExtras(p) {
+  const parts = []
+  if ((p.finished || []).length) parts.push(`<p class="muted">finished: ${p.finished.map(escapeHtml).join(', ')}</p>`)
+  for (const b of p.blocked || []) parts.push(`<p class="blocked">blocked: ${escapeHtml(blockedText(b))}</p>`)
+  if (p.today && (p.today.commits || p.today.moves)) {
+    parts.push(`<p class="muted">today so far: ${p.today.commits} commit${p.today.commits === 1 ? '' : 's'}, ${p.today.moves} move${p.today.moves === 1 ? '' : 's'}</p>`)
+  }
+  return parts.join('\n')
+}
+
 /**
- * @param {object} digest  `buildDigest`'s answer
+ * @param {object} digest  `buildDigest`'s answer, or `buildTodo`'s
  * @param {object} opts
  *   - `recap`  the model's markdown recap, or null for the digest alone
  *   - `title`  the page title — the caller's, in the reader's own dates
@@ -148,7 +167,7 @@ function renderTadaPage(digest, { recap = null, title = 'Ta-da', project = null,
     .map(
       (p) =>
         `<article class="project"><h3>${escapeHtml(p.name)}${p.here ? ' <span class="chip">here</span>' : ''} <span class="muted">${escapeHtml(p.repo || 'not a git repo')}</span></h3>\n` +
-        `${p.groups.map(groupHtml).join('\n') || '<p class="muted">nothing here</p>'}</article>`,
+        `${p.groups.map(groupHtml).join('\n') || '<p class="muted">nothing here</p>'}${projectExtras(p)}</article>`,
     )
     .join('\n')
   const notes = digest.notes.length ? `<ul class="notes">${digest.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : ''
@@ -200,6 +219,7 @@ ul { padding-left: 1.2em; margin: 6px 0; }
 .commits, .prompts { list-style: none; padding-left: 0; }
 .commits li, .prompts li { overflow-wrap: anywhere; }
 .inflight { margin: 8px 0 0; color: var(--good-fg); }
+.blocked { margin: 8px 0 0; font-weight: 600; }
 .notes { color: var(--muted); font-size: 0.9em; }
 details summary { cursor: pointer; color: var(--muted); }
 </style>
@@ -210,7 +230,7 @@ ${eyebrow ? `<p class="eyebrow">${eyebrow}</p>` : ''}
 <h1>${escapeHtml(name)}</h1>
 ${recap ? `<section class="recap">${renderMarkdown(recap)}${written}</section>` : ''}
 <h2>What it was written from</h2>
-${projects || '<p class="muted">Nothing in this window.</p>'}
+${projects || `<p class="muted">${digest.kind === 'todo' ? 'Nothing in flight.' : 'Nothing in this window.'}</p>`}
 ${notes}
 </main>
 </body>
