@@ -218,3 +218,4 @@ Each phase lives in its own file in this folder. Status: ⬜ not started ·
     with the next `skitterspec update`, like every installed copy here. The
     `/spec-todo` skill is linked into `.claude/skills/` now, as `spec-tada`
     is.
+- 2026-11-13 — Completed; all phases done, tests green.
